@@ -258,7 +258,7 @@ fn 翻译诊断消息(消息: &str) -> String {
 #[cfg(test)]
 mod 测试 {
     use super::*;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
 
     fn 创建测试缓存() -> Arc<翻译缓存> {
         let 映射 = HashMap::from([
@@ -266,7 +266,7 @@ mod 测试 {
             ("让".into(), "let".into()),
         ]);
         let 临时 = tempfile::tempdir().unwrap();
-        翻译缓存::新建(映射, 临时.into_path())
+        翻译缓存::新建(映射, HashSet::new(), 临时.into_path())
     }
 
     #[test]

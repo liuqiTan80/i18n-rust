@@ -4,7 +4,7 @@
 //! 每当编辑器打开或修改 .zh 文件时，本模块将其翻译为英文，
 //! 并记录行级映射信息供后续位置还原使用。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
@@ -39,6 +39,8 @@ pub struct 翻译缓存 {
     条目表: RwLock<HashMap<String, 翻译条目>>,
     /// 关键字映射表（中文 → 英文）
     关键字映射: Arc<HashMap<String, String>>,
+    /// 宏名称集合（用于自动补充感叹号）
+    宏名称集合: Arc<HashSet<String>>,
     /// 虚拟文件存放的临时目录
     临时目录: PathBuf,
 }
@@ -47,12 +49,14 @@ impl 翻译缓存 {
     /// 创建新的翻译缓存
     ///
     /// - 关键字映射：用于词法翻译
+    /// - 宏名称集合：用于自动补充宏感叹号
     /// - 临时目录：虚拟 .rs 文件的存放位置
-    pub fn 新建(关键字映射: HashMap<String, String>, 临时目录: PathBuf) -> Arc<Self> {
+    pub fn 新建(关键字映射: HashMap<String, String>, 宏名称集合: HashSet<String>, 临时目录: PathBuf) -> Arc<Self> {
         let _ = std::fs::create_dir_all(&临时目录);
         Arc::new(Self {
             条目表: RwLock::new(HashMap::new()),
             关键字映射: Arc::new(关键字映射),
+            宏名称集合: Arc::new(宏名称集合),
             临时目录,
         })
     }
@@ -64,7 +68,7 @@ impl 翻译缓存 {
         let 原始路径 = URI转路径(URI);
 
         // 翻译源码
-        let 英文内容 = 词法处理::转译源码(内容, &self.关键字映射);
+        let 英文内容 = 词法处理::转译源码带宏集合(内容, &self.关键字映射, &self.宏名称集合);
 
         // 生成虚拟文件路径
         let 文件stem = 原始路径
@@ -208,7 +212,7 @@ mod 测试 {
     #[test]
     fn 测试_更新文档() {
         let 临时 = tempfile::tempdir().unwrap();
-        let 缓存 = 翻译缓存::新建(测试映射(), 临时.path().to_path_buf());
+        let 缓存 = 翻译缓存::新建(测试映射(), HashSet::new(), 临时.path().to_path_buf());
 
         let 条目 = 缓存.更新文档("file:///test/main.zh", "让 可变 x = 5;", 1).unwrap();
         assert_eq!(条目.英文内容, "let mut x = 5;");
@@ -218,7 +222,7 @@ mod 测试 {
     #[test]
     fn 测试_关闭文档() {
         let 临时 = tempfile::tempdir().unwrap();
-        let 缓存 = 翻译缓存::新建(测试映射(), 临时.path().to_path_buf());
+        let 缓存 = 翻译缓存::新建(测试映射(), HashSet::new(), 临时.path().to_path_buf());
 
         let 条目 = 缓存.更新文档("file:///test/main.zh", "让 x = 1;", 1).unwrap();
         assert!(条目.虚拟路径.exists());
@@ -231,7 +235,7 @@ mod 测试 {
     #[test]
     fn 测试_从虚拟URI查询() {
         let 临时 = tempfile::tempdir().unwrap();
-        let 缓存 = 翻译缓存::新建(测试映射(), 临时.path().to_path_buf());
+        let 缓存 = 翻译缓存::新建(测试映射(), HashSet::new(), 临时.path().to_path_buf());
 
         let 条目 = 缓存.更新文档("file:///test/main.zh", "让 x = 1;", 1).unwrap();
         let 查到 = 缓存.从虚拟URI查询(&条目.虚拟URI).unwrap();

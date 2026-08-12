@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -135,5 +135,16 @@ impl 映射管理器 {
 
     pub fn 获取标识符别名映射(&self) -> &HashMap<String, String> {
         &self.标识符别名映射
+    }
+
+    /// 获取所有在 ["宏"] 节中定义的中文宏名集合（不含感叹号）
+    pub fn 获取宏名称集合(&self) -> HashSet<String> {
+        let mut 宏集合 = HashSet::new();
+        if let Some(宏节) = self.节映射表.get("宏") {
+            for 中文 in 宏节.keys() {
+                宏集合.insert(中文.clone());
+            }
+        }
+        宏集合
     }
 }

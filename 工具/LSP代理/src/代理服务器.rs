@@ -6,7 +6,7 @@
 //! 3. 转发 rust-analyzer 的响应/通知，并还原位置信息
 //! 4. 翻译诊断消息为中文
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
@@ -48,12 +48,12 @@ impl 代理服务器 {
     /// 创建并初始化代理服务器
     pub fn 新建(语言包路径: &PathBuf) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
         // 1. 加载语言包
-        let 关键字映射 = 加载语言包(语言包路径)?;
-        log::info!("已加载 {} 个关键字映射", 关键字映射.len());
+        let (关键字映射, 宏名称集合) = 加载语言包(语言包路径)?;
+        log::info!("已加载 {} 个关键字映射，{} 个宏名称", 关键字映射.len(), 宏名称集合.len());
 
         // 2. 创建翻译缓存
         let 临时目录 = std::env::temp_dir().join("i18n_lsp_virtual");
-        let 缓存 = 翻译缓存::新建(关键字映射, 临时目录);
+        let 缓存 = 翻译缓存::新建(关键字映射, 宏名称集合, 临时目录);
 
         // 3. 启动 rust-analyzer
         let 分析器 = 分析器连接::启动()?;
@@ -488,11 +488,11 @@ fn 处理分析器消息(
 }
 
 /// 加载语言包
-fn 加载语言包(语言包路径: &PathBuf) -> anyhow::Result<HashMap<String, String>> {
+fn 加载语言包(语言包路径: &PathBuf) -> anyhow::Result<(HashMap<String, String>, HashSet<String>)> {
     let 映射表路径 = 语言包路径.join("映射表");
     if 映射表路径.exists() {
         match 映射源::加载关键字映射(语言包路径) {
-            Ok(映射) => return Ok(映射),
+            Ok(映射) => return Ok((映射, HashSet::new())),
             Err(e) => log::warn!("从映射表加载失败: {}, 使用备用", e),
         }
     }
@@ -501,9 +501,10 @@ fn 加载语言包(语言包路径: &PathBuf) -> anyhow::Result<HashMap<String, 
     if 关键字路径.exists() {
         let 管理器 = i18n_rust_engine::映射管理::映射管理器::从文件加载(&关键字路径)
             .map_err(|e| anyhow::anyhow!("加载关键字失败: {}", e))?;
-        return Ok(管理器.关键字映射.clone());
+        let 宏集合 = 管理器.获取宏名称集合();
+        return Ok((管理器.关键字映射.clone(), 宏集合));
     }
 
     log::warn!("未找到语言包文件，使用内置关键字映射");
-    Ok(映射源::创建内置关键字映射())
+    Ok((映射源::创建内置关键字映射(), HashSet::new()))
 }
