@@ -9,3 +9,7 @@ pub mod 映射管理;
 pub mod 诊断;
 #[path = "映射源.rs"]
 pub mod 映射源;
+#[path = "模块路径替换.rs"]
+pub mod 模块路径替换;
+#[path = "别名替换.rs"]
+pub mod 别名替换;

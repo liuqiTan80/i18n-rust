@@ -266,17 +266,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
-name = "i18n-rust-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "i18n-rust-engine",
- "serde_json",
- "toml",
-]
-
-[[package]]
 name = "i18n-rust-engine"
 version = "0.1.0"
 dependencies = [
@@ -635,6 +624,17 @@ dependencies = [
  "libc",
  "linux-raw-sys",
  "windows-sys",
+]
+
+[[package]]
+name = "rzc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "i18n-rust-engine",
+ "serde_json",
+ "toml",
 ]
 
 [[package]]
