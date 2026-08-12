@@ -1,108 +1,513 @@
-# i18n-rust 标准库映射表
+# i18n-rust 标准库标识符映射表
 # 格式：中文名称 = "英文原名"
-# 分类按 Rust 标准库模块组织
+# 覆盖 Rust 2024 标准库常用类型、特征、方法与函数
+# 注意：每个中文键在 ["标识符"] 内必须唯一
 
 # ============================================
-# 核心类型 (core)
+# 标准库模块路径（用于 use 语句）
 # ============================================
-[核心类型]
-"选项" = "Option"
-"有些" = "Some"
-"无" = "None"
-"结果" = "Result"
-"成功" = "Ok"
-"错误" = "Err"
-"布尔" = "bool"
-"真" = "true"
-"假" = "false"
+["模块路径"]
+"标准库" = "std"
+"核心" = "core"
+"分配" = "alloc"
+"集合" = "std::collections"
+"输入输出" = "std::io"
+"文件系统" = "std::fs"
+"网络" = "std::net"
+"线程" = "std::thread"
+"同步" = "std::sync"
+"原子" = "std::sync::atomic"
+"时间" = "std::time"
+"路径" = "std::path"
+"进程" = "std::process"
+"环境" = "std::env"
+"转换" = "std::convert"
+"迭代器" = "std::iter"
+"格式化" = "std::fmt"
+"内存" = "std::mem"
+"指针" = "std::ptr"
+"数字" = "std::num"
+"操作符" = "std::ops"
+"切片" = "std::slice"
+"数组" = "std::array"
+"字符" = "std::char"
+"泛型" = "std::marker"
 
 # ============================================
-# 集合类型 (alloc / collections)
+# 标准库标识符（类型、特征、方法、函数等）
 # ============================================
-[集合]
-"字符串" = "String"
-"向量" = "Vec"
-"哈希表" = "HashMap"
+["标识符"]
+
+# --------------------------------------------
+# 数值类型补充
+# --------------------------------------------
+"大整数" = "i128"
+"无符号大整数" = "u128"
+"机器整数" = "isize"
+"无符号机器整数" = "usize"
+"非零整数" = "NonZeroI32"
+"非零长整数" = "NonZeroI64"
+"非零无符号整数" = "NonZeroU32"
+"非零机器整数" = "NonZeroIsize"
+"浮点数分类" = "FpCategory"
+
+# --------------------------------------------
+# 数值方法
+# --------------------------------------------
+"绝对值" = "abs"
+"平方" = "powi"
+"平方根" = "sqrt"
+"立方根" = "cbrt"
+"最小值" = "min"
+"最大值" = "max"
+"向上取整" = "ceil"
+"向下取整" = "floor"
+"四舍五入" = "round"
+"截断小数" = "trunc"
+"是否为非数" = "is_nan"
+"是否为无穷" = "is_infinite"
+"是否为有限" = "is_finite"
+"是否为正常数" = "is_normal"
+"符号" = "signum"
+"复制符号" = "copysign"
+"对数" = "ln"
+"以2为底对数" = "log2"
+"以10为底对数" = "log10"
+"正弦" = "sin"
+"余弦" = "cos"
+"正切" = "tan"
+"反正弦" = "asin"
+"反余弦" = "acos"
+"反正切" = "atan"
+"反正切2" = "atan2"
+"双曲正弦" = "sinh"
+"双曲余弦" = "cosh"
+"双曲正切" = "tanh"
+"转弧度" = "to_radians"
+"转角度" = "to_degrees"
+"饱和加" = "saturating_add"
+"饱和减" = "saturating_sub"
+"饱和乘" = "saturating_mul"
+"溢出加" = "wrapping_add"
+"溢出减" = "wrapping_sub"
+"溢出乘" = "wrapping_mul"
+"检查加" = "checked_add"
+"检查减" = "checked_sub"
+"检查乘" = "checked_mul"
+"检查除" = "checked_div"
+"计数前导零" = "leading_zeros"
+"计数尾随零" = "trailing_zeros"
+"计数一位数" = "count_ones"
+"计数零位数" = "count_zeros"
+"交换字节序" = "swap_bytes"
+"转为大端" = "to_be"
+"转为小端" = "to_le"
+"从大端" = "from_be"
+"从小端" = "from_le"
+"转为字节数组" = "to_be_bytes"
+"从字节数组" = "from_be_bytes"
+
+# --------------------------------------------
+# 常用特征（Traits）
+# --------------------------------------------
+"可克隆" = "Clone"
+"可复制" = "Copy"
+"可调试" = "Debug"
+"可显示" = "Display"
+"默认" = "Default"
+"默认值" = "default"
+"相等" = "PartialEq"
+"全等" = "Eq"
+"可排序" = "PartialOrd"
+"全序" = "Ord"
+"哈希" = "Hash"
+"哈希器" = "Hasher"
+"可丢弃" = "Drop"
+"函数" = "Fn"
+"可变函数" = "FnMut"
+"一次函数" = "FnOnce"
+"可迭代" = "IntoIterator"
+"发送" = "Send"
+"同步" = "Sync"
+"固定大小" = "Sized"
+"作为引用" = "AsRef"
+"作为可变引用" = "AsMut"
+"转为字符串" = "ToString"
+"从字符串解析" = "FromStr"
+"借用" = "Borrow"
+"可变借用" = "BorrowMut"
+"解引用特征" = "Deref"
+"可变解引用特征" = "DerefMut"
+"索引特征" = "Index"
+"可变索引特征" = "IndexMut"
+"读取特征" = "Read"
+"写入特征" = "Write"
+"查找特征" = "Seek"
+"查找起点" = "SeekFrom"
+
+# --------------------------------------------
+# 字符串 / 文本方法（String / str）
+# --------------------------------------------
+"包含" = "contains"
+"替换" = "replace"
+"替换第一个" = "replacen"
+"分割" = "split"
+"分割一次" = "split_once"
+"分割空白" = "split_whitespace"
+"分割终止符" = "split_terminator"
+"逐行" = "lines"
+"逐字符" = "chars"
+"逐字节" = "bytes"
+"逐字符枚举" = "char_indices"
+"裁剪" = "trim"
+"裁剪左侧" = "trim_start"
+"裁剪右侧" = "trim_end"
+"裁剪匹配" = "trim_matches"
+"裁剪左侧匹配" = "trim_start_matches"
+"裁剪右侧匹配" = "trim_end_matches"
+"以开头" = "starts_with"
+"以结尾" = "ends_with"
+"查找" = "find"
+"反向查找" = "rfind"
+"截取" = "get"
+"去前缀" = "strip_prefix"
+"去后缀" = "strip_suffix"
+"转小写" = "to_lowercase"
+"转大写" = "to_uppercase"
+"重复" = "repeat"
+"连接" = "join"
+"推入" = "push"
+"弹出" = "pop"
+"推入字符串" = "push_str"
+"插入" = "insert"
+"插入字符串" = "insert_str"
+"移除" = "remove"
+"截断" = "truncate"
+"清空" = "clear"
+"容量" = "capacity"
+"预留" = "reserve"
+"收缩" = "shrink_to_fit"
+"是否为空" = "is_empty"
+"长度" = "len"
+"转为字节" = "as_bytes"
+"从字节" = "from_utf8"
+"匹配" = "matches"
+
+# --------------------------------------------
+# 向量方法（Vec）补充
+# --------------------------------------------
+"推" = "push"
+"弹" = "pop"
+"交换移除" = "swap_remove"
+"排序" = "sort"
+"排序_by" = "sort_by"
+"排序_by_key" = "sort_by_key"
+"排序_unstable" = "sort_unstable"
+"反转" = "reverse"
+"去重" = "dedup"
+"去重_by" = "dedup_by"
+"保留" = "retain"
+"保留_mut" = "retain_mut"
+"第一个" = "first"
+"最后一个" = "last"
+"第一个_mut" = "first_mut"
+"最后一个_mut" = "last_mut"
+"切片" = "as_slice"
+"切片_mut" = "as_mut_slice"
+"拼接" = "concat"
+"扩展" = "extend"
+"从迭代器收集" = "from_iter"
+"耗尽" = "drain"
+"分块" = "chunks"
+"分块_mut" = "chunks_mut"
+"窗口" = "windows"
+"分割点" = "split_at"
+"二分查找" = "binary_search"
+"二分查找_by" = "binary_search_by"
+
+# --------------------------------------------
+# 智能指针
+# --------------------------------------------
+"盒子" = "Box"
+"单元格" = "Cell"
+"引用单元格" = "RefCell"
+"借或拥有" = "Cow"
+"拥有的" = "Owned"
+"借用的" = "Borrowed"
+"钉住" = "Pin"
+"非空指针" = "NonNull"
+"手动丢弃" = "ManuallyDrop"
+"可能未初始化" = "MaybeUninit"
+"假设已初始化" = "assume_init"
+
+# --------------------------------------------
+# 集合补充
+# --------------------------------------------
+"有序映射" = "BTreeMap"
+"有序集" = "BTreeSet"
+"二叉堆" = "BinaryHeap"
 "哈希集" = "HashSet"
-"键值对" = "BTreeMap"
 "双向队列" = "VecDeque"
 "链表" = "LinkedList"
+"键" = "keys"
+"值" = "values"
+"弹出最小" = "pop_min"
+"弹出最大" = "pop_max"
 
-# ============================================
-# 输入输出 (std::io)
-# ============================================
-[输入输出]
-"标准输入" = "stdin"
-"标准输出" = "stdout"
-"标准错误" = "stderr"
-"读取器" = "Read"
-"写入器" = "Write"
-"缓冲读取器" = "BufReader"
-"缓冲写入器" = "BufWriter"
-
-# ============================================
-# 格式化输出 (std::fmt / macros)
-# ============================================
-[格式化]
-"打印" = "print"
-"打印行" = "println"
-"错误打印" = "eprint"
-"错误打印行" = "eprintln"
-"格式化" = "format"
-"写入格式化" = "write"
-"写入格式化行" = "writeln"
-
-# ============================================
-# 迭代器 (std::iter)
-# ============================================
-[迭代器]
-"迭代器" = "Iterator"
-"迭代" = "iter"
-"可变迭代" = "iter_mut"
-"消费迭代" = "into_iter"
+# --------------------------------------------
+# 迭代器方法补充
+# --------------------------------------------
+"任意" = "any"
+"全部" = "all"
+"位置" = "position"
+"反向位置" = "rposition"
+"计数" = "count"
+"最大_by_key" = "max_by_key"
+"最小_by_key" = "min_by_key"
+"求和" = "sum"
+"求积" = "product"
+"平铺" = "flat_map"
+"展平" = "flatten"
+"循环" = "cycle"
+"步进" = "step_by"
+"映射收集" = "map_while"
+"扫描" = "scan"
+"分派" = "partition"
+"折叠" = "fold"
+"右折叠" = "rfold"
+"尝试折叠" = "try_fold"
+"依次" = "for_each"
+"偷看" = "peek"
+"复制" = "copied"
+"检视" = "inspect"
+"互链" = "interleave"
+"链式" = "chain"
 "映射" = "map"
 "过滤" = "filter"
 "收集" = "collect"
-"折叠" = "fold"
 "枚举" = "enumerate"
 "拉链" = "zip"
 "跳过" = "skip"
 "取值" = "take"
-"链式" = "chain"
+"迭代" = "iter"
+"可变迭代" = "iter_mut"
+"消费迭代" = "into_iter"
 
-# ============================================
-# 并发 (std::sync / std::thread)
-# ============================================
-[并发]
-"互斥锁" = "Mutex"
-"读写锁" = "RwLock"
-"原子引用计数" = "Arc"
-"引用计数" = "Rc"
-"通道" = "channel"
-"发送端" = "Sender"
-"接收端" = "Receiver"
-"线程" = "thread"
-"生成线程" = "spawn"
-"等待" = "join"
+# --------------------------------------------
+# IO 类型与方法
+# --------------------------------------------
+"缓冲读取器" = "BufReader"
+"缓冲写入器" = "BufWriter"
+"缓冲流" = "BufStream"
+"游标" = "Cursor"
+"IO错误" = "Error"
+"错误种类" = "ErrorKind"
+"IO结果" = "Result"
+"标准输入" = "stdin"
+"标准输出" = "stdout"
+"标准错误" = "stderr"
+"读取全部" = "read_to_end"
+"读取全部字符串" = "read_to_string"
+"读取行" = "read_line"
+"读取" = "read"
+"写入全部" = "write_all"
+"写入" = "write"
+"刷新" = "flush"
+"打开" = "open"
 
-# ============================================
-# 文件操作 (std::fs / std::path)
-# ============================================
-[文件系统]
+# --------------------------------------------
+# 文件系统补充
+# --------------------------------------------
 "文件" = "File"
 "路径" = "Path"
 "路径缓冲" = "PathBuf"
 "目录项" = "DirEntry"
 "读取目录" = "read_dir"
 "创建目录" = "create_dir"
+"创建所有目录" = "create_dir_all"
 "删除文件" = "remove_file"
+"删除目录" = "remove_dir"
+"删除所有目录" = "remove_dir_all"
 "复制文件" = "copy"
 "重命名" = "rename"
+"元数据" = "Metadata"
+"文件大小" = "len"
+"是否为文件" = "is_file"
+"是否为目录" = "is_dir"
+"是否为符号链接" = "is_symlink"
+"权限" = "Permissions"
+"只读" = "readonly"
+"设置只读" = "set_readonly"
+"打开选项" = "OpenOptions"
+"新建文件" = "new"
+"追加模式" = "append"
+"截断模式" = "truncate"
+"创建新文件" = "create_new"
+"设置权限" = "set_permissions"
+"规范路径" = "canonicalize"
+"文件名" = "file_name"
+"扩展名" = "extension"
+"父目录" = "parent"
 
-# ============================================
-# 网络 (std::net)
-# ============================================
-[网络]
+# --------------------------------------------
+# 进程与环境
+# --------------------------------------------
+"命令" = "Command"
+"子进程" = "Child"
+"子进程输出" = "ChildStdout"
+"子进程输入" = "ChildStdin"
+"子进程错误" = "ChildStderr"
+"退出状态" = "ExitStatus"
+"退出码" = "ExitCode"
+"输出" = "Output"
+"参数" = "args"
+"环境变量" = "var"
+"设置环境变量" = "set_var"
+"移除环境变量" = "remove_var"
+"环境变量们" = "vars"
+"当前目录" = "current_dir"
+"设置当前目录" = "set_current_dir"
+"当前可执行文件" = "current_exe"
+"临时目录" = "temp_dir"
+"参数们" = "args"
+"退出" = "exit"
+"终止" = "abort"
+"代码" = "code"
+
+# --------------------------------------------
+# 并发补充
+# --------------------------------------------
+"互斥锁" = "Mutex"
+"读写锁" = "RwLock"
+"互斥守卫" = "MutexGuard"
+"读守卫" = "RwLockReadGuard"
+"写守卫" = "RwLockWriteGuard"
+"原子引用计数" = "Arc"
+"引用计数" = "Rc"
+"条件变量" = "Condvar"
+"屏障" = "Barrier"
+"屏障结果" = "BarrierWaitResult"
+"一次性" = "Once"
+"通道" = "channel"
+"发送端" = "Sender"
+"接收端" = "Receiver"
+"同步发送端" = "SyncSender"
+"线程" = "thread"
+"生成线程" = "spawn"
+"等待" = "join"
+"等待结果" = "JoinHandle"
+"当前线程" = "current"
+"线程名" = "name"
+"线程休眠" = "sleep"
+"让步" = "yield_now"
+"线程数" = "available_parallelism"
+"原子布尔" = "AtomicBool"
+"原子整数" = "AtomicIsize"
+"原子无符号整数" = "AtomicUsize"
+"原子i8" = "AtomicI8"
+"原子i16" = "AtomicI16"
+"原子i32" = "AtomicI32"
+"原子i64" = "AtomicI64"
+"原子u8" = "AtomicU8"
+"原子u16" = "AtomicU16"
+"原子u32" = "AtomicU32"
+"原子u64" = "AtomicU64"
+"加载" = "load"
+"存储" = "store"
+"交换" = "swap"
+"比较并交换" = "compare_exchange"
+"获取并修改" = "fetch_add"
+"获取并减" = "fetch_sub"
+"获取并或" = "fetch_or"
+"获取并及" = "fetch_and"
+"获取并异或" = "fetch_xor"
+"内存顺序" = "Ordering"
+"顺序" = "SeqCst"
+"获取序" = "Acquire"
+"释放序" = "Release"
+"松弛序" = "Relaxed"
+"获取释放序" = "AcqRel"
+
+# --------------------------------------------
+# 时间补充
+# --------------------------------------------
+"持续时间" = "Duration"
+"瞬间" = "Instant"
+"系统时间" = "SystemTime"
+"UNIX纪元" = "UNIX_EPOCH"
+"新建" = "new"
+"从秒" = "from_secs"
+"从毫秒" = "from_millis"
+"从微秒" = "from_micros"
+"从纳秒" = "from_nanos"
+"总秒数" = "as_secs"
+"总毫秒数" = "as_millis"
+"总微秒数" = "as_micros"
+"总纳秒数" = "as_nanos"
+"子秒纳秒" = "subsec_nanos"
+"子秒毫秒" = "subsec_millis"
+"子秒微秒" = "subsec_micros"
+"经过" = "elapsed"
+"之前" = "before"
+"之后" = "after"
+
+# --------------------------------------------
+# 转换特征补充
+# --------------------------------------------
+"转换为" = "Into"
+"从转换" = "From"
+"尝试转换为" = "TryInto"
+"尝试从转换" = "TryFrom"
+"转为" = "into"
+"从转为" = "from"
+"尝试转为" = "try_into"
+"尝试从转为" = "try_from"
+"作为引用方法" = "as_ref"
+"作为可变引用方法" = "as_mut"
+
+# --------------------------------------------
+# 内存函数
+# --------------------------------------------
+"大小_of" = "size_of"
+"对齐_of" = "align_of"
+"大小_of_val" = "size_of_val"
+"丢弃" = "drop"
+"内存替换" = "replace"
+"归零" = "zeroed"
+"未初始化" = "uninit"
+"忘记" = "forget"
+"取" = "take"
+
+# --------------------------------------------
+# 运算符特征
+# --------------------------------------------
+"加" = "Add"
+"减" = "Sub"
+"乘" = "Mul"
+"除" = "Div"
+"取余" = "Rem"
+"取负" = "Neg"
+"取反" = "Not"
+"位与特征" = "BitAnd"
+"位或特征" = "BitOr"
+"位异或特征" = "BitXor"
+"左移特征" = "Shl"
+"右移特征" = "Shr"
+"加赋值" = "AddAssign"
+"减赋值" = "SubAssign"
+"乘赋值" = "MulAssign"
+"除赋值" = "DivAssign"
+"取余赋值" = "RemAssign"
+"范围" = "Range"
+"闭范围" = "RangeInclusive"
+"从范围" = "RangeFrom"
+"到范围" = "RangeTo"
+"全范围" = "RangeFull"
+"从闭范围" = "RangeToInclusive"
+
+# --------------------------------------------
+# 网络补充
+# --------------------------------------------
 "网络地址" = "SocketAddr"
 "网络地址v4" = "SocketAddrV4"
 "网络地址v6" = "SocketAddrV6"
@@ -112,40 +517,115 @@
 "TCP监听器" = "TcpListener"
 "TCP流" = "TcpStream"
 "UDP套接字" = "UdpSocket"
+"绑定" = "bind"
+"监听" = "listen"
+"接受" = "accept"
+"网络连接" = "connect"
+"本地地址" = "local_addr"
+"远程地址" = "peer_addr"
+"发送到" = "send_to"
+"从接收" = "recv_from"
+"设置非阻塞" = "set_nonblocking"
+"设置超时" = "set_read_timeout"
+"设置写入超时" = "set_write_timeout"
 
-# ============================================
-# 时间 (std::time)
-# ============================================
-[时间]
-"持续时间" = "Duration"
-"瞬间" = "Instant"
-"系统时间" = "SystemTime"
-"秒" = "secs"
-"毫秒" = "millis"
-"微秒" = "micros"
-"纳秒" = "nanos"
+# --------------------------------------------
+# 错误处理
+# --------------------------------------------
+"错误特征" = "Error"
+"原因" = "source"
+"描述" = "description"
+"回溯" = "backtrace"
 
-# ============================================
-# 转换 (std::convert)
-# ============================================
-[转换]
-"转换为" = "Into"
-"从转换" = "From"
-"尝试转换为" = "TryInto"
-"尝试从转换" = "TryFrom"
-"转换为" = "into"
-"从转换" = "from"
+# --------------------------------------------
+# 字符方法
+# --------------------------------------------
+"是否为数字" = "is_numeric"
+"是否为字母" = "is_alphabetic"
+"是否为字母数字" = "is_alphanumeric"
+"是否为空白" = "is_whitespace"
+"是否为控制字符" = "is_control"
+"是否为ASCII" = "is_ascii"
+"转ASCII小写" = "to_ascii_lowercase"
+"转ASCII大写" = "to_ascii_uppercase"
+"是否为小写" = "is_lowercase"
+"是否为大写" = "is_uppercase"
+"数字化" = "to_digit"
 
-# ============================================
-# 常用函数入口
-# ============================================
-[入口]
-"主函数" = "main"
-"范围" = "range"
-"断言" = "assert"
-"断言相等" = "assert_eq"
-"断言不等" = "assert_ne"
-"未实现" = "unimplemented"
-"待完成" = "todo"
-"不可达" = "unreachable"
-"恐慌" = "panic"
+# --------------------------------------------
+# 选项方法（Option 补充）
+# --------------------------------------------
+"是否为有些" = "is_some"
+"是否为无" = "is_none"
+"解包" = "unwrap"
+"取值或" = "unwrap_or"
+"取值或_else" = "unwrap_or_else"
+"取值或默认" = "unwrap_or_default"
+"期望" = "expect"
+"映射或默认" = "map_or"
+"映射或_else" = "map_or_else"
+"和_then" = "and_then"
+"或_else" = "or_else"
+"转迭代" = "into_iter"
+
+# --------------------------------------------
+# 结果方法（Result 补充）
+# --------------------------------------------
+"是否为成功" = "is_ok"
+"是否为错误" = "is_err"
+"取成功值" = "unwrap"
+"取错误值" = "unwrap_err"
+"取成功值或" = "unwrap_or"
+"取成功值或_else" = "unwrap_or_else"
+"期望错误" = "expect_err"
+"映射成功" = "map"
+"映射错误" = "map_err"
+"转选项" = "ok"
+"转错误选项" = "err"
+
+# --------------------------------------------
+# 格式化
+# --------------------------------------------
+"调试" = "Debug"
+"显示" = "Display"
+"八进制" = "Octal"
+"十六进制小写" = "LowerHex"
+"十六进制大写" = "UpperHex"
+"指针格式" = "Pointer"
+"二进制格式" = "Binary"
+"科学计数小写" = "LowerExp"
+"科学计数大写" = "UpperExp"
+"格式化参数" = "Formatter"
+"写入格式化" = "write_fmt"
+
+# --------------------------------------------
+# 杂项 / 宏补充
+# --------------------------------------------
+"调试宏" = "dbg"
+"行宏" = "line"
+"列宏" = "column"
+"文件宏" = "file"
+"模块路径宏" = "module_path"
+"字符串化" = "stringify"
+"包含宏" = "include"
+"包含字符串宏" = "include_str"
+"包含字节宏" = "include_bytes"
+"编译环境宏" = "env"
+"选项环境宏" = "option_env"
+"配置宏" = "cfg"
+"向量宏" = "vec"
+"编译目标" = "target"
+"调试断言" = "debug_assertions"
+
+# --------------------------------------------
+# 高频方法补充（教程常用）
+# --------------------------------------------
+"转字符串" = "to_string"
+"克隆" = "clone"
+"接收" = "recv"
+"加锁" = "lock"
+"解析" = "parse"
+"条目" = "entry"
+"或插入" = "or_insert"
+"最小" = "min"
+"最大" = "max"
