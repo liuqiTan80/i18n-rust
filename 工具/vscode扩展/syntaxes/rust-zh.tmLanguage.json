@@ -1,0 +1,162 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Rust (中文)",
+  "scopeName": "source.rust-zh",
+  "patterns": [
+    { "include": "#注释" },
+    { "include": "#字符串" },
+    { "include": "#字符" },
+    { "include": "#数字" },
+    { "include": "#关键字" },
+    { "include": "#类型" },
+    { "include": "#宏" },
+    { "include": "#生命周期" },
+    { "include": "#运算符" }
+  ],
+  "repository": {
+    "注释": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.rust-zh",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.documentation.rust-zh",
+          "begin": "/\\*\\*",
+          "end": "\\*/",
+          "patterns": [
+            { "include": "#注释" }
+          ]
+        },
+        {
+          "name": "comment.block.rust-zh",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "patterns": [
+            { "include": "#注释" }
+          ]
+        }
+      ]
+    },
+    "字符串": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.rust-zh",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.rust-zh",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.raw.rust-zh",
+          "begin": "r#*\"",
+          "end": "\"#*"
+        }
+      ]
+    },
+    "字符": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.rust-zh",
+          "match": "'[^'\\\\]'|'\\\\.'"
+        }
+      ]
+    },
+    "数字": {
+      "patterns": [
+        {
+          "name": "constant.numeric.rust-zh",
+          "match": "\\b[0-9][0-9_]*(\\.[0-9_]+)?([eE][+-]?[0-9_]+)?(f32|f64|i[0-9]+|u[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.numeric.hex.rust-zh",
+          "match": "\\b0x[0-9a-fA-F_]+\\b"
+        },
+        {
+          "name": "constant.numeric.oct.rust-zh",
+          "match": "\\b0o[0-7_]+\\b"
+        },
+        {
+          "name": "constant.numeric.bin.rust-zh",
+          "match": "\\b0b[01_]+\\b"
+        }
+      ]
+    },
+    "关键字": {
+      "patterns": [
+        {
+          "name": "keyword.control.rust-zh",
+          "match": "\\b(如果|否则|匹配|循环|当|对于|在|中断|继续|返回|异步|等待)\\b"
+        },
+        {
+          "name": "keyword.declaration.rust-zh",
+          "match": "\\b(函数|变量|可变|常量|静态|结构体|枚举|类型|特征|实现|模块|公开|使用|作为|包|超级|外部)\\b"
+        },
+        {
+          "name": "keyword.other.rust-zh",
+          "match": "\\b(不安全|动态|移动)\\b"
+        },
+        {
+          "name": "constant.language.boolean.rust-zh",
+          "match": "\\b(真|假)\\b"
+        },
+        {
+          "name": "constant.language.rust-zh",
+          "match": "\\b(空|自我|自身)\\b"
+        }
+      ]
+    },
+    "类型": {
+      "patterns": [
+        {
+          "name": "storage.type.numeric.rust-zh",
+          "match": "\\b(整数|长整数|短整数|微整数|无符号整数|无符号长整数|无符号短整数|无符号微整数|浮点数|单精度浮点数)\\b"
+        },
+        {
+          "name": "storage.type.rust-zh",
+          "match": "\\b(文本|字节|字符|布尔|选项|结果)\\b"
+        },
+        {
+          "name": "support.type.rust-zh",
+          "match": "\\b(字符串|向量|哈希表|哈希集|盒子|引用|原子引用计数|引用计数|互斥锁)\\b"
+        },
+        {
+          "name": "constant.other.rust-zh",
+          "match": "\\b(有些|无|成功|错误)\\b"
+        }
+      ]
+    },
+    "宏": {
+      "patterns": [
+        {
+          "name": "entity.name.function.macro.rust-zh",
+          "match": "\\b(打印行|打印|错误打印行|错误打印|格式化|向量|断言|断言相等|断言不等|未实现|待完成|不可达|恐慌)!"
+        }
+      ]
+    },
+    "生命周期": {
+      "patterns": [
+        {
+          "name": "storage.modifier.lifetime.rust-zh",
+          "match": "'[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    },
+    "运算符": {
+      "patterns": [
+        {
+          "name": "keyword.operator.rust-zh",
+          "match": "(=|\\+|-|\\*|/|%|&&|\\|\\||!|<|>|<=|>=|==|!=|&|\\||\\^|~|<<|>>|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|<<=|>>=)"
+        },
+        {
+          "name": "keyword.operator.arrow.rust-zh",
+          "match": "(->|=>)"
+        }
+      ]
+    }
+  }
+}

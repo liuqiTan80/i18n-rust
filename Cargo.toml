@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "核心/引擎",
+    "工具/命令行",
+    "工具/LSP代理",
+]
+resolver = "2"
