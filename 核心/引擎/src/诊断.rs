@@ -341,7 +341,7 @@ impl 教学诊断 {
         }
     }
 
-        pub fn 格式化为文本(&self) -> String {
+    pub fn 格式化为文本(&self) -> String {
         let 格式化 = self.格式化();
         let mut 输出 = String::new();
 

@@ -120,14 +120,18 @@ impl 代理服务器 {
     }
 
     /// 向 rust-analyzer 发送 initialize 并等待响应
-    fn 初始化分析器(&self, _参数: &Value) -> anyhow::Result<()> {
+    fn 初始化分析器(&self, 参数: &Value) -> anyhow::Result<()> {
+        // 透传客户端的 rootUri 和 workspaceFolders
+        let root_uri = 参数.get("rootUri").cloned().unwrap_or(Value::Null);
+        let workspace_folders = 参数.get("workspaceFolders").cloned().unwrap_or(Value::Null);
+
         let 初始化请求 = json!({
             "jsonrpc": "2.0",
             "id": 0,
             "method": "initialize",
             "params": {
                 "processId": std::process::id(),
-                "rootUri": null,
+                "rootUri": root_uri,
                 "capabilities": {
                     "textDocument": {
                         "completion": {
@@ -138,7 +142,7 @@ impl 代理服务器 {
                         }
                     }
                 },
-                "workspaceFolders": null
+                "workspaceFolders": workspace_folders
             }
         });
 

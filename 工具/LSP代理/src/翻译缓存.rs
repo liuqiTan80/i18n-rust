@@ -65,8 +65,6 @@ impl 翻译缓存 {
 
         // 翻译源码
         let 英文内容 = 词法处理::转译源码(内容, &self.关键字映射);
-        // 应用标准库别名
-        let 英文内容 = 应用标准库别名(&英文内容);
 
         // 生成虚拟文件路径
         let 文件stem = 原始路径
@@ -170,14 +168,6 @@ fn URI转路径(URI: &str) -> PathBuf {
 /// 将文件路径转换为 file:// URI
 fn 路径转URI(路径: &Path) -> String {
     format!("file://{}", 路径.display())
-}
-
-/// 应用标准库别名（与 CLI 保持一致）
-fn 应用标准库别名(代码: &str) -> String {
-    let mut 结果 = 代码.to_string();
-    结果 = 结果.replace("fn 主函数(", "fn main(");
-    结果 = 结果.replace("fn 主函数 (", "fn main (");
-    结果
 }
 
 /// 生成英文行号到中文行号的映射

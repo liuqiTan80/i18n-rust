@@ -224,7 +224,6 @@ fn 翻译诊断消息(消息: &str) -> String {
         ("found", "实际为"),
         ("unused variable", "未使用的变量"),
         ("unused import", "未使用的导入"),
-        ("unused variable", "未使用的变量"),
         ("cannot borrow", "无法借用"),
         ("borrowed as immutable", "被不可变借用"),
         ("borrowed as mutable", "被可变借用"),

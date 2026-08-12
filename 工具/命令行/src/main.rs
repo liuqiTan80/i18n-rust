@@ -39,7 +39,7 @@ enum 命令 {
 }
 
 fn main() -> anyhow::Result<()> {
-    let cargo路径 = "/home/t67/.cargo/bin/cargo";
+    let cargo路径 = "cargo";
     let 参数 = 命令行参数::parse();
 
     match 参数.命令 {
