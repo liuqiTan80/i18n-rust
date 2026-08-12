@@ -27,8 +27,24 @@ pub struct 翻译条目 {
     pub 虚拟路径: PathBuf,
     /// 英文行号 → 中文行号的映射
     pub 行映射: Vec<u32>,
+    /// 列偏移映射（用于精确还原列号）
+    pub 列映射: Vec<列映射点>,
     /// 文档版本
     pub 版本: i32,
+}
+
+/// 列偏移映射的一个分段边界点
+///
+/// 在 [英文列, 下一段的英文列) 区间内：
+///   中文列 = 英文列 - 偏移差
+#[derive(Debug, Clone)]
+pub struct 列映射点 {
+    /// 该分段起始处的英文列号
+    pub 英文列: u32,
+    /// 该分段起始处的中文列号
+    pub 中文列: u32,
+    /// 累计字符偏移差（英文列 - 中文列）
+    pub 偏移差: i32,
 }
 
 /// 翻译缓存管理器
@@ -70,19 +86,27 @@ impl 翻译缓存 {
         // 翻译源码
         let 英文内容 = 词法处理::转译源码带宏集合(内容, &self.关键字映射, &self.宏名称集合);
 
-        // 生成虚拟文件路径
+        // 生成虚拟文件路径（用哈希避免同名文件冲突）
         let 文件stem = 原始路径
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown");
-        let 虚拟路径 = self.临时目录.join(format!("{}.rs", 文件stem));
+        let 哈希 = {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut h = DefaultHasher::new();
+            原始路径.as_path().hash(&mut h);
+            h.finish()
+        };
+        let 虚拟路径 = self.临时目录.join(format!("{}_{:x}.rs", 文件stem, 哈希));
         let 虚拟URI = 路径转URI(&虚拟路径);
 
         // 写入虚拟文件到磁盘（rust-analyzer 需要文件系统支持）
         std::fs::write(&虚拟路径, &英文内容)?;
 
-        // 生成行映射
+        // 生成行映射和列映射
         let 行映射 = 生成行映射(内容, &英文内容);
+        let 列映射 = 构建列映射(内容, &英文内容, &self.关键字映射, &self.宏名称集合);
 
         let 条目 = 翻译条目 {
             原始URI: URI.to_string(),
@@ -92,6 +116,7 @@ impl 翻译缓存 {
             虚拟URI,
             虚拟路径,
             行映射,
+            列映射,
             版本,
         };
 
@@ -156,6 +181,24 @@ impl 翻译缓存 {
     pub fn 关键字映射(&self) -> &HashMap<String, String> {
         &self.关键字映射
     }
+
+    /// 将英文（虚拟文件）列号映射回中文（原始文件）列号
+    pub fn 英文列转中文列(&self, URI: &str, 行: u32, 英文列: u32) -> u32 {
+        if let Some(条目) = self.从虚拟URI查询(URI) {
+            英文列转中文列_单条(&条目, 行, 英文列)
+        } else {
+            英文列
+        }
+    }
+
+    /// 将中文（原始文件）列号转换为英文（虚拟文件）列号
+    pub fn 中文列转英文列(&self, URI: &str, 行: u32, 中文列: u32) -> u32 {
+        if let Some(条目) = self.从虚拟URI查询(URI) {
+            中文列转英文列_单条(&条目, 行, 中文列)
+        } else {
+            中文列
+        }
+    }
 }
 
 /// 将 file:// URI 转换为文件路径
@@ -172,6 +215,138 @@ fn URI转路径(URI: &str) -> PathBuf {
 /// 将文件路径转换为 file:// URI
 fn 路径转URI(路径: &Path) -> String {
     format!("file://{}", 路径.display())
+}
+
+/// 根据列映射条目将英文列转换为中文列
+fn 英文列转中文列_单条(条目: &翻译条目, _行: u32, 英文列: u32) -> u32 {
+    if 条目.列映射.is_empty() { return 英文列; }
+    // 二分查找：找到最后一个 英文列 <= 目标英文列 的分段
+    let mut 结果 = 条目.列映射[0].偏移差;
+    for 点 in &条目.列映射 {
+        if 点.英文列 <= 英文列 {
+            结果 = 点.偏移差;
+        } else {
+            break;
+        }
+    }
+    (英文列 as i32 - 结果).max(0) as u32
+}
+
+/// 根据列映射条目将中文列转换为英文列
+fn 中文列转英文列_单条(条目: &翻译条目, _行: u32, 中文列: u32) -> u32 {
+    if 条目.列映射.is_empty() { return 中文列; }
+    let mut 结果 = 条目.列映射[0].偏移差;
+    for 点 in &条目.列映射 {
+        if 点.中文列 <= 中文列 {
+            结果 = 点.偏移差;
+        } else {
+            break;
+        }
+    }
+    (中文列 as i32 + 结果).max(0) as u32
+}
+
+/// 构建列偏移映射
+///
+/// 扫描中文 token 流，模拟翻译过程，记录每次替换导致的列偏移变化。
+/// 不依赖英文 token 流，避免宏感叹号插入导致的 token 不对齐问题。
+fn 构建列映射(
+    中文内容: &str,
+    _英文内容: &str,
+    关键字映射: &HashMap<String, String>,
+    宏名称集合: &HashSet<String>,
+) -> Vec<列映射点> {
+    use rustc_lexer::tokenize;
+
+    let 中文令牌: Vec<_> = tokenize(中文内容).collect();
+    let mut 映射点 = Vec::new();
+    let mut 中文列 = 0u32;
+    let mut 英文列 = 0u32;
+    let mut 累计差 = 0i32; // 英文列 - 中文列
+    let mut 当前偏移 = 0usize;
+
+    映射点.push(列映射点 { 英文列: 0, 中文列: 0, 偏移差: 0 });
+
+    use rustc_lexer::TokenKind;
+    let 是空白 = |k: TokenKind| matches!(k, TokenKind::Whitespace | TokenKind::LineComment { .. } | TokenKind::BlockComment { .. });
+    let 是标识符 = |k: TokenKind| matches!(k, TokenKind::Ident { .. } | TokenKind::RawIdent { .. });
+
+    for i in 0..中文令牌.len() {
+        let token = &中文令牌[i];
+        let token文本 = &中文内容[当前偏移..][..token.len];
+        当前偏移 += token.len;
+
+        // 空白 token：两列同步前进
+        if 是空白(token.kind) {
+            let 长 = token文本.chars().count() as u32;
+            中文列 += 长;
+            英文列 += 长;
+            continue;
+        }
+
+        if 是标识符(token.kind) {
+            let 原始名 = if token文本.starts_with("r#") { &token文本[2..] } else { token文本 };
+            let 中文长 = token文本.chars().count() as u32;
+
+            // 检查是否为宏名（后跟开括号）
+            let 是宏调用 = 宏名称集合.contains(原始名) && 后面是开括号(&中文令牌, i);
+
+            if 是宏调用 {
+                let 英文名 = 关键字映射.get(原始名).map(|s| s.as_str()).unwrap_or(原始名);
+                let 英文名长 = 英文名.chars().count() as u32;
+                let 是否翻译了宏名 = 关键字映射.contains_key(原始名);
+
+                // 翻译后的英文输出：英文名 + 可选的 !
+                // 仅当宏名被翻译时才补 !（未翻译时 ! 已在中文源码中作为独立 token）
+                let 英文输出长 = if 是否翻译了宏名 {
+                    英文名长 + 1 // +1 for inserted !
+                } else {
+                    中文长 // 保持原样（! 作为独立 token 会在后续迭代中处理）
+                };
+
+                累计差 += 英文输出长 as i32 - 中文长 as i32;
+                中文列 += 中文长;
+                英文列 += 英文输出长;
+            } else {
+                // 普通标识符：检查是否被关键字映射替换
+                let 英文输出长 = if let Some(英文名) = 关键字映射.get(原始名) {
+                    英文名.chars().count() as u32
+                } else {
+                    中文长
+                };
+
+                累计差 += 英文输出长 as i32 - 中文长 as i32;
+                中文列 += 中文长;
+                英文列 += 英文输出长;
+            }
+        } else {
+            // 非标识符、非空白 token：原样输出
+            let 长 = token文本.chars().count() as u32;
+            中文列 += 长;
+            英文列 += 长;
+        }
+
+        // 如果偏移差变化了，记录新的分段边界
+        if 累计差 != 映射点.last().map(|p| p.偏移差).unwrap_or(0) {
+            映射点.push(列映射点 { 英文列, 中文列, 偏移差: 累计差 });
+        }
+    }
+
+    映射点
+}
+
+/// 检查指定 token 之后下一个非空白 token 是否是开括号（( [ {）
+fn 后面是开括号(令牌: &[rustc_lexer::Token], 当前: usize) -> bool {
+    use rustc_lexer::TokenKind;
+    let 是空白 = |k: TokenKind| matches!(k, TokenKind::Whitespace | TokenKind::LineComment { .. } | TokenKind::BlockComment { .. });
+    for j in (当前 + 1)..令牌.len() {
+        if 是空白(令牌[j].kind) { continue; }
+        return matches!(
+            令牌[j].kind,
+            TokenKind::OpenParen | TokenKind::OpenBracket | TokenKind::OpenBrace
+        );
+    }
+    false
 }
 
 /// 生成英文行号到中文行号的映射

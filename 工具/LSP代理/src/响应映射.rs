@@ -49,8 +49,8 @@ impl 响应映射器 {
     /// 映射一条 LSP 位置（行、列）从虚拟文件到原始文件
     pub fn 还原位置(&self, URI: &str, 行: u32, 列: u32) -> (u32, u32) {
         let 中文行 = self.还原行号(URI, 行);
-        // 列号保持不变（当前简化实现：关键字替换不改变列偏移的语义）
-        (中文行, 列)
+        let 中文列 = self.缓存.英文列转中文列(URI, 行, 列);
+        (中文行, 中文列)
     }
 
     /// 映射一个 LSP Range
@@ -96,7 +96,7 @@ impl 响应映射器 {
             for 诊断 in 诊断数组 {
                 let mut 映射后 = 诊断.clone();
 
-                // 映射范围
+                // 映射范围（使用列映射）
                 if 诊断.get("range").is_some() {
                     映射后["range"] = self.还原范围(虚拟URI, &诊断["range"]);
                 }
@@ -134,19 +134,38 @@ impl 响应映射器 {
     }
 
     /// 映射补全响应中的位置信息
-    pub fn 映射补全响应(&self, 响应: &Value) -> Value {
+    ///
+    /// 将 textEdit 中的 range 映射回原始文件，
+    /// 并将英文标识符反向映射为中文。
+    pub fn 映射补全响应(&self, 响应: &Value, 原始URI: &str) -> Value {
         let mut 结果 = 响应.clone();
 
-        // 处理 items 中的 textEdit
         if let Some(条目列表) = 结果.get("items").and_then(|v| v.as_array()) {
             let mut 映射后条目 = Vec::new();
             for item in 条目列表 {
                 let mut 映射后 = item.clone();
+
+                // 1. 映射 textEdit 中的 range
                 if let Some(text_edit) = item.get("textEdit") {
-                    // 补全的 textEdit 通常指向当前编辑文件
-                    // 此处不改变 URI，只保留原始位置
-                    映射后["textEdit"] = text_edit.clone();
+                    if let Some(range) = text_edit.get("range") {
+                        映射后["textEdit"]["range"] = self.还原范围(原始URI, range);
+                    }
                 }
+
+                // 2. 将英文 label 反向映射为中文
+                if let Some(label) = item.get("label").and_then(|v| v.as_str()) {
+                    if let Some(中文名) = self.反向查找(label) {
+                        映射后["label"] = Value::String(中文名);
+                    }
+                }
+
+                // 3. 反向映射 insertText
+                if let Some(insert_text) = item.get("insertText").and_then(|v| v.as_str()) {
+                    if let Some(中文名) = self.反向查找(insert_text) {
+                        映射后["insertText"] = Value::String(中文名);
+                    }
+                }
+
                 映射后条目.push(映射后);
             }
             结果["items"] = Value::Array(映射后条目);
@@ -174,14 +193,13 @@ impl 响应映射器 {
     }
 
     /// 映射悬停响应中的位置信息
-    pub fn 映射悬停响应(&self, 响应: &Value) -> Value {
-        // 悬停响应的 contents 是文本/markdown，不包含位置
-        // 但 range 字段需要映射
+    ///
+    /// 悬停响应的 contents 是文本/markdown，不需要映射，
+    /// 但 range 字段需要映射回原始文件位置。
+    pub fn 映射悬停响应(&self, 响应: &Value, 原始URI: &str) -> Value {
         let mut 结果 = 响应.clone();
         if let Some(范围) = 响应.get("range") {
-            // 悬停的 range 指向触发悬停的位置，使用请求中的 URI
-            // 此处保持原样，因为悬停请求的 URI 已经是原始 URI
-            结果["range"] = 范围.clone();
+            结果["range"] = self.还原范围(原始URI, 范围);
         }
         结果
     }
@@ -189,6 +207,92 @@ impl 响应映射器 {
     /// 映射引用响应
     pub fn 映射引用响应(&self, 响应: &Value) -> Value {
         self.映射定义响应(响应) // 与定义跳转格式相同
+    }
+
+    /// 映射文档符号响应
+    ///
+    /// 将每个符号的 range 和 selectionRange 映射回原始文件，
+    /// 并递归处理子符号。
+    pub fn 映射文档符号响应(&self, 响应: &Value, 原始URI: &str) -> Value {
+        match 响应 {
+            Value::Array(数组) => {
+                let 映射后: Vec<Value> = 数组.iter()
+                    .map(|符号| self.映射单个符号(符号, 原始URI))
+                    .collect();
+                Value::Array(映射后)
+            }
+            _ => 响应.clone(),
+        }
+    }
+
+    /// 递归映射单个文档符号
+    fn 映射单个符号(&self, 符号: &Value, 原始URI: &str) -> Value {
+        let mut 映射后 = 符号.clone();
+        if let Some(range) = 符号.get("range") {
+            映射后["range"] = self.还原范围(原始URI, range);
+        }
+        if let Some(selection) = 符号.get("selectionRange") {
+            映射后["selectionRange"] = self.还原范围(原始URI, selection);
+        }
+        if let Some(子符号) = 符号.get("children").and_then(|v| v.as_array()) {
+            let 映射后子: Vec<Value> = 子符号.iter()
+                .map(|s| self.映射单个符号(s, 原始URI))
+                .collect();
+            映射后["children"] = Value::Array(映射后子);
+        }
+        映射后
+    }
+
+    /// 映射代码操作响应
+    ///
+    /// 将 edit.changes 中的 URI 和位置映射回原始文件。
+    pub fn 映射代码操作响应(&self, 响应: &Value, _原始URI: &str) -> Value {
+        let mut 结果 = 响应.clone();
+        if let Some(操作列表) = 响应.get("codeActions").and_then(|v| v.as_array()) {
+            let mut 映射后操作 = Vec::new();
+            for 操作 in 操作列表 {
+                let mut 映射后 = 操作.clone();
+                if let Some(edit) = 操作.get("edit") {
+                    if let Some(changes) = edit.get("changes") {
+                        if let Some(变更对象) = changes.as_object() {
+                            let mut 映射后变更 = serde_json::Map::new();
+                            for (uri, 编辑列表) in 变更对象 {
+                                let 目标URI = if self.是虚拟URI(uri) {
+                                    self.还原URI(uri)
+                                } else {
+                                    uri.clone()
+                                };
+                                let 映射后编辑: Vec<Value> = 编辑列表.as_array()
+                                    .map(|数组| 数组.iter().map(|编辑| {
+                                        let mut 映射后编辑 = 编辑.clone();
+                                        if let Some(range) = 编辑.get("range") {
+                                            映射后编辑["range"] = self.还原范围(uri, range);
+                                        }
+                                        映射后编辑
+                                    }).collect())
+                                    .unwrap_or_default();
+                                映射后变更.insert(目标URI, Value::Array(映射后编辑));
+                            }
+                            映射后["edit"]["changes"] = Value::Object(映射后变更);
+                        }
+                    }
+                }
+                映射后操作.push(映射后);
+            }
+            结果["codeActions"] = Value::Array(映射后操作);
+        }
+        结果
+    }
+
+    /// 从关键字映射中反向查找：英文 → 中文
+    fn 反向查找(&self, 英文名: &str) -> Option<String> {
+        let 映射 = self.缓存.关键字映射();
+        for (中文, 英文) in 映射.iter() {
+            if 英文 == 英文名 {
+                return Some(中文.clone());
+            }
+        }
+        None
     }
 }
 

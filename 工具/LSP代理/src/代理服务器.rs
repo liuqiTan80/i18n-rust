@@ -186,7 +186,12 @@ impl 代理服务器 {
                 "definitionProvider": true,
                 "referencesProvider": true,
                 "documentSymbolProvider": true,
-                "codeActionProvider": true
+                "codeActionProvider": true,
+                "renameProvider": true,
+                "documentHighlightProvider": true,
+                "signatureHelpProvider": {
+                    "triggerCharacters": ["(", ","]
+                }
             },
             "serverInfo": {
                 "name": "i18n-rust-lsp",
@@ -267,7 +272,10 @@ impl 代理服务器 {
             "textDocument/definition" |
             "textDocument/references" |
             "textDocument/documentSymbol" |
-            "textDocument/codeAction" => {
+            "textDocument/codeAction" |
+            "textDocument/rename" |
+            "textDocument/documentHighlight" |
+            "textDocument/signatureHelp" => {
                 self.转发请求(req)
             }
             _ => self.转发请求(req),
@@ -449,10 +457,12 @@ fn 处理分析器消息(
         if let Some(info) = 原始信息 {
             let 结果 = 消息.get("result").cloned().unwrap_or(Value::Null);
             let 映射后结果 = match info.方法.as_str() {
-                "textDocument/completion" => 映射器.映射补全响应(&结果),
-                "textDocument/hover" => 映射器.映射悬停响应(&结果),
+                "textDocument/completion" => 映射器.映射补全响应(&结果, &info.原始URI),
+                "textDocument/hover" => 映射器.映射悬停响应(&结果, &info.原始URI),
                 "textDocument/definition" => 映射器.映射定义响应(&结果),
                 "textDocument/references" => 映射器.映射引用响应(&结果),
+                "textDocument/documentSymbol" => 映射器.映射文档符号响应(&结果, &info.原始URI),
+                "textDocument/codeAction" => 映射器.映射代码操作响应(&结果, &info.原始URI),
                 _ => 结果,
             };
 

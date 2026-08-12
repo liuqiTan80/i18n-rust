@@ -23,6 +23,9 @@ crossbeam-channel = "0.5"
 # 内部引擎
 i18n-rust-engine = { path = "../../核心/引擎" }
 
+# 词法分析（列映射用）
+rustc_lexer = "0.1"
+
 # 工具
 anyhow = "1"
 tempfile = "3"
