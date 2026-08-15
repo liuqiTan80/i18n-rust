@@ -572,7 +572,7 @@ async function 运行文件(文件路径: string): Promise<void> {
         cwd: path.dirname(文件路径)
     });
     终端.show();
-    终端.sendText(`i18n run "${文件路径}"`);
+    终端.sendText(`rzc run "${文件路径}"`);
 }
 
 /**
@@ -584,7 +584,7 @@ async function 检查文件(文件路径: string): Promise<void> {
         cwd: path.dirname(文件路径)
     });
     终端.show();
-    终端.sendText(`i18n check "${文件路径}"`);
+    终端.sendText(`rzc check "${文件路径}"`);
 }
 
 /**
@@ -594,7 +594,7 @@ async function 导出文件(文件路径: string): Promise<void> {
     const 输出路径 = 文件路径.replace(/\.(zh|en|de)$/, '.rs');
     
     try {
-        cp.execSync(`i18n eject "${文件路径}"`);
+        cp.execSync(`rzc eject "${文件路径}"`);
         vscode.window.showInformationMessage(
             `已导出到 ${输出路径}`,
             '打开文件'

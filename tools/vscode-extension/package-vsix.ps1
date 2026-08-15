@@ -48,7 +48,9 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 # ---------- 4. 打包 .vsix ----------
 Write-Host "📦 第 4 步：打包 .vsix..."
-New-Item -ItemType Directory -Path 'release' -Force | Out-Null
+# 输出到项目根目录的 release/ 目录
+$rootDir = (Resolve-Path (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Definition) '../..')).Path
+New-Item -ItemType Directory -Path "$rootDir\release" -Force | Out-Null
 $version = node -p "require('./package.json').version"
 
 # 优先使用本地 vsce（node_modules/.bin），否则使用全局 vsce，否则自动安装
@@ -63,10 +65,10 @@ if (Test-Path 'node_modules/.bin/vsce.cmd') {
     $VSCE = 'vsce'
 }
 
-& $VSCE package --out release
+& $VSCE package --out "$rootDir\release" --baseContentUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/ --baseImagesUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 # ---------- 5. 输出结果 ----------
 Write-Host ""
-Write-Host "✅ 打包完成：$((Get-Location).Path)\release\i18n-rust-$version.vsix"
-Write-Host "💡 安装方式：打开 VS Code → 扩展侧边栏 → “...” 菜单 → “从 VSIX 安装...” → 选择该文件"
+Write-Host "✅ 打包完成：$rootDir\release\i18n-rust-$version.vsix"
+Write-Host "💡 安装方式：打开 VS Code → 扩展侧边栏 → \"...\" 菜单 → \"从 VSIX 安装...\" → 选择该文件"

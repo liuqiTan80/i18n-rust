@@ -46,7 +46,9 @@ npm run compile
 
 # ---------- 4. 打包 .vsix ----------
 echo "📦 第 4 步：打包 .vsix..."
-mkdir -p release
+# 输出到项目根目录的 release/ 目录
+ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+mkdir -p "$ROOT_DIR/release"
 VERSION=$(node -p "require('./package.json').version")
 
 # 优先使用本地 vsce（node_modules/.bin），否则使用全局 vsce，否则自动安装
@@ -59,11 +61,11 @@ else
     npm install -g @vscode/vsce
     VSCE="vsce"
 fi
-"$VSCE" package --out release \
+"$VSCE" package --out "$ROOT_DIR/release" \
     --baseContentUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/ \
     --baseImagesUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/
 
 # ---------- 5. 输出结果 ----------
 echo ""
-echo "✅ 打包完成：$(pwd)/release/i18n-rust-$VERSION.vsix"
-echo "💡 安装方式：打开 VS Code → 扩展侧边栏 → “...” 菜单 → “从 VSIX 安装...” → 选择该文件"
+echo "✅ 打包完成：$ROOT_DIR/release/i18n-rust-$VERSION.vsix"
+echo "💡 安装方式：打开 VS Code → 扩展侧边栏 → "..." 菜单 → "从 VSIX 安装..." → 选择该文件"
