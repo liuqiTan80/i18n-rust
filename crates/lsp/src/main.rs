@@ -82,6 +82,10 @@ fn parse_args() -> CliArgs {
                 print_help(&ui);
                 std::process::exit(0);
             }
+            // VSCode LanguageClient 会传递 --stdio 参数，我们默认就使用 stdio，直接忽略
+            "--stdio" => {
+                i += 1;
+            }
             _ => {
                 let ui = ui::Ui::load(&lang_pack_path);
                 eprintln!("{}", ui.f("lsp_unknown_arg", &[&args[i]]));
