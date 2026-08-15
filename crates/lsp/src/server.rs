@@ -2,9 +2,9 @@
 //!
 //! LSP 代理服务器的核心逻辑：
 //! 1. 通过 lsp-server 与编辑器客户端建立 LSP 连接
-//! 2. 接收 .zh 文件变更，翻译后通知 rust-analyzer
+//! 2. 接收方言文件（.zh/.en/.de 等）变更，翻译后通知 rust-analyzer
 //! 3. 转发 rust-analyzer 的响应/通知，并还原位置信息
-//! 4. 翻译诊断消息为中文
+//! 4. 翻译诊断消息为对应语言
 
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
@@ -21,6 +21,12 @@ use crate::analyzer::AnalyzerConnection;
 use crate::response_map::ResponseMapper;
 use crate::translation_cache::{TranslationCache, TranslationEntry};
 
+/// 默认支持的方言文件扩展名（与内置语言包 lang_info.toml 的扩展名一致）
+/// 可通过命令行 `--extensions` 参数覆盖
+const DEFAULT_EXTENSIONS: &[&str] = &[
+    ".zh", ".en", ".de", ".ja", ".ru", ".es", ".fr", ".pt", ".ko", ".ar", ".hi",
+];
+
 /// LSP 代理服务器
 pub struct ProxyServer {
     /// 与编辑器客户端的 LSP 连接
@@ -35,6 +41,8 @@ pub struct ProxyServer {
     request_counter: Arc<std::sync::atomic::AtomicI64>,
     /// 待映射的 rust-analyzer 请求 ID → 原始客户端请求信息
     pending_requests: Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
+    /// 支持的方言文件扩展名列表（如 `.zh`、`.en`）
+    supported_extensions: Vec<String>,
 }
 
 /// 记录一个转发给 rust-analyzer 的请求的原始信息
@@ -47,13 +55,21 @@ struct PendingRequestInfo {
 
 impl ProxyServer {
     /// 创建并初始化代理服务器
-    pub fn new(lang_pack_path: &PathBuf) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
+    ///
+    /// `extensions`: 支持的方言文件扩展名列表（如 `.zh`），
+    /// 传空列表时使用默认值（`.zh` / `.en` / `.de`）。
+    pub fn new(
+        lang_pack_path: &PathBuf,
+        extensions: &[String],
+    ) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
         // 1. 加载语言包
         let (keyword_map, macro_names) = load_language_pack(lang_pack_path)?;
         log::info!(
-            "已加载 {} 个关键字映射，{} 个宏名称",
-            keyword_map.len(),
-            macro_names.len()
+            "{}",
+            crate::ui::global().f(
+                "lsp_log_loaded_mappings",
+                &[&keyword_map.len().to_string(), &macro_names.len().to_string()]
+            )
         );
 
         // 2. 创建翻译缓存
@@ -76,6 +92,11 @@ impl ProxyServer {
             mapper,
             request_counter: Arc::new(std::sync::atomic::AtomicI64::new(1000)),
             pending_requests: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            supported_extensions: if extensions.is_empty() {
+                DEFAULT_EXTENSIONS.iter().map(|s| s.to_string()).collect()
+            } else {
+                extensions.to_vec()
+            },
         };
 
         Ok((server, io_threads))
@@ -85,7 +106,7 @@ impl ProxyServer {
     pub fn run(self, io_threads: lsp_server::IoThreads) -> anyhow::Result<()> {
         // 1. 等待 initialize 请求并握手
         let (init_id, init_params) = self.handshake()?;
-        log::info!("客户端初始化完成");
+        log::info!("{}", crate::ui::global().t("lsp_log_client_init"));
 
         // 2. 初始化 rust-analyzer
         self.initialize_analyzer(&init_params)?;
@@ -120,7 +141,9 @@ impl ProxyServer {
             .connection
             .receiver
             .recv()
-            .map_err(|e| anyhow::anyhow!("接收 initialize 请求失败: {}", e))?;
+            .map_err(|e| {
+                anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_recv_initialize", &[&e.to_string()]))
+            })?;
 
         match msg {
             Message::Request(req) => {
@@ -129,10 +152,13 @@ impl ProxyServer {
                     let params = req.params.clone();
                     Ok((id, params))
                 } else {
-                    anyhow::bail!("期望 initialize 请求，收到: {}", req.method)
+                    anyhow::bail!(
+                        "{}",
+                        crate::ui::global().f("lsp_err_expect_initialize", &[&req.method])
+                    )
                 }
             }
-            _ => anyhow::bail!("期望 Request，收到其他类型消息"),
+            _ => anyhow::bail!("{}", crate::ui::global().t("lsp_err_expect_request")),
         }
     }
 
@@ -204,11 +230,11 @@ impl ProxyServer {
 
         // 等待 rust-analyzer 的 initialize 响应
         for _ in 0..200 {
-            if let Some(response) = self.analyzer.try_recv() {
-                if response.get("id").and_then(|v| v.as_i64()) == Some(0) {
-                    log::info!("rust-analyzer 初始化完成");
-                    break;
-                }
+            if let Some(response) = self.analyzer.try_recv()
+                && response.get("id").and_then(|v| v.as_i64()) == Some(0)
+            {
+                log::info!("{}", crate::ui::global().t("lsp_log_ra_init_done"));
+                break;
             }
             thread::sleep(std::time::Duration::from_millis(50));
         }
@@ -259,7 +285,9 @@ impl ProxyServer {
         self.connection
             .sender
             .send(Message::Response(response))
-            .map_err(|e| anyhow::anyhow!("发送 initialize 响应失败: {}", e))?;
+            .map_err(|e| {
+                anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_send_initialize", &[&e.to_string()]))
+            })?;
         Ok(())
     }
 
@@ -277,7 +305,7 @@ impl ProxyServer {
             while let Ok(msg) = receiver.recv() {
                 handle_analyzer_message(&msg, &mapper, &sender, &pending, &ra_sender);
             }
-            log::info!("rust-analyzer 转发线程已退出");
+            log::info!("{}", crate::ui::global().t("lsp_log_ra_thread_exit"));
         });
 
         Ok(())
@@ -289,7 +317,7 @@ impl ProxyServer {
             let msg = match self.connection.receiver.recv() {
                 Ok(msg) => msg,
                 Err(_) => {
-                    log::info!("客户端连接已断开");
+                    log::info!("{}", crate::ui::global().t("lsp_log_client_disconnected"));
                     break;
                 }
             };
@@ -297,7 +325,7 @@ impl ProxyServer {
             match msg {
                 Message::Request(req) => {
                     if req.method == "shutdown" {
-                        log::info!("收到 shutdown 请求");
+                        log::info!("{}", crate::ui::global().t("lsp_log_shutdown"));
                         let response = Response {
                             id: req.id,
                             result: Some(Value::Null),
@@ -319,7 +347,10 @@ impl ProxyServer {
 
     /// 处理客户端请求
     fn handle_client_request(&self, req: Request) -> anyhow::Result<()> {
-        log::debug!("客户端请求: {} id={:?}", req.method, req.id);
+        log::debug!(
+            "{}",
+            crate::ui::global().f("lsp_log_client_request", &[&req.method, &format!("{:?}", req.id)])
+        );
 
         match req.method.as_str() {
             "initialize" => Ok(()), // 已在握手中处理
@@ -340,7 +371,7 @@ impl ProxyServer {
 
     /// 处理客户端通知
     fn handle_client_notification(&self, notif: Notification) -> anyhow::Result<()> {
-        log::debug!("客户端通知: {}", notif.method);
+        log::debug!("{}", crate::ui::global().f("lsp_log_client_notification", &[&notif.method]));
 
         match notif.method.as_str() {
             "textDocument/didOpen" => self.handle_did_open(&notif.params),
@@ -383,6 +414,11 @@ impl ProxyServer {
         }
     }
 
+    /// 判断 URI 是否为受支持的方言文件
+    fn is_supported_file(&self, uri: &str) -> bool {
+        is_supported_file(uri, &self.supported_extensions)
+    }
+
     /// 处理文档打开
     fn handle_did_open(&self, params: &Value) -> anyhow::Result<()> {
         let doc = &params["textDocument"];
@@ -390,7 +426,7 @@ impl ProxyServer {
         let content = doc["text"].as_str().unwrap_or("");
         let version = doc["version"].as_i64().unwrap_or(1) as i32;
 
-        if !uri.ends_with(".zh") {
+        if !self.is_supported_file(uri) {
             return Ok(());
         }
 
@@ -432,7 +468,10 @@ impl ProxyServer {
             }
         });
         self.analyzer.send(&ra_msg)?;
-        log::info!("文档已打开并翻译: {} ({})", uri, version);
+        log::info!(
+            "{}",
+            crate::ui::global().f("lsp_log_doc_opened", &[uri, &version.to_string()])
+        );
         Ok(())
     }
 
@@ -442,28 +481,27 @@ impl ProxyServer {
         let uri = doc["uri"].as_str().unwrap_or("");
         let version = doc["version"].as_i64().unwrap_or(1) as i32;
 
-        if !uri.ends_with(".zh") {
+        if !self.is_supported_file(uri) {
             return Ok(());
         }
 
-        if let Some(changes_list) = params["contentChanges"].as_array() {
-            if let Some(last) = changes_list.last() {
-                if let Some(content) = last["text"].as_str() {
-                    let (entry, _) = self.cache.update_document(uri, content, version)?;
-                    let ra_msg = json!({
-                        "jsonrpc": "2.0",
-                        "method": "textDocument/didChange",
-                        "params": {
-                            "textDocument": {
-                                "uri": entry.virtual_uri,
-                                "version": version
-                            },
-                            "contentChanges": [{ "text": entry.en_content }]
-                        }
-                    });
-                    self.analyzer.send(&ra_msg)?;
+        if let Some(changes_list) = params["contentChanges"].as_array()
+            && let Some(last) = changes_list.last()
+            && let Some(content) = last["text"].as_str()
+        {
+            let (entry, _) = self.cache.update_document(uri, content, version)?;
+            let ra_msg = json!({
+                "jsonrpc": "2.0",
+                "method": "textDocument/didChange",
+                "params": {
+                    "textDocument": {
+                        "uri": entry.virtual_uri,
+                        "version": version
+                    },
+                    "contentChanges": [{ "text": entry.en_content }]
                 }
-            }
+            });
+            self.analyzer.send(&ra_msg)?;
         }
         Ok(())
     }
@@ -471,7 +509,7 @@ impl ProxyServer {
     /// 处理文档关闭
     fn handle_did_close(&self, params: &Value) -> anyhow::Result<()> {
         let uri = params["textDocument"]["uri"].as_str().unwrap_or("");
-        if !uri.ends_with(".zh") {
+        if !self.is_supported_file(uri) {
             return Ok(());
         }
 
@@ -513,7 +551,7 @@ impl ProxyServer {
     /// 处理文档保存
     fn handle_did_save(&self, params: &Value) -> anyhow::Result<()> {
         let uri = params["textDocument"]["uri"].as_str().unwrap_or("");
-        if !uri.ends_with(".zh") {
+        if !self.is_supported_file(uri) {
             return Ok(());
         }
 
@@ -590,7 +628,9 @@ impl ProxyServer {
         self.connection
             .sender
             .send(Message::Response(response))
-            .map_err(|e| anyhow::anyhow!("发送格式化响应失败: {}", e))?;
+            .map_err(|e| {
+                anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_send_format", &[&e.to_string()]))
+            })?;
         Ok(())
     }
 
@@ -613,7 +653,7 @@ impl ProxyServer {
             let mut pending = self
                 .pending_requests
                 .lock()
-                .map_err(|_| anyhow::anyhow!("待映射请求锁获取失败"))?;
+                .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_lock")))?;
             pending.insert(
                 ra_id,
                 PendingRequestInfo {
@@ -626,7 +666,7 @@ impl ProxyServer {
 
         // 替换 URI 为虚拟 URI，并转换请求中的位置
         let mut params = req.params.clone();
-        let entry = if original_uri.ends_with(".zh") {
+        let entry = if self.is_supported_file(&original_uri) {
             self.cache.query_original(&original_uri)
         } else {
             None
@@ -675,16 +715,16 @@ impl ProxyServer {
             }
 
             // 3. rename 的 newName：中文 → 英文（不在关键字映射中则保持原样）
-            if req.method == "textDocument/rename" {
-                if let Some(zh_name) = params.get("newName").and_then(|v| v.as_str()) {
-                    let en_name = self
-                        .cache
-                        .keyword_map()
-                        .get(zh_name)
-                        .cloned()
-                        .unwrap_or_else(|| zh_name.to_string());
-                    params["newName"] = Value::String(en_name);
-                }
+            if req.method == "textDocument/rename"
+                && let Some(zh_name) = params.get("newName").and_then(|v| v.as_str())
+            {
+                let en_name = self
+                    .cache
+                    .keyword_map()
+                    .get(zh_name)
+                    .cloned()
+                    .unwrap_or_else(|| zh_name.to_string());
+                params["newName"] = Value::String(en_name);
             }
         }
 
@@ -696,6 +736,11 @@ impl ProxyServer {
         });
         self.analyzer.send(&ra_msg)
     }
+}
+
+/// 判断 URI 是否以任一受支持的方言扩展名结尾
+fn is_supported_file(uri: &str, extensions: &[String]) -> bool {
+    extensions.iter().any(|ext| uri.ends_with(ext))
 }
 
 /// 调用系统 rustfmt 格式化英文代码
@@ -739,11 +784,7 @@ fn text_end_position(content: &str) -> Value {
 ///
 /// 当前翻译逐行替换关键字、行数保持不变（行映射为 1:1），
 /// 因此仅列号需要按列偏移映射转换。
-fn position_to_en(
-    cache: &TranslationCache,
-    entry: &TranslationEntry,
-    position: &Value,
-) -> Value {
+fn position_to_en(cache: &TranslationCache, entry: &TranslationEntry, position: &Value) -> Value {
     let line = position["line"].as_u64().unwrap_or(0) as u32;
     let col = position["character"].as_u64().unwrap_or(0) as u32;
     let en_col = cache.zh_col_to_en_col(&entry.virtual_uri, line, col);
@@ -751,20 +792,201 @@ fn position_to_en(
 }
 
 /// 将 LSP 范围（range）从母语坐标转换为英文坐标
-fn range_to_en(
-    cache: &TranslationCache,
-    entry: &TranslationEntry,
-    range: &Value,
-) -> Value {
+fn range_to_en(cache: &TranslationCache, entry: &TranslationEntry, range: &Value) -> Value {
     let start = position_to_en(cache, entry, &range["start"]);
     let end = position_to_en(cache, entry, &range["end"]);
     json!({ "start": start, "end": end })
+}
+
+/// 处理来自 rust-analyzer 的消息并转发给客户端
+fn handle_analyzer_message(
+    msg: &Value,
+    mapper: &Arc<ResponseMapper>,
+    sender: &crossbeam_channel::Sender<Message>,
+    pending: &Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
+    reply_sender: &crate::analyzer::Sender,
+) {
+    if let Some(id) = msg.get("id").and_then(|v| v.as_i64()) {
+        // 是响应
+        let original_info = {
+            let mut pending_map = match pending.lock() {
+                Ok(m) => m,
+                Err(_) => return,
+            };
+            pending_map.remove(&id)
+        };
+
+        if let Some(info) = original_info {
+            // rust-analyzer 返回错误时（如文件不存在），原样透传给客户端
+            if msg.get("error").is_some() {
+                let error_value = msg["error"].clone();
+                let response = Response {
+                    id: info.original_id,
+                    result: None,
+                    error: Some(lsp_server::ResponseError {
+                        code: error_value["code"].as_i64().unwrap_or(-32603) as i32,
+                        message: error_value["message"]
+                            .as_str()
+                            .map(String::from)
+                            .unwrap_or_else(|| crate::ui::global().t("lsp_internal_error")),
+                        data: error_value.get("data").cloned(),
+                    }),
+                };
+                let _ = sender.send(Message::Response(response));
+                return;
+            }
+
+            let result = msg.get("result").cloned().unwrap_or(Value::Null);
+            let mapped_result = match info.method.as_str() {
+                "textDocument/completion" => {
+                    mapper.map_completion_response(&result, &info.original_uri)
+                }
+                "textDocument/hover" => mapper.map_hover_response(&result, &info.original_uri),
+                "textDocument/definition" => mapper.map_definition_response(&result),
+                "textDocument/references" => mapper.map_references_response(&result),
+                "textDocument/documentSymbol" => {
+                    mapper.map_document_symbol_response(&result, &info.original_uri)
+                }
+                "textDocument/codeAction" => {
+                    mapper.map_code_action_response(&result, &info.original_uri)
+                }
+                "textDocument/rename" => mapper.map_rename_response(&result),
+                _ => result,
+            };
+
+            let response = Response {
+                id: info.original_id,
+                result: Some(mapped_result),
+                error: None,
+            };
+            let _ = sender.send(Message::Response(response));
+        } else if msg.get("method").and_then(|v| v.as_str()).is_some() {
+            // 待映射表中没有对应记录：这是 rust-analyzer 主动发来的请求
+            // （如 workspace/configuration、workspace/diagnostic/refresh）。
+            // 必须把响应回发给 rust-analyzer 本身，否则它会一直等待。
+            let response = json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "result": null
+            });
+            let _ = reply_sender.send(&response);
+        }
+    } else if let Some(method) = msg.get("method").and_then(|v| v.as_str()) {
+        // 是通知
+        match method {
+            "textDocument/publishDiagnostics" => {
+                if let Some(params) = msg.get("params") {
+                    // 只转发虚拟母语文件的诊断：
+                    // rust-analyzer 可能对其他项目文件发布诊断，
+                    // 这些与母语代码无关，不应发给客户端。
+                    let diag_uri = params["uri"].as_str().unwrap_or("");
+                    if !mapper.is_virtual_uri(diag_uri) {
+                        return;
+                    }
+                    let mapped = mapper.map_diagnostics(params);
+                    let notification = Notification {
+                        method: method.to_string(),
+                        params: mapped,
+                    };
+                    let _ = sender.send(Message::Notification(notification));
+                }
+            }
+            _ => {
+                let notification = Notification {
+                    method: method.to_string(),
+                    params: msg.get("params").cloned().unwrap_or(Value::Null),
+                };
+                let _ = sender.send(Message::Notification(notification));
+            }
+        }
+    }
+}
+
+/// 加载语言包
+fn load_language_pack(
+    lang_pack_path: &PathBuf,
+) -> anyhow::Result<(HashMap<String, String>, HashSet<String>)> {
+    let mappings_path = lang_pack_path.join("映射表");
+    if mappings_path.exists() {
+        match mapping_source::load_keyword_mapping(lang_pack_path) {
+            Ok(map) => return Ok((map, HashSet::new())),
+            Err(e) => log::warn!(
+                "{}",
+                crate::ui::global().f("lsp_log_mappings_fallback", &[&e.to_string()])
+            ),
+        }
+    }
+
+    let keywords_path = lang_pack_path.join("keywords.toml");
+    if keywords_path.exists() {
+        let manager =
+            i18n_rust_engine::mapping_manager::MappingManager::load_from_file(&keywords_path)
+                .map_err(|e| {
+                    anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_load_keywords", &[&e.to_string()]))
+                })?;
+        let macro_set = manager.get_macro_names();
+        return Ok((manager.keyword_map.clone(), macro_set));
+    }
+
+    log::warn!("{}", crate::ui::global().t("lsp_warn_builtin_fallback"));
+    Ok((
+        mapping_source::create_builtin_keyword_mapping(),
+        HashSet::new(),
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::{HashMap, HashSet};
+
+    /// 默认扩展名列表覆盖全部 11 个内置语言包，未知扩展名不匹配
+    #[test]
+    fn test_is_supported_file_defaults() {
+        let extensions: Vec<String> = DEFAULT_EXTENSIONS.iter().map(|s| s.to_string()).collect();
+        assert!(is_supported_file(
+            "file:///project/src/main.zh",
+            &extensions
+        ));
+        assert!(is_supported_file(
+            "file:///project/src/main.en",
+            &extensions
+        ));
+        assert!(is_supported_file(
+            "file:///project/src/main.de",
+            &extensions
+        ));
+        assert!(is_supported_file(
+            "file:///project/src/main.ru",
+            &extensions
+        ));
+        assert!(is_supported_file(
+            "file:///project/src/main.ja",
+            &extensions
+        ));
+        assert!(!is_supported_file(
+            "file:///project/src/main.rs",
+            &extensions
+        ));
+        assert!(!is_supported_file(
+            "file:///project/src/main.xyz",
+            &extensions
+        ));
+    }
+
+    /// 自定义扩展名列表生效
+    #[test]
+    fn test_is_supported_file_custom() {
+        let extensions = vec![".fr".to_string()];
+        assert!(is_supported_file(
+            "file:///project/src/main.fr",
+            &extensions
+        ));
+        assert!(!is_supported_file(
+            "file:///project/src/main.zh",
+            &extensions
+        ));
+    }
 
     fn create_test_cache() -> Arc<TranslationCache> {
         let map = HashMap::from([
@@ -773,7 +995,8 @@ mod tests {
             ("可变".into(), "mut".into()),
         ]);
         let temp = tempfile::tempdir().unwrap();
-        TranslationCache::new(map, HashSet::new(), temp.into_path())
+        let path = temp.keep();
+        TranslationCache::new(map, HashSet::new(), path)
     }
 
     #[test]
@@ -843,7 +1066,10 @@ mod tests {
         let en_name = cache.keyword_map().get("函数").cloned().unwrap();
         params["newName"] = Value::String(en_name);
 
-        assert_eq!(params["textDocument"]["uri"].as_str().unwrap(), entry.virtual_uri);
+        assert_eq!(
+            params["textDocument"]["uri"].as_str().unwrap(),
+            entry.virtual_uri
+        );
         assert_eq!(params["position"]["character"], 0);
         assert_eq!(params["newName"].as_str().unwrap(), "fn");
 
@@ -873,137 +1099,19 @@ mod tests {
         // 空文档
         assert_eq!(text_end_position(""), json!({ "line": 0, "character": 0 }));
         // 单行 ASCII
-        assert_eq!(text_end_position("ab"), json!({ "line": 0, "character": 2 }));
+        assert_eq!(
+            text_end_position("ab"),
+            json!({ "line": 0, "character": 2 })
+        );
         // 中文按 UTF-16 计数（4 个汉字 = 4 个单元）
         assert_eq!(
             text_end_position("行\n中文测试"),
             json!({ "line": 1, "character": 4 })
         );
         // 末尾换行：最后一行是空行
-        assert_eq!(text_end_position("行\n"), json!({ "line": 1, "character": 0 }));
+        assert_eq!(
+            text_end_position("行\n"),
+            json!({ "line": 1, "character": 0 })
+        );
     }
-}
-
-/// 处理来自 rust-analyzer 的消息并转发给客户端
-fn handle_analyzer_message(
-    msg: &Value,
-    mapper: &Arc<ResponseMapper>,
-    sender: &crossbeam_channel::Sender<Message>,
-    pending: &Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
-    reply_sender: &crate::analyzer::Sender,
-) {
-    if let Some(id) = msg.get("id").and_then(|v| v.as_i64()) {
-        // 是响应
-        let original_info = {
-            let mut pending_map = match pending.lock() {
-                Ok(m) => m,
-                Err(_) => return,
-            };
-            pending_map.remove(&id)
-        };
-
-        if let Some(info) = original_info {
-            // rust-analyzer 返回错误时（如文件不存在），原样透传给客户端
-            if msg.get("error").is_some() {
-                let error_value = msg["error"].clone();
-                let response = Response {
-                    id: info.original_id,
-                    result: None,
-                    error: Some(lsp_server::ResponseError {
-                        code: error_value["code"].as_i64().unwrap_or(-32603) as i32,
-                        message: error_value["message"]
-                            .as_str()
-                            .unwrap_or("内部错误")
-                            .to_string(),
-                        data: error_value.get("data").cloned(),
-                    }),
-                };
-                let _ = sender.send(Message::Response(response));
-                return;
-            }
-
-            let result = msg.get("result").cloned().unwrap_or(Value::Null);
-            let mapped_result = match info.method.as_str() {
-                "textDocument/completion" => mapper.map_completion_response(&result, &info.original_uri),
-                "textDocument/hover" => mapper.map_hover_response(&result, &info.original_uri),
-                "textDocument/definition" => mapper.map_definition_response(&result),
-                "textDocument/references" => mapper.map_references_response(&result),
-                "textDocument/documentSymbol" => {
-                    mapper.map_document_symbol_response(&result, &info.original_uri)
-                }
-                "textDocument/codeAction" => mapper.map_code_action_response(&result, &info.original_uri),
-                "textDocument/rename" => mapper.map_rename_response(&result),
-                _ => result,
-            };
-
-            let response = Response {
-                id: info.original_id,
-                result: Some(mapped_result),
-                error: None,
-            };
-            let _ = sender.send(Message::Response(response));
-        } else if msg.get("method").and_then(|v| v.as_str()).is_some() {
-            // 待映射表中没有对应记录：这是 rust-analyzer 主动发来的请求
-            // （如 workspace/configuration、workspace/diagnostic/refresh）。
-            // 必须把响应回发给 rust-analyzer 本身，否则它会一直等待。
-            let response = json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": null
-            });
-            let _ = reply_sender.send(&response);
-        }
-    } else if let Some(method) = msg.get("method").and_then(|v| v.as_str()) {
-        // 是通知
-        match method {
-            "textDocument/publishDiagnostics" => {
-                if let Some(params) = msg.get("params") {
-                    // 只转发虚拟母语文件的诊断：
-                    // rust-analyzer 可能对其他项目文件发布诊断，
-                    // 这些与母语代码无关，不应发给客户端。
-                    let diag_uri = params["uri"].as_str().unwrap_or("");
-                    if !mapper.is_virtual_uri(diag_uri) {
-                        return;
-                    }
-                    let mapped = mapper.map_diagnostics(params);
-                    let notification = Notification {
-                        method: method.to_string(),
-                        params: mapped,
-                    };
-                    let _ = sender.send(Message::Notification(notification));
-                }
-            }
-            _ => {
-                let notification = Notification {
-                    method: method.to_string(),
-                    params: msg.get("params").cloned().unwrap_or(Value::Null),
-                };
-                let _ = sender.send(Message::Notification(notification));
-            }
-        }
-    }
-}
-
-/// 加载语言包
-fn load_language_pack(
-    lang_pack_path: &PathBuf,
-) -> anyhow::Result<(HashMap<String, String>, HashSet<String>)> {
-    let mappings_path = lang_pack_path.join("映射表");
-    if mappings_path.exists() {
-        match mapping_source::load_keyword_mapping(lang_pack_path) {
-            Ok(map) => return Ok((map, HashSet::new())),
-            Err(e) => log::warn!("从映射表加载失败: {}, 使用备用", e),
-        }
-    }
-
-    let keywords_path = lang_pack_path.join("keywords.toml");
-    if keywords_path.exists() {
-        let manager = i18n_rust_engine::mapping_manager::MappingManager::load_from_file(&keywords_path)
-            .map_err(|e| anyhow::anyhow!("加载关键字失败: {}", e))?;
-        let macro_set = manager.get_macro_names();
-        return Ok((manager.keyword_map.clone(), macro_set));
-    }
-
-    log::warn!("未找到语言包文件，使用内置关键字映射");
-    Ok((mapping_source::create_builtin_keyword_mapping(), HashSet::new()))
 }

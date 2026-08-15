@@ -1,6 +1,6 @@
 //!
-//! 维护中文 .zh 源码与翻译后英文 .rs 代码的对应关系。
-//! 每当编辑器打开或修改 .zh 文件时，本模块将其翻译为英文，
+//! 维护方言源码（.zh/.en/.de 等）与翻译后英文 .rs 代码的对应关系。
+//! 每当编辑器打开或修改方言文件时，本模块将其翻译为英文，
 //! 并记录行级映射信息供后续位置还原使用。
 
 use std::collections::{HashMap, HashSet};
@@ -12,7 +12,7 @@ use i18n_rust_engine::lexer;
 /// 单个文档的翻译缓存条目
 #[derive(Debug, Clone)]
 pub struct TranslationEntry {
-    /// 原始 .zh 文件的 URI
+    /// 原始方言文件的 URI
     pub original_uri: String,
     /// 原始文件的磁盘路径
     pub original_path: PathBuf,
@@ -91,7 +91,7 @@ impl TranslationCache {
     /// 将中文内容翻译为英文，写入虚拟文件，并记录行映射。
     /// 返回 (当前条目, 其他因模块集合变化而被重写的条目)。
     ///
-    /// 模块集合 = 所有已打开 .zh 文件的文件名（不含扩展名）。
+    /// 模块集合 = 所有已打开方言文件的文件名（不含扩展名）。
     /// 打开新文件会新增模块，使其他文件的虚拟内容可能新增
     /// `crate::` 前缀，因此需要全量重写；纯内容更新则只重写当前条目。
     pub fn update_document(
@@ -133,7 +133,9 @@ impl TranslationCache {
             let mut table = self
                 .entries
                 .write()
-                .map_err(|_| anyhow::anyhow!("翻译缓存写锁获取失败"))?;
+                .map_err(|_| {
+                    anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock"))
+                })?;
             table.insert(
                 uri.to_string(),
                 TranslationEntry {
@@ -166,11 +168,21 @@ impl TranslationCache {
 
         let entry = self
             .query_original(uri)
-            .ok_or_else(|| anyhow::anyhow!("翻译条目不存在: {}", uri))?;
-        let other_changes: Vec<TranslationEntry> =
-            changes.into_iter().filter(|e| e.original_uri != uri).collect();
+            .ok_or_else(|| {
+                anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_entry_missing", &[uri]))
+            })?;
+        let other_changes: Vec<TranslationEntry> = changes
+            .into_iter()
+            .filter(|e| e.original_uri != uri)
+            .collect();
 
-        log::info!("翻译缓存已更新: {} ({} 行)", uri, content.lines().count());
+        log::info!(
+            "{}",
+            crate::ui::global().f(
+                "lsp_log_cache_updated",
+                &[uri, &content.lines().count().to_string()]
+            )
+        );
         Ok((entry, other_changes))
     }
 
@@ -182,10 +194,12 @@ impl TranslationCache {
             let mut table = self
                 .entries
                 .write()
-                .map_err(|_| anyhow::anyhow!("翻译缓存写锁获取失败"))?;
+                .map_err(|_| {
+                    anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock"))
+                })?;
             if let Some(entry) = table.remove(uri) {
                 let _ = std::fs::remove_file(&entry.virtual_path);
-                log::info!("翻译缓存已移除: {}", uri);
+                log::info!("{}", crate::ui::global().f("lsp_log_cache_removed", &[uri]));
             }
         }
 
@@ -225,26 +239,6 @@ impl TranslationCache {
         None
     }
 
-    /// 根据虚拟路径反查原始条目
-    pub fn query_by_virtual_path(&self, virtual_path: &Path) -> Option<TranslationEntry> {
-        let table = self.entries.read().ok()?;
-        for entry in table.values() {
-            if entry.virtual_path == virtual_path {
-                return Some(entry.clone());
-            }
-        }
-        None
-    }
-
-    /// 获取所有虚拟文件路径
-    pub fn all_virtual_paths(&self) -> Vec<PathBuf> {
-        let table = match self.entries.read() {
-            Ok(t) => t,
-            Err(_) => return Vec::new(),
-        };
-        table.values().map(|e| e.virtual_path.clone()).collect()
-    }
-
     /// 获取关键字映射的引用
     pub fn keyword_map(&self) -> &HashMap<String, String> {
         &self.keyword_map
@@ -254,7 +248,9 @@ impl TranslationCache {
     ///
     /// 接受虚拟 URI 或原始 URI（先查虚拟，再查原始）。
     pub fn en_col_to_zh_col(&self, uri: &str, line: u32, en_col: u32) -> u32 {
-        let entry = self.query_by_virtual_uri(uri).or_else(|| self.query_original(uri));
+        let entry = self
+            .query_by_virtual_uri(uri)
+            .or_else(|| self.query_original(uri));
         if let Some(entry) = entry {
             en_col_to_zh_col_single(&entry, line, en_col)
         } else {
@@ -266,17 +262,14 @@ impl TranslationCache {
     ///
     /// 接受原始 URI 或虚拟 URI（先查虚拟，再查原始）。
     pub fn zh_col_to_en_col(&self, uri: &str, line: u32, zh_col: u32) -> u32 {
-        let entry = self.query_by_virtual_uri(uri).or_else(|| self.query_original(uri));
+        let entry = self
+            .query_by_virtual_uri(uri)
+            .or_else(|| self.query_original(uri));
         if let Some(entry) = entry {
             zh_col_to_en_col_single(&entry, line, zh_col)
         } else {
             zh_col
         }
-    }
-
-    /// 获取宏名称集合的引用
-    pub fn macro_names(&self) -> &HashSet<String> {
-        &self.macro_names
     }
 
     /// 将英文（虚拟文件）内容反向翻译为母语内容
@@ -301,10 +294,10 @@ impl TranslationCache {
     /// `extra_path` 用于在插入缓存前把新文件的模块名一并计入。
     fn current_module_names(&self, extra_path: Option<&PathBuf>) -> HashSet<String> {
         let mut names = HashSet::new();
-        if let Some(path) = extra_path {
-            if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
-                names.insert(name.to_string());
-            }
+        if let Some(path) = extra_path
+            && let Some(name) = path.file_stem().and_then(|s| s.to_str())
+        {
+            names.insert(name.to_string());
         }
         if let Ok(table) = self.entries.read() {
             for entry in table.values() {
@@ -319,11 +312,7 @@ impl TranslationCache {
     /// 重写单个条目的虚拟内容：翻译 + 模块路径加 `crate::` 前缀 + 重建列映射 + 写盘
     ///
     /// 内容未发生变化（模块集合未引入新前缀）时返回 None。
-    fn rewrite_entry(
-        &self,
-        uri: &str,
-        module_names: &HashSet<String>,
-    ) -> Option<TranslationEntry> {
+    fn rewrite_entry(&self, uri: &str, module_names: &HashSet<String>) -> Option<TranslationEntry> {
         let old_entry = self.query_original(uri)?;
         let en_content = lexer::transpile_source_with_macros(
             &old_entry.zh_content,
@@ -401,13 +390,14 @@ impl TranslationCache {
         let _ = std::fs::write(self.temp_dir.join("Cargo.toml"), cargo_content);
 
         // src/lib.rs：以 #[path] 属性按模块名聚合所有虚拟文件
-        let mut lib_content = String::from("// 由 i18n-rust LSP 代理自动生成，请勿手动修改。\n");
+        let mut lib_content = format!("{}\n", crate::ui::global().t("lsp_gen_lib_comment"));
         for entry in table.values() {
             let module_name = entry
                 .original_path
                 .file_stem()
                 .and_then(|s| s.to_str())
-                .unwrap_or("模块");
+                .map(String::from)
+                .unwrap_or_else(|| crate::ui::global().t("lsp_gen_module_fallback"));
             let file_name = entry
                 .virtual_path
                 .file_name()
@@ -442,12 +432,13 @@ fn url_decode(uri: &str) -> String {
     let mut result = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let (Some(high), Some(low)) = (hex_value(bytes[i + 1]), hex_value(bytes[i + 2])) {
-                result.push(high * 16 + low);
-                i += 3;
-                continue;
-            }
+        if bytes[i] == b'%'
+            && i + 2 < bytes.len()
+            && let (Some(high), Some(low)) = (hex_value(bytes[i + 1]), hex_value(bytes[i + 2]))
+        {
+            result.push(high * 16 + low);
+            i += 3;
+            continue;
         }
         result.push(bytes[i]);
         i += 1;
@@ -540,11 +531,10 @@ fn rewrite_module_paths(content: &str, module_names: &HashSet<String>) -> String
     let is_whitespace = |k: TokenKind| {
         matches!(
             k,
-            TokenKind::Whitespace | TokenKind::LineComment { .. } | TokenKind::BlockComment { .. }
+            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
         )
     };
-    let is_ident =
-        |k: TokenKind| matches!(k, TokenKind::Ident { .. } | TokenKind::RawIdent { .. });
+    let is_ident = |k: TokenKind| matches!(k, TokenKind::Ident | TokenKind::RawIdent);
 
     let mut output = String::with_capacity(content.len() + module_names.len() * 8);
     let mut offset = 0usize;
@@ -562,11 +552,7 @@ fn rewrite_module_paths(content: &str, module_names: &HashSet<String>) -> String
         // 模块路径段：标识符属于已知模块名、后跟 `::`、且不在既有路径段之后
         // （`crate::辅助`、`a::辅助` 中的 `辅助` 已处于路径内，跳过）
         let needs_prefix = is_ident(token.kind) && {
-            let raw_name = if text.starts_with("r#") {
-                &text[2..]
-            } else {
-                text
-            };
+            let raw_name = text.strip_prefix("r#").unwrap_or(text);
             module_names.contains(raw_name)
                 && is_path_separator_after(&tokens, i)
                 && !is_path_separator_before(&tokens, i)
@@ -587,15 +573,15 @@ fn is_path_separator_after(tokens: &[rustc_lexer::Token], current: usize) -> boo
     let is_whitespace = |k: TokenKind| {
         matches!(
             k,
-            TokenKind::Whitespace | TokenKind::LineComment { .. } | TokenKind::BlockComment { .. }
+            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
         )
     };
     let mut colon_count = 0;
-    for j in (current + 1)..tokens.len() {
-        if is_whitespace(tokens[j].kind) {
+    for token in &tokens[(current + 1)..] {
+        if is_whitespace(token.kind) {
             continue;
         }
-        if matches!(tokens[j].kind, TokenKind::Colon) {
+        if matches!(token.kind, TokenKind::Colon) {
             colon_count += 1;
             if colon_count >= 2 {
                 return true;
@@ -613,15 +599,15 @@ fn is_path_separator_before(tokens: &[rustc_lexer::Token], current: usize) -> bo
     let is_whitespace = |k: TokenKind| {
         matches!(
             k,
-            TokenKind::Whitespace | TokenKind::LineComment { .. } | TokenKind::BlockComment { .. }
+            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
         )
     };
     let mut colon_count = 0;
-    for j in (0..current).rev() {
-        if is_whitespace(tokens[j].kind) {
+    for token in tokens[..current].iter().rev() {
+        if is_whitespace(token.kind) {
             continue;
         }
-        if matches!(tokens[j].kind, TokenKind::Colon) {
+        if matches!(token.kind, TokenKind::Colon) {
             colon_count += 1;
             if colon_count >= 2 {
                 return true;
@@ -669,11 +655,10 @@ fn build_column_map(
     let is_whitespace = |k: TokenKind| {
         matches!(
             k,
-            TokenKind::Whitespace | TokenKind::LineComment { .. } | TokenKind::BlockComment { .. }
+            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
         )
     };
-    let is_ident =
-        |k: TokenKind| matches!(k, TokenKind::Ident { .. } | TokenKind::RawIdent { .. });
+    let is_ident = |k: TokenKind| matches!(k, TokenKind::Ident | TokenKind::RawIdent);
 
     for i in 0..zh_tokens.len() {
         let token = &zh_tokens[i];
@@ -702,11 +687,7 @@ fn build_column_map(
         }
 
         if is_ident(token.kind) {
-            let raw_name = if token_text.starts_with("r#") {
-                &token_text[2..]
-            } else {
-                token_text
-            };
+            let raw_name = token_text.strip_prefix("r#").unwrap_or(token_text);
             let zh_len: u32 = token_text.chars().map(|c| c.len_utf16() as u32).sum();
 
             // 检查是否为宏名（后跟开括号）
@@ -764,11 +745,14 @@ fn build_column_map(
             .map(|p| p.offset_diff)
             .unwrap_or(0);
         if cumulative_diff != last_diff {
-            per_line_map.last_mut().unwrap().push(ColumnMapPoint {
-                en_col,
-                zh_col,
-                offset_diff: cumulative_diff,
-            });
+            // 当前行映射必然存在（每行起点已入表）；防御性判断避免 panic
+            if let Some(row) = per_line_map.last_mut() {
+                row.push(ColumnMapPoint {
+                    en_col,
+                    zh_col,
+                    offset_diff: cumulative_diff,
+                });
+            }
         }
     }
 
@@ -781,15 +765,15 @@ fn is_open_paren_after(tokens: &[rustc_lexer::Token], current: usize) -> bool {
     let is_whitespace = |k: TokenKind| {
         matches!(
             k,
-            TokenKind::Whitespace | TokenKind::LineComment { .. } | TokenKind::BlockComment { .. }
+            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
         )
     };
-    for j in (current + 1)..tokens.len() {
-        if is_whitespace(tokens[j].kind) {
+    for token in &tokens[(current + 1)..] {
+        if is_whitespace(token.kind) {
             continue;
         }
         return matches!(
-            tokens[j].kind,
+            token.kind,
             TokenKind::OpenParen | TokenKind::OpenBracket | TokenKind::OpenBrace
         );
     }

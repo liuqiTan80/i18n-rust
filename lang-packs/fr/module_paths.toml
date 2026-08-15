@@ -1,0 +1,11 @@
+# i18n-rust correspondance des chemins de modules (français)
+["模块路径"]
+"standard" = "std"
+"entree_sortie" = "io"
+"collections" = "collections"
+"chaine" = "string"
+"reseau" = "net"
+"systeme_fichiers" = "fs"
+"fil" = "thread"
+"hasard" = "rand"
+"serialisation" = "serde"

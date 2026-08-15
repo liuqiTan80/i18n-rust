@@ -93,6 +93,8 @@ pub struct LangInfo {
     pub extension: Option<String>,
     /// 版本号；旧语言包无 lang_info.toml 时为 None
     pub version: Option<String>,
+    /// 语言显示名称（来自 lang_info.toml；旧语言包为 None）
+    pub display_name: Option<String>,
 }
 
 /// 语言包元数据（来自 lang_info.toml）
@@ -118,12 +120,11 @@ pub struct LangMetadata {
 /// 兼容用户手写的裸键写法：标准解析失败时回退手工解析。
 fn parse_lang_info(content: &str) -> Option<LangMetadata> {
     // 1. 标准 TOML 解析：兼容引号包裹的键
-    if let Ok(value) = toml::from_str::<toml::Value>(content) {
-        if let Some(table) = value.get("语言包") {
-            if let Some(metadata) = extract_from_table(table) {
-                return Some(metadata);
-            }
-        }
+    if let Ok(value) = toml::from_str::<toml::Value>(content)
+        && let Some(table) = value.get("语言包")
+        && let Some(metadata) = extract_from_table(table)
+    {
+        return Some(metadata);
     }
     // 2. 回退手工解析：兼容中文裸键的用户示例写法
     manual_parse(content)
@@ -204,7 +205,8 @@ pub fn read_lang_info(dir: &Path) -> Option<LangMetadata> {
 
 /// 获取内置语言包的元数据（来自嵌入可执行文件的 lang_info.toml）
 pub fn get_builtin_metadata(lang_code: &str) -> Option<LangMetadata> {
-    let data = crate::builtin_lang::get_builtin_data(lang_code)?;
+    // 内置代码列表内的语言必然存在；未知代码回退到中文不影响元数据查询
+    let data = crate::builtin_lang::get_builtin_data(lang_code);
     parse_lang_info(data.lang_info_toml)
 }
 
@@ -212,10 +214,10 @@ pub fn get_builtin_metadata(lang_code: &str) -> Option<LangMetadata> {
 ///
 /// 优先使用 `RZ_LANG_DIR` 环境变量，否则默认 `~/.rz/lang-packs/`。
 pub fn global_lang_dir() -> PathBuf {
-    if let Ok(dir) = std::env::var("RZ_LANG_DIR") {
-        if !dir.is_empty() {
-            return PathBuf::from(dir);
-        }
+    if let Ok(dir) = std::env::var("RZ_LANG_DIR")
+        && !dir.is_empty()
+    {
+        return PathBuf::from(dir);
     }
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
     PathBuf::from(home).join(".rz").join("lang-packs")
@@ -237,7 +239,8 @@ pub fn list_langs() -> Vec<LangInfo> {
                     .as_ref()
                     .map(|m| m.extension.clone())
                     .or_else(|| static_code_to_extension(code)),
-                version: metadata.map(|m| m.version.clone()),
+                version: metadata.as_ref().map(|m| m.version.clone()),
+                display_name: metadata.map(|m| m.name.clone()),
             }
         })
         .collect();
@@ -248,10 +251,11 @@ pub fn list_langs() -> Vec<LangInfo> {
     if let Ok(entries) = fs::read_dir(&root_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_dir() && path.join("keywords.toml").is_file() {
-                if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
-                    user_installed.push((name.to_string(), read_lang_info(&path)));
-                }
+            if path.is_dir()
+                && path.join("keywords.toml").is_file()
+                && let Some(name) = path.file_name().and_then(|s| s.to_str())
+            {
+                user_installed.push((name.to_string(), read_lang_info(&path)));
             }
         }
     }
@@ -262,7 +266,8 @@ pub fn list_langs() -> Vec<LangInfo> {
                 .as_ref()
                 .map(|m| m.extension.clone())
                 .or_else(|| static_code_to_extension(&code)),
-            version: metadata.map(|m| m.version.clone()),
+            version: metadata.as_ref().map(|m| m.version.clone()),
+            display_name: metadata.map(|m| m.name.clone()),
             lang_code: code,
             source: Source::UserInstalled,
         });
@@ -356,7 +361,15 @@ pub fn install_lang(source: &str, force: bool) -> anyhow::Result<()> {
         let lang_code = source_path
             .file_name()
             .and_then(|s| s.to_str())
-            .ok_or_else(|| anyhow::anyhow!("无法从路径确定语言代码：{}", source_path.display()))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "{}",
+                    crate::ui::Ui::global().f(
+                        "lc_err_lang_code_from_path",
+                        &[&source_path.display().to_string()]
+                    )
+                )
+            })?;
         return copy_to_global_dir(&source_path, lang_code, force);
     }
     install_remote_lang(source, force)
@@ -366,34 +379,32 @@ pub fn install_lang(source: &str, force: bool) -> anyhow::Result<()> {
 ///
 /// 内置语言包不可删除；同名用户安装包存在时优先删除用户安装的。
 pub fn remove_lang(lang_code: &str) -> anyhow::Result<()> {
+    let ui = crate::ui::Ui::global();
     let target_dir = global_lang_dir().join(lang_code);
     if target_dir.is_dir() {
         fs::remove_dir_all(&target_dir)?;
-        println!("✅ 语言包 '{}' 已删除。", lang_code);
+        println!("{}", ui.f("lang_removed", &[lang_code]));
         return Ok(());
     }
 
-    if crate::builtin_lang::builtin_lang_codes()
-        .iter()
-        .any(|code| *code == lang_code)
-    {
-        anyhow::bail!("语言包 '{}' 是内置语言包，不可删除。", lang_code);
+    if crate::builtin_lang::builtin_lang_codes().contains(&lang_code) {
+        anyhow::bail!("{}", ui.f("lang_builtin_not_removable", &[lang_code]));
     }
 
     anyhow::bail!(
-        "语言包 '{}' 不存在（{}）。可用 `rzc lang list` 查看已安装的语言包。",
-        lang_code,
-        target_dir.display()
+        "{}",
+        ui.f(
+            "lang_not_found",
+            &[lang_code, &target_dir.display().to_string()]
+        )
     );
 }
 
 /// 从远程仓库安装语言包
 fn install_remote_lang(lang_code: &str, force: bool) -> anyhow::Result<()> {
+    let ui = crate::ui::Ui::global();
     if !validate_lang_code(lang_code) {
-        anyhow::bail!(
-            "无效的语言代码 '{}'：应为仓库内目录名。",
-            lang_code
-        );
+        anyhow::bail!("{}", ui.f("invalid_lang_code", &[lang_code]));
     }
     let sources = collect_sources();
     let temp = TempDir::new()?;
@@ -411,14 +422,25 @@ fn try_all_sources(
     for (index, source) in sources.iter().enumerate() {
         match try_single_source(lang_code, source, temp, force) {
             Ok(()) => return Ok(()),
-            Err(err) => error_details.push(format!("源{}（{}）：{}", index + 1, source.git_url, err)),
+            Err(err) => {
+                error_details.push(crate::ui::Ui::global().f(
+                    "lc_err_source_detail",
+                    &[&(index + 1).to_string(), &source.git_url, &err.to_string()],
+                ))
+            }
         }
     }
+    let ui = crate::ui::Ui::global();
     anyhow::bail!(
-        "远程安装语言包 '{}' 失败，已依次尝试 {} 个源：\n{}\n请检查网络连接；或通过环境变量 RZ_LANG_REPO 指定自定义仓库地址。",
-        lang_code,
-        sources.len(),
-        error_details.join("\n")
+        "{}",
+        ui.f(
+            "remote_install_failed",
+            &[
+                lang_code,
+                &sources.len().to_string(),
+                &error_details.join("\n"),
+            ]
+        )
     )
 }
 
@@ -441,7 +463,7 @@ fn try_single_source(
         .output();
     match git_result {
         Ok(output) if output.status.success() => {
-            return install_from_repo_dir(lang_code, &clone_dir, force);
+            install_from_repo_dir(lang_code, &clone_dir, force)
         }
         Ok(output) => {
             let git_error = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -451,7 +473,13 @@ fn try_single_source(
                     if git_error.is_empty() {
                         Err(curl_error)
                     } else {
-                        anyhow::bail!("git clone 错误：{}\ncurl 下载错误：{}", git_error, curl_error)
+                        anyhow::bail!(
+                            "{}",
+                            crate::ui::Ui::global().f(
+                                "lc_err_git_curl_both",
+                                &[&git_error, &curl_error.to_string()]
+                            )
+                        )
                     }
                 }
             }
@@ -460,23 +488,20 @@ fn try_single_source(
             if err.kind() == std::io::ErrorKind::NotFound {
                 return try_curl_install(lang_code, &source.zip_url, temp, force);
             }
-            Err(anyhow::anyhow!("执行 git 失败：{}", err))
+            Err(anyhow::anyhow!(
+                "{}",
+                crate::ui::Ui::global().f("lc_err_git_run", &[&err.to_string()])
+            ))
         }
     }
 }
 
 /// 从仓库目录安装指定语言包
-fn install_from_repo_dir(
-    lang_code: &str,
-    repo_dir: &Path,
-    force: bool,
-) -> anyhow::Result<()> {
+fn install_from_repo_dir(lang_code: &str, repo_dir: &Path, force: bool) -> anyhow::Result<()> {
     let lang_source = repo_dir.join(lang_code);
     if !lang_source.is_dir() {
-        anyhow::bail!(
-            "远程仓库中不存在语言包 '{}'。请检查语言代码，或使用 `rzc lang list` 查看已安装的语言包。",
-            lang_code
-        );
+        let ui = crate::ui::Ui::global();
+        anyhow::bail!("{}", ui.f("remote_lang_not_found", &[lang_code]));
     }
     validate_lang_pack_dir(&lang_source)?;
     copy_to_global_dir(&lang_source, lang_code, force)
@@ -499,18 +524,27 @@ fn try_curl_install(
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .output()
-        .map_err(|e| anyhow::anyhow!("执行 curl 失败：{}（需要安装 git 或 curl 之一）", e))?;
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "{}",
+                crate::ui::Ui::global().f("lc_err_curl_run", &[&e.to_string()])
+            )
+        })?;
     if !output.status.success() {
         let detail = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("curl 下载失败（{}）：{}", zip_url, detail.trim());
+        anyhow::bail!(
+            "{}",
+            crate::ui::Ui::global().f(
+                "lc_err_curl_download",
+                &[zip_url, &detail.trim().to_string()]
+            )
+        );
     }
     let extract_dir = temp.path().join("extracted");
     extract_zip(&download_path, &extract_dir)?;
     let lang_source = find_lang_in_extracted(&extract_dir, lang_code).ok_or_else(|| {
-        anyhow::anyhow!(
-            "远程仓库中不存在语言包 '{}'。请检查语言代码，或使用 `rzc lang list` 查看已安装的语言包。",
-            lang_code
-        )
+        let ui = crate::ui::Ui::global();
+        anyhow::anyhow!("{}", ui.f("remote_lang_not_found", &[lang_code]))
     })?;
     validate_lang_pack_dir(&lang_source)?;
     copy_to_global_dir(&lang_source, lang_code, force)
@@ -520,14 +554,28 @@ fn try_curl_install(
 ///
 /// 拒绝含 `..` 路径段的条目，防止路径穿越。
 fn extract_zip(archive_path: &Path, extract_dir: &Path) -> anyhow::Result<()> {
-    let file = fs::File::open(archive_path)
-        .map_err(|e| anyhow::anyhow!("无法打开压缩包 {}：{}", archive_path.display(), e))?;
-    let mut archive =
-        zip::ZipArchive::new(file).map_err(|e| anyhow::anyhow!("读取压缩包失败：{}", e))?;
+    let file = fs::File::open(archive_path).map_err(|e| {
+        anyhow::anyhow!(
+            "{}",
+            crate::ui::Ui::global().f(
+                "lc_err_open_zip",
+                &[&archive_path.display().to_string(), &e.to_string()]
+            )
+        )
+    })?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| {
+        anyhow::anyhow!(
+            "{}",
+            crate::ui::Ui::global().f("lc_err_read_zip", &[&e.to_string()])
+        )
+    })?;
     for i in 0..archive.len() {
-        let mut entry = archive
-            .by_index(i)
-            .map_err(|e| anyhow::anyhow!("读取压缩包条目失败：{}", e))?;
+        let mut entry = archive.by_index(i).map_err(|e| {
+            anyhow::anyhow!(
+                "{}",
+                crate::ui::Ui::global().f("lc_err_read_zip_entry", &[&e.to_string()])
+            )
+        })?;
         let name = entry.name().replace('\\', "/");
         if name.starts_with('/') || name.split('/').any(|seg| seg == "..") {
             continue;
@@ -539,8 +587,15 @@ fn extract_zip(archive_path: &Path, extract_dir: &Path) -> anyhow::Result<()> {
             if let Some(parent) = target.parent() {
                 fs::create_dir_all(parent)?;
             }
-            let mut file = fs::File::create(&target)
-                .map_err(|e| anyhow::anyhow!("写入 {} 失败：{}", target.display(), e))?;
+            let mut file = fs::File::create(&target).map_err(|e| {
+                anyhow::anyhow!(
+                    "{}",
+                    crate::ui::Ui::global().f(
+                        "lc_err_write_file",
+                        &[&target.display().to_string(), &e.to_string()]
+                    )
+                )
+            })?;
             std::io::copy(&mut entry, &mut file)?;
         }
     }
@@ -567,33 +622,34 @@ fn find_lang_in_extracted(extract_dir: &Path, lang_code: &str) -> Option<PathBuf
 
 /// 将源语言包目录复制到全局目录
 fn copy_to_global_dir(source_dir: &Path, lang_code: &str, force: bool) -> anyhow::Result<()> {
+    let ui = crate::ui::Ui::global();
     let target_dir = global_lang_dir().join(lang_code);
     if target_dir.exists() {
         if !force {
             anyhow::bail!(
-                "语言包 '{}' 已安装（{}）。如需覆盖，请使用 `rzc lang install {} --force`。",
-                lang_code,
-                target_dir.display(),
-                lang_code
+                "{}",
+                ui.f(
+                    "lang_already_installed",
+                    &[lang_code, &target_dir.display().to_string(), lang_code]
+                )
             );
         }
         fs::remove_dir_all(&target_dir)?;
     }
     copy_dir_recursive(source_dir, &target_dir)?;
-    println!("✅ 语言包 '{}' 安装成功：{}", lang_code, target_dir.display());
     println!(
-        "   现在可通过 `rzc run/check 文件.<扩展名>` 直接使用。"
+        "{}",
+        ui.f("lang_installed", &[lang_code, &target_dir.display().to_string()])
     );
+    println!("{}", ui.t("lang_install_hint"));
     Ok(())
 }
 
 /// 校验语言包目录结构：必须包含 keywords.toml
 fn validate_lang_pack_dir(path: &Path) -> anyhow::Result<()> {
     if !path.join("keywords.toml").is_file() {
-        anyhow::bail!(
-            "无效的语言包目录：{} 下缺少 keywords.toml。",
-            path.display()
-        );
+        let ui = crate::ui::Ui::global();
+        anyhow::bail!("{}", ui.f("invalid_lang_dir", &[&path.display().to_string()]));
     }
     Ok(())
 }
@@ -628,7 +684,8 @@ impl TempDir {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
-        let path = std::env::temp_dir().join(format!("rzc-lang-{}-{}", std::process::id(), timestamp));
+        let path =
+            std::env::temp_dir().join(format!("rzc-lang-{}-{}", std::process::id(), timestamp));
         fs::create_dir_all(&path)?;
         Ok(Self(path))
     }
@@ -728,7 +785,9 @@ mod tests {
         install_from_repo_dir("俄语", repo, true).unwrap();
         assert!(global_lang_dir().join("俄语/keywords.toml").is_file());
 
-        unsafe { std::env::remove_var("RZ_LANG_DIR"); }
+        unsafe {
+            std::env::remove_var("RZ_LANG_DIR");
+        }
     }
 
     #[test]
@@ -741,15 +800,27 @@ mod tests {
         let file = fs::File::create(&zip_path).unwrap();
         let mut writer = zip::ZipWriter::new(file);
         let options = zip::write::SimpleFileOptions::default();
-        writer.start_file("language-packs-main/中文/keywords.toml", options).unwrap();
-        writer.write_all("[\"声明\"]\n\"函数\" = \"fn\"\n".as_bytes()).unwrap();
-        writer.start_file("language-packs-main/中文/errors.toml", options).unwrap();
-        writer.write_all("[示例]\n\"a\" = \"b\"\n".as_bytes()).unwrap();
+        writer
+            .start_file("language-packs-main/中文/keywords.toml", options)
+            .unwrap();
+        writer
+            .write_all("[\"声明\"]\n\"函数\" = \"fn\"\n".as_bytes())
+            .unwrap();
+        writer
+            .start_file("language-packs-main/中文/errors.toml", options)
+            .unwrap();
+        writer
+            .write_all("[示例]\n\"a\" = \"b\"\n".as_bytes())
+            .unwrap();
         writer.finish().unwrap();
 
         let extract_dir = temp_root.path().join("extracted");
         extract_zip(&zip_path, &extract_dir).unwrap();
-        assert!(extract_dir.join("language-packs-main/中文/keywords.toml").is_file());
+        assert!(
+            extract_dir
+                .join("language-packs-main/中文/keywords.toml")
+                .is_file()
+        );
 
         let zh = find_lang_in_extracted(&extract_dir, "中文").expect("应找到中文");
         assert!(zh.join("keywords.toml").is_file());
@@ -771,7 +842,8 @@ mod tests {
     fn test_parse_lang_info() {
         let metadata = parse_lang_info(
             "[\"语言包\"]\n\"名称\" = \"俄语\"\n\"扩展名\" = \"ru\"\n\"版本\" = \"1.0\"\n",
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(metadata.name, "俄语");
         assert_eq!(metadata.extension, "ru");
         assert_eq!(metadata.version, "1.0");
@@ -798,12 +870,18 @@ mod tests {
 
         assert_eq!(query_extension_map("ja").as_deref(), Some("日语"));
         let list = list_langs();
-        let japanese = list.iter().find(|info| info.lang_code == "日语").expect("日语应被列出");
+        let japanese = list
+            .iter()
+            .find(|info| info.lang_code == "日语")
+            .expect("日语应被列出");
         assert_eq!(japanese.extension.as_deref(), Some("ja"));
         assert!(japanese.version.is_none());
 
         assert_eq!(query_extension_map("zh").as_deref(), Some("zh"));
-        let chinese = list.iter().find(|info| info.lang_code == "zh").expect("zh应被列出");
+        let chinese = list
+            .iter()
+            .find(|info| info.lang_code == "zh")
+            .expect("zh应被列出");
         assert_eq!(chinese.extension.as_deref(), Some("zh"));
         assert_eq!(chinese.version.as_deref(), Some("1.0"));
 
@@ -811,15 +889,24 @@ mod tests {
         fs::write(
             temp_root.path().join("global/日语/lang_info.toml"),
             "[语言包]\n名称 = \"日语\"\n扩展名 = \"ja\"\n版本 = \"2.1\"\n",
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(query_extension_map("ja").as_deref(), Some("日语"));
         let list = list_langs();
-        let japanese = list.iter().find(|info| info.lang_code == "日语").expect("日语应被列出");
+        let japanese = list
+            .iter()
+            .find(|info| info.lang_code == "日语")
+            .expect("日语应被列出");
         assert_eq!(japanese.version.as_deref(), Some("2.1"));
 
-        assert_eq!(static_extension_map().get("ru").map(String::as_str), Some("俄语"));
+        assert_eq!(
+            static_extension_map().get("ru").map(String::as_str),
+            Some("俄语")
+        );
 
-        unsafe { std::env::remove_var("RZ_LANG_DIR"); }
+        unsafe {
+            std::env::remove_var("RZ_LANG_DIR");
+        }
     }
 
     #[test]
@@ -830,14 +917,26 @@ mod tests {
 
         let gitcode = RepoSource::from_url("https://gitcode.com/用户名/zrRust");
         assert_eq!(gitcode.git_url, "https://gitcode.com/用户名/zrRust");
-        assert_eq!(gitcode.zip_url, "https://gitcode.com/用户名/zrRust/repository/archive/master.zip");
+        assert_eq!(
+            gitcode.zip_url,
+            "https://gitcode.com/用户名/zrRust/repository/archive/master.zip"
+        );
 
         let github = RepoSource::from_url("https://github.com/用户名/zrRust");
-        assert_eq!(github.zip_url, "https://github.com/用户名/zrRust/archive/refs/heads/main.zip");
+        assert_eq!(
+            github.zip_url,
+            "https://github.com/用户名/zrRust/archive/refs/heads/main.zip"
+        );
 
         let local = RepoSource::from_url("http://127.0.0.1:18080/语言包");
-        assert_eq!(local.zip_url, "http://127.0.0.1:18080/语言包/archive/refs/heads/main.zip");
-        assert_eq!(RepoSource::from_url("https://github.com/用户名/zrRust/").git_url, "https://github.com/用户名/zrRust");
+        assert_eq!(
+            local.zip_url,
+            "http://127.0.0.1:18080/语言包/archive/refs/heads/main.zip"
+        );
+        assert_eq!(
+            RepoSource::from_url("https://github.com/用户名/zrRust/").git_url,
+            "https://github.com/用户名/zrRust"
+        );
     }
 
     #[test]
@@ -863,7 +962,11 @@ mod tests {
         let backup_repo = temp_root.path().join("lang_repo");
         fs::create_dir_all(&backup_repo).unwrap();
         make_temp_lang_pack(&backup_repo, "中文");
-        for args in [&["init", "-b", "main"][..], &["add", "."][..], &["commit", "-m", "init"][..]] {
+        for args in [
+            &["init", "-b", "main"][..],
+            &["add", "."][..],
+            &["commit", "-m", "init"][..],
+        ] {
             let result = Command::new("git")
                 .args(args)
                 .current_dir(&backup_repo)
@@ -880,31 +983,62 @@ mod tests {
 
         let primary = RepoSource::from_url("file:///不存在的仓库路径");
         let backup = RepoSource::from_url(backup_repo.to_str().unwrap());
-        unsafe { std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global")); }
+        unsafe {
+            std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));
+        }
 
         let temp = TempDir::new().unwrap();
         let result = try_all_sources("中文", &[primary, backup], &temp, false);
-        assert!(result.is_ok(), "首选源失败后应自动回退备用源：{}", result.err().map(|e| e.to_string()).unwrap_or_default());
+        assert!(
+            result.is_ok(),
+            "首选源失败后应自动回退备用源：{}",
+            result.err().map(|e| e.to_string()).unwrap_or_default()
+        );
         assert!(global_lang_dir().join("中文/keywords.toml").is_file());
 
-        unsafe { std::env::remove_var("RZ_LANG_DIR"); }
+        unsafe {
+            std::env::remove_var("RZ_LANG_DIR");
+        }
     }
 
     #[test]
     fn test_all_sources_failed_error_message() {
         let _lock = ENV_LOCK.lock().unwrap();
         let temp_root = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global")); }
+        unsafe {
+            std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));
+            // 固定界面语言为中文，保证错误消息断言稳定（系统语言无关）
+            std::env::set_var("RZ_LANG", "zh");
+        }
         let bad1 = RepoSource::from_url("file:///不存在的仓库1");
         let bad2 = RepoSource::from_url("file:///不存在的仓库2");
         let temp = TempDir::new().unwrap();
         let error = try_all_sources("中文", &[bad1, bad2], &temp, false)
             .expect_err("两个源都失败应报错")
             .to_string();
-        assert!(error.contains("已依次尝试 2 个源"), "应报告尝试的源数量：{}", error);
-        assert!(error.contains("file:///不存在的仓库1"), "应列出源1：{}", error);
-        assert!(error.contains("file:///不存在的仓库2"), "应列出源2：{}", error);
-        assert!(error.contains("RZ_LANG_REPO"), "应建议 RZ_LANG_REPO：{}", error);
-        unsafe { std::env::remove_var("RZ_LANG_DIR"); }
+        assert!(
+            error.contains("已依次尝试 2 个源"),
+            "应报告尝试的源数量：{}",
+            error
+        );
+        assert!(
+            error.contains("file:///不存在的仓库1"),
+            "应列出源1：{}",
+            error
+        );
+        assert!(
+            error.contains("file:///不存在的仓库2"),
+            "应列出源2：{}",
+            error
+        );
+        assert!(
+            error.contains("RZ_LANG_REPO"),
+            "应建议 RZ_LANG_REPO：{}",
+            error
+        );
+        unsafe {
+            std::env::remove_var("RZ_LANG_DIR");
+            std::env::remove_var("RZ_LANG");
+        }
     }
 }

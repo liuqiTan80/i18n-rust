@@ -89,14 +89,14 @@ impl ErrorTranslationManager {
     /// 从文件加载错误翻译表
     pub fn load_from_file(path: &Path) -> Result<Self, String> {
         let content = fs::read_to_string(path)
-            .map_err(|e| format!("无法读取错误消息文件 {}: {}", path.display(), e))?;
+            .map_err(|e| crate::语言::f("err_read_error_messages", &[&path.display().to_string(), &e.to_string()]))?;
         Self::load_from_string(&content)
     }
 
     /// 从 TOML 字符串加载错误翻译表（用于内置数据）
     pub fn load_from_string(content: &str) -> Result<Self, String> {
         let translation_table: HashMap<String, ErrorMessageEntry> =
-            toml::from_str(content).map_err(|e| format!("解析错误消息 TOML 失败: {}", e))?;
+            toml::from_str(content).map_err(|e| crate::语言::f("err_parse_error_messages", &[&e.to_string()]))?;
         Ok(Self { translation_table })
     }
 
@@ -152,16 +152,17 @@ impl DiagnosticLevel {
         }
     }
 
-    /// 返回中文显示文字
-    pub fn display_text(&self) -> &str {
-        match self {
-            Self::Error => "错误",
-            Self::Warning => "警告",
-            Self::Note => "注释",
-            Self::Help => "帮助",
-            Self::ICE => "内部编译器错误",
-            Self::Unknown(s) => s.as_str(),
-        }
+    /// 返回当前语言下的诊断级别显示文字
+    pub fn display_text(&self) -> String {
+        let key = match self {
+            Self::Error => "diag_kind_error",
+            Self::Warning => "diag_kind_warning",
+            Self::Note => "diag_kind_note",
+            Self::Help => "diag_kind_help",
+            Self::ICE => "diag_kind_ice",
+            Self::Unknown(s) => return s.clone(),
+        };
+        crate::语言::t(key)
     }
 }
 
@@ -221,25 +222,33 @@ pub struct OwnershipDetails {
 }
 
 impl OwnershipDetails {
-    /// 生成叙事性教学文本
+    /// 生成当前语言下的叙事性教学文本
     ///
-    /// 示例：变量 `数据` 在第 3 行被移动，第 5 行尝试再次使用。
+    /// 示例（中文）：变量 `数据` 在第 3 行被移动，第 5 行尝试再次使用。
     pub fn narrative_text(&self) -> String {
         let var = &self.var_name;
-        match (&self.move_location, &self.borrow_location, &self.reuse_location) {
-            (Some(mv), None, Some(reuse)) => format!(
-                "变量 `{}` 在第 {} 行被移动，第 {} 行尝试再次使用。",
-                var, mv.line_start, reuse.line_start
+        match (
+            &self.move_location,
+            &self.borrow_location,
+            &self.reuse_location,
+        ) {
+            (Some(mv), None, Some(reuse)) => crate::语言::f(
+                "diag_ownership_moved_reused",
+                &[var, &mv.line_start.to_string(), &reuse.line_start.to_string()],
             ),
-            (None, Some(borrow), Some(reuse)) => format!(
-                "变量 `{}` 在第 {} 行被借用，第 {} 行仍在被使用。",
-                var, borrow.line_start, reuse.line_start
+            (None, Some(borrow), Some(reuse)) => crate::语言::f(
+                "diag_ownership_borrowed_in_use",
+                &[var, &borrow.line_start.to_string(), &reuse.line_start.to_string()],
             ),
-            (Some(mv), _, _) => format!("变量 `{}` 在第 {} 行被移动。", var, mv.line_start),
-            (None, Some(borrow), _) => {
-                format!("变量 `{}` 在第 {} 行被借用。", var, borrow.line_start)
-            }
-            _ => format!("变量 `{}` 存在所有权冲突。", var),
+            (Some(mv), _, _) => crate::语言::f(
+                "diag_ownership_moved",
+                &[var, &mv.line_start.to_string()],
+            ),
+            (None, Some(borrow), _) => crate::语言::f(
+                "diag_ownership_borrowed",
+                &[var, &borrow.line_start.to_string()],
+            ),
+            _ => crate::语言::f("diag_ownership_conflict", &[var]),
         }
     }
 }
@@ -254,6 +263,7 @@ pub const OWNERSHIP_ERROR_CODES: [&str; 3] = ["E0382", "E0502", "E0507"];
 /// - 移动发生：标签含 "move"（value moved here / move occurs because...）；
 /// - 借用发生：标签含 "borrow"（immutable/mutable borrow occurs here）；
 /// - 再次使用：标签含 "used here"（value used here after move / borrow later used here）。
+///
 /// 主 span 作为对应错误类型的兜底位置（E0382→再次使用，E0502→借用发生，E0507→移动发生）。
 /// 变量名缺失或没有任何位置信息时返回 None。
 pub fn extract_ownership_details(
@@ -270,7 +280,12 @@ pub fn extract_ownership_details(
     let all_spans: Vec<&DiagnosticSpan> = diagnostic
         .spans
         .iter()
-        .chain(diagnostic.children.iter().flat_map(|child| child.spans.iter()))
+        .chain(
+            diagnostic
+                .children
+                .iter()
+                .flat_map(|child| child.spans.iter()),
+        )
         .collect();
 
     let mut move_location = None;
@@ -279,7 +294,9 @@ pub fn extract_ownership_details(
     for span in &all_spans {
         let label = span.label.as_deref().unwrap_or("");
         // 注意顺序："borrow later used here" 同时含 borrow 与 used here，应归为再次使用
-        if label.contains("used here") || label.contains("later used") || label.contains("after move")
+        if label.contains("used here")
+            || label.contains("later used")
+            || label.contains("after move")
         {
             reuse_location.get_or_insert_with(|| DiagnosticLocation::from_span(span));
         } else if label.contains("move") {
@@ -352,6 +369,49 @@ pub struct DiagnosticTranslator {
     type_map: HashMap<String, String>, // 来自关键字映射表，用于替换消息中的英文类型
 }
 
+/// 从 `expected `X`, found `Y`` 形式的文本（rustc label）中提取期望/实际类型
+fn extract_expected_found(text: &str) -> Option<(String, String)> {
+    let pos = text.find("expected ")?;
+    let after = &text[pos + "expected ".len()..];
+    let comma_pos = after.find(", found ")?;
+    let exp = after[..comma_pos].trim().trim_matches('`').to_string();
+    let fnd = after[comma_pos + ", found ".len()..]
+        .trim()
+        .trim_matches('`')
+        .to_string();
+    Some((exp, fnd))
+}
+
+/// 提取文本中所有反引号包裹的内容（按出现顺序）
+fn extract_backtick_tokens(text: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut rest = text;
+    while let Some(start) = rest.find('`') {
+        let after = &rest[start + 1..];
+        match after.find('`') {
+            Some(end) => {
+                tokens.push(after[..end].to_string());
+                rest = &after[end + 1..];
+            }
+            None => break,
+        }
+    }
+    tokens
+}
+
+/// 从诊断消息中提取前两个反引号包裹的类型
+///
+/// rustc 1.97+ 的算术错误不再输出 label，类型信息嵌入 message，
+/// 如 E0369：`cannot add `{integer}` to `&str``。
+fn extract_types_from_message(message: &str) -> Option<(String, String)> {
+    let tokens = extract_backtick_tokens(message);
+    if tokens.len() >= 2 {
+        Some((tokens[0].clone(), tokens[1].clone()))
+    } else {
+        None
+    }
+}
+
 impl DiagnosticTranslator {
     /// 创建诊断翻译器
     pub fn new(
@@ -368,9 +428,14 @@ impl DiagnosticTranslator {
     pub fn translate_diagnostic(&self, diagnostic: &CompilerDiagnostic) -> TeachingDiagnostic {
         let error_code = diagnostic.code.as_ref().map(|c| c.code.clone());
 
-        let matched_entry = error_code.as_deref().and_then(|code| self.translation_manager.query(code));
+        let matched_entry = error_code
+            .as_deref()
+            .and_then(|code| self.translation_manager.query(code));
 
-        // 从主要 span 的 label 中提取 expected 和 found
+        // 从主要 span 的 label 中提取 expected 和 found；
+        // rustc 1.97+ 的算术错误（E0369 等）不再输出 label，类型信息
+        // 直接嵌入 message（如 `cannot add `{integer}` to `&str``），
+        // 因此提取失败时回退从 message 中解析反引号包裹的类型。
         let primary_label = diagnostic
             .spans
             .iter()
@@ -378,20 +443,8 @@ impl DiagnosticTranslator {
             .and_then(|s| s.label.as_deref());
 
         let (expected, found) = primary_label
-            .and_then(|label| {
-                if let Some(pos) = label.find("expected ") {
-                    let after = &label[pos + "expected ".len()..];
-                    if let Some(comma_pos) = after.find(", found ") {
-                        let exp = after[..comma_pos].trim().trim_matches('`').to_string();
-                        let fnd = after[comma_pos + ", found ".len()..]
-                            .trim()
-                            .trim_matches('`')
-                            .to_string();
-                        return Some((exp, fnd));
-                    }
-                }
-                None
-            })
+            .and_then(extract_expected_found)
+            .or_else(|| extract_types_from_message(&diagnostic.message))
             .unwrap_or_default();
 
         // 构建翻译消息
@@ -401,6 +454,9 @@ impl DiagnosticTranslator {
                 template = template
                     .replace("{期望}", &expected)
                     .replace("{实际}", &found);
+            } else if template.contains("{期望}") || template.contains("{实际}") {
+                // 无法提取期望/实际类型时回退 rustc 原文，避免输出裸占位符
+                template = diagnostic.message.clone();
             }
             // 对模板中的类型名进行中文化替换
             self.replace_type_names(template)
@@ -409,14 +465,14 @@ impl DiagnosticTranslator {
         };
 
         let mut teaching_hints = Vec::new();
-        if let Some(entry) = matched_entry {
-            if let Some(hint) = &entry.teaching_hint {
-                teaching_hints.push(hint.clone());
-            }
+        if let Some(entry) = matched_entry
+            && let Some(hint) = &entry.teaching_hint
+        {
+            teaching_hints.push(hint.clone());
         }
         for child in &diagnostic.children {
             if child.level == "help" {
-                teaching_hints.push(format!("修复建议：{}", child.message));
+                teaching_hints.push(crate::语言::f("diag_fix_suggestion", &[&child.message]));
             }
         }
 
@@ -427,13 +483,32 @@ impl DiagnosticTranslator {
             .collect();
 
         // 所有权错误：提取叙事化详情（变量名、移动/借用、再次使用位置）
-        let ownership_details =
-            error_code.as_deref().and_then(|code| extract_ownership_details(code, diagnostic));
+        let ownership_details = error_code
+            .as_deref()
+            .and_then(|code| extract_ownership_details(code, diagnostic));
 
         // 翻译消息中含 {变量名} 占位符时，用提取到的变量名填充
         let mut translated_message = translated_message;
         if let Some(details) = &ownership_details {
             translated_message = translated_message.replace("{变量名}", &details.var_name);
+        }
+
+        // 其余占位符（{变量名}/{名称}/{类型}/{特征}）按出现顺序从消息反引号内容
+        // 回退填充，覆盖无 label 的错误（E0384 重复赋值、E0433 未找到类型等）；
+        // 提取不到时回退 rustc 原文，避免输出裸占位符。
+        let mut tokens = extract_backtick_tokens(&diagnostic.message).into_iter();
+        for placeholder in ["{变量名}", "{名称}", "{类型}", "{特征}"] {
+            if translated_message.contains(placeholder) {
+                match tokens.next() {
+                    Some(token) => {
+                        translated_message = translated_message.replace(placeholder, &token);
+                    }
+                    None => {
+                        translated_message = diagnostic.message.clone();
+                        break;
+                    }
+                }
+            }
         }
 
         let children = diagnostic
@@ -457,9 +532,16 @@ impl DiagnosticTranslator {
     /// 使用类型映射替换消息中的英文类型名
     fn replace_type_names(&self, message: String) -> String {
         let mut result = message;
+        // rustc 未推断字面量占位符（`{integer}`/`{float}`）及 1.97+ 裸显示名
+        // （`integer`/`floating-point number`）按全局语言翻译
+        result = result
+            .replace("{integer}", &crate::语言::t("diag_rustc_integer"))
+            .replace("{float}", &crate::语言::t("diag_rustc_float"))
+            .replace("floating-point number", &crate::语言::t("diag_rustc_float"))
+            .replace("integer", &crate::语言::t("diag_rustc_integer"));
         // 按长度降序替换，避免短词错误匹配
         let mut map_entries: Vec<(&String, &String)> = self.type_map.iter().collect();
-        map_entries.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+        map_entries.sort_by_key(|(en, _)| std::cmp::Reverse(en.len()));
         for (en, zh) in map_entries {
             result = result.replace(en.as_str(), zh.as_str());
         }
@@ -468,7 +550,10 @@ impl DiagnosticTranslator {
 
     /// 批量翻译诊断列表
     pub fn batch_translate(&self, diagnostics: &[CompilerDiagnostic]) -> Vec<TeachingDiagnostic> {
-        diagnostics.iter().map(|d| self.translate_diagnostic(d)).collect()
+        diagnostics
+            .iter()
+            .map(|d| self.translate_diagnostic(d))
+            .collect()
     }
 }
 
@@ -504,7 +589,9 @@ pub fn parse_diagnostic_output(output: &str) -> Vec<CompilerDiagnostic> {
         } else if let Ok(value) = serde_json::from_str::<serde_json::Value>(line) {
             // cargo --message-format=json 的 compiler-message 包装行：
             // 完整诊断嵌套在顶层 message 字段中（build-finished 等行无 message 对象，自动跳过）
-            if let Ok(diagnostic) = serde_json::from_value::<CompilerDiagnostic>(value["message"].clone()) {
+            if let Ok(diagnostic) =
+                serde_json::from_value::<CompilerDiagnostic>(value["message"].clone())
+            {
                 result.push(diagnostic);
             }
         }
@@ -699,6 +786,51 @@ mod tests {
         );
     }
 
+    /// rustc 1.97+ 算术错误（E0369）无 label，类型嵌入 message，
+    /// 应回退提取并翻译 rustc 字面量占位符 `{integer}`
+    #[test]
+    fn test_translate_e0369_no_label_fallback_to_message() {
+        let toml_content = r#"
+[E0369]
+"消息模板" = "类型不匹配：无法对 `{期望}` 和 `{实际}` 执行运算"
+"教学提示" = "运算符两侧的类型必须兼容。"
+"#;
+        let file = create_error_message_file(toml_content);
+        let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+        crate::语言::set_language("zh");
+
+        let diagnostic = CompilerDiagnostic {
+            message: "cannot add `{integer}` to `&str`".to_string(),
+            code: Some(DiagnosticCode {
+                code: "E0369".to_string(),
+                explanation: None,
+            }),
+            level: "error".to_string(),
+            spans: vec![DiagnosticSpan {
+                file_name: "src/main.rs".to_string(),
+                line_start: 3,
+                column_start: 5,
+                line_end: 3,
+                column_end: 10,
+                source_text: None,
+                byte_start: None,
+                byte_end: None,
+                is_primary: true,
+                label: None,
+                suggested_replacement: None,
+            }],
+            children: vec![],
+            rendered: None,
+        };
+
+        let teaching = translator.translate_diagnostic(&diagnostic);
+        assert_eq!(
+            teaching.translated_message,
+            "类型不匹配：无法对 `整数` 和 `字符串引用` 执行运算"
+        );
+    }
+
     #[test]
     fn test_parse_json_diagnostic_output() {
         let json_line = r#"{"message":"mismatched types","code":{"code":"E0308"},"level":"error","spans":[],"children":[],"rendered":null}"#;
@@ -722,7 +854,10 @@ mod tests {
     #[test]
     fn test_diagnostic_level_conversion() {
         assert_eq!(DiagnosticLevel::from_str("error"), DiagnosticLevel::Error);
-        assert_eq!(DiagnosticLevel::from_str("warning"), DiagnosticLevel::Warning);
+        assert_eq!(
+            DiagnosticLevel::from_str("warning"),
+            DiagnosticLevel::Warning
+        );
         assert_eq!(DiagnosticLevel::from_str("help"), DiagnosticLevel::Help);
     }
 

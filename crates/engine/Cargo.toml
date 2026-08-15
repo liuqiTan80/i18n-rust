@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "多语言 Rust 教学方言核心引擎：词法转译、映射管理、诊断翻译、增量缓存"
 license = "MIT"
-repository = "https://github.com/i18n-rust/zrRust"
+repository = "https://gitcode.com/tan80/zrRust"
 keywords = ["rust", "i18n", "chinese", "teaching", "transpiler"]
 categories = ["development-tools", "compilers"]
 

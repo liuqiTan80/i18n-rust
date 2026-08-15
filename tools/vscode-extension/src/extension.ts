@@ -18,10 +18,16 @@ import {
     ServerOptions,
     TransportKind
 } from 'vscode-languageclient/node';
-import { 创建提供商, 提供商列表 } from './ai/提供商工厂';
-import { 读取AI配置, 获取系统提示词, 当前语言名 } from './ai/配置管理';
-import { AI错误 } from './ai/类型定义';
-import { 提供商抽象 } from './ai/提供商抽象';
+import { createProvider, listProviders } from './ai/provider-factory';
+import { loadAIConfig, getSystemPrompt, currentLanguageName } from './ai/config-manager';
+import { AIError } from './ai/types';
+import { ProviderInterface } from './ai/provider-interface';
+
+/**
+ * 所有受支持的方言语言 ID（对应 package.json 中注册的语言）
+ * .zh/.en/.de 均通过 LSP 代理翻译后交给 rust-analyzer
+ */
+const 方言语言Id: readonly string[] = ['rust-zh', 'rust-en', 'rust-de'];
 
 let client: LanguageClient | undefined;
 let statusBarItem: vscode.StatusBarItem;
@@ -102,11 +108,11 @@ function 清除所有权装饰器(): void {
 }
 
 /**
- * 为所有可见的 .zh 编辑器应用所有权装饰器
+ * 为所有可见的方言编辑器应用所有权装饰器
  */
 function 应用所有权装饰器(): void {
     for (const 编辑器 of vscode.window.visibleTextEditors) {
-        if (编辑器.document.languageId !== 'rust-zh') {
+        if (!方言语言Id.includes(编辑器.document.languageId)) {
             continue;
         }
         const 诊断列表 = vscode.languages.getDiagnostics(编辑器.document.uri);
@@ -253,7 +259,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // 监听文件保存
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument(doc => {
-            if (doc.languageId === 'rust-zh') {
+            if (方言语言Id.includes(doc.languageId)) {
                 // 可选：保存时自动检查
             }
         })
@@ -271,7 +277,7 @@ export function activate(context: vscode.ExtensionContext): void {
         ).then(selection => {
             if (selection === '了解更多') {
                 vscode.env.openExternal(
-                    vscode.Uri.parse('https://github.com/i18n-rust/i18n-rust')
+                    vscode.Uri.parse('https://gitcode.com/tan80/zrRust')
                 );
             }
         });
@@ -297,8 +303,8 @@ function 注册命令(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.run', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
-            if (!编辑器 || 编辑器.document.languageId !== 'rust-zh') {
-                vscode.window.showWarningMessage('请打开一个 .zh 文件');
+            if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
+                vscode.window.showWarningMessage('请打开一个 .zh/.en/.de 方言文件');
                 return;
             }
 
@@ -311,8 +317,8 @@ function 注册命令(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.check', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
-            if (!编辑器 || 编辑器.document.languageId !== 'rust-zh') {
-                vscode.window.showWarningMessage('请打开一个 .zh 文件');
+            if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
+                vscode.window.showWarningMessage('请打开一个 .zh/.en/.de 方言文件');
                 return;
             }
 
@@ -325,8 +331,8 @@ function 注册命令(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.eject', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
-            if (!编辑器 || 编辑器.document.languageId !== 'rust-zh') {
-                vscode.window.showWarningMessage('请打开一个 .zh 文件');
+            if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
+                vscode.window.showWarningMessage('请打开一个 .zh/.en/.de 方言文件');
                 return;
             }
 
@@ -379,7 +385,7 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
     // AI 对话命令
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.aiChat', async () => {
-            const 配置 = 读取AI配置();
+            const 配置 = loadAIConfig();
             // 云端服务需要密钥；Ollama / 自定义地址可无密钥
             if (!配置.apiKey && 配置.provider !== 'ollama' && 配置.provider !== 'custom') {
                 const 操作 = await vscode.window.showWarningMessage(
@@ -400,36 +406,36 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
                 return;
             }
 
-            // 携带当前打开的 .zh 文件内容作为上下文
+            // 携带当前打开的方言文件内容作为上下文
             const 编辑器 = vscode.window.activeTextEditor;
-            const 上下文 = 编辑器 && 编辑器.document.languageId === 'rust-zh'
+            const 上下文 = 编辑器 && 方言语言Id.includes(编辑器.document.languageId)
                 ? `当前文件 ${编辑器.document.fileName}：\n\`\`\`zh\n${编辑器.document.getText()}\n\`\`\`\n\n`
                 : '';
 
-            let 提供商: 提供商抽象;
+            let 提供商: ProviderInterface;
             try {
-                提供商 = 创建提供商(配置);
+                提供商 = createProvider(配置);
             } catch (错误) {
                 vscode.window.showErrorMessage((错误 as Error).message);
                 return;
             }
 
             AI输出.show(true);
-            AI输出.appendLine(`── AI 对话（${配置.provider} / ${配置.model || '默认模型'}，语言包：${当前语言名()}）──`);
+            AI输出.appendLine(`── AI 对话（${配置.provider} / ${配置.model || '默认模型'}，语言包：${currentLanguageName()}）──`);
             AI输出.appendLine(`问：${问题}\n`);
             try {
-                await 提供商.流式对话(
+                await 提供商.streamChat(
                     [
-                        { role: 'system', content: 获取系统提示词() },
+                        { role: 'system', content: getSystemPrompt() },
                         { role: 'user', content: 上下文 + 问题 }
                     ],
                     chunk => AI输出.append(chunk)
                 );
                 AI输出.appendLine('\n── 对话结束 ──');
             } catch (错误) {
-                if (错误 instanceof AI错误) {
-                    AI输出.appendLine(`\n[${错误.类别}] ${错误.message}`);
-                    vscode.window.showErrorMessage(`${错误.类别}：${错误.message}`);
+                if (错误 instanceof AIError) {
+                    AI输出.appendLine(`\n[${错误.category}] ${错误.message}`);
+                    vscode.window.showErrorMessage(`${错误.category}：${错误.message}`);
                 } else {
                     AI输出.appendLine(`\n[未知错误] ${(错误 as Error).message}`);
                 }
@@ -440,10 +446,10 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
     // 选择 AI 提供商命令
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.aiSelectProvider', async () => {
-            const 选项们 = 提供商列表().map(预设 => ({
-                label: 预设.名称,
-                description: 预设.默认地址 || '需自定义地址',
-                detail: 预设.需要密钥 ? '需要 API 密钥' : '无需密钥',
+            const 选项们 = listProviders().map(预设 => ({
+                label: 预设.displayName,
+                description: 预设.defaultBaseUrl || '需自定义地址',
+                detail: 预设.requiresApiKey ? '需要 API 密钥' : '无需密钥',
                 预设
             }));
             const 选择 = await vscode.window.showQuickPick(选项们, {
@@ -454,7 +460,7 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
             }
             const 配置 = vscode.workspace.getConfiguration('i18n-rust.ai');
             await 配置.update('provider', 选择.预设.id, vscode.ConfigurationTarget.Global);
-            const 提示 = `AI 提供商已切换为「${选择.预设.名称}」（默认地址：${选择.预设.默认地址 || '需手动填写 baseUrl'}）`;
+            const 提示 = `AI 提供商已切换为「${选择.预设.displayName}」（默认地址：${选择.预设.defaultBaseUrl || '需手动填写 baseUrl'}）`;
             vscode.window.showInformationMessage(提示, '打开设置').then(操作 => {
                 if (操作 === '打开设置') {
                     vscode.commands.executeCommand('workbench.action.openSettings', 'i18n-rust.ai');
@@ -466,10 +472,10 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
     // 获取模型列表命令
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.aiListModels', async () => {
-            const 配置 = 读取AI配置();
-            let 提供商: 提供商抽象;
+            const 配置 = loadAIConfig();
+            let 提供商: ProviderInterface;
             try {
-                提供商 = 创建提供商(配置);
+                提供商 = createProvider(配置);
             } catch (错误) {
                 vscode.window.showErrorMessage((错误 as Error).message);
                 return;
@@ -477,12 +483,12 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
             AI输出.show(true);
             AI输出.appendLine(`── 模型列表（${配置.provider} / ${配置.baseUrl || '默认地址'}）──`);
             try {
-                const 模型们 = await 提供商.获取模型列表();
+                const 模型们 = await 提供商.listModels();
                 AI输出.appendLine(模型们.join('\n'));
                 AI输出.appendLine(`── 共 ${模型们.length} 个模型 ──`);
             } catch (错误) {
-                if (错误 instanceof AI错误) {
-                    AI输出.appendLine(`[${错误.类别}] ${错误.message}`);
+                if (错误 instanceof AIError) {
+                    AI输出.appendLine(`[${错误.category}] ${错误.message}`);
                 }
             }
         })
@@ -527,11 +533,9 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
 
     // 客户端选项
     const clientOptions: LanguageClientOptions = {
-        documentSelector: [
-            { scheme: 'file', language: 'rust-zh' }
-        ],
+        documentSelector: 方言语言Id.map(语言 => ({ scheme: 'file', language: 语言 })),
         synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.zh')
+            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{zh,en,de}')
         },
         diagnosticCollectionName: 'i18n-rust',
         outputChannelName: 'i18n-rust LSP',
@@ -587,7 +591,7 @@ async function 检查文件(文件路径: string): Promise<void> {
  * 导出为 .rs 文件
  */
 async function 导出文件(文件路径: string): Promise<void> {
-    const 输出路径 = 文件路径.replace(/\.zh$/, '.rs');
+    const 输出路径 = 文件路径.replace(/\.(zh|en|de)$/, '.rs');
     
     try {
         cp.execSync(`i18n eject "${文件路径}"`);

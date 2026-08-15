@@ -1,0 +1,231 @@
+# Archivo de traducción de mensajes de error (español)
+# Formato: [código de error] + "消息模板" (plantilla del mensaje) + "教学提示" (pista didáctica)
+# Los marcadores {期望} {实际} {名称} {变量名} {类型} {特征} los sustituye el compilador.
+
+[E0308]
+"消息模板" = "Tipos incompatibles: se esperaba `{期望}`, se obtuvo `{实际}`"
+"教学提示" = "Compruebe si el tipo de la variable coincide con lo que exige el contexto. Intente convertir el tipo con `como`."
+
+[E0433]
+"消息模板" = "Tipo `{名称}` no encontrado"
+"教学提示" = "Confirme que el módulo o tipo necesario esté importado. Puede importarlo con la palabra clave `usar`."
+
+[E0384]
+"消息模板" = "No se puede asignar dos veces a la variable inmutable `{变量名}`"
+"教学提示" = "Si necesita cambiar el valor de una variable, declárela con `dejar mutable`."
+
+[E0382]
+"消息模板" = "Uso del valor después de su movimiento: `{变量名}`"
+"教学提示" = "En Rust, un valor movido ya no se puede usar. Utilice `referencia` (&) o `clonar()` para evitar el movimiento."
+
+[E0502]
+"消息模板" = "No se puede tomar prestado `{变量名}` como mutable: ya está prestado como inmutable"
+"教学提示" = "Rust no permite préstamos mutable e inmutable a la vez. Reduzca el alcance del préstamo inmutable."
+
+[E0499]
+"消息模板" = "No se puede tomar prestado `{变量名}` como mutable varias veces"
+"教学提示" = "Solo puede existir una referencia mutable a la vez. Es el mecanismo de Rust para evitar las carreras de datos."
+
+[E0277]
+"消息模板" = "El tipo `{类型}` no implementa el rasgo `{特征}`"
+"教学提示" = "Implemente el rasgo necesario para el tipo, o use un tipo que ya lo implemente."
+
+[E0425]
+"消息模板" = "No se encuentra el nombre `{名称}` en este ámbito"
+"教学提示" = "Compruebe que el nombre de la variable esté bien escrito y que se haya declarado en el ámbito actual."
+
+[E0282]
+"消息模板" = "No se puede inferir el tipo, añada una anotación de tipo"
+"教学提示" = "El compilador no puede inferir el tipo automáticamente. Indique el tipo explícitamente, por ejemplo: `dejar x: entero = 0;`"
+
+[E0601]
+"消息模板" = "No se encuentra la función `principal` en el paquete"
+"教学提示" = "Todo programa ejecutable de Rust necesita una función `principal` como punto de entrada. Añada en el código: funcion principal() { ... }"
+
+# ============================================
+# Ciclos de vida y préstamos (serie E01xx/E04xx/E05xx)
+# ============================================
+
+[E0106]
+"消息模板" = "A la función le falta la anotación de ciclo de vida"
+"教学提示" = "Cuando una función tiene varios parámetros de referencia, el compilador no puede inferir su relación. Añada anotaciones de ciclo de vida en parámetros y valor de retorno, por ejemplo: funcion masLarga<'a>(x: &'a texto, y: &'a texto) -> &'a texto"
+
+[E0107]
+"消息模板" = "Número incorrecto de parámetros de ciclo de vida"
+"教学提示" = "El número de parámetros de ciclo de vida en la declaración no coincide con el uso. Compruebe las anotaciones dentro de `<>`."
+
+[E0116]
+"消息模板" = "No se puede definir una implementación inherente para un tipo externo"
+"教学提示" = "Los bloques `implementacion` inherentes solo se pueden definir para tipos locales. Para tipos externos puede implementar rasgos, pero no escribir un bloque `implementacion` directo."
+
+[E0133]
+"消息模板" = "La operación insegura requiere un bloque unsafe"
+"教学提示" = "Operaciones como desreferenciar punteros crudos deben hacerse dentro de un bloque `inseguro`, porque Rust no puede garantizar su seguridad."
+
+[E0204]
+"消息模板" = "No se puede derivar automáticamente Clone"
+"教学提示" = "Los tipos con campos que no implementan `clonable` no pueden derivar clon. Implemente `clonable` manualmente para el tipo del campo."
+
+[E0210]
+"消息模板" = "El parámetro de tipo debe preceder a todos los tipos locales (regla del huérfano)"
+"教学提示" = "Al implementar un rasgo externo para un tipo externo, al menos el rasgo o el tipo debe ser local; de lo contrario se viola la regla del huérfano."
+
+[E0255]
+"消息模板" = "El nombre ya se usa como parámetro genérico"
+"教学提示" = "El nombre de una variable no puede coincidir con el de un parámetro genérico. Renombre la variable o el parámetro."
+
+[E0271]
+"消息模板" = "Tipos incompatibles: no se cumple la restricción del rasgo"
+"教学提示" = "El tipo real no cumple las restricciones del genérico. Compruebe si el tipo implementa el rasgo requerido."
+
+[E0309]
+"消息模板" = "El parámetro genérico no cumple la restricción del rasgo"
+"教学提示" = "El parámetro genérico debe cumplir la restricción `{特征}` para usar los métodos correspondientes. Añada la restricción en la declaración del genérico."
+
+[E0310]
+"消息模板" = "El parámetro genérico no cumple la restricción Sized"
+"教学提示" = "Los parámetros genéricos deben tener tamaño conocido (`dimension_fija`) por defecto. Para tipos sin tamaño, añada la restricción `?dimension_fija`."
+
+# ============================================
+# Tipos y rasgos (serie E03xx/E04xx)
+# ============================================
+
+[E0369]
+"消息模板" = "Tipos incompatibles: no se puede operar con `{期望}` y `{实际}`"
+"教学提示" = "Los tipos a ambos lados del operador deben ser compatibles. Compruebe que los operandos coincidan y, si es necesario, convierta con `como`."
+
+[E0373]
+"消息模板" = "El cierre puede sobrevivir al valor temporal prestado"
+"教学提示" = "El cierre captura una referencia a un valor temporal y puede vivir más que él. Use la palabra clave `mover` o alargue el ciclo de vida del valor."
+
+[E0404]
+"消息模板" = "Se esperaba un rasgo, pero se encontró un tipo"
+"教学提示" = "En el lugar de `dinamico` o de una restricción genérica se necesita el nombre de un rasgo. Compruebe si escribió mal el nombre."
+
+[E0407]
+"消息模板" = "El método no es miembro de este rasgo"
+"教学提示" = "Al implementar un rasgo solo puede definir los métodos que este declara. Compruebe que el nombre del método coincide con la definición del rasgo."
+
+[E0412]
+"消息模板" = "No se puede encontrar el tipo"
+"教学提示" = "El tipo usado no existe o no está importado. Impórtelo con `usar` o revise la ortografía."
+
+[E0422]
+"消息模板" = "No se puede encontrar la estructura, enumeración o unión"
+"教学提示" = "El nombre para construir la estructura no existe. Compruebe la ortografía o que esté definida en el ámbito actual."
+
+[E0432]
+"消息模板" = "No se puede resolver la ruta de importación"
+"教学提示" = "El módulo o elemento importado no existe. Revise la ruta y confirme que el módulo esté declarado (`modulo xxx;`) y sea visible."
+
+[E0435]
+"消息模板" = "Se ha usado un valor no constante dentro de una constante"
+"教学提示" = "El valor de `constante` debe conocerse en tiempo de compilación. Los valores de ejecución (llamadas a funciones) no sirven para inicializar constantes; use `estatico` o `dejar`."
+
+[E0436]
+"消息模板" = "Definición duplicada de función"
+"教学提示" = "No se pueden definir dos funciones con el mismo nombre en el mismo ámbito. Revise las definiciones duplicadas de `funcion xxx()`."
+
+[E0463]
+"消息模板" = "Paquete no encontrado"
+"教学提示" = "El paquete externo no está instalado o no está declarado en [dependencies] del Cargo.toml. Añada primero la dependencia."
+
+# ============================================
+# Propiedad y movimiento (serie E05xx)
+# ============================================
+
+[E0496]
+"消息模板" = "El ciclo de vida no puede escapar de su ámbito"
+"教学提示" = "El ciclo de vida de una referencia no puede superar al del valor al que apunta. Revise la estructura de propiedad de los datos."
+
+[E0505]
+"消息模板" = "El valor se movió mientras estaba prestado"
+"教学提示" = "Mientras existan referencias a un valor, este no se puede mover. Termine primero el préstamo o use `clonar()` para copiar los datos."
+
+[E0507]
+"消息模板" = "No se puede mover el contenido de una referencia"
+"教学提示" = "No se puede mover el valor al que apunta una referencia. Use `clonar()` o acceda a los campos por referencia en lugar de mover todo."
+
+[E0508]
+"消息模板" = "No se puede mover el contenido de un array"
+"教学提示" = "Los elementos de un array no se pueden mover fuera. Use índice + `clonar()` o convierta el array en un vector (`vector`)."
+
+[E0515]
+"消息模板" = "No se puede devolver una referencia a una variable local"
+"教学提示" = "La variable local se destruye al terminar la función, por lo que no se puede devolver su referencia. Devuelva el valor (la propiedad) o use `caja`."
+
+[E0530]
+"消息模板" = "El enlace del coincidir oculta la variante de la enumeración"
+"教学提示" = "El nombre del enlace en el patrón no puede coincidir con el de una variante de enumeración. Renombre la variable de enlace."
+
+[E0539]
+"消息模板" = "Número incorrecto de argumentos de macro"
+"教学提示" = "La cantidad de argumentos al llamar a la macro no coincide con su definición. Revise el uso de la macro."
+
+[E0559]
+"消息模板" = "El campo no existe"
+"教学提示" = "La estructura no tiene ese campo. Compruebe la ortografía del nombre o el tipo de estructura usado."
+
+[E0560]
+"消息模板" = "La estructura no tiene ese campo"
+"教学提示" = "Al inicializar la estructura se indicó un campo inexistente. Revise la definición de la estructura y los campos usados."
+
+[E0574]
+"消息模板" = "Se esperaba el nombre de una estructura o enumeración"
+"教学提示" = "Aquí se necesita un nombre de tipo, no un valor o expresión. Revise la sintaxis."
+
+[E0594]
+"消息模板" = "No se puede asignar a una variable inmutable"
+"教学提示" = "Las variables declaradas con `dejar` son inmutables por defecto. Para modificarlas, use `dejar mutable`."
+
+[E0596]
+"消息模板" = "No se puede tomar prestado como mutable"
+"教学提示" = "Solo las variables mutables pueden prestarse como mutables (`referencia_mutable`). Declare la variable con `dejar mutable` o marque el parámetro como `mutable`."
+
+[E0597]
+"消息模板" = "El valor prestado no vive lo suficiente"
+"教学提示" = "El ciclo de vida de la referencia supera al del valor referenciado. Ajuste los ámbitos para que el valor viva más."
+
+[E0599]
+"消息模板" = "El tipo no tiene un método con ese nombre"
+"教学提示" = "El método llamado no existe en este tipo. Revise la ortografía o importe el rasgo que proporciona el método."
+
+[E0603]
+"消息模板" = "El módulo es privado"
+"教学提示" = "Por defecto los módulos son privados. Para acceder desde fuera, declárelo con `publico modulo xxx;`."
+
+[E0610]
+"消息模板" = "El tipo no tiene campos"
+"教学提示" = "El tipo al que intenta acceder no contiene campos. Compruebe que no esté desreferenciando el tipo equivocado."
+
+[E0614]
+"消息模板" = "No se puede desreferenciar este tipo"
+"教学提示" = "Solo las referencias (`referencia` — &) o los tipos que implementan el rasgo `desreferenciable` (Deref) se pueden desreferenciar con `desreferencia` (*)."
+
+[E0618]
+"消息模板" = "Se esperaba una función, pero esto no es una función"
+"教学提示" = "La sintaxis de llamada `xxx()` requiere que xxx sea una función o un cierre. Compruebe que no esté llamando a una variable como función."
+
+[E0621]
+"消息模板" = "Ciclo de vida incompatible, se requiere anotación explícita"
+"教学提示" = "La relación entre la referencia de retorno y las referencias de los parámetros requiere una anotación explícita. Añada un parámetro de ciclo de vida a la función."
+
+[E0624]
+"消息模板" = "El campo o método es privado"
+"教学提示" = "Los campos de una estructura son privados por defecto. Añada `publico` al campo o proporcione un método de acceso público."
+
+# ============================================
+# Otros (serie E06xx/E07xx)
+# ============================================
+
+[E0658]
+"消息模板" = "Uso de una característica inestable"
+"教学提示" = "Esta característica aún no es estable en la versión actual de Rust. Compruebe si `#![feature(...)]` está activado o use una alternativa estable."
+
+[E0716]
+"消息模板" = "El valor temporal se destruyó antes de terminar la sentencia"
+"教学提示" = "Una referencia a un valor creado temporalmente no puede usarse fuera de la sentencia. Enlace primero el valor a una variable y luego tome la referencia."
+
+[E0759]
+"消息模板" = "El parámetro de ciclo de vida está restringido por un límite incompatible"
+"教学提示" = "Los límites de ciclo de vida del tipo no coinciden con la declaración de la función. Unifique las anotaciones de ciclo de vida."

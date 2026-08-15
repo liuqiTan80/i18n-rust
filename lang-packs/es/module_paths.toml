@@ -1,0 +1,11 @@
+# i18n-rust correspondencia de rutas de módulos (español)
+["模块路径"]
+"estandar" = "std"
+"entrada_salida" = "io"
+"colecciones" = "collections"
+"cadena" = "string"
+"red" = "net"
+"sistema_archivos" = "fs"
+"hilo" = "thread"
+"aleatoriedad" = "rand"
+"serializacion" = "serde"

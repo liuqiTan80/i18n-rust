@@ -99,7 +99,7 @@ impl TranslationCache {
     }
 
     /// 默认容量：256 个文件条目
-    pub fn default() -> Self {
+    pub fn with_default_capacity() -> Self {
         Self::new(256)
     }
 
@@ -174,9 +174,11 @@ impl TranslationCache {
             let hash = Self::compute_content_hash(content);
             crate::log_info!(
                 "translation_cache",
-                "命中缓存（{} 字节，指纹 {}）",
-                content.len(),
-                context_fingerprint
+                "{}",
+                crate::语言::f(
+                    "log_cache_hit",
+                    &[&content.len().to_string(), &context_fingerprint.to_string()]
+                )
             );
             self.mark_hit(hash);
             return Ok(output);
@@ -184,9 +186,11 @@ impl TranslationCache {
         let hash = Self::compute_content_hash(content);
         crate::log_info!(
             "translation_cache",
-            "缓存未命中（{} 字节，指纹 {}），执行翻译",
-            content.len(),
-            context_fingerprint
+            "{}",
+            crate::语言::f(
+                "log_cache_miss",
+                &[&content.len().to_string(), &context_fingerprint.to_string()]
+            )
         );
         let output = transpile_fn()?;
         self.insert_precomputed(hash, content.len(), context_fingerprint, output.clone());
@@ -258,7 +262,11 @@ impl TranslationCache {
         while self.order.len() > self.capacity {
             if let Some(oldest) = self.order.pop_front() {
                 self.entries.remove(&oldest);
-                crate::log_debug!("translation_cache", "容量已满，淘汰最旧条目（哈希 {}）", oldest);
+                crate::log_debug!(
+                    "translation_cache",
+                    "{}",
+                    crate::语言::f("log_cache_evict", &[&oldest.to_string()])
+                );
             }
         }
     }
@@ -389,7 +397,7 @@ mod tests {
 
     #[test]
     fn test_get_or_transpile_closure_execution_count() {
-        let mut cache = TranslationCache::default();
+        let mut cache = TranslationCache::with_default_capacity();
         let fp = sample_fingerprint();
         let content = "函数 主函数() {}";
         let mut exec_count = 0;
@@ -417,7 +425,7 @@ mod tests {
 
     #[test]
     fn test_get_or_transpile_error_propagation() {
-        let mut cache = TranslationCache::default();
+        let mut cache = TranslationCache::with_default_capacity();
         let fp = sample_fingerprint();
         let content = "函数 主函数() {}";
 

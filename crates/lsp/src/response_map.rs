@@ -118,20 +118,21 @@ impl ResponseMapper {
                 }
 
                 // 翻译诊断消息
-                mapped["message"] =
-                    Value::String(translate_diagnostic_message(diag["message"].as_str().unwrap_or("")));
+                mapped["message"] = Value::String(translate_diagnostic_message(
+                    diag["message"].as_str().unwrap_or(""),
+                ));
 
                 // 所有权错误：提取叙事化详情并存入 data 字段（供 VS Code 扩展可视化）
-                if let Some(details) = extract_ownership_details(diag, &mapped, &original_uri) {
-                    if let Ok(details_value) = serde_json::to_value(&details) {
-                        // 保留 rust-analyzer 已有的 data（如代码操作数据），嵌套存入
-                        match mapped.get_mut("data") {
-                            Some(existing) if existing.is_object() => {
-                                existing["所有权详情"] = details_value;
-                            }
-                            _ => {
-                                mapped["data"] = details_value;
-                            }
+                if let Some(details) = extract_ownership_details(diag, &mapped, &original_uri)
+                    && let Ok(details_value) = serde_json::to_value(&details)
+                {
+                    // 保留 rust-analyzer 已有的 data（如代码操作数据），嵌套存入
+                    match mapped.get_mut("data") {
+                        Some(existing) if existing.is_object() => {
+                            existing["所有权详情"] = details_value;
+                        }
+                        _ => {
+                            mapped["data"] = details_value;
                         }
                     }
                 }
@@ -163,24 +164,24 @@ impl ResponseMapper {
                 let mut mapped = item.clone();
 
                 // 1. 映射 textEdit 中的 range
-                if let Some(text_edit) = item.get("textEdit") {
-                    if let Some(range) = text_edit.get("range") {
-                        mapped["textEdit"]["range"] = self.restore_range(original_uri, range);
-                    }
+                if let Some(text_edit) = item.get("textEdit")
+                    && let Some(range) = text_edit.get("range")
+                {
+                    mapped["textEdit"]["range"] = self.restore_range(original_uri, range);
                 }
 
                 // 2. 将英文 label 反向映射为中文
-                if let Some(label) = item.get("label").and_then(|v| v.as_str()) {
-                    if let Some(zh_name) = self.reverse_lookup(label) {
-                        mapped["label"] = Value::String(zh_name);
-                    }
+                if let Some(label) = item.get("label").and_then(|v| v.as_str())
+                    && let Some(zh_name) = self.reverse_lookup(label)
+                {
+                    mapped["label"] = Value::String(zh_name);
                 }
 
                 // 3. 反向映射 insertText
-                if let Some(insert_text) = item.get("insertText").and_then(|v| v.as_str()) {
-                    if let Some(zh_name) = self.reverse_lookup(insert_text) {
-                        mapped["insertText"] = Value::String(zh_name);
-                    }
+                if let Some(insert_text) = item.get("insertText").and_then(|v| v.as_str())
+                    && let Some(zh_name) = self.reverse_lookup(insert_text)
+                {
+                    mapped["insertText"] = Value::String(zh_name);
                 }
 
                 mapped_items.push(mapped);
@@ -196,7 +197,10 @@ impl ResponseMapper {
         match response {
             Value::Null => Value::Null,
             Value::Array(array) => {
-                let mapped: Vec<Value> = array.iter().map(|item| self.restore_location(item)).collect();
+                let mapped: Vec<Value> = array
+                    .iter()
+                    .map(|item| self.restore_location(item))
+                    .collect();
                 Value::Array(mapped)
             }
             Value::Object(_) => {
@@ -234,6 +238,7 @@ impl ResponseMapper {
     /// 处理跨文件重命名：
     /// - `changes`: { uri → [TextEdit] }
     /// - `documentChanges`: [TextDocumentEdit | ...]
+    ///
     /// 将每个编辑的 range 映射回原始文件，并将 newText 反向翻译为母语。
     ///
     /// 编辑目标不是已打开 .zh 的虚拟文件时（如聚合模块的 lib.rs、
@@ -330,10 +335,10 @@ impl ResponseMapper {
         let mut mapped = symbol.clone();
 
         // 将符号名反向恢复为中文（如 main → 主函数）
-        if let Some(name) = symbol.get("name").and_then(|v| v.as_str()) {
-            if let Some(zh_name) = self.reverse_lookup(name) {
-                mapped["name"] = Value::String(zh_name);
-            }
+        if let Some(name) = symbol.get("name").and_then(|v| v.as_str())
+            && let Some(zh_name) = self.reverse_lookup(name)
+        {
+            mapped["name"] = Value::String(zh_name);
         }
 
         if let Some(range) = symbol.get("range") {
@@ -430,12 +435,11 @@ impl ResponseMapper {
                         if let Some(range) = edit.get("range") {
                             mapped_edit["range"] = self.restore_range(virtual_uri, range);
                         }
-                        if translate_new_text {
-                            if let Some(new_text) = edit.get("newText").and_then(|v| v.as_str()) {
-                                if let Some(zh) = self.reverse_lookup(new_text) {
-                                    mapped_edit["newText"] = Value::String(zh);
-                                }
-                            }
+                        if translate_new_text
+                            && let Some(new_text) = edit.get("newText").and_then(|v| v.as_str())
+                            && let Some(zh) = self.reverse_lookup(new_text)
+                        {
+                            mapped_edit["newText"] = Value::String(zh);
                         }
                         mapped_edit
                     })
@@ -490,7 +494,8 @@ fn extract_ownership_details(
     if let Some(related_info) = restored["relatedInformation"].as_array() {
         for item in related_info {
             let label = item["message"].as_str().unwrap_or("");
-            let Some(location) = construct_position_from_range(original_uri, &item["location"]["range"])
+            let Some(location) =
+                construct_position_from_range(original_uri, &item["location"]["range"])
             else {
                 continue;
             };
@@ -558,52 +563,61 @@ fn construct_position_from_range(file_name: &str, range: &Value) -> Option<Diagn
     })
 }
 
-/// 翻译诊断消息为中文
+/// 翻译诊断消息为当前界面语言
 ///
-/// 尝试匹配常见的 rustc 错误模式并翻译。
-/// 完整翻译由核心引擎的 `DiagnosticTranslator` 处理，
-/// 此处提供轻量级的关键字替换。
+/// 尝试匹配常见的 rustc 错误模式并翻译（短语表随语言包变化，
+/// 非 zh 语言回退英文原文）。完整翻译由核心引擎的
+/// `DiagnosticTranslator` 处理，此处提供轻量级的关键字替换。
 fn translate_diagnostic_message(message: &str) -> String {
+    let ui = crate::ui::global();
     let mut result = message.to_string();
+
+    // rustc 未推断字面量占位符（`{integer}`/`{float}`）及 1.97+ 裸显示名
+    // （`integer`/`floating-point number`）按界面语言翻译
+    result = result
+        .replace("{integer}", &ui.t("diag_rustc_integer"))
+        .replace("{float}", &ui.t("diag_rustc_float"))
+        .replace("floating-point number", &ui.t("diag_rustc_float"))
+        .replace("integer", &ui.t("diag_rustc_integer"));
 
     // 常见错误模式翻译
     let replace_table = [
-        ("cannot find value", "找不到变量"),
-        ("cannot find type", "找不到类型"),
-        ("cannot find function", "找不到函数"),
-        ("cannot find module", "找不到模块"),
-        ("mismatched types", "类型不匹配"),
-        ("type mismatch", "类型不匹配"),
-        ("expected", "期望"),
-        ("found", "实际为"),
-        ("unused variable", "未使用的变量"),
-        ("unused import", "未使用的导入"),
-        ("cannot borrow", "无法借用"),
-        ("borrowed as immutable", "被不可变借用"),
-        ("borrowed as mutable", "被可变借用"),
-        ("no method named", "没有名为"),
-        ("method not found", "方法未找到"),
-        ("field", "字段"),
-        ("does not implement", "未实现"),
-        ("the trait", "特征"),
-        ("is not satisfied", "未被满足"),
-        ("unresolved import", "未解析的导入"),
-        ("file not found", "文件未找到"),
-        ("aborting due to", "中止，原因："),
-        ("previous error", "前一个错误"),
+        ("cannot find value", ui.t("lsp_phrase_cannot_find_value")),
+        ("cannot find type", ui.t("lsp_phrase_cannot_find_type")),
+        ("cannot find function", ui.t("lsp_phrase_cannot_find_function")),
+        ("cannot find module", ui.t("lsp_phrase_cannot_find_module")),
+        ("mismatched types", ui.t("lsp_phrase_mismatched_types")),
+        ("type mismatch", ui.t("lsp_phrase_type_mismatch")),
+        ("expected", ui.t("lsp_phrase_expected")),
+        ("found", ui.t("lsp_phrase_found")),
+        ("unused variable", ui.t("lsp_phrase_unused_variable")),
+        ("unused import", ui.t("lsp_phrase_unused_import")),
+        ("cannot borrow", ui.t("lsp_phrase_cannot_borrow")),
+        ("borrowed as immutable", ui.t("lsp_phrase_borrowed_immutable")),
+        ("borrowed as mutable", ui.t("lsp_phrase_borrowed_mutable")),
+        ("no method named", ui.t("lsp_phrase_no_method_named")),
+        ("method not found", ui.t("lsp_phrase_method_not_found")),
+        ("field", ui.t("lsp_phrase_field")),
+        ("does not implement", ui.t("lsp_phrase_does_not_implement")),
+        ("the trait", ui.t("lsp_phrase_the_trait")),
+        ("is not satisfied", ui.t("lsp_phrase_is_not_satisfied")),
+        ("unresolved import", ui.t("lsp_phrase_unresolved_import")),
+        ("file not found", ui.t("lsp_phrase_file_not_found")),
+        ("aborting due to", ui.t("lsp_phrase_aborting_due_to")),
+        ("previous error", ui.t("lsp_phrase_previous_error")),
     ];
 
-    for (en, zh) in replace_table {
-        result = result.replace(en, zh);
+    for (en, localized) in replace_table {
+        result = result.replace(en, &localized);
     }
 
     // 添加教学提示
     if message.contains("mismatched types") || message.contains("type mismatch") {
-        result.push_str("\n\n💡 教学提示：Rust 是强类型语言，请确保赋值和函数参数的类型一致。");
+        result.push_str(&ui.t("lsp_hint_mismatched_types"));
     } else if message.contains("cannot find") {
-        result.push_str("\n\n💡 教学提示：请检查名称拼写是否正确，以及是否已通过 use 导入。");
+        result.push_str(&ui.t("lsp_hint_cannot_find"));
     } else if message.contains("unused") {
-        result.push_str("\n\n💡 教学提示：未使用的变量可以用下划线 _ 前缀标记，如 _变量名。");
+        result.push_str(&ui.t("lsp_hint_unused"));
     }
 
     result
@@ -617,7 +631,8 @@ mod tests {
     fn create_test_cache() -> Arc<TranslationCache> {
         let map = HashMap::from([("函数".into(), "fn".into()), ("让".into(), "let".into())]);
         let temp = tempfile::tempdir().unwrap();
-        TranslationCache::new(map, HashSet::new(), temp.into_path())
+        let path = temp.keep();
+        TranslationCache::new(map, HashSet::new(), path)
     }
 
     #[test]
@@ -629,7 +644,10 @@ mod tests {
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
             .unwrap();
 
-        assert_eq!(mapper.restore_uri(&entry.virtual_uri), "file:///test/main.zh");
+        assert_eq!(
+            mapper.restore_uri(&entry.virtual_uri),
+            "file:///test/main.zh"
+        );
     }
 
     #[test]
@@ -715,11 +733,15 @@ mod tests {
 
         // newText 反向翻译：fn → 函数
         assert_eq!(
-            changes["file:///test/main.zh"][0]["newText"].as_str().unwrap(),
+            changes["file:///test/main.zh"][0]["newText"]
+                .as_str()
+                .unwrap(),
             "函数"
         );
         assert_eq!(
-            changes["file:///test/lib.zh"][0]["newText"].as_str().unwrap(),
+            changes["file:///test/lib.zh"][0]["newText"]
+                .as_str()
+                .unwrap(),
             "函数"
         );
 
@@ -783,7 +805,9 @@ mod tests {
 
         // 代码操作插入的英文代码暂时保持英文，仅位置正确
         assert_eq!(
-            changes["file:///test/main.zh"][0]["newText"].as_str().unwrap(),
+            changes["file:///test/main.zh"][0]["newText"]
+                .as_str()
+                .unwrap(),
             "use std::io;"
         );
 

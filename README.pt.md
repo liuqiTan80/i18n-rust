@@ -9,23 +9,24 @@
 Escreva programas Rust em seu idioma nativo. O rzc traduz automaticamente para Rust padrão, compila e executa — a educação em programação retorna ao pensamento lógico, não à memorização do inglês.
 
 ```rust
-函数 主函数() {
-    让 可变 数量 = 10;
-    数量 = 数量 + 1;
-    打印行!("数量是：{}", 数量);
+// src/main.pt — dialeto português de Rust para ensino
+funcao principal() {
+    deixar mutavel numero = 10;
+    numero = numero + 1;
+    imprimir_linha!("Número: {}", numero);
 }
 ```
 
 ```bash
-$ rzc run src/main.zh
-数量是：11
+$ rzc run src/main.pt
+Número: 11
 ```
 
 ## ✨ Recursos
 
-- **Programação no idioma nativo**: escreva programas Rust completos com palavras-chave em chinês
-- **Multilíngue nativo**: arquitetura que suporta qualquer idioma natural; pacote chinês integrado, outros instaláveis remotamente
-- **Detecção automática por extensão**: `.zh`, `.ja`, `.ru` são automaticamente associados ao pacote de idioma
+- **Programação no idioma nativo**: escreva programas Rust completos com palavras-chave em português (`funcao`, `deixar`, `se`, `retornar`…)
+- **Multilíngue nativo**: arquitetura que suporta qualquer idioma natural; 11 pacotes integrados, outros instaláveis remotamente
+- **Detecção automática por extensão**: `.zh`, `.en`, `.de` são automaticamente associados ao pacote de idioma
 - **Diagnósticos localizados**: erros do rustc traduzidos com 💡 dicas de ensino; erros de propriedade visualizados via JSON
 - **Visualização de propriedade**: extensão VS Code destaca movimentos (amarelo), reuso (vermelho) e tempos de vida (verde)
 - **Suporte LSP completo**: autocompletar, hover, ir para definição, buscar referências, renomear
@@ -44,11 +45,9 @@ cargo install rzc
 ### A partir do código-fonte
 
 ```bash
-# Espelho China
-git clone https://gitcode.com/tan80/zrRust.git
 # Internacional
 git clone https://github.com/liuqiTan80/i18n-rust.git
-cd zrRust ou i18n-rust
+cd i18n-rust
 cargo build --release --workspace
 ```
 
@@ -57,7 +56,7 @@ cargo build --release --workspace
 ```bash
 rzc init meu-projeto
 cd meu-projeto
-rzc run src/main.zh
+rzc run src/main.pt
 ```
 
 ## 🛠️ Comandos
@@ -65,7 +64,7 @@ rzc run src/main.zh
 | Comando | Descrição |
 |---------|-----------|
 | `rzc init <nome>` | Criar novo projeto |
-| `rzc run <arquivo>` | Traduzir e executar código `.zh` |
+| `rzc run <arquivo>` | Traduzir e executar código `.pt` |
 | `rzc check <arquivo>` | Verificação de tipos com diagnósticos |
 | `rzc eject <arquivo>` | Exportar para código `.rs` padrão |
 | `rzc lang list` | Listar pacotes de idioma instalados |
@@ -93,11 +92,11 @@ Tutorial completo para iniciantes: 24 capítulos + 4 apêndices
 **P: Por que as macros podem omitir o ponto de exclamação?**
 Para reduzir a memorização. O transpilador adiciona `!` automaticamente.
 
-**P: Posso usar nomes de variáveis em chinês?**
-Sim. Rust suporta identificadores Unicode.
+**P: Posso usar nomes de variáveis em português?**
+Sim. `numero` e `principal` são identificadores válidos. Rust suporta identificadores Unicode.
 
 **P: Como instalo outros pacotes de idioma?**
-`rzc lang install 日本語` (remoto) ou `rzc lang install ./diretório` (local).
+`rzc lang install ja` (remoto) ou `rzc lang install ./diretório` (local).
 
 ## 🤝 Contribuir
 

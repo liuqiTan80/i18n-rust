@@ -19,15 +19,16 @@ pub struct AnalyzerConnection {
     writer: Arc<Mutex<std::process::ChildStdin>>,
     /// 消息接收通道（crossbeam，可克隆）
     receiver: crossbeam_channel::Receiver<Value>,
-    /// 是否仍在运行
-    running: Arc<Mutex<bool>>,
 }
 
 impl AnalyzerConnection {
     /// 启动 rust-analyzer 子进程
     pub fn start() -> anyhow::Result<Self> {
         let ra_path = find_rust_analyzer()?;
-        log::info!("启动 rust-analyzer: {:?}", ra_path);
+        log::info!(
+            "{}",
+            crate::ui::global().f("lsp_log_ra_starting", &[&ra_path.display().to_string()])
+        );
 
         let mut child = Command::new(&ra_path)
             // 新版 rust-analyzer 已移除 --stdio 参数（stdio 为默认模式）
@@ -35,21 +36,21 @@ impl AnalyzerConnection {
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()
-            .map_err(|e| anyhow::anyhow!("启动 rust-analyzer 失败: {}", e))?;
+            .map_err(|e| {
+                anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_ra_start", &[&e.to_string()]))
+            })?;
 
         let writer = child
             .stdin
             .take()
-            .ok_or_else(|| anyhow::anyhow!("无法获取 rust-analyzer stdin"))?;
+            .ok_or_else(|| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_ra_stdin")))?;
         let reader = child
             .stdout
             .take()
-            .ok_or_else(|| anyhow::anyhow!("无法获取 rust-analyzer stdout"))?;
+            .ok_or_else(|| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_ra_stdout")))?;
 
         let writer = Arc::new(Mutex::new(writer));
         let (sender, recv) = crossbeam_channel::unbounded();
-        let running = Arc::new(Mutex::new(true));
-        let running_clone = running.clone();
 
         // 后台线程：持续读取 rust-analyzer 的 stdout
         thread::spawn(move || {
@@ -62,13 +63,10 @@ impl AnalyzerConnection {
                         }
                     }
                     None => {
-                        log::info!("rust-analyzer 输出已结束");
+                        log::info!("{}", crate::ui::global().t("lsp_log_ra_output_ended"));
                         break;
                     }
                 }
-            }
-            if let Ok(mut flag) = running_clone.lock() {
-                *flag = false;
             }
         });
 
@@ -76,7 +74,6 @@ impl AnalyzerConnection {
             child: Some(child),
             writer,
             receiver: recv,
-            running,
         })
     }
 
@@ -88,7 +85,7 @@ impl AnalyzerConnection {
         let mut writer = self
             .writer
             .lock()
-            .map_err(|_| anyhow::anyhow!("写入端锁获取失败"))?;
+            .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))?;
         writer.write_all(frame.as_bytes())?;
         writer.flush()?;
 
@@ -117,20 +114,10 @@ impl AnalyzerConnection {
         self.receiver.try_recv().ok()
     }
 
-    /// 阻塞接收一条来自 rust-analyzer 的消息
-    pub fn blocking_recv(&self) -> Option<Value> {
-        self.receiver.recv().ok()
-    }
-
-    /// 检查 rust-analyzer 是否仍在运行
-    pub fn is_running(&self) -> bool {
-        self.running.lock().map(|r| *r).unwrap_or(false)
-    }
-
     /// 停止 rust-analyzer 子进程
     pub fn stop(&mut self) {
         if let Some(mut process) = self.child.take() {
-            log::info!("正在停止 rust-analyzer...");
+            log::info!("{}", crate::ui::global().t("lsp_log_ra_stopping"));
             let _ = process.kill();
             let _ = process.wait();
         }
@@ -151,7 +138,7 @@ impl Sender {
         let mut writer = self
             .writer
             .lock()
-            .map_err(|_| anyhow::anyhow!("写入端锁获取失败"))?;
+            .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))?;
         writer.write_all(frame.as_bytes())?;
         writer.flush()?;
 
@@ -177,7 +164,10 @@ fn read_one_lsp_message<R: BufRead>(reader: &mut R) -> Option<Value> {
             Ok(0) => return None,
             Ok(_) => {}
             Err(e) => {
-                log::error!("读取 rust-analyzer 输出失败: {}", e);
+                log::error!(
+                    "{}",
+                    crate::ui::global().f("lsp_err_read_output", &[&e.to_string()])
+                );
                 return None;
             }
         }
@@ -187,10 +177,10 @@ fn read_one_lsp_message<R: BufRead>(reader: &mut R) -> Option<Value> {
             break;
         }
 
-        if let Some(len_str) = trimmed.strip_prefix("Content-Length:") {
-            if let Ok(n) = len_str.trim().parse::<usize>() {
-                content_length = Some(n);
-            }
+        if let Some(len_str) = trimmed.strip_prefix("Content-Length:")
+            && let Ok(n) = len_str.trim().parse::<usize>()
+        {
+            content_length = Some(n);
         }
     }
 
@@ -198,7 +188,7 @@ fn read_one_lsp_message<R: BufRead>(reader: &mut R) -> Option<Value> {
 
     let mut buffer = vec![0u8; len];
     if std::io::Read::read_exact(reader, &mut buffer).is_err() {
-        log::error!("读取 rust-analyzer 消息体失败");
+        log::error!("{}", crate::ui::global().t("lsp_err_read_body"));
         return None;
     }
 
@@ -217,12 +207,12 @@ fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
         }
     }
 
-    if let Ok(output) = Command::new("which").arg("rust-analyzer").output() {
-        if output.status.success() {
-            let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !s.is_empty() {
-                return Ok(PathBuf::from(s));
-            }
+    if let Ok(output) = Command::new("which").arg("rust-analyzer").output()
+        && output.status.success()
+    {
+        let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !s.is_empty() {
+            return Ok(PathBuf::from(s));
         }
     }
 
@@ -237,7 +227,7 @@ fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
         }
     }
 
-    anyhow::bail!("未找到 rust-analyzer。请安装或设置 RUST_ANALYZER_PATH 环境变量")
+    anyhow::bail!("{}", crate::ui::global().t("lsp_err_ra_not_found"))
 }
 
 fn home_path(relative: &str) -> PathBuf {
@@ -258,5 +248,80 @@ fn truncate(s: &str, max_len: usize) -> String {
             boundary -= 1;
         }
         format!("{}...", &s[..boundary])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    /// 合法 Content-Length 分帧消息可解析出 JSON
+    #[test]
+    fn test_read_one_lsp_message_valid() {
+        let data = "Content-Length: 17\r\n\r\n{\"method\":\"test\"}";
+        let mut cursor = Cursor::new(data);
+        let msg = read_one_lsp_message(&mut cursor).expect("应解析出消息");
+        assert_eq!(msg["method"], "test");
+    }
+
+    /// 消息头中缺少 Content-Length 时返回 None
+    #[test]
+    fn test_read_one_lsp_message_missing_content_length() {
+        let data = "Content-Type: application/json\r\n\r\n{}";
+        let mut cursor = Cursor::new(data);
+        assert!(read_one_lsp_message(&mut cursor).is_none());
+    }
+
+    /// 消息体长度不足（提前 EOF）时返回 None
+    #[test]
+    fn test_read_one_lsp_message_truncated_body() {
+        let data = "Content-Length: 100\r\n\r\n{\"method\":\"test\"}";
+        let mut cursor = Cursor::new(data);
+        assert!(read_one_lsp_message(&mut cursor).is_none());
+    }
+
+    /// 消息体为非 UTF-8 字节时返回 None
+    #[test]
+    fn test_read_one_lsp_message_invalid_utf8() {
+        let data = b"Content-Length: 2\r\n\r\n\xFF\xFE";
+        let mut cursor = Cursor::new(data.as_slice());
+        assert!(read_one_lsp_message(&mut cursor).is_none());
+    }
+
+    /// 输入为 EOF 时返回 None
+    #[test]
+    fn test_read_one_lsp_message_eof() {
+        let mut cursor = Cursor::new("");
+        assert!(read_one_lsp_message(&mut cursor).is_none());
+    }
+
+    /// 短文本原样返回
+    #[test]
+    fn test_truncate_short_text_unchanged() {
+        assert_eq!(truncate("abc", 10), "abc");
+        assert_eq!(truncate("hello world", 5), "hello...");
+    }
+
+    /// 截断长度落在多字节字符中间时回退到字符边界
+    #[test]
+    fn test_truncate_char_boundary_safe() {
+        assert_eq!(truncate("中文测试", 3), "中...");
+        assert_eq!(truncate("中文测试", 4), "中...");
+        assert_eq!(truncate("中文测试", 6), "中文...");
+    }
+
+    /// RUST_ANALYZER_PATH 环境变量优先返回
+    #[test]
+    fn test_find_rust_analyzer_env_path() {
+        let tmp = tempfile::NamedTempFile::new().expect("创建临时文件失败");
+        unsafe {
+            std::env::set_var("RUST_ANALYZER_PATH", tmp.path());
+        }
+        let found = find_rust_analyzer().expect("应通过环境变量找到");
+        assert_eq!(found, tmp.path());
+        unsafe {
+            std::env::remove_var("RUST_ANALYZER_PATH");
+        }
     }
 }

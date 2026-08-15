@@ -1,0 +1,231 @@
+# Übersetzungsdatei für Fehlermeldungen (Deutsch)
+# Format: [Fehlercode] + "消息模板" (Meldungsvorlage) + "教学提示" (Lehrhinweis)
+# Platzhalter {期望} {实际} {名称} {变量名} {类型} {特征} werden vom Compiler ersetzt.
+
+[E0308]
+"消息模板" = "Typkonflikt: erwartet `{期望}`, gefunden `{实际}`"
+"教学提示" = "Prüfen Sie, ob der Variablentyp zum Kontext passt. Verwenden Sie `als` für die Typumwandlung."
+
+[E0433]
+"消息模板" = "nicht aufgelöst: Verwendung des undeklarierten Typs `{名称}`"
+"教学提示" = "Stellen Sie sicher, dass das benötigte Modul oder der Typ importiert wurde. Verwenden Sie das Schlüsselwort `nutze`."
+
+[E0384]
+"消息模板" = "kann der unveränderlichen Variablen `{变量名}` nicht zweimal zuweisen"
+"教学提示" = "Wenn Sie den Wert einer Variablen ändern möchten, deklarieren Sie sie mit `lass mutabel`."
+
+[E0382]
+"消息模板" = "Verwendung des verschobenen Werts: `{变量名}`"
+"教学提示" = "In Rust kann ein Wert nach dem Verschieben nicht mehr verwendet werden. Verwenden Sie eine `referenz` (&) oder `klone()`, um das Verschieben zu vermeiden."
+
+[E0502]
+"消息模板" = "kann `{变量名}` nicht mutabel ausleihen, da es auch unveränderlich ausgeliehen ist"
+"教学提示" = "Rust erlaubt nicht gleichzeitig veränderliche und unveränderliche Ausleihen. Verkleinern Sie den Gültigkeitsbereich der unveränderlichen Ausleihe."
+
+[E0499]
+"消息模板" = "kann `{变量名}` nicht mehr als einmal gleichzeitig mutabel ausleihen"
+"教学提示" = "Es kann nur eine veränderliche Referenz gleichzeitig geben. Dies ist Rusts Mechanismus gegen Datenrennen."
+
+[E0277]
+"消息模板" = "die Trait-Grenze `{类型}`: `{特征}` ist nicht erfüllt"
+"教学提示" = "Implementieren Sie das erforderliche Trait für diesen Typ oder verwenden Sie einen Typ, der es bereits implementiert."
+
+[E0425]
+"消息模板" = "Wert `{名称}` kann in diesem Gültigkeitsbereich nicht gefunden werden"
+"教学提示" = "Stellen Sie sicher, dass die Variable im aktuellen Gültigkeitsbereich deklariert ist. Prüfen Sie die Schreibweise des Variablennamens."
+
+[E0282]
+"消息模板" = "Typannotationen erforderlich"
+"教学提示" = "Der Compiler kann den Typ nicht ableiten. Fügen Sie explizite Typannotationen hinzu, z. B. `lass x: ganzzahl32 = 0;`."
+
+[E0601]
+"消息模板" = "kann die `hauptfunktion`-Funktion in der Crate nicht finden"
+"教学提示" = "Jedes ausführbare Rust-Programm benötigt eine `hauptfunktion`-Funktion als Einstiegspunkt. Fügen Sie hinzu: funktion hauptfunktion() { ... }"
+
+# ============================================
+# Lebensdauern und Ausleihen (E01xx/E04xx/E05xx)
+# ============================================
+
+[E0106]
+"消息模板" = "fehlender Lebensdauer-Bezeichner"
+"教学提示" = "Wenn eine Funktion mehrere Referenzparameter hat, kann der Compiler deren Beziehung nicht ableiten. Fügen Sie Lebensdauerannotationen für Parameter und Rückgabewerte hinzu, z. B. funktion laengste<'a>(x: &'a text, y: &'a text) -> &'a text."
+
+[E0107]
+"消息模板" = "falsche Anzahl der erwarteten Lebensdauerparameter"
+"教学提示" = "Die Anzahl der Lebensdauerparameter in der generischen oder Funktionsdeklaration stimmt nicht mit der Verwendung überein. Prüfen Sie die Annotationen innerhalb von `<>`."
+
+[E0116]
+"消息模板" = "kann keinen inhärenten impl für einen externen Typ definieren"
+"教学提示" = "Ein inhärenter `implement`-Block kann nur für lokale Typen definiert werden. Sie können ein Trait für einen externen Typ implementieren, aber keinen inhärenten `implement`-Block direkt schreiben."
+
+[E0133]
+"消息模板" = "unsichere Operationen erfordern einen unsafe-Block"
+"教学提示" = "Operationen wie das Dereferenzieren von Rohzeigern müssen in einem `unsicher`-Block ausgeführt werden, da Rust deren Sicherheit nicht garantieren kann."
+
+[E0204]
+"消息模板" = "das Trait `Clone` kann nicht automatisch abgeleitet werden"
+"教学提示" = "Ein Typ mit Feldern, die `klonbar` nicht implementieren, kann es nicht ableiten. Implementieren Sie `klonbar` manuell für diese Feldtypen."
+
+[E0210]
+"消息模板" = "Typparameter muss von einem anderen Typ abgedeckt sein, wenn er vor dem ersten lokalen Typ erscheint (Waisenregel)"
+"教学提示" = "Wenn Sie ein externes Trait für einen externen Typ implementieren, muss mindestens eines von Trait oder Typ lokal sein, sonst wird die Waisenregel verletzt."
+
+[E0255]
+"消息模板" = "der Name wird bereits als generischer Parameter verwendet"
+"教学提示" = "Ein Variablenname darf nicht mit einem generischen Parameternamen übereinstimmen. Benennen Sie die Variable oder den generischen Parameter um."
+
+[E0271]
+"消息模板" = "Typkonflikt: die Trait-Grenze ist nicht erfüllt"
+"教学提示" = "Der tatsächliche Typ entspricht nicht der generischen Einschränkung. Prüfen Sie, ob der Typ das erforderliche Trait implementiert."
+
+[E0309]
+"消息模板" = "der generische Parameter erfüllt die Trait-Grenze nicht"
+"教学提示" = "Ein generischer Parameter muss die Trait-Grenze erfüllen, um die entsprechenden Methoden zu nutzen. Fügen Sie die Trait-Grenze zur generischen Deklaration hinzu."
+
+[E0310]
+"消息模板" = "der generische Parameter hat keine feste Größe"
+"教学提示" = "Generische Parameter gelten standardmäßig als größenbestimmt (`festgroesse`). Fügen Sie für unbestimmte Typen eine `?festgroesse`-Grenze hinzu."
+
+# ============================================
+# Typen und Traits (E03xx/E04xx)
+# ============================================
+
+[E0369]
+"消息模板" = "keine Implementierung für `{期望}` und `{实际}`"
+"教学提示" = "Die Typen auf beiden Seiten des Operators müssen kompatibel sein. Prüfen Sie, ob die Operandentypen übereinstimmen, und konvertieren Sie bei Bedarf mit `als`."
+
+[E0373]
+"消息模板" = "die Closure kann die aktuelle Funktion überleben, leiht aber einen temporären Wert"
+"教学提示" = "Die Closure hat eine Referenz auf einen temporären Wert erfasst, könnte diesen aber überleben. Verwenden Sie das Schlüsselwort `verschiebe` oder verlängern Sie die Lebensdauer des Werts."
+
+[E0404]
+"消息模板" = "erwartet ein Trait, gefunden einen Typ"
+"教学提示" = "Hier wird ein Trait-Name benötigt (bei `dynamisch` oder generischen Grenzen). Prüfen Sie, ob der Name korrekt geschrieben ist."
+
+[E0407]
+"消息模板" = "die Methode ist kein Mitglied des Traits"
+"教学提示" = "Ein `implement` kann nur Methoden definieren, die vom Trait deklariert wurden. Prüfen Sie, ob der Methodenname mit der Trait-Definition übereinstimmt."
+
+[E0412]
+"消息模板" = "Typ kann nicht gefunden werden"
+"教学提示" = "Der verwendete Typ existiert nicht oder wurde nicht importiert. Importieren Sie ihn mit dem Schlüsselwort `nutze` oder prüfen Sie die Schreibweise."
+
+[E0422]
+"消息模板" = "kann struct, enum oder union nicht finden"
+"教学提示" = "Der Name zur Konstruktion einer Struktur existiert nicht. Prüfen Sie die Schreibweise oder stellen Sie sicher, dass er im aktuellen Gültigkeitsbereich definiert ist."
+
+[E0432]
+"消息模板" = "unaufgelöster Import"
+"教学提示" = "Das importierte Modul oder Element existiert nicht. Prüfen Sie die Pfadschreibweise und stellen Sie sicher, dass das Modul deklariert (`modul xxx;`) und sichtbar ist."
+
+[E0435]
+"消息模板" = "nicht-konstanter Wert in Konstante verwendet"
+"教学提示" = "Der Wert einer `konst` muss zur Kompilierzeit bekannt sein. Laufzeitwerte wie Funktionsaufrufe können nicht zur Konstanteninitialisierung verwendet werden; nutzen Sie stattdessen `statisch` oder `lass`."
+
+[E0436]
+"消息模板" = "die Funktion ist mehrfach definiert"
+"教学提示" = "Sie können nicht zwei Funktionen mit demselben Namen im selben Gültigkeitsbereich definieren. Prüfen Sie auf doppelte `funktion xxx()`-Definitionen."
+
+[E0463]
+"消息模板" = "Crate kann nicht gefunden werden"
+"教学提示" = "Das externe Paket ist nicht installiert oder nicht in [dependencies] in Cargo.toml deklariert. Fügen Sie zuerst die Abhängigkeit hinzu."
+
+# ============================================
+# Eigentum und Verschiebungen (E05xx)
+# ============================================
+
+[E0496]
+"消息模板" = "Lebensdauer kann ihren Gültigkeitsbereich nicht verlassen"
+"教学提示" = "Die Lebensdauer einer Referenz kann die Lebensdauer des referenzierten Werts nicht überschreiten. Prüfen Sie die Eigentumsstruktur Ihrer Daten."
+
+[E0505]
+"消息模板" = "kann Wert nicht verschieben, während er ausgeliehen ist"
+"教学提示" = "Ein Wert kann nicht verschoben werden, während er ausgeliehen ist. Beenden Sie zuerst die Ausleihe oder verwenden Sie `klone()`, um die Daten zu kopieren."
+
+[E0507]
+"消息模板" = "kann Wert nicht aus einer gemeinsamen Referenz verschieben"
+"教学提示" = "Sie können keinen Wert aus einer gemeinsamen Referenz verschieben. Klonen Sie den Wert oder verwenden Sie eine veränderliche Referenz."
+
+[E0508]
+"消息模板" = "kann Wert nicht aus einem Array verschieben"
+"教学提示" = "Elemente eines Arrays können nicht vollständig herausbewegt werden. Verwenden Sie Index + `klone()` oder wandeln Sie das Array in einen Vektor um."
+
+[E0515]
+"消息模板" = "kann keine Referenz auf lokale Variable zurückgeben"
+"教学提示" = "Lokale Variablen werden am Funktionsende zerstört, daher kann ihre Referenz nicht zurückgegeben werden. Geben Sie den Wert selbst zurück oder verwenden Sie eine `kiste`."
+
+[E0530]
+"消息模板" = "match-Bindungen können enum-Varianten nicht überschatten"
+"教学提示" = "Ein Bindungsname in einem Muster darf nicht mit einem enum-Variantennamen übereinstimmen. Benennen Sie die Bindungsvariable um."
+
+[E0539]
+"消息模板" = "falsche Anzahl der Makroargumente"
+"教学提示" = "Die Anzahl der an das Makro übergebenen Argumente stimmt nicht mit seiner Definition überein. Prüfen Sie die Verwendung des Makros."
+
+[E0559]
+"消息模板" = "Feld nicht gefunden"
+"教学提示" = "Die Struktur hat dieses Feld nicht. Prüfen Sie die Schreibweise des Feldnamens oder verifizieren Sie den verwendeten Strukturtyp."
+
+[E0560]
+"消息模板" = "struct hat kein Feld mit diesem Namen"
+"教学提示" = "Bei der Initialisierung der Struktur wurde ein Feld angegeben, das nicht existiert. Prüfen Sie die Strukturdefinition gegen die verwendeten Felder."
+
+[E0574]
+"消息模板" = "erwartet struct- oder enum-Namen"
+"教学提示" = "Hier wird ein Typname statt eines Werts oder Ausdrucks benötigt. Prüfen Sie die Syntax."
+
+[E0594]
+"消息模板" = "kann unveränderlicher Variablen nicht zuweisen"
+"教学提示" = "Mit `lass` deklarierte Variablen sind standardmäßig unveränderlich. Verwenden Sie `lass mutabel`, wenn Sie sie ändern möchten."
+
+[E0596]
+"消息模板" = "kann nicht mutabel ausleihen, da sie nicht als mutabel deklariert ist"
+"教学提示" = "Nur veränderliche Variablen können veränderlich ausgeliehen werden (`mutabelReferenz`). Deklarieren Sie die Variable mit `lass mutabel` oder den Parameter mit `mutabel`."
+
+[E0597]
+"消息模板" = "ausgeliehener Wert lebt nicht lange genug"
+"教学提示" = "Die Lebensdauer der Referenz überschreitet die Lebensdauer des referenzierten Werts. Passen Sie die Gültigkeitsbereiche an, damit der referenzierte Wert länger lebt."
+
+[E0599]
+"消息模板" = "keine Methode mit diesem Namen für den Typ gefunden"
+"教学提示" = "Die aufgerufene Methode existiert nicht auf diesem Typ. Prüfen Sie die Schreibweise des Methodennamens oder importieren Sie das Trait, das sie bereitstellt."
+
+[E0603]
+"消息模板" = "Modul ist privat"
+"教学提示" = "Module sind standardmäßig privat. Für den Zugriff von außen deklarieren Sie es mit `offen modul xxx;`."
+
+[E0610]
+"消息模板" = "Typ hat keine Felder"
+"教学提示" = "Der Typ, auf den Sie zugreifen möchten, hat keine Felder. Prüfen Sie, ob Sie den falschen Typ dereferenziert haben."
+
+[E0614]
+"消息模板" = "kann den Typ nicht dereferenzieren"
+"教学提示" = "Nur Referenzen (`referenz`) oder Typen, die das Deref-Trait implementieren, können mit `dereferenz` dereferenziert werden."
+
+[E0618]
+"消息模板" = "erwartet Funktion, gefunden etwas, das keine Funktion ist"
+"教学提示" = "Die Aufrufsyntax `xxx()` erfordert, dass xxx eine Funktion oder Closure ist. Prüfen Sie, ob Sie eine Variable als Funktion aufrufen."
+
+[E0621]
+"消息模板" = "explizite Lebensdauer erforderlich"
+"教学提示" = "Die Beziehung zwischen Rückgabereferenz und Parameterreferenzen benötigt eine explizite Annotation. Fügen Sie der Funktion Lebensdauerparameter hinzu."
+
+[E0624]
+"消息模板" = "Feld oder Methode ist privat"
+"教学提示" = "Strukturfelder sind standardmäßig privat. Fügen Sie `offen` zum Feld hinzu oder stellen Sie eine öffentliche Zugriffsmethode bereit."
+
+# ============================================
+# Sonstige (E06xx/E07xx)
+# ============================================
+
+[E0658]
+"消息模板" = "Verwendung eines instabilen Bibliotheksfeatures"
+"教学提示" = "Dieses Feature ist in der aktuellen Rust-Version noch nicht stabil. Prüfen Sie, ob `#![feature(...)]` aktiviert ist, oder verwenden Sie eine stabile Alternative."
+
+[E0716]
+"消息模板" = "temporärer Wert verworfen, während er ausgeliehen ist"
+"教学提示" = "Eine Referenz auf einen temporären Wert kann nicht über Anweisungen hinweg verwendet werden. Binden Sie den Wert zuerst an eine Variable und nehmen Sie dann die Referenz."
+
+[E0759]
+"消息模板" = "Lebensdauerparameter durch widersprüchliche Grenzen eingeschränkt"
+"教学提示" = "Die Lebensdauergrenzen im Typ stimmen nicht mit den Lebensdauerdeklarationen der Funktion überein. Vereinheitlichen Sie die Lebensdauerannotationen."

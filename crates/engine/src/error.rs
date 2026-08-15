@@ -20,9 +20,9 @@ impl SourceLocation {
         Self { line, column }
     }
 
-    /// 返回中文位置描述，如 `第 3 行第 5 列`
+    /// 返回当前语言下的位置描述，如 `第 3 行第 5 列`
     pub fn describe(&self) -> String {
-        format!("第 {} 行第 {} 列", self.line, self.column)
+        crate::语言::f("err_line_col", &[&self.line.to_string(), &self.column.to_string()])
     }
 }
 
@@ -64,50 +64,54 @@ pub enum TranspileError {
 impl fmt::Display for TranspileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidInput { reason } => write!(f, "输入无效：{}", reason),
-            Self::LexError { location, detail } => {
-                write!(f, "词法错误（{}）：{}", location.describe(), detail)
-            }
+            Self::InvalidInput { reason } => write!(f, "{}", crate::语言::f("err_input_invalid", &[reason])),
+            Self::LexError { location, detail } => write!(
+                f,
+                "{}",
+                crate::语言::f("err_lex_error", &[&location.describe(), detail])
+            ),
             Self::MappingMissing {
                 name,
                 location: Some(loc),
-            } => {
-                write!(
-                    f,
-                    "映射缺失（{}）：找不到 `{}` 的翻译映射",
-                    loc.describe(),
-                    name
-                )
-            }
+            } => write!(
+                f,
+                "{}",
+                crate::语言::f("err_mapping_missing_at", &[&loc.describe(), name])
+            ),
             Self::MappingMissing { name, location: None } => {
-                write!(f, "映射缺失：找不到 `{}` 的翻译映射", name)
+                write!(f, "{}", crate::语言::f("err_mapping_missing", &[name]))
             }
             Self::ConfusionChar {
                 location,
                 character,
                 detail,
             } => {
+                // 格式占位符 {:04X} 先格式化再传入模板
+                let codepoint = format!("{:04X}", *character as u32);
                 write!(
                     f,
-                    "检测到可疑 Unicode 字符（{}）：U+{:04X}（{}）",
-                    location.describe(),
-                    *character as u32,
-                    detail
+                    "{}",
+                    crate::语言::f(
+                        "err_confusion_char",
+                        &[&location.describe(), &codepoint, detail]
+                    )
                 )
             }
-            Self::CacheUnavailable { reason } => write!(f, "翻译缓存不可用：{}", reason),
+            Self::CacheUnavailable { reason } => {
+                write!(f, "{}", crate::语言::f("err_cache_unavailable", &[reason]))
+            }
             Self::UnsupportedConstruct {
                 construct,
                 location: Some(loc),
-            } => {
-                write!(f, "暂不支持的语法构造（{}）：`{}`", loc.describe(), construct)
-            }
+            } => write!(
+                f,
+                "{}",
+                crate::语言::f("err_unsupported_at", &[&loc.describe(), construct])
+            ),
             Self::UnsupportedConstruct {
                 construct,
                 location: None,
-            } => {
-                write!(f, "暂不支持的语法构造：`{}`", construct)
-            }
+            } => write!(f, "{}", crate::语言::f("err_unsupported", &[construct])),
             Self::Other { reason } => write!(f, "{}", reason),
         }
     }

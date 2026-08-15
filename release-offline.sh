@@ -92,7 +92,6 @@ fi
 # 许可证与说明文档
 [ -f LICENSE ] && cp LICENSE "$PACK_DIR/" || true
 [ -f README.md ] && cp README.md "$PACK_DIR/" || true
-[ -f 使用说明.md ] && cp 使用说明.md "$PACK_DIR/" || true
 
 # 使用说明
 cat > "$PACK_DIR/使用说明.md" <<'说明'

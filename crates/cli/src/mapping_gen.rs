@@ -9,7 +9,7 @@
 //!    绝不读取 doc comment（`docs` 字段）；`docs` 字段在本模块任何地方都不会被访问。
 //! 2. 生成的映射文件不含任何来自原 crate 的文档注释翻译或复制。
 //! 3. 解释由 AI 根据 API 英文名称和类型签名自行生成；规则模式解释留空。
-//! 4. 输出文件头部固定附免责声明（见 [`DISCLAIMER`]）。
+//! 4. 输出文件头部固定附免责声明（见 [`disclaimer_text`]）。
 
 use anyhow::{Context, anyhow, bail};
 use serde_json::{Map, Value};
@@ -18,8 +18,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// 输出文件头部的法律免责声明（固定文本，逐字输出）
-pub const DISCLAIMER: &str = "本文件中的解释由 AI 根据 API 名称和签名自动生成，不是原 crate 的官方文档翻译，仅供学习参考。原 crate 的版权归其作者所有。";
+/// 输出文件头部的法律免责声明（按目标语言输出，逐字写入生成文件）
+pub fn disclaimer_text(lang: &str) -> String {
+    crate::ui::Ui::for_lang(lang).t("mapping_disclaimer")
+}
 
 /// API 种类（对应需求：函数/结构体/枚举/特征/类型别名/宏/常量）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -41,17 +43,18 @@ pub enum ApiKind {
 }
 
 impl ApiKind {
-    /// 中文显示名
-    pub fn display(&self) -> &'static str {
-        match self {
-            ApiKind::Function => "函数",
-            ApiKind::Struct => "结构体",
-            ApiKind::Enum => "枚举",
-            ApiKind::Trait => "特征",
-            ApiKind::TypeAlias => "类型别名",
-            ApiKind::Macro => "宏",
-            ApiKind::Const => "常量",
-        }
+    /// 显示名（随界面语言变化）
+    pub fn display(&self) -> String {
+        let key = match self {
+            ApiKind::Function => "mapping_kind_function",
+            ApiKind::Struct => "mapping_kind_struct",
+            ApiKind::Enum => "mapping_kind_enum",
+            ApiKind::Trait => "mapping_kind_trait",
+            ApiKind::TypeAlias => "mapping_kind_type_alias",
+            ApiKind::Macro => "mapping_kind_macro",
+            ApiKind::Const => "mapping_kind_const",
+        };
+        crate::ui::Ui::global().t(key)
     }
 }
 
@@ -78,29 +81,27 @@ pub fn run_auto_generate(
     provider: &str,
     output_path: &Path,
 ) -> anyhow::Result<()> {
+    let ui = crate::ui::Ui::for_lang(lang);
     if crate_name.is_empty() {
-        bail!("crate 名不能为空");
+        bail!("{}", ui.t("mapping_crate_empty"));
     }
     if !crate_name
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
         bail!(
-            "crate 名只能包含字母、数字、连字符和下划线，实际输入：{}",
-            crate_name
+            "{}",
+            ui.f("mapping_crate_invalid", &[crate_name])
         );
     }
 
-    println!(
-        "正在提取 crate '{}' 的公开 API（首次运行需编译依赖，可能耗时）…",
-        crate_name
-    );
+    println!("{}", ui.f("mapping_extracting", &[crate_name]));
     let json_text = extract_crate_doc(crate_name)?;
     let entries = extract_public_api(&json_text)?;
     if entries.is_empty() {
         bail!(
-            "未从 crate '{}' 提取到任何公开 API（该 crate 可能没有可文档化的库目标）",
-            crate_name
+            "{}",
+            ui.f("mapping_no_api", &[crate_name])
         );
     }
 
@@ -119,24 +120,33 @@ pub fn run_auto_generate(
         ApiKind::Macro,
     ]
     .iter()
-    .map(|kind| format!("{} {}", stats.get(kind).copied().unwrap_or(0), kind.display()))
+    .map(|kind| {
+        format!(
+            "{} {}",
+            stats.get(kind).copied().unwrap_or(0),
+            kind.display()
+        )
+    })
     .collect::<Vec<_>>()
-    .join("、");
-    println!("✅ 提取到 {} 个公开 API（{}）", entries.len(), stats_text);
+    .join(if lang == "zh" { "、" } else { ", " });
+    println!("{}", ui.f("mapping_extracted", &[&entries.len().to_string(), &stats_text]));
     // rustdoc JSON 格式当前工具链不输出 macro_rules! 宏定义（官方格式限制），提示用户
     if !stats.contains_key(&ApiKind::Macro) {
-        eprintln!("提示: rustdoc JSON 格式暂不包含 macro_rules! 宏定义，宏映射需手动补充。");
+        eprintln!("{}", ui.t("mapping_no_macro"));
     }
 
-    // 1. 中文名：规则生成（AI 模式成功后由 AI 结果覆盖）
+    // 1. 名称：zh 走规则生成中文名，其他语言保留英文原名（AI 模式成功后由 AI 结果覆盖）
     let mut chinese_name_table: Vec<(String, String)> = Vec::new();
     let mut used_chinese_names = HashSet::new();
     for entry in &entries {
-        let chinese_name = rule_generate_chinese_name(&entry.english_name);
+        let chinese_name = rule_generate_localized_name(lang, &entry.english_name);
         if !used_chinese_names.insert(chinese_name.clone()) {
             eprintln!(
-                "警告: 中文名 '{}' 与 '{}' 冲突，已跳过（可手动补充）。",
-                chinese_name, entry.english_name
+                "{}",
+                ui.f(
+                    "mapping_name_conflict",
+                    &[&chinese_name, &entry.english_name]
+                )
             );
             continue;
         }
@@ -147,44 +157,52 @@ pub fn run_auto_generate(
     let mut explanation_table: HashMap<String, String> = HashMap::new();
     match provider {
         "deepseek" => {
-            match call_ai_generate_mapping(crate_name, &entries) {
+            match call_ai_generate_mapping(crate_name, lang, &entries) {
                 Ok((ai_identifiers, ai_explanations)) => {
                     // AI 中文名覆盖规则名（校验英文名合法性，防止 AI 幻觉改名）
                     for (chinese_name, english_name) in ai_identifiers {
-                        if chinese_name_table.iter().any(|(name, _)| name == &chinese_name) {
+                        if chinese_name_table
+                            .iter()
+                            .any(|(name, _)| name == &chinese_name)
+                        {
                             continue;
                         }
-                        if let Some(pos) =
-                            chinese_name_table.iter().position(|(_, en)| en == &english_name)
+                        if let Some(pos) = chinese_name_table
+                            .iter()
+                            .position(|(_, en)| en == &english_name)
                         {
                             chinese_name_table.remove(pos);
                             chinese_name_table.push((chinese_name.clone(), english_name));
                         }
-                        if let Some(explanation) = ai_explanations.get(&chinese_name) {
-                            if !explanation.is_empty() {
-                                explanation_table.insert(chinese_name, explanation.clone());
-                            }
+                        if let Some(explanation) = ai_explanations.get(&chinese_name)
+                            && !explanation.is_empty()
+                        {
+                            explanation_table.insert(chinese_name, explanation.clone());
                         }
                     }
-                    println!("✅ AI（deepseek）生成中文名与解释成功。");
+                    println!("{}", ui.f("mapping_ai_success", &[provider]));
                 }
                 Err(e) => {
                     eprintln!(
-                        "未配置 AI（环境变量 DEEPSEEK_API_KEY），无法生成 API 解释（{}），已回退规则模式。",
-                        e
+                        "{}",
+                        ui.f(
+                            "mapping_ai_fallback",
+                            &["DEEPSEEK_API_KEY", &e.to_string()]
+                        )
                     );
                 }
             }
         }
         "rule" => {
-            eprintln!("未配置 AI，无法生成 API 解释（规则模式，解释留空）。");
+            eprintln!("{}", ui.t("mapping_rule_mode"));
         }
-        other => bail!("未知 AI 服务商 '{}'，可选：deepseek / rule", other),
+        other => bail!("{}", ui.f("mapping_unknown_provider", &[other])),
     }
 
     // 3. 输出 TOML
-    let crate_chinese_name = generate_crate_chinese_name(crate_name);
+    let crate_chinese_name = generate_crate_localized_name(lang, crate_name);
     let toml = build_mapping_toml(
+        lang,
         crate_name,
         &crate_chinese_name,
         &entries,
@@ -198,25 +216,29 @@ pub fn run_auto_generate(
         detect_keyword_conflicts(&lang_pack_dir, &chinese_name_table)
     {
         eprintln!(
-            "警告: 中文名 '{}' 与关键字映射冲突（关键字.toml: {} → {}，本映射: → {}），\n       该条目生成后不会生效，请手动改名或补充。",
-            chinese, chinese, keyword_english, this_english
+            "{}",
+            ui.f(
+                "mapping_keyword_conflict",
+                &[&chinese, &chinese, &keyword_english, &this_english]
+            )
         );
     }
 
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent)
-            .with_context(|| format!("创建输出目录失败: {}", parent.display()))?;
+            .with_context(|| ui.f("mg_err_mkdir", &[&parent.display().to_string()]))?;
     }
     fs::write(output_path, toml)
-        .with_context(|| format!("写入映射文件失败: {}", output_path.display()))?;
-    println!("✅ 已生成映射: {}", output_path.display());
+        .with_context(|| ui.f("mg_err_write", &[&output_path.display().to_string()]))?;
+    println!("{}", ui.f("mapping_generated", &[&output_path.display().to_string()]));
     println!(
-        "   crate 中文名: {}（模块路径映射 {} → {}）",
-        crate_chinese_name, crate_chinese_name, crate_name
+        "{}",
+        ui.f(
+            "mapping_crate_name_line",
+            &[&crate_chinese_name, &crate_chinese_name, crate_name]
+        )
     );
-    println!(
-        "   使用方式: 在项目中创建 lang-packs/zh/ 目录后放入此文件，或用 --lang-pack 指定。"
-    );
+    println!("{}", ui.f("mapping_usage_hint", &[lang]));
     Ok(())
 }
 
@@ -224,12 +246,12 @@ pub fn run_auto_generate(
 
 /// 解析 rustdoc JSON，提取所有公开 API（仅名称与签名，绝不读取 docs 字段）
 pub fn extract_public_api(json_text: &str) -> anyhow::Result<Vec<ApiEntry>> {
-    let doc: Value =
-        serde_json::from_str(json_text).map_err(|e| anyhow!("解析 rustdoc JSON 失败: {}", e))?;
+    let doc: Value = serde_json::from_str(json_text)
+        .map_err(|e| anyhow!("{}", crate::ui::Ui::global().f("mg_err_parse_rustdoc", &[&e.to_string()])))?;
     let index = doc
         .get("index")
         .and_then(Value::as_object)
-        .ok_or_else(|| anyhow!("rustdoc JSON 缺少 index 字段"))?;
+        .ok_or_else(|| anyhow!("{}", crate::ui::Ui::global().t("mg_err_no_index")))?;
     let root = doc
         .get("root")
         .map(|v| {
@@ -349,17 +371,16 @@ fn collect_module_items(
                 return;
             };
             // 若指向本 crate 内的模块（pub use crate::模块），递归跟随收集其公开项
-            if let Some(target_id) = use_obj.get("id").map(|v| v.to_string()) {
-                if target_id != id
-                    && index.contains_key(&target_id)
-                    && index[&target_id]
-                        .get("inner")
-                        .and_then(|i| i.get("module"))
-                        .is_some()
-                {
-                    collect_module_items(index, target_id.as_str(), visited, results);
-                    return;
-                }
+            if let Some(target_id) = use_obj.get("id").map(|v| v.to_string())
+                && target_id != id
+                && index.contains_key(&target_id)
+                && index[&target_id]
+                    .get("inner")
+                    .and_then(|i| i.get("module"))
+                    .is_some()
+            {
+                collect_module_items(index, target_id.as_str(), visited, results);
+                return;
             }
             let source = use_obj.get("source").and_then(Value::as_str).unwrap_or("?");
             results.push(ApiEntry {
@@ -558,10 +579,10 @@ fn render_type(ty: &Value) -> String {
             type_name
         );
     }
-    if let Some(f) = ty.get("function_pointer") {
-        if let Some(sig) = f.get("sig") {
-            return format!("fn{}", render_io(&sig["inputs"], sig.get("output")));
-        }
+    if let Some(f) = ty.get("function_pointer")
+        && let Some(sig) = f.get("sig")
+    {
+        return format!("fn{}", render_io(&sig["inputs"], sig.get("output")));
     }
     if let Some(rp) = ty.get("raw_pointer") {
         let mutable = rp.get("mutable").and_then(Value::as_bool).unwrap_or(false);
@@ -603,12 +624,14 @@ struct TempProject(PathBuf);
 
 impl TempProject {
     /// 创建临时项目目录
-    fn new(crate_name: &str) -> Self {
+    fn new(crate_name: &str) -> anyhow::Result<Self> {
         let path =
             std::env::temp_dir().join(format!("rzc-mapping-{}-{}", crate_name, std::process::id()));
         let _ = fs::remove_dir_all(&path);
-        fs::create_dir_all(path.join("src")).expect("创建临时目录失败");
-        TempProject(path)
+        fs::create_dir_all(path.join("src")).map_err(|e| {
+            anyhow::anyhow!("{}", crate::ui::Ui::global().f("mg_err_tempdir", &[&e.to_string()]))
+        })?;
+        Ok(TempProject(path))
     }
 
     /// 获取临时项目路径
@@ -625,7 +648,7 @@ impl Drop for TempProject {
 
 /// 提取 crate 的 rustdoc JSON 文本（完整工具链流程）
 fn extract_crate_doc(crate_name: &str) -> anyhow::Result<String> {
-    let temp = TempProject::new(crate_name);
+    let temp = TempProject::new(crate_name)?;
     // 1. 临时项目：把目标 crate 作为唯一依赖（* 允许任意已发布版本）
     fs::write(
         temp.path().join("Cargo.toml"),
@@ -648,6 +671,7 @@ fn extract_crate_doc(crate_name: &str) -> anyhow::Result<String> {
 /// 3. 手动调用 `rustdoc -Z unstable-options --output-format json` 文档化目标 crate
 fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Result<String> {
     let project_root = temp.path();
+    let ui = crate::ui::Ui::global();
 
     // 1. metadata：定位目标 crate 的 manifest
     let metadata_output = run_command(
@@ -656,10 +680,10 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
             .arg("--format-version")
             .arg("1")
             .current_dir(project_root),
-        "解析依赖",
+        &ui.t("mg_cmd_parse_deps"),
     )?;
     let metadata: Value = serde_json::from_str(&metadata_output)
-        .map_err(|e| anyhow!("解析 cargo metadata 输出失败: {}", e))?;
+        .map_err(|e| anyhow!("{}", ui.f("mg_err_parse_meta", &[&e.to_string()])))?;
     let target_package = metadata["packages"]
         .as_array()
         .and_then(|pkg_list| {
@@ -668,26 +692,20 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
                 .find(|p| p.get("name").and_then(Value::as_str) == Some(crate_name))
         })
         .ok_or_else(|| {
-            anyhow!(
-                "未找到 crate '{}'（检查名称拼写，或确认该 crate 可在 crates.io 获取）",
-                crate_name
-            )
+            anyhow!("{}", ui.f("mg_err_crate_not_found", &[crate_name]))
         })?;
     let manifest_path = PathBuf::from(
         target_package
             .get("manifest_path")
             .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("crate '{}' 缺少 manifest 路径", crate_name))?,
+            .ok_or_else(|| anyhow!("{}", ui.f("mg_err_no_manifest", &[crate_name])))?,
     );
     let source_dir = manifest_path
         .parent()
-        .ok_or_else(|| anyhow!("无法确定 crate '{}' 的源码目录", crate_name))?;
+        .ok_or_else(|| anyhow!("{}", ui.f("mg_err_no_src_dir", &[crate_name])))?;
     let lib_file = source_dir.join("src/lib.rs");
     if !lib_file.exists() {
-        bail!(
-            "crate '{}' 没有 src/lib.rs（无库目标，无法提取 API）",
-            crate_name
-        );
+        bail!("{}", ui.f("mg_err_no_lib", &[crate_name]));
     }
     // 默认 features：cargo 直接传给 rustc（--cfg feature=...），不经过 build script，
     // 手动 rustdoc 时必须显式补传，否则 cfg(feature) 裁掉的 API 会缺失
@@ -709,7 +727,7 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
             .arg("build")
             .arg("--message-format=json")
             .current_dir(project_root),
-        "编译依赖",
+        &ui.t("mg_cmd_build_deps"),
     )?;
     let mut dep_table: HashMap<String, String> = HashMap::new();
     // target 名 -> package_id（用于关联目标 crate 的构建脚本产物）
@@ -717,8 +735,8 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
     // package_id -> (OUT_DIR, 构建脚本声明的 cfg, rustc-env 列表)
     // 部分 crate（如 serde）的 build.rs 会生成 include! 的源码或声明 cfg，
     // 手动 rustdoc 时必须注入，否则编译失败（如 OUT_DIR 未定义）
-    let mut build_script_table: HashMap<String, (Option<String>, Vec<String>, Vec<String>)> =
-        HashMap::new();
+    type BuildScriptInfo = (Option<String>, Vec<String>, Vec<String>);
+    let mut build_script_table: HashMap<String, BuildScriptInfo> = HashMap::new();
     for line in build_output.lines() {
         let Ok(msg) = serde_json::from_str::<Value>(line) else {
             continue;
@@ -733,10 +751,7 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
             continue;
         };
         if reason == "build-script-executed" {
-            let out_dir = msg
-                .get("out_dir")
-                .and_then(Value::as_str)
-                .map(String::from);
+            let out_dir = msg.get("out_dir").and_then(Value::as_str).map(String::from);
             let cfgs = msg
                 .get("cfgs")
                 .and_then(Value::as_array)
@@ -779,25 +794,31 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
             continue;
         }
         pkg_table.insert(target_name.to_string(), pkg_id.to_string());
-        if let Some(filenames) = msg.get("filenames").and_then(Value::as_array) {
-            if let Some(file) = filenames
+        if let Some(filenames) = msg.get("filenames").and_then(Value::as_array)
+            && let Some(file) = filenames
                 .iter()
                 .filter_map(Value::as_str)
                 .find(|f| f.ends_with(".rlib") || f.ends_with(".so"))
-            {
-                dep_table.insert(target_name.to_string(), file.to_string());
-            }
+        {
+            dep_table.insert(target_name.to_string(), file.to_string());
         }
     }
     if dep_table.is_empty() {
-        bail!("crate '{}' 编译失败或没有产生任何库产物", crate_name);
+        bail!("{}", ui.f("mg_err_build_failed", &[crate_name]));
     }
 
     // 3. rustdoc：生成目标 crate 的 JSON 文档
     let manifest_content = fs::read_to_string(&manifest_path)
-        .with_context(|| format!("读取 {} 失败", manifest_path.display()))?;
-    let manifest: toml::Value = toml::from_str(&manifest_content)
-        .map_err(|e| anyhow!("解析 {} 失败: {}", manifest_path.display(), e))?;
+        .with_context(|| ui.f("mg_err_read_manifest", &[&manifest_path.display().to_string()]))?;
+    let manifest: toml::Value = toml::from_str(&manifest_content).map_err(|e| {
+        anyhow!(
+            "{}",
+            ui.f(
+                "mg_err_parse_manifest",
+                &[&manifest_path.display().to_string(), &e.to_string()]
+            )
+        )
+    })?;
     let edition = manifest
         .get("package")
         .and_then(|p| p.get("edition"))
@@ -857,19 +878,20 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
         .arg("json")
         .arg("--output")
         .arg(&json_dir);
-    run_command(&mut cmd, "生成文档 JSON")?;
+    run_command(&mut cmd, &ui.t("mg_cmd_gen_doc"))?;
 
     let json_path = json_dir.join(format!("{}.json", crate_name_underscore));
-    fs::read_to_string(&json_path)
-        .with_context(|| format!("rustdoc 未生成 JSON 文档: {}", json_path.display()))
+    fs::read_to_string(&json_path).with_context(|| {
+        ui.f("mg_err_no_doc_json", &[&json_path.display().to_string()])
+    })
 }
 
 /// 运行命令并返回 stdout；失败时附加 stderr 摘要
 const ERROR_SUMMARY_LINES: usize = 15;
 fn run_command(cmd: &mut Command, description: &str) -> anyhow::Result<String> {
-    let output = cmd
-        .output()
-        .with_context(|| format!("执行 {} 失败（请确认 cargo/rustdoc 已安装）", description))?;
+    let output = cmd.output().with_context(|| {
+        crate::ui::Ui::global().f("mg_err_run_failed", &[description])
+    })?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let summary = stderr
@@ -877,7 +899,10 @@ fn run_command(cmd: &mut Command, description: &str) -> anyhow::Result<String> {
             .take(ERROR_SUMMARY_LINES)
             .collect::<Vec<_>>()
             .join("\n");
-        bail!("{}失败：\n{}", description, summary);
+        bail!(
+            "{}",
+            crate::ui::Ui::global().f("mg_err_failed", &[description, &summary])
+        );
     }
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
@@ -1320,9 +1345,21 @@ const CRATE_NAME_EXCEPTIONS: &[(&str, &str)] = &[
     ("percent_encoding", "百分号编码"),
 ];
 
+/// 按目标语言生成 crate 名称：zh 用特例表/拆词翻译，其他语言保留英文原名
+pub fn generate_crate_localized_name(lang: &str, crate_name: &str) -> String {
+    if lang == "zh" {
+        generate_crate_chinese_name(crate_name)
+    } else {
+        crate_name.to_string()
+    }
+}
+
 /// 生成 crate 的中文名（特例表优先，未命中拆词翻译，仍未知则保留原名）
 pub fn generate_crate_chinese_name(crate_name: &str) -> String {
-    if let Some((_, chinese)) = CRATE_NAME_EXCEPTIONS.iter().find(|(en, _)| *en == crate_name) {
+    if let Some((_, chinese)) = CRATE_NAME_EXCEPTIONS
+        .iter()
+        .find(|(en, _)| *en == crate_name)
+    {
         return chinese.to_string();
     }
     let word_seq = split_words(crate_name);
@@ -1347,10 +1384,22 @@ pub fn generate_crate_chinese_name(crate_name: &str) -> String {
     }
 }
 
+/// 按目标语言生成 API 名称：zh 走规则生成中文名，其他语言保留英文原名
+pub fn rule_generate_localized_name(lang: &str, english_name: &str) -> String {
+    if lang == "zh" {
+        rule_generate_chinese_name(english_name)
+    } else {
+        english_name.to_string()
+    }
+}
+
 /// 规则驱动：根据英文名生成中文名（整名特例 → 前缀规则 → 拆词翻译 → 原名）
 pub fn rule_generate_chinese_name(english_name: &str) -> String {
     // 1. 整名特例
-    if let Some((_, chinese)) = WHOLE_NAME_EXCEPTIONS.iter().find(|(en, _)| *en == english_name) {
+    if let Some((_, chinese)) = WHOLE_NAME_EXCEPTIONS
+        .iter()
+        .find(|(en, _)| *en == english_name)
+    {
         return chinese.to_string();
     }
     // 2. 前缀规则（按长度降序匹配，如 get_value → 获取值）
@@ -1410,7 +1459,9 @@ fn translate_words(english_name: &str) -> String {
     if word_seq.is_empty() {
         return String::new();
     }
-    let all_known = word_seq.iter().all(|w| WORD_TABLE.iter().any(|(en, _)| en == w));
+    let all_known = word_seq
+        .iter()
+        .all(|w| WORD_TABLE.iter().any(|(en, _)| en == w));
     if !all_known {
         return String::new();
     }
@@ -1461,7 +1512,8 @@ fn decompose_date(days: i64) -> (i64, u32, u32) {
     let z = days + 719_468;
     let era = z.div_euclid(146_097);
     let day_of_era = z - era * 146_097;
-    let year_of_era = (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
     let year = year_of_era + era * 400;
     let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
     let month_of_year = (5 * day_of_year + 2) / 153;
@@ -1475,17 +1527,22 @@ fn decompose_date(days: i64) -> (i64, u32, u32) {
 /// `["模块路径"]` / `["标识符"]` 两节为映射管理器识别的 String 值格式，
 /// `["解释"]` 节为扩展，映射管理器加载时自动忽略，保持兼容）
 pub fn build_mapping_toml(
+    lang: &str,
     crate_name: &str,
     crate_chinese_name: &str,
     entries: &[ApiEntry],
     chinese_name_table: &[(String, String)],
     explanation_table: &HashMap<String, String>,
 ) -> String {
+    let ui = crate::ui::Ui::for_lang(lang);
     let mut output = String::new();
-    output.push_str("# 自动生成的第三方库映射\n");
-    output.push_str(&format!("# crate: {}\n", crate_name));
-    output.push_str(&format!("# 生成时间: {}\n", current_timestamp()));
-    output.push_str(&format!("# {}\n\n", DISCLAIMER));
+    output.push_str(&format!("{}\n", ui.t("mg_header_title")));
+    output.push_str(&format!("{}\n", ui.f("mg_header_crate", &[crate_name])));
+    output.push_str(&format!(
+        "{}\n",
+        ui.f("mg_header_generated_at", &[&current_timestamp()])
+    ));
+    output.push_str(&format!("# {}\n\n", disclaimer_text(lang)));
 
     output.push_str("[\"模块路径\"]\n");
     output.push_str(&format!(
@@ -1513,8 +1570,15 @@ pub fn build_mapping_toml(
 
     output.push_str("[\"解释\"]\n");
     for (chinese_name, _) in chinese_name_table {
-        let explanation = explanation_table.get(chinese_name).map(String::as_str).unwrap_or("");
-        output.push_str(&format!("\"{}\" = \"{}\"\n", escape_toml(chinese_name), escape_toml(explanation)));
+        let explanation = explanation_table
+            .get(chinese_name)
+            .map(String::as_str)
+            .unwrap_or("");
+        output.push_str(&format!(
+            "\"{}\" = \"{}\"\n",
+            escape_toml(chinese_name),
+            escape_toml(explanation)
+        ));
     }
     output
 }
@@ -1523,6 +1587,25 @@ pub fn build_mapping_toml(
 
 /// AI 请求超时配置（秒）
 const AI_CONNECT_TIMEOUT: u64 = 30;
+/// AI system 提示语（中文）：面向 zh 语言包，生成中文名 + 中文解释
+const AI_PROMPT_ZH: &str = "你是面向 Rust 新手的教学翻译专家。任务：把第三方 crate 的公开 API 翻译成中文教学映射。\n\
+    输入：API 英文名 + 类型签名列表。你只能依据名称和类型签名推测含义，\n\
+    禁止使用、翻译或复制任何官方文档内容。\n\
+    输出：严格 TOML 格式，仅两个节：\n\
+    [\"标识符\"]\n\"中文名\" = \"英文名\"\n\
+    [\"解释\"]\n\"中文名\" = \"一句不超过 40 字的大白话解释\"\n\
+    要求：中文名直观好记；解释说明这个 API 是干什么的、怎么用，面向新手；\n\
+    不能确定的条目省略；只输出 TOML，不要输出任何其他文字。";
+/// AI system 提示语（英文）：面向非 zh 语言包，名称保持英文，生成英文新手解释
+/// （TOML 节名必须保持 \"标识符\" / \"解释\"，与解析器及映射文件格式兼容）
+const AI_PROMPT_EN: &str = "You are a teaching translation expert for Rust beginners. Task: produce a teaching mapping for the public API of a third-party crate.\n\
+    Input: a list of API English names + type signatures. Infer meaning from names and signatures only;\n\
+    never use, translate, or copy any official documentation content.\n\
+    Output: strict TOML with exactly two sections:\n\
+    [\"标识符\"]\n\"name\" = \"EnglishName\" (keep the names as-is; only include entries you are sure about)\n\
+    [\"解释\"]\n\"name\" = \"one plain-language explanation under 40 words for beginners\"\n\
+    Requirements: the explanation must say what the API does and how to use it, in simple English;\n\
+    omit entries you cannot determine; output only TOML and nothing else.";
 const AI_READ_TIMEOUT: u64 = 120;
 const AI_WRITE_TIMEOUT: u64 = 60;
 
@@ -1531,12 +1614,13 @@ const AI_WRITE_TIMEOUT: u64 = 60;
 /// 只发送 API 英文名与类型签名；失败时上层回退规则模式。
 pub fn call_ai_generate_mapping(
     crate_name: &str,
+    lang: &str,
     entries: &[ApiEntry],
 ) -> anyhow::Result<(HashMap<String, String>, HashMap<String, String>)> {
     let api_key = std::env::var("DEEPSEEK_API_KEY")
-        .map_err(|_| anyhow!("未设置环境变量 DEEPSEEK_API_KEY"))?;
+        .map_err(|_| anyhow!("{}", crate::ui::Ui::global().t("mg_err_no_api_key")))?;
     if api_key.is_empty() {
-        bail!("环境变量 DEEPSEEK_API_KEY 为空");
+        bail!("{}", crate::ui::Ui::global().t("mg_err_api_key_empty"));
     }
     let base_url = std::env::var("DEEPSEEK_BASE_URL")
         .unwrap_or_else(|_| "https://api.deepseek.com".to_string());
@@ -1547,23 +1631,22 @@ pub fn call_ai_generate_mapping(
         .map(|e| format!("- {} {}", e.kind.display(), e.signature))
         .collect::<Vec<_>>()
         .join("\n");
+    let system_prompt = if lang == "zh" { AI_PROMPT_ZH } else { AI_PROMPT_EN };
+    let user_prompt = if lang == "zh" {
+        format!("crate: {}\n公开 API 列表（名称 + 类型签名）：\n{}", crate_name, api_list)
+    } else {
+        format!("crate: {}\nPublic API list (name + type signature):\n{}", crate_name, api_list)
+    };
     let request_body = serde_json::json!({
         "model": "deepseek-chat",
         "messages": [
             {
                 "role": "system",
-                "content": "你是面向 Rust 新手的教学翻译专家。任务：把第三方 crate 的公开 API 翻译成中文教学映射。\n\
-                    输入：API 英文名 + 类型签名列表。你只能依据名称和类型签名推测含义，\n\
-                    禁止使用、翻译或复制任何官方文档内容。\n\
-                    输出：严格 TOML 格式，仅两个节：\n\
-                    [\"标识符\"]\n\"中文名\" = \"英文名\"\n\
-                    [\"解释\"]\n\"中文名\" = \"一句不超过 40 字的大白话解释\"\n\
-                    要求：中文名直观好记；解释说明这个 API 是干什么的、怎么用，面向新手；\n\
-                    不能确定的条目省略；只输出 TOML，不要输出任何其他文字。"
+                "content": system_prompt
             },
             {
                 "role": "user",
-                "content": format!("crate: {}\n公开 API 列表（名称 + 类型签名）：\n{}", crate_name, api_list)
+                "content": user_prompt
             }
         ],
         "temperature": 0.2,
@@ -1580,24 +1663,28 @@ pub fn call_ai_generate_mapping(
         .set("Content-Type", "application/json")
         .set("Authorization", &format!("Bearer {}", api_key))
         .send_string(&request_body.to_string())
-        .map_err(|e| anyhow!("AI 请求失败: {}", e))?;
+        .map_err(|e| anyhow!("{}", crate::ui::Ui::global().f("mg_err_ai_request", &[&e.to_string()])))?;
     if resp.status() != 200 {
-        bail!("AI 服务返回状态码 {}", resp.status());
+        bail!(
+            "{}",
+            crate::ui::Ui::global().f("mg_err_ai_status", &[&resp.status().to_string()])
+        );
     }
     let resp_text = resp
         .into_string()
-        .map_err(|e| anyhow!("读取 AI 响应失败: {}", e))?;
-    let resp_json: Value =
-        serde_json::from_str(&resp_text).map_err(|e| anyhow!("解析 AI 响应失败: {}", e))?;
+        .map_err(|e| anyhow!("{}", crate::ui::Ui::global().f("mg_err_ai_read", &[&e.to_string()])))?;
+    let resp_json: Value = serde_json::from_str(&resp_text)
+        .map_err(|e| anyhow!("{}", crate::ui::Ui::global().f("mg_err_ai_parse", &[&e.to_string()])))?;
     let content = resp_json
         .get("choices")
         .and_then(|c| c.get(0))
         .and_then(|m| m.get("message"))
         .and_then(|m| m.get("content"))
         .and_then(Value::as_str)
-        .ok_or_else(|| anyhow!("AI 响应缺少 choices[0].message.content"))?;
+        .ok_or_else(|| anyhow!("{}", crate::ui::Ui::global().t("mg_err_ai_no_content")))?;
 
-    let valid_english_names: HashSet<String> = entries.iter().map(|e| e.english_name.clone()).collect();
+    let valid_english_names: HashSet<String> =
+        entries.iter().map(|e| e.english_name.clone()).collect();
     parse_ai_result(content, &valid_english_names)
 }
 
@@ -1610,58 +1697,53 @@ pub fn parse_ai_result(
     // 清洗：去掉 ```toml 围栏与前后杂讯，只保留第一个 [ 开始、结尾围栏之前的部分
     let start = text
         .find('[')
-        .ok_or_else(|| anyhow!("AI 返回内容中没有 TOML 节"))?;
+        .ok_or_else(|| anyhow!("{}", crate::ui::Ui::global().t("mg_err_ai_no_toml")))?;
     let end = text[start..]
         .find("```")
         .map(|pos| start + pos)
         .unwrap_or(text.len());
     let toml_part = &text[start..end];
-    let table: toml::Value =
-        toml::from_str(toml_part).map_err(|e| anyhow!("AI 返回的 TOML 无法解析: {}", e))?;
+    let table: toml::Value = toml::from_str(toml_part).map_err(|e| {
+        anyhow!("{}", crate::ui::Ui::global().f("mg_err_ai_toml_parse", &[&e.to_string()]))
+    })?;
     let mut identifier_map = HashMap::new();
     let mut explanation_map = HashMap::new();
     if let Some(section) = table.get("标识符").and_then(toml::Value::as_table) {
         for (chinese_name, value) in section {
-            if let Some(english_name) = value.as_str() {
-                if valid_english_names.contains(english_name) && !chinese_name.is_empty() {
-                    identifier_map.insert(chinese_name.clone(), english_name.to_string());
-                }
+            if let Some(english_name) = value.as_str()
+                && valid_english_names.contains(english_name)
+                && !chinese_name.is_empty()
+            {
+                identifier_map.insert(chinese_name.clone(), english_name.to_string());
             }
         }
     }
     if let Some(section) = table.get("解释").and_then(toml::Value::as_table) {
         for (chinese_name, value) in section {
-            if let Some(explanation) = value.as_str() {
-                if !explanation.is_empty() {
-                    if explanation.chars().count() > 40 {
-                        eprintln!(
-                            "警告: AI 解释超过 40 字（{} 字）：{}",
-                            explanation.chars().count(),
-                            chinese_name
-                        );
-                    }
-                    explanation_map.insert(chinese_name.clone(), explanation.to_string());
+            if let Some(explanation) = value.as_str()
+                && !explanation.is_empty()
+            {
+                if explanation.chars().count() > 40 {
+                    eprintln!(
+                        "{}",
+                        crate::ui::Ui::global().f(
+                            "mg_warn_ai_explain_long",
+                            &[&explanation.chars().count().to_string(), chinese_name]
+                        )
+                    );
                 }
+                explanation_map.insert(chinese_name.clone(), explanation.to_string());
             }
         }
     }
     Ok((identifier_map, explanation_map))
 }
 
-/// 检测系统语言（用于 --lang 缺省值）：LANG/LC_ALL 含 zh → "zh"，含 ru → "ru"，默认 "zh"
+/// 检测系统语言（用于 --lang 缺省值）：完整支持全部内置语言，默认 "zh"
+///
+/// 实现见 [`crate::ui::detect_system_language`]（读取 LC_ALL / LC_MESSAGES / LANG）。
 pub fn detect_system_language() -> String {
-    for var in ["LC_ALL", "LC_MESSAGES", "LANG"] {
-        if let Ok(val) = std::env::var(var) {
-            let lower = val.to_lowercase();
-            if lower.contains("zh") {
-                return "zh".to_string();
-            }
-            if lower.contains("ru") {
-                return "ru".to_string();
-            }
-        }
-    }
-    "zh".to_string()
+    crate::ui::detect_system_language()
 }
 
 // ==================== 测试 ====================
@@ -1700,7 +1782,10 @@ mod tests {
     fn test_extract_public_api() {
         let entries = extract_public_api(&sample_json()).expect("应能解析");
         // 顶层 7 类 + 递归子模块中的公开项
-        let name_list: Vec<(&str, ApiKind)> = entries.iter().map(|e| (e.english_name.as_str(), e.kind)).collect();
+        let name_list: Vec<(&str, ApiKind)> = entries
+            .iter()
+            .map(|e| (e.english_name.as_str(), e.kind))
+            .collect();
         assert!(name_list.contains(&("new", ApiKind::Function)));
         assert!(name_list.contains(&("Foo", ApiKind::Struct)));
         assert!(name_list.contains(&("State", ApiKind::Enum)));
@@ -1710,8 +1795,14 @@ mod tests {
         assert!(name_list.contains(&("print", ApiKind::Macro)));
         // re-export：名称在 inner.use.name，按 类型别名（type 名 = 来源路径）提取
         assert!(name_list.contains(&("Deserialize", ApiKind::TypeAlias)));
-        let deser = entries.iter().find(|e| e.english_name == "Deserialize").unwrap();
-        assert_eq!(deser.signature, "type Deserialize = serde_core::Deserialize");
+        let deser = entries
+            .iter()
+            .find(|e| e.english_name == "Deserialize")
+            .unwrap();
+        assert_eq!(
+            deser.signature,
+            "type Deserialize = serde_core::Deserialize"
+        );
         // 模块 re-export 递归跟随（pub use crate::sub）
         assert!(name_list.contains(&("子函数", ApiKind::Function)));
         // glob 导入（pub use core::*）跳过、私有模块项跳过
@@ -1726,7 +1817,10 @@ mod tests {
         let entries = extract_public_api(&sample_json()).unwrap();
         let new_fn = entries.iter().find(|e| e.english_name == "new").unwrap();
         // async fn new<T>(x: u32) -> Result<T, String>
-        assert_eq!(new_fn.signature, "async fn new<T>(x: u32) -> Result<T, String>");
+        assert_eq!(
+            new_fn.signature,
+            "async fn new<T>(x: u32) -> Result<T, String>"
+        );
         let alias = entries.iter().find(|e| e.english_name == "Count").unwrap();
         assert_eq!(alias.signature, "type Count = u32");
         let constant = entries.iter().find(|e| e.english_name == "MAX").unwrap();
@@ -1761,17 +1855,29 @@ mod tests {
     }
 
     #[test]
-    fn test_TOML_output_and_disclaimer() {
+    fn test_toml_output_and_disclaimer() {
         let entries = extract_public_api(&sample_json()).unwrap();
         let chinese_name_table: Vec<(String, String)> = entries
             .iter()
-            .map(|e| (rule_generate_chinese_name(&e.english_name), e.english_name.clone()))
+            .map(|e| {
+                (
+                    rule_generate_chinese_name(&e.english_name),
+                    e.english_name.clone(),
+                )
+            })
             .collect();
         let mut explanation_table = HashMap::new();
         explanation_table.insert("新建".to_string(), "创建新的值".to_string());
-        let toml = build_mapping_toml("示例", "示例库", &entries, &chinese_name_table, &explanation_table);
+        let toml = build_mapping_toml(
+            "zh",
+            "示例",
+            "示例库",
+            &entries,
+            &chinese_name_table,
+            &explanation_table,
+        );
         // 免责声明必须存在
-        assert!(toml.contains(DISCLAIMER), "缺少免责声明");
+        assert!(toml.contains(&disclaimer_text("zh")), "缺少免责声明");
         assert!(toml.contains("# crate: 示例"));
         // 可被标准 TOML 解析
         let value: toml::Value = toml::from_str(&toml).expect("TOML 应可解析");
@@ -1785,13 +1891,25 @@ mod tests {
     }
 
     #[test]
-    fn test_TOML_loadable_by_mapping_manager() {
+    fn test_toml_loadable_by_mapping_manager() {
         let entries = extract_public_api(&sample_json()).unwrap();
         let chinese_name_table: Vec<(String, String)> = entries
             .iter()
-            .map(|e| (rule_generate_chinese_name(&e.english_name), e.english_name.clone()))
+            .map(|e| {
+                (
+                    rule_generate_chinese_name(&e.english_name),
+                    e.english_name.clone(),
+                )
+            })
             .collect();
-        let toml = build_mapping_toml("示例", "示例库", &entries, &chinese_name_table, &HashMap::new());
+        let toml = build_mapping_toml(
+            "zh",
+            "示例",
+            "示例库",
+            &entries,
+            &chinese_name_table,
+            &HashMap::new(),
+        );
         let temp = tempfile::tempdir().unwrap();
         // 模拟语言包目录结构：keywords.toml + crates/示例.toml（映射管理器要求 keywords.toml 存在）
         fs::write(
@@ -1887,14 +2005,19 @@ mod tests {
         .unwrap();
         fs::write(shell.join("src/lib.rs"), "// 空库\n").unwrap();
 
-        let temp_guard = TempProject::new("mini-crate");
+        let temp_guard = TempProject::new("mini-crate").expect("创建临时项目失败");
         // 覆盖临时项目路径为外壳项目
         let _ = fs::remove_dir_all(temp_guard.path());
         fs::create_dir_all(shell.join("src")).unwrap();
-        let json_text = extract_doc_json_internal(&TempProject(shell.clone()), "mini-crate").expect("工具链应能提取文档");
+        let json_text = extract_doc_json_internal(&TempProject(shell.clone()), "mini-crate")
+            .expect("工具链应能提取文档");
         let entries = extract_public_api(&json_text).unwrap();
         let name_list: Vec<&str> = entries.iter().map(|e| e.english_name.as_str()).collect();
-        assert!(name_list.contains(&"新建"), "应提取到函数 新建: {:?}", name_list);
+        assert!(
+            name_list.contains(&"新建"),
+            "应提取到函数 新建: {:?}",
+            name_list
+        );
         assert!(name_list.contains(&"Foo"));
         assert!(name_list.contains(&"颜色"));
         assert!(name_list.contains(&"行为"));
@@ -1903,15 +2026,19 @@ mod tests {
         assert!(!name_list.contains(&"私有函数"), "私有函数不应被提取");
         // 签名包含类型信息
         let new_fn = entries.iter().find(|e| e.english_name == "新建").unwrap();
-        assert!(new_fn.signature.contains("u32"), "签名应含参数类型: {}", new_fn.signature);
+        assert!(
+            new_fn.signature.contains("u32"),
+            "签名应含参数类型: {}",
+            new_fn.signature
+        );
     }
 
     /// 不存在的 crate 应报错（含"未找到"提示）
     #[test]
     fn test_nonexistent_crate_error() {
-        let temp = TempProject::new("rzc-不存在的crate-xyz-123");
+        let temp = TempProject::new("rzc-不存在的crate-xyz-123").expect("创建临时项目失败");
         let result = extract_doc_json_internal(&temp, "rzc-不存在的crate-xyz-123");
-        let err = result.err().expect("应报错");
+        let err = result.expect_err("应报错");
         assert!(
             err.to_string().contains("未找到") || err.to_string().contains("失败"),
             "错误应提示未找到: {}",
@@ -1940,7 +2067,9 @@ mod tests {
             ("错误".to_string(), "Err".to_string(), "Error".to_string())
         );
         // 语言包目录不存在时返回空
-        assert!(detect_keyword_conflicts(&temp.path().join("不存在"), &chinese_name_table).is_empty());
+        assert!(
+            detect_keyword_conflicts(&temp.path().join("不存在"), &chinese_name_table).is_empty()
+        );
     }
 
     /// 真实工具链 + 构建脚本（build.rs 生成 include! 源码）：
@@ -1974,7 +2103,8 @@ mod tests {
         .unwrap();
         fs::write(shell.join("src/lib.rs"), "// 空库\n").unwrap();
 
-        let json_text = extract_doc_json_internal(&TempProject(shell.clone()), "mini-gen").expect("OUT_DIR 注入后应能生成文档");
+        let json_text = extract_doc_json_internal(&TempProject(shell.clone()), "mini-gen")
+            .expect("OUT_DIR 注入后应能生成文档");
         let entries = extract_public_api(&json_text).unwrap();
         let name_list: Vec<&str> = entries.iter().map(|e| e.english_name.as_str()).collect();
         assert!(
@@ -2009,7 +2139,8 @@ mod tests {
         .unwrap();
         fs::write(shell.join("src/lib.rs"), "// 空库\n").unwrap();
 
-        let json_text = extract_doc_json_internal(&TempProject(shell.clone()), "mini-feat").expect("应能生成文档");
+        let json_text = extract_doc_json_internal(&TempProject(shell.clone()), "mini-feat")
+            .expect("应能生成文档");
         let entries = extract_public_api(&json_text).unwrap();
         let name_list: Vec<&str> = entries.iter().map(|e| e.english_name.as_str()).collect();
         assert!(

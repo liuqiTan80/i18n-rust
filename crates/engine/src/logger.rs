@@ -22,7 +22,7 @@ pub enum LogLevel {
 
 impl LogLevel {
     /// 从 RZ_LOG 环境变量取值解析（大小写不敏感，支持 warning 别名）
-    pub fn from_str(text: &str) -> Option<LogLevel> {
+    pub fn parse_env(text: &str) -> Option<LogLevel> {
         match text.trim().to_ascii_lowercase().as_str() {
             "debug" => Some(Self::Debug),
             "info" => Some(Self::Info),
@@ -32,14 +32,15 @@ impl LogLevel {
         }
     }
 
-    /// 返回中文显示文字
-    pub fn display_text(&self) -> &'static str {
-        match self {
-            Self::Debug => "调试",
-            Self::Info => "信息",
-            Self::Warn => "警告",
-            Self::Error => "错误",
-        }
+    /// 返回当前语言下的显示文字
+    pub fn display_text(&self) -> String {
+        let key = match self {
+            Self::Debug => "log_level_debug",
+            Self::Info => "log_level_info",
+            Self::Warn => "log_level_warn",
+            Self::Error => "log_level_error",
+        };
+        crate::语言::t(key)
     }
 
     /// 从序号还原日志级别（用于从 AtomicU8 读取）
@@ -64,10 +65,10 @@ static INITIALIZED: Once = Once::new();
 /// `RZ_LOG=error` 仅输出错误。
 pub fn init() {
     INITIALIZED.call_once(|| {
-        if let Ok(val) = std::env::var("RZ_LOG") {
-            if let Some(level) = LogLevel::from_str(&val) {
-                set_log_level(level);
-            }
+        if let Ok(val) = std::env::var("RZ_LOG")
+            && let Some(level) = LogLevel::parse_env(&val)
+        {
+            set_log_level(level);
         }
     });
 }
@@ -129,7 +130,8 @@ fn decompose_time(total_secs: u64) -> (i64, u32, u32, u32, u32, u32) {
     let z = days + 719_468;
     let era = z.div_euclid(146_097);
     let day_of_era = z - era * 146_097;
-    let year_offset = (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year_offset =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
     let year = year_offset + era * 400;
     let day_of_year = day_of_era - (365 * year_offset + year_offset / 4 - year_offset / 100);
     let month_offset = (5 * day_of_year + 2) / 153;
@@ -197,13 +199,13 @@ mod tests {
 
     #[test]
     fn test_level_parsing() {
-        assert_eq!(LogLevel::from_str("debug"), Some(LogLevel::Debug));
-        assert_eq!(LogLevel::from_str("INFO"), Some(LogLevel::Info));
-        assert_eq!(LogLevel::from_str("warn"), Some(LogLevel::Warn));
-        assert_eq!(LogLevel::from_str("warning"), Some(LogLevel::Warn));
-        assert_eq!(LogLevel::from_str("error"), Some(LogLevel::Error));
-        assert_eq!(LogLevel::from_str("verbose"), None);
-        assert_eq!(LogLevel::from_str(""), None);
+        assert_eq!(LogLevel::parse_env("debug"), Some(LogLevel::Debug));
+        assert_eq!(LogLevel::parse_env("INFO"), Some(LogLevel::Info));
+        assert_eq!(LogLevel::parse_env("warn"), Some(LogLevel::Warn));
+        assert_eq!(LogLevel::parse_env("warning"), Some(LogLevel::Warn));
+        assert_eq!(LogLevel::parse_env("error"), Some(LogLevel::Error));
+        assert_eq!(LogLevel::parse_env("verbose"), None);
+        assert_eq!(LogLevel::parse_env(""), None);
     }
 
     #[test]

@@ -31,13 +31,14 @@ impl MappingCategory {
         }
     }
 
-    /// 获取分类的显示名称
-    pub fn display_name(&self) -> &'static str {
-        match self {
-            MappingCategory::Keywords => "关键字",
-            MappingCategory::StdLib => "标准库",
-            MappingCategory::ThirdParty => "第三方库",
-        }
+    /// 获取分类的显示名称（随当前语言变化）
+    pub fn display_name(&self) -> String {
+        let key = match self {
+            MappingCategory::Keywords => "mapping_cat_keywords",
+            MappingCategory::StdLib => "mapping_cat_stdlib",
+            MappingCategory::ThirdParty => "mapping_cat_third_party",
+        };
+        crate::语言::t(key)
     }
 }
 
@@ -73,13 +74,18 @@ impl MappingLoader {
         let file_path = self.root_dir.join(category.default_filename());
 
         if !file_path.exists() {
-            return Err(format!("映射表文件不存在: {:?}", file_path));
+            return Err(crate::语言::f(
+                "load_map_file_missing",
+                &[&format!("{:?}", file_path)],
+            ));
         }
 
-        let content =
-            fs::read_to_string(&file_path).map_err(|e| format!("读取映射表失败: {}", e))?;
+        let content = fs::read_to_string(&file_path)
+            .map_err(|e| crate::语言::f("load_read_map_failed", &[&e.to_string()]))?;
 
-        let value: Value = content.parse().map_err(|e| format!("解析映射表失败: {}", e))?;
+        let value: Value = content
+            .parse::<Value>()
+            .map_err(|e| crate::语言::f("load_parse_map_failed", &[&e.to_string()]))?;
 
         let category_map = self.parse_toml_value(value)?;
         self.mappings.insert(category, category_map);
@@ -124,11 +130,12 @@ impl MappingLoader {
         let mut merged_map = HashMap::new();
 
         // 遍历目录中的所有 .toml 文件
-        let entries =
-            fs::read_dir(&dir_path).map_err(|e| format!("读取第三方库目录失败: {}", e))?;
+        let entries = fs::read_dir(&dir_path)
+            .map_err(|e| crate::语言::f("load_read_dir_failed", &[&e.to_string()]))?;
 
         for entry in entries {
-            let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
+            let entry = entry
+                .map_err(|e| crate::语言::f("load_read_entry_failed", &[&e.to_string()]))?;
             let path = entry.path();
 
             if path.extension().and_then(|s| s.to_str()) == Some("toml") {
@@ -139,12 +146,13 @@ impl MappingLoader {
                     .unwrap_or("unknown")
                     .to_string();
 
-                let content = fs::read_to_string(&path)
-                    .map_err(|e| format!("读取映射表 {:?} 失败: {}", path, e))?;
+                let content = fs::read_to_string(&path).map_err(|e| {
+                    crate::语言::f("load_read_map_path_failed", &[&format!("{:?}", path), &e.to_string()])
+                })?;
 
-                let value: Value = content
-                    .parse()
-                    .map_err(|e| format!("解析映射表 {:?} 失败: {}", path, e))?;
+                let value: Value = content.parse::<Value>().map_err(|e| {
+                    crate::语言::f("load_parse_map_path_failed", &[&format!("{:?}", path), &e.to_string()])
+                })?;
 
                 // 将文件中的映射合并，加上文件分类前缀
                 if let Value::Table(table) = value {

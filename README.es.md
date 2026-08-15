@@ -9,24 +9,24 @@
 Escribe programas en Rust en tu idioma nativo. rzc los traduce automáticamente a Rust estándar, compila y ejecuta — la educación en programación vuelve al pensamiento lógico, no a la memorización del inglés.
 
 ```rust
-// src/main.zh — Dialecto chino de Rust para enseñanza
-函数 主函数() {
-    让 可变 数量 = 10;
-    数量 = 数量 + 1;
-    打印行!("数量是：{}", 数量);
+// src/main.es — dialecto español de Rust para enseñanza
+funcion principal() {
+    dejar mutable numero = 10;
+    numero = numero + 1;
+    imprimir_linea!("Número: {}", numero);
 }
 ```
 
 ```bash
-$ rzc run src/main.zh
-数量是：11
+$ rzc run src/main.es
+Número: 11
 ```
 
 ## ✨ Características
 
-- **Programación en idioma nativo**: escribe programas completos en Rust con palabras clave en chino (`函数`, `让`, `如果`, `返回`…)
-- **Multilingüe nativo**: la arquitectura soporta cualquier idioma natural; paquete chino incluido, otros instalables remotamente
-- **Detección automática por extensión**: `.zh`, `.ja`, `.ru` se asocian automáticamente al paquete de idioma
+- **Programación en idioma nativo**: escribe programas completos en Rust con palabras clave en español (`funcion`, `dejar`, `si`, `devolver`…)
+- **Multilingüe nativo**: la arquitectura soporta cualquier idioma natural; 11 paquetes incluidos, otros instalables remotamente
+- **Detección automática por extensión**: `.zh`, `.en`, `.de` se asocian automáticamente al paquete de idioma
 - **Diagnósticos localizados**: errores de rustc traducidos con 💡 consejos didácticos; errores de propiedad visualizados con JSON
 - **Visualización de propiedad**: la extensión VS Code resalta movimientos (amarillo), reuso (rojo) y tiempos de vida (verde)
 - **Soporte LSP completo**: autocompletado, hover, ir a definición, buscar referencias, renombrar
@@ -45,12 +45,10 @@ cargo install rzc
 ### Desde el código fuente
 
 ```bash
-# Espejo de China
-git clone https://gitcode.com/tan80/zrRust.git
 # Internacional
 git clone https://github.com/liuqiTan80/i18n-rust.git
 
-cd zrRust o i18n-rust
+cd i18n-rust
 cargo build --release --workspace
 ```
 
@@ -59,7 +57,7 @@ cargo build --release --workspace
 ```bash
 rzc init mi-proyecto
 cd mi-proyecto
-rzc run src/main.zh
+rzc run src/main.es
 ```
 
 ## 🛠️ Comandos
@@ -67,8 +65,8 @@ rzc run src/main.zh
 | Comando | Descripción |
 |---------|-------------|
 | `rzc init <nombre>` | Crear nuevo proyecto |
-| `rzc run <archivo>` | Traducir y ejecutar código `.zh` |
-| `rzc check <archivo>` | Verificación de tipos con diagnósticos en chino |
+| `rzc run <archivo>` | Traducir y ejecutar código `.es` |
+| `rzc check <archivo>` | Verificación de tipos con diagnósticos en español |
 | `rzc eject <archivo>` | Exportar a código `.rs` estándar |
 | `rzc lang list` | Listar paquetes de idioma instalados |
 | `rzc lang install <fuente>` | Instalar paquete de idioma |
@@ -77,9 +75,9 @@ rzc run src/main.zh
 
 ## 🌍 Gestión de paquetes de idioma
 
-rzc incluye el paquete chino (115+ palabras clave, 496 mapeos de biblioteca estándar, 53 traducciones de errores).
+rzc incluye 11 paquetes de idioma (español, inglés, chino, alemán, japonés, ruso, francés, portugués, coreano, árabe e hindi, cada uno con traducciones de errores y consejos didácticos).
 
-- **Detección automática**: `main.zh` usa chino; `main.ja` usa japonés
+- **Detección automática**: `main.es` usa español; `main.en` usa inglés; `main.de` usa alemán
 - **Instalación remota**: descarga desde GitCode, respaldo en GitHub
 - **Instalación local**: `rzc lang install ./mi-paquete`
 
@@ -103,11 +101,11 @@ Tutorial completo para principiantes: 24 capítulos + 4 apéndices
 **Q: ¿Por qué las macros pueden omitir el signo de exclamación?**
 Para reducir la memorización. El transpilador añade `!` automáticamente.
 
-**Q: ¿Puedo usar nombres de variables en chino?**
-Sí. Rust soporta identificadores Unicode.
+**Q: ¿Puedo usar nombres de variables en español?**
+Sí. `numero` y `principal` son identificadores válidos. Rust soporta identificadores Unicode.
 
 **Q: ¿Cómo instalo otros paquetes de idioma?**
-`rzc lang install 日本語` (remoto) o `rzc lang install ./directorio` (local).
+`rzc lang install ja` (remoto) o `rzc lang install ./directorio` (local).
 
 ## 🤝 Contribuir
 

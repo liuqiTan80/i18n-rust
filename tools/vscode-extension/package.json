@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/i18n-rust/i18n-rust"
+    "url": "https://gitcode.com/tan80/zrRust"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -34,7 +34,11 @@
   "icon": "images/icon.png",
   "activationEvents": [
     "onLanguage:rust-zh",
-    "workspaceContains:**/*.zh"
+    "onLanguage:rust-en",
+    "onLanguage:rust-de",
+    "workspaceContains:**/*.zh",
+    "workspaceContains:**/*.en",
+    "workspaceContains:**/*.de"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -48,6 +52,36 @@
         ],
         "extensions": [
           ".zh"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "images/icon.png",
+          "dark": "images/icon.png"
+        }
+      },
+      {
+        "id": "rust-en",
+        "aliases": [
+          "Rust (English)",
+          "rust-en"
+        ],
+        "extensions": [
+          ".en"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "images/icon.png",
+          "dark": "images/icon.png"
+        }
+      },
+      {
+        "id": "rust-de",
+        "aliases": [
+          "Rust (Deutsch)",
+          "rust-de"
+        ],
+        "extensions": [
+          ".de"
         ],
         "configuration": "./language-configuration.json",
         "icon": {
@@ -146,13 +180,13 @@
         "command": "i18n-rust.run",
         "key": "ctrl+shift+r",
         "mac": "cmd+shift+r",
-        "when": "resourceLangId == rust-zh"
+        "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de"
       },
       {
         "command": "i18n-rust.check",
         "key": "ctrl+shift+c",
         "mac": "cmd+shift+c",
-        "when": "resourceLangId == rust-zh"
+        "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de"
       }
     ],
     "configuration": {

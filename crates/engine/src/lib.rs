@@ -1,16 +1,18 @@
 // i18n-rust 核心引擎
 // 提供多语言 Rust 方言的词法处理、映射管理、诊断翻译、增量缓存、安全检测等功能
 
-pub mod unicode_confusion;
 pub mod alias;
-pub mod logger;
-pub mod mapping_source;
-pub mod mapping_manager;
-pub mod module_path;
 pub mod cache;
 pub mod diagnostic;
-pub mod lexer;
 pub mod error;
+pub mod lexer;
+pub mod logger;
+#[path = "语言.rs"]
+pub mod 语言;
+pub mod mapping_manager;
+pub mod mapping_source;
+pub mod module_path;
+pub mod unicode_confusion;
 
 use std::time::Instant;
 
@@ -39,7 +41,11 @@ pub fn transpile_source_with_map(
 ) -> Result<cache::TranspileOutput, error::TranspileError> {
     logger::init();
     let start = Instant::now();
-    crate::log_info!("transpile_engine", "开始翻译（{} 字节）", source.len());
+    crate::log_info!(
+        "transpile_engine",
+        "{}",
+        crate::语言::f("log_transpile_start", &[&source.len().to_string()])
+    );
 
     let fingerprint = cache::TranslationCache::generate_context_fingerprint(
         manager.get_keyword_map(),
@@ -57,20 +63,30 @@ pub fn transpile_source_with_map(
         let result = lexer::transpile_with_map(source, manager.get_keyword_map(), &macro_set);
         let mut translated = result.output;
         if !manager.module_path_map.is_empty() {
-            translated = module_path::replace_module_paths(&translated, manager.get_module_path_map());
+            translated =
+                module_path::replace_module_paths(&translated, manager.get_module_path_map());
         }
         if !manager.alias_map.is_empty() {
             translated = alias::replace_aliases(&translated, manager.get_alias_map());
         }
-        Ok(cache::TranspileOutput::with_map(translated, result.source_map))
+        Ok(cache::TranspileOutput::with_map(
+            translated,
+            result.source_map,
+        ))
     })?;
 
+    let elapsed = format!("{:?}", start.elapsed());
     crate::log_info!(
         "transpile_engine",
-        "翻译完成（{} 字节 → {} 字节，耗时 {:?}）",
-        source.len(),
-        output.output.len(),
-        start.elapsed()
+        "{}",
+        crate::语言::f(
+            "log_transpile_done",
+            &[
+                &source.len().to_string(),
+                &output.output.len().to_string(),
+                &elapsed,
+            ]
+        )
     );
     Ok(output)
 }
@@ -93,6 +109,12 @@ mod tests {
 ["模块路径"]
 "标准集合" = "std::collections"
 "#;
+        let stdlib_toml = r#"
+["模块路径"]
+"线程" = "std::thread"
+["标识符"]
+"字符串" = "String"
+"#;
         let third_party_data = [(
             "测试库.toml",
             r#"
@@ -105,6 +127,7 @@ mod tests {
         mapping_manager::MappingManager::load_from_builtin(
             keywords_toml,
             module_paths_toml,
+            stdlib_toml,
             &third_party_data,
         )
         .expect("创建测试管理器失败")
@@ -113,7 +136,7 @@ mod tests {
     fn new_cache() -> cache::TranslationCache {
         // 测试中抑制日志输出（默认级别为警告，信息级会被过滤）
         logger::set_log_level(logger::LogLevel::Error);
-        cache::TranslationCache::default()
+        cache::TranslationCache::with_default_capacity()
     }
 
     #[test]
@@ -197,6 +220,7 @@ mod tests {
 "可变" = "mut"
 "#,
             "[\"模块路径\"]\n",
+            "[\"模块路径\"]\n[\"标识符\"]\n",
             &[],
         )
         .expect("创建新管理器失败");
@@ -206,8 +230,8 @@ mod tests {
         assert_eq!(cache.current_count(), 1);
         assert_eq!(cache.miss_count(), 2);
         // 新映射生效：可变→mut
-        let result =
-            transpile_source("函数 主函数() { 让 可变 x = 1; }", &new_manager, &mut cache).expect("翻译失败");
+        let result = transpile_source("函数 主函数() { 让 可变 x = 1; }", &new_manager, &mut cache)
+            .expect("翻译失败");
         assert!(result.contains("let mut x"));
     }
 

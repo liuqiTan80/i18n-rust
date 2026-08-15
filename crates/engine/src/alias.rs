@@ -23,7 +23,7 @@ pub fn replace_aliases(source: &str, alias_map: &HashMap<String, String>) -> Str
     let mut current_offset = 0;
 
     for token in token_stream {
-        let len = token.len as usize;
+        let len = token.len;
         let text = &source[current_offset..current_offset + len];
         match token.kind {
             TokenKind::Ident => {

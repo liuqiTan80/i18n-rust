@@ -64,8 +64,7 @@ pub fn transpile_with_map(
         match token.kind {
             TokenKind::Ident | TokenKind::RawIdent => {
                 // 处理标识符，检查是否命中关键字映射
-                let replacement = if text.starts_with("r#") {
-                    let inner = &text[2..];
+                let replacement = if let Some(inner) = text.strip_prefix("r#") {
                     keyword_map
                         .get(inner)
                         .map(|en| format!("r#{}", en))
@@ -91,20 +90,15 @@ pub fn transpile_with_map(
                 // 宏感叹号自动补充：
                 // 当标识符是宏名称、后面跟着 (/[/{ 且没有 !，且前面不是 :: 时，自动插入 !
                 if !macro_names.is_empty() {
-                    let raw_name = if text.starts_with("r#") {
-                        &text[2..]
-                    } else {
-                        text
-                    };
+                    let raw_name = text.strip_prefix("r#").unwrap_or(text);
 
-                    if macro_names.contains(raw_name) && !is_preceded_by_double_colon(&token_stream, i)
+                    if macro_names.contains(raw_name)
+                        && !is_preceded_by_double_colon(&token_stream, i)
+                        && let Some(next_kind) = find_next_non_ws_kind(&token_stream, i + 1)
+                        && is_open_bracket(next_kind)
                     {
-                        if let Some(next_kind) = find_next_non_ws_kind(&token_stream, i + 1) {
-                            if is_open_bracket(next_kind) {
-                                // 下一个有意义 token 是 ( [ {，需要补 !
-                                output.push('!');
-                            }
-                        }
+                        // 下一个有意义 token 是 ( [ {，需要补 !
+                        output.push('!');
                     }
                 }
             }
@@ -114,20 +108,14 @@ pub fn transpile_with_map(
         current_offset += length;
     }
 
-    TranspileResult {
-        output,
-        source_map,
-    }
+    TranspileResult { output, source_map }
 }
 
 /// 查找从指定位置开始的第一个非空白 token 的 kind
-fn find_next_non_ws_kind(
-    token_stream: &[rustc_lexer::Token],
-    start: usize,
-) -> Option<TokenKind> {
-    for j in start..token_stream.len() {
-        if !is_whitespace(token_stream[j].kind) {
-            return Some(token_stream[j].kind);
+fn find_next_non_ws_kind(token_stream: &[rustc_lexer::Token], start: usize) -> Option<TokenKind> {
+    for token in &token_stream[start..] {
+        if !is_whitespace(token.kind) {
+            return Some(token.kind);
         }
     }
     None
@@ -206,8 +194,7 @@ fn is_followed_by_module_name(
     module_names: &HashSet<String>,
 ) -> bool {
     let mut colon_count = 0;
-    for j in (current + 1)..token_stream.len() {
-        let (token, text) = &token_stream[j];
+    for (token, text) in &token_stream[(current + 1)..] {
         if is_whitespace(*token) {
             continue;
         }
@@ -218,7 +205,7 @@ fn is_followed_by_module_name(
             }
             continue;
         }
-        return matches!(token, TokenKind::Ident { .. })
+        return matches!(token, TokenKind::Ident)
             && colon_count == 2
             && module_names.contains(*text);
     }
@@ -229,7 +216,7 @@ fn is_followed_by_module_name(
 fn is_whitespace(kind: TokenKind) -> bool {
     matches!(
         kind,
-        TokenKind::Whitespace | TokenKind::LineComment { .. } | TokenKind::BlockComment { .. }
+        TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
     )
 }
 
@@ -347,7 +334,10 @@ mod tests {
         let macros = create_macro_set();
         let source = "打印行(\"你好\")";
         let expected = "println!(\"你好\")";
-        assert_eq!(transpile_source_with_macros(source, &map, &macros), expected);
+        assert_eq!(
+            transpile_source_with_macros(source, &map, &macros),
+            expected
+        );
     }
 
     #[test]
@@ -356,7 +346,10 @@ mod tests {
         let macros = create_macro_set();
         let source = "打印行!(\"你好\")";
         let expected = "println!(\"你好\")";
-        assert_eq!(transpile_source_with_macros(source, &map, &macros), expected);
+        assert_eq!(
+            transpile_source_with_macros(source, &map, &macros),
+            expected
+        );
     }
 
     #[test]
@@ -378,7 +371,10 @@ mod tests {
         // "从" 不在宏集合中，不应被加 !
         let source = "字符串::从(\"x\")";
         let expected = "字符串::从(\"x\")";
-        assert_eq!(transpile_source_with_macros(source, &map, &macros), expected);
+        assert_eq!(
+            transpile_source_with_macros(source, &map, &macros),
+            expected
+        );
     }
 
     #[test]
@@ -388,7 +384,10 @@ mod tests {
         // 打印行 在宏集合中，但前面是 ::，不应加 !
         let source = "std::打印行(\"你好\")";
         let expected = "std::println(\"你好\")";
-        assert_eq!(transpile_source_with_macros(source, &map, &macros), expected);
+        assert_eq!(
+            transpile_source_with_macros(source, &map, &macros),
+            expected
+        );
     }
 
     #[test]
@@ -397,7 +396,10 @@ mod tests {
         let macros = create_macro_set();
         let source = "向量![1, 2, 3]";
         let expected = "vec![1, 2, 3]";
-        assert_eq!(transpile_source_with_macros(source, &map, &macros), expected);
+        assert_eq!(
+            transpile_source_with_macros(source, &map, &macros),
+            expected
+        );
     }
 
     #[test]
@@ -406,7 +408,10 @@ mod tests {
         let macros = create_macro_set();
         let source = "向量[1, 2, 3]";
         let expected = "vec![1, 2, 3]";
-        assert_eq!(transpile_source_with_macros(source, &map, &macros), expected);
+        assert_eq!(
+            transpile_source_with_macros(source, &map, &macros),
+            expected
+        );
     }
 
     #[test]
@@ -424,7 +429,10 @@ mod tests {
         let macros = create_macro_set();
         let source = "打印行(\"甲\"); 打印(\"乙\")";
         let expected = "println!(\"甲\"); print!(\"乙\")";
-        assert_eq!(transpile_source_with_macros(source, &map, &macros), expected);
+        assert_eq!(
+            transpile_source_with_macros(source, &map, &macros),
+            expected
+        );
     }
 
     // ===== 源映射测试 =====
@@ -435,7 +443,10 @@ mod tests {
         let macros = create_macro_set();
         let source = "函数 主函数() { 让 x = 5; 打印行(\"你好\") }";
         let result = transpile_with_map(source, &map, &macros);
-        assert_eq!(result.output, transpile_source_with_macros(source, &map, &macros));
+        assert_eq!(
+            result.output,
+            transpile_source_with_macros(source, &map, &macros)
+        );
     }
 
     #[test]
@@ -498,7 +509,10 @@ mod tests {
     // ===== 反向转译测试 =====
 
     fn create_reverse_map(forward: &HashMap<String, String>) -> HashMap<String, String> {
-        forward.iter().map(|(k, v)| (v.clone(), k.clone())).collect()
+        forward
+            .iter()
+            .map(|(k, v)| (v.clone(), k.clone()))
+            .collect()
     }
 
     #[test]

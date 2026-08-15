@@ -14,13 +14,14 @@ pub enum ConfusionCategory {
 }
 
 impl ConfusionCategory {
-    /// 返回中文显示文字
-    pub fn display_text(&self) -> &'static str {
-        match self {
-            Self::ZeroWidth => "零宽字符",
-            Self::BidiControl => "双向文本控制符",
-            Self::Homoglyph => "同形异义字符",
-        }
+    /// 返回当前语言下的类别显示文字
+    pub fn display_text(&self) -> String {
+        let key = match self {
+            Self::ZeroWidth => "unicode_cat_zero_width",
+            Self::BidiControl => "unicode_cat_bidi",
+            Self::Homoglyph => "unicode_cat_homoglyph",
+        };
+        crate::语言::t(key)
     }
 }
 
@@ -40,16 +41,20 @@ pub struct ConfusionWarning {
 }
 
 impl ConfusionWarning {
-    /// 格式化为单行中文警告文本
-    /// 示例：`第 2 行第 5 列：检测到零宽字符 U+200B（零宽空格。此类字符肉眼不可见...）`
+    /// 格式化为单行警告文本，模板随当前语言变化
+    /// 示例（zh）：`第 2 行第 5 列：检测到零宽字符 U+200B（零宽空格。此类字符肉眼不可见...）`
     pub fn format(&self) -> String {
-        format!(
-            "第 {} 行第 {} 列：检测到{} U+{:04X}（{}）",
-            self.line,
-            self.column,
-            self.category.display_text(),
-            self.character as u32,
-            self.detail
+        // 格式占位符 {:04X} 先格式化再传入模板
+        let codepoint = format!("{:04X}", self.character as u32);
+        crate::语言::f(
+            "unicode_warning_at",
+            &[
+                &self.line.to_string(),
+                &self.column.to_string(),
+                &self.category.display_text(),
+                &codepoint,
+                &self.detail,
+            ],
         )
     }
 }
@@ -83,7 +88,7 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
                 column: col,
                 character: ch,
                 category: ConfusionCategory::ZeroWidth,
-                detail: format!("{}。此类字符肉眼不可见，可能被用于隐藏代码或绕过检测", name),
+                detail: crate::语言::f("unicode_zero_width_hint", &[&localized_char_name(ch, name)]),
             });
         } else if let Some(name) = bidi_control_name(ch) {
             warnings.push(ConfusionWarning {
@@ -91,10 +96,7 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
                 column: col,
                 character: ch,
                 category: ConfusionCategory::BidiControl,
-                detail: format!(
-                    "{}。双向控制符可篡改代码的显示顺序（bidi 攻击），可能隐藏恶意代码",
-                    name
-                ),
+                detail: crate::语言::f("unicode_bidi_hint", &[&localized_char_name(ch, name)]),
             });
         } else if let Some((similar, name)) = homoglyph_char(ch) {
             warnings.push(ConfusionWarning {
@@ -102,9 +104,9 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
                 column: col,
                 character: ch,
                 category: ConfusionCategory::Homoglyph,
-                detail: format!(
-                    "形似拉丁字母 '{}'（{}）。可能被用于同形异义攻击，伪装标识符",
-                    similar, name
+                detail: crate::语言::f(
+                    "unicode_homoglyph_hint",
+                    &[&similar.to_string(), &localized_char_name(ch, name)],
                 ),
             });
         }
@@ -113,84 +115,95 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
     warnings
 }
 
-/// 零宽字符名称查找
+/// 零宽字符名称查找（英文 Unicode 官方名）
 fn zero_width_name(ch: char) -> Option<&'static str> {
     match ch {
-        '\u{200B}' => Some("零宽空格"),
-        '\u{200C}' => Some("零宽非连接符"),
-        '\u{200D}' => Some("零宽连接符"),
-        '\u{FEFF}' => Some("零宽不换行空格"),
-        '\u{2060}' => Some("单词连接符"),
-        '\u{00AD}' => Some("软连字符"),
-        '\u{180E}' => Some("蒙古语元音分隔符"),
+        '\u{200B}' => Some("ZERO WIDTH SPACE"),
+        '\u{200C}' => Some("ZERO WIDTH NON-JOINER"),
+        '\u{200D}' => Some("ZERO WIDTH JOINER"),
+        '\u{FEFF}' => Some("ZERO WIDTH NO-BREAK SPACE"),
+        '\u{2060}' => Some("WORD JOINER"),
+        '\u{00AD}' => Some("SOFT HYPHEN"),
+        '\u{180E}' => Some("MONGOLIAN VOWEL SEPARATOR"),
         _ => None,
     }
 }
 
-/// 双向文本控制符名称查找
+/// 双向文本控制符名称查找（英文 Unicode 官方名）
 fn bidi_control_name(ch: char) -> Option<&'static str> {
     match ch {
-        '\u{200E}' => Some("从左到右标记"),
-        '\u{200F}' => Some("从右到左标记"),
-        '\u{202A}' => Some("从左到右嵌入"),
-        '\u{202B}' => Some("从右到左嵌入"),
-        '\u{202C}' => Some("弹出方向格式化"),
-        '\u{202D}' => Some("从左到右覆盖"),
-        '\u{202E}' => Some("从右到左覆盖"),
-        '\u{2066}' => Some("从左到右隔离"),
-        '\u{2067}' => Some("从右到左隔离"),
-        '\u{2068}' => Some("首项强隔离"),
-        '\u{2069}' => Some("弹出方向隔离"),
+        '\u{200E}' => Some("LEFT-TO-RIGHT MARK"),
+        '\u{200F}' => Some("RIGHT-TO-LEFT MARK"),
+        '\u{202A}' => Some("LEFT-TO-RIGHT EMBEDDING"),
+        '\u{202B}' => Some("RIGHT-TO-LEFT EMBEDDING"),
+        '\u{202C}' => Some("POP DIRECTIONAL FORMATTING"),
+        '\u{202D}' => Some("LEFT-TO-RIGHT OVERRIDE"),
+        '\u{202E}' => Some("RIGHT-TO-LEFT OVERRIDE"),
+        '\u{2066}' => Some("LEFT-TO-RIGHT ISOLATE"),
+        '\u{2067}' => Some("RIGHT-TO-LEFT ISOLATE"),
+        '\u{2068}' => Some("FIRST STRONG ISOLATE"),
+        '\u{2069}' => Some("POP DIRECTIONAL ISOLATE"),
         _ => None,
     }
 }
 
-/// 同形异义字符表：(可疑字符, 形似的拉丁字母, Unicode 名称)
+/// 获取当前语言下的字符名：zh 语言包提供中文名（unicode_name_{codepoint:X}），
+/// 其他语言直接用英文 Unicode 官方名（语言包不重复翻译字符名）。
+fn localized_char_name(ch: char, english_name: &str) -> String {
+    if crate::语言::current_language() == "zh" {
+        // 键名为 4 位大写十六进制（如 unicode_name_200B），与语言包一致
+        crate::语言::t(&format!("unicode_name_{:04X}", ch as u32))
+    } else {
+        english_name.to_string()
+    }
+}
+
+/// 同形异义字符表：(可疑字符, 形似的拉丁字母, Unicode 官方名)
 const HOMOGLYPH_TABLE: &[(char, char, &str)] = &[
     // 西里尔字母（形似拉丁）
-    ('\u{0410}', 'A', "西里尔大写字母 А"),
-    ('\u{0412}', 'B', "西里尔大写字母 В"),
-    ('\u{0415}', 'E', "西里尔大写字母 Е"),
-    ('\u{041A}', 'K', "西里尔大写字母 К"),
-    ('\u{041D}', 'H', "西里尔大写字母 Н"),
-    ('\u{041E}', 'O', "西里尔大写字母 О"),
-    ('\u{0420}', 'P', "西里尔大写字母 Р"),
-    ('\u{0421}', 'C', "西里尔大写字母 С"),
-    ('\u{0422}', 'T', "西里尔大写字母 Т"),
-    ('\u{0423}', 'Y', "西里尔大写字母 У"),
-    ('\u{0425}', 'X', "西里尔大写字母 Х"),
-    ('\u{0430}', 'a', "西里尔小写字母 а"),
-    ('\u{0435}', 'e', "西里尔小写字母 е"),
-    ('\u{043E}', 'o', "西里尔小写字母 о"),
-    ('\u{0440}', 'p', "西里尔小写字母 р"),
-    ('\u{0441}', 'c', "西里尔小写字母 с"),
-    ('\u{0445}', 'x', "西里尔小写字母 х"),
+    ('\u{0410}', 'A', "CYRILLIC CAPITAL LETTER A"),
+    ('\u{0412}', 'B', "CYRILLIC CAPITAL LETTER VE"),
+    ('\u{0415}', 'E', "CYRILLIC CAPITAL LETTER IE"),
+    ('\u{041A}', 'K', "CYRILLIC CAPITAL LETTER KA"),
+    ('\u{041D}', 'H', "CYRILLIC CAPITAL LETTER EN"),
+    ('\u{041E}', 'O', "CYRILLIC CAPITAL LETTER O"),
+    ('\u{0420}', 'P', "CYRILLIC CAPITAL LETTER ER"),
+    ('\u{0421}', 'C', "CYRILLIC CAPITAL LETTER ES"),
+    ('\u{0422}', 'T', "CYRILLIC CAPITAL LETTER TE"),
+    ('\u{0423}', 'Y', "CYRILLIC CAPITAL LETTER U"),
+    ('\u{0425}', 'X', "CYRILLIC CAPITAL LETTER HA"),
+    ('\u{0430}', 'a', "CYRILLIC SMALL LETTER A"),
+    ('\u{0435}', 'e', "CYRILLIC SMALL LETTER IE"),
+    ('\u{043E}', 'o', "CYRILLIC SMALL LETTER O"),
+    ('\u{0440}', 'p', "CYRILLIC SMALL LETTER ER"),
+    ('\u{0441}', 'c', "CYRILLIC SMALL LETTER ES"),
+    ('\u{0445}', 'x', "CYRILLIC SMALL LETTER HA"),
     // 希腊字母（形似拉丁）
-    ('\u{0391}', 'A', "希腊大写字母 Α"),
-    ('\u{0392}', 'B', "希腊大写字母 Β"),
-    ('\u{0395}', 'E', "希腊大写字母 Ε"),
-    ('\u{0397}', 'H', "希腊大写字母 Η"),
-    ('\u{0399}', 'I', "希腊大写字母 Ι"),
-    ('\u{039A}', 'K', "希腊大写字母 Κ"),
-    ('\u{039C}', 'M', "希腊大写字母 Μ"),
-    ('\u{039D}', 'N', "希腊大写字母 Ν"),
-    ('\u{039F}', 'O', "希腊大写字母 Ο"),
-    ('\u{03A1}', 'P', "希腊大写字母 Ρ"),
-    ('\u{03A4}', 'T', "希腊大写字母 Τ"),
-    ('\u{03A5}', 'Y', "希腊大写字母 Υ"),
-    ('\u{03A7}', 'X', "希腊大写字母 Χ"),
-    ('\u{03B1}', 'a', "希腊小写字母 α"),
-    ('\u{03B5}', 'e', "希腊小写字母 ε"),
-    ('\u{03B9}', 'i', "希腊小写字母 ι"),
-    ('\u{03BA}', 'k', "希腊小写字母 κ"),
-    ('\u{03BC}', 'u', "希腊小写字母 μ"),
-    ('\u{03BD}', 'v', "希腊小写字母 ν"),
-    ('\u{03BF}', 'o', "希腊小写字母 ο"),
-    ('\u{03C1}', 'p', "希腊小写字母 ρ"),
-    ('\u{03C4}', 't', "希腊小写字母 τ"),
-    ('\u{03C5}', 'u', "希腊小写字母 υ"),
-    ('\u{03C7}', 'x', "希腊小写字母 χ"),
-    ('\u{03C9}', 'w', "希腊小写字母 ω"),
+    ('\u{0391}', 'A', "GREEK CAPITAL LETTER ALPHA"),
+    ('\u{0392}', 'B', "GREEK CAPITAL LETTER BETA"),
+    ('\u{0395}', 'E', "GREEK CAPITAL LETTER EPSILON"),
+    ('\u{0397}', 'H', "GREEK CAPITAL LETTER ETA"),
+    ('\u{0399}', 'I', "GREEK CAPITAL LETTER IOTA"),
+    ('\u{039A}', 'K', "GREEK CAPITAL LETTER KAPPA"),
+    ('\u{039C}', 'M', "GREEK CAPITAL LETTER MU"),
+    ('\u{039D}', 'N', "GREEK CAPITAL LETTER NU"),
+    ('\u{039F}', 'O', "GREEK CAPITAL LETTER OMICRON"),
+    ('\u{03A1}', 'P', "GREEK CAPITAL LETTER RHO"),
+    ('\u{03A4}', 'T', "GREEK CAPITAL LETTER TAU"),
+    ('\u{03A5}', 'Y', "GREEK CAPITAL LETTER UPSILON"),
+    ('\u{03A7}', 'X', "GREEK CAPITAL LETTER CHI"),
+    ('\u{03B1}', 'a', "GREEK SMALL LETTER ALPHA"),
+    ('\u{03B5}', 'e', "GREEK SMALL LETTER EPSILON"),
+    ('\u{03B9}', 'i', "GREEK SMALL LETTER IOTA"),
+    ('\u{03BA}', 'k', "GREEK SMALL LETTER KAPPA"),
+    ('\u{03BC}', 'u', "GREEK SMALL LETTER MU"),
+    ('\u{03BD}', 'v', "GREEK SMALL LETTER NU"),
+    ('\u{03BF}', 'o', "GREEK SMALL LETTER OMICRON"),
+    ('\u{03C1}', 'p', "GREEK SMALL LETTER RHO"),
+    ('\u{03C4}', 't', "GREEK SMALL LETTER TAU"),
+    ('\u{03C5}', 'u', "GREEK SMALL LETTER UPSILON"),
+    ('\u{03C7}', 'x', "GREEK SMALL LETTER CHI"),
+    ('\u{03C9}', 'w', "GREEK SMALL LETTER OMEGA"),
 ];
 
 /// 查询字符是否为同形异义字符，返回 (形似的拉丁字母, Unicode 名称)
@@ -205,6 +218,11 @@ fn homoglyph_char(ch: char) -> Option<(char, &'static str)> {
 mod tests {
     use super::*;
 
+    /// 确保全局语言为 zh（unicode 字符名仅 zh 语言包提供中文映射）
+    fn ensure_zh() {
+        crate::语言::set_language("zh");
+    }
+
     #[test]
     fn test_normal_chinese_source_no_warnings() {
         let source = "// 注释\n函数 主函数() {\n    让 x = 5;\n    打印行(\"你好\");\n}";
@@ -213,6 +231,7 @@ mod tests {
 
     #[test]
     fn test_zero_width_space_detection_and_position() {
+        ensure_zh();
         let source = "函数 主函数() {\n\u{200B}让 x = 1;\n}";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 1);
@@ -229,7 +248,11 @@ mod tests {
         let source = "让 a\u{200D}b = 1; 让 c\u{200C}d = 2; 让 e\u{2060}f = 3;";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 3);
-        assert!(warnings.iter().all(|w| w.category == ConfusionCategory::ZeroWidth));
+        assert!(
+            warnings
+                .iter()
+                .all(|w| w.category == ConfusionCategory::ZeroWidth)
+        );
     }
 
     #[test]
@@ -245,10 +268,15 @@ mod tests {
 
     #[test]
     fn test_bidi_text_controls() {
+        ensure_zh();
         let source = "// 注释 \u{202E} 反转显示\n让 x = \u{202A}1\u{202C};";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 3);
-        assert!(warnings.iter().all(|w| w.category == ConfusionCategory::BidiControl));
+        assert!(
+            warnings
+                .iter()
+                .all(|w| w.category == ConfusionCategory::BidiControl)
+        );
         assert_eq!(warnings[0].line, 1);
         assert_eq!(warnings[0].column, 7);
         assert!(warnings[0].detail.contains("从右到左覆盖"));
@@ -256,6 +284,7 @@ mod tests {
 
     #[test]
     fn test_bidi_isolates() {
+        ensure_zh();
         let source = "让 x = \u{2066}1\u{2069};";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 2);
@@ -265,6 +294,7 @@ mod tests {
 
     #[test]
     fn test_cyrillic_homoglyph() {
+        ensure_zh();
         let source = "让 а = 1;";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 1);
@@ -279,6 +309,7 @@ mod tests {
 
     #[test]
     fn test_greek_homoglyph() {
+        ensure_zh();
         let source = "函数 主函数() { 让 ρ = 1; }";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 1);
@@ -297,6 +328,7 @@ mod tests {
 
     #[test]
     fn test_warning_format_output() {
+        ensure_zh();
         let warning = ConfusionWarning {
             line: 2,
             column: 5,
