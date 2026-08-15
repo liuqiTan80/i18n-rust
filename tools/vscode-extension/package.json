@@ -1,0 +1,287 @@
+{
+  "name": "i18n-rust",
+  "displayName": "i18n-rust - 中文 Rust 教学方言",
+  "description": "使用中文编写 Rust 代码，支持语法高亮、智能补全和错误提示",
+  "version": "0.1.0",
+  "publisher": "i18n-rust",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/i18n-rust/i18n-rust"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "files": [
+    "out/**",
+    "snippets/**",
+    "syntaxes/**",
+    "images/**",
+    "language-configuration.json",
+    "LICENSE*"
+  ],
+  "categories": [
+    "Programming Languages",
+    "Education"
+  ],
+  "keywords": [
+    "rust",
+    "chinese",
+    "education",
+    "i18n",
+    "中文"
+  ],
+  "icon": "images/icon.png",
+  "activationEvents": [
+    "onLanguage:rust-zh",
+    "workspaceContains:**/*.zh"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "rust-zh",
+        "aliases": [
+          "Rust (中文)",
+          "rust-zh",
+          "中文 Rust"
+        ],
+        "extensions": [
+          ".zh"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "images/icon.png",
+          "dark": "images/icon.png"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "rust-zh",
+        "scopeName": "source.rust-zh",
+        "path": "./syntaxes/rust-zh.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "i18n-rust.run",
+        "title": "i18n: 运行 (Run)",
+        "icon": "$(play)"
+      },
+      {
+        "command": "i18n-rust.check",
+        "title": "i18n: 类型检查 (Check)",
+        "icon": "$(check)"
+      },
+      {
+        "command": "i18n-rust.eject",
+        "title": "i18n: 导出为 Rust 源码",
+        "icon": "$(export)"
+      },
+      {
+        "command": "i18n-rust.selectLanguagePack",
+        "title": "i18n: 选择语言包",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "i18n-rust.restartServer",
+        "title": "i18n: 重启语言服务器",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "i18n-rust.aiChat",
+        "title": "i18n: AI 对话",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "i18n-rust.aiSelectProvider",
+        "title": "i18n: 选择 AI 提供商",
+        "icon": "$(account)"
+      },
+      {
+        "command": "i18n-rust.aiListModels",
+        "title": "i18n: 获取 AI 模型列表",
+        "icon": "$(list-ordered)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "when": "resourceLangId == rust-zh",
+          "command": "i18n-rust.run",
+          "group": "navigation@1"
+        },
+        {
+          "when": "resourceLangId == rust-zh",
+          "command": "i18n-rust.check",
+          "group": "navigation@2"
+        }
+      ],
+      "editor/context": [
+        {
+          "when": "resourceLangId == rust-zh",
+          "command": "i18n-rust.run",
+          "group": "i18n@1"
+        },
+        {
+          "when": "resourceLangId == rust-zh",
+          "command": "i18n-rust.check",
+          "group": "i18n@2"
+        },
+        {
+          "when": "resourceLangId == rust-zh",
+          "command": "i18n-rust.eject",
+          "group": "i18n@3"
+        },
+        {
+          "when": "resourceLangId == rust-zh",
+          "command": "i18n-rust.aiChat",
+          "group": "i18n@4"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "i18n-rust.run",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "resourceLangId == rust-zh"
+      },
+      {
+        "command": "i18n-rust.check",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c",
+        "when": "resourceLangId == rust-zh"
+      }
+    ],
+    "configuration": {
+      "title": "i18n-rust",
+      "properties": {
+        "i18n-rust.serverPath": {
+          "type": "string",
+          "default": "i18n-rust-lsp",
+          "description": "i18n-rust-lsp 可执行文件路径"
+        },
+        "i18n-rust.languagePack": {
+          "type": "string",
+          "default": "中文",
+          "description": "当前使用的语言包"
+        },
+        "i18n-rust.languagePackPath": {
+          "type": "string",
+          "default": "",
+          "description": "语言包目录路径（留空则使用默认）"
+        },
+        "i18n-rust.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "跟踪 LSP 服务器通信"
+        },
+        "i18n-rust.ai.provider": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "deepseek",
+            "qwen",
+            "glm",
+            "ollama",
+            "custom"
+          ],
+          "default": "openai",
+          "description": "AI 提供商标识：openai / deepseek / qwen / glm / ollama / custom"
+        },
+        "i18n-rust.ai.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "AI API 密钥（Ollama 本地服务可留空）",
+          "markdownDescription": "AI API 密钥（Ollama 本地服务可留空）"
+        },
+        "i18n-rust.ai.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "AI API 基础地址（留空时使用所选服务商的默认地址，如 DeepSeek: https://api.deepseek.com/v1）"
+        },
+        "i18n-rust.ai.model": {
+          "type": "string",
+          "default": "",
+          "description": "AI 模型名称（留空时使用所选服务商的默认模型）"
+        },
+        "i18n-rust.ai.temperature": {
+          "type": "number",
+          "default": 0.1,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "AI 采样温度（0~2，默认 0.1，教学场景偏好稳定输出）"
+        },
+        "i18n-rust.ai.maxTokens": {
+          "type": "number",
+          "default": 2048,
+          "minimum": 1,
+          "description": "AI 最大生成 token 数（默认 2048）"
+        },
+        "i18n-rust.ai.systemPrompt": {
+          "type": "string",
+          "default": "",
+          "description": "自定义系统提示词（留空时按当前语言包自动生成）"
+        },
+        "i18n-rust.ai.timeout": {
+          "type": "number",
+          "default": 60,
+          "minimum": 1,
+          "description": "AI 请求超时时间（秒，默认 60）"
+        }
+      }
+    },
+    "problemMatchers": [
+      {
+        "name": "i18n-rust",
+        "owner": "i18n-rust",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^(.+):(\\d+):(\\d+):\\s+(error|warning|note):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "rust-zh",
+        "path": "./snippets/rust-zh.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "node ./out/test/runTest.js",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.2",
+    "@vscode/vsce": "^2.22.0"
+  }
+}

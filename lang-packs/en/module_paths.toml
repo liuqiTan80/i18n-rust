@@ -1,0 +1,11 @@
+# i18n-rust English module path mapping
+["模块路径"]
+"std" = "std"
+"io" = "io"
+"collections" = "collections"
+"string" = "string"
+"net" = "net"
+"fs" = "fs"
+"thread" = "thread"
+"rand" = "rand"
+"serde" = "serde"

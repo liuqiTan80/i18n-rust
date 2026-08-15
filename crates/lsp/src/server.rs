@@ -1,0 +1,1009 @@
+//! 代理服务器模块
+//!
+//! LSP 代理服务器的核心逻辑：
+//! 1. 通过 lsp-server 与编辑器客户端建立 LSP 连接
+//! 2. 接收 .zh 文件变更，翻译后通知 rust-analyzer
+//! 3. 转发 rust-analyzer 的响应/通知，并还原位置信息
+//! 4. 翻译诊断消息为中文
+
+use std::collections::{HashMap, HashSet};
+use std::io::Write;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::thread;
+
+use lsp_server::{Connection, Message, Notification, Request, Response};
+use serde_json::{Value, json};
+
+use i18n_rust_engine::mapping_source;
+
+use crate::analyzer::AnalyzerConnection;
+use crate::response_map::ResponseMapper;
+use crate::translation_cache::{TranslationCache, TranslationEntry};
+
+/// LSP 代理服务器
+pub struct ProxyServer {
+    /// 与编辑器客户端的 LSP 连接
+    connection: Connection,
+    /// 翻译缓存
+    cache: Arc<TranslationCache>,
+    /// rust-analyzer 子进程
+    analyzer: AnalyzerConnection,
+    /// 响应映射器
+    mapper: Arc<ResponseMapper>,
+    /// 自增请求 ID
+    request_counter: Arc<std::sync::atomic::AtomicI64>,
+    /// 待映射的 rust-analyzer 请求 ID → 原始客户端请求信息
+    pending_requests: Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
+}
+
+/// 记录一个转发给 rust-analyzer 的请求的原始信息
+#[derive(Debug, Clone)]
+struct PendingRequestInfo {
+    original_id: lsp_server::RequestId,
+    method: String,
+    original_uri: String,
+}
+
+impl ProxyServer {
+    /// 创建并初始化代理服务器
+    pub fn new(lang_pack_path: &PathBuf) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
+        // 1. 加载语言包
+        let (keyword_map, macro_names) = load_language_pack(lang_pack_path)?;
+        log::info!(
+            "已加载 {} 个关键字映射，{} 个宏名称",
+            keyword_map.len(),
+            macro_names.len()
+        );
+
+        // 2. 创建翻译缓存
+        let temp_dir = std::env::temp_dir().join("i18n_lsp_virtual");
+        let cache = TranslationCache::new(keyword_map, macro_names, temp_dir);
+
+        // 3. 启动 rust-analyzer
+        let analyzer = AnalyzerConnection::start()?;
+
+        // 4. 创建响应映射器
+        let mapper = Arc::new(ResponseMapper::new(cache.clone()));
+
+        // 5. 建立 LSP 连接（stdio）
+        let (connection, io_threads) = Connection::stdio();
+
+        let server = Self {
+            connection,
+            cache,
+            analyzer,
+            mapper,
+            request_counter: Arc::new(std::sync::atomic::AtomicI64::new(1000)),
+            pending_requests: Arc::new(std::sync::Mutex::new(HashMap::new())),
+        };
+
+        Ok((server, io_threads))
+    }
+
+    /// 运行服务器主循环
+    pub fn run(self, io_threads: lsp_server::IoThreads) -> anyhow::Result<()> {
+        // 1. 等待 initialize 请求并握手
+        let (init_id, init_params) = self.handshake()?;
+        log::info!("客户端初始化完成");
+
+        // 2. 初始化 rust-analyzer
+        self.initialize_analyzer(&init_params)?;
+
+        // 3. 回复客户端 initialize
+        self.reply_initialize(init_id)?;
+
+        // 4. 启动 rust-analyzer 消息转发线程
+        self.start_forwarding_thread()?;
+
+        // 5. 进入主循环
+        self.main_loop()?;
+
+        // 6. 主循环结束后（收到 shutdown 或客户端断开）清理资源。
+        // 消息转发线程持有客户端发送端的克隆，并阻塞在 rust-analyzer
+        // 的消息通道上；必须先停止 rust-analyzer 子进程让转发线程退出，
+        // 再释放服务器（含客户端连接发送端），否则 IO 写入线程
+        // 因通道永不关闭而无法结束，进程将无法退出。
+        let mut server = self;
+        server.analyzer.stop();
+        drop(server);
+
+        // 7. 等待 IO 线程结束
+        io_threads.join()?;
+
+        Ok(())
+    }
+
+    /// 握手：接收 initialize 请求并回复
+    fn handshake(&self) -> anyhow::Result<(lsp_server::RequestId, Value)> {
+        let msg = self
+            .connection
+            .receiver
+            .recv()
+            .map_err(|e| anyhow::anyhow!("接收 initialize 请求失败: {}", e))?;
+
+        match msg {
+            Message::Request(req) => {
+                if req.method == "initialize" {
+                    let id = req.id.clone();
+                    let params = req.params.clone();
+                    Ok((id, params))
+                } else {
+                    anyhow::bail!("期望 initialize 请求，收到: {}", req.method)
+                }
+            }
+            _ => anyhow::bail!("期望 Request，收到其他类型消息"),
+        }
+    }
+
+    /// 向 rust-analyzer 发送 initialize 并等待响应
+    fn initialize_analyzer(&self, params: &Value) -> anyhow::Result<()> {
+        // 不透传客户端的 rootUri/workspaceFolders：
+        // 客户端工作区（如整个 zrRust 项目）与母语文件无关，
+        // 透传会导致 rust-analyzer 全量分析并发布海量诊断，
+        // 阻塞代理到客户端的消息通道。
+        // 改用虚拟项目目录作为 rust-analyzer 的工作区根，
+        // 使其只分析自动生成的虚拟 .rs 文件。
+        let _ = params;
+        let virtual_project = self.cache.virtual_project_uri();
+
+        let init_request = json!({
+            "jsonrpc": "2.0",
+            "id": 0,
+            "method": "initialize",
+            "params": {
+                "processId": std::process::id(),
+                "rootUri": virtual_project,
+                "capabilities": {
+                    "textDocument": {
+                        "completion": {
+                            "completionItem": { "snippetSupport": false }
+                        },
+                        "publishDiagnostics": {
+                            "relatedInformation": true
+                        },
+                        "hover": {
+                            "contentFormat": ["markdown", "plaintext"]
+                        },
+                        "definition": {},
+                        "references": {},
+                        "documentHighlight": {},
+                        "documentSymbol": {
+                            "hierarchicalDocumentSymbolSupport": true
+                        },
+                        "rename": {
+                            "prepareSupport": true,
+                            "prepareSupportDefaultBehavior": 1
+                        },
+                        "codeAction": {
+                            "codeActionLiteralSupport": {
+                                "codeActionKind": {
+                                    "valueSet": ["quickfix", "refactor", "source"]
+                                }
+                            },
+                            "resolveSupport": { "properties": ["edit"] }
+                        },
+                        "signatureHelp": {
+                            "signatureInformation": {
+                                "parameterInformation": { "labelOffsetSupport": true }
+                            }
+                        }
+                    },
+                    "workspace": {
+                        "workspaceEdit": { "documentChanges": true }
+                    }
+                },
+                "workspaceFolders": [{
+                    "uri": virtual_project,
+                    "name": "i18n-virtual"
+                }]
+            }
+        });
+
+        self.analyzer.send(&init_request)?;
+
+        // 等待 rust-analyzer 的 initialize 响应
+        for _ in 0..200 {
+            if let Some(response) = self.analyzer.try_recv() {
+                if response.get("id").and_then(|v| v.as_i64()) == Some(0) {
+                    log::info!("rust-analyzer 初始化完成");
+                    break;
+                }
+            }
+            thread::sleep(std::time::Duration::from_millis(50));
+        }
+
+        // 注意：initialized 通知不在本处发送，
+        // 而是等客户端发来 initialized 时再转发（见 handle_client_notification），
+        // 避免重复发送导致 rust-analyzer 报 unhandled notification。
+
+        Ok(())
+    }
+
+    /// 回复客户端 initialize 响应
+    fn reply_initialize(&self, id: lsp_server::RequestId) -> anyhow::Result<()> {
+        let capabilities = json!({
+            "capabilities": {
+                "textDocumentSync": {
+                    "openClose": true,
+                    "change": 1,
+                    "save": { "includeText": true }
+                },
+                "completionProvider": {
+                    "triggerCharacters": [".", ":"]
+                },
+                "hoverProvider": true,
+                "definitionProvider": true,
+                "referencesProvider": true,
+                "documentSymbolProvider": true,
+                "codeActionProvider": true,
+                "renameProvider": true,
+                "documentHighlightProvider": true,
+                "documentFormattingProvider": true,
+                "signatureHelpProvider": {
+                    "triggerCharacters": ["(", ","]
+                }
+            },
+            "serverInfo": {
+                "name": "i18n-rust-lsp",
+                "version": "0.1.0"
+            }
+        });
+
+        let response = Response {
+            id,
+            result: Some(capabilities),
+            error: None,
+        };
+
+        self.connection
+            .sender
+            .send(Message::Response(response))
+            .map_err(|e| anyhow::anyhow!("发送 initialize 响应失败: {}", e))?;
+        Ok(())
+    }
+
+    /// 启动 rust-analyzer → 客户端的消息转发线程
+    fn start_forwarding_thread(&self) -> anyhow::Result<()> {
+        let receiver = self.analyzer.message_channel();
+        let mapper = self.mapper.clone();
+        let sender = self.connection.sender.clone();
+        let pending = self.pending_requests.clone();
+        // rust-analyzer 主动请求（如 workspace/diagnostic/refresh）
+        // 的响应需要回发给 rust-analyzer 本身，而非客户端。
+        let ra_sender = self.analyzer.sender_clone();
+
+        thread::spawn(move || {
+            while let Ok(msg) = receiver.recv() {
+                handle_analyzer_message(&msg, &mapper, &sender, &pending, &ra_sender);
+            }
+            log::info!("rust-analyzer 转发线程已退出");
+        });
+
+        Ok(())
+    }
+
+    /// 主消息循环
+    fn main_loop(&self) -> anyhow::Result<()> {
+        loop {
+            let msg = match self.connection.receiver.recv() {
+                Ok(msg) => msg,
+                Err(_) => {
+                    log::info!("客户端连接已断开");
+                    break;
+                }
+            };
+
+            match msg {
+                Message::Request(req) => {
+                    if req.method == "shutdown" {
+                        log::info!("收到 shutdown 请求");
+                        let response = Response {
+                            id: req.id,
+                            result: Some(Value::Null),
+                            error: None,
+                        };
+                        let _ = self.connection.sender.send(Message::Response(response));
+                        break;
+                    }
+                    self.handle_client_request(req)?;
+                }
+                Message::Notification(notif) => {
+                    self.handle_client_notification(notif)?;
+                }
+                Message::Response(_) => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// 处理客户端请求
+    fn handle_client_request(&self, req: Request) -> anyhow::Result<()> {
+        log::debug!("客户端请求: {} id={:?}", req.method, req.id);
+
+        match req.method.as_str() {
+            "initialize" => Ok(()), // 已在握手中处理
+            // 格式化采用全文件替换策略，由代理自行处理（不转发 rust-analyzer）
+            "textDocument/formatting" => self.handle_formatting(req),
+            "textDocument/completion"
+            | "textDocument/hover"
+            | "textDocument/definition"
+            | "textDocument/references"
+            | "textDocument/documentSymbol"
+            | "textDocument/codeAction"
+            | "textDocument/rename"
+            | "textDocument/documentHighlight"
+            | "textDocument/signatureHelp" => self.forward_request(req),
+            _ => self.forward_request(req),
+        }
+    }
+
+    /// 处理客户端通知
+    fn handle_client_notification(&self, notif: Notification) -> anyhow::Result<()> {
+        log::debug!("客户端通知: {}", notif.method);
+
+        match notif.method.as_str() {
+            "textDocument/didOpen" => self.handle_did_open(&notif.params),
+            "textDocument/didChange" => self.handle_did_change(&notif.params),
+            "textDocument/didClose" => self.handle_did_close(&notif.params),
+            "textDocument/didSave" => self.handle_did_save(&notif.params),
+            "initialized" => {
+                // 转发给 rust-analyzer，并将虚拟项目目录加入其工作区，
+                // 使其加载自动生成的 Cargo.toml，获得跨文件语义分析能力
+                let msg = json!({
+                    "jsonrpc": "2.0",
+                    "method": "initialized",
+                    "params": {}
+                });
+                self.analyzer.send(&msg)?;
+
+                let workspace_notification = json!({
+                    "jsonrpc": "2.0",
+                    "method": "workspace/didChangeWorkspaceFolders",
+                    "params": {
+                        "event": {
+                            "added": [{
+                                "uri": self.cache.virtual_project_uri(),
+                                "name": "i18n-virtual"
+                            }],
+                            "removed": []
+                        }
+                    }
+                });
+                self.analyzer.send(&workspace_notification)
+            }
+            _ => {
+                let msg = json!({
+                    "jsonrpc": "2.0",
+                    "method": notif.method,
+                    "params": notif.params
+                });
+                self.analyzer.send(&msg)
+            }
+        }
+    }
+
+    /// 处理文档打开
+    fn handle_did_open(&self, params: &Value) -> anyhow::Result<()> {
+        let doc = &params["textDocument"];
+        let uri = doc["uri"].as_str().unwrap_or("");
+        let content = doc["text"].as_str().unwrap_or("");
+        let version = doc["version"].as_i64().unwrap_or(1) as i32;
+
+        if !uri.ends_with(".zh") {
+            return Ok(());
+        }
+
+        let (entry, other_changes) = self.cache.update_document(uri, content, version)?;
+
+        // 文件系统监听可能失败（notify error），
+        // 显式重载虚拟项目工作区，确保 rust-analyzer
+        // 重新扫描并识别 lib.rs 中的新模块聚合。
+        self.reload_virtual_project()?;
+
+        // 模块集合变化可能导致其他已打开文件被重写
+        // （其虚拟内容新增/移除了 crate:: 前缀），重新通知 rust-analyzer。
+        for change_entry in &other_changes {
+            let ra_msg = json!({
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {
+                    "textDocument": {
+                        "uri": change_entry.virtual_uri,
+                        "languageId": "rust",
+                        "version": change_entry.version,
+                        "text": change_entry.en_content
+                    }
+                }
+            });
+            self.analyzer.send(&ra_msg)?;
+        }
+
+        let ra_msg = json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": entry.virtual_uri,
+                    "languageId": "rust",
+                    "version": version,
+                    "text": entry.en_content
+                }
+            }
+        });
+        self.analyzer.send(&ra_msg)?;
+        log::info!("文档已打开并翻译: {} ({})", uri, version);
+        Ok(())
+    }
+
+    /// 处理文档变更
+    fn handle_did_change(&self, params: &Value) -> anyhow::Result<()> {
+        let doc = &params["textDocument"];
+        let uri = doc["uri"].as_str().unwrap_or("");
+        let version = doc["version"].as_i64().unwrap_or(1) as i32;
+
+        if !uri.ends_with(".zh") {
+            return Ok(());
+        }
+
+        if let Some(changes_list) = params["contentChanges"].as_array() {
+            if let Some(last) = changes_list.last() {
+                if let Some(content) = last["text"].as_str() {
+                    let (entry, _) = self.cache.update_document(uri, content, version)?;
+                    let ra_msg = json!({
+                        "jsonrpc": "2.0",
+                        "method": "textDocument/didChange",
+                        "params": {
+                            "textDocument": {
+                                "uri": entry.virtual_uri,
+                                "version": version
+                            },
+                            "contentChanges": [{ "text": entry.en_content }]
+                        }
+                    });
+                    self.analyzer.send(&ra_msg)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// 处理文档关闭
+    fn handle_did_close(&self, params: &Value) -> anyhow::Result<()> {
+        let uri = params["textDocument"]["uri"].as_str().unwrap_or("");
+        if !uri.ends_with(".zh") {
+            return Ok(());
+        }
+
+        if let Some(entry) = self.cache.query_original(uri) {
+            let ra_msg = json!({
+                "jsonrpc": "2.0",
+                "method": "textDocument/didClose",
+                "params": {
+                    "textDocument": { "uri": entry.virtual_uri }
+                }
+            });
+            self.analyzer.send(&ra_msg)?;
+        }
+
+        // 关闭文档会缩小模块集合，其余条目的虚拟内容可能被重写
+        let other_changes = self.cache.close_document(uri)?;
+
+        // 重新加载虚拟项目工作区（lib.rs 的模块聚合已变化）
+        self.reload_virtual_project()?;
+
+        for change_entry in &other_changes {
+            let ra_msg = json!({
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {
+                    "textDocument": {
+                        "uri": change_entry.virtual_uri,
+                        "languageId": "rust",
+                        "version": change_entry.version,
+                        "text": change_entry.en_content
+                    }
+                }
+            });
+            self.analyzer.send(&ra_msg)?;
+        }
+        Ok(())
+    }
+
+    /// 处理文档保存
+    fn handle_did_save(&self, params: &Value) -> anyhow::Result<()> {
+        let uri = params["textDocument"]["uri"].as_str().unwrap_or("");
+        if !uri.ends_with(".zh") {
+            return Ok(());
+        }
+
+        if let Some(entry) = self.cache.query_original(uri) {
+            let ra_msg = json!({
+                "jsonrpc": "2.0",
+                "method": "textDocument/didSave",
+                "params": {
+                    "textDocument": { "uri": entry.virtual_uri },
+                    "text": entry.en_content
+                }
+            });
+            self.analyzer.send(&ra_msg)?;
+        }
+        Ok(())
+    }
+
+    /// 通知 rust-analyzer 重新加载虚拟项目工作区
+    ///
+    /// 虚拟项目的 lib.rs 聚合了新打开的 .zh 文件的模块，
+    /// 但文件系统监听可能失败（notify error），
+    /// 因此打开文档后显式触发 removed+added 重载，
+    /// 让 rust-analyzer 重新扫描并识别新模块。
+    fn reload_virtual_project(&self) -> anyhow::Result<()> {
+        let uri = self.cache.virtual_project_uri();
+        let notification = json!({
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeWorkspaceFolders",
+            "params": {
+                "event": {
+                    "removed": [{ "uri": uri, "name": "i18n-virtual" }],
+                    "added": [{ "uri": uri, "name": "i18n-virtual" }]
+                }
+            }
+        });
+        self.analyzer.send(&notification)
+    }
+
+    /// 处理代码格式化请求（textDocument/formatting）
+    ///
+    /// 采用全文件替换策略，不转发 rust-analyzer：
+    /// 取缓存中的英文译文 → rustfmt 格式化 → 反向翻译回母语 →
+    /// 返回覆盖整个文档的 TextEdit。
+    /// 文档未打开或 rustfmt 失败时返回空数组，不崩溃。
+    fn handle_formatting(&self, req: Request) -> anyhow::Result<()> {
+        let uri = req.params["textDocument"]["uri"].as_str().unwrap_or("");
+
+        let edits = match self.cache.query_original(uri) {
+            Some(entry) => {
+                let tab_size = req.params["options"]["tabSize"].as_u64().unwrap_or(4);
+                match run_rustfmt(&entry.en_content, tab_size) {
+                    Some(formatted_en) => {
+                        // 将格式化后的英文代码反向翻译为母语代码
+                        let formatted_native = self.cache.reverse_transpile(&formatted_en);
+                        vec![json!({
+                            "range": {
+                                "start": { "line": 0, "character": 0 },
+                                "end": text_end_position(&entry.zh_content)
+                            },
+                            "newText": formatted_native
+                        })]
+                    }
+                    None => Vec::new(),
+                }
+            }
+            None => Vec::new(),
+        };
+
+        let response = Response {
+            id: req.id,
+            result: Some(Value::Array(edits)),
+            error: None,
+        };
+        self.connection
+            .sender
+            .send(Message::Response(response))
+            .map_err(|e| anyhow::anyhow!("发送格式化响应失败: {}", e))?;
+        Ok(())
+    }
+
+    /// 转发请求到 rust-analyzer
+    ///
+    /// 除了将 URI 替换为虚拟文件 URI，还将请求中的位置
+    /// （position/range）从母语坐标转换为英文坐标，
+    /// 并将 rename 的 newName 翻译为英文。
+    fn forward_request(&self, req: Request) -> anyhow::Result<()> {
+        let ra_id = self
+            .request_counter
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+        let original_uri = req.params["textDocument"]["uri"]
+            .as_str()
+            .unwrap_or("")
+            .to_string();
+
+        {
+            let mut pending = self
+                .pending_requests
+                .lock()
+                .map_err(|_| anyhow::anyhow!("待映射请求锁获取失败"))?;
+            pending.insert(
+                ra_id,
+                PendingRequestInfo {
+                    original_id: req.id,
+                    method: req.method.clone(),
+                    original_uri: original_uri.clone(),
+                },
+            );
+        }
+
+        // 替换 URI 为虚拟 URI，并转换请求中的位置
+        let mut params = req.params.clone();
+        let entry = if original_uri.ends_with(".zh") {
+            self.cache.query_original(&original_uri)
+        } else {
+            None
+        };
+
+        if let Some(entry) = &entry {
+            // 1. 替换 textDocument.uri
+            if let Some(uri_field) = params
+                .get_mut("textDocument")
+                .and_then(|td| td.get_mut("uri"))
+            {
+                *uri_field = Value::String(entry.virtual_uri.clone());
+            }
+
+            // 2. 按方法转换位置参数（母语坐标 → 英文坐标）
+            match req.method.as_str() {
+                "textDocument/completion"
+                | "textDocument/hover"
+                | "textDocument/definition"
+                | "textDocument/references"
+                | "textDocument/rename"
+                | "textDocument/documentHighlight"
+                | "textDocument/signatureHelp" => {
+                    if let Some(position) = params.get_mut("position") {
+                        *position = position_to_en(&self.cache, entry, position);
+                    }
+                }
+                "textDocument/codeAction" => {
+                    if let Some(range) = params.get_mut("range") {
+                        *range = range_to_en(&self.cache, entry, range);
+                    }
+                    // context.diagnostics 来自我们发布的中文诊断，同样需要转换
+                    if let Some(diags_list) = params
+                        .get_mut("context")
+                        .and_then(|c| c.get_mut("diagnostics"))
+                        .and_then(|d| d.as_array_mut())
+                    {
+                        for diag in diags_list.iter_mut() {
+                            if let Some(range) = diag.get_mut("range") {
+                                *range = range_to_en(&self.cache, entry, range);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+
+            // 3. rename 的 newName：中文 → 英文（不在关键字映射中则保持原样）
+            if req.method == "textDocument/rename" {
+                if let Some(zh_name) = params.get("newName").and_then(|v| v.as_str()) {
+                    let en_name = self
+                        .cache
+                        .keyword_map()
+                        .get(zh_name)
+                        .cloned()
+                        .unwrap_or_else(|| zh_name.to_string());
+                    params["newName"] = Value::String(en_name);
+                }
+            }
+        }
+
+        let ra_msg = json!({
+            "jsonrpc": "2.0",
+            "id": ra_id,
+            "method": req.method,
+            "params": params
+        });
+        self.analyzer.send(&ra_msg)
+    }
+}
+
+/// 调用系统 rustfmt 格式化英文代码
+///
+/// 通过 stdin 传入源码、stdout 取回格式化结果。
+/// 新版 rustfmt（1.9+）不传文件参数时从 stdin 读取，需配合 `--emit stdout`；
+/// rustfmt 不存在、源码含语法错误或输出非 UTF-8 时返回 None。
+fn run_rustfmt(source: &str, tab_size: u64) -> Option<String> {
+    let mut child = std::process::Command::new("rustfmt")
+        .arg("--emit")
+        .arg("stdout")
+        .arg("--config")
+        .arg(format!("tab_spaces={}", tab_size.max(1)))
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(source.as_bytes()).ok()?;
+        // stdin 在此处 drop，关闭管道使 rustfmt 结束输出
+    }
+    let output = child.wait_with_output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8(output.stdout).ok()
+}
+
+/// 计算母语文本末尾的 LSP 位置（最后一行、最后一列的 UTF-16 长度）
+///
+/// 用于生成覆盖整个文档的格式化 TextEdit 的 range 终点。
+fn text_end_position(content: &str) -> Value {
+    let line_count = content.matches('\n').count() as u64 + 1;
+    let last_line = content.rsplit('\n').next().unwrap_or("");
+    let col_count = last_line.chars().map(|c| c.len_utf16() as u64).sum::<u64>();
+    json!({ "line": line_count - 1, "character": col_count })
+}
+
+/// 将 LSP 位置（position）从母语坐标转换为英文坐标
+///
+/// 当前翻译逐行替换关键字、行数保持不变（行映射为 1:1），
+/// 因此仅列号需要按列偏移映射转换。
+fn position_to_en(
+    cache: &TranslationCache,
+    entry: &TranslationEntry,
+    position: &Value,
+) -> Value {
+    let line = position["line"].as_u64().unwrap_or(0) as u32;
+    let col = position["character"].as_u64().unwrap_or(0) as u32;
+    let en_col = cache.zh_col_to_en_col(&entry.virtual_uri, line, col);
+    json!({ "line": line, "character": en_col })
+}
+
+/// 将 LSP 范围（range）从母语坐标转换为英文坐标
+fn range_to_en(
+    cache: &TranslationCache,
+    entry: &TranslationEntry,
+    range: &Value,
+) -> Value {
+    let start = position_to_en(cache, entry, &range["start"]);
+    let end = position_to_en(cache, entry, &range["end"]);
+    json!({ "start": start, "end": end })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::{HashMap, HashSet};
+
+    fn create_test_cache() -> Arc<TranslationCache> {
+        let map = HashMap::from([
+            ("函数".into(), "fn".into()),
+            ("让".into(), "let".into()),
+            ("可变".into(), "mut".into()),
+        ]);
+        let temp = tempfile::tempdir().unwrap();
+        TranslationCache::new(map, HashSet::new(), temp.into_path())
+    }
+
+    #[test]
+    fn test_position_to_en() {
+        let cache = create_test_cache();
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;", 1)
+            .unwrap();
+        assert_eq!(entry.en_content, "let x = 1;");
+
+        // 中文列 0（"让" 起点）→ 英文列 0
+        let position = json!({ "line": 0, "character": 0 });
+        let en = position_to_en(&cache, &entry, &position);
+        assert_eq!(en["line"], 0);
+        assert_eq!(en["character"], 0);
+
+        // 中文列 3（"x" 末尾）→ 英文列 5（"让" 为 1 个 UTF-16 单元，"let" 占 3 列）
+        let position = json!({ "line": 0, "character": 3 });
+        let en = position_to_en(&cache, &entry, &position);
+        assert_eq!(en["character"], 5);
+
+        // 中文列 2（"x" 起点）→ 英文列 4
+        let position = json!({ "line": 0, "character": 2 });
+        let en = position_to_en(&cache, &entry, &position);
+        assert_eq!(en["character"], 4);
+    }
+
+    #[test]
+    fn test_range_to_en() {
+        let cache = create_test_cache();
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;", 1)
+            .unwrap();
+
+        let range = json!({
+            "start": { "line": 0, "character": 2 },
+            "end": { "line": 0, "character": 3 }
+        });
+        let en = range_to_en(&cache, &entry, &range);
+        assert_eq!(en["start"]["character"], 4);
+        assert_eq!(en["end"]["character"], 5);
+    }
+
+    #[test]
+    fn test_rename_full_chain() {
+        // 模拟完整闭环：中文请求 → 转换转发 → rust-analyzer 响应 → 映射回母语
+        let cache = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "函数 主() {}", 1)
+            .unwrap();
+        assert_eq!(entry.en_content, "fn 主() {}");
+
+        // —— 请求方向（与 forward_request 相同的转换逻辑）——
+        let request_params = json!({
+            "textDocument": { "uri": "file:///test/main.zh" },
+            "position": { "line": 0, "character": 0 },
+            "newName": "函数"
+        });
+
+        let mut params = request_params.clone();
+        // 1. URI 替换为虚拟 URI
+        params["textDocument"]["uri"] = Value::String(entry.virtual_uri.clone());
+        // 2. 位置转换为英文坐标
+        params["position"] = position_to_en(&cache, &entry, &params["position"]);
+        // 3. newName 中文 → 英文
+        let en_name = cache.keyword_map().get("函数").cloned().unwrap();
+        params["newName"] = Value::String(en_name);
+
+        assert_eq!(params["textDocument"]["uri"].as_str().unwrap(), entry.virtual_uri);
+        assert_eq!(params["position"]["character"], 0);
+        assert_eq!(params["newName"].as_str().unwrap(), "fn");
+
+        // —— 响应方向（rust-analyzer 返回虚拟文件编辑）——
+        let response = json!({
+            "changes": {
+                entry.virtual_uri.clone(): [{
+                    "range": {
+                        "start": { "line": 0, "character": 0 },
+                        "end": { "line": 0, "character": 2 }
+                    },
+                    "newText": "fn"
+                }]
+            }
+        });
+        let mapped = mapper.map_rename_response(&response);
+        let edit = &mapped["changes"]["file:///test/main.zh"][0];
+
+        // 客户端收到的编辑：URI 还原、位置为母语坐标、newText 恢复中文
+        assert_eq!(edit["range"]["start"]["character"], 0);
+        assert_eq!(edit["range"]["end"]["character"], 2);
+        assert_eq!(edit["newText"].as_str().unwrap(), "函数");
+    }
+
+    #[test]
+    fn test_text_end_position() {
+        // 空文档
+        assert_eq!(text_end_position(""), json!({ "line": 0, "character": 0 }));
+        // 单行 ASCII
+        assert_eq!(text_end_position("ab"), json!({ "line": 0, "character": 2 }));
+        // 中文按 UTF-16 计数（4 个汉字 = 4 个单元）
+        assert_eq!(
+            text_end_position("行\n中文测试"),
+            json!({ "line": 1, "character": 4 })
+        );
+        // 末尾换行：最后一行是空行
+        assert_eq!(text_end_position("行\n"), json!({ "line": 1, "character": 0 }));
+    }
+}
+
+/// 处理来自 rust-analyzer 的消息并转发给客户端
+fn handle_analyzer_message(
+    msg: &Value,
+    mapper: &Arc<ResponseMapper>,
+    sender: &crossbeam_channel::Sender<Message>,
+    pending: &Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
+    reply_sender: &crate::analyzer::Sender,
+) {
+    if let Some(id) = msg.get("id").and_then(|v| v.as_i64()) {
+        // 是响应
+        let original_info = {
+            let mut pending_map = match pending.lock() {
+                Ok(m) => m,
+                Err(_) => return,
+            };
+            pending_map.remove(&id)
+        };
+
+        if let Some(info) = original_info {
+            // rust-analyzer 返回错误时（如文件不存在），原样透传给客户端
+            if msg.get("error").is_some() {
+                let error_value = msg["error"].clone();
+                let response = Response {
+                    id: info.original_id,
+                    result: None,
+                    error: Some(lsp_server::ResponseError {
+                        code: error_value["code"].as_i64().unwrap_or(-32603) as i32,
+                        message: error_value["message"]
+                            .as_str()
+                            .unwrap_or("内部错误")
+                            .to_string(),
+                        data: error_value.get("data").cloned(),
+                    }),
+                };
+                let _ = sender.send(Message::Response(response));
+                return;
+            }
+
+            let result = msg.get("result").cloned().unwrap_or(Value::Null);
+            let mapped_result = match info.method.as_str() {
+                "textDocument/completion" => mapper.map_completion_response(&result, &info.original_uri),
+                "textDocument/hover" => mapper.map_hover_response(&result, &info.original_uri),
+                "textDocument/definition" => mapper.map_definition_response(&result),
+                "textDocument/references" => mapper.map_references_response(&result),
+                "textDocument/documentSymbol" => {
+                    mapper.map_document_symbol_response(&result, &info.original_uri)
+                }
+                "textDocument/codeAction" => mapper.map_code_action_response(&result, &info.original_uri),
+                "textDocument/rename" => mapper.map_rename_response(&result),
+                _ => result,
+            };
+
+            let response = Response {
+                id: info.original_id,
+                result: Some(mapped_result),
+                error: None,
+            };
+            let _ = sender.send(Message::Response(response));
+        } else if msg.get("method").and_then(|v| v.as_str()).is_some() {
+            // 待映射表中没有对应记录：这是 rust-analyzer 主动发来的请求
+            // （如 workspace/configuration、workspace/diagnostic/refresh）。
+            // 必须把响应回发给 rust-analyzer 本身，否则它会一直等待。
+            let response = json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "result": null
+            });
+            let _ = reply_sender.send(&response);
+        }
+    } else if let Some(method) = msg.get("method").and_then(|v| v.as_str()) {
+        // 是通知
+        match method {
+            "textDocument/publishDiagnostics" => {
+                if let Some(params) = msg.get("params") {
+                    // 只转发虚拟母语文件的诊断：
+                    // rust-analyzer 可能对其他项目文件发布诊断，
+                    // 这些与母语代码无关，不应发给客户端。
+                    let diag_uri = params["uri"].as_str().unwrap_or("");
+                    if !mapper.is_virtual_uri(diag_uri) {
+                        return;
+                    }
+                    let mapped = mapper.map_diagnostics(params);
+                    let notification = Notification {
+                        method: method.to_string(),
+                        params: mapped,
+                    };
+                    let _ = sender.send(Message::Notification(notification));
+                }
+            }
+            _ => {
+                let notification = Notification {
+                    method: method.to_string(),
+                    params: msg.get("params").cloned().unwrap_or(Value::Null),
+                };
+                let _ = sender.send(Message::Notification(notification));
+            }
+        }
+    }
+}
+
+/// 加载语言包
+fn load_language_pack(
+    lang_pack_path: &PathBuf,
+) -> anyhow::Result<(HashMap<String, String>, HashSet<String>)> {
+    let mappings_path = lang_pack_path.join("映射表");
+    if mappings_path.exists() {
+        match mapping_source::load_keyword_mapping(lang_pack_path) {
+            Ok(map) => return Ok((map, HashSet::new())),
+            Err(e) => log::warn!("从映射表加载失败: {}, 使用备用", e),
+        }
+    }
+
+    let keywords_path = lang_pack_path.join("keywords.toml");
+    if keywords_path.exists() {
+        let manager = i18n_rust_engine::mapping_manager::MappingManager::load_from_file(&keywords_path)
+            .map_err(|e| anyhow::anyhow!("加载关键字失败: {}", e))?;
+        let macro_set = manager.get_macro_names();
+        return Ok((manager.keyword_map.clone(), macro_set));
+    }
+
+    log::warn!("未找到语言包文件，使用内置关键字映射");
+    Ok((mapping_source::create_builtin_keyword_mapping(), HashSet::new()))
+}

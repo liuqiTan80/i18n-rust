@@ -16,3 +16,10 @@ Thumbs.db
 *.tmp
 *.rs.tmp
 *.lock~
+
+# 离线发布包产物
+/release/
+.release-tmp-*/
+
+# VS Code 扩展打包产物
+tools/vscode-extension/release/

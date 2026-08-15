@@ -1,0 +1,90 @@
+# Error message translation file (English)
+# Format: [error_code] + "消息模板" + "教学提示"
+
+[E0308]
+"消息模板" = "mismatched types: expected `{期望}`, found `{实际}`"
+"教学提示" = "Check if the variable type matches what the context requires. Try using `as` for type casting."
+
+[E0433]
+"消息模板" = "failed to resolve: use of undeclared type `{名称}`"
+"教学提示" = "Make sure you have imported the required module or type. Use the `use` keyword to import."
+
+[E0384]
+"消息模板" = "cannot assign twice to immutable variable `{变量名}`"
+"教学提示" = "If you need to modify a variable's value, declare it with `let mut`."
+
+[E0382]
+"消息模板" = "use of moved value: `{变量名}`"
+"教学提示" = "In Rust, once a value is moved, it can no longer be used. Consider using a reference (&) or clone() to avoid moving."
+
+[E0502]
+"消息模板" = "cannot borrow `{变量名}` as mutable because it is also borrowed as immutable"
+"教学提示" = "Rust does not allow mutable and immutable borrows at the same time. Try reducing the scope of the immutable borrow."
+
+[E0499]
+"消息模板" = "cannot borrow `{变量名}` as mutable more than once at a time"
+"教学提示" = "You can only have one mutable reference at a time. This is Rust's mechanism to prevent data races."
+
+[E0277]
+"消息模板" = "the trait bound `{类型}`: `{特征}` is not satisfied"
+"教学提示" = "Implement the required trait for this type, or use a type that already implements it."
+
+[E0507]
+"消息模板" = "cannot move out of `{变量名}` which is behind a shared reference"
+"教学提示" = "You cannot move a value out of a shared reference. Consider cloning the value or using a mutable reference."
+
+[E0425]
+"消息模板" = "cannot find value `{名称}` in this scope"
+"教学提示" = "Make sure the variable is declared in the current scope. Check for typos in the variable name."
+
+[E0603]
+"消息模板" = "function `{名称}` is private"
+"教学提示" = "The function is not accessible from outside its module. Use `pub` to make it public."
+
+[E0119]
+"消息模板" = "conflicting implementations of trait `{特征}` for type `{类型}`"
+"教学提示" = "You cannot implement the same trait twice for a type. Check for overlapping implementations."
+
+[E0116]
+"消息模板" = "cannot define an inherent method with the same name as an inherent method in a different impl block"
+"教学提示" = "Rename the method or merge the impl blocks."
+
+[E0061]
+"消息模板" = "this function takes `{期望}` arguments but `{实际}` arguments were supplied"
+"教学提示" = "Check the function signature and provide the correct number of arguments."
+
+[E0308]
+"消息模板" = "mismatched types"
+"教学提示" = "Rust is a strongly typed language. Make sure the types of assignments and function parameters match."
+
+[E0282]
+"消息模板" = "type annotations needed"
+"教学提示" = "The compiler cannot infer the type. Add explicit type annotations, e.g., `let x: i32 = 5;`."
+
+[E0596]
+"消息模板" = "cannot borrow `{名称}` as mutable, as it is not declared as mutable"
+"教学提示" = "Add `mut` to the variable binding: `let mut {名称} = ...;`"
+
+[E0597]
+"消息模板" = "cannot borrow `{名称}` as mutable"
+"教学提示" = "The variable may be immutably borrowed at this point. Check the borrow scope."
+
+[E0499]
+"消息模板" = "cannot borrow as mutable more than once"
+"教学提示" = "Only one mutable reference is allowed at a time. Restructure your code to avoid multiple mutable borrows."
+
+[E0716]
+"消息模板" = "temporary value dropped while borrowed"
+"教学提示" = "Store the temporary value in a variable before borrowing it: `let temp = ...; let r = &temp;`"
+
+[E0515]
+"消息模板" = "returns a value referencing data owned by the current function"
+"教学提示" = "You cannot return a reference to a local variable. Consider returning an owned value instead."
+
+[E0106]
+"消息模板" = "missing lifetime specifier"
+"教学提示" = "The compiler needs lifetime annotations to understand how long references are valid. Add lifetime parameters like `&'a str`."
+
+[E0623]
+"消息模板" = "lifetime mismatch"
+"教学提示" = "The lifetimes of the references do not match. Check the function signature and ensure all references have compatible lifetimes."

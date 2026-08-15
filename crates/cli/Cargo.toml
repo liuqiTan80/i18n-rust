@@ -1,0 +1,26 @@
+[package]
+name = "rzc"
+version = "0.1.0"
+edition = "2024"
+description = "多语言 Rust 教学方言编译器，支持用母语编写 Rust 程序"
+license = "MIT"
+repository = "https://github.com/i18n-rust/zrRust"
+homepage = "https://github.com/i18n-rust/zrRust"
+readme = "README.md"
+keywords = ["rust", "i18n", "chinese", "teaching", "transpiler"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+# 内部引擎（发布时 path 自动转为 crates.io 版本依赖，故必须显式声明版本）
+i18n-rust-engine = { path = "../engine", version = "0.1.0" }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+serde_json = "1"
+toml = "0.8"
+# 远程语言包安装：curl 下载 ZIP 压缩包后的解压
+zip = "2"
+# mapping auto 的 AI 调用：轻量同步 HTTP 客户端（rustls 特性避免系统 OpenSSL 依赖）
+ureq = { version = "2", features = ["rustls"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,131 @@
+# =============================================================
+# i18n-rust 持续集成工作流（GitHub Actions / GitCode CI 兼容）
+#
+# 触发条件：
+#   - 推送任意分支（push）
+#   - 创建或更新 Pull Request（pull_request）
+#
+# 任务：
+#   1. 测试与质量：cargo test（全部 crate）+ cargo clippy 代码质量检查
+#   2. 三平台构建：Linux / macOS / Windows 的 release 二进制
+#      （rzc 命令行工具 + i18n-rust-lsp 语言服务器）
+#   3. VS Code 扩展打包：编译 TypeScript 并生成 .vsix 离线安装包
+#
+# 全部产物上传为 Artifact，供手动下载或发布工作流复用。
+#
+# 说明：
+#   - GitCode CI 兼容 GitHub Actions 语法，本文件可直接使用；
+#   - 项目采用中文标识符设计（如 函数、转译源码），clippy 的
+#     snake_case 等风格警告属预期行为，不阻塞 CI。
+# =============================================================
+name: 持续集成
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # ---------- 1. 测试与代码质量 ----------
+  test:
+    name: 测试与代码质量
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链（含 clippy 与 rustfmt）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: 启用 Rust 构建缓存
+        uses: Swatinem/rust-cache@v2
+
+      - name: 检查代码格式
+        run: cargo fmt --all -- --check
+
+      - name: 运行单元测试（全部 crate）
+        run: cargo test --workspace
+
+      - name: 运行 Clippy 代码质量检查
+        # 中文标识符会触发 snake_case 等风格警告，属设计预期，不阻塞 CI；
+        # 其他真正的代码质量问题会输出警告供开发者参考。
+        run: cargo clippy --workspace --all-targets
+
+      - name: 验证 mapping auto 帮助文本
+        run: cargo run --quiet -- mapping auto --help | grep -q "crate"
+
+  # ---------- 2. 三平台 release 二进制构建 ----------
+  build:
+    name: 构建 ${{ matrix.系统 }}-${{ matrix.架构 }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            系统: linux
+            架构: x86_64
+          - os: windows-latest
+            系统: windows
+            架构: x86_64
+          # macOS arm64 运行器（Intel 用户可自行添加 macos-13 + x86_64 条目）
+          - os: macos-latest
+            系统: macos
+            架构: aarch64
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 启用 Rust 构建缓存
+        uses: Swatinem/rust-cache@v2
+
+      - name: 编译全部 crate（release）
+        run: cargo build --release --workspace
+
+      - name: 上传二进制产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: 二进制-${{ matrix.系统 }}-${{ matrix.架构 }}
+          # 通配匹配：Linux/macOS 为 rzc，Windows 为 rzc.exe
+          path: |
+            target/release/rzc*
+            target/release/i18n-rust-lsp*
+          if-no-files-found: error
+
+  # ---------- 3. VS Code 扩展打包 ----------
+  vsix:
+    name: 构建 VS Code 扩展
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js（使用锁定依赖缓存）
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tools/vscode-extension/package-lock.json
+
+      - name: 安装依赖（锁定版本，保证可复现）
+        working-directory: tools/vscode-extension
+        run: npm ci
+
+      - name: 编译 TypeScript
+        working-directory: tools/vscode-extension
+        run: npm run compile
+
+      - name: 打包 .vsix
+        working-directory: tools/vscode-extension
+        run: npx --yes @vscode/vsce package --out release/
+
+      - name: 上传扩展包产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: VSIX扩展包
+          path: tools/vscode-extension/release/*.vsix
+          if-no-files-found: error

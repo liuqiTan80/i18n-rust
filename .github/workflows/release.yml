@@ -1,0 +1,236 @@
+# =============================================================
+# i18n-rust 发布工作流（GitHub Actions / GitCode CI 兼容）
+#
+# 触发条件：
+#   - 推送 v 开头 tag（如 v0.1.0）：
+#       构建三平台 rzc 离线包 + VS Code 扩展 .vsix，
+#       创建 Release 并上传全部产物；同时发布 crates.io
+#       （需配置 CARGO_REGISTRY_TOKEN 密钥）
+#   - 手动触发（workflow_dispatch）：
+#       仅构建并上传 Artifact，不创建 Release；
+#       勾选"发布到 crates.io"可额外执行 crates.io 发布
+#
+# 产物：
+#   rzc-<版本>-linux-x86_64.tar.gz     （rzc + 语言包 + 文档）
+#   rzc-<版本>-windows-x86_64.zip
+#   rzc-<版本>-macos-aarch64.tar.gz
+#   i18n-rust-<版本>.vsix             （VS Code 扩展离线安装包）
+#
+# 说明：
+#   - GitCode CI 兼容 GitHub Actions 语法，本文件可直接使用；
+#   - 若平台不提供 softprops/action-gh-release，可将 Release 上传
+#     步骤替换为 GitCode 文档推荐的发布方式；
+#   - crates.io 发布顺序固定为 i18n-rust-engine → i18n-rust-lsp → rzc：
+#     rzc 与 i18n-rust-lsp 依赖核心引擎，必须先发布依赖。
+# =============================================================
+name: 发布
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish_crates:
+        description: 手动触发时是否发布到 crates.io（需配置 CARGO_REGISTRY_TOKEN 密钥）
+        type: boolean
+        default: false
+
+jobs:
+  # ---------- 构建：三个平台各自编译并打包 rzc 离线包 ----------
+  package:
+    name: 构建离线包 ${{ matrix.系统 }}-${{ matrix.架构 }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            系统: linux
+            架构: x86_64
+          - os: windows-latest
+            系统: windows
+            架构: x86_64
+          # macOS arm64 运行器（Intel 用户可自行添加 macos-13 + x86_64 条目）
+          - os: macos-latest
+            系统: macos
+            架构: aarch64
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 编译 rzc（release）
+        run: cargo build --release -p rzc
+
+      - name: 组装发布目录
+        shell: bash
+        run: |
+          # 注意：bash 变量名必须为 ASCII（中文变量名会被当作命令执行）
+          VERSION="${GITHUB_REF_NAME#v}"
+          # 手动触发（无 tag）时回退到 Cargo.toml 中的版本号
+          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then
+            VERSION=$(grep -m1 '^version = ' crates/cli/Cargo.toml | cut -d'"' -f2)
+          fi
+          PKG_NAME="rzc-$VERSION-${{ matrix.系统 }}-${{ matrix.架构 }}"
+          DIR="release/$PKG_NAME"
+          mkdir -p "$DIR/lang-packs"
+
+          # 可执行文件（Windows 下为 rzc.exe）
+          cp target/release/rzc "$DIR/rzc" 2>/dev/null || cp target/release/rzc.exe "$DIR/rzc.exe"
+
+          # 语言包目录（可选扩展：远程安装的语言包；中文等已内置到可执行文件）
+          if [ -d lang-packs ]; then
+            cp -r lang-packs/. "$DIR/lang-packs/"
+          fi
+
+          # 许可证与说明文档
+          [ -f LICENSE ] && cp LICENSE "$DIR/" || true
+          [ -f README.md ] && cp README.md "$DIR/" || true
+
+          # 使用说明
+          cat > "$DIR/使用说明.md" <<'说明'
+          # rzc 离线发布包使用说明
+
+          ## 快速开始
+
+          - **Linux / macOS**：直接运行 `./rzc`
+          - **Windows**：运行 `rzc.exe`
+
+          中文语言包已内置到可执行文件中，开箱即用，无需任何配置。
+
+          ## 常用命令
+
+          ```bash
+          ./rzc init 我的项目      # 创建新项目（含 src/main.zh）
+          ./rzc run src/main.zh   # 翻译并运行中文代码
+          ./rzc check src/main.zh # 类型检查（中文错误提示）
+          ./rzc lang list         # 查看语言包
+          ```
+
+          ## 可选：使用包内语言包目录
+
+          包内附带的 `lang-packs/` 目录用于扩展（例如后续远程安装的其他语言包）。
+          如需使用，将环境变量 `RZ_LANG_DIR` 指向该目录：
+
+          ```bash
+          export RZ_LANG_DIR="$(pwd)/lang-packs"
+          ```
+
+          ## 系统要求
+
+          - 需要 Rust 编译运行环境（rzc 通过 cargo 调用 rustc）
+          - Linux：glibc 2.31+；macOS：11.0+；Windows：10 1803+
+          说明
+
+          echo "组装完成：$DIR"
+
+      - name: 打包压缩
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then
+            VERSION=$(grep -m1 '^version = ' crates/cli/Cargo.toml | cut -d'"' -f2)
+          fi
+          PKG_NAME="rzc-$VERSION-${{ matrix.系统 }}-${{ matrix.架构 }}"
+          if [ "${{ matrix.系统 }}" = "windows" ]; then
+            # Windows 运行器的 tar 为 bsdtar，-a 按 .zip 扩展名自动选择 zip 格式
+            (cd release && tar -a -c -f "$PKG_NAME.zip" "$PKG_NAME")
+          else
+            tar -czf "release/$PKG_NAME.tar.gz" -C release "$PKG_NAME"
+          fi
+          echo "打包完成：release/ 下的产物为："
+          ls -lh release/
+
+      - name: 上传构建产物（供发布步骤使用）
+        uses: actions/upload-artifact@v4
+        with:
+          name: 离线包-${{ matrix.系统 }}-${{ matrix.架构 }}
+          path: release/
+          if-no-files-found: error
+
+  # ---------- VS Code 扩展打包 ----------
+  vsix:
+    name: 构建 VS Code 扩展
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js（使用锁定依赖缓存）
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tools/vscode-extension/package-lock.json
+
+      - name: 安装依赖（锁定版本，保证可复现）
+        working-directory: tools/vscode-extension
+        run: npm ci
+
+      - name: 编译 TypeScript
+        working-directory: tools/vscode-extension
+        run: npm run compile
+
+      - name: 打包 .vsix
+        working-directory: tools/vscode-extension
+        run: npx --yes @vscode/vsce package --out release/
+
+      - name: 上传扩展包产物（供发布步骤使用）
+        uses: actions/upload-artifact@v4
+        with:
+          name: VSIX扩展包
+          path: tools/vscode-extension/release/*.vsix
+          if-no-files-found: error
+
+  # ---------- 发布：推送 tag 时创建 Release 并附带全部产物 ----------
+  publish:
+    name: 创建 Release 并上传产物
+    needs: [package, vsix]
+    # 仅 tag 触发时发布；手动触发只产出 Artifact
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载全部构建产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: 查看产物列表
+        run: ls -lh artifacts/
+
+      - name: 创建/更新 Release 并上传附件
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+
+  # ---------- 发布 crates.io（需配置 CARGO_REGISTRY_TOKEN 密钥） ----------
+  crates:
+    name: 发布 crates.io
+    needs: package
+    # tag 触发且已配置密钥时自动发布；手动触发需勾选"发布到 crates.io"
+    if: (github.event_name == 'workflow_dispatch' && inputs.publish_crates) || (startsWith(github.ref, 'refs/tags/') && secrets.CARGO_REGISTRY_TOKEN != '')
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 登录 crates.io
+        run: cargo login "${{ secrets.CARGO_REGISTRY_TOKEN }}"
+
+      # 发布顺序依赖：引擎库 → LSP 代理 → 命令行工具
+      - name: 发布核心引擎库 i18n-rust-engine
+        run: cargo publish -p i18n-rust-engine
+
+      - name: 发布 LSP 代理 i18n-rust-lsp
+        run: cargo publish -p i18n-rust-lsp
+
+      - name: 发布命令行工具 rzc
+        run: cargo publish -p rzc

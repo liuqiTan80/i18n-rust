@@ -78,37 +78,34 @@ i18n-rust 是一个面向 Rust 教学的多语言方言编译器。它允许初�
 ```text
 i18n-rust/
 ├── Cargo.toml                     # 工作区
-├── 核心/
-│   ├── 引擎/                      # i18n-rust-engine (语言无关核心)
-│   │   ├── 词法处理.rs
-│   │   ├── 源映射.rs
-│   │   ├── 诊断框架.rs
-│   │   ├── 代码生成.rs
-│   │   └── 语言包接口.rs
-│   ├── 命令行/                    # i18n-rust-cli
-│   │   └── 教学命令.rs
-│   ├── LSP代理/                   # i18n-rust-lsp
-│   │   ├── 代理服务器.rs
-│   │   ├── 翻译缓存.rs
-│   │   └── 响应映射.rs
-│   └── 构建辅助/                  # i18n-rust-build
-│       └── 教学项目生成.rs
-├── 语言包/
-│   ├── 中文/                      # zh-language-pack
-│   │   ├── 关键字.toml
-│   │   ├── 错误消息.toml
-│   │   ├── 教学提示.toml
-│   │   └── 标准库别名.toml
-│   ├── 日文/                      # ja-language-pack (示例)
-│   └── 韩文/                      # ko-language-pack (示例)
-├── 教学资源/
-│   ├── 中文教程/
-│   ├── 示例项目/
-│   └── 可视化所有权教学/
-├── 在线游乐场/                    # Web 前端 (TypeScript)
-├── VSCode扩展/                    # vscode-i18n-rust
-└── 文档/
-    └── 语言包制作指南.md
+├── crates/
+│   ├── engine/                    # i18n-rust-engine (语言无关核心)
+│   │   ├── lexer.rs
+│   │   ├── mapping_source.rs
+│   │   ├── diagnostic.rs
+│   │   ├── alias.rs
+│   │   └── mapping_manager.rs
+│   ├── cli/                       # rzc 命令行工具
+│   │   └── main.rs
+│   └── lsp/                       # i18n-rust-lsp
+│       ├── server.rs
+│       ├── translation_cache.rs
+│       └── response_map.rs
+├── lang-packs/
+│   ├── zh/                        # 中文语言包
+│   │   ├── keywords.toml
+│   │   ├── errors.toml
+│   │   ├── stdlib.toml
+│   │   └── module_paths.toml
+│   ├── en/                        # 英文语言包
+│   ├── ja/                        # 日本語 (示例)
+│   └── ko/                        # 한국어 (示例)
+├── tutorials/
+│   ├── 第一章：你好世界.md
+│   └── ...
+├── tools/
+│   └── vscode-extension/          # vscode-i18n-rust
+└── release/                       # 离线发布包产物
 ```
 
 ### 2.2 模块依赖关系
@@ -141,19 +138,18 @@ i18n-rust/
 
 ## 3. 语言包规范
 
-语言包是包含以下文件的目录，例如 `语言包/中文/`：
+语言包是包含以下文件的目录，例如 `lang-packs/zh/`：
 
 ### 3.1 文件结构
 
 ```text
-中文/
-├── 包信息.toml           # 语言元数据
-├── 关键字.toml           # 关键字映射
-├── 保留字.toml           # 未来关键字映射
-├── 错误消息.toml         # 错误码及动态消息翻译
-├── 教学提示.toml         # 编译器附加的学习建议
-├── 标准库别名.toml       # 可选：标准库标识符的母语别名
-└── 资源/                 # 可选的图片、流程图等
+zh/
+├── lang_info.toml          # 语言元数据
+├── keywords.toml           # 关键字映射
+├── errors.toml             # 错误码及动态消息翻译
+├── stdlib.toml             # 标准库标识符别名
+├── module_paths.toml       # 模块路径映射
+└── crates/                 # 第三方库映射
 ```
 
 ### 3.2 包信息.toml

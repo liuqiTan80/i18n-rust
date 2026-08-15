@@ -1,0 +1,930 @@
+//! 响应映射模块
+//!
+//! 将 rust-analyzer 响应中的位置信息（指向虚拟 .rs 文件）
+//! 还原为原始 .zh 文件的位置。同时处理诊断信息的中文翻译。
+
+use std::sync::Arc;
+
+use i18n_rust_engine::diagnostic::{DiagnosticLocation, OwnershipDetails};
+use serde_json::{Value, json};
+
+use crate::translation_cache::{TranslationCache, TranslationEntry};
+
+/// 响应映射器
+///
+/// 持有翻译缓存的引用，负责将 rust-analyzer 的各种响应
+/// 中的位置/URI 从虚拟文件还原到原始中文文件。
+pub struct ResponseMapper {
+    cache: Arc<TranslationCache>,
+}
+
+impl ResponseMapper {
+    /// 创建新的响应映射器
+    pub fn new(cache: Arc<TranslationCache>) -> Self {
+        Self { cache }
+    }
+
+    /// 判断一个 URI 是否指向我们的虚拟文件
+    pub fn is_virtual_uri(&self, uri: &str) -> bool {
+        self.cache.query_by_virtual_uri(uri).is_some()
+    }
+
+    /// 将虚拟 URI 替换为原始 URI
+    pub fn restore_uri(&self, uri: &str) -> String {
+        if let Some(entry) = self.cache.query_by_virtual_uri(uri) {
+            entry.original_uri
+        } else {
+            uri.to_string()
+        }
+    }
+
+    /// 将英文（虚拟文件）行号映射回中文（原始文件）行号
+    pub fn restore_line(&self, uri: &str, en_line: u32) -> u32 {
+        if let Some(entry) = self.cache.query_by_virtual_uri(uri) {
+            restore_line_single(&entry, en_line)
+        } else {
+            en_line
+        }
+    }
+
+    /// 映射一条 LSP 位置（行、列）从虚拟文件到原始文件
+    pub fn restore_position(&self, uri: &str, line: u32, col: u32) -> (u32, u32) {
+        let zh_line = self.restore_line(uri, line);
+        let zh_col = self.cache.en_col_to_zh_col(uri, line, col);
+        (zh_line, zh_col)
+    }
+
+    /// 映射一个 LSP Range
+    pub fn restore_range(&self, uri: &str, range: &Value) -> Value {
+        let start_line = range["start"]["line"].as_u64().unwrap_or(0) as u32;
+        let start_col = range["start"]["character"].as_u64().unwrap_or(0) as u32;
+        let end_line = range["end"]["line"].as_u64().unwrap_or(0) as u32;
+        let end_col = range["end"]["character"].as_u64().unwrap_or(0) as u32;
+
+        let (zh_start_line, zh_start_col) = self.restore_position(uri, start_line, start_col);
+        let (zh_end_line, zh_end_col) = self.restore_position(uri, end_line, end_col);
+
+        json!({
+            "start": { "line": zh_start_line, "character": zh_start_col },
+            "end": { "line": zh_end_line, "character": zh_end_col }
+        })
+    }
+
+    /// 映射一个 LSP Location（URI + Range）
+    pub fn restore_location(&self, location: &Value) -> Value {
+        let virtual_uri = location["uri"].as_str().unwrap_or("");
+        let original_uri = self.restore_uri(virtual_uri);
+        let original_range = self.restore_range(virtual_uri, &location["range"]);
+
+        json!({
+            "uri": original_uri,
+            "range": original_range
+        })
+    }
+
+    /// 映射 rust-analyzer 的 publishDiagnostics 通知
+    ///
+    /// 将诊断信息中的 URI 和位置还原为原始 .zh 文件，
+    /// 并尝试翻译诊断消息为中文。
+    pub fn map_diagnostics(&self, params: &Value) -> Value {
+        let virtual_uri = params["uri"].as_str().unwrap_or("");
+        let original_uri = self.restore_uri(virtual_uri);
+        let diagnostics_list = params["diagnostics"].as_array();
+
+        let mut mapped_diagnostics = Vec::new();
+
+        if let Some(diagnostics_array) = diagnostics_list {
+            for diag in diagnostics_array {
+                let mut mapped = diag.clone();
+
+                // 映射范围（使用列映射）
+                if diag.get("range").is_some() {
+                    mapped["range"] = self.restore_range(virtual_uri, &diag["range"]);
+                }
+
+                // 映射 relatedInformation 中的位置
+                if let Some(related_info) =
+                    diag.get("relatedInformation").and_then(|v| v.as_array())
+                {
+                    let mut mapped_related = Vec::new();
+                    for item in related_info {
+                        let mut mapped_item = item.clone();
+                        if let Some(location) = item.get("location") {
+                            mapped_item["location"] = self.restore_location(location);
+                        }
+                        mapped_related.push(mapped_item);
+                    }
+                    mapped["relatedInformation"] = Value::Array(mapped_related);
+                }
+
+                // 翻译诊断消息
+                mapped["message"] =
+                    Value::String(translate_diagnostic_message(diag["message"].as_str().unwrap_or("")));
+
+                // 所有权错误：提取叙事化详情并存入 data 字段（供 VS Code 扩展可视化）
+                if let Some(details) = extract_ownership_details(diag, &mapped, &original_uri) {
+                    if let Ok(details_value) = serde_json::to_value(&details) {
+                        // 保留 rust-analyzer 已有的 data（如代码操作数据），嵌套存入
+                        match mapped.get_mut("data") {
+                            Some(existing) if existing.is_object() => {
+                                existing["所有权详情"] = details_value;
+                            }
+                            _ => {
+                                mapped["data"] = details_value;
+                            }
+                        }
+                    }
+                }
+
+                // 添加教学提示标记
+                mapped["source"] = Value::String("i18n-rust".to_string());
+
+                mapped_diagnostics.push(mapped);
+            }
+        }
+
+        json!({
+            "uri": original_uri,
+            "diagnostics": mapped_diagnostics,
+            "version": params.get("version").cloned().unwrap_or(Value::Null)
+        })
+    }
+
+    /// 映射补全响应中的位置信息
+    ///
+    /// 将 textEdit 中的 range 映射回原始文件，
+    /// 并将英文标识符反向映射为中文。
+    pub fn map_completion_response(&self, response: &Value, original_uri: &str) -> Value {
+        let mut result = response.clone();
+
+        if let Some(items_list) = result.get("items").and_then(|v| v.as_array()) {
+            let mut mapped_items = Vec::new();
+            for item in items_list {
+                let mut mapped = item.clone();
+
+                // 1. 映射 textEdit 中的 range
+                if let Some(text_edit) = item.get("textEdit") {
+                    if let Some(range) = text_edit.get("range") {
+                        mapped["textEdit"]["range"] = self.restore_range(original_uri, range);
+                    }
+                }
+
+                // 2. 将英文 label 反向映射为中文
+                if let Some(label) = item.get("label").and_then(|v| v.as_str()) {
+                    if let Some(zh_name) = self.reverse_lookup(label) {
+                        mapped["label"] = Value::String(zh_name);
+                    }
+                }
+
+                // 3. 反向映射 insertText
+                if let Some(insert_text) = item.get("insertText").and_then(|v| v.as_str()) {
+                    if let Some(zh_name) = self.reverse_lookup(insert_text) {
+                        mapped["insertText"] = Value::String(zh_name);
+                    }
+                }
+
+                mapped_items.push(mapped);
+            }
+            result["items"] = Value::Array(mapped_items);
+        }
+
+        result
+    }
+
+    /// 映射定义跳转响应（Location 或 Location[]）
+    pub fn map_definition_response(&self, response: &Value) -> Value {
+        match response {
+            Value::Null => Value::Null,
+            Value::Array(array) => {
+                let mapped: Vec<Value> = array.iter().map(|item| self.restore_location(item)).collect();
+                Value::Array(mapped)
+            }
+            Value::Object(_) => {
+                // 单个 Location
+                self.restore_location(response)
+            }
+            _ => response.clone(),
+        }
+    }
+
+    /// 映射悬停响应中的位置信息
+    ///
+    /// 悬停响应的 contents 是文本/markdown，不需要映射，
+    /// 但 range 字段需要映射回原始文件位置。
+    pub fn map_hover_response(&self, response: &Value, original_uri: &str) -> Value {
+        let mut result = response.clone();
+        if let Some(range) = response.get("range") {
+            result["range"] = self.restore_range(original_uri, range);
+        }
+        result
+    }
+
+    /// 映射引用响应
+    ///
+    /// 引用响应是 Location[]；无结果时为 null，统一转为空数组。
+    pub fn map_references_response(&self, response: &Value) -> Value {
+        match response {
+            Value::Null => Value::Array(Vec::new()),
+            _ => self.map_definition_response(response), // 与定义跳转格式相同
+        }
+    }
+
+    /// 映射重命名响应
+    ///
+    /// 处理跨文件重命名：
+    /// - `changes`: { uri → [TextEdit] }
+    /// - `documentChanges`: [TextDocumentEdit | ...]
+    /// 将每个编辑的 range 映射回原始文件，并将 newText 反向翻译为母语。
+    ///
+    /// 编辑目标不是已打开 .zh 的虚拟文件时（如聚合模块的 lib.rs、
+    /// Cargo.toml）直接丢弃，避免客户端被引导编辑虚拟项目内部文件。
+    pub fn map_rename_response(&self, response: &Value) -> Value {
+        let mut result = response.clone();
+
+        // 1. 处理 changes 形式
+        if let Some(changes) = response.get("changes").and_then(|v| v.as_object()) {
+            let mut mapped_changes = serde_json::Map::new();
+            for (uri, edits_list) in changes {
+                if !self.is_virtual_uri(uri) {
+                    continue;
+                }
+                let target_uri = self.restore_uri(uri);
+                let mapped_edits = self.map_edit_list(edits_list, uri, true);
+                mapped_changes.insert(target_uri, mapped_edits);
+            }
+            result["changes"] = Value::Object(mapped_changes);
+        }
+
+        // 2. 处理 documentChanges 形式
+        if let Some(doc_changes) = response.get("documentChanges").and_then(|v| v.as_array()) {
+            let mapped_doc_changes: Vec<Value> = doc_changes
+                .iter()
+                .filter_map(|item| {
+                    let uri = item
+                        .get("textDocument")
+                        .and_then(|td| td.get("uri"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    if !self.is_virtual_uri(uri) {
+                        return None;
+                    }
+                    let mut mapped = item.clone();
+                    mapped["textDocument"]["uri"] = Value::String(self.restore_uri(uri));
+                    if let Some(edits) = item.get("edits") {
+                        mapped["edits"] = self.map_edit_list(edits, uri, true);
+                    }
+                    Some(mapped)
+                })
+                .collect();
+            result["documentChanges"] = Value::Array(mapped_doc_changes);
+        }
+
+        result
+    }
+
+    /// 映射代码操作响应
+    ///
+    /// LSP 规范中 `textDocument/codeAction` 响应是 `CodeAction[]` 数组，
+    /// 每个操作可能携带 `edit`（WorkspaceEdit）。将编辑位置映射回原始文件，
+    /// 插入的英文代码暂时保持英文（仅确保位置正确）。
+    pub fn map_code_action_response(&self, response: &Value, _original_uri: &str) -> Value {
+        match response {
+            Value::Array(actions) => {
+                let mapped_actions: Vec<Value> = actions
+                    .iter()
+                    .map(|action| {
+                        let mut mapped = action.clone();
+                        if let Some(edit) = action.get("edit") {
+                            mapped["edit"] = self.map_edit(edit, false);
+                        }
+                        mapped
+                    })
+                    .collect();
+                Value::Array(mapped_actions)
+            }
+            Value::Null => Value::Array(Vec::new()),
+            _ => response.clone(),
+        }
+    }
+
+    /// 映射文档符号响应
+    ///
+    /// 将每个符号的 range 和 selectionRange 映射回原始文件，
+    /// 并递归处理子符号。
+    pub fn map_document_symbol_response(&self, response: &Value, original_uri: &str) -> Value {
+        match response {
+            Value::Array(array) => {
+                let mapped: Vec<Value> = array
+                    .iter()
+                    .map(|symbol| self.map_single_symbol(symbol, original_uri))
+                    .collect();
+                Value::Array(mapped)
+            }
+            Value::Null => Value::Array(Vec::new()),
+            _ => response.clone(),
+        }
+    }
+
+    /// 递归映射单个文档符号
+    fn map_single_symbol(&self, symbol: &Value, original_uri: &str) -> Value {
+        let mut mapped = symbol.clone();
+
+        // 将符号名反向恢复为中文（如 main → 主函数）
+        if let Some(name) = symbol.get("name").and_then(|v| v.as_str()) {
+            if let Some(zh_name) = self.reverse_lookup(name) {
+                mapped["name"] = Value::String(zh_name);
+            }
+        }
+
+        if let Some(range) = symbol.get("range") {
+            mapped["range"] = self.restore_range(original_uri, range);
+        }
+        if let Some(selection) = symbol.get("selectionRange") {
+            mapped["selectionRange"] = self.restore_range(original_uri, selection);
+        }
+        if let Some(children) = symbol.get("children").and_then(|v| v.as_array()) {
+            let mapped_children: Vec<Value> = children
+                .iter()
+                .map(|s| self.map_single_symbol(s, original_uri))
+                .collect();
+            mapped["children"] = Value::Array(mapped_children);
+        }
+        mapped
+    }
+
+    /// 从关键字映射中反向查找：英文 → 中文
+    fn reverse_lookup(&self, en_name: &str) -> Option<String> {
+        let map = self.cache.keyword_map();
+        for (zh, en) in map.iter() {
+            if en == en_name {
+                return Some(zh.clone());
+            }
+        }
+        None
+    }
+
+    /// 映射一个 WorkspaceEdit（changes + documentChanges）
+    ///
+    /// 编辑目标不是已打开 .zh 的虚拟文件时直接丢弃。
+    fn map_edit(&self, edit: &Value, translate_new_text: bool) -> Value {
+        let mut mapped = edit.clone();
+
+        // changes: { uri → [TextEdit] }
+        if let Some(changes) = edit.get("changes").and_then(|v| v.as_object()) {
+            let mut mapped_changes = serde_json::Map::new();
+            for (uri, edits_list) in changes {
+                if !self.is_virtual_uri(uri) {
+                    continue;
+                }
+                let target_uri = self.restore_uri(uri);
+                let mapped_edits = self.map_edit_list(edits_list, uri, translate_new_text);
+                mapped_changes.insert(target_uri, mapped_edits);
+            }
+            mapped["changes"] = Value::Object(mapped_changes);
+        }
+
+        // documentChanges: [TextDocumentEdit]
+        if let Some(doc_changes) = edit.get("documentChanges").and_then(|v| v.as_array()) {
+            let mapped_doc_changes: Vec<Value> = doc_changes
+                .iter()
+                .filter_map(|item| {
+                    let uri = item
+                        .get("textDocument")
+                        .and_then(|td| td.get("uri"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    if !self.is_virtual_uri(uri) {
+                        return None;
+                    }
+                    let mut mapped = item.clone();
+                    mapped["textDocument"]["uri"] = Value::String(self.restore_uri(uri));
+                    if let Some(edits) = item.get("edits") {
+                        mapped["edits"] = self.map_edit_list(edits, uri, translate_new_text);
+                    }
+                    Some(mapped)
+                })
+                .collect();
+            mapped["documentChanges"] = Value::Array(mapped_doc_changes);
+        }
+
+        mapped
+    }
+
+    /// 映射一组 TextEdit 的位置
+    ///
+    /// 当 `translate_new_text` 为 true 时（重命名），尝试将 newText 反向翻译为母语；
+    /// 为 false 时（代码操作），newText 保持英文。
+    fn map_edit_list(
+        &self,
+        edits_list: &Value,
+        virtual_uri: &str,
+        translate_new_text: bool,
+    ) -> Value {
+        let mapped: Vec<Value> = edits_list
+            .as_array()
+            .map(|array| {
+                array
+                    .iter()
+                    .map(|edit| {
+                        let mut mapped_edit = edit.clone();
+                        if let Some(range) = edit.get("range") {
+                            mapped_edit["range"] = self.restore_range(virtual_uri, range);
+                        }
+                        if translate_new_text {
+                            if let Some(new_text) = edit.get("newText").and_then(|v| v.as_str()) {
+                                if let Some(zh) = self.reverse_lookup(new_text) {
+                                    mapped_edit["newText"] = Value::String(zh);
+                                }
+                            }
+                        }
+                        mapped_edit
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        Value::Array(mapped)
+    }
+}
+
+/// 根据翻译条目的行映射还原行号
+fn restore_line_single(entry: &TranslationEntry, en_line: u32) -> u32 {
+    let idx = en_line as usize;
+    if idx < entry.line_map.len() {
+        entry.line_map[idx]
+    } else if let Some(&last) = entry.line_map.last() {
+        last
+    } else {
+        en_line
+    }
+}
+
+/// 从 LSP 诊断（rust-analyzer 格式）中提取所有权错误详情
+///
+/// 变量名取自原始消息中的反引号（如 use of moved value: `x`）；
+/// 移动/借用/再次使用位置取自已还原到母语文件的 range 与 relatedInformation，
+/// LSP 的 0-based 行号统一转为 1-based（与 rustc 诊断一致）。
+/// 仅处理 E0382/E0502/E0507 及消息模式匹配的所有权错误。
+fn extract_ownership_details(
+    original_diag: &Value,
+    restored: &Value,
+    original_uri: &str,
+) -> Option<OwnershipDetails> {
+    let message = original_diag["message"].as_str()?;
+    let error_code = original_diag["code"].as_str().unwrap_or("");
+    let is_ownership_error = matches!(error_code, "E0382" | "E0502" | "E0507")
+        || message.contains("use of moved value")
+        || message.contains("moved value")
+        || message.contains("cannot borrow")
+        || message.contains("cannot move out of");
+    if !is_ownership_error {
+        return None;
+    }
+
+    let var_name = extract_backtick_var_name(message)?;
+    let main_location = construct_position_from_range(original_uri, &restored["range"]);
+
+    let mut move_location = None;
+    let mut borrow_location = None;
+    let mut reuse_location = None;
+
+    if let Some(related_info) = restored["relatedInformation"].as_array() {
+        for item in related_info {
+            let label = item["message"].as_str().unwrap_or("");
+            let Some(location) = construct_position_from_range(original_uri, &item["location"]["range"])
+            else {
+                continue;
+            };
+            // 注意顺序："borrow later used here" 同时含 borrow 与 used here，应归为再次使用
+            if label.contains("used here")
+                || label.contains("later used")
+                || label.contains("after move")
+            {
+                reuse_location.get_or_insert(location);
+            } else if label.contains("move") {
+                move_location.get_or_insert(location);
+            } else if label.contains("borrow") {
+                borrow_location.get_or_insert(location);
+            }
+        }
+    }
+
+    // 主 range 兜底：E0382 → 再次使用；E0502 → 借用发生；E0507 → 移动发生
+    if let Some(location) = main_location {
+        if matches!(error_code, "E0382") || message.contains("moved value") {
+            reuse_location.get_or_insert(location);
+        } else if matches!(error_code, "E0502") || message.contains("cannot borrow") {
+            borrow_location.get_or_insert(location);
+        } else if matches!(error_code, "E0507") || message.contains("cannot move out of") {
+            move_location.get_or_insert(location);
+        }
+    }
+
+    if move_location.is_none() && borrow_location.is_none() && reuse_location.is_none() {
+        return None;
+    }
+    Some(OwnershipDetails {
+        var_name,
+        move_location,
+        borrow_location,
+        reuse_location,
+    })
+}
+
+/// 提取消息中反引号包裹的变量名
+///
+/// 示例："use of moved value: `数据`" → "数据"。
+fn extract_backtick_var_name(message: &str) -> Option<String> {
+    let start = message.find('`')?;
+    let rest = &message[start + 1..];
+    let end = rest.find('`')?;
+    Some(rest[..end].to_string())
+}
+
+/// 从 LSP range 构造诊断位置（0-based 行号转为 1-based）
+fn construct_position_from_range(file_name: &str, range: &Value) -> Option<DiagnosticLocation> {
+    let line_start = range["start"]["line"].as_u64()? as u32;
+    let col_start = range["start"]["character"].as_u64()? as u32;
+    let line_end = range["end"]["line"].as_u64()? as u32;
+    let col_end = range["end"]["character"].as_u64()? as u32;
+    Some(DiagnosticLocation {
+        file_name: file_name.to_string(),
+        line_start: line_start + 1,
+        column_start: col_start + 1,
+        line_end: line_end + 1,
+        column_end: col_end + 1,
+        source_text: None,
+        label: None,
+        is_primary: false,
+    })
+}
+
+/// 翻译诊断消息为中文
+///
+/// 尝试匹配常见的 rustc 错误模式并翻译。
+/// 完整翻译由核心引擎的 `DiagnosticTranslator` 处理，
+/// 此处提供轻量级的关键字替换。
+fn translate_diagnostic_message(message: &str) -> String {
+    let mut result = message.to_string();
+
+    // 常见错误模式翻译
+    let replace_table = [
+        ("cannot find value", "找不到变量"),
+        ("cannot find type", "找不到类型"),
+        ("cannot find function", "找不到函数"),
+        ("cannot find module", "找不到模块"),
+        ("mismatched types", "类型不匹配"),
+        ("type mismatch", "类型不匹配"),
+        ("expected", "期望"),
+        ("found", "实际为"),
+        ("unused variable", "未使用的变量"),
+        ("unused import", "未使用的导入"),
+        ("cannot borrow", "无法借用"),
+        ("borrowed as immutable", "被不可变借用"),
+        ("borrowed as mutable", "被可变借用"),
+        ("no method named", "没有名为"),
+        ("method not found", "方法未找到"),
+        ("field", "字段"),
+        ("does not implement", "未实现"),
+        ("the trait", "特征"),
+        ("is not satisfied", "未被满足"),
+        ("unresolved import", "未解析的导入"),
+        ("file not found", "文件未找到"),
+        ("aborting due to", "中止，原因："),
+        ("previous error", "前一个错误"),
+    ];
+
+    for (en, zh) in replace_table {
+        result = result.replace(en, zh);
+    }
+
+    // 添加教学提示
+    if message.contains("mismatched types") || message.contains("type mismatch") {
+        result.push_str("\n\n💡 教学提示：Rust 是强类型语言，请确保赋值和函数参数的类型一致。");
+    } else if message.contains("cannot find") {
+        result.push_str("\n\n💡 教学提示：请检查名称拼写是否正确，以及是否已通过 use 导入。");
+    } else if message.contains("unused") {
+        result.push_str("\n\n💡 教学提示：未使用的变量可以用下划线 _ 前缀标记，如 _变量名。");
+    }
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::{HashMap, HashSet};
+
+    fn create_test_cache() -> Arc<TranslationCache> {
+        let map = HashMap::from([("函数".into(), "fn".into()), ("让".into(), "let".into())]);
+        let temp = tempfile::tempdir().unwrap();
+        TranslationCache::new(map, HashSet::new(), temp.into_path())
+    }
+
+    #[test]
+    fn test_restore_uri() {
+        let cache = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;", 1)
+            .unwrap();
+
+        assert_eq!(mapper.restore_uri(&entry.virtual_uri), "file:///test/main.zh");
+    }
+
+    #[test]
+    fn test_restore_line() {
+        let cache = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;\n让 y = 2;", 1)
+            .unwrap();
+
+        assert_eq!(mapper.restore_line(&entry.virtual_uri, 0), 0);
+        assert_eq!(mapper.restore_line(&entry.virtual_uri, 1), 1);
+    }
+
+    #[test]
+    fn test_map_references_response() {
+        let cache = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;\n函数 主() {}", 1)
+            .unwrap();
+
+        let response = json!([
+            {
+                "uri": entry.virtual_uri,
+                "range": {
+                    "start": { "line": 1, "character": 0 },
+                    "end": { "line": 1, "character": 2 }
+                }
+            }
+        ]);
+
+        let mapped = mapper.map_references_response(&response);
+        assert_eq!(mapped[0]["uri"].as_str().unwrap(), "file:///test/main.zh");
+        assert_eq!(mapped[0]["range"]["start"]["line"], 1);
+        assert_eq!(mapped[0]["range"]["start"]["character"], 0);
+
+        // 无结果（null）时应返回空数组而不是 null
+        assert_eq!(
+            mapper.map_references_response(&Value::Null),
+            Value::Array(Vec::new())
+        );
+    }
+
+    #[test]
+    fn test_map_rename_response_cross_file() {
+        let cache = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let (entry_a, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;\n函数 主() {}", 1)
+            .unwrap();
+        let (entry_b, _) = cache
+            .update_document("file:///test/lib.zh", "函数 主() {}", 1)
+            .unwrap();
+
+        // rust-analyzer 返回跨文件编辑（changes 形式）
+        let response = json!({
+            "changes": {
+                entry_a.virtual_uri.clone(): [{
+                    "range": {
+                        "start": { "line": 0, "character": 0 },
+                        "end": { "line": 0, "character": 2 }
+                    },
+                    "newText": "fn"
+                }],
+                entry_b.virtual_uri.clone(): [{
+                    "range": {
+                        "start": { "line": 0, "character": 0 },
+                        "end": { "line": 0, "character": 2 }
+                    },
+                    "newText": "fn"
+                }]
+            }
+        });
+
+        let mapped = mapper.map_rename_response(&response);
+        let changes = mapped["changes"].as_object().unwrap();
+
+        // 两个文件的 URI 都还原为 .zh 源文件
+        assert!(changes.contains_key("file:///test/main.zh"));
+        assert!(changes.contains_key("file:///test/lib.zh"));
+
+        // newText 反向翻译：fn → 函数
+        assert_eq!(
+            changes["file:///test/main.zh"][0]["newText"].as_str().unwrap(),
+            "函数"
+        );
+        assert_eq!(
+            changes["file:///test/lib.zh"][0]["newText"].as_str().unwrap(),
+            "函数"
+        );
+
+        // documentChanges 形式也应正确处理
+        let response2 = json!({
+            "documentChanges": [{
+                "textDocument": { "uri": entry_a.virtual_uri.clone(), "version": null },
+                "edits": [{
+                    "range": {
+                        "start": { "line": 0, "character": 0 },
+                        "end": { "line": 0, "character": 2 }
+                    },
+                    "newText": "fn"
+                }]
+            }]
+        });
+        let mapped2 = mapper.map_rename_response(&response2);
+        assert_eq!(
+            mapped2["documentChanges"][0]["textDocument"]["uri"]
+                .as_str()
+                .unwrap(),
+            "file:///test/main.zh"
+        );
+        assert_eq!(
+            mapped2["documentChanges"][0]["edits"][0]["newText"]
+                .as_str()
+                .unwrap(),
+            "函数"
+        );
+    }
+
+    #[test]
+    fn test_map_code_action_response() {
+        let cache = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;", 1)
+            .unwrap();
+
+        let response = json!([
+            {
+                "title": "导入 std::io",
+                "kind": "quickfix",
+                "edit": {
+                    "changes": {
+                        entry.virtual_uri: [{
+                            "range": {
+                                "start": { "line": 0, "character": 0 },
+                                "end": { "line": 0, "character": 2 }
+                            },
+                            "newText": "use std::io;"
+                        }]
+                    }
+                }
+            }
+        ]);
+
+        let mapped = mapper.map_code_action_response(&response, "file:///test/main.zh");
+        let changes = mapped[0]["edit"]["changes"].as_object().unwrap();
+        assert!(changes.contains_key("file:///test/main.zh"));
+
+        // 代码操作插入的英文代码暂时保持英文，仅位置正确
+        assert_eq!(
+            changes["file:///test/main.zh"][0]["newText"].as_str().unwrap(),
+            "use std::io;"
+        );
+
+        // null 响应 → 空数组
+        assert_eq!(
+            mapper.map_code_action_response(&Value::Null, ""),
+            Value::Array(Vec::new())
+        );
+    }
+
+    #[test]
+    fn test_map_document_symbol_response() {
+        let cache = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "函数 主() {\n    让 x = 1;\n}", 1)
+            .unwrap();
+        assert_eq!(entry.en_content, "fn 主() {\n    let x = 1;\n}");
+
+        let response = json!([
+            {
+                "name": "fn",
+                "kind": 12,
+                "range": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": 2, "character": 1 }
+                },
+                "selectionRange": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": 0, "character": 2 }
+                },
+                "children": [{
+                    "name": "let",
+                    "kind": 13,
+                    "range": {
+                        "start": { "line": 1, "character": 0 },
+                        "end": { "line": 1, "character": 3 }
+                    },
+                    "selectionRange": {
+                        "start": { "line": 1, "character": 0 },
+                        "end": { "line": 1, "character": 3 }
+                    }
+                }]
+            }
+        ]);
+
+        let mapped = mapper.map_document_symbol_response(&response, "file:///test/main.zh");
+
+        // 符号名恢复为中文
+        assert_eq!(mapped[0]["name"].as_str().unwrap(), "函数");
+        assert_eq!(mapped[0]["children"][0]["name"].as_str().unwrap(), "让");
+
+        // 位置映射回母语文件（行 1:1、列按偏移转换）
+        assert_eq!(mapped[0]["range"]["start"]["line"], 0);
+        assert_eq!(mapped[0]["selectionRange"]["start"]["character"], 0);
+        assert_eq!(mapped[0]["children"][0]["range"]["start"]["line"], 1);
+
+        // null 响应 → 空数组
+        assert_eq!(
+            mapper.map_document_symbol_response(&Value::Null, ""),
+            Value::Array(Vec::new())
+        );
+    }
+
+    #[test]
+    fn test_map_diagnostics_ownership_details_in_data() {
+        let cache = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        // 多行文档，保证行映射存在（诊断行号 2/4 可还原）
+        let (entry, _) = cache
+            .update_document(
+                "file:///test/main.zh",
+                "让 数据 = 1;\n让 a = 1;\n让 b = 1;\n让 c = 1;\n让 d = 1;",
+                1,
+            )
+            .unwrap();
+
+        // rust-analyzer 风格的 E0382 诊断：主 range 是再次使用处，relatedInformation 标记移动
+        let diag = json!({
+            "range": {
+                "start": { "line": 4, "character": 4 },
+                "end": { "line": 4, "character": 8 }
+            },
+            "severity": 1,
+            "code": "E0382",
+            "source": "rust-analyzer",
+            "message": "use of moved value: `数据`",
+            "relatedInformation": [{
+                "location": {
+                    "uri": entry.virtual_uri.clone(),
+                    "range": {
+                        "start": { "line": 2, "character": 8 },
+                        "end": { "line": 2, "character": 10 }
+                    }
+                },
+                "message": "value moved here"
+            }]
+        });
+        let params = json!({
+            "uri": entry.virtual_uri,
+            "version": 1,
+            "diagnostics": [diag]
+        });
+
+        let mapped = mapper.map_diagnostics(&params);
+        let data = mapped["diagnostics"][0]["data"]
+            .as_object()
+            .expect("所有权诊断的 data 字段应为 JSON 对象");
+
+        // 变量名与位置（LSP 0-based 行号 +1 → 1-based）
+        assert_eq!(data["变量名"], "数据");
+        assert_eq!(data["移动发生"]["起始行"], 3);
+        assert_eq!(data["再次使用"]["起始行"], 5);
+        assert!(data["借用发生"].is_null());
+    }
+
+    #[test]
+    fn test_map_diagnostics_non_ownership_no_ownership_details() {
+        let cache = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;", 1)
+            .unwrap();
+
+        // 类型不匹配错误不应附带所有权详情
+        let diag = json!({
+            "range": {
+                "start": { "line": 0, "character": 4 },
+                "end": { "line": 0, "character": 8 }
+            },
+            "severity": 1,
+            "message": "mismatched types",
+            "relatedInformation": []
+        });
+        let params = json!({
+            "uri": entry.virtual_uri,
+            "version": 1,
+            "diagnostics": [diag]
+        });
+
+        let mapped = mapper.map_diagnostics(&params);
+        assert!(mapped["diagnostics"][0].get("data").is_none());
+    }
+}
