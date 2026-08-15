@@ -95,6 +95,13 @@ impl ResponseMapper {
 
         if let Some(diagnostics_array) = diagnostics_list {
             for diag in diagnostics_array {
+                // 过滤虚拟项目 main.rs 中关于 main 函数的 Hint 级提示
+                // （fn main() 在模块内不是真正的入口，rust-analyzer 会发出
+                // "here is a function named `main`" 等教学无关的提示）
+                if is_main_fn_hint(diag, virtual_uri) {
+                    continue;
+                }
+
                 let mut mapped = diag.clone();
 
                 // 映射范围（使用列映射）
@@ -621,6 +628,23 @@ fn translate_diagnostic_message(message: &str) -> String {
     }
 
     result
+}
+
+/// 判断一条诊断是否为虚拟项目 main.rs 中关于 main 函数的 Hint 级提示
+///
+/// 虚拟项目将用户代码作为模块聚合到 main.rs 中，`fn main()` 在模块内
+/// 并非真正的程序入口，rust-analyzer 会发出 "here is a function named `main`"
+/// 等教学无关的提示。此函数识别并过滤这类诊断。
+fn is_main_fn_hint(diag: &Value, _virtual_uri: &str) -> bool {
+    // 仅过滤 Hint 级别（severity = 4）
+    let severity = diag.get("severity").and_then(|v| v.as_u64()).unwrap_or(0);
+    if severity != 4 {
+        return false;
+    }
+    let message = diag.get("message").and_then(|v| v.as_str()).unwrap_or("");
+    // 过滤 "here is a function named `main`" 类提示
+    message.contains("here is a function named `main`")
+        || (message.contains("function `main`") && message.contains("never used"))
 }
 
 #[cfg(test)]
