@@ -246,7 +246,9 @@ function 转行号(行号: any, 文档: vscode.TextDocument): number {
  * 优先级：
  * 1. 配置 i18n-rust.languagePackPath（显式指定）
  * 2. 工作区中的 lang-packs/<代码> 目录（如 lang-packs/zh）
- * 3. 找不到返回 undefined（LSP 使用默认内置映射）
+ * 3. LSP 二进制所在项目的 lang-packs/<代码>（沿 PATH 查找）
+ * 4. 常见项目目录（~/code/zrRust 等）
+ * 5. 找不到返回 undefined（LSP 使用默认内置映射）
  */
 function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | undefined {
     // 1. 显式配置
@@ -254,13 +256,63 @@ function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | 
     if (显式路径) {
         return 显式路径;
     }
-    // 2. 工作区 lang-packs/<代码>
     const 语言代码 = 语言包目录映射[config.get<string>('languagePack', '中文')] ?? 'zh';
+    // 2. 工作区 lang-packs/<代码>
     for (const 文件夹 of vscode.workspace.workspaceFolders ?? []) {
         const 候选 = path.join(文件夹.uri.fsPath, 'lang-packs', 语言代码);
         if (fs.existsSync(候选)) {
             return 候选;
         }
+    }
+    // 3. LSP 二进制所在项目（沿 PATH 查找 i18n-rust-lsp，向上搜索 lang-packs）
+    const serverPath = config.get<string>('serverPath', 'i18n-rust-lsp');
+    if (!path.isAbsolute(serverPath)) {
+        const lspRealPath = findInPath(serverPath);
+        if (lspRealPath) {
+            const 候选 = 向上查找语言包(path.dirname(lspRealPath), 语言代码);
+            if (候选) { return 候选; }
+        }
+    }
+    // 4. 常见项目目录
+    const home = process.env.HOME ?? '';
+    if (home) {
+        for (const 项目名 of ['code/zrRust', 'zrRust']) {
+            const 候选 = path.join(home, 项目名, 'lang-packs', 语言代码);
+            if (fs.existsSync(候选)) {
+                return 候选;
+            }
+        }
+    }
+    return undefined;
+}
+
+/**
+ * 在 PATH 中查找可执行文件的真实路径
+ */
+function findInPath(name: string): string | undefined {
+    try {
+        const result = cp.execSync(`which "${name}" 2>/dev/null`, { encoding: 'utf-8' }).trim();
+        if (result && fs.existsSync(result)) {
+            // 如果是符号链接，解析真实路径
+            return fs.realpathSync(result);
+        }
+    } catch { /* ignore */ }
+    return undefined;
+}
+
+/**
+ * 从指定目录向上搜索 lang-packs/<代码> 目录（最多向上 5 级）
+ */
+function 向上查找语言包(startDir: string, 语言代码: string): string | undefined {
+    let dir = startDir;
+    for (let i = 0; i < 5; i++) {
+        const 候选 = path.join(dir, 'lang-packs', 语言代码);
+        if (fs.existsSync(候选)) {
+            return 候选;
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) { break; }
+        dir = parent;
     }
     return undefined;
 }

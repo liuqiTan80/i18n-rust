@@ -113,6 +113,66 @@ fn print_help(ui: &ui::Ui) {
     println!("{}", ui.t("lsp_help_opt"));
 }
 
+/// 当默认语言包路径不存在时，自动搜索常见位置
+///
+/// 搜索顺序：
+/// 1. 二进制所在目录向上搜索（最多 5 级）
+/// 2. 当前工作目录向上搜索
+/// 3. $HOME 下常见项目目录（code/zrRust、zrRust）
+fn find_lang_pack_fallback(default: &PathBuf, lang_code: &str) -> PathBuf {
+    if default.exists() {
+        return default.clone();
+    }
+    log::warn!(
+        "默认语言包路径 {} 不存在，正在搜索...",
+        default.display()
+    );
+    // 1. 二进制所在目录向上搜索
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(found) = search_upward(&exe, lang_code) {
+            log::info!("在二进制目录找到语言包: {}", found.display());
+            return found;
+        }
+    }
+    // 2. 当前工作目录向上搜索
+    if let Ok(cwd) = std::env::current_dir() {
+        if let Some(found) = search_upward(&cwd, lang_code) {
+            log::info!("在工作目录找到语言包: {}", found.display());
+            return found;
+        }
+    }
+    // 3. $HOME 下常见项目目录
+    if let Ok(home) = std::env::var("HOME") {
+        for project in &["code/zrRust", "zrRust"] {
+            let candidate = PathBuf::from(&home)
+                .join(project)
+                .join("lang-packs")
+                .join(lang_code);
+            if candidate.exists() {
+                log::info!("在 HOME 目录找到语言包: {}", candidate.display());
+                return candidate;
+            }
+        }
+    }
+    log::warn!("未找到语言包目录，使用内置映射");
+    default.clone()
+}
+
+/// 从指定路径向上搜索 lang-packs/<lang_code>（最多 5 级）
+fn search_upward(start: &std::path::Path, lang_code: &str) -> Option<PathBuf> {
+    let mut dir = start.parent()?.to_path_buf();
+    for _ in 0..5 {
+        let candidate = dir.join("lang-packs").join(lang_code);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+        if !dir.pop() {
+            break;
+        }
+    }
+    None
+}
+
 fn main() -> anyhow::Result<()> {
     // 初始化日志
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
@@ -120,7 +180,19 @@ fn main() -> anyhow::Result<()> {
         .init();
 
     // 解析命令行参数
-    let args = parse_args();
+    let mut args = parse_args();
+
+    // 如果语言包路径不存在，自动搜索（仅在未显式指定时）
+    let 显式指定 = std::env::args().any(|a| a == "--language-pack" || a == "-l");
+    if !显式指定 && !args.lang_pack_path.exists() {
+        // 从默认路径推断语言代码
+        let lang_code = args
+            .lang_pack_path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("zh");
+        args.lang_pack_path = find_lang_pack_fallback(&args.lang_pack_path, lang_code);
+    }
 
     // 初始化全局界面消息（随语言包/系统语言变化）
     ui::init(&args.lang_pack_path);
