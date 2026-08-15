@@ -68,4 +68,37 @@ fi
 # ---------- 5. 输出结果 ----------
 echo ""
 echo "✅ 打包完成：$ROOT_DIR/release/i18n-rust-$VERSION.vsix"
-echo "💡 安装方式：打开 VS Code → 扩展侧边栏 → "..." 菜单 → "从 VSIX 安装..." → 选择该文件"
+echo ""
+
+# ---------- 6. 安装到扩展目录（可选） ----------
+echo "📦 第 6 步：安装到扩展目录..."
+VSIX_PATH="$ROOT_DIR/release/i18n-rust-$VERSION.vsix"
+
+# 安装到 VSCode
+if [ -d ~/.vscode/extensions ]; then
+    rm -rf ~/.vscode/extensions/i18n-rust.i18n-rust-*
+    mkdir -p ~/.vscode/extensions/i18n-rust.i18n-rust-$VERSION
+    unzip -q "$VSIX_PATH" -d ~/.vscode/extensions/i18n-rust.i18n-rust-$VERSION
+    # vsix 内文件在 extension/ 子目录，需要移出
+    if [ -d ~/.vscode/extensions/i18n-rust.i18n-rust-$VERSION/extension ]; then
+        mv ~/.vscode/extensions/i18n-rust.i18n-rust-$VERSION/extension/* ~/.vscode/extensions/i18n-rust.i18n-rust-$VERSION/
+        rmdir ~/.vscode/extensions/i18n-rust.i18n-rust-$VERSION/extension 2>/dev/null || true
+    fi
+    echo "   ✅ 已安装到 VSCode: ~/.vscode/extensions/"
+fi
+
+# 安装到 Trae CN
+if [ -d ~/.config/"Trae CN"/extensions ] || [ -n "${TRAE_CN:-}" ]; then
+    mkdir -p ~/.config/"Trae CN"/extensions
+    rm -rf ~/.config/"Trae CN"/extensions/i18n-rust.i18n-rust-*
+    mkdir -p ~/.config/"Trae CN"/extensions/i18n-rust.i18n-rust-$VERSION
+    unzip -q "$VSIX_PATH" -d ~/.config/"Trae CN"/extensions/i18n-rust.i18n-rust-$VERSION
+    if [ -d ~/.config/"Trae CN"/extensions/i18n-rust.i18n-rust-$VERSION/extension ]; then
+        mv ~/.config/"Trae CN"/extensions/i18n-rust.i18n-rust-$VERSION/extension/* ~/.config/"Trae CN"/extensions/i18n-rust.i18n-rust-$VERSION/
+        rmdir ~/.config/"Trae CN"/extensions/i18n-rust.i18n-rust-$VERSION/extension 2>/dev/null || true
+    fi
+    echo "   ✅ 已安装到 Trae CN: ~/.config/Trae CN/extensions/"
+fi
+
+echo ""
+echo "💡 请重启 VSCode / Trae CN 后使用"
