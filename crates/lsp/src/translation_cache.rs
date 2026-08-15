@@ -412,6 +412,9 @@ impl TranslationCache {
         let cargo_content = "[package]\nname = \"i18n-virtual\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[[bin]]\npath = \"src/main.rs\"\nname = \"i18n-virtual\"\n\n[workspace]\n";
         let _ = std::fs::write(self.temp_dir.join("Cargo.toml"), cargo_content);
 
+        // 清理旧版本残留文件（避免 rust-analyzer 同时读取 lib.rs 和 main.rs）
+        let _ = std::fs::remove_file(self.temp_dir.join("src").join("lib.rs"));
+
         // src/main.rs：以 #[path] 属性按模块名聚合所有虚拟文件
         // #![allow(dead_code)] 抑制辅助函数/类型的未使用警告
         let mut main_content = format!(
