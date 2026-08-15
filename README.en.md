@@ -66,8 +66,8 @@ rzc run src/main.en
 - **Native-language programming**: write complete Rust programs using your own language keywords
 - **Multilingual by design**: 11 built-in language packs (en/zh/de/ja/ru/es/fr/pt/ko/ar/hi), auto-detected by file extension
 - **Localized diagnostics**: `rzc check` translates rustc errors into the file's language, with 💡 teaching hints
-- **Ownership visualization**: VS Code extension (search `i18n-rust`) color-highlights variable moves and reuse
-- **Full LSP support**: completion, hover, go-to-definition, find references, rename
+- **VS Code extension**: Download `i18n-rust.vsix` from [Releases](https://github.com/liuqiTan80/i18n-rust/releases), then in VS Code choose "Install from VSIX..." (see [install guide](tools/vscode-extension/)). Includes syntax highlighting, completion, ownership visualization (color-highlighted variable moves & reuse), one-click run/check, AI chat
+- **Full LSP support**: completion, hover, go-to-definition, find references, rename, code formatting
 - **Gradual transition**: `rzc eject` exports standard Rust code in one step
 
 ## 📖 Tutorial

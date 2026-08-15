@@ -13,27 +13,18 @@
 
 ## 离线安装
 
-国内用户访问 VS Code 扩展市场（Marketplace）可能较慢，且本扩展尚未发布到市场。推荐通过 `.vsix` 文件离线安装：
+本扩展尚未发布到 VS Code 扩展市场（Marketplace）。推荐通过 `.vsix` 文件离线安装：
 
-### 1. 获取 .vsix 文件
+### 1. 下载 .vsix 文件
 
-**方式一：从 Release 下载**（推荐）
+从项目 Release 页面下载已编译好的 `.vsix` 文件（无需安装任何开发环境）：
 
-前往项目的 Release 页面（GitCode：`https://gitcode.com/<你的用户名>/zrRust/releases`），下载最新版本的 `i18n-rust-<版本>.vsix` 文件。
+- **GitCode**（国内推荐）：https://gitcode.com/tan80/zrRust/releases
+- **GitHub**：https://github.com/liuqiTan80/i18n-rust/releases
 
-**方式二：自行打包**
+下载最新版本中的 `i18n-rust-<版本>.vsix` 文件即可。
 
-在项目 `tools/vscode-extension/` 目录下运行打包脚本（需要 Node.js 18+）：
-
-```bash
-# Linux / macOS
-./package-vsix.sh
-
-# Windows（PowerShell）
-powershell -ExecutionPolicy Bypass -File .\package-vsix.ps1
-```
-
-脚本会自动完成：检查 Node.js/npm → `npm install` → `npm run compile` → `vsce package`，产物输出到 `release/i18n-rust-<版本>.vsix`。若未安装 vsce，脚本会自动通过 `npm install -g @vscode/vsce` 安装。
+> 备选：如需从源码打包，在 `tools/vscode-extension/` 目录下运行 `./package-vsix.sh`（Linux/macOS）或 `powershell -ExecutionPolicy Bypass -File .\package-vsix.ps1`（Windows），需要 Node.js 18+。
 
 ### 2. 安装 .vsix
 

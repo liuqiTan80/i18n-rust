@@ -1,6 +1,6 @@
 {
   "name": "i18n-rust",
-  "displayName": "i18n-rust - 中文 Rust 教学方言",
+  "displayName": "i18n-rust - Write Rust in Any Language",
   "description": "使用中文编写 Rust 代码，支持语法高亮、智能补全和错误提示",
   "version": "0.1.0",
   "publisher": "i18n-rust",
@@ -142,36 +142,41 @@
     "menus": {
       "editor/title": [
         {
-          "when": "resourceLangId == rust-zh",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
           "command": "i18n-rust.run",
           "group": "navigation@1"
         },
         {
-          "when": "resourceLangId == rust-zh",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
           "command": "i18n-rust.check",
           "group": "navigation@2"
         }
       ],
       "editor/context": [
         {
-          "when": "resourceLangId == rust-zh",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
           "command": "i18n-rust.run",
           "group": "i18n@1"
         },
         {
-          "when": "resourceLangId == rust-zh",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
           "command": "i18n-rust.check",
           "group": "i18n@2"
         },
         {
-          "when": "resourceLangId == rust-zh",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
           "command": "i18n-rust.eject",
           "group": "i18n@3"
         },
         {
-          "when": "resourceLangId == rust-zh",
-          "command": "i18n-rust.aiChat",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
+          "command": "editor.action.formatDocument",
           "group": "i18n@4"
+        },
+        {
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
+          "command": "i18n-rust.aiChat",
+          "group": "i18n@5"
         }
       ]
     },
