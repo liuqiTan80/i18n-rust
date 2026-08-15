@@ -4,51 +4,40 @@
 
 </div>
 
-# rzc: Mehrsprachiger Rust-Lehrdialekt-Compiler
+# rzc: Mehrsprachiger Compiler für den Rust-Lehrdialekt
 
-Schreiben Sie Rust-Programme in Ihrer Muttersprache. rzc übersetzt sie automatisch in Standard-Rust, kompiliert und führt sie aus — Programmierbildung kehrt zum logischen Denken zurück, nicht zur Englisch-Memorierung.
+Schreibe Rust-Programme in deiner Muttersprache — rzc übersetzt sie automatisch in Standard-Rust und kompiliert sie. Lerne Programmieren, nicht Englisch.
 
 ```rust
-// src/main.de —— deutscher Rust-Lehrdialekt
+// src/main.de — deutscher Rust-Lehrdialekt
 funktion hauptfunktion() {
-    lass mutabel anzahl = 10;
-    anzahl = anzahl + 1;
-    druckeZeile!("Anzahl: {}", anzahl);
+    lass mutabel zahl = 10;
+    zahl = zahl + 1;
+    druckeZeile!("Zahl: {}", zahl);
 }
 ```
 
 ```bash
 $ rzc run src/main.de
-Anzahl: 11
+Zahl: 11
 ```
-
-## ✨ Funktionen
-
-- **Muttersprachliche Programmierung**: Schreiben Sie vollständige Rust-Programme mit deutschen Schlüsselwörtern (`funktion`, `lass`, `wenn`, `zurueck`…)
-- **Mehrsprachig nativ**: Architektur unterstützt jede natürliche Sprache; 11 Sprachpakete integriert (Deutsch, Englisch, Chinesisch, …), andere ferninstallierbar
-- **Automatische Erweiterungserkennung**: `.zh`, `.en`, `.de` werden automatisch dem Sprachpaket zugeordnet
-- **Lokalisierte Diagnostik**: rustc-Fehler übersetzt mit 💡 Lehrhinweisen; Eigentumsfehler über JSON visualisiert
-- **Eigentumsvisualisierung**: VS Code-Erweiterung hebt Verschiebungen (gelb), Wiederverwendung (rot) und Lebensdauern (grün) hervor
-- **Vollständige LSP-Unterstützung**: Vervollständigung, Hover, Definitionssprung, Referenzsuche, Umbenennung
-- **Makro-Autovervollständigung**: `!` kann weggelassen werden; wird beim Transpilieren automatisch ergänzt
-- **Fließender Übergang**: `eject` exportiert Standard-Rust-Code in einem Schritt
-- **Vollständiges Tutorial**: 24 Kapitel + 4 Anhänge, vom absoluten Anfänger bis zum Gesamtprojekt
 
 ## 📦 Installation
 
-### Über crates.io (empfohlen)
+Ein Befehl — danach sofort global verfügbar:
 
 ```bash
 cargo install rzc
 ```
 
-### Aus dem Quellcode
+> Erfordert die [Rust-Werkzeugkette](https://www.rust-lang.org/tools/install) (stable via rustup). Sprachpakete sind eingebaut — keine zusätzliche Konfiguration nötig.
+
+Alternativ aus dem Quellcode bauen:
 
 ```bash
-# International
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
-cargo build --release --workspace
+cargo build --release --workspace                # Binärdatei: target/release/rzc
 ```
 
 ## 🚀 Schnellstart
@@ -59,48 +48,31 @@ cd mein-projekt
 rzc run src/main.de
 ```
 
-## 🛠️ Befehle
+`rzc init` erstellt ein vollständig lauffähiges Projektgerüst (`Cargo.toml` + `src/main.de`) — einfach ausführen.
+
+## 🛠️ Wichtige Befehle
 
 | Befehl | Beschreibung |
-|--------|-------------|
-| `rzc init <Name>` | Neues Projekt erstellen |
-| `rzc run <Datei>` | `.de`-Quellcode übersetzen und ausführen |
-| `rzc check <Datei>` | Typprüfung mit Lehrdiagnostik |
-| `rzc eject <Datei>` | In Standard-`.rs`-Code exportieren |
+|--------|--------------|
+| `rzc init <name>` | Neues Projekt erstellen |
+| `rzc run <datei>` | Dialekt-Quellcode übersetzen und ausführen |
+| `rzc check <datei>` | Typprüfung mit lokalisierter Lehrdiagnose |
+| `rzc eject <datei>` | Als Standard-Rust-Code exportieren |
 | `rzc lang list` | Installierte Sprachpakete auflisten |
-| `rzc lang install <Quelle>` | Sprachpaket installieren |
-| `rzc lang remove <Code>` | Sprachpaket entfernen |
-| `rzc mapping auto <Crate>` | Drittanbieter-Crate-Mappings generieren |
+| `rzc mapping auto <crate>` | Drittanbieter-Mappings automatisch generieren |
+
+## ✨ Funktionen
+
+- **Programmieren in der Muttersprache**: vollständige Rust-Programme mit Schlüsselwörtern deiner Sprache
+- **Mehrsprachig**: 11 eingebaute Sprachpakete (de/zh/en/ja/ru/es/fr/pt/ko/ar/hi), automatische Erkennung per Dateiendung
+- **Lokalisierte Diagnose**: `rzc check` übersetzt rustc-Fehler in die Sprache der Datei, mit 💡 Lehrhinweisen
+- **Eigentums-Visualisierung**: VS-Code-Erweiterung (Suche `i18n-rust`) hebt Verschiebungen und Wiederverwendung von Variablen farbig hervor
+- **Volle LSP-Unterstützung**: Vervollständigung, Hover, Gehe-zu-Definition, Referenzen, Umbenennen
+- **Schrittweiser Übergang**: `rzc eject` exportiert Standard-Rust-Code in einem Schritt
 
 ## 📖 Tutorial
 
-Vollständiges Anfänger-Tutorial: 24 Kapitel + 4 Anhänge
-
-| Stufe | Kapitel |
-|-------|---------|
-| **Grundlagen** | Kap.1 Hallo Welt · Kap.2 Variablen & Typen · Kap.3 Zusammengesetzte Typen · Kap.4 Kontrollfluss · Kap.5 Funktionen & Methoden |
-| **Kern** | Kap.6 Eigentümerschaft · Kap.7 Referenzen & Ausleihen · Kap.8 Zeichenketten · Kap.9 Strukturen · Kap.10 Aufzählungen & Musterabgleich |
-| **Generika** | Kap.11 Generika · Kap.12 Traits · Kap.13 Lebensdauern · Kap.14 Sammlungen |
-| **Fehler & Module** | Kap.15 Fehlerbehandlung · Kap.16 Modulsystem · Kap.17 Paketverwaltung |
-| **Fortgeschritten** | Kap.18 Smart Pointer · Kap.19 Nebenläufigkeit · Kap.20 Tests |
-| **Experte** | Kap.21 Closures & Iteratoren · Kap.22 Makros · Kap.23 Asynchrone Programmierung |
-| **Projekt** | Kap.24 Kommandozeilen-Rechner |
-| **Anhänge** | A Mapping-Referenz · B Glossar · C Migrationsleitfaden · D FAQ & Lernpfad |
-
-## ❓ FAQ
-
-**Q: Warum können Makros das Ausrufezeichen weglassen?**
-Um den Lernaufwand zu reduzieren. Der Transpiler ergänzt `!` automatisch.
-
-**Q: Kann ich deutsche Variablennamen verwenden?**
-Ja. `anzahl` und `hauptfunktion` sind gültige Bezeichner – Rust unterstützt Unicode-Bezeichner.
-
-**Q: Wie installiere ich andere Sprachpakete?**
-`rzc lang install ja` (fern) oder `rzc lang install ./verzeichnis` (lokal).
-
-## 🤝 Mitwirken
-
-Rückmeldung über [GitHub Issues](https://github.com/liuqiTan80/i18n-rust/issues), PRs willkommen.
+Ein vollständiges chinesisches Anfängertutorial (24 Kapitel + 4 Anhänge) — siehe [tutorials/](tutorials/).
 
 ## 📄 Lizenz
 
