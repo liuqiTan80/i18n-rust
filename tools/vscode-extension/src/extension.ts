@@ -694,6 +694,26 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
  * 运行 .zh 文件
  */
 async function 运行文件(文件路径: string): Promise<void> {
+    // 检查文件是否存在
+    if (!fs.existsSync(文件路径)) {
+        vscode.window.showErrorMessage(
+            `文件不存在: ${文件路径}\n`
+            + `提示: 请先保存文件，或关闭此标签页后打开项目中的实际文件。`
+        );
+        return;
+    }
+    
+    // 警告临时目录
+    if (文件路径.startsWith('/tmp/') || 文件路径.startsWith('/private/tmp/')) {
+        const 选择 = await vscode.window.showWarningMessage(
+            `当前文件位于临时目录: ${文件路径}\n建议使用项目目录中的文件。`,
+            '继续运行', '取消'
+        );
+        if (选择 !== '继续运行') {
+            return;
+        }
+    }
+    
     const 终端 = vscode.window.createTerminal({
         name: 'i18n Run',
         cwd: path.dirname(文件路径)
@@ -706,6 +726,15 @@ async function 运行文件(文件路径: string): Promise<void> {
  * 检查 .zh 文件
  */
 async function 检查文件(文件路径: string): Promise<void> {
+    // 检查文件是否存在
+    if (!fs.existsSync(文件路径)) {
+        vscode.window.showErrorMessage(
+            `文件不存在: ${文件路径}\n`
+            + `提示: 请先保存文件，或关闭此标签页后打开项目中的实际文件。`
+        );
+        return;
+    }
+    
     const 终端 = vscode.window.createTerminal({
         name: 'i18n Check',
         cwd: path.dirname(文件路径)
