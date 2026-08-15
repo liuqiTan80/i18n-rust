@@ -241,7 +241,7 @@ impl ResponseMapper {
     ///
     /// 将每个编辑的 range 映射回原始文件，并将 newText 反向翻译为母语。
     ///
-    /// 编辑目标不是已打开 .zh 的虚拟文件时（如聚合模块的 lib.rs、
+    /// 编辑目标不是已打开 .zh 的虚拟文件时（如聚合模块的 main.rs、
     /// Cargo.toml）直接丢弃，避免客户端被引导编辑虚拟项目内部文件。
     pub fn map_rename_response(&self, response: &Value) -> Value {
         let mut result = response.clone();

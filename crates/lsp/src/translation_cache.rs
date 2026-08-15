@@ -169,7 +169,7 @@ impl TranslationCache {
             changes
         };
 
-        // 更新虚拟项目文件（聚合 lib.rs），使跨文件语义分析可用
+        // 更新虚拟项目文件（聚合 main.rs），使跨文件语义分析可用
         self.refresh_virtual_project();
 
         let entry = self
@@ -394,10 +394,12 @@ impl TranslationCache {
         changes
     }
 
-    /// 刷新虚拟项目：写入 Cargo.toml 和 src/lib.rs
+    /// 刷新虚拟项目：写入 Cargo.toml 和 src/main.rs
     ///
-    /// 将当前所有虚拟翻译文件聚合为同一 crate，
+    /// 将当前所有虚拟翻译文件聚合为同一二进制 crate，
     /// 使 rust-analyzer 能够解析 `模块`/`使用` 声明的跨文件引用。
+    /// 使用 [[bin]] 而非 [lib]，使 `fn main()` 被识别为程序入口，
+    /// 避免 `function main is never used` 警告。
     fn refresh_virtual_project(&self) {
         let table = match self.entries.read() {
             Ok(t) => t,
@@ -405,12 +407,17 @@ impl TranslationCache {
         };
 
         // Cargo.toml（包名保留英文，见项目规范）
+        // [[bin]] 使其成为二进制 crate，fn main() 即为入口
         // [workspace] 空表使其脱离任何父工作区，避免被上层 Cargo.toml 吞并
-        let cargo_content = "[package]\nname = \"i18n-virtual\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lib]\npath = \"src/lib.rs\"\n\n[workspace]\n";
+        let cargo_content = "[package]\nname = \"i18n-virtual\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[[bin]]\npath = \"src/main.rs\"\nname = \"i18n-virtual\"\n\n[workspace]\n";
         let _ = std::fs::write(self.temp_dir.join("Cargo.toml"), cargo_content);
 
-        // src/lib.rs：以 #[path] 属性按模块名聚合所有虚拟文件
-        let mut lib_content = format!("{}\n", crate::ui::global().t("lsp_gen_lib_comment"));
+        // src/main.rs：以 #[path] 属性按模块名聚合所有虚拟文件
+        // #![allow(dead_code)] 抑制辅助函数/类型的未使用警告
+        let mut main_content = format!(
+            "#![allow(dead_code)]\n{}\n",
+            crate::ui::global().t("lsp_gen_lib_comment")
+        );
         for entry in table.values() {
             let module_name = entry
                 .original_path
@@ -423,12 +430,12 @@ impl TranslationCache {
                 .file_name()
                 .and_then(|s| s.to_str())
                 .unwrap_or("");
-            lib_content.push_str(&format!(
+            main_content.push_str(&format!(
                 "#[path = \"{}\"]\nmod {};\n",
                 file_name, module_name
             ));
         }
-        let _ = std::fs::write(self.temp_dir.join("src").join("lib.rs"), lib_content);
+        let _ = std::fs::write(self.temp_dir.join("src").join("main.rs"), main_content);
     }
 }
 

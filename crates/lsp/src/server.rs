@@ -431,7 +431,7 @@ impl ProxyServer {
         if prev == new_version {
             return Ok(());
         }
-        // 模块集合变化：lib.rs 的聚合已更新，显式重载让 rust-analyzer
+        // 模块集合变化：main.rs 的聚合已更新，显式重载让 rust-analyzer
         // 重新扫描并识别新模块（文件系统监听可能失败）
         self.reload_virtual_project()
     }
@@ -450,7 +450,7 @@ impl ProxyServer {
         let (entry, other_changes) = self.cache.update_document(uri, content, version)?;
 
         // 模块集合变化时重载虚拟项目工作区，确保 rust-analyzer
-        // 重新扫描并识别 lib.rs 中的新模块聚合。
+        // 重新扫描并识别 main.rs 中的新模块聚合。
         self.reload_if_modules_changed()?;
 
         // 模块集合变化可能导致其他已打开文件被重写
@@ -543,7 +543,7 @@ impl ProxyServer {
         // 关闭文档会缩小模块集合，其余条目的虚拟内容可能被重写
         let other_changes = self.cache.close_document(uri)?;
 
-        // 模块集合变化时重载虚拟项目工作区（lib.rs 的模块聚合已变化）
+        // 模块集合变化时重载虚拟项目工作区（main.rs 的模块聚合已变化）
         self.reload_if_modules_changed()?;
 
         for change_entry in &other_changes {
@@ -587,7 +587,7 @@ impl ProxyServer {
 
     /// 通知 rust-analyzer 重新加载虚拟项目工作区
     ///
-    /// 虚拟项目的 lib.rs 聚合了新打开的 .zh 文件的模块，
+    /// 虚拟项目的 main.rs 聚合了新打开的 .zh 文件的模块，
     /// 但文件系统监听可能失败（notify error），
     /// 因此打开文档后显式触发 removed+added 重载，
     /// 让 rust-analyzer 重新扫描并识别新模块。
