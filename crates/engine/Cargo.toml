@@ -9,7 +9,8 @@ keywords = ["rust", "i18n", "chinese", "teaching", "transpiler"]
 categories = ["development-tools", "compilers"]
 
 # 内置语言包目录：编译期经 include_str! 嵌入，发布时随 crate 打包
-include = ["lang-packs/**"]
+# 注意：include 是白名单，必须显式包含 src/**
+include = ["lang-packs/**", "src/**"]
 
 [dependencies]
 rustc_lexer = "0.1"
