@@ -626,13 +626,13 @@ fn translate_diagnostic_message(message: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     fn create_test_cache() -> Arc<TranslationCache> {
         let map = HashMap::from([("函数".into(), "fn".into()), ("让".into(), "let".into())]);
         let temp = tempfile::tempdir().unwrap();
         let path = temp.keep();
-        TranslationCache::new(map, HashSet::new(), path)
+        TranslationCache::new(map, HashMap::new(), path)
     }
 
     #[test]

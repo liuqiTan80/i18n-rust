@@ -56,8 +56,8 @@ pub struct TranslationCache {
     entries: RwLock<HashMap<String, TranslationEntry>>,
     /// 关键字映射表（中文 → 英文）
     keyword_map: Arc<HashMap<String, String>>,
-    /// 宏名称集合（用于自动补充感叹号）
-    macro_names: Arc<HashSet<String>>,
+    /// 宏映射表（中文宏名 → 英文宏名，用于自动补充感叹号）
+    macro_map: Arc<HashMap<String, String>>,
     /// 虚拟文件存放的临时目录
     temp_dir: PathBuf,
 }
@@ -66,11 +66,11 @@ impl TranslationCache {
     /// 创建新的翻译缓存
     ///
     /// - 关键字映射：用于词法翻译
-    /// - 宏名称集合：用于自动补充宏感叹号
+    /// - 宏映射表：用于自动补充宏感叹号（中文宏名 → 英文宏名）
     /// - 临时目录：虚拟 .rs 文件的存放位置
     pub fn new(
         keyword_map: HashMap<String, String>,
-        macro_names: HashSet<String>,
+        macro_map: HashMap<String, String>,
         temp_dir: PathBuf,
     ) -> Arc<Self> {
         let _ = std::fs::create_dir_all(&temp_dir);
@@ -78,7 +78,7 @@ impl TranslationCache {
         let cache = Arc::new(Self {
             entries: RwLock::new(HashMap::new()),
             keyword_map: Arc::new(keyword_map),
-            macro_names: Arc::new(macro_names),
+            macro_map: Arc::new(macro_map),
             temp_dir,
         });
         // 初始时生成空虚拟项目，供 rust-analyzer 工作区发现
@@ -314,17 +314,17 @@ impl TranslationCache {
     /// 内容未发生变化（模块集合未引入新前缀）时返回 None。
     fn rewrite_entry(&self, uri: &str, module_names: &HashSet<String>) -> Option<TranslationEntry> {
         let old_entry = self.query_original(uri)?;
-        let en_content = lexer::transpile_source_with_macros(
+        let en_content = lexer::transpile_source_with_macro_map(
             &old_entry.zh_content,
             &self.keyword_map,
-            &self.macro_names,
+            &self.macro_map,
         );
         let en_content = rewrite_module_paths(&en_content, module_names);
         let column_map = build_column_map(
             &old_entry.zh_content,
             &en_content,
             &self.keyword_map,
-            &self.macro_names,
+            &self.macro_map,
             module_names,
         );
 
@@ -632,7 +632,7 @@ fn build_column_map(
     zh_content: &str,
     _en_content: &str,
     keyword_map: &HashMap<String, String>,
-    macro_names: &HashSet<String>,
+    macro_map: &HashMap<String, String>,
     module_names: &HashSet<String>,
 ) -> Vec<Vec<ColumnMapPoint>> {
     use rustc_lexer::tokenize;
@@ -692,23 +692,19 @@ fn build_column_map(
 
             // 检查是否为宏名（后跟开括号）
             let is_macro_call =
-                macro_names.contains(raw_name) && is_open_paren_after(&zh_tokens, i);
+                macro_map.contains_key(raw_name) && is_open_paren_after(&zh_tokens, i);
 
             if is_macro_call {
-                let en_name = keyword_map
+                // 英文名取自宏映射（与 transpile_source_with_macro_map 一致），
+                // 后跟开括号时补 !，与真实转译输出保持列偏移一致
+                let en_name = macro_map
                     .get(raw_name)
                     .map(|s| s.as_str())
                     .unwrap_or(raw_name);
                 let en_name_len: u32 = en_name.chars().map(|c| c.len_utf16() as u32).sum();
-                let was_macro_translated = keyword_map.contains_key(raw_name);
 
-                // 翻译后的英文输出：英文名 + 可选的 !
-                // 仅当宏名被翻译时才补 !（未翻译时 ! 已在中文源码中作为独立 token）
-                let en_output_len = if was_macro_translated {
-                    en_name_len + 1 // +1 for inserted !
-                } else {
-                    zh_len // 保持原样（! 作为独立 token 会在后续迭代中处理）
-                };
+                // 翻译后的英文输出：英文名 + 补上的 !（宏名必然在映射中才会命中此分支）
+                let en_output_len = en_name_len + 1; // +1 for inserted !
 
                 cumulative_diff += en_output_len as i32 - zh_len as i32;
                 zh_col += zh_len;
@@ -818,7 +814,7 @@ mod tests {
     #[test]
     fn test_update_document() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_map(), HashSet::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(test_map(), HashMap::new(), temp.path().to_path_buf());
 
         let (entry, others) = cache
             .update_document("file:///test/main.zh", "让 可变 x = 5;", 1)
@@ -831,7 +827,7 @@ mod tests {
     #[test]
     fn test_close_document() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_map(), HashSet::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(test_map(), HashMap::new(), temp.path().to_path_buf());
 
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
@@ -846,7 +842,7 @@ mod tests {
     #[test]
     fn test_query_by_virtual_uri() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_map(), HashSet::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(test_map(), HashMap::new(), temp.path().to_path_buf());
 
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
@@ -886,7 +882,7 @@ mod tests {
             ("公开".into(), "pub".into()),
         ]);
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(map, HashSet::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(map, HashMap::new(), temp.path().to_path_buf());
 
         // 先打开 辅助.zh，使模块集合包含 辅助
         let (helper_entry, _) = cache
@@ -940,7 +936,7 @@ mod tests {
             ("整数".into(), "i32".into()),
         ]);
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(map, HashSet::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(map, HashMap::new(), temp.path().to_path_buf());
         let (entry, _) = cache
             .update_document(
                 "file:///test/main.zh",

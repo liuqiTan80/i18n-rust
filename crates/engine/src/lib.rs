@@ -59,8 +59,8 @@ pub fn transpile_source_with_map(
             crate::log_warn!("unicode_confusion", "{}", warning.format());
         }
 
-        let macro_set = manager.get_macro_names();
-        let result = lexer::transpile_with_map(source, manager.get_keyword_map(), &macro_set);
+        let macro_map = manager.get_macro_map();
+        let result = lexer::transpile_with_map(source, manager.get_keyword_map(), &macro_map);
         let mut translated = result.output;
         if !manager.module_path_map.is_empty() {
             translated =

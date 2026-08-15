@@ -117,9 +117,9 @@ fn main() -> anyhow::Result<()> {
             let ui = ui_for_file(&file, &lang_pack);
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack, Some(&file))?;
-            let macro_set = manager.get_macro_names();
+            let macro_map = manager.get_macro_map();
             let mut english_code =
-                lexer::transpile_source_with_macros(&source, manager.get_keyword_map(), &macro_set);
+                lexer::transpile_source_with_macro_map(&source, manager.get_keyword_map(), &macro_map);
             if !manager.module_path_map.is_empty() {
                 english_code = i18n_rust_engine::module_path::replace_module_paths(
                     &english_code,
@@ -163,9 +163,9 @@ fn main() -> anyhow::Result<()> {
             let ui = ui_for_file(&file, &lang_pack);
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack.clone(), Some(&file))?;
-            let macro_set = manager.get_macro_names();
+            let macro_map = manager.get_macro_map();
             let mut english_code =
-                lexer::transpile_source_with_macros(&source, manager.get_keyword_map(), &macro_set);
+                lexer::transpile_source_with_macro_map(&source, manager.get_keyword_map(), &macro_map);
             if !manager.module_path_map.is_empty() {
                 english_code = i18n_rust_engine::module_path::replace_module_paths(
                     &english_code,
@@ -272,14 +272,15 @@ fn main() -> anyhow::Result<()> {
                 .to_string_lossy()
                 .to_string();
             let mut diagnostics = parse_diagnostic_output(&rustc_output);
-            diagnostics
-                .retain(|d| d.code.is_some() && (d.level == "error" || d.level == "warning"));
+            // 保留 error/warning；不要求有错误码——无码的解析错误（如缺括号）
+            // 也必须显示，否则会被静默吞掉导致假“编译成功”
+            diagnostics.retain(|d| d.level == "error" || d.level == "warning");
             let mut seen_codes = std::collections::HashSet::new();
             diagnostics.retain(|d| {
                 if let Some(ref code) = d.code {
                     seen_codes.insert(code.code.clone())
                 } else {
-                    false
+                    true // 无错误码的诊断（解析错误等）不去重，直接保留
                 }
             });
 
@@ -292,9 +293,9 @@ fn main() -> anyhow::Result<()> {
                 let mut teaching_list = translator.batch_translate(&diagnostics);
                 let mut seen_teaching_codes = std::collections::HashSet::new();
                 teaching_list.retain(|t| {
-                    t.error_code
-                        .as_ref()
-                        .is_some_and(|code| seen_teaching_codes.insert(code.clone()))
+                    t.error_code.as_ref().map_or(true, |code| {
+                        seen_teaching_codes.insert(code.clone())
+                    })
                 });
                 for teaching in &mut teaching_list {
                     teaching.locations.iter_mut().for_each(|loc| {
@@ -333,9 +334,9 @@ fn main() -> anyhow::Result<()> {
             let ui = ui_for_file(&file, &lang_pack);
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack, Some(&file))?;
-            let macro_set = manager.get_macro_names();
+            let macro_map = manager.get_macro_map();
             let mut english_code =
-                lexer::transpile_source_with_macros(&source, manager.get_keyword_map(), &macro_set);
+                lexer::transpile_source_with_macro_map(&source, manager.get_keyword_map(), &macro_map);
             if !manager.module_path_map.is_empty() {
                 english_code = i18n_rust_engine::module_path::replace_module_paths(
                     &english_code,

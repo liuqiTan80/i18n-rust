@@ -287,6 +287,15 @@ impl MappingManager {
         }
         macro_set
     }
+
+    /// 获取宏映射表（中文宏名 → 英文宏名），来自 `["宏"]` 节
+    ///
+    /// 与 [`get_macro_names`] 的区别：保留每个宏名的英文替换值。
+    /// 宏名同时在类型节与宏节定义时（如 `向量` 类型节为 `Vec`、宏节为 `vec`），
+    /// keyword_map 中值被类型节覆盖，宏调用必须用本映射才能得到正确的英文宏名。
+    pub fn get_macro_map(&self) -> HashMap<String, String> {
+        self.section_map.get("宏").cloned().unwrap_or_default()
+    }
 }
 
 #[cfg(test)]

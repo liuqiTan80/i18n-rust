@@ -539,11 +539,12 @@ impl DiagnosticTranslator {
             .replace("{float}", &crate::语言::t("diag_rustc_float"))
             .replace("floating-point number", &crate::语言::t("diag_rustc_float"))
             .replace("integer", &crate::语言::t("diag_rustc_integer"));
-        // 按长度降序替换，避免短词错误匹配
-        let mut map_entries: Vec<(&String, &String)> = self.type_map.iter().collect();
-        map_entries.sort_by_key(|(en, _)| std::cmp::Reverse(en.len()));
-        for (en, zh) in map_entries {
-            result = result.replace(en.as_str(), zh.as_str());
+        // 类型映射：仅替换反引号包裹的完整类型名（rustc 诊断中的类型均在反引号内），
+        // 避免 "str"→"文本" 等短条目把消息中的 "string" 部分替换成 "文本ing"
+        for token in extract_backtick_tokens(&result) {
+            if let Some(zh) = self.type_map.get(&token) {
+                result = result.replace(&format!("`{}`", token), &format!("`{}`", zh));
+            }
         }
         result
     }

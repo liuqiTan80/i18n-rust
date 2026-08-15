@@ -28,6 +28,10 @@ pub fn replace_module_paths(source: &str, path_map: &HashMap<String, String>) ->
     let tokens: Vec<_> = token_stream.collect();
     let mut output = String::new();
     let mut current_offset = 0;
+    // use 语句内的路径段才启用模块路径映射；
+    // 表达式中的 `类型::关联函数`（如 `引用计数::新建`）应走别名映射，
+    // 不能被模块路径映射误替换成 `rc::新建`
+    let mut in_use_stmt = false;
 
     for (i, token) in tokens.iter().enumerate() {
         let len = token.len;
@@ -35,14 +39,14 @@ pub fn replace_module_paths(source: &str, path_map: &HashMap<String, String>) ->
         match token.kind {
             TokenKind::Ident => {
                 // 仅当该路径段后紧接 `::`（两个连续的 Colon token）时
-                // 才视为模块路径并替换
+                // 才视为路径段
                 let is_path_segment = tokens
                     .get(i + 1)
                     .is_some_and(|t| matches!(t.kind, TokenKind::Colon))
                     && tokens
                         .get(i + 2)
                         .is_some_and(|t| matches!(t.kind, TokenKind::Colon));
-                if is_path_segment {
+                if in_use_stmt && is_path_segment {
                     if let Some(english) = path_map.get(text) {
                         output.push_str(english);
                     } else {
@@ -51,6 +55,16 @@ pub fn replace_module_paths(source: &str, path_map: &HashMap<String, String>) ->
                 } else {
                     output.push_str(text);
                 }
+                // 检测 use 语句起点（管线中 `使用` 已被词法转译为 `use`；
+                // 直接调用本函数时两种写法均支持）
+                if text == "use" || text == "使用" {
+                    in_use_stmt = true;
+                }
+            }
+            TokenKind::Semi => {
+                // use 语句以分号结束
+                in_use_stmt = false;
+                output.push_str(text);
             }
             _ => output.push_str(text),
         }
@@ -77,6 +91,24 @@ mod tests {
         let map = sample_path_map();
         let result = replace_module_paths("使用 标准集合::哈希映射;", &map);
         assert_eq!(result, "使用 std::collections::哈希映射;");
+    }
+
+    /// use 语句外的类型关联调用（如 `引用计数::新建`）不被模块映射替换，
+    /// 留给别名映射处理成 `Rc::new`
+    #[test]
+    fn test_type_call_outside_use_not_replaced() {
+        let map = sample_path_map();
+        let result = replace_module_paths("标准集合::新建(5);", &map);
+        assert_eq!(result, "标准集合::新建(5);");
+    }
+
+    /// use 语句结束后（分号后）恢复默认行为
+    #[test]
+    fn test_use_scope_ends_at_semicolon() {
+        let map = sample_path_map();
+        let result =
+            replace_module_paths("使用 标准集合::哈希映射; 标准集合::新建(1);", &map);
+        assert_eq!(result, "使用 std::collections::哈希映射; 标准集合::新建(1);");
     }
 
     /// 组合词内部的中文不被破坏（token 级替换）

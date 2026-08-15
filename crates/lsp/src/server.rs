@@ -6,7 +6,7 @@
 //! 3. 转发 rust-analyzer 的响应/通知，并还原位置信息
 //! 4. 翻译诊断消息为对应语言
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -63,18 +63,18 @@ impl ProxyServer {
         extensions: &[String],
     ) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
         // 1. 加载语言包
-        let (keyword_map, macro_names) = load_language_pack(lang_pack_path)?;
+        let (keyword_map, macro_map) = load_language_pack(lang_pack_path)?;
         log::info!(
             "{}",
             crate::ui::global().f(
                 "lsp_log_loaded_mappings",
-                &[&keyword_map.len().to_string(), &macro_names.len().to_string()]
+                &[&keyword_map.len().to_string(), &macro_map.len().to_string()]
             )
         );
 
         // 2. 创建翻译缓存
         let temp_dir = std::env::temp_dir().join("i18n_lsp_virtual");
-        let cache = TranslationCache::new(keyword_map, macro_names, temp_dir);
+        let cache = TranslationCache::new(keyword_map, macro_map, temp_dir);
 
         // 3. 启动 rust-analyzer
         let analyzer = AnalyzerConnection::start()?;
@@ -905,11 +905,11 @@ fn handle_analyzer_message(
 /// 加载语言包
 fn load_language_pack(
     lang_pack_path: &PathBuf,
-) -> anyhow::Result<(HashMap<String, String>, HashSet<String>)> {
+) -> anyhow::Result<(HashMap<String, String>, HashMap<String, String>)> {
     let mappings_path = lang_pack_path.join("映射表");
     if mappings_path.exists() {
         match mapping_source::load_keyword_mapping(lang_pack_path) {
-            Ok(map) => return Ok((map, HashSet::new())),
+            Ok(map) => return Ok((map, HashMap::new())),
             Err(e) => log::warn!(
                 "{}",
                 crate::ui::global().f("lsp_log_mappings_fallback", &[&e.to_string()])
@@ -924,14 +924,14 @@ fn load_language_pack(
                 .map_err(|e| {
                     anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_load_keywords", &[&e.to_string()]))
                 })?;
-        let macro_set = manager.get_macro_names();
-        return Ok((manager.keyword_map.clone(), macro_set));
+        let macro_map = manager.get_macro_map();
+        return Ok((manager.keyword_map.clone(), macro_map));
     }
 
     log::warn!("{}", crate::ui::global().t("lsp_warn_builtin_fallback"));
     Ok((
         mapping_source::create_builtin_keyword_mapping(),
-        HashSet::new(),
+        HashMap::new(),
     ))
 }
 
@@ -996,7 +996,7 @@ mod tests {
         ]);
         let temp = tempfile::tempdir().unwrap();
         let path = temp.keep();
-        TranslationCache::new(map, HashSet::new(), path)
+        TranslationCache::new(map, HashMap::new(), path)
     }
 
     #[test]

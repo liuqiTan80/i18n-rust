@@ -23,8 +23,8 @@ pub struct TranspileResult {
 ///   keyword_map: 母语关键字到英文关键字的映射表
 /// 返回：标准 Rust 源代码
 pub fn transpile_source(source: &str, keyword_map: &HashMap<String, String>) -> String {
-    let empty_set = HashSet::new();
-    transpile_source_with_macros(source, keyword_map, &empty_set)
+    let empty_map = HashMap::new();
+    transpile_source_with_macro_map(source, keyword_map, &empty_map)
 }
 
 /// 将母语 Rust 源代码转换为标准 Rust 源代码字符串（支持宏感叹号自动补充）
@@ -34,12 +34,36 @@ pub fn transpile_source(source: &str, keyword_map: &HashMap<String, String>) -> 
 ///   keyword_map: 母语关键字到英文关键字的映射表
 ///   macro_names: 所有中文宏名的集合（不含感叹号），用于自动补充 `!`
 /// 返回：标准 Rust 源代码
+///
+/// 注意：宏名的英文替换优先使用宏映射（见 [`transpile_source_with_macro_map`]）；
+/// 本函数以 keyword_map 兜底（宏名在 keyword_map 中被类型节覆盖时值可能不准，
+/// 如 `向量` 在类型节映射为 `Vec`、在宏节映射为 `vec`）。
 pub fn transpile_source_with_macros(
     source: &str,
     keyword_map: &HashMap<String, String>,
     macro_names: &HashSet<String>,
 ) -> String {
-    transpile_with_map(source, keyword_map, macro_names).output
+    let macro_map: HashMap<String, String> = macro_names
+        .iter()
+        .map(|name| {
+            (
+                name.clone(),
+                keyword_map.get(name).cloned().unwrap_or_else(|| name.clone()),
+            )
+        })
+        .collect();
+    transpile_with_map(source, keyword_map, &macro_map).output
+}
+
+/// 同 [`transpile_source_with_macros`]，但宏名英文替换来自宏映射表
+/// （宏名 → 英文宏名，如 `向量` → `vec`），可避免宏名在类型节与宏节
+/// 重复时被类型值覆盖（如 `向量` 类型节为 `Vec`、宏节为 `vec`）。
+pub fn transpile_source_with_macro_map(
+    source: &str,
+    keyword_map: &HashMap<String, String>,
+    macro_map: &HashMap<String, String>,
+) -> String {
+    transpile_with_map(source, keyword_map, macro_map).output
 }
 
 /// 同 [`transpile_source_with_macros`]，同时产出源映射（被替换标识符的源偏移与翻译前后文本）
@@ -48,7 +72,7 @@ pub fn transpile_source_with_macros(
 pub fn transpile_with_map(
     source: &str,
     keyword_map: &HashMap<String, String>,
-    macro_names: &HashSet<String>,
+    macro_map: &HashMap<String, String>,
 ) -> TranspileResult {
     // 收集所有 token 以便前瞻/后顾
     let token_stream: Vec<_> = tokenize(source).collect();
@@ -63,43 +87,70 @@ pub fn transpile_with_map(
 
         match token.kind {
             TokenKind::Ident | TokenKind::RawIdent => {
-                // 处理标识符，检查是否命中关键字映射
-                let replacement = if let Some(inner) = text.strip_prefix("r#") {
-                    keyword_map
-                        .get(inner)
-                        .map(|en| format!("r#{}", en))
-                        .unwrap_or_else(|| text.to_string())
-                } else {
-                    keyword_map
-                        .get(text)
-                        .cloned()
-                        .unwrap_or_else(|| text.to_string())
-                };
+                let raw_name = text.strip_prefix("r#").unwrap_or(text);
 
-                // 记录实际发生替换的标识符映射
-                if replacement != text {
-                    source_map.push(SourceMapEntry::new(
-                        current_offset,
-                        length,
-                        text,
-                        &replacement,
-                    ));
-                }
-                output.push_str(&replacement);
-
-                // 宏感叹号自动补充：
-                // 当标识符是宏名称、后面跟着 (/[/{ 且没有 !，且前面不是 :: 时，自动插入 !
-                if !macro_names.is_empty() {
-                    let raw_name = text.strip_prefix("r#").unwrap_or(text);
-
-                    if macro_names.contains(raw_name)
-                        && !is_preceded_by_double_colon(&token_stream, i)
-                        && let Some(next_kind) = find_next_non_ws_kind(&token_stream, i + 1)
-                        && is_open_bracket(next_kind)
-                    {
-                        // 下一个有意义 token 是 ( [ {，需要补 !
-                        output.push('!');
+                // 宏调用上下文优先：宏名后跟 `!` 或 `(/[/{`（且前面不是 `::`）时，
+                // 使用宏映射替换为英文宏名并确保感叹号，避免宏名在类型节与宏节
+                // 重复时被类型值覆盖（如 `向量` 类型节为 `Vec`、宏节为 `vec`）
+                let mut handled = false;
+                if macro_map.contains_key(raw_name)
+                    && !is_preceded_by_double_colon(&token_stream, i)
+                    && let Some(next_kind) = find_next_non_ws_kind(&token_stream, i + 1)
+                {
+                    let is_bang = matches!(next_kind, TokenKind::Not);
+                    if is_open_bracket(next_kind) || is_bang {
+                        let en_macro = macro_map.get(raw_name).cloned().unwrap_or_else(|| {
+                            keyword_map
+                                .get(raw_name)
+                                .cloned()
+                                .unwrap_or_else(|| text.to_string())
+                        });
+                        let final_text = if text.starts_with("r#") && !en_macro.starts_with("r#") {
+                            format!("r#{}", en_macro)
+                        } else {
+                            en_macro
+                        };
+                        if final_text != text {
+                            source_map.push(SourceMapEntry::new(
+                                current_offset,
+                                length,
+                                text,
+                                &final_text,
+                            ));
+                        }
+                        output.push_str(&final_text);
+                        // 后跟开括号但无 `!` 时自动补 `!`
+                        if is_open_bracket(next_kind) {
+                            output.push('!');
+                        }
+                        handled = true;
                     }
+                }
+
+                if !handled {
+                    // 普通关键字替换
+                    let replacement = if let Some(inner) = text.strip_prefix("r#") {
+                        keyword_map
+                            .get(inner)
+                            .map(|en| format!("r#{}", en))
+                            .unwrap_or_else(|| text.to_string())
+                    } else {
+                        keyword_map
+                            .get(text)
+                            .cloned()
+                            .unwrap_or_else(|| text.to_string())
+                    };
+
+                    // 记录实际发生替换的标识符映射
+                    if replacement != text {
+                        source_map.push(SourceMapEntry::new(
+                            current_offset,
+                            length,
+                            text,
+                            &replacement,
+                        ));
+                    }
+                    output.push_str(&replacement);
                 }
             }
             // 其他所有 token 直接原样输出
@@ -273,14 +324,14 @@ mod tests {
         ])
     }
 
-    fn create_macro_set() -> HashSet<String> {
-        HashSet::from([
-            "打印行".to_string(),
-            "打印".to_string(),
-            "格式化".to_string(),
-            "断言".to_string(),
-            "断言相等".to_string(),
-            "向量".to_string(),
+    fn create_macro_map() -> HashMap<String, String> {
+        HashMap::from([
+            ("打印行".to_string(), "println".to_string()),
+            ("打印".to_string(), "print".to_string()),
+            ("格式化".to_string(), "format".to_string()),
+            ("断言".to_string(), "assert".to_string()),
+            ("断言相等".to_string(), "assert_eq".to_string()),
+            ("向量".to_string(), "vec".to_string()),
         ])
     }
 
@@ -331,11 +382,11 @@ mod tests {
     #[test]
     fn test_macro_auto_exclamation() {
         let map = create_test_map();
-        let macros = create_macro_set();
+        let macros = create_macro_map();
         let source = "打印行(\"你好\")";
         let expected = "println!(\"你好\")";
         assert_eq!(
-            transpile_source_with_macros(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros),
             expected
         );
     }
@@ -343,11 +394,11 @@ mod tests {
     #[test]
     fn test_macro_existing_exclamation_not_duplicated() {
         let map = create_test_map();
-        let macros = create_macro_set();
+        let macros = create_macro_map();
         let source = "打印行!(\"你好\")";
         let expected = "println!(\"你好\")";
         assert_eq!(
-            transpile_source_with_macros(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros),
             expected
         );
     }
@@ -355,11 +406,11 @@ mod tests {
     #[test]
     fn test_full_program_macro_auto_exclamation() {
         let map = create_test_map();
-        let macros = create_macro_set();
+        let macros = create_macro_map();
         let source = "函数 主函数() { 打印行(\"你好\") }";
         // 注意：主函数 不在映射中，所以保持原样
         // 但 函数 → fn，打印行 → println!
-        let actual = transpile_source_with_macros(source, &map, &macros);
+        let actual = transpile_source_with_macro_map(source, &map, &macros);
         assert!(actual.contains("fn"));
         assert!(actual.contains("println!(\"你好\")"));
     }
@@ -367,12 +418,12 @@ mod tests {
     #[test]
     fn test_regular_function_call_not_exclamation() {
         let map = create_test_map();
-        let macros = create_macro_set();
+        let macros = create_macro_map();
         // "从" 不在宏集合中，不应被加 !
         let source = "字符串::从(\"x\")";
         let expected = "字符串::从(\"x\")";
         assert_eq!(
-            transpile_source_with_macros(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros),
             expected
         );
     }
@@ -380,12 +431,12 @@ mod tests {
     #[test]
     fn test_macro_after_double_colon_no_exclamation() {
         let map = create_test_map();
-        let macros = create_macro_set();
+        let macros = create_macro_map();
         // 打印行 在宏集合中，但前面是 ::，不应加 !
         let source = "std::打印行(\"你好\")";
         let expected = "std::println(\"你好\")";
         assert_eq!(
-            transpile_source_with_macros(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros),
             expected
         );
     }
@@ -393,11 +444,11 @@ mod tests {
     #[test]
     fn test_macro_followed_by_brackets() {
         let map = create_test_map();
-        let macros = create_macro_set();
+        let macros = create_macro_map();
         let source = "向量![1, 2, 3]";
         let expected = "vec![1, 2, 3]";
         assert_eq!(
-            transpile_source_with_macros(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros),
             expected
         );
     }
@@ -405,11 +456,27 @@ mod tests {
     #[test]
     fn test_macro_followed_by_brackets_no_exclamation() {
         let map = create_test_map();
-        let macros = create_macro_set();
+        let macros = create_macro_map();
         let source = "向量[1, 2, 3]";
         let expected = "vec![1, 2, 3]";
         assert_eq!(
-            transpile_source_with_macros(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros),
+            expected
+        );
+    }
+
+    #[test]
+    #[test]
+    fn test_macro_map_overrides_type_value() {
+        // 模拟真实语言包：宏名同时出现在类型节与宏节（如 向量→Vec 与 向量→vec），
+        // keyword_map 被类型节覆盖为 Vec，宏映射应保证宏调用输出 vec!
+        let mut map = create_test_map();
+        map.insert("向量".to_string(), "Vec".to_string());
+        let macros = create_macro_map();
+        let source = "让 v = 向量![1, 2, 3];";
+        let expected = "let v = vec![1, 2, 3];";
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &macros),
             expected
         );
     }
@@ -417,20 +484,20 @@ mod tests {
     #[test]
     fn test_empty_macro_set_no_exclamation() {
         let map = create_test_map();
-        let empty = HashSet::new();
+        let empty = HashMap::new();
         let source = "打印行(\"你好\")";
         let expected = "println(\"你好\")"; // 不补 !
-        assert_eq!(transpile_source_with_macros(source, &map, &empty), expected);
+        assert_eq!(transpile_source_with_macro_map(source, &map, &empty), expected);
     }
 
     #[test]
     fn test_multiple_macro_calls() {
         let map = create_test_map();
-        let macros = create_macro_set();
+        let macros = create_macro_map();
         let source = "打印行(\"甲\"); 打印(\"乙\")";
         let expected = "println!(\"甲\"); print!(\"乙\")";
         assert_eq!(
-            transpile_source_with_macros(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros),
             expected
         );
     }
@@ -440,19 +507,19 @@ mod tests {
     #[test]
     fn test_transpile_with_map_output_consistent() {
         let map = create_test_map();
-        let macros = create_macro_set();
+        let macros = create_macro_map();
         let source = "函数 主函数() { 让 x = 5; 打印行(\"你好\") }";
         let result = transpile_with_map(source, &map, &macros);
         assert_eq!(
             result.output,
-            transpile_source_with_macros(source, &map, &macros)
+            transpile_source_with_macro_map(source, &map, &macros)
         );
     }
 
     #[test]
     fn test_transpile_with_map_records_keyword_replacements() {
         let map = create_test_map();
-        let macros = create_macro_set();
+        let macros = create_macro_map();
         let source = "函数 主函数() { 让 x = 5; 打印行(\"你好\") }";
         let result = transpile_with_map(source, &map, &macros);
 
@@ -494,7 +561,7 @@ mod tests {
     fn test_transpile_with_map_raw_identifier() {
         let mut map = create_test_map();
         map.insert("匹配".to_string(), "match".to_string());
-        let empty = HashSet::new();
+        let empty = HashMap::new();
         let source = "让 r#匹配 = 1;";
         let result = transpile_with_map(source, &map, &empty);
         assert_eq!(result.output, "let r#match = 1;");

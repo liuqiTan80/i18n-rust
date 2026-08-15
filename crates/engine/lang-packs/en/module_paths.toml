@@ -7,5 +7,8 @@
 "net" = "net"
 "fs" = "fs"
 "thread" = "thread"
+"rc" = "rc"
+"cell" = "cell"
+"sync" = "sync"
 "rand" = "rand"
 "serde" = "serde"
