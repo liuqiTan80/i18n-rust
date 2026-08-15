@@ -59,7 +59,9 @@ else
     npm install -g @vscode/vsce
     VSCE="vsce"
 fi
-"$VSCE" package --out release
+"$VSCE" package --out release \
+    --baseContentUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/ \
+    --baseImagesUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/
 
 # ---------- 5. 输出结果 ----------
 echo ""
