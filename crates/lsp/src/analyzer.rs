@@ -199,11 +199,33 @@ fn read_one_lsp_message<R: BufRead>(reader: &mut R) -> Option<Value> {
 }
 
 /// 查找 rust-analyzer 可执行文件
+///
+/// 优先级：
+/// 1. RUST_ANALYZER_PATH 环境变量
+/// 2. rustup which --toolchain stable（真实路径，不受项目 rust-toolchain.toml 影响）
+/// 3. PATH 中的 rust-analyzer
+/// 4. 常见安装位置
 fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
     if let Ok(path) = std::env::var("RUST_ANALYZER_PATH") {
         let p = PathBuf::from(&path);
         if p.exists() {
             return Ok(p);
+        }
+    }
+
+    // rustup which 返回真实二进制路径（非 shim），避免被项目 rust-toolchain.toml
+    // （如 1.85 无 rust-analyzer 组件）导致 Unknown binary 启动失败
+    if let Ok(output) = Command::new("rustup")
+        .args(["which", "--toolchain", "stable", "rust-analyzer"])
+        .output()
+        && output.status.success()
+    {
+        let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !s.is_empty() {
+            let p = PathBuf::from(&s);
+            if p.exists() {
+                return Ok(p);
+            }
         }
     }
 

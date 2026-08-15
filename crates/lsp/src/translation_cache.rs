@@ -60,6 +60,10 @@ pub struct TranslationCache {
     macro_map: Arc<HashMap<String, String>>,
     /// 虚拟文件存放的临时目录
     temp_dir: PathBuf,
+    /// 模块集合版本号：模块集合（已打开方言文件的文件名）变化时递增。
+    /// 供 ProxyServer 判断是否需要重载虚拟项目工作区，
+    /// 避免每次打开/关闭文档都触发 rust-analyzer 全量重扫。
+    module_version: std::sync::atomic::AtomicU64,
 }
 
 impl TranslationCache {
@@ -80,6 +84,7 @@ impl TranslationCache {
             keyword_map: Arc::new(keyword_map),
             macro_map: Arc::new(macro_map),
             temp_dir,
+            module_version: std::sync::atomic::AtomicU64::new(0),
         });
         // 初始时生成空虚拟项目，供 rust-analyzer 工作区发现
         cache.refresh_virtual_project();
@@ -154,6 +159,7 @@ impl TranslationCache {
 
         // 模块集合变化时重写全部条目，否则只重写当前条目
         let changes = if set_changed {
+            self.bump_module_version();
             self.rewrite_all(&new_module_names)
         } else {
             let mut changes = Vec::new();
@@ -199,6 +205,8 @@ impl TranslationCache {
                 })?;
             if let Some(entry) = table.remove(uri) {
                 let _ = std::fs::remove_file(&entry.virtual_path);
+                // 模块集合缩小，版本号递增（供工作区重载判断）
+                self.bump_module_version();
                 log::info!("{}", crate::ui::global().f("lsp_log_cache_removed", &[uri]));
             }
         }
@@ -287,6 +295,18 @@ impl TranslationCache {
     /// 获取虚拟项目目录的 file:// URI（供工作区通知使用）
     pub fn virtual_project_uri(&self) -> String {
         path_to_uri(&self.temp_dir)
+    }
+
+    /// 当前模块集合版本号（模块集合变化时递增）
+    pub fn module_version(&self) -> u64 {
+        self.module_version.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// 递增模块集合版本号，返回新值
+    pub fn bump_module_version(&self) -> u64 {
+        self.module_version
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            + 1
     }
 
     /// 获取当前模块名集合（所有已打开 .zh 文件的文件名）

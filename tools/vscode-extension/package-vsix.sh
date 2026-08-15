@@ -19,6 +19,7 @@ set -euo pipefail
 
 # 切换到扩展目录（脚本所在位置）
 cd "$(dirname "$0")"
+EXT_DIR="$PWD"
 
 # ---------- 1. 检查 Node.js 与 npm ----------
 echo "🔍 第 1 步：检查 Node.js 与 npm..."
@@ -47,7 +48,7 @@ npm run compile
 # ---------- 4. 打包 .vsix ----------
 echo "📦 第 4 步：打包 .vsix..."
 # 输出到项目根目录的 release/ 目录
-ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT_DIR="$(cd "$EXT_DIR/../.." && pwd)"
 mkdir -p "$ROOT_DIR/release"
 VERSION=$(node -p "require('./package.json').version")
 

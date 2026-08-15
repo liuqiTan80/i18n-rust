@@ -43,6 +43,8 @@ pub struct ProxyServer {
     pending_requests: Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
     /// 支持的方言文件扩展名列表（如 `.zh`、`.en`）
     supported_extensions: Vec<String>,
+    /// 上次重载时的模块集合版本号（初值 -1 保证首个文档打开时重载一次）
+    last_module_version: std::sync::atomic::AtomicI64,
 }
 
 /// 记录一个转发给 rust-analyzer 的请求的原始信息
@@ -97,6 +99,7 @@ impl ProxyServer {
             } else {
                 extensions.to_vec()
             },
+            last_module_version: std::sync::atomic::AtomicI64::new(-1),
         };
 
         Ok((server, io_threads))
@@ -419,6 +422,20 @@ impl ProxyServer {
         is_supported_file(uri, &self.supported_extensions)
     }
 
+    /// 模块集合发生变化时重载虚拟项目工作区（否则跳过，避免频繁全量重扫）
+    fn reload_if_modules_changed(&self) -> anyhow::Result<()> {
+        let new_version = self.cache.module_version() as i64;
+        let prev = self
+            .last_module_version
+            .swap(new_version, std::sync::atomic::Ordering::SeqCst);
+        if prev == new_version {
+            return Ok(());
+        }
+        // 模块集合变化：lib.rs 的聚合已更新，显式重载让 rust-analyzer
+        // 重新扫描并识别新模块（文件系统监听可能失败）
+        self.reload_virtual_project()
+    }
+
     /// 处理文档打开
     fn handle_did_open(&self, params: &Value) -> anyhow::Result<()> {
         let doc = &params["textDocument"];
@@ -432,10 +449,9 @@ impl ProxyServer {
 
         let (entry, other_changes) = self.cache.update_document(uri, content, version)?;
 
-        // 文件系统监听可能失败（notify error），
-        // 显式重载虚拟项目工作区，确保 rust-analyzer
+        // 模块集合变化时重载虚拟项目工作区，确保 rust-analyzer
         // 重新扫描并识别 lib.rs 中的新模块聚合。
-        self.reload_virtual_project()?;
+        self.reload_if_modules_changed()?;
 
         // 模块集合变化可能导致其他已打开文件被重写
         // （其虚拟内容新增/移除了 crate:: 前缀），重新通知 rust-analyzer。
@@ -527,8 +543,8 @@ impl ProxyServer {
         // 关闭文档会缩小模块集合，其余条目的虚拟内容可能被重写
         let other_changes = self.cache.close_document(uri)?;
 
-        // 重新加载虚拟项目工作区（lib.rs 的模块聚合已变化）
-        self.reload_virtual_project()?;
+        // 模块集合变化时重载虚拟项目工作区（lib.rs 的模块聚合已变化）
+        self.reload_if_modules_changed()?;
 
         for change_entry in &other_changes {
             let ra_msg = json!({

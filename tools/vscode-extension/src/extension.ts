@@ -12,7 +12,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as cp from 'child_process';
+import * as fs from 'fs';
 import {
+    CloseAction,
+    ErrorAction,
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
@@ -29,8 +32,19 @@ import { ProviderInterface } from './ai/provider-interface';
  */
 const 方言语言Id: readonly string[] = ['rust-zh', 'rust-en', 'rust-de'];
 
+/**
+ * 语言包显示名 → lang-packs 目录名映射
+ */
+const 语言包目录映射: Record<string, string> = {
+    '中文': 'zh',
+    'English': 'en',
+    '日本語': 'ja'
+};
+
 let client: LanguageClient | undefined;
 let statusBarItem: vscode.StatusBarItem;
+// LSP 自动重启计数（防止崩溃循环导致无限重启）
+let 自动重启次数 = 0;
 
 // ============================================================
 // 所有权错误可视化装饰器（诊断 data 中的 所有权详情 → 颜色高亮）
@@ -227,6 +241,31 @@ function 转行号(行号: any, 文档: vscode.TextDocument): number {
 }
 
 /**
+ * 查找语言包目录路径
+ *
+ * 优先级：
+ * 1. 配置 i18n-rust.languagePackPath（显式指定）
+ * 2. 工作区中的 lang-packs/<代码> 目录（如 lang-packs/zh）
+ * 3. 找不到返回 undefined（LSP 使用默认内置映射）
+ */
+function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | undefined {
+    // 1. 显式配置
+    const 显式路径 = config.get<string>('languagePackPath', '');
+    if (显式路径) {
+        return 显式路径;
+    }
+    // 2. 工作区 lang-packs/<代码>
+    const 语言代码 = 语言包目录映射[config.get<string>('languagePack', '中文')] ?? 'zh';
+    for (const 文件夹 of vscode.workspace.workspaceFolders ?? []) {
+        const 候选 = path.join(文件夹.uri.fsPath, 'lang-packs', 语言代码);
+        if (fs.existsSync(候选)) {
+            return 候选;
+        }
+    }
+    return undefined;
+}
+
+/**
  * 扩展激活入口
  */
 export function activate(context: vscode.ExtensionContext): void {
@@ -352,7 +391,9 @@ function 注册命令(context: vscode.ExtensionContext): void {
                 const config = vscode.workspace.getConfiguration('i18n-rust');
                 await config.update('languagePack', 选择, vscode.ConfigurationTarget.Global);
                 更新状态栏();
-                vscode.window.showInformationMessage(`语言包已切换为: ${选择}`);
+                // 语言包变化后重启 LSP，使新语言包立即生效
+                await 重启服务器(context);
+                vscode.window.showInformationMessage(`语言包已切换为: ${选择}，语言服务器已重启`);
             }
         })
     );
@@ -360,10 +401,7 @@ function 注册命令(context: vscode.ExtensionContext): void {
     // 重启服务器命令
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.restartServer', async () => {
-            if (client) {
-                await client.stop();
-            }
-            启动语言服务器(context);
+            await 重启服务器(context);
             vscode.window.showInformationMessage('语言服务器已重启');
         })
     );
@@ -496,6 +534,17 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
 }
 
 /**
+ * 停止并重新启动 LSP 语言服务器
+ */
+async function 重启服务器(context: vscode.ExtensionContext): Promise<void> {
+    if (client) {
+        await client.stop();
+    }
+    自动重启次数 = 0;
+    启动语言服务器(context);
+}
+
+/**
  * 启动 LSP 语言服务器
  */
 function 启动语言服务器(context: vscode.ExtensionContext): void {
@@ -519,14 +568,21 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
         }
     }
 
-    // 服务器选项
+    // 服务器选项：显式传递语言包路径（LSP 默认相对路径依赖启动目录，通常找不到）
+    const args: string[] = [];
+    const 语言包路径 = 查找语言包路径(config);
+    if (语言包路径) {
+        args.push('--language-pack', 语言包路径);
+    }
     const serverOptions: ServerOptions = {
         run: {
             command: serverPath,
+            args,
             transport: TransportKind.stdio
         },
         debug: {
             command: serverPath,
+            args,
             transport: TransportKind.stdio
         }
     };
@@ -542,6 +598,25 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
         traceOutputChannel: vscode.window.createOutputChannel('i18n-rust LSP Trace'),
         initializationOptions: {
             languagePack: config.get<string>('languagePack', '中文')
+        },
+        // LSP 进程异常退出时自动重启（最多 5 次，防止崩溃循环无限重启）
+        errorHandler: {
+            error: (_error, _message, count) => ({
+                action: (count ?? 0) >= 3 ? ErrorAction.Shutdown : ErrorAction.Continue
+            }),
+            closed: () => {
+                if (自动重启次数 < 5) {
+                    自动重启次数++;
+                    vscode.window.showWarningMessage(
+                        `i18n-rust 语言服务器异常退出，正在自动重启（第 ${自动重启次数} 次）...`
+                    );
+                    return { action: CloseAction.Restart };
+                }
+                vscode.window.showErrorMessage(
+                    'i18n-rust 语言服务器多次异常退出，已停止自动重启。请执行「i18n: 重启语言服务器」命令或查看输出面板「i18n-rust LSP」日志。'
+                );
+                return { action: CloseAction.DoNotRestart };
+            }
         }
     };
 
