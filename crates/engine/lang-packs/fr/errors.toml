@@ -1,0 +1,231 @@
+# Fichier de traduction des messages d'erreur (français)
+# Format : [code d'erreur] + "消息模板" (modèle du message) + "教学提示" (astuce pédagogique)
+# Les marqueurs {期望} {实际} {名称} {变量名} {类型} {特征} sont remplacés par le compilateur.
+
+[E0308]
+"消息模板" = "Incompatibilité de types : attendu `{期望}`, trouvé `{实际}`"
+"教学提示" = "Vérifiez si le type de la variable correspond au contexte. Essayez de convertir le type avec `comme`."
+
+[E0433]
+"消息模板" = "Type `{名称}` introuvable"
+"教学提示" = "Vérifiez que le module ou le type requis est importé. Vous pouvez importer avec le mot-clé `utiliser`."
+
+[E0384]
+"消息模板" = "Impossible d'assigner deux fois la variable immuable `{变量名}`"
+"教学提示" = "Si vous devez modifier la valeur d'une variable, déclarez-la avec `laisser mutable`."
+
+[E0382]
+"消息模板" = "Utilisation de la valeur après son déplacement : `{变量名}`"
+"教学提示" = "En Rust, une valeur déplacée ne peut plus être utilisée. Utilisez `reference` (&) ou `cloner()` pour éviter le déplacement."
+
+[E0502]
+"消息模板" = "Impossible d'emprunter `{变量名}` comme mutable : il est déjà emprunté comme immuable"
+"教学提示" = "Rust n'autorise pas les emprunts mutable et immuable simultanés. Réduisez la portée de l'emprunt immuable."
+
+[E0499]
+"消息模板" = "Impossible d'emprunter `{变量名}` comme mutable plusieurs fois"
+"教学提示" = "Une seule référence mutable peut exister à la fois. C'est le mécanisme de Rust contre les courses aux données."
+
+[E0277]
+"消息模板" = "Le type `{类型}` n'implémente pas le trait `{特征}`"
+"教学提示" = "Implémentez le trait requis pour ce type, ou utilisez un type qui l'implémente déjà."
+
+[E0425]
+"消息模板" = "Nom `{名称}` introuvable dans cette portée"
+"教学提示" = "Vérifiez l'orthographe du nom de la variable et qu'elle est déclarée dans la portée actuelle."
+
+[E0282]
+"消息模板" = "Impossible d'inférer le type, ajoutez une annotation de type"
+"教学提示" = "Le compilateur ne peut pas inférer le type automatiquement. Indiquez le type explicitement, par exemple : `laisser x: entier = 0;`"
+
+[E0601]
+"消息模板" = "Fonction `principale` introuvable dans la caisse"
+"教学提示" = "Tout programme Rust exécutable a besoin d'une fonction `principale` comme point d'entrée. Ajoutez dans le code : fonction principale() { ... }"
+
+# ============================================
+# Durées de vie et emprunts (séries E01xx/E04xx/E05xx)
+# ============================================
+
+[E0106]
+"消息模板" = "Il manque une annotation de durée de vie à la fonction"
+"教学提示" = "Quand une fonction a plusieurs paramètres de référence, le compilateur ne peut pas déduire leur relation. Ajoutez des annotations de durée de vie aux paramètres et à la valeur de retour, par exemple : fonction plusLongue<'a>(x: &'a texte, y: &'a texte) -> &'a texte"
+
+[E0107]
+"消息模板" = "Nombre incorrect de paramètres de durée de vie"
+"教学提示" = "Le nombre de paramètres de durée de vie dans la déclaration ne correspond pas à l'utilisation. Vérifiez les annotations dans `<>`."
+
+[E0116]
+"消息模板" = "Impossible de définir une implémentation inhérente pour un type externe"
+"教学提示" = "Les blocs `implementation` inhérents ne peuvent être définis que pour des types locaux. Pour un type externe, vous pouvez implémenter un trait, mais pas écrire de bloc `implementation` direct."
+
+[E0133]
+"消息模板" = "L'opération dangereuse nécessite un bloc unsafe"
+"教学提示" = "Les opérations comme la déréférence de pointeurs bruts doivent se faire dans un bloc `dangereux`, car Rust ne peut pas garantir leur sécurité."
+
+[E0204]
+"消息模板" = "Impossible de dériver automatiquement Clone"
+"教学提示" = "Les types contenant des champs qui n'implémentent pas `clonable` ne peuvent pas dériver le clonage. Implémentez `clonable` manuellement pour le type du champ."
+
+[E0210]
+"消息模板" = "Le paramètre de type doit précéder tous les types locaux (règle de l'orphelin)"
+"教学提示" = "Pour implémenter un trait externe sur un type externe, au moins le trait ou le type doit être local, sinon la règle de l'orphelin est violée."
+
+[E0255]
+"消息模板" = "Le nom est déjà utilisé comme paramètre générique"
+"教学提示" = "Le nom d'une variable ne peut pas correspondre à un paramètre générique. Renommez la variable ou le paramètre."
+
+[E0271]
+"消息模板" = "Incompatibilité de types : la contrainte du trait n'est pas satisfaite"
+"教学提示" = "Le type réel ne satisfait pas les contraintes du générique. Vérifiez que le type implémente le trait requis."
+
+[E0309]
+"消息模板" = "Le paramètre générique ne satisfait pas la contrainte du trait"
+"教学提示" = "Le paramètre générique doit satisfaire la contrainte `{特征}` pour utiliser les méthodes correspondantes. Ajoutez la contrainte dans la déclaration du générique."
+
+[E0310]
+"消息模板" = "Le paramètre générique ne satisfait pas la contrainte Sized"
+"教学提示" = "Les paramètres génériques doivent avoir une taille connue (`taille_fixe`) par défaut. Pour les types sans taille, ajoutez la contrainte `?taille_fixe`."
+
+# ============================================
+# Types et traits (séries E03xx/E04xx)
+# ============================================
+
+[E0369]
+"消息模板" = "Incompatibilité de types : impossible d'opérer sur `{期望}` et `{实际}`"
+"教学提示" = "Les types des deux côtés de l'opérateur doivent être compatibles. Vérifiez que les opérandes correspondent, convertissez avec `comme` si nécessaire."
+
+[E0373]
+"消息模板" = "La fermeture peut survivre à la valeur temporaire empruntée"
+"教学提示" = "La fermeture capture une référence à une valeur temporaire et peut vivre plus longtemps qu'elle. Utilisez le mot-clé `deplacer` ou prolongez la durée de vie de la valeur."
+
+[E0404]
+"消息模板" = "Attendu un trait, mais trouvé un type"
+"教学提示" = "À l'endroit de `dynamique` ou d'une contrainte générique, il faut le nom d'un trait. Vérifiez l'orthographe du nom."
+
+[E0407]
+"消息模板" = "La méthode n'est pas membre de ce trait"
+"教学提示" = "En implémentant un trait, vous ne pouvez définir que les méthodes qu'il déclare. Vérifiez que le nom de la méthode correspond à la définition du trait."
+
+[E0412]
+"消息模板" = "Impossible de trouver le type"
+"教学提示" = "Le type utilisé n'existe pas ou n'est pas importé. Importez-le avec `utiliser` ou vérifiez l'orthographe."
+
+[E0422]
+"消息模板" = "Impossible de trouver la structure, l'énumération ou l'union"
+"教学提示" = "Le nom pour construire la structure n'existe pas. Vérifiez l'orthographe ou qu'elle est définie dans la portée actuelle."
+
+[E0432]
+"消息模板" = "Impossible de résoudre le chemin d'importation"
+"教学提示" = "Le module ou l'élément importé n'existe pas. Vérifiez le chemin et que le module est déclaré (`module xxx;`) et visible."
+
+[E0435]
+"消息模板" = "Valeur non constante utilisée dans une constante"
+"教学提示" = "La valeur de `constante` doit être connue à la compilation. Les valeurs d'exécution (appels de fonctions) ne peuvent pas initialiser une constante ; utilisez `statique` ou `laisser`."
+
+[E0436]
+"消息模板" = "Définition de fonction dupliquée"
+"教学提示" = "On ne peut pas définir deux fonctions du même nom dans la même portée. Vérifiez les définitions dupliquées de `fonction xxx()`."
+
+[E0463]
+"消息模板" = "Caisse introuvable"
+"教学提示" = "Le paquet externe n'est pas installé ou n'est pas déclaré dans [dependencies] du Cargo.toml. Ajoutez d'abord la dépendance."
+
+# ============================================
+# Propriété et déplacement (série E05xx)
+# ============================================
+
+[E0496]
+"消息模板" = "La durée de vie ne peut pas échapper à sa portée"
+"教学提示" = "La durée de vie d'une référence ne peut pas dépasser celle de la valeur pointée. Vérifiez la structure de propriété des données."
+
+[E0505]
+"消息模板" = "La valeur a été déplacée pendant qu'elle était empruntée"
+"教学提示" = "Tant que des références existent, la valeur ne peut pas être déplacée. Terminez d'abord l'emprunt ou utilisez `cloner()` pour copier les données."
+
+[E0507]
+"消息模板" = "Impossible de déplacer le contenu d'une référence"
+"教学提示" = "On ne peut pas déplacer la valeur pointée par une référence. Utilisez `cloner()` ou accédez aux champs par référence au lieu de tout déplacer."
+
+[E0508]
+"消息模板" = "Impossible de déplacer le contenu d'un tableau"
+"教学提示" = "Les éléments d'un tableau ne peuvent pas être déplacés hors de celui-ci. Utilisez l'index + `cloner()` ou convertissez le tableau en vecteur (`vecteur`)."
+
+[E0515]
+"消息模板" = "Impossible de retourner une référence à une variable locale"
+"教学提示" = "La variable locale est détruite à la fin de la fonction, on ne peut donc pas retourner sa référence. Retournez la valeur (la propriété) ou utilisez `boite`."
+
+[E0530]
+"消息模板" = "La liaison du correspondre masque une variante d'énumération"
+"教学提示" = "Le nom de liaison dans le motif ne peut pas correspondre à une variante d'énumération. Renommez la variable de liaison."
+
+[E0539]
+"消息模板" = "Nombre d'arguments de macro incorrect"
+"教学提示" = "Le nombre d'arguments à l'appel de la macro ne correspond pas à sa définition. Vérifiez l'utilisation de la macro."
+
+[E0559]
+"消息模板" = "Le champ n'existe pas"
+"教学提示" = "La structure n'a pas ce champ. Vérifiez l'orthographe du nom ou le type de structure utilisé."
+
+[E0560]
+"消息模板" = "La structure n'a pas ce champ"
+"教学提示" = "L'initialisation de la structure a spécifié un champ inexistant. Vérifiez la définition de la structure et les champs utilisés."
+
+[E0574]
+"消息模板" = "Attendu un nom de structure ou d'énumération"
+"教学提示" = "Ici, il faut un nom de type, pas une valeur ou une expression. Vérifiez la syntaxe."
+
+[E0594]
+"消息模板" = "Impossible d'assigner à une variable immuable"
+"教学提示" = "Les variables déclarées avec `laisser` sont immuables par défaut. Pour les modifier, utilisez `laisser mutable`."
+
+[E0596]
+"消息模板" = "Impossible d'emprunter comme mutable"
+"教学提示" = "Seules les variables mutables peuvent être empruntées comme mutables (`reference_mutable`). Déclarez la variable avec `laisser mutable` ou marquez le paramètre comme `mutable`."
+
+[E0597]
+"消息模板" = "La valeur empruntée ne vit pas assez longtemps"
+"教学提示" = "La durée de vie de la référence dépasse celle de la valeur référencée. Ajustez les portées pour que la valeur vive plus longtemps."
+
+[E0599]
+"消息模板" = "Ce type n'a pas de méthode avec ce nom"
+"教学提示" = "La méthode appelée n'existe pas sur ce type. Vérifiez l'orthographe ou importez le trait qui fournit la méthode."
+
+[E0603]
+"消息模板" = "Le module est privé"
+"教学提示" = "Par défaut, les modules sont privés. Pour y accéder de l'extérieur, déclarez-le avec `publique module xxx;`."
+
+[E0610]
+"消息模板" = "Le type n'a pas de champs"
+"教学提示" = "Le type auquel vous accédez ne contient pas de champs. Vérifiez que vous ne déréférencez pas le mauvais type."
+
+[E0614]
+"消息模板" = "Impossible de déréférencer ce type"
+"教学提示" = "Seules les références (`reference` — &) ou les types implémentant le trait `dereferencable` (Deref) peuvent être déréférencés avec `dereference` (*)."
+
+[E0618]
+"消息模板" = "Attendu une fonction, mais ce n'est pas une fonction"
+"教学提示" = "La syntaxe d'appel `xxx()` exige que xxx soit une fonction ou une fermeture. Vérifiez que vous n'appelez pas une variable comme une fonction."
+
+[E0621]
+"消息模板" = "Durée de vie incompatible, annotation explicite requise"
+"教学提示" = "La relation entre la référence de retour et celles des paramètres exige une annotation explicite. Ajoutez un paramètre de durée de vie à la fonction."
+
+[E0624]
+"消息模板" = "Le champ ou la méthode est privé"
+"教学提示" = "Les champs d'une structure sont privés par défaut. Ajoutez `publique` au champ ou fournissez une méthode d'accès publique."
+
+# ============================================
+# Autres (séries E06xx/E07xx)
+# ============================================
+
+[E0658]
+"消息模板" = "Utilisation d'une fonctionnalité instable"
+"教学提示" = "Cette fonctionnalité n'est pas encore stable dans la version actuelle de Rust. Vérifiez que `#![feature(...)]` est activé ou utilisez une alternative stable."
+
+[E0716]
+"消息模板" = "La valeur temporaire a été détruite avant la fin de l'instruction"
+"教学提示" = "Une référence à une valeur temporaire ne peut pas être utilisée au-delà de l'instruction. Liez d'abord la valeur à une variable, puis prenez la référence."
+
+[E0759]
+"消息模板" = "Le paramètre de durée de vie est contraint par une limite incompatible"
+"教学提示" = "Les limites de durée de vie du type ne correspondent pas à la déclaration de la fonction. Unifiez les annotations de durée de vie."

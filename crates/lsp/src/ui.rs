@@ -29,7 +29,9 @@ pub fn init(lang_pack_path: &Path) {
 pub fn global() -> &'static Ui {
     GLOBAL
         .get()
-        .unwrap_or_else(|| FALLBACK_ZH.get_or_init(|| Ui::from_toml(BUILTIN_ZH)))
+        .unwrap_or_else(|| FALLBACK_ZH.get_or_init(|| {
+            Ui::from_toml(builtin_ui("zh").unwrap_or_default())
+        }))
 }
 
 /// 界面消息表
@@ -38,18 +40,8 @@ pub struct Ui {
     messages: HashMap<String, String>,
 }
 
-// 内置全部 11 个语言的 ui.toml，保证任意语言包目录名都能得到对应提示语
-const BUILTIN_ZH: &str = include_str!("../../../lang-packs/zh/ui.toml");
-const BUILTIN_EN: &str = include_str!("../../../lang-packs/en/ui.toml");
-const BUILTIN_DE: &str = include_str!("../../../lang-packs/de/ui.toml");
-const BUILTIN_JA: &str = include_str!("../../../lang-packs/ja/ui.toml");
-const BUILTIN_RU: &str = include_str!("../../../lang-packs/ru/ui.toml");
-const BUILTIN_ES: &str = include_str!("../../../lang-packs/es/ui.toml");
-const BUILTIN_FR: &str = include_str!("../../../lang-packs/fr/ui.toml");
-const BUILTIN_PT: &str = include_str!("../../../lang-packs/pt/ui.toml");
-const BUILTIN_KO: &str = include_str!("../../../lang-packs/ko/ui.toml");
-const BUILTIN_AR: &str = include_str!("../../../lang-packs/ar/ui.toml");
-const BUILTIN_HI: &str = include_str!("../../../lang-packs/hi/ui.toml");
+// 内置 ui.toml 由引擎 crate 编译期嵌入（避免发布打包时 include_str! 路径失效），
+// 经 [`builtin_ui`] 按语言代码获取，保证任意语言包目录名都能得到对应提示语
 
 impl Ui {
     /// 从 TOML 内容构造消息表（["界面消息"] 节）
@@ -106,7 +98,9 @@ impl Ui {
             }
         }
         // 5. 中文（默认）
-        Self::from_toml(BUILTIN_ZH)
+        Self::from_toml(
+            builtin_ui("zh").unwrap_or_default(),
+        )
     }
 
     /// 取消息模板（缺失时回退键名本身，便于定位遗漏）
@@ -123,22 +117,9 @@ impl Ui {
     }
 }
 
-/// 语言代码 → 内置 ui.toml
+/// 语言代码 → 内置 ui.toml（数据由引擎 crate 编译期嵌入）
 fn builtin_ui(lang_code: &str) -> Option<&'static str> {
-    match lang_code {
-        "zh" => Some(BUILTIN_ZH),
-        "en" => Some(BUILTIN_EN),
-        "de" => Some(BUILTIN_DE),
-        "ja" => Some(BUILTIN_JA),
-        "ru" => Some(BUILTIN_RU),
-        "es" => Some(BUILTIN_ES),
-        "fr" => Some(BUILTIN_FR),
-        "pt" => Some(BUILTIN_PT),
-        "ko" => Some(BUILTIN_KO),
-        "ar" => Some(BUILTIN_AR),
-        "hi" => Some(BUILTIN_HI),
-        _ => None,
-    }
+    i18n_rust_engine::语言::builtin_file(lang_code, "ui.toml")
 }
 
 /// 按出现顺序把 `{}` 替换为参数；参数多于占位符时忽略多余参数，

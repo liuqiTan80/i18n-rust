@@ -1,6 +1,7 @@
 // 内置语言包 - 将默认语言包嵌入到可执行文件中
 //
-// 使用 `include_str!` 宏在编译时将语言包 TOML 文件嵌入二进制，
+// 语言包 TOML 数据由引擎 crate 在编译期嵌入（include_str!），
+// 本模块通过 [`i18n_rust_engine::语言::builtin_file`] 获取，
 // 使得 rzc 可执行文件无需附带语言包目录即可独立运行。
 // 通过 [`get_builtin_data`] 按语言代码获取对应的内置语言包，
 // 未知语言代码自动回退到中文。
@@ -27,42 +28,37 @@ pub struct BuiltinLangData {
 ///
 /// 参数：
 /// - `$name`：生成的 `static` 变量名
-/// - `$lang_dir`：语言包目录名（如 `"zh"`、`"en"`、`"de"`），
-///   `include_str!` 路径中的语言目录随此参数变化
+/// - `$lang_dir`：语言包目录名（如 `"zh"`、`"en"`、`"de"`）
 /// - `$($crate_file),*`：第三方库映射文件名列表，
 ///   不同语言的文件名可能不同（如中文为 `序列化.toml`），
-///   需与对应 `lang-packs/<语言>/crates/` 目录下的文件一致
+///   需与对应语言包 `crates/` 目录下的文件一致
 macro_rules! define_builtin_lang {
     ($name:ident, $lang_dir:literal, [$($crate_file:literal),* $(,)?]) => {
-        static $name: BuiltinLangData = BuiltinLangData {
-            keywords_toml: include_str!(concat!(
-                "../../../lang-packs/", $lang_dir, "/keywords.toml"
-            )),
-            module_paths_toml: include_str!(concat!(
-                "../../../lang-packs/", $lang_dir, "/module_paths.toml"
-            )),
-            stdlib_toml: include_str!(concat!(
-                "../../../lang-packs/", $lang_dir, "/stdlib.toml"
-            )),
-            errors_toml: include_str!(concat!(
-                "../../../lang-packs/", $lang_dir, "/errors.toml"
-            )),
-            lang_info_toml: include_str!(concat!(
-                "../../../lang-packs/", $lang_dir, "/lang_info.toml"
-            )),
-            ui_toml: include_str!(concat!(
-                "../../../lang-packs/", $lang_dir, "/ui.toml"
-            )),
-            crates_data: &[
+        static $name: std::sync::LazyLock<BuiltinLangData> = std::sync::LazyLock::new(|| {
+            // 第三方库映射数组需 'static 引用，用 Box::leak 提升（仅初始化一次）
+            let crates_data: &'static [(&'static str, &'static str)] = Box::leak(Box::new([
                 $((
                     $crate_file,
-                    include_str!(concat!(
-                        "../../../lang-packs/", $lang_dir, "/crates/", $crate_file
-                    )),
+                    builtin_file_or_panic($lang_dir, concat!("crates/", $crate_file)),
                 ),)*
-            ],
-        };
+            ]));
+            BuiltinLangData {
+                keywords_toml: builtin_file_or_panic($lang_dir, "keywords.toml"),
+                module_paths_toml: builtin_file_or_panic($lang_dir, "module_paths.toml"),
+                stdlib_toml: builtin_file_or_panic($lang_dir, "stdlib.toml"),
+                errors_toml: builtin_file_or_panic($lang_dir, "errors.toml"),
+                lang_info_toml: builtin_file_or_panic($lang_dir, "lang_info.toml"),
+                ui_toml: builtin_file_or_panic($lang_dir, "ui.toml"),
+                crates_data,
+            }
+        });
     };
+}
+
+/// 从引擎内置语言包取文件内容（缺失时 panic，内置数据必须完整）
+fn builtin_file_or_panic(lang: &str, file: &str) -> &'static str {
+    i18n_rust_engine::语言::builtin_file(lang, file)
+        .expect("内置语言包文件缺失：引擎未嵌入该文件")
 }
 
 // 中文内置语言包（完整翻译映射 + 9 个第三方库映射）
@@ -132,21 +128,21 @@ define_builtin_lang!(HI_DATA, "hi", []);
 ///
 /// 新增语言时：在 [`get_builtin_data`] 与 [`has_builtin_lang`] 中增加分支，
 /// 用 [`define_builtin_lang!`] 添加对应 static 数据，并更新 [`builtin_lang_codes`]。
-pub fn get_builtin_data(lang_code: &str) -> &'static BuiltinLangData {
+pub fn get_builtin_data(lang_code: &str) -> &BuiltinLangData {
     match lang_code {
-        "zh" => &ZH_DATA,
-        "en" => &EN_DATA,
-        "de" => &DE_DATA,
-        "ja" => &JA_DATA,
-        "ru" => &RU_DATA,
-        "es" => &ES_DATA,
-        "fr" => &FR_DATA,
-        "pt" => &PT_DATA,
-        "ko" => &KO_DATA,
-        "ar" => &AR_DATA,
-        "hi" => &HI_DATA,
+        "zh" => &*ZH_DATA,
+        "en" => &*EN_DATA,
+        "de" => &*DE_DATA,
+        "ja" => &*JA_DATA,
+        "ru" => &*RU_DATA,
+        "es" => &*ES_DATA,
+        "fr" => &*FR_DATA,
+        "pt" => &*PT_DATA,
+        "ko" => &*KO_DATA,
+        "ar" => &*AR_DATA,
+        "hi" => &*HI_DATA,
         // 未知语言代码回退到中文（教学语言默认值）
-        _ => &ZH_DATA,
+        _ => &*ZH_DATA,
     }
 }
 

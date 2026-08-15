@@ -1,0 +1,231 @@
+# Arquivo de traducao de mensagens de erro (portugues)
+# Formato: [codigo de erro] + "消息模板" (modelo da mensagem) + "教学提示" (dica didatica)
+# Os marcadores {期望} {实际} {名称} {变量名} {类型} {特征} sao substituidos pelo compilador.
+
+[E0308]
+"消息模板" = "Tipos incompativeis: esperava-se `{期望}`, obteve-se `{实际}`"
+"教学提示" = "Verifique se o tipo da variavel corresponde ao que o contexto exige. Tente converter o tipo com `como`."
+
+[E0433]
+"消息模板" = "Tipo `{名称}` nao encontrado"
+"教学提示" = "Confirme que o modulo ou tipo necessario esta importado. Voce pode importa-lo com a palavra-chave `usar`."
+
+[E0384]
+"消息模板" = "Nao se pode atribuir duas vezes a variavel imutavel `{变量名}`"
+"教学提示" = "Se voce precisa alterar o valor de uma variavel, declare-a com `deixar mutavel`."
+
+[E0382]
+"消息模板" = "Uso do valor apos sua movimentacao: `{变量名}`"
+"教学提示" = "Em Rust, um valor movido nao pode mais ser usado. Utilize `referencia` (&) ou `clonar()` para evitar a movimentacao."
+
+[E0502]
+"消息模板" = "Nao se pode emprestar `{变量名}` como mutavel: ja esta emprestado como imutavel"
+"教学提示" = "Rust nao permite emprestimos mutavel e imutavel ao mesmo tempo. Reduza o escopo do emprestimo imutavel."
+
+[E0499]
+"消息模板" = "Nao se pode emprestar `{变量名}` como mutavel varias vezes"
+"教学提示" = "So pode existir uma referencia mutavel por vez. E o mecanismo do Rust para evitar corridas de dados."
+
+[E0277]
+"消息模板" = "O tipo `{类型}` nao implementa o trait `{特征}`"
+"教学提示" = "Implemente o trait necessario para o tipo, ou use um tipo que ja o implemente."
+
+[E0425]
+"消息模板" = "O nome `{名称}` nao e encontrado neste escopo"
+"教学提示" = "Verifique se o nome da variavel esta escrito corretamente e se foi declarado no escopo atual."
+
+[E0282]
+"消息模板" = "Nao se pode inferir o tipo, adicione uma anotacao de tipo"
+"教学提示" = "O compilador nao consegue inferir o tipo automaticamente. Indique o tipo explicitamente, por exemplo: `deixar x: inteiro = 0;`"
+
+[E0601]
+"消息模板" = "A funcao `principal` nao e encontrada no pacote"
+"教学提示" = "Todo programa executavel do Rust precisa de uma funcao `principal` como ponto de entrada. Adicione no codigo: funcao principal() { ... }"
+
+# ============================================
+# Ciclos de vida e emprestimos (serie E01xx/E04xx/E05xx)
+# ============================================
+
+[E0106]
+"消息模板" = "Falta anotacao de ciclo de vida na funcao"
+"教学提示" = "Quando uma funcao tem varios parametros de referencia, o compilador nao consegue inferir a relacao entre eles. Adicione anotacoes de ciclo de vida nos parametros e no retorno, por exemplo: funcao maisLonga<'a>(x: &'a texto, y: &'a texto) -> &'a texto"
+
+[E0107]
+"消息模板" = "Numero incorreto de parametros de ciclo de vida"
+"教学提示" = "O numero de parametros de ciclo de vida na declaracao nao coincide com o uso. Verifique as anotacoes dentro de `<>`."
+
+[E0116]
+"消息模板" = "Nao se pode definir uma implementacao inerente para um tipo externo"
+"教学提示" = "Blocos `implementacao` inerentes so podem ser definidos para tipos locais. Para tipos externos voce pode implementar traits, mas nao pode escrever um bloco `implementacao` direto."
+
+[E0133]
+"消息模板" = "A operacao insegura requer um bloco inseguro"
+"教学提示" = "Operacoes como desreferenciar ponteiros crus devem ser feitas dentro de um bloco `inseguro`, pois o Rust nao pode garantir sua seguranca."
+
+[E0204]
+"消息模板" = "Nao se pode derivar Clone automaticamente"
+"教学提示" = "Tipos com campos que nao implementam `clonavel` nao podem derivar clone. Implemente `clonavel` manualmente para o tipo do campo."
+
+[E0210]
+"消息模板" = "O parametro de tipo deve preceder todos os tipos locais (regra do orfao)"
+"教学提示" = "Ao implementar um trait externo para um tipo externo, pelo menos o trait ou o tipo deve ser local; caso contrario, viola-se a regra do orfao."
+
+[E0255]
+"消息模板" = "O nome ja esta em uso como parametro generico"
+"教学提示" = "O nome de uma variavel nao pode coincidir com o de um parametro generico. Renomeie a variavel ou o parametro."
+
+[E0271]
+"消息模板" = "Tipos incompativeis: a restricao do trait nao foi atendida"
+"教学提示" = "O tipo real nao atende as restricoes do generico. Verifique se o tipo implementa o trait exigido."
+
+[E0309]
+"消息模板" = "O parametro generico nao atende a restricao do trait"
+"教学提示" = "O parametro generico deve atender a restricao `{特征}` para usar os metodos correspondentes. Adicione a restricao na declaracao do generico."
+
+[E0310]
+"消息模板" = "O parametro generico nao atende a restricao Sized"
+"教学提示" = "Por padrao, os parametros genericos devem ter tamanho conhecido (`tamanho_fixo`). Para tipos sem tamanho, adicione a restricao `?tamanho_fixo`."
+
+# ============================================
+# Tipos e traits (serie E03xx/E04xx)
+# ============================================
+
+[E0369]
+"消息模板" = "Tipos incompativeis: nao se pode operar com `{期望}` e `{实际}`"
+"教学提示" = "Os tipos nos dois lados do operador devem ser compativeis. Verifique se os operandos coincidem e, se necessario, converta com `como`."
+
+[E0373]
+"消息模板" = "O fechamento pode sobreviver ao valor temporario emprestado"
+"教学提示" = "O fechamento captura uma referencia a um valor temporario e pode viver mais que ele. Use a palavra-chave `mover` ou prolongue o ciclo de vida do valor."
+
+[E0404]
+"消息模板" = "Esperava-se um trait, mas encontrou-se um tipo"
+"教学提示" = "No lugar de `dinamico` ou de uma restricao generica e necessario o nome de um trait. Verifique se escreveu o nome corretamente."
+
+[E0407]
+"消息模板" = "O metodo nao e membro deste trait"
+"教学提示" = "Ao implementar um trait, so se podem definir os metodos que ele declara. Verifique se o nome do metodo coincide com a definicao do trait."
+
+[E0412]
+"消息模板" = "Nao se consegue encontrar o tipo"
+"教学提示" = "O tipo usado nao existe ou nao esta importado. Importe-o com `usar` ou revise a ortografia."
+
+[E0422]
+"消息模板" = "Nao se consegue encontrar a estrutura, enumeracao ou uniao"
+"教学提示" = "O nome para construir a estrutura nao existe. Verifique a ortografia ou se ela esta definida no escopo atual."
+
+[E0432]
+"消息模板" = "Nao se consegue resolver o caminho de importacao"
+"教学提示" = "O modulo ou elemento importado nao existe. Revise o caminho e confirme que o modulo esta declarado (`modulo xxx;`) e e visivel."
+
+[E0435]
+"消息模板" = "Um valor nao constante foi usado dentro de uma constante"
+"教学提示" = "O valor de `constante` deve ser conhecido em tempo de compilacao. Valores de execucao (chamadas de funcoes) nao servem para inicializar constantes; use `estatico` ou `deixar`."
+
+[E0436]
+"消息模板" = "Definicao duplicada de funcao"
+"教学提示" = "Nao se podem definir duas funcoes com o mesmo nome no mesmo escopo. Revise as definicoes duplicadas de `funcao xxx()`."
+
+[E0463]
+"消息模板" = "Pacote nao encontrado"
+"教学提示" = "O pacote externo nao esta instalado ou nao esta declarado em [dependencies] do Cargo.toml. Adicione primeiro a dependencia."
+
+# ============================================
+# Propriedade e movimentacao (serie E05xx)
+# ============================================
+
+[E0496]
+"消息模板" = "O ciclo de vida nao pode escapar do seu escopo"
+"教学提示" = "O ciclo de vida de uma referencia nao pode ultrapassar o do valor ao qual aponta. Revise a estrutura de propriedade dos dados."
+
+[E0505]
+"消息模板" = "O valor foi movido enquanto estava emprestado"
+"教学提示" = "Enquanto existirem referencias a um valor, ele nao pode ser movido. Termine primeiro o emprestimo ou use `clonar()` para copiar os dados."
+
+[E0507]
+"消息模板" = "Nao se pode mover o conteudo de uma referencia"
+"教学提示" = "Nao se pode mover o valor ao qual uma referencia aponta. Use `clonar()` ou acesse os campos por referencia em vez de mover tudo."
+
+[E0508]
+"消息模板" = "Nao se pode mover o conteudo de um array"
+"教学提示" = "Os elementos de um array nao podem ser movidos para fora. Use indice + `clonar()` ou converta o array em um vetor (`vetor`)."
+
+[E0515]
+"消息模板" = "Nao se pode devolver uma referencia a uma variavel local"
+"教学提示" = "A variavel local e destruida ao terminar a funcao, portanto nao se pode devolver sua referencia. Devolva o valor (a propriedade) ou use `caixa`."
+
+[E0530]
+"消息模板" = "A ligacao do corresponder oculta a variante da enumeracao"
+"教学提示" = "O nome da ligacao no padrao nao pode coincidir com o de uma variante de enumeracao. Renomeie a variavel de ligacao."
+
+[E0539]
+"消息模板" = "Numero incorreto de argumentos de macro"
+"教学提示" = "A quantidade de argumentos ao chamar a macro nao coincide com sua definicao. Revise o uso da macro."
+
+[E0559]
+"消息模板" = "O campo nao existe"
+"教学提示" = "A estrutura nao possui esse campo. Verifique a ortografia do nome ou o tipo de estrutura usado."
+
+[E0560]
+"消息模板" = "A estrutura nao possui esse campo"
+"教学提示" = "Ao inicializar a estrutura, indicou-se um campo inexistente. Revise a definicao da estrutura e os campos usados."
+
+[E0574]
+"消息模板" = "Esperava-se o nome de uma estrutura ou enumeracao"
+"教学提示" = "Aqui e necessario um nome de tipo, nao um valor ou expressao. Revise a sintaxe."
+
+[E0594]
+"消息模板" = "Nao se pode atribuir a uma variavel imutavel"
+"教学提示" = "Variaveis declaradas com `deixar` sao imutaveis por padrao. Para modifica-las, use `deixar mutavel`."
+
+[E0596]
+"消息模板" = "Nao se pode emprestar como mutavel"
+"教学提示" = "Somente variaveis mutaveis podem ser emprestadas como mutaveis (`referencia_mutavel`). Declare a variavel com `deixar mutavel` ou marque o parametro como `mutavel`."
+
+[E0597]
+"消息模板" = "O valor emprestado nao vive o suficiente"
+"教学提示" = "O ciclo de vida da referencia ultrapassa o do valor referenciado. Ajuste os escopos para que o valor viva mais."
+
+[E0599]
+"消息模板" = "O tipo nao possui um metodo com esse nome"
+"教学提示" = "O metodo chamado nao existe neste tipo. Revise a ortografia ou importe o trait que fornece o metodo."
+
+[E0603]
+"消息模板" = "O modulo e privado"
+"教学提示" = "Por padrao, os modulos sao privados. Para acessar de fora, declare-o com `publico modulo xxx;`."
+
+[E0610]
+"消息模板" = "O tipo nao possui campos"
+"教学提示" = "O tipo ao qual voce tenta acessar nao contem campos. Verifique se nao esta desreferenciando o tipo errado."
+
+[E0614]
+"消息模板" = "Nao se pode desreferenciar este tipo"
+"教学提示" = "Somente referencias (`referencia` — &) ou tipos que implementam o trait `desreferenciavel` (Deref) podem ser desreferenciados com `desreferencia` (*)."
+
+[E0618]
+"消息模板" = "Esperava-se uma funcao, mas isso nao e uma funcao"
+"教学提示" = "A sintaxe de chamada `xxx()` exige que xxx seja uma funcao ou um fechamento. Verifique se nao esta chamando uma variavel como funcao."
+
+[E0621]
+"消息模板" = "Ciclo de vida incompativel, exige-se anotacao explicita"
+"教学提示" = "A relacao entre a referencia de retorno e as referencias dos parametros exige anotacao explicita. Adicione um parametro de ciclo de vida a funcao."
+
+[E0624]
+"消息模板" = "O campo ou metodo e privado"
+"教学提示" = "Os campos de uma estrutura sao privados por padrao. Adicione `publico` ao campo ou forneca um metodo de acesso publico."
+
+# ============================================
+# Outros (serie E06xx/E07xx)
+# ============================================
+
+[E0658]
+"消息模板" = "Uso de um recurso instavel"
+"教学提示" = "Este recurso ainda nao e estavel na versao atual do Rust. Verifique se `#![feature(...)]` esta ativado ou use uma alternativa estavel."
+
+[E0716]
+"消息模板" = "O valor temporario foi destruido antes de terminar a sentenca"
+"教学提示" = "Uma referencia a um valor criado temporariamente nao pode ser usada fora da sentenca. Vincule primeiro o valor a uma variavel e depois tome a referencia."
+
+[E0759]
+"消息模板" = "O parametro de ciclo de vida esta restringido por um limite incompativel"
+"教学提示" = "Os limites de ciclo de vida do tipo nao coincidem com a declaracao da funcao. Unifique as anotacoes de ciclo de vida."

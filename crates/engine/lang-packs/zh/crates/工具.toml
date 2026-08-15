@@ -1,0 +1,55 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"随机数" = "rand"
+"时间" = "chrono"
+"时间处理" = "time"
+"正则" = "regex"
+"延迟静态" = "lazy_static"
+"单次" = "once_cell"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# rand
+"随机数生成器" = "thread_rng"
+"随机范围" = "gen_range"
+"随机" = "random"
+"洗牌" = "shuffle"
+"选择" = "choose"
+"填充" = "fill"
+"采样" = "sample"
+
+# chrono
+"本地时间" = "Local"
+"世界标准时间" = "Utc"
+"日期时间" = "DateTime"
+"日期" = "NaiveDate"
+"时间" = "NaiveTime"
+"持续时间" = "Duration"
+"现在" = "now"
+"今天" = "today"
+"格式化" = "format"
+"解析" = "parse"
+
+# time
+"偏移日期时间" = "OffsetDateTime"
+"本地日期" = "Date"
+"本地时间" = "Time"
+"持续时间" = "Duration"
+"现在" = "now"
+"格式化" = "format"
+
+# regex
+"正则表达式" = "Regex"
+"匹配" = "find"
+"全部匹配" = "find_iter"
+"捕获" = "captures"
+"替换" = "replace"
+"分割" = "split"
+"判断匹配" = "is_match"
+
+# lazy_static
+"延迟静态" = "lazy_static"
+
+# once_cell
+"单次" = "OnceCell"
+"延迟" = "Lazy"

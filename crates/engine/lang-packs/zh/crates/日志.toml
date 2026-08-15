@@ -1,0 +1,40 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"追踪" = "tracing"
+"日志" = "log"
+"环境变量日志" = "env_logger"
+"日志订阅" = "tracing-subscriber"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# tracing
+"追踪" = "trace"
+"调试" = "debug"
+"信息" = "info"
+"警告" = "warn"
+"错误" = "error"
+"跨度" = "span"
+"事件" = "event"
+"订阅者" = "subscriber"
+"初始化" = "init"
+
+# log
+"追踪" = "trace"
+"调试" = "debug"
+"信息" = "info"
+"警告" = "warn"
+"错误" = "error"
+"日志级别" = "Level"
+"日志记录" = "Record"
+
+# env_logger
+"初始化" = "init"
+"构建器" = "Builder"
+"过滤器" = "filter"
+
+# tracing-subscriber
+"格式化层" = "fmt"
+"JSON层" = "json"
+"过滤器层" = "filter"
+"注册表" = "registry"
+"初始化" = "init"

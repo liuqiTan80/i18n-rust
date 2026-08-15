@@ -1,0 +1,29 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"错误处理" = "anyhow"
+"错误派生" = "thiserror"
+"彩色错误" = "color_eyre"
+"错误上下文" = "snafu"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# anyhow
+"任意错误" = "Error"
+"结果" = "Result"
+"上下文" = "context"
+"确保" = "ensure"
+"错误" = "bail"
+
+# thiserror
+"错误派生" = "error"
+"来源" = "source"
+"显示" = "display"
+
+# color-eyre
+"安装" = "install"
+"报告" = "Report"
+
+# snafu
+"确保" = "ensure"
+"返回" = "return"
+"上下文" = "context"

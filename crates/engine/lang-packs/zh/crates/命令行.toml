@@ -1,0 +1,41 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"命令行" = "clap"
+"结构体选项" = "structopt"
+"对话框" = "dialoguer"
+"控制台" = "console"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# clap
+"命令行解析器" = "Command"
+"参数" = "Arg"
+"子命令" = "Subcommand"
+"值解析" = "ValueEnum"
+"解析器" = "Parser"
+"长参数" = "long"
+"短参数" = "short"
+"帮助" = "help"
+"版本" = "version"
+"必需" = "required"
+"默认值" = "default_value"
+
+# structopt
+"结构体选项" = "StructOpt"
+"解析" = "parse"
+"从参数解析" = "from_args"
+
+# dialoguer
+"输入框" = "Input"
+"确认框" = "Confirm"
+"选择框" = "Select"
+"多选框" = "MultiSelect"
+"密码框" = "Password"
+"交互" = "Interact"
+
+# console
+"终端" = "Term"
+"样式" = "Style"
+"彩色" = "style"
+"进度条" = "ProgressBar"
+"旋转器" = "Spinner"

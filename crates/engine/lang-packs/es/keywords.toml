@@ -1,0 +1,138 @@
+# i18n-rust tabla de correspondencia de palabras clave (español)
+# Formato: nombre español = "nombre inglés"
+
+# ============================================
+# Palabras clave de declaración
+# ============================================
+["声明"]
+"funcion" = "fn"
+"dejar" = "let"
+"mutable" = "mut"
+"constante" = "const"
+"estatico" = "static"
+"estructura" = "struct"
+"enumeracion" = "enum"
+"tipo" = "type"
+"rasgo" = "trait"
+"implementacion" = "impl"
+"modulo" = "mod"
+"publico" = "pub"
+"paquete" = "crate"
+"superior" = "super"
+"externo" = "extern"
+"usar" = "use"
+"como" = "as"
+"principal" = "main"
+# ============================================
+# Palabras clave de control de flujo
+# ============================================
+["控制流"]
+"si" = "if"
+"sino" = "else"
+"coincidir" = "match"
+"bucle" = "loop"
+"mientras" = "while"
+"para" = "for"
+"en" = "in"
+"romper" = "break"
+"continuar" = "continue"
+"devolver" = "return"
+
+# ============================================
+# Tipos
+# ============================================
+["类型"]
+"entero" = "i32"
+"entero_largo" = "i64"
+"entero_corto" = "i16"
+"entero_micro" = "i8"
+"natural" = "u32"
+"natural_largo" = "u64"
+"natural_corto" = "u16"
+"natural_micro" = "u8"
+"flotante" = "f64"
+"flotante_corto" = "f32"
+"texto" = "str"
+"byte" = "u8"
+"caracter" = "char"
+"booleano" = "bool"
+"cadena" = "String"
+"referencia_cadena" = "&str"
+"vector" = "Vec"
+"mapa" = "HashMap"
+"opcion" = "Option"
+"alguno" = "Some"
+"ninguno" = "None"
+"resultado" = "Result"
+"exito" = "Ok"
+"error" = "Err"
+"caja" = "Box"
+
+# ============================================
+# Valores lógicos
+# ============================================
+["逻辑值"]
+"verdadero" = "true"
+"falso" = "false"
+
+# ============================================
+# Valores especiales
+# ============================================
+["特殊值"]
+"vacio" = "()"
+"mismo" = "self"
+"Mismo" = "Self"
+
+# ============================================
+# Memoria y referencias
+# ============================================
+["内存"]
+"referencia" = "&"
+"referencia_mutable" = "&mut"
+"desreferencia" = "*"
+"mover" = "move"
+"caja" = "Box"
+
+# ============================================
+["不安全"]
+"inseguro" = "unsafe"
+"asincrono" = "async"
+"esperar" = "await"
+"dinamico" = "dyn"
+
+# ============================================
+["错误处理"]
+"resultado" = "Result"
+"opcion" = "Option"
+"alguno" = "Some"
+"ninguno" = "None"
+"exito" = "Ok"
+"error" = "Err"
+
+# ============================================
+["宏"]
+"formato" = "format"
+"imprimir_linea" = "println"
+"imprimir" = "print"
+"imprimir_error_linea" = "eprintln"
+"imprimir_error" = "eprint"
+"afirmar" = "assert"
+"afirmar_igual" = "assert_eq"
+"afirmar_distinto" = "assert_ne"
+"no_implementado" = "unimplemented"
+"pendiente" = "todo"
+"inalcanzable" = "unreachable"
+"panico" = "panic"
+"vector" = "vec"
+"escribir_linea" = "writeln"
+"escribir" = "write"
+"incluir" = "include"
+"incluir_cadena" = "include_str"
+"incluir_bytes" = "include_bytes"
+"textualizar" = "stringify"
+"columna" = "column"
+"archivo" = "file"
+"linea" = "line"
+"entorno" = "env"
+"opcion_entorno" = "option_env"
+"config" = "cfg"

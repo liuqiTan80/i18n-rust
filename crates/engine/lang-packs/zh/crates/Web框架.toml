@@ -1,0 +1,57 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"Actix" = "actix-web"
+"轴" = "axum"
+"扭曲" = "warp"
+"火箭" = "rocket"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# actix-web
+"应用" = "App"
+"HTTP服务器" = "HttpServer"
+"路由" = "route"
+"资源" = "resource"
+"作用域" = "scope"
+"处理器" = "handler"
+"请求" = "HttpRequest"
+"响应" = "HttpResponse"
+"JSON" = "Json"
+"表单" = "Form"
+"路径" = "Path"
+"查询" = "Query"
+"中间件" = "middleware"
+
+# axum
+"路由" = "Router"
+"路由到" = "route"
+"处理器" = "handler"
+"提取器" = "extract"
+"响应" = "Response"
+"JSON" = "Json"
+"表单" = "Form"
+"路径" = "Path"
+"查询" = "Query"
+"状态" = "State"
+"扩展" = "Extension"
+
+# warp
+"过滤器" = "Filter"
+"路径" = "path"
+"方法" = "method"
+"获取" = "get"
+"发送" = "post"
+"JSON" = "json"
+"表单" = "form"
+"查询" = "query"
+"回复" = "reply"
+
+# rocket
+"火箭" = "Rocket"
+"启动" = "launch"
+"路由" = "route"
+"获取" = "get"
+"发送" = "post"
+"JSON" = "Json"
+"表单" = "Form"
+"模板" = "Template"

@@ -1,0 +1,11 @@
+# i18n-rust correspondência de caminhos de módulos (português)
+["模块路径"]
+"padrao" = "std"
+"entrada_saida" = "io"
+"colecoes" = "collections"
+"cadeia" = "string"
+"rede" = "net"
+"sistema_arquivos" = "fs"
+"fio" = "thread"
+"aleatoriedade" = "rand"
+"serializacao" = "serde"

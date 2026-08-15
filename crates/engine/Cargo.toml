@@ -8,6 +8,9 @@ repository = "https://gitcode.com/tan80/zrRust"
 keywords = ["rust", "i18n", "chinese", "teaching", "transpiler"]
 categories = ["development-tools", "compilers"]
 
+# 内置语言包目录：编译期经 include_str! 嵌入，发布时随 crate 打包
+include = ["lang-packs/**"]
+
 [dependencies]
 rustc_lexer = "0.1"
 toml = "0.8"

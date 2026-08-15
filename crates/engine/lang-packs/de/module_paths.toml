@@ -1,0 +1,11 @@
+# i18n-rust Modulpfad-Zuordnung (Deutsch)
+["模块路径"]
+"standard" = "std"
+"einAusgabe" = "io"
+"sammlungen" = "collections"
+"zeichenkette" = "string"
+"netzwerk" = "net"
+"dateisystem" = "fs"
+"thread" = "thread"
+"zufall" = "rand"
+"serde" = "serde"

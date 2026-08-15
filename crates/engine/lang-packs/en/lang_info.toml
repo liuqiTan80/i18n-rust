@@ -1,0 +1,6 @@
+# i18n-rust language pack metadata
+# Extension is the source file extension for this language pack (without dot)
+["语言包"]
+"名称" = "English"
+"扩展名" = "en"
+"版本" = "1.0"
