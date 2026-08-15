@@ -17,6 +17,7 @@
     "snippets/**",
     "syntaxes/**",
     "images/**",
+    "node_modules/**",
     "language-configuration.json",
     "LICENSE*"
   ],
