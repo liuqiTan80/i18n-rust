@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 
@@ -53,7 +53,12 @@ struct PendingRequestInfo {
     original_id: lsp_server::RequestId,
     method: String,
     original_uri: String,
+    /// 转发时刻（用于超时清理，避免响应永不到达时条目无限累积）
+    created_at: std::time::Instant,
 }
+
+/// 转发请求的等待超时：超过后向客户端应答错误并丢弃条目
+const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 
 impl ProxyServer {
     /// 创建并初始化代理服务器
@@ -61,7 +66,7 @@ impl ProxyServer {
     /// `extensions`: 支持的方言文件扩展名列表（如 `.zh`），
     /// 传空列表时使用默认值（`.zh` / `.en` / `.de`）。
     pub fn new(
-        lang_pack_path: &PathBuf,
+        lang_pack_path: &Path,
         extensions: &[String],
     ) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
         // 1. 加载语言包
@@ -74,8 +79,8 @@ impl ProxyServer {
             )
         );
 
-        // 2. 创建翻译缓存
-        let temp_dir = std::env::temp_dir().join("i18n_lsp_virtual");
+        // 2. 创建翻译缓存（临时目录按用户隔离，避免多用户共享 /tmp 路径）
+        let temp_dir = virtual_temp_dir()?;
         let cache = TranslationCache::new(keyword_map, macro_map, temp_dir);
 
         // 3. 启动 rust-analyzer
@@ -140,13 +145,12 @@ impl ProxyServer {
 
     /// 握手：接收 initialize 请求并回复
     fn handshake(&self) -> anyhow::Result<(lsp_server::RequestId, Value)> {
-        let msg = self
-            .connection
-            .receiver
-            .recv()
-            .map_err(|e| {
-                anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_recv_initialize", &[&e.to_string()]))
-            })?;
+        let msg = self.connection.receiver.recv().map_err(|e| {
+            anyhow::anyhow!(
+                "{}",
+                crate::ui::global().f("lsp_err_recv_initialize", &[&e.to_string()])
+            )
+        })?;
 
         match msg {
             Message::Request(req) => {
@@ -231,15 +235,21 @@ impl ProxyServer {
 
         self.analyzer.send(&init_request)?;
 
-        // 等待 rust-analyzer 的 initialize 响应
+        // 等待 rust-analyzer 的 initialize 响应（超时则直接报错，
+        // 避免在半初始化状态下继续服务导致行为不可预测）
+        let mut 初始化完成 = false;
         for _ in 0..200 {
             if let Some(response) = self.analyzer.try_recv()
                 && response.get("id").and_then(|v| v.as_i64()) == Some(0)
             {
                 log::info!("{}", crate::ui::global().t("lsp_log_ra_init_done"));
+                初始化完成 = true;
                 break;
             }
             thread::sleep(std::time::Duration::from_millis(50));
+        }
+        if !初始化完成 {
+            anyhow::bail!("{}", crate::ui::global().t("lsp_err_ra_init_timeout"));
         }
 
         // 注意：initialized 通知不在本处发送，
@@ -289,7 +299,10 @@ impl ProxyServer {
             .sender
             .send(Message::Response(response))
             .map_err(|e| {
-                anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_send_initialize", &[&e.to_string()]))
+                anyhow::anyhow!(
+                    "{}",
+                    crate::ui::global().f("lsp_err_send_initialize", &[&e.to_string()])
+                )
             })?;
         Ok(())
     }
@@ -305,8 +318,21 @@ impl ProxyServer {
         let ra_sender = self.analyzer.sender_clone();
 
         thread::spawn(move || {
-            while let Ok(msg) = receiver.recv() {
-                handle_analyzer_message(&msg, &mapper, &sender, &pending, &ra_sender);
+            // 用 recv_timeout 代替阻塞 recv，使无消息时也能周期性
+            // 清理超时请求（rust-analyzer 挂起/丢弃请求时向客户端应答错误）
+            let mut 上次清理 = std::time::Instant::now();
+            loop {
+                match receiver.recv_timeout(std::time::Duration::from_secs(1)) {
+                    Ok(msg) => {
+                        handle_analyzer_message(&msg, &mapper, &sender, &pending, &ra_sender)
+                    }
+                    Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
+                    Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
+                }
+                if 上次清理.elapsed() >= std::time::Duration::from_secs(10) {
+                    cleanup_expired_requests(&pending, &sender);
+                    上次清理 = std::time::Instant::now();
+                }
             }
             log::info!("{}", crate::ui::global().t("lsp_log_ra_thread_exit"));
         });
@@ -337,10 +363,22 @@ impl ProxyServer {
                         let _ = self.connection.sender.send(Message::Response(response));
                         break;
                     }
-                    self.handle_client_request(req)?;
+                    // 单条请求处理失败（如 rust-analyzer 写入失败）只记录错误，
+                    // 不退出服务器，避免一次偶发故障杀死整个会话
+                    if let Err(e) = self.handle_client_request(req) {
+                        log::error!(
+                            "{}",
+                            crate::ui::global().f("lsp_err_handle_request", &[&e.to_string()])
+                        );
+                    }
                 }
                 Message::Notification(notif) => {
-                    self.handle_client_notification(notif)?;
+                    if let Err(e) = self.handle_client_notification(notif) {
+                        log::error!(
+                            "{}",
+                            crate::ui::global().f("lsp_err_handle_notification", &[&e.to_string()])
+                        );
+                    }
                 }
                 Message::Response(_) => {}
             }
@@ -352,7 +390,10 @@ impl ProxyServer {
     fn handle_client_request(&self, req: Request) -> anyhow::Result<()> {
         log::debug!(
             "{}",
-            crate::ui::global().f("lsp_log_client_request", &[&req.method, &format!("{:?}", req.id)])
+            crate::ui::global().f(
+                "lsp_log_client_request",
+                &[&req.method, &format!("{:?}", req.id)]
+            )
         );
 
         match req.method.as_str() {
@@ -374,7 +415,10 @@ impl ProxyServer {
 
     /// 处理客户端通知
     fn handle_client_notification(&self, notif: Notification) -> anyhow::Result<()> {
-        log::debug!("{}", crate::ui::global().f("lsp_log_client_notification", &[&notif.method]));
+        log::debug!(
+            "{}",
+            crate::ui::global().f("lsp_log_client_notification", &[&notif.method])
+        );
 
         match notif.method.as_str() {
             "textDocument/didOpen" => self.handle_did_open(&notif.params),
@@ -455,17 +499,18 @@ impl ProxyServer {
 
         // 模块集合变化可能导致其他已打开文件被重写
         // （其虚拟内容新增/移除了 crate:: 前缀），重新通知 rust-analyzer。
+        // 这些文档已在 rust-analyzer 中打开，必须用 didChange 全量同步
+        // （对已打开文档重复发送 didOpen 违反 LSP 协议）
         for change_entry in &other_changes {
             let ra_msg = json!({
                 "jsonrpc": "2.0",
-                "method": "textDocument/didOpen",
+                "method": "textDocument/didChange",
                 "params": {
                     "textDocument": {
                         "uri": change_entry.virtual_uri,
-                        "languageId": "rust",
-                        "version": change_entry.version,
-                        "text": change_entry.en_content
-                    }
+                        "version": change_entry.version
+                    },
+                    "contentChanges": [{ "text": change_entry.en_content }]
                 }
             });
             self.analyzer.send(&ra_msg)?;
@@ -546,17 +591,18 @@ impl ProxyServer {
         // 模块集合变化时重载虚拟项目工作区（main.rs 的模块聚合已变化）
         self.reload_if_modules_changed()?;
 
+        // 模块集合缩小：其余条目仍在 rust-analyzer 中打开，
+        // 用 didChange 全量同步（重复 didOpen 违反 LSP 协议）
         for change_entry in &other_changes {
             let ra_msg = json!({
                 "jsonrpc": "2.0",
-                "method": "textDocument/didOpen",
+                "method": "textDocument/didChange",
                 "params": {
                     "textDocument": {
                         "uri": change_entry.virtual_uri,
-                        "languageId": "rust",
-                        "version": change_entry.version,
-                        "text": change_entry.en_content
-                    }
+                        "version": change_entry.version
+                    },
+                    "contentChanges": [{ "text": change_entry.en_content }]
                 }
             });
             self.analyzer.send(&ra_msg)?;
@@ -645,7 +691,10 @@ impl ProxyServer {
             .sender
             .send(Message::Response(response))
             .map_err(|e| {
-                anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_send_format", &[&e.to_string()]))
+                anyhow::anyhow!(
+                    "{}",
+                    crate::ui::global().f("lsp_err_send_format", &[&e.to_string()])
+                )
             })?;
         Ok(())
     }
@@ -676,6 +725,7 @@ impl ProxyServer {
                     original_id: req.id,
                     method: req.method.clone(),
                     original_uri: original_uri.clone(),
+                    created_at: std::time::Instant::now(),
                 },
             );
         }
@@ -759,6 +809,74 @@ fn is_supported_file(uri: &str, extensions: &[String]) -> bool {
     extensions.iter().any(|ext| uri.ends_with(ext))
 }
 
+/// 计算虚拟项目临时目录（按用户隔离）并拒绝符号链接
+///
+/// 固定共享的 /tmp 路径在多用户机器上可被预创建为符号链接，
+/// 后续写文件会跟随链接覆写任意位置；按用户名隔离并校验规避此风险。
+fn virtual_temp_dir() -> anyhow::Result<PathBuf> {
+    let user = std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .unwrap_or_else(|_| "default".to_string());
+    let safe_user: String = user
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let dir = std::env::temp_dir().join(format!("i18n_lsp_virtual_{}", safe_user));
+    if dir
+        .symlink_metadata()
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        anyhow::bail!(
+            "{}",
+            crate::ui::global().f("lsp_err_temp_symlink", &[&dir.display().to_string()])
+        );
+    }
+    Ok(dir)
+}
+
+/// 清理超时的待映射请求：向客户端应答错误，避免永久等待与条目泄漏
+fn cleanup_expired_requests(
+    pending: &Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
+    sender: &crossbeam_channel::Sender<Message>,
+) {
+    let now = std::time::Instant::now();
+    let mut expired: Vec<lsp_server::RequestId> = Vec::new();
+    {
+        let mut map = match pending.lock() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+        map.retain(|_id, info| {
+            if now.duration_since(info.created_at) > REQUEST_TIMEOUT {
+                expired.push(info.original_id.clone());
+                false
+            } else {
+                true
+            }
+        });
+    }
+    for id in expired {
+        log::warn!("{}", crate::ui::global().t("lsp_warn_request_timeout"));
+        let response = Response {
+            id,
+            result: None,
+            error: Some(lsp_server::ResponseError {
+                code: -32603,
+                message: "rust-analyzer did not respond in time".to_string(),
+                data: None,
+            }),
+        };
+        let _ = sender.send(Message::Response(response));
+    }
+}
+
 /// 调用系统 rustfmt 格式化英文代码
 ///
 /// 通过 stdin 传入源码、stdout 取回格式化结果。
@@ -768,6 +886,8 @@ fn run_rustfmt(source: &str, tab_size: u64) -> Option<String> {
     let mut child = std::process::Command::new("rustfmt")
         .arg("--emit")
         .arg("stdout")
+        .arg("--edition")
+        .arg("2021")
         .arg("--config")
         .arg(format!("tab_spaces={}", tab_size.max(1)))
         .stdin(std::process::Stdio::piped())
@@ -867,6 +987,9 @@ fn handle_analyzer_message(
                     mapper.map_code_action_response(&result, &info.original_uri)
                 }
                 "textDocument/rename" => mapper.map_rename_response(&result),
+                "textDocument/documentHighlight" => {
+                    mapper.map_document_highlight_response(&result, &info.original_uri)
+                }
                 _ => result,
             };
 
@@ -880,10 +1003,22 @@ fn handle_analyzer_message(
             // 待映射表中没有对应记录：这是 rust-analyzer 主动发来的请求
             // （如 workspace/configuration、workspace/diagnostic/refresh）。
             // 必须把响应回发给 rust-analyzer 本身，否则它会一直等待。
+            let method = msg["method"].as_str().unwrap_or("");
+            let result = if method == "workspace/configuration" {
+                // 规范要求返回与请求项等长的数组（每项用 null 表示默认配置），
+                // 直接返回 null 会被 rust-analyzer 视为协议错误
+                let count = msg["params"]["items"]
+                    .as_array()
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                Value::Array(vec![Value::Null; count])
+            } else {
+                Value::Null
+            };
             let response = json!({
                 "jsonrpc": "2.0",
                 "id": id,
-                "result": null
+                "result": result
             });
             let _ = reply_sender.send(&response);
         }
@@ -920,7 +1055,7 @@ fn handle_analyzer_message(
 
 /// 加载语言包
 fn load_language_pack(
-    lang_pack_path: &PathBuf,
+    lang_pack_path: &Path,
 ) -> anyhow::Result<(HashMap<String, String>, HashMap<String, String>)> {
     let mappings_path = lang_pack_path.join("映射表");
     if mappings_path.exists() {
@@ -938,7 +1073,10 @@ fn load_language_pack(
         let manager =
             i18n_rust_engine::mapping_manager::MappingManager::load_from_file(&keywords_path)
                 .map_err(|e| {
-                    anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_load_keywords", &[&e.to_string()]))
+                    anyhow::anyhow!(
+                        "{}",
+                        crate::ui::global().f("lsp_err_load_keywords", &[&e.to_string()])
+                    )
                 })?;
         let macro_map = manager.get_macro_map();
         return Ok((manager.keyword_map.clone(), macro_map));
@@ -1004,20 +1142,20 @@ mod tests {
         ));
     }
 
-    fn create_test_cache() -> Arc<TranslationCache> {
+    fn create_test_cache() -> (Arc<TranslationCache>, tempfile::TempDir) {
         let map = HashMap::from([
             ("函数".into(), "fn".into()),
             ("让".into(), "let".into()),
             ("可变".into(), "mut".into()),
         ]);
         let temp = tempfile::tempdir().unwrap();
-        let path = temp.keep();
-        TranslationCache::new(map, HashMap::new(), path)
+        let cache = TranslationCache::new(map, HashMap::new(), temp.path().to_path_buf());
+        (cache, temp)
     }
 
     #[test]
     fn test_position_to_en() {
-        let cache = create_test_cache();
+        let (cache, _temp) = create_test_cache();
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
             .unwrap();
@@ -1042,7 +1180,7 @@ mod tests {
 
     #[test]
     fn test_range_to_en() {
-        let cache = create_test_cache();
+        let (cache, _temp) = create_test_cache();
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
             .unwrap();
@@ -1059,7 +1197,7 @@ mod tests {
     #[test]
     fn test_rename_full_chain() {
         // 模拟完整闭环：中文请求 → 转换转发 → rust-analyzer 响应 → 映射回母语
-        let cache = create_test_cache();
+        let (cache, _temp) = create_test_cache();
         let mapper = ResponseMapper::new(cache.clone());
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "函数 主() {}", 1)

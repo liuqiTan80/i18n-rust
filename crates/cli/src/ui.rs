@@ -142,11 +142,7 @@ pub fn detect_system_language() -> String {
     for var in ["LC_ALL", "LC_MESSAGES", "LANG"] {
         if let Ok(val) = std::env::var(var) {
             let lower = val.to_lowercase();
-            let tag = lower
-                .split(['_', '-', '.'])
-                .next()
-                .unwrap_or("")
-                .trim();
+            let tag = lower.split(['_', '-', '.']).next().unwrap_or("").trim();
             let code = match tag {
                 "zh" | "cmn" => "zh",
                 "en" => "en",
@@ -217,7 +213,10 @@ mod tests {
     #[test]
     fn test_for_explicit_dir_falls_back() {
         let ui = Ui::for_explicit_dir(Path::new("/不存在的目录/de"));
-        assert_eq!(ui.t("cli_about"), "Ein mehrsprachiger Rust-Lehrdialekt-Compiler");
+        assert_eq!(
+            ui.t("cli_about"),
+            "Ein mehrsprachiger Rust-Lehrdialekt-Compiler"
+        );
     }
 
     #[test]

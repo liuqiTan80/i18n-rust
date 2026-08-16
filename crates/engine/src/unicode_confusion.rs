@@ -88,7 +88,10 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
                 column: col,
                 character: ch,
                 category: ConfusionCategory::ZeroWidth,
-                detail: crate::语言::f("unicode_zero_width_hint", &[&localized_char_name(ch, name)]),
+                detail: crate::语言::f(
+                    "unicode_zero_width_hint",
+                    &[&localized_char_name(ch, name)],
+                ),
             });
         } else if let Some(name) = bidi_control_name(ch) {
             warnings.push(ConfusionWarning {

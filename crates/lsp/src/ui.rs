@@ -27,11 +27,9 @@ pub fn init(lang_pack_path: &Path) {
 
 /// 获取全局界面消息（未 init 时回退内置 zh，不占用全局槽位）
 pub fn global() -> &'static Ui {
-    GLOBAL
-        .get()
-        .unwrap_or_else(|| FALLBACK_ZH.get_or_init(|| {
-            Ui::from_toml(builtin_ui("zh").unwrap_or_default())
-        }))
+    GLOBAL.get().unwrap_or_else(|| {
+        FALLBACK_ZH.get_or_init(|| Ui::from_toml(builtin_ui("zh").unwrap_or_default()))
+    })
 }
 
 /// 界面消息表
@@ -69,10 +67,10 @@ impl Ui {
             }
         }
         // 2. --language-pack 目录名匹配内置语言包
-        if let Some(name) = lang_pack_path.file_name().and_then(|s| s.to_str()) {
-            if let Some(builtin) = builtin_ui(name) {
-                return Self::from_toml(builtin);
-            }
+        if let Some(name) = lang_pack_path.file_name().and_then(|s| s.to_str())
+            && let Some(builtin) = builtin_ui(name)
+        {
+            return Self::from_toml(builtin);
         }
         // 3. RZ_LANG 环境变量
         if let Ok(lang) = std::env::var("RZ_LANG") {
@@ -87,20 +85,14 @@ impl Ui {
         for var in ["LC_ALL", "LC_MESSAGES", "LANG"] {
             if let Ok(val) = std::env::var(var) {
                 let lower = val.to_lowercase();
-                let tag = lower
-                    .split(['_', '-', '.'])
-                    .next()
-                    .unwrap_or("")
-                    .trim();
+                let tag = lower.split(['_', '-', '.']).next().unwrap_or("").trim();
                 if let Some(builtin) = builtin_ui(tag) {
                     return Self::from_toml(builtin);
                 }
             }
         }
         // 5. 中文（默认）
-        Self::from_toml(
-            builtin_ui("zh").unwrap_or_default(),
-        )
+        Self::from_toml(builtin_ui("zh").unwrap_or_default())
     }
 
     /// 取消息模板（缺失时回退键名本身，便于定位遗漏）
@@ -150,11 +142,10 @@ mod tests {
 
     #[test]
     fn test_builtin_all_langs_available() {
-        for code in ["zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
-            assert!(
-                builtin_ui(code).is_some(),
-                "{code} 应内置 ui.toml"
-            );
+        for code in [
+            "zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi",
+        ] {
+            assert!(builtin_ui(code).is_some(), "{code} 应内置 ui.toml");
         }
     }
 
@@ -168,10 +159,7 @@ mod tests {
     #[test]
     fn test_load_by_dir_name() {
         let ui = Ui::load(Path::new("/任意路径/de"));
-        assert_eq!(
-            ui.t("lsp_about"),
-            "i18n-rust LSP-Proxy-Server"
-        );
+        assert_eq!(ui.t("lsp_about"), "i18n-rust LSP-Proxy-Server");
     }
 
     #[test]

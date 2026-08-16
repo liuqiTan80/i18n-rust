@@ -106,9 +106,11 @@ mod tests {
     #[test]
     fn test_use_scope_ends_at_semicolon() {
         let map = sample_path_map();
-        let result =
-            replace_module_paths("使用 标准集合::哈希映射; 标准集合::新建(1);", &map);
-        assert_eq!(result, "使用 std::collections::哈希映射; 标准集合::新建(1);");
+        let result = replace_module_paths("使用 标准集合::哈希映射; 标准集合::新建(1);", &map);
+        assert_eq!(
+            result,
+            "使用 std::collections::哈希映射; 标准集合::新建(1);"
+        );
     }
 
     /// 组合词内部的中文不被破坏（token 级替换）

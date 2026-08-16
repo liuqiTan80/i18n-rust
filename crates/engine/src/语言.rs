@@ -176,7 +176,9 @@ fn t_in(code: &str, key: &str) -> String {
     {
         return text.to_string();
     }
-    ZH.get(key).map(|s| s.to_string()).unwrap_or_else(|| key.to_string())
+    ZH.get(key)
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| key.to_string())
 }
 
 /// 取当前语言的消息模板；缺失时回退中文表，再缺失回退键名本身
@@ -250,7 +252,9 @@ mod tests {
 
     #[test]
     fn test_all_langs_have_common_keys() {
-        for code in ["zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
+        for code in [
+            "zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi",
+        ] {
             let table = table_for(code);
             for key in ["err_line_col", "diag_kind_error", "mapping_cat_keywords"] {
                 assert!(table.contains_key(key), "{code} 缺少 {key}");

@@ -274,3 +274,8 @@
 "mg_cmd_build_deps" = "Сборка зависимостей"
 "lsp_err_load_keywords" = "Failed to load keywords: {}"
 "lsp_warn_builtin_fallback" = "No language pack file found, using built-in keyword mapping"
+"lsp_err_ra_init_timeout" = "тайм-аут ожидания ответа initialize от rust-analyzer, запуск прерван"
+"lsp_err_handle_request" = "не удалось обработать запрос клиента: {}"
+"lsp_err_handle_notification" = "не удалось обработать уведомление клиента: {}"
+"lsp_warn_request_timeout" = "тайм-аут перенаправленного запроса: rust-analyzer не ответил"
+"lsp_err_temp_symlink" = "временный каталог является символической ссылкой, использование отклонено в целях безопасности: {}"

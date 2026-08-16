@@ -334,3 +334,8 @@
 "mg_cmd_build_deps" = "编译依赖"
 "lsp_err_load_keywords" = "加载关键字失败: {}"
 "lsp_warn_builtin_fallback" = "未找到语言包文件，使用内置关键字映射"
+"lsp_err_ra_init_timeout" = "等待 rust-analyzer 初始化响应超时，中止启动"
+"lsp_err_handle_request" = "处理客户端请求失败: {}"
+"lsp_err_handle_notification" = "处理客户端通知失败: {}"
+"lsp_warn_request_timeout" = "转发请求超时：rust-analyzer 未响应"
+"lsp_err_temp_symlink" = "临时目录是符号链接，出于安全拒绝使用: {}"

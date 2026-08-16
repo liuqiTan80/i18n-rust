@@ -77,6 +77,18 @@ impl TranslationCache {
         macro_map: HashMap<String, String>,
         temp_dir: PathBuf,
     ) -> Arc<Self> {
+        // 安全检查：临时目录若已被替换为符号链接则拒绝使用，
+        // 防止后续写文件时跟随链接覆写任意位置
+        if temp_dir
+            .symlink_metadata()
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(false)
+        {
+            log::error!(
+                "{}",
+                crate::ui::global().f("lsp_err_temp_symlink", &[&temp_dir.display().to_string()])
+            );
+        }
         let _ = std::fs::create_dir_all(&temp_dir);
         let _ = std::fs::create_dir_all(temp_dir.join("src"));
         let cache = Arc::new(Self {
@@ -107,7 +119,8 @@ impl TranslationCache {
     ) -> anyhow::Result<(TranslationEntry, Vec<TranslationEntry>)> {
         let original_path = uri_to_path(uri);
 
-        // 生成虚拟文件路径（用哈希避免同名文件冲突）
+        // 生成虚拟文件路径（用哈希避免同名文件冲突）。
+        // 文件名只保留合法标识符字符，防止引号等特殊字符注入生成的 main.rs
         let file_stem = original_path
             .file_stem()
             .and_then(|s| s.to_str())
@@ -119,10 +132,11 @@ impl TranslationCache {
             original_path.as_path().hash(&mut h);
             h.finish()
         };
-        let virtual_path = self
-            .temp_dir
-            .join("src")
-            .join(format!("{}_{:x}.rs", file_stem, hash));
+        let virtual_path = self.temp_dir.join("src").join(format!(
+            "{}_{:x}.rs",
+            sanitize_module_name(file_stem),
+            hash
+        ));
         let virtual_uri = path_to_uri(&virtual_path);
 
         // 判断模块集合是否变化（打开新文件会新增模块）
@@ -138,9 +152,7 @@ impl TranslationCache {
             let mut table = self
                 .entries
                 .write()
-                .map_err(|_| {
-                    anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock"))
-                })?;
+                .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock")))?;
             table.insert(
                 uri.to_string(),
                 TranslationEntry {
@@ -172,11 +184,9 @@ impl TranslationCache {
         // 更新虚拟项目文件（聚合 main.rs），使跨文件语义分析可用
         self.refresh_virtual_project();
 
-        let entry = self
-            .query_original(uri)
-            .ok_or_else(|| {
-                anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_entry_missing", &[uri]))
-            })?;
+        let entry = self.query_original(uri).ok_or_else(|| {
+            anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_entry_missing", &[uri]))
+        })?;
         let other_changes: Vec<TranslationEntry> = changes
             .into_iter()
             .filter(|e| e.original_uri != uri)
@@ -200,9 +210,7 @@ impl TranslationCache {
             let mut table = self
                 .entries
                 .write()
-                .map_err(|_| {
-                    anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock"))
-                })?;
+                .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock")))?;
             if let Some(entry) = table.remove(uri) {
                 let _ = std::fs::remove_file(&entry.virtual_path);
                 // 模块集合缩小，版本号递增（供工作区重载判断）
@@ -299,7 +307,8 @@ impl TranslationCache {
 
     /// 当前模块集合版本号（模块集合变化时递增）
     pub fn module_version(&self) -> u64 {
-        self.module_version.load(std::sync::atomic::Ordering::SeqCst)
+        self.module_version
+            .load(std::sync::atomic::Ordering::SeqCst)
     }
 
     /// 递增模块集合版本号，返回新值
@@ -421,13 +430,27 @@ impl TranslationCache {
             "#![allow(dead_code)]\n{}\n",
             crate::ui::global().t("lsp_gen_lib_comment")
         );
+        // 模块名净化为合法 Rust 标识符，并在重名时追加哈希后缀
+        let mut used_names: HashSet<String> = HashSet::new();
         for entry in table.values() {
-            let module_name = entry
+            let stem = entry
                 .original_path
                 .file_stem()
                 .and_then(|s| s.to_str())
-                .map(String::from)
-                .unwrap_or_else(|| crate::ui::global().t("lsp_gen_module_fallback"));
+                .unwrap_or("");
+            let mut module_name = if stem.is_empty() {
+                crate::ui::global().t("lsp_gen_module_fallback")
+            } else {
+                sanitize_module_name(stem)
+            };
+            if !used_names.insert(module_name.clone()) {
+                use std::collections::hash_map::DefaultHasher;
+                use std::hash::{Hash, Hasher};
+                let mut h = DefaultHasher::new();
+                entry.virtual_path.as_path().hash(&mut h);
+                module_name = format!("{}_{:x}", module_name, h.finish());
+                used_names.insert(module_name.clone());
+            }
             let file_name = entry
                 .virtual_path
                 .file_name()
@@ -442,12 +465,37 @@ impl TranslationCache {
     }
 }
 
+/// 将任意文件名主干净化为合法 Rust 模块名
+///
+/// 非法字符替换为 `_`；空名回退 `m`；数字开头前补 `_`。
+/// 中文等 Unicode 字母属于合法标识符字符，予以保留。
+fn sanitize_module_name(name: &str) -> String {
+    let mut out: String = name
+        .chars()
+        .map(|c| {
+            if c == '_' || c.is_alphanumeric() {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if out.is_empty() {
+        out.push('m');
+    }
+    if out.chars().next().is_some_and(|c| c.is_numeric()) {
+        out.insert(0, '_');
+    }
+    out
+}
+
 /// 将 file:// URI 转换为文件路径
+///
+/// 编辑器（如 VSCode）会对非 ASCII 字符（中文文件名）做百分号编码，
+/// 必须完整解码，否则文件名残留 %XX 导致模块名非法。
 fn uri_to_path(uri: &str) -> PathBuf {
     if let Some(path) = uri.strip_prefix("file://") {
-        // 简单处理 URL 编码的常见字符
-        let path = path.replace("%20", " ").replace("%23", "#");
-        PathBuf::from(path)
+        PathBuf::from(url_decode(path))
     } else {
         PathBuf::from(uri)
     }
@@ -487,8 +535,20 @@ fn hex_value(b: u8) -> Option<u8> {
 }
 
 /// 将文件路径转换为 file:// URI
+///
+/// 对非 URI 安全字符做百分号编码（路径含空格/中文时生成合法 URI）
 fn path_to_uri(path: &Path) -> String {
-    format!("file://{}", path.display())
+    let mut uri = String::from("file://");
+    let text = path.to_string_lossy();
+    for &byte in text.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' => {
+                uri.push(byte as char)
+            }
+            _ => uri.push_str(&format!("%{:02X}", byte)),
+        }
+    }
+    uri
 }
 
 /// 根据列映射条目将英文列转换为中文列（按行查询）
@@ -536,10 +596,14 @@ fn zh_col_to_en_col_single(entry: &TranslationEntry, line: u32, zh_col: u32) -> 
 }
 
 /// 由正向关键字映射（母语 → 英文）构建反向映射（英文 → 母语）
+///
+/// 按母语词排序后插入，多对一冲突时保留排序最小者，保证结果确定性。
 fn build_reverse_map(forward: &HashMap<String, String>) -> HashMap<String, String> {
+    let mut pairs: Vec<(&String, &String)> = forward.iter().collect();
+    pairs.sort();
     let mut reverse = HashMap::with_capacity(forward.len());
-    for (native, english) in forward {
-        reverse.insert(english.clone(), native.clone());
+    for (native, english) in pairs {
+        reverse.entry(english.clone()).or_insert(native.clone());
     }
     reverse
 }
@@ -988,5 +1052,58 @@ mod tests {
             restored,
             "函数 主函数() {\n    让 count = 1;\n    打印行!(\"count={}\", count);\n}\n"
         );
+    }
+
+    /// URI 百分号解码：中文文件名（VSCode 必然编码）能还原为真实路径
+    #[test]
+    fn test_uri_to_path_decodes_percent_encoding() {
+        // 测试.zh 的 UTF-8 百分号编码
+        let path = uri_to_path("file:///test/%E6%B5%8B%E8%AF%95.zh");
+        assert_eq!(path, std::path::PathBuf::from("/test/测试.zh"));
+        // 空格与 # 同样可解码
+        let path = uri_to_path("file:///a%20dir/f%23ile.zh");
+        assert_eq!(path, std::path::PathBuf::from("/a dir/f#ile.zh"));
+    }
+
+    /// path_to_uri 对非安全字符做百分号编码，生成合法 URI
+    #[test]
+    fn test_path_to_uri_encodes_special_chars() {
+        let uri = path_to_uri(std::path::Path::new("/tmp/my dir/测试.rs"));
+        assert!(uri.starts_with("file:///tmp/my%20dir/"));
+        assert!(uri.contains("%"));
+        assert!(!uri.contains(' '));
+        // 解码后能往返还原
+        assert_eq!(url_decode(&uri), "file:///tmp/my dir/测试.rs");
+    }
+
+    /// 模块名净化：非法字符替换、数字开头补下划线、空名回退
+    #[test]
+    fn test_sanitize_module_name() {
+        // 中文保留（合法标识符）
+        assert_eq!(sanitize_module_name("辅助"), "辅助");
+        // 非法字符替换为 _
+        assert_eq!(sanitize_module_name("a-b.zh\"x"), "a_b_zh_x");
+        // 数字开头前补 _
+        assert_eq!(sanitize_module_name("1main"), "_1main");
+        // 空名回退 m
+        assert_eq!(sanitize_module_name(""), "m");
+    }
+
+    /// 中文文件名（百分号编码 URI）打开后模块名合法，虚拟项目可编译
+    #[test]
+    fn test_update_document_encoded_chinese_filename() {
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(test_map(), HashMap::new(), temp.path().to_path_buf());
+        let (entry, _) = cache
+            .update_document("file:///test/%E6%B5%8B%E8%AF%95.zh", "让 x = 1;", 1)
+            .unwrap();
+        assert_eq!(entry.en_content, "let x = 1;");
+        // 虚拟 main.rs 中的 mod 名应为解码后的中文（合法标识符），而非 %XX
+        let main_rs = std::fs::read_to_string(temp.path().join("src").join("main.rs")).unwrap();
+        assert!(
+            main_rs.contains("mod 测试;"),
+            "mod 名应为解码后的中文: {main_rs}"
+        );
+        assert!(!main_rs.contains('%'));
     }
 }

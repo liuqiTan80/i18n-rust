@@ -274,3 +274,8 @@
 "mg_cmd_build_deps" = "تجميع التبعيات"
 "lsp_err_load_keywords" = "Failed to load keywords: {}"
 "lsp_warn_builtin_fallback" = "No language pack file found, using built-in keyword mapping"
+"lsp_err_ra_init_timeout" = "انتهت مهلة انتظار استجابة initialize من rust-analyzer، تم إيقاف التشغيل"
+"lsp_err_handle_request" = "فشل معالجة طلب العميل: {}"
+"lsp_err_handle_notification" = "فشل معالجة إشعار العميل: {}"
+"lsp_warn_request_timeout" = "انتهت مهلة الطلب المُعاد توجيهه: لم يستجب rust-analyzer"
+"lsp_err_temp_symlink" = "المجلد المؤقت رابط رمزي، تم رفض استخدامه لأسباب أمنية: {}"

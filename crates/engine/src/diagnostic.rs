@@ -88,15 +88,19 @@ pub struct ErrorTranslationManager {
 impl ErrorTranslationManager {
     /// 从文件加载错误翻译表
     pub fn load_from_file(path: &Path) -> Result<Self, String> {
-        let content = fs::read_to_string(path)
-            .map_err(|e| crate::语言::f("err_read_error_messages", &[&path.display().to_string(), &e.to_string()]))?;
+        let content = fs::read_to_string(path).map_err(|e| {
+            crate::语言::f(
+                "err_read_error_messages",
+                &[&path.display().to_string(), &e.to_string()],
+            )
+        })?;
         Self::load_from_string(&content)
     }
 
     /// 从 TOML 字符串加载错误翻译表（用于内置数据）
     pub fn load_from_string(content: &str) -> Result<Self, String> {
-        let translation_table: HashMap<String, ErrorMessageEntry> =
-            toml::from_str(content).map_err(|e| crate::语言::f("err_parse_error_messages", &[&e.to_string()]))?;
+        let translation_table: HashMap<String, ErrorMessageEntry> = toml::from_str(content)
+            .map_err(|e| crate::语言::f("err_parse_error_messages", &[&e.to_string()]))?;
         Ok(Self { translation_table })
     }
 
@@ -234,16 +238,23 @@ impl OwnershipDetails {
         ) {
             (Some(mv), None, Some(reuse)) => crate::语言::f(
                 "diag_ownership_moved_reused",
-                &[var, &mv.line_start.to_string(), &reuse.line_start.to_string()],
+                &[
+                    var,
+                    &mv.line_start.to_string(),
+                    &reuse.line_start.to_string(),
+                ],
             ),
             (None, Some(borrow), Some(reuse)) => crate::语言::f(
                 "diag_ownership_borrowed_in_use",
-                &[var, &borrow.line_start.to_string(), &reuse.line_start.to_string()],
+                &[
+                    var,
+                    &borrow.line_start.to_string(),
+                    &reuse.line_start.to_string(),
+                ],
             ),
-            (Some(mv), _, _) => crate::语言::f(
-                "diag_ownership_moved",
-                &[var, &mv.line_start.to_string()],
-            ),
+            (Some(mv), _, _) => {
+                crate::语言::f("diag_ownership_moved", &[var, &mv.line_start.to_string()])
+            }
             (None, Some(borrow), _) => crate::语言::f(
                 "diag_ownership_borrowed",
                 &[var, &borrow.line_start.to_string()],

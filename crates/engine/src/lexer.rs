@@ -48,7 +48,10 @@ pub fn transpile_source_with_macros(
         .map(|name| {
             (
                 name.clone(),
-                keyword_map.get(name).cloned().unwrap_or_else(|| name.clone()),
+                keyword_map
+                    .get(name)
+                    .cloned()
+                    .unwrap_or_else(|| name.clone()),
             )
         })
         .collect();
@@ -487,7 +490,10 @@ mod tests {
         let empty = HashMap::new();
         let source = "打印行(\"你好\")";
         let expected = "println(\"你好\")"; // 不补 !
-        assert_eq!(transpile_source_with_macro_map(source, &map, &empty), expected);
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &empty),
+            expected
+        );
     }
 
     #[test]

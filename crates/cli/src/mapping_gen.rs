@@ -89,20 +89,14 @@ pub fn run_auto_generate(
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
-        bail!(
-            "{}",
-            ui.f("mapping_crate_invalid", &[crate_name])
-        );
+        bail!("{}", ui.f("mapping_crate_invalid", &[crate_name]));
     }
 
     println!("{}", ui.f("mapping_extracting", &[crate_name]));
     let json_text = extract_crate_doc(crate_name)?;
     let entries = extract_public_api(&json_text)?;
     if entries.is_empty() {
-        bail!(
-            "{}",
-            ui.f("mapping_no_api", &[crate_name])
-        );
+        bail!("{}", ui.f("mapping_no_api", &[crate_name]));
     }
 
     // 统计各类数量
@@ -129,7 +123,13 @@ pub fn run_auto_generate(
     })
     .collect::<Vec<_>>()
     .join(if lang == "zh" { "、" } else { ", " });
-    println!("{}", ui.f("mapping_extracted", &[&entries.len().to_string(), &stats_text]));
+    println!(
+        "{}",
+        ui.f(
+            "mapping_extracted",
+            &[&entries.len().to_string(), &stats_text]
+        )
+    );
     // rustdoc JSON 格式当前工具链不输出 macro_rules! 宏定义（官方格式限制），提示用户
     if !stats.contains_key(&ApiKind::Macro) {
         eprintln!("{}", ui.t("mapping_no_macro"));
@@ -185,10 +185,7 @@ pub fn run_auto_generate(
                 Err(e) => {
                     eprintln!(
                         "{}",
-                        ui.f(
-                            "mapping_ai_fallback",
-                            &["DEEPSEEK_API_KEY", &e.to_string()]
-                        )
+                        ui.f("mapping_ai_fallback", &["DEEPSEEK_API_KEY", &e.to_string()])
                     );
                 }
             }
@@ -230,7 +227,10 @@ pub fn run_auto_generate(
     }
     fs::write(output_path, toml)
         .with_context(|| ui.f("mg_err_write", &[&output_path.display().to_string()]))?;
-    println!("{}", ui.f("mapping_generated", &[&output_path.display().to_string()]));
+    println!(
+        "{}",
+        ui.f("mapping_generated", &[&output_path.display().to_string()])
+    );
     println!(
         "{}",
         ui.f(
@@ -246,8 +246,12 @@ pub fn run_auto_generate(
 
 /// 解析 rustdoc JSON，提取所有公开 API（仅名称与签名，绝不读取 docs 字段）
 pub fn extract_public_api(json_text: &str) -> anyhow::Result<Vec<ApiEntry>> {
-    let doc: Value = serde_json::from_str(json_text)
-        .map_err(|e| anyhow!("{}", crate::ui::Ui::global().f("mg_err_parse_rustdoc", &[&e.to_string()])))?;
+    let doc: Value = serde_json::from_str(json_text).map_err(|e| {
+        anyhow!(
+            "{}",
+            crate::ui::Ui::global().f("mg_err_parse_rustdoc", &[&e.to_string()])
+        )
+    })?;
     let index = doc
         .get("index")
         .and_then(Value::as_object)
@@ -629,7 +633,10 @@ impl TempProject {
             std::env::temp_dir().join(format!("rzc-mapping-{}-{}", crate_name, std::process::id()));
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(path.join("src")).map_err(|e| {
-            anyhow::anyhow!("{}", crate::ui::Ui::global().f("mg_err_tempdir", &[&e.to_string()]))
+            anyhow::anyhow!(
+                "{}",
+                crate::ui::Ui::global().f("mg_err_tempdir", &[&e.to_string()])
+            )
         })?;
         Ok(TempProject(path))
     }
@@ -691,9 +698,7 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
                 .iter()
                 .find(|p| p.get("name").and_then(Value::as_str) == Some(crate_name))
         })
-        .ok_or_else(|| {
-            anyhow!("{}", ui.f("mg_err_crate_not_found", &[crate_name]))
-        })?;
+        .ok_or_else(|| anyhow!("{}", ui.f("mg_err_crate_not_found", &[crate_name])))?;
     let manifest_path = PathBuf::from(
         target_package
             .get("manifest_path")
@@ -808,8 +813,12 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
     }
 
     // 3. rustdoc：生成目标 crate 的 JSON 文档
-    let manifest_content = fs::read_to_string(&manifest_path)
-        .with_context(|| ui.f("mg_err_read_manifest", &[&manifest_path.display().to_string()]))?;
+    let manifest_content = fs::read_to_string(&manifest_path).with_context(|| {
+        ui.f(
+            "mg_err_read_manifest",
+            &[&manifest_path.display().to_string()],
+        )
+    })?;
     let manifest: toml::Value = toml::from_str(&manifest_content).map_err(|e| {
         anyhow!(
             "{}",
@@ -881,17 +890,16 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
     run_command(&mut cmd, &ui.t("mg_cmd_gen_doc"))?;
 
     let json_path = json_dir.join(format!("{}.json", crate_name_underscore));
-    fs::read_to_string(&json_path).with_context(|| {
-        ui.f("mg_err_no_doc_json", &[&json_path.display().to_string()])
-    })
+    fs::read_to_string(&json_path)
+        .with_context(|| ui.f("mg_err_no_doc_json", &[&json_path.display().to_string()]))
 }
 
 /// 运行命令并返回 stdout；失败时附加 stderr 摘要
 const ERROR_SUMMARY_LINES: usize = 15;
 fn run_command(cmd: &mut Command, description: &str) -> anyhow::Result<String> {
-    let output = cmd.output().with_context(|| {
-        crate::ui::Ui::global().f("mg_err_run_failed", &[description])
-    })?;
+    let output = cmd
+        .output()
+        .with_context(|| crate::ui::Ui::global().f("mg_err_run_failed", &[description]))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let summary = stderr
@@ -1631,11 +1639,21 @@ pub fn call_ai_generate_mapping(
         .map(|e| format!("- {} {}", e.kind.display(), e.signature))
         .collect::<Vec<_>>()
         .join("\n");
-    let system_prompt = if lang == "zh" { AI_PROMPT_ZH } else { AI_PROMPT_EN };
-    let user_prompt = if lang == "zh" {
-        format!("crate: {}\n公开 API 列表（名称 + 类型签名）：\n{}", crate_name, api_list)
+    let system_prompt = if lang == "zh" {
+        AI_PROMPT_ZH
     } else {
-        format!("crate: {}\nPublic API list (name + type signature):\n{}", crate_name, api_list)
+        AI_PROMPT_EN
+    };
+    let user_prompt = if lang == "zh" {
+        format!(
+            "crate: {}\n公开 API 列表（名称 + 类型签名）：\n{}",
+            crate_name, api_list
+        )
+    } else {
+        format!(
+            "crate: {}\nPublic API list (name + type signature):\n{}",
+            crate_name, api_list
+        )
     };
     let request_body = serde_json::json!({
         "model": "deepseek-chat",
@@ -1663,18 +1681,30 @@ pub fn call_ai_generate_mapping(
         .set("Content-Type", "application/json")
         .set("Authorization", &format!("Bearer {}", api_key))
         .send_string(&request_body.to_string())
-        .map_err(|e| anyhow!("{}", crate::ui::Ui::global().f("mg_err_ai_request", &[&e.to_string()])))?;
+        .map_err(|e| {
+            anyhow!(
+                "{}",
+                crate::ui::Ui::global().f("mg_err_ai_request", &[&e.to_string()])
+            )
+        })?;
     if resp.status() != 200 {
         bail!(
             "{}",
             crate::ui::Ui::global().f("mg_err_ai_status", &[&resp.status().to_string()])
         );
     }
-    let resp_text = resp
-        .into_string()
-        .map_err(|e| anyhow!("{}", crate::ui::Ui::global().f("mg_err_ai_read", &[&e.to_string()])))?;
-    let resp_json: Value = serde_json::from_str(&resp_text)
-        .map_err(|e| anyhow!("{}", crate::ui::Ui::global().f("mg_err_ai_parse", &[&e.to_string()])))?;
+    let resp_text = resp.into_string().map_err(|e| {
+        anyhow!(
+            "{}",
+            crate::ui::Ui::global().f("mg_err_ai_read", &[&e.to_string()])
+        )
+    })?;
+    let resp_json: Value = serde_json::from_str(&resp_text).map_err(|e| {
+        anyhow!(
+            "{}",
+            crate::ui::Ui::global().f("mg_err_ai_parse", &[&e.to_string()])
+        )
+    })?;
     let content = resp_json
         .get("choices")
         .and_then(|c| c.get(0))
@@ -1704,7 +1734,10 @@ pub fn parse_ai_result(
         .unwrap_or(text.len());
     let toml_part = &text[start..end];
     let table: toml::Value = toml::from_str(toml_part).map_err(|e| {
-        anyhow!("{}", crate::ui::Ui::global().f("mg_err_ai_toml_parse", &[&e.to_string()]))
+        anyhow!(
+            "{}",
+            crate::ui::Ui::global().f("mg_err_ai_toml_parse", &[&e.to_string()])
+        )
     })?;
     let mut identifier_map = HashMap::new();
     let mut explanation_map = HashMap::new();

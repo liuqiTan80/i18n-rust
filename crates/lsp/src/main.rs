@@ -119,27 +119,24 @@ fn print_help(ui: &ui::Ui) {
 /// 1. 二进制所在目录向上搜索（最多 5 级）
 /// 2. 当前工作目录向上搜索
 /// 3. $HOME 下常见项目目录（code/zrRust、zrRust）
-fn find_lang_pack_fallback(default: &PathBuf, lang_code: &str) -> PathBuf {
+fn find_lang_pack_fallback(default: &std::path::Path, lang_code: &str) -> PathBuf {
     if default.exists() {
-        return default.clone();
+        return default.to_path_buf();
     }
-    log::warn!(
-        "默认语言包路径 {} 不存在，正在搜索...",
-        default.display()
-    );
+    log::warn!("默认语言包路径 {} 不存在，正在搜索...", default.display());
     // 1. 二进制所在目录向上搜索
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(found) = search_upward(&exe, lang_code) {
-            log::info!("在二进制目录找到语言包: {}", found.display());
-            return found;
-        }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(found) = search_upward(&exe, lang_code)
+    {
+        log::info!("在二进制目录找到语言包: {}", found.display());
+        return found;
     }
     // 2. 当前工作目录向上搜索
-    if let Ok(cwd) = std::env::current_dir() {
-        if let Some(found) = search_upward(&cwd, lang_code) {
-            log::info!("在工作目录找到语言包: {}", found.display());
-            return found;
-        }
+    if let Ok(cwd) = std::env::current_dir()
+        && let Some(found) = search_upward(&cwd, lang_code)
+    {
+        log::info!("在工作目录找到语言包: {}", found.display());
+        return found;
     }
     // 3. $HOME 下常见项目目录
     if let Ok(home) = std::env::var("HOME") {
@@ -155,7 +152,7 @@ fn find_lang_pack_fallback(default: &PathBuf, lang_code: &str) -> PathBuf {
         }
     }
     log::warn!("未找到语言包目录，使用内置映射");
-    default.clone()
+    default.to_path_buf()
 }
 
 /// 从指定路径向上搜索 lang-packs/<lang_code>（最多 5 级）
@@ -199,7 +196,10 @@ fn main() -> anyhow::Result<()> {
     log::info!("{}", ui::global().t("lsp_log_start"));
     log::info!(
         "{}",
-        ui::global().f("lsp_log_lang_pack", &[&args.lang_pack_path.display().to_string()])
+        ui::global().f(
+            "lsp_log_lang_pack",
+            &[&args.lang_pack_path.display().to_string()]
+        )
     );
 
     // 创建代理服务器

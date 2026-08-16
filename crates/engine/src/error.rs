@@ -22,7 +22,10 @@ impl SourceLocation {
 
     /// 返回当前语言下的位置描述，如 `第 3 行第 5 列`
     pub fn describe(&self) -> String {
-        crate::语言::f("err_line_col", &[&self.line.to_string(), &self.column.to_string()])
+        crate::语言::f(
+            "err_line_col",
+            &[&self.line.to_string(), &self.column.to_string()],
+        )
     }
 }
 
@@ -64,7 +67,9 @@ pub enum TranspileError {
 impl fmt::Display for TranspileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidInput { reason } => write!(f, "{}", crate::语言::f("err_input_invalid", &[reason])),
+            Self::InvalidInput { reason } => {
+                write!(f, "{}", crate::语言::f("err_input_invalid", &[reason]))
+            }
             Self::LexError { location, detail } => write!(
                 f,
                 "{}",
@@ -78,7 +83,10 @@ impl fmt::Display for TranspileError {
                 "{}",
                 crate::语言::f("err_mapping_missing_at", &[&loc.describe(), name])
             ),
-            Self::MappingMissing { name, location: None } => {
+            Self::MappingMissing {
+                name,
+                location: None,
+            } => {
                 write!(f, "{}", crate::语言::f("err_mapping_missing", &[name]))
             }
             Self::ConfusionChar {

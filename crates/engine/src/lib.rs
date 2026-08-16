@@ -7,12 +7,12 @@ pub mod diagnostic;
 pub mod error;
 pub mod lexer;
 pub mod logger;
-#[path = "语言.rs"]
-pub mod 语言;
 pub mod mapping_manager;
 pub mod mapping_source;
 pub mod module_path;
 pub mod unicode_confusion;
+#[path = "语言.rs"]
+pub mod 语言;
 
 use std::time::Instant;
 

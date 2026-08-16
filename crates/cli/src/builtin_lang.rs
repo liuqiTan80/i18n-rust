@@ -57,8 +57,7 @@ macro_rules! define_builtin_lang {
 
 /// 从引擎内置语言包取文件内容（缺失时 panic，内置数据必须完整）
 fn builtin_file_or_panic(lang: &str, file: &str) -> &'static str {
-    i18n_rust_engine::语言::builtin_file(lang, file)
-        .expect("内置语言包文件缺失：引擎未嵌入该文件")
+    i18n_rust_engine::语言::builtin_file(lang, file).expect("内置语言包文件缺失：引擎未嵌入该文件")
 }
 
 // 中文内置语言包（完整翻译映射 + 9 个第三方库映射）
@@ -162,7 +161,9 @@ pub fn has_builtin_lang(lang_code: &str) -> bool {
 /// 供 `rzc lang list` 展示与 `rzc lang remove` 的内置保护使用。
 /// 其他语言通过 `rzc lang install` 从远程仓库安装。
 pub fn builtin_lang_codes() -> Vec<&'static str> {
-    vec!["zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"]
+    vec![
+        "zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi",
+    ]
 }
 
 #[cfg(test)]
@@ -172,7 +173,9 @@ mod tests {
     /// 全部内置语言均能获取到数据，且 TOML 内容非空
     #[test]
     fn test_get_builtin_data_known_langs() {
-        for code in ["zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
+        for code in [
+            "zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi",
+        ] {
             let data = get_builtin_data(code);
             assert!(!data.keywords_toml.is_empty(), "{code} keywords 为空");
             assert!(
@@ -229,7 +232,8 @@ mod tests {
         for (i, a) in infos.iter().enumerate() {
             for (j, b) in infos[i + 1..].iter().enumerate() {
                 assert_ne!(
-                    a, b,
+                    a,
+                    b,
                     "{} 与 {} 的 lang_info 相同",
                     codes[i],
                     codes[i + 1 + j]

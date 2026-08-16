@@ -274,3 +274,8 @@
 "mg_cmd_build_deps" = "निर्भरताओं का संकलन"
 "lsp_err_load_keywords" = "Failed to load keywords: {}"
 "lsp_warn_builtin_fallback" = "No language pack file found, using built-in keyword mapping"
+"lsp_err_ra_init_timeout" = "rust-analyzer के initialize उत्तर की प्रतीक्षा की समय सीमा समाप्त, प्रारंभ रद्द किया गया"
+"lsp_err_handle_request" = "क्लाइंट अनुरोध संसाधित करने में विफल: {}"
+"lsp_err_handle_notification" = "क्लाइंट सूचना संसाधित करने में विफल: {}"
+"lsp_warn_request_timeout" = "अग्रेषित अनुरोध की समय सीमा समाप्त: rust-analyzer ने उत्तर नहीं दिया"
+"lsp_err_temp_symlink" = "अस्थायी निर्देशिका सिम्बोलिक लिंक है, सुरक्षा के लिए उपयोग अस्वीकृत: {}"

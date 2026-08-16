@@ -134,8 +134,8 @@ impl MappingLoader {
             .map_err(|e| crate::语言::f("load_read_dir_failed", &[&e.to_string()]))?;
 
         for entry in entries {
-            let entry = entry
-                .map_err(|e| crate::语言::f("load_read_entry_failed", &[&e.to_string()]))?;
+            let entry =
+                entry.map_err(|e| crate::语言::f("load_read_entry_failed", &[&e.to_string()]))?;
             let path = entry.path();
 
             if path.extension().and_then(|s| s.to_str()) == Some("toml") {
@@ -147,11 +147,17 @@ impl MappingLoader {
                     .to_string();
 
                 let content = fs::read_to_string(&path).map_err(|e| {
-                    crate::语言::f("load_read_map_path_failed", &[&format!("{:?}", path), &e.to_string()])
+                    crate::语言::f(
+                        "load_read_map_path_failed",
+                        &[&format!("{:?}", path), &e.to_string()],
+                    )
                 })?;
 
                 let value: Value = content.parse::<Value>().map_err(|e| {
-                    crate::语言::f("load_parse_map_path_failed", &[&format!("{:?}", path), &e.to_string()])
+                    crate::语言::f(
+                        "load_parse_map_path_failed",
+                        &[&format!("{:?}", path), &e.to_string()],
+                    )
                 })?;
 
                 // 将文件中的映射合并，加上文件分类前缀

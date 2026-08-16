@@ -274,3 +274,8 @@
 "mg_cmd_build_deps" = "Compilando dependências"
 "lsp_err_load_keywords" = "Failed to load keywords: {}"
 "lsp_warn_builtin_fallback" = "No language pack file found, using built-in keyword mapping"
+"lsp_err_ra_init_timeout" = "tempo esgotado aguardando a resposta initialize do rust-analyzer, inicialização interrompida"
+"lsp_err_handle_request" = "falha ao processar a requisição do cliente: {}"
+"lsp_err_handle_notification" = "falha ao processar a notificação do cliente: {}"
+"lsp_warn_request_timeout" = "a requisição encaminhada expirou: rust-analyzer não respondeu"
+"lsp_err_temp_symlink" = "o diretório temporário é um link simbólico, uso recusado por segurança: {}"

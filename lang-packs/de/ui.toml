@@ -274,3 +274,8 @@
 "mg_cmd_build_deps" = "Abhängigkeiten kompilieren"
 "lsp_err_load_keywords" = "Failed to load keywords: {}"
 "lsp_warn_builtin_fallback" = "No language pack file found, using built-in keyword mapping"
+"lsp_err_ra_init_timeout" = "Zeitüberschreitung beim Warten auf die initialize-Antwort von rust-analyzer, Start wird abgebrochen"
+"lsp_err_handle_request" = "Client-Anfrage konnte nicht verarbeitet werden: {}"
+"lsp_err_handle_notification" = "Client-Benachrichtigung konnte nicht verarbeitet werden: {}"
+"lsp_warn_request_timeout" = "Weitergeleitete Anfrage wegen Zeitüberschreitung verworfen: rust-analyzer hat nicht geantwortet"
+"lsp_err_temp_symlink" = "Temporäres Verzeichnis ist ein Symlink, Verwendung aus Sicherheitsgründen verweigert: {}"

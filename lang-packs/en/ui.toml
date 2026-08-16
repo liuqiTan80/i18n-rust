@@ -274,3 +274,8 @@
 "mg_cmd_build_deps" = "Building dependencies"
 "lsp_err_load_keywords" = "Failed to load keywords: {}"
 "lsp_warn_builtin_fallback" = "No language pack file found, using built-in keyword mapping"
+"lsp_err_ra_init_timeout" = "timed out waiting for rust-analyzer initialize response, aborting startup"
+"lsp_err_handle_request" = "failed to handle client request: {}"
+"lsp_err_handle_notification" = "failed to handle client notification: {}"
+"lsp_warn_request_timeout" = "forwarded request timed out: rust-analyzer did not respond"
+"lsp_err_temp_symlink" = "temp directory is a symlink, refusing to use it for safety: {}"

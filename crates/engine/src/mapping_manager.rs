@@ -102,8 +102,9 @@ impl MappingManager {
         let module_paths_file = lang_dir.join("module_paths.toml");
         let mut module_path_map = HashMap::new();
         if module_paths_file.exists() {
-            let content = fs::read_to_string(&module_paths_file)
-                .map_err(|e| crate::语言::f("load_read_module_paths_failed", &[&e.to_string()]))?;
+            let content = fs::read_to_string(&module_paths_file).map_err(|e| {
+                crate::语言::f("load_read_module_paths_failed", &[&e.to_string()])
+            })?;
             let root: toml::Value = toml::from_str(&content).map_err(|e| {
                 crate::语言::f("load_parse_module_paths_failed", &[&e.to_string()])
             })?;
@@ -190,9 +191,8 @@ impl MappingManager {
 
         // 2. 解析模块路径映射
         let mut module_path_map = HashMap::new();
-        let root: toml::Value = toml::from_str(module_paths_toml).map_err(|e| {
-            crate::语言::f("load_parse_builtin_paths_failed", &[&e.to_string()])
-        })?;
+        let root: toml::Value = toml::from_str(module_paths_toml)
+            .map_err(|e| crate::语言::f("load_parse_builtin_paths_failed", &[&e.to_string()]))?;
         if let toml::Value::Table(table) = root
             && let Some(path_section) = table.get("模块路径")
             && let toml::Value::Table(entry_table) = path_section
@@ -206,9 +206,8 @@ impl MappingManager {
 
         // 3. 解析标准库映射（模块路径 + 标识符别名）
         let mut alias_map = HashMap::new();
-        let stdlib_root: toml::Value = toml::from_str(stdlib_toml).map_err(|e| {
-            crate::语言::f("load_parse_builtin_stdlib_failed", &[&e.to_string()])
-        })?;
+        let stdlib_root: toml::Value = toml::from_str(stdlib_toml)
+            .map_err(|e| crate::语言::f("load_parse_builtin_stdlib_failed", &[&e.to_string()]))?;
         if let toml::Value::Table(table) = stdlib_root {
             if let Some(path_section) = table.get("模块路径")
                 && let toml::Value::Table(entry_table) = path_section

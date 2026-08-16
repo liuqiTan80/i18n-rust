@@ -422,12 +422,10 @@ fn try_all_sources(
     for (index, source) in sources.iter().enumerate() {
         match try_single_source(lang_code, source, temp, force) {
             Ok(()) => return Ok(()),
-            Err(err) => {
-                error_details.push(crate::ui::Ui::global().f(
-                    "lc_err_source_detail",
-                    &[&(index + 1).to_string(), &source.git_url, &err.to_string()],
-                ))
-            }
+            Err(err) => error_details.push(crate::ui::Ui::global().f(
+                "lc_err_source_detail",
+                &[&(index + 1).to_string(), &source.git_url, &err.to_string()],
+            )),
         }
     }
     let ui = crate::ui::Ui::global();
@@ -639,7 +637,10 @@ fn copy_to_global_dir(source_dir: &Path, lang_code: &str, force: bool) -> anyhow
     copy_dir_recursive(source_dir, &target_dir)?;
     println!(
         "{}",
-        ui.f("lang_installed", &[lang_code, &target_dir.display().to_string()])
+        ui.f(
+            "lang_installed",
+            &[lang_code, &target_dir.display().to_string()]
+        )
     );
     println!("{}", ui.t("lang_install_hint"));
     Ok(())
@@ -649,7 +650,10 @@ fn copy_to_global_dir(source_dir: &Path, lang_code: &str, force: bool) -> anyhow
 fn validate_lang_pack_dir(path: &Path) -> anyhow::Result<()> {
     if !path.join("keywords.toml").is_file() {
         let ui = crate::ui::Ui::global();
-        anyhow::bail!("{}", ui.f("invalid_lang_dir", &[&path.display().to_string()]));
+        anyhow::bail!(
+            "{}",
+            ui.f("invalid_lang_dir", &[&path.display().to_string()])
+        );
     }
     Ok(())
 }

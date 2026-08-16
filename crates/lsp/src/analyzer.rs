@@ -37,7 +37,10 @@ impl AnalyzerConnection {
             .stderr(Stdio::inherit())
             .spawn()
             .map_err(|e| {
-                anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_ra_start", &[&e.to_string()]))
+                anyhow::anyhow!(
+                    "{}",
+                    crate::ui::global().f("lsp_err_ra_start", &[&e.to_string()])
+                )
             })?;
 
         let writer = child

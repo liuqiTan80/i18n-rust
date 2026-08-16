@@ -16,12 +16,23 @@ use crate::translation_cache::{TranslationCache, TranslationEntry};
 /// 中的位置/URI 从虚拟文件还原到原始中文文件。
 pub struct ResponseMapper {
     cache: Arc<TranslationCache>,
+    /// 预构建的反向映射表（英文 → 母语），O(1) 查找且结果确定
+    reverse_map: std::collections::HashMap<String, String>,
 }
 
 impl ResponseMapper {
     /// 创建新的响应映射器
+    ///
+    /// 反向表由关键字映射反转并按母语词排序插入，
+    /// 多对一冲突时保留排序最小者，保证结果确定性。
     pub fn new(cache: Arc<TranslationCache>) -> Self {
-        Self { cache }
+        let mut pairs: Vec<(&String, &String)> = cache.keyword_map().iter().collect();
+        pairs.sort();
+        let mut reverse_map = std::collections::HashMap::with_capacity(pairs.len());
+        for (native, english) in pairs {
+            reverse_map.entry(english.clone()).or_insert(native.clone());
+        }
+        Self { cache, reverse_map }
     }
 
     /// 判断一个 URI 是否指向我们的虚拟文件
@@ -160,8 +171,9 @@ impl ResponseMapper {
 
     /// 映射补全响应中的位置信息
     ///
-    /// 将 textEdit 中的 range 映射回原始文件，
-    /// 并将英文标识符反向映射为中文。
+    /// 将 textEdit/additionalTextEdits 中的 range 映射回原始文件，
+    /// 并将英文标识符/代码反向翻译为母语（否则接受补全会把
+    /// 英文关键字插入母语源文件，或自动导入编辑落在错误位置）。
     pub fn map_completion_response(&self, response: &Value, original_uri: &str) -> Value {
         let mut result = response.clone();
 
@@ -170,21 +182,31 @@ impl ResponseMapper {
             for item in items_list {
                 let mut mapped = item.clone();
 
-                // 1. 映射 textEdit 中的 range
-                if let Some(text_edit) = item.get("textEdit")
-                    && let Some(range) = text_edit.get("range")
-                {
-                    mapped["textEdit"]["range"] = self.restore_range(original_uri, range);
+                // 1. 映射 textEdit 的 range 并反向翻译 newText
+                if let Some(text_edit) = item.get("textEdit") {
+                    if let Some(range) = text_edit.get("range") {
+                        mapped["textEdit"]["range"] = self.restore_range(original_uri, range);
+                    }
+                    if let Some(new_text) = text_edit.get("newText").and_then(|v| v.as_str()) {
+                        mapped["textEdit"]["newText"] =
+                            Value::String(self.translate_code(new_text));
+                    }
                 }
 
-                // 2. 将英文 label 反向映射为中文
+                // 2. additionalTextEdits（如自动导入）：位置与内容同样需要还原
+                if let Some(extra_edits) = item.get("additionalTextEdits") {
+                    mapped["additionalTextEdits"] =
+                        self.map_edit_list(extra_edits, original_uri, true);
+                }
+
+                // 3. 将英文 label 反向映射为中文
                 if let Some(label) = item.get("label").and_then(|v| v.as_str())
                     && let Some(zh_name) = self.reverse_lookup(label)
                 {
                     mapped["label"] = Value::String(zh_name);
                 }
 
-                // 3. 反向映射 insertText
+                // 4. 反向映射 insertText（可能含 snippet 占位符，仅精确匹配时替换）
                 if let Some(insert_text) = item.get("insertText").and_then(|v| v.as_str())
                     && let Some(zh_name) = self.reverse_lookup(insert_text)
                 {
@@ -197,6 +219,30 @@ impl ResponseMapper {
         }
 
         result
+    }
+
+    /// 映射文档高亮响应（DocumentHighlight[]：range + kind）
+    ///
+    /// 请求方向已把位置转为虚拟文件坐标，响应必须还原，
+    /// 否则高亮位置以虚拟文件坐标泄漏给客户端。
+    pub fn map_document_highlight_response(&self, response: &Value, original_uri: &str) -> Value {
+        match response {
+            Value::Array(items) => {
+                let mapped: Vec<Value> = items
+                    .iter()
+                    .map(|item| {
+                        let mut mapped = item.clone();
+                        if let Some(range) = item.get("range") {
+                            mapped["range"] = self.restore_range(original_uri, range);
+                        }
+                        mapped
+                    })
+                    .collect();
+                Value::Array(mapped)
+            }
+            Value::Null => Value::Array(Vec::new()),
+            _ => response.clone(),
+        }
     }
 
     /// 映射定义跳转响应（Location 或 Location[]）
@@ -298,7 +344,7 @@ impl ResponseMapper {
     ///
     /// LSP 规范中 `textDocument/codeAction` 响应是 `CodeAction[]` 数组，
     /// 每个操作可能携带 `edit`（WorkspaceEdit）。将编辑位置映射回原始文件，
-    /// 插入的英文代码暂时保持英文（仅确保位置正确）。
+    /// 插入的英文代码反向翻译为母语（与源文件语言保持一致）。
     pub fn map_code_action_response(&self, response: &Value, _original_uri: &str) -> Value {
         match response {
             Value::Array(actions) => {
@@ -307,7 +353,7 @@ impl ResponseMapper {
                     .map(|action| {
                         let mut mapped = action.clone();
                         if let Some(edit) = action.get("edit") {
-                            mapped["edit"] = self.map_edit(edit, false);
+                            mapped["edit"] = self.map_edit(edit, true);
                         }
                         mapped
                     })
@@ -364,15 +410,23 @@ impl ResponseMapper {
         mapped
     }
 
-    /// 从关键字映射中反向查找：英文 → 中文
+    /// 从关键字映射中反向查找：英文 → 中文（预构建表，O(1)）
     fn reverse_lookup(&self, en_name: &str) -> Option<String> {
-        let map = self.cache.keyword_map();
-        for (zh, en) in map.iter() {
-            if en == en_name {
-                return Some(zh.clone());
-            }
+        self.reverse_map.get(en_name).cloned()
+    }
+
+    /// 将英文代码片段反向翻译为母语
+    ///
+    /// 精确命中关键字时直接替换；含 snippet 占位符（`${}`）的片段
+    /// 保持原样（避免破坏占位符结构）；其余交给引擎词法级反向转译。
+    fn translate_code(&self, text: &str) -> String {
+        if let Some(zh) = self.reverse_lookup(text) {
+            return zh;
         }
-        None
+        if text.contains("${") {
+            return text.to_string();
+        }
+        self.cache.reverse_transpile(text)
     }
 
     /// 映射一个 WorkspaceEdit（changes + documentChanges）
@@ -424,8 +478,8 @@ impl ResponseMapper {
 
     /// 映射一组 TextEdit 的位置
     ///
-    /// 当 `translate_new_text` 为 true 时（重命名），尝试将 newText 反向翻译为母语；
-    /// 为 false 时（代码操作），newText 保持英文。
+    /// 当 `translate_new_text` 为 true 时（重命名/代码操作/补全），
+    /// 将 newText 反向翻译为母语；为 false 时 newText 保持英文。
     fn map_edit_list(
         &self,
         edits_list: &Value,
@@ -444,9 +498,8 @@ impl ResponseMapper {
                         }
                         if translate_new_text
                             && let Some(new_text) = edit.get("newText").and_then(|v| v.as_str())
-                            && let Some(zh) = self.reverse_lookup(new_text)
                         {
-                            mapped_edit["newText"] = Value::String(zh);
+                            mapped_edit["newText"] = Value::String(self.translate_code(new_text));
                         }
                         mapped_edit
                     })
@@ -575,23 +628,32 @@ fn construct_position_from_range(file_name: &str, range: &Value) -> Option<Diagn
 /// 尝试匹配常见的 rustc 错误模式并翻译（短语表随语言包变化，
 /// 非 zh 语言回退英文原文）。完整翻译由核心引擎的
 /// `DiagnosticTranslator` 处理，此处提供轻量级的关键字替换。
+/// 替换仅作用于反引号之外的文本，避免误伤消息中引用的
+/// 标识符/类型名（如变量名 `expected_value` 含子串 "expected"）。
 fn translate_diagnostic_message(message: &str) -> String {
     let ui = crate::ui::global();
-    let mut result = message.to_string();
 
     // rustc 未推断字面量占位符（`{integer}`/`{float}`）及 1.97+ 裸显示名
-    // （`integer`/`floating-point number`）按界面语言翻译
-    result = result
-        .replace("{integer}", &ui.t("diag_rustc_integer"))
-        .replace("{float}", &ui.t("diag_rustc_float"))
-        .replace("floating-point number", &ui.t("diag_rustc_float"))
-        .replace("integer", &ui.t("diag_rustc_integer"));
+    // （`integer`/`floating-point number`）按界面语言翻译；
+    // 有序替换：先替换长模式再替换短模式，避免短模式重复命中
+    let mut replacements: Vec<(String, String)> = vec![
+        ("{integer}".to_string(), ui.t("diag_rustc_integer")),
+        ("{float}".to_string(), ui.t("diag_rustc_float")),
+        (
+            "floating-point number".to_string(),
+            ui.t("diag_rustc_float"),
+        ),
+        ("integer".to_string(), ui.t("diag_rustc_integer")),
+    ];
 
     // 常见错误模式翻译
     let replace_table = [
         ("cannot find value", ui.t("lsp_phrase_cannot_find_value")),
         ("cannot find type", ui.t("lsp_phrase_cannot_find_type")),
-        ("cannot find function", ui.t("lsp_phrase_cannot_find_function")),
+        (
+            "cannot find function",
+            ui.t("lsp_phrase_cannot_find_function"),
+        ),
         ("cannot find module", ui.t("lsp_phrase_cannot_find_module")),
         ("mismatched types", ui.t("lsp_phrase_mismatched_types")),
         ("type mismatch", ui.t("lsp_phrase_type_mismatch")),
@@ -600,7 +662,10 @@ fn translate_diagnostic_message(message: &str) -> String {
         ("unused variable", ui.t("lsp_phrase_unused_variable")),
         ("unused import", ui.t("lsp_phrase_unused_import")),
         ("cannot borrow", ui.t("lsp_phrase_cannot_borrow")),
-        ("borrowed as immutable", ui.t("lsp_phrase_borrowed_immutable")),
+        (
+            "borrowed as immutable",
+            ui.t("lsp_phrase_borrowed_immutable"),
+        ),
         ("borrowed as mutable", ui.t("lsp_phrase_borrowed_mutable")),
         ("no method named", ui.t("lsp_phrase_no_method_named")),
         ("method not found", ui.t("lsp_phrase_method_not_found")),
@@ -615,8 +680,10 @@ fn translate_diagnostic_message(message: &str) -> String {
     ];
 
     for (en, localized) in replace_table {
-        result = result.replace(en, &localized);
+        replacements.push((en.to_string(), localized));
     }
+
+    let mut result = replace_outside_backticks(message, &replacements);
 
     // 添加教学提示
     if message.contains("mismatched types") || message.contains("type mismatch") {
@@ -627,6 +694,43 @@ fn translate_diagnostic_message(message: &str) -> String {
         result.push_str(&ui.t("lsp_hint_unused"));
     }
 
+    result
+}
+
+/// 按顺序对反引号包裹之外的文本应用替换，反引号内的内容（标识符/
+/// 类型名引用）保持原样；未成对的反引号后文本仍参与替换
+fn replace_outside_backticks(input: &str, replacements: &[(String, String)]) -> String {
+    let apply = |segment: &str| -> String {
+        let mut text = segment.to_string();
+        for (from, to) in replacements {
+            text = text.replace(from.as_str(), to.as_str());
+        }
+        text
+    };
+
+    let mut result = String::with_capacity(input.len());
+    let mut rest = input;
+    while let Some(start) = rest.find('`') {
+        result.push_str(&apply(&rest[..start]));
+        let after = &rest[start + 1..];
+        match after.find('`') {
+            Some(end) => {
+                // 成对反引号：内部内容原样保留
+                result.push('`');
+                result.push_str(&after[..end]);
+                result.push('`');
+                rest = &after[end + 1..];
+            }
+            None => {
+                // 未成对：剩余文本照常替换
+                result.push('`');
+                result.push_str(&apply(after));
+                rest = "";
+                break;
+            }
+        }
+    }
+    result.push_str(&apply(rest));
     result
 }
 
@@ -652,16 +756,16 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    fn create_test_cache() -> Arc<TranslationCache> {
+    fn create_test_cache() -> (Arc<TranslationCache>, tempfile::TempDir) {
         let map = HashMap::from([("函数".into(), "fn".into()), ("让".into(), "let".into())]);
         let temp = tempfile::tempdir().unwrap();
-        let path = temp.keep();
-        TranslationCache::new(map, HashMap::new(), path)
+        let cache = TranslationCache::new(map, HashMap::new(), temp.path().to_path_buf());
+        (cache, temp)
     }
 
     #[test]
     fn test_restore_uri() {
-        let cache = create_test_cache();
+        let (cache, _temp) = create_test_cache();
         let mapper = ResponseMapper::new(cache.clone());
 
         let (entry, _) = cache
@@ -676,7 +780,7 @@ mod tests {
 
     #[test]
     fn test_restore_line() {
-        let cache = create_test_cache();
+        let (cache, _temp) = create_test_cache();
         let mapper = ResponseMapper::new(cache.clone());
 
         let (entry, _) = cache
@@ -689,7 +793,7 @@ mod tests {
 
     #[test]
     fn test_map_references_response() {
-        let cache = create_test_cache();
+        let (cache, _temp) = create_test_cache();
         let mapper = ResponseMapper::new(cache.clone());
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;\n函数 主() {}", 1)
@@ -719,7 +823,7 @@ mod tests {
 
     #[test]
     fn test_map_rename_response_cross_file() {
-        let cache = create_test_cache();
+        let (cache, _temp) = create_test_cache();
         let mapper = ResponseMapper::new(cache.clone());
         let (entry_a, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;\n函数 主() {}", 1)
@@ -799,7 +903,7 @@ mod tests {
 
     #[test]
     fn test_map_code_action_response() {
-        let cache = create_test_cache();
+        let (cache, _temp) = create_test_cache();
         let mapper = ResponseMapper::new(cache.clone());
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
@@ -827,7 +931,8 @@ mod tests {
         let changes = mapped[0]["edit"]["changes"].as_object().unwrap();
         assert!(changes.contains_key("file:///test/main.zh"));
 
-        // 代码操作插入的英文代码暂时保持英文，仅位置正确
+        // 代码操作插入的英文代码经反向翻译：测试映射表中无 use 关键字，
+        // 故保持英文原样（若语言包含 使用→use 映射，则会被还原为母语）
         assert_eq!(
             changes["file:///test/main.zh"][0]["newText"]
                 .as_str()
@@ -844,7 +949,7 @@ mod tests {
 
     #[test]
     fn test_map_document_symbol_response() {
-        let cache = create_test_cache();
+        let (cache, _temp) = create_test_cache();
         let mapper = ResponseMapper::new(cache.clone());
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "函数 主() {\n    让 x = 1;\n}", 1)
@@ -898,7 +1003,7 @@ mod tests {
 
     #[test]
     fn test_map_diagnostics_ownership_details_in_data() {
-        let cache = create_test_cache();
+        let (cache, _temp) = create_test_cache();
         let mapper = ResponseMapper::new(cache.clone());
         // 多行文档，保证行映射存在（诊断行号 2/4 可还原）
         let (entry, _) = cache
@@ -950,7 +1055,7 @@ mod tests {
 
     #[test]
     fn test_map_diagnostics_non_ownership_no_ownership_details() {
-        let cache = create_test_cache();
+        let (cache, _temp) = create_test_cache();
         let mapper = ResponseMapper::new(cache.clone());
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
@@ -974,5 +1079,91 @@ mod tests {
 
         let mapped = mapper.map_diagnostics(&params);
         assert!(mapped["diagnostics"][0].get("data").is_none());
+    }
+
+    /// documentHighlight 响应的 range 必须还原为母语坐标
+    #[test]
+    fn test_map_document_highlight_response() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;\n让 y = x;", 1)
+            .unwrap();
+
+        // 英文坐标（"let" 占 3 列；行0 x 在英文列 4，行1 "let y = " 后 x 在英文列 8）
+        let response = json!([
+            { "range": { "start": { "line": 0, "character": 4 }, "end": { "line": 0, "character": 5 } }, "kind": 2 },
+            { "range": { "start": { "line": 1, "character": 8 }, "end": { "line": 1, "character": 9 } }, "kind": 2 }
+        ]);
+        let mapped = mapper.map_document_highlight_response(&response, "file:///test/main.zh");
+        // 中文列："让 x" 中 x 在列 2（"让" 占 1 个 UTF-16 单元）；"让 y = x" 中 x 在列 6
+        assert_eq!(mapped[0]["range"]["start"]["character"], 2);
+        assert_eq!(mapped[1]["range"]["start"]["character"], 6);
+        assert_eq!(mapped[0]["kind"], 2);
+
+        // null 响应 → 空数组
+        assert_eq!(
+            mapper.map_document_highlight_response(&Value::Null, ""),
+            Value::Array(Vec::new())
+        );
+    }
+
+    /// 补全响应的 textEdit.newText 反向翻译、additionalTextEdits 位置还原
+    #[test]
+    fn test_map_completion_text_edit_reverse_translated() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;", 1)
+            .unwrap();
+
+        let response = json!({
+            "items": [{
+                "label": "let",
+                "textEdit": {
+                    "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 3 } },
+                    "newText": "let"
+                },
+                "additionalTextEdits": [{
+                    "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 0 } },
+                    "newText": "fn 辅助() {}"
+                }]
+            }]
+        });
+        let mapped = mapper.map_completion_response(&response, "file:///test/main.zh");
+        let item = &mapped["items"][0];
+        // label 与 newText 均还原为母语关键字
+        assert_eq!(item["label"].as_str().unwrap(), "让");
+        assert_eq!(item["textEdit"]["newText"].as_str().unwrap(), "让");
+        // snippet 占位符保持原样
+        let snippet_item = json!({
+            "items": [{ "label": "x", "textEdit": {
+                "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 0 } },
+                "newText": "fn ${1:name}() {}" } }]
+        });
+        let mapped_snippet = mapper.map_completion_response(&snippet_item, "file:///test/main.zh");
+        assert_eq!(
+            mapped_snippet["items"][0]["textEdit"]["newText"]
+                .as_str()
+                .unwrap(),
+            "fn ${1:name}() {}"
+        );
+        // additionalTextEdits 中的 fn 被反向翻译
+        assert_eq!(
+            item["additionalTextEdits"][0]["newText"].as_str().unwrap(),
+            "函数 辅助() {}"
+        );
+        let _ = entry;
+    }
+
+    /// 诊断翻译不替换反引号内的标识符（避免误伤变量名中的子串）
+    #[test]
+    fn test_translate_diagnostic_skips_backtick_content() {
+        let translated =
+            translate_diagnostic_message("cannot find value `expected_value` in this scope");
+        // 反引号内的标识符保持原样
+        assert!(translated.contains("`expected_value`"));
+        // 反引号外的短语已被翻译（不再含英文原短语）
+        assert!(!translated.contains("cannot find value"));
     }
 }

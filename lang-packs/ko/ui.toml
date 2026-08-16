@@ -274,3 +274,8 @@
 "mg_cmd_build_deps" = "의존성 컴파일"
 "lsp_err_load_keywords" = "Failed to load keywords: {}"
 "lsp_warn_builtin_fallback" = "No language pack file found, using built-in keyword mapping"
+"lsp_err_ra_init_timeout" = "rust-analyzer initialize 응답 시간 초과, 시작을 중단합니다"
+"lsp_err_handle_request" = "클라이언트 요청 처리 실패: {}"
+"lsp_err_handle_notification" = "클라이언트 알림 처리 실패: {}"
+"lsp_warn_request_timeout" = "전달된 요청 시간 초과: rust-analyzer가 응답하지 않았습니다"
+"lsp_err_temp_symlink" = "임시 디렉터리가 심볼릭 링크이므로 안전을 위해 사용을 거부합니다: {}"

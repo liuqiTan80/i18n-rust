@@ -118,8 +118,11 @@ fn main() -> anyhow::Result<()> {
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack, Some(&file))?;
             let macro_map = manager.get_macro_map();
-            let mut english_code =
-                lexer::transpile_source_with_macro_map(&source, manager.get_keyword_map(), &macro_map);
+            let mut english_code = lexer::transpile_source_with_macro_map(
+                &source,
+                manager.get_keyword_map(),
+                &macro_map,
+            );
             if !manager.module_path_map.is_empty() {
                 english_code = i18n_rust_engine::module_path::replace_module_paths(
                     &english_code,
@@ -164,8 +167,11 @@ fn main() -> anyhow::Result<()> {
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack.clone(), Some(&file))?;
             let macro_map = manager.get_macro_map();
-            let mut english_code =
-                lexer::transpile_source_with_macro_map(&source, manager.get_keyword_map(), &macro_map);
+            let mut english_code = lexer::transpile_source_with_macro_map(
+                &source,
+                manager.get_keyword_map(),
+                &macro_map,
+            );
             if !manager.module_path_map.is_empty() {
                 english_code = i18n_rust_engine::module_path::replace_module_paths(
                     &english_code,
@@ -229,7 +235,9 @@ fn main() -> anyhow::Result<()> {
             };
             let translator = if error_msg_path.exists() {
                 let translation_manager = ErrorTranslationManager::load_from_file(&error_msg_path)
-                    .map_err(|e| anyhow::anyhow!("{}", ui.f("load_error_msg_failed", &[&e.to_string()])))?;
+                    .map_err(|e| {
+                        anyhow::anyhow!("{}", ui.f("load_error_msg_failed", &[&e.to_string()]))
+                    })?;
                 let reverse_map: HashMap<String, String> = manager
                     .get_section_mapping("类型")
                     .map(|section| {
@@ -257,10 +265,7 @@ fn main() -> anyhow::Result<()> {
                         Some(DiagnosticTranslator::new(translation_manager, reverse_map))
                     }
                     Err(e) => {
-                        eprintln!(
-                            "{}",
-                            ui.f("warn_builtin_errors_failed", &[&e.to_string()])
-                        );
+                        eprintln!("{}", ui.f("warn_builtin_errors_failed", &[&e.to_string()]));
                         None
                     }
                 }
@@ -293,9 +298,9 @@ fn main() -> anyhow::Result<()> {
                 let mut teaching_list = translator.batch_translate(&diagnostics);
                 let mut seen_teaching_codes = std::collections::HashSet::new();
                 teaching_list.retain(|t| {
-                    t.error_code.as_ref().map_or(true, |code| {
-                        seen_teaching_codes.insert(code.clone())
-                    })
+                    t.error_code
+                        .as_ref()
+                        .map_or(true, |code| seen_teaching_codes.insert(code.clone()))
                 });
                 for teaching in &mut teaching_list {
                     teaching.locations.iter_mut().for_each(|loc| {
@@ -335,8 +340,11 @@ fn main() -> anyhow::Result<()> {
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack, Some(&file))?;
             let macro_map = manager.get_macro_map();
-            let mut english_code =
-                lexer::transpile_source_with_macro_map(&source, manager.get_keyword_map(), &macro_map);
+            let mut english_code = lexer::transpile_source_with_macro_map(
+                &source,
+                manager.get_keyword_map(),
+                &macro_map,
+            );
             if !manager.module_path_map.is_empty() {
                 english_code = i18n_rust_engine::module_path::replace_module_paths(
                     &english_code,
@@ -351,7 +359,10 @@ fn main() -> anyhow::Result<()> {
             }
             let output_path = file.with_extension("rs");
             fs::write(&output_path, english_code)?;
-            println!("{}", ui.f("exported_to", &[&output_path.display().to_string()]));
+            println!(
+                "{}",
+                ui.f("exported_to", &[&output_path.display().to_string()])
+            );
             Ok(())
         }
         CliCommand::Lang { subcommand } => handle_lang_command(subcommand),
@@ -420,7 +431,10 @@ fn handle_lang_command(subcommand: LangCommand) -> anyhow::Result<()> {
             }
             println!(
                 "{}",
-                ui.f("global_lang_dir", &[&lang_manager::global_lang_dir().display().to_string()])
+                ui.f(
+                    "global_lang_dir",
+                    &[&lang_manager::global_lang_dir().display().to_string()]
+                )
             );
             Ok(())
         }
@@ -454,9 +468,8 @@ fn find_project_root(file: &Path) -> anyhow::Result<PathBuf> {
             break;
         }
     }
-    std::env::current_dir().map_err(|e| {
-        anyhow::anyhow!("{}", ui::Ui::global().f("cli_err_cwd", &[&e.to_string()]))
-    })
+    std::env::current_dir()
+        .map_err(|e| anyhow::anyhow!("{}", ui::Ui::global().f("cli_err_cwd", &[&e.to_string()])))
 }
 
 fn get_chinese_source_line(source: &str, line_num: u32) -> Option<String> {
@@ -537,14 +550,19 @@ fn load_mapping(
     // 3. 如果项目根目录存在 lang-packs/<lang>/ 目录，优先使用（自定义覆盖）
     let local_path = PathBuf::from(format!("lang-packs/{}", lang_code));
     if local_path.exists() {
-        return MappingManager::load_from_dir(&local_path)
-            .map_err(|e| anyhow::anyhow!("{}", ui.f("load_local_lang_pack_failed", &[&e.to_string()])));
+        return MappingManager::load_from_dir(&local_path).map_err(|e| {
+            anyhow::anyhow!("{}", ui.f("load_local_lang_pack_failed", &[&e.to_string()]))
+        });
     }
     // 4. 全局用户语言包目录
     let global_path = lang_manager::global_lang_dir().join(&lang_code);
     if global_path.exists() {
-        return MappingManager::load_from_dir(&global_path)
-            .map_err(|e| anyhow::anyhow!("{}", ui.f("load_global_lang_pack_failed", &[&e.to_string()])));
+        return MappingManager::load_from_dir(&global_path).map_err(|e| {
+            anyhow::anyhow!(
+                "{}",
+                ui.f("load_global_lang_pack_failed", &[&e.to_string()])
+            )
+        });
     }
     // 5. 回退到内置语言包（未内置的语言提示用户安装，避免静默使用中文）
     if !builtin_lang::has_builtin_lang(&lang_code) {
@@ -560,7 +578,12 @@ fn load_mapping(
         builtin.stdlib_toml,
         builtin.crates_data,
     )
-    .map_err(|e| anyhow::anyhow!("{}", ui.f("load_builtin_lang_pack_failed", &[&e.to_string()])))
+    .map_err(|e| {
+        anyhow::anyhow!(
+            "{}",
+            ui.f("load_builtin_lang_pack_failed", &[&e.to_string()])
+        )
+    })
 }
 
 /// 根据源文件与 --lang-pack 参数选择界面消息语言

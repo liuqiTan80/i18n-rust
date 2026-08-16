@@ -274,3 +274,8 @@
 "mg_cmd_build_deps" = "依存関係をコンパイル中"
 "lsp_err_load_keywords" = "Failed to load keywords: {}"
 "lsp_warn_builtin_fallback" = "No language pack file found, using built-in keyword mapping"
+"lsp_err_ra_init_timeout" = "rust-analyzer の initialize 応答がタイムアウトしたため、起動を中止します"
+"lsp_err_handle_request" = "クライアントリクエストの処理に失敗しました: {}"
+"lsp_err_handle_notification" = "クライアント通知の処理に失敗しました: {}"
+"lsp_warn_request_timeout" = "転送リクエストがタイムアウトしました: rust-analyzer が応答しませんでした"
+"lsp_err_temp_symlink" = "一時ディレクトリがシンボリックリンクのため、安全のため使用を拒否します: {}"
