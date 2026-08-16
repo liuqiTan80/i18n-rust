@@ -1,6 +1,6 @@
 [package]
 name = "i18n-rust-lsp"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "LSP 代理服务器：将方言 Rust 代码翻译为标准 Rust 后交给 rust-analyzer"
 license = "MIT"

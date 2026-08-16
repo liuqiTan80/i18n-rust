@@ -1,8 +1,8 @@
 {
   "name": "i18n-rust",
   "displayName": "i18n-rust - Write Rust in Any Language",
-  "description": "使用中文编写 Rust 代码，支持语法高亮、智能补全和错误提示",
-  "version": "0.1.0",
+  "description": "Write Rust code in your native language, with support for syntax highlighting, intelligent code completion, and error hints.",
+  "version": "0.2.0",
   "publisher": "i18n-rust",
   "license": "MIT",
   "repository": {
