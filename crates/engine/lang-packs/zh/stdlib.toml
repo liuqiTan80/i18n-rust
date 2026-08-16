@@ -452,6 +452,7 @@
 "从毫秒" = "from_millis"
 "从微秒" = "from_micros"
 "从纳秒" = "from_nanos"
+"现在" = "now"
 "总秒数" = "as_secs"
 "总毫秒数" = "as_millis"
 "总微秒数" = "as_micros"
@@ -633,6 +634,8 @@
 # --------------------------------------------
 "转字符串" = "to_string"
 "克隆" = "clone"
+"比较" = "cmp"
+
 "接收" = "recv"
 "加锁" = "lock"
 "解析" = "parse"

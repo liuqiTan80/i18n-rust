@@ -141,3 +141,4 @@
 "编译环境" = "env"
 "选项环境" = "option_env"
 "配置" = "cfg"
+"宏规则" = "macro_rules"
