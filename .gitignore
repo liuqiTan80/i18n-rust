@@ -21,4 +21,7 @@ Thumbs.db
 .release-tmp-*/
 
 # VS Code 扩展打包产物
+
+# 发布产物目录（CI 产物不应提交进仓库，避免旧产物混入 Release）
+/release/
 tools/vscode-extension/release/
