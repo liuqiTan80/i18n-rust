@@ -1092,7 +1092,7 @@ fn load_language_pack(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     /// 默认扩展名列表覆盖全部 11 个内置语言包，未知扩展名不匹配
     #[test]

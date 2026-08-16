@@ -1086,7 +1086,7 @@ mod tests {
     fn test_map_document_highlight_response() {
         let (cache, _temp) = create_test_cache();
         let mapper = ResponseMapper::new(cache.clone());
-        let (entry, _) = cache
+        let (_entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;\n让 y = x;", 1)
             .unwrap();
 
