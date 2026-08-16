@@ -122,7 +122,10 @@ jobs:
 
       - name: 打包 .vsix
         working-directory: tools/vscode-extension
-        run: npx --yes @vscode/vsce package --out ../../release/ --baseContentUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/ --baseImagesUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/
+        # release/ 目录已加入 .gitignore（不再被 git 跟踪），checkout 后不存在，需先创建
+        run: |
+          mkdir -p ../../release/
+          npx --yes @vscode/vsce package --out ../../release/ --baseContentUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/ --baseImagesUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/
 
       - name: 上传扩展包产物
         uses: actions/upload-artifact@v4
