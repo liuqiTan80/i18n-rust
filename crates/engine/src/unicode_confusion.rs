@@ -221,9 +221,12 @@ fn homoglyph_char(ch: char) -> Option<(char, &'static str)> {
 mod tests {
     use super::*;
 
-    /// 确保全局语言为 zh（unicode 字符名仅 zh 语言包提供中文映射）
-    fn ensure_zh() {
+    /// 获取全局语言测试锁并确保 zh（unicode 字符名仅 zh 语言包提供中文映射；
+    /// 持锁防止 test_set_language_de 并行执行污染全局语言导致 flaky）
+    fn zh_guard() -> std::sync::MutexGuard<'static, ()> {
+        let guard = crate::语言::LANG_TEST_LOCK.lock().unwrap();
         crate::语言::set_language("zh");
+        guard
     }
 
     #[test]
@@ -234,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_zero_width_space_detection_and_position() {
-        ensure_zh();
+        let _guard = zh_guard();
         let source = "函数 主函数() {\n\u{200B}让 x = 1;\n}";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 1);
@@ -271,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_bidi_text_controls() {
-        ensure_zh();
+        let _guard = zh_guard();
         let source = "// 注释 \u{202E} 反转显示\n让 x = \u{202A}1\u{202C};";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 3);
@@ -287,7 +290,7 @@ mod tests {
 
     #[test]
     fn test_bidi_isolates() {
-        ensure_zh();
+        let _guard = zh_guard();
         let source = "让 x = \u{2066}1\u{2069};";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 2);
@@ -297,7 +300,7 @@ mod tests {
 
     #[test]
     fn test_cyrillic_homoglyph() {
-        ensure_zh();
+        let _guard = zh_guard();
         let source = "让 а = 1;";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 1);
@@ -312,7 +315,7 @@ mod tests {
 
     #[test]
     fn test_greek_homoglyph() {
-        ensure_zh();
+        let _guard = zh_guard();
         let source = "函数 主函数() { 让 ρ = 1; }";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 1);
@@ -331,7 +334,7 @@ mod tests {
 
     #[test]
     fn test_warning_format_output() {
-        ensure_zh();
+        let _guard = zh_guard();
         let warning = ConfusionWarning {
             line: 2,
             column: 5,

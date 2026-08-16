@@ -1,6 +1,7 @@
 // 界面消息本地化模块（LSP 独立实现，不依赖 cli crate）
 //
-// 每个语言包的 ui.toml 提供 ["界面消息"] 节，内含 LSP 帮助与错误提示。
+// 每个语言包的 ui.toml 提供 ["界面消息"] 节，内含 LSP 帮助与错误提示；
+// 可选提供 ["解释"] 节，内含方法/函数的大白话使用提示（键为符号路径）。
 // 占位符 `{}` 在运行时按出现顺序替换为具体参数。
 //
 // 加载优先级：
@@ -36,25 +37,38 @@ pub fn global() -> &'static Ui {
 pub struct Ui {
     /// 消息模板（键 → 含 `{}` 占位符的模板）
     messages: HashMap<String, String>,
+    /// 大白话解释表（["解释"] 节，键 = 符号路径/方法名，如 "Option::unwrap"）
+    explanations: HashMap<String, String>,
 }
 
 // 内置 ui.toml 由引擎 crate 编译期嵌入（避免发布打包时 include_str! 路径失效），
 // 经 [`builtin_ui`] 按语言代码获取，保证任意语言包目录名都能得到对应提示语
 
 impl Ui {
-    /// 从 TOML 内容构造消息表（["界面消息"] 节）
+    /// 从 TOML 内容构造消息表（["界面消息"] + ["解释"] 节）
     fn from_toml(content: &str) -> Self {
         let mut messages = HashMap::new();
-        if let Ok(value) = toml::from_str::<toml::Value>(content)
-            && let Some(table) = value.get("界面消息").and_then(|v| v.as_table())
-        {
-            for (key, val) in table {
-                if let Some(text) = val.as_str() {
-                    messages.insert(key.clone(), text.to_string());
+        let mut explanations = HashMap::new();
+        if let Ok(value) = toml::from_str::<toml::Value>(content) {
+            if let Some(table) = value.get("界面消息").and_then(|v| v.as_table()) {
+                for (key, val) in table {
+                    if let Some(text) = val.as_str() {
+                        messages.insert(key.clone(), text.to_string());
+                    }
+                }
+            }
+            if let Some(table) = value.get("解释").and_then(|v| v.as_table()) {
+                for (key, val) in table {
+                    if let Some(text) = val.as_str() {
+                        explanations.insert(key.clone(), text.to_string());
+                    }
                 }
             }
         }
-        Ui { messages }
+        Ui {
+            messages,
+            explanations,
+        }
     }
 
     /// 按加载优先级获取界面消息
@@ -107,6 +121,11 @@ impl Ui {
     pub fn f(&self, key: &str, args: &[&str]) -> String {
         substitute(&self.t(key), args)
     }
+
+    /// 取大白话解释（缺失返回 None，调用方保持原样回退）
+    pub fn explanation(&self, key: &str) -> Option<&str> {
+        self.explanations.get(key).map(String::as_str)
+    }
 }
 
 /// 语言代码 → 内置 ui.toml（数据由引擎 crate 编译期嵌入）
@@ -154,6 +173,23 @@ mod tests {
         assert_eq!(substitute("未知参数: {}", &["x"]), "未知参数: x");
         assert_eq!(substitute("{} 和 {}", &["a"]), "a 和 {}");
         assert_eq!(substitute("无", &[]), "无");
+    }
+
+    #[test]
+    fn test_from_toml_parses_explanations() {
+        let ui = Ui::from_toml(
+            "[\"界面消息\"]\n\"a\" = \"b\"\n[\"解释\"]\n\"Option::unwrap\" = \"直接取出值，出错就崩溃\"\n\"tokio::spawn\" = \"后台任务\"\n",
+        );
+        assert_eq!(
+            ui.explanation("Option::unwrap"),
+            Some("直接取出值，出错就崩溃")
+        );
+        assert_eq!(ui.explanation("tokio::spawn"), Some("后台任务"));
+        assert_eq!(ui.explanation("不存在的键"), None);
+        // 只有 ["解释"] 没有 ["界面消息"] 时也能工作
+        let only_expl = Ui::from_toml("[\"解释\"]\n\"Vec::push\" = \"末尾追加\"\n");
+        assert_eq!(only_expl.explanation("Vec::push"), Some("末尾追加"));
+        assert_eq!(only_expl.t("lsp_about"), "lsp_about");
     }
 
     #[test]

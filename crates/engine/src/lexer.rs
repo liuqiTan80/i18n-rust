@@ -469,7 +469,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn test_macro_map_overrides_type_value() {
         // 模拟真实语言包：宏名同时出现在类型节与宏节（如 向量→Vec 与 向量→vec），
         // keyword_map 被类型节覆盖为 Vec，宏映射应保证宏调用输出 vec!

@@ -14,6 +14,11 @@ use std::sync::{LazyLock, Mutex};
 /// 全局语言代码（默认 zh，由 CLI/LSP 启动时设置；可重复设置以便测试恢复）
 static CURRENT_LANG: Mutex<String> = Mutex::new(String::new());
 
+#[cfg(test)]
+/// 测试级互斥锁：串行化所有修改全局语言或断言语言相关文本的测试，
+/// 防止 test_set_language_de 等并行执行时把 CURRENT_LANG 污染为其他语言
+pub(crate) static LANG_TEST_LOCK: Mutex<()> = Mutex::new(());
+
 /// 设置全局语言代码
 pub fn set_language(code: &str) {
     *CURRENT_LANG.lock().unwrap() = code.to_string();
@@ -225,6 +230,7 @@ mod tests {
 
     #[test]
     fn test_default_zh() {
+        let _guard = LANG_TEST_LOCK.lock().unwrap();
         set_language("zh");
         assert_eq!(current_language(), "zh");
         assert_eq!(t_in("zh", "err_line_col"), "第 {} 行第 {} 列");
@@ -233,6 +239,7 @@ mod tests {
 
     #[test]
     fn test_set_language_de() {
+        let _guard = LANG_TEST_LOCK.lock().unwrap();
         set_language("de");
         assert_eq!(current_language(), "de");
         // 纯函数按语言取模板，不受全局状态干扰
@@ -243,6 +250,7 @@ mod tests {
 
     #[test]
     fn test_fallback_chain() {
+        let _guard = LANG_TEST_LOCK.lock().unwrap();
         // 德语表缺 unicode_name_*（仅 zh 提供），回退中文表
         assert_eq!(t_in("de", "unicode_name_200B"), "零宽空格");
         // 完全缺失的键回退键名

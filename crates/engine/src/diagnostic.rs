@@ -802,6 +802,7 @@ mod tests {
     /// 应回退提取并翻译 rustc 字面量占位符 `{integer}`
     #[test]
     fn test_translate_e0369_no_label_fallback_to_message() {
+        let _guard = crate::语言::LANG_TEST_LOCK.lock().unwrap();
         let toml_content = r#"
 [E0369]
 "消息模板" = "类型不匹配：无法对 `{期望}` 和 `{实际}` 执行运算"
@@ -1010,6 +1011,7 @@ mod tests {
 
     #[test]
     fn test_translate_diagnostic_with_ownership_details_and_narrative() {
+        let _guard = crate::语言::LANG_TEST_LOCK.lock().unwrap();
         let toml_content = r#"
 [E0382]
 "消息模板" = "值在移动后被使用：`{变量名}`"

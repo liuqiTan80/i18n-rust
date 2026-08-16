@@ -266,14 +266,85 @@ impl ResponseMapper {
 
     /// 映射悬停响应中的位置信息
     ///
-    /// 悬停响应的 contents 是文本/markdown，不需要映射，
-    /// 但 range 字段需要映射回原始文件位置。
+    /// range 字段映射回原始文件位置；contents 命中语言包 ["解释"] 表时
+    /// 在文档上方插入一行加粗大白话提示（未命中保持原样透传）。
     pub fn map_hover_response(&self, response: &Value, original_uri: &str) -> Value {
         let mut result = response.clone();
         if let Some(range) = response.get("range") {
             result["range"] = self.restore_range(original_uri, range);
         }
+        if let Some(contents) = response.get("contents") {
+            result["contents"] = self.enrich_hover_contents(contents);
+        }
         result
+    }
+
+    /// 给 hover contents 前置大白话提示（MarkupContent / MarkedString / 数组）
+    fn enrich_hover_contents(&self, contents: &Value) -> Value {
+        match contents {
+            // MarkupContent：{"kind": "markdown", "value": ...}
+            // MarkedString：{"language": "rust", "value": ...}
+            Value::Object(obj)
+                if obj.get("kind").and_then(|k| k.as_str()) == Some("markdown")
+                    || (obj.get("language").is_some()
+                        && obj.get("value").and_then(|v| v.as_str()).is_some()) =>
+            {
+                if let Some(value) = obj.get("value").and_then(|v| v.as_str()) {
+                    let mut mapped = obj.clone();
+                    mapped["value"] = Value::String(self.prepend_if_hit(value));
+                    Value::Object(mapped)
+                } else {
+                    contents.clone()
+                }
+            }
+            Value::String(text) => Value::String(self.prepend_if_hit(text)),
+            Value::Array(items) => Value::Array(
+                items
+                    .iter()
+                    .map(|it| self.enrich_hover_contents(it))
+                    .collect(),
+            ),
+            _ => contents.clone(),
+        }
+    }
+
+    /// 命中解释表时在文档上方插入加粗大白话行，否则原样返回
+    fn prepend_if_hit(&self, doc: &str) -> String {
+        match self.lookup_explanation(doc) {
+            Some(hint) => format!("**大白话：{}**\n\n{}", hint, doc),
+            None => doc.to_string(),
+        }
+    }
+
+    /// 从 hover 文档提取候选解释键并查表（完整路径 → 类型::方法 → 方法名）
+    fn lookup_explanation(&self, doc: &str) -> Option<String> {
+        let (type_name, code_line) = extract_hover_parts(doc);
+        let mut keys: Vec<String> = Vec::new();
+        if let Some(line) = code_line {
+            // 1. 完整路径形式（如 std::option::Option<T>::unwrap），清洗泛型参数
+            if line.contains("::") && !line.contains("fn ") {
+                let cleaned = clean_path_segments(&line);
+                if cleaned.len() >= 2 {
+                    keys.push(cleaned.join("::"));
+                    // 降级匹配末两段（如 Option::unwrap），兼容短路径键数据
+                    if cleaned.len() > 2 {
+                        keys.push(cleaned[cleaned.len() - 2..].join("::"));
+                    }
+                }
+            }
+            // 2. 类型::方法（短路径，如 Option::unwrap）+ 3. 方法名兜底
+            if let Some(name) = extract_fn_name(&line) {
+                if let Some(ty) = &type_name {
+                    keys.push(format!("{}::{}", ty, name));
+                }
+                if !keys.iter().any(|k| k == &name) {
+                    keys.push(name);
+                }
+            }
+        }
+        let ui = crate::ui::global();
+        keys.iter()
+            .find_map(|k| ui.explanation(k).map(str::to_string))
     }
 
     /// 映射引用响应
@@ -508,6 +579,115 @@ impl ResponseMapper {
             .unwrap_or_default();
         Value::Array(mapped)
     }
+}
+
+/// 判断字符串是否为合法 Rust 标识符片段（方法名/类型名，不含泛型）
+fn is_ident(name: &str) -> bool {
+    let mut chars = name.chars();
+    matches!(chars.next(), Some(c) if c == '_' || c.is_alphabetic())
+        && chars.all(|c| c == '_' || c.is_alphanumeric())
+}
+
+/// 从 hover 文档提取标题类型名与代码块首行
+///
+/// - 标题行：`**impl<T> Option<T>**` / `` **`Option<T>`** `` → 类型名 `Option`
+/// - 代码行：第一个 ``` 代码块内的首个非空行（通常为签名或完整路径）
+fn extract_hover_parts(doc: &str) -> (Option<String>, Option<String>) {
+    let mut type_name = None;
+    let mut code_line = None;
+    let lines: Vec<&str> = doc.lines().collect();
+    for (i, line) in lines.iter().enumerate() {
+        let t = line.trim();
+        if type_name.is_none() && t.starts_with("**") && t.ends_with("**") {
+            let mut inner = t[2..t.len() - 2].replace('`', "");
+            inner = inner.trim().to_string();
+            let name = if let Some(rest) = inner.strip_prefix("impl") {
+                // impl<...> X<...> for Y / impl str：跳过泛型段后取第一个标识符
+                let mut rest = rest.trim();
+                while rest.starts_with('<') {
+                    let end = rest.find('>').map(|p| p + 1).unwrap_or(rest.len());
+                    rest = &rest[end..];
+                }
+                rest.split('<').next().unwrap_or("").trim().to_string()
+            } else {
+                // **`Option<T>`** → Option
+                inner.split('<').next().unwrap_or("").trim().to_string()
+            };
+            if is_ident(&name) {
+                type_name = Some(name);
+            }
+        }
+        if code_line.is_none() && t.starts_with("```") {
+            for l in lines.iter().skip(i + 1) {
+                let lt = l.trim();
+                if lt.is_empty() {
+                    continue;
+                }
+                if lt.starts_with("```") {
+                    break;
+                }
+                code_line = Some(lt.to_string());
+                break;
+            }
+        }
+        if code_line.is_some() {
+            break;
+        }
+    }
+    // MarkedString 纯代码形态（无 ``` 围栏）：整段文本当作代码行
+    if code_line.is_none() && !doc.lines().any(|l| l.trim().starts_with("```")) {
+        let t = doc.trim();
+        if !t.is_empty() {
+            code_line = Some(t.to_string());
+        }
+    }
+    (type_name, code_line)
+}
+
+/// 把完整路径行清洗为段列表（去掉泛型参数与空白）
+///
+/// `std::option::Option<T>::unwrap` → [std, option, Option, unwrap]
+fn clean_path_segments(line: &str) -> Vec<String> {
+    line.split("::")
+        .map(|seg| seg.split('<').next().unwrap_or("").trim())
+        .filter(|s| !s.is_empty())
+        .filter(|s| is_ident(s))
+        .map(str::to_string)
+        .collect()
+}
+
+/// 从代码行提取方法名：路径末段（`a::b::c`）、签名（`fn name<...>(`）或宏（`macro_rules! name`）
+fn extract_fn_name(code_line: &str) -> Option<String> {
+    let line = code_line.trim();
+    if line.contains("::") {
+        if let Some(last) = line.rsplit("::").next() {
+            let name = last.split(['(', '<', ' ']).next().unwrap_or("").trim();
+            if is_ident(name) {
+                return Some(name.to_string());
+            }
+        }
+        return None;
+    }
+    if let Some(idx) = line.find("fn ") {
+        let after = &line[idx + 3..];
+        let name = after.split(['(', '<', ' ']).next().unwrap_or("").trim();
+        if is_ident(name) {
+            return Some(name.to_string());
+        }
+    }
+    // 宏形式：macro_rules! select
+    if let Some(idx) = line.find("macro_rules!") {
+        let after = &line[idx + 12..];
+        let name = after
+            .split(['(', '<', ' ', '!'])
+            .next()
+            .unwrap_or("")
+            .trim();
+        if is_ident(name) {
+            return Some(name.to_string());
+        }
+    }
+    None
 }
 
 /// 根据翻译条目的行映射还原行号
@@ -1106,6 +1286,81 @@ mod tests {
             mapper.map_document_highlight_response(&Value::Null, ""),
             Value::Array(Vec::new())
         );
+    }
+
+    /// hover 命中解释表：完整路径降级匹配短路径键（std::option::Option<T>::unwrap）
+    #[test]
+    fn test_map_hover_response_full_path_hit() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let doc =
+            "```rust\nstd::option::Option<T>::unwrap\n```\n\nPanics if the value is a [`None`]...";
+        let response = json!({"contents": {"kind": "markdown", "value": doc}});
+        let mapped = mapper.map_hover_response(&response, "file:///test/main.zh");
+        let value = mapped["contents"]["value"].as_str().unwrap();
+        assert!(value.starts_with("**大白话："), "应插入加粗提示: {value}");
+        assert!(
+            value.contains("直接取出"),
+            "解释应为 unwrap 的大白话: {value}"
+        );
+        assert!(value.ends_with(doc), "原文应保留在提示之后: {value}");
+    }
+
+    /// hover 命中解释表：impl 标题 + 签名行 → 短路径键（Option::unwrap）
+    #[test]
+    fn test_map_hover_response_impl_title_hit() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let doc = "**`impl<T> Option<T>`**\n\n```rust\npub fn unwrap(self) -> T\n```\n\nPanics if the value is a None...";
+        let response = json!({"contents": {"kind": "markdown", "value": doc}});
+        let mapped = mapper.map_hover_response(&response, "file:///test/main.zh");
+        let value = mapped["contents"]["value"].as_str().unwrap();
+        assert!(value.starts_with("**大白话："), "应插入加粗提示: {value}");
+        assert!(value.ends_with(doc));
+    }
+
+    /// hover 未命中解释表：原样透传，不改变任何内容
+    #[test]
+    fn test_map_hover_response_miss_unchanged() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let doc = "```rust\npub fn 自定义函数(x: i32) -> i32\n```\n\n自定义函数说明";
+        let response = json!({"contents": {"kind": "markdown", "value": doc}});
+        let mapped = mapper.map_hover_response(&response, "file:///test/main.zh");
+        assert_eq!(mapped["contents"]["value"].as_str().unwrap(), doc);
+    }
+
+    /// hover MarkedString 数组形式：简单键命中（clone），其余元素原样
+    #[test]
+    fn test_map_hover_response_marked_string_array_hit() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let response = json!({
+            "contents": [
+                {"language": "rust", "value": "pub fn clone(&self) -> Self"},
+                {"kind": "markdown", "value": "Returns a copy of the value."}
+            ]
+        });
+        let mapped = mapper.map_hover_response(&response, "file:///test/main.zh");
+        assert!(
+            mapped["contents"][0]["value"]
+                .as_str()
+                .unwrap()
+                .starts_with("**大白话：")
+        );
+        assert_eq!(
+            mapped["contents"][1]["value"].as_str().unwrap(),
+            "Returns a copy of the value."
+        );
+    }
+
+    /// hover 内容为 null 等异常形态时安全透传
+    #[test]
+    fn test_map_hover_response_null_contents() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let mapped = mapper.map_hover_response(&json!({"contents": null}), "");
+        assert!(mapped["contents"].is_null());
     }
 
     /// 补全响应的 textEdit.newText 反向翻译、additionalTextEdits 位置还原
