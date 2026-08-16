@@ -53,7 +53,8 @@ jobs:
         run: cargo clippy --workspace --all-targets
 
       - name: 验证 mapping auto 帮助文本
-        run: cargo run --quiet -- mapping auto --help | grep -q "crate"
+        # 工作区含 rzc 与 i18n-rust-lsp 两个二进制，必须用 --bin 指定
+        run: cargo run --quiet --bin rzc -- mapping auto --help | grep -q "crate"
 
   # ---------- 2. 三平台 release 二进制构建 ----------
   build:

@@ -18,8 +18,12 @@
 #
 # 说明：
 #   - GitCode CI 兼容 GitHub Actions 语法，本文件可直接使用；
-#   - 若平台不提供 softprops/action-gh-release，可将 Release 上传
-#     步骤替换为 GitCode 文档推荐的发布方式；
+#   - Release 通过 GitCode 开放 API（OpenAPI v5）发布，产物落在
+#     https://gitcode.com/tan80/zrRust/releases ——与 README 中
+#     "从 Releases 下载"的引导一致，无歧义；
+#   - 需在仓库 Settings → Secrets and variables → Actions 配置
+#     GITCODE_TOKEN（GitCode 头像 → 设置 → 私人令牌，需 releases 权限）；
+#   - GitHub 镜像仓库（liuqiTan80/i18n-rust）如需发布，可另配工作流。
 #   - crates.io 发布顺序固定为 i18n-rust-engine → i18n-rust-lsp → rzc：
 #     rzc 与 i18n-rust-lsp 依赖核心引擎，必须先发布依赖。
 # =============================================================
@@ -202,11 +206,40 @@ jobs:
       - name: 查看产物列表
         run: ls -lh artifacts/
 
-      - name: 创建/更新 Release 并上传附件
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/*
-          generate_release_notes: true
+      # 发布到 GitCode Releases（与 README 下载引导一致）：
+      # GitCode 开放 API 与 Gitee OpenAPI v5 兼容，创建 Release 后
+      # 逐个上传附件（三平台离线包 + vsix）。
+      - name: 创建 GitCode Release 并上传附件
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: |
+          set -e
+          API="https://api.gitcode.com/api/v5/repos/tan80/zrRust"
+          AUTH="Authorization: token ${GITCODE_TOKEN}"
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+
+          # 1) 按 tag 查找已存在的 Release，不存在则创建
+          RESP="$(curl -s -H "$AUTH" "$API/releases/tags/$TAG?access_token=${GITCODE_TOKEN}")"
+          RELEASE_ID="$(echo "$RESP" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)"
+          if [ -z "$RELEASE_ID" ]; then
+            RESP="$(curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
+              -d "{\"tag_name\":\"$TAG\",\"name\":\"rzc $VERSION\",\"body\":\"i18n-rust $VERSION 发布产物：三平台离线包与 VS Code 扩展\",\"prerelease\":false}" \
+              "$API/releases?access_token=${GITCODE_TOKEN}")"
+            RELEASE_ID="$(echo "$RESP" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)"
+          fi
+          [ -n "$RELEASE_ID" ] || { echo "创建 Release 失败：$RESP"; exit 1; }
+          echo "Release ID: $RELEASE_ID"
+
+          # 2) 上传全部附件（离线包 + vsix）
+          for f in artifacts/*; do
+            [ -f "$f" ] || continue
+            echo "上传附件：$f"
+            curl -s -X POST -H "$AUTH" -F "access_token=${GITCODE_TOKEN}" -F "file=@$f" \
+              "$API/releases/$RELEASE_ID/attach_files"
+            echo
+          done
+          ls -lh artifacts/
 
   # ---------- 发布 crates.io（需配置 CARGO_REGISTRY_TOKEN 密钥） ----------
   crates:
