@@ -242,12 +242,16 @@ jobs:
           ls -lh artifacts/
 
   # ---------- 发布 crates.io（需配置 CARGO_REGISTRY_TOKEN 密钥） ----------
+  # 注意：if 条件中不可引用 secrets 上下文（GitHub Actions 限制），
+  # 故用 job 级 env 注入令牌，发布步骤以 env 非空判断是否执行。
   crates:
     name: 发布 crates.io
     needs: package
-    # tag 触发且已配置密钥时自动发布；手动触发需勾选"发布到 crates.io"
-    if: (github.event_name == 'workflow_dispatch' && inputs.publish_crates) || (startsWith(github.ref, 'refs/tags/') && secrets.CARGO_REGISTRY_TOKEN != '')
+    # tag 触发时自动发布；手动触发需勾选"发布到 crates.io"
+    if: (github.event_name == 'workflow_dispatch' && inputs.publish_crates) || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -255,15 +259,20 @@ jobs:
       - name: 安装 Rust 工具链
         uses: dtolnay/rust-toolchain@stable
 
-      - name: 登录 crates.io
-        run: cargo login "${{ secrets.CARGO_REGISTRY_TOKEN }}"
+      - name: 登录 crates.io（未配置令牌时跳过）
+        if: env.CARGO_REGISTRY_TOKEN != ''
+        run: cargo login "$CARGO_REGISTRY_TOKEN"
 
-      # 发布顺序依赖：引擎库 → LSP 代理 → 命令行工具
+      # 发布顺序依赖：引擎库 → LSP 代理 → 命令行工具；
+      # 未配置 CARGO_REGISTRY_TOKEN 时全部跳过（不阻塞其他 job）
       - name: 发布核心引擎库 i18n-rust-engine
+        if: env.CARGO_REGISTRY_TOKEN != ''
         run: cargo publish -p i18n-rust-engine
 
       - name: 发布 LSP 代理 i18n-rust-lsp
+        if: env.CARGO_REGISTRY_TOKEN != ''
         run: cargo publish -p i18n-rust-lsp
 
       - name: 发布命令行工具 rzc
+        if: env.CARGO_REGISTRY_TOKEN != ''
         run: cargo publish -p rzc
