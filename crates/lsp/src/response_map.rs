@@ -199,14 +199,27 @@ impl ResponseMapper {
                         self.map_edit_list(extra_edits, original_uri, true);
                 }
 
-                // 3. 将英文 label 反向映射为中文
-                if let Some(label) = item.get("label").and_then(|v| v.as_str())
-                    && let Some(zh_name) = self.reverse_lookup(label)
-                {
-                    mapped["label"] = Value::String(zh_name);
+                // 3. label：先精确反查（关键字等），未命中则词法级转译
+                //    （标准库 API 如 Vec::new / println! 也能还原为母语）
+                if let Some(label) = item.get("label").and_then(|v| v.as_str()) {
+                    let mapped_label = self
+                        .reverse_lookup(label)
+                        .unwrap_or_else(|| self.translate_code(label));
+                    mapped["label"] = Value::String(mapped_label);
                 }
 
-                // 4. 反向映射 insertText（可能含 snippet 占位符，仅精确匹配时替换）
+                // 4. detail（类型签名）：词法级转译，如 fn push(...) → 函数 推入(...)
+                if let Some(detail) = item.get("detail").and_then(|v| v.as_str()) {
+                    mapped["detail"] = Value::String(self.translate_code(detail));
+                }
+
+                // 5. documentation：命中解释表（大白话）时替换为中文，
+                //    未命中保留英文原文（避免丢失签名等关键信息）
+                if let Some(doc) = item.get("documentation") {
+                    mapped["documentation"] = self.translate_completion_doc(item, doc);
+                }
+
+                // 6. 反向映射 insertText（可能含 snippet 占位符，仅精确匹配时替换）
                 if let Some(insert_text) = item.get("insertText").and_then(|v| v.as_str())
                     && let Some(zh_name) = self.reverse_lookup(insert_text)
                 {
@@ -219,6 +232,37 @@ impl ResponseMapper {
         }
 
         result
+    }
+
+    /// 补全文档（documentation）：优先用中文解释表替换英文文档
+    ///
+    /// 查键顺序：从文档解析类型::方法（如 Option::unwrap）→ label 直查
+    /// → 方法名兜底；全部未命中时保留英文原文。
+    fn translate_completion_doc(&self, item: &Value, doc: &Value) -> Value {
+        let doc_text = match doc {
+            Value::String(s) => Some(s.as_str()),
+            Value::Object(obj) => obj.get("value").and_then(|v| v.as_str()),
+            _ => None,
+        };
+        if let Some(text) = doc_text
+            && let Some(explain) = self.lookup_explanation(text)
+        {
+            return Value::String(explain);
+        }
+        // label 直查 + 方法名兜底
+        let ui = crate::ui::global();
+        if let Some(label) = item.get("label").and_then(|v| v.as_str())
+            && let Some(explain) = ui.explanation(label)
+        {
+            return Value::String(explain.to_string());
+        }
+        if let Some(text) = doc_text
+            && let Some(name) = extract_fn_name(text)
+            && let Some(explain) = ui.explanation(&name)
+        {
+            return Value::String(explain.to_string());
+        }
+        doc.clone()
     }
 
     /// 映射文档高亮响应（DocumentHighlight[]：range + kind）
@@ -432,6 +476,24 @@ impl ResponseMapper {
                 Value::Array(mapped_actions)
             }
             Value::Null => Value::Array(Vec::new()),
+            _ => response.clone(),
+        }
+    }
+
+    /// 映射代码操作解析（codeAction/resolve）响应
+    ///
+    /// resolve 响应是单个 CodeAction 对象（非数组）：VSCode 点击操作后
+    /// 解析懒加载的 edit。若不映射，edit 的 uri 是虚拟路径，
+    /// VSCode 无法应用编辑（报 Request textDocument/codeAction failed）。
+    pub fn map_code_action_resolve_response(&self, response: &Value) -> Value {
+        match response {
+            Value::Object(_) => {
+                let mut mapped = response.clone();
+                if let Some(edit) = response.get("edit") {
+                    mapped["edit"] = self.map_edit(edit, true);
+                }
+                mapped
+            }
             _ => response.clone(),
         }
     }
@@ -1124,6 +1186,59 @@ mod tests {
         assert_eq!(
             mapper.map_code_action_response(&Value::Null, ""),
             Value::Array(Vec::new())
+        );
+    }
+
+    #[test]
+    fn test_map_code_action_resolve_response() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;", 1)
+            .unwrap();
+
+        // resolve 响应是单个 CodeAction 对象（非数组），edit 走 documentChanges
+        let response = json!({
+            "title": "改为 pub(crate)",
+            "kind": "refactor.rewrite",
+            "data": { "id": 1 },
+            "edit": {
+                "documentChanges": [{
+                    "textDocument": { "uri": entry.virtual_uri, "version": 1 },
+                    "edits": [{
+                        "range": {
+                            "start": { "line": 0, "character": 0 },
+                            "end": { "line": 0, "character": 0 }
+                        },
+                        "newText": "pub(crate) "
+                    }]
+                }]
+            }
+        });
+
+        let mapped = mapper.map_code_action_resolve_response(&response);
+        // 虚拟 URI 必须还原为原始文件 URI（否则 VSCode 无法应用编辑）
+        assert_eq!(
+            mapped["edit"]["documentChanges"][0]["textDocument"]["uri"]
+                .as_str()
+                .unwrap(),
+            "file:///test/main.zh"
+        );
+        // 位置从虚拟坐标映射回母语坐标
+        let range = &mapped["edit"]["documentChanges"][0]["edits"][0]["range"];
+        assert_eq!(range["start"]["line"], 0);
+        assert_eq!(range["start"]["character"], 0);
+        // data 与 title 原样保留
+        assert_eq!(mapped["data"]["id"], 1);
+        assert_eq!(mapped["title"].as_str().unwrap(), "改为 pub(crate)");
+
+        // 无 edit 字段时原样返回
+        let plain = json!({"title": "仅命令", "command": {"title": "c", "command": "x"}});
+        assert_eq!(mapper.map_code_action_resolve_response(&plain), plain);
+        // null 响应原样返回
+        assert_eq!(
+            mapper.map_code_action_resolve_response(&Value::Null),
+            Value::Null
         );
     }
 

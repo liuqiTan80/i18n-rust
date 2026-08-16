@@ -750,14 +750,19 @@ fn extract_doc_json_internal(
         if let Some(pkg_name) = p.get("name").and_then(Value::as_str) {
             pkg_index.insert(pkg_name.to_string(), p.clone());
         }
-        if let Some(lib_name) = p.get("targets").and_then(Value::as_array).and_then(|ts| {
-            ts.iter().find(|t| {
-                t.get("kind")
-                    .and_then(Value::as_array)
-                    .map(|k| k.iter().any(|v| v.as_str() == Some("lib")))
-                    == Some(true)
+        if let Some(lib_name) = p
+            .get("targets")
+            .and_then(Value::as_array)
+            .and_then(|ts| {
+                ts.iter().find(|t| {
+                    t.get("kind")
+                        .and_then(Value::as_array)
+                        .map(|k| k.iter().any(|v| v.as_str() == Some("lib")))
+                        == Some(true)
+                })
             })
-        }).and_then(|t| t.get("name")).and_then(Value::as_str)
+            .and_then(|t| t.get("name"))
+            .and_then(Value::as_str)
         {
             pkg_index.insert(lib_name.to_string(), p.clone());
         }

@@ -25,6 +25,7 @@ import { createProvider, listProviders } from './ai/provider-factory';
 import { loadAIConfig, getSystemPrompt, currentLanguageName } from './ai/config-manager';
 import { AIError } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
+import { 全角符号映射, 扫描词法状态, 词法状态 } from './fullwidth-convert';
 
 /**
  * 所有受支持的方言语言 ID（对应 package.json 中注册的语言）
@@ -241,6 +242,76 @@ function 转行号(行号: any, 文档: vscode.TextDocument): number {
 }
 
 /**
+ * 判断文档中指定位置是否处于字符串或注释内
+ * （从文档开头扫描到该位置，维护 Rust 词法状态）
+ */
+function 是否在字符串或注释(文档: vscode.TextDocument, 位置: vscode.Position): boolean {
+    const 前缀 = 文档.getText(new vscode.Range(文档.positionAt(0), 位置));
+    return 扫描词法状态(前缀) !== 词法状态.代码;
+}
+
+/**
+ * 注册全角符号自动转换：
+ * 在代码区（非字符串、非注释）输入全角符号时自动替换为半角符号；
+ * 字符串与注释内的全角符号保持原样（内容可能是有意义的中文标点）。
+ * 受配置 i18n-rust.autoConvertFullWidthSymbols 控制（默认开启）。
+ */
+function 注册全角符号转换(context: vscode.ExtensionContext): void {
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeTextDocument(事件 => {
+            if (事件.contentChanges.length === 0) {
+                return;
+            }
+            const 文档 = 事件.document;
+            if (!方言语言Id.includes(文档.languageId)) {
+                return;
+            }
+            const 配置 = vscode.workspace.getConfiguration('i18n-rust');
+            if (!配置.get<boolean>('autoConvertFullWidthSymbols', true)) {
+                return;
+            }
+            // 只处理用户正在编辑的活动编辑器（避免批量工具写入时干扰）
+            const 编辑器 = vscode.window.activeTextEditor;
+            if (!编辑器 || 编辑器.document !== 文档) {
+                return;
+            }
+
+            // 收集需要替换的全角符号（跳过字符串/注释内的）
+            const 替换们: { 范围: vscode.Range; 文本: string }[] = [];
+            for (const 变更 of 事件.contentChanges) {
+                if (!变更.text) {
+                    continue;
+                }
+                for (let i = 0; i < 变更.text.length; i++) {
+                    const 半角 = 全角符号映射[变更.text[i]];
+                    if (!半角) {
+                        continue;
+                    }
+                    const 插入位置 = 变更.range.start.translate(0, i);
+                    if (是否在字符串或注释(文档, 插入位置)) {
+                        continue;
+                    }
+                    替换们.push({
+                        范围: new vscode.Range(插入位置, 插入位置.translate(0, 1)),
+                        文本: 半角
+                    });
+                }
+            }
+            if (替换们.length === 0) {
+                return;
+            }
+
+            // 一次应用全部替换（全角/半角均为 1 个 UTF-16 单元，光标自动保持在原位）
+            void 编辑器.edit(构建编辑 => {
+                for (const 替换 of 替换们) {
+                    构建编辑.replace(替换.范围, 替换.文本);
+                }
+            });
+        })
+    );
+}
+
+/**
  * 查找语言包目录路径
  *
  * 优先级：
@@ -358,6 +429,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // 注册所有权错误可视化（诊断 data 中的 所有权详情 → 颜色装饰器）
     注册所有权可视化(context);
+
+    // 注册全角符号自动转换（代码区全角 → 半角，字符串/注释内不转换）
+    注册全角符号转换(context);
 
     // 显示欢迎信息（首次激活）
     const 已显示 = context.globalState.get<boolean>('welcomeShown');

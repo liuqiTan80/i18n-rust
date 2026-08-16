@@ -986,6 +986,7 @@ fn handle_analyzer_message(
                 "textDocument/codeAction" => {
                     mapper.map_code_action_response(&result, &info.original_uri)
                 }
+                "codeAction/resolve" => mapper.map_code_action_resolve_response(&result),
                 "textDocument/rename" => mapper.map_rename_response(&result),
                 "textDocument/documentHighlight" => {
                     mapper.map_document_highlight_response(&result, &info.original_uri)
@@ -1079,7 +1080,27 @@ fn load_language_pack(
                     )
                 })?;
         let macro_map = manager.get_macro_map();
-        return Ok((manager.keyword_map.clone(), macro_map));
+        // 合并标准库标识符映射（类型/方法/特征等）：
+        // 正向翻译时 推入→push，反向转译时 push→推入，
+        // 否则补全提示、代码操作与重命名中的标准库 API 保持英文。
+        // 注意：标准库映射与关键字映射存在同名冲突（如 stdlib 的
+        // “函数”=“Fn” trait 与关键字的“函数”=“fn”），必须关键字优先，
+        // 否则 `函数` 会被翻译成大写 `Fn` 导致语法错误。
+        let mut keyword_map: HashMap<String, String> = HashMap::new();
+        match mapping_source::load_stdlib_mapping(lang_pack_path) {
+            Ok(stdlib_map) => {
+                for (k, v) in stdlib_map {
+                    keyword_map.entry(k).or_insert(v);
+                }
+            }
+            Err(e) => log::warn!(
+                "{}",
+                crate::ui::global().f("lsp_log_mappings_fallback", &[&e.to_string()])
+            ),
+        }
+        // 关键字映射最后写入，覆盖同名的标准库条目（关键字优先）
+        keyword_map.extend(manager.keyword_map.clone());
+        return Ok((keyword_map, macro_map));
     }
 
     log::warn!("{}", crate::ui::global().t("lsp_warn_builtin_fallback"));
