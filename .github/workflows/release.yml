@@ -39,22 +39,22 @@ on:
 jobs:
   # ---------- 构建：三个平台各自编译并打包 rzc 离线包 ----------
   package:
-    name: 构建离线包 ${{ matrix.系统 }}-${{ matrix.架构 }}
+    name: 构建离线包 ${{ matrix.os_name }}-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            系统: linux
-            架构: x86_64
+            os_name: linux
+            arch: x86_64
           - os: windows-latest
-            系统: windows
-            架构: x86_64
+            os_name: windows
+            arch: x86_64
           # macOS arm64 运行器（Intel 用户可自行添加 macos-13 + x86_64 条目）
           - os: macos-latest
-            系统: macos
-            架构: aarch64
+            os_name: macos
+            arch: aarch64
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -74,7 +74,7 @@ jobs:
           if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then
             VERSION=$(grep -m1 '^version = ' crates/cli/Cargo.toml | cut -d'"' -f2)
           fi
-          PKG_NAME="rzc-$VERSION-${{ matrix.系统 }}-${{ matrix.架构 }}"
+          PKG_NAME="rzc-$VERSION-${{ matrix.os_name }}-${{ matrix.arch }}"
           DIR="release/$PKG_NAME"
           mkdir -p "$DIR/lang-packs"
 
@@ -134,8 +134,8 @@ jobs:
           if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then
             VERSION=$(grep -m1 '^version = ' crates/cli/Cargo.toml | cut -d'"' -f2)
           fi
-          PKG_NAME="rzc-$VERSION-${{ matrix.系统 }}-${{ matrix.架构 }}"
-          if [ "${{ matrix.系统 }}" = "windows" ]; then
+          PKG_NAME="rzc-$VERSION-${{ matrix.os_name }}-${{ matrix.arch }}"
+          if [ "${{ matrix.os_name }}" = "windows" ]; then
             # Windows 运行器的 tar 为 bsdtar，-a 按 .zip 扩展名自动选择 zip 格式
             (cd release && tar -a -c -f "$PKG_NAME.zip" "$PKG_NAME")
           else
@@ -147,7 +147,7 @@ jobs:
       - name: 上传构建产物（供发布步骤使用）
         uses: actions/upload-artifact@v4
         with:
-          name: 离线包-${{ matrix.系统 }}-${{ matrix.架构 }}
+          name: 离线包-${{ matrix.os_name }}-${{ matrix.arch }}
           path: release/
           if-no-files-found: error
 

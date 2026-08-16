@@ -57,22 +57,22 @@ jobs:
 
   # ---------- 2. 三平台 release 二进制构建 ----------
   build:
-    name: 构建 ${{ matrix.系统 }}-${{ matrix.架构 }}
+    name: 构建 ${{ matrix.os_name }}-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            系统: linux
-            架构: x86_64
+            os_name: linux
+            arch: x86_64
           - os: windows-latest
-            系统: windows
-            架构: x86_64
+            os_name: windows
+            arch: x86_64
           # macOS arm64 运行器（Intel 用户可自行添加 macos-13 + x86_64 条目）
           - os: macos-latest
-            系统: macos
-            架构: aarch64
+            os_name: macos
+            arch: aarch64
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -89,7 +89,7 @@ jobs:
       - name: 上传二进制产物
         uses: actions/upload-artifact@v4
         with:
-          name: 二进制-${{ matrix.系统 }}-${{ matrix.架构 }}
+          name: 二进制-${{ matrix.os_name }}-${{ matrix.arch }}
           # 通配匹配：Linux/macOS 为 rzc，Windows 为 rzc.exe
           path: |
             target/release/rzc*
