@@ -98,6 +98,7 @@ pub fn transpile_with_map(
                 let mut handled = false;
                 if macro_map.contains_key(raw_name)
                     && !is_preceded_by_double_colon(&token_stream, i)
+                    && !is_attribute_name(&token_stream, i)
                     && let Some(next_kind) = find_next_non_ws_kind(&token_stream, i + 1)
                 {
                     let is_bang = matches!(next_kind, TokenKind::Not);
@@ -305,6 +306,32 @@ fn is_preceded_by_double_colon(token_stream: &[rustc_lexer::Token], current_pos:
     matches!(prev_one, Some(TokenKind::Colon)) && matches!(prev_two, Some(TokenKind::Colon))
 }
 
+/// 判断指定位置的标识符是否为属性名（紧跟在 `#[` 或 `#![` 之后的标识符）
+///
+/// 属性名不应触发宏感叹号自动补充：`#[配置(测试)]` 中的 `配置` 是属性
+/// （对应 `cfg`），而非宏调用，若误补 `!` 会生成非法的 `#[cfg!(test)]`。
+fn is_attribute_name(token_stream: &[rustc_lexer::Token], current_pos: usize) -> bool {
+    // 往前收集最多三个非空白 token（最近的在前）
+    let mut prev: Vec<TokenKind> = Vec::new();
+    let mut j = current_pos;
+    while j > 0 && prev.len() < 3 {
+        j -= 1;
+        if !is_whitespace(token_stream[j].kind) {
+            prev.push(token_stream[j].kind);
+        }
+    }
+
+    // `#[标识符`：最近的 token 是 `[`，再前一个是 `#`
+    // `#![标识符`：最近的 token 是 `[`，再前两个是 `!` 与 `#`
+    matches!(
+        prev.as_slice(),
+        [TokenKind::OpenBracket, TokenKind::Pound, ..]
+    ) || matches!(
+        prev.as_slice(),
+        [TokenKind::OpenBracket, TokenKind::Not, TokenKind::Pound]
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -425,6 +452,47 @@ mod tests {
         // "从" 不在宏集合中，不应被加 !
         let source = "字符串::从(\"x\")";
         let expected = "字符串::从(\"x\")";
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &macros),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_attribute_name_no_exclamation() {
+        let mut map = create_test_map();
+        let macros = create_macro_map();
+        // 属性上下文中的宏名（如 配置→cfg、断言）不应被补 !
+        map.insert("配置".to_string(), "cfg".to_string());
+        let source = "#[配置(测试)]\n#[断言]";
+        let expected = "#[cfg(测试)]\n#[assert]";
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &macros),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_inner_attribute_name_no_exclamation() {
+        let mut map = create_test_map();
+        let macros = create_macro_map();
+        map.insert("配置".to_string(), "cfg".to_string());
+        // 内部属性 #![...] 同样不应补 !
+        let source = "#![配置(测试)]";
+        let expected = "#![cfg(测试)]";
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &macros),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_macro_in_normal_code_still_exclamation() {
+        let map = create_test_map();
+        let macros = create_macro_map();
+        // 普通代码中的宏调用不受影响
+        let source = "断言(5 > 3)";
+        let expected = "assert!(5 > 3)";
         assert_eq!(
             transpile_source_with_macro_map(source, &map, &macros),
             expected

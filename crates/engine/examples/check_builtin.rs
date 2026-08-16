@@ -1,9 +1,12 @@
-use i18n_rust_engine::语言;
 use i18n_rust_engine::mapping_manager::MappingManager;
+use i18n_rust_engine::语言;
 
 fn main() {
     let keywords = 语言::builtin_file("zh", "keywords.toml").unwrap();
-    println!("内置 keywords.toml 包含 哪里: {}", keywords.contains("哪里"));
+    println!(
+        "内置 keywords.toml 包含 哪里: {}",
+        keywords.contains("哪里")
+    );
     let m = MappingManager::load_from_builtin(
         keywords,
         语言::builtin_file("zh", "module_paths.toml").unwrap(),

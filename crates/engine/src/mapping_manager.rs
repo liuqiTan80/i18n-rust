@@ -153,7 +153,10 @@ impl MappingManager {
         {
             merge_module_and_ident_sections(&content, &mut module_path_map, &mut alias_map)
                 .map_err(|e| {
-                    crate::语言::f("load_parse_map_path_failed", &[&stdlib_file.display().to_string(), &e])
+                    crate::语言::f(
+                        "load_parse_map_path_failed",
+                        &[&stdlib_file.display().to_string(), &e],
+                    )
                 })?;
         }
 
