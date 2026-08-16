@@ -59,11 +59,19 @@ fn main() {
 cargo run
 ```
 
-能正常运行，说明迁移成功。此时可以把 `rust-toolchain.toml` 删掉（它锁定的编译器版本是给 rzc 项目用的，标准项目不需要）——语言包已内置在 rzc 里，项目里从来没有它，无需清理。
+能正常运行，说明迁移成功。此时可以把项目里的 `rust-toolchain.toml` 删掉——它锁定的是中文 Rust 工具链要求的编译器版本（1.85），标准项目用你自己安装的 rustc 即可。
 
-### 第四步：更新配置文件
+> ℹ️ 语言包内置在 `rzc` 程序里，项目目录中本来就没有它，所以**不需要**清理任何语言包文件。
 
-移除 `rzc` 相关的构建配置。
+### 第四步：检查项目结构
+
+`rzc init` 生成的项目只有四个文件：`Cargo.toml`、`src/main.zh`、`rust-toolchain.toml` 和 `README.md`。经过前三步：
+
+1. `main.zh` 已用 `rzc eject` 导出成 `main.rs` ✅
+2. `rust-toolchain.toml` 已删除 ✅
+3. `Cargo.toml` 和 `README.md` 本来就是标准内容 ✅
+
+剩下的就是标准 Rust 项目结构，没有其他需要清理的配置。
 
 ---
 
@@ -77,19 +85,24 @@ cargo run
 | `让` | `let` | 最短的条件词 |
 | `可变` | `mut` | 英文"mutable"的缩写 |
 | `如果` | `if` | 最短的条件词 |
+| `如果让` | `if let` | 简化版匹配：只关心"是不是这一种情况" |
 | `否则` | `else` | 和"如果"配对 |
 | `匹配` | `match` | 匹配模式 |
 | `循环` | `loop` | 循环 |
 | `当` | `while` | 条件循环 |
+| `当让` | `while let` | 循环版匹配：只要还是这种情况就重复 |
 | `对于` | `for` | 遍历循环 |
 | `返回` | `return` | 返回 |
 | `结构体` | `struct` | 英文"structure"的缩写 |
 | `枚举` | `enum` | 英文"enumeration"的缩写 |
 | `实现` | `impl` | 英文"implementation"的缩写 |
 | `特征` | `trait` | 特征 |
+| `派生` | `derive` | 自动实现特征 |
+| `哪里` | `where` | 泛型约束 |
 | `模块` | `mod` | 英文"module"的缩写 |
 | `公开` | `pub` | 英文"public"的缩写 |
 | `使用` | `use` | 使用 |
+| `宏规则` | `macro_rules` | 声明宏 |
 | `真` | `true` | 真 |
 | `假` | `false` | 假 |
 

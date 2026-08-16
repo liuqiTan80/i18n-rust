@@ -24,6 +24,10 @@
 "转换" = "convert"
 "迭代器" = "iter"
 "格式化" = "fmt"
+# `格式化` 同时是宏名（keywords.toml 宏节 → format!），词法转译后
+# use 语句中的路径段会变成 `format::`；此补充条目让模块路径替换
+# 阶段把它修正回 `fmt`，例如 `使用 标准库::格式化::显示;` → `use std::fmt::Display;`
+"format" = "fmt"
 "内存" = "mem"
 "指针" = "ptr"
 "数字" = "num"
@@ -639,6 +643,7 @@
 "接收" = "recv"
 "加锁" = "lock"
 "解析" = "parse"
+"解析整数错误" = "ParseIntError"
 "条目" = "entry"
 "或插入" = "or_insert"
 "最小" = "min"

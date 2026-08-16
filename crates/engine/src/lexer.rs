@@ -145,16 +145,29 @@ pub fn transpile_with_map(
                             .unwrap_or_else(|| text.to_string())
                     };
 
+                    // `宏规则`（macro_rules）声明形式：后跟宏名时必须带 `!`，
+                    // 如 `宏规则 创建向量 { ... }` → `macro_rules! 创建向量 { ... }`
+                    let macro_rules_decl = replacement == "macro_rules"
+                        && matches!(
+                            find_next_non_ws_kind(&token_stream, i + 1),
+                            Some(TokenKind::Ident)
+                        );
+                    let final_replacement = if macro_rules_decl {
+                        "macro_rules!"
+                    } else {
+                        replacement.as_str()
+                    };
+
                     // 记录实际发生替换的标识符映射
-                    if replacement != text {
+                    if final_replacement != text {
                         source_map.push(SourceMapEntry::new(
                             current_offset,
                             length,
                             text,
-                            &replacement,
+                            final_replacement,
                         ));
                     }
-                    output.push_str(&replacement);
+                    output.push_str(final_replacement);
                 }
             }
             // 其他所有 token 直接原样输出
@@ -207,10 +220,15 @@ pub fn reverse_transpile(
     };
     let mut output = String::with_capacity(source.len());
     let mut skip_colons = 0usize; // 删除 crate:: 前缀时顺带跳过的两个 Colon
+    let mut skip_bang = 0usize; // `macro_rules!` 反向转译时跳过的感叹号
 
     for i in 0..token_stream.len() {
         if skip_colons > 0 {
             skip_colons -= 1;
+            continue;
+        }
+        if skip_bang > 0 {
+            skip_bang -= 1;
             continue;
         }
         let (token, text) = &token_stream[i];
@@ -226,6 +244,10 @@ pub fn reverse_transpile(
                 {
                     skip_colons = 2;
                     continue;
+                }
+                // `macro_rules! 名称` 声明形式反向转译为 `宏规则 名称`（省略感叹号）
+                if raw_name == "macro_rules" && is_followed_by_bang(&token_stream, i) {
+                    skip_bang = 1;
                 }
                 let zh = reverse_map
                     .get(raw_name)
@@ -265,6 +287,14 @@ fn is_followed_by_module_name(
             && module_names.contains(*text);
     }
     false
+}
+
+/// 检查指定位置之后（跳过空白）的第一个 token 是否为 `!`（感叹号）
+fn is_followed_by_bang(token_stream: &[(TokenKind, &str)], current: usize) -> bool {
+    token_stream[(current + 1)..]
+        .iter()
+        .find(|(kind, _)| !is_whitespace(*kind))
+        .is_some_and(|(kind, _)| matches!(kind, TokenKind::Not))
 }
 
 /// 判断 token 是否为空白
@@ -575,6 +605,34 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_macro_rules_declaration_gets_exclamation() {
+        // `宏规则` 声明形式：后跟宏名时自动补 `!`（macro_rules! 名称）
+        let mut map = create_test_map();
+        map.insert("宏规则".to_string(), "macro_rules".to_string());
+        let empty = HashMap::new();
+        let source = "宏规则 创建向量 { () => { } }";
+        let expected = "macro_rules! 创建向量 { () => { } }";
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &empty),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_macro_rules_keyword_alone_no_exclamation() {
+        // 宏规则后不跟宏名（如注释性用法）时不补 `!`
+        let mut map = create_test_map();
+        map.insert("宏规则".to_string(), "macro_rules".to_string());
+        let empty = HashMap::new();
+        let source = "让 x = 宏规则;";
+        let expected = "let x = macro_rules;";
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &empty),
+            expected
+        );
+    }
+
     // ===== 源映射测试 =====
 
     #[test]
@@ -697,6 +755,35 @@ mod tests {
         let source = "let a: i32 = 1; let b: i3x = 2; let c = i3;";
         // let 不在反向表中保持原样；i32→整数、i3→三，i3x 是完整 token 不受影响
         let expected = "let a: 整数 = 1; let b: i3x = 2; let c = 三;";
+        assert_eq!(reverse_transpile(source, &reverse, &empty), expected);
+    }
+
+    #[test]
+    fn test_reverse_transpile_macro_rules_declaration() {
+        // `macro_rules! 名称` 反向转译为 `宏规则 名称`（感叹号省略）
+        let forward = HashMap::from([
+            ("宏规则".to_string(), "macro_rules".to_string()),
+            ("函数".to_string(), "fn".to_string()),
+        ]);
+        let reverse = create_reverse_map(&forward);
+        let empty = HashSet::new();
+        let source = "macro_rules! 创建向量 { () => { } }";
+        let expected = "宏规则 创建向量 { () => { } }";
+        assert_eq!(reverse_transpile(source, &reverse, &empty), expected);
+    }
+
+    #[test]
+    fn test_reverse_transpile_macro_rules_with_bang_string() {
+        // 宏调用 `名称!(...)` 的感叹号属于调用方，反向转译时保留
+        let forward = HashMap::from([
+            ("打印行".to_string(), "println".to_string()),
+            ("宏规则".to_string(), "macro_rules".to_string()),
+            ("函数".to_string(), "fn".to_string()),
+        ]);
+        let reverse = create_reverse_map(&forward);
+        let empty = HashSet::new();
+        let source = "macro_rules! 创建向量 { () => { } }\nfn main() { 创建向量!() }";
+        let expected = "宏规则 创建向量 { () => { } }\n函数 main() { 创建向量!() }";
         assert_eq!(reverse_transpile(source, &reverse, &empty), expected);
     }
 
