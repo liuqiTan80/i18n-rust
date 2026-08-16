@@ -19,16 +19,10 @@
 "初始化" = "init"
 
 # log
-"追踪" = "trace"
-"调试" = "debug"
-"信息" = "info"
-"警告" = "warn"
-"错误" = "error"
 "日志级别" = "Level"
 "日志记录" = "Record"
 
 # env_logger
-"初始化" = "init"
 "构建器" = "Builder"
 "过滤器" = "filter"
 
@@ -37,4 +31,3 @@
 "JSON层" = "json"
 "过滤器层" = "filter"
 "注册表" = "registry"
-"初始化" = "init"

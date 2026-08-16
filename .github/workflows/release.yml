@@ -17,13 +17,15 @@
 #   i18n-rust-<版本>.vsix             （VS Code 扩展离线安装包）
 #
 # 说明：
-#   - GitCode CI 兼容 GitHub Actions 语法，本文件可直接使用；
-#   - Release 通过 GitCode 开放 API（OpenAPI v5）发布，产物落在
-#     https://gitcode.com/tan80/zrRust/releases ——与 README 中
-#     "从 Releases 下载"的引导一致，无歧义；
-#   - 需在仓库 Settings → Secrets and variables → Actions 配置
-#     GITCODE_TOKEN（GitCode 头像 → 设置 → 私人令牌，需 releases 权限）；
-#   - GitHub 镜像仓库（liuqiTan80/i18n-rust）如需发布，可另配工作流。
+#   - 本文件双平台通用（GitHub Actions / GitCode CI）：
+#     · GitHub 镜像仓库（liuqiTan80/i18n-rust）：用官方 action 创建
+#       GitHub Release（GITHUB_TOKEN 自动注入，无需额外配置）；
+#     · GitCode 主仓库（tan80/zrRust）：用 GitCode 开放 API（OpenAPI v5）
+#       创建 Release，产物落在 https://gitcode.com/tan80/zrRust/releases
+#       ——与 README 中"从 Releases 下载"的引导一致；
+#   - GitCode 侧需在仓库 Secrets 配置 GITCODE_TOKEN（头像 → 设置 → 私人令牌，
+#     需 releases 权限）；crates.io 需配置 CARGO_REGISTRY_TOKEN（发布步骤
+#     未配置时自动跳过，不阻塞其他 job）；
 #   - crates.io 发布顺序固定为 i18n-rust-engine → i18n-rust-lsp → rzc：
 #     rzc 与 i18n-rust-lsp 依赖核心引擎，必须先发布依赖。
 # =============================================================
@@ -206,10 +208,18 @@ jobs:
       - name: 查看产物列表
         run: ls -lh artifacts/
 
-      # 发布到 GitCode Releases（与 README 下载引导一致）：
-      # GitCode 开放 API 与 Gitee OpenAPI v5 兼容，创建 Release 后
-      # 逐个上传附件（三平台离线包 + vsix）。
+      # GitHub 镜像仓库：官方 action 创建 GitHub Release（GITHUB_TOKEN 自动注入）
+      - name: 创建 GitHub Release 并上传附件
+        if: github.repository == 'liuqiTan80/i18n-rust'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+
+      # GitCode 主仓库：GitCode 开放 API 创建 GitCode Release（与 README 下载引导一致）：
+      # 与 Gitee OpenAPI v5 兼容，创建 Release 后逐个上传附件（三平台离线包 + vsix）。
       - name: 创建 GitCode Release 并上传附件
+        if: github.repository != 'liuqiTan80/i18n-rust'
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
         run: |
@@ -264,15 +274,18 @@ jobs:
         run: cargo login "$CARGO_REGISTRY_TOKEN"
 
       # 发布顺序依赖：引擎库 → LSP 代理 → 命令行工具；
-      # 未配置 CARGO_REGISTRY_TOKEN 时全部跳过（不阻塞其他 job）
-      - name: 发布核心引擎库 i18n-rust-engine
+      # 双平台（GitCode/GitHub）CI 并行发布同一版本时先到先得，
+      # 已存在（另一平台已发布）则跳过，避免重复发布报错。
+      - name: 发布三个 crate 到 crates.io（已存在则跳过）
         if: env.CARGO_REGISTRY_TOKEN != ''
-        run: cargo publish -p i18n-rust-engine
-
-      - name: 发布 LSP 代理 i18n-rust-lsp
-        if: env.CARGO_REGISTRY_TOKEN != ''
-        run: cargo publish -p i18n-rust-lsp
-
-      - name: 发布命令行工具 rzc
-        if: env.CARGO_REGISTRY_TOKEN != ''
-        run: cargo publish -p rzc
+        run: |
+          VERSION="$(grep -m1 '^version = ' crates/engine/Cargo.toml | cut -d'"' -f2)"
+          for CRATE in i18n-rust-engine i18n-rust-lsp rzc; do
+            EXIST="$(curl -s -A "rzc-ci" "https://crates.io/api/v1/crates/$CRATE" | grep -o "\"max_stable_version\":\"$VERSION\"" || true)"
+            if [ -n "$EXIST" ]; then
+              echo "跳过 $CRATE：$VERSION 已存在于 crates.io"
+            else
+              echo "发布 $CRATE $VERSION ..."
+              cargo publish -p "$CRATE"
+            fi
+          done

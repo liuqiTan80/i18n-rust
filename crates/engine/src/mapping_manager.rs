@@ -15,10 +15,10 @@ fn merge_module_and_ident_sections(
     content: &str,
     module_path_map: &mut HashMap<String, String>,
     alias_map: &mut HashMap<String, String>,
-) {
-    if let Ok(root) = toml::from_str::<toml::Value>(content)
-        && let toml::Value::Table(table) = root
-    {
+) -> Result<(), String> {
+    let root: toml::Value = toml::from_str(content)
+        .map_err(|e| crate::语言::f("load_parse_map_failed", &[&e.to_string()]))?;
+    if let toml::Value::Table(table) = root {
         if let Some(module_section) = table.get("模块路径")
             && let toml::Value::Table(entry_table) = module_section
         {
@@ -38,6 +38,7 @@ fn merge_module_and_ident_sections(
             }
         }
     }
+    Ok(())
 }
 
 /// 映射管理器：统一管理关键字映射、模块路径映射、标识符别名映射
@@ -120,18 +121,9 @@ impl MappingManager {
             }
         }
 
-        // 3. 加载标准库映射（stdlib.toml，可选）
-        //    与 crates/*.toml 相同格式：["模块路径"] + ["标识符"] 两节
-        let stdlib_file = lang_dir.join("stdlib.toml");
-        let mut alias_map = HashMap::new();
-        if stdlib_file.exists()
-            && let Ok(content) = fs::read_to_string(&stdlib_file)
-        {
-            merge_module_and_ident_sections(&content, &mut module_path_map, &mut alias_map);
-        }
-
-        // 4. 扫描第三方库目录（crates/）
+        // 3. 扫描第三方库目录（crates/）
         let crates_dir = lang_dir.join("crates");
+        let mut alias_map = HashMap::new();
         if crates_dir.exists()
             && crates_dir.is_dir()
             && let Ok(entries) = fs::read_dir(&crates_dir)
@@ -141,9 +133,28 @@ impl MappingManager {
                 if file_path.extension().and_then(|e| e.to_str()) == Some("toml")
                     && let Ok(content) = fs::read_to_string(&file_path)
                 {
-                    merge_module_and_ident_sections(&content, &mut module_path_map, &mut alias_map);
+                    merge_module_and_ident_sections(&content, &mut module_path_map, &mut alias_map)
+                        .map_err(|e| {
+                            crate::语言::f(
+                                "load_parse_map_path_failed",
+                                &[&file_path.display().to_string(), &e],
+                            )
+                        })?;
                 }
             }
+        }
+
+        // 4. 加载标准库映射（stdlib.toml，可选，最后加载以保证优先）
+        //    与 crates/*.toml 相同格式：["模块路径"] + ["标识符"] 两节
+        //    后加载会覆盖第三方库中同名的通用词（如 mpsc 的 "发送" 不被 HTTP 库的 "post" 覆盖）
+        let stdlib_file = lang_dir.join("stdlib.toml");
+        if stdlib_file.exists()
+            && let Ok(content) = fs::read_to_string(&stdlib_file)
+        {
+            merge_module_and_ident_sections(&content, &mut module_path_map, &mut alias_map)
+                .map_err(|e| {
+                    crate::语言::f("load_parse_map_path_failed", &[&stdlib_file.display().to_string(), &e])
+                })?;
         }
 
         Ok(Self {
@@ -230,8 +241,9 @@ impl MappingManager {
         }
 
         // 4. 解析第三方库映射
-        for (_file_name, content) in third_party_data {
-            merge_module_and_ident_sections(content, &mut module_path_map, &mut alias_map);
+        for (file_name, content) in third_party_data {
+            merge_module_and_ident_sections(content, &mut module_path_map, &mut alias_map)
+                .map_err(|e| crate::语言::f("load_parse_map_path_failed", &[file_name, &e]))?;
         }
 
         Ok(Self {
@@ -445,11 +457,13 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_sections_ignores_invalid_content() {
+    fn test_merge_sections_reports_invalid_content() {
         let mut module_path_map = HashMap::new();
         let mut alias_map = HashMap::new();
-        // 非法 TOML 不应 panic，也不应产生任何映射
-        merge_module_and_ident_sections("[[[", &mut module_path_map, &mut alias_map);
+        // 非法 TOML 不应 panic，但必须报告错误（不再静默忽略，防止映射丢失）
+        let err = merge_module_and_ident_sections("[[[", &mut module_path_map, &mut alias_map)
+            .expect_err("非法 TOML 应返回错误");
+        assert!(!err.is_empty());
         assert!(module_path_map.is_empty());
         assert!(alias_map.is_empty());
         // 合法内容正常合并
@@ -457,7 +471,8 @@ mod tests {
             "[\"模块路径\"]\n\"文件系统\" = \"std::fs\"\n[\"标识符\"]\n\"字符串\" = \"String\"\n",
             &mut module_path_map,
             &mut alias_map,
-        );
+        )
+        .expect("合法 TOML 应合并成功");
         assert_eq!(
             module_path_map.get("文件系统"),
             Some(&"std::fs".to_string())

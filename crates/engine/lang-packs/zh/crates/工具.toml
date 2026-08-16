@@ -1,7 +1,7 @@
 # crate 名称映射（用于 use 路径）
 ["模块路径"]
 "随机数" = "rand"
-"时间" = "chrono"
+"日期时间" = "chrono"
 "时间处理" = "time"
 "正则" = "regex"
 "延迟静态" = "lazy_static"
@@ -11,6 +11,7 @@
 ["标识符"]
 # rand
 "随机数生成器" = "thread_rng"
+"随机特征" = "Rng"
 "随机范围" = "gen_range"
 "随机" = "random"
 "洗牌" = "shuffle"
@@ -33,14 +34,10 @@
 # time
 "偏移日期时间" = "OffsetDateTime"
 "本地日期" = "Date"
-"本地时间" = "Time"
-"持续时间" = "Duration"
-"现在" = "now"
-"格式化" = "format"
 
 # regex
 "正则表达式" = "Regex"
-"匹配" = "find"
+"查找" = "find"
 "全部匹配" = "find_iter"
 "捕获" = "captures"
 "替换" = "replace"

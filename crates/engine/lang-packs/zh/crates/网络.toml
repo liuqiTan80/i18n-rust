@@ -12,7 +12,7 @@
 "请求" = "Request"
 "响应" = "Response"
 "获取" = "get"
-"发送" = "post"
+"发送请求" = "post"
 "请求体" = "body"
 "头部" = "header"
 "查询参数" = "query"
@@ -23,25 +23,17 @@
 # hyper
 "服务器" = "Server"
 "服务" = "Service"
-"请求" = "Request"
-"响应" = "Response"
 "方法" = "Method"
 "URI" = "Uri"
 "状态码" = "StatusCode"
-"头部" = "Header"
 
 # tonic
-"通道" = "Channel"
-"服务器" = "Server"
-"请求" = "Request"
-"响应" = "Response"
+"连接通道" = "Channel"
 "状态" = "Status"
 
 # websocket
 "WebSocket" = "WebSocket"
 "消息" = "Message"
-"文本" = "Text"
 "二进制" = "Binary"
 "关闭" = "Close"
-"发送" = "send"
 "接收" = "recv"

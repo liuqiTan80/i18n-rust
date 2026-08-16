@@ -24,14 +24,11 @@
 "任务" = "task"
 "生成" = "spawn"
 "阻塞" = "task::spawn_blocking"
-"睡眠" = "task::sleep"
 "流" = "stream"
 
 # futures
 "未来" = "Future"
-"流" = "Stream"
 "接收器" = "Sink"
-"选择" = "select"
 "连接" = "join"
 "尝试连接" = "try_join"
 "轮询" = "poll"

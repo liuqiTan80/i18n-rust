@@ -23,35 +23,19 @@
 "中间件" = "middleware"
 
 # axum
-"路由" = "Router"
 "路由到" = "route"
-"处理器" = "handler"
 "提取器" = "extract"
-"响应" = "Response"
-"JSON" = "Json"
-"表单" = "Form"
-"路径" = "Path"
-"查询" = "Query"
 "状态" = "State"
-"扩展" = "Extension"
+"扩展器" = "Extension"
 
 # warp
 "过滤器" = "Filter"
-"路径" = "path"
 "方法" = "method"
 "获取" = "get"
-"发送" = "post"
-"JSON" = "json"
-"表单" = "form"
-"查询" = "query"
+"发送请求" = "post"
 "回复" = "reply"
 
 # rocket
 "火箭" = "Rocket"
 "启动" = "launch"
-"路由" = "route"
-"获取" = "get"
-"发送" = "post"
-"JSON" = "Json"
-"表单" = "Form"
 "模板" = "Template"

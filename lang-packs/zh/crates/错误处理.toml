@@ -17,13 +17,11 @@
 # thiserror
 "错误派生" = "error"
 "来源" = "source"
-"显示" = "display"
+"显示错误" = "display"
 
 # color-eyre
 "安装" = "install"
 "报告" = "Report"
 
 # snafu
-"确保" = "ensure"
 "返回" = "return"
-"上下文" = "context"
