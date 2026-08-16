@@ -93,8 +93,20 @@ pub fn run_auto_generate(
     }
 
     println!("{}", ui.f("mapping_extracting", &[crate_name]));
-    let json_text = extract_crate_doc(crate_name)?;
-    let entries = extract_public_api(&json_text)?;
+    let doc_jsons = extract_crate_doc(crate_name)?;
+    // 薄壳 crate（meta crate，如 salvo 仅 `pub use salvo_core::*`）的公开 API
+    // 来自 glob 重导出链上的依赖 crate（如 salvo_core），逐个 JSON 合并提取；
+    // 同名 API 只保留首个条目（链上 crate 可能导出同名类型）
+    let mut entries = Vec::new();
+    let mut seen_english_names = HashSet::new();
+    for (doc_crate_name, json_text) in &doc_jsons {
+        println!("{}", ui.f("mapping_extracting", &[doc_crate_name]));
+        for entry in extract_public_api(json_text)? {
+            if seen_english_names.insert(entry.english_name.clone()) {
+                entries.push(entry);
+            }
+        }
+    }
     if entries.is_empty() {
         bail!("{}", ui.f("mapping_no_api", &[crate_name]));
     }
@@ -246,6 +258,15 @@ pub fn run_auto_generate(
 
 /// 解析 rustdoc JSON，提取所有公开 API（仅名称与签名，绝不读取 docs 字段）
 pub fn extract_public_api(json_text: &str) -> anyhow::Result<Vec<ApiEntry>> {
+    Ok(extract_public_api_with_glob_sources(json_text)?.0)
+}
+
+/// 同 [`extract_public_api`]，额外返回 glob 重导出（`pub use 依赖::*`）指向的
+/// 依赖 crate 名列表：薄壳 crate（meta crate）的公开 API 全部来自这些重导出，
+/// 调用方需对这些依赖 crate 单独生成 rustdoc JSON 并合并提取
+fn extract_public_api_with_glob_sources(
+    json_text: &str,
+) -> anyhow::Result<(Vec<ApiEntry>, Vec<String>)> {
     let doc: Value = serde_json::from_str(json_text).map_err(|e| {
         anyhow!(
             "{}",
@@ -265,17 +286,21 @@ pub fn extract_public_api(json_text: &str) -> anyhow::Result<Vec<ApiEntry>> {
         })
         .unwrap_or_else(|| "0".to_string());
     let mut results = Vec::new();
+    let mut glob_sources = Vec::new();
     let mut visited = HashSet::new();
-    collect_module_items(index, &root, &mut visited, &mut results);
-    Ok(results)
+    collect_module_items(index, &root, &mut visited, &mut results, &mut glob_sources);
+    Ok((results, glob_sources))
 }
 
 /// 深度优先收集模块树中的公开项（跳过 impl 方法、私有项、struct 字段等）
+///
+/// `glob_sources` 收集 glob 重导出指向的依赖 crate 名，供薄壳 crate 追踪。
 fn collect_module_items(
     index: &Map<String, Value>,
     id: &str,
     visited: &mut HashSet<String>,
     results: &mut Vec<ApiEntry>,
+    glob_sources: &mut Vec<String>,
 ) {
     if !visited.insert(id.to_string()) {
         return;
@@ -300,7 +325,7 @@ fn collect_module_items(
         "module" => {
             if let Some(items) = inner.get("items").and_then(Value::as_array) {
                 for child in items {
-                    collect_module_items(index, &child.to_string(), visited, results);
+                    collect_module_items(index, &child.to_string(), visited, results, glob_sources);
                 }
             }
         }
@@ -360,8 +385,7 @@ fn collect_module_items(
             });
         }
         // re-export（pub use）：薄壳 crate（如 serde 1.0.229 = serde_core 的转发层）
-        // 的公开 API 全部是 re-export。名称在 inner.use.name（顶层 name 为 null）；
-        // glob 导入（pub use core::*）无法枚举名称，跳过。
+        // 的公开 API 全部是 re-export。名称在 inner.use.name（顶层 name 为 null）。
         "use" => {
             let use_obj = inner; // inner 即 use 对象（inner 单键解构结果）
             if use_obj
@@ -369,6 +393,22 @@ fn collect_module_items(
                 .and_then(Value::as_bool)
                 .unwrap_or(false)
             {
+                // glob 重导出（pub use 依赖::*）：外部 crate 的项不在本 JSON 的
+                // index 中，无法枚举名称；记录 source 路径的首段（被重导出的
+                // crate 名，如 `salvo_core::prelude` → `salvo_core`），由调用方
+                // 对该依赖 crate 单独生成文档后合并提取（薄壳 crate 追踪）。
+                // crate/self/super 开头的内部 glob 无法枚举，跳过。
+                if let Some(source) = use_obj.get("source").and_then(Value::as_str) {
+                    let source = source.trim_start_matches("::");
+                    let dep_name = source.split("::").next().unwrap_or("");
+                    if !dep_name.is_empty()
+                        && dep_name != "crate"
+                        && dep_name != "self"
+                        && dep_name != "super"
+                    {
+                        glob_sources.push(dep_name.to_string());
+                    }
+                }
                 return;
             }
             let Some(english_name) = use_obj.get("name").and_then(Value::as_str) else {
@@ -383,7 +423,7 @@ fn collect_module_items(
                     .and_then(|i| i.get("module"))
                     .is_some()
             {
-                collect_module_items(index, target_id.as_str(), visited, results);
+                collect_module_items(index, target_id.as_str(), visited, results, glob_sources);
                 return;
             }
             let source = use_obj.get("source").and_then(Value::as_str).unwrap_or("?");
@@ -653,8 +693,11 @@ impl Drop for TempProject {
     }
 }
 
-/// 提取 crate 的 rustdoc JSON 文本（完整工具链流程）
-fn extract_crate_doc(crate_name: &str) -> anyhow::Result<String> {
+/// 提取 crate 及其 glob 重导出链上依赖 crate 的 rustdoc JSON 文本列表
+///
+/// 首个元素为目标 crate 本身；后续元素为被 glob 重导出（`pub use 依赖::*`）
+/// 的依赖 crate——薄壳 crate（如 salvo）的公开 API 全部来自这些 crate。
+fn extract_crate_doc(crate_name: &str) -> anyhow::Result<Vec<(String, String)>> {
     let temp = TempProject::new(crate_name)?;
     // 1. 临时项目：把目标 crate 作为唯一依赖（* 允许任意已发布版本）
     fs::write(
@@ -676,7 +719,14 @@ fn extract_crate_doc(crate_name: &str) -> anyhow::Result<String> {
 /// 1. `cargo metadata` 定位目标 crate 的源码目录（registry 或本地 path 依赖均可）
 /// 2. `cargo build` 编译依赖树，解析每个依赖的 .rlib/.so 路径
 /// 3. 手动调用 `rustdoc -Z unstable-options --output-format json` 文档化目标 crate
-fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Result<String> {
+/// 4. 薄壳 crate（meta crate，如 salvo 仅 `pub use salvo_core::*`）的公开 API
+///    来自 glob 重导出：解析每个 crate 的 glob 重导出（inner.use.is_glob）的
+///    source 路径，对被重导出的依赖 crate 也生成文档并继续追踪，直至闭环。
+///    返回 (crate 名, JSON 文本) 列表，首个为目标 crate 本身。
+fn extract_doc_json_internal(
+    temp: &TempProject,
+    crate_name: &str,
+) -> anyhow::Result<Vec<(String, String)>> {
     let project_root = temp.path();
     let ui = crate::ui::Ui::global();
 
@@ -691,40 +741,73 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
     )?;
     let metadata: Value = serde_json::from_str(&metadata_output)
         .map_err(|e| anyhow!("{}", ui.f("mg_err_parse_meta", &[&e.to_string()])))?;
-    let target_package = metadata["packages"]
-        .as_array()
-        .and_then(|pkg_list| {
-            pkg_list
-                .iter()
-                .find(|p| p.get("name").and_then(Value::as_str) == Some(crate_name))
-        })
-        .ok_or_else(|| anyhow!("{}", ui.f("mg_err_crate_not_found", &[crate_name])))?;
-    let manifest_path = PathBuf::from(
-        target_package
-            .get("manifest_path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("{}", ui.f("mg_err_no_manifest", &[crate_name])))?,
-    );
-    let source_dir = manifest_path
-        .parent()
-        .ok_or_else(|| anyhow!("{}", ui.f("mg_err_no_src_dir", &[crate_name])))?;
-    let lib_file = source_dir.join("src/lib.rs");
-    if !lib_file.exists() {
-        bail!("{}", ui.f("mg_err_no_lib", &[crate_name]));
+    // 包元数据索引（manifest_path / features / edition），供 glob 重导出链上的
+    // 依赖 crate 查询（薄壳 crate 的 API 在其依赖中）。同时索引 package 名
+    // （CLI 参数，如 mini-core）与 lib target 的 crate 名（rustdoc glob 重导出
+    // source，如 mini_core），两者在连字符/下划线写法上可能不同。
+    let mut pkg_index: HashMap<String, Value> = HashMap::new();
+    for p in metadata["packages"].as_array().into_iter().flatten() {
+        if let Some(pkg_name) = p.get("name").and_then(Value::as_str) {
+            pkg_index.insert(pkg_name.to_string(), p.clone());
+        }
+        if let Some(lib_name) = p.get("targets").and_then(Value::as_array).and_then(|ts| {
+            ts.iter().find(|t| {
+                t.get("kind")
+                    .and_then(Value::as_array)
+                    .map(|k| k.iter().any(|v| v.as_str() == Some("lib")))
+                    == Some(true)
+            })
+        }).and_then(|t| t.get("name")).and_then(Value::as_str)
+        {
+            pkg_index.insert(lib_name.to_string(), p.clone());
+        }
     }
-    // 默认 features：cargo 直接传给 rustc（--cfg feature=...），不经过 build script，
-    // 手动 rustdoc 时必须显式补传，否则 cfg(feature) 裁掉的 API 会缺失
-    let default_features = target_package
-        .get("features")
-        .and_then(|f| f.get("default"))
+    if !pkg_index.contains_key(crate_name) {
+        bail!("{}", ui.f("mg_err_crate_not_found", &[crate_name]));
+    }
+
+    // resolve.nodes：完整依赖解析图（含多版本共存时的精确解析），按
+    // package_id 索引每个 crate 的直接依赖（别名, 依赖 package_id）。
+    // --extern 只传直接依赖的精确版本；传递依赖由 rustc 按 rlib 元数据
+    // hash 在 -L 目录中自动解析（同名多版本 crate 无法从 -L 手动解析）
+    let mut direct_dep_table: HashMap<String, Vec<(String, String)>> = HashMap::new();
+    if let Some(nodes) = metadata
+        .get("resolve")
+        .and_then(|r| r.get("nodes"))
         .and_then(Value::as_array)
-        .map(|list| {
-            list.iter()
-                .filter_map(Value::as_str)
-                .map(String::from)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
+    {
+        for node in nodes {
+            let Some(node_id) = node.get("id").and_then(Value::as_str) else {
+                continue;
+            };
+            let mut deps: Vec<(String, String)> = Vec::new();
+            if let Some(dep_list) = node.get("deps").and_then(Value::as_array) {
+                for dep in dep_list {
+                    let Some(dep_name) = dep.get("name").and_then(Value::as_str) else {
+                        continue;
+                    };
+                    let Some(dep_pkg) = dep.get("pkg").and_then(Value::as_str) else {
+                        continue;
+                    };
+                    // 只保留 normal 依赖（dev/build 依赖不进入 lib 的 extern prelude）；
+                    // 目标特定依赖（cfg(...)）无法静态判定，保守保留
+                    let is_normal = dep
+                        .get("dep_kinds")
+                        .and_then(Value::as_array)
+                        .map(|kinds| {
+                            kinds
+                                .iter()
+                                .any(|k| k.get("kind").map_or(true, |v| v.is_null()))
+                        })
+                        .unwrap_or(true);
+                    if is_normal {
+                        deps.push((dep_name.to_string(), dep_pkg.to_string()));
+                    }
+                }
+            }
+            direct_dep_table.insert(node_id.to_string(), deps);
+        }
+    }
 
     // 2. cargo build：编译依赖树，解析依赖 .rlib/.so 路径
     let build_output = run_command(
@@ -734,13 +817,16 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
             .current_dir(project_root),
         &ui.t("mg_cmd_build_deps"),
     )?;
-    let mut dep_table: HashMap<String, String> = HashMap::new();
-    // target 名 -> package_id（用于关联目标 crate 的构建脚本产物）
-    let mut pkg_table: HashMap<String, String> = HashMap::new();
-    // package_id -> (OUT_DIR, 构建脚本声明的 cfg, rustc-env 列表)
-    // 部分 crate（如 serde）的 build.rs 会生成 include! 的源码或声明 cfg，
-    // 手动 rustdoc 时必须注入，否则编译失败（如 OUT_DIR 未定义）
-    type BuildScriptInfo = (Option<String>, Vec<String>, Vec<String>);
+    // package_id -> (lib target 名, .rlib/.so 路径, 实际启用的 features)。
+    // 按 package_id 索引而非 target 名：依赖树中同名不同版本的 crate 共存时
+    // （如 rand 0.8.7 与 0.10.2），按名字覆盖会链接错误版本；features 取 cargo
+    // build 的 feature 统一解析结果而非包声明的 default——依赖方可能未启用部分
+    // default features（如 salvo 不启用 salvo_core 的 unix），注入不一致的 cfg
+    // 会导致编译失败（缺 nix 等依赖）
+    let mut artifact_table: HashMap<String, (String, String, Vec<String>)> = HashMap::new();
+    // 已编译 lib 的 crate 名集合（glob 重导出链入队检查用）
+    let mut compiled_lib_names: HashSet<String> = HashSet::new();
+    // package_id -> 构建脚本产物（见模块级 [`BuildScriptInfo`] 类型注释）
     let mut build_script_table: HashMap<String, BuildScriptInfo> = HashMap::new();
     for line in build_output.lines() {
         let Ok(msg) = serde_json::from_str::<Value>(line) else {
@@ -780,8 +866,8 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
             build_script_table.insert(pkg_id.to_string(), (out_dir, cfgs, env_vars));
             continue;
         }
-        // compiler-artifact：用 target.name（crate 名，即 --extern 需要的名字）而非 package_id——
-        // path 依赖的 package_id 形如 path+file://...#0.1.0，不含包名
+        // compiler-artifact：按 package_id 索引（与 metadata packages[].id 一致），
+        // 多版本共存时精确关联到具体版本；target.name 仅作为 lib 名记录
         let Some(target_name) = msg
             .get("target")
             .and_then(|t| t.get("name"))
@@ -798,21 +884,121 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
         {
             continue;
         }
-        pkg_table.insert(target_name.to_string(), pkg_id.to_string());
         if let Some(filenames) = msg.get("filenames").and_then(Value::as_array)
             && let Some(file) = filenames
                 .iter()
                 .filter_map(Value::as_str)
                 .find(|f| f.ends_with(".rlib") || f.ends_with(".so"))
         {
-            dep_table.insert(target_name.to_string(), file.to_string());
+            let features = msg
+                .get("features")
+                .and_then(Value::as_array)
+                .map(|list| {
+                    list.iter()
+                        .filter_map(Value::as_str)
+                        .map(String::from)
+                        .collect()
+                })
+                .unwrap_or_default();
+            artifact_table.insert(
+                pkg_id.to_string(),
+                (target_name.to_string(), file.to_string(), features),
+            );
+            compiled_lib_names.insert(target_name.to_string());
         }
     }
-    if dep_table.is_empty() {
+    if artifact_table.is_empty() {
         bail!("{}", ui.f("mg_err_build_failed", &[crate_name]));
     }
 
-    // 3. rustdoc：生成目标 crate 的 JSON 文档
+    // 3. rustdoc 队列：目标 crate → glob 重导出链上的依赖 crate。
+    //    薄壳 crate（如 salvo）的 index 只有 re-export 节点，公开 API 全部
+    //    来自被重导出的依赖 crate（如 salvo_core），逐个生成文档后合并提取。
+    let mut queue: Vec<String> = vec![crate_name.to_string()];
+    let mut visited: HashSet<String> = HashSet::new();
+    let mut results: Vec<(String, String)> = Vec::new();
+    while let Some(name) = queue.pop() {
+        if !visited.insert(name.clone()) {
+            continue;
+        }
+        let Some(pkg) = pkg_index.get(&name) else {
+            continue;
+        };
+        let pkg_id = pkg
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        // 直接依赖（别名, 精确版本 package_id）：--extern 只传这些
+        let direct_deps = direct_dep_table.get(&pkg_id).cloned().unwrap_or_default();
+        let json_text = rustdoc_single(
+            project_root,
+            pkg,
+            &name,
+            &pkg_id,
+            &artifact_table,
+            &direct_deps,
+            &build_script_table,
+        )?;
+        // glob 重导出（pub use 依赖::*）→ 被重导出 crate 名（source 首段），
+        // 若在依赖树中则入队继续提取；feature 未启用而未编译的依赖自动跳过
+        let (_, glob_sources) = extract_public_api_with_glob_sources(&json_text)?;
+        for source in glob_sources {
+            if compiled_lib_names.contains(&source) && !visited.contains(&source) {
+                queue.push(source);
+            }
+        }
+        results.push((name, json_text));
+    }
+    Ok(results)
+}
+
+/// 构建脚本产物：OUT_DIR（include! 生成代码）、cfg（条件编译）、rustc-env 列表。
+/// 部分 crate（如 serde）的 build.rs 会生成 include! 的源码或声明 cfg，
+/// 手动 rustdoc 时必须注入，否则编译失败（如 OUT_DIR 未定义）。
+type BuildScriptInfo = (Option<String>, Vec<String>, Vec<String>);
+
+/// 对单个 crate 手动调用 rustdoc 生成 JSON 文档
+///
+/// 注入目标 crate 实际启用的 features（cfg）、构建脚本产物（OUT_DIR / cfg /
+/// rustc-env）与直接依赖的 .rlib/.so 路径（--extern，按 package_id 精确版本），
+/// 保证 cfg(feature) 与 include! 生成的 API 不缺失。
+fn rustdoc_single(
+    project_root: &Path,
+    pkg: &Value,
+    crate_name: &str,
+    pkg_id: &str,
+    artifact_table: &HashMap<String, (String, String, Vec<String>)>,
+    direct_deps: &[(String, String)],
+    build_script_table: &HashMap<String, BuildScriptInfo>,
+) -> anyhow::Result<String> {
+    let ui = crate::ui::Ui::global();
+    let manifest_path = PathBuf::from(
+        pkg.get("manifest_path")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("{}", ui.f("mg_err_no_manifest", &[crate_name])))?,
+    );
+    let source_dir = manifest_path
+        .parent()
+        .ok_or_else(|| anyhow!("{}", ui.f("mg_err_no_src_dir", &[crate_name])))?;
+    let lib_file = source_dir.join("src/lib.rs");
+    if !lib_file.exists() {
+        bail!("{}", ui.f("mg_err_no_lib", &[crate_name]));
+    }
+    // 默认 features：cargo 直接传给 rustc（--cfg feature=...），不经过 build script，
+    // 手动 rustdoc 时必须显式补传，否则 cfg(feature) 裁掉的 API 会缺失
+    let default_features = pkg
+        .get("features")
+        .and_then(|f| f.get("default"))
+        .and_then(Value::as_array)
+        .map(|list| {
+            list.iter()
+                .filter_map(Value::as_str)
+                .map(String::from)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
     let manifest_content = fs::read_to_string(&manifest_path).with_context(|| {
         ui.f(
             "mg_err_read_manifest",
@@ -857,18 +1043,25 @@ fn extract_doc_json_internal(temp: &TempProject, crate_name: &str) -> anyhow::Re
             project_root.join("target/debug/deps").display()
         ))
         .env("RUSTC_BOOTSTRAP", "1");
-    for (name, path) in &dep_table {
-        cmd.arg("--extern").arg(format!("{}={}", name, path));
+    // --extern 只传直接依赖的精确版本：同名多版本 crate（如 rand 0.8.7 与
+    // 0.10.2 共存）无法从 -L 目录自动解析，rustc 可能链接错误版本；传递依赖
+    // 由 rustc 按 rlib 元数据 hash 在 -L 中自动解析
+    for (dep_name, dep_pkg_id) in direct_deps {
+        if let Some((_, path, _)) = artifact_table.get(dep_pkg_id) {
+            cmd.arg("--extern").arg(format!("{}={}", dep_name, path));
+        }
     }
-    // 目标 crate 的默认 features（如 serde 的 std）作为 cfg 传入
-    for feature in &default_features {
+    // 注入 cargo build 实际启用的 features（feature 统一解析结果）作为 cfg，
+    // 与编译产物保持一致；未命中时回退包声明的 default features
+    let features = artifact_table
+        .get(pkg_id)
+        .map(|(_, _, f)| f.clone())
+        .unwrap_or(default_features);
+    for feature in &features {
         cmd.arg("--cfg").arg(format!("feature=\"{}\"", feature));
     }
     // 注入目标 crate 构建脚本产物：OUT_DIR（include! 生成代码）、cfg（条件编译）、rustc-env
-    if let Some((out_dir, cfgs, env_vars)) = pkg_table
-        .get(&crate_name_underscore)
-        .and_then(|pkg_id| build_script_table.get(pkg_id))
-    {
+    if let Some((out_dir, cfgs, env_vars)) = build_script_table.get(pkg_id) {
         if let Some(dir) = out_dir {
             cmd.env("OUT_DIR", dir);
         }
@@ -2042,9 +2235,9 @@ mod tests {
         // 覆盖临时项目路径为外壳项目
         let _ = fs::remove_dir_all(temp_guard.path());
         fs::create_dir_all(shell.join("src")).unwrap();
-        let json_text = extract_doc_json_internal(&TempProject(shell.clone()), "mini-crate")
+        let doc_jsons = extract_doc_json_internal(&TempProject(shell.clone()), "mini-crate")
             .expect("工具链应能提取文档");
-        let entries = extract_public_api(&json_text).unwrap();
+        let entries = extract_public_api(&doc_jsons[0].1).unwrap();
         let name_list: Vec<&str> = entries.iter().map(|e| e.english_name.as_str()).collect();
         assert!(
             name_list.contains(&"新建"),
@@ -2136,9 +2329,9 @@ mod tests {
         .unwrap();
         fs::write(shell.join("src/lib.rs"), "// 空库\n").unwrap();
 
-        let json_text = extract_doc_json_internal(&TempProject(shell.clone()), "mini-gen")
+        let doc_jsons = extract_doc_json_internal(&TempProject(shell.clone()), "mini-gen")
             .expect("OUT_DIR 注入后应能生成文档");
-        let entries = extract_public_api(&json_text).unwrap();
+        let entries = extract_public_api(&doc_jsons[0].1).unwrap();
         let name_list: Vec<&str> = entries.iter().map(|e| e.english_name.as_str()).collect();
         assert!(
             name_list.contains(&"use_generated_value"),
@@ -2172,9 +2365,9 @@ mod tests {
         .unwrap();
         fs::write(shell.join("src/lib.rs"), "// 空库\n").unwrap();
 
-        let json_text = extract_doc_json_internal(&TempProject(shell.clone()), "mini-feat")
+        let doc_jsons = extract_doc_json_internal(&TempProject(shell.clone()), "mini-feat")
             .expect("应能生成文档");
-        let entries = extract_public_api(&json_text).unwrap();
+        let entries = extract_public_api(&doc_jsons[0].1).unwrap();
         let name_list: Vec<&str> = entries.iter().map(|e| e.english_name.as_str()).collect();
         assert!(
             name_list.contains(&"magic_fn"),
@@ -2182,5 +2375,76 @@ mod tests {
             name_list
         );
         assert!(name_list.contains(&"normal_fn"));
+    }
+
+    /// 薄壳 crate（meta crate）glob 重导出追踪：目标 crate 仅 `pub use 依赖::*`，
+    /// 其公开 API 应通过追踪被重导出的依赖 crate 提取到（如 salvo → salvo_core）
+    #[test]
+    fn test_glob_reexport_tracking() {
+        let temp = tempfile::tempdir().unwrap();
+        // 真实 crate：mini-core 提供全部 API
+        let core = temp.path().join("mini-core");
+        fs::create_dir_all(core.join("src")).unwrap();
+        fs::write(
+            core.join("Cargo.toml"),
+            "[package]\nname = \"mini-core\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[workspace]\n",
+        )
+        .unwrap();
+        fs::write(
+            core.join("src/lib.rs"),
+            "pub fn handle_request() -> Result<Response, Error> { Ok(Response) }\npub struct Response;\npub enum Error { E }\npub trait Handler {}\n",
+        )
+        .unwrap();
+        // 薄壳 crate：全部 API 来自 glob 重导出（与 salvo 的 lib.rs 结构一致）
+        let facade = temp.path().join("mini-facade");
+        fs::create_dir_all(facade.join("src")).unwrap();
+        fs::write(
+            facade.join("Cargo.toml"),
+            "[package]\nname = \"mini-facade\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nmini-core = { path = \"../mini-core\" }\n\n[workspace]\n",
+        )
+        .unwrap();
+        fs::write(
+            facade.join("src/lib.rs"),
+            "pub use mini_core::*;\npub use mini_core as core;\n",
+        )
+        .unwrap();
+        let shell = temp.path().join("外壳4");
+        fs::create_dir_all(shell.join("src")).unwrap();
+        fs::write(
+            shell.join("Cargo.toml"),
+            "[package]\nname = \"外壳4\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nmini-facade = { path = \"../mini-facade\" }\n\n[workspace]\n",
+        )
+        .unwrap();
+        fs::write(shell.join("src/lib.rs"), "// 空库\n").unwrap();
+
+        let doc_jsons = extract_doc_json_internal(&TempProject(shell.clone()), "mini-facade")
+            .expect("工具链应能提取文档");
+        // 目标 crate + 被 glob 重导出的依赖 crate（mini-core）
+        let crate_names: Vec<&str> = doc_jsons.iter().map(|(n, _)| n.as_str()).collect();
+        assert!(
+            doc_jsons.len() >= 2,
+            "应追踪到被重导出的依赖 crate: {:?}",
+            crate_names
+        );
+        assert!(
+            crate_names.contains(&"mini_core"),
+            "glob 重导出链应包含 mini_core（crate 名下划线形式）: {:?}",
+            crate_names
+        );
+        // 合并全部 JSON 提取，薄壳 crate 的 API 应全部到位
+        let mut entries = Vec::new();
+        let mut seen_names = HashSet::new();
+        for (_, json_text) in &doc_jsons {
+            for entry in extract_public_api(json_text).unwrap() {
+                if seen_names.insert(entry.english_name.clone()) {
+                    entries.push(entry);
+                }
+            }
+        }
+        let name_list: Vec<&str> = entries.iter().map(|e| e.english_name.as_str()).collect();
+        assert!(name_list.contains(&"handle_request"));
+        assert!(name_list.contains(&"Response"));
+        assert!(name_list.contains(&"Error"));
+        assert!(name_list.contains(&"Handler"));
     }
 }
