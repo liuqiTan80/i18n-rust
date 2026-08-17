@@ -41,9 +41,9 @@ if (Test-Path 'node_modules') {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-# ---------- 3. 编译 TypeScript ----------
-Write-Host "🛠️ 第 3 步：编译 TypeScript..."
-npm run compile
+# ---------- 3. 构建（类型检查 + 语法生成 + esbuild 打包） ----------
+Write-Host "🛠️ 第 3 步：构建扩展..."
+npm run build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 # ---------- 4. 打包 .vsix ----------

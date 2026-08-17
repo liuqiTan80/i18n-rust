@@ -13,7 +13,7 @@
  */
 
 import { ProviderInterface } from './provider-interface';
-import { AIConfig, AIError, ChatMessage, StreamCallback } from './types';
+import { AIError, ChatMessage, StreamCallback } from './types';
 
 /**
  * OpenAI-compatible protocol provider
@@ -50,12 +50,12 @@ export class OpenAICompatibleProvider extends ProviderInterface {
     }
 
     /** Send one full chat round, returning the assistant's full reply */
-    async sendChat(messages: ChatMessage[]): Promise<string> {
+    async sendChat(messages: ChatMessage[], signal?: AbortSignal): Promise<string> {
         const response = await this.request(this.chatEndpoint(), {
             method: 'POST',
             headers: this.buildHeaders(),
             body: JSON.stringify(this.buildBody(messages, false))
-        });
+        }, signal);
         const data = (await this.validateResponse(response, this.chatEndpoint())) as any;
         const content = data?.choices?.[0]?.message?.content;
         if (typeof content !== 'string') {
@@ -68,12 +68,12 @@ export class OpenAICompatibleProvider extends ProviderInterface {
     }
 
     /** Stream chat: parse SSE deltas and deliver content chunk by chunk */
-    async streamChat(messages: ChatMessage[], onChunk: StreamCallback): Promise<void> {
+    async streamChat(messages: ChatMessage[], onChunk: StreamCallback, signal?: AbortSignal): Promise<void> {
         const response = await this.request(this.chatEndpoint(), {
             method: 'POST',
             headers: this.buildHeaders(),
             body: JSON.stringify(this.buildBody(messages, true))
-        });
+        }, signal);
         if (!response.ok) {
             await this.validateResponse(response, this.chatEndpoint());
             return;
@@ -86,6 +86,11 @@ export class OpenAICompatibleProvider extends ProviderInterface {
         let buffer = '';
         try {
             while (true) {
+                // 用户取消时主动中断读取（fetch abort 也会使 read 抛错，此处提前退出）
+                if (signal?.aborted) {
+                    await reader.cancel().catch(() => undefined);
+                    throw new AIError('已取消', '请求已取消');
+                }
                 const { done, value } = await reader.read();
                 if (done) {
                     break;
@@ -104,6 +109,9 @@ export class OpenAICompatibleProvider extends ProviderInterface {
         } catch (error) {
             if (error instanceof AIError) {
                 throw error;
+            }
+            if (signal?.aborted) {
+                throw new AIError('已取消', '请求已取消');
             }
             throw new AIError('网络错误', `流式读取中断：${(error as Error).message}`);
         } finally {

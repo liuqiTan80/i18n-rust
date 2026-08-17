@@ -1,0 +1,52 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"난수_생성" = "rand"
+"날짜_시간" = "chrono"
+"시간_처리" = "time"
+"정규식" = "regex"
+"지연_정적" = "lazy_static"
+"단일_셀" = "once_cell"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# rand
+"난수_생성기" = "thread_rng"
+"난수_트레이트" = "Rng"
+"난수_범위" = "gen_range"
+"난수_값" = "random"
+"섞기" = "shuffle"
+"하나_고르기" = "choose"
+"채우기" = "fill"
+"샘플링" = "sample"
+
+# chrono
+"현지_시각" = "Local"
+"협정_세계시" = "Utc"
+"날짜_시간_타입" = "DateTime"
+"날짜" = "NaiveDate"
+"시각" = "NaiveTime"
+"지속_시간" = "Duration"
+"현재_시각" = "now"
+"오늘" = "today"
+"형식화" = "format"
+"구문_파싱" = "parse"
+
+# time
+"오프셋_날짜시간" = "OffsetDateTime"
+"현지_날짜" = "Date"
+
+# regex
+"정규식_타입" = "Regex"
+"일치_찾기" = "find"
+"전부_일치" = "find_iter"
+"캡처" = "captures"
+"일치_교체" = "replace"
+"일치_분할" = "split"
+"일치_판정" = "is_match"
+
+# lazy_static
+"지연_정적_속성" = "lazy_static"
+
+# once_cell
+"단일_셀_타입" = "OnceCell"
+"지연_정적값" = "Lazy"

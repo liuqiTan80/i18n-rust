@@ -1,0 +1,27 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"오류_처리" = "anyhow"
+"오류_파생" = "thiserror"
+"색상_오류" = "color_eyre"
+"오류_맥락" = "snafu"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# anyhow
+"임의_오류" = "Error"
+"오류_결과형" = "Result"
+"맥락_붙이기" = "context"
+"보장_확인" = "ensure"
+"중단_반환" = "bail"
+
+# thiserror
+"오류_파생_속성" = "error"
+"오류_원인" = "source"
+"표시_속성" = "display"
+
+# color-eyre
+"설치_구성" = "install"
+"보고서" = "Report"
+
+# snafu
+"반환_속성" = "return"

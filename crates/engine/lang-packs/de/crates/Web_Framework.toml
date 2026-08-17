@@ -1,0 +1,41 @@
+# Crate-Namensmapping (für use-Pfade)
+["模块路径"]
+"Actix" = "actix-web"
+"achse" = "axum"
+"kruemmung" = "warp"
+"rakete" = "rocket"
+
+# Interne Identifikator-Mappings (Typen, Funktionen usw.)
+["标识符"]
+# actix-web
+"anwendung" = "App"
+"http_server" = "HttpServer"
+"route" = "route"
+"ressource" = "resource"
+"geltungsbereich" = "scope"
+"handler" = "handler"
+"http_anfrage" = "HttpRequest"
+"http_antwort" = "HttpResponse"
+"json_koerper" = "Json"
+"formular" = "Form"
+"pfad" = "Path"
+"abfrage_parameter" = "Query"
+"zwischenstufe" = "middleware"
+
+# axum
+"routen_zu" = "route"
+"extraktor" = "extract"
+"zustand" = "State"
+"erweiterung" = "Extension"
+
+# warp
+"anfrage_filter" = "Filter"
+"methode" = "method"
+"hole_methode" = "get"
+"sende_methode" = "post"
+"antworten" = "reply"
+
+# rocket
+"raketen_typ" = "Rocket"
+"starten" = "launch"
+"vorlage" = "Template"

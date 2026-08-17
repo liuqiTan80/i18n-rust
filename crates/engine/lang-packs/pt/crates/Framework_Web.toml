@@ -1,0 +1,41 @@
+# Mapeamento de nomes de crate (para caminhos use)
+["模块路径"]
+"Actix" = "actix-web"
+"eixo" = "axum"
+"torcao" = "warp"
+"foguete" = "rocket"
+
+# Mapeamento de identificadores internos (tipos, funções etc.)
+["标识符"]
+# actix-web
+"aplicacao" = "App"
+"servidor_http" = "HttpServer"
+"rota_web" = "route"
+"recurso" = "resource"
+"escopo" = "scope"
+"manipulador" = "handler"
+"requisicao_http" = "HttpRequest"
+"resposta_http" = "HttpResponse"
+"corpo_json" = "Json"
+"formulario" = "Form"
+"caminho" = "Path"
+"parametros_requisicao" = "Query"
+"intermediario" = "middleware"
+
+# axum
+"rotear_para" = "route"
+"extrator" = "extract"
+"estado" = "State"
+"tipo_extensao" = "Extension"
+
+# warp
+"filtro_requisicao" = "Filter"
+"metodo" = "method"
+"metodo_get" = "get"
+"metodo_post" = "post"
+"responder" = "reply"
+
+# rocket
+"foguete_tipo" = "Rocket"
+"iniciar" = "launch"
+"modelo" = "Template"

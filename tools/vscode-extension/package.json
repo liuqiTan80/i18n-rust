@@ -2,7 +2,7 @@
   "name": "i18n-rust",
   "displayName": "i18n-rust - Write Rust in Any Language",
   "description": "Write Rust code in your native language, with support for syntax highlighting, intelligent code completion, and error hints.",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "publisher": "i18n-rust",
   "license": "MIT",
   "repository": {
@@ -12,15 +12,6 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "files": [
-    "out/**",
-    "snippets/**",
-    "syntaxes/**",
-    "images/**",
-    "node_modules/**",
-    "language-configuration.json",
-    "LICENSE*"
-  ],
   "categories": [
     "Programming Languages",
     "Education"
@@ -36,67 +27,120 @@
   "activationEvents": [
     "onLanguage:rust-zh",
     "onLanguage:rust-en",
+    "onLanguage:rust-ja",
     "onLanguage:rust-de",
+    "onLanguage:rust-es",
+    "onLanguage:rust-fr",
+    "onLanguage:rust-pt",
+    "onLanguage:rust-ru",
+    "onLanguage:rust-ko",
+    "onLanguage:rust-hi",
+    "onLanguage:rust-ar",
     "workspaceContains:**/*.zh",
     "workspaceContains:**/*.en",
-    "workspaceContains:**/*.de"
+    "workspaceContains:**/*.ja",
+    "workspaceContains:**/*.de",
+    "workspaceContains:**/*.es",
+    "workspaceContains:**/*.fr",
+    "workspaceContains:**/*.pt",
+    "workspaceContains:**/*.ru",
+    "workspaceContains:**/*.ko",
+    "workspaceContains:**/*.hi",
+    "workspaceContains:**/*.ar"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
       {
         "id": "rust-zh",
-        "aliases": [
-          "Rust (中文)",
-          "rust-zh",
-          "中文 Rust"
-        ],
-        "extensions": [
-          ".zh"
-        ],
+        "aliases": [ "Rust (中文)", "rust-zh", "中文 Rust" ],
+        "extensions": [ ".zh" ],
         "configuration": "./language-configuration.json",
-        "icon": {
-          "light": "images/icon.png",
-          "dark": "images/icon.png"
-        }
+        "icon": { "light": "images/icon.png", "dark": "images/icon.png" }
       },
       {
         "id": "rust-en",
-        "aliases": [
-          "Rust (English)",
-          "rust-en"
-        ],
-        "extensions": [
-          ".en"
-        ],
+        "aliases": [ "Rust (English)", "rust-en" ],
+        "extensions": [ ".en" ],
         "configuration": "./language-configuration.json",
-        "icon": {
-          "light": "images/icon.png",
-          "dark": "images/icon.png"
-        }
+        "icon": { "light": "images/icon.png", "dark": "images/icon.png" }
+      },
+      {
+        "id": "rust-ja",
+        "aliases": [ "Rust (日本語)", "rust-ja" ],
+        "extensions": [ ".ja" ],
+        "configuration": "./language-configuration.json",
+        "icon": { "light": "images/icon.png", "dark": "images/icon.png" }
       },
       {
         "id": "rust-de",
-        "aliases": [
-          "Rust (Deutsch)",
-          "rust-de"
-        ],
-        "extensions": [
-          ".de"
-        ],
+        "aliases": [ "Rust (Deutsch)", "rust-de" ],
+        "extensions": [ ".de" ],
         "configuration": "./language-configuration.json",
-        "icon": {
-          "light": "images/icon.png",
-          "dark": "images/icon.png"
-        }
+        "icon": { "light": "images/icon.png", "dark": "images/icon.png" }
+      },
+      {
+        "id": "rust-es",
+        "aliases": [ "Rust (Español)", "rust-es" ],
+        "extensions": [ ".es" ],
+        "configuration": "./language-configuration.json",
+        "icon": { "light": "images/icon.png", "dark": "images/icon.png" }
+      },
+      {
+        "id": "rust-fr",
+        "aliases": [ "Rust (Français)", "rust-fr" ],
+        "extensions": [ ".fr" ],
+        "configuration": "./language-configuration.json",
+        "icon": { "light": "images/icon.png", "dark": "images/icon.png" }
+      },
+      {
+        "id": "rust-pt",
+        "aliases": [ "Rust (Português)", "rust-pt" ],
+        "extensions": [ ".pt" ],
+        "configuration": "./language-configuration.json",
+        "icon": { "light": "images/icon.png", "dark": "images/icon.png" }
+      },
+      {
+        "id": "rust-ru",
+        "aliases": [ "Rust (Русский)", "rust-ru" ],
+        "extensions": [ ".ru" ],
+        "configuration": "./language-configuration.json",
+        "icon": { "light": "images/icon.png", "dark": "images/icon.png" }
+      },
+      {
+        "id": "rust-ko",
+        "aliases": [ "Rust (한국어)", "rust-ko" ],
+        "extensions": [ ".ko" ],
+        "configuration": "./language-configuration.json",
+        "icon": { "light": "images/icon.png", "dark": "images/icon.png" }
+      },
+      {
+        "id": "rust-hi",
+        "aliases": [ "Rust (हिन्दी)", "rust-hi" ],
+        "extensions": [ ".hi" ],
+        "configuration": "./language-configuration.json",
+        "icon": { "light": "images/icon.png", "dark": "images/icon.png" }
+      },
+      {
+        "id": "rust-ar",
+        "aliases": [ "Rust (العربية)", "rust-ar" ],
+        "extensions": [ ".ar" ],
+        "configuration": "./language-configuration.json",
+        "icon": { "light": "images/icon.png", "dark": "images/icon.png" }
       }
     ],
     "grammars": [
-      {
-        "language": "rust-zh",
-        "scopeName": "source.rust-zh",
-        "path": "./syntaxes/rust-zh.tmLanguage.json"
-      }
+      { "language": "rust-zh", "scopeName": "source.rust-zh", "path": "./syntaxes/rust-zh.tmLanguage.json" },
+      { "language": "rust-en", "scopeName": "source.rust-en", "path": "./syntaxes/rust-en.tmLanguage.json" },
+      { "language": "rust-ja", "scopeName": "source.rust-ja", "path": "./syntaxes/rust-ja.tmLanguage.json" },
+      { "language": "rust-de", "scopeName": "source.rust-de", "path": "./syntaxes/rust-de.tmLanguage.json" },
+      { "language": "rust-es", "scopeName": "source.rust-es", "path": "./syntaxes/rust-es.tmLanguage.json" },
+      { "language": "rust-fr", "scopeName": "source.rust-fr", "path": "./syntaxes/rust-fr.tmLanguage.json" },
+      { "language": "rust-pt", "scopeName": "source.rust-pt", "path": "./syntaxes/rust-pt.tmLanguage.json" },
+      { "language": "rust-ru", "scopeName": "source.rust-ru", "path": "./syntaxes/rust-ru.tmLanguage.json" },
+      { "language": "rust-ko", "scopeName": "source.rust-ko", "path": "./syntaxes/rust-ko.tmLanguage.json" },
+      { "language": "rust-hi", "scopeName": "source.rust-hi", "path": "./syntaxes/rust-hi.tmLanguage.json" },
+      { "language": "rust-ar", "scopeName": "source.rust-ar", "path": "./syntaxes/rust-ar.tmLanguage.json" }
     ],
     "commands": [
       {
@@ -143,39 +187,39 @@
     "menus": {
       "editor/title": [
         {
-          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
           "command": "i18n-rust.run",
           "group": "navigation@1"
         },
         {
-          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
           "command": "i18n-rust.check",
           "group": "navigation@2"
         }
       ],
       "editor/context": [
         {
-          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
           "command": "i18n-rust.run",
           "group": "i18n@1"
         },
         {
-          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
           "command": "i18n-rust.check",
           "group": "i18n@2"
         },
         {
-          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
           "command": "i18n-rust.eject",
           "group": "i18n@3"
         },
         {
-          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
           "command": "editor.action.formatDocument",
           "group": "i18n@4"
         },
         {
-          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de",
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
           "command": "i18n-rust.aiChat",
           "group": "i18n@5"
         }
@@ -186,13 +230,13 @@
         "command": "i18n-rust.run",
         "key": "ctrl+shift+r",
         "mac": "cmd+shift+r",
-        "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de"
+        "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar"
       },
       {
         "command": "i18n-rust.check",
         "key": "ctrl+shift+c",
         "mac": "cmd+shift+c",
-        "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-de"
+        "when": "resourceLangId == rust-zh || resourceLangId == rust-en || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar"
       }
     ],
     "configuration": {
@@ -201,10 +245,28 @@
         "i18n-rust.serverPath": {
           "type": "string",
           "default": "i18n-rust-lsp",
-          "description": "i18n-rust-lsp 可执行文件路径"
+          "description": "i18n-rust-lsp 可执行文件路径（可为绝对路径、工作区相对路径或 PATH 中的命令名）"
+        },
+        "i18n-rust.rzcPath": {
+          "type": "string",
+          "default": "rzc",
+          "description": "rzc 命令行工具路径（可为绝对路径、工作区相对路径或 PATH 中的命令名）"
         },
         "i18n-rust.languagePack": {
           "type": "string",
+          "enum": [
+            "中文",
+            "English",
+            "日本語",
+            "Deutsch",
+            "Español",
+            "Français",
+            "Português",
+            "Русский",
+            "한국어",
+            "हिन्दी",
+            "العربية"
+          ],
           "default": "中文",
           "description": "当前使用的语言包"
         },
@@ -245,7 +307,8 @@
           "type": "string",
           "default": "",
           "description": "AI API 密钥（Ollama 本地服务可留空）",
-          "markdownDescription": "AI API 密钥（Ollama 本地服务可留空）"
+          "markdownDescription": "AI API 密钥（Ollama 本地服务可留空）。**已弃用**：扩展会自动将此值迁移到加密的 SecretStorage 并清空该设置。",
+          "deprecationMessage": "密钥现由扩展安全存储（SecretStorage）管理；此处填写的值会在下次使用时自动迁移并清空。"
         },
         "i18n-rust.ai.baseUrl": {
           "type": "string",
@@ -309,24 +372,28 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run gen:grammars && npm run esbuild:min",
+    "gen:grammars": "node scripts/gen-grammars.mjs",
+    "esbuild": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "esbuild:min": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "build": "npm run gen:grammars && npm run compile && npm run esbuild",
     "compile": "tsc -p ./",
+    "typecheck": "tsc -noEmit -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
-    "test": "node ./out/test/runTest.js",
+    "test": "node --test out/test/*.test.js",
     "lint": "eslint src --ext ts",
     "package": "vsce package"
-  },
-  "dependencies": {
-    "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
+    "esbuild": "^0.21.0",
     "eslint": "^8.54.0",
     "typescript": "^5.3.2",
-    "@vscode/vsce": "^2.22.0"
+    "@vscode/vsce": "^2.22.0",
+    "vscode-languageclient": "^9.0.1"
   }
 }

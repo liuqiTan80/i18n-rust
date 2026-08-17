@@ -219,7 +219,10 @@ pub fn global_lang_dir() -> PathBuf {
     {
         return PathBuf::from(dir);
     }
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    // HOME（Unix）优先，USERPROFILE（Windows）回退，保证跨平台安装目录正确
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".to_string());
     PathBuf::from(home).join(".rz").join("lang-packs")
 }
 

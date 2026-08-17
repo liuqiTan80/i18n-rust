@@ -1,0 +1,33 @@
+# Mapeamento de nomes de crate (para caminhos use)
+["模块路径"]
+"banco_dados" = "sqlx"
+"ORM" = "diesel"
+"SQLite" = "rusqlite"
+
+# Mapeamento de identificadores internos (tipos, funções etc.)
+["标识符"]
+# sqlx
+"grupo_conexoes" = "Pool"
+"conexao" = "Connection"
+"consulta" = "query"
+"executar" = "execute"
+"buscar_linhas" = "fetch"
+"buscar_tudo" = "fetch_all"
+"buscar_um" = "fetch_one"
+"buscar_opcional" = "fetch_optional"
+"transacao" = "Transaction"
+"migracao" = "migrate"
+
+# diesel
+"construtor_consultas" = "QueryDsl"
+"inserivel" = "Insertable"
+"consultavel" = "Queryable"
+"tabela" = "Table"
+"selecionar" = "select"
+"filtrar" = "filter"
+"ordenar_por" = "order"
+"limitar" = "limit"
+
+# rusqlite
+"declaracao" = "Statement"
+"preparar" = "prepare"

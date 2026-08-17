@@ -79,13 +79,14 @@ function stripComment(line: string): string {
 }
 
 /**
- * Load language pack data for a language (<root>/<languageName>/ directory)
+ * Load language pack data for a language code (<root>/<code>/ directory,
+ * e.g. <root>/zh/).
  * Required files: keywords.toml, stdlib.toml
  * (missing files still return the usable part)
  * Returns null when the directory is missing or all files are missing.
  */
-export function loadLanguagePack(rootDir: string, languageName: string): LanguagePackData | null {
-    const langDir = path.join(rootDir, languageName);
+export function loadLanguagePack(rootDir: string, languageCode: string): LanguagePackData | null {
+    const langDir = path.join(rootDir, languageCode);
     if (!fs.existsSync(langDir)) {
         return null;
     }
@@ -119,7 +120,26 @@ export function loadLanguagePack(rootDir: string, languageName: string): Languag
     if (keywordTables.size === 0 && stdlibIdentifiers.size === 0) {
         return null;
     }
+    // 显示名从 lang_info.toml 的 ["语言包"] "名称" 读取，读不到时用代码兜底
+    const languageName = readLanguageName(langDir) ?? languageCode;
     return { languageName, keywordTables, stdlibIdentifiers };
+}
+
+/**
+ * 读取语言包目录内 lang_info.toml 的显示名（["语言包"] "名称"），
+ * 文件缺失或解析失败返回 null
+ */
+function readLanguageName(langDir: string): string | null {
+    const infoFile = path.join(langDir, 'lang_info.toml');
+    if (!fs.existsSync(infoFile)) {
+        return null;
+    }
+    try {
+        const tables = parseToml(fs.readFileSync(infoFile, 'utf8'));
+        return tables.get('语言包')?.get('名称') ?? null;
+    } catch {
+        return null;
+    }
 }
 
 /**
@@ -127,9 +147,11 @@ export function loadLanguagePack(rootDir: string, languageName: string): Languag
  * - When the language pack is available, generate examples from
  *   keywords / types and identifiers / macros
  * - Otherwise fall back to the English prompt
+ *
+ * languageCode 为语言包目录名（如 zh / ru），extension 为源码扩展名。
  */
-export function buildSystemPrompt(languageName: string, rootDir?: string): string {
-    const data = rootDir ? loadLanguagePack(rootDir, languageName) : null;
+export function buildSystemPrompt(languageCode: string, rootDir?: string): string {
+    const data = rootDir ? loadLanguagePack(rootDir, languageCode) : null;
     if (!data) {
         return fallbackEnglishPrompt();
     }
@@ -156,7 +178,7 @@ export function buildSystemPrompt(languageName: string, rootDir?: string): strin
         .slice(0, 20)
         .map(([zh, en]) => `- ${zh} = ${en}`);
 
-    lines.push(`你是一位精通 Rust 编程的教学助手，正在辅导使用「${data.languageName}」方言编写 Rust 代码（扩展名 ${data.languageName === '中文' ? '.zh' : '对应语言包扩展名'}）的学生。`);
+    lines.push(`你是一位精通 Rust 编程的教学助手，正在辅导使用「${data.languageName}」方言编写 Rust 代码（扩展名 .${languageCode}）的学生。`);
     lines.push('');
     lines.push('【方言关键字映射】');
     lines.push(...(keywordLines.length > 0 ? keywordLines : ['（无）']));

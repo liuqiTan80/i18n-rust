@@ -1,0 +1,37 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"非同期実行" = "tokio"
+"非同期標準" = "async-std"
+"フューチャ群" = "futures"
+"非同期トレイト" = "async-trait"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# tokio
+"メイン関数" = "main"
+"タスク生成" = "spawn"
+"アウェイト" = "await"
+"選択合流" = "select"
+"遅延待機" = "delay_for"
+"間隔タイマー" = "interval"
+"スリープ" = "sleep"
+"ブロックタスク" = "spawn_blocking"
+"チャネル" = "channel"
+"ワンショットチャネル" = "oneshot"
+"ブロードキャストチャネル" = "broadcast"
+
+# async-std
+"タスク" = "task"
+"生成実行" = "spawn"
+"ブロックタスク実行" = "task::spawn_blocking"
+"ストリーム" = "stream"
+
+# futures
+"フューチャ型" = "Future"
+"シンク" = "Sink"
+"結合待機" = "join"
+"試行結合" = "try_join"
+"ポーリング" = "poll"
+
+# async-trait
+"非同期トレイト属性" = "async_trait"

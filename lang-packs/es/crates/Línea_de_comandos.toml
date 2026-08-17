@@ -1,0 +1,41 @@
+# Mapeo de nombres de crate (para rutas use)
+["模块路径"]
+"linea_comandos" = "clap"
+"opciones_estructura" = "structopt"
+"dialogos" = "dialoguer"
+"consola" = "console"
+
+# Mapeo de identificadores internos (tipos, funciones, etc.)
+["标识符"]
+# clap
+"analizador_comandos" = "Command"
+"argumento" = "Arg"
+"subcomando" = "Subcommand"
+"enumeracion_valores" = "ValueEnum"
+"analizador" = "Parser"
+"bandera_larga" = "long"
+"bandera_corta" = "short"
+"ayuda" = "help"
+"version" = "version"
+"obligatorio" = "required"
+"valor_defecto" = "default_value"
+
+# structopt
+"struct_opt" = "StructOpt"
+"analizar" = "parse"
+"desde_argumentos" = "from_args"
+
+# dialoguer
+"campo_entrada" = "Input"
+"confirmacion" = "Confirm"
+"lista_opciones" = "Select"
+"seleccion_multiple" = "MultiSelect"
+"campo_contrasena" = "Password"
+"interaccion" = "Interact"
+
+# console
+"terminal" = "Term"
+"estilo" = "Style"
+"estilo_coloreado" = "style"
+"barra_progreso" = "ProgressBar"
+"indicador_giro" = "Spinner"

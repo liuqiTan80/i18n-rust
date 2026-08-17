@@ -1,0 +1,393 @@
+# तीसरे पक्ष की लाइब्रेरी का स्वचालित रूप से जनरेट किया गया मानचित्रण
+# crate: salvo
+# इस फ़ाइल में व्याख्याएँ API नाम और हस्ताक्षर के आधार पर AI द्वारा स्वतः जनरेट की गई हैं, ये मूल crate के आधिकारिक दस्तावेज़ का अनुवाद नहीं हैं, केवल अध्ययन संदर्भ के लिए। मूल crate के सर्वाधिकार उनके लेखकों के हैं।
+# मैन्युअल रूप से परिष्कृत: पहचानकर्ताओं को हिंदी में अनुवादित किया गया और व्याख्याएँ जोड़ी गईं।
+
+["模块路径"]
+"salvo" = "salvo"
+
+["标识符"]
+"मूल_क्रेट" = "core"  # type core = salvo_core
+"पकड़ने_वाला" = "Catcher"  # struct Catcher
+"पूर्व_निर्धारित_लक्ष्य" = "DefaultGoal"  # struct DefaultGoal
+"सॉकेट_पता_सैल्बो" = "SocketAddr"  # enum SocketAddr
+"टीसीपी_श्रोता_सैल्बो" = "TcpListener"  # struct TcpListener<T>
+"टीसीपी_स्वीकर्ता" = "TcpAcceptor"  # struct TcpAcceptor
+"गतिशील_टीसीपी_स्वीकर्ता" = "DynTcpAcceptor"  # trait DynTcpAcceptor
+"गतिशील_में_टीसीपी_स्वीकर्ता" = "ToDynTcpAcceptor"  # struct ToDynTcpAcceptor<A>
+"गतिशील_टीसीपी_स्वीकर्ता_समूह" = "DynTcpAcceptors"  # struct DynTcpAcceptors
+"कनेक्शन_नियंत्रण" = "ConnCtrl"  # type ConnCtrl = ctrl::ConnCtrl
+"HTTP1" = "http1"  # type http1 = hyper::server::conn::http1
+"HTTP2" = "http2"  # type http2 = hyper::server::conn::http2
+"संयुक्त_स्वीकर्ता" = "JoinedAcceptor"  # type JoinedAcceptor = joined::JoinedAcceptor
+"संयुक्त_श्रोता" = "JoinedListener"  # type JoinedListener = joined::JoinedListener
+"स्वीकृत_कनेक्शन" = "Accepted"  # struct Accepted<C, S>
+"स्वीकर्ता" = "Acceptor"  # trait Acceptor
+"धारण" = "Holding"  # struct Holding
+"युग्मक" = "Coupler"  # trait Coupler
+"श्रोता" = "Listener"  # trait Listener
+"गतिशील_धारा" = "DynStream"  # struct DynStream
+"कनेक्शन_स्रोत" = "SourceFrom"  # enum SourceFrom
+"स्रोत_विश्लेषक" = "SourceParser"  # enum SourceParser
+"मेटाडेटा_सैल्बो" = "Metadata"  # struct Metadata
+"क्षेत्र" = "Field"  # struct Field
+"विन्यास_स्रोत" = "Source"  # struct Source
+"पुनर्नामकरण_नियम" = "RenameRule"  # type RenameRule = case::RenameRule
+"निष्कर्षणीय" = "Extractible"  # trait Extractible<'ex>
+"खंडित_फ़ाइल" = "ChunkedFile"  # struct ChunkedFile<T>
+"परिवहन_प्रोटोकॉल" = "TransProto"  # enum TransProto
+"फ्यूज़_जानकारी" = "FuseInfo"  # struct FuseInfo
+"फ्यूज़_विन्यास" = "FuseConfig"  # struct FuseConfig
+"फ्यूज़_क्रिया" = "FuseAction"  # enum FuseAction
+"कनेक्शन_प्रेक्षक" = "ConnObserver"  # trait ConnObserver
+"आर्क_कनेक्शन_प्रेक्षक" = "ArcConnObserver"  # type ArcConnObserver = std::sync::Arc<dyn ?>
+"फ्यूज़_नीति" = "FusePolicy"  # trait FusePolicy
+"आर्क_फ्यूज़_नीति" = "ArcFusePolicy"  # type ArcFusePolicy = std::sync::Arc<dyn ?>
+"हैंडलर_लक्षण" = "Handler"  # trait Handler
+"आर्क_हैंडलर" = "ArcHandler"  # struct ArcHandler
+"रिक्त_हैंडलर" = "empty"  # fn empty() -> EmptyHandler
+"छोड़ने_वाला" = "Skipper"  # trait Skipper
+"वेष्टित_हैंडलर" = "HoopedHandler"  # struct HoopedHandler
+"कभी_न_छोड़ो" = "none_skipper"  # fn none_skipper(_req: &crate::Request, _depot: &crate::Depot) -> bool
+"पार्स_त्रुटि" = "ParseError"  # type ParseError = parse_error::ParseError
+"पार्स_परिणाम" = "ParseResult"  # type ParseResult = parse_error::ParseResult
+"स्थिति_त्रुटि" = "StatusError"  # type StatusError = status_error::StatusError
+"स्थिति_परिणाम" = "StatusResult"  # type StatusResult = status_error::StatusResult
+"फ़ॉर्म_डेटा" = "FormData"  # struct FormData
+"फ़ाइल_भाग" = "FilePart"  # struct FilePart
+"अनुरोध_भाग" = "Parts"  # type Parts = http::request::Parts
+"वैश्विक_सुरक्षित_अधिकतम_आकार" = "global_secure_max_size"  # fn global_secure_max_size() -> usize
+"वैश्विक_सुरक्षित_अधिकतम_आकार_सेट" = "set_global_secure_max_size"  # fn set_global_secure_max_size(size: usize) -> ?
+"सुरक्षित_अधिकतम_आकार" = "SecureMaxSize"  # struct SecureMaxSize
+"अनुरोध_सैल्बो" = "Request"  # struct Request
+"बॉडी_प्रेषक" = "BodySender"  # type BodySender = crate::http::body::BodySender
+"बाइट_फ्रेम" = "BytesFrame"  # type BytesFrame = crate::http::body::BytesFrame
+"प्रतिक्रिया_बॉडी_सैल्बो" = "ResBody"  # type ResBody = crate::http::body::ResBody
+"प्रतिक्रिया_सैल्बो" = "Response"  # struct Response
+"सुरक्षित_कुकी_नीति" = "SecureCookiePolicy"  # enum SecureCookiePolicy
+"बॉडी" = "Body"  # type Body = hyper::body::Body
+"फ्रेम" = "Frame"  # type Frame = hyper::body::Frame
+"आकार_संकेत" = "SizeHint"  # type SizeHint = hyper::body::SizeHint
+"अनुरोध_बॉडी_सैल्बो" = "ReqBody"  # type ReqBody = req::ReqBody
+"हाइपर_बॉडी" = "HyperBody"  # type HyperBody = hyper::body::Incoming
+"बॉडी_ग्राहक" = "BodyReceiver"  # type BodyReceiver = channel::BodyReceiver
+"कुकी_मॉड्यूल" = "cookie"  # type cookie = cookie
+"हेडर_समूह" = "headers"  # type headers = headers
+"एचटीटीपी_विधि" = "Method"  # type Method = http::method::Method
+"हेडर_मानचित्र" = "HeaderMap"  # type HeaderMap = http::HeaderMap
+"हेडर_नाम" = "HeaderName"  # type HeaderName = http::HeaderName
+"हेडर_मान" = "HeaderValue"  # type HeaderValue = http::HeaderValue
+"स्थिति_कोड" = "StatusCode"  # type StatusCode = http::StatusCode
+"हेडर_मॉड्यूल" = "header"  # type header = http::header
+"यूआरआई_मॉड्यूल" = "uri"  # type uri = http::uri
+"एचटीटीपी_रेंज" = "HttpRange"  # type HttpRange = range::HttpRange
+"प्रोटोकॉल_संस्करण" = "Version"  # type Version = http::version::Version
+"माइम_प्रकार" = "Mime"  # type Mime = mime::Mime
+"फ़िल्टर_जानकारी" = "FilterInfo"  # enum FilterInfo
+"फ़िल्टर_लक्षण" = "Filter"  # trait Filter
+"फ़ंक्शन_फ़िल्टर" = "FnFilter"  # struct FnFilter<F>
+"योजना_फ़िल्टर" = "scheme"  # fn scheme(scheme: crate::http::uri::Scheme) -> SchemeFilter
+"होस्ट" = "host"  # fn host<impl Into<String>>(host: impl ?) -> HostFilter
+"पोर्ट" = "port"  # fn port(port: u16) -> PortFilter
+"पथ_फ़िल्टर" = "path"  # fn path<impl Into<String>>(path: impl ?) -> PathFilter
+"पथ_आज़माओ" = "try_path"  # fn try_path<impl Into<String>>(path: impl ?) -> Result<PathFilter, String>
+"गेट_फ़िल्टर" = "get"  # fn get() -> MethodFilter
+"हेड_फ़िल्टर" = "head"  # fn head() -> MethodFilter
+"विकल्प_फ़िल्टर" = "options"  # fn options() -> MethodFilter
+"पोस्ट_फ़िल्टर" = "post"  # fn post() -> MethodFilter
+"पैच_फ़िल्टर" = "patch"  # fn patch() -> MethodFilter
+"पुट_फ़िल्टर" = "put"  # fn put() -> MethodFilter
+"क्वेरी_फ़िल्टर" = "query"  # fn query() -> MethodFilter
+"हटाओ_फ़िल्टर" = "delete"  # fn delete() -> MethodFilter
+"राउटर" = "Router"  # type Router = router::Router
+"पथ_पैरामीटर_समूह" = "PathParams"  # type PathParams = path_params::PathParams
+"प्रवाह_नियंत्रण" = "FlowCtrl"  # type FlowCtrl = flow_ctrl::FlowCtrl
+"टोकियो_निष्पादक" = "TokioExecutor"  # type TokioExecutor = hyper_util::rt::TokioExecutor
+"टोकियो_इनपुट_आउटपुट" = "TokioIo"  # type TokioIo = hyper_util::rt::TokioIo
+"टोकियो_घड़ी" = "TokioTimer"  # type TokioTimer = hyper_util::rt::TokioTimer
+"सर्वर_हैंडल" = "ServerHandle"  # struct ServerHandle
+"सर्वर" = "Server"  # struct Server<A>
+"जेसोन_प्रतिक्रिया" = "Json"  # type Json = json::Json
+"पुनर्निर्देशन" = "Redirect"  # type Redirect = redirect::Redirect
+"पठन_स्थानक" = "ReadSeeker"  # type ReadSeeker = seek::ReadSeeker
+"पाठ_सामग्री" = "Text"  # type Text = text::Text
+"लेखक_लक्षण" = "Writer"  # trait Writer
+"लिपिक" = "Scribe"  # trait Scribe
+"परीक्षण_ग्राहक" = "TestClient"  # type TestClient = client::TestClient
+"अनुरोध_निर्माता" = "RequestBuilder"  # type RequestBuilder = request::RequestBuilder
+"भेजने_लक्ष्य" = "SendTarget"  # type SendTarget = request::SendTarget
+"प्रतिक्रिया_विस्तार" = "ResponseExt"  # type ResponseExt = response::ResponseExt
+"अतुल्यकालिक_लक्षण_मैक्रो" = "async_trait"  # type async_trait = async_trait::async_trait
+"डिपो" = "Depot"  # type Depot = crate::depot::Depot
+"सेवा" = "Service"  # type Service = crate::service::Service
+"हाइपर_मॉड्यूल" = "hyper"  # type hyper = hyper
+"मैक्रो_समूह" = "macros"  # type macros = salvo_macros
+"बॉक्स_त्रुटि" = "BoxedError"  # type BoxedError = self::error::BoxedError
+"त्रुटि_सैल्बो" = "Error"  # type Error = self::error::Error
+"परिणाम_सैल्बो" = "Result"  # type Result = std::result::Result<T, Error>
+"माइम_पुनरावर्तक" = "MimeIter"  # struct MimeIter<'a>
+"माइम_नाम" = "Name"  # struct Name<'a>
+"स्ट्रिंग_पार्स_त्रुटि" = "FromStrError"  # struct FromStrError
+"माइम_पैरामीटर" = "Params"  # struct Params<'a>
+"तारा" = "STAR"  # const STAR: Name<''static'>
+"पाठ_नाम" = "TEXT"  # const TEXT: Name<''static'>
+"छवि_नाम" = "IMAGE"  # const IMAGE: Name<''static'>
+"ध्वनि_नाम" = "AUDIO"  # const AUDIO: Name<''static'>
+"वीडियो_नाम" = "VIDEO"  # const VIDEO: Name<''static'>
+"एप्लिकेशन_नाम" = "APPLICATION"  # const APPLICATION: Name<''static'>
+"बहुभाग_नाम" = "MULTIPART"  # const MULTIPART: Name<''static'>
+"संदेश_नाम" = "MESSAGE"  # const MESSAGE: Name<''static'>
+"मॉडल_नाम" = "MODEL"  # const MODEL: Name<''static'>
+"फ़ॉन्ट_नाम" = "FONT"  # const FONT: Name<''static'>
+"सादा_नाम" = "PLAIN"  # const PLAIN: Name<''static'>
+"एचटीएमएल_नाम" = "HTML"  # const HTML: Name<''static'>
+"एक्सएमएल_नाम" = "XML"  # const XML: Name<''static'>
+"जावास्क्रिप्ट_नाम" = "JAVASCRIPT"  # const JAVASCRIPT: Name<''static'>
+"सीएसएस_नाम" = "CSS"  # const CSS: Name<''static'>
+"सीएसवी_नाम" = "CSV"  # const CSV: Name<''static'>
+"घटना_धारा_नाम" = "EVENT_STREAM"  # const EVENT_STREAM: Name<''static'>
+"वीकार्ड_नाम" = "VCARD"  # const VCARD: Name<''static'>
+"यूआरएल_फ़ॉर्म_एन्कोडिंग_नाम" = "WWW_FORM_URLENCODED"  # const WWW_FORM_URLENCODED: Name<''static'>
+"एमएसजीपैक_नाम" = "MSGPACK"  # const MSGPACK: Name<''static'>
+"बाइट_धारा_नाम" = "OCTET_STREAM"  # const OCTET_STREAM: Name<''static'>
+"पीडीएफ_नाम" = "PDF"  # const PDF: Name<''static'>
+"वॉफ_नाम" = "WOFF"  # const WOFF: Name<''static'>
+"वॉफ2_नाम" = "WOFF2"  # const WOFF2: Name<''static'>
+"फ़ॉर्म_डेटा_नाम" = "FORM_DATA"  # const FORM_DATA: Name<''static'>
+"बीएमपी_नाम" = "BMP"  # const BMP: Name<''static'>
+"जीआईएफ_नाम" = "GIF"  # const GIF: Name<''static'>
+"जेपीईजी_नाम" = "JPEG"  # const JPEG: Name<''static'>
+"पीएनजी_नाम" = "PNG"  # const PNG: Name<''static'>
+"एसवीजी_नाम" = "SVG"  # const SVG: Name<''static'>
+"मूल_नाम" = "BASIC"  # const BASIC: Name<''static'>
+"MPEG" = "MPEG"  # const MPEG: Name<''static'>
+"MP4" = "MP4"  # const MP4: Name<''static'>
+"OGG" = "OGG"  # const OGG: Name<''static'>
+"वर्ण_समूह_नाम" = "CHARSET"  # const CHARSET: Name<''static'>
+"सीमा_नाम" = "BOUNDARY"  # const BOUNDARY: Name<''static'>
+"यूटीएफ8_नाम" = "UTF_8"  # const UTF_8: Name<''static'>
+"कोई_भी_माइम" = "STAR_STAR"  # const STAR_STAR: Mime
+"कोई_भी_पाठ" = "TEXT_STAR"  # const TEXT_STAR: Mime
+"सादा_पाठ_माइम" = "TEXT_PLAIN"  # const TEXT_PLAIN: Mime
+"सादा_पाठ_यूटीएफ8_माइम" = "TEXT_PLAIN_UTF_8"  # const TEXT_PLAIN_UTF_8: Mime
+"एचटीएमएल_पाठ" = "TEXT_HTML"  # const TEXT_HTML: Mime
+"एचटीएमएल_पाठ_यूटीएफ8" = "TEXT_HTML_UTF_8"  # const TEXT_HTML_UTF_8: Mime
+"सीएसएस_पाठ" = "TEXT_CSS"  # const TEXT_CSS: Mime
+"सीएसएस_पाठ_यूटीएफ8" = "TEXT_CSS_UTF_8"  # const TEXT_CSS_UTF_8: Mime
+"जावास्क्रिप्ट_पाठ" = "TEXT_JAVASCRIPT"  # const TEXT_JAVASCRIPT: Mime
+"एक्सएमएल_पाठ" = "TEXT_XML"  # const TEXT_XML: Mime
+"घटना_धारा_पाठ" = "TEXT_EVENT_STREAM"  # const TEXT_EVENT_STREAM: Mime
+"सीएसवी_पाठ" = "TEXT_CSV"  # const TEXT_CSV: Mime
+"सीएसवी_पाठ_यूटीएफ8" = "TEXT_CSV_UTF_8"  # const TEXT_CSV_UTF_8: Mime
+"टैब_पृथक_पाठ" = "TEXT_TAB_SEPARATED_VALUES"  # const TEXT_TAB_SEPARATED_VALUES: Mime
+"टैब_पृथक_पाठ_यूटीएफ8" = "TEXT_TAB_SEPARATED_VALUES_UTF_8"  # const TEXT_TAB_SEPARATED_VALUES_UTF_8: Mime
+"वीकार्ड_पाठ" = "TEXT_VCARD"  # const TEXT_VCARD: Mime
+"कोई_भी_छवि" = "IMAGE_STAR"  # const IMAGE_STAR: Mime
+"जेपीईजी_छवि" = "IMAGE_JPEG"  # const IMAGE_JPEG: Mime
+"जीआईएफ_छवि" = "IMAGE_GIF"  # const IMAGE_GIF: Mime
+"पीएनजी_छवि" = "IMAGE_PNG"  # const IMAGE_PNG: Mime
+"बीएमपी_छवि" = "IMAGE_BMP"  # const IMAGE_BMP: Mime
+"एसवीजी_छवि" = "IMAGE_SVG"  # const IMAGE_SVG: Mime
+"वॉफ_फ़ॉन्ट" = "FONT_WOFF"  # const FONT_WOFF: Mime
+"वॉफ2_फ़ॉन्ट" = "FONT_WOFF2"  # const FONT_WOFF2: Mime
+"जेसोन_एप्लिकेशन" = "APPLICATION_JSON"  # const APPLICATION_JSON: Mime
+"जावास्क्रिप्ट_एप्लिकेशन" = "APPLICATION_JAVASCRIPT"  # const APPLICATION_JAVASCRIPT: Mime
+"जावास्क्रिप्ट_एप्लिकेशन_यूटीएफ8" = "APPLICATION_JAVASCRIPT_UTF_8"  # const APPLICATION_JAVASCRIPT_UTF_8: Mime
+"यूआरएल_फ़ॉर्म_एन्कोडिंग_एप्लिकेशन" = "APPLICATION_WWW_FORM_URLENCODED"  # const APPLICATION_WWW_FORM_URLENCODED: Mime
+"बाइट_धारा_एप्लिकेशन" = "APPLICATION_OCTET_STREAM"  # const APPLICATION_OCTET_STREAM: Mime
+"एमएसजीपैक_एप्लिकेशन" = "APPLICATION_MSGPACK"  # const APPLICATION_MSGPACK: Mime
+"पीडीएफ_एप्लिकेशन" = "APPLICATION_PDF"  # const APPLICATION_PDF: Mime
+"बहुभाग_फ़ॉर्म_डेटा" = "MULTIPART_FORM_DATA"  # const MULTIPART_FORM_DATA: Mime
+
+["解释"]
+"मूल_क्रेट" = "salvo_core मूल crate का प्रकार उपनाम, संपूर्ण मूल API वहन करता है।"
+"पकड़ने_वाला" = "अनुरोध प्रसंस्करण में उत्पन्न त्रुटियों को पकड़कर एकसमान रूप से प्रतिक्रिया में बदलता है।"
+"पूर्व_निर्धारित_लक्ष्य" = "त्रुटि प्रबंधन का पूर्व निर्धारित लक्ष्य, त्रुटि प्रतिक्रिया की अंतिम गंतव्य तय करता है।"
+"सॉकेट_पता_सैल्बो" = "नेटवर्क पता प्रकार, IP पता और पोर्ट दर्शाता है।"
+"टीसीपी_श्रोता_सैल्बो" = "TCP पोर्ट सुनने वाला श्रोता, कनेक्शन धाराएँ उत्पन्न करता है।"
+"टीसीपी_स्वीकर्ता" = "TCP कनेक्शन स्वीकार कर उन्हें अनुरोध धारा में बदलने वाली वस्तु।"
+"गतिशील_टीसीपी_स्वीकर्ता" = "गतिशील प्रेषण वाला TCP कनेक्शन स्वीकर्ता लक्षण।"
+"गतिशील_में_टीसीपी_स्वीकर्ता" = "ठोस स्वीकर्ता को गतिशील स्वीकर्ता में बदलने वाला आवरण।"
+"गतिशील_टीसीपी_स्वीकर्ता_समूह" = "कई गतिशील स्वीकर्ताओं का समूह ढाँचा।"
+"कनेक्शन_नियंत्रण" = "कनेक्शन स्तर की नियंत्रण जानकारी (जैसे कनेक्शन बनाए रखना)।"
+"HTTP1" = "HTTP/1.1 प्रोटोकॉल कनेक्शन प्रकार (hyper द्वारा प्रदत्त)।"
+"HTTP2" = "HTTP/2 प्रोटोकॉल कनेक्शन प्रकार (hyper द्वारा प्रदत्त)।"
+"संयुक्त_स्वीकर्ता" = "कई स्वीकर्ताओं को एक स्वीकर्ता में जोड़ता है।"
+"संयुक्त_श्रोता" = "कई श्रोताओं को एक श्रोता में जोड़ता है।"
+"स्वीकृत_कनेक्शन" = "कनेक्शन स्वीकार करने पर उत्पन्न (कनेक्शन, पता) परिणाम।"
+"स्वीकर्ता" = "कनेक्शन स्वीकार कर अनुरोध धारा उत्पन्न करने वाला लक्षण, अनुकूलनीय।"
+"धारण" = "कनेक्शन धारण करने वाली मध्यवर्ती अवस्था संरचना।"
+"युग्मक" = "श्रोता द्वारा उत्पन्न कनेक्शन को प्रोटोकॉल प्रसंस्करण से जोड़ने वाला लक्षण।"
+"श्रोता" = "कनेक्शन धाराएँ सुनने और उत्पन्न करने वाला लक्षण, TCP/Unix आदि समर्थित।"
+"गतिशील_धारा" = "गतिशील प्रेषण वाला कनेक्शन धारा प्रकार।"
+"कनेक्शन_स्रोत" = "कनेक्शन स्रोत की गणना (TCP, Unix सॉकेट आदि)।"
+"स्रोत_विश्लेषक" = "विन्यास स्रोत का विश्लेषक (फ़ाइल, स्ट्रिंग आदि)।"
+"मेटाडेटा_सैल्बो" = "विन्यास मेटाडेटा विवरण (जैसे पर्यावरण चर नाम, फ़ाइल पथ)।"
+"क्षेत्र" = "विन्यास क्षेत्र विवरण (नाम, स्रोत, पूर्व निर्धारित मान आदि)।"
+"विन्यास_स्रोत" = "विन्यास स्रोत विवरण (पर्यावरण चर, कमांड लाइन तर्क आदि)।"
+"पुनर्नामकरण_नियम" = "क्षेत्र नाम केस रूपांतरण नियम (जैसे कैमल से स्नेक)।"
+"निष्कर्षणीय" = "अनुरोध से डेटा निकालने वाला लक्षण; फ़ॉर्म, JSON आदि निष्कर्षक इसे लागू करते हैं।"
+"खंडित_फ़ाइल" = "फ़ाइल को खंडों में पढ़कर भेजने वाला प्रतिक्रिया लेखक।"
+"परिवहन_प्रोटोकॉल" = "परिवहन परत प्रोटोकॉल अवस्था (जैसे TLS, HTTP/2 अपग्रेड)।"
+"फ्यूज़_जानकारी" = "फ्यूज़ अवस्था जानकारी (ट्रिगर गिनती, फ्यूज़ अवस्था आदि)।"
+"फ्यूज़_विन्यास" = "फ्यूज़ विन्यास (थ्रेशोल्ड, समय सीमा आदि)।"
+"फ्यूज़_क्रिया" = "फ्यूज़ ट्रिगर होने पर की जाने वाली क्रिया।"
+"कनेक्शन_प्रेक्षक" = "कनेक्शन जीवनचक्र देखने वाला लक्षण।"
+"आर्क_कनेक्शन_प्रेक्षक" = "साझा स्वामित्व (Arc) वाला कनेक्शन प्रेक्षक।"
+"फ्यूज़_नीति" = "फ्यूज़ ट्रिगर नीति का लक्षण।"
+"आर्क_फ्यूज़_नीति" = "साझा स्वामित्व (Arc) वाली फ्यूज़ नीति।"
+"हैंडलर_लक्षण" = "अनुरोध प्रसंस्करण का मूल लक्षण; राउट और मिडलवेयर इसे लागू करते हैं।"
+"आर्क_हैंडलर" = "साझा स्वामित्व (Arc) वाला हैंडलर आवरण।"
+"रिक्त_हैंडलर" = "बिना प्रसंस्करण के सीधे आगे बढ़ाने वाला हैंडलर लौटाता है।"
+"छोड़ने_वाला" = "वर्तमान हैंडलर छोड़ना है या नहीं, यह तय करने वाला लक्षण।"
+"वेष्टित_हैंडलर" = "अतिरिक्त तर्क से वेष्टित हैंडलर; मिडलवेयर इसी पर आधारित हैं।"
+"कभी_न_छोड़ो" = "कभी न छोड़ने वाला निर्धारण फ़ंक्शन।"
+"पार्स_त्रुटि" = "अनुरोध पार्स विफल होने पर उत्पन्न त्रुटि प्रकार।"
+"पार्स_परिणाम" = "पार्स संक्रिया का एकसमान परिणाम प्रकार।"
+"स्थिति_त्रुटि" = "HTTP स्थिति कोड सहित त्रुटि प्रकार।"
+"स्थिति_परिणाम" = "HTTP स्थिति कोड सहित परिणाम प्रकार।"
+"फ़ॉर्म_डेटा" = "multipart फ़ॉर्म डेटा का निष्कर्षक।"
+"फ़ाइल_भाग" = "multipart फ़ॉर्म में एक फ़ाइल खंड।"
+"अनुरोध_भाग" = "HTTP अनुरोध के हेडर व विस्तार भाग (बॉडी के बिना)।"
+"वैश्विक_सुरक्षित_अधिकतम_आकार" = "वैश्विक अनुरोध बॉडी सुरक्षित आकार सीमा पढ़ता है।"
+"वैश्विक_सुरक्षित_अधिकतम_आकार_सेट" = "वैश्विक अनुरोध बॉडी सुरक्षित आकार सीमा सेट करता है।"
+"सुरक्षित_अधिकतम_आकार" = "अनुरोध बॉडी सुरक्षित आकार सीमा विन्यास संरचना।"
+"अनुरोध_सैल्बो" = "HTTP अनुरोध वस्तु, हेडर, बॉडी व विस्तार जानकारी समेटती है।"
+"बॉडी_प्रेषक" = "प्रतिक्रिया में बॉडी भेजने वाला प्रेषक।"
+"बाइट_फ्रेम" = "HTTP बॉडी में बाइट फ्रेम।"
+"प्रतिक्रिया_बॉडी_सैल्बो" = "प्रतिक्रिया का बॉडी प्रकार।"
+"प्रतिक्रिया_सैल्बो" = "HTTP प्रतिक्रिया वस्तु, स्थिति कोड, हेडर व बॉडी समेटती है।"
+"सुरक्षित_कुकी_नीति" = "कुकी सुरक्षा नीति (सुरक्षित कुकी सक्षम है या नहीं)।"
+"बॉडी" = "HTTP संदेश बॉडी प्रकार (hyper द्वारा प्रदत्त)।"
+"फ्रेम" = "HTTP बॉडी में डेटा फ्रेम।"
+"आकार_संकेत" = "बॉडी आकार का संकेत।"
+"अनुरोध_बॉडी_सैल्बो" = "अनुरोध का बॉडी प्रकार।"
+"हाइपर_बॉडी" = "hyper की आने वाली बॉडी (Incoming)।"
+"बॉडी_ग्राहक" = "अनुरोध बॉडी प्राप्त करने वाला ग्राहक।"
+"कुकी_मॉड्यूल" = "cookie crate का प्रकार उपनाम (कुकी पार्स व निर्माण)।"
+"हेडर_समूह" = "headers crate का प्रकार उपनाम (टाइप्ड हेडर समूह)।"
+"एचटीटीपी_विधि" = "HTTP विधि प्रकार (GET/POST आदि)।"
+"हेडर_मानचित्र" = "HTTP हेडर मानचित्र (बहु-मान हेडर कंटेनर)।"
+"हेडर_नाम" = "HTTP हेडर नाम प्रकार।"
+"हेडर_मान" = "HTTP हेडर मान प्रकार।"
+"स्थिति_कोड" = "HTTP स्थिति कोड प्रकार।"
+"हेडर_मॉड्यूल" = "http हेडर मॉड्यूल का प्रकार उपनाम।"
+"यूआरआई_मॉड्यूल" = "URI मॉड्यूल का प्रकार उपनाम।"
+"एचटीटीपी_रेंज" = "HTTP Range अनुरोध सीमा का पार्स प्रकार।"
+"प्रोटोकॉल_संस्करण" = "HTTP प्रोटोकॉल संस्करण प्रकार (HTTP/1.1, HTTP/2 आदि)।"
+"माइम_प्रकार" = "MIME माइम प्रकार (जैसे text/html)।"
+"फ़िल्टर_जानकारी" = "फ़िल्टर विवरण जानकारी (मिलान विधि, पथ आदि)।"
+"फ़िल्टर_लक्षण" = "राउट फ़िल्टर लक्षण, तय करता है कि अनुरोध राउट से मेल खाता है या नहीं।"
+"फ़ंक्शन_फ़िल्टर" = "क्लोज़र से बनाया गया राउट फ़िल्टर।"
+"योजना_फ़िल्टर" = "URI योजना (http/https) से अनुरोध फ़िल्टर करता है।"
+"होस्ट" = "अनुरोध होस्ट नाम से अनुरोध फ़िल्टर करता है।"
+"पोर्ट" = "अनुरोध पोर्ट से अनुरोध फ़िल्टर करता है।"
+"पथ_फ़िल्टर" = "अनुरोध पथ से अनुरोध फ़िल्टर करता है।"
+"पथ_आज़माओ" = "पथ से फ़िल्टर करता है, अवैध पथ पर त्रुटि लौटाता है।"
+"गेट_फ़िल्टर" = "GET विधि के अनुरोध फ़िल्टर करता है।"
+"हेड_फ़िल्टर" = "HEAD विधि के अनुरोध फ़िल्टर करता है।"
+"विकल्प_फ़िल्टर" = "OPTIONS विधि के अनुरोध फ़िल्टर करता है।"
+"पोस्ट_फ़िल्टर" = "POST विधि के अनुरोध फ़िल्टर करता है।"
+"पैच_फ़िल्टर" = "PATCH विधि के अनुरोध फ़िल्टर करता है।"
+"पुट_फ़िल्टर" = "PUT विधि के अनुरोध फ़िल्टर करता है।"
+"क्वेरी_फ़िल्टर" = "QUERY विधि के अनुरोध फ़िल्टर करता है।"
+"हटाओ_फ़िल्टर" = "DELETE विधि के अनुरोध फ़िल्टर करता है।"
+"राउटर" = "राउट तालिका, अनुरोधों को मेल खाने वाले हैंडलर को भेजती है।"
+"पथ_पैरामीटर_समूह" = "पथ में पैरामीटर समूह (जैसे /users/:id)।"
+"प्रवाह_नियंत्रण" = "हैंडलर प्रवाह नियंत्रण (जारी, छोड़ो, त्रुटि)।"
+"टोकियो_निष्पादक" = "Tokio अतुल्यकालिक निष्पादक (hyper एकीकरण हेतु)।"
+"टोकियो_इनपुट_आउटपुट" = "Tokio इनपुट/आउटपुट अनुकूलक प्रकार।"
+"टोकियो_घड़ी" = "Tokio घड़ी अनुकूलक प्रकार।"
+"सर्वर_हैंडल" = "सर्वर संचालन हैंडल, सुचारू बंद करने का अनुरोध कर सकता है।"
+"सर्वर" = "Web सर्वर मुख्य भाग, श्रोता बाँधकर सेवा चलाता है।"
+"जेसोन_प्रतिक्रिया" = "JSON प्रतिक्रिया लेखक व निष्कर्षक।"
+"पुनर्निर्देशन" = "पुनर्निर्देशन प्रतिक्रिया लेखक।"
+"पठन_स्थानक" = "पठन व स्थान निर्धारण (Seek) दोनों समर्थित अनुरोध बॉडी।"
+"पाठ_सामग्री" = "सादा पाठ प्रतिक्रिया लेखक।"
+"लेखक_लक्षण" = "प्रतिक्रिया में डेटा लिखने वाला लक्षण।"
+"लिपिक" = "प्रतिक्रिया में सामग्री लिखकर स्थिति कोड लौटाने वाला लक्षण।"
+"परीक्षण_ग्राहक" = "एकीकरण परीक्षण हेतु HTTP ग्राहक।"
+"अनुरोध_निर्माता" = "परीक्षण अनुरोध बनाने वाला निर्माता।"
+"भेजने_लक्ष्य" = "परीक्षण अनुरोध का भेजने का लक्ष्य (सर्वर)।"
+"प्रतिक्रिया_विस्तार" = "परीक्षण प्रतिक्रिया के विस्तार विधियों का समूह।"
+"अतुल्यकालिक_लक्षण_मैक्रो" = "अतुल्यकालिक लक्षण मैक्रो का प्रकार उपनाम।"
+"डिपो" = "अनुरोध साझा डेटा कंटेनर; मिडलवेयर यहाँ डेटा रखते/पढ़ते हैं।"
+"सेवा" = "salvo सेवा मुख्य भाग, hyper द्वारा चलाई जा सकती है।"
+"हाइपर_मॉड्यूल" = "hyper crate का प्रकार उपनाम (निचले स्तर का HTTP कार्यान्वयन)।"
+"मैक्रो_समूह" = "salvo प्रोसीजरल मैक्रो crate का प्रकार उपनाम।"
+"बॉक्स_त्रुटि" = "बॉक्स में गतिशील त्रुटि (Box<dyn Error>)।"
+"त्रुटि_सैल्बो" = "salvo सामान्य त्रुटि प्रकार, स्थिति कोड व स्रोत श्रृंखला समर्थित।"
+"परिणाम_सैल्बो" = "salvo एकसमान Result उपनाम (त्रुटि प्रकार Error)।"
+"माइम_पुनरावर्तक" = "MIME प्रकार पार्स करने वाली पुनरावृत्ति संरचना।"
+"माइम_नाम" = "MIME प्रकार नाम (जैसे text, html)।"
+"स्ट्रिंग_पार्स_त्रुटि" = "स्ट्रिंग से MIME पार्स विफल होने की त्रुटि।"
+"माइम_पैरामीटर" = "MIME पैरामीटर (जैसे charset=utf-8) का पुनरावर्तक।"
+"तारा" = "माइम प्रकार वाइल्डकार्ड खंड * (जैसे */* में *)।"
+"पाठ_नाम" = "text मुख्य प्रकार नाम (जैसे text/html)।"
+"छवि_नाम" = "image मुख्य प्रकार नाम (जैसे image/png)।"
+"ध्वनि_नाम" = "audio मुख्य प्रकार नाम (जैसे audio/mp3)।"
+"वीडियो_नाम" = "video मुख्य प्रकार नाम (जैसे video/mp4)।"
+"एप्लिकेशन_नाम" = "application मुख्य प्रकार नाम (जैसे application/json)।"
+"बहुभाग_नाम" = "multipart मुख्य प्रकार नाम (जैसे multipart/form-data)।"
+"संदेश_नाम" = "message मुख्य प्रकार नाम (जैसे message/http)।"
+"मॉडल_नाम" = "model मुख्य प्रकार नाम (जैसे model/gltf)।"
+"फ़ॉन्ट_नाम" = "font मुख्य प्रकार नाम (जैसे font/woff)।"
+"सादा_नाम" = "plain उप-प्रकार नाम (text/plain)।"
+"एचटीएमएल_नाम" = "html उप-प्रकार नाम (text/html)।"
+"एक्सएमएल_नाम" = "xml उप-प्रकार नाम (text/xml)।"
+"जावास्क्रिप्ट_नाम" = "javascript उप-प्रकार नाम (text/javascript)।"
+"सीएसएस_नाम" = "css उप-प्रकार नाम (text/css)।"
+"सीएसवी_नाम" = "csv उप-प्रकार नाम (text/csv)।"
+"घटना_धारा_नाम" = "event-stream उप-प्रकार नाम (text/event-stream)।"
+"वीकार्ड_नाम" = "vcard उप-प्रकार नाम (text/vcard)।"
+"यूआरएल_फ़ॉर्म_एन्कोडिंग_नाम" = "x-www-form-urlencoded उप-प्रकार नाम।"
+"एमएसजीपैक_नाम" = "msgpack उप-प्रकार नाम (application/msgpack)।"
+"बाइट_धारा_नाम" = "octet-stream उप-प्रकार नाम (द्विआधारी डेटा धारा)।"
+"पीडीएफ_नाम" = "pdf उप-प्रकार नाम (application/pdf)।"
+"वॉफ_नाम" = "woff उप-प्रकार नाम (वेब फ़ॉन्ट प्रारूप)।"
+"वॉफ2_नाम" = "woff2 उप-प्रकार नाम (वेब फ़ॉन्ट संपीड़ित प्रारूप)।"
+"फ़ॉर्म_डेटा_नाम" = "form-data उप-प्रकार नाम (multipart फ़ॉर्म)।"
+"बीएमपी_नाम" = "bmp उप-प्रकार नाम (बिटमैप छवि)।"
+"जीआईएफ_नाम" = "gif उप-प्रकार नाम (एनिमेटेड छवि)।"
+"जेपीईजी_नाम" = "jpeg उप-प्रकार नाम (फ़ोटो छवि)।"
+"पीएनजी_नाम" = "png उप-प्रकार नाम (बिटमैप छवि)।"
+"एसवीजी_नाम" = "svg उप-प्रकार नाम (वेक्टर छवि)।"
+"मूल_नाम" = "basic उप-प्रकार नाम।"
+"MPEG" = "mpeg उप-प्रकार नाम (वीडियो)।"
+"MP4" = "mp4 उप-प्रकार नाम (वीडियो)।"
+"OGG" = "ogg उप-प्रकार नाम (ध्वनि/वीडियो)।"
+"वर्ण_समूह_नाम" = "charset पैरामीटर नाम (जैसे charset=utf-8)।"
+"सीमा_नाम" = "boundary पैरामीटर नाम (multipart विभाजन सीमा)।"
+"यूटीएफ8_नाम" = "utf-8 वर्ण समूह नाम।"
+"कोई_भी_माइम" = "*/* कोई भी माइम प्रकार स्थिरांक।"
+"कोई_भी_पाठ" = "text/* कोई भी पाठ प्रकार स्थिरांक।"
+"सादा_पाठ_माइम" = "text/plain माइम प्रकार स्थिरांक।"
+"सादा_पाठ_यूटीएफ8_माइम" = "text/plain; charset=utf-8 माइम प्रकार स्थिरांक।"
+"एचटीएमएल_पाठ" = "text/html माइम प्रकार स्थिरांक।"
+"एचटीएमएल_पाठ_यूटीएफ8" = "text/html; charset=utf-8 माइम प्रकार स्थिरांक।"
+"सीएसएस_पाठ" = "text/css माइम प्रकार स्थिरांक।"
+"सीएसएस_पाठ_यूटीएफ8" = "text/css; charset=utf-8 माइम प्रकार स्थिरांक।"
+"जावास्क्रिप्ट_पाठ" = "text/javascript माइम प्रकार स्थिरांक।"
+"एक्सएमएल_पाठ" = "text/xml माइम प्रकार स्थिरांक।"
+"घटना_धारा_पाठ" = "text/event-stream माइम प्रकार स्थिरांक।"
+"सीएसवी_पाठ" = "text/csv माइम प्रकार स्थिरांक।"
+"सीएसवी_पाठ_यूटीएफ8" = "text/csv; charset=utf-8 माइम प्रकार स्थिरांक।"
+"टैब_पृथक_पाठ" = "text/tab-separated-values माइम प्रकार स्थिरांक।"
+"टैब_पृथक_पाठ_यूटीएफ8" = "text/tab-separated-values; charset=utf-8 माइम प्रकार स्थिरांक।"
+"वीकार्ड_पाठ" = "text/vcard माइम प्रकार स्थिरांक।"
+"कोई_भी_छवि" = "image/* माइम प्रकार स्थिरांक।"
+"जेपीईजी_छवि" = "image/jpeg माइम प्रकार स्थिरांक।"
+"जीआईएफ_छवि" = "image/gif माइम प्रकार स्थिरांक।"
+"पीएनजी_छवि" = "image/png माइम प्रकार स्थिरांक।"
+"बीएमपी_छवि" = "image/bmp माइम प्रकार स्थिरांक।"
+"एसवीजी_छवि" = "image/svg+xml माइम प्रकार स्थिरांक।"
+"वॉफ_फ़ॉन्ट" = "font/woff माइम प्रकार स्थिरांक।"
+"वॉफ2_फ़ॉन्ट" = "font/woff2 माइम प्रकार स्थिरांक।"
+"जेसोन_एप्लिकेशन" = "application/json माइम प्रकार स्थिरांक।"
+"जावास्क्रिप्ट_एप्लिकेशन" = "application/javascript माइम प्रकार स्थिरांक।"
+"जावास्क्रिप्ट_एप्लिकेशन_यूटीएफ8" = "application/javascript; charset=utf-8 माइम प्रकार स्थिरांक।"
+"यूआरएल_फ़ॉर्म_एन्कोडिंग_एप्लिकेशन" = "application/x-www-form-urlencoded माइम प्रकार स्थिरांक।"
+"बाइट_धारा_एप्लिकेशन" = "application/octet-stream माइम प्रकार स्थिरांक।"
+"एमएसजीपैक_एप्लिकेशन" = "application/msgpack माइम प्रकार स्थिरांक।"
+"पीडीएफ_एप्लिकेशन" = "application/pdf माइम प्रकार स्थिरांक।"
+"बहुभाग_फ़ॉर्म_डेटा" = "multipart/form-data माइम प्रकार स्थिरांक।"

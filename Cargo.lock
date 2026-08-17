@@ -504,7 +504,7 @@ dependencies = [
 
 [[package]]
 name = "i18n-rust-engine"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "rustc_lexer",
  "serde",
@@ -515,7 +515,7 @@ dependencies = [
 
 [[package]]
 name = "i18n-rust-lsp"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
@@ -1003,11 +1003,12 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "rzc"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "clap",
  "i18n-rust-engine",
+ "rustc_lexer",
  "serde_json",
  "tempfile",
  "toml",

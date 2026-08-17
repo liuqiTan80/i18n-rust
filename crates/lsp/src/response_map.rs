@@ -18,21 +18,39 @@ pub struct ResponseMapper {
     cache: Arc<TranslationCache>,
     /// 预构建的反向映射表（英文 → 母语），O(1) 查找且结果确定
     reverse_map: std::collections::HashMap<String, String>,
+    /// 是否启用补全语言过滤（禁止串语言）
+    ///
+    /// 方言关键字与英文存在差异时启用（zh/ja/ru 等）；
+    /// 英文包为恒等映射（fn=fn），不过滤。
+    strict_native_filter: bool,
 }
 
 impl ResponseMapper {
     /// 创建新的响应映射器
     ///
-    /// 反向表由关键字映射反转并按母语词排序插入，
+    /// 反向表由关键字映射与别名映射反转并按母语词排序插入，
     /// 多对一冲突时保留排序最小者，保证结果确定性。
     pub fn new(cache: Arc<TranslationCache>) -> Self {
         let mut pairs: Vec<(&String, &String)> = cache.keyword_map().iter().collect();
         pairs.sort();
+        // 英文语言包为恒等映射（键=值），无需也无法做语言过滤
+        let strict_native_filter = pairs.iter().any(|(native, english)| native != english);
         let mut reverse_map = std::collections::HashMap::with_capacity(pairs.len());
         for (native, english) in pairs {
             reverse_map.entry(english.clone()).or_insert(native.clone());
         }
-        Self { cache, reverse_map }
+        // 别名反转（标准库/第三方库标识符）：同英文名的关键字先入为主，
+        // 保证补全/代码操作中的库 API 也能还原为母语别名
+        let mut alias_pairs: Vec<(&String, &String)> = cache.alias_map().iter().collect();
+        alias_pairs.sort();
+        for (native, english) in alias_pairs {
+            reverse_map.entry(english.clone()).or_insert(native.clone());
+        }
+        Self {
+            cache,
+            reverse_map,
+            strict_native_filter,
+        }
     }
 
     /// 判断一个 URI 是否指向我们的虚拟文件
@@ -179,6 +197,9 @@ impl ResponseMapper {
 
         if let Some(items_list) = result.get("items").and_then(|v| v.as_array()) {
             let mut mapped_items = Vec::new();
+            // 语言过滤白名单（用户源码中出现过的标识符）懒加载，
+            // 仅在确实遇到未翻译的纯英文项时才扫描一次
+            let mut user_tokens: Option<std::collections::HashSet<String>> = None;
             for item in items_list {
                 let mut mapped = item.clone();
 
@@ -205,12 +226,55 @@ impl ResponseMapper {
                     let mapped_label = self
                         .reverse_lookup(label)
                         .unwrap_or_else(|| self.translate_code(label));
+
+                    // 3.5 语言过滤（禁止串语言）：非英文方言下，补全列表
+                    //     只保留母语项，过滤未翻译的外部英文项（第三方库、
+                    //     未收录的标准库 API 等）。保留条件（满足其一）：
+                    //     a. 翻译命中（mapped_label 与原文不同）；
+                    //     b. label 含母语字符（用户定义的母语标识符）；
+                    //     c. label 的末段标识符在用户源码中出现过
+                    //        （用户自己定义的项，含英文命名）。
+                    if self.strict_native_filter {
+                        let native_char = !mapped_label.is_ascii();
+                        let translated = mapped_label != label;
+                        let user_defined = if native_char || translated {
+                            true
+                        } else {
+                            let tokens =
+                                user_tokens.get_or_insert_with(|| self.cache.user_defined_tokens());
+                            label_identifier_suffix(label).is_some_and(|name| tokens.contains(name))
+                        };
+                        if !(native_char || translated || user_defined) {
+                            continue;
+                        }
+                    }
+
                     mapped["label"] = Value::String(mapped_label);
                 }
 
                 // 4. detail（类型签名）：词法级转译，如 fn push(...) → 函数 推入(...)
                 if let Some(detail) = item.get("detail").and_then(|v| v.as_str()) {
                     mapped["detail"] = Value::String(self.translate_code(detail));
+                }
+
+                // 4.5 labelDetails：VS Code 提示框右侧优先显示此字段
+                //     （description 为签名如 fn()、detail 为 crate/模块路径），
+                //     不还原会把英文 fn() 泄漏给母语用户
+                if let Some(label_details) = item.get("labelDetails").and_then(|v| v.as_object()) {
+                    let mut mapped_details = label_details.clone();
+                    if let Some(desc) = label_details.get("description").and_then(|v| v.as_str()) {
+                        mapped_details.insert(
+                            "description".to_string(),
+                            Value::String(self.translate_code(desc)),
+                        );
+                    }
+                    if let Some(detail) = label_details.get("detail").and_then(|v| v.as_str()) {
+                        mapped_details.insert(
+                            "detail".to_string(),
+                            Value::String(self.translate_code(detail)),
+                        );
+                    }
+                    mapped["labelDetails"] = Value::Object(mapped_details);
                 }
 
                 // 5. documentation：命中解释表（大白话）时替换为中文，
@@ -752,6 +816,21 @@ fn extract_fn_name(code_line: &str) -> Option<String> {
     None
 }
 
+/// 提取补全 label 的末段标识符
+///
+/// rust-analyzer 的 label 可能带后缀/路径前缀，如
+/// `foo(…)`、`Foo {…}`、`m::Spam::Bar(…)`、`m::`；
+/// 此处提取末段标识符（如 `Bar`）用于用户词汇白名单匹配。
+/// label 无标识符段（如纯符号）时返回 None。
+fn label_identifier_suffix(label: &str) -> Option<&str> {
+    // 去掉形如 `(…)`、`{…}` 的参数/字段后缀
+    let head = label.split(['(', '{']).next().unwrap_or(label);
+    // 去掉宏感叹号与模块补全的尾部 `::`（如 `m::`）
+    let head = head.trim().trim_end_matches('!').trim_end_matches("::");
+    let last = head.rsplit("::").next().unwrap_or("").trim();
+    if last.is_empty() { None } else { Some(last) }
+}
+
 /// 根据翻译条目的行映射还原行号
 fn restore_line_single(entry: &TranslationEntry, en_line: u32) -> u32 {
     let idx = en_line as usize;
@@ -1001,7 +1080,12 @@ mod tests {
     fn create_test_cache() -> (Arc<TranslationCache>, tempfile::TempDir) {
         let map = HashMap::from([("函数".into(), "fn".into()), ("让".into(), "let".into())]);
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(map, HashMap::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(
+            map,
+            HashMap::new(),
+            HashMap::new(),
+            temp.path().to_path_buf(),
+        );
         (cache, temp)
     }
 
@@ -1524,6 +1608,116 @@ mod tests {
             "函数 辅助() {}"
         );
         let _ = entry;
+    }
+
+    /// labelDetails 反向翻译：VS Code 提示框右侧优先显示此字段，
+    /// fn() 等英文签名必须还原为母语（如 函数()）
+    #[test]
+    fn test_map_completion_label_details_translated() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        // 文档中声明 my_func，使其通过语言过滤的用户词汇白名单
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "函数 my_func() {}", 1)
+            .unwrap();
+        let response = json!({
+            "items": [{
+                "label": "my_func",
+                "detail": "fn my_func()",
+                "labelDetails": {
+                    "description": "fn()",
+                    "detail": "crate::辅助"
+                }
+            }]
+        });
+        let mapped = mapper.map_completion_response(&response, "file:///test/main.zh");
+        let item = &mapped["items"][0];
+        assert_eq!(item["detail"].as_str().unwrap(), "函数 my_func()");
+        assert_eq!(
+            item["labelDetails"]["description"].as_str().unwrap(),
+            "函数()"
+        );
+        // crate/模块路径中无映射命中时保持原样
+        assert_eq!(
+            item["labelDetails"]["detail"].as_str().unwrap(),
+            "crate::辅助"
+        );
+        let _ = entry;
+    }
+
+    /// 语言过滤：非英文方言下补全列表不得串语言。
+    /// 保留：翻译命中项、母语字符项、用户自定义项（含英文命名）；
+    /// 过滤：未翻译的外部英文项。
+    #[test]
+    fn test_map_completion_language_filter() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        // 用户源码同时含母语定义（自定义函数）与英文命名（helper）
+        let (entry, _) = cache
+            .update_document(
+                "file:///test/main.zh",
+                "函数 自定义函数() {} 函数 helper() {}",
+                1,
+            )
+            .unwrap();
+
+        let response = json!({
+            "items": [
+                { "label": "let" },
+                { "label": "自定义函数" },
+                { "label": "helper(…)" },
+                { "label": "serde_json" },
+                { "label": "BTreeMap" }
+            ]
+        });
+        let mapped = mapper.map_completion_response(&response, "file:///test/main.zh");
+        let labels: Vec<&str> = mapped["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|i| i["label"].as_str().unwrap())
+            .collect();
+        // 翻译命中（let → 让）、母语标识符、用户定义的英文名保留
+        assert_eq!(labels, vec!["让", "自定义函数", "helper(…)"]);
+        // 未翻译的外部英文项（serde_json/BTreeMap）被过滤
+        assert!(!labels.contains(&"serde_json"));
+        assert!(!labels.contains(&"BTreeMap"));
+        let _ = entry;
+    }
+
+    /// 英文语言包（恒等映射）不启用语言过滤，所有项保留
+    #[test]
+    fn test_map_completion_no_filter_for_identity_pack() {
+        let map = HashMap::from([("fn".into(), "fn".into()), ("let".into(), "let".into())]);
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(
+            map,
+            HashMap::new(),
+            HashMap::new(),
+            temp.path().to_path_buf(),
+        );
+        let mapper = ResponseMapper::new(cache);
+
+        let response = json!({
+            "items": [
+                { "label": "let" },
+                { "label": "BTreeMap" },
+                { "label": "serde_json" }
+            ]
+        });
+        let mapped = mapper.map_completion_response(&response, "file:///test/main.en");
+        assert_eq!(mapped["items"].as_array().unwrap().len(), 3);
+    }
+
+    /// label 末段标识符提取：后缀、路径前缀、模块补全形式
+    #[test]
+    fn test_label_identifier_suffix() {
+        assert_eq!(label_identifier_suffix("foo(…)"), Some("foo"));
+        assert_eq!(label_identifier_suffix("Foo {…}"), Some("Foo"));
+        assert_eq!(label_identifier_suffix("m::Spam::Bar(…)"), Some("Bar"));
+        assert_eq!(label_identifier_suffix("m::"), Some("m"));
+        assert_eq!(label_identifier_suffix("println!"), Some("println"));
+        assert_eq!(label_identifier_suffix("(…)"), None);
     }
 
     /// 诊断翻译不替换反引号内的标识符（避免误伤变量名中的子串）

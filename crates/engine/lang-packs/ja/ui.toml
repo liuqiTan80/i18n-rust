@@ -27,6 +27,9 @@
 "compile_error" = "コンパイルエラー：\n{}"
 "load_error_msg_failed" = "エラーメッセージの読み込みに失敗: {}"
 "warn_builtin_errors_failed" = "警告: 組み込みエラーメッセージの読み込みに失敗: {}"
+"no_project_root" = "プロジェクトルートが見つかりません（上位ディレクトリに Cargo.toml がありません）。ソースファイル: {}。先に `rzc init` でプロジェクトを作成してください。"
+"transpile_file_failed" = "{} のトランスパイルに失敗: {}"
+"run_program_failed" = "プログラムの実行に失敗しました（{}）：\n{}"
 
 # ---- プロジェクト作成 ----
 "dir_exists" = "ディレクトリ {} は既に存在します"

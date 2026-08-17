@@ -219,16 +219,11 @@ pub fn reverse_transpile(
         list
     };
     let mut output = String::with_capacity(source.len());
-    let mut skip_colons = 0usize; // 删除 crate:: 前缀时顺带跳过的两个 Colon
-    let mut skip_bang = 0usize; // `macro_rules!` 反向转译时跳过的感叹号
+    let mut skip_tokens = 0usize; // 删除 crate:: 前缀 / macro_rules! 感叹号时跳过的 token 数
 
     for i in 0..token_stream.len() {
-        if skip_colons > 0 {
-            skip_colons -= 1;
-            continue;
-        }
-        if skip_bang > 0 {
-            skip_bang -= 1;
+        if skip_tokens > 0 {
+            skip_tokens -= 1;
             continue;
         }
         let (token, text) = &token_stream[i];
@@ -240,14 +235,18 @@ pub fn reverse_transpile(
                     text
                 };
                 // 代理为跨文件引用插入的 `crate::` 前缀：整体删除
-                if raw_name == "crate" && is_followed_by_module_name(&token_stream, i, module_names)
+                // （跳过数含中间空白，兼容 `crate :: 模块` 等带空格写法）
+                if raw_name == "crate"
+                    && let Some(skip) = crate_prefix_skip_count(&token_stream, i, module_names)
                 {
-                    skip_colons = 2;
+                    skip_tokens = skip;
                     continue;
                 }
                 // `macro_rules! 名称` 声明形式反向转译为 `宏规则 名称`（省略感叹号）
-                if raw_name == "macro_rules" && is_followed_by_bang(&token_stream, i) {
-                    skip_bang = 1;
+                if raw_name == "macro_rules"
+                    && let Some(skip) = bang_suffix_skip_count(&token_stream, i)
+                {
+                    skip_tokens = skip;
                 }
                 let zh = reverse_map
                     .get(raw_name)
@@ -264,37 +263,53 @@ pub fn reverse_transpile(
     output
 }
 
-/// 检查指定位置之后（跳过空白与 `::`）的第一个标识符是否为已知模块名
-fn is_followed_by_module_name(
+/// `crate::模块名` 前缀成立时，返回 `crate` 之后需跳过的 token 数（空白 + 两个冒号）；
+/// 不成立（冒号不足/后非已知模块名）返回 None
+fn crate_prefix_skip_count(
     token_stream: &[(TokenKind, &str)],
     current: usize,
     module_names: &HashSet<String>,
-) -> bool {
-    let mut colon_count = 0;
-    for (token, text) in &token_stream[(current + 1)..] {
-        if is_whitespace(*token) {
+) -> Option<usize> {
+    let mut idx = current + 1;
+    let mut skip = 0usize;
+    let mut colons = 0usize;
+    while idx < token_stream.len() {
+        let (kind, text) = token_stream[idx];
+        if is_whitespace(kind) {
+            skip += 1;
+            idx += 1;
             continue;
         }
-        if matches!(token, TokenKind::Colon) {
-            colon_count += 1;
-            if colon_count > 2 {
-                return false;
-            }
+        if colons < 2 && matches!(kind, TokenKind::Colon) {
+            colons += 1;
+            skip += 1;
+            idx += 1;
             continue;
         }
-        return matches!(token, TokenKind::Ident)
-            && colon_count == 2
-            && module_names.contains(*text);
+        // 两个冒号后的第一个非空白 token 必须是已知模块名才视为代理插入的前缀
+        if colons == 2 && matches!(kind, TokenKind::Ident) && module_names.contains(text) {
+            return Some(skip);
+        }
+        return None;
     }
-    false
+    None
 }
 
-/// 检查指定位置之后（跳过空白）的第一个 token 是否为 `!`（感叹号）
-fn is_followed_by_bang(token_stream: &[(TokenKind, &str)], current: usize) -> bool {
-    token_stream[(current + 1)..]
-        .iter()
-        .find(|(kind, _)| !is_whitespace(*kind))
-        .is_some_and(|(kind, _)| matches!(kind, TokenKind::Not))
+/// `macro_rules` 后跟感叹号（可隔空白）时，返回需跳过的 token 数（空白 + 感叹号）
+fn bang_suffix_skip_count(token_stream: &[(TokenKind, &str)], current: usize) -> Option<usize> {
+    let mut skip = 0usize;
+    for (kind, _) in &token_stream[current + 1..] {
+        if is_whitespace(*kind) {
+            skip += 1;
+            continue;
+        }
+        return if matches!(kind, TokenKind::Not) {
+            Some(skip + 1)
+        } else {
+            None
+        };
+    }
+    None
 }
 
 /// 判断 token 是否为空白
@@ -817,6 +832,28 @@ mod tests {
         assert_eq!(
             reverse_transpile("let r#match = 1;", &reverse, &empty),
             "让 r#匹配 = 1;"
+        );
+    }
+
+    #[test]
+    fn test_reverse_transpile_crate_prefix_with_whitespace() {
+        // crate 与 :: 之间存在空白时前缀仍应被完整删除（不能残留孤立冒号）
+        let reverse = HashMap::from([("fn".to_string(), "函数".to_string())]);
+        let set = HashSet::from(["辅助".to_string()]);
+        assert_eq!(
+            reverse_transpile("fn f() { crate :: 辅助::辅助函数(); }", &reverse, &set),
+            "函数 f() { 辅助::辅助函数(); }"
+        );
+    }
+
+    #[test]
+    fn test_reverse_transpile_macro_rules_with_whitespace_bang() {
+        // macro_rules 与 ! 之间存在空白时感叹号仍应被省略
+        let reverse = HashMap::from([("macro_rules".to_string(), "宏规则".to_string())]);
+        let empty = HashSet::new();
+        assert_eq!(
+            reverse_transpile("macro_rules ! 创建向量 { () => { } }", &reverse, &empty),
+            "宏规则 创建向量 { () => { } }"
         );
     }
 }

@@ -1,0 +1,180 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Rust (Deutsch)",
+  "scopeName": "source.rust-de",
+  "patterns": [
+    {
+      "include": "#注释"
+    },
+    {
+      "include": "#字符串"
+    },
+    {
+      "include": "#字符"
+    },
+    {
+      "include": "#数字"
+    },
+    {
+      "include": "#关键字"
+    },
+    {
+      "include": "#类型"
+    },
+    {
+      "include": "#宏"
+    },
+    {
+      "include": "#生命周期"
+    },
+    {
+      "include": "#运算符"
+    }
+  ],
+  "repository": {
+    "注释": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.rust-de",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.documentation.rust-de",
+          "begin": "/\\*\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        },
+        {
+          "name": "comment.block.rust-de",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        }
+      ]
+    },
+    "字符串": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.rust-de",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.rust-de",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.raw.rust-de",
+          "begin": "r#*\"",
+          "end": "\"#*"
+        }
+      ]
+    },
+    "字符": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.rust-de",
+          "match": "'[^'\\\\]'|'\\\\.'"
+        }
+      ]
+    },
+    "数字": {
+      "patterns": [
+        {
+          "name": "constant.numeric.rust-de",
+          "match": "\\b[0-9][0-9_]*(\\.[0-9_]+)?([eE][+-]?[0-9_]+)?(f32|f64|i[0-9]+|u[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.numeric.hex.rust-de",
+          "match": "\\b0x[0-9a-fA-F_]+\\b"
+        },
+        {
+          "name": "constant.numeric.oct.rust-de",
+          "match": "\\b0o[0-7_]+\\b"
+        },
+        {
+          "name": "constant.numeric.bin.rust-de",
+          "match": "\\b0b[01_]+\\b"
+        }
+      ]
+    },
+    "关键字": {
+      "patterns": [
+        {
+          "name": "keyword.control.rust-de",
+          "match": "\\b(abgleich|schleife|solange|zurueck|weiter|sonst|stopp|wenn|fuer|in)\\b"
+        },
+        {
+          "name": "keyword.declaration.rust-de",
+          "match": "\\b(hauptfunktion|aufzaehlung|implement|funktion|statisch|struktur|mutabel|merkmal|extern|konst|modul|offen|paket|ueber|nutze|lass|typ|als)\\b"
+        },
+        {
+          "name": "keyword.other.rust-de",
+          "match": "\\b(mutabelReferenz|dereferenz|verschiebe|asynchron|dynamisch|referenz|unsicher|abwarten|kiste)\\b"
+        },
+        {
+          "name": "constant.language.boolean.rust-de",
+          "match": "\\b(falsch|wahr)\\b"
+        },
+        {
+          "name": "constant.language.rust-de",
+          "match": "\\b(selbst|Selbst|leer)\\b"
+        }
+      ]
+    },
+    "类型": {
+      "patterns": [
+        {
+          "name": "storage.type.numeric.rust-de",
+          "match": "\\b(einfachkommazahl|mikronaturzahl|mikroganzzahl|langnaturzahl|kurznaturzahl|langganzzahl|kurzganzzahl|naturzahl|kommazahl|ganzzahl|byte)\\b"
+        },
+        {
+          "name": "storage.type.rust-de",
+          "match": "\\b(zeichenkettenreferenz|zeichenkette|ergebnis|zeichen|hashmap|vektor|option|kiste|text|bool)\\b"
+        },
+        {
+          "name": "constant.other.rust-de",
+          "match": "\\b(nichts|fehler|etwas|ok)\\b"
+        }
+      ]
+    },
+    "宏": {
+      "patterns": [
+        {
+          "name": "entity.name.function.macro.rust-de",
+          "match": "\\b(nichtImplementiert|fehlerDruckeZeile|behaupteUngleich|behaupteGleich|optionUmgebung|schreibeZeile|bindeBytesEin|fehlerDrucke|unerreichbar|bindeTextEin|vertextliche|druckeZeile|formatiere|behaupte|schreibe|bindeEin|umgebung|drucke|vektor|spalte|konfig|offen|panik|datei|zeile)!"
+        }
+      ]
+    },
+    "生命周期": {
+      "patterns": [
+        {
+          "name": "storage.modifier.lifetime.rust-de",
+          "match": "'[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    },
+    "运算符": {
+      "patterns": [
+        {
+          "name": "keyword.operator.rust-de",
+          "match": "(=|\\+|-|\\*|/|%|&&|\\|\\||!|<|>|<=|>=|==|!=|&|\\||\\^|~|<<|>>|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|<<=|>>=)"
+        },
+        {
+          "name": "keyword.operator.arrow.rust-de",
+          "match": "(->|=>)"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,27 @@
+# Маппинг имён crate (для путей use)
+["模块路径"]
+"сериализатор" = "serde"
+"json_сериализация" = "serde_json"
+"toml_обработка" = "toml"
+"бинарный_код" = "bincode"
+
+# Маппинг внутренних идентификаторов (типы, функции и т.д.)
+["标识符"]
+# serde
+"сериализуемый" = "Serialize"
+"десериализуемый" = "Deserialize"
+"сериализовать" = "serialize"
+"десериализовать" = "deserialize"
+
+# serde_json
+"json_значение" = "Value"
+"json_объект" = "Object"
+"json_массив" = "Array"
+"json_из_строки" = "from_str"
+"json_в_строку" = "to_string"
+"из_читателя" = "from_reader"
+"в_писатель" = "to_writer"
+
+# bincode
+"кодировать" = "encode"
+"декодировать" = "decode"

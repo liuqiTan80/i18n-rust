@@ -1,0 +1,29 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"直列化" = "serde"
+"JSONシリアライズ" = "serde_json"
+"TOML処理" = "toml"
+"バイナリ符号化" = "bincode"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# serde
+"可シリアライズ" = "Serialize"
+"可デシリアライズ" = "Deserialize"
+"シリアライズ処理" = "serialize"
+"デシリアライズ処理" = "deserialize"
+
+# serde_json
+"JSON値" = "Value"
+"JSONオブジェクト" = "Object"
+"JSON配列" = "Array"
+"JSON解析" = "from_str"
+"文字列へ変換" = "to_string"
+"リーダーから読む" = "from_reader"
+"ライターへ書く" = "to_writer"
+
+# toml
+
+# bincode
+"エンコード" = "encode"
+"デコード" = "decode"

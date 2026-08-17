@@ -1,0 +1,180 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Rust (日本語)",
+  "scopeName": "source.rust-ja",
+  "patterns": [
+    {
+      "include": "#注释"
+    },
+    {
+      "include": "#字符串"
+    },
+    {
+      "include": "#字符"
+    },
+    {
+      "include": "#数字"
+    },
+    {
+      "include": "#关键字"
+    },
+    {
+      "include": "#类型"
+    },
+    {
+      "include": "#宏"
+    },
+    {
+      "include": "#生命周期"
+    },
+    {
+      "include": "#运算符"
+    }
+  ],
+  "repository": {
+    "注释": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.rust-ja",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.documentation.rust-ja",
+          "begin": "/\\*\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        },
+        {
+          "name": "comment.block.rust-ja",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        }
+      ]
+    },
+    "字符串": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.rust-ja",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.rust-ja",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.raw.rust-ja",
+          "begin": "r#*\"",
+          "end": "\"#*"
+        }
+      ]
+    },
+    "字符": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.rust-ja",
+          "match": "'[^'\\\\]'|'\\\\.'"
+        }
+      ]
+    },
+    "数字": {
+      "patterns": [
+        {
+          "name": "constant.numeric.rust-ja",
+          "match": "\\b[0-9][0-9_]*(\\.[0-9_]+)?([eE][+-]?[0-9_]+)?(f32|f64|i[0-9]+|u[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.numeric.hex.rust-ja",
+          "match": "\\b0x[0-9a-fA-F_]+\\b"
+        },
+        {
+          "name": "constant.numeric.oct.rust-ja",
+          "match": "\\b0o[0-7_]+\\b"
+        },
+        {
+          "name": "constant.numeric.bin.rust-ja",
+          "match": "\\b0b[01_]+\\b"
+        }
+      ]
+    },
+    "关键字": {
+      "patterns": [
+        {
+          "name": "keyword.control.rust-ja",
+          "match": "\\b(そうでなければ|マッチ|ループ|もし|中断|続行|返す|間|各|中)\\b"
+        },
+        {
+          "name": "keyword.declaration.rust-ja",
+          "match": "\\b(モジュール|トレイト|クレート|構造体|列挙型|として|主関数|関数|宣言|可変|定数|静的|実装|公開|外部|使用|型|親)\\b"
+        },
+        {
+          "name": "keyword.other.rust-ja",
+          "match": "\\b(安全でない|可変参照|ボックス|逆参照|非同期|参照|移動|待機|動的)\\b"
+        },
+        {
+          "name": "constant.language.boolean.rust-ja",
+          "match": "\\b(真|偽)\\b"
+        },
+        {
+          "name": "constant.language.rust-ja",
+          "match": "\\b(自己|自身|空)\\b"
+        }
+      ]
+    },
+    "类型": {
+      "patterns": [
+        {
+          "name": "storage.type.numeric.rust-ja",
+          "match": "\\b(単精度浮動小数点数|無符号長整数|無符号短整数|無符号微整数|浮動小数点数|無符号整数|長整数|短整数|微整数|バイト|整数)\\b"
+        },
+        {
+          "name": "storage.type.rust-ja",
+          "match": "\\b(ハッシュマップ|文字列参照|オプション|文字列型|リザルト|ボックス|文字列|ブール|ベクタ|文字)\\b"
+        },
+        {
+          "name": "constant.other.rust-ja",
+          "match": "\\b(エラー|あり|なし|成功)\\b"
+        }
+      ]
+    },
+    "宏": {
+      "patterns": [
+        {
+          "name": "entity.name.function.macro.rust-ja",
+          "match": "\\b(文字列取り込み|バイト取り込み|オプション環境|フォーマット|エラー表示行|アサート非等|エラー表示|アサート等|書き込み行|アサート|到達不能|パニック|書き込み|取り込み|文字列化|ファイル|表示行|未実装|ベクタ|表示|後で|環境|設定|列|行)!"
+        }
+      ]
+    },
+    "生命周期": {
+      "patterns": [
+        {
+          "name": "storage.modifier.lifetime.rust-ja",
+          "match": "'[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    },
+    "运算符": {
+      "patterns": [
+        {
+          "name": "keyword.operator.rust-ja",
+          "match": "(=|\\+|-|\\*|/|%|&&|\\|\\||!|<|>|<=|>=|==|!=|&|\\||\\^|~|<<|>>|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|<<=|>>=)"
+        },
+        {
+          "name": "keyword.operator.arrow.rust-ja",
+          "match": "(->|=>)"
+        }
+      ]
+    }
+  }
+}

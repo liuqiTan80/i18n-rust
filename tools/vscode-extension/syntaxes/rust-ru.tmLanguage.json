@@ -1,0 +1,180 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Rust (Русский)",
+  "scopeName": "source.rust-ru",
+  "patterns": [
+    {
+      "include": "#注释"
+    },
+    {
+      "include": "#字符串"
+    },
+    {
+      "include": "#字符"
+    },
+    {
+      "include": "#数字"
+    },
+    {
+      "include": "#关键字"
+    },
+    {
+      "include": "#类型"
+    },
+    {
+      "include": "#宏"
+    },
+    {
+      "include": "#生命周期"
+    },
+    {
+      "include": "#运算符"
+    }
+  ],
+  "repository": {
+    "注释": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.rust-ru",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.documentation.rust-ru",
+          "begin": "/\\*\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        },
+        {
+          "name": "comment.block.rust-ru",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        }
+      ]
+    },
+    "字符串": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.rust-ru",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.rust-ru",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.raw.rust-ru",
+          "begin": "r#*\"",
+          "end": "\"#*"
+        }
+      ]
+    },
+    "字符": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.rust-ru",
+          "match": "'[^'\\\\]'|'\\\\.'"
+        }
+      ]
+    },
+    "数字": {
+      "patterns": [
+        {
+          "name": "constant.numeric.rust-ru",
+          "match": "\\b[0-9][0-9_]*(\\.[0-9_]+)?([eE][+-]?[0-9_]+)?(f32|f64|i[0-9]+|u[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.numeric.hex.rust-ru",
+          "match": "\\b0x[0-9a-fA-F_]+\\b"
+        },
+        {
+          "name": "constant.numeric.oct.rust-ru",
+          "match": "\\b0o[0-7_]+\\b"
+        },
+        {
+          "name": "constant.numeric.bin.rust-ru",
+          "match": "\\b0b[01_]+\\b"
+        }
+      ]
+    },
+    "关键字": {
+      "patterns": [
+        {
+          "name": "keyword.control.rust-ru",
+          "match": "\\b(продолжи|прерви|иначе|верни|если|матч|цикл|пока|для|в)\\b"
+        },
+        {
+          "name": "keyword.declaration.rust-ru",
+          "match": "\\b(перечисление|статический|изменяемый|реализация|константа|структура|публичный|используй|функция|внешний|главная|модуль|пусть|трейт|крейт|супер|тип|как)\\b"
+        },
+        {
+          "name": "keyword.other.rust-ru",
+          "match": "\\b(изменяемая_ссылка|разыменование|динамический|небезопасно|асинхронно|перемести|коробка|ссылка|ожидай)\\b"
+        },
+        {
+          "name": "constant.language.boolean.rust-ru",
+          "match": "\\b(истина|ложь)\\b"
+        },
+        {
+          "name": "constant.language.rust-ru",
+          "match": "\\b(пусто|себя|Себя)\\b"
+        }
+      ]
+    },
+    "类型": {
+      "patterns": [
+        {
+          "name": "storage.type.numeric.rust-ru",
+          "match": "\\b(короткое_вещественное|короткое_натуральное|длинное_натуральное|микро_натуральное|короткое_целое|длинное_целое|вещественное|микро_целое|натуральное|целое|байт)\\b"
+        },
+        {
+          "name": "storage.type.rust-ru",
+          "match": "\\b(ссылка_на_строку|логическое|результат|словарь|коробка|символ|строка|вектор|текст|опция)\\b"
+        },
+        {
+          "name": "constant.other.rust-ru",
+          "match": "\\b(некоторое|ошибка|ничто|успех)\\b"
+        }
+      ]
+    },
+    "宏": {
+      "patterns": [
+        {
+          "name": "entity.name.function.macro.rust-ru",
+          "match": "\\b(печатай_ошибку_строку|утверждай_не_равно|утверждай_равно|печатай_строку|печатай_ошибку|не_реализовано|включи_строку|включи_байты|недостижимо|пиши_строку|строкизируй|опция_среды|утверждай|печатай|колонка|формат|паника|вектор|включи|конфиг|позже|линия|среда|пиши|файл)!"
+        }
+      ]
+    },
+    "生命周期": {
+      "patterns": [
+        {
+          "name": "storage.modifier.lifetime.rust-ru",
+          "match": "'[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    },
+    "运算符": {
+      "patterns": [
+        {
+          "name": "keyword.operator.rust-ru",
+          "match": "(=|\\+|-|\\*|/|%|&&|\\|\\||!|<|>|<=|>=|==|!=|&|\\||\\^|~|<<|>>|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|<<=|>>=)"
+        },
+        {
+          "name": "keyword.operator.arrow.rust-ru",
+          "match": "(->|=>)"
+        }
+      ]
+    }
+  }
+}

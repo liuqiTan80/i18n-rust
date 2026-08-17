@@ -1,0 +1,27 @@
+# Crate-Namensmapping (für use-Pfade)
+["模块路径"]
+"serialisierung" = "serde"
+"json_serialisierung" = "serde_json"
+"toml_verarbeitung" = "toml"
+"binaerkodierung" = "bincode"
+
+# Interne Identifikator-Mappings (Typen, Funktionen usw.)
+["标识符"]
+# serde
+"serialisierbar" = "Serialize"
+"deserialisierbar" = "Deserialize"
+"serialisieren" = "serialize"
+"deserialisieren" = "deserialize"
+
+# serde_json
+"json_wert" = "Value"
+"json_objekt" = "Object"
+"json_array" = "Array"
+"json_aus_text" = "from_str"
+"json_zu_text" = "to_string"
+"aus_leser" = "from_reader"
+"in_schreiber" = "to_writer"
+
+# bincode
+"kodieren" = "encode"
+"dekodieren" = "decode"

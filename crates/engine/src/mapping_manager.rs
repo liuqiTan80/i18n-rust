@@ -7,39 +7,12 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
-/// 解析"模块路径 + 标识符"两节格式的 TOML（stdlib.toml 与 crates/*.toml 通用）
-///
-/// - `["模块路径"]` 节 → 合并到模块路径映射（如 `"线程" = "std::thread"`）
-/// - `["标识符"]` 节 → 合并到标识符别名映射（如 `"字符串" = "String"`）
-fn merge_module_and_ident_sections(
-    content: &str,
-    module_path_map: &mut HashMap<String, String>,
-    alias_map: &mut HashMap<String, String>,
-) -> Result<(), String> {
-    let root: toml::Value = toml::from_str(content)
-        .map_err(|e| crate::语言::f("load_parse_map_failed", &[&e.to_string()]))?;
-    if let toml::Value::Table(table) = root {
-        if let Some(module_section) = table.get("模块路径")
-            && let toml::Value::Table(entry_table) = module_section
-        {
-            for (zh, en_value) in entry_table {
-                if let toml::Value::String(en) = en_value {
-                    module_path_map.insert(zh.clone(), en.clone());
-                }
-            }
-        }
-        if let Some(ident_section) = table.get("标识符")
-            && let toml::Value::Table(entry_table) = ident_section
-        {
-            for (zh, en_value) in entry_table {
-                if let toml::Value::String(en) = en_value {
-                    alias_map.insert(zh.clone(), en.clone());
-                }
-            }
-        }
-    }
-    Ok(())
-}
+// 解析原语与 mapping_source 共用单一实现（节表解析/两节合并），
+// 避免两个加载器对同一 TOML 格式的理解漂移
+use crate::error::{LoadError, LoadTarget};
+use crate::mapping_source::{
+    flatten_sections, merge_module_and_ident_sections, parse_toml_sections,
+};
 
 /// 映射管理器：统一管理关键字映射、模块路径映射、标识符别名映射
 ///
@@ -67,80 +40,77 @@ impl MappingManager {
     /// 2. `module_paths.toml` → 模块路径映射
     /// 3. `stdlib.toml` → 标准库的模块路径 + 标识符别名（可选）
     /// 4. `crates/*.toml` → 第三方库的模块路径 + 标识符别名
-    pub fn load_from_dir(lang_dir: &Path) -> Result<Self, String> {
+    pub fn load_from_dir(lang_dir: &Path) -> Result<Self, LoadError> {
         let keywords_path = lang_dir.join("keywords.toml");
         if !keywords_path.exists() {
-            return Err(crate::语言::f(
-                "load_keywords_missing",
-                &[&keywords_path.display().to_string()],
-            ));
+            return Err(LoadError::FileMissing {
+                target: LoadTarget::Keywords,
+                path: keywords_path.display().to_string(),
+            });
         }
 
         // 1. 加载关键字映射
-        let keywords_content = fs::read_to_string(&keywords_path)
-            .map_err(|e| crate::语言::f("load_read_keywords_failed", &[&e.to_string()]))?;
-        let root: toml::Value = toml::from_str(&keywords_content)
-            .map_err(|e| crate::语言::f("load_parse_keywords_failed", &[&e.to_string()]))?;
-
-        let mut keyword_map = HashMap::new();
-        let mut section_map = HashMap::new();
-        if let toml::Value::Table(table) = root {
-            for (section_name, section_content) in table {
-                if let toml::Value::Table(entry_table) = section_content {
-                    let mut section_mapping = HashMap::new();
-                    for (zh, en_value) in entry_table {
-                        if let toml::Value::String(en) = en_value {
-                            section_mapping.insert(zh.clone(), en.clone());
-                            keyword_map.insert(zh.clone(), en.clone());
-                        }
-                    }
-                    section_map.insert(section_name.clone(), section_mapping);
-                }
-            }
-        }
+        let keywords_content =
+            fs::read_to_string(&keywords_path).map_err(|e| LoadError::ReadFailed {
+                target: LoadTarget::Keywords,
+                path: Some(keywords_path.display().to_string()),
+                detail: e.to_string(),
+            })?;
+        let section_map =
+            parse_toml_sections(&keywords_content).map_err(|e| LoadError::ParseFailed {
+                target: LoadTarget::Keywords,
+                path: None,
+                detail: e.to_string(),
+            })?;
+        let keyword_map = flatten_sections(&section_map);
 
         // 2. 加载模块路径映射（来自 module_paths.toml）
         let module_paths_file = lang_dir.join("module_paths.toml");
         let mut module_path_map = HashMap::new();
         if module_paths_file.exists() {
-            let content = fs::read_to_string(&module_paths_file).map_err(|e| {
-                crate::语言::f("load_read_module_paths_failed", &[&e.to_string()])
+            let content =
+                fs::read_to_string(&module_paths_file).map_err(|e| LoadError::ReadFailed {
+                    target: LoadTarget::ModulePaths,
+                    path: Some(module_paths_file.display().to_string()),
+                    detail: e.to_string(),
+                })?;
+            let sections = parse_toml_sections(&content).map_err(|e| LoadError::ParseFailed {
+                target: LoadTarget::ModulePaths,
+                path: None,
+                detail: e.to_string(),
             })?;
-            let root: toml::Value = toml::from_str(&content).map_err(|e| {
-                crate::语言::f("load_parse_module_paths_failed", &[&e.to_string()])
-            })?;
-            if let toml::Value::Table(table) = root
-                && let Some(path_section) = table.get("模块路径")
-                && let toml::Value::Table(entry_table) = path_section
-            {
-                for (zh, en_value) in entry_table {
-                    if let toml::Value::String(en) = en_value {
-                        module_path_map.insert(zh.clone(), en.clone());
-                    }
-                }
+            if let Some(entries) = sections.get("模块路径") {
+                module_path_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
             }
         }
 
         // 3. 扫描第三方库目录（crates/）
+        // 文件按文件名排序后合并：read_dir 顺序未定义，同键不同值时
+        // 合并结果必须确定（与 load_from_builtin 的排序行为一致）
         let crates_dir = lang_dir.join("crates");
         let mut alias_map = HashMap::new();
-        if crates_dir.exists()
-            && crates_dir.is_dir()
-            && let Ok(entries) = fs::read_dir(&crates_dir)
-        {
-            for file in entries.flatten() {
-                let file_path = file.path();
-                if file_path.extension().and_then(|e| e.to_str()) == Some("toml")
-                    && let Ok(content) = fs::read_to_string(&file_path)
-                {
-                    merge_module_and_ident_sections(&content, &mut module_path_map, &mut alias_map)
-                        .map_err(|e| {
-                            crate::语言::f(
-                                "load_parse_map_path_failed",
-                                &[&file_path.display().to_string(), &e],
-                            )
-                        })?;
-                }
+        if crates_dir.exists() && crates_dir.is_dir() {
+            let mut toml_files: Vec<std::path::PathBuf> = fs::read_dir(&crates_dir)
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("toml"))
+                .collect();
+            toml_files.sort();
+            for file_path in toml_files {
+                let content =
+                    fs::read_to_string(&file_path).map_err(|e| LoadError::ReadFailed {
+                        target: LoadTarget::ThirdParty,
+                        path: Some(file_path.display().to_string()),
+                        detail: e.to_string(),
+                    })?;
+                merge_module_and_ident_sections(&content, &mut module_path_map, &mut alias_map)
+                    .map_err(|e| LoadError::ParseFailed {
+                        target: LoadTarget::ThirdParty,
+                        path: Some(file_path.display().to_string()),
+                        detail: e.to_string(),
+                    })?;
             }
         }
 
@@ -152,11 +122,10 @@ impl MappingManager {
             && let Ok(content) = fs::read_to_string(&stdlib_file)
         {
             merge_module_and_ident_sections(&content, &mut module_path_map, &mut alias_map)
-                .map_err(|e| {
-                    crate::语言::f(
-                        "load_parse_map_path_failed",
-                        &[&stdlib_file.display().to_string(), &e],
-                    )
+                .map_err(|e| LoadError::ParseFailed {
+                    target: LoadTarget::Stdlib,
+                    path: Some(stdlib_file.display().to_string()),
+                    detail: e.to_string(),
                 })?;
         }
 
@@ -180,73 +149,52 @@ impl MappingManager {
         module_paths_toml: &str,
         stdlib_toml: &str,
         third_party_data: &[(&str, &str)],
-    ) -> Result<Self, String> {
+    ) -> Result<Self, LoadError> {
         // 1. 解析关键字映射
-        let root: toml::Value = toml::from_str(keywords_toml).map_err(|e| {
-            crate::语言::f("load_parse_builtin_keywords_failed", &[&e.to_string()])
-        })?;
-
-        let mut keyword_map = HashMap::new();
-        let mut section_map = HashMap::new();
-        if let toml::Value::Table(table) = root {
-            for (section_name, section_content) in table {
-                if let toml::Value::Table(entry_table) = section_content {
-                    let mut section_mapping = HashMap::new();
-                    for (zh, en_value) in entry_table {
-                        if let toml::Value::String(en) = en_value {
-                            section_mapping.insert(zh.clone(), en.clone());
-                            keyword_map.insert(zh.clone(), en.clone());
-                        }
-                    }
-                    section_map.insert(section_name, section_mapping);
-                }
-            }
-        }
+        let section_map =
+            parse_toml_sections(keywords_toml).map_err(|e| LoadError::ParseFailed {
+                target: LoadTarget::BuiltinKeywords,
+                path: None,
+                detail: e.to_string(),
+            })?;
+        let keyword_map = flatten_sections(&section_map);
 
         // 2. 解析模块路径映射
         let mut module_path_map = HashMap::new();
-        let root: toml::Value = toml::from_str(module_paths_toml)
-            .map_err(|e| crate::语言::f("load_parse_builtin_paths_failed", &[&e.to_string()]))?;
-        if let toml::Value::Table(table) = root
-            && let Some(path_section) = table.get("模块路径")
-            && let toml::Value::Table(entry_table) = path_section
-        {
-            for (zh, en_value) in entry_table {
-                if let toml::Value::String(en) = en_value {
-                    module_path_map.insert(zh.clone(), en.clone());
-                }
-            }
+        let sections =
+            parse_toml_sections(module_paths_toml).map_err(|e| LoadError::ParseFailed {
+                target: LoadTarget::BuiltinModulePaths,
+                path: None,
+                detail: e.to_string(),
+            })?;
+        if let Some(entries) = sections.get("模块路径") {
+            module_path_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
         }
 
         // 3. 解析标准库映射（模块路径 + 标识符别名）
         let mut alias_map = HashMap::new();
-        let stdlib_root: toml::Value = toml::from_str(stdlib_toml)
-            .map_err(|e| crate::语言::f("load_parse_builtin_stdlib_failed", &[&e.to_string()]))?;
-        if let toml::Value::Table(table) = stdlib_root {
-            if let Some(path_section) = table.get("模块路径")
-                && let toml::Value::Table(entry_table) = path_section
-            {
-                for (zh, en_value) in entry_table {
-                    if let toml::Value::String(en) = en_value {
-                        module_path_map.insert(zh.clone(), en.clone());
-                    }
-                }
-            }
-            if let Some(ident_section) = table.get("标识符")
-                && let toml::Value::Table(entry_table) = ident_section
-            {
-                for (zh, en_value) in entry_table {
-                    if let toml::Value::String(en) = en_value {
-                        alias_map.insert(zh.clone(), en.clone());
-                    }
-                }
-            }
+        let sections = parse_toml_sections(stdlib_toml).map_err(|e| LoadError::ParseFailed {
+            target: LoadTarget::BuiltinStdlib,
+            path: None,
+            detail: e.to_string(),
+        })?;
+        if let Some(entries) = sections.get("模块路径") {
+            module_path_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
+        }
+        if let Some(entries) = sections.get("标识符") {
+            alias_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
         }
 
-        // 4. 解析第三方库映射
-        for (file_name, content) in third_party_data {
+        // 4. 解析第三方库映射（按文件名排序合并，与 load_from_dir 行为一致）
+        let mut sorted: Vec<&(&str, &str)> = third_party_data.iter().collect();
+        sorted.sort_by_key(|(name, _)| *name);
+        for (file_name, content) in sorted {
             merge_module_and_ident_sections(content, &mut module_path_map, &mut alias_map)
-                .map_err(|e| crate::语言::f("load_parse_map_path_failed", &[file_name, &e]))?;
+                .map_err(|e| LoadError::ParseFailed {
+                    target: LoadTarget::ThirdParty,
+                    path: Some((*file_name).to_string()),
+                    detail: e.to_string(),
+                })?;
         }
 
         Ok(Self {
@@ -258,7 +206,7 @@ impl MappingManager {
     }
 
     /// 向后兼容：从单个关键字文件加载（委托给 load_from_dir）
-    pub fn load_from_file(path: &Path) -> Result<Self, String> {
+    pub fn load_from_file(path: &Path) -> Result<Self, LoadError> {
         let dir = path.parent().unwrap_or(Path::new("."));
         Self::load_from_dir(dir)
     }
@@ -378,7 +326,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let err = MappingManager::load_from_dir(temp.path()).unwrap_err();
         assert!(
-            err.contains("关键字文件不存在"),
+            err.to_string().contains("关键字文件不存在"),
             "错误信息应指明缺失文件: {}",
             err
         );
@@ -391,7 +339,7 @@ mod tests {
         fs::write(temp.path().join("keywords.toml"), "这不是合法 TOML [[[").unwrap();
         let err = MappingManager::load_from_dir(temp.path()).unwrap_err();
         assert!(
-            err.contains("解析关键字 TOML 失败"),
+            err.to_string().contains("解析关键字 TOML 失败"),
             "错误信息应含解析失败: {}",
             err
         );
@@ -444,7 +392,7 @@ mod tests {
         let err =
             MappingManager::load_from_builtin(keywords, module_paths, "非法内容", &[]).unwrap_err();
         assert!(
-            err.contains("解析内置标准库 TOML 失败"),
+            err.to_string().contains("解析内置标准库 TOML 失败"),
             "错误信息应含解析失败: {}",
             err
         );
@@ -466,7 +414,7 @@ mod tests {
         // 非法 TOML 不应 panic，但必须报告错误（不再静默忽略，防止映射丢失）
         let err = merge_module_and_ident_sections("[[[", &mut module_path_map, &mut alias_map)
             .expect_err("非法 TOML 应返回错误");
-        assert!(!err.is_empty());
+        assert!(!err.to_string().is_empty());
         assert!(module_path_map.is_empty());
         assert!(alias_map.is_empty());
         // 合法内容正常合并

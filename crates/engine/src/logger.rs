@@ -4,7 +4,7 @@
 // 提供 log_debug!、log_info!、log_warn!、log_error! 四个宏供其他模块使用。
 
 use std::sync::Once;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 /// 日志级别（按严重程度递增，序数值用于比较过滤）
 #[repr(u8)]
@@ -58,23 +58,30 @@ impl LogLevel {
 static LEVEL_STORE: AtomicU8 = AtomicU8::new(2);
 /// 是否已从环境变量初始化（幂等标记）
 static INITIALIZED: Once = Once::new();
+/// 是否已被程序化设置（置位后 RZ_LOG 不再覆盖，保证程序化优先级更高）
+static LEVEL_SET_PROGRAMMATICALLY: AtomicBool = AtomicBool::new(false);
 
 /// 从 RZ_LOG 环境变量初始化日志级别（幂等，仅首次生效）
 ///
 /// 示例：`RZ_LOG=debug rzc run file.zh` 启用全部日志；
 /// `RZ_LOG=error` 仅输出错误。
+/// 若级别已被 [`set_log_level`] 程序化设置，则环境变量不覆盖。
 pub fn init() {
     INITIALIZED.call_once(|| {
+        if LEVEL_SET_PROGRAMMATICALLY.load(Ordering::Relaxed) {
+            return;
+        }
         if let Ok(val) = std::env::var("RZ_LOG")
             && let Some(level) = LogLevel::parse_env(&val)
         {
-            set_log_level(level);
+            LEVEL_STORE.store(level as u8, Ordering::Relaxed);
         }
     });
 }
 
 /// 程序化设置日志级别（优先级高于 RZ_LOG，测试与嵌入场景使用）
 pub fn set_log_level(level: LogLevel) {
+    LEVEL_SET_PROGRAMMATICALLY.store(true, Ordering::Relaxed);
     LEVEL_STORE.store(level as u8, Ordering::Relaxed);
 }
 
@@ -276,5 +283,13 @@ mod tests {
         log_info!("test_module", "信息 {}", 42);
         log_warn!("test_module", "警告");
         log_error!("test_module", "错误");
+    }
+
+    #[test]
+    fn test_programmatic_level_not_overridden_by_init() {
+        // 程序化设置后，init()（读 RZ_LOG）不得覆盖——契约：程序化优先级更高
+        set_log_level(LogLevel::Error);
+        init();
+        assert_eq!(current_level(), LogLevel::Error);
     }
 }

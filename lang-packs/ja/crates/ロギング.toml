@@ -1,0 +1,33 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"トレーシング" = "tracing"
+"ログ" = "log"
+"環境ログ" = "env_logger"
+"ログ購読" = "tracing-subscriber"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# tracing
+"トレース" = "trace"
+"デバッグ記録" = "debug"
+"情報記録" = "info"
+"警告記録" = "warn"
+"エラー記録" = "error"
+"スパン" = "span"
+"イベント" = "event"
+"購読者" = "subscriber"
+"初期化実行" = "init"
+
+# log
+"ログレベル" = "Level"
+"ログ記録" = "Record"
+
+# env_logger
+"構築器" = "Builder"
+"絞り込み" = "filter"
+
+# tracing-subscriber
+"整形層" = "fmt"
+"JSON層" = "json"
+"絞り込み層" = "filter"
+"登録表" = "registry"

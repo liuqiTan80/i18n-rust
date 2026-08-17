@@ -1,0 +1,19 @@
+# vsce 打包排除清单（main 由 esbuild 单文件 bundle 提供）
+.vscode/**
+src/**
+scripts/**
+node_modules/**
+out/test/**
+out/ai/**
+out/**/*.js
+!out/extension.js
+out/*.map
+**/*.map
+tsconfig.json
+.eslintrc.json
+package-lock.json
+package-vsix.sh
+package-vsix.ps1
+release/**
+**/*.ts
+!out/extension.js

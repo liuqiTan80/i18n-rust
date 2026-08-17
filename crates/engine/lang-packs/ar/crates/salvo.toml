@@ -1,0 +1,393 @@
+# خريطة مكتبة طرف ثالث مولدة تلقائيا
+# crate: salvo
+# الشروحات في هذا الملف مولدة تلقائيا بالذكاء الاصطناعي بناء على أسماء وتواقيع الواجهة البرمجية، وليست ترجمة للتوثيق الرسمي للحزمة الأصلية، وهي للاطلاع الدراسي فقط. حقوق النشر للحزمة الأصلية تعود لمؤلفيها.
+# محسنة يدويا: ترجمة المعرفات إلى العربية مع إضافة الشروحات.
+
+["模块路径"]
+"salvo" = "salvo"
+
+["标识符"]
+"نواة_سالفو" = "core"  # type core = salvo_core
+"ملتقط" = "Catcher"  # struct Catcher
+"الهدف_الافتراضي" = "DefaultGoal"  # struct DefaultGoal
+"عنوان_مقبس_سالفو" = "SocketAddr"  # enum SocketAddr
+"مستمع_تكب_سالفو" = "TcpListener"  # struct TcpListener<T>
+"مستقبل_تكب" = "TcpAcceptor"  # struct TcpAcceptor
+"مستقبل_تكب_ديناميكي" = "DynTcpAcceptor"  # trait DynTcpAcceptor
+"إلى_مستقبل_تكب_ديناميكي" = "ToDynTcpAcceptor"  # struct ToDynTcpAcceptor<A>
+"مستقبلات_تكب_ديناميكية" = "DynTcpAcceptors"  # struct DynTcpAcceptors
+"تحكم_اتصال" = "ConnCtrl"  # type ConnCtrl = ctrl::ConnCtrl
+"HTTP1" = "http1"  # type http1 = hyper::server::conn::http1
+"HTTP2" = "http2"  # type http2 = hyper::server::conn::http2
+"مستقبل_مدمج" = "JoinedAcceptor"  # type JoinedAcceptor = joined::JoinedAcceptor
+"مستمع_مدمج" = "JoinedListener"  # type JoinedListener = joined::JoinedListener
+"اتصال_مقبول" = "Accepted"  # struct Accepted<C, S>
+"مستقبل_قبول" = "Acceptor"  # trait Acceptor
+"محتجز" = "Holding"  # struct Holding
+"موصل" = "Coupler"  # trait Coupler
+"مستمع" = "Listener"  # trait Listener
+"تدفق_ديناميكي" = "DynStream"  # struct DynStream
+"مصدر_اتصال" = "SourceFrom"  # enum SourceFrom
+"محلل_مصدر" = "SourceParser"  # enum SourceParser
+"بيانات_وصفية_سالفو" = "Metadata"  # struct Metadata
+"حقل" = "Field"  # struct Field
+"مصدر_إعداد" = "Source"  # struct Source
+"قاعدة_إعادة_تسمية" = "RenameRule"  # type RenameRule = case::RenameRule
+"قابل_للاستخراج" = "Extractible"  # trait Extractible<'ex>
+"ملف_مجزأ" = "ChunkedFile"  # struct ChunkedFile<T>
+"بروتوكول_نقل" = "TransProto"  # enum TransProto
+"معلومات_قاطع" = "FuseInfo"  # struct FuseInfo
+"إعداد_قاطع" = "FuseConfig"  # struct FuseConfig
+"إجراء_قاطع" = "FuseAction"  # enum FuseAction
+"مراقب_اتصال" = "ConnObserver"  # trait ConnObserver
+"قوس_مراقب_اتصال" = "ArcConnObserver"  # type ArcConnObserver = std::sync::Arc<dyn ?>
+"سياسة_قاطع" = "FusePolicy"  # trait FusePolicy
+"قوس_سياسة_قاطع" = "ArcFusePolicy"  # type ArcFusePolicy = std::sync::Arc<dyn ?>
+"سمة_معالج" = "Handler"  # trait Handler
+"قوس_معالج" = "ArcHandler"  # struct ArcHandler
+"معالج_فارغ" = "empty"  # fn empty() -> EmptyHandler
+"متخطي" = "Skipper"  # trait Skipper
+"معالج_مغلف" = "HoopedHandler"  # struct HoopedHandler
+"لا_تخطي" = "none_skipper"  # fn none_skipper(_req: &crate::Request, _depot: &crate::Depot) -> bool
+"خطأ_تحليل" = "ParseError"  # type ParseError = parse_error::ParseError
+"نتيجة_تحليل" = "ParseResult"  # type ParseResult = parse_error::ParseResult
+"خطأ_حالة" = "StatusError"  # type StatusError = status_error::StatusError
+"نتيجة_حالة" = "StatusResult"  # type StatusResult = status_error::StatusResult
+"بيانات_نموذج" = "FormData"  # struct FormData
+"جزء_ملف" = "FilePart"  # struct FilePart
+"أجزاء_طلب" = "Parts"  # type Parts = http::request::Parts
+"الحد_الآمن_العام" = "global_secure_max_size"  # fn global_secure_max_size() -> usize
+"عين_الحد_الآمن_العام" = "set_global_secure_max_size"  # fn set_global_secure_max_size(size: usize) -> ?
+"حد_آمن_أقصى" = "SecureMaxSize"  # struct SecureMaxSize
+"طلب_سالفو" = "Request"  # struct Request
+"مرسل_جسم" = "BodySender"  # type BodySender = crate::http::body::BodySender
+"إطار_بايتات" = "BytesFrame"  # type BytesFrame = crate::http::body::BytesFrame
+"جسم_استجابة_سالفو" = "ResBody"  # type ResBody = crate::http::body::ResBody
+"استجابة_سالفو" = "Response"  # struct Response
+"سياسة_كعكة_آمنة" = "SecureCookiePolicy"  # enum SecureCookiePolicy
+"جسم" = "Body"  # type Body = hyper::body::Body
+"إطار" = "Frame"  # type Frame = hyper::body::Frame
+"تلميح_حجم" = "SizeHint"  # type SizeHint = hyper::body::SizeHint
+"جسم_طلب_سالفو" = "ReqBody"  # type ReqBody = req::ReqBody
+"جسم_هايبر" = "HyperBody"  # type HyperBody = hyper::body::Incoming
+"متلق_جسم" = "BodyReceiver"  # type BodyReceiver = channel::BodyReceiver
+"وحدة_كعكات" = "cookie"  # type cookie = cookie
+"وحدة_ترويسات" = "headers"  # type headers = headers
+"طريقة_ويب" = "Method"  # type Method = http::method::Method
+"خريطة_ترويسات" = "HeaderMap"  # type HeaderMap = http::HeaderMap
+"اسم_ترويسة" = "HeaderName"  # type HeaderName = http::HeaderName
+"قيمة_ترويسة" = "HeaderValue"  # type HeaderValue = http::HeaderValue
+"رمز_حالة" = "StatusCode"  # type StatusCode = http::StatusCode
+"وحدة_ترويسة" = "header"  # type header = http::header
+"وحدة_معرف" = "uri"  # type uri = http::uri
+"مدى_ويب" = "HttpRange"  # type HttpRange = range::HttpRange
+"إصدار_بروتوكول" = "Version"  # type Version = http::version::Version
+"نوع_وسائط" = "Mime"  # type Mime = mime::Mime
+"معلومات_مرشح" = "FilterInfo"  # enum FilterInfo
+"سمة_مرشح" = "Filter"  # trait Filter
+"مرشح_دالة" = "FnFilter"  # struct FnFilter<F>
+"مرشح_مخطط" = "scheme"  # fn scheme(scheme: crate::http::uri::Scheme) -> SchemeFilter
+"مضيف" = "host"  # fn host<impl Into<String>>(host: impl ?) -> HostFilter
+"منفذ" = "port"  # fn port(port: u16) -> PortFilter
+"مرشح_مسار" = "path"  # fn path<impl Into<String>>(path: impl ?) -> PathFilter
+"جرب_مسارا" = "try_path"  # fn try_path<impl Into<String>>(path: impl ?) -> Result<PathFilter, String>
+"مرشح_جيت" = "get"  # fn get() -> MethodFilter
+"مرشح_هيد" = "head"  # fn head() -> MethodFilter
+"مرشح_خيارات" = "options"  # fn options() -> MethodFilter
+"مرشح_بوست" = "post"  # fn post() -> MethodFilter
+"مرشح_باتش" = "patch"  # fn patch() -> MethodFilter
+"مرشح_بوت" = "put"  # fn put() -> MethodFilter
+"مرشح_استعلام" = "query"  # fn query() -> MethodFilter
+"مرشح_حذف" = "delete"  # fn delete() -> MethodFilter
+"موجه" = "Router"  # type Router = router::Router
+"معاملات_مسار" = "PathParams"  # type PathParams = path_params::PathParams
+"تحكم_تدفق" = "FlowCtrl"  # type FlowCtrl = flow_ctrl::FlowCtrl
+"منفذ_توكيو" = "TokioExecutor"  # type TokioExecutor = hyper_util::rt::TokioExecutor
+"دخل_خرج_توكيو" = "TokioIo"  # type TokioIo = hyper_util::rt::TokioIo
+"مؤقت_توكيو" = "TokioTimer"  # type TokioTimer = hyper_util::rt::TokioTimer
+"مقبض_خادم" = "ServerHandle"  # struct ServerHandle
+"خادم" = "Server"  # struct Server<A>
+"استجابة_جسون" = "Json"  # type Json = json::Json
+"إعادة_توجيه" = "Redirect"  # type Redirect = redirect::Redirect
+"قارئ_محدد" = "ReadSeeker"  # type ReadSeeker = seek::ReadSeeker
+"محتوى_نصي" = "Text"  # type Text = text::Text
+"سمة_كاتب" = "Writer"  # trait Writer
+"ناسخ" = "Scribe"  # trait Scribe
+"عميل_اختبار" = "TestClient"  # type TestClient = client::TestClient
+"باني_طلبات" = "RequestBuilder"  # type RequestBuilder = request::RequestBuilder
+"هدف_إرسال" = "SendTarget"  # type SendTarget = request::SendTarget
+"امتداد_استجابة" = "ResponseExt"  # type ResponseExt = response::ResponseExt
+"سمة_غير_متزامنة_ماكرو" = "async_trait"  # type async_trait = async_trait::async_trait
+"مستودع" = "Depot"  # type Depot = crate::depot::Depot
+"خدمة" = "Service"  # type Service = crate::service::Service
+"وحدة_هايبر" = "hyper"  # type hyper = hyper
+"وحدة_ماكرو" = "macros"  # type macros = salvo_macros
+"خطأ_مصندوق" = "BoxedError"  # type BoxedError = self::error::BoxedError
+"خطأ_سالفو" = "Error"  # type Error = self::error::Error
+"نتيجة_سالفو" = "Result"  # type Result = std::result::Result<T, Error>
+"مكرر_وسائط" = "MimeIter"  # struct MimeIter<'a>
+"اسم_ميديا" = "Name"  # struct Name<'a>
+"خطأ_تحليل_نص" = "FromStrError"  # struct FromStrError
+"معاملات_ميديا" = "Params"  # struct Params<'a>
+"نجمة" = "STAR"  # const STAR: Name<''static'>
+"اسم_نص" = "TEXT"  # const TEXT: Name<''static'>
+"اسم_صورة" = "IMAGE"  # const IMAGE: Name<''static'>
+"اسم_صوت" = "AUDIO"  # const AUDIO: Name<''static'>
+"اسم_فيديو" = "VIDEO"  # const VIDEO: Name<''static'>
+"اسم_تطبيق" = "APPLICATION"  # const APPLICATION: Name<''static'>
+"اسم_متعدد" = "MULTIPART"  # const MULTIPART: Name<''static'>
+"اسم_رسالة" = "MESSAGE"  # const MESSAGE: Name<''static'>
+"اسم_نموذج" = "MODEL"  # const MODEL: Name<''static'>
+"اسم_خط" = "FONT"  # const FONT: Name<''static'>
+"اسم_عادي" = "PLAIN"  # const PLAIN: Name<''static'>
+"اسم_اتش_تي_ام_ال" = "HTML"  # const HTML: Name<''static'>
+"اسم_اكس_ام_ال" = "XML"  # const XML: Name<''static'>
+"اسم_جافاسكربت" = "JAVASCRIPT"  # const JAVASCRIPT: Name<''static'>
+"اسم_سي_اس_اس" = "CSS"  # const CSS: Name<''static'>
+"اسم_سي_اس_في" = "CSV"  # const CSV: Name<''static'>
+"اسم_تدفق_أحداث" = "EVENT_STREAM"  # const EVENT_STREAM: Name<''static'>
+"اسم_في_كارد" = "VCARD"  # const VCARD: Name<''static'>
+"اسم_ترميز_نماذج" = "WWW_FORM_URLENCODED"  # const WWW_FORM_URLENCODED: Name<''static'>
+"اسم_مسج_باك" = "MSGPACK"  # const MSGPACK: Name<''static'>
+"اسم_تدفق_بايتات" = "OCTET_STREAM"  # const OCTET_STREAM: Name<''static'>
+"اسم_بي_دي_اف" = "PDF"  # const PDF: Name<''static'>
+"اسم_ووف" = "WOFF"  # const WOFF: Name<''static'>
+"اسم_ووف2" = "WOFF2"  # const WOFF2: Name<''static'>
+"اسم_بيانات_نماذج" = "FORM_DATA"  # const FORM_DATA: Name<''static'>
+"اسم_بي_ام_بي" = "BMP"  # const BMP: Name<''static'>
+"اسم_جي_اي_اف" = "GIF"  # const GIF: Name<''static'>
+"اسم_جيه_بي_اي_جي" = "JPEG"  # const JPEG: Name<''static'>
+"اسم_بي_ان_جي" = "PNG"  # const PNG: Name<''static'>
+"اسم_اس_في_جي" = "SVG"  # const SVG: Name<''static'>
+"اسم_أساسي" = "BASIC"  # const BASIC: Name<''static'>
+"MPEG" = "MPEG"  # const MPEG: Name<''static'>
+"MP4" = "MP4"  # const MP4: Name<''static'>
+"OGG" = "OGG"  # const OGG: Name<''static'>
+"اسم_مجموعة_محارف" = "CHARSET"  # const CHARSET: Name<''static'>
+"اسم_حد" = "BOUNDARY"  # const BOUNDARY: Name<''static'>
+"اسم_يوتف8" = "UTF_8"  # const UTF_8: Name<''static'>
+"أي_وسائط" = "STAR_STAR"  # const STAR_STAR: Mime
+"أي_نص" = "TEXT_STAR"  # const TEXT_STAR: Mime
+"وسائط_نص_عادي" = "TEXT_PLAIN"  # const TEXT_PLAIN: Mime
+"وسائط_نص_عادي_يوتف8" = "TEXT_PLAIN_UTF_8"  # const TEXT_PLAIN_UTF_8: Mime
+"نص_اتش_تي_ام_ال" = "TEXT_HTML"  # const TEXT_HTML: Mime
+"نص_اتش_تي_ام_ال_يوتف8" = "TEXT_HTML_UTF_8"  # const TEXT_HTML_UTF_8: Mime
+"نص_سي_اس_اس" = "TEXT_CSS"  # const TEXT_CSS: Mime
+"نص_سي_اس_اس_يوتف8" = "TEXT_CSS_UTF_8"  # const TEXT_CSS_UTF_8: Mime
+"نص_جافاسكربت" = "TEXT_JAVASCRIPT"  # const TEXT_JAVASCRIPT: Mime
+"نص_اكس_ام_ال" = "TEXT_XML"  # const TEXT_XML: Mime
+"نص_تدفق_أحداث" = "TEXT_EVENT_STREAM"  # const TEXT_EVENT_STREAM: Mime
+"نص_سي_اس_في" = "TEXT_CSV"  # const TEXT_CSV: Mime
+"نص_سي_اس_في_يوتف8" = "TEXT_CSV_UTF_8"  # const TEXT_CSV_UTF_8: Mime
+"نص_مفصول_جداول" = "TEXT_TAB_SEPARATED_VALUES"  # const TEXT_TAB_SEPARATED_VALUES: Mime
+"نص_مفصول_جداول_يوتف8" = "TEXT_TAB_SEPARATED_VALUES_UTF_8"  # const TEXT_TAB_SEPARATED_VALUES_UTF_8: Mime
+"نص_في_كارد" = "TEXT_VCARD"  # const TEXT_VCARD: Mime
+"أي_صورة" = "IMAGE_STAR"  # const IMAGE_STAR: Mime
+"صورة_جيه_بي_اي_جي" = "IMAGE_JPEG"  # const IMAGE_JPEG: Mime
+"صورة_جي_اي_اف" = "IMAGE_GIF"  # const IMAGE_GIF: Mime
+"صورة_بي_ان_جي" = "IMAGE_PNG"  # const IMAGE_PNG: Mime
+"صورة_بي_ام_بي" = "IMAGE_BMP"  # const IMAGE_BMP: Mime
+"صورة_اس_في_جي" = "IMAGE_SVG"  # const IMAGE_SVG: Mime
+"خط_ووف" = "FONT_WOFF"  # const FONT_WOFF: Mime
+"خط_ووف2" = "FONT_WOFF2"  # const FONT_WOFF2: Mime
+"تطبيق_جسون" = "APPLICATION_JSON"  # const APPLICATION_JSON: Mime
+"تطبيق_جافاسكربت" = "APPLICATION_JAVASCRIPT"  # const APPLICATION_JAVASCRIPT: Mime
+"تطبيق_جافاسكربت_يوتف8" = "APPLICATION_JAVASCRIPT_UTF_8"  # const APPLICATION_JAVASCRIPT_UTF_8: Mime
+"تطبيق_ترميز_نماذج" = "APPLICATION_WWW_FORM_URLENCODED"  # const APPLICATION_WWW_FORM_URLENCODED: Mime
+"تطبيق_تدفق_بايتات" = "APPLICATION_OCTET_STREAM"  # const APPLICATION_OCTET_STREAM: Mime
+"تطبيق_مسج_باك" = "APPLICATION_MSGPACK"  # const APPLICATION_MSGPACK: Mime
+"تطبيق_بي_دي_اف" = "APPLICATION_PDF"  # const APPLICATION_PDF: Mime
+"بيانات_نماذج_متعددة" = "MULTIPART_FORM_DATA"  # const MULTIPART_FORM_DATA: Mime
+
+["解释"]
+"نواة_سالفو" = "اسم مستعار للحزمة الأساسية salvo_core، يحمل كامل الواجهة البرمجية الأساسية."
+"ملتقط" = "يلتقط الأخطاء الناتجة أثناء معالجة الطلبات ويحولها بشكل موحد إلى استجابات."
+"الهدف_الافتراضي" = "الهدف الافتراضي لمعالجة الأخطاء، يحدد الوجهة النهائية لاستجابات الخطأ."
+"عنوان_مقبس_سالفو" = "نوع عنوان الشبكة، يمثل عنوان IP والمنفذ."
+"مستمع_تكب_سالفو" = "مستمع يراقب منفذ TCP وينتج تدفقات اتصال."
+"مستقبل_تكب" = "كائن يستقبل اتصالات TCP ويحولها إلى تدفق طلبات."
+"مستقبل_تكب_ديناميكي" = "سمة مستقبل اتصالات TCP بإرسال ديناميكي."
+"إلى_مستقبل_تكب_ديناميكي" = "غلاف يحول المستقبل المحدد إلى مستقبل ديناميكي."
+"مستقبلات_تكب_ديناميكية" = "بنية مجموعة من عدة مستقبلات ديناميكية."
+"تحكم_اتصال" = "معلومات تحكم على مستوى الاتصال (مثل إبقاء الاتصال مفتوحا)."
+"HTTP1" = "نوع اتصال بروتوكول HTTP/1.1 (مقدم من hyper)."
+"HTTP2" = "نوع اتصال بروتوكول HTTP/2 (مقدم من hyper)."
+"مستقبل_مدمج" = "يدمج عدة مستقبلات في مستقبل واحد."
+"مستمع_مدمج" = "يدمج عدة مستمعين في مستمع واحد."
+"اتصال_مقبول" = "نتيجة (اتصال، عنوان) الناتجة بعد قبول الاتصال."
+"مستقبل_قبول" = "سمة تستقبل الاتصالات وتنتج تدفق طلبات، قابلة للتخصيص."
+"محتجز" = "بنية حالة وسيطة تحتفظ بالاتصالات."
+"موصل" = "سمة تصل الاتصالات الناتجة من المستمع بمعالجة البروتوكول."
+"مستمع" = "سمة تراقب وتنتج تدفقات اتصال، تدعم TCP/Unix وغيرها."
+"تدفق_ديناميكي" = "نوع تدفق اتصال بإرسال ديناميكي."
+"مصدر_اتصال" = "تعداد يحدد مصدر الاتصال (TCP، مقبس Unix، إلخ)."
+"محلل_مصدر" = "محلل لمصادر الإعداد (ملف، نص، إلخ)."
+"بيانات_وصفية_سالفو" = "وصف البيانات الوصفية للإعداد (مثل اسم متغير البيئة، مسار الملف)."
+"حقل" = "وصف حقل الإعداد (الاسم، المصدر، القيمة الافتراضية، إلخ)."
+"مصدر_إعداد" = "وصف مصدر الإعداد (متغيرات البيئة، وسائط سطر الأوامر، إلخ)."
+"قاعدة_إعادة_تسمية" = "قاعدة تحويل حالة أسماء الحقول (مثل camelCase إلى snake_case)."
+"قابل_للاستخراج" = "سمة لاستخراج البيانات من الطلب؛ مستخرجات النماذج وJSON تنفذها."
+"ملف_مجزأ" = "كاتب استجابة يقرأ الملف ويرسله على أجزاء."
+"بروتوكول_نقل" = "حالة بروتوكول النقل (مثل TLS، الترقية إلى HTTP/2)."
+"معلومات_قاطع" = "معلومات حالة القاطع (عدد مرات التفعيل، حالة القطع، إلخ)."
+"إعداد_قاطع" = "إعداد القاطع (العتبة، المهلة، إلخ)."
+"إجراء_قاطع" = "الإجراء المنفذ عند تفعيل القاطع."
+"مراقب_اتصال" = "سمة تراقب دورة حياة الاتصال."
+"قوس_مراقب_اتصال" = "مراقب اتصال بملكية مشتركة (Arc)."
+"سياسة_قاطع" = "سمة سياسة تفعيل القاطع."
+"قوس_سياسة_قاطع" = "سياسة قاطع بملكية مشتركة (Arc)."
+"سمة_معالج" = "السمة الأساسية لمعالجة الطلبات؛ الموجّهات والوسيطات تنفذها."
+"قوس_معالج" = "غلاف معالج بملكية مشتركة (Arc)."
+"معالج_فارغ" = "يعيد معالجا لا يعالج شيئا ويمرر مباشرة."
+"متخطي" = "سمة تحدد ما إذا كان يجب تخطي المعالج الحالي."
+"معالج_مغلف" = "معالج يغلف منطقا إضافيا؛ الوسائط مبنية عليه."
+"لا_تخطي" = "دالة تحديد لا تتخطى أبدا."
+"خطأ_تحليل" = "نوع الخطأ الناتج عن فشل تحليل الطلب."
+"نتيجة_تحليل" = "نوع النتيجة الموحد لعملية التحليل."
+"خطأ_حالة" = "نوع خطأ يحمل رمز حالة HTTP."
+"نتيجة_حالة" = "نوع نتيجة يحمل رمز حالة HTTP."
+"بيانات_نموذج" = "مستخرج بيانات نموذج multipart."
+"جزء_ملف" = "كتلة ملف واحدة داخل نموذج multipart."
+"أجزاء_طلب" = "أجزاء الترويسات والامتدادات في طلب HTTP (بدون الجسم)."
+"الحد_الآمن_العام" = "يقرأ الحد العام الآمن لحجم جسم الطلب."
+"عين_الحد_الآمن_العام" = "يعين الحد العام الآمن لحجم جسم الطلب."
+"حد_آمن_أقصى" = "بنية إعداد الحد الآمن لحجم جسم الطلب."
+"طلب_سالفو" = "كائن طلب HTTP، يغلف الترويسات والجسم ومعلومات الامتدادات."
+"مرسل_جسم" = "مرسل يرسل الجسم إلى الاستجابة."
+"إطار_بايتات" = "إطار بايتات داخل جسم HTTP."
+"جسم_استجابة_سالفو" = "نوع جسم الاستجابة."
+"استجابة_سالفو" = "كائن استجابة HTTP، يغلف رمز الحالة والترويسات والجسم."
+"سياسة_كعكة_آمنة" = "سياسة أمان الكعكات (هل الكعكات الآمنة مفعلة)."
+"جسم" = "نوع جسم رسالة HTTP (مقدم من hyper)."
+"إطار" = "إطار بيانات داخل جسم HTTP."
+"تلميح_حجم" = "تلميح حول حجم الجسم."
+"جسم_طلب_سالفو" = "نوع جسم الطلب."
+"جسم_هايبر" = "الجسم الوارد في hyper (Incoming)."
+"متلق_جسم" = "متلق يستقبل جسم الطلب."
+"وحدة_كعكات" = "اسم مستعار لحزمة cookie (تحليل وإنشاء الكعكات)."
+"وحدة_ترويسات" = "اسم مستعار لحزمة headers (مجموعة ترويسات منمطة)."
+"طريقة_ويب" = "نوع طريقة HTTP (GET/POST، إلخ)."
+"خريطة_ترويسات" = "خريطة ترويسات HTTP (حاوية ترويسات متعددة القيم)."
+"اسم_ترويسة" = "نوع اسم الترويسة في HTTP."
+"قيمة_ترويسة" = "نوع قيمة الترويسة في HTTP."
+"رمز_حالة" = "نوع رمز حالة HTTP."
+"وحدة_ترويسة" = "اسم مستعار لوحدة ترويسات http."
+"وحدة_معرف" = "اسم مستعار لوحدة URI."
+"مدى_ويب" = "نوع تحليل نطاقات Range في طلبات HTTP."
+"إصدار_بروتوكول" = "نوع إصدار بروتوكول HTTP (HTTP/1.1، HTTP/2، إلخ)."
+"نوع_وسائط" = "نوع وسائط MIME (مثل text/html)."
+"معلومات_مرشح" = "معلومات وصف المرشح (الطريقة المطابقة، المسار، إلخ)."
+"سمة_مرشح" = "سمة مرشح التوجيه، تحدد ما إذا كان الطلب يطابق المسار."
+"مرشح_دالة" = "مرشح توجيه منفذ بدالة مغلقة."
+"مرشح_مخطط" = "يرشح الطلبات حسب مخطط URI (http/https)."
+"مضيف" = "يرشح الطلبات حسب اسم المضيف."
+"منفذ" = "يرشح الطلبات حسب المنفذ."
+"مرشح_مسار" = "يرشح الطلبات حسب المسار."
+"جرب_مسارا" = "يرشح حسب المسار ويعيد خطأ إذا كان المسار غير صالح."
+"مرشح_جيت" = "يرشح طلبات طريقة GET."
+"مرشح_هيد" = "يرشح طلبات طريقة HEAD."
+"مرشح_خيارات" = "يرشح طلبات طريقة OPTIONS."
+"مرشح_بوست" = "يرشح طلبات طريقة POST."
+"مرشح_باتش" = "يرشح طلبات طريقة PATCH."
+"مرشح_بوت" = "يرشح طلبات طريقة PUT."
+"مرشح_استعلام" = "يرشح طلبات طريقة QUERY."
+"مرشح_حذف" = "يرشح طلبات طريقة DELETE."
+"موجه" = "جدول التوجيه، يرسل الطلبات إلى المعالج المطابق."
+"معاملات_مسار" = "مجموعة المعاملات في المسار (مثل /users/:id)."
+"تحكم_تدفق" = "التحكم في تدفق المعالجات (متابعة، تخطي، خطأ)."
+"منفذ_توكيو" = "منفذ Tokio غير المتزامن (لتكامل hyper)."
+"دخل_خرج_توكيو" = "نوع موائم الدخل/الخرج في Tokio."
+"مؤقت_توكيو" = "نوع موائم المؤقت في Tokio."
+"مقبض_خادم" = "مقبض تشغيل الخادم، يمكن طلب إيقافه بسلاسة."
+"خادم" = "الجزء الرئيسي لخادم الويب، يربط المستمعين ويشغل الخدمة."
+"استجابة_جسون" = "كاتب ومستخدم استجابة JSON."
+"إعادة_توجيه" = "كاتب استجابة إعادة التوجيه."
+"قارئ_محدد" = "جسم طلب يدعم القراءة وتحديد الموضع (Seek)."
+"محتوى_نصي" = "كاتب استجابة نص عادي."
+"سمة_كاتب" = "سمة تكتب البيانات إلى الاستجابة."
+"ناسخ" = "سمة تكتب المحتوى إلى الاستجابة وتعيد رمز الحالة."
+"عميل_اختبار" = "عميل HTTP لاختبارات التكامل."
+"باني_طلبات" = "بانٍ لإنشاء طلبات الاختبار."
+"هدف_إرسال" = "هدف إرسال طلبات الاختبار (الخادم)."
+"امتداد_استجابة" = "مجموعة دوال امتداد لاستجابات الاختبار."
+"سمة_غير_متزامنة_ماكرو" = "اسم مستعار لماكرو السمة غير المتزامنة."
+"مستودع" = "حاوية البيانات المشتركة للطلب؛ الوسائط تخزن وتقرأ البيانات هنا."
+"خدمة" = "الجزء الرئيسي لخدمة salvo، يمكن تشغيلها بواسطة hyper."
+"وحدة_هايبر" = "اسم مستعار لحزمة hyper (تنفيذ HTTP منخفض المستوى)."
+"وحدة_ماكرو" = "اسم مستعار لحزمة ماكروات salvo الإجرائية."
+"خطأ_مصندوق" = "خطأ ديناميكي في صندوق (Box<dyn Error>)."
+"خطأ_سالفو" = "نوع الخطأ العام في salvo، يدعم رموز الحالة وسلسلة المصدر."
+"نتيجة_سالفو" = "اسم Result الموحد في salvo (نوع الخطأ هو Error)."
+"مكرر_وسائط" = "بنية تكرر وتُحلل أنواع MIME."
+"اسم_ميديا" = "اسم نوع MIME (مثل text، html)."
+"خطأ_تحليل_نص" = "خطأ فشل تحليل MIME من نص."
+"معاملات_ميديا" = "مكرر معاملات MIME (مثل charset=utf-8)."
+"نجمة" = "مقطع البدل * في نوع الوسائط (النجمة في */*)."
+"اسم_نص" = "اسم النوع الرئيسي text (مثل text/html)."
+"اسم_صورة" = "اسم النوع الرئيسي image (مثل image/png)."
+"اسم_صوت" = "اسم النوع الرئيسي audio (مثل audio/mp3)."
+"اسم_فيديو" = "اسم النوع الرئيسي video (مثل video/mp4)."
+"اسم_تطبيق" = "اسم النوع الرئيسي application (مثل application/json)."
+"اسم_متعدد" = "اسم النوع الرئيسي multipart (مثل multipart/form-data)."
+"اسم_رسالة" = "اسم النوع الرئيسي message (مثل message/http)."
+"اسم_نموذج" = "اسم النوع الرئيسي model (مثل model/gltf)."
+"اسم_خط" = "اسم النوع الرئيسي font (مثل font/woff)."
+"اسم_عادي" = "اسم النوع الفرعي plain (text/plain)."
+"اسم_اتش_تي_ام_ال" = "اسم النوع الفرعي html (text/html)."
+"اسم_اكس_ام_ال" = "اسم النوع الفرعي xml (text/xml)."
+"اسم_جافاسكربت" = "اسم النوع الفرعي javascript (text/javascript)."
+"اسم_سي_اس_اس" = "اسم النوع الفرعي css (text/css)."
+"اسم_سي_اس_في" = "اسم النوع الفرعي csv (text/csv)."
+"اسم_تدفق_أحداث" = "اسم النوع الفرعي event-stream (text/event-stream)."
+"اسم_في_كارد" = "اسم النوع الفرعي vcard (text/vcard)."
+"اسم_ترميز_نماذج" = "اسم النوع الفرعي x-www-form-urlencoded."
+"اسم_مسج_باك" = "اسم النوع الفرعي msgpack (application/msgpack)."
+"اسم_تدفق_بايتات" = "اسم النوع الفرعي octet-stream (تدفق بيانات ثنائية)."
+"اسم_بي_دي_اف" = "اسم النوع الفرعي pdf (application/pdf)."
+"اسم_ووف" = "اسم النوع الفرعي woff (تنسيق خطوط الويب)."
+"اسم_ووف2" = "اسم النوع الفرعي woff2 (تنسيق خطوط ويب مضغوط)."
+"اسم_بيانات_نماذج" = "اسم النوع الفرعي form-data (نماذج multipart)."
+"اسم_بي_ام_بي" = "اسم النوع الفرعي bmp (صورة نقطية)."
+"اسم_جي_اي_اف" = "اسم النوع الفرعي gif (صورة متحركة)."
+"اسم_جيه_بي_اي_جي" = "اسم النوع الفرعي jpeg (صورة فوتوغرافية)."
+"اسم_بي_ان_جي" = "اسم النوع الفرعي png (صورة نقطية)."
+"اسم_اس_في_جي" = "اسم النوع الفرعي svg (صورة متجهة)."
+"اسم_أساسي" = "اسم النوع الفرعي basic."
+"MPEG" = "اسم النوع الفرعي mpeg (فيديو)."
+"MP4" = "اسم النوع الفرعي mp4 (فيديو)."
+"OGG" = "اسم النوع الفرعي ogg (صوت/فيديو)."
+"اسم_مجموعة_محارف" = "اسم المعامل charset (مثل charset=utf-8)."
+"اسم_حد" = "اسم المعامل boundary (حد الفصل في multipart)."
+"اسم_يوتف8" = "اسم مجموعة المحارف utf-8."
+"أي_وسائط" = "ثابت نوع الوسائط أي */*."
+"أي_نص" = "ثابت نوع النص أي text/*."
+"وسائط_نص_عادي" = "ثابت نوع الوسائط text/plain."
+"وسائط_نص_عادي_يوتف8" = "ثابت نوع الوسائط text/plain; charset=utf-8."
+"نص_اتش_تي_ام_ال" = "ثابت نوع الوسائط text/html."
+"نص_اتش_تي_ام_ال_يوتف8" = "ثابت نوع الوسائط text/html; charset=utf-8."
+"نص_سي_اس_اس" = "ثابت نوع الوسائط text/css."
+"نص_سي_اس_اس_يوتف8" = "ثابت نوع الوسائط text/css; charset=utf-8."
+"نص_جافاسكربت" = "ثابت نوع الوسائط text/javascript."
+"نص_اكس_ام_ال" = "ثابت نوع الوسائط text/xml."
+"نص_تدفق_أحداث" = "ثابت نوع الوسائط text/event-stream."
+"نص_سي_اس_في" = "ثابت نوع الوسائط text/csv."
+"نص_سي_اس_في_يوتف8" = "ثابت نوع الوسائط text/csv; charset=utf-8."
+"نص_مفصول_جداول" = "ثابت نوع الوسائط text/tab-separated-values."
+"نص_مفصول_جداول_يوتف8" = "ثابت نوع الوسائط text/tab-separated-values; charset=utf-8."
+"نص_في_كارد" = "ثابت نوع الوسائط text/vcard."
+"أي_صورة" = "ثابت نوع الوسائط image/*."
+"صورة_جيه_بي_اي_جي" = "ثابت نوع الوسائط image/jpeg."
+"صورة_جي_اي_اف" = "ثابت نوع الوسائط image/gif."
+"صورة_بي_ان_جي" = "ثابت نوع الوسائط image/png."
+"صورة_بي_ام_بي" = "ثابت نوع الوسائط image/bmp."
+"صورة_اس_في_جي" = "ثابت نوع الوسائط image/svg+xml."
+"خط_ووف" = "ثابت نوع الوسائط font/woff."
+"خط_ووف2" = "ثابت نوع الوسائط font/woff2."
+"تطبيق_جسون" = "ثابت نوع الوسائط application/json."
+"تطبيق_جافاسكربت" = "ثابت نوع الوسائط application/javascript."
+"تطبيق_جافاسكربت_يوتف8" = "ثابت نوع الوسائط application/javascript; charset=utf-8."
+"تطبيق_ترميز_نماذج" = "ثابت نوع الوسائط application/x-www-form-urlencoded."
+"تطبيق_تدفق_بايتات" = "ثابت نوع الوسائط application/octet-stream."
+"تطبيق_مسج_باك" = "ثابت نوع الوسائط application/msgpack."
+"تطبيق_بي_دي_اف" = "ثابت نوع الوسائط application/pdf."
+"بيانات_نماذج_متعددة" = "ثابت نوع الوسائط multipart/form-data."

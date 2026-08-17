@@ -1,18 +1,22 @@
 /**
  * i18n-rust VS Code 扩展
- * 
+ *
  * 功能：
- * - 中文 Rust 语法高亮
+ * - 11 种方言（zh/en/ja/de/es/fr/pt/ru/ko/hi/ar）语法高亮与语言注册
  * - LSP 客户端连接 i18n-rust-lsp
- * - 提供 Run/Check 命令
+ * - 提供 Run/Check/Eject 命令（终端复用、参数安全引用）
  * - 状态栏显示当前语言包
  * - 所有权错误可视化（变量移动/借用/再次使用位置颜色高亮）
+ * - 全角符号自动转换（换行感知）
+ * - AI 教学助手（SecretStorage 密钥、可取消流式对话）
  */
 
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as cp from 'child_process';
 import * as fs from 'fs';
+import * as os from 'os';
+import { promisify } from 'util';
 import {
     CloseAction,
     ErrorAction,
@@ -22,30 +26,42 @@ import {
     TransportKind
 } from 'vscode-languageclient/node';
 import { createProvider, listProviders } from './ai/provider-factory';
-import { loadAIConfig, getSystemPrompt, currentLanguageName } from './ai/config-manager';
+import {
+    loadAIConfig,
+    getSystemPrompt,
+    currentLanguageName,
+    initAISecrets
+} from './ai/config-manager';
 import { AIError } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
-import { 全角符号映射, 扫描词法状态, 词法状态 } from './fullwidth-convert';
+import { 全角符号映射, 扫描词法状态, 词法状态, 计算插入字符位置们 } from './fullwidth-convert';
+import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
+import { quoteShellArg } from './shell';
+import { findInPath, 解析可执行文件 } from './executable';
 
-/**
- * 所有受支持的方言语言 ID（对应 package.json 中注册的语言）
- * .zh/.en/.de 均通过 LSP 代理翻译后交给 rust-analyzer
- */
-const 方言语言Id: readonly string[] = ['rust-zh', 'rust-en', 'rust-de'];
+const execFileAsync = promisify(cp.execFile);
 
-/**
- * 语言包显示名 → lang-packs 目录名映射
- */
-const 语言包目录映射: Record<string, string> = {
-    '中文': 'zh',
-    'English': 'en',
-    '日本語': 'ja'
-};
+/** 全部方言源码扩展名（用于 eject 输出路径推导） */
+const 方言扩展名正则 = /\.(zh|en|ja|de|es|fr|pt|ru|ko|hi|ar)$/;
 
 let client: LanguageClient | undefined;
 let statusBarItem: vscode.StatusBarItem;
 // LSP 自动重启计数（防止崩溃循环导致无限重启）
 let 自动重启次数 = 0;
+// 日志输出通道（替代 console.log，便于用户排查问题）
+let 日志通道: vscode.OutputChannel;
+// Run/Check 共用终端（避免每次命令新建终端刷屏）
+let 命令终端: vscode.Terminal | undefined;
+let 命令终端工作目录: string | undefined;
+// 当前 AI 会话的中止器（新会话自动中止上一个，避免输出交错）
+let 当前AI中止器: AbortController | undefined;
+
+/**
+ * 写入扩展日志（带时间戳）
+ */
+function 日志(消息: string): void {
+    日志通道?.appendLine(`[${new Date().toISOString()}] ${消息}`);
+}
 
 // ============================================================
 // 所有权错误可视化装饰器（诊断 data 中的 所有权详情 → 颜色高亮）
@@ -253,13 +269,15 @@ function 是否在字符串或注释(文档: vscode.TextDocument, 位置: vscode
 /**
  * 注册全角符号自动转换：
  * 在代码区（非字符串、非注释）输入全角符号时自动替换为半角符号；
- * 字符串与注释内的全角符号保持原样（内容可能是有意义的中文标点）。
+ * 字符串与注释内的全角符号保持原样（内容可能是有意义的母语标点）。
  * 受配置 i18n-rust.autoConvertFullWidthSymbols 控制（默认开启）。
  */
 function 注册全角符号转换(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(事件 => {
-            if (事件.contentChanges.length === 0) {
+            // 仅处理单变更事件：多变更时各 range 处于不同文档快照坐标系，
+            // 统一换算易出错；批量粘贴全角内容属低频场景，交由手动处理
+            if (事件.contentChanges.length !== 1) {
                 return;
             }
             const 文档 = 事件.document;
@@ -276,26 +294,26 @@ function 注册全角符号转换(context: vscode.ExtensionContext): void {
                 return;
             }
 
-            // 收集需要替换的全角符号（跳过字符串/注释内的）
+            const 变更 = 事件.contentChanges[0];
+            if (!变更.text) {
+                return;
+            }
+            // 逐字符推进计算位置（换行感知），避免 translate(0, i) 跨行错位
             const 替换们: { 范围: vscode.Range; 文本: string }[] = [];
-            for (const 变更 of 事件.contentChanges) {
-                if (!变更.text) {
+            const 位置们 = 计算插入字符位置们(变更.range.start.line, 变更.range.start.character, 变更.text);
+            for (const { 索引, 行, 列 } of 位置们) {
+                const 半角 = 全角符号映射[变更.text[索引]];
+                if (!半角) {
                     continue;
                 }
-                for (let i = 0; i < 变更.text.length; i++) {
-                    const 半角 = 全角符号映射[变更.text[i]];
-                    if (!半角) {
-                        continue;
-                    }
-                    const 插入位置 = 变更.range.start.translate(0, i);
-                    if (是否在字符串或注释(文档, 插入位置)) {
-                        continue;
-                    }
-                    替换们.push({
-                        范围: new vscode.Range(插入位置, 插入位置.translate(0, 1)),
-                        文本: 半角
-                    });
+                const 插入位置 = new vscode.Position(行, 列);
+                if (是否在字符串或注释(文档, 插入位置)) {
+                    continue;
                 }
+                替换们.push({
+                    范围: new vscode.Range(插入位置, 插入位置.translate(0, 1)),
+                    文本: 半角
+                });
             }
             if (替换们.length === 0) {
                 return;
@@ -312,14 +330,22 @@ function 注册全角符号转换(context: vscode.ExtensionContext): void {
 }
 
 /**
+ * 当前所有工作区根目录
+ */
+function 工作区根们(): string[] {
+    return (vscode.workspace.workspaceFolders ?? []).map(文件夹 => 文件夹.uri.fsPath);
+}
+
+/**
  * 查找语言包目录路径
  *
  * 优先级：
  * 1. 配置 i18n-rust.languagePackPath（显式指定）
  * 2. 工作区中的 lang-packs/<代码> 目录（如 lang-packs/zh）
- * 3. LSP 二进制所在项目的 lang-packs/<代码>（沿 PATH 查找）
- * 4. 常见项目目录（~/code/zrRust 等）
- * 5. 找不到返回 undefined（LSP 使用默认内置映射）
+ * 3. 全局安装目录 ~/.rz/lang-packs/<代码>（rzc 全局安装位置）
+ * 4. LSP 二进制所在项目的 lang-packs/<代码>（沿 PATH 查找）
+ * 5. 常见项目目录（~/code/zrRust 等）
+ * 6. 找不到返回 undefined（LSP 使用默认内置映射）
  */
 function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | undefined {
     // 1. 显式配置
@@ -327,57 +353,46 @@ function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | 
     if (显式路径) {
         return 显式路径;
     }
-    const 语言代码 = 语言包目录映射[config.get<string>('languagePack', '中文')] ?? 'zh';
+    const 语言 = 语言代码(config.get<string>('languagePack', '中文'));
     // 2. 工作区 lang-packs/<代码>
-    for (const 文件夹 of vscode.workspace.workspaceFolders ?? []) {
-        const 候选 = path.join(文件夹.uri.fsPath, 'lang-packs', 语言代码);
+    for (const 根 of 工作区根们()) {
+        const 候选 = path.join(根, 'lang-packs', 语言);
         if (fs.existsSync(候选)) {
             return 候选;
         }
     }
-    // 3. LSP 二进制所在项目（沿 PATH 查找 i18n-rust-lsp，向上搜索 lang-packs）
+    // 3. 全局安装目录
+    const 全局候选 = path.join(os.homedir(), '.rz', 'lang-packs', 语言);
+    if (fs.existsSync(全局候选)) {
+        return 全局候选;
+    }
+    // 4. LSP 二进制所在项目（沿 PATH 查找 i18n-rust-lsp，向上搜索 lang-packs）
     const serverPath = config.get<string>('serverPath', 'i18n-rust-lsp');
     if (!path.isAbsolute(serverPath)) {
         const lspRealPath = findInPath(serverPath);
         if (lspRealPath) {
-            const 候选 = 向上查找语言包(path.dirname(lspRealPath), 语言代码);
+            const 候选 = 向上查找语言包(path.dirname(lspRealPath), 语言);
             if (候选) { return 候选; }
         }
     }
-    // 4. 常见项目目录
-    const home = process.env.HOME ?? '';
-    if (home) {
-        for (const 项目名 of ['code/zrRust', 'zrRust']) {
-            const 候选 = path.join(home, 项目名, 'lang-packs', 语言代码);
-            if (fs.existsSync(候选)) {
-                return 候选;
-            }
+    // 5. 常见项目目录
+    const home = os.homedir();
+    for (const 项目名 of ['code/zrRust', 'zrRust']) {
+        const 候选 = path.join(home, 项目名, 'lang-packs', 语言);
+        if (fs.existsSync(候选)) {
+            return 候选;
         }
     }
-    return undefined;
-}
-
-/**
- * 在 PATH 中查找可执行文件的真实路径
- */
-function findInPath(name: string): string | undefined {
-    try {
-        const result = cp.execSync(`which "${name}" 2>/dev/null`, { encoding: 'utf-8' }).trim();
-        if (result && fs.existsSync(result)) {
-            // 如果是符号链接，解析真实路径
-            return fs.realpathSync(result);
-        }
-    } catch { /* ignore */ }
     return undefined;
 }
 
 /**
  * 从指定目录向上搜索 lang-packs/<代码> 目录（最多向上 5 级）
  */
-function 向上查找语言包(startDir: string, 语言代码: string): string | undefined {
+function 向上查找语言包(startDir: string, 语言: string): string | undefined {
     let dir = startDir;
     for (let i = 0; i < 5; i++) {
-        const 候选 = path.join(dir, 'lang-packs', 语言代码);
+        const 候选 = path.join(dir, 'lang-packs', 语言);
         if (fs.existsSync(候选)) {
             return 候选;
         }
@@ -392,7 +407,13 @@ function 向上查找语言包(startDir: string, 语言代码: string): string |
  * 扩展激活入口
  */
 export function activate(context: vscode.ExtensionContext): void {
-    console.log('i18n-rust 扩展已激活');
+    // 日志通道（替代 console.log）
+    日志通道 = vscode.window.createOutputChannel('i18n-rust 日志');
+    context.subscriptions.push(日志通道);
+    日志('i18n-rust 扩展已激活');
+
+    // AI 密钥迁移到 SecretStorage（一次性）
+    void initAISecrets(context).catch(错误 => 日志(`AI 密钥迁移失败: ${(错误 as Error).message}`));
 
     // 创建状态栏项
     statusBarItem = vscode.window.createStatusBarItem(
@@ -402,6 +423,16 @@ export function activate(context: vscode.ExtensionContext): void {
     statusBarItem.command = 'i18n-rust.selectLanguagePack';
     context.subscriptions.push(statusBarItem);
     更新状态栏();
+
+    // 终端关闭时重置复用引用
+    context.subscriptions.push(
+        vscode.window.onDidCloseTerminal(终端 => {
+            if (终端 === 命令终端) {
+                命令终端 = undefined;
+                命令终端工作目录 = undefined;
+            }
+        })
+    );
 
     // 注册命令
     注册命令(context);
@@ -418,15 +449,6 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
-    // 监听文件保存
-    context.subscriptions.push(
-        vscode.workspace.onDidSaveTextDocument(doc => {
-            if (方言语言Id.includes(doc.languageId)) {
-                // 可选：保存时自动检查
-            }
-        })
-    );
-
     // 注册所有权错误可视化（诊断 data 中的 所有权详情 → 颜色装饰器）
     注册所有权可视化(context);
 
@@ -437,7 +459,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const 已显示 = context.globalState.get<boolean>('welcomeShown');
     if (!已显示) {
         vscode.window.showInformationMessage(
-            '欢迎使用 i18n-rust！按 Ctrl+Shift+R 运行中文 Rust 代码。',
+            '欢迎使用 i18n-rust！按 Ctrl+Shift+R 运行母语 Rust 代码。',
             '了解更多'
         ).then(selection => {
             if (selection === '了解更多') {
@@ -446,7 +468,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 );
             }
         });
-        context.globalState.update('welcomeShown', true);
+        void context.globalState.update('welcomeShown', true);
     }
 }
 
@@ -469,7 +491,7 @@ function 注册命令(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('i18n-rust.run', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
             if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
-                vscode.window.showWarningMessage('请打开一个 .zh/.en/.de 方言文件');
+                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.en/.ja 等）');
                 return;
             }
 
@@ -483,7 +505,7 @@ function 注册命令(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('i18n-rust.check', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
             if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
-                vscode.window.showWarningMessage('请打开一个 .zh/.en/.de 方言文件');
+                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.en/.ja 等）');
                 return;
             }
 
@@ -497,7 +519,7 @@ function 注册命令(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('i18n-rust.eject', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
             if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
-                vscode.window.showWarningMessage('请打开一个 .zh/.en/.de 方言文件');
+                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.en/.ja 等）');
                 return;
             }
 
@@ -509,17 +531,20 @@ function 注册命令(context: vscode.ExtensionContext): void {
     // 选择语言包命令
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.selectLanguagePack', async () => {
-            const 语言列表 = ['中文', 'English', '日本語'];
-            const 选择 = await vscode.window.showQuickPick(语言列表, {
+            const 选项们 = 方言语言表.map(语言 => ({
+                label: 语言.displayName,
+                description: `.${语言.extension}`
+            }));
+            const 选择 = await vscode.window.showQuickPick(选项们, {
                 placeHolder: '选择语言包'
             });
             if (选择) {
                 const config = vscode.workspace.getConfiguration('i18n-rust');
-                await config.update('languagePack', 选择, vscode.ConfigurationTarget.Global);
+                await config.update('languagePack', 选择.label, vscode.ConfigurationTarget.Global);
                 更新状态栏();
                 // 语言包变化后重启 LSP，使新语言包立即生效
                 await 重启服务器(context);
-                vscode.window.showInformationMessage(`语言包已切换为: ${选择}，语言服务器已重启`);
+                vscode.window.showInformationMessage(`语言包已切换为: ${选择.label}，语言服务器已重启`);
             }
         })
     );
@@ -538,22 +563,23 @@ function 注册命令(context: vscode.ExtensionContext): void {
 
 /**
  * 注册 AI 相关命令：
- * - i18n-rust.aiChat：AI 对话（携带当前 .zh 文件内容作为上下文，流式输出）
+ * - i18n-rust.aiChat：AI 对话（携带当前方言文件内容作为上下文，流式输出，可取消）
  * - i18n-rust.aiSelectProvider：选择 AI 提供商
  * - i18n-rust.aiListModels：获取当前提供商可用模型列表
  */
 function 注册AI命令(context: vscode.ExtensionContext): void {
     // 输出面板：所有 AI 对话/模型结果统一输出到这里
     const AI输出 = vscode.window.createOutputChannel('i18n-rust AI');
+    context.subscriptions.push(AI输出);
 
     // AI 对话命令
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.aiChat', async () => {
-            const 配置 = loadAIConfig();
+            const 配置 = await loadAIConfig();
             // 云端服务需要密钥；Ollama / 自定义地址可无密钥
             if (!配置.apiKey && 配置.provider !== 'ollama' && 配置.provider !== 'custom') {
                 const 操作 = await vscode.window.showWarningMessage(
-                    `尚未配置 API 密钥（提供商：${配置.provider}）。请在设置中填写 i18n-rust.ai.apiKey。`,
+                    `尚未配置 API 密钥（提供商：${配置.provider}）。请在设置中填写 i18n-rust.ai.apiKey（将安全存入 SecretStorage）。`,
                     '打开设置'
                 );
                 if (操作 === '打开设置') {
@@ -563,7 +589,7 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
             }
 
             const 问题 = await vscode.window.showInputBox({
-                prompt: '向 AI 提问（关于当前 .zh 文件或 Rust 教学）',
+                prompt: '向 AI 提问（关于当前方言文件或 Rust 教学）',
                 placeHolder: '例如：解释这段代码的所有权移动过程'
             });
             if (!问题) {
@@ -573,7 +599,7 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
             // 携带当前打开的方言文件内容作为上下文
             const 编辑器 = vscode.window.activeTextEditor;
             const 上下文 = 编辑器 && 方言语言Id.includes(编辑器.document.languageId)
-                ? `当前文件 ${编辑器.document.fileName}：\n\`\`\`zh\n${编辑器.document.getText()}\n\`\`\`\n\n`
+                ? `当前文件 ${编辑器.document.fileName}：\n\`\`\`rust\n${编辑器.document.getText()}\n\`\`\`\n\n`
                 : '';
 
             let 提供商: ProviderInterface;
@@ -584,26 +610,51 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
                 return;
             }
 
+            // 新会话中止上一个会话，避免输出交错
+            当前AI中止器?.abort();
+            const 中止器 = new AbortController();
+            当前AI中止器 = 中止器;
+
             AI输出.show(true);
             AI输出.appendLine(`── AI 对话（${配置.provider} / ${配置.model || '默认模型'}，语言包：${currentLanguageName()}）──`);
             AI输出.appendLine(`问：${问题}\n`);
-            try {
-                await 提供商.streamChat(
-                    [
-                        { role: 'system', content: getSystemPrompt() },
-                        { role: 'user', content: 上下文 + 问题 }
-                    ],
-                    chunk => AI输出.append(chunk)
-                );
-                AI输出.appendLine('\n── 对话结束 ──');
-            } catch (错误) {
-                if (错误 instanceof AIError) {
-                    AI输出.appendLine(`\n[${错误.category}] ${错误.message}`);
-                    vscode.window.showErrorMessage(`${错误.category}：${错误.message}`);
-                } else {
-                    AI输出.appendLine(`\n[未知错误] ${(错误 as Error).message}`);
+
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: `i18n-rust AI 对话中（${配置.provider}）`,
+                    cancellable: true
+                },
+                async (_进度, 取消令牌) => {
+                    取消令牌.onCancellationRequested(() => 中止器.abort());
+                    try {
+                        await 提供商.streamChat(
+                            [
+                                { role: 'system', content: getSystemPrompt() },
+                                { role: 'user', content: 上下文 + 问题 }
+                            ],
+                            chunk => AI输出.append(chunk),
+                            中止器.signal
+                        );
+                        AI输出.appendLine('\n── 对话结束 ──');
+                    } catch (错误) {
+                        if (错误 instanceof AIError) {
+                            if (错误.category === '已取消') {
+                                AI输出.appendLine('\n── 已取消 ──');
+                            } else {
+                                AI输出.appendLine(`\n[${错误.category}] ${错误.message}`);
+                                vscode.window.showErrorMessage(`${错误.category}：${错误.message}`);
+                            }
+                        } else {
+                            AI输出.appendLine(`\n[未知错误] ${(错误 as Error).message}`);
+                        }
+                    } finally {
+                        if (当前AI中止器 === 中止器) {
+                            当前AI中止器 = undefined;
+                        }
+                    }
                 }
-            }
+            );
         })
     );
 
@@ -636,7 +687,7 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
     // 获取模型列表命令
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.aiListModels', async () => {
-            const 配置 = loadAIConfig();
+            const 配置 = await loadAIConfig();
             let 提供商: ProviderInterface;
             try {
                 提供商 = createProvider(配置);
@@ -665,6 +716,7 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
 async function 重启服务器(context: vscode.ExtensionContext): Promise<void> {
     if (client) {
         await client.stop();
+        client = undefined;
     }
     自动重启次数 = 0;
     启动语言服务器(context);
@@ -675,53 +727,55 @@ async function 重启服务器(context: vscode.ExtensionContext): Promise<void> 
  */
 function 启动语言服务器(context: vscode.ExtensionContext): void {
     const config = vscode.workspace.getConfiguration('i18n-rust');
-    let serverPath = config.get<string>('serverPath', 'i18n-rust-lsp');
 
-    // 如果路径是相对的，尝试在常见位置查找
-    if (!path.isAbsolute(serverPath)) {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (workspaceFolders) {
-            const 可能路径 = [
-                path.join(workspaceFolders[0].uri.fsPath, 'target', 'debug', serverPath),
-                path.join(workspaceFolders[0].uri.fsPath, serverPath),
-            ];
-            for (const p of 可能路径) {
-                if (require('fs').existsSync(p)) {
-                    serverPath = p;
-                    break;
-                }
+    // 跨平台解析 LSP 二进制（绝对路径 / 工作区构建目录 / PATH）
+    const 服务器路径 = 解析可执行文件(
+        config.get<string>('serverPath', 'i18n-rust-lsp'),
+        工作区根们()
+    );
+    if (!服务器路径) {
+        const 消息 = '未找到 i18n-rust-lsp 可执行文件。请安装 rzc 工具链，或在设置 i18n-rust.serverPath 中指定二进制路径（高亮/补全/诊断功能暂不可用）。';
+        日志(消息);
+        vscode.window.showErrorMessage(消息, '打开设置').then(操作 => {
+            if (操作 === '打开设置') {
+                vscode.commands.executeCommand('workbench.action.openSettings', 'i18n-rust.serverPath');
             }
-        }
+        });
+        return;
     }
+    日志(`LSP 二进制: ${服务器路径}`);
 
     // 服务器选项：显式传递语言包路径（LSP 默认相对路径依赖启动目录，通常找不到）
     const args: string[] = [];
     const 语言包路径 = 查找语言包路径(config);
     if (语言包路径) {
         args.push('--language-pack', 语言包路径);
+        日志(`语言包目录: ${语言包路径}`);
     }
     const serverOptions: ServerOptions = {
         run: {
-            command: serverPath,
+            command: 服务器路径,
             args,
             transport: TransportKind.stdio
         },
         debug: {
-            command: serverPath,
+            command: 服务器路径,
             args,
             transport: TransportKind.stdio
         }
     };
 
     // 客户端选项
+    const trace通道 = vscode.window.createOutputChannel('i18n-rust LSP Trace');
+    context.subscriptions.push(trace通道);
     const clientOptions: LanguageClientOptions = {
         documentSelector: 方言语言Id.map(语言 => ({ scheme: 'file', language: 语言 })),
         synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{zh,en,de}')
+            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{zh,en,ja,de,es,fr,pt,ru,ko,hi,ar}')
         },
         diagnosticCollectionName: 'i18n-rust',
         outputChannelName: 'i18n-rust LSP',
-        traceOutputChannel: vscode.window.createOutputChannel('i18n-rust LSP Trace'),
+        traceOutputChannel: trace通道,
         initializationOptions: {
             languagePack: config.get<string>('languagePack', '中文')
         },
@@ -756,8 +810,9 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
 
     // 启动客户端
     client.start().catch(err => {
+        日志(`LSP 启动失败: ${err.message}`);
         vscode.window.showErrorMessage(
-            `i18n-rust LSP 启动失败: ${err.message}。请确保 i18n-rust-lsp 已安装并在 PATH 中。`
+            `i18n-rust LSP 启动失败: ${err.message}。请确保 i18n-rust-lsp 已安装并可用。`
         );
     });
 
@@ -765,7 +820,39 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
 }
 
 /**
- * 运行 .zh 文件
+ * 解析 rzc 可执行文件；找不到时提示用户并返回 undefined
+ */
+async function 解析rzc(): Promise<string | undefined> {
+    const config = vscode.workspace.getConfiguration('i18n-rust');
+    const rzc路径 = 解析可执行文件(config.get<string>('rzcPath', 'rzc'), 工作区根们());
+    if (!rzc路径) {
+        const 操作 = await vscode.window.showErrorMessage(
+            '未找到 rzc 命令行工具。请安装 rzc（cargo install 或从 Releases 下载），或在设置 i18n-rust.rzcPath 中指定路径。',
+            '打开设置'
+        );
+        if (操作 === '打开设置') {
+            vscode.commands.executeCommand('workbench.action.openSettings', 'i18n-rust.rzcPath');
+        }
+        return undefined;
+    }
+    return rzc路径;
+}
+
+/**
+ * 获取复用终端：cwd 与上次一致则复用，否则销毁重建
+ */
+function 获取命令终端(cwd: string): vscode.Terminal {
+    if (命令终端 && !命令终端.exitStatus && 命令终端工作目录 === cwd) {
+        return 命令终端;
+    }
+    命令终端?.dispose();
+    命令终端 = vscode.window.createTerminal({ name: 'i18n-rust', cwd });
+    命令终端工作目录 = cwd;
+    return 命令终端;
+}
+
+/**
+ * 运行方言源码文件
  */
 async function 运行文件(文件路径: string): Promise<void> {
     // 检查文件是否存在
@@ -776,7 +863,7 @@ async function 运行文件(文件路径: string): Promise<void> {
         );
         return;
     }
-    
+
     // 警告临时目录
     if (文件路径.startsWith('/tmp/') || 文件路径.startsWith('/private/tmp/')) {
         const 选择 = await vscode.window.showWarningMessage(
@@ -787,17 +874,19 @@ async function 运行文件(文件路径: string): Promise<void> {
             return;
         }
     }
-    
-    const 终端 = vscode.window.createTerminal({
-        name: 'i18n Run',
-        cwd: path.dirname(文件路径)
-    });
+
+    const rzc路径 = await 解析rzc();
+    if (!rzc路径) {
+        return;
+    }
+    const 终端 = 获取命令终端(path.dirname(文件路径));
     终端.show();
-    终端.sendText(`rzc run "${文件路径}"`);
+    // 参数安全引用，防止路径中的引号/反引号等导致命令注入
+    终端.sendText(`${quoteShellArg(rzc路径)} run ${quoteShellArg(文件路径)}`);
 }
 
 /**
- * 检查 .zh 文件
+ * 检查方言源码文件
  */
 async function 检查文件(文件路径: string): Promise<void> {
     // 检查文件是否存在
@@ -808,35 +897,50 @@ async function 检查文件(文件路径: string): Promise<void> {
         );
         return;
     }
-    
-    const 终端 = vscode.window.createTerminal({
-        name: 'i18n Check',
-        cwd: path.dirname(文件路径)
-    });
+
+    const rzc路径 = await 解析rzc();
+    if (!rzc路径) {
+        return;
+    }
+    const 终端 = 获取命令终端(path.dirname(文件路径));
     终端.show();
-    终端.sendText(`rzc check "${文件路径}"`);
+    终端.sendText(`${quoteShellArg(rzc路径)} check ${quoteShellArg(文件路径)}`);
 }
 
 /**
- * 导出为 .rs 文件
+ * 导出为 .rs 文件（无 shell 介入的 execFile，参数数组传递）
  */
 async function 导出文件(文件路径: string): Promise<void> {
-    const 输出路径 = 文件路径.replace(/\.(zh|en|de)$/, '.rs');
-    
+    if (!fs.existsSync(文件路径)) {
+        vscode.window.showErrorMessage(
+            `文件不存在: ${文件路径}\n提示: 请先保存文件。`
+        );
+        return;
+    }
+    const rzc路径 = await 解析rzc();
+    if (!rzc路径) {
+        return;
+    }
+    const 输出路径 = 文件路径.replace(方言扩展名正则, '.rs');
+
     try {
-        cp.execSync(`rzc eject "${文件路径}"`);
-        vscode.window.showInformationMessage(
-            `已导出到 ${输出路径}`,
-            '打开文件'
-        ).then(selection => {
-            if (selection === '打开文件') {
-                vscode.workspace.openTextDocument(输出路径).then(doc => {
-                    vscode.window.showTextDocument(doc);
-                });
-            }
-        });
+        await vscode.window.withProgress(
+            { location: vscode.ProgressLocation.Notification, title: 'i18n-rust: 导出为 Rust 源码...' },
+            () => execFileAsync(rzc路径, ['eject', 文件路径])
+        );
+        if (!fs.existsSync(输出路径)) {
+            vscode.window.showWarningMessage(`rzc eject 执行成功，但未找到预期输出文件: ${输出路径}`);
+            return;
+        }
+        const 选择 = await vscode.window.showInformationMessage(`已导出到 ${输出路径}`, '打开文件');
+        if (选择 === '打开文件') {
+            const doc = await vscode.workspace.openTextDocument(输出路径);
+            await vscode.window.showTextDocument(doc);
+        }
     } catch (err: any) {
-        vscode.window.showErrorMessage(`导出失败: ${err.message}`);
+        const 详情 = err?.stderr?.toString().trim() || err?.message || String(err);
+        日志(`导出失败: ${详情}`);
+        vscode.window.showErrorMessage(`导出失败: ${详情}`);
     }
 }
 
@@ -846,7 +950,7 @@ async function 导出文件(文件路径: string): Promise<void> {
 function 更新状态栏(): void {
     const config = vscode.workspace.getConfiguration('i18n-rust');
     const 语言包 = config.get<string>('languagePack', '中文');
-    
+
     statusBarItem.text = `$(globe) ${语言包}`;
     statusBarItem.tooltip = `i18n-rust 语言包: ${语言包}\n点击切换语言包`;
     statusBarItem.show();

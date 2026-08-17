@@ -1,0 +1,180 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Rust (한국어)",
+  "scopeName": "source.rust-ko",
+  "patterns": [
+    {
+      "include": "#注释"
+    },
+    {
+      "include": "#字符串"
+    },
+    {
+      "include": "#字符"
+    },
+    {
+      "include": "#数字"
+    },
+    {
+      "include": "#关键字"
+    },
+    {
+      "include": "#类型"
+    },
+    {
+      "include": "#宏"
+    },
+    {
+      "include": "#生命周期"
+    },
+    {
+      "include": "#运算符"
+    }
+  ],
+  "repository": {
+    "注释": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.rust-ko",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.documentation.rust-ko",
+          "begin": "/\\*\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        },
+        {
+          "name": "comment.block.rust-ko",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        }
+      ]
+    },
+    "字符串": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.rust-ko",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.rust-ko",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.raw.rust-ko",
+          "begin": "r#*\"",
+          "end": "\"#*"
+        }
+      ]
+    },
+    "字符": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.rust-ko",
+          "match": "'[^'\\\\]'|'\\\\.'"
+        }
+      ]
+    },
+    "数字": {
+      "patterns": [
+        {
+          "name": "constant.numeric.rust-ko",
+          "match": "\\b[0-9][0-9_]*(\\.[0-9_]+)?([eE][+-]?[0-9_]+)?(f32|f64|i[0-9]+|u[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.numeric.hex.rust-ko",
+          "match": "\\b0x[0-9a-fA-F_]+\\b"
+        },
+        {
+          "name": "constant.numeric.oct.rust-ko",
+          "match": "\\b0o[0-7_]+\\b"
+        },
+        {
+          "name": "constant.numeric.bin.rust-ko",
+          "match": "\\b0b[01_]+\\b"
+        }
+      ]
+    },
+    "关键字": {
+      "patterns": [
+        {
+          "name": "keyword.control.rust-ko",
+          "match": "\\b(그렇지_않으면|만약|매치|루프|동안|각각|안에|중단|계속|반환)\\b"
+        },
+        {
+          "name": "keyword.declaration.rust-ko",
+          "match": "\\b(트레이트|크레이트|구조체|열거형|함수|선언|가변|상수|정적|타입|구현|모듈|공개|상위|외부|사용|로서|메인)\\b"
+        },
+        {
+          "name": "keyword.other.rust-ko",
+          "match": "\\b(가변_참조|안전_불가|역참조|비동기|참조|이동|박스|대기|동적)\\b"
+        },
+        {
+          "name": "constant.language.boolean.rust-ko",
+          "match": "\\b(거짓|참)\\b"
+        },
+        {
+          "name": "constant.language.rust-ko",
+          "match": "\\b(자기타입|자기|빈)\\b"
+        }
+      ]
+    },
+    "类型": {
+      "patterns": [
+        {
+          "name": "storage.type.numeric.rust-ko",
+          "match": "\\b(짧은_자연수|미세_자연수|짧은_정수|미세_정수|긴_자연수|짧은_실수|긴_정수|자연수|바이트|정수|실수)\\b"
+        },
+        {
+          "name": "storage.type.rust-ko",
+          "match": "\\b(문자열_참조|텍스트|문자열|해시맵|문자|논리|벡터|옵션|결과|박스)\\b"
+        },
+        {
+          "name": "constant.other.rust-ko",
+          "match": "\\b(일부|없음|성공|오류)\\b"
+        }
+      ]
+    },
+    "宏": {
+      "patterns": [
+        {
+          "name": "entity.name.function.macro.rust-ko",
+          "match": "\\b(오류_출력_줄|포함_문자열|포함_바이트|오류_출력|단언_동일|단언_다름|도달_불가|환경_옵션|출력_줄|작성_줄|문자열화|미구현|포맷|출력|단언|예정|패닉|벡터|작성|포함|파일|환경|설정|열|줄)!"
+        }
+      ]
+    },
+    "生命周期": {
+      "patterns": [
+        {
+          "name": "storage.modifier.lifetime.rust-ko",
+          "match": "'[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    },
+    "运算符": {
+      "patterns": [
+        {
+          "name": "keyword.operator.rust-ko",
+          "match": "(=|\\+|-|\\*|/|%|&&|\\|\\||!|<|>|<=|>=|==|!=|&|\\||\\^|~|<<|>>|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|<<=|>>=)"
+        },
+        {
+          "name": "keyword.operator.arrow.rust-ko",
+          "match": "(->|=>)"
+        }
+      ]
+    }
+  }
+}

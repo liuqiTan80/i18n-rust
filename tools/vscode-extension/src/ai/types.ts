@@ -68,6 +68,7 @@ export type ErrorCategory =
     | '配置缺失'
     | '网络错误'
     | '超时'
+    | '已取消'
     | 'API错误'
     | 'JSON解析错误'
     | '不支持';

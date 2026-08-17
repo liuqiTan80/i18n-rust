@@ -1,0 +1,394 @@
+# Mapeo de biblioteca de terceros generado automáticamente
+# crate: salvo
+# Fecha de generación: 2026-08-16 11:12:02
+# Las descripciones de este archivo fueron generadas automáticamente por una IA a partir de nombres y firmas de API; no son una traducción de la documentación oficial del crate original, sino una referencia de aprendizaje. Los derechos de autor del crate original pertenecen a sus autores.
+# Retoque manual completado: todos los identificadores fueron traducidos al español y se completaron las descripciones.
+
+["模块路径"]
+"salvo" = "salvo"
+
+["标识符"]
+"alias_nucleo" = "core"  # type core = salvo_core
+"interceptor" = "Catcher"  # struct Catcher
+"objetivo_defecto" = "DefaultGoal"  # struct DefaultGoal
+"direccion_socket" = "SocketAddr"  # enum SocketAddr
+"oyente_tcp" = "TcpListener"  # struct TcpListener<T>
+"aceptador_tcp" = "TcpAcceptor"  # struct TcpAcceptor
+"aceptador_tcp_dinamico" = "DynTcpAcceptor"  # trait DynTcpAcceptor
+"a_aceptador_tcp_dinamico" = "ToDynTcpAcceptor"  # struct ToDynTcpAcceptor<A>
+"aceptadores_tcp_dinamicos" = "DynTcpAcceptors"  # struct DynTcpAcceptors
+"control_conexion" = "ConnCtrl"  # type ConnCtrl = ctrl::ConnCtrl
+"HTTP1" = "http1"  # type http1 = hyper::server::conn::http1
+"HTTP2" = "http2"  # type http2 = hyper::server::conn::http2
+"aceptador_unido" = "JoinedAcceptor"  # type JoinedAcceptor = joined::JoinedAcceptor
+"oyente_unido" = "JoinedListener"  # type JoinedListener = joined::JoinedListener
+"conexion_aceptada" = "Accepted"  # struct Accepted<C, S>
+"aceptador" = "Acceptor"  # trait Acceptor
+"retencion" = "Holding"  # struct Holding
+"acoplador" = "Coupler"  # trait Coupler
+"oyente" = "Listener"  # trait Listener
+"flujo_dinamico" = "DynStream"  # struct DynStream
+"origen_conexion" = "SourceFrom"  # enum SourceFrom
+"analizador_fuente" = "SourceParser"  # enum SourceParser
+"metadatos" = "Metadata"  # struct Metadata
+"campo" = "Field"  # struct Field
+"fuente_configuracion" = "Source"  # struct Source
+"regla_renombrado" = "RenameRule"  # type RenameRule = case::RenameRule
+"extraible" = "Extractible"  # trait Extractible<'ex>
+"archivo_por_bloques" = "ChunkedFile"  # struct ChunkedFile<T>
+"protocolo_transporte" = "TransProto"  # enum TransProto
+"interruptor_info" = "FuseInfo"  # struct FuseInfo
+"interruptor_config" = "FuseConfig"  # struct FuseConfig
+"interruptor_accion" = "FuseAction"  # enum FuseAction
+"observador_conexion" = "ConnObserver"  # trait ConnObserver
+"arc_observador_conexion" = "ArcConnObserver"  # type ArcConnObserver = std::sync::Arc<dyn ?>
+"interruptor_politica" = "FusePolicy"  # trait FusePolicy
+"arc_interruptor_politica" = "ArcFusePolicy"  # type ArcFusePolicy = std::sync::Arc<dyn ?>
+"rasgo_manejador" = "Handler"  # trait Handler
+"arc_manejador" = "ArcHandler"  # struct ArcHandler
+"manejador_vacio" = "empty"  # fn empty() -> EmptyHandler
+"omitidor" = "Skipper"  # trait Skipper
+"manejador_envolvente" = "HoopedHandler"  # struct HoopedHandler
+"nunca_omitir" = "none_skipper"  # fn none_skipper(_req: &crate::Request, _depot: &crate::Depot) -> bool
+"error_analisis" = "ParseError"  # type ParseError = parse_error::ParseError
+"resultado_analisis" = "ParseResult"  # type ParseResult = parse_error::ParseResult
+"error_estado" = "StatusError"  # type StatusError = status_error::StatusError
+"resultado_estado" = "StatusResult"  # type StatusResult = status_error::StatusResult
+"datos_formulario" = "FormData"  # struct FormData
+"parte_archivo" = "FilePart"  # struct FilePart
+"partes_peticion" = "Parts"  # type Parts = http::request::Parts
+"tamano_maximo_seguro_global" = "global_secure_max_size"  # fn global_secure_max_size() -> usize
+"definir_tamano_maximo_seguro_global" = "set_global_secure_max_size"  # fn set_global_secure_max_size(size: usize) -> ?
+"tamano_maximo_seguro" = "SecureMaxSize"  # struct SecureMaxSize
+"peticion_salvo" = "Request"  # struct Request
+"emisor_cuerpo" = "BodySender"  # type BodySender = crate::http::body::BodySender
+"trama_bytes" = "BytesFrame"  # type BytesFrame = crate::http::body::BytesFrame
+"cuerpo_respuesta_salvo" = "ResBody"  # type ResBody = crate::http::body::ResBody
+"respuesta_salvo" = "Response"  # struct Response
+"politica_cookie_segura" = "SecureCookiePolicy"  # enum SecureCookiePolicy
+"cuerpo" = "Body"  # type Body = hyper::body::Body
+"trama" = "Frame"  # type Frame = hyper::body::Frame
+"indicio_tamano" = "SizeHint"  # type SizeHint = hyper::body::SizeHint
+"cuerpo_peticion_salvo" = "ReqBody"  # type ReqBody = req::ReqBody
+"cuerpo_hyper" = "HyperBody"  # type HyperBody = hyper::body::Incoming
+"receptor_cuerpo" = "BodyReceiver"  # type BodyReceiver = channel::BodyReceiver
+"modulo_cookies" = "cookie"  # type cookie = cookie
+"modulo_encabezados" = "headers"  # type headers = headers
+"metodo_http" = "Method"  # type Method = http::method::Method
+"mapa_encabezados" = "HeaderMap"  # type HeaderMap = http::HeaderMap
+"nombre_encabezado" = "HeaderName"  # type HeaderName = http::HeaderName
+"valor_encabezado" = "HeaderValue"  # type HeaderValue = http::HeaderValue
+"codigo_estado" = "StatusCode"  # type StatusCode = http::StatusCode
+"encabezados" = "header"  # type header = http::header
+"modulo_uri" = "uri"  # type uri = http::uri
+"rango_http" = "HttpRange"  # type HttpRange = range::HttpRange
+"version_http" = "Version"  # type Version = http::version::Version
+"tipo_medio" = "Mime"  # type Mime = mime::Mime
+"info_filtro" = "FilterInfo"  # enum FilterInfo
+"rasgo_filtro" = "Filter"  # trait Filter
+"filtro_funcion" = "FnFilter"  # struct FnFilter<F>
+"esquema_protocolo" = "scheme"  # fn scheme(scheme: crate::http::uri::Scheme) -> SchemeFilter
+"anfitrion" = "host"  # fn host<impl Into<String>>(host: impl ?) -> HostFilter
+"puerto" = "port"  # fn port(port: u16) -> PortFilter
+"filtro_camino" = "path"  # fn path<impl Into<String>>(path: impl ?) -> PathFilter
+"intentar_camino" = "try_path"  # fn try_path<impl Into<String>>(path: impl ?) -> Result<PathFilter, String>
+"metodo_get" = "get"  # fn get() -> MethodFilter
+"metodo_head" = "head"  # fn head() -> MethodFilter
+"metodo_options" = "options"  # fn options() -> MethodFilter
+"metodo_post" = "post"  # fn post() -> MethodFilter
+"metodo_patch" = "patch"  # fn patch() -> MethodFilter
+"metodo_put" = "put"  # fn put() -> MethodFilter
+"metodo_query" = "query"  # fn query() -> MethodFilter
+"filtro_eliminacion" = "delete"  # fn delete() -> MethodFilter
+"enrutador" = "Router"  # type Router = router::Router
+"parametros_camino" = "PathParams"  # type PathParams = path_params::PathParams
+"control_flujo" = "FlowCtrl"  # type FlowCtrl = flow_ctrl::FlowCtrl
+"ejecutor_tokio" = "TokioExecutor"  # type TokioExecutor = hyper_util::rt::TokioExecutor
+"entrada_salida_tokio" = "TokioIo"  # type TokioIo = hyper_util::rt::TokioIo
+"temporizador_tokio" = "TokioTimer"  # type TokioTimer = hyper_util::rt::TokioTimer
+"manija_servidor" = "ServerHandle"  # struct ServerHandle
+"servidor" = "Server"  # struct Server<A>
+"respuesta_json" = "Json"  # type Json = json::Json
+"redireccion" = "Redirect"  # type Redirect = redirect::Redirect
+"lectura_con_posicion" = "ReadSeeker"  # type ReadSeeker = seek::ReadSeeker
+"contenido_texto" = "Text"  # type Text = text::Text
+"rasgo_escritor" = "Writer"  # trait Writer
+"escriba" = "Scribe"  # trait Scribe
+"cliente_prueba" = "TestClient"  # type TestClient = client::TestClient
+"constructor_peticion" = "RequestBuilder"  # type RequestBuilder = request::RequestBuilder
+"destino_envio" = "SendTarget"  # type SendTarget = request::SendTarget
+"extension_respuesta" = "ResponseExt"  # type ResponseExt = response::ResponseExt
+"macro_rasgo_asincrono" = "async_trait"  # type async_trait = async_trait::async_trait
+"almacen" = "Depot"  # type Depot = crate::depot::Depot
+"servicio" = "Service"  # type Service = crate::service::Service
+"modulo_hyper" = "hyper"  # type hyper = hyper
+"macros" = "macros"  # type macros = salvo_macros
+"error_encapsulado" = "BoxedError"  # type BoxedError = self::error::BoxedError
+"error_salvo" = "Error"  # type Error = self::error::Error
+"resultado_salvo" = "Result"  # type Result = std::result::Result<T, Error>
+"iterador_tipos_medio" = "MimeIter"  # struct MimeIter<'a>
+"nombre_mime" = "Name"  # struct Name<'a>
+"error_analisis_cadena" = "FromStrError"  # struct FromStrError
+"parametros_mime" = "Params"  # struct Params<'a>
+"asterisco" = "STAR"  # const STAR: Name<''static'>
+"tipo_text" = "TEXT"  # const TEXT: Name<''static'>
+"tipo_image" = "IMAGE"  # const IMAGE: Name<''static'>
+"tipo_audio" = "AUDIO"  # const AUDIO: Name<''static'>
+"tipo_video" = "VIDEO"  # const VIDEO: Name<''static'>
+"tipo_application" = "APPLICATION"  # const APPLICATION: Name<''static'>
+"tipo_multipart" = "MULTIPART"  # const MULTIPART: Name<''static'>
+"tipo_message" = "MESSAGE"  # const MESSAGE: Name<''static'>
+"tipo_model" = "MODEL"  # const MODEL: Name<''static'>
+"tipo_font" = "FONT"  # const FONT: Name<''static'>
+"subtipo_plain" = "PLAIN"  # const PLAIN: Name<''static'>
+"subtipo_html" = "HTML"  # const HTML: Name<''static'>
+"subtipo_xml" = "XML"  # const XML: Name<''static'>
+"subtipo_javascript" = "JavaScript"  # const JAVASCRIPT: Name<''static'>
+"subtipo_css" = "CSS"  # const CSS: Name<''static'>
+"subtipo_csv" = "CSV"  # const CSV: Name<''static'>
+"subtipo_event_stream" = "EVENT_STREAM"  # const EVENT_STREAM: Name<''static'>
+"subtipo_vcard" = "VCARD"  # const VCARD: Name<''static'>
+"subtipo_urlencoded" = "WWW_FORM_URLENCODED"  # const WWW_FORM_URLENCODED: Name<''static'>
+"subtipo_msgpack" = "MSGPACK"  # const MSGPACK: Name<''static'>
+"subtipo_octet_stream" = "OCTET_STREAM"  # const OCTET_STREAM: Name<''static'>
+"subtipo_pdf" = "PDF"  # const PDF: Name<''static'>
+"subtipo_woff" = "WOFF"  # const WOFF: Name<''static'>
+"subtipo_woff2" = "WOFF2"  # const WOFF2: Name<''static'>
+"subtipo_form_data" = "FORM_DATA"  # const FORM_DATA: Name<''static'>
+"subtipo_bmp" = "BMP"  # const BMP: Name<''static'>
+"subtipo_gif" = "GIF"  # const GIF: Name<''static'>
+"subtipo_jpeg" = "JPEG"  # const JPEG: Name<''static'>
+"subtipo_png" = "PNG"  # const PNG: Name<''static'>
+"subtipo_svg" = "SVG"  # const SVG: Name<''static'>
+"subtipo_basic" = "BASIC"  # const BASIC: Name<''static'>
+"MPEG" = "MPEG"  # const MPEG: Name<''static'>
+"MP4" = "MP4"  # const MP4: Name<''static'>
+"OGG" = "OGG"  # const OGG: Name<''static'>
+"parametro_charset" = "CHARSET"  # const CHARSET: Name<''static'>
+"parametro_boundary" = "BOUNDARY"  # const BOUNDARY: Name<''static'>
+"codificacion_utf8" = "UTF_8"  # const UTF_8: Name<''static'>
+"medio_cualquiera" = "STAR_STAR"  # const STAR_STAR: Mime
+"texto_cualquiera" = "TEXT_STAR"  # const TEXT_STAR: Mime
+"medio_text_plain" = "TEXT_PLAIN"  # const TEXT_PLAIN: Mime
+"medio_text_plain_utf8" = "TEXT_PLAIN_UTF_8"  # const TEXT_PLAIN_UTF_8: Mime
+"medio_text_html" = "TEXT_HTML"  # const TEXT_HTML: Mime
+"medio_text_html_utf8" = "TEXT_HTML_UTF_8"  # const TEXT_HTML_UTF_8: Mime
+"medio_text_css" = "TEXT_CSS"  # const TEXT_CSS: Mime
+"medio_text_css_utf8" = "TEXT_CSS_UTF_8"  # const TEXT_CSS_UTF_8: Mime
+"medio_text_javascript" = "TEXT_JAVASCRIPT"  # const TEXT_JAVASCRIPT: Mime
+"medio_text_xml" = "TEXT_XML"  # const TEXT_XML: Mime
+"medio_text_event_stream" = "TEXT_EVENT_STREAM"  # const TEXT_EVENT_STREAM: Mime
+"medio_text_csv" = "TEXT_CSV"  # const TEXT_CSV: Mime
+"medio_text_csv_utf8" = "TEXT_CSV_UTF_8"  # const TEXT_CSV_UTF_8: Mime
+"medio_text_tab" = "TEXT_TAB_SEPARATED_VALUES"  # const TEXT_TAB_SEPARATED_VALUES: Mime
+"medio_text_tab_utf8" = "TEXT_TAB_SEPARATED_VALUES_UTF_8"  # const TEXT_TAB_SEPARATED_VALUES_UTF_8: Mime
+"medio_text_vcard" = "TEXT_VCARD"  # const TEXT_VCARD: Mime
+"medio_image_cualquiera" = "IMAGE_STAR"  # const IMAGE_STAR: Mime
+"medio_image_jpeg" = "IMAGE_JPEG"  # const IMAGE_JPEG: Mime
+"medio_image_gif" = "IMAGE_GIF"  # const IMAGE_GIF: Mime
+"medio_image_png" = "IMAGE_PNG"  # const IMAGE_PNG: Mime
+"medio_image_bmp" = "IMAGE_BMP"  # const IMAGE_BMP: Mime
+"medio_image_svg" = "IMAGE_SVG"  # const IMAGE_SVG: Mime
+"medio_font_woff" = "FONT_WOFF"  # const FONT_WOFF: Mime
+"medio_font_woff2" = "FONT_WOFF2"  # const FONT_WOFF2: Mime
+"medio_application_json" = "APPLICATION_JSON"  # const APPLICATION_JSON: Mime
+"medio_application_javascript" = "APPLICATION_JAVASCRIPT"  # const APPLICATION_JAVASCRIPT: Mime
+"medio_application_javascript_utf8" = "APPLICATION_JAVASCRIPT_UTF_8"  # const APPLICATION_JAVASCRIPT_UTF_8: Mime
+"medio_application_urlencoded" = "APPLICATION_WWW_FORM_URLENCODED"  # const APPLICATION_WWW_FORM_URLENCODED: Mime
+"medio_application_octet_stream" = "APPLICATION_OCTET_STREAM"  # const APPLICATION_OCTET_STREAM: Mime
+"medio_application_msgpack" = "APPLICATION_MSGPACK"  # const APPLICATION_MSGPACK: Mime
+"medio_application_pdf" = "APPLICATION_PDF"  # const APPLICATION_PDF: Mime
+"medio_multipart_form_data" = "MULTIPART_FORM_DATA"  # const MULTIPART_FORM_DATA: Mime
+
+["解释"]
+"alias_nucleo" = "Alias de tipo del crate núcleo salvo_core, porta toda la API principal."
+"interceptor" = "Intercepta los errores ocurridos durante el procesamiento de peticiones y los convierte uniformemente en respuestas."
+"objetivo_defecto" = "Objetivo por defecto del manejo de errores, determina el destino final de las respuestas de error."
+"direccion_socket" = "Tipo de dirección de red, representa la dirección IP y el puerto."
+"oyente_tcp" = "Oyente de un puerto TCP, crea los flujos de conexiones."
+"aceptador_tcp" = "Objeto que acepta conexiones TCP y las convierte en un flujo de peticiones."
+"aceptador_tcp_dinamico" = "Rasgo de aceptador de conexiones TCP con despacho dinámico."
+"a_aceptador_tcp_dinamico" = "Envoltorio que convierte un aceptador concreto en dinámico."
+"aceptadores_tcp_dinamicos" = "Colección de varios aceptadores dinámicos."
+"control_conexion" = "Información de control a nivel de conexión (mantener la conexión, etc.)."
+"HTTP1" = "Tipo de conexión del protocolo HTTP/1.1 (proporcionado por hyper)."
+"HTTP2" = "Tipo de conexión del protocolo HTTP/2 (proporcionado por hyper)."
+"aceptador_unido" = "Une varios aceptadores en uno solo."
+"oyente_unido" = "Une varios oyentes en uno solo."
+"conexion_aceptada" = "Resultado (conexión, dirección) creado tras aceptar una conexión."
+"aceptador" = "Rasgo para aceptar conexiones y crear el flujo de peticiones; admite implementación propia."
+"retencion" = "Estructura de estado intermedio que retiene una conexión."
+"acoplador" = "Rasgo que acopla las conexiones del oyente al procesamiento del protocolo."
+"oyente" = "Rasgo de escucha y creación de flujos de conexiones; admite TCP/Unix, etc."
+"flujo_dinamico" = "Tipo de flujo de conexión con despacho dinámico."
+"origen_conexion" = "Enumera los orígenes de conexión (TCP, socket Unix, etc.)."
+"analizador_fuente" = "Analizador de fuentes de configuración (archivo, cadena, etc.)."
+"metadatos" = "Descripción de metadatos de configuración (nombres de variables de entorno, rutas de archivo, etc.)."
+"campo" = "Descripción de un campo de configuración (nombre, fuente, valor por defecto, etc.)."
+"fuente_configuracion" = "Descripción de una fuente de configuración (variables de entorno, argumentos de línea de comandos, etc.)."
+"regla_renombrado" = "Regla de conversión de mayúsculas/minúsculas de nombres de campos (camelCase a snake_case, etc.)."
+"extraible" = "Rasgo de extracción de datos de la petición; lo implementan los extractores de formulario, JSON, etc."
+"archivo_por_bloques" = "Escritor de respuesta que lee y envía un archivo por bloques."
+"protocolo_transporte" = "Estado del protocolo de transporte (TLS, actualización a HTTP/2, etc.)."
+"interruptor_info" = "Información de estado del interruptor de circuito (número de activaciones, estado de bloqueo, etc.)."
+"interruptor_config" = "Configuración del interruptor de circuito (umbral, tiempo de espera, etc.)."
+"interruptor_accion" = "Acción ejecutada al activarse el interruptor."
+"observador_conexion" = "Rasgo de observación del ciclo de vida de las conexiones."
+"arc_observador_conexion" = "Observador de conexiones con propiedad compartida (Arc)."
+"interruptor_politica" = "Rasgo de la política de activación del interruptor."
+"arc_interruptor_politica" = "Política de interruptor con propiedad compartida (Arc)."
+"rasgo_manejador" = "Rasgo principal de procesamiento de peticiones; rutas e intermediarios lo implementan."
+"arc_manejador" = "Envoltorio de manejador con propiedad compartida (Arc)."
+"manejador_vacio" = "Devuelve un manejador que deja pasar sin procesar."
+"omitidor" = "Rasgo que decide si omitir el manejador actual."
+"manejador_envolvente" = "Manejador que envuelve lógica adicional; los intermediarios se basan en él."
+"nunca_omitir" = "Función de predicado que nunca omite."
+"error_analisis" = "Tipo de error emitido cuando falla el análisis de la petición."
+"resultado_analisis" = "Tipo de resultado unificado de las operaciones de análisis."
+"error_estado" = "Tipo de error acompañado de un código de estado HTTP."
+"resultado_estado" = "Tipo de resultado acompañado de un código de estado HTTP."
+"datos_formulario" = "Extractor de datos de formulario multipart."
+"parte_archivo" = "Un bloque de archivo dentro de un formulario multipart."
+"partes_peticion" = "Partes de encabezados y extensiones de la petición HTTP (sin el cuerpo)."
+"tamano_maximo_seguro_global" = "Lee el límite global seguro de tamaño del cuerpo de petición."
+"definir_tamano_maximo_seguro_global" = "Define el límite global seguro de tamaño del cuerpo de petición."
+"tamano_maximo_seguro" = "Estructura de configuración del límite seguro de tamaño del cuerpo de petición."
+"peticion_salvo" = "Objeto de petición HTTP, envuelve encabezados, cuerpo y extensiones."
+"emisor_cuerpo" = "Emisor para enviar el cuerpo en la respuesta."
+"trama_bytes" = "Trama de bytes dentro del cuerpo HTTP."
+"cuerpo_respuesta_salvo" = "Tipo del cuerpo de la respuesta."
+"respuesta_salvo" = "Objeto de respuesta HTTP, envuelve código de estado, encabezados y cuerpo."
+"politica_cookie_segura" = "Política de seguridad de cookies (activar o no las cookies seguras)."
+"cuerpo" = "Tipo del cuerpo del mensaje HTTP (proporcionado por hyper)."
+"trama" = "Trama de datos dentro del cuerpo HTTP."
+"indicio_tamano" = "Indicación sobre el tamaño del cuerpo."
+"cuerpo_peticion_salvo" = "Tipo del cuerpo de la petición."
+"cuerpo_hyper" = "Cuerpo entrante de hyper (Incoming)."
+"receptor_cuerpo" = "Receptor del cuerpo de la petición."
+"modulo_cookies" = "Alias de tipos del crate cookie (análisis y construcción de cookies)."
+"modulo_encabezados" = "Alias de tipos del crate headers (colección de encabezados tipados)."
+"metodo_http" = "Tipo de método HTTP (GET/POST, etc.)."
+"mapa_encabezados" = "Mapa de encabezados HTTP (contenedor de encabezados con valores múltiples)."
+"nombre_encabezado" = "Tipo de nombre de encabezado HTTP."
+"valor_encabezado" = "Tipo de valor de encabezado HTTP."
+"codigo_estado" = "Tipo de código de estado HTTP."
+"encabezados" = "Alias del módulo de encabezados http."
+"modulo_uri" = "Alias del módulo URI."
+"rango_http" = "Tipo de análisis de rangos Range en peticiones HTTP."
+"version_http" = "Tipo de versión del protocolo HTTP (HTTP/1.1, HTTP/2, etc.)."
+"tipo_medio" = "Tipo de medio MIME (text/html, etc.)."
+"info_filtro" = "Información descriptiva del filtro (método coincidente, camino, etc.)."
+"rasgo_filtro" = "Rasgo de filtro de rutas; decide si una petición coincide con una ruta."
+"filtro_funcion" = "Filtro de rutas implementado con una clausura."
+"esquema_protocolo" = "Filtra peticiones por esquema de URI (http/https)."
+"anfitrion" = "Filtra peticiones por nombre de anfitrión."
+"puerto" = "Filtra peticiones por puerto."
+"filtro_camino" = "Filtra peticiones por camino."
+"intentar_camino" = "Filtra por camino, pero devuelve un error si el camino es inválido."
+"metodo_get" = "Filtra peticiones del método GET."
+"metodo_head" = "Filtra peticiones del método HEAD."
+"metodo_options" = "Filtra peticiones del método OPTIONS."
+"metodo_post" = "Filtra peticiones del método POST."
+"metodo_patch" = "Filtra peticiones del método PATCH."
+"metodo_put" = "Filtra peticiones del método PUT."
+"metodo_query" = "Filtra peticiones del método QUERY."
+"filtro_eliminacion" = "Filtra peticiones del método DELETE."
+"enrutador" = "Tabla de rutas; distribuye las peticiones a los manejadores coincidentes."
+"parametros_camino" = "Colección de parámetros del camino (/users/:id, etc.)."
+"control_flujo" = "Control de flujo del manejador (continuar, omitir, error)."
+"ejecutor_tokio" = "Ejecutor asíncrono de Tokio (para integración con hyper)."
+"entrada_salida_tokio" = "Tipo de adaptador de entrada/salida de Tokio."
+"temporizador_tokio" = "Tipo de adaptador de temporizador de Tokio."
+"manija_servidor" = "Manija del servidor en marcha; permite solicitar un apagado ordenado."
+"servidor" = "El servidor web en sí: vincula el oyente y ejecuta el servicio."
+"respuesta_json" = "Escritor y extractor de respuestas JSON."
+"redireccion" = "Escritor de respuestas de redirección."
+"lectura_con_posicion" = "Cuerpo de petición que admite lectura y posicionamiento (Seek)."
+"contenido_texto" = "Escritor de respuestas de texto puro."
+"rasgo_escritor" = "Rasgo de escritura de datos en la respuesta."
+"escriba" = "Rasgo que escribe contenido en la respuesta y devuelve el código de estado."
+"cliente_prueba" = "Cliente HTTP para pruebas de integración."
+"constructor_peticion" = "Constructor de peticiones de prueba."
+"destino_envio" = "Destino de envío de la petición de prueba (servidor)."
+"extension_respuesta" = "Colección de métodos extendidos de la respuesta de prueba."
+"macro_rasgo_asincrono" = "Alias de la macro de rasgos asíncronos."
+"almacen" = "Contenedor de datos compartidos de la petición; cada intermediario lee y escribe aquí."
+"servicio" = "El servicio salvo en sí; puede ser impulsado por hyper."
+"modulo_hyper" = "Alias del crate hyper (implementación HTTP de bajo nivel)."
+"macros" = "Alias del crate de macros procedimentales de salvo."
+"error_encapsulado" = "Error dinámico encapsulado (Box<dyn Error>)."
+"error_salvo" = "Tipo de error general de salvo; admite código de estado y cadena de causas."
+"resultado_salvo" = "Alias Result unificado de salvo (el tipo de error es Error)."
+"iterador_tipos_medio" = "Estructura de análisis iterativo de tipos MIME."
+"nombre_mime" = "Nombre de tipo MIME (text, html, etc.)."
+"error_analisis_cadena" = "Error cuando falla el análisis de MIME desde una cadena."
+"parametros_mime" = "Iterador de parámetros MIME (charset=utf-8, etc.)."
+"asterisco" = "Comodín de tipo de medio * (el * dentro de */*)."
+"tipo_text" = "Nombre del tipo principal text (text/html, etc.)."
+"tipo_image" = "Nombre del tipo principal image (image/png, etc.)."
+"tipo_audio" = "Nombre del tipo principal audio (audio/mp3, etc.)."
+"tipo_video" = "Nombre del tipo principal video (video/mp4, etc.)."
+"tipo_application" = "Nombre del tipo principal application (application/json, etc.)."
+"tipo_multipart" = "Nombre del tipo principal multipart (multipart/form-data, etc.)."
+"tipo_message" = "Nombre del tipo principal message (message/http, etc.)."
+"tipo_model" = "Nombre del tipo principal model (model/gltf, etc.)."
+"tipo_font" = "Nombre del tipo principal font (font/woff, etc.)."
+"subtipo_plain" = "Nombre del subtipo plain (text/plain)."
+"subtipo_html" = "Nombre del subtipo html (text/html)."
+"subtipo_xml" = "Nombre del subtipo xml (text/xml)."
+"subtipo_javascript" = "Nombre del subtipo javascript (text/javascript)."
+"subtipo_css" = "Nombre del subtipo css (text/css)."
+"subtipo_csv" = "Nombre del subtipo csv (text/csv)."
+"subtipo_event_stream" = "Nombre del subtipo event-stream (text/event-stream)."
+"subtipo_vcard" = "Nombre del subtipo vcard (text/vcard)."
+"subtipo_urlencoded" = "Nombre del subtipo x-www-form-urlencoded."
+"subtipo_msgpack" = "Nombre del subtipo msgpack (application/msgpack)."
+"subtipo_octet_stream" = "Nombre del subtipo octet-stream (flujo de datos binarios)."
+"subtipo_pdf" = "Nombre del subtipo pdf (application/pdf)."
+"subtipo_woff" = "Nombre del subtipo woff (formato de fuente web)."
+"subtipo_woff2" = "Nombre del subtipo woff2 (formato de fuente web comprimido)."
+"subtipo_form_data" = "Nombre del subtipo form-data (formulario multipart)."
+"subtipo_bmp" = "Nombre del subtipo bmp (imagen de mapa de bits)."
+"subtipo_gif" = "Nombre del subtipo gif (imagen animada)."
+"subtipo_jpeg" = "Nombre del subtipo jpeg (imagen fotográfica)."
+"subtipo_png" = "Nombre del subtipo png (imagen de mapa de bits)."
+"subtipo_svg" = "Nombre del subtipo svg (imagen vectorial)."
+"subtipo_basic" = "Nombre del subtipo basic."
+"MPEG" = "Nombre del subtipo mpeg (vídeo)."
+"MP4" = "Nombre del subtipo mp4 (vídeo)."
+"OGG" = "Nombre del subtipo ogg (audio/vídeo)."
+"parametro_charset" = "Nombre del parámetro charset (charset=utf-8, etc.)."
+"parametro_boundary" = "Nombre del parámetro boundary (frontera de separación multipart)."
+"codificacion_utf8" = "Nombre de la codificación utf-8."
+"medio_cualquiera" = "Constante de tipo de medio cualquiera */*."
+"texto_cualquiera" = "Constante de tipo de texto cualquiera text/*."
+"medio_text_plain" = "Constante de tipo de medio text/plain."
+"medio_text_plain_utf8" = "Constante de tipo de medio text/plain; charset=utf-8."
+"medio_text_html" = "Constante de tipo de medio text/html."
+"medio_text_html_utf8" = "Constante de tipo de medio text/html; charset=utf-8."
+"medio_text_css" = "Constante de tipo de medio text/css."
+"medio_text_css_utf8" = "Constante de tipo de medio text/css; charset=utf-8."
+"medio_text_javascript" = "Constante de tipo de medio text/javascript."
+"medio_text_xml" = "Constante de tipo de medio text/xml."
+"medio_text_event_stream" = "Constante de tipo de medio text/event-stream."
+"medio_text_csv" = "Constante de tipo de medio text/csv."
+"medio_text_csv_utf8" = "Constante de tipo de medio text/csv; charset=utf-8."
+"medio_text_tab" = "Constante de tipo de medio text/tab-separated-values."
+"medio_text_tab_utf8" = "Constante de tipo de medio text/tab-separated-values; charset=utf-8."
+"medio_text_vcard" = "Constante de tipo de medio text/vcard."
+"medio_image_cualquiera" = "Constante de tipo de medio image/*."
+"medio_image_jpeg" = "Constante de tipo de medio image/jpeg."
+"medio_image_gif" = "Constante de tipo de medio image/gif."
+"medio_image_png" = "Constante de tipo de medio image/png."
+"medio_image_bmp" = "Constante de tipo de medio image/bmp."
+"medio_image_svg" = "Constante de tipo de medio image/svg+xml."
+"medio_font_woff" = "Constante de tipo de medio font/woff."
+"medio_font_woff2" = "Constante de tipo de medio font/woff2."
+"medio_application_json" = "Constante de tipo de medio application/json."
+"medio_application_javascript" = "Constante de tipo de medio application/javascript."
+"medio_application_javascript_utf8" = "Constante de tipo de medio application/javascript; charset=utf-8."
+"medio_application_urlencoded" = "Constante de tipo de medio application/x-www-form-urlencoded."
+"medio_application_octet_stream" = "Constante de tipo de medio application/octet-stream."
+"medio_application_msgpack" = "Constante de tipo de medio application/msgpack."
+"medio_application_pdf" = "Constante de tipo de medio application/pdf."
+"medio_multipart_form_data" = "Constante de tipo de medio multipart/form-data."

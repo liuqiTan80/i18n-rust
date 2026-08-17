@@ -1,0 +1,50 @@
+# Mapping des noms de crate (pour les chemins use)
+["模块路径"]
+"nombres_aleatoires" = "rand"
+"date_heure" = "chrono"
+"traitement_temps" = "time"
+"expressions_regulieres" = "regex"
+"statique_paresseuse" = "lazy_static"
+"cellule_unique" = "once_cell"
+
+# Mapping des identificateurs internes (types, fonctions, etc.)
+["标识符"]
+# rand
+"generateur_fil" = "thread_rng"
+"trait_aleatoire" = "Rng"
+"plage_aleatoire" = "gen_range"
+"aleatoire" = "random"
+"melanger" = "shuffle"
+"choisir" = "choose"
+"remplir" = "fill"
+"echantillon" = "sample"
+
+# chrono
+"heure_locale" = "Local"
+"temps_universel" = "Utc"
+"date_et_heure" = "DateTime"
+"date_naive" = "NaiveDate"
+"heure_naive" = "NaiveTime"
+"duree" = "Duration"
+"maintenant" = "now"
+"aujourdhui" = "today"
+"formater" = "format"
+"analyser_valeur" = "parse"
+
+# time
+"date_decalee" = "OffsetDateTime"
+"date_locale" = "Date"
+
+# regex
+"regex_type" = "Regex"
+"trouver" = "find"
+"tout_trouver" = "find_iter"
+"captures" = "captures"
+"remplacer" = "replace"
+"diviser" = "split"
+"correspond" = "is_match"
+
+# lazy_static / once_cell
+"macro_statique_paresseuse" = "lazy_static"
+"cellule_unique_type" = "OnceCell"
+"valeur_paresseuse" = "Lazy"

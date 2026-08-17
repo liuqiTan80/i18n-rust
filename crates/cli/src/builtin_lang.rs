@@ -30,7 +30,8 @@ pub struct BuiltinLangData {
 /// - `$name`：生成的 `static` 变量名
 /// - `$lang_dir`：语言包目录名（如 `"zh"`、`"en"`、`"de"`）
 /// - `$($crate_file),*`：第三方库映射文件名列表，
-///   不同语言的文件名可能不同（如中文为 `序列化.toml`），
+///   文件名随语言包本地化（中文为 `序列化.toml`、俄语为 `Сериализация.toml`、
+///   日语为 `直列化.toml` 等，salvo.toml 为 crate 专有名词保持不变），
 ///   需与对应语言包 `crates/` 目录下的文件一致
 macro_rules! define_builtin_lang {
     ($name:ident, $lang_dir:literal, [$($crate_file:literal),* $(,)?]) => {
@@ -60,7 +61,7 @@ fn builtin_file_or_panic(lang: &str, file: &str) -> &'static str {
     i18n_rust_engine::语言::builtin_file(lang, file).expect("内置语言包文件缺失：引擎未嵌入该文件")
 }
 
-// 中文内置语言包（完整翻译映射 + 9 个第三方库映射）
+// 中文内置语言包（完整翻译映射 + 10 个第三方库映射）
 define_builtin_lang!(
     ZH_DATA,
     "zh",
@@ -74,38 +75,174 @@ define_builtin_lang!(
         "网络.toml",
         "错误处理.toml",
         "Web框架.toml",
+        "salvo.toml",
     ]
 );
 
 // 英文内置语言包（恒等映射，用于验证多语言架构）
 define_builtin_lang!(EN_DATA, "en", []);
 
-// 德语内置语言包（恒等映射 + 德语错误教学提示，占位实现）
-define_builtin_lang!(DE_DATA, "de", []);
+// 德语内置语言包（德语错误教学提示 + 10 个第三方库映射）
+define_builtin_lang!(
+    DE_DATA,
+    "de",
+    [
+        "Serialisierung.toml",
+        "Asynchron.toml",
+        "Kommandozeile.toml",
+        "Datenbank.toml",
+        "Werkzeuge.toml",
+        "Protokollierung.toml",
+        "Netzwerk.toml",
+        "Fehlerbehandlung.toml",
+        "Web_Framework.toml",
+        "salvo.toml",
+    ]
+);
 
 // 日语内置语言包
-define_builtin_lang!(JA_DATA, "ja", []);
+define_builtin_lang!(
+    JA_DATA,
+    "ja",
+    [
+        "直列化.toml",
+        "非同期.toml",
+        "コマンドライン.toml",
+        "データベース.toml",
+        "ユーティリティ.toml",
+        "ロギング.toml",
+        "ネットワーク.toml",
+        "エラー処理.toml",
+        "Webフレームワーク.toml",
+        "salvo.toml",
+    ]
+);
 
 // 俄语内置语言包
-define_builtin_lang!(RU_DATA, "ru", []);
+define_builtin_lang!(
+    RU_DATA,
+    "ru",
+    [
+        "Сериализация.toml",
+        "Асинхронность.toml",
+        "Командная_строка.toml",
+        "База_данных.toml",
+        "Утилиты.toml",
+        "Логирование.toml",
+        "Сеть.toml",
+        "Обработка_ошибок.toml",
+        "Веб_фреймворк.toml",
+        "salvo.toml",
+    ]
+);
 
 // 西班牙语内置语言包
-define_builtin_lang!(ES_DATA, "es", []);
+define_builtin_lang!(
+    ES_DATA,
+    "es",
+    [
+        "Serialización.toml",
+        "Asíncrono.toml",
+        "Línea_de_comandos.toml",
+        "Base_de_datos.toml",
+        "Utilidades.toml",
+        "Registro.toml",
+        "Red.toml",
+        "Manejo_de_errores.toml",
+        "Marco_Web.toml",
+        "salvo.toml",
+    ]
+);
 
 // 法语内置语言包
-define_builtin_lang!(FR_DATA, "fr", []);
+define_builtin_lang!(
+    FR_DATA,
+    "fr",
+    [
+        "Sérialisation.toml",
+        "Asynchrone.toml",
+        "Ligne_de_commande.toml",
+        "Base_de_données.toml",
+        "Utilitaires.toml",
+        "Journalisation.toml",
+        "Réseau.toml",
+        "Gestion_des_erreurs.toml",
+        "Framework_Web.toml",
+        "salvo.toml",
+    ]
+);
 
 // 葡萄牙语内置语言包
-define_builtin_lang!(PT_DATA, "pt", []);
+define_builtin_lang!(
+    PT_DATA,
+    "pt",
+    [
+        "Serialização.toml",
+        "Assíncrono.toml",
+        "Linha_de_comando.toml",
+        "Banco_de_dados.toml",
+        "Utilitários.toml",
+        "Registro.toml",
+        "Rede.toml",
+        "Tratamento_de_erros.toml",
+        "Framework_Web.toml",
+        "salvo.toml",
+    ]
+);
 
 // 韩语内置语言包
-define_builtin_lang!(KO_DATA, "ko", []);
+define_builtin_lang!(
+    KO_DATA,
+    "ko",
+    [
+        "직렬화.toml",
+        "비동기.toml",
+        "명령줄.toml",
+        "데이터베이스.toml",
+        "유틸리티.toml",
+        "로깅.toml",
+        "네트워크.toml",
+        "오류_처리.toml",
+        "웹_프레임워크.toml",
+        "salvo.toml",
+    ]
+);
 
 // 阿拉伯语内置语言包
-define_builtin_lang!(AR_DATA, "ar", []);
+define_builtin_lang!(
+    AR_DATA,
+    "ar",
+    [
+        "تسلسل.toml",
+        "غير_متزامن.toml",
+        "سطر_الأوامر.toml",
+        "قاعدة_البيانات.toml",
+        "أدوات.toml",
+        "تتبع.toml",
+        "شبكة.toml",
+        "معالجة_الأخطاء.toml",
+        "إطار_الويب.toml",
+        "salvo.toml",
+    ]
+);
 
 // 印地语内置语言包
-define_builtin_lang!(HI_DATA, "hi", []);
+define_builtin_lang!(
+    HI_DATA,
+    "hi",
+    [
+        "क्रमबद्धन.toml",
+        "अतुल्यकालिक.toml",
+        "आदेश_पंक्ति.toml",
+        "डेटाबेस.toml",
+        "उपयोगिता.toml",
+        "अनुरेखण.toml",
+        "नेटवर्क.toml",
+        "त्रुटि_प्रबंधन.toml",
+        "वेब_फ्रेमवर्क.toml",
+        "salvo.toml",
+    ]
+);
 
 /// 根据语言代码获取内置语言包数据
 ///
@@ -202,18 +339,22 @@ mod tests {
         assert!(std::ptr::eq(data, zh), "未知语言应回退到中文包");
     }
 
-    /// 中文包包含 9 个第三方库映射，其余语言包为空；
+    /// 除英文外全部内置语言均含 10 个第三方库映射（英文为恒等包，无映射）；
     /// 中文标准库映射包含模块路径与标识符两节（数量远多于恒等包）
     #[test]
     fn test_crates_data_per_lang() {
-        assert_eq!(get_builtin_data("zh").crates_data.len(), 9);
-        for code in ["en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
+        for code in ["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
             assert_eq!(
                 get_builtin_data(code).crates_data.len(),
-                0,
-                "{code} 暂不含第三方库映射"
+                10,
+                "{code} 应含 10 个第三方库映射"
             );
         }
+        assert_eq!(
+            get_builtin_data("en").crates_data.len(),
+            0,
+            "en 恒等包不含第三方库映射"
+        );
         // stdlib.toml 中模块路径与标识符两节均存在
         for data in [get_builtin_data("zh"), get_builtin_data("en")] {
             assert!(data.stdlib_toml.contains("[\"模块路径\"]"));

@@ -27,6 +27,9 @@
 "compile_error" = "Kompilierungsfehler:\n{}"
 "load_error_msg_failed" = "Fehlermeldungen konnten nicht geladen werden: {}"
 "warn_builtin_errors_failed" = "Warnung: Eingebaute Fehlermeldungen konnten nicht geladen werden: {}"
+"no_project_root" = "Projekt-Root nicht gefunden (kein Cargo.toml in den uebergeordneten Verzeichnissen). Quelldatei: {}. Bitte zuerst mit `rzc init` ein Projekt erstellen."
+"transpile_file_failed" = "Transpilieren von {} fehlgeschlagen: {}"
+"run_program_failed" = "Programm fehlgeschlagen ({}):\n{}"
 
 # ---- Projekt erstellen ----
 "dir_exists" = "Verzeichnis {} existiert bereits"

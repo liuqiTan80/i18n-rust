@@ -1,0 +1,37 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"비동기_런타임" = "tokio"
+"비동기_표준" = "async-std"
+"퓨처_모음" = "futures"
+"비동기_트레이트" = "async-trait"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# tokio
+"메인_함수" = "main"
+"작업_생성" = "spawn"
+"대기_포인트" = "await"
+"선택_경쟁" = "select"
+"지연_대기" = "delay_for"
+"간격_타이머" = "interval"
+"슬립" = "sleep"
+"차단_작업" = "spawn_blocking"
+"채널" = "channel"
+"원샷_채널" = "oneshot"
+"브로드캐스트_채널" = "broadcast"
+
+# async-std
+"작업" = "task"
+"생성_실행" = "spawn"
+"차단_실행" = "task::spawn_blocking"
+"스트림" = "stream"
+
+# futures
+"퓨처_타입" = "Future"
+"싱크" = "Sink"
+"결합_대기" = "join"
+"시도_결합" = "try_join"
+"폴링" = "poll"
+
+# async-trait
+"비동기_트레이트_속성" = "async_trait"

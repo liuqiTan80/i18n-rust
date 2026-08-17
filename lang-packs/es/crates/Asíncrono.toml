@@ -1,0 +1,35 @@
+# Mapeo de nombres de crate (para rutas use)
+["模块路径"]
+"ejecucion_asincrona" = "tokio"
+"asincrono_estandar" = "async-std"
+"futures_biblioteca" = "futures"
+"rasgo_asincrono" = "async-trait"
+
+# Mapeo de identificadores internos (tipos, funciones, etc.)
+["标识符"]
+# tokio
+"punto_entrada" = "main"
+"lanzar_tarea" = "spawn"
+"espera_expresion" = "await"
+"seleccion_carrera" = "select"
+"retardo" = "delay_for"
+"intervalo" = "interval"
+"dormir" = "sleep"
+"tarea_bloqueante" = "spawn_blocking"
+"canal" = "channel"
+"canal_unico" = "oneshot"
+"canal_difusion" = "broadcast"
+
+# async-std / futures
+"tarea" = "task"
+"engendrar" = "spawn"
+"bloquear_tarea" = "task::spawn_blocking"
+"flujo_datos" = "stream"
+"futuro" = "Future"
+"colector" = "Sink"
+"unir" = "join"
+"intentar_unir" = "try_join"
+"sondear" = "poll"
+
+# async-trait
+"macro_rasgo_asincrono" = "async_trait"

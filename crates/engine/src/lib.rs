@@ -54,25 +54,7 @@ pub fn transpile_source_with_map(
     );
 
     let output = cache.get_or_transpile(source, fingerprint, || {
-        // 词法处理前的 Unicode 混淆安全检查（仅未命中缓存时执行）
-        for warning in unicode_confusion::check_unicode_confusion(source) {
-            crate::log_warn!("unicode_confusion", "{}", warning.format());
-        }
-
-        let macro_map = manager.get_macro_map();
-        let result = lexer::transpile_with_map(source, manager.get_keyword_map(), &macro_map);
-        let mut translated = result.output;
-        if !manager.module_path_map.is_empty() {
-            translated =
-                module_path::replace_module_paths(&translated, manager.get_module_path_map());
-        }
-        if !manager.alias_map.is_empty() {
-            translated = alias::replace_aliases(&translated, manager.get_alias_map());
-        }
-        Ok(cache::TranspileOutput::with_map(
-            translated,
-            result.source_map,
-        ))
+        Ok(transpile_pipeline(source, manager))
     })?;
 
     let elapsed = format!("{:?}", start.elapsed());
@@ -89,6 +71,32 @@ pub fn transpile_source_with_map(
         )
     );
     Ok(output)
+}
+
+/// 无缓存的完整转译管线：Unicode 混淆检查 → 词法转译 → 模块路径替换 → 别名替换
+///
+/// CLI / LSP 等短命进程可直接复用此管线，无需维护增量缓存；
+/// Unicode 告警经日志（warn 级）输出，不阻断转译。
+/// 返回转译结果与源映射（被替换标识符的源偏移与翻译前后文本）。
+pub fn transpile_pipeline(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+) -> cache::TranspileOutput {
+    // 词法处理前的 Unicode 混淆安全检查（零宽/双向/同形字符，仅告警）
+    for warning in unicode_confusion::check_unicode_confusion(source) {
+        crate::log_warn!("unicode_confusion", "{}", warning.format());
+    }
+
+    let macro_map = manager.get_macro_map();
+    let result = lexer::transpile_with_map(source, manager.get_keyword_map(), &macro_map);
+    let mut translated = result.output;
+    if !manager.module_path_map.is_empty() {
+        translated = module_path::replace_module_paths(&translated, manager.get_module_path_map());
+    }
+    if !manager.alias_map.is_empty() {
+        translated = alias::replace_aliases(&translated, manager.get_alias_map());
+    }
+    cache::TranspileOutput::with_map(translated, result.source_map)
 }
 
 #[cfg(test)]

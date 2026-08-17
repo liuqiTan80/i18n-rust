@@ -1,0 +1,180 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Rust (English)",
+  "scopeName": "source.rust-en",
+  "patterns": [
+    {
+      "include": "#注释"
+    },
+    {
+      "include": "#字符串"
+    },
+    {
+      "include": "#字符"
+    },
+    {
+      "include": "#数字"
+    },
+    {
+      "include": "#关键字"
+    },
+    {
+      "include": "#类型"
+    },
+    {
+      "include": "#宏"
+    },
+    {
+      "include": "#生命周期"
+    },
+    {
+      "include": "#运算符"
+    }
+  ],
+  "repository": {
+    "注释": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.rust-en",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.documentation.rust-en",
+          "begin": "/\\*\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        },
+        {
+          "name": "comment.block.rust-en",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        }
+      ]
+    },
+    "字符串": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.rust-en",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.rust-en",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.raw.rust-en",
+          "begin": "r#*\"",
+          "end": "\"#*"
+        }
+      ]
+    },
+    "字符": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.rust-en",
+          "match": "'[^'\\\\]'|'\\\\.'"
+        }
+      ]
+    },
+    "数字": {
+      "patterns": [
+        {
+          "name": "constant.numeric.rust-en",
+          "match": "\\b[0-9][0-9_]*(\\.[0-9_]+)?([eE][+-]?[0-9_]+)?(f32|f64|i[0-9]+|u[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.numeric.hex.rust-en",
+          "match": "\\b0x[0-9a-fA-F_]+\\b"
+        },
+        {
+          "name": "constant.numeric.oct.rust-en",
+          "match": "\\b0o[0-7_]+\\b"
+        },
+        {
+          "name": "constant.numeric.bin.rust-en",
+          "match": "\\b0b[01_]+\\b"
+        }
+      ]
+    },
+    "关键字": {
+      "patterns": [
+        {
+          "name": "keyword.control.rust-en",
+          "match": "\\b(continue|return|match|while|break|else|loop|for|if|in)\\b"
+        },
+        {
+          "name": "keyword.declaration.rust-en",
+          "match": "\\b(static|struct|extern|const|trait|crate|super|enum|type|impl|main|let|mut|mod|pub|use|fn|as)\\b"
+        },
+        {
+          "name": "keyword.other.rust-en",
+          "match": "\\b(unsafe|async|await|move|Box|dyn)\\b"
+        },
+        {
+          "name": "constant.language.boolean.rust-en",
+          "match": "\\b(false|true)\\b"
+        },
+        {
+          "name": "constant.language.rust-en",
+          "match": "\\b(self|Self)\\b"
+        }
+      ]
+    },
+    "类型": {
+      "patterns": [
+        {
+          "name": "storage.type.numeric.rust-en",
+          "match": "\\b(i32|i64|i16|u32|u64|u16|f64|f32|i8|u8)\\b"
+        },
+        {
+          "name": "storage.type.rust-en",
+          "match": "\\b(HashMap|String|Option|Result|char|bool|str|Vec|Box)\\b"
+        },
+        {
+          "name": "constant.other.rust-en",
+          "match": "\\b(Some|None|Err|Ok)\\b"
+        }
+      ]
+    },
+    "宏": {
+      "patterns": [
+        {
+          "name": "entity.name.function.macro.rust-en",
+          "match": "\\b(unimplemented|include_bytes|unreachable|include_str|option_env|assert_eq|assert_ne|stringify|eprintln|println|writeln|include|format|eprint|assert|column|print|panic|write|todo|file|line|vec|env|cfg)!"
+        }
+      ]
+    },
+    "生命周期": {
+      "patterns": [
+        {
+          "name": "storage.modifier.lifetime.rust-en",
+          "match": "'[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    },
+    "运算符": {
+      "patterns": [
+        {
+          "name": "keyword.operator.rust-en",
+          "match": "(=|\\+|-|\\*|/|%|&&|\\|\\||!|<|>|<=|>=|==|!=|&|\\||\\^|~|<<|>>|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|<<=|>>=)"
+        },
+        {
+          "name": "keyword.operator.arrow.rust-en",
+          "match": "(->|=>)"
+        }
+      ]
+    }
+  }
+}

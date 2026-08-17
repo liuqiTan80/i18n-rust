@@ -1,0 +1,41 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"Actix" = "actix-web"
+"軸枠" = "axum"
+"ワープ" = "warp"
+"ロケット" = "rocket"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# actix-web
+"アプリ" = "App"
+"HTTPサーバー" = "HttpServer"
+"経路" = "route"
+"リソース" = "resource"
+"スコープ" = "scope"
+"処理器" = "handler"
+"HTTP要求型" = "HttpRequest"
+"HTTP応答型" = "HttpResponse"
+"JSON" = "Json"
+"フォーム" = "Form"
+"パス抽出器" = "Path"
+"照会パラメータ" = "Query"
+"ミドルウェア" = "middleware"
+
+# axum
+"経路割当" = "route"
+"抽出器" = "extract"
+"状態抽出器" = "State"
+"拡張抽出器" = "Extension"
+
+# warp
+"ワープフィルタ" = "Filter"
+"メソッド" = "method"
+"GET要求" = "get"
+"POST要求" = "post"
+"返信" = "reply"
+
+# rocket
+"ロケット本体" = "Rocket"
+"起動" = "launch"
+"テンプレート" = "Template"

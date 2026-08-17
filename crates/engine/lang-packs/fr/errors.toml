@@ -229,3 +229,1865 @@
 [E0759]
 "消息模板" = "Le paramètre de durée de vie est contraint par une limite incompatible"
 "教学提示" = "Les limites de durée de vie du type ne correspondent pas à la déclaration de la fonction. Unifiez les annotations de durée de vie."
+
+# ==================== Couverture complète de l'index officiel des erreurs (modèles en texte pur) ====================
+
+[E0001]
+"消息模板" = "ce bras de correspondance est inaccessible"
+"教学提示" = "Les bras précédents couvrent déjà tous les cas possibles, ce bras ne sera jamais exécuté. Supprimez le bras superflu ou modifiez l'ordre."
+
+[E0002]
+"消息模板" = "correspondance vide impossible sur un type non vide"
+"教学提示" = "Une expression de correspondance nécessite au moins un bras. Ajoutez des bras pour toutes les valeurs possibles."
+
+[E0004]
+"消息模板" = "l'expression de correspondance est incomplète : certaines valeurs possibles n'ont pas de bras"
+"教学提示" = "La correspondance doit couvrir tous les cas possibles. Complétez les bras manquants ou ajoutez un bras générique `_`."
+
+[E0005]
+"消息模板" = "ce motif peut échouer, mais un motif infaillible est requis ici"
+"教学提示" = "Les liaisons `laisser` et les paramètres de fonction exigent des motifs infaillibles. Utilisez `correspondre` ou `si laisser` pour les motifs faillibles."
+
+[E0007]
+"消息模板" = "(code d'erreur retiré) une valeur du motif est déplacée vers plusieurs endroits"
+"教学提示" = "Une valeur ne peut être déplacée que vers une seule liaison. Ajustez la liaison ou utilisez des références."
+
+[E0009]
+"消息模板" = "(code d'erreur retiré) les valeurs non Copy du motif doivent être liées de manière uniforme"
+"教学提示" = "Dans un même motif, toutes les valeurs n'implémentant pas `copier` (Copy) doivent être liées de façon identique (toutes déplacées ou toutes empruntées)."
+
+[E0010]
+"消息模板" = "(code d'erreur retiré) la valeur d'un élément statique doit être connue à la compilation"
+"教学提示" = "Les valeurs de `statique` et `constante` doivent être connues à la compilation. Initialisez avec des expressions constantes."
+
+[E0013]
+"消息模板" = "(code d'erreur retiré) une constante ne peut pas référencer un élément statique"
+"教学提示" = "`constante` peut référencer d'autres constantes mais pas des éléments `statique`. Lisez les statiques dans une fonction à la place."
+
+[E0014]
+"消息模板" = "(code d'erreur retiré) une constante ne peut être initialisée qu'avec des valeurs constantes"
+"教学提示" = "L'initialisation d'une constante ne peut utiliser que des expressions constantes ou des appels de fonctions constantes. Simplifiez l'expression."
+
+[E0015]
+"消息模板" = "une fonction non constante est appelée dans un contexte constant"
+"教学提示" = "Les initialisations de `constante`/`statique` et les longueurs de tableaux ne peuvent appeler que des fonctions constantes (`fonction constante`). Déclarez la fonction comme constante ou calculez à l'exécution."
+
+[E0023]
+"消息模板" = "le nombre de champs extraits de la variante d'énumération est incorrect"
+"教学提示" = "Le nombre de champs d'un motif de variante tuple doit correspondre à la définition. Vérifiez la définition de la variante."
+
+[E0025]
+"消息模板" = "le même champ d'une structure est lié deux fois dans le motif"
+"教学提示" = "Dans un motif de structure, chaque champ ne peut être lié qu'une fois. Supprimez la liaison dupliquée."
+
+[E0026]
+"消息模板" = "le motif de structure utilise un champ inexistant"
+"教学提示" = "Vérifiez l'orthographe du nom de champ et confirmez dans la définition de la structure que le champ existe."
+
+[E0027]
+"消息模板" = "le motif de structure ne couvre pas tous les champs"
+"教学提示" = "Un motif de structure doit mentionner chaque champ ou ignorer les autres avec `..` à la fin."
+
+[E0029]
+"消息模板" = "seuls les types avec comparaison d'ordre peuvent correspondre à une plage"
+"教学提示" = "La syntaxe de plage ne prend en charge que les types comme les entiers et caractères implémentant `ordre_partiel`. Pour les types personnalisés, utilisez une condition de garde (`si` après le bras)."
+
+[E0030]
+"消息模板" = "le début de la plage est supérieur à la fin, la plage est vide"
+"教学提示" = "Un motif de plage inclut les deux bornes, le début ne peut pas dépasser la fin. Échangez les bornes ou corrigez les valeurs."
+
+[E0033]
+"消息模板" = "un type objet trait ne peut pas être déréférencé directement"
+"教学提示" = "Les objets trait (`dynamique trait`) ne peuvent pas être déréférencés. Appelez les méthodes via une référence ou utilisez un type concret."
+
+[E0034]
+"消息模板" = "l'appel de méthode est ambigu, plusieurs méthodes candidates trouvées"
+"教学提示" = "Plusieurs traits définissent une méthode du même nom. Utilisez la syntaxe pleinement qualifiée `trait::methode(valeur)` pour préciser l'appel."
+
+[E0038]
+"消息模板" = "ce trait contient des éléments incompatibles avec les objets trait"
+"教学提示" = "Les objets trait exigent un trait sûr pour les objets : pas de méthodes génériques, et les méthodes avec paramètre `soi` doivent retourner un type objectivable. Ajustez le trait ou utilisez des génériques."
+
+[E0040]
+"消息模板" = "l'appel explicite d'un destructeur n'est pas autorisé"
+"教学提示" = "Rust appelle automatiquement la logique de destruction. Supprimez l'appel manuel ; pour un contrôle explicite, enveloppez avec `Option` et retirez la valeur."
+
+[E0044]
+"消息模板" = "les éléments externes ne peuvent pas utiliser de paramètres de type ou de constante"
+"教学提示" = "Les fonctions et statiques des blocs `externe` proviennent de bibliothèques externes et ne prennent pas en charge les génériques. Encapsulez-les dans une fonction générique."
+
+[E0045]
+"消息模板" = "les fonctions à arguments variables ne peuvent utiliser que la convention d'appel C"
+"教学提示" = "Les arguments variables (`...`) ne sont pris en charge que dans les déclarations `externe \"C\"`. Utilisez la convention C ou une liste de paramètres fixe."
+
+[E0046]
+"消息模板" = "l'implémentation du trait omet des éléments requis"
+"教学提示" = "L'implémentation d'un trait doit fournir tous les éléments sans implémentation par défaut. Complétez les méthodes manquantes."
+
+[E0049]
+"消息模板" = "le nombre de paramètres de type/constante de la méthode implémentée diffère de la définition"
+"教学提示" = "Le nombre de paramètres génériques de la méthode implémentée doit être identique à celui du trait. Corrigez selon la déclaration."
+
+[E0050]
+"消息模板" = "le nombre de paramètres de la méthode implémentée diffère de la définition"
+"教学提示" = "Le nombre de paramètres de la méthode implémentée doit correspondre à la définition du trait. Ajustez selon la déclaration."
+
+[E0053]
+"消息模板" = "les types des paramètres de la méthode implémentée ne correspondent pas à la définition"
+"教学提示" = "Les types des paramètres doivent correspondre exactement à la définition du trait (mutabilité et mode de référence inclus). Corrigez selon la déclaration."
+
+[E0054]
+"消息模板" = "la conversion vers le type booléen n'est pas autorisée"
+"教学提示" = "Rust ne prend pas en charge la conversion `valeur comme booleen`. Utilisez une expression de comparaison (par ex. `valeur != 0`) pour obtenir explicitement un booléen."
+
+[E0055]
+"消息模板" = "la profondeur de déréférencement automatique lors de l'appel de méthode dépasse la limite"
+"教学提示" = "Les types forment une chaîne de déréférencement trop longue (souvent un cycle de déréférencement personnalisé). Déréférencez explicitement ou revoyez la conception des types."
+
+[E0057]
+"消息模板" = "le nombre de paramètres de la closure ne correspond pas : {期望} attendu(s), {实际} fourni(s)"
+"教学提示" = "Le nombre de paramètres d'une closure doit correspondre à sa signature. Vérifiez la liste des paramètres et ajoutez ou retirez des paramètres."
+
+[E0059]
+"消息模板" = "la syntaxe des paramètres génériques du trait de fonction est incorrecte"
+"教学提示" = "La syntaxe à chevrons exige un tuple en argument, par ex. `Fn<(i32,), Output=...>`. Utilisez généralement directement la syntaxe `Fn(i32) -> ...`."
+
+[E0060]
+"消息模板" = "les arguments fixes de la fonction variadique sont incomplets"
+"教学提示" = "Lors de l'appel d'une fonction variadique, tous les arguments fixes doivent être fournis d'abord. Complétez les arguments manquants."
+
+[E0061]
+"消息模板" = "le nombre d'arguments de la fonction ne correspond pas"
+"教学提示" = "Comparez avec la liste de paramètres de la définition de la fonction et ajoutez ou retirez les arguments."
+
+[E0062]
+"消息模板" = "le même champ apparaît plusieurs fois dans le littéral de structure"
+"教学提示" = "Chaque champ ne peut être affecté qu'une fois. Supprimez le champ dupliqué ou fournissez la valeur via une variable."
+
+[E0063]
+"消息模板" = "des champs manquent dans l'initialisation de la structure"
+"教学提示" = "Lors de l'initialisation d'une structure, tous les champs doivent être affectés. Les champs restants peuvent être remplis avec la syntaxe `..Default::default()`."
+
+[E0067]
+"消息模板" = "le côté gauche de l'opérateur d'affectation n'est pas une cible assignable"
+"教学提示" = "Le côté gauche d'une affectation doit être une variable, un champ ou un index. Vérifiez l'expression de gauche."
+
+[E0069]
+"消息模板" = "la fonction a un type de retour autre que le tuple vide mais contient un retour sans valeur"
+"教学提示" = "Une fonction dont le type de retour n'est pas `()` doit retourner une valeur. Écrivez `retourner valeur;` ou supprimez le retour."
+
+[E0070]
+"消息模板" = "le côté gauche de l'opérateur d'affectation composée n'est pas une expression assignable"
+"教学提示" = "Le côté gauche d'une affectation composée (comme `+=`) doit être une variable, un champ ou un index. Vérifiez l'expression de gauche."
+
+[E0071]
+"消息模板" = "un littéral de structure est attendu ici mais un autre type est fourni"
+"教学提示" = "La syntaxe `Structure { champs }` ne vaut que pour les vraies structures. Pour les variantes d'énumération utilisez `enumeration::variante { }`, pour les structures tuple les parenthèses."
+
+[E0072]
+"消息模板" = "le type récursif manque d'un niveau d'indirection, sa taille serait infinie"
+"教学提示" = "Un type qui se contient directement croît indéfiniment. Utilisez `Box` (par ex. `boite<Soi>`) pour une inclusion indirecte à taille fixe."
+
+[E0073]
+"消息模板" = "(code d'erreur retiré) une structure ne peut pas contenir directement une instance d'elle-même"
+"教学提示" = "Un type ne peut pas se contenir directement. Utilisez `Box` pour une inclusion indirecte."
+
+[E0074]
+"消息模板" = "(code d'erreur retiré) tous les champs d'une structure tuple simd doivent être du même type"
+"教学提示" = "Tous les champs d'une structure tuple `#[simd]` doivent avoir le même type. Uniformisez les types des champs."
+
+[E0075]
+"消息模板" = "l'attribut simd n'est utilisable que sur une structure tuple à exactement un champ"
+"教学提示" = "`#[simd]` exige que la structure ait un et un seul champ. Ajustez la définition de la structure."
+
+[E0076]
+"消息模板" = "le type des champs de la structure simd ne satisfait pas les exigences"
+"教学提示" = "Les champs `#[simd]` doivent être des types numériques primitifs. Vérifiez les types des champs."
+
+[E0077]
+"消息模板" = "les éléments de la structure tuple simd ne sont pas des types machine"
+"教学提示" = "Les éléments `#[simd]` doivent être des types machine comme les entiers ou flottants. Vérifiez les types des éléments."
+
+[E0080]
+"消息模板" = "l'évaluation de la constante a échoué"
+"教学提示" = "L'expression constante a produit une erreur à la compilation (division par zéro, débordement d'indice...). Corrigez le calcul."
+
+[E0081]
+"消息模板" = "l'énumération contient des valeurs de discriminant dupliquées"
+"教学提示" = "La valeur de discriminant de chaque variante doit être unique. Ajustez les valeurs explicites ou supprimez l'affectation en conflit."
+
+[E0084]
+"消息模板" = "une énumération sans variantes ne peut pas spécifier de représentation mémoire"
+"教学提示" = "Une énumération sans variantes ne peut pas utiliser `#[repr]`. Supprimez l'attribut repr ou ajoutez des variantes."
+
+[E0087]
+"消息模板" = "(code d'erreur retiré) trop de paramètres de type fournis à la fonction"
+"教学提示" = "Le nombre d'arguments génériques fournis dépasse la définition de la fonction. Réduisez selon la signature."
+
+[E0088]
+"消息模板" = "(code d'erreur retiré) trop de paramètres de durée de vie fournis"
+"教学提示" = "Le nombre de paramètres de durée de vie fournis dépasse la définition. Réduisez selon la signature."
+
+[E0089]
+"消息模板" = "(code d'erreur retiré) pas assez de paramètres de type fournis à la fonction"
+"教学提示" = "Certains paramètres de type non inférables doivent être fournis explicitement. Complétez les arguments génériques selon la signature."
+
+[E0090]
+"消息模板" = "(code d'erreur retiré) pas assez de paramètres de durée de vie fournis"
+"教学提示" = "Complétez les paramètres de durée de vie manquants selon la signature."
+
+[E0091]
+"消息模板" = "un paramètre de type inutilisé est déclaré dans l'alias de type"
+"教学提示" = "Les paramètres génériques d'un alias de type doivent être utilisés dans le type de droite. Supprimez le paramètre ou utilisez-le."
+
+[E0092]
+"消息模板" = "(code d'erreur retiré) une fonction intrinsèque atomique non définie est déclarée"
+"教学提示" = "Le nom d'une fonction intrinsèque atomique doit correspondre à celui du compilateur. Vérifiez le nom."
+
+[E0093]
+"消息模板" = "une fonction intrinsèque inconnue est déclarée"
+"教学提示" = "Le nom d'une fonction intrinsèque doit correspondre à un nom pris en charge par le compilateur. Vérifiez l'orthographe."
+
+[E0094]
+"消息模板" = "le nombre de paramètres génériques de la fonction intrinsèque est incorrect"
+"教学提示" = "Chaque fonction intrinsèque exige un nombre fixe de paramètres génériques. Corrigez selon la définition."
+
+[E0109]
+"消息模板" = "le type ne prend pas de paramètres génériques mais des arguments génériques sont fournis"
+"教学提示" = "Supprimez les arguments génériques superflus ou vérifiez l'orthographe du nom du type."
+
+[E0110]
+"消息模板" = "(code d'erreur retiré) le type ne prend pas de paramètre de durée de vie mais un est fourni"
+"教学提示" = "Supprimez le paramètre de durée de vie superflu ou vérifiez l'orthographe du nom du type."
+
+[E0117]
+"消息模板" = "les implémentations ne peuvent être écrites que pour des types ou traits définis dans la caisse actuelle"
+"教学提示" = "Règle de l'orphelin : `implementation trait_externe pour type_externe` est interdit. Utilisez un nouveau type enveloppe (`structure enveloppe(TypeExterne)`) puis implémentez."
+
+[E0118]
+"消息模板" = "les implémentations inhérentes ne sont possibles que pour les structures, énumérations, unions et objets trait"
+"教学提示" = "On ne peut pas ajouter directement des méthodes aux types de base ou externes. Utilisez un nouveau type enveloppe."
+
+[E0119]
+"消息模板" = "des implémentations de trait conflictuelles existent pour le même type"
+"教学提示" = "Deux implémentations génériques peuvent couvrir le même type et entrer en conflit. Restreignez la portée ou distinguez avec un nouveau type."
+
+[E0120]
+"消息模板" = "seules les structures, énumérations et unions peuvent implémenter le trait Drop"
+"教学提示" = "`Drop` ne peut pas être implémenté pour des objets trait ou des références. Implémentez-le sur une structure ou une énumération concrète."
+
+[E0121]
+"消息模板" = "le type générique `_` n'est pas autorisé à cet endroit"
+"教学提示" = "`_` n'est autorisé qu'à certains endroits comme les liaisons de valeur (`laisser _ = valeur`). Écrivez un type concret ou un nom de paramètre générique."
+
+[E0124]
+"消息模板" = "deux champs du même nom sont déclarés dans la structure"
+"教学提示" = "Les noms de champs d'une même structure doivent être uniques. Renommez l'un des champs."
+
+[E0128]
+"消息模板" = "un paramètre de type avec valeur par défaut référence un paramètre déclaré plus tard"
+"教学提示" = "Les valeurs par défaut des paramètres génériques ne peuvent référencer que des paramètres déclarés avant. Ajustez l'ordre."
+
+[E0130]
+"消息模板" = "les paramètres d'une fonction externe ne peuvent pas utiliser de motifs"
+"教学提示" = "Les paramètres des fonctions `externe` doivent être de la forme `nom: type`. Déplacez la reconnaissance de motif dans le corps de la fonction."
+
+[E0131]
+"消息模板" = "la fonction principale ne peut pas avoir de paramètres génériques"
+"教学提示" = "`principale` est le point d'entrée du programme et ne peut pas déclarer de paramètres de type ou de durée de vie. Supprimez la déclaration générique."
+
+[E0132]
+"消息模板" = "(code d'erreur retiré) une fonction avec l'attribut start ne peut pas avoir de paramètres de type"
+"教学提示" = "La signature d'une fonction `#[start]` est fixe. Supprimez les paramètres de type."
+
+[E0136]
+"消息模板" = "(code d'erreur retiré) plusieurs fonctions principales trouvées"
+"教学提示" = "Une caisse ne peut avoir qu'une seule `principale`. Supprimez ou renommez les autres."
+
+[E0137]
+"消息模板" = "(code d'erreur retiré) plusieurs fonctions portent l'attribut #[main]"
+"教学提示" = "`#[main]` ne peut désigner qu'une seule fonction. N'en conservez qu'une."
+
+[E0138]
+"消息模板" = "(code d'erreur retiré) plusieurs fonctions portent l'attribut #[start]"
+"教学提示" = "`#[start]` ne peut désigner qu'une seule fonction. N'en conservez qu'une."
+
+[E0139]
+"消息模板" = "(code d'erreur retiré) la conversion de type (transmute) ne satisfait pas les restrictions"
+"教学提示" = "Les deux types de la conversion doivent avoir la même taille et être valides. Vérifiez les définitions des types."
+
+[E0152]
+"消息模板" = "un élément de langage est défini en double"
+"教学提示" = "Les éléments de langage (lang items) sont fournis par la bibliothèque standard et ne peuvent pas être redéfinis. Supprimez la définition dupliquée."
+
+[E0154]
+"消息模板" = "(code d'erreur retiré) les imports ne peuvent pas apparaître après des instructions non-éléments"
+"教学提示" = "Les instructions `utiliser` doivent précéder les déclarations de variables. Déplacez l'import au début du bloc."
+
+[E0158]
+"消息模板" = "les motifs ne peuvent pas référencer de paramètres génériques ou d'éléments statiques"
+"教学提示" = "Les motifs ne peuvent correspondre qu'à des valeurs ou structures concrètes. Utilisez une condition de garde (`si`) pour un test dynamique."
+
+[E0161]
+"消息模板" = "l'élément de tableau déplacé est trop volumineux pour être déplacé sur la pile"
+"教学提示" = "Déplacer un grand tableau par valeur dépasse la limite du cadre de pile. Passez par référence ou placez les données sur le tas avec `Box`."
+
+[E0162]
+"消息模板" = "(code d'erreur retiré) le motif de `si laisser` doit être infaillible"
+"教学提示" = "`si laisser` exige un motif qui ne peut pas échouer. Utilisez `correspondre` pour les motifs faillibles."
+
+[E0164]
+"消息模板" = "l'élément utilisé comme motif ici n'est pas une structure tuple ou une variante tuple"
+"教学提示" = "Les motifs entre parenthèses ne valent que pour les structures ou variantes tuple. Vérifiez la définition du type ou la syntaxe du motif."
+
+[E0165]
+"消息模板" = "(code d'erreur retiré) le motif de `tant_que laisser` doit être infaillible"
+"教学提示" = "`tant_que laisser` exige un motif qui ne peut pas échouer. Utilisez `correspondre` pour les motifs faillibles."
+
+[E0170]
+"消息模板" = "la liaison du motif porte le même nom qu'une variante du type et crée une ambiguïté"
+"教学提示" = "Le nom de la liaison entre en conflit avec un nom de variante d'énumération. Renommez la liaison ou utilisez le chemin complet."
+
+[E0178]
+"消息模板" = "l'objet trait est écrit à un emplacement incorrect"
+"教学提示" = "`dynamique trait` (dyn Trait) derrière une référence ou un pointeur doit être entre parenthèses, par ex. `&(dynamique trait)`."
+
+[E0183]
+"消息模板" = "l'implémentation manuelle de la famille de traits Fn n'est pas autorisée"
+"教学提示" = "`Fn`/`FnMut`/`FnOnce` sont implémentés automatiquement par le compilateur pour les closures. Utilisez une closure à la place."
+
+[E0184]
+"消息模板" = "un type implémentant Drop ne peut pas implémenter Copy"
+"教学提示" = "Un type avec une logique de destruction ne peut pas être copié bit à bit. Retirez l'implémentation de `copier` (Copy) et utilisez `cloner`."
+
+[E0185]
+"消息模板" = "la signature de la méthode implémentée ne correspond pas à la fonction associée du trait (statique vs méthode)"
+"教学提示" = "Le trait définit une fonction associée sans paramètre `soi`, mais l'implémentation est une méthode. Uniformisez la signature."
+
+[E0186]
+"消息模板" = "la signature de la fonction associée implémentée ne correspond pas à la méthode du trait (méthode vs statique)"
+"教学提示" = "Le trait définit une méthode avec paramètre `soi`, mais l'implémentation est une fonction associée. Uniformisez la signature."
+
+[E0191]
+"消息模板" = "la valeur du type associé de l'objet trait n'est pas spécifiée"
+"教学提示" = "Un trait avec types associés utilisé comme objet doit fournir les valeurs, par ex. `dynamique trait<TypeAssocie = i32>`."
+
+[E0192]
+"消息模板" = "(code d'erreur retiré) les implémentations négatives ne valent que pour les traits, pas pour les implémentations de trait"
+"教学提示" = "Vérifiez la syntaxe de l'implémentation négative."
+
+[E0193]
+"消息模板" = "(code d'erreur retiré) les clauses where doivent utiliser des paramètres de type génériques"
+"教学提示" = "Les clauses `si` (where) ne peuvent contraindre que des paramètres génériques. Supprimez les clauses sans paramètre générique."
+
+[E0195]
+"消息模板" = "les paramètres de durée de vie de la méthode diffèrent de la déclaration du trait"
+"教学提示" = "Les noms et l'ordre des paramètres de durée de vie de la méthode implémentée doivent correspondre à la définition du trait. Corrigez en conséquence."
+
+[E0197]
+"消息模板" = "un bloc d'implémentation inhérente ne peut pas être marqué dangereux"
+"教学提示" = "`dangereux` ne peut qualifier que des implémentations de trait ou des fonctions isolées. Retirez le `dangereux` du bloc d'implémentation."
+
+[E0198]
+"消息模板" = "une implémentation négative ne peut pas être marquée dangereuse"
+"教学提示" = "Les implémentations négatives (`dangereux implementation !trait`) ne nécessitent pas et n'autorisent pas `dangereux`. Supprimez-le."
+
+[E0199]
+"消息模板" = "l'implémentation d'un trait sûr n'a pas besoin d'être marquée dangereuse"
+"教学提示" = "Seules les implémentations de traits dangereux nécessitent `dangereux implementation`. Retirez le `dangereux` superflu."
+
+[E0200]
+"消息模板" = "l'implémentation d'un trait dangereux doit être marquée dangereuse"
+"教学提示" = "Pour implémenter un trait dangereux, écrivez `dangereux implementation trait pour type`."
+
+[E0201]
+"消息模板" = "deux éléments associés du même nom sont définis dans le même type"
+"教学提示" = "Les noms des méthodes, types associés et fonctions associées doivent être uniques. Renommez l'un d'eux."
+
+[E0203]
+"消息模板" = "la même borne de trait par défaut est déclarée en double"
+"教学提示" = "La borne par défaut est dupliquée sur le paramètre générique. Supprimez le doublon."
+
+[E0205]
+"消息模板" = "(code d'erreur retiré) l'implémentation de Copy de l'énumération échoue : une variante ne le prend pas en charge"
+"教学提示" = "L'implémentation de `copier` d'une énumération exige que les types des champs de toutes les variantes implémentent `copier`. Vérifiez les types des champs."
+
+[E0206]
+"消息模板" = "seules les structures, énumérations et unions peuvent implémenter Copy"
+"教学提示" = "`copier` (Copy) ne peut pas être implémenté pour d'autres types. Utilisez `cloner` ou un nouveau type enveloppe."
+
+[E0207]
+"消息模板" = "un paramètre de type/constante/durée de vie déclaré dans le bloc d'implémentation est inutilisé"
+"教学提示" = "Chaque paramètre générique déclaré sur l'implémentation doit apparaître dans le type cible ou le trait. Supprimez-le ou utilisez-le."
+
+[E0208]
+"消息模板" = "(code d'erreur retiré) erreur interne du compilateur"
+"教学提示" = "Ceci est un code d'erreur interne du compilateur, non déclenché par du code normal. Vérifiez la version du compilateur si cela persiste."
+
+[E0211]
+"消息模板" = "(code d'erreur retiré) la fonction ou le type utilisé ne satisfait pas les exigences de l'emplacement"
+"教学提示" = "Vérifiez que la définition de l'élément convient à l'emplacement d'utilisation actuel."
+
+[E0212]
+"消息模板" = "le type associé du trait ne peut pas être utilisé directement tant que le paramètre générique n'est pas inféré"
+"教学提示" = "Fournissez le paramètre générique explicitement ou utilisez le chemin complet `<type comme trait>::TypeAssocie`."
+
+[E0214]
+"消息模板" = "le type générique utilise à tort des parenthèses, il faut des chevrons"
+"教学提示" = "Les arguments génériques s'écrivent entre chevrons, comme `vecteur<i32>`. Les parenthèses sont la syntaxe des tuples."
+
+[E0220]
+"消息模板" = "le type associé utilisé n'existe pas dans le trait"
+"教学提示" = "Vérifiez l'orthographe du type associé et confirmez que le trait le définit bien."
+
+[E0221]
+"消息模板" = "le type associé est ambigu, plusieurs traits le définissent sous le même nom"
+"教学提示" = "Utilisez la syntaxe pleinement qualifiée `<type comme trait>::TypeAssocie`."
+
+[E0222]
+"消息模板" = "les bornes de trait ne peuvent pas être appliquées aux types associés"
+"教学提示" = "Un type associé ne peut être contraint qu'à une valeur (comme `TypeAssocie = i32`), pas avec `TypeAssocie: trait`."
+
+[E0223]
+"消息模板" = "le type associé est ambigu"
+"教学提示" = "Plusieurs traits du même nom définissent ce type associé. Utilisez la syntaxe pleinement qualifiée `<type comme trait>::TypeAssocie`."
+
+[E0224]
+"消息模板" = "un objet trait doit contenir au moins un trait"
+"教学提示" = "Au moins un trait doit suivre `dynamique`. Ajoutez le nom du trait."
+
+[E0225]
+"消息模板" = "une closure ou un objet trait ne peut avoir qu'une seule borne de trait non automatique"
+"教学提示" = "Les bornes de closure et d'objet trait n'autorisent qu'un seul trait non automatique plus quelques traits automatiques. Simplifiez les bornes."
+
+[E0226]
+"消息模板" = "un objet trait ne peut avoir qu'une seule borne de durée de vie explicite"
+"教学提示" = "Ne conservez qu'une seule borne de durée de vie, par ex. `dynamique trait + 'statique`."
+
+[E0227]
+"消息模板" = "impossible de déterminer une région unique à partir des bornes de durée de vie dérivées"
+"教学提示" = "Les contraintes de durée de vie sont ambiguës. Annotez la durée de vie explicitement."
+
+[E0228]
+"消息模板" = "la borne de durée de vie du type objet ne peut pas être inférée du contexte"
+"教学提示" = "Annotez explicitement la durée de vie de l'objet trait, par ex. `dynamique trait + 'statique`."
+
+[E0229]
+"消息模板" = "une contrainte d'élément associé apparaît à un emplacement non autorisé"
+"教学提示" = "Les contraintes de la forme `TypeAssocie = valeur` ne peuvent apparaître que dans les bornes de trait. Ajustez la syntaxe."
+
+[E0230]
+"消息模板" = "(code d'erreur retiré) l'attribut rustc_on_unimplemented est mal utilisé"
+"教学提示" = "Vérifiez la syntaxe des paramètres de l'attribut."
+
+[E0231]
+"消息模板" = "(code d'erreur retiré) l'attribut rustc_on_unimplemented manque de paramètres requis"
+"教学提示" = "Vérifiez la syntaxe des paramètres de l'attribut."
+
+[E0232]
+"消息模板" = "(code d'erreur retiré) le filtre de l'attribut rustc_on_unimplemented est invalide"
+"教学提示" = "Vérifiez les paramètres de filtre de l'attribut."
+
+[E0243]
+"消息模板" = "(code d'erreur retiré) pas assez de paramètres génériques fournis au type ou au trait"
+"教学提示" = "Complétez les arguments génériques selon la définition."
+
+[E0244]
+"消息模板" = "(code d'erreur retiré) trop de paramètres génériques fournis au type ou au trait"
+"教学提示" = "Réduisez les arguments génériques superflus selon la définition."
+
+[E0251]
+"消息模板" = "(code d'erreur retiré) un élément du même nom est importé deux fois"
+"教学提示" = "Les imports du même nom nécessitent un renommage de l'un d'eux avec `comme`."
+
+[E0252]
+"消息模板" = "conflit d'import : un élément est importé deux fois"
+"教学提示" = "Deux instructions `utiliser` du même périmètre introduisent le même élément. Supprimez l'import dupliqué ou créez un alias avec `comme`."
+
+[E0253]
+"消息模板" = "(code d'erreur retiré) un type non importable a été importé"
+"教学提示" = "Certains types auxiliaires ne peuvent pas être importés directement. Importez le type principal puis accédez-y par chemin."
+
+[E0254]
+"消息模板" = "le nom importé entre en conflit avec le nom d'une caisse externe déjà importée"
+"教学提示" = "Créez un alias pour la caisse externe avec `comme` ou renommez l'élément importé."
+
+[E0256]
+"消息模板" = "(code d'erreur retiré) l'import entre en conflit avec un élément du même nom dans le module actuel"
+"教学提示" = "Créez un alias pour l'import avec `comme` ou renommez l'élément local."
+
+[E0259]
+"消息模板" = "le nom de la caisse externe entre en conflit avec une autre caisse importée"
+"教学提示" = "Créez un alias pour l'une des caisses avec `comme`."
+
+[E0260]
+"消息模板" = "le nom de la déclaration d'élément entre en conflit avec le nom d'une caisse externe"
+"教学提示" = "Renommez l'élément local ou créez un alias pour la caisse externe avec `comme`."
+
+[E0261]
+"消息模板" = "une durée de vie non déclarée est utilisée"
+"教学提示" = "Les durées de vie doivent d'abord être déclarées dans la liste de paramètres de la fonction ou du type, par ex. `<'duree_de_vie>`."
+
+[E0262]
+"消息模板" = "le nom du paramètre de durée de vie est invalide"
+"教学提示" = "Les noms de durée de vie commencent par `'` suivi de lettres et ne peuvent pas utiliser de noms réservés (comme `'statique`). Renommez."
+
+[E0263]
+"消息模板" = "(code d'erreur retiré) la même durée de vie est déclarée plusieurs fois dans le même périmètre"
+"教学提示" = "Supprimez la déclaration de durée de vie dupliquée."
+
+[E0264]
+"消息模板" = "un élément de langage externe inconnu est utilisé"
+"教学提示" = "Le nom référencé par `#[element_de_langage]` n'existe pas. Vérifiez le nom ou utilisez un élément de la bibliothèque standard."
+
+[E0267]
+"消息模板" = "un mot-clé de boucle est utilisé dans une closure qui n'est dans aucune boucle"
+"教学提示" = "`rompre`/`continuer` n'agissent que sur la boucle qui les contient. Contrôlez le flux autrement, par exemple avec des valeurs de retour."
+
+[E0268]
+"消息模板" = "un mot-clé de boucle apparaît en dehors d'une boucle"
+"教学提示" = "`rompre` et `continuer` ne peuvent s'écrire que dans le corps d'une boucle. Déplacez-les dans la boucle ou utilisez un autre contrôle."
+
+[E0275]
+"消息模板" = "débordement lors de l'évaluation des contraintes de trait (récursion infinie des contraintes)"
+"教学提示" = "Les contraintes de trait forment une dérivation circulaire. Brisez la dépendance mutuelle ou augmentez la limite de récursion avec un attribut."
+
+[E0276]
+"消息模板" = "l'implémentation a des contraintes plus strictes que la définition du trait"
+"教学提示" = "L'implémentation ne peut pas ajouter de contraintes au-delà de la définition du trait. Retirez les bornes supplémentaires."
+
+[E0281]
+"消息模板" = "(code d'erreur retiré) le type fourni n'implémente pas le trait requis"
+"教学提示" = "Implémentez le trait requis pour le type ou utilisez un type qui l'implémente déjà."
+
+[E0283]
+"消息模板" = "ambiguïté d'inférence de type : plusieurs implémentations peuvent satisfaire l'exigence"
+"教学提示" = "Le compilateur ne peut pas choisir d'implémentation. Levez l'ambiguïté avec une annotation de type explicite, par ex. `laisser x: vecteur<i32> = vecteur::nouveau();`."
+
+[E0284]
+"消息模板" = "le type de retour de la fonction ne peut pas être inféré"
+"教学提示" = "Les fonctions à type de retour générique (comme `collecter()`) nécessitent une annotation explicite. Écrivez `laisser x: ensemble<_> = ...` ou utilisez `collecter::<ensemble<_>>()`."
+
+[E0297]
+"消息模板" = "(code d'erreur retiré) un motif infaillible est requis ici"
+"教学提示" = "Utilisez `correspondre` ou `si laisser` pour les motifs faillibles."
+
+[E0301]
+"消息模板" = "(code d'erreur retiré) les emprunts mutables ne sont pas autorisés dans les gardes de correspondance"
+"教学提示" = "La correspondance ne doit pas avoir d'effets secondaires. Déplacez l'opération mutable après la correspondance."
+
+[E0302]
+"消息模板" = "(code d'erreur retiré) les affectations ne sont pas autorisées dans les gardes de correspondance"
+"教学提示" = "La correspondance ne doit pas avoir d'effets secondaires. Déplacez l'affectation après la correspondance."
+
+[E0303]
+"消息模板" = "(code d'erreur retiré) la syntaxe de sous-liaison après `@` est invalide"
+"教学提示" = "Vérifiez la syntaxe des liaisons des deux côtés du motif `@`."
+
+[E0307]
+"消息模板" = "le paramètre self de la méthode utilise un type receveur invalide"
+"教学提示" = "Le paramètre `soi` ne peut être que `soi`, `&soi`, `&mutable soi`, `boite<soi>` etc. Corrigez le type receveur."
+
+[E0311]
+"消息模板" = "la durée de vie élidée ne satisfait pas la contrainte de survie"
+"教学提示" = "Les contraintes de survie avec paramètres génériques ne peuvent pas être dérivées des durées de vie élidées. Annotez la durée de vie explicitement."
+
+[E0312]
+"消息模板" = "(code d'erreur retiré) la durée de vie du contenu emprunté ne correspond pas à la durée de vie attendue"
+"教学提示" = "Uniformisez les annotations de durée de vie des références concernées."
+
+[E0316]
+"消息模板" = "les quantifications de durée de vie imbriquées ne sont pas autorisées dans les clauses where"
+"教学提示" = "Les contraintes de durée de vie ne peuvent pas être déclarées de manière imbriquée. Déclarez la durée de vie dans la signature de la fonction."
+
+[E0317]
+"消息模板" = "l'expression si utilisée comme valeur manque de branche sinon"
+"教学提示" = "Un `si` utilisé comme valeur doit avoir une branche `sinon`, et les deux branches doivent avoir le même type. Ajoutez le `sinon`."
+
+[E0320]
+"消息模板" = "la profondeur de récursion lors de la création des règles de vérification de destruction dépasse la limite"
+"教学提示" = "La structure du type est trop complexe et fait déborder la vérification. Simplifiez la définition du type ou augmentez la limite."
+
+[E0321]
+"消息模板" = "les traits de désengagement inter-caisses ne peuvent être implémentés que sur des structures ou énumérations"
+"教学提示" = "Ces traits (comme les implémentations manuelles de `envoi`/`synchrone`) ne peuvent être implémentés que pour des structures ou énumérations. Utilisez un nouveau type enveloppe."
+
+[E0322]
+"消息模板" = "les traits intégrés ne peuvent pas être implémentés explicitement"
+"教学提示" = "Les traits intégrés comme `taille` (Sized) sont implémentés automatiquement par le compilateur. Supprimez l'implémentation manuelle."
+
+[E0323]
+"消息模板" = "type d'élément de trait inattendu : un autre élément était attendu mais une constante associée est fournie"
+"教学提示" = "Le type de l'élément implémenté doit correspondre à la définition du trait. Corrigez selon la déclaration."
+
+[E0324]
+"消息模板" = "type d'élément de trait inattendu : un autre élément était attendu mais une méthode est fournie"
+"教学提示" = "Le type de l'élément implémenté doit correspondre à la définition du trait. Corrigez selon la déclaration."
+
+[E0325]
+"消息模板" = "type d'élément de trait inattendu : un autre élément était attendu mais un type associé est fourni"
+"教学提示" = "Le type de l'élément implémenté doit correspondre à la définition du trait. Corrigez selon la déclaration."
+
+[E0326]
+"消息模板" = "l'implémentation du trait ne satisfait pas la contrainte de type"
+"教学提示" = "Le type de l'élément associé dans l'implémentation ne correspond pas aux contraintes du trait. Corrigez selon la déclaration."
+
+[E0328]
+"消息模板" = "le trait Unsize ne peut pas être implémenté directement"
+"教学提示" = "`Unsize` est implémenté automatiquement par le compilateur. Supprimez l'implémentation manuelle."
+
+[E0329]
+"消息模板" = "(code d'erreur retiré) une constante associée ne peut pas être accédée via un paramètre générique"
+"教学提示" = "Accédez aux constantes associées via un type concret."
+
+[E0364]
+"消息模板" = "un élément privé ne peut pas être réexporté publiquement"
+"教学提示" = "L'élément réexporté avec `publique utiliser` doit lui-même être public. Rendez l'élément public ou réduisez la visibilité de la réexportation."
+
+[E0365]
+"消息模板" = "un module privé ne peut pas être réexporté publiquement"
+"教学提示" = "Le module réexporté avec `publique utiliser` doit lui-même être public. Rendez le module public ou réduisez la visibilité de la réexportation."
+
+[E0366]
+"消息模板" = "Drop ne peut pas être implémenté pour une spécialisation concrète d'un type générique"
+"教学提示" = "`Drop` ne peut être implémenté que pour le type complet, pas pour une spécialisation comme `Type<u32>`. Implémentez-le sur le type générique entier."
+
+[E0367]
+"消息模板" = "Drop ne peut pas être implémenté pour une spécialisation d'un type générique"
+"教学提示" = "L'implémentation de `Drop` ne peut pas avoir de contraintes génériques restrictives. Implémentez-la sur le type générique sans contraintes."
+
+[E0368]
+"消息模板" = "le type ne prend pas en charge l'opérateur d'affectation composée"
+"教学提示" = "Les opérateurs comme `+=` nécessitent l'implémentation du trait d'opérateur correspondant (comme `plus_assigner`). Implémentez-le ou utilisez une affectation simple."
+
+[E0370]
+"消息模板" = "la valeur de discriminant de l'énumération a atteint le maximum et ne peut pas être incrémentée automatiquement"
+"教学提示" = "La valeur de discriminant déborde. Attribuez explicitement des valeurs plus petites aux variantes suivantes."
+
+[E0371]
+"消息模板" = "une implémentation supplémentaire est écrite pour un trait déjà implémenté automatiquement"
+"教学提示" = "Le trait est déjà implémenté automatiquement par le compilateur. Supprimez l'implémentation manuelle."
+
+[E0374]
+"消息模板" = "la structure de l'implémentation CoerceUnsized ne contient pas le champ à convertir"
+"教学提示" = "Le trait exige que la structure contienne exactement un champ subissant une conversion sans taille. Ajustez la définition de la structure."
+
+[E0375]
+"消息模板" = "la structure de l'implémentation CoerceUnsized contient plusieurs champs convertis"
+"教学提示" = "Le trait exige que la structure contienne exactement un champ subissant une conversion sans taille. Ajustez la définition de la structure."
+
+[E0376]
+"消息模板" = "(code d'erreur retiré) CoerceUnsized ne peut être implémenté qu'entre structures"
+"教学提示" = "Modifiez l'implémentation pour utiliser un type structure."
+
+[E0377]
+"消息模板" = "CoerceUnsized ne peut être implémenté qu'entre structures du même type"
+"教学提示" = "La source et la cible doivent être des instances génériques différentes de la même structure. Ajustez l'implémentation."
+
+[E0378]
+"消息模板" = "DispatchFromDyn ne peut être implémenté que pour des pointeurs ou types enveloppes de pointeur"
+"教学提示" = "Implémentez le trait pour des types pointeurs ou des nouveaux types à un seul champ enveloppant un pointeur."
+
+[E0379]
+"消息模板" = "les méthodes de trait ne peuvent pas encore être déclarées comme fonctions constantes"
+"教学提示" = "Les méthodes `fonction constante` ne sont pas encore prises en charge dans les traits. Retirez le modificateur `constante` ou utilisez une constante associée."
+
+[E0380]
+"消息模板" = "les traits automatiques ne peuvent pas contenir de méthodes ou d'éléments associés"
+"教学提示" = "Les traits automatiques (`trait automatique`) ne sont implémentés que par le compilateur et ne peuvent avoir aucun élément. Supprimez les éléments ou utilisez un trait ordinaire."
+
+[E0381]
+"消息模板" = "une variable non initialisée ne peut pas être utilisée"
+"教学提示" = "Les variables doivent être affectées avant utilisation. Initialisez à la déclaration ou affectez une valeur avant l'utilisation."
+
+[E0383]
+"消息模板" = "(code d'erreur retiré) une structure déplacée ne peut pas être partiellement réinitialisée"
+"教学提示" = "Après le déplacement d'une valeur, on ne peut pas initialiser seulement certains champs. Réaffectez la valeur entière."
+
+[E0386]
+"消息模板" = "(code d'erreur retiré) la cible d'une référence mutable stockée à un emplacement non initialisé ne peut pas être modifiée"
+"教学提示" = "Initialisez d'abord l'emplacement de stockage."
+
+[E0387]
+"消息模板" = "une valeur ne peut pas être affectée à la variable capturée dans une closure non mutable"
+"教学提示" = "Les closures capturent les variables externes de manière non mutable par défaut. Ajoutez `deplacer` devant la closure ou déclarez la variable externe avec `laisser mutable`."
+
+[E0388]
+"消息模板" = "(code d'erreur retiré) les données d'initialisation d'un élément statique ne peuvent pas être modifiées"
+"教学提示" = "Vérifiez la manière dont l'élément statique mutable est utilisé."
+
+[E0389]
+"消息模板" = "(code d'erreur retiré) les données ne peuvent pas être modifiées via une référence non mutable"
+"教学提示" = "Modifier des données nécessite une référence `&mutable` ou une variable `laisser mutable`."
+
+[E0390]
+"消息模板" = "les types de base ne peuvent pas recevoir directement des méthodes ou constantes"
+"教学提示" = "Utilisez un nouveau type enveloppe (`structure enveloppe(i32)`) puis implémentez les méthodes dessus."
+
+[E0391]
+"消息模板" = "cycle détecté dans le calcul de type : la définition du type se référence indirectement elle-même"
+"教学提示" = "Les types forment un cycle de références (la structure A contient la structure B, qui contient A). Brisez le cycle avec une référence indirecte via `Box`."
+
+[E0392]
+"消息模板" = "un paramètre de type ou de durée de vie est déclaré mais inutilisé"
+"教学提示" = "Les paramètres génériques doivent être utilisés dans le corps du type. Supprimez le paramètre ou marquez l'utilisation avec un champ `donnees_fantomes`."
+
+[E0393]
+"消息模板" = "un paramètre de type dont la valeur par défaut référence Self doit être spécifié explicitement"
+"教学提示" = "La valeur par défaut de ce paramètre de type dépend de `Soi` et ne peut pas être inférée. Fournissez l'argument de type explicitement à l'appel."
+
+[E0398]
+"消息模板" = "(code d'erreur retiré) les règles de bornes de durée de vie par défaut des objets trait ont changé"
+"教学提示" = "Annotez explicitement la durée de vie de l'objet trait."
+
+[E0399]
+"消息模板" = "(code d'erreur retiré) après la redéfinition du type associé, les méthodes dépendantes doivent être réimplémentées"
+"教学提示" = "Réimplémentez les méthodes qui dépendent de ce type associé."
+
+[E0401]
+"消息模板" = "les imports ne peuvent utiliser que des modules ou des éléments de premier niveau, pas des variables locales"
+"教学提示" = "Les instructions `utiliser` ne peuvent pointer que vers des modules, fonctions et types de premier niveau. Les variables locales n'ont pas besoin d'import, utilisez directement leur nom."
+
+[E0403]
+"消息模板" = "des paramètres de type portent le même nom"
+"教学提示" = "Dans le même périmètre, les noms de paramètres génériques doivent être uniques. Renommez l'un d'eux."
+
+[E0405]
+"消息模板" = "le trait est introuvable"
+"教学提示" = "Vérifiez l'orthographe du trait et assurez-vous que le module est importé avec `utiliser`. Les traits standard comme `cloner` (Clone) doivent d'abord être importés."
+
+[E0408]
+"消息模板" = "les liaisons de variables ne sont pas uniformes des deux côtés du motif alternatif"
+"教学提示" = "Chaque motif séparé par `|` doit lier les mêmes noms. Uniformisez les liaisons de toutes les branches."
+
+[E0409]
+"消息模板" = "l'ensemble des variables liées n'est pas identique des deux côtés du motif alternatif"
+"教学提示" = "Chaque motif séparé par `|` doit lier exactement le même ensemble de variables. Uniformisez les liaisons."
+
+[E0411]
+"消息模板" = "le mot-clé Soi ne peut être utilisé que dans des implémentations, traits ou définitions de type"
+"教学提示" = "`Soi` (Self) n'apparaît que dans les contextes `implementation`/`trait`/définition de type. Utilisez le nom de type concret à la place."
+
+[E0415]
+"消息模板" = "la fonction contient plusieurs paramètres du même nom"
+"教学提示" = "Les noms de paramètres de fonction doivent être uniques. Renommez l'un des paramètres."
+
+[E0416]
+"消息模板" = "le même identifiant est lié plusieurs fois dans le motif"
+"教学提示" = "Chaque nom ne peut être lié qu'une fois dans un motif. Utilisez un autre nom ou un motif `|`."
+
+[E0423]
+"消息模板" = "une fonction ou une valeur est attendue mais l'identifiant appartient à un autre espace de noms"
+"教学提示" = "Le nom est un type, un module ou une variante, pas une fonction. Vérifiez le nom ; les variantes d'énumération nécessitent le chemin complet comme `enumeration::variante`."
+
+[E0424]
+"消息模板" = "self est utilisé dans une fonction associée sans paramètre self"
+"教学提示" = "`soi` ne peut être utilisé que dans les méthodes avec paramètre `soi`. Pour les fonctions associées, passez l'instance en paramètre."
+
+[E0426]
+"消息模板" = "une étiquette de boucle non déclarée est utilisée"
+"教学提示" = "Les étiquettes de boucle doivent d'abord être déclarées (comme `'externe: boucle { }`) avant d'être utilisées dans `rompre 'externe`. Vérifiez l'orthographe de l'étiquette."
+
+[E0428]
+"消息模板" = "le nom est déjà défini dans cet espace de noms de types"
+"教学提示" = "Les définitions de types du même nom ne sont pas autorisées dans le même périmètre. Renommez l'une d'elles ou déplacez l'autre dans un sous-module."
+
+[E0429]
+"消息模板" = "(code d'erreur retiré) self ne peut pas apparaître seul à la fin d'une instruction utiliser"
+"教学提示" = "Utilisez `utiliser module::{self}` ou écrivez directement `utiliser module`."
+
+[E0430]
+"消息模板" = "(code d'erreur retiré) self apparaît plusieurs fois dans la liste d'imports"
+"教学提示" = "Supprimez l'entrée d'import `self` dupliquée."
+
+[E0431]
+"消息模板" = "(code d'erreur retiré) la syntaxe de l'import self est invalide"
+"教学提示" = "Vérifiez la position et la syntaxe de `self` dans la liste d'imports."
+
+[E0434]
+"消息模板" = "la fonction interne utilise une variable de l'environnement extérieur"
+"教学提示" = "Les fonctions ordinaires ne peuvent pas capturer les variables locales externes (seules les closures le peuvent). Passez la variable en paramètre ou utilisez une closure."
+
+[E0437]
+"消息模板" = "l'implémentation utilise un type associé inexistant dans le trait"
+"教学提示" = "Vérifiez l'orthographe du type associé ou supprimez-le de l'implémentation."
+
+[E0438]
+"消息模板" = "l'implémentation utilise une constante associée inexistante dans le trait"
+"教学提示" = "Vérifiez l'orthographe de la constante associée ou supprimez-la de l'implémentation."
+
+[E0439]
+"消息模板" = "(code d'erreur retiré) aucune longueur spécifiée pour simd_shuffle"
+"教学提示" = "Spécifiez la longueur du tableau pour cette fonction intrinsèque."
+
+[E0445]
+"消息模板" = "(code d'erreur retiré) la borne d'un paramètre de type public utilise un trait privé"
+"教学提示" = "Les traits de borne des interfaces publiques doivent eux-mêmes être publics."
+
+[E0446]
+"消息模板" = "la signature d'un type associé public utilise un type ou un trait privé"
+"教学提示" = "Les signatures des éléments publics ne peuvent référencer que des éléments publics. Rendez les types/traits publics ou réduisez la visibilité du type associé."
+
+[E0447]
+"消息模板" = "(code d'erreur retiré) le mot-clé pub ne peut pas être utilisé à l'intérieur des fonctions"
+"教学提示" = "`publique` ne peut qualifier que des définitions d'éléments. Supprimez le `publique` à l'intérieur de la fonction."
+
+[E0448]
+"消息模板" = "(code d'erreur retiré) pub ne peut pas être utilisé de nouveau dans une énumération publique"
+"教学提示" = "Les variantes d'énumération héritent automatiquement de la visibilité de l'énumération. Supprimez le `publique` sur les variantes."
+
+[E0449]
+"消息模板" = "aucun modificateur de visibilité n'est nécessaire ici"
+"教学提示" = "Les méthodes et éléments associés d'un trait héritent automatiquement de sa visibilité ; on ne peut pas écrire `publique` ou similaire. Supprimez simplement le modificateur."
+
+[E0451]
+"消息模板" = "le champ de la structure est privé et ne peut pas être construit directement"
+"教学提示" = "Sans déclaration `publique`, le champ ne peut pas être initialisé directement hors du module. Utilisez la méthode de construction du type ou rendez le champ public."
+
+[E0452]
+"消息模板" = "la syntaxe de l'attribut de vérification est invalide"
+"教学提示" = "Les attributs de vérification s'écrivent `#[autoriser(nom)]`, `#[avertir(nom)]` etc. Vérifiez la syntaxe de l'attribut."
+
+[E0453]
+"消息模板" = "l'attribut de vérification est couvert par l'interdiction du niveau supérieur"
+"教学提示" = "Le niveau supérieur a désactivé définitivement la vérification avec `interdire(nom)` ; le niveau intérieur ne peut pas l'assouplir. Ajustez l'interdiction du niveau supérieur."
+
+[E0454]
+"消息模板" = "le nom de lien de l'attribut de lien est vide"
+"教学提示" = "Le paramètre name de `#[lien]` ne peut pas être vide. Ajoutez le nom de la bibliothèque."
+
+[E0455]
+"消息模板" = "ce type de lien n'est pas pris en charge sur la plateforme actuelle"
+"教学提示" = "Par exemple, `kind=framework` n'est pris en charge que sur macOS. Utilisez un type de lien pris en charge par la plateforme actuelle."
+
+[E0457]
+"消息模板" = "(code d'erreur retiré) le plugin n'existe qu'au format rlib, le format dylib est requis"
+"教学提示" = "Recompilez le plugin au format bibliothèque dynamique."
+
+[E0458]
+"消息模板" = "(code d'erreur retiré) l'attribut de lien spécifie un kind inconnu"
+"教学提示" = "kind ne peut être qu'une valeur connue comme dylib, static ou framework. Vérifiez."
+
+[E0459]
+"消息模板" = "l'attribut de lien manque le paramètre name"
+"教学提示" = "`#[lien]` doit spécifier le nom de la bibliothèque. Ajoutez `name = \"nom_bibliotheque\"`."
+
+[E0460]
+"消息模板" = "une version plus récente de la dépendance a été trouvée, les métadonnées de caisse ne correspondent pas"
+"教学提示" = "Les versions compilées des dépendances sont incohérentes. Nettoyez puis recompilez (`cargo clean`)."
+
+[E0461]
+"消息模板" = "aucune caisse correspondant à la plateforme cible trouvée"
+"教学提示" = "La dépendance n'est pas compilée pour la plateforme cible actuelle. Vérifiez la plateforme cible et la configuration de construction."
+
+[E0462]
+"消息模板" = "un fichier de bibliothèque statique est trouvé mais une rlib ou bibliothèque dynamique est attendue"
+"教学提示" = "Le format de la bibliothèque de dépendance est incorrect. Gérez les dépendances avec cargo ou recompilez au bon format."
+
+[E0464]
+"消息模板" = "plusieurs fichiers de bibliothèque portent le même nom de caisse, impossible de choisir"
+"教学提示" = "Plusieurs versions de la même dépendance existent. Nettoyez les artefacts puis recompilez, ou unifiez les versions avec `cargo update`."
+
+[E0466]
+"消息模板" = "(code d'erreur retiré) la déclaration d'import de macro est mal formée"
+"教学提示" = "Vérifiez la syntaxe de l'import de macro."
+
+[E0468]
+"消息模板" = "un module non racine tente d'importer des macros d'une autre caisse"
+"教学提示" = "Les imports de macros (`#[macro_utiliser]`) ne peuvent s'écrire que dans le module racine (main.rs/lib.rs). Déplacez-le dans le module racine."
+
+[E0469]
+"消息模板" = "la macro importée n'existe pas"
+"教学提示" = "Vérifiez l'orthographe du nom de la macro et confirmez que la caisse exporte bien cette macro."
+
+[E0472]
+"消息模板" = "l'assembly en ligne n'est pas pris en charge sur la plateforme cible actuelle"
+"教学提示" = "La macro `asm!` n'est pas disponible sur cette plateforme cible. Utilisez la compilation conditionnelle ou une implémentation indépendante de la plateforme."
+
+[E0476]
+"消息模板" = "le type après la conversion a une durée de vie plus courte que la valeur d'origine"
+"教学提示" = "Le type cible référence des données à durée de vie plus courte. Prolongez la durée de vie des données référencées."
+
+[E0477]
+"消息模板" = "(code d'erreur retiré) le type ne satisfait pas la durée de vie requise"
+"教学提示" = "Annotez et uniformisez les durées de vie explicitement."
+
+[E0478]
+"消息模板" = "la contrainte de borne de durée de vie n'est pas satisfaite"
+"教学提示" = "Une durée de vie ne satisfait pas la contrainte `survit plus longtemps que`. Annotez la durée de vie explicitement ou ajustez la portée de l'emprunt."
+
+[E0482]
+"消息模板" = "(code d'erreur retiré) la durée de vie de la valeur de retour ne dépasse pas l'appel de fonction"
+"教学提示" = "Ne retournez pas de référence vers une variable locale. Retournez une valeur possédée."
+
+[E0491]
+"消息模板" = "la durée de vie de la référence est plus longue que celle des données référencées"
+"教学提示" = "Une référence ne peut pas vivre plus longtemps que ses données. Prolongez la durée de vie des données ou ajustez la portée de la référence."
+
+[E0492]
+"消息模板" = "une constante à mutabilité intérieure ne peut pas être empruntée"
+"教学提示" = "Les constantes à mutabilité intérieure (comme `cellule`/`mutex`) ne peuvent pas être empruntées directement. Placez les données dans un élément `statique`."
+
+[E0493]
+"消息模板" = "une valeur avec Drop personnalisé pourrait être détruite pendant l'évaluation constante"
+"教学提示" = "Les contextes constants n'autorisent pas l'exécution de destructeurs. Ajustez l'expression constante pour éviter de créer puis détruire la valeur à la compilation."
+
+[E0495]
+"消息模板" = "(code d'erreur retiré) la durée de vie ne peut pas être déterminée"
+"教学提示" = "Annotez la durée de vie explicitement."
+
+[E0497]
+"消息模板" = "(code d'erreur retiré) les attributs de stabilité ne peuvent être utilisés que dans la bibliothèque standard"
+"教学提示" = "`#[stable]`/`#[unstable]` sont des attributs réservés à la bibliothèque standard. Supprimez-les."
+
+[E0498]
+"消息模板" = "(code d'erreur retiré) l'attribut plugin est mal formé"
+"教学提示" = "Vérifiez la syntaxe de l'attribut de plugin."
+
+[E0500]
+"消息模板" = "la closure occupe une variable déjà empruntée"
+"教学提示" = "La capture de la closure entre en conflit avec l'emprunt. Réduisez la portée de la closure ou de l'emprunt, ou ajoutez `deplacer` devant la closure."
+
+[E0501]
+"消息模板" = "la variable mutable est déjà capturée par la closure et ne peut plus être utilisée"
+"教学提示" = "La closure a capturé la variable de manière exclusive. Réduisez la portée de la closure ou transférez la propriété avec `deplacer`."
+
+[E0503]
+"消息模板" = "la valeur est encore utilisée après un emprunt mutable"
+"教学提示" = "Pendant un emprunt mutable, la valeur d'origine ne peut pas être utilisée. Terminez d'abord l'emprunt mutable (réduisez la portée)."
+
+[E0504]
+"消息模板" = "(code d'erreur retiré) une variable empruntée est déplacée dans une closure"
+"教学提示" = "Déplacez après la fin de l'emprunt ou utilisez une référence."
+
+[E0506]
+"消息模板" = "une valeur déjà empruntée ne peut pas être réaffectée"
+"教学提示" = "L'affectation détruit l'ancienne valeur et peut invalider l'emprunt. Terminez d'abord l'emprunt."
+
+[E0509]
+"消息模板" = "une valeur ne peut pas être sortie d'un type qui implémente Drop"
+"教学提示" = "Sortir un champ contourne la logique de destruction du type. Enveloppez le champ avec `Option` puis utilisez `prendre()`, ou opérez sur la valeur entière."
+
+[E0510]
+"消息模板" = "une affectation à la valeur correspondue est faite dans la garde de correspondance"
+"教学提示" = "La correspondance ne doit pas avoir d'effets secondaires. Déplacez l'affectation dans le corps du bras."
+
+[E0511]
+"消息模板" = "le type monomorphisé de la fonction intrinsèque est invalide"
+"教学提示" = "Cette fonction intrinsèque ne prend pas en charge la combinaison de types actuelle. Vérifiez les arguments de type fournis."
+
+[E0512]
+"消息模板" = "les deux types de la conversion ont des tailles différentes"
+"教学提示" = "La conversion sous-jacente exige que les deux types aient exactement le même nombre d'octets. Utilisez des types de même taille ou une conversion sûre."
+
+[E0514]
+"消息模板" = "la dépendance est compilée avec une version différente du compilateur"
+"教学提示" = "Nettoyez puis recompilez toutes les dépendances avec la même version du compilateur."
+
+[E0516]
+"消息模板" = "(code d'erreur retiré) le mot-clé typeof est réservé mais non implémenté"
+"教学提示" = "Écrivez le nom du type explicitement."
+
+[E0517]
+"消息模板" = "(code d'erreur retiré) l'attribut est utilisé à un emplacement non pris en charge"
+"教学提示" = "Vérifiez les emplacements applicables de cet attribut."
+
+[E0518]
+"消息模板" = "(code d'erreur retiré) l'attribut inline ne peut être utilisé que sur des fonctions ou méthodes"
+"教学提示" = "Déplacez `#[inline]` sur une fonction ou une méthode."
+
+[E0519]
+"消息模板" = "la caisse actuelle et l'une de ses dépendances sont indiscernables dans les métadonnées"
+"教学提示" = "Le nom de la caisse coïncide avec une dépendance. Renommez la caisse actuelle ou l'alias de la dépendance."
+
+[E0520]
+"消息模板" = "le type possède déjà une implémentation non par défaut et ne peut pas être spécialisé davantage"
+"教学提示" = "La spécialisation exige d'abord une implémentation `default`. Marquez l'implémentation de base comme `default implementation`."
+
+[E0521]
+"消息模板" = "des données empruntées s'échappent de la closure"
+"教学提示" = "La closure retourne ou déplace un emprunt capturé. Réduisez la portée d'utilisation de la closure ou laissez-la posséder les données (`deplacer`)."
+
+[E0522]
+"消息模板" = "l'attribut d'élément de langage est utilisé dans un contexte invalide"
+"教学提示" = "`#[element_de_langage]` ne peut être utilisé que pour certains types d'éléments. Vérifiez l'emplacement de l'attribut."
+
+[E0523]
+"消息模板" = "(code d'erreur retiré) plusieurs fichiers de bibliothèque portent le même nom de caisse"
+"教学提示" = "Nettoyez les artefacts de construction puis recompilez."
+
+[E0524]
+"消息模板" = "une variable nécessitant un accès exclusif est utilisée par plusieurs closures simultanément"
+"教学提示" = "Chaque closure `FnMut`/`FnOnce` capture les variables de manière exclusive. Exécutez les closures séquentiellement ou capturez par référence."
+
+[E0525]
+"消息模板" = "la closure ne satisfait pas le trait de fonction attendu"
+"教学提示" = "`Fn` est attendu mais la closure modifie des variables capturées (seulement `FnMut`). Ajustez la logique interne de la closure ou assouplissez le trait attendu."
+
+[E0527]
+"消息模板" = "le nombre d'éléments du motif de tableau ou tranche ne correspond pas au tableau comparé"
+"教学提示" = "Le nombre d'éléments du motif doit être égal à la longueur du tableau. Vérifiez le nombre ou utilisez `..` pour les éléments restants."
+
+[E0528]
+"消息模板" = "le motif de tableau ou tranche exige plus d'éléments que le tableau réel"
+"教学提示" = "Réduisez le nombre d'éléments dans le motif ou utilisez `..` comme joker."
+
+[E0529]
+"消息模板" = "un motif de tableau ou tranche est appliqué à un autre type"
+"教学提示" = "Ce motif ne peut correspondre qu'à des tableaux, tranches ou références de tranche. Vérifiez le type de la valeur comparée."
+
+[E0531]
+"消息模板" = "structure tuple ou variante tuple inconnue"
+"教学提示" = "Vérifiez l'orthographe du nom et les imports ; les variantes d'énumération s'écrivent `enumeration::variante`."
+
+[E0532]
+"消息模板" = "le type du motif ne correspond pas à l'attendu (par ex. motif tuple sur une structure)"
+"教学提示" = "Choisissez le motif selon le type réel : les structures utilisent `structure { }`, les tuples `(...)` et les types sans champs un simple nom."
+
+[E0533]
+"消息模板" = "cet élément ne peut pas être utilisé comme motif de correspondance"
+"教学提示" = "Seules les structures unitaires, variantes et constantes peuvent servir de motifs. Vérifiez le nom ou utilisez une condition de garde."
+
+[E0534]
+"消息模板" = "(code d'erreur retiré) les paramètres de l'attribut inline sont mal écrits"
+"教学提示" = "`#[inline]` n'accepte que des paramètres connus comme `toujours`/`jamais`."
+
+[E0535]
+"消息模板" = "(code d'erreur retiré) paramètre inconnu de l'attribut inline"
+"教学提示" = "Vérifiez les paramètres de l'attribut inline."
+
+[E0536]
+"消息模板" = "(code d'erreur retiré) le prédicat not de cfg est mal formé"
+"教学提示" = "`non(...)` doit contenir un prédicat complet. Vérifiez la syntaxe."
+
+[E0537]
+"消息模板" = "(code d'erreur retiré) un prédicat inconnu est utilisé dans l'attribut cfg"
+"教学提示" = "Les prédicats ne peuvent être que des noms connus comme feature ou target_os. Vérifiez l'orthographe."
+
+[E0538]
+"消息模板" = "le même méta-élément apparaît plusieurs fois dans l'attribut"
+"教学提示" = "Supprimez les éléments dupliqués dans l'attribut."
+
+[E0541]
+"消息模板" = "(code d'erreur retiré) un méta-élément inconnu est utilisé"
+"教学提示" = "Vérifiez le nom du méta-élément dans l'attribut."
+
+[E0542]
+"消息模板" = "l'attribut de stabilité manque la valeur since"
+"教学提示" = "C'est un attribut réservé à la bibliothèque standard. Supprimez-le dans le code ordinaire."
+
+[E0543]
+"消息模板" = "l'attribut de stabilité manque la valeur note"
+"教学提示" = "C'est un attribut réservé à la bibliothèque standard. Supprimez-le dans le code ordinaire."
+
+[E0544]
+"消息模板" = "plusieurs attributs de stabilité sont déclarés sur le même élément"
+"教学提示" = "C'est un attribut réservé à la bibliothèque standard. Supprimez-le dans le code ordinaire."
+
+[E0545]
+"消息模板" = "la valeur issue de l'attribut de stabilité est incorrecte"
+"教学提示" = "C'est un attribut réservé à la bibliothèque standard. Supprimez-le dans le code ordinaire."
+
+[E0546]
+"消息模板" = "l'attribut de stabilité manque la valeur feature"
+"教学提示" = "C'est un attribut réservé à la bibliothèque standard. Supprimez-le dans le code ordinaire."
+
+[E0547]
+"消息模板" = "l'attribut de stabilité manque la valeur issue"
+"教学提示" = "C'est un attribut réservé à la bibliothèque standard. Supprimez-le dans le code ordinaire."
+
+[E0549]
+"消息模板" = "l'attribut de dépréciation doit être associé à un attribut stable/unstable"
+"教学提示" = "C'est une règle réservée à la bibliothèque standard. Dans le code ordinaire, conservez uniquement `#[deprecated]`."
+
+[E0550]
+"消息模板" = "(code d'erreur retiré) plusieurs attributs de dépréciation sur le même élément"
+"教学提示" = "Ne conservez qu'un seul attribut `#[deprecated]`."
+
+[E0551]
+"消息模板" = "(code d'erreur retiré) un méta-élément à l'intérieur de l'attribut est invalide"
+"教学提示" = "Vérifiez la syntaxe à l'intérieur de l'attribut."
+
+[E0552]
+"消息模板" = "(code d'erreur retiré) attribut de représentation mémoire non reconnu"
+"教学提示" = "`#[repr]` ne prend en charge que des options connues comme C, packed ou les valeurs d'alignement."
+
+[E0554]
+"消息模板" = "les commutateurs de fonctionnalité ne peuvent être utilisés que dans la version nightly"
+"教学提示" = "`#![feature(...)]` nécessite le compilateur nightly. En version stable, supprimez l'attribut ou utilisez une alternative stabilisée."
+
+[E0556]
+"消息模板" = "(code d'erreur retiré) l'attribut feature est mal formé"
+"教学提示" = "Vérifiez la syntaxe de `#![feature(...)]`."
+
+[E0557]
+"消息模板" = "la fonctionnalité spécifiée a été supprimée"
+"教学提示" = "La fonctionnalité a été retirée du compilateur. Supprimez le commutateur et utilisez la nouvelle syntaxe."
+
+[E0561]
+"消息模板" = "les paramètres d'un type pointeur de fonction ne peuvent être que des identifiants ou des jokers"
+"教学提示" = "Dans les signatures de pointeurs de fonction, écrivez `nom_param: type` ou `_ type`."
+
+[E0562]
+"消息模板" = "implementation trait ne peut être utilisé que comme paramètre ou type de retour de fonction"
+"教学提示" = "La syntaxe `implementation trait` ne peut apparaître que dans les signatures de fonction. Ailleurs, utilisez des génériques ou des objets trait."
+
+[E0565]
+"消息模板" = "un littéral non pris en charge est utilisé dans un attribut intégré"
+"教学提示" = "L'attribut n'accepte que des identifiants ou des chaînes. Ajustez la syntaxe."
+
+[E0566]
+"消息模板" = "des indications de représentation mémoire conflictuelles sont utilisées sur le même élément"
+"教学提示" = "Plusieurs options de `#[repr]` se contredisent (par ex. C et transparent simultanément). N'en conservez qu'une."
+
+[E0567]
+"消息模板" = "les traits automatiques ne peuvent pas utiliser de paramètres génériques"
+"教学提示" = "`trait automatique` n'accepte pas de paramètres génériques. Supprimez la déclaration générique."
+
+[E0568]
+"消息模板" = "les traits automatiques ne peuvent pas avoir de super-traits"
+"教学提示" = "`trait automatique` ne peut pas écrire d'héritage `: autre_trait`. Supprimez le super-trait."
+
+[E0569]
+"消息模板" = "une implémentation avec l'attribut may_dangle doit être déclarée comme implémentation dangereuse"
+"教学提示" = "Écrivez `dangereux implementation`, car la sécurité du contrôle de suspension doit être garantie manuellement."
+
+[E0570]
+"消息模板" = "l'ABI demandée n'est pas prise en charge sur la plateforme cible actuelle"
+"教学提示" = "Cette convention d'appel n'est pas disponible sur cette plateforme. Utilisez une convention prise en charge (comme `\"C\"`)."
+
+[E0571]
+"消息模板" = "une instruction rompre avec valeur apparaît hors d'une boucle loop"
+"教学提示" = "`rompre valeur` ne peut être utilisé que dans `boucle`. Retirez la valeur dans les boucles `tant_que`/`pour`."
+
+[E0572]
+"消息模板" = "une instruction de retour apparaît en dehors du corps de fonction"
+"教学提示" = "`retourner` ne peut s'écrire que dans le corps d'une fonction. Supprimez le retour superflu."
+
+[E0573]
+"消息模板" = "un type est attendu ici mais une méthode du même nom a été trouvée"
+"教学提示" = "Le nom est occupé par une méthode. Vérifiez si le nom de type manque ou utilisez le chemin complet vers le type cible."
+
+[E0575]
+"消息模板" = "un type ou type associé est attendu ici mais un autre élément est obtenu"
+"教学提示" = "Vérifiez l'élément pointé par le nom ; aux emplacements de type, seuls des types peuvent être écrits."
+
+[E0576]
+"消息模板" = "l'élément associé spécifié est introuvable sur ce type"
+"教学提示" = "Vérifiez l'orthographe de l'élément associé et confirmez que le type le définit ou l'implémente."
+
+[E0577]
+"消息模板" = "une fonction est attendue ici mais un autre élément a été trouvé"
+"教学提示" = "Le nom appelé/référencé pointe vers un type, un module ou un élément non fonction. Vérifiez l'orthographe et l'emplacement de l'appel."
+
+[E0578]
+"消息模板" = "(code d'erreur retiré) module introuvable, la visibilité ne peut pas être déterminée"
+"教学提示" = "Vérifiez le nom du module et la structure des fichiers."
+
+[E0579]
+"消息模板" = "le début de la plage inclusive est supérieur à la fin"
+"教学提示" = "`debut..=fin` exige que le début ne dépasse pas la fin. Ajustez les bornes de la plage."
+
+[E0580]
+"消息模板" = "la déclaration de la fonction principale est incorrecte"
+"教学提示" = "La signature de `principale` doit être `fonction principale()` ou retourner un type `resultat`. Corrigez la signature."
+
+[E0581]
+"消息模板" = "dans le type pointeur de fonction, la durée de vie n'apparaît que dans le type de retour"
+"教学提示" = "La durée de vie du type de retour doit être liée aux paramètres. Utilisez cette durée de vie aussi dans un type de paramètre."
+
+[E0582]
+"消息模板" = "la durée de vie n'apparaît que dans la liaison de type associé, pas dans les types d'entrée"
+"教学提示" = "Les durées de vie des bornes de trait doivent être liées aux types d'entrée. Ajustez la position de la durée de vie."
+
+[E0583]
+"消息模板" = "le fichier correspondant au module est introuvable"
+"教学提示" = "Une déclaration de module (`module nom;`) exige l'existence du fichier `nom.zh` ou `nom/mod.zh` dans le même répertoire. Créez le fichier ou vérifiez le nom."
+
+[E0584]
+"消息模板" = "aucun élément ne suit le commentaire de documentation"
+"教学提示" = "Les commentaires `///` doivent être immédiatement suivis d'un élément. Ajoutez l'élément après le commentaire ou utilisez un commentaire ordinaire."
+
+[E0585]
+"消息模板" = "le commentaire de documentation ne documente rien"
+"教学提示" = "On ne peut pas insérer de commentaire vide ou d'instruction entre des commentaires de documentation adjacents. Fusionnez ou déplacez les commentaires."
+
+[E0586]
+"消息模板" = "la plage inclusive manque de borne de fin"
+"教学提示" = "`..=` doit avoir à la fois un début et une fin. Pour aller jusqu'à la fin, utilisez la plage ouverte `debut..`."
+
+[E0587]
+"消息模板" = "le type utilise simultanément les indications de représentation packed et align"
+"教学提示" = "`compact` et `aligne` se contredisent. N'en conservez qu'une."
+
+[E0588]
+"消息模板" = "les champs d'un type compact ne peuvent pas porter d'indication align"
+"教学提示" = "Les champs d'une structure `compact` ne peuvent pas avoir d'exigence d'alignement. Supprimez l'attribut d'alignement du champ."
+
+[E0589]
+"消息模板" = "la valeur d'alignement doit être une puissance de 2 ne dépassant pas 2^29"
+"教学提示" = "Le N de `aligne(N)` ne peut être qu'une puissance de 2 comme 1, 2, 4, 8. Corrigez la valeur."
+
+[E0590]
+"消息模板" = "rompre ou continuer est utilisé dans la condition d'une boucle tant_que sans étiquette"
+"教学提示" = "`rompre`/`continuer` dans les conditions de boucle doivent porter une étiquette indiquant la boucle ciblée."
+
+[E0591]
+"消息模板" = "le type pointeur de fonction est incompatible avec la signature réelle de la fonction"
+"教学提示" = "Les pointeurs de fonction exigent une correspondance exacte des types de paramètres. Vérifiez la signature et le type pointeur."
+
+[E0592]
+"消息模板" = "une méthode ou fonction associée du même nom est définie"
+"教学提示" = "Les noms de méthodes et fonctions associées d'un même type doivent être uniques. Renommez l'une d'elles."
+
+[E0593]
+"消息模板" = "la closure ne satisfait pas l'exigence : le nombre de paramètres ou le mode d'appel ne correspond pas"
+"教学提示" = "Comparez la signature de la closure avec le type de fonction attendu : nombre de paramètres, emprunt mutable et consommation de propriété doivent concorder."
+
+[E0595]
+"消息模板" = "(code d'erreur retiré) une closure ne peut pas modifier une variable capturée non mutable"
+"教学提示" = "Déclarez avec `laisser mutable` la variable modifiée par la closure."
+
+[E0600]
+"消息模板" = "un opérateur unaire est appliqué à un type qui ne le prend pas en charge"
+"教学提示" = "Les opérateurs comme `!` et `-` nécessitent l'implémentation du trait correspondant. Vérifiez le type ou utilisez un type prenant en charge l'opération."
+
+[E0602]
+"消息模板" = "un élément de vérification inconnu est utilisé dans la ligne de commande"
+"教学提示" = "Vérifiez l'orthographe du nom de vérification après `-A/-W/-D` ; consultez la liste avec `rustc -W help`."
+
+[E0604]
+"消息模板" = "seul le type u8 peut être converti en caractère"
+"教学提示" = "La conversion `comme caractere` ne prend en charge que `u8`. Convertissez d'abord les autres entiers en `u8` ou utilisez `caractere::depuis_u32()`."
+
+[E0605]
+"消息模板" = "conversion de type invalide"
+"教学提示" = "`comme` ne prend en charge que certaines conversions (numériques, pointeurs...). Utilisez des fonctions de conversion dédiées pour les autres."
+
+[E0606]
+"消息模板" = "conversion de type incompatible"
+"教学提示" = "Le type source et le type cible ne sont pas compatibles. Utilisez un type intermédiaire ou une méthode de conversion appropriée."
+
+[E0607]
+"消息模板" = "la conversion entre pointeurs fins et pointeurs larges est impossible"
+"教学提示" = "Les conversions entre pointeurs de largeur différente ne sont pas autorisées. Convertissez d'abord le type pointé puis le pointeur."
+
+[E0608]
+"消息模板" = "le type ne prend pas en charge l'accès par indice"
+"教学提示" = "`valeur[indice]` exige l'implémentation du trait `indice`. Pour les collections, utilisez `.obtenir(indice)`, ou utilisez une tranche."
+
+[E0609]
+"消息模板" = "le champ n'existe pas sur le type"
+"教学提示" = "Vérifiez l'orthographe du nom de champ (sensible à la casse) et confirmez que la structure contient bien ce champ."
+
+[E0615]
+"消息模板" = "une méthode est accédée comme un champ"
+"教学提示" = "Les méthodes doivent être appelées : écrivez `valeur.methode()` et retirez l'accès de champ superflu après `.methode`."
+
+[E0616]
+"消息模板" = "tentative d'accès à un champ privé"
+"教学提示" = "Sans déclaration `publique`, le champ ne peut pas être lu ou écrit directement hors du module. Utilisez les méthodes de lecture/écriture du type (comme getter/setter)."
+
+[E0617]
+"消息模板" = "le type passé à la fonction variadique est invalide"
+"教学提示" = "Les arguments variables n'acceptent que des types compatibles C. Utilisez des types comme `chaine_C` ou une fonction à paramètres fixes."
+
+[E0619]
+"消息模板" = "(code d'erreur retiré) informations insuffisantes pour l'inférence de type"
+"教学提示" = "Ajoutez une annotation de type explicite pour aider l'inférence."
+
+[E0620]
+"消息模板" = "la conversion vers un type sans taille fixe est impossible"
+"教学提示" = "La cible d'une conversion `comme` doit être un type à taille fixe. Pour les tranches, utilisez un mode de conversion dédié."
+
+[E0622]
+"消息模板" = "(code d'erreur retiré) la déclaration de fonction intrinsèque n'est pas une fonction"
+"教学提示" = "Les fonctions intrinsèques doivent être déclarées comme des fonctions."
+
+[E0623]
+"消息模板" = "les durées de vie ne correspondent pas"
+"教学提示" = "Les contraintes de durée de vie des deux emprunts sont en conflit. Annotez les durées de vie explicitement ou ajustez les portées d'emprunt."
+
+[E0625]
+"消息模板" = "une constante de compilation ne peut pas référencer une variable statique locale au thread"
+"教学提示" = "L'adresse d'une variable locale au thread est inconnue à la compilation. Utilisez un élément statique ordinaire ou un calcul à l'exécution."
+
+[E0626]
+"消息模板" = "un emprunt dans la coroutine traverse le point de cession"
+"教学提示" = "Les emprunts ne peuvent pas traverser `ceder`/`attendre`. Terminez l'emprunt avant de céder ou sortez les données de la coroutine."
+
+[E0627]
+"消息模板" = "l'expression de cession apparaît en dehors d'une coroutine"
+"教学提示" = "`ceder` ne peut s'écrire que dans un littéral de coroutine. Vérifiez l'emplacement du code."
+
+[E0628]
+"消息模板" = "une coroutine ne peut pas avoir plus d'un paramètre"
+"教学提示" = "Les coroutines n'acceptent qu'un seul paramètre d'entrée. Fusionnez plusieurs paramètres en un tuple."
+
+[E0631]
+"消息模板" = "les types des paramètres de la closure ne correspondent pas"
+"教学提示" = "La signature de la closure ne correspond pas au type de fonction attendu. Vérifiez les types des paramètres."
+
+[E0632]
+"消息模板" = "(code d'erreur retiré) les paramètres implementation trait ne prennent pas en charge les arguments génériques explicites"
+"教学提示" = "Retirez les arguments de type explicites ou utilisez une fonction générique."
+
+[E0633]
+"消息模板" = "(code d'erreur retiré) l'attribut unwind est mal formé"
+"教学提示" = "Vérifiez la syntaxe de l'attribut `#[unwind]`."
+
+[E0634]
+"消息模板" = "les indications de représentation compacte du type se contredisent"
+"教学提示" = "Uniformisez les réglages `compact` de la structure et de ses champs."
+
+[E0635]
+"消息模板" = "le nom de fonctionnalité spécifié est inconnu"
+"教学提示" = "La fonctionnalité n'existe pas. Vérifiez le nom ; elle est peut-être déjà stabilisée."
+
+[E0636]
+"消息模板" = "(code d'erreur retiré) la même fonctionnalité est activée en double"
+"教学提示" = "Supprimez les entrées dupliquées dans `#![feature(...)]`."
+
+[E0637]
+"消息模板" = "le nom de durée de vie n'est pas autorisé à cet endroit"
+"教学提示" = "Certains emplacements (comme les éléments statiques) n'autorisent que la durée de vie `statique` ou l'élision. Vérifiez l'emplacement de l'annotation de durée de vie."
+
+[E0638]
+"消息模板" = "un type marqué non exhaustif doit être comparé avec des jokers"
+"教学提示" = "Les types `#[non_exhaustif]` comparés hors de la caisse doivent ajouter un bras `..` ou `_` pour laisser la place aux futurs champs."
+
+[E0639]
+"消息模板" = "un type marqué non exhaustif ne peut pas être construit directement hors de la caisse"
+"教学提示" = "L'instanciation des types `#[non_exhaustif]` ne peut passer que par leurs méthodes de construction, pour éviter que de futurs champs ne cassent la compatibilité."
+
+[E0640]
+"消息模板" = "(code d'erreur retiré) erreur interne du compilateur"
+"教学提示" = "Ceci est un code d'erreur interne du compilateur, non déclenché par du code normal."
+
+[E0641]
+"消息模板" = "la conversion avec un pointeur de type inconnu est impossible"
+"教学提示" = "Spécifiez d'abord le type du pointeur explicitement avant de convertir."
+
+[E0642]
+"消息模板" = "les paramètres d'une méthode de trait ne peuvent pas utiliser de motifs"
+"教学提示" = "Dans les signatures de méthodes de trait, les paramètres doivent être de la forme `nom: type`. Placez les motifs dans le corps de l'implémentation par défaut."
+
+[E0643]
+"消息模板" = "les paramètres génériques et implementation trait de la déclaration et de l'implémentation ne correspondent pas"
+"教学提示" = "`implementation trait` et les paramètres génériques du trait et de son implémentation doivent correspondre un à un. Vérifiez la déclaration et l'implémentation."
+
+[E0644]
+"消息模板" = "la closure référence son propre type"
+"教学提示" = "Le type d'une closure ne peut pas s'auto-référencer. Réorganisez le code avec une fonction ou un type explicite."
+
+[E0646]
+"消息模板" = "la fonction principale ne peut pas avoir de clause where"
+"教学提示" = "Supprimez la clause `si` (where) de `principale`."
+
+[E0647]
+"消息模板" = "(code d'erreur retiré) la fonction start ne peut pas avoir de clause where"
+"教学提示" = "Supprimez la clause `si` de cette fonction."
+
+[E0648]
+"消息模板" = "le nom d'exportation contient un caractère nul"
+"教学提示" = "`#[export_name]` ne peut pas contenir `\\0`. Corrigez le nom d'exportation."
+
+[E0657]
+"消息模板" = "implementation trait ne peut pas capturer de durée de vie d'ordre supérieur"
+"教学提示" = "`implementation trait` ne peut capturer que les durées de vie de la fonction englobante. Utilisez des paramètres génériques et de durée de vie explicites."
+
+[E0659]
+"消息模板" = "le nom est ambigu, plusieurs candidats peuvent correspondre"
+"教学提示" = "Des imports par joker ont introduit des éléments du même nom. Utilisez le chemin complet pour préciser ou renommez l'import avec `comme`."
+
+[E0660]
+"消息模板" = "(code d'erreur retiré) les arguments de la macro llvm_asm sont mal formés"
+"教学提示" = "Cette ancienne macro d'assembly en ligne a été supprimée. Utilisez `asm!`."
+
+[E0661]
+"消息模板" = "(code d'erreur retiré) la syntaxe du deuxième argument de la macro llvm_asm est invalide"
+"教学提示" = "Cette ancienne macro d'assembly en ligne a été supprimée. Utilisez `asm!`."
+
+[E0662]
+"消息模板" = "(code d'erreur retiré) la contrainte d'opérande d'entrée de la macro llvm_asm est invalide"
+"教学提示" = "Cette ancienne macro d'assembly en ligne a été supprimée. Utilisez `asm!`."
+
+[E0663]
+"消息模板" = "(code d'erreur retiré) la contrainte d'opérande de sortie de la macro llvm_asm est invalide"
+"教学提示" = "Cette ancienne macro d'assembly en ligne a été supprimée. Utilisez `asm!`."
+
+[E0664]
+"消息模板" = "(code d'erreur retiré) un clobber de la macro llvm_asm est entouré d'accolades"
+"教学提示" = "Cette ancienne macro d'assembly en ligne a été supprimée. Utilisez `asm!`."
+
+[E0665]
+"消息模板" = "la dérivation du trait Default sur une énumération doit spécifier la variante par défaut"
+"教学提示" = "Marquez une variante avec `#[default]` pour indiquer laquelle `default::default()` retourne."
+
+[E0666]
+"消息模板" = "implementation trait ne peut pas être imbriqué dans les paramètres génériques d'un autre implementation trait"
+"教学提示" = "Utilisez un paramètre générique ou un type concret à l'emplacement imbriqué."
+
+[E0667]
+"消息模板" = "(code d'erreur retiré) implementation trait n'est pas autorisé dans les paramètres de chemin"
+"教学提示" = "Utilisez `implementation trait` à l'emplacement de la signature de fonction."
+
+[E0668]
+"消息模板" = "(code d'erreur retiré) l'assembly en ligne est mal formé"
+"教学提示" = "Vérifiez le modèle d'assembly et la syntaxe des opérandes de la macro `asm!`."
+
+[E0669]
+"消息模板" = "(code d'erreur retiré) l'opérande d'assembly en ligne ne peut pas être converti en une valeur unique"
+"教学提示" = "Vérifiez les types des opérandes de la macro `asm!`."
+
+[E0670]
+"消息模板" = "l'édition Rust 2015 ne prend pas en charge les fonctions asynchrones"
+"教学提示" = "Mettez à niveau l'édition vers 2018 ou supérieur dans Cargo.toml."
+
+[E0671]
+"消息模板" = "(code d'erreur retiré) les paramètres constants ne peuvent pas dépendre de paramètres de type"
+"教学提示" = "Ajustez la manière de déclarer les paramètres génériques."
+
+[E0687]
+"消息模板" = "(code d'erreur retiré) les durées de vie intégrées ne peuvent pas être utilisées dans la syntaxe de pointeur de fonction"
+"教学提示" = "Déclarez le paramètre de durée de vie explicitement."
+
+[E0688]
+"消息模板" = "(code d'erreur retiré) les durées de vie intégrées et explicites sont mélangées"
+"教学提示" = "Utilisez uniformément des déclarations de durée de vie explicites."
+
+[E0689]
+"消息模板" = "une méthode est appelée sur un nombre dont le type n'est pas déterminé"
+"教学提示" = "Sans type fixé pour le littéral numérique, aucune méthode ne peut être choisie. Annotez le type, par ex. `laisser x = 1.0_comme_f64;` ou `laisser x: f64 = 1.0;`."
+
+[E0690]
+"消息模板" = "une structure à représentation transparente ne peut avoir qu'un seul champ de taille non nulle"
+"教学提示" = "`repr(transparent)` exige un seul champ réel (les autres doivent être de taille nulle). Ajustez les champs."
+
+[E0691]
+"消息模板" = "(code d'erreur retiré) restriction sur les champs de taille nulle des types à représentation transparente"
+"教学提示" = "Vérifiez la composition des champs du type `repr(transparent)`."
+
+[E0692]
+"消息模板" = "la représentation transparente entre en conflit avec d'autres indications de représentation"
+"教学提示" = "`repr(transparent)` ne peut pas être combiné avec C, packed, etc. Ne conservez que la représentation transparente."
+
+[E0693]
+"消息模板" = "(code d'erreur retiré) l'indication de représentation d'alignement est mal déclarée"
+"教学提示" = "Vérifiez la syntaxe de `#[repr(align(N))]`."
+
+[E0695]
+"消息模板" = "l'instruction rompre dans un bloc étiqueté manque d'étiquette"
+"教学提示" = "`rompre` dans un bloc étiqueté doit s'écrire `rompre 'etiquette`, sinon la portée est ambiguë."
+
+[E0696]
+"消息模板" = "l'instruction continuer est utilisée incorrectement"
+"教学提示" = "`continuer` ne peut pointer que vers une boucle en cours d'exécution. Vérifiez la structure de la boucle et les étiquettes."
+
+[E0697]
+"消息模板" = "une closure ne peut pas être utilisée comme élément statique"
+"教学提示" = "Les éléments `statique` ne peuvent pas être des closures. Utilisez un élément fonction ou créez la closure dans une fonction."
+
+[E0698]
+"消息模板" = "(code d'erreur retiré) les variables de type de la coroutine ne sont pas complètement liées"
+"教学提示" = "Ajoutez des annotations de type aux variables concernées."
+
+[E0699]
+"消息模板" = "(code d'erreur retiré) une méthode est appelée sur un pointeur brut au type non complètement déterminé"
+"教学提示" = "Annotez d'abord le type pointé par le pointeur brut."
+
+[E0700]
+"消息模板" = "le type de retour implementation trait capture une durée de vie qui n'apparaît pas"
+"教学提示" = "Le `implementation trait` retourné ne peut capturer que les durées de vie présentes dans la signature. Ajustez le type de retour ou les annotations de durée de vie."
+
+[E0701]
+"消息模板" = "(code d'erreur retiré) l'attribut non exhaustif est utilisé à un emplacement non pris en charge"
+"教学提示" = "`#[non_exhaustif]` ne peut être utilisé que sur des structures, énumérations ou variantes d'énumération."
+
+[E0703]
+"消息模板" = "un nom d'ABI invalide est utilisé"
+"教学提示" = "Les conventions d'appel doivent être des valeurs connues (comme `\"C\"`, `\"systeme\"`, `\"Rust\"`). Vérifiez le nom."
+
+[E0704]
+"消息模板" = "la syntaxe de restriction de visibilité est incorrecte"
+"教学提示" = "Le chemin dans `publique(dans module)` doit être un module ancêtre. Corrigez la syntaxe de visibilité."
+
+[E0705]
+"消息模板" = "(code d'erreur retiré) la fonctionnalité est déjà stabilisée dans la version actuelle"
+"教学提示" = "Supprimez le commutateur `#![feature]` et utilisez-la directement."
+
+[E0706]
+"消息模板" = "(code d'erreur retiré) les fonctions asynchrones dans les traits ne sont pas encore prises en charge"
+"教学提示" = "Les versions récentes de Rust les prennent en charge. Mettez à jour le compilateur ou utilisez des méthodes retournant `boite<dynamique futur>`."
+
+[E0708]
+"消息模板" = "(code d'erreur retiré) les closures asynchrones non déplaçantes avec paramètres ne sont pas encore prises en charge"
+"教学提示" = "Ajoutez `deplacer` devant la closure asynchrone."
+
+[E0710]
+"消息模板" = "le nom d'outil de l'élément de vérification de portée est inconnu"
+"教学提示" = "Par exemple, l'outil dans `#[autoriser(outil::nom)]` n'existe pas. Vérifiez le nom de l'outil, couramment `clippy` ou `rustdoc`."
+
+[E0711]
+"消息模板" = "(erreur interne du compilateur) les exigences de stabilité de la fonctionnalité sont en conflit"
+"教学提示" = "Ceci est un code d'erreur interne du compilateur, non déclenché par du code normal."
+
+[E0712]
+"消息模板" = "l'emprunt d'une variable locale au thread dépasse la durée de vie de la fonction"
+"教学提示" = "Les emprunts de variables locales au thread ne peuvent pas s'échapper de la closure ou de la fonction. Réduisez la portée de l'emprunt ou copiez les données."
+
+[E0713]
+"消息模板" = "l'emprunt dépasse la fin de durée de vie d'un type implémentant Drop"
+"教学提示" = "Les types avec destructeur doivent terminer tous leurs emprunts avant la destruction. Ajustez les annotations de durée de vie ou réduisez la portée de l'emprunt."
+
+[E0714]
+"消息模板" = "les traits marqueurs ne peuvent pas contenir d'éléments associés"
+"教学提示" = "Les traits `#[marqueur]` ne peuvent avoir aucune méthode ni élément associé. Supprimez les éléments associés."
+
+[E0715]
+"消息模板" = "l'implémentation d'un trait marqueur ne peut pas redéfinir d'éléments associés"
+"教学提示" = "Les implémentations de traits `#[marqueur]` ne peuvent contenir aucun élément. Supprimez les éléments de l'implémentation."
+
+[E0717]
+"消息模板" = "(erreur interne du compilateur)"
+"教学提示" = "Ceci est un code d'erreur interne du compilateur, non déclenché par du code normal."
+
+[E0718]
+"消息模板" = "(code d'erreur retiré) l'attribut d'élément de langage est utilisé sur le mauvais type d'élément"
+"教学提示" = "Vérifiez l'emplacement de `#[element_de_langage]`."
+
+[E0719]
+"消息模板" = "le même élément associé est spécifié plusieurs fois dans l'objet trait"
+"教学提示" = "Supprimez les liaisons d'élément associé dupliquées."
+
+[E0720]
+"消息模板" = "le type de retour se contient lui-même et forme un type infiniment récursif"
+"教学提示" = "Le type de retour de la fonction se référence directement ou indirectement lui-même (comme retourner `ensemble<Soi>`). Utilisez un type concret ou une référence indirecte via `Box`."
+
+[E0722]
+"消息模板" = "(code d'erreur retiré) les paramètres de l'attribut optimize sont invalides"
+"教学提示" = "Vérifiez les paramètres de cet attribut."
+
+[E0724]
+"消息模板" = "(code d'erreur retiré) ffi_returns_twice ne peut être utilisé que sur des déclarations de fonctions externes"
+"教学提示" = "Déplacez cet attribut sur la déclaration de fonction du bloc `externe`."
+
+[E0725]
+"消息模板" = "la fonctionnalité est interdite par un argument de ligne de commande du compilateur"
+"教学提示" = "La configuration de construction désactive cette fonctionnalité. Ajustez les arguments de construction ou supprimez `#![feature]`."
+
+[E0726]
+"消息模板" = "la durée de vie d'un paramètre est élidée dans une fonction asynchrone"
+"教学提示" = "Les règles d'élision des durées de vie sont restreintes dans les fonctions asynchrones. Annotez la durée de vie du paramètre explicitement."
+
+[E0727]
+"消息模板" = "une expression de cession est utilisée dans un contexte asynchrone"
+"教学提示" = "`ceder` ne peut être utilisé que dans les coroutines ; dans les fonctions asynchrones, utilisez `attendre`."
+
+[E0728]
+"消息模板" = "`attendre` ne peut être utilisé que dans des fonctions ou blocs asynchrones"
+"教学提示" = "Les fonctions contenant `attendre` doivent être déclarées `fonction asynchrone`, ou placez le code dans un bloc `asynchrone { }`."
+
+[E0729]
+"消息模板" = "(code d'erreur retiré) indication relative aux durées de vie non lexicales"
+"教学提示" = "La fonctionnalité est intégrée et ne nécessite aucune configuration supplémentaire."
+
+[E0730]
+"消息模板" = "un tableau sans longueur fixe ne peut pas être comparé par motif"
+"教学提示" = "Les tranches et tableaux dynamiques ne peuvent pas être comparés avec des motifs de longueur fixe. Utilisez un motif de tranche ou une boucle."
+
+[E0731]
+"消息模板" = "une énumération à représentation transparente doit avoir exactement une variante"
+"教学提示" = "Les énumérations `repr(transparent)` ne peuvent avoir qu'une variante. Ajustez la définition de l'énumération."
+
+[E0732]
+"消息模板" = "une énumération avec discriminants doit spécifier une représentation entière"
+"教学提示" = "Ajoutez à l'énumération un attribut de représentation entière comme `#[repr(u8)]`."
+
+[E0733]
+"消息模板" = "une fonction principale asynchrone ne peut pas avoir de valeur de retour"
+"教学提示" = "La fonction d'entrée du programme `fonction asynchrone principale()` doit retourner `()` et ne peut pas retourner un autre type."
+
+[E0734]
+"消息模板" = "(code d'erreur retiré) l'attribut de stabilité est mal utilisé"
+"教学提示" = "Ce code d'erreur a été remplacé par E0658."
+
+[E0735]
+"消息模板" = "la valeur par défaut d'un paramètre de type d'une structure/énumération/union ne peut pas utiliser le type lui-même"
+"教学提示" = "Les valeurs par défaut des paramètres de type ne peuvent pas référencer `Soi`. Utilisez un type concret."
+
+[E0736]
+"消息模板" = "les fonctions nues ne peuvent pas être combinées avec certains attributs"
+"教学提示" = "Les fonctions `#[naked]` sont incompatibles avec des attributs comme inline. Retirez les attributs en conflit."
+
+[E0737]
+"消息模板" = "l'attribut de suivi de l'appelant exige la convention d'appel Rust"
+"教学提示" = "`#[suivi_appelant]` ne peut être utilisé que sur des fonctions avec l'ABI Rust. Ajustez la convention d'appel."
+
+[E0739]
+"消息模板" = "(code d'erreur retiré) l'attribut de suivi de l'appelant doit être utilisé sur une fonction"
+"教学提示" = "Déplacez cet attribut sur une fonction."
+
+[E0740]
+"消息模板" = "les champs d'une union ne peuvent pas avoir de destructeur"
+"教学提示" = "Les types des champs d'une union ne peuvent pas implémenter `Drop`. Utilisez une enveloppe `Option` ou repensez la conception."
+
+[E0741]
+"消息模板" = "le type du paramètre générique constant doit prendre en charge la correspondance structurée"
+"教学提示" = "Les génériques constants ne prennent actuellement en charge que les entiers, booléens, caractères, etc. Ajustez le type du paramètre."
+
+[E0742]
+"消息模板" = "le module de restriction de visibilité n'est pas un module ancêtre de l'élément actuel"
+"教学提示" = "Le X dans `publique(dans X)` doit être un module ancêtre contenant l'élément actuel. Corrigez le chemin."
+
+[E0743]
+"消息模板" = "le type paramètre variadique ne peut pas être imbriqué dans un autre type"
+"教学提示" = "`...` ne peut apparaître que directement à la fin de la liste de paramètres de la fonction. Ajustez la syntaxe."
+
+[E0744]
+"消息模板" = "(code d'erreur retiré) une expression non prise en charge est utilisée dans un contexte constant"
+"教学提示" = "Simplifiez l'expression constante."
+
+[E0745]
+"消息模板" = "l'adresse d'une valeur temporaire ne peut pas être prise"
+"教学提示" = "Les valeurs temporaires sont détruites à la fin de l'instruction. Liez d'abord à une variable puis prenez une référence."
+
+[E0746]
+"消息模板" = "un objet trait non encadré ne peut pas être retourné directement"
+"教学提示" = "Le type de retour doit avoir une taille fixe. Utilisez `boite<dynamique trait>` ou `implementation trait` comme type de retour."
+
+[E0747]
+"消息模板" = "l'ordre des arguments génériques ne correspond pas à la déclaration"
+"教学提示" = "Les arguments de type et de durée de vie doivent être fournis dans l'ordre de déclaration. Ajustez l'ordre ou utilisez la syntaxe nommée."
+
+[E0748]
+"消息模板" = "le nombre de # de la chaîne brute ne correspond pas"
+"教学提示" = "Le nombre de `#` au début de `r#\"...\"#` doit correspondre à celui de la fin. Complétez les `#`."
+
+[E0749]
+"消息模板" = "une implémentation négative ne peut contenir aucun élément"
+"教学提示" = "Les implémentations négatives (`implementation !trait`) doivent être vides. Supprimez les éléments de l'implémentation."
+
+[E0750]
+"消息模板" = "une implémentation négative ne peut pas être marquée comme implémentation par défaut"
+"教学提示" = "Retirez le modificateur `default` de l'implémentation négative."
+
+[E0751]
+"消息模板" = "le même type possède simultanément une implémentation positive et négative du trait"
+"教学提示" = "Les implémentations positive et négative entrent en conflit. Supprimez l'une des deux."
+
+[E0752]
+"消息模板" = "la fonction d'entrée du programme ne peut pas être marquée asynchrone"
+"教学提示" = "`principale` ne peut pas être une `fonction asynchrone`. Exécutez le code asynchrone dans la fonction principale avec un exécuteur de bloc."
+
+[E0753]
+"消息模板" = "le commentaire de documentation interne est utilisé à un emplacement invalide"
+"教学提示" = "`//!` ne peut s'écrire qu'au début d'un module, d'une caisse ou d'un fichier. Déplacez-le avant un élément ou utilisez `///`."
+
+[E0754]
+"消息模板" = "les identifiants non ASCII ne sont pas autorisés à cet endroit"
+"教学提示" = "Certains emplacements (comme les noms d'exportation) n'acceptent que des identifiants ASCII. Utilisez un nom anglais."
+
+[E0755]
+"消息模板" = "(code d'erreur retiré) l'attribut ffi_pure ne peut être utilisé que sur des fonctions externes"
+"教学提示" = "Déplacez cet attribut sur la déclaration de fonction externe."
+
+[E0756]
+"消息模板" = "(code d'erreur retiré) l'attribut ffi_const ne peut être utilisé que sur des déclarations de fonctions externes"
+"教学提示" = "Déplacez cet attribut sur la déclaration de fonction externe."
+
+[E0757]
+"消息模板" = "la fonction porte simultanément ffi_const et ffi_pure"
+"教学提示" = "La sémantique des deux attributs est en conflit. N'en conservez qu'un."
+
+[E0758]
+"消息模板" = "le commentaire multiligne n'est pas terminé correctement"
+"教学提示" = "Le commentaire `/*` n'a pas le `*/` correspondant. Ajoutez le marqueur de fin."
+
+[E0760]
+"消息模板" = "(code d'erreur retiré) le type de retour asynchrone référence une durée de vie hors de la capture"
+"教学提示" = "Ajustez le type de retour et les annotations de durée de vie."
+
+[E0761]
+"消息模板" = "plusieurs fichiers candidats existent pour le module"
+"教学提示" = "Le module du même nom existe simultanément sous forme `.zh` et répertoire. Ne conservez qu'un seul fichier candidat."
+
+[E0762]
+"消息模板" = "le littéral de caractère n'est pas terminé correctement"
+"教学提示" = "Le littéral de caractère manque de l'apostrophe de fin. Ajoutez `'`."
+
+[E0763]
+"消息模板" = "la constante d'octet n'est pas terminée correctement"
+"教学提示" = "Le littéral d'octet manque de l'apostrophe de fin. Ajoutez `'`."
+
+[E0764]
+"消息模板" = "les références mutables (`&mutable`) ne sont pas autorisées dans les éléments statiques"
+"教学提示" = "Les éléments `statique` existent pendant toute l'exécution du programme ; les références mutables violeraient les règles d'emprunt. Utilisez la mutabilité intérieure comme `differe` ou `mutex`."
+
+[E0765]
+"消息模板" = "la chaîne entre guillemets doubles n'est pas terminée correctement"
+"教学提示" = "La chaîne manque du guillemet double de fin. Ajoutez `\"`."
+
+[E0766]
+"消息模板" = "la chaîne d'octets n'est pas terminée correctement"
+"教学提示" = "`b\"...\"` manque du guillemet double de fin. Ajoutez `\"`."
+
+[E0767]
+"消息模板" = "une étiquette de boucle inaccessible est utilisée"
+"教学提示" = "La boucle portant cette étiquette est terminée ou n'est pas dans le périmètre actuel. Vérifiez l'emplacement de l'étiquette."
+
+[E0768]
+"消息模板" = "le littéral numérique non décimal manque de partie numérique"
+"教学提示" = "Après `0x` ou `0b`, il doit y avoir des chiffres. Ajoutez les chiffres."
+
+[E0769]
+"消息模板" = "une structure tuple ou variante tuple est utilisée comme motif de structure"
+"教学提示" = "Comparez les types tuple avec des motifs entre parenthèses `(a, b)`, pas avec `{ champs }`."
+
+[E0770]
+"消息模板" = "le type du paramètre constant référence un autre paramètre générique"
+"教学提示" = "Le type des génériques constants doit être un type concret. Retirez la référence à d'autres paramètres génériques."
+
+[E0771]
+"消息模板" = "(code d'erreur retiré) les durées de vie non statiques ne sont pas autorisées dans les génériques constants"
+"教学提示" = "Utilisez plutôt la durée de vie `'statique`."
+
+[E0772]
+"消息模板" = "(code d'erreur retiré) l'utilisation de la durée de vie de l'objet trait ne satisfait pas l'exigence"
+"教学提示" = "Annotez explicitement la durée de vie de l'objet trait."
+
+[E0773]
+"消息模板" = "(code d'erreur retiré) plusieurs définitions de macros utilisent le même nom de macro intégrée"
+"教学提示" = "Vérifiez le nom de l'attribut de macro intégrée."
+
+[E0774]
+"消息模板" = "les macros de dérivation ne peuvent être utilisées que sur des structures, unions ou énumérations"
+"教学提示" = "`#[derive(...)]` ne prend pas en charge ce type. Déplacez-la sur la définition d'une structure ou énumération."
+
+[E0775]
+"消息模板" = "(code d'erreur retiré) l'attribut n'est valable que sur les cibles prenant en charge TrustZone-M"
+"教学提示" = "Vérifiez la configuration de la plateforme cible."
+
+[E0776]
+"消息模板" = "(code d'erreur retiré) l'attribut exige que la fonction utilise la convention d'appel C"
+"教学提示" = "Déclarez la fonction comme `externe \"C\"` à la place."
+
+[E0777]
+"消息模板" = "les paramètres génériques ne peuvent pas utiliser directement des valeurs littérales"
+"教学提示" = "Les littéraux comme paramètres génériques ne sont possibles qu'avec la fonctionnalité de génériques constants activée et nécessitent généralement des expressions `constante`. Vérifiez la syntaxe ou utilisez un paramètre de type."
+
+[E0778]
+"消息模板" = "(code d'erreur retiré) l'attribut de jeu d'instructions est mal formé"
+"教学提示" = "Vérifiez la syntaxe de l'attribut `#[jeu_instructions]`."
+
+[E0779]
+"消息模板" = "(code d'erreur retiré) les paramètres de l'attribut de jeu d'instructions sont inconnus"
+"教学提示" = "Vérifiez les valeurs des paramètres de cet attribut."
+
+[E0780]
+"消息模板" = "l'attribut d'inclusion de documentation ne peut pas être utilisé avec un import anonyme"
+"教学提示" = "`doc(inline)` nécessite un import nommé. Donnez un nom à l'import."
+
+[E0781]
+"消息模板" = "cette convention d'appel ne peut être utilisée que sur des pointeurs de fonction"
+"教学提示" = "`cmse-nonsecure-call` ne peut apparaître que sur des types pointeurs de fonction. Ajustez la syntaxe."
+
+[E0782]
+"消息模板" = "les objets trait doivent contenir le mot-clé dynamique"
+"教学提示" = "Écrivez-le sous la forme `dynamique trait` (dyn Trait)."
+
+[E0783]
+"消息模板" = "les motifs de plage ne peuvent plus utiliser trois points"
+"教学提示" = "Utilisez plutôt la syntaxe `debut..=fin` (bornes incluses)."
+
+[E0784]
+"消息模板" = "l'expression d'union doit initialiser exactement un champ"
+"教学提示" = "Une union n'a qu'un seul champ valide à la fois. N'écrivez qu'un seul champ."
+
+[E0785]
+"消息模板" = "une implémentation inhérente ne peut pas être écrite pour un trait automatique dynamique"
+"教学提示" = "Vérifiez le type cible de l'implémentation."
+
+[E0786]
+"消息模板" = "un fichier de métadonnées invalide a été trouvé"
+"教学提示" = "L'artefact de compilation de la dépendance est corrompu ou la version ne correspond pas. Nettoyez puis recompilez."
+
+[E0787]
+"消息模板" = "définition de fonction nue non prise en charge"
+"教学提示" = "Les fonctions nues (`#[naked]`) ont des restrictions de définition. Vérifiez la syntaxe du corps de la fonction."
+
+[E0788]
+"消息模板" = "(code d'erreur retiré) l'attribut de couverture est utilisé à un emplacement non autorisé"
+"教学提示" = "Vérifiez l'emplacement de cet attribut."
+
+[E0789]
+"消息模板" = "(erreur interne du compilateur) un attribut interne est mal utilisé"
+"教学提示" = "Ceci est un code d'erreur interne du compilateur, non déclenché par du code normal."
+
+[E0790]
+"消息模板" = "l'appel de cette méthode nécessite de spécifier une implémentation de trait concrète"
+"教学提示" = "Plusieurs traits fournissent une méthode du même nom. Utilisez `type::methode()` ou `trait::methode()` pour préciser."
+
+[E0791]
+"消息模板" = "le type de la variable statique avec attribut de lien ne satisfait pas l'exigence"
+"教学提示" = "Les variables statiques externes avec `#[linkage]` doivent être des pointeurs ou des types nullables. Ajustez le type."
+
+[E0792]
+"消息模板" = "l'implementation trait d'un alias de type ne peut être affecté que pleinement générique dans le périmètre de définition"
+"教学提示" = "L'affectation du type masqué de `type Foo<T> = implementation trait` est strictement restreinte. Ajustez l'emplacement de la définition."
+
+[E0793]
+"消息模板" = "une référence non alignée vers un champ de structure compacte a été créée"
+"教学提示" = "Les champs des types `compact` peuvent être non alignés ; les référencer directement est un comportement indéfini. Copiez d'abord dans une variable locale alignée."
+
+[E0794]
+"消息模板" = "le mode de liaison des durées de vie est en conflit"
+"教学提示" = "Annotez explicitement les durées de vie concernées pour lever l'ambiguïté."
+
+[E0795]
+"消息模板" = "les arguments de la macro de décalage de champ sont invalides"
+"教学提示" = "`decalage!(type, champ)` exige des noms de type et de champ corrects. Vérifiez les arguments."
+
+[E0796]
+"消息模板" = "(code d'erreur retiré) une référence vers un élément statique mutable a été créée"
+"教学提示" = "L'accès aux éléments statiques mutables doit se faire dans un bloc dangereux."
+
+[E0797]
+"消息模板" = "la syntaxe de mise à jour de structure manque d'expression de base"
+"教学提示" = "Après `..` doit suivre une valeur de base, par ex. `structure { champ: valeur, ..base }`."
+
+[E0798]
+"消息模板" = "l'entrée ou la sortie de la fonction avec cette convention d'appel dépasse la limite"
+"教学提示" = "Les paramètres et la valeur de retour des fonctions `cmse-nonsecure-call` sont limités en nombre de registres. Simplifiez la signature."
+
+[E0799]
+"消息模板" = "un paramètre de type ou de constante est attendu ici mais un autre élément est obtenu"
+"教学提示" = "Vérifiez la syntaxe à l'emplacement du paramètre générique."
+
+[E0800]
+"消息模板" = "le paramètre de type ou de constante spécifié n'est pas dans le périmètre"
+"教学提示" = "Vérifiez l'orthographe du nom du paramètre et la déclaration des paramètres génériques."
+
+[E0801]
+"消息模板" = "le paramètre self de la méthode utilise un type receveur générique invalide"
+"教学提示" = "Les types receveurs génériques doivent satisfaire une structure particulière. Ajustez la signature de la méthode."
+
+[E0802]
+"消息模板" = "la cible de la macro de dérivation de conversion forcée de pointeur ne satisfait pas l'exigence"
+"教学提示" = "`derive(conversion_pointeur)` exige que la structure/le trait satisfasse certaines conditions. Vérifiez la définition."
+
+[E0803]
+"消息模板" = "la référence retournée par l'implémentation du trait n'a pas de durée de vie explicite liée à soi"
+"教学提示" = "La durée de vie des références retournées doit être liée explicitement au paramètre `soi`. Ajoutez l'annotation de durée de vie."
+
+[E0804]
+"消息模板" = "les bornes de traits automatiques ne peuvent pas être ajoutées à un trait dynamique par conversion de pointeur"
+"教学提示" = "Les traits automatiques doivent être déterminés dès la déclaration du type. Écrivez les bornes complètes à l'emplacement de la définition."
+
+[E0805]
+"消息模板" = "le nombre de paramètres de l'attribut est incorrect"
+"教学提示" = "Vérifiez le nombre de paramètres requis par cet attribut."
+
+[E0806]
+"消息模板" = "l'élément implémentable externement est incompatible avec sa déclaration"
+"教学提示" = "Vérifiez que la déclaration et la définition réelle de l'élément concordent."

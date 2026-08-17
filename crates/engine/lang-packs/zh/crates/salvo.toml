@@ -1,0 +1,394 @@
+# 自动生成的第三方库映射
+# crate: salvo
+# 生成时间: 2026-08-16 11:12:02
+# 本文件中的解释由 AI 根据 API 名称和签名自动生成，不是原 crate 的官方文档翻译，仅供学习参考。原 crate 的版权归其作者所有。
+# 已人工完善：标识符全部翻译为中文名，并补充解释。
+
+["模块路径"]
+"salvo" = "salvo"
+
+["标识符"]
+"核心" = "core"  # type core = salvo_core
+"捕获器" = "Catcher"  # struct Catcher
+"默认目标" = "DefaultGoal"  # struct DefaultGoal
+"套接字地址" = "SocketAddr"  # enum SocketAddr
+"TCP监听器" = "TcpListener"  # struct TcpListener<T>
+"TCP接受器" = "TcpAcceptor"  # struct TcpAcceptor
+"动态TCP接受器" = "DynTcpAcceptor"  # trait DynTcpAcceptor
+"转动态TCP接受器" = "ToDynTcpAcceptor"  # struct ToDynTcpAcceptor<A>
+"动态TCP接受器们" = "DynTcpAcceptors"  # struct DynTcpAcceptors
+"连接控制" = "ConnCtrl"  # type ConnCtrl = ctrl::ConnCtrl
+"HTTP1" = "http1"  # type http1 = hyper::server::conn::http1
+"HTTP2" = "http2"  # type http2 = hyper::server::conn::http2
+"合并接受器" = "JoinedAcceptor"  # type JoinedAcceptor = joined::JoinedAcceptor
+"合并监听器" = "JoinedListener"  # type JoinedListener = joined::JoinedListener
+"已接受连接" = "Accepted"  # struct Accepted<C, S>
+"接受器" = "Acceptor"  # trait Acceptor
+"保持" = "Holding"  # struct Holding
+"耦合器" = "Coupler"  # trait Coupler
+"监听器" = "Listener"  # trait Listener
+"动态流" = "DynStream"  # struct DynStream
+"连接来源" = "SourceFrom"  # enum SourceFrom
+"源解析器" = "SourceParser"  # enum SourceParser
+"元数据" = "Metadata"  # struct Metadata
+"字段" = "Field"  # struct Field
+"源" = "Source"  # struct Source
+"重命名规则" = "RenameRule"  # type RenameRule = case::RenameRule
+"可提取" = "Extractible"  # trait Extractible<'ex>
+"分块文件" = "ChunkedFile"  # struct ChunkedFile<T>
+"传输协议" = "TransProto"  # enum TransProto
+"熔断信息" = "FuseInfo"  # struct FuseInfo
+"熔断配置" = "FuseConfig"  # struct FuseConfig
+"熔断动作" = "FuseAction"  # enum FuseAction
+"连接观察者" = "ConnObserver"  # trait ConnObserver
+"强引用连接观察者" = "ArcConnObserver"  # type ArcConnObserver = std::sync::Arc<dyn ?>
+"熔断策略" = "FusePolicy"  # trait FusePolicy
+"强引用熔断策略" = "ArcFusePolicy"  # type ArcFusePolicy = std::sync::Arc<dyn ?>
+"处理器特征" = "Handler"  # trait Handler
+"强引用处理器" = "ArcHandler"  # struct ArcHandler
+"空处理器" = "empty"  # fn empty() -> EmptyHandler
+"跳过器" = "Skipper"  # trait Skipper
+"环绕处理器" = "HoopedHandler"  # struct HoopedHandler
+"不跳过" = "none_skipper"  # fn none_skipper(_req: &crate::Request, _depot: &crate::Depot) -> bool
+"解析错误" = "ParseError"  # type ParseError = parse_error::ParseError
+"解析结果" = "ParseResult"  # type ParseResult = parse_error::ParseResult
+"状态错误" = "StatusError"  # type StatusError = status_error::StatusError
+"状态结果" = "StatusResult"  # type StatusResult = status_error::StatusResult
+"表单数据" = "FormData"  # struct FormData
+"文件部分" = "FilePart"  # struct FilePart
+"请求部件" = "Parts"  # type Parts = http::request::Parts
+"全局安全最大大小" = "global_secure_max_size"  # fn global_secure_max_size() -> usize
+"设置全局安全最大大小" = "set_global_secure_max_size"  # fn set_global_secure_max_size(size: usize) -> ?
+"安全最大大小" = "SecureMaxSize"  # struct SecureMaxSize
+"HTTP请求" = "Request"  # struct Request
+"主体发送器" = "BodySender"  # type BodySender = crate::http::body::BodySender
+"字节帧" = "BytesFrame"  # type BytesFrame = crate::http::body::BytesFrame
+"响应主体" = "ResBody"  # type ResBody = crate::http::body::ResBody
+"HTTP响应" = "Response"  # struct Response
+"安全Cookie策略" = "SecureCookiePolicy"  # enum SecureCookiePolicy
+"主体" = "Body"  # type Body = hyper::body::Body
+"帧" = "Frame"  # type Frame = hyper::body::Frame
+"大小提示" = "SizeHint"  # type SizeHint = hyper::body::SizeHint
+"请求主体" = "ReqBody"  # type ReqBody = req::ReqBody
+"HTTP主体" = "HyperBody"  # type HyperBody = hyper::body::Incoming
+"主体接收器" = "BodyReceiver"  # type BodyReceiver = channel::BodyReceiver
+"Cookie" = "cookie"  # type cookie = cookie
+"头部集合" = "headers"  # type headers = headers
+"HTTP方法" = "Method"  # type Method = http::method::Method
+"头部映射" = "HeaderMap"  # type HeaderMap = http::HeaderMap
+"头部名称" = "HeaderName"  # type HeaderName = http::HeaderName
+"头部值" = "HeaderValue"  # type HeaderValue = http::HeaderValue
+"状态码" = "StatusCode"  # type StatusCode = http::StatusCode
+"头部" = "header"  # type header = http::header
+"资源标识" = "uri"  # type uri = http::uri
+"HTTP范围" = "HttpRange"  # type HttpRange = range::HttpRange
+"HTTP版本" = "Version"  # type Version = http::version::Version
+"媒体类型" = "Mime"  # type Mime = mime::Mime
+"过滤信息" = "FilterInfo"  # enum FilterInfo
+"过滤特征" = "Filter"  # trait Filter
+"函数过滤" = "FnFilter"  # struct FnFilter<F>
+"协议方案" = "scheme"  # fn scheme(scheme: crate::http::uri::Scheme) -> SchemeFilter
+"主机" = "host"  # fn host<impl Into<String>>(host: impl ?) -> HostFilter
+"端口" = "port"  # fn port(port: u16) -> PortFilter
+"路径过滤" = "path"  # fn path<impl Into<String>>(path: impl ?) -> PathFilter
+"尝试路径" = "try_path"  # fn try_path<impl Into<String>>(path: impl ?) -> Result<PathFilter, String>
+"GET方法" = "get"  # fn get() -> MethodFilter
+"HEAD方法" = "head"  # fn head() -> MethodFilter
+"选项方法" = "options"  # fn options() -> MethodFilter
+"发送请求" = "post"  # fn post() -> MethodFilter
+"补丁方法" = "patch"  # fn patch() -> MethodFilter
+"PUT方法" = "put"  # fn put() -> MethodFilter
+"查询方法" = "query"  # fn query() -> MethodFilter
+"删除" = "delete"  # fn delete() -> MethodFilter
+"路由器" = "Router"  # type Router = router::Router
+"路径参数" = "PathParams"  # type PathParams = path_params::PathParams
+"流程控制" = "FlowCtrl"  # type FlowCtrl = flow_ctrl::FlowCtrl
+"Tokio执行器" = "TokioExecutor"  # type TokioExecutor = hyper_util::rt::TokioExecutor
+"Tokio输入输出" = "TokioIo"  # type TokioIo = hyper_util::rt::TokioIo
+"Tokio计时器" = "TokioTimer"  # type TokioTimer = hyper_util::rt::TokioTimer
+"服务器句柄" = "ServerHandle"  # struct ServerHandle
+"服务器" = "Server"  # struct Server<A>
+"JSON响应" = "Json"  # type Json = json::Json
+"重定向" = "Redirect"  # type Redirect = redirect::Redirect
+"读取定位器" = "ReadSeeker"  # type ReadSeeker = seek::ReadSeeker
+"文本内容" = "Text"  # type Text = text::Text
+"写入器" = "Writer"  # trait Writer
+"抄写器" = "Scribe"  # trait Scribe
+"测试客户端" = "TestClient"  # type TestClient = client::TestClient
+"请求构建器" = "RequestBuilder"  # type RequestBuilder = request::RequestBuilder
+"发送目标" = "SendTarget"  # type SendTarget = request::SendTarget
+"响应扩展" = "ResponseExt"  # type ResponseExt = response::ResponseExt
+"异步特征" = "async_trait"  # type async_trait = async_trait::async_trait
+"仓库" = "Depot"  # type Depot = crate::depot::Depot
+"服务" = "Service"  # type Service = crate::service::Service
+"HTTP库" = "hyper"  # type hyper = hyper
+"宏" = "macros"  # type macros = salvo_macros
+"盒装错误" = "BoxedError"  # type BoxedError = self::error::BoxedError
+"错误类型" = "Error"  # type Error = self::error::Error
+"结果" = "Result"  # type Result = std::result::Result<T, Error>
+"媒体类型迭代器" = "MimeIter"  # struct MimeIter<'a>
+"名称" = "Name"  # struct Name<'a>
+"字符串解析错误" = "FromStrError"  # struct FromStrError
+"媒体参数" = "Params"  # struct Params<'a>
+"星号" = "STAR"  # const STAR: Name<''static'>
+"文本类型" = "TEXT"  # const TEXT: Name<''static'>
+"图像" = "IMAGE"  # const IMAGE: Name<''static'>
+"音频" = "AUDIO"  # const AUDIO: Name<''static'>
+"视频" = "VIDEO"  # const VIDEO: Name<''static'>
+"应用类型" = "APPLICATION"  # const APPLICATION: Name<''static'>
+"多部分" = "MULTIPART"  # const MULTIPART: Name<''static'>
+"消息媒体" = "MESSAGE"  # const MESSAGE: Name<''static'>
+"模型" = "MODEL"  # const MODEL: Name<''static'>
+"字体" = "FONT"  # const FONT: Name<''static'>
+"纯文本" = "PLAIN"  # const PLAIN: Name<''static'>
+"HTML" = "HTML"  # const HTML: Name<''static'>
+"XML" = "XML"  # const XML: Name<''static'>
+"JavaScript" = "JAVASCRIPT"  # const JAVASCRIPT: Name<''static'>
+"CSS" = "CSS"  # const CSS: Name<''static'>
+"CSV" = "CSV"  # const CSV: Name<''static'>
+"事件流" = "EVENT_STREAM"  # const EVENT_STREAM: Name<''static'>
+"电子名片" = "VCARD"  # const VCARD: Name<''static'>
+"网址表单编码" = "WWW_FORM_URLENCODED"  # const WWW_FORM_URLENCODED: Name<''static'>
+"消息打包" = "MSGPACK"  # const MSGPACK: Name<''static'>
+"字节流" = "OCTET_STREAM"  # const OCTET_STREAM: Name<''static'>
+"PDF" = "PDF"  # const PDF: Name<''static'>
+"WOFF" = "WOFF"  # const WOFF: Name<''static'>
+"WOFF2" = "WOFF2"  # const WOFF2: Name<''static'>
+"表单数据格式" = "FORM_DATA"  # const FORM_DATA: Name<''static'>
+"BMP" = "BMP"  # const BMP: Name<''static'>
+"GIF" = "GIF"  # const GIF: Name<''static'>
+"JPEG" = "JPEG"  # const JPEG: Name<''static'>
+"PNG" = "PNG"  # const PNG: Name<''static'>
+"SVG" = "SVG"  # const SVG: Name<''static'>
+"基础" = "BASIC"  # const BASIC: Name<''static'>
+"MPEG" = "MPEG"  # const MPEG: Name<''static'>
+"MP4" = "MP4"  # const MP4: Name<''static'>
+"OGG" = "OGG"  # const OGG: Name<''static'>
+"字符集" = "CHARSET"  # const CHARSET: Name<''static'>
+"边界" = "BOUNDARY"  # const BOUNDARY: Name<''static'>
+"UTF8" = "UTF_8"  # const UTF_8: Name<''static'>
+"任意媒体" = "STAR_STAR"  # const STAR_STAR: Mime
+"任意文本" = "TEXT_STAR"  # const TEXT_STAR: Mime
+"纯文本媒体" = "TEXT_PLAIN"  # const TEXT_PLAIN: Mime
+"纯文本UTF8媒体" = "TEXT_PLAIN_UTF_8"  # const TEXT_PLAIN_UTF_8: Mime
+"HTML文本" = "TEXT_HTML"  # const TEXT_HTML: Mime
+"HTML文本UTF8" = "TEXT_HTML_UTF_8"  # const TEXT_HTML_UTF_8: Mime
+"CSS文本" = "TEXT_CSS"  # const TEXT_CSS: Mime
+"CSS文本UTF8" = "TEXT_CSS_UTF_8"  # const TEXT_CSS_UTF_8: Mime
+"JavaScript文本" = "TEXT_JAVASCRIPT"  # const TEXT_JAVASCRIPT: Mime
+"XML文本" = "TEXT_XML"  # const TEXT_XML: Mime
+"事件流文本" = "TEXT_EVENT_STREAM"  # const TEXT_EVENT_STREAM: Mime
+"CSV文本" = "TEXT_CSV"  # const TEXT_CSV: Mime
+"CSV文本UTF8" = "TEXT_CSV_UTF_8"  # const TEXT_CSV_UTF_8: Mime
+"制表符分隔文本" = "TEXT_TAB_SEPARATED_VALUES"  # const TEXT_TAB_SEPARATED_VALUES: Mime
+"制表符分隔文本UTF8" = "TEXT_TAB_SEPARATED_VALUES_UTF_8"  # const TEXT_TAB_SEPARATED_VALUES_UTF_8: Mime
+"电子名片文本" = "TEXT_VCARD"  # const TEXT_VCARD: Mime
+"任意图像" = "IMAGE_STAR"  # const IMAGE_STAR: Mime
+"JPEG图像" = "IMAGE_JPEG"  # const IMAGE_JPEG: Mime
+"GIF图像" = "IMAGE_GIF"  # const IMAGE_GIF: Mime
+"PNG图像" = "IMAGE_PNG"  # const IMAGE_PNG: Mime
+"BMP图像" = "IMAGE_BMP"  # const IMAGE_BMP: Mime
+"SVG图像" = "IMAGE_SVG"  # const IMAGE_SVG: Mime
+"WOFF字体" = "FONT_WOFF"  # const FONT_WOFF: Mime
+"WOFF2字体" = "FONT_WOFF2"  # const FONT_WOFF2: Mime
+"JSON应用" = "APPLICATION_JSON"  # const APPLICATION_JSON: Mime
+"JavaScript应用" = "APPLICATION_JAVASCRIPT"  # const APPLICATION_JAVASCRIPT: Mime
+"JavaScript应用UTF8" = "APPLICATION_JAVASCRIPT_UTF_8"  # const APPLICATION_JAVASCRIPT_UTF_8: Mime
+"网址表单编码应用" = "APPLICATION_WWW_FORM_URLENCODED"  # const APPLICATION_WWW_FORM_URLENCODED: Mime
+"字节流应用" = "APPLICATION_OCTET_STREAM"  # const APPLICATION_OCTET_STREAM: Mime
+"消息打包应用" = "APPLICATION_MSGPACK"  # const APPLICATION_MSGPACK: Mime
+"PDF应用" = "APPLICATION_PDF"  # const APPLICATION_PDF: Mime
+"多部分表单数据" = "MULTIPART_FORM_DATA"  # const MULTIPART_FORM_DATA: Mime
+
+["解释"]
+"核心" = "salvo_core 核心 crate 的类型别名，承载全部核心 API。"
+"捕获器" = "捕获请求处理中产生的错误，统一转换为响应。"
+"默认目标" = "错误处理的默认目标，决定错误响应的最终去向。"
+"套接字地址" = "网络地址类型，表示 IP 地址与端口。"
+"TCP监听器" = "监听 TCP 端口的监听器，产生连接流。"
+"TCP接受器" = "接受 TCP 连接并转换为请求流的对象。"
+"动态TCP接受器" = "动态派发的 TCP 连接接受器特征。"
+"转动态TCP接受器" = "把具体接受器转换为动态接受器的包装。"
+"动态TCP接受器们" = "多个动态接受器的集合结构。"
+"连接控制" = "连接级别的控制信息（如是否保持连接）。"
+"HTTP1" = "HTTP/1.1 协议连接类型（hyper 提供）。"
+"HTTP2" = "HTTP/2 协议连接类型（hyper 提供）。"
+"合并接受器" = "把多个接受器合并为一个接受器。"
+"合并监听器" = "把多个监听器合并为一个监听器。"
+"已接受连接" = "接受连接后产生的（连接, 地址）结果。"
+"接受器" = "接受连接并产生请求流的特征，可自定义实现。"
+"保持" = "持有连接的中间状态结构。"
+"耦合器" = "把监听器产生的连接接入协议处理的特征。"
+"监听器" = "监听并产生连接流的特征，支持 TCP/Unix 等。"
+"动态流" = "动态派发的连接流类型。"
+"连接来源" = "枚举连接来源（TCP、Unix 套接字等）。"
+"源解析器" = "解析配置来源的解析器（文件、字符串等）。"
+"元数据" = "配置元数据描述（如环境变量名、文件路径）。"
+"字段" = "配置字段描述（名称、来源、默认值等）。"
+"源" = "配置来源描述（环境变量、命令行参数等）。"
+"重命名规则" = "字段名大小写转换规则（如驼峰转蛇形）。"
+"可提取" = "从请求中提取数据的特征，表单、JSON 等提取器实现它。"
+"分块文件" = "分块读取并发送文件的响应写入器。"
+"传输协议" = "传输层协议状态（如 TLS、HTTP/2 升级）。"
+"熔断信息" = "熔断器状态信息（触发次数、熔断状态等）。"
+"熔断配置" = "熔断器配置（阈值、超时等）。"
+"熔断动作" = "熔断触发时执行的动作。"
+"连接观察者" = "观察连接生命周期的特征。"
+"强引用连接观察者" = "共享所有权（Arc）的连接观察者。"
+"熔断策略" = "熔断触发策略的特征。"
+"强引用熔断策略" = "共享所有权（Arc）的熔断策略。"
+"处理器特征" = "请求处理核心特征，路由与中间件都实现它。"
+"强引用处理器" = "共享所有权（Arc）的处理器包装。"
+"空处理器" = "返回一个不做处理直接放行的处理器。"
+"跳过器" = "判断是否跳过当前处理器的特征。"
+"环绕处理器" = "包裹额外逻辑的处理器，中间件基于它实现。"
+"不跳过" = "始终不跳过的判断函数。"
+"解析错误" = "请求解析失败产生的错误类型。"
+"解析结果" = "解析操作的统一结果类型。"
+"状态错误" = "携带 HTTP 状态码的错误类型。"
+"状态结果" = "携带 HTTP 状态码的结果类型。"
+"表单数据" = "multipart 表单数据的提取器。"
+"文件部分" = "multipart 表单中的一个文件块。"
+"请求部件" = "HTTP 请求的头部与扩展部件（不含主体）。"
+"全局安全最大大小" = "读取全局请求体安全大小上限。"
+"设置全局安全最大大小" = "设置全局请求体安全大小上限。"
+"安全最大大小" = "请求体安全大小上限配置结构。"
+"HTTP请求" = "HTTP 请求对象，封装头部、主体与扩展信息。"
+"主体发送器" = "向响应发送主体的发送器。"
+"字节帧" = "HTTP 主体中的字节帧。"
+"响应主体" = "响应的主体类型。"
+"HTTP响应" = "HTTP 响应对象，封装状态码、头部与主体。"
+"安全Cookie策略" = "Cookie 安全策略（是否启用安全 Cookie）。"
+"主体" = "HTTP 消息主体类型（hyper 提供）。"
+"帧" = "HTTP 主体中的数据帧。"
+"大小提示" = "主体大小的提示信息。"
+"请求主体" = "请求的主体类型。"
+"HTTP主体" = "hyper 的传入主体（Incoming）。"
+"主体接收器" = "接收请求主体的接收器。"
+"Cookie" = "cookie crate 的类型别名（解析与构建 Cookie）。"
+"头部集合" = "headers crate 的类型别名（类型化头部集合）。"
+"HTTP方法" = "HTTP 方法类型（GET/POST 等）。"
+"头部映射" = "HTTP 头部映射（多值头部容器）。"
+"头部名称" = "HTTP 头部名称类型。"
+"头部值" = "HTTP 头部值类型。"
+"状态码" = "HTTP 状态码类型。"
+"头部" = "http 头部模块的类型别名。"
+"资源标识" = "URI 模块的类型别名。"
+"HTTP范围" = "HTTP Range 请求范围的解析类型。"
+"HTTP版本" = "HTTP 协议版本类型（HTTP/1.1、HTTP/2 等）。"
+"媒体类型" = "MIME 媒体类型（如 text/html）。"
+"过滤信息" = "过滤器描述信息（匹配的方法、路径等）。"
+"过滤特征" = "路由过滤特征，决定请求是否匹配路由。"
+"函数过滤" = "用闭包实现的路由过滤器。"
+"协议方案" = "按 URI 协议（http/https）过滤请求。"
+"主机" = "按请求主机名过滤请求。"
+"端口" = "按请求端口过滤请求。"
+"路径过滤" = "按请求路径过滤请求。"
+"尝试路径" = "按路径过滤，路径非法时返回错误。"
+"GET方法" = "过滤 GET 方法请求。"
+"HEAD方法" = "过滤 HEAD 方法请求。"
+"选项方法" = "过滤 OPTIONS 方法请求。"
+"发送请求" = "过滤 POST 方法请求。"
+"补丁方法" = "过滤 PATCH 方法请求。"
+"PUT方法" = "过滤 PUT 方法请求。"
+"查询方法" = "过滤 QUERY 方法请求。"
+"删除" = "过滤 DELETE 方法请求。"
+"路由器" = "路由表，将请求分派到匹配的处理器。"
+"路径参数" = "路径中的参数集合（如 /users/:id）。"
+"流程控制" = "处理器流程控制（继续、跳过、错误）。"
+"Tokio执行器" = "Tokio 异步执行器（hyper 集成用）。"
+"Tokio输入输出" = "Tokio 输入输出适配类型。"
+"Tokio计时器" = "Tokio 计时器适配类型。"
+"服务器句柄" = "服务器运行句柄，可请求优雅关闭。"
+"服务器" = "Web 服务器主体，绑定监听器并运行服务。"
+"JSON响应" = "JSON 响应写入器与提取器。"
+"重定向" = "重定向响应写入器。"
+"读取定位器" = "同时支持读取与定位（Seek）的请求体。"
+"文本内容" = "纯文本响应写入器。"
+"写入器" = "将数据写入响应的特征。"
+"抄写器" = "向响应写入内容并返回状态码的特征。"
+"测试客户端" = "集成测试用的 HTTP 客户端。"
+"请求构建器" = "构建测试请求的构造器。"
+"发送目标" = "测试请求的发送目标（服务器）。"
+"响应扩展" = "测试响应的扩展方法集合。"
+"异步特征" = "异步特征宏的类型别名。"
+"仓库" = "请求共享数据容器，各中间件在此存取数据。"
+"服务" = "salvo 服务主体，可被 hyper 驱动运行。"
+"HTTP库" = "hyper crate 的类型别名（底层 HTTP 实现）。"
+"宏" = "salvo 过程宏 crate 的类型别名。"
+"盒装错误" = "装箱的动态错误（Box<dyn Error>）。"
+"错误类型" = "salvo 通用错误类型，支持状态码与来源链。"
+"结果" = "salvo 统一的 Result 别名（错误类型为 Error）。"
+"媒体类型迭代器" = "迭代解析 MIME 类型的结构。"
+"名称" = "MIME 类型名称（如 text、html）。"
+"字符串解析错误" = "从字符串解析 MIME 失败的错误。"
+"媒体参数" = "MIME 参数（如 charset=utf-8）的迭代器。"
+"星号" = "媒体类型通配段 *（如 */* 中的 *）。"
+"文本类型" = "text 主类型名（如 text/html）。"
+"图像" = "image 主类型名（如 image/png）。"
+"音频" = "audio 主类型名（如 audio/mp3）。"
+"视频" = "video 主类型名（如 video/mp4）。"
+"应用类型" = "application 主类型名（如 application/json）。"
+"多部分" = "multipart 主类型名（如 multipart/form-data）。"
+"消息媒体" = "message 主类型名（如 message/http）。"
+"模型" = "model 主类型名（如 model/gltf）。"
+"字体" = "font 主类型名（如 font/woff）。"
+"纯文本" = "plain 子类型名（text/plain）。"
+"HTML" = "html 子类型名（text/html）。"
+"XML" = "xml 子类型名（text/xml）。"
+"JavaScript" = "javascript 子类型名（text/javascript）。"
+"CSS" = "css 子类型名（text/css）。"
+"CSV" = "csv 子类型名（text/csv）。"
+"事件流" = "event-stream 子类型名（text/event-stream）。"
+"电子名片" = "vcard 子类型名（text/vcard）。"
+"网址表单编码" = "x-www-form-urlencoded 子类型名。"
+"消息打包" = "msgpack 子类型名（application/msgpack）。"
+"字节流" = "octet-stream 子类型名（二进制数据流）。"
+"PDF" = "pdf 子类型名（application/pdf）。"
+"WOFF" = "woff 子类型名（网页字体格式）。"
+"WOFF2" = "woff2 子类型名（网页字体压缩格式）。"
+"表单数据格式" = "form-data 子类型名（multipart 表单）。"
+"BMP" = "bmp 子类型名（位图图像）。"
+"GIF" = "gif 子类型名（动图图像）。"
+"JPEG" = "jpeg 子类型名（照片图像）。"
+"PNG" = "png 子类型名（位图图像）。"
+"SVG" = "svg 子类型名（矢量图像）。"
+"基础" = "basic 子类型名。"
+"MPEG" = "mpeg 子类型名（视频）。"
+"MP4" = "mp4 子类型名（视频）。"
+"OGG" = "ogg 子类型名（音频/视频）。"
+"字符集" = "charset 参数名（如 charset=utf-8）。"
+"边界" = "boundary 参数名（multipart 分隔边界）。"
+"UTF8" = "utf-8 字符集名。"
+"任意媒体" = "*/* 任意媒体类型常量。"
+"任意文本" = "text/* 任意文本类型常量。"
+"纯文本媒体" = "text/plain 媒体类型常量。"
+"纯文本UTF8媒体" = "text/plain; charset=utf-8 媒体类型常量。"
+"HTML文本" = "text/html 媒体类型常量。"
+"HTML文本UTF8" = "text/html; charset=utf-8 媒体类型常量。"
+"CSS文本" = "text/css 媒体类型常量。"
+"CSS文本UTF8" = "text/css; charset=utf-8 媒体类型常量。"
+"JavaScript文本" = "text/javascript 媒体类型常量。"
+"XML文本" = "text/xml 媒体类型常量。"
+"事件流文本" = "text/event-stream 媒体类型常量。"
+"CSV文本" = "text/csv 媒体类型常量。"
+"CSV文本UTF8" = "text/csv; charset=utf-8 媒体类型常量。"
+"制表符分隔文本" = "text/tab-separated-values 媒体类型常量。"
+"制表符分隔文本UTF8" = "text/tab-separated-values; charset=utf-8 媒体类型常量。"
+"电子名片文本" = "text/vcard 媒体类型常量。"
+"任意图像" = "image/* 媒体类型常量。"
+"JPEG图像" = "image/jpeg 媒体类型常量。"
+"GIF图像" = "image/gif 媒体类型常量。"
+"PNG图像" = "image/png 媒体类型常量。"
+"BMP图像" = "image/bmp 媒体类型常量。"
+"SVG图像" = "image/svg+xml 媒体类型常量。"
+"WOFF字体" = "font/woff 媒体类型常量。"
+"WOFF2字体" = "font/woff2 媒体类型常量。"
+"JSON应用" = "application/json 媒体类型常量。"
+"JavaScript应用" = "application/javascript 媒体类型常量。"
+"JavaScript应用UTF8" = "application/javascript; charset=utf-8 媒体类型常量。"
+"网址表单编码应用" = "application/x-www-form-urlencoded 媒体类型常量。"
+"字节流应用" = "application/octet-stream 媒体类型常量。"
+"消息打包应用" = "application/msgpack 媒体类型常量。"
+"PDF应用" = "application/pdf 媒体类型常量。"
+"多部分表单数据" = "multipart/form-data 媒体类型常量。"

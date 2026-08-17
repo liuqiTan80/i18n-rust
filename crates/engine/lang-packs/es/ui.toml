@@ -27,6 +27,9 @@
 "compile_error" = "Errores de compilacion:\n{}"
 "load_error_msg_failed" = "Fallo al cargar los mensajes de error: {}"
 "warn_builtin_errors_failed" = "Advertencia: fallo al cargar los mensajes de error integrados: {}"
+"no_project_root" = "No se encontro la raiz del proyecto (no hay Cargo.toml en los directorios superiores). Archivo fuente: {}. Cree primero un proyecto con `rzc init`."
+"transpile_file_failed" = "Fallo al transpilar {}: {}"
+"run_program_failed" = "El programa termino con error ({}):\n{}"
 
 # ---- creacion de proyecto ----
 "dir_exists" = "El directorio {} ya existe"

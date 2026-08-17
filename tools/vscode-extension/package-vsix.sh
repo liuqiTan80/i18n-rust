@@ -41,9 +41,9 @@ else
     npm install --no-audit --no-fund
 fi
 
-# ---------- 3. 编译 TypeScript ----------
-echo "🛠️ 第 3 步：编译 TypeScript..."
-npm run compile
+# ---------- 3. 构建（类型检查 + 语法生成 + esbuild 打包） ----------
+echo "🛠️ 第 3 步：构建扩展..."
+npm run build
 
 # ---------- 4. 打包 .vsix ----------
 echo "📦 第 4 步：打包 .vsix..."

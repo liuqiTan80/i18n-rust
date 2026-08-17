@@ -21,24 +21,33 @@ export abstract class ProviderInterface {
     constructor(protected config: AIConfig) {}
 
     /** Send one full chat round, returning the assistant's full reply */
-    abstract sendChat(messages: ChatMessage[]): Promise<string>;
+    abstract sendChat(messages: ChatMessage[], signal?: AbortSignal): Promise<string>;
 
     /** Stream chat: content deltas delivered chunk by chunk via callback */
-    abstract streamChat(messages: ChatMessage[], onChunk: StreamCallback): Promise<void>;
+    abstract streamChat(messages: ChatMessage[], onChunk: StreamCallback, signal?: AbortSignal): Promise<void>;
 
     /** List the models available from this provider */
     abstract listModels(): Promise<string[]>;
 
     /**
      * Fetch with timeout (built-in Node.js fetch, supported by VS Code 1.85+ / Node 18+)
+     * 可传入外部 AbortSignal 支持用户取消。
      * Network errors and timeouts are converted into AIError.
      */
-    protected async request(url: string, options: RequestInit): Promise<Response> {
+    protected async request(url: string, options: RequestInit, signal?: AbortSignal): Promise<Response> {
+        if (signal?.aborted) {
+            throw new AIError('已取消', '请求已取消');
+        }
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), this.config.timeout * 1000);
+        const onExternalAbort = () => controller.abort();
+        signal?.addEventListener('abort', onExternalAbort);
         try {
             return await fetch(url, { ...options, signal: controller.signal });
         } catch (error) {
+            if (signal?.aborted) {
+                throw new AIError('已取消', '请求已取消');
+            }
             if (error instanceof Error && error.name === 'AbortError') {
                 throw new AIError(
                     '超时',
@@ -51,6 +60,7 @@ export abstract class ProviderInterface {
             );
         } finally {
             clearTimeout(timer);
+            signal?.removeEventListener('abort', onExternalAbort);
         }
     }
 

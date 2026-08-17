@@ -4,7 +4,6 @@
 // 将母语 Rust 源码实时转译为标准 Rust 并调用 cargo 编译/运行。
 
 use clap::{FromArgMatches, Parser, Subcommand};
-use i18n_rust_engine::lexer;
 use i18n_rust_engine::mapping_manager::MappingManager;
 use std::collections::HashMap;
 use std::fs;
@@ -19,7 +18,7 @@ mod ui;
 use lang_manager::Source;
 
 #[derive(Parser)]
-#[command(name = "rzc")]
+#[command(name = "rzc", version)]
 // 兜底文案（localize_clap 会按界面语言覆盖）；用英文避免硬编码中文
 #[command(about = "Multi-language Rust teaching dialect compiler")]
 struct CliArgs {
@@ -98,49 +97,46 @@ enum LangCommand {
     },
 }
 
-fn main() -> anyhow::Result<()> {
-    let cargo_cmd = "cargo";
+fn main() -> std::process::ExitCode {
+    match run() {
+        Ok(code) => code,
+        Err(err) => {
+            eprintln!("Error: {err:#}");
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+fn run() -> anyhow::Result<std::process::ExitCode> {
     // 按当前界面语言本地化 clap 帮助文本
     let ui = ui::Ui::global();
     // 同步引擎全局语言（错误/诊断/日志随界面语言输出）
     i18n_rust_engine::语言::set_language(&ui::detect_ui_lang());
     let cli = localize_clap(&ui);
-    let args = CliArgs::from_arg_matches(&cli.get_matches())?;
+    // clap 自身错误（--help/--version 输出、非法参数等）按 clap 退出码直接退出
+    let args = match CliArgs::from_arg_matches(&cli.get_matches()) {
+        Ok(args) => args,
+        Err(err) => err.exit(),
+    };
 
     match args.command {
         CliCommand::Init { project_name, lang } => {
             i18n_rust_engine::语言::set_language(&lang);
             create_project(&project_name, &lang)?;
-            Ok(())
+            Ok(std::process::ExitCode::SUCCESS)
         }
         CliCommand::Run { file, lang_pack } => {
             let ui = ui_for_file(&file, &lang_pack);
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack, Some(&file))?;
-            let macro_map = manager.get_macro_map();
-            let mut english_code = lexer::transpile_source_with_macro_map(
-                &source,
-                manager.get_keyword_map(),
-                &macro_map,
-            );
-            if !manager.module_path_map.is_empty() {
-                english_code = i18n_rust_engine::module_path::replace_module_paths(
-                    &english_code,
-                    manager.get_module_path_map(),
-                );
-            }
-            if !manager.alias_map.is_empty() {
-                english_code = i18n_rust_engine::alias::replace_aliases(
-                    &english_code,
-                    manager.get_alias_map(),
-                );
-            }
-
             let project_root = find_project_root(&file)?;
+            // 入口文件写入 src/main.rs 作为 cargo run 的编译目标
             let source_path = project_root.join("src/main.rs");
-            fs::write(&source_path, &english_code)?;
+            fs::write(&source_path, transpile_to_english(&source, &manager))?;
+            // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
+            transpile_project_files(&project_root, &file, &manager)?;
 
-            let output = Command::new(cargo_cmd)
+            let output = Command::new("cargo")
                 .arg("run")
                 .current_dir(&project_root)
                 .output()
@@ -154,42 +150,50 @@ fn main() -> anyhow::Result<()> {
                     )
                 })?;
 
-            if output.status.success() {
-                println!("{}", String::from_utf8_lossy(&output.stdout));
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                eprintln!("{}", ui.f("compile_error", &[&stderr]));
+            // 无论成败先输出程序 stdout
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if !stdout.is_empty() {
+                print!("{}", stdout);
             }
-            Ok(())
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if output.status.success() {
+                // 成功时 stderr 含编译警告，同样展示
+                if !stderr.trim().is_empty() {
+                    eprint!("{}", stderr);
+                }
+                return Ok(std::process::ExitCode::SUCCESS);
+            }
+            // 失败时区分编译错误与程序运行时错误：
+            // cargo 编译失败会在 stderr 输出 error[E....] / error: 前缀
+            if stderr.contains("error[E") || stderr.contains("error:") {
+                eprintln!("{}", ui.f("compile_error", &[stderr.as_ref()]));
+            } else {
+                eprintln!(
+                    "{}",
+                    ui.f(
+                        "run_program_failed",
+                        &[&output.status.to_string(), stderr.trim()]
+                    )
+                );
+            }
+            // 传播被运行程序的退出码（信号终止等无码场景回退 1）
+            Ok(output
+                .status
+                .code()
+                .map(|c| std::process::ExitCode::from(c as u8))
+                .unwrap_or(std::process::ExitCode::FAILURE))
         }
         CliCommand::Check { file, lang_pack } => {
             let ui = ui_for_file(&file, &lang_pack);
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack.clone(), Some(&file))?;
-            let macro_map = manager.get_macro_map();
-            let mut english_code = lexer::transpile_source_with_macro_map(
-                &source,
-                manager.get_keyword_map(),
-                &macro_map,
-            );
-            if !manager.module_path_map.is_empty() {
-                english_code = i18n_rust_engine::module_path::replace_module_paths(
-                    &english_code,
-                    manager.get_module_path_map(),
-                );
-            }
-            if !manager.alias_map.is_empty() {
-                english_code = i18n_rust_engine::alias::replace_aliases(
-                    &english_code,
-                    manager.get_alias_map(),
-                );
-            }
-
             let project_root = find_project_root(&file)?;
             let source_path = project_root.join("src/main.rs");
-            fs::write(&source_path, &english_code)?;
+            fs::write(&source_path, transpile_to_english(&source, &manager))?;
+            // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
+            transpile_project_files(&project_root, &file, &manager)?;
 
-            let output = Command::new(cargo_cmd)
+            let output = Command::new("cargo")
                 .arg("check")
                 .arg("--message-format=json")
                 .current_dir(&project_root)
@@ -203,14 +207,20 @@ fn main() -> anyhow::Result<()> {
                         )
                     )
                 })?;
+            // cargo 整体是否成功（决定最终退出码）
+            let exit_code = if output.status.success() {
+                std::process::ExitCode::SUCCESS
+            } else {
+                std::process::ExitCode::FAILURE
+            };
 
             // cargo --message-format=json 的编译器诊断输出到 stdout，cargo 自身消息在 stderr
-            let output_text = format!(
+            let stderr_text = String::from_utf8_lossy(&output.stderr).to_string();
+            let rustc_output = format!(
                 "{}\n{}",
                 String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
+                stderr_text
             );
-            let rustc_output = output_text;
             use i18n_rust_engine::diagnostic::{
                 DiagnosticTranslator, ErrorTranslationManager, parse_diagnostic_output,
             };
@@ -290,8 +300,14 @@ fn main() -> anyhow::Result<()> {
             });
 
             if diagnostics.is_empty() {
-                println!("{}", ui.t("success_compile"));
-                return Ok(());
+                if output.status.success() {
+                    println!("{}", ui.t("success_compile"));
+                } else {
+                    // cargo 失败但无可解析的 JSON 诊断（Cargo.toml 语法错误、
+                    // 链接错误等）：原样输出 cargo 消息，绝不虚报“编译成功”
+                    eprintln!("{}", ui.f("compile_error", &[stderr_text.trim()]));
+                }
+                return Ok(exit_code);
             }
 
             if let Some(ref translator) = translator {
@@ -309,7 +325,11 @@ fn main() -> anyhow::Result<()> {
                     });
                 }
                 if teaching_list.is_empty() {
-                    println!("{}", ui.t("success_compile"));
+                    if output.status.success() {
+                        println!("{}", ui.t("success_compile"));
+                    } else {
+                        eprintln!("{}", ui.f("compile_error", &[stderr_text.trim()]));
+                    }
                 } else {
                     println!(
                         "{}",
@@ -333,39 +353,24 @@ fn main() -> anyhow::Result<()> {
                     println!("{}", ui.t("success_compile"));
                 }
             }
-            Ok(())
+            Ok(exit_code)
         }
         CliCommand::Eject { file, lang_pack } => {
             let ui = ui_for_file(&file, &lang_pack);
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack, Some(&file))?;
-            let macro_map = manager.get_macro_map();
-            let mut english_code = lexer::transpile_source_with_macro_map(
-                &source,
-                manager.get_keyword_map(),
-                &macro_map,
-            );
-            if !manager.module_path_map.is_empty() {
-                english_code = i18n_rust_engine::module_path::replace_module_paths(
-                    &english_code,
-                    manager.get_module_path_map(),
-                );
-            }
-            if !manager.alias_map.is_empty() {
-                english_code = i18n_rust_engine::alias::replace_aliases(
-                    &english_code,
-                    manager.get_alias_map(),
-                );
-            }
+            let english_code = transpile_to_english(&source, &manager);
             let output_path = file.with_extension("rs");
             fs::write(&output_path, english_code)?;
             println!(
                 "{}",
                 ui.f("exported_to", &[&output_path.display().to_string()])
             );
-            Ok(())
+            Ok(std::process::ExitCode::SUCCESS)
         }
-        CliCommand::Lang { subcommand } => handle_lang_command(subcommand),
+        CliCommand::Lang { subcommand } => {
+            handle_lang_command(subcommand).map(|()| std::process::ExitCode::SUCCESS)
+        }
         CliCommand::Mapping { subcommand } => {
             let MappingCommand::Auto {
                 crate_name,
@@ -376,9 +381,16 @@ fn main() -> anyhow::Result<()> {
             let lang = lang.unwrap_or_else(mapping_gen::detect_system_language);
             i18n_rust_engine::语言::set_language(&lang);
             let output_path = output.unwrap_or_else(|| {
-                PathBuf::from(format!("lang-packs/{}/crates/{}.toml", lang, crate_name))
+                // 默认写入项目根的 lang-packs/：从 cwd 向上找 Cargo.toml，
+                // 保证任意子目录下执行都落到项目本地语言包（load_mapping 同一位置查找）
+                let base = std::env::current_dir()
+                    .ok()
+                    .and_then(|cwd| find_project_root_upward(&cwd))
+                    .unwrap_or_else(|| PathBuf::from("."));
+                base.join(format!("lang-packs/{}/crates/{}.toml", lang, crate_name))
             });
             mapping_gen::run_auto_generate(&crate_name, &lang, &provider, &output_path)
+                .map(|()| std::process::ExitCode::SUCCESS)
         }
     }
 }
@@ -457,19 +469,191 @@ fn find_project_root(file: &Path) -> anyhow::Result<PathBuf> {
             .unwrap_or_else(|| PathBuf::from("."))
     };
 
-    let mut current = file_dir.canonicalize().unwrap_or(file_dir);
+    if let Some(root) = find_project_root_upward(&file_dir) {
+        return Ok(root);
+    }
+    // 未找到 Cargo.toml 时明确报错：静默回退当前目录会在无关目录写入 src/main.rs
+    anyhow::bail!(
+        "{}",
+        ui::Ui::global().f("no_project_root", &[&file.display().to_string()])
+    )
+}
+
+/// 从指定目录向上查找项目根（含 Cargo.toml 的目录），未找到返回 None
+fn find_project_root_upward(start: &Path) -> Option<PathBuf> {
+    let mut current = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
     loop {
         if current.join("Cargo.toml").exists() {
-            return Ok(current);
+            return Some(current);
         }
-        if let Some(parent) = current.parent() {
-            current = parent.to_path_buf();
-        } else {
-            break;
-        }
+        current = current.parent()?.to_path_buf();
     }
-    std::env::current_dir()
-        .map_err(|e| anyhow::anyhow!("{}", ui::Ui::global().f("cli_err_cwd", &[&e.to_string()])))
+}
+
+/// 统一转译管线（复用 engine）：Unicode 检查 → 关键字/宏转译 → 模块路径替换 → 别名替换 → 非 ASCII 模块注解
+fn transpile_to_english(source: &str, manager: &MappingManager) -> String {
+    let code = i18n_rust_engine::transpile_pipeline(source, manager).output;
+    annotate_non_ascii_mods(&code)
+}
+
+/// 为非 ASCII 模块名的文件式声明 `mod 名称;` 补充 `#[path = "名称.rs"]` 注解。
+///
+/// rustc 拒绝加载非 ASCII 标识符对应的模块文件（E0754），而方言项目
+/// 的模块文件常以母语命名（如 `src/数学.zh` → `src/数学.rs`）；
+/// 显式指定 path 后 rustc 可正常加载。仅处理以分号结尾的文件式声明，
+/// 内联模块块（`mod 名称 { ... }`）与 ASCII 名不受影响。
+fn annotate_non_ascii_mods(code: &str) -> String {
+    use rustc_lexer::{TokenKind, tokenize};
+    let tokens: Vec<_> = tokenize(code).collect();
+    // 逐 token 的字节偏移（rustc_lexer 词法流覆盖全源，偏移连续）
+    let mut offsets: Vec<usize> = Vec::with_capacity(tokens.len());
+    let mut acc = 0usize;
+    for t in &tokens {
+        offsets.push(acc);
+        acc += t.len;
+    }
+    let skip_trivia = |mut idx: usize| {
+        while idx < tokens.len()
+            && matches!(
+                tokens[idx].kind,
+                TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
+            )
+        {
+            idx += 1;
+        }
+        idx
+    };
+    let mut insertions: Vec<(usize, String)> = Vec::new();
+    for (i, token) in tokens.iter().enumerate() {
+        if token.kind != TokenKind::Ident {
+            continue;
+        }
+        let text = &code[offsets[i]..offsets[i] + token.len];
+        if text != "mod" {
+            continue;
+        }
+        let name_idx = skip_trivia(i + 1);
+        let Some(name_t) = tokens.get(name_idx) else {
+            continue;
+        };
+        if name_t.kind != TokenKind::Ident {
+            continue;
+        }
+        let semi_idx = skip_trivia(name_idx + 1);
+        // 仅文件式声明（分号结尾）需要注解；内联模块块以 `{` 开头
+        if !matches!(tokens.get(semi_idx).map(|t| t.kind), Some(TokenKind::Semi)) {
+            continue;
+        }
+        let name = &code[offsets[name_idx]..offsets[name_idx] + name_t.len];
+        if name.is_ascii() {
+            continue;
+        }
+        // 插入点：若有可见性修饰 `pub`，注解必须在 pub 之前
+        let mut insert_at = offsets[i];
+        let mut back = i;
+        while back > 0
+            && matches!(
+                tokens[back - 1].kind,
+                TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
+            )
+        {
+            back -= 1;
+        }
+        if back > 0
+            && tokens[back - 1].kind == TokenKind::Ident
+            && &code[offsets[back - 1]..offsets[back - 1] + tokens[back - 1].len] == "pub"
+        {
+            insert_at = offsets[back - 1];
+        }
+        // 已有 #[path] 注解时不重复添加：注解可独占多行，需向上逐行扫描属性链
+        let line_start = code[..insert_at].rfind('\n').map(|p| p + 1).unwrap_or(0);
+        let mut scan_start = line_start;
+        let mut has_path_attr = false;
+        loop {
+            let line = code[scan_start..insert_at].lines().next().unwrap_or("");
+            // 首行可能是 mod 所在行的缩进前缀；上移后的行应为属性行
+            if scan_start != line_start || line.trim_start().starts_with("#[") {
+                if line.contains("#[path") {
+                    has_path_attr = true;
+                    break;
+                }
+                if !line.trim_start().starts_with("#[") {
+                    break; // 属性链被普通行/空行打断
+                }
+            }
+            if scan_start == 0 {
+                break;
+            }
+            let prev_start = code[..scan_start - 1]
+                .rfind('\n')
+                .map(|p| p + 1)
+                .unwrap_or(0);
+            if prev_start == scan_start {
+                break;
+            }
+            scan_start = prev_start;
+        }
+        if has_path_attr {
+            continue;
+        }
+        let indent = &code[line_start..insert_at];
+        insertions.push((insert_at, format!("#[path = \"{name}.rs\"]\n{indent}")));
+    }
+    let mut result = code.to_string();
+    for (pos, text) in insertions.into_iter().rev() {
+        result.insert_str(pos, &text);
+    }
+    result
+}
+
+/// 同步转译项目 src/ 下的全部方言源文件（入口文件除外）为对应 .rs 文件，
+/// 使多文件项目的 mod 引用链可用；非已注册方言扩展名的文件（如手写 .rs）跳过。
+fn transpile_project_files(
+    project_root: &Path,
+    entry_file: &Path,
+    manager: &MappingManager,
+) -> anyhow::Result<()> {
+    let ui = ui::Ui::global();
+    let src_dir = project_root.join("src");
+    // 无 src 目录时不处理，由 cargo 自行报错
+    let Ok(entries) = fs::read_dir(&src_dir) else {
+        return Ok(());
+    };
+    // 入口产物固定写入 src/main.rs：src/ 下任何词干为 main 的方言文件
+    // （如 init 生成的 main.zh）转译后会覆盖入口产物，必须跳过
+    let entry_abs = entry_file.canonicalize().ok();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        if Some(&path) == entry_abs.as_ref() {
+            continue;
+        }
+        if path.file_stem().is_some_and(|s| s == "main") {
+            continue;
+        }
+        let Some(extension) = path.extension().and_then(|e| e.to_str()) else {
+            continue;
+        };
+        if get_lang_code_from_extension(extension).is_none() {
+            continue;
+        }
+        let source = fs::read_to_string(&path).map_err(|e| {
+            anyhow::anyhow!(
+                "{}",
+                ui.f(
+                    "transpile_file_failed",
+                    &[&path.display().to_string(), &e.to_string()]
+                )
+            )
+        })?;
+        fs::write(
+            path.with_extension("rs"),
+            transpile_to_english(&source, manager),
+        )?;
+    }
+    Ok(())
 }
 
 fn get_chinese_source_line(source: &str, line_num: u32) -> Option<String> {
@@ -489,6 +673,21 @@ fn create_project(project_name: &str, lang: &str) -> anyhow::Result<()> {
     if project_path.exists() {
         anyhow::bail!("{}", ui.f("dir_exists", &[project_name]));
     }
+    // 包名取路径最后一段（支持传入绝对/相对路径），并将 cargo 不允许的字符替换为下划线
+    let package_name = project_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(project_name);
+    let package_name: String = package_name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
     fs::create_dir_all(project_path.join("src"))?;
     fs::write(
         project_path.join("rust-toolchain.toml"),
@@ -498,7 +697,7 @@ fn create_project(project_name: &str, lang: &str) -> anyhow::Result<()> {
         project_path.join("Cargo.toml"),
         format!(
             "[package]\nname = \"{}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n\n[workspace]\n",
-            project_name
+            package_name
         ),
     )?;
     // 语言包已内置到 rzc 可执行文件中，无需复制；主文件模板随 --lang 变化
@@ -547,12 +746,22 @@ fn load_mapping(
             ui.f("unknown_extension", &[extension, &available_text])
         )
     })?;
-    // 3. 如果项目根目录存在 lang-packs/<lang>/ 目录，优先使用（自定义覆盖）
-    let local_path = PathBuf::from(format!("lang-packs/{}", lang_code));
-    if local_path.exists() {
-        return MappingManager::load_from_dir(&local_path).map_err(|e| {
-            anyhow::anyhow!("{}", ui.f("load_local_lang_pack_failed", &[&e.to_string()]))
-        });
+    // 3. 项目根的 lang-packs/<lang>/ 目录存在时优先使用（自定义覆盖）
+    //    项目根从源文件向上查找；源文件不在项目内时回退 cwd，兼容旧用法
+    let mut local_candidates: Vec<PathBuf> = Vec::new();
+    if let Some(file) = source_file
+        && let Some(parent) = file.parent()
+        && let Some(root) = find_project_root_upward(parent)
+    {
+        local_candidates.push(root.join("lang-packs").join(&lang_code));
+    }
+    local_candidates.push(PathBuf::from(format!("lang-packs/{}", lang_code)));
+    for local_path in &local_candidates {
+        if local_path.exists() {
+            return MappingManager::load_from_dir(local_path).map_err(|e| {
+                anyhow::anyhow!("{}", ui.f("load_local_lang_pack_failed", &[&e.to_string()]))
+            });
+        }
     }
     // 4. 全局用户语言包目录
     let global_path = lang_manager::global_lang_dir().join(&lang_code);
@@ -655,7 +864,22 @@ fn get_lang_code_from_extension(extension: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::get_lang_code_from_extension;
+    use super::{
+        annotate_non_ascii_mods, get_lang_code_from_extension, transpile_project_files,
+        transpile_to_english,
+    };
+
+    /// 加载内置中文映射管理器（测试转译管线用）
+    fn zh_manager() -> i18n_rust_engine::mapping_manager::MappingManager {
+        let builtin = crate::builtin_lang::get_builtin_data("zh");
+        i18n_rust_engine::mapping_manager::MappingManager::load_from_builtin(
+            builtin.keywords_toml,
+            builtin.module_paths_toml,
+            builtin.stdlib_toml,
+            builtin.crates_data,
+        )
+        .expect("内置中文语言包应可加载")
+    }
 
     /// 已内置的语言包扩展名可解析出语言代码
     #[test]
@@ -672,5 +896,70 @@ mod tests {
     #[test]
     fn test_lang_code_from_extension_unknown() {
         assert_eq!(get_lang_code_from_extension("xyz"), None);
+    }
+
+    /// 统一转译管线：中文关键字转为标准 Rust
+    #[test]
+    fn test_transpile_to_english_zh_keywords() {
+        let manager = zh_manager();
+        let out = transpile_to_english("公开 函数 help() {}\n", &manager);
+        assert!(out.contains("pub fn help()"), "实际输出：{out}");
+    }
+
+    /// 多文件转译：src/ 下的其他方言文件生成同名 .rs，入口与手写 .rs 不受影响
+    #[test]
+    fn test_transpile_project_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        let entry = root.join("src/main.zh");
+        std::fs::write(&entry, "函数 main() {}\n").unwrap();
+        std::fs::write(root.join("src/helper.zh"), "公开 函数 help() {}\n").unwrap();
+        std::fs::write(root.join("src/manual.rs"), "// 手写文件不覆盖\n").unwrap();
+
+        let manager = zh_manager();
+        transpile_project_files(root, &entry, &manager).unwrap();
+
+        // 其他方言文件已转译为同名 .rs
+        let helper_rs = std::fs::read_to_string(root.join("src/helper.rs")).unwrap();
+        assert!(helper_rs.contains("pub fn help()"), "实际输出：{helper_rs}");
+        // 手写 .rs 不被触碰
+        let manual_rs = std::fs::read_to_string(root.join("src/manual.rs")).unwrap();
+        assert!(manual_rs.contains("手写文件不覆盖"));
+        // 入口文件未被重复转译（无 main.rs 产生，由调用方单独写入）
+        assert!(!root.join("src/main.rs").exists());
+    }
+
+    /// 非 ASCII 文件式 mod 声明补 #[path] 注解（绕过 rustc E0754）
+    #[test]
+    fn test_annotate_non_ascii_mod_basic() {
+        let out = annotate_non_ascii_mods("mod 数学;");
+        assert_eq!(out, "#[path = \"数学.rs\"]\nmod 数学;");
+    }
+
+    /// 带 pub 可见性时注解插在 pub 之前
+    #[test]
+    fn test_annotate_non_ascii_mod_with_pub() {
+        let out = annotate_non_ascii_mods("pub mod 数学;");
+        assert_eq!(out, "#[path = \"数学.rs\"]\npub mod 数学;");
+    }
+
+    /// ASCII 模块名与内联模块块不处理
+    #[test]
+    fn test_annotate_non_ascii_mod_skip_ascii_and_inline() {
+        assert_eq!(annotate_non_ascii_mods("mod math;"), "mod math;");
+        assert_eq!(annotate_non_ascii_mods("mod 数学 { }"), "mod 数学 { }");
+    }
+
+    /// 已有 #[path] 注解时不重复添加；缩进保持
+    #[test]
+    fn test_annotate_non_ascii_mod_existing_and_indent() {
+        let src = "#[path = \"数学.rs\"]\nmod 数学;";
+        assert_eq!(annotate_non_ascii_mods(src), src);
+        let out = annotate_non_ascii_mods("函数 main() {\n    mod 数学;\n}");
+        assert_eq!(
+            out,
+            "函数 main() {\n    #[path = \"数学.rs\"]\n    mod 数学;\n}"
+        );
     }
 }

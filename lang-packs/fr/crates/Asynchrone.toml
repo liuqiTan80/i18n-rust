@@ -1,0 +1,35 @@
+# Mapping des noms de crate (pour les chemins use)
+["模块路径"]
+"execution_asynchrone" = "tokio"
+"asynchrone_standard" = "async-std"
+"futures_bibliotheque" = "futures"
+"trait_asynchrone" = "async-trait"
+
+# Mapping des identificateurs internes (types, fonctions, etc.)
+["标识符"]
+# tokio
+"point_entree" = "main"
+"lancer_tache" = "spawn"
+"attente_expression" = "await"
+"selection_course" = "select"
+"temporisation" = "delay_for"
+"intervalle" = "interval"
+"sommeil" = "sleep"
+"tache_bloquante" = "spawn_blocking"
+"canal" = "channel"
+"canal_unique" = "oneshot"
+"canal_diffusion" = "broadcast"
+
+# async-std / futures
+"tache" = "task"
+"engendrer" = "spawn"
+"bloquer_tache" = "task::spawn_blocking"
+"flux_donnees" = "stream"
+"futur" = "Future"
+"collecteur" = "Sink"
+"joindre" = "join"
+"tenter_joindre" = "try_join"
+"sonder" = "poll"
+
+# async-trait
+"macro_trait_asynchrone" = "async_trait"

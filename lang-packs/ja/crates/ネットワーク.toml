@@ -1,0 +1,39 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"HTTPクライアント" = "reqwest"
+"HTTP低層" = "hyper"
+"gRPC" = "tonic"
+"WebSocket" = "websocket"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# reqwest
+"クライアント" = "Client"
+"要求" = "Request"
+"応答" = "Response"
+"GET要求" = "get"
+"POST要求" = "post"
+"要求本体" = "body"
+"ヘッダ" = "header"
+"照会引数" = "query"
+"JSON形式" = "json"
+"テキスト" = "text"
+"バイト列" = "bytes"
+
+# hyper
+"サーバー" = "Server"
+"サービス" = "Service"
+"メソッド型" = "Method"
+"URI型" = "Uri"
+"状態コード" = "StatusCode"
+
+# tonic
+"接続チャネル" = "Channel"
+"ステータス" = "Status"
+
+# websocket
+"WebSocket" = "WebSocket"
+"メッセージ" = "Message"
+"バイナリ" = "Binary"
+"クローズ" = "Close"
+"受信待機" = "recv"

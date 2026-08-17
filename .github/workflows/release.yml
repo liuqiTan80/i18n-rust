@@ -176,6 +176,12 @@ jobs:
         working-directory: tools/vscode-extension
         run: npm ci
 
+      - name: 检查与测试（lint + 单测）
+        working-directory: tools/vscode-extension
+        run: |
+          npm run lint
+          npm test
+
       - name: 编译 TypeScript
         working-directory: tools/vscode-extension
         run: npm run compile

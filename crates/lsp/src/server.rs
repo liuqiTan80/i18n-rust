@@ -70,7 +70,7 @@ impl ProxyServer {
         extensions: &[String],
     ) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
         // 1. 加载语言包
-        let (keyword_map, macro_map) = load_language_pack(lang_pack_path)?;
+        let (keyword_map, macro_map, alias_map) = load_language_pack(lang_pack_path)?;
         log::info!(
             "{}",
             crate::ui::global().f(
@@ -81,7 +81,7 @@ impl ProxyServer {
 
         // 2. 创建翻译缓存（临时目录按用户隔离，避免多用户共享 /tmp 路径）
         let temp_dir = virtual_temp_dir()?;
-        let cache = TranslationCache::new(keyword_map, macro_map, temp_dir);
+        let cache = TranslationCache::new(keyword_map, macro_map, alias_map, temp_dir);
 
         // 3. 启动 rust-analyzer
         let analyzer = AnalyzerConnection::start()?;
@@ -190,7 +190,10 @@ impl ProxyServer {
                 "capabilities": {
                     "textDocument": {
                         "completion": {
-                            "completionItem": { "snippetSupport": false }
+                            "completionItem": {
+                                "snippetSupport": false,
+                                "labelDetailsSupport": true
+                            }
                         },
                         "publishDiagnostics": {
                             "relatedInformation": true
@@ -788,6 +791,7 @@ impl ProxyServer {
                     .cache
                     .keyword_map()
                     .get(zh_name)
+                    .or_else(|| self.cache.alias_map().get(zh_name))
                     .cloned()
                     .unwrap_or_else(|| zh_name.to_string());
                 params["newName"] = Value::String(en_name);
@@ -1054,14 +1058,23 @@ fn handle_analyzer_message(
     }
 }
 
-/// 加载语言包
-fn load_language_pack(
-    lang_pack_path: &Path,
-) -> anyhow::Result<(HashMap<String, String>, HashMap<String, String>)> {
+/// 语言包三映射表：(关键字映射, 宏映射, 别名映射)
+type LangPackMaps = (
+    HashMap<String, String>,
+    HashMap<String, String>,
+    HashMap<String, String>,
+);
+
+/// 加载语言包：返回 (关键字映射, 宏映射, 别名映射)
+///
+/// 关键字与别名分离（与 CLI 统一管线对齐）：关键字在词法阶段无条件替换，
+/// 标准库/第三方库标识符（别名）在词法转译后经声明位保护替换，
+/// 避免用户声明与库别名撞名时被误替换（如 `让 新 = 5`）。
+fn load_language_pack(lang_pack_path: &Path) -> anyhow::Result<LangPackMaps> {
     let mappings_path = lang_pack_path.join("映射表");
     if mappings_path.exists() {
         match mapping_source::load_keyword_mapping(lang_pack_path) {
-            Ok(map) => return Ok((map, HashMap::new())),
+            Ok(map) => return Ok((map, HashMap::new(), HashMap::new())),
             Err(e) => log::warn!(
                 "{}",
                 crate::ui::global().f("lsp_log_mappings_fallback", &[&e.to_string()])
@@ -1071,41 +1084,28 @@ fn load_language_pack(
 
     let keywords_path = lang_pack_path.join("keywords.toml");
     if keywords_path.exists() {
+        // 复用 engine 统一加载器（与 CLI 完全同源）：关键字/别名分离、
+        // stdlib 优先于第三方库、crates/*.toml 按文件名排序合并；
+        // 模块路径映射 LSP 虚拟项目不使用，但随同一入口加载保持语义一致
         let manager =
-            i18n_rust_engine::mapping_manager::MappingManager::load_from_file(&keywords_path)
+            i18n_rust_engine::mapping_manager::MappingManager::load_from_dir(lang_pack_path)
                 .map_err(|e| {
                     anyhow::anyhow!(
                         "{}",
                         crate::ui::global().f("lsp_err_load_keywords", &[&e.to_string()])
                     )
                 })?;
-        let macro_map = manager.get_macro_map();
-        // 合并标准库标识符映射（类型/方法/特征等）：
-        // 正向翻译时 推入→push，反向转译时 push→推入，
-        // 否则补全提示、代码操作与重命名中的标准库 API 保持英文。
-        // 注意：标准库映射与关键字映射存在同名冲突（如 stdlib 的
-        // “函数”=“Fn” trait 与关键字的“函数”=“fn”），必须关键字优先，
-        // 否则 `函数` 会被翻译成大写 `Fn` 导致语法错误。
-        let mut keyword_map: HashMap<String, String> = HashMap::new();
-        match mapping_source::load_stdlib_mapping(lang_pack_path) {
-            Ok(stdlib_map) => {
-                for (k, v) in stdlib_map {
-                    keyword_map.entry(k).or_insert(v);
-                }
-            }
-            Err(e) => log::warn!(
-                "{}",
-                crate::ui::global().f("lsp_log_mappings_fallback", &[&e.to_string()])
-            ),
-        }
-        // 关键字映射最后写入，覆盖同名的标准库条目（关键字优先）
-        keyword_map.extend(manager.keyword_map.clone());
-        return Ok((keyword_map, macro_map));
+        return Ok((
+            manager.keyword_map.clone(),
+            manager.get_macro_map(),
+            manager.alias_map.clone(),
+        ));
     }
 
     log::warn!("{}", crate::ui::global().t("lsp_warn_builtin_fallback"));
     Ok((
         mapping_source::create_builtin_keyword_mapping(),
+        HashMap::new(),
         HashMap::new(),
     ))
 }
@@ -1170,7 +1170,12 @@ mod tests {
             ("可变".into(), "mut".into()),
         ]);
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(map, HashMap::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(
+            map,
+            HashMap::new(),
+            HashMap::new(),
+            temp.path().to_path_buf(),
+        );
         (cache, temp)
     }
 

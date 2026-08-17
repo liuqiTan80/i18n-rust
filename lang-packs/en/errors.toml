@@ -53,10 +53,6 @@
 "消息模板" = "this function takes `{期望}` arguments but `{实际}` arguments were supplied"
 "教学提示" = "Check the function signature and provide the correct number of arguments."
 
-[E0308]
-"消息模板" = "mismatched types"
-"教学提示" = "Rust is a strongly typed language. Make sure the types of assignments and function parameters match."
-
 [E0282]
 "消息模板" = "type annotations needed"
 "教学提示" = "The compiler cannot infer the type. Add explicit type annotations, e.g., `let x: i32 = 5;`."
@@ -68,10 +64,6 @@
 [E0597]
 "消息模板" = "cannot borrow `{名称}` as mutable"
 "教学提示" = "The variable may be immutably borrowed at this point. Check the borrow scope."
-
-[E0499]
-"消息模板" = "cannot borrow as mutable more than once"
-"教学提示" = "Only one mutable reference is allowed at a time. Restructure your code to avoid multiple mutable borrows."
 
 [E0716]
 "消息模板" = "temporary value dropped while borrowed"
@@ -88,3 +80,1997 @@
 [E0623]
 "消息模板" = "lifetime mismatch"
 "教学提示" = "The lifetimes of the references do not match. Check the function signature and ensure all references have compatible lifetimes."
+
+# ==================== Full official error index coverage (pure-text templates) ====================
+
+[E0001]
+"消息模板" = "(retired error code) this match arm is unreachable"
+"教学提示" = "Earlier match arms already cover every possible value, so this arm never executes. Remove the redundant arm or reorder the match."
+
+[E0002]
+"消息模板" = "cannot do an empty match on a non-empty type"
+"教学提示" = "A match expression needs at least one arm. Add arms for all possible values."
+
+[E0004]
+"消息模板" = "match expression is not exhaustive: some possible values have no arm"
+"教学提示" = "A match must cover every possible case. Add the missing arms, or use a `_` wildcard arm as a fallback."
+
+[E0005]
+"消息模板" = "this pattern cannot fail, but an irrefutable pattern is required here"
+"教学提示" = "Positions like `let` bindings and function parameters require patterns that always succeed. For fallible patterns, use `match` or `if let` instead."
+
+[E0007]
+"消息模板" = "(retired error code) a value is moved into multiple bindings in a match arm"
+"教学提示" = "A value can only be moved into one binding. Adjust the bindings or use references."
+
+[E0009]
+"消息模板" = "(retired error code) non-Copy values in a pattern must all be bound the same way"
+"教学提示" = "All values in a pattern that do not implement Copy must be bound consistently (all moved or all borrowed)."
+
+[E0010]
+"消息模板" = "(retired error code) the value of a static must be known at compile time"
+"教学提示" = "Values of `static` and `const` must be computable at compile time. Use a constant expression to initialize them."
+
+[E0013]
+"消息模板" = "(retired error code) a constant cannot refer to a static"
+"教学提示" = "A `const` may refer to other constants, but not to a `static`. Read the static inside a function instead."
+
+[E0014]
+"消息模板" = "(retired error code) constants can only be initialized with constant values"
+"教学提示" = "Constant initializers may only use constant expressions or const function calls. Simplify the initializer."
+
+[E0015]
+"消息模板" = "a non-const function is called in a constant context"
+"教学提示" = "Positions like `const`/`static` initializers and array lengths may only call const functions (`const fn`). Mark the function as const, or compute the value at runtime."
+
+[E0023]
+"消息模板" = "wrong number of fields extracted from an enum variant"
+"教学提示" = "The number of fields in a tuple variant pattern must match its definition. Check the enum variant definition."
+
+[E0025]
+"消息模板" = "the same struct field is bound twice in a pattern"
+"教学提示" = "Each field in a struct pattern may be bound only once. Remove the duplicate binding."
+
+[E0026]
+"消息模板" = "a struct pattern uses a field that does not exist"
+"教学提示" = "Check the field name spelling and confirm the field exists in the struct definition."
+
+[E0027]
+"消息模板" = "a struct pattern does not cover all fields"
+"教学提示" = "A struct pattern must mention every field, or end with `..` to ignore the rest."
+
+[E0029]
+"消息模板" = "only ordered types can be matched against ranges"
+"教学提示" = "Range patterns only support integers, chars and other types with a partial ordering. For custom types, use a match guard (`if`) instead."
+
+[E0030]
+"消息模板" = "the range pattern is empty: its start is greater than its end"
+"教学提示" = "Range patterns are inclusive of both endpoints, so the start cannot exceed the end. Swap the endpoints or fix the values."
+
+[E0033]
+"消息模板" = "cannot dereference a trait object type directly"
+"教学提示" = "Trait objects (`dyn Trait`) cannot be dereferenced. Call methods through a reference, or use a concrete type instead."
+
+[E0034]
+"消息模板" = "ambiguous method call: multiple candidate methods were found"
+"教学提示" = "Several traits define a method with the same name. Use the fully qualified syntax `Trait::method(value)` to pick one explicitly."
+
+[E0038]
+"消息模板" = "this trait contains items that cannot be used in a trait object"
+"教学提示" = "Trait objects require the trait to be object safe: no generic methods, and methods with `self` must return object-safe types. Adjust the trait definition or use generics instead."
+
+[E0040]
+"消息模板" = "explicit calls to destructors are not allowed"
+"教学提示" = "Rust calls destructors automatically. Remove the manual call; if you need explicit control, wrap the value in `Option` and `take` it."
+
+[E0044]
+"消息模板" = "foreign items cannot have type or const parameters"
+"教学提示" = "Functions and statics in an `extern` block come from foreign libraries and cannot be generic. Write a generic wrapper function on the Rust side."
+
+[E0045]
+"消息模板" = "variadic functions can only use the C calling convention"
+"教学提示" = "Variadic arguments (`...`) are only supported in `extern \"C\"` declarations. Use the C calling convention or a fixed parameter list."
+
+[E0046]
+"消息模板" = "a trait implementation is missing required items"
+"教学提示" = "Implementing a trait requires providing every item without a default implementation. Add the missing methods or associated items."
+
+[E0049]
+"消息模板" = "the number of type/const parameters in a trait method implementation does not match the definition"
+"教学提示" = "The number of generic parameters in an implementation must exactly match the trait definition. Compare against the trait declaration."
+
+[E0050]
+"消息模板" = "the number of function parameters in a trait method implementation does not match the definition"
+"教学提示" = "The parameter count of an implementation must match the trait definition. Compare against the trait declaration and add or remove parameters."
+
+[E0053]
+"消息模板" = "the parameter types of a trait method implementation do not match the definition"
+"教学提示" = "Parameter types in the implementation must exactly match the trait definition, including mutability and references. Compare against the trait declaration."
+
+[E0054]
+"消息模板" = "casting to bool is not allowed"
+"教学提示" = "Rust does not support `value as bool`. Use a comparison expression (e.g. `value != 0`) to get a boolean explicitly."
+
+[E0055]
+"消息模板" = "auto-deref recursion limit exceeded during a method call"
+"教学提示" = "The types form an overly long deref chain (often a cycle of custom Deref impls). Dereference explicitly or restructure the types."
+
+[E0057]
+"消息模板" = "closure takes the wrong number of arguments: expected `{期望}`, found `{实际}`"
+"教学提示" = "The number of closure arguments must match its type signature. Check the parameter list and add or remove arguments."
+
+[E0059]
+"消息模板" = "incorrect generic argument syntax for a function trait"
+"教学提示" = "The angle-bracket form requires the argument to be a tuple, e.g. `Fn<(i32,), Output=...>`. Usually prefer the `Fn(i32) -> ...` sugar."
+
+[E0060]
+"消息模板" = "not enough fixed arguments supplied to a variadic function"
+"教学提示" = "When calling a variadic function, all fixed parameters must come first. Supply the missing arguments."
+
+[E0062]
+"消息模板" = "the same struct field appears more than once in a struct literal"
+"教学提示" = "Each field can only be assigned once. Remove the duplicate field, or provide its value through a variable."
+
+[E0063]
+"消息模板" = "a struct literal is missing a field"
+"教学提示" = "All fields must be initialized when constructing a struct. Fill the remaining fields with `..Default::default()` if available."
+
+[E0067]
+"消息模板" = "the left-hand side of an assignment is not a place that can be assigned to"
+"教学提示" = "The left side of an assignment must be a place expression such as a variable, field or index. Check the left-hand expression."
+
+[E0069]
+"消息模板" = "a value-less return statement in a function whose return type is not the unit type"
+"教学提示" = "A function whose return type is not `()` must return a value. Use `return value;` or remove the return statement."
+
+[E0070]
+"消息模板" = "the left-hand side of a compound assignment is not a place expression"
+"教学提示" = "The left side of `+=` and friends must be a variable, field or index. Check the left-hand expression."
+
+[E0071]
+"消息模板" = "expected a struct literal here, but got something else"
+"教学提示" = "The `StructName { field }` syntax only works for real structs. Use `EnumName::Variant { }` for enum variants and parentheses for tuple structs."
+
+[E0072]
+"消息模板" = "a recursive type has no indirection, so its size is infinite"
+"教学提示" = "A type that directly contains itself grows without bound. Indirect through `Box` (e.g. `Box<Self>`) so the size becomes fixed."
+
+[E0073]
+"消息模板" = "(retired error code) a struct cannot directly contain an instance of itself"
+"教学提示" = "A type cannot directly contain itself. Use `Box` for indirection."
+
+[E0074]
+"消息模板" = "(retired error code) all fields of a SIMD tuple struct must have the same type"
+"教学提示" = "All fields of a `#[simd]` tuple struct must be the same type. Unify the field types."
+
+[E0075]
+"消息模板" = "SIMD attributes can only be applied to tuple structs with exactly one field"
+"教学提示" = "`#[simd]` requires the struct to have exactly one field. Adjust the struct definition."
+
+[E0076]
+"消息模板" = "the field type of a SIMD struct does not meet the requirements"
+"教学提示" = "A `#[simd]` field must be a primitive numeric type. Check the field type."
+
+[E0077]
+"消息模板" = "the element of a SIMD tuple struct is not a machine type"
+"教学提示" = "`#[simd]` elements must be machine types such as integers or floats. Check the element type."
+
+[E0080]
+"消息模板" = "evaluation of a constant expression failed"
+"教学提示" = "The constant expression errored at compile time (e.g. division by zero or out-of-bounds). Fix the computation in the constant."
+
+[E0081]
+"消息模板" = "duplicate discriminant values in an enum"
+"教学提示" = "Every enum variant must have a unique discriminant. Adjust the explicit discriminants or remove the conflicting assignment."
+
+[E0084]
+"消息模板" = "an enum with zero variants cannot have a specified representation"
+"教学提示" = "An enum without any variants cannot use `#[repr]`. Remove the repr attribute or add variants to the enum."
+
+[E0087]
+"消息模板" = "(retired error code) too many type arguments supplied to a function"
+"教学提示" = "More generic arguments were supplied than the function defines. Compare against the function signature and remove the extras."
+
+[E0088]
+"消息模板" = "(retired error code) too many lifetime arguments supplied"
+"教学提示" = "More lifetime arguments were supplied than defined. Compare against the signature and remove the extras."
+
+[E0089]
+"消息模板" = "(retired error code) not enough type arguments supplied to a function"
+"教学提示" = "Some type parameters cannot be inferred and must be given explicitly. Compare against the function signature and add the missing arguments."
+
+[E0090]
+"消息模板" = "(retired error code) not enough lifetime arguments supplied"
+"教学提示" = "Compare against the signature and add the missing lifetime arguments."
+
+[E0091]
+"消息模板" = "a type alias declares an unused type parameter"
+"教学提示" = "Generic parameters of a type alias must be used in the aliased type. Remove the extra parameter or use it in the type."
+
+[E0092]
+"消息模板" = "(retired error code) an undefined atomic intrinsic function was declared"
+"教学提示" = "Atomic intrinsic names must match the ones the compiler defines. Check the function name."
+
+[E0093]
+"消息模板" = "an unknown intrinsic function was declared"
+"教学提示" = "Intrinsic names must match the ones the compiler supports. Check the spelling."
+
+[E0094]
+"消息模板" = "wrong number of generic parameters for an intrinsic function"
+"教学提示" = "Each intrinsic requires a fixed number of generic parameters. Compare against the intrinsic's definition."
+
+[E0107]
+"消息模板" = "wrong number of lifetime parameters"
+"教学提示" = "The number of lifetime parameters in a declaration does not match its use site. Check the lifetime annotations in `<>`."
+
+[E0109]
+"消息模板" = "generic arguments were supplied to a type that does not need them"
+"教学提示" = "Remove the extra generic arguments, or check whether the type name is misspelled."
+
+[E0110]
+"消息模板" = "(retired error code) lifetime parameters were supplied to a type that does not need them"
+"教学提示" = "Remove the extra lifetime parameters, or check whether the type name is misspelled."
+
+[E0117]
+"消息模板" = "only traits or types defined in the current crate can be implemented together"
+"教学提示" = "Orphan rule: implementing a foreign trait for a foreign type is not allowed. Wrap the type in a newtype (`struct Wrapper(ForeignType)`) and implement on the wrapper."
+
+[E0118]
+"消息模板" = "inherent implementations can only be written for structs, enums, unions or trait objects"
+"教学提示" = "You cannot add methods directly to primitive or foreign types. Wrap the type in a newtype first."
+
+[E0120]
+"消息模板" = "only structs, enums and unions can implement the Drop trait"
+"教学提示" = "You cannot implement `Drop` for trait objects or references. Implement it on a concrete struct or enum."
+
+[E0121]
+"消息模板" = "the wildcard type `_` is not allowed in this position"
+"教学提示" = "`_` can only be used for value bindings (e.g. `let _ = value`) and a few other positions. Write a concrete type or a generic parameter name in type positions."
+
+[E0124]
+"消息模板" = "two fields with the same name are declared in a struct"
+"教学提示" = "Field names in the same struct must be unique. Rename one of them."
+
+[E0128]
+"消息模板" = "a type parameter with a default value refers to a parameter declared later"
+"教学提示" = "Default values of generic parameters may only refer to parameters declared earlier. Reorder the parameters."
+
+[E0130]
+"消息模板" = "parameters of a foreign function declaration cannot be patterns"
+"教学提示" = "Parameters of `extern` functions can only be `name: Type`. Move any pattern matching into the function body."
+
+[E0131]
+"消息模板" = "the main function cannot have generic parameters"
+"教学提示" = "`main` is the program entry point and cannot declare type or lifetime parameters. Remove the generics."
+
+[E0132]
+"消息模板" = "(retired error code) a function with the start attribute cannot have type parameters"
+"教学提示" = "The signature of a `#[start]` function is fixed. Remove the type parameters."
+
+[E0133]
+"消息模板" = "an unsafe operation requires an unsafe block"
+"教学提示" = "Operations like dereferencing a raw pointer must happen inside an `unsafe` block, because Rust cannot verify their safety."
+
+[E0136]
+"消息模板" = "(retired error code) multiple main functions were found"
+"教学提示" = "A crate may have only one `main`. Remove or rename the extra ones."
+
+[E0137]
+"消息模板" = "(retired error code) multiple functions are marked with the #[main] attribute"
+"教学提示" = "`#[main]` can be applied to only one function. Keep a single one."
+
+[E0138]
+"消息模板" = "(retired error code) multiple functions are marked with the #[start] attribute"
+"教学提示" = "`#[start]` can be applied to only one function. Keep a single one."
+
+[E0139]
+"消息模板" = "(retired error code) a transmute does not satisfy its requirements"
+"教学提示" = "Both types in a transmute must have the same size and be valid. Check the type definitions."
+
+[E0152]
+"消息模板" = "a lang item is defined more than once"
+"教学提示" = "Lang items are provided by the standard library; user code cannot redefine them. Remove the duplicate definition."
+
+[E0154]
+"消息模板" = "(retired error code) imports cannot appear after non-item statements"
+"教学提示" = "`use` statements must come before statements like variable declarations. Move the import to the top of the block."
+
+[E0158]
+"消息模板" = "patterns cannot refer to generic parameters or statics"
+"教学提示" = "Patterns can only match concrete values or shapes. Use a guard condition (`if`) for dynamic checks."
+
+[E0161]
+"消息模板" = "a moved array element is too large to be moved onto the stack"
+"教学提示" = "Moving a large array by value exceeds the stack frame limit. Pass it by reference, or put the data on the heap with `Box`."
+
+[E0162]
+"消息模板" = "(retired error code) the pattern in an if-let must be irrefutable"
+"教学提示" = "`if let` requires a pattern that cannot fail. Use `match` for fallible patterns."
+
+[E0164]
+"消息模板" = "this pattern is used as if it were a tuple struct or tuple variant, but it is not"
+"教学提示" = "Parenthesized patterns only work for tuple structs or tuple variants. Check the type definition or use the correct pattern syntax."
+
+[E0165]
+"消息模板" = "(retired error code) the pattern in a while-let must be irrefutable"
+"教学提示" = "`while let` requires a pattern that cannot fail. Use `match` for fallible patterns."
+
+[E0170]
+"消息模板" = "a pattern binding shadows a variant of the type, causing ambiguity"
+"教学提示" = "The binding name conflicts with an enum variant name. Rename the binding, or refer to the variant by its full path."
+
+[E0178]
+"消息模板" = "the trait object is written in an incorrect position"
+"教学提示" = "When `dyn Trait` follows a reference or pointer type, add parentheses, e.g. `&(dyn Trait)`."
+
+[E0183]
+"消息模板" = "manual implementations of the Fn family of traits are not allowed"
+"教学提示" = "`Fn`/`FnMut`/`FnOnce` are implemented by the compiler for closures automatically. Use a closure instead."
+
+[E0184]
+"消息模板" = "a type implementing Drop cannot also implement Copy"
+"教学提示" = "Types with destructors cannot be bitwise-copied. Remove the `Copy` implementation and use `Clone` instead."
+
+[E0185]
+"消息模板" = "the trait declares an associated function but the implementation provides a method"
+"教学提示" = "The trait defines an associated function without `self`, but the impl wrote a method. Make the signatures consistent."
+
+[E0186]
+"消息模板" = "the trait declares a method but the implementation provides an associated function"
+"教学提示" = "The trait defines a method with `self`, but the impl wrote an associated function. Make the signatures consistent."
+
+[E0191]
+"消息模板" = "the trait object does not specify a value for an associated type"
+"教学提示" = "When a trait with associated types is used as an object, the values must be given, e.g. `dyn Trait<AssocType = i32>`."
+
+[E0192]
+"消息模板" = "(retired error code) negative impls can only be written for traits, not trait impls"
+"教学提示" = "Check the syntax of the negative impl."
+
+[E0193]
+"消息模板" = "(retired error code) where clauses must refer to generic type parameters"
+"教学提示" = "`where` clauses can only constrain generic parameters. Remove clauses without generic parameters."
+
+[E0195]
+"消息模板" = "the lifetime parameters of a method do not match the trait declaration"
+"教学提示" = "The names and order of lifetime parameters in the impl must match the trait definition. Compare and fix them."
+
+[E0197]
+"消息模板" = "an inherent impl block cannot be marked unsafe"
+"教学提示" = "`unsafe` can only modify trait impls or individual functions. Remove `unsafe` from the inherent impl block."
+
+[E0198]
+"消息模板" = "a negative impl cannot be marked unsafe"
+"教学提示" = "Negative impls (`unsafe impl !Trait`) neither need nor allow the `unsafe` marker. Remove it."
+
+[E0199]
+"消息模板" = "implementing a safe trait does not need to be marked unsafe"
+"教学提示" = "Only implementations of unsafe traits need `unsafe impl`. Remove the extra `unsafe`."
+
+[E0200]
+"消息模板" = "the implementation of an unsafe trait must be marked unsafe"
+"教学提示" = "When implementing an unsafe trait, write `unsafe impl Trait for Type`."
+
+[E0201]
+"消息模板" = "two associated items with the same name are defined in the same type"
+"教学提示" = "Names of methods, associated types and associated functions must be unique. Rename one of them."
+
+[E0203]
+"消息模板" = "the same default trait bound is declared more than once"
+"教学提示" = "A default bound on a generic parameter is duplicated. Remove the duplicate."
+
+[E0204]
+"消息模板" = "cannot derive Clone automatically"
+"教学提示" = "A type containing fields whose types do not implement `Clone` cannot derive it. Implement `Clone` for those field types manually."
+
+[E0205]
+"消息模板" = "(retired error code) implementing Copy for an enum failed: a variant does not support it"
+"教学提示" = "Implementing `Copy` for an enum requires every variant's field types to implement `Copy`. Check the variant field types."
+
+[E0206]
+"消息模板" = "only structs, enums and unions can implement Copy"
+"教学提示" = "`Copy` cannot be implemented for other types. Use `Clone`, or wrap the value in a newtype."
+
+[E0207]
+"消息模板" = "a type/const/lifetime parameter declared on an impl block is not used"
+"教学提示" = "Every generic parameter declared on an impl must appear in the impl's target type or trait. Remove the extra parameter or use it."
+
+[E0208]
+"消息模板" = "(retired error code) compiler internal error"
+"教学提示" = "This is an internal compiler error code; normal code should not trigger it. If it still appears, check the compiler version."
+
+[E0210]
+"消息模板" = "type parameters must appear before all generic parameters (orphan rule)"
+"教学提示" = "When implementing a foreign trait for a foreign type, at least one of the trait or type must be local, otherwise the orphan rule is violated."
+
+[E0211]
+"消息模板" = "(retired error code) the function or type used does not fit the requirements of this position"
+"教学提示" = "Check whether the item's definition is suitable for the current use site."
+
+[E0212]
+"消息模板" = "cannot use a trait's associated type directly while a generic parameter is not inferred"
+"教学提示" = "Give the generic parameter explicitly, or use the full path `<Type as Trait>::AssocType`."
+
+[E0214]
+"消息模板" = "parentheses were used where angle brackets are expected on a generic type"
+"教学提示" = "Generic arguments must be written in angle brackets, e.g. `Vec<i32>`. Parentheses are tuple syntax."
+
+[E0220]
+"消息模板" = "the associated type used does not exist in the trait"
+"教学提示" = "Check the associated type name spelling and confirm the trait actually defines it."
+
+[E0221]
+"消息模板" = "ambiguous associated type: multiple traits define an associated type with the same name"
+"教学提示" = "Use the fully qualified syntax `<Type as Trait>::AssocType` to disambiguate."
+
+[E0222]
+"消息模板" = "associated types cannot be constrained with trait bounds"
+"教学提示" = "Associated types can only be constrained by equality (e.g. `AssocType = i32`), not with `AssocType: Trait`."
+
+[E0223]
+"消息模板" = "an ambiguous associated type"
+"教学提示" = "Several traits define this associated type with the same name. Use the fully qualified syntax `<Type as Trait>::AssocType`."
+
+[E0224]
+"消息模板" = "a trait object must contain at least one trait"
+"教学提示" = "`dyn` must be followed by at least one trait. Add a trait name."
+
+[E0225]
+"消息模板" = "closures and trait objects can only have one non-auto trait bound"
+"教学提示" = "Bounds on closures and trait objects allow only one non-auto trait plus any number of auto traits. Trim the bounds."
+
+[E0226]
+"消息模板" = "only one explicit lifetime bound is allowed on a trait object"
+"教学提示" = "Keep a single lifetime bound, e.g. `dyn Trait + 'static`."
+
+[E0227]
+"消息模板" = "cannot determine a unique region from the derived lifetime bounds"
+"教学提示" = "The lifetime constraints are ambiguous. Annotate lifetimes explicitly."
+
+[E0228]
+"消息模板" = "cannot infer the lifetime bound of an object type from context"
+"教学提示" = "Annotate the trait object with an explicit lifetime, e.g. `dyn Trait + 'static`."
+
+[E0229]
+"消息模板" = "an associated item constraint appears in a position where it is not allowed"
+"教学提示" = "Constraints of the form `AssocType = Value` may only appear in trait bounds. Adjust the syntax."
+
+[E0230]
+"消息模板" = "(retired error code) the rustc_on_unimplemented attribute is used incorrectly"
+"教学提示" = "Check the attribute's arguments."
+
+[E0231]
+"消息模板" = "(retired error code) the rustc_on_unimplemented attribute is missing required arguments"
+"教学提示" = "Check the attribute's arguments."
+
+[E0232]
+"消息模板" = "(retired error code) the rustc_on_unimplemented attribute has an invalid filter"
+"教学提示" = "Check the attribute's filter arguments."
+
+[E0243]
+"消息模板" = "(retired error code) not enough generic arguments supplied for a type or trait"
+"教学提示" = "Compare against the definition and add the missing generic arguments."
+
+[E0244]
+"消息模板" = "(retired error code) too many generic arguments supplied for a type or trait"
+"教学提示" = "Compare against the definition and remove the extra generic arguments."
+
+[E0251]
+"消息模板" = "(retired error code) an item with the same name is imported twice"
+"教学提示" = "Rename one of the conflicting imports with `as`."
+
+[E0252]
+"消息模板" = "import conflict: a name is imported twice"
+"教学提示" = "Two `use` statements bring items with the same name into the same scope. Remove the duplicate import, or rename one with `as`."
+
+[E0253]
+"消息模板" = "(retired error code) a type that cannot be imported was imported"
+"教学提示" = "Some helper types cannot be imported directly. Import the main type and access it through a path."
+
+[E0254]
+"消息模板" = "an imported name conflicts with an already imported extern crate name"
+"教学提示" = "Rename the extern crate declaration with `as`, or rename the imported item."
+
+[E0255]
+"消息模板" = "a name is already used as a generic parameter"
+"教学提示" = "A variable name cannot duplicate a generic parameter name. Rename the variable or the generic parameter."
+
+[E0256]
+"消息模板" = "(retired error code) an imported item conflicts with an item of the same name in the current module"
+"教学提示" = "Rename the imported item with `as`, or rename the local item."
+
+[E0259]
+"消息模板" = "an extern crate name conflicts with another imported crate"
+"教学提示" = "Rename one of the crates with `as`."
+
+[E0260]
+"消息模板" = "an item declaration conflicts with an extern crate name"
+"教学提示" = "Rename the local item, or rename the extern crate with `as`."
+
+[E0261]
+"消息模板" = "an undeclared lifetime is used"
+"教学提示" = "Lifetimes must be declared first in the parameter list of a function or type, e.g. `<'a>`."
+
+[E0262]
+"消息模板" = "the name of a lifetime parameter is illegal"
+"教学提示" = "Lifetime names start with `'` followed by letters, and cannot use reserved names (like `'static`). Rename it."
+
+[E0263]
+"消息模板" = "(retired error code) a lifetime is declared more than once in the same scope"
+"教学提示" = "Remove the duplicate lifetime declaration."
+
+[E0264]
+"消息模板" = "an unknown external lang item is used"
+"教学提示" = "The name referenced by `#[lang]` does not exist. Check the name, or use an item provided by the standard library."
+
+[E0267]
+"消息模板" = "a loop keyword is used inside a closure that is not inside any loop"
+"教学提示" = "`break`/`continue` only apply to the loop containing them. Use return values to control the flow instead."
+
+[E0268]
+"消息模板" = "a loop keyword appears outside of any loop"
+"教学提示" = "`break` and `continue` can only appear inside a loop body. Move them into the loop, or use another control flow."
+
+[E0271]
+"消息模板" = "type mismatch: the trait constraint cannot be satisfied"
+"教学提示" = "The actual type does not match the generic constraint. Check whether the type implements the required trait."
+
+[E0275]
+"消息模板" = "overflow evaluating a trait constraint (infinite recursion in constraints)"
+"教学提示" = "The trait constraints form a circular derivation. Break the mutual dependency, or raise the recursion limit with an attribute to investigate."
+
+[E0276]
+"消息模板" = "a trait implementation has stricter constraints than the trait definition"
+"教学提示" = "An impl cannot add extra constraints beyond the trait definition. Remove the extra bounds in the impl."
+
+[E0281]
+"消息模板" = "(retired error code) the provided type does not implement the required trait"
+"教学提示" = "Implement the required trait for that type, or use a type that already implements it."
+
+[E0283]
+"消息模板" = "type inference ambiguity: multiple implementations could satisfy the requirement"
+"教学提示" = "The compiler cannot decide which implementation to use. Disambiguate with an explicit type annotation, e.g. `let x: Vec<i32> = Vec::new();`."
+
+[E0284]
+"消息模板" = "cannot infer the return type of a function"
+"教学提示" = "Functions with generic return types (like `collect()`) need an explicit annotation. Write `let x: Collection<_> = ...` or `collect::<Collection<_>>()`."
+
+[E0297]
+"消息模板" = "(retired error code) an irrefutable pattern is required here"
+"教学提示" = "Use `match` or `if let` for patterns that can fail."
+
+[E0301]
+"消息模板" = "(retired error code) mutable borrows are not allowed in match guards"
+"教学提示" = "Matches must have no side effects. Move the mutation after the match."
+
+[E0302]
+"消息模板" = "(retired error code) assignments are not allowed in match guards"
+"教学提示" = "Matches must have no side effects. Move the assignment after the match."
+
+[E0303]
+"消息模板" = "(retired error code) the sub-binding after @ is not written legally"
+"教学提示" = "Check the bindings on both sides of the `@` pattern."
+
+[E0307]
+"消息模板" = "the self parameter of a method uses an invalid receiver type"
+"教学提示" = "The `self` parameter can only be `self`, `&self`, `&mut self`, `Box<Self>` and similar forms. Fix the receiver type."
+
+[E0309]
+"消息模板" = "a generic parameter does not satisfy its trait constraint"
+"教学提示" = "A generic parameter must satisfy a trait bound before calling the corresponding methods. Add the trait bound to the generic declaration."
+
+[E0310]
+"消息模板" = "a generic parameter does not satisfy the Sized constraint"
+"教学提示" = "Generic parameters are required to be sized (Sized) by default. To use unsized types, add the `?Sized` bound."
+
+[E0311]
+"消息模板" = "elided lifetimes cannot satisfy the outlives constraints"
+"教学提示" = "Outlives constraints involving generic parameters cannot be derived from elided lifetimes. Annotate lifetimes explicitly."
+
+[E0312]
+"消息模板" = "(retired error code) the lifetime of borrowed content does not match the expected lifetime"
+"教学提示" = "Unify the lifetime annotations of the related references."
+
+[E0316]
+"消息模板" = "nested lifetime quantification is not allowed in where clauses"
+"教学提示" = "Lifetime constraints cannot be declared in a nested way. Lift the lifetimes into the function signature."
+
+[E0317]
+"消息模板" = "an if expression used as a value is missing the else branch"
+"教学提示" = "An `if` used as a value must have an `else` branch, and both branches must have the same type. Add the `else`."
+
+[E0320]
+"消息模板" = "recursion limit reached while creating drop-check rules"
+"教学提示" = "The type structure is too complex and overflows the check. Simplify the type definitions, or raise the limit with an attribute to investigate."
+
+[E0321]
+"消息模板" = "opt-out traits crossing crates can only be implemented on structs or enums"
+"教学提示" = "Such traits (like manual implementations of `Send`/`Sync`) can only be implemented for structs or enums. Use a newtype wrapper."
+
+[E0322]
+"消息模板" = "built-in traits cannot be implemented explicitly"
+"教学提示" = "Built-in traits like `Sized` are implemented by the compiler automatically. Remove the manual implementation."
+
+[E0323]
+"消息模板" = "trait item type mismatch: an associated constant was provided where another item was expected"
+"教学提示" = "The kind of an implemented item must match the trait definition. Compare against the trait declaration."
+
+[E0324]
+"消息模板" = "trait item type mismatch: a method was provided where another item was expected"
+"教学提示" = "The kind of an implemented item must match the trait definition. Compare against the trait declaration."
+
+[E0325]
+"消息模板" = "trait item type mismatch: an associated type was provided where another item was expected"
+"教学提示" = "The kind of an implemented item must match the trait definition. Compare against the trait declaration."
+
+[E0326]
+"消息模板" = "a trait implementation does not satisfy the type constraints"
+"教学提示" = "The type of an associated item in the impl does not match the constraints required by the trait. Compare against the trait declaration."
+
+[E0328]
+"消息模板" = "the Unsize trait cannot be implemented directly"
+"教学提示" = "`Unsize` is implemented by the compiler automatically. Remove the manual implementation."
+
+[E0329]
+"消息模板" = "(retired error code) associated constants cannot be accessed through generic parameters"
+"教学提示" = "Access associated constants through a concrete type."
+
+[E0364]
+"消息模板" = "a private item cannot be publicly re-exported"
+"教学提示" = "The item re-exported with `pub use` must itself be public. Make the target item public, or lower the re-export's visibility."
+
+[E0365]
+"消息模板" = "a private module cannot be publicly re-exported"
+"教学提示" = "The module re-exported with `pub use` must itself be public. Make the module public, or lower the re-export's visibility."
+
+[E0366]
+"消息模板" = "Drop cannot be implemented for a concrete specialization of a generic type"
+"教学提示" = "`Drop` can only be implemented for the whole type, not just for a specialization like `Type<u32>`. Implement it on the generic type as a whole."
+
+[E0367]
+"消息模板" = "Drop cannot be implemented for a specialization of a generic type"
+"教学提示" = "A `Drop` impl cannot carry restrictive generic constraints. Implement it on the unconstrained generic type."
+
+[E0368]
+"消息模板" = "this type does not support compound assignment operators"
+"教学提示" = "Operators like `+=` require the corresponding operator trait (e.g. `AddAssign`). Implement that trait, or rewrite it as a plain assignment."
+
+[E0369]
+"消息模板" = "type mismatch: cannot apply the operator to `{期望}` and `{实际}`"
+"教学提示" = "The types on both sides of the operator must be compatible. Check that the operand types match, and use `as` conversions when needed."
+
+[E0370]
+"消息模板" = "enum discriminants have reached the maximum value and cannot auto-increment"
+"教学提示" = "Discriminant overflow. Specify smaller explicit discriminants for the following variants."
+
+[E0371]
+"消息模板" = "a duplicate implementation is written for an already auto-implemented trait"
+"教学提示" = "This trait is already implemented by the compiler automatically. Remove the manual implementation."
+
+[E0373]
+"消息模板" = "a closure may borrow a temporary value"
+"教学提示" = "The closure captures a reference to a temporary, but the closure may outlive it. Use the `move` keyword, or extend the value's lifetime."
+
+[E0374]
+"消息模板" = "the struct implementing CoerceUnsized is missing the field being coerced"
+"教学提示" = "This trait requires the struct to contain exactly one field that undergoes an unsizing coercion. Adjust the struct definition."
+
+[E0375]
+"消息模板" = "the struct implementing CoerceUnsized contains multiple coerced fields"
+"教学提示" = "This trait requires the struct to contain exactly one field that undergoes an unsizing coercion. Adjust the struct definition."
+
+[E0376]
+"消息模板" = "(retired error code) CoerceUnsized can only be implemented between structs"
+"教学提示" = "Change the implementation to use struct types."
+
+[E0377]
+"消息模板" = "CoerceUnsized can only be implemented between structs of the same type"
+"教学提示" = "The source and target must be different generic instantiations of the same struct. Adjust the impl."
+
+[E0378]
+"消息模板" = "DispatchFromDyn can only be implemented for pointers or pointer wrapper types"
+"教学提示" = "Implement this trait for pointer types, or for a single-field newtype wrapper around a pointer."
+
+[E0379]
+"消息模板" = "trait methods cannot currently be declared as const functions"
+"教学提示" = "`const fn` methods are not yet supported in traits. Remove the `const` modifier, or use an associated constant instead."
+
+[E0380]
+"消息模板" = "auto traits cannot contain methods or associated items"
+"教学提示" = "Auto traits (`auto trait`) are implemented by the compiler only and cannot have any items. Remove the items, or make it a regular trait."
+
+[E0381]
+"消息模板" = "an uninitialized variable cannot be used"
+"教学提示" = "Variables must be assigned before use. Initialize at declaration, or assign before use."
+
+[E0383]
+"消息模板" = "(retired error code) a moved struct cannot be partially re-initialized"
+"教学提示" = "After a value is moved, only some of its fields cannot be initialized. Reassign the whole value."
+
+[E0386]
+"消息模板" = "(retired error code) the target of a mutable reference stored in an uninitialized place cannot be modified"
+"教学提示" = "Initialize the storage place first."
+
+[E0387]
+"消息模板" = "cannot assign to a captured variable in an immutable closure"
+"教学提示" = "Closures capture outer variables immutably by default. Add `move` before the closure to take ownership, or declare the outer variable with `let mut`."
+
+[E0388]
+"消息模板" = "(retired error code) the initialization data of a static cannot be modified"
+"教学提示" = "Check how the mutable static is used."
+
+[E0389]
+"消息模板" = "(retired error code) data cannot be modified through an immutable reference"
+"教学提示" = "Modifying data requires an `&mut` reference or a `let mut` variable."
+
+[E0390]
+"消息模板" = "methods or constants cannot be implemented directly for primitive types"
+"教学提示" = "Wrap the value in a newtype (`struct Wrapper(i32)`) and implement methods on it."
+
+[E0391]
+"消息模板" = "a cycle was detected in type computation: a type definition refers to itself indirectly"
+"教学提示" = "The types form a reference cycle (e.g. struct A contains struct B and B contains A). Break the cycle with indirection via `Box`."
+
+[E0392]
+"消息模板" = "a type or lifetime parameter is declared but not used"
+"教学提示" = "Generic parameters must be used in the type body. Remove the extra parameter, or mark it with a `PhantomData` field."
+
+[E0393]
+"消息模板" = "a type parameter whose default references Self must be specified explicitly"
+"教学提示" = "The default of this type parameter depends on `Self` and cannot be inferred. Give the type argument explicitly at the call site."
+
+[E0398]
+"消息模板" = "(retired error code) the default lifetime bound rules for trait objects changed"
+"教学提示" = "Annotate the lifetime of the trait object explicitly."
+
+[E0399]
+"消息模板" = "(retired error code) overriding an associated type requires re-implementing related methods"
+"教学提示" = "Re-implement the methods that depend on that associated type."
+
+[E0401]
+"消息模板" = "only modules or top-level items can be used in an import, not local variables"
+"教学提示" = "`use` statements can only refer to top-level items like modules, functions and types. Local variables need no import; use their names directly."
+
+[E0403]
+"消息模板" = "type parameters with the same name exist"
+"教学提示" = "Generic parameter names must be unique within the same scope. Rename one of them."
+
+[E0404]
+"消息模板" = "expected a trait, but found a type"
+"教学提示" = "Positions like `dyn` or generic bounds require a trait name. Check whether the name is misspelled."
+
+[E0405]
+"消息模板" = "a trait cannot be found"
+"教学提示" = "Confirm the trait name is spelled correctly and its module is imported with `use`. Standard traits like `Clone` need to be imported first."
+
+[E0407]
+"消息模板" = "a method is not a member of this trait"
+"教学提示" = "When implementing a trait, only methods declared by the trait can be defined. Check that the method name matches the trait definition."
+
+[E0408]
+"消息模板" = "the variable bindings on both sides of an or-pattern are inconsistent"
+"教学提示" = "Each pattern separated by `|` must bind the same names. Unify the bindings across branches."
+
+[E0409]
+"消息模板" = "the set of bound variables differs between the sides of an or-pattern"
+"教学提示" = "Each pattern separated by `|` must bind exactly the same set of variables. Unify the bindings across branches."
+
+[E0411]
+"消息模板" = "the Self keyword can only be used in implementations, traits or type definitions"
+"教学提示" = "`Self` only appears in `impl`/`trait`/type-definition contexts. Use the concrete type name instead."
+
+[E0412]
+"消息模板" = "a type cannot be found"
+"教学提示" = "The type used does not exist or is not imported. Import it with the `use` keyword, or check the spelling."
+
+[E0415]
+"消息模板" = "multiple parameters of a function have the same name"
+"教学提示" = "Function parameter names must be unique. Rename one of the parameters."
+
+[E0416]
+"消息模板" = "the same identifier is bound more than once in a pattern"
+"教学提示" = "Each name can be bound only once per pattern. Use different names, or use `|` patterns."
+
+[E0422]
+"消息模板" = "a struct, enum or union cannot be found"
+"教学提示" = "The name used to construct the struct does not exist. Check the struct name spelling, or confirm it is defined in the current scope."
+
+[E0423]
+"消息模板" = "expected a function or value, but this identifier belongs to another namespace"
+"教学提示" = "This name is a type, module or variant, not a function. Verify the name; enum variants need a full path like `EnumName::Variant`."
+
+[E0424]
+"消息模板" = "self is used in an associated function without a self parameter"
+"教学提示" = "`self` can only be used in methods that take a `self` parameter. For associated functions, pass the instance in as a parameter."
+
+[E0426]
+"消息模板" = "an undeclared loop label is used"
+"教学提示" = "Loop labels must be declared first (e.g. `'outer: loop { }`) before `break 'outer` can use them. Check the label spelling."
+
+[E0428]
+"消息模板" = "a name is already defined in this type namespace"
+"教学提示" = "Type definitions with the same name are not allowed in the same scope. Rename one of them, or move the other into a submodule."
+
+[E0429]
+"消息模板" = "(retired error code) self cannot appear alone at the end of a use statement"
+"教学提示" = "Use `use module::{self}` instead, or simply write `use module`."
+
+[E0430]
+"消息模板" = "(retired error code) self appears multiple times in an import list"
+"教学提示" = "Remove the duplicate `{self}` import entry."
+
+[E0431]
+"消息模板" = "(retired error code) the self import is written illegally"
+"教学提示" = "Check the position and syntax of `{self}` in the import list."
+
+[E0432]
+"消息模板" = "the import path cannot be resolved"
+"教学提示" = "The imported module or item does not exist. Check the path spelling, and confirm the module is declared (`mod xxx;`) and visible."
+
+[E0434]
+"消息模板" = "an inner function uses a variable from the surrounding environment"
+"教学提示" = "Ordinary functions cannot capture outer local variables (closures can). Pass the variable as a parameter, or use a closure instead."
+
+[E0435]
+"消息模板" = "a non-constant value cannot be used in a constant"
+"教学提示" = "The value of a `const` must be determined at compile time. Runtime values like function calls cannot initialize a constant; use `static` or `let` instead."
+
+[E0436]
+"消息模板" = "duplicate function definition"
+"教学提示" = "Functions with the same name cannot be defined in the same scope. Check for duplicated `fn xxx()` definitions."
+
+[E0437]
+"消息模板" = "the impl uses an associated type that does not exist in the trait"
+"教学提示" = "Check the associated type name spelling, or remove it from the impl."
+
+[E0438]
+"消息模板" = "the impl uses an associated constant that does not exist in the trait"
+"教学提示" = "Check the associated constant name spelling, or remove it from the impl."
+
+[E0439]
+"消息模板" = "(retired error code) simd_shuffle has no length specified"
+"教学提示" = "Specify the array length for this intrinsic."
+
+[E0445]
+"消息模板" = "(retired error code) a public type parameter bound uses a private trait"
+"教学提示" = "Traits used in bounds of the public interface must themselves be public."
+
+[E0446]
+"消息模板" = "a private type or trait is used in the signature of a public associated type"
+"教学提示" = "Signatures of public items may only refer to public items. Make the related type/trait public, or reduce this associated type's visibility."
+
+[E0447]
+"消息模板" = "(retired error code) the pub keyword cannot be used inside a function"
+"教学提示" = "`pub` can only modify item definitions. Remove the `pub` inside the function."
+
+[E0448]
+"消息模板" = "(retired error code) pub cannot be used inside a public enum"
+"教学提示" = "Enum variants inherit the enum's visibility automatically. Remove the `pub` on the variant."
+
+[E0449]
+"消息模板" = "a visibility modifier is not needed here"
+"教学提示" = "Methods and associated items inside a trait inherit the trait's visibility automatically; they cannot carry `pub` and friends. Just remove the modifier."
+
+[E0451]
+"消息模板" = "a private struct field cannot be constructed directly"
+"教学提示" = "When a field is not declared `pub`, it cannot be initialized from outside the module. Use a constructor provided by the type, or mark the field public."
+
+[E0452]
+"消息模板" = "a lint attribute is written illegally"
+"教学提示" = "Lint attributes should be written as `#[allow(lint)]`, `#[warn(lint)]` and so on. Check the attribute syntax."
+
+[E0453]
+"消息模板" = "a lint attribute is overridden by an outer forbid directive"
+"教学提示" = "An outer `forbid(lint)` has disabled this lint entirely; inner code cannot relax it. Adjust the outer forbid directive."
+
+[E0454]
+"消息模板" = "the link name in a link attribute is empty"
+"教学提示" = "The name parameter of `#[link]` cannot be empty. Add the library name."
+
+[E0455]
+"消息模板" = "this link kind is not supported on the current platform"
+"教学提示" = "For example, `kind=framework` is only supported on macOS. Use a link kind supported on the current platform."
+
+[E0457]
+"消息模板" = "(retired error code) the plugin only exists in rlib format, but dylib format is required"
+"教学提示" = "Recompile the plugin as a dynamic library."
+
+[E0458]
+"消息模板" = "(retired error code) the link attribute specifies an unknown kind"
+"教学提示" = "The kind can only be a known value such as dylib, static or framework. Check it."
+
+[E0459]
+"消息模板" = "the link attribute is missing the name parameter"
+"教学提示" = "`#[link]` must specify a library name. Add `name = \"libname\"`."
+
+[E0460]
+"消息模板" = "an updated version of a dependency was found; the crate metadata does not match"
+"教学提示" = "The compiled versions of dependencies are inconsistent. Clean and rebuild (`cargo clean`)."
+
+[E0461]
+"消息模板" = "no crate matching the target platform was found"
+"教学提示" = "The dependency was not compiled for the current target platform. Check the target platform and the dependency build configuration."
+
+[E0462]
+"消息模板" = "a static library file was found, but an rlib or dynamic library was expected"
+"教学提示" = "The library format of the dependency is wrong. Manage dependencies with cargo, or recompile it into the correct format."
+
+[E0463]
+"消息模板" = "a crate cannot be found"
+"教学提示" = "The external package is not installed or not declared in Cargo.toml's [dependencies]. Add the dependency first."
+
+[E0464]
+"消息模板" = "multiple library files of the same crate name were found; cannot decide which to use"
+"教学提示" = "Multiple versions of the same dependency exist. Clean the build artifacts and rebuild, or unify the versions with `cargo update`."
+
+[E0466]
+"消息模板" = "(retired error code) the macro import declaration is malformed"
+"教学提示" = "Check the syntax of the macro import."
+
+[E0468]
+"消息模板" = "a non-root module tries to import macros from another crate"
+"教学提示" = "Macro imports (`#[macro_use]`) can only be written in the crate root module (main.rs/lib.rs). Move it to the root module."
+
+[E0469]
+"消息模板" = "the imported macro does not exist"
+"教学提示" = "Check the macro name spelling, and confirm that the crate really exports this macro."
+
+[E0472]
+"消息模板" = "inline assembly is not supported on the current target platform"
+"教学提示" = "The `asm!` macro is not available on this target. Use conditional compilation or a platform-independent implementation."
+
+[E0476]
+"消息模板" = "the lifetime of the coerced type is shorter than that of the original value"
+"教学提示" = "The target type references data with a shorter lifetime. Extend the lifetime of the referenced data."
+
+[E0477]
+"消息模板" = "(retired error code) the type does not satisfy the required lifetime"
+"教学提示" = "Annotate and unify the lifetimes explicitly."
+
+[E0478]
+"消息模板" = "a lifetime bound constraint is not satisfied"
+"教学提示" = "Some lifetime does not outlive another as required. Annotate lifetimes explicitly, or adjust the borrow scope."
+
+[E0482]
+"消息模板" = "(retired error code) the return value's lifetime does not outlive the function call"
+"教学提示" = "Do not return a reference to a local variable. Return an owned value instead."
+
+[E0491]
+"消息模板" = "a reference's lifetime is longer than the data it points to"
+"教学提示" = "A reference cannot outlive its data. Extend the data's lifetime, or narrow the reference's scope."
+
+[E0492]
+"消息模板" = "a constant with interior mutability cannot be borrowed"
+"教学提示" = "Constants with interior mutability (like `Cell`/`Mutex`) cannot be borrowed directly. Put the data into a `static` item."
+
+[E0493]
+"消息模板" = "a value with a custom Drop may be dropped during constant evaluation"
+"教学提示" = "Constant contexts cannot run destructors. Adjust the constant expression to avoid creating and dropping the value at compile time."
+
+[E0495]
+"消息模板" = "(retired error code) cannot determine a lifetime"
+"教学提示" = "Annotate lifetimes explicitly."
+
+[E0496]
+"消息模板" = "a lifetime cannot escape from its owning scope"
+"教学提示" = "A reference's lifetime cannot exceed that of the value it points to. Check the ownership structure of the data."
+
+[E0497]
+"消息模板" = "(retired error code) stability attributes can only be used in the standard library"
+"教学提示" = "`#[stable]`/`#[unstable]` are standard-library-only attributes. Remove them."
+
+[E0498]
+"消息模板" = "(retired error code) the plugin attribute is malformed"
+"教学提示" = "Check the plugin attribute syntax."
+
+[E0500]
+"消息模板" = "a closure captures a variable that is already borrowed"
+"教学提示" = "The closure capture conflicts with the borrow. Narrow the scope of the closure or the borrow, or add `move` before the closure."
+
+[E0501]
+"消息模板" = "a mutable variable has been captured by a closure and cannot be used anymore"
+"教学提示" = "The closure captured the variable exclusively. Narrow the closure's scope, or add `move` before the closure to transfer ownership."
+
+[E0503]
+"消息模板" = "a value is still used after being mutably borrowed"
+"教学提示" = "The original value cannot be used while a mutable borrow is active. End the mutable borrow first (narrow its scope) before using it."
+
+[E0504]
+"消息模板" = "(retired error code) a borrowed variable is moved into a closure"
+"教学提示" = "Move the value after the borrow ends, or use a reference instead."
+
+[E0505]
+"消息模板" = "a value is moved while it is still borrowed"
+"教学提示" = "A value cannot be moved while references to it exist. End the borrows first, or copy the data with `clone()`."
+
+[E0506]
+"消息模板" = "cannot assign to a value that is already borrowed"
+"教学提示" = "Assigning destroys the old value and may invalidate borrows. End the borrows before assigning."
+
+[E0508]
+"消息模板" = "cannot move out of the contents of an array"
+"教学提示" = "Elements cannot be moved out of an array wholesale. Use indexing plus `clone()`, or switch to a vector (`Vec`)."
+
+[E0509]
+"消息模板" = "cannot move a value out of a type that implements Drop"
+"教学提示" = "Moving out a field would skip the type's destructor. Wrap the field in `Option` and use `take()`, or operate on the whole value."
+
+[E0510]
+"消息模板" = "the matched value is assigned to in a match guard"
+"教学提示" = "Matches must have no side effects. Move the assignment into the match arm body."
+
+[E0511]
+"消息模板" = "the monomorphized type of an intrinsic is invalid"
+"教学提示" = "This intrinsic does not support the current combination of types. Check the type arguments passed in."
+
+[E0512]
+"消息模板" = "the two types in a transmute have different sizes"
+"教学提示" = "Transmute requires both types to have exactly the same number of bytes. Use types of the same size, or a safe conversion."
+
+[E0514]
+"消息模板" = "a dependency was compiled with a different version of the compiler"
+"教学提示" = "Clean and recompile all dependencies with the same compiler version."
+
+[E0516]
+"消息模板" = "(retired error code) the typeof keyword is reserved but not implemented"
+"教学提示" = "Write the type name explicitly."
+
+[E0517]
+"消息模板" = "(retired error code) an attribute is used in an unsupported position"
+"教学提示" = "Check the positions where this attribute applies."
+
+[E0518]
+"消息模板" = "(retired error code) the inline attribute can only be used on functions or methods"
+"教学提示" = "Move `#[inline]` onto a function or method."
+
+[E0519]
+"消息模板" = "the current crate cannot be distinguished from one of its dependencies"
+"教学提示" = "The crate name duplicates a dependency. Rename the current crate, or alias the dependency."
+
+[E0520]
+"消息模板" = "a non-default implementation already exists, so further specialization is not possible"
+"教学提示" = "Specialization requires a `default` implementation first. Mark the base implementation as `default impl`."
+
+[E0521]
+"消息模板" = "borrowed data escapes from a closure"
+"教学提示" = "The closure returns or moves out a captured borrow. Narrow where the closure is used, or let the closure own the data (`move`)."
+
+[E0522]
+"消息模板" = "a lang item attribute is used in an invalid context"
+"教学提示" = "`#[lang]` can only be applied to specific kinds of items. Check the attribute's position."
+
+[E0523]
+"消息模板" = "(retired error code) multiple library files with the same crate name were found"
+"教学提示" = "Clean the build artifacts and rebuild."
+
+[E0524]
+"消息模板" = "a variable requiring exclusive access is used by multiple closures at the same time"
+"教学提示" = "Each `FnMut`/`FnOnce` closure captures variables exclusively. Run the closures sequentially, or capture by reference."
+
+[E0525]
+"消息模板" = "the closure does not satisfy the expected function trait"
+"教学提示" = "`Fn` was expected, but the closure mutates captured variables (it is only `FnMut`). Adjust the closure body, or relax the expected trait."
+
+[E0527]
+"消息模板" = "the number of elements in an array or slice pattern does not match the array being matched"
+"教学提示" = "The pattern must have the same number of elements as the array. Check the count, or match the rest with `..`."
+
+[E0528]
+"消息模板" = "an array or slice pattern requires more elements than the array actually has"
+"教学提示" = "Reduce the number of elements in the pattern, or use `..` as a wildcard."
+
+[E0529]
+"消息模板" = "an array or slice pattern is used on another type"
+"教学提示" = "This pattern can only match arrays, slices or references to slices. Check the type of the matched value."
+
+[E0530]
+"消息模板" = "a match binding conflicts with an enum variant"
+"教学提示" = "A binding name in a pattern cannot equal an enum variant name. Rename the binding variable."
+
+[E0531]
+"消息模板" = "unknown tuple struct or tuple variant"
+"教学提示" = "Check the name spelling and imports; enum variants must be written as `EnumName::Variant`."
+
+[E0532]
+"消息模板" = "the pattern kind does not match the expectation (e.g. matching a struct with a tuple pattern)"
+"教学提示" = "Choose the pattern to match the actual type: structs use `StructName { }`, tuples use `(...)`, and field-less items use a plain name."
+
+[E0533]
+"消息模板" = "this item cannot be used as a match pattern"
+"教学提示" = "Only unit structs, variants and constants can be used as patterns. Verify the name, or use a guard condition instead."
+
+[E0534]
+"消息模板" = "(retired error code) the inline attribute argument is written incorrectly"
+"教学提示" = "`#[inline]` only accepts known arguments such as `always`/`never`."
+
+[E0535]
+"消息模板" = "(retired error code) an unknown argument was given to the inline attribute"
+"教学提示" = "Check the inline attribute arguments."
+
+[E0536]
+"消息模板" = "(retired error code) the not predicate of cfg is malformed"
+"教学提示" = "`not(...)` must contain a complete predicate. Check the syntax."
+
+[E0537]
+"消息模板" = "(retired error code) an unknown predicate is used in a cfg attribute"
+"教学提示" = "Predicates can only be known names such as feature or target_os. Check the spelling."
+
+[E0538]
+"消息模板" = "the same meta item appears more than once in an attribute"
+"教学提示" = "Remove the duplicated item in the attribute."
+
+[E0539]
+"消息模板" = "wrong number of macro arguments"
+"教学提示" = "The number of arguments in a macro call does not match its definition. Check how the macro is used."
+
+[E0541]
+"消息模板" = "(retired error code) an unknown meta item was used"
+"教学提示" = "Check the meta item name in the attribute."
+
+[E0542]
+"消息模板" = "a stability attribute is missing the since value"
+"教学提示" = "This is a standard-library-only attribute. Remove it in ordinary code."
+
+[E0543]
+"消息模板" = "a stability attribute is missing the note value"
+"教学提示" = "This is a standard-library-only attribute. Remove it in ordinary code."
+
+[E0544]
+"消息模板" = "multiple stability attributes are declared on the same item"
+"教学提示" = "This is a standard-library-only attribute. Remove it in ordinary code."
+
+[E0545]
+"消息模板" = "the issue value of a stability attribute is incorrect"
+"教学提示" = "This is a standard-library-only attribute. Remove it in ordinary code."
+
+[E0546]
+"消息模板" = "a stability attribute is missing the feature value"
+"教学提示" = "This is a standard-library-only attribute. Remove it in ordinary code."
+
+[E0547]
+"消息模板" = "a stability attribute is missing the issue value"
+"教学提示" = "This is a standard-library-only attribute. Remove it in ordinary code."
+
+[E0549]
+"消息模板" = "a deprecation attribute must be paired with a stable/unstable attribute"
+"教学提示" = "This is a standard-library-only rule. In ordinary code, keep only `#[deprecated]`."
+
+[E0550]
+"消息模板" = "(retired error code) multiple deprecation attributes on the same item"
+"教学提示" = "Keep only a single `#[deprecated]` attribute."
+
+[E0551]
+"消息模板" = "(retired error code) an illegal meta item inside an attribute"
+"教学提示" = "Check the syntax inside the attribute."
+
+[E0552]
+"消息模板" = "(retired error code) an unrecognized representation attribute"
+"教学提示" = "`#[repr]` only supports known options such as C, packed and alignment values."
+
+[E0554]
+"消息模板" = "feature gates can only be used on the nightly channel"
+"教学提示" = "`#![feature(...)]` requires a nightly compiler. On stable, remove the attribute or use a stabilized alternative."
+
+[E0556]
+"消息模板" = "(retired error code) the feature attribute is malformed"
+"教学提示" = "Check the syntax of `#![feature(...)]`."
+
+[E0557]
+"消息模板" = "the specified feature has been removed"
+"教学提示" = "This feature was removed from the compiler. Remove the gate and use the new syntax."
+
+[E0559]
+"消息模板" = "a field does not exist"
+"教学提示" = "The struct has no such field. Check the field name spelling, or confirm you are using the right struct type."
+
+[E0560]
+"消息模板" = "the struct has no such field"
+"教学提示" = "A nonexistent field was specified when initializing the struct. Compare the struct definition against the fields used."
+
+[E0561]
+"消息模板" = "parameters of a function pointer type can only be identifiers or wildcards"
+"教学提示" = "In a function pointer signature, write `param: Type` or `_: Type`."
+
+[E0562]
+"消息模板" = "impl Trait can only be used as a function parameter or return type"
+"教学提示" = "The `impl Trait` form can only appear in function signatures. Elsewhere, use generics or trait objects."
+
+[E0565]
+"消息模板" = "an unsupported literal is used in a built-in attribute"
+"教学提示" = "This attribute only accepts identifiers or strings. Adjust the syntax."
+
+[E0566]
+"消息模板" = "conflicting representation hints are used on the same item"
+"教学提示" = "Multiple `#[repr]` options conflict (e.g. C and transparent at the same time). Keep only one."
+
+[E0567]
+"消息模板" = "auto traits cannot have generic parameters"
+"教学提示" = "`auto trait` accepts no generic parameters. Remove the generic declaration."
+
+[E0568]
+"消息模板" = "auto traits cannot have supertraits"
+"教学提示" = "`auto trait` cannot inherit with `: OtherTrait`. Remove the supertrait."
+
+[E0569]
+"消息模板" = "an impl with the may_dangle attribute must be declared as an unsafe impl"
+"教学提示" = "Write `unsafe impl`, because the dangling check requires a manual safety guarantee."
+
+[E0570]
+"消息模板" = "the requested ABI is not supported on the current target platform"
+"教学提示" = "This calling convention is unavailable on this platform. Use a supported one (such as `\"C\"`)."
+
+[E0571]
+"消息模板" = "a break with a value appears outside a loop construct"
+"教学提示" = "`break value` can only be used in `loop`. In `while`/`for` loops, remove the break value."
+
+[E0572]
+"消息模板" = "a return statement appears outside of a function body"
+"教学提示" = "`return` can only be written inside a function body. Remove the stray return statement."
+
+[E0573]
+"消息模板" = "a type was expected here, but a method with the same name was found"
+"教学提示" = "The name is taken by a method. Check whether a type name is missing, or point to the target type with a full path."
+
+[E0574]
+"消息模板" = "a struct or enum name was expected"
+"教学提示" = "A type name is needed here, not a value or expression. Check the syntax."
+
+[E0575]
+"消息模板" = "a type or associated type was expected here, but another item was found"
+"教学提示" = "Check what this name refers to; type positions can only contain types."
+
+[E0576]
+"消息模板" = "the specified associated item cannot be found on this type"
+"教学提示" = "Check the associated item name spelling, and confirm the type really defines or implements it."
+
+[E0577]
+"消息模板" = "a function was expected here, but another item was found"
+"教学提示" = "The called/referenced name points to a non-function item like a type or module. Check the name spelling and the call site."
+
+[E0578]
+"消息模板" = "(retired error code) the module cannot be found, so visibility cannot be determined"
+"教学提示" = "Check the module name and the file structure."
+
+[E0579]
+"消息模板" = "the start of an inclusive range is greater than its end"
+"教学提示" = "`start..=end` requires start to be no greater than end. Adjust the range endpoints."
+
+[E0580]
+"消息模板" = "the main function is declared incorrectly"
+"教学提示" = "The signature of `main` must be `fn main()` or return a `Result` type. Fix the signature."
+
+[E0581]
+"消息模板" = "a lifetime in a function pointer type appears only in the return type"
+"教学提示" = "Lifetimes in the return type must relate to the parameters. Use that lifetime in a parameter type too."
+
+[E0582]
+"消息模板" = "a lifetime appears only in an associated type bound, not in the input types"
+"教学提示" = "Lifetimes in trait bounds must relate to the input types. Adjust where the lifetime appears."
+
+[E0583]
+"消息模板" = "the file for a module cannot be found"
+"教学提示" = "A module declaration (`mod name;`) requires a `name.rs` file or `name/mod.rs` in the same directory. Create the file, or check the file name spelling."
+
+[E0584]
+"消息模板" = "a doc comment is not followed by any item"
+"教学提示" = "A `///` comment must be directly followed by an item. Add the item after the comment, or use an ordinary comment."
+
+[E0585]
+"消息模板" = "a doc comment does not document anything"
+"教学提示" = "Adjacent doc comments cannot be separated by blank comments or statements. Merge them or adjust their positions."
+
+[E0586]
+"消息模板" = "an inclusive range is missing its end"
+"教学提示" = "`..=` requires both a start and an end. To range to the end, use the open range `start..`."
+
+[E0587]
+"消息模板" = "a type uses both packed and align representation hints"
+"教学提示" = "`packed` and `align` conflict with each other. Keep only one."
+
+[E0588]
+"消息模板" = "fields of a packed type cannot carry an align hint"
+"教学提示" = "Fields of a `packed` struct cannot have alignment requirements. Remove the align attribute from the field."
+
+[E0589]
+"消息模板" = "the alignment value must be a power of two and not exceed 2^29"
+"教学提示" = "The N in `align(N)` can only be a power of two such as 1, 2, 4, 8. Fix the value."
+
+[E0590]
+"消息模板" = "break or continue is used in the condition of an unlabeled while loop"
+"教学提示" = "`break`/`continue` in loop conditions must carry a label indicating which loop they apply to."
+
+[E0591]
+"消息模板" = "the function pointer type is not compatible with the actual function signature"
+"教学提示" = "Function pointers require exactly matching parameter types. Compare the function signature against the pointer type."
+
+[E0592]
+"消息模板" = "a method or associated function with the same name is already defined"
+"教学提示" = "Method and associated function names on the same type must be unique. Rename one of them."
+
+[E0593]
+"消息模板" = "the closure does not satisfy the requirement: the argument count or invocation style does not match"
+"教学提示" = "Compare the closure signature with the expected function type: argument count, mutable borrows and ownership consumption must all match."
+
+[E0594]
+"消息模板" = "cannot assign to an immutable variable"
+"教学提示" = "Variables declared with `let` are immutable by default. To modify them, declare with `let mut`."
+
+[E0595]
+"消息模板" = "(retired error code) a closure cannot modify an immutable captured variable"
+"教学提示" = "Declare the variable modified by the closure with `let mut`."
+
+[E0599]
+"消息模板" = "the method cannot be found on this type"
+"教学提示" = "The called method does not exist on this type. Check the method name spelling, or confirm the corresponding trait needs to be imported."
+
+[E0600]
+"消息模板" = "a unary operator is applied to a type that does not support it"
+"教学提示" = "Operators like `!` and `-` require the type to implement the corresponding trait. Check the type, or use a type that supports the operation."
+
+[E0601]
+"消息模板" = "no `main` function was found"
+"教学提示" = "Every executable Rust program needs a `main` function as its entry point. Add one: fn main() { ... }"
+
+[E0602]
+"消息模板" = "an unknown lint is used on the command line"
+"教学提示" = "Check the lint name spelling after `-A/-W/-D`; use `rustc -W help` to see the available list."
+
+[E0604]
+"消息模板" = "only u8 can be cast to char"
+"教学提示" = "`as char` casts only support `u8`. For other integers, convert to `u8` first, or use `char::from_u32()`."
+
+[E0605]
+"消息模板" = "invalid type cast"
+"教学提示" = "`as` only supports specific casts (numeric, pointer, etc.). For other conversions, use dedicated conversion functions."
+
+[E0606]
+"消息模板" = "incompatible type cast"
+"教学提示" = "The source and target types are incompatible. Use a correct intermediate type or conversion method."
+
+[E0607]
+"消息模板" = "cannot cast between thin and fat pointers"
+"教学提示" = "Casts between pointers of different widths are not allowed. Cast the pointed-to type first, then the pointer."
+
+[E0608]
+"消息模板" = "this type does not support indexing"
+"教学提示" = "`value[index]` requires the type to implement the `Index` trait. For collections use `.get(index)`, or use a slice instead."
+
+[E0609]
+"消息模板" = "a field does not exist on this type"
+"教学提示" = "Check the field name spelling (case sensitive), and confirm the struct definition really includes this field."
+
+[E0610]
+"消息模板" = "the type has no fields"
+"教学提示" = "The type being accessed contains no fields at all. Check whether the wrong type was dereferenced."
+
+[E0614]
+"消息模板" = "this type cannot be dereferenced"
+"教学提示" = "Only references (`&`) or types implementing the Deref trait can use `*` dereferencing."
+
+[E0615]
+"消息模板" = "a method was accessed like a field"
+"教学提示" = "Methods must be called: write `value.method()`, and remove the extra field access after `.method`."
+
+[E0616]
+"消息模板" = "attempted to access a private field"
+"教学提示" = "When a field is not declared `pub`, it cannot be read or written from outside the module. Use the accessor methods provided by the type (like getters/setters)."
+
+[E0617]
+"消息模板" = "an invalid type is passed to a variadic function"
+"教学提示" = "Variadic arguments only accept C-compatible types. Use types like `CString`, or switch to a fixed-parameter function."
+
+[E0618]
+"消息模板" = "expected a function, but this is not a function"
+"教学提示" = "The call syntax `xxx()` requires xxx to be a function or closure. Check whether a variable is being called as a function."
+
+[E0619]
+"消息模板" = "(retired error code) not enough type inference information"
+"教学提示" = "Add explicit type annotations to help inference."
+
+[E0620]
+"消息模板" = "cannot cast to an unsized type"
+"教学提示" = "The target of an `as` cast must be a sized type. For slices and friends, use dedicated conversion methods."
+
+[E0621]
+"消息模板" = "lifetime mismatch: explicit lifetime annotations are required"
+"教学提示" = "The relationship between references in the return value and the parameters must be annotated explicitly. Add lifetime parameters to the function."
+
+[E0622]
+"消息模板" = "(retired error code) an intrinsic declaration is not a function"
+"教学提示" = "Intrinsics must be declared as functions."
+
+[E0624]
+"消息模板" = "a field or method is private"
+"教学提示" = "Struct fields are private by default. Add the `pub` modifier to the field, or provide public accessor methods."
+
+[E0625]
+"消息模板" = "a compile-time constant cannot refer to a thread-local static"
+"教学提示" = "The address of a thread-local variable is unknown at compile time. Change the constant to a plain static, or compute it at runtime."
+
+[E0626]
+"消息模板" = "a borrow in a generator crosses a yield point"
+"教学提示" = "Borrows cannot cross `yield`/`await`. End the borrow before yielding, or move the data out of the generator."
+
+[E0627]
+"消息模板" = "a yield expression appears outside of a generator"
+"教学提示" = "`yield` can only be written inside a generator literal. Check the code location."
+
+[E0628]
+"消息模板" = "a generator cannot have more than one parameter"
+"教学提示" = "Generators accept only a single input parameter. Combine multiple parameters into one tuple."
+
+[E0631]
+"消息模板" = "closure parameter type mismatch"
+"教学提示" = "The closure signature does not match the expected function type. Check the parameter types."
+
+[E0632]
+"消息模板" = "(retired error code) impl Trait parameters do not support explicit generic arguments"
+"教学提示" = "Remove the explicit type arguments, or use a generic function instead."
+
+[E0633]
+"消息模板" = "(retired error code) the unwind attribute is malformed"
+"教学提示" = "Check the syntax of the `#[unwind]` attribute."
+
+[E0634]
+"消息模板" = "the packed representation hints of a type conflict"
+"教学提示" = "Unify the `packed` settings between the struct and its fields."
+
+[E0635]
+"消息模板" = "an unknown feature name was specified"
+"教学提示" = "This feature does not exist. Check the name, or the feature may already be stable and need no gate."
+
+[E0636]
+"消息模板" = "(retired error code) the same feature is enabled more than once"
+"教学提示" = "Remove the duplicate entry in `#![feature(...)]`."
+
+[E0637]
+"消息模板" = "this lifetime name is not allowed in this position"
+"教学提示" = "Some positions (like static items) only allow the `'static` lifetime or elision. Check whether the lifetime annotation is in a legal position."
+
+[E0638]
+"消息模板" = "a type marked non-exhaustive must be matched with a wildcard"
+"教学提示" = "Matching a `#[non_exhaustive]` type outside its crate requires a `..` or `_` arm, leaving room for future fields."
+
+[E0639]
+"消息模板" = "a type marked non-exhaustive cannot be constructed directly outside its crate"
+"教学提示" = "Instances of a `#[non_exhaustive]` type can only be created through its provided constructors, so future fields do not break compatibility."
+
+[E0640]
+"消息模板" = "(retired error code) compiler internal error"
+"教学提示" = "This is an internal compiler error code; normal code should not trigger it."
+
+[E0641]
+"消息模板" = "cannot convert to or from a pointer to an unknown type"
+"教学提示" = "Specify the pointer type explicitly before converting."
+
+[E0642]
+"消息模板" = "patterns are not allowed in trait method parameters"
+"教学提示" = "In a trait method signature, parameters can only be `name: Type`. Put patterns into the default implementation body."
+
+[E0643]
+"消息模板" = "the generic/impl-trait parameters of a trait declaration and its implementation do not match"
+"教学提示" = "The `impl Trait` and generic parameters in a trait and its impl must correspond one to one. Compare the declaration and the implementation."
+
+[E0644]
+"消息模板" = "a closure references its own type"
+"教学提示" = "A closure type cannot be self-referential. Restructure the code with a function or an explicit type."
+
+[E0646]
+"消息模板" = "the main function cannot have a where clause"
+"教学提示" = "Remove the `where` clause from `main`."
+
+[E0647]
+"消息模板" = "(retired error code) a start function cannot have a where clause"
+"教学提示" = "Remove the `where` clause from that function."
+
+[E0648]
+"消息模板" = "an export name contains a null character"
+"教学提示" = "`#[export_name]` cannot contain the NUL character. Fix the export name."
+
+[E0657]
+"消息模板" = "impl Trait cannot capture higher-ranked lifetimes"
+"教学提示" = "`impl Trait` can only capture the lifetimes of the function it is in. Use explicit generic and lifetime parameters instead."
+
+[E0658]
+"消息模板" = "an unstable feature is used"
+"教学提示" = "This feature is not yet stable in the current Rust version. Check whether a feature gate is enabled, or use a stable alternative."
+
+[E0659]
+"消息模板" = "a name is ambiguous: multiple candidates match"
+"教学提示" = "Wildcard imports brought in items with the same name. Use a full path to disambiguate, or rename an import with `as`."
+
+[E0660]
+"消息模板" = "(retired error code) the llvm_asm macro arguments are malformed"
+"教学提示" = "This legacy inline assembly macro has been removed. Use `asm!` instead."
+
+[E0661]
+"消息模板" = "(retired error code) the second argument of the llvm_asm macro has invalid syntax"
+"教学提示" = "This legacy inline assembly macro has been removed. Use `asm!` instead."
+
+[E0662]
+"消息模板" = "(retired error code) an input operand constraint of the llvm_asm macro is invalid"
+"教学提示" = "This legacy inline assembly macro has been removed. Use `asm!` instead."
+
+[E0663]
+"消息模板" = "(retired error code) an output operand constraint of the llvm_asm macro is invalid"
+"教学提示" = "This legacy inline assembly macro has been removed. Use `asm!` instead."
+
+[E0664]
+"消息模板" = "(retired error code) a clobber in the llvm_asm macro is wrapped in braces"
+"教学提示" = "This legacy inline assembly macro has been removed. Use `asm!` instead."
+
+[E0665]
+"消息模板" = "a default variant must be specified when deriving Default for an enum"
+"教学提示" = "Mark one variant with `#[default]` to indicate which variant `Default::default()` returns."
+
+[E0666]
+"消息模板" = "impl Trait cannot be nested inside the generic parameters of another impl Trait"
+"教学提示" = "Use a generic parameter or a concrete type for the nested position."
+
+[E0667]
+"消息模板" = "(retired error code) impl Trait is not allowed in path parameters"
+"教学提示" = "Use `impl Trait` in function signature positions."
+
+[E0668]
+"消息模板" = "(retired error code) inline assembly is malformed"
+"教学提示" = "Check the assembly template and operand syntax of the `asm!` macro."
+
+[E0669]
+"消息模板" = "(retired error code) an inline assembly operand cannot be converted to a single value"
+"教学提示" = "Check the operand types of the `asm!` macro."
+
+[E0670]
+"消息模板" = "Rust 2015 does not support async functions"
+"教学提示" = "Upgrade the edition in Cargo.toml to 2018 or later."
+
+[E0671]
+"消息模板" = "(retired error code) const parameters cannot depend on type parameters"
+"教学提示" = "Adjust how the generic parameters are declared."
+
+[E0687]
+"消息模板" = "(retired error code) in-band lifetimes cannot be used in function pointer syntax"
+"教学提示" = "Declare lifetime parameters explicitly."
+
+[E0688]
+"消息模板" = "(retired error code) in-band lifetimes are mixed with explicit lifetimes"
+"教学提示" = "Use explicit lifetime declarations consistently."
+
+[E0689]
+"消息模板" = "a method is called on a numeric value whose type is not determined"
+"教学提示" = "Method resolution needs a known numeric type. Annotate the type, e.g. `let x = 1.0 as f64;` or `let x: f64 = 1.0;`."
+
+[E0690]
+"消息模板" = "a struct with the transparent representation can have at most one non-zero-sized field"
+"教学提示" = "`repr(transparent)` requires exactly one real field (the rest must be zero-sized). Adjust the fields."
+
+[E0691]
+"消息模板" = "(retired error code) restrictions on zero-sized fields in transparent-representation types"
+"教学提示" = "Check the field composition of the `repr(transparent)` type."
+
+[E0692]
+"消息模板" = "the transparent representation conflicts with other representation hints"
+"教学提示" = "`repr(transparent)` cannot be combined with C, packed and friends. Keep only the transparent representation."
+
+[E0693]
+"消息模板" = "(retired error code) the align representation hint is declared incorrectly"
+"教学提示" = "Check the syntax of `#[repr(align(N))]`."
+
+[E0695]
+"消息模板" = "a break statement inside a labeled block is missing its label"
+"教学提示" = "A `break` inside a labeled block needs `break 'label`, otherwise the target scope is unclear."
+
+[E0696]
+"消息模板" = "a continue statement is used incorrectly"
+"教学提示" = "`continue` can only point to a loop that is currently executing. Check the loop structure and labels."
+
+[E0697]
+"消息模板" = "closures cannot be used as static items"
+"教学提示" = "`static` items cannot be closures. Use a function item, or create the closure inside a function."
+
+[E0698]
+"消息模板" = "(retired error code) the type variables of a generator are not fully bound"
+"教学提示" = "Add type annotations to the related variables."
+
+[E0699]
+"消息模板" = "(retired error code) a method is called on a raw pointer whose type is not fully determined"
+"教学提示" = "Annotate the type the raw pointer points to first."
+
+[E0700]
+"消息模板" = "the impl Trait return type captures a lifetime that does not appear in the bounds"
+"教学提示" = "A returned `impl Trait` can only capture lifetimes that appear in the signature. Adjust the return type or the lifetime annotations."
+
+[E0701]
+"消息模板" = "(retired error code) the non-exhaustive attribute is used in an unsupported position"
+"教学提示" = "`#[non_exhaustive]` can only be used on structs, enums or enum variants."
+
+[E0703]
+"消息模板" = "an invalid ABI name is used"
+"教学提示" = "Calling conventions must be known values (like `\"C\"`, `\"system\"`, `\"Rust\"`). Check the name."
+
+[E0704]
+"消息模板" = "the visibility restriction is written incorrectly"
+"教学提示" = "The path in `pub(in module)` must be an ancestor module. Fix the visibility syntax."
+
+[E0705]
+"消息模板" = "(retired error code) this feature has been stabilized in the current version"
+"教学提示" = "Remove the `#![feature]` gate and use it directly."
+
+[E0706]
+"消息模板" = "(retired error code) async functions in traits are not supported yet"
+"教学提示" = "Newer Rust versions support this. Upgrade the compiler, or use methods returning `Box<dyn Future>`."
+
+[E0708]
+"消息模板" = "(retired error code) non-move async closures with parameters are not supported yet"
+"教学提示" = "Add `move` before the async closure."
+
+[E0710]
+"消息模板" = "an unknown tool name is used in a scoped lint"
+"教学提示" = "For example, the tool in `#[allow(tool::lint)]` does not exist. Check the tool name; common ones are `clippy` or `rustdoc`."
+
+[E0711]
+"消息模板" = "(internal compiler error code) conflicting stability requirements for a feature"
+"教学提示" = "This is an internal compiler error code; normal code should not trigger it."
+
+[E0712]
+"消息模板" = "a borrow of a thread-local variable outlives the function"
+"教学提示" = "Borrows of thread-local variables cannot escape the closure or function. Narrow the borrow scope, or copy the data."
+
+[E0713]
+"消息模板" = "a borrow outlives the terminus of a type implementing Drop"
+"教学提示" = "All borrows of a type with a destructor must end before it is dropped. Adjust the lifetime annotations, or narrow the borrow scope."
+
+[E0714]
+"消息模板" = "marker traits cannot contain associated items"
+"教学提示" = "A `#[marker]` trait cannot have any methods or associated items. Remove the associated items."
+
+[E0715]
+"消息模板" = "implementations of marker traits cannot override associated items"
+"教学提示" = "An impl of a `#[marker]` trait cannot contain any items. Remove the items in the impl."
+
+[E0717]
+"消息模板" = "(internal compiler error code)"
+"教学提示" = "This is an internal compiler error code; normal code should not trigger it."
+
+[E0718]
+"消息模板" = "(retired error code) the lang item attribute is used on the wrong kind of item"
+"教学提示" = "Check the position of `#[lang]`."
+
+[E0719]
+"消息模板" = "the same associated item is specified more than once in a trait object"
+"教学提示" = "Remove the duplicated associated item binding."
+
+[E0720]
+"消息模板" = "the return type contains itself, forming an infinitely recursive type"
+"教学提示" = "The function return type refers to itself directly or indirectly (e.g. returning `Vec<Self>`). Use a concrete type, or indirect through `Box`."
+
+[E0722]
+"消息模板" = "(retired error code) the optimize attribute argument is invalid"
+"教学提示" = "Check the attribute arguments."
+
+[E0724]
+"消息模板" = "(retired error code) ffi_returns_twice can only be used on foreign function declarations"
+"教学提示" = "Move this attribute onto a function declaration in an `extern` block."
+
+[E0725]
+"消息模板" = "this feature is forbidden by compiler command-line arguments"
+"教学提示" = "The build configuration disabled this feature. Adjust the build arguments, or remove the feature gate."
+
+[E0726]
+"消息模板" = "a parameter lifetime is elided in an async function"
+"教学提示" = "Lifetime elision rules are restricted in async functions. Annotate the parameter lifetimes explicitly."
+
+[E0727]
+"消息模板" = "a yield clause is used in an async context"
+"教学提示" = "`yield` is only for generators; async functions should use `await`."
+
+[E0728]
+"消息模板" = "`await` can only be used in async functions or async blocks"
+"教学提示" = "A function containing `await` must be declared `async fn`, or wrap the code in an `async { }` block."
+
+[E0729]
+"消息模板" = "(retired error code) a note about non-lexical lifetimes"
+"教学提示" = "This feature is built in; no extra configuration is needed."
+
+[E0730]
+"消息模板" = "an array without a fixed length cannot be pattern-matched"
+"教学提示" = "Slices and dynamic arrays cannot be matched with fixed-length patterns. Use slice patterns, or process with loops."
+
+[E0731]
+"消息模板" = "an enum with the transparent representation must have exactly one variant"
+"教学提示" = "A `repr(transparent)` enum can only have one variant. Adjust the enum definition."
+
+[E0732]
+"消息模板" = "an enum with discriminants must specify an integer representation"
+"教学提示" = "Add an integer representation attribute like `#[repr(u8)]` to the enum."
+
+[E0733]
+"消息模板" = "an async main function cannot return a value"
+"教学提示" = "An `async fn main()` used as the program entry point must return `()`, not another type."
+
+[E0734]
+"消息模板" = "(retired error code) a stability attribute is used incorrectly"
+"教学提示" = "This error code has been replaced by E0658."
+
+[E0735]
+"消息模板" = "the default value of a type parameter of a struct/enum/union cannot use its own type"
+"教学提示" = "A type parameter default cannot reference `Self`. Use a concrete type instead."
+
+[E0736]
+"消息模板" = "naked functions cannot be combined with certain attributes"
+"教学提示" = "`#[naked]` functions are incompatible with attributes like inline. Remove the conflicting attribute."
+
+[E0737]
+"消息模板" = "the track_caller attribute requires the function to use the Rust calling convention"
+"教学提示" = "`#[track_caller]` can only be used on Rust ABI functions. Adjust the calling convention."
+
+[E0739]
+"消息模板" = "(retired error code) the track_caller attribute must be used on a function"
+"教学提示" = "Move this attribute onto a function."
+
+[E0740]
+"消息模板" = "union fields cannot have destructors"
+"教学提示" = "Union field types cannot implement `Drop`. Wrap the field in `Option`, or restructure the design."
+
+[E0741]
+"消息模板" = "the type of a const generic parameter must support structural matching"
+"教学提示" = "Const generics currently only support integers, bool, char and similar types. Adjust the parameter type."
+
+[E0742]
+"消息模板" = "the module in a visibility restriction is not an ancestor module of the current item"
+"教学提示" = "The X in `pub(in X)` must be an ancestor module containing the current item. Fix the path."
+
+[E0743]
+"消息模板" = "a variadic parameter type cannot be nested inside another type"
+"教学提示" = "`...` can only appear directly at the end of a function parameter list. Adjust the syntax."
+
+[E0744]
+"消息模板" = "(retired error code) an unsupported expression is used in a constant context"
+"教学提示" = "Simplify the constant expression."
+
+[E0745]
+"消息模板" = "cannot take the address of a temporary value"
+"教学提示" = "Temporaries are destroyed at the end of the statement. Bind the value to a variable first, then take a reference."
+
+[E0746]
+"消息模板" = "an unboxed trait object cannot be returned directly"
+"教学提示" = "Return types must be sized. Use `Box<dyn Trait>` or `impl Trait` as the return type."
+
+[E0747]
+"消息模板" = "the order of generic arguments does not match the declaration"
+"教学提示" = "Type and lifetime arguments must be given in declaration order. Reorder them, or use the named form."
+
+[E0748]
+"消息模板" = "the number of # in a raw string does not match"
+"教学提示" = "The leading hash count of a raw string like r# must equal the trailing one. Complete the hash characters."
+
+[E0749]
+"消息模板" = "a negative impl cannot contain any items"
+"教学提示" = "Negative impls (`impl !Trait`) must be empty. Remove the items inside the impl."
+
+[E0750]
+"消息模板" = "a negative impl cannot be marked as a default impl"
+"教学提示" = "Remove the `default` modifier from the negative impl."
+
+[E0751]
+"消息模板" = "both positive and negative trait implementations exist for the same type"
+"教学提示" = "Positive and negative impls conflict. Remove one of them."
+
+[E0752]
+"消息模板" = "the program entry function cannot be marked async"
+"教学提示" = "`main` cannot be an `async fn`. Run async code inside main with a block executor."
+
+[E0753]
+"消息模板" = "an inner doc comment is used in an invalid position"
+"教学提示" = "`//!` can only be written at the start of a module, crate or file. Move it before the items, or use `///`."
+
+[E0754]
+"消息模板" = "a non-ASCII identifier is not allowed in this position"
+"教学提示" = "Some positions (like export names) only accept ASCII identifiers. Use an English name."
+
+[E0755]
+"消息模板" = "(retired error code) the ffi_pure attribute can only be used on foreign functions"
+"教学提示" = "Move this attribute onto a foreign function declaration."
+
+[E0756]
+"消息模板" = "(retired error code) the ffi_const attribute can only be used on foreign function declarations"
+"教学提示" = "Move this attribute onto a foreign function declaration."
+
+[E0757]
+"消息模板" = "a function is marked with both ffi_const and ffi_pure"
+"教学提示" = "The two attributes conflict semantically. Keep only one."
+
+[E0758]
+"消息模板" = "a multi-line comment is not terminated properly"
+"教学提示" = "A `/*` comment is missing its matching `*/`. Add the terminator."
+
+[E0759]
+"消息模板" = "a lifetime parameter is constrained by mismatched requirements"
+"教学提示" = "The lifetime in the type does not match the constraints in the function declaration. Unify the lifetime annotations."
+
+[E0760]
+"消息模板" = "(retired error code) the async return type references a lifetime outside the captures"
+"教学提示" = "Adjust the return type and the lifetime annotations."
+
+[E0761]
+"消息模板" = "multiple candidate files exist for a module"
+"教学提示" = "A module with the same name exists both as a file and as a directory. Keep only one candidate."
+
+[E0762]
+"消息模板" = "a character literal is not terminated properly"
+"教学提示" = "The character literal is missing its closing single quote. Add the `'`."
+
+[E0763]
+"消息模板" = "a byte constant is not terminated properly"
+"教学提示" = "The byte literal is missing its closing single quote. Add the `'`."
+
+[E0764]
+"消息模板" = "mutable references are not allowed in static items"
+"教学提示" = "`static` items live for the entire program run; allowing mutable references would break the borrowing rules. Use interior mutability like `Lazy` or `Mutex` instead."
+
+[E0765]
+"消息模板" = "a double-quoted string is not terminated properly"
+"教学提示" = "The string is missing its closing double quote. Add the closing quote."
+
+[E0766]
+"消息模板" = "a byte string is not terminated properly"
+"教学提示" = "The byte string starting with b and quotes is missing its closing double quote. Add the closing quote."
+
+[E0767]
+"消息模板" = "an unreachable loop label is used"
+"教学提示" = "The loop of that label has already ended or is not in the current scope. Check the label position."
+
+[E0768]
+"消息模板" = "a non-decimal numeric literal is missing its digits"
+"教学提示" = "Digits must follow `0x`, `0b` and friends. Add the digits."
+
+[E0769]
+"消息模板" = "a tuple struct or tuple variant is used as a struct pattern"
+"教学提示" = "Match tuple types with the parenthesized pattern `(a, b)`, not `{ field }`."
+
+[E0770]
+"消息模板" = "the type of a const parameter references another generic parameter"
+"教学提示" = "The type of a const generic must be a concrete type. Remove the reference to other generic parameters."
+
+[E0771]
+"消息模板" = "(retired error code) non-static lifetimes are not allowed in const generics"
+"教学提示" = "Use the `'static` lifetime instead."
+
+[E0772]
+"消息模板" = "(retired error code) the lifetime usage of a trait object does not satisfy the requirements"
+"教学提示" = "Annotate the trait object's lifetime explicitly."
+
+[E0773]
+"消息模板" = "(retired error code) multiple macro definitions use the same built-in macro name"
+"教学提示" = "Check the name of the built-in macro attribute."
+
+[E0774]
+"消息模板" = "derive macros can only be used on structs, unions or enums"
+"教学提示" = "`#[derive(...)]` does not support this type. Move it onto a struct/enum definition."
+
+[E0775]
+"消息模板" = "(retired error code) this attribute is only valid on targets supporting TrustZone-M"
+"教学提示" = "Check the target platform configuration."
+
+[E0776]
+"消息模板" = "(retired error code) this attribute requires the function to use the C calling convention"
+"教学提示" = "Declare the function with `extern \"C\"`."
+
+[E0777]
+"消息模板" = "literal values cannot be used directly as generic parameters"
+"教学提示" = "Literals as generic parameters require the const generics feature, and usually a `const` expression. Check the syntax, or use a type parameter."
+
+[E0778]
+"消息模板" = "(retired error code) the instruction set attribute is malformed"
+"教学提示" = "Check the syntax of the `#[instruction_set]` attribute."
+
+[E0779]
+"消息模板" = "(retired error code) an unknown argument of the instruction set attribute"
+"教学提示" = "Check the argument values of this attribute."
+
+[E0780]
+"消息模板" = "the doc inline attribute cannot be used with anonymous imports"
+"教学提示" = "`doc(inline)` requires a named import. Give the import a name."
+
+[E0781]
+"消息模板" = "this calling convention can only be used on function pointers"
+"教学提示" = "`cmse-nonsecure-call` can only appear on function pointer types. Adjust the syntax."
+
+[E0782]
+"消息模板" = "trait objects must include the dyn keyword"
+"教学提示" = "Write it in the `dyn Trait` form."
+
+[E0783]
+"消息模板" = "range patterns no longer allow three dots"
+"教学提示" = "Use the `start..=end` (inclusive) syntax instead."
+
+[E0784]
+"消息模板" = "a union expression must initialize exactly one field"
+"教学提示" = "Only one field of a union is valid at a time. Write only one field."
+
+[E0785]
+"消息模板" = "inherent implementations cannot be written for dyn auto traits"
+"教学提示" = "Check the target type of the impl."
+
+[E0786]
+"消息模板" = "an invalid metadata file was found"
+"教学提示" = "A dependency's compiled artifact is corrupted or version-mismatched. Clean and rebuild."
+
+[E0787]
+"消息模板" = "an unsupported naked function definition"
+"教学提示" = "Naked functions (`#[naked]`) have restrictions. Check the function body syntax."
+
+[E0788]
+"消息模板" = "(retired error code) the coverage attribute is used in a disallowed position"
+"教学提示" = "Check the position of this attribute."
+
+[E0789]
+"消息模板" = "(internal compiler error code) an internal attribute is used incorrectly"
+"教学提示" = "This is an internal compiler error code; normal code should not trigger it."
+
+[E0790]
+"消息模板" = "calling this method requires specifying a concrete trait implementation"
+"教学提示" = "Multiple traits provide a method with the same name. Use `Type::method()` or `Trait::method()` to disambiguate."
+
+[E0791]
+"消息模板" = "the type of a static with a linkage attribute does not meet the requirements"
+"教学提示" = "An extern static with `#[linkage]` must be a pointer or a nullable type. Adjust the type."
+
+[E0792]
+"消息模板" = "an impl Trait type alias can only be assigned a fully generic type within its defining scope"
+"教学提示" = "The hidden type assignment of `type Foo<T> = impl Trait` has strict restrictions. Adjust the definition position."
+
+[E0793]
+"消息模板" = "an unaligned reference to a packed struct field was created"
+"教学提示" = "Fields of `packed` types may be unaligned; referencing them directly is undefined behavior. Copy the field into an aligned local variable first."
+
+[E0794]
+"消息模板" = "conflicting lifetime binding styles"
+"教学提示" = "Annotate the related lifetimes explicitly to remove the ambiguity."
+
+[E0795]
+"消息模板" = "an invalid argument of the field offset macro"
+"教学提示" = "`offset_of!(Type, field)` requires a correct type and field name. Check the arguments."
+
+[E0796]
+"消息模板" = "(retired error code) a reference to a mutable static was created"
+"教学提示" = "Accessing a mutable static must happen inside an unsafe block."
+
+[E0797]
+"消息模板" = "the struct update syntax is missing its base expression"
+"教学提示" = "A base value must follow `..`, e.g. `Struct { field: value, ..base }`."
+
+[E0798]
+"消息模板" = "the inputs or outputs of a function with this calling convention exceed the limits"
+"教学提示" = "Parameters and return values of `cmse-nonsecure-call` functions have register count limits. Simplify the signature."
+
+[E0799]
+"消息模板" = "a type parameter or const parameter was expected here, but another item was found"
+"教学提示" = "Check the syntax at the generic parameter position."
+
+[E0800]
+"消息模板" = "the specified type parameter or const parameter is not in scope"
+"教学提示" = "Check the parameter name spelling and the generic parameter declaration."
+
+[E0801]
+"消息模板" = "the self parameter of a method uses an invalid generic receiver type"
+"教学提示" = "Generic receiver types must satisfy a specific structure. Adjust the method signature."
+
+[E0802]
+"消息模板" = "the target of the CoercePointee derive macro does not meet the requirements"
+"教学提示" = "`derive(CoercePointee)` requires the struct/trait to meet specific conditions. Check the definition."
+
+[E0803]
+"消息模板" = "the reference returned by a trait implementation has no explicit lifetime tied to self"
+"教学提示" = "The lifetime of a returned reference must be explicitly bound to the `self` parameter. Add lifetime annotations."
+
+[E0804]
+"消息模板" = "auto trait bounds cannot be added to dyn traits via pointer coercion"
+"教学提示" = "Auto traits must be determined at type declaration time. Write the complete bounds at the definition."
+
+[E0805]
+"消息模板" = "the number of attribute arguments is incorrect"
+"教学提示" = "Check the number of arguments this attribute requires."
+
+[E0806]
+"消息模板" = "an extern-implementable item is not compatible with its declaration"
+"教学提示" = "Check that the item's declaration matches its actual definition."

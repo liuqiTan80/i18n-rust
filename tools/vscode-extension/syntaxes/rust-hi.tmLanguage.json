@@ -1,0 +1,180 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Rust (हिन्दी)",
+  "scopeName": "source.rust-hi",
+  "patterns": [
+    {
+      "include": "#注释"
+    },
+    {
+      "include": "#字符串"
+    },
+    {
+      "include": "#字符"
+    },
+    {
+      "include": "#数字"
+    },
+    {
+      "include": "#关键字"
+    },
+    {
+      "include": "#类型"
+    },
+    {
+      "include": "#宏"
+    },
+    {
+      "include": "#生命周期"
+    },
+    {
+      "include": "#运算符"
+    }
+  ],
+  "repository": {
+    "注释": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.rust-hi",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.documentation.rust-hi",
+          "begin": "/\\*\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        },
+        {
+          "name": "comment.block.rust-hi",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#注释"
+            }
+          ]
+        }
+      ]
+    },
+    "字符串": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.rust-hi",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.rust-hi",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.raw.rust-hi",
+          "begin": "r#*\"",
+          "end": "\"#*"
+        }
+      ]
+    },
+    "字符": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.rust-hi",
+          "match": "'[^'\\\\]'|'\\\\.'"
+        }
+      ]
+    },
+    "数字": {
+      "patterns": [
+        {
+          "name": "constant.numeric.rust-hi",
+          "match": "\\b[0-9][0-9_]*(\\.[0-9_]+)?([eE][+-]?[0-9_]+)?(f32|f64|i[0-9]+|u[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.numeric.hex.rust-hi",
+          "match": "\\b0x[0-9a-fA-F_]+\\b"
+        },
+        {
+          "name": "constant.numeric.oct.rust-hi",
+          "match": "\\b0o[0-7_]+\\b"
+        },
+        {
+          "name": "constant.numeric.bin.rust-hi",
+          "match": "\\b0b[01_]+\\b"
+        }
+      ]
+    },
+    "关键字": {
+      "patterns": [
+        {
+          "name": "keyword.control.rust-hi",
+          "match": "\\b(अन्यथा|के_लिए|मिलान|लौटाओ|जबकि|तोड़|जारी|यदि|लूप|में)\\b"
+        },
+        {
+          "name": "keyword.declaration.rust-hi",
+          "match": "\\b(कार्यान्वयन|परिवर्तनीय|सार्वजनिक|स्थैतिक|मॉड्यूल|फंक्शन|संरचना|प्रकार|के_रूप|जेनरिक|स्थिर|लक्षण|क्रेट|बाह्य|उपयोग|मुख्य|मानो|गणना|सुपर)\\b"
+        },
+        {
+          "name": "keyword.other.rust-hi",
+          "match": "\\b(परिवर्तनीय_संदर्भ|रिक्त_संदर्भ|स्थानांतरित|अतुल्यकालिक|व्युत्क्रम|असुरक्षित|प्रतीक्षा|विसंदर्भ|जीवनकाल|संदर्भ|गतिशील)\\b"
+        },
+        {
+          "name": "constant.language.boolean.rust-hi",
+          "match": "\\b(असत्य|सत्य)\\b"
+        },
+        {
+          "name": "constant.language.rust-hi",
+          "match": "\\b(स्वयं_प्रकार|प्रकार_रहित|पाठ_संदर्भ|रिक्त|स्वयं)\\b"
+        }
+      ]
+    },
+    "类型": {
+      "patterns": [
+        {
+          "name": "storage.type.numeric.rust-hi",
+          "match": "\\b(प्राकृतिक_लंबा|पूर्णांक_लंबा|प्राकृतिक_128|पूर्णांक_128|प्राकृतिक_16|प्राकृतिक_64|पूर्णांक_16|पूर्णांक_64|प्राकृतिक_8|पूर्णांक_8|प्राकृतिक|पूर्णांक|चल_64|बाइट|चल)\\b"
+        },
+        {
+          "name": "storage.type.rust-hi",
+          "match": "\\b(स्ट्रिंग|तार्किक|वेक्टर|हैशमैप|विकल्प|परिणाम|डिब्बा|स्लाइस|वर्ण|सरणी|पाठ|टपल)\\b"
+        },
+        {
+          "name": "constant.other.rust-hi",
+          "match": "\\b(कुछ_नहीं|त्रुटि|कुछ|सफल)\\b"
+        }
+      ]
+    },
+    "宏": {
+      "patterns": [
+        {
+          "name": "entity.name.function.macro.rust-hi",
+          "match": "\\b(त्रुटि_पंक्ति_छापो|पर्यावरण_विकल्प|असमानता_पुष्टि|समानता_पुष्टि|स्ट्रिंग_बनाओ|पंक्ति_छापो|त्रुटि_छापो|वेक्टर_बनाओ|लिखो_पंक्ति|बाइट_शामिल|पाठ_शामिल|अनुपलब्ध|पर्यावरण|कॉन्फ़िग|प्रारूप|बाद_में|पुष्टि|पंक्ति|अगम्य|शामिल|स्तंभ|फ़ाइल|छापो|आतंक|लिखो)!"
+        }
+      ]
+    },
+    "生命周期": {
+      "patterns": [
+        {
+          "name": "storage.modifier.lifetime.rust-hi",
+          "match": "'[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    },
+    "运算符": {
+      "patterns": [
+        {
+          "name": "keyword.operator.rust-hi",
+          "match": "(=|\\+|-|\\*|/|%|&&|\\|\\||!|<|>|<=|>=|==|!=|&|\\||\\^|~|<<|>>|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|<<=|>>=)"
+        },
+        {
+          "name": "keyword.operator.arrow.rust-hi",
+          "match": "(->|=>)"
+        }
+      ]
+    }
+  }
+}

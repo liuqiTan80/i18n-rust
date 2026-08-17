@@ -257,12 +257,6 @@
 "哈希集" = "HashSet"
 "双向队列" = "VecDeque"
 "链表" = "LinkedList"
-# 最常用的三个类型与 Option 变体（补全提示与代码翻译均依赖）
-"向量" = "Vec"
-"选项" = "Option"
-"字符串" = "String"
-"一些" = "Some"
-"没有" = "None"
 "包含键" = "contains_key"
 "包含值" = "contains_value"
 "键" = "keys"

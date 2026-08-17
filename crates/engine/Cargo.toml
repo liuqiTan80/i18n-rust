@@ -1,6 +1,6 @@
 [package]
 name = "i18n-rust-engine"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 description = "多语言 Rust 教学方言核心引擎：词法转译、映射管理、诊断翻译、增量缓存"
 license = "MIT"
@@ -9,8 +9,9 @@ keywords = ["rust", "i18n", "chinese", "teaching", "transpiler"]
 categories = ["development-tools", "compilers"]
 
 # 内置语言包目录：编译期经 include_str! 嵌入，发布时随 crate 打包
-# 注意：include 是白名单，必须显式包含 src/**
-include = ["lang-packs/**", "src/**"]
+# 注意：include 是白名单，必须显式包含 src/** 与 build.rs
+include = ["lang-packs/**", "src/**", "build.rs", "Cargo.toml"]
+build = "build.rs"
 
 [dependencies]
 rustc_lexer = "0.1"

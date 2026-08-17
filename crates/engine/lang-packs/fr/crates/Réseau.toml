@@ -1,0 +1,39 @@
+# Mapping des noms de crate (pour les chemins use)
+["模块路径"]
+"client_http" = "reqwest"
+"http_bas_niveau" = "hyper"
+"gRPC" = "tonic"
+"prise_web" = "websocket"
+
+# Mapping des identificateurs internes (types, fonctions, etc.)
+["标识符"]
+# reqwest
+"client" = "Client"
+"requete_reseau" = "Request"
+"reponse" = "Response"
+"get_reseau" = "get"
+"post_reseau" = "post"
+"corps_requete" = "body"
+"en_tete" = "header"
+"parametres_requete_url" = "query"
+"format_json" = "json"
+"texte_reponse" = "text"
+"octets_reponse" = "bytes"
+
+# hyper
+"serveur" = "Server"
+"service" = "Service"
+"type_methode" = "Method"
+"type_uri" = "Uri"
+"code_statut" = "StatusCode"
+
+# tonic
+"canal_connexion" = "Channel"
+"statut" = "Status"
+
+# websocket
+"prise_web_type" = "WebSocket"
+"message" = "Message"
+"binaire" = "Binary"
+"fermer" = "Close"
+"recevoir" = "recv"

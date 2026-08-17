@@ -27,6 +27,9 @@
 "compile_error" = "컴파일 오류:\n{}"
 "load_error_msg_failed" = "오류 메시지 로드 실패: {}"
 "warn_builtin_errors_failed" = "경고: 내장 오류 메시지 로드 실패: {}"
+"no_project_root" = "프로젝트 루트를 찾을 수 없습니다 (상위 디렉터리에 Cargo.toml 없음). 소스 파일: {}. 먼저 `rzc init`으로 프로젝트를 만드세요."
+"transpile_file_failed" = "{} 트랜스파일 실패: {}"
+"run_program_failed" = "프로그램 실행 실패 ({}):\n{}"
 
 # ---- 프로젝트 생성 ----
 "dir_exists" = "디렉터리 {} 가 이미 존재합니다"

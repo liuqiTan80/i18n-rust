@@ -27,6 +27,9 @@
 "compile_error" = "编译错误：\n{}"
 "load_error_msg_failed" = "加载错误消息失败: {}"
 "warn_builtin_errors_failed" = "警告: 加载内置错误消息失败: {}"
+"no_project_root" = "未找到项目根目录（向上未找到 Cargo.toml）。源文件: {}。请先使用 `rzc init` 创建项目。"
+"transpile_file_failed" = "转译 {} 失败: {}"
+"run_program_failed" = "程序运行失败（{}）：\n{}"
 
 # ---- 项目创建 ----
 "dir_exists" = "目录 {} 已存在"

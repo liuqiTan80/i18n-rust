@@ -8,7 +8,71 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use toml::Value;
+
+use crate::error::{LoadError, LoadTarget};
+
+/// 节（section）组织的映射表：节名 → (母语词 → 英文)
+pub type SectionMap = HashMap<String, HashMap<String, String>>;
+
+/// 解析 TOML 内容为“节 → (母语词 → 英文)”二级表（两个加载器共用的单一解析实现）
+///
+/// 非表值与非字符串条目静默跳过；返回原始 toml 错误，
+/// 由调用方按场景本地化错误消息（文件/内置/路径等键不同）。
+pub fn parse_toml_sections(content: &str) -> Result<SectionMap, toml::de::Error> {
+    let value: toml::Value = toml::from_str(content)?;
+    let mut sections = HashMap::new();
+    if let toml::Value::Table(table) = value {
+        for (sub_name, sub_value) in table {
+            if let toml::Value::Table(sub_table) = sub_value {
+                let mut sub_map = HashMap::new();
+                for (zh, en_value) in sub_table {
+                    if let toml::Value::String(en) = en_value {
+                        sub_map.insert(zh, en);
+                    }
+                }
+                if !sub_map.is_empty() {
+                    sections.insert(sub_name, sub_map);
+                }
+            }
+        }
+    }
+    Ok(sections)
+}
+
+/// 把节表扁平化为单一映射：按节名升序合并，同名键冲突时胜出者确定
+/// （HashMap 遍历顺序随机会导致多次加载结果不一致）
+pub fn flatten_sections(sections: &SectionMap) -> HashMap<String, String> {
+    let mut result = HashMap::new();
+    let mut names: Vec<&String> = sections.keys().collect();
+    names.sort();
+    for name in names {
+        for (zh, en) in &sections[name] {
+            result.insert(zh.clone(), en.clone());
+        }
+    }
+    result
+}
+
+/// 解析“模块路径 + 标识符”两节格式的 TOML（stdlib.toml 与 crates/*.toml 通用）
+///
+/// - `["模块路径"]` 节 → 合并到模块路径映射（如 `"线程" = "std::thread"`）
+/// - `["标识符"]` 节 → 合并到标识符别名映射（如 `"字符串" = "String"`）
+///
+/// 返回原始 toml 错误，由调用方结合文件路径/数据源上下文转为 [`LoadError`]。
+pub fn merge_module_and_ident_sections(
+    content: &str,
+    module_path_map: &mut HashMap<String, String>,
+    alias_map: &mut HashMap<String, String>,
+) -> Result<(), toml::de::Error> {
+    let sections = parse_toml_sections(content)?;
+    if let Some(entries) = sections.get("模块路径") {
+        module_path_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
+    }
+    if let Some(entries) = sections.get("标识符") {
+        alias_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
+    }
+    Ok(())
+}
 
 /// 映射表分类
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -65,7 +129,7 @@ impl MappingLoader {
     }
 
     /// 加载指定分类的映射表
-    pub fn load(&mut self, category: MappingCategory) -> Result<(), String> {
+    pub fn load(&mut self, category: MappingCategory) -> Result<(), LoadError> {
         // 第三方库是目录，包含多个文件
         if category == MappingCategory::ThirdParty {
             return self.load_third_party_dir();
@@ -74,52 +138,29 @@ impl MappingLoader {
         let file_path = self.root_dir.join(category.default_filename());
 
         if !file_path.exists() {
-            return Err(crate::语言::f(
-                "load_map_file_missing",
-                &[&format!("{:?}", file_path)],
-            ));
+            return Err(LoadError::FileMissing {
+                target: LoadTarget::Mapping,
+                path: format!("{:?}", file_path),
+            });
         }
 
-        let content = fs::read_to_string(&file_path)
-            .map_err(|e| crate::语言::f("load_read_map_failed", &[&e.to_string()]))?;
+        let content = fs::read_to_string(&file_path).map_err(|e| LoadError::ReadFailed {
+            target: LoadTarget::Mapping,
+            path: None,
+            detail: e.to_string(),
+        })?;
 
-        let value: Value = content
-            .parse::<Value>()
-            .map_err(|e| crate::语言::f("load_parse_map_failed", &[&e.to_string()]))?;
-
-        let category_map = self.parse_toml_value(value)?;
+        let category_map = parse_toml_sections(&content).map_err(|e| LoadError::ParseFailed {
+            target: LoadTarget::Mapping,
+            path: None,
+            detail: e.to_string(),
+        })?;
         self.mappings.insert(category, category_map);
         Ok(())
     }
 
-    /// 解析 TOML 值为映射表
-    fn parse_toml_value(
-        &self,
-        value: Value,
-    ) -> Result<HashMap<String, HashMap<String, String>>, String> {
-        let mut category_map = HashMap::new();
-
-        if let Value::Table(table) = value {
-            for (sub_name, sub_value) in table {
-                if let Value::Table(sub_table) = sub_value {
-                    let mut sub_map = HashMap::new();
-                    for (zh, en_value) in sub_table {
-                        if let Value::String(en) = en_value {
-                            sub_map.insert(zh, en.clone());
-                        }
-                    }
-                    if !sub_map.is_empty() {
-                        category_map.insert(sub_name, sub_map);
-                    }
-                }
-            }
-        }
-
-        Ok(category_map)
-    }
-
     /// 加载第三方库目录（crates/）下的所有 TOML 文件
-    fn load_third_party_dir(&mut self) -> Result<(), String> {
+    fn load_third_party_dir(&mut self) -> Result<(), LoadError> {
         let dir_path = self.root_dir.join("crates");
 
         if !dir_path.exists() {
@@ -129,55 +170,44 @@ impl MappingLoader {
 
         let mut merged_map = HashMap::new();
 
-        // 遍历目录中的所有 .toml 文件
-        let entries = fs::read_dir(&dir_path)
-            .map_err(|e| crate::语言::f("load_read_dir_failed", &[&e.to_string()]))?;
+        // 遍历目录中的所有 .toml 文件（按文件名排序，read_dir 顺序未定义，
+        // 排序后合并结果与 MappingManager::load_from_dir 保持一致且确定）
+        let mut toml_files: Vec<PathBuf> = fs::read_dir(&dir_path)
+            .map_err(|e| LoadError::DirReadFailed {
+                detail: e.to_string(),
+            })?
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("toml"))
+            .collect();
+        toml_files.sort();
 
-        for entry in entries {
-            let entry =
-                entry.map_err(|e| crate::语言::f("load_read_entry_failed", &[&e.to_string()]))?;
-            let path = entry.path();
+        for path in toml_files {
+            // 获取文件名（不含扩展名）作为分类标识
+            let file_name = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("unknown")
+                .to_string();
 
-            if path.extension().and_then(|s| s.to_str()) == Some("toml") {
-                // 获取文件名（不含扩展名）作为分类标识
-                let file_name = path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("unknown")
-                    .to_string();
+            let content = fs::read_to_string(&path).map_err(|e| LoadError::ReadFailed {
+                target: LoadTarget::ThirdParty,
+                path: Some(format!("{:?}", path)),
+                detail: e.to_string(),
+            })?;
 
-                let content = fs::read_to_string(&path).map_err(|e| {
-                    crate::语言::f(
-                        "load_read_map_path_failed",
-                        &[&format!("{:?}", path), &e.to_string()],
-                    )
-                })?;
-
-                let value: Value = content.parse::<Value>().map_err(|e| {
-                    crate::语言::f(
-                        "load_parse_map_path_failed",
-                        &[&format!("{:?}", path), &e.to_string()],
-                    )
-                })?;
-
-                // 将文件中的映射合并，加上文件分类前缀
-                if let Value::Table(table) = value {
-                    for (sub_name, sub_value) in table {
-                        if let Value::Table(sub_table) = sub_value {
-                            let mut sub_map = HashMap::new();
-                            for (zh, en_value) in sub_table {
-                                if let Value::String(en) = en_value {
-                                    sub_map.insert(zh, en.clone());
-                                }
-                            }
-                            if !sub_map.is_empty() {
-                                // 使用 "文件名/子分类" 作为键
-                                let category_key = format!("{}/{}", file_name, sub_name);
-                                merged_map.insert(category_key, sub_map);
-                            }
-                        }
-                    }
-                }
+            // 将文件中的映射合并，加上文件分类前缀
+            let sections = parse_toml_sections(&content).map_err(|e| LoadError::ParseFailed {
+                target: LoadTarget::ThirdParty,
+                path: Some(format!("{:?}", path)),
+                detail: e.to_string(),
+            })?;
+            // 节名排序后合并，保证 "文件名/子分类" 键的插入顺序确定
+            let mut sub_names: Vec<&String> = sections.keys().collect();
+            sub_names.sort();
+            for sub_name in sub_names {
+                let category_key = format!("{}/{}", file_name, sub_name);
+                merged_map.insert(category_key, sections[sub_name].clone());
             }
         }
 
@@ -187,29 +217,26 @@ impl MappingLoader {
     }
 
     /// 加载所有默认映射表
-    pub fn load_all(&mut self) -> Result<(), String> {
+    pub fn load_all(&mut self) -> Result<(), LoadError> {
         self.load(MappingCategory::Keywords)?;
         self.load(MappingCategory::StdLib)?;
-        // 第三方库可选加载
+        // 第三方库可选：目录不存在时静默跳过，存在但加载失败时必须报错
+        // （否则映射静默丢失，用户看到的是未翻译的标识符而非错误提示）
         if self.root_dir.join("crates").is_dir() {
-            let _ = self.load(MappingCategory::ThirdParty);
+            self.load(MappingCategory::ThirdParty)?;
         }
         Ok(())
     }
 
     /// 获取指定分类的完整映射表（扁平化合并所有子分类）
+    ///
+    /// 子分类按名称排序后合并，保证同名键冲突时的胜出者确定
+    /// （HashMap 遍历顺序随机会导致多次加载结果不一致）
     pub fn get_mapping(&self, category: MappingCategory) -> HashMap<String, String> {
-        let mut result = HashMap::new();
-
-        if let Some(category_map) = self.mappings.get(&category) {
-            for sub_map in category_map.values() {
-                for (zh, en) in sub_map {
-                    result.insert(zh.clone(), en.clone());
-                }
-            }
-        }
-
-        result
+        self.mappings
+            .get(&category)
+            .map(flatten_sections)
+            .unwrap_or_default()
     }
 
     /// 获取指定分类和子分类的映射表
@@ -223,11 +250,13 @@ impl MappingLoader {
             .and_then(|m| m.get(sub_category))
     }
 
-    /// 查询单个映射条目
+    /// 查询单个映射条目（按子分类名升序查找，同名键命中顺序确定）
     pub fn query(&self, category: MappingCategory, zh: &str) -> Option<String> {
         if let Some(category_map) = self.mappings.get(&category) {
-            for sub_map in category_map.values() {
-                if let Some(en) = sub_map.get(zh) {
+            let mut names: Vec<&String> = category_map.keys().collect();
+            names.sort();
+            for name in names {
+                if let Some(en) = category_map[name].get(zh) {
                     return Some(en.clone());
                 }
             }
@@ -235,11 +264,13 @@ impl MappingLoader {
         None
     }
 
-    /// 反向查询（从英文查中文）
+    /// 反向查询（从英文查中文；按子分类名升序遍历，结果确定）
     pub fn reverse_query(&self, category: MappingCategory, en: &str) -> Option<String> {
         if let Some(category_map) = self.mappings.get(&category) {
-            for sub_map in category_map.values() {
-                for (zh, e) in sub_map {
+            let mut names: Vec<&String> = category_map.keys().collect();
+            names.sort();
+            for name in names {
+                for (zh, e) in &category_map[name] {
                     if e == en {
                         return Some(zh.clone());
                     }
@@ -249,12 +280,15 @@ impl MappingLoader {
         None
     }
 
-    /// 获取所有子分类名称
+    /// 获取所有子分类名称（排序后返回，输出确定）
     pub fn get_sub_categories(&self, category: MappingCategory) -> Vec<String> {
-        self.mappings
+        let mut names = self
+            .mappings
             .get(&category)
-            .map(|m| m.keys().cloned().collect())
-            .unwrap_or_default()
+            .map(|m| m.keys().cloned().collect::<Vec<_>>())
+            .unwrap_or_default();
+        names.sort();
+        names
     }
 
     /// 统计映射条目数（扁平化后）
@@ -266,7 +300,7 @@ impl MappingLoader {
 /// 便捷函数：加载关键字映射
 pub fn load_keyword_mapping<P: AsRef<Path>>(
     lang_pack_path: P,
-) -> Result<HashMap<String, String>, String> {
+) -> Result<HashMap<String, String>, LoadError> {
     let mut loader = MappingLoader::new(lang_pack_path);
     loader.load(MappingCategory::Keywords)?;
     Ok(loader.get_mapping(MappingCategory::Keywords))
@@ -275,7 +309,7 @@ pub fn load_keyword_mapping<P: AsRef<Path>>(
 /// 便捷函数：加载标准库映射
 pub fn load_stdlib_mapping<P: AsRef<Path>>(
     lang_pack_path: P,
-) -> Result<HashMap<String, String>, String> {
+) -> Result<HashMap<String, String>, LoadError> {
     let mut loader = MappingLoader::new(lang_pack_path);
     loader.load(MappingCategory::StdLib)?;
     Ok(loader.get_mapping(MappingCategory::StdLib))
@@ -284,7 +318,7 @@ pub fn load_stdlib_mapping<P: AsRef<Path>>(
 /// 便捷函数：加载所有映射
 pub fn load_all_mappings<P: AsRef<Path>>(
     lang_pack_path: P,
-) -> Result<HashMap<MappingCategory, HashMap<String, String>>, String> {
+) -> Result<HashMap<MappingCategory, HashMap<String, String>>, LoadError> {
     let mut loader = MappingLoader::new(lang_pack_path);
     loader.load_all()?;
 
@@ -389,9 +423,9 @@ mod tests {
 
     #[test]
     fn test_load_keyword_mapping() {
-        // 创建临时测试目录
-        let temp_dir = std::env::temp_dir().join("i18n_mapping_test");
-        fs::create_dir_all(&temp_dir).unwrap();
+        // 独立临时目录：固定路径会在并行测试/多次运行间交叉污染
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path();
 
         // 写入测试映射表
         let test_content = r#"
@@ -406,7 +440,7 @@ mod tests {
         fs::write(temp_dir.join("keywords.toml"), test_content).unwrap();
 
         // 测试加载
-        let mut loader = MappingLoader::new(&temp_dir);
+        let mut loader = MappingLoader::new(temp_dir);
         assert!(loader.load(MappingCategory::Keywords).is_ok());
 
         // 测试查询
@@ -433,15 +467,12 @@ mod tests {
 
         // 测试条目数
         assert_eq!(loader.entry_count(MappingCategory::Keywords), 4);
-
-        // 清理
-        fs::remove_dir_all(&temp_dir).ok();
     }
 
     #[test]
     fn test_get_flattened_mapping() {
-        let temp_dir = std::env::temp_dir().join("i18n_mapping_test2");
-        fs::create_dir_all(&temp_dir).unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path();
 
         let test_content = r#"
 ["分类A"]
@@ -453,15 +484,18 @@ mod tests {
 "#;
         fs::write(temp_dir.join("stdlib.toml"), test_content).unwrap();
 
-        let mut loader = MappingLoader::new(&temp_dir);
+        let mut loader = MappingLoader::new(temp_dir);
         loader.load(MappingCategory::StdLib).unwrap();
 
         let mapping = loader.get_mapping(MappingCategory::StdLib);
         assert_eq!(mapping.len(), 3);
         assert_eq!(mapping.get("甲"), Some(&"alpha".to_string()));
         assert_eq!(mapping.get("丙"), Some(&"gamma".to_string()));
-
-        fs::remove_dir_all(&temp_dir).ok();
+        // 子分类名排序后返回，输出确定
+        assert_eq!(
+            loader.get_sub_categories(MappingCategory::StdLib),
+            vec!["分类A", "分类B"]
+        );
     }
 
     #[test]

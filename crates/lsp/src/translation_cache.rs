@@ -58,6 +58,8 @@ pub struct TranslationCache {
     keyword_map: Arc<HashMap<String, String>>,
     /// 宏映射表（中文宏名 → 英文宏名，用于自动补充感叹号）
     macro_map: Arc<HashMap<String, String>>,
+    /// 别名映射表（标准库/第三方库标识符：中文 → 英文，带声明位保护）
+    alias_map: Arc<HashMap<String, String>>,
     /// 虚拟文件存放的临时目录
     temp_dir: PathBuf,
     /// 模块集合版本号：模块集合（已打开方言文件的文件名）变化时递增。
@@ -71,10 +73,12 @@ impl TranslationCache {
     ///
     /// - 关键字映射：用于词法翻译
     /// - 宏映射表：用于自动补充宏感叹号（中文宏名 → 英文宏名）
+    /// - 别名映射：标准库/第三方库标识符替换（带声明位保护，与 CLI 管线一致）
     /// - 临时目录：虚拟 .rs 文件的存放位置
     pub fn new(
         keyword_map: HashMap<String, String>,
         macro_map: HashMap<String, String>,
+        alias_map: HashMap<String, String>,
         temp_dir: PathBuf,
     ) -> Arc<Self> {
         // 安全检查：临时目录若已被替换为符号链接则拒绝使用，
@@ -95,6 +99,7 @@ impl TranslationCache {
             entries: RwLock::new(HashMap::new()),
             keyword_map: Arc::new(keyword_map),
             macro_map: Arc::new(macro_map),
+            alias_map: Arc::new(alias_map),
             temp_dir,
             module_version: std::sync::atomic::AtomicU64::new(0),
         });
@@ -118,6 +123,11 @@ impl TranslationCache {
         version: i32,
     ) -> anyhow::Result<(TranslationEntry, Vec<TranslationEntry>)> {
         let original_path = uri_to_path(uri);
+
+        // Unicode 混淆安全检查（零宽/双向/同形字符）：仅告警不阻断翻译
+        for warning in i18n_rust_engine::unicode_confusion::check_unicode_confusion(content) {
+            log::warn!("{}", warning.format());
+        }
 
         // 生成虚拟文件路径（用哈希避免同名文件冲突）。
         // 文件名只保留合法标识符字符，防止引号等特殊字符注入生成的 main.rs
@@ -234,6 +244,32 @@ impl TranslationCache {
         table.get(uri).cloned()
     }
 
+    /// 收集所有已打开方言文件中出现的标识符（用户自定义名词白名单）
+    ///
+    /// 词法扫描原文中的全部 Ident token（含 r# 原始标识符，
+    /// 注释与字符串字面量天然被词法器排除）。供补全语言过滤区分
+    /// “用户自己定义的项”与“未翻译的外部英文项”：
+    /// 用户源码中出现过的名词（无论母语还是英文）都视为其可见词汇。
+    pub fn user_defined_tokens(&self) -> HashSet<String> {
+        use rustc_lexer::{TokenKind, tokenize};
+        let mut tokens = HashSet::new();
+        let table = match self.entries.read() {
+            Ok(t) => t,
+            Err(_) => return tokens,
+        };
+        for entry in table.values() {
+            let mut offset = 0usize;
+            for token in tokenize(&entry.zh_content) {
+                let text = &entry.zh_content[offset..offset + token.len];
+                offset += token.len;
+                if matches!(token.kind, TokenKind::Ident | TokenKind::RawIdent) {
+                    tokens.insert(text.strip_prefix("r#").unwrap_or(text).to_string());
+                }
+            }
+        }
+        tokens
+    }
+
     /// 根据虚拟 URI 反查原始条目
     ///
     /// rust-analyzer 返回的 URI 可能是 URL 百分号编码形式（如中文路径），
@@ -258,6 +294,11 @@ impl TranslationCache {
     /// 获取关键字映射的引用
     pub fn keyword_map(&self) -> &HashMap<String, String> {
         &self.keyword_map
+    }
+
+    /// 获取别名映射的引用（标准库/第三方库标识符，供反向转译合并使用）
+    pub fn alias_map(&self) -> &HashMap<String, String> {
+        &self.alias_map
     }
 
     /// 将英文（虚拟文件）列号映射回中文（原始文件）列号
@@ -290,12 +331,18 @@ impl TranslationCache {
 
     /// 将英文（虚拟文件）内容反向翻译为母语内容
     ///
-    /// 供代码格式化（textDocument/formatting）使用：
+    /// 供代码格式化（textDocument/formatting）与补全/代码操作文本还原使用：
     /// 英文代码经 rustfmt 格式化后，据此还原为母语代码。
-    /// 反向表由正向关键字映射反转得到，保证与正向翻译互逆；
-    /// 模块路径重写插入的 `crate::` 前缀在此被删除。
+    /// 反向表由正向关键字映射与别名映射反转合并得到（关键字优先），
+    /// 保证与正向翻译互逆；模块路径重写插入的 `crate::` 前缀在此被删除。
     pub fn reverse_transpile(&self, en_content: &str) -> String {
-        let reverse_map = build_reverse_map(&self.keyword_map);
+        let mut reverse_map = build_reverse_map(&self.keyword_map);
+        // 别名反转合并：标准库/第三方库标识符（如 push → 推入）；
+        // 同英文名的关键字先入为主，与 ResponseMapper 反向表策略一致
+        let alias_reverse = build_reverse_map(&self.alias_map);
+        for (english, native) in alias_reverse {
+            reverse_map.entry(english).or_insert(native);
+        }
         let module_names = self.current_module_names(None);
         lexer::reverse_transpile(en_content, &reverse_map, &module_names)
     }
@@ -349,11 +396,19 @@ impl TranslationCache {
             &self.macro_map,
         );
         let en_content = rewrite_module_paths(&en_content, module_names);
+        // 别名替换（与 CLI 统一管线一致）：标准库/第三方库标识符转英文，
+        // 声明位用户定义受保护；列映射模拟同一替换以保持列偏移精确
+        let en_content = if self.alias_map.is_empty() {
+            en_content
+        } else {
+            i18n_rust_engine::alias::replace_aliases(&en_content, &self.alias_map)
+        };
         let column_map = build_column_map(
             &old_entry.zh_content,
             &en_content,
             &self.keyword_map,
             &self.macro_map,
+            &self.alias_map,
             module_names,
         );
 
@@ -722,21 +777,32 @@ fn is_path_separator_before(tokens: &[rustc_lexer::Token], current: usize) -> bo
 ///
 /// `module_names` 用于模拟模块路径重写：命中模块路径段时英文侧多出
 /// `crate::` 前缀（7 个 UTF-16 单元），与 `rewrite_module_paths` 保持一致。
+///
+/// `alias_map` 用于模拟别名替换：与 engine `alias::replace_aliases` 同一
+/// 声明位保护状态机（声明关键字后紧跟的标识符为用户定义，不替换；
+/// `mut` 在声明态内透明传递），且用户声明名在全文使用处全局豁免
+/// （预扫描收集声明名，与 engine 两遍扫描语义一致），保证列偏移与真实转译输出一致。
 fn build_column_map(
     zh_content: &str,
     _en_content: &str,
     keyword_map: &HashMap<String, String>,
     macro_map: &HashMap<String, String>,
+    alias_map: &HashMap<String, String>,
     module_names: &HashSet<String>,
 ) -> Vec<Vec<ColumnMapPoint>> {
     use rustc_lexer::tokenize;
 
     let zh_tokens: Vec<_> = tokenize(zh_content).collect();
+    // 预扫描：收集用户声明名（中文原名），使用处豁免别名替换，
+    // 与 engine `alias::replace_aliases` 的两遍扫描语义一致
+    let declared_names = collect_zh_declared_names(&zh_tokens, zh_content, keyword_map, macro_map);
     let mut per_line_map: Vec<Vec<ColumnMapPoint>> = Vec::new();
     let mut zh_col = 0u32;
     let mut en_col = 0u32;
     let mut cumulative_diff = 0i32; // 当前行内 en_col - zh_col
     let mut current_offset = 0usize;
+    // 声明位保护状态（与 alias::replace_aliases 一致，跨行保持）
+    let mut prev_is_decl = false;
 
     // 第一行起点
     per_line_map.push(vec![ColumnMapPoint {
@@ -803,14 +869,35 @@ fn build_column_map(
                 cumulative_diff += en_output_len as i32 - zh_len as i32;
                 zh_col += zh_len;
                 en_col += en_output_len;
+                // 别名替换阶段宏名后紧跟 !（非标识符），声明态终结
+                prev_is_decl = false;
             } else {
-                // 普通标识符：检查是否被关键字映射替换
-                let en_output_len = if let Some(en_name) = keyword_map.get(raw_name) {
-                    en_name.chars().map(|c| c.len_utf16() as u32).sum::<u32>()
-                } else if module_names.contains(raw_name)
+                // 普通标识符：关键字映射 > 模块路径前缀/别名替换 > 原样
+                let is_module_seg = module_names.contains(raw_name)
                     && is_path_separator_after(&zh_tokens, i)
-                    && !is_path_separator_before(&zh_tokens, i)
-                {
+                    && !is_path_separator_before(&zh_tokens, i);
+                // 别名替换模拟（仅正常 Ident 参与，RawIdent 不命中，
+                // 与 alias::replace_aliases 的 token 匹配行为一致）；
+                // 用户声明名的裸使用处豁免，但 `::` 限定后的路径段
+                // （库 API 限定访问）不受豁免，与 engine 语义一致
+                let alias_exempt = prev_is_decl
+                    || (declared_names.contains(raw_name)
+                        && !is_path_separator_before(&zh_tokens, i));
+                let alias_repl = if !token_text.starts_with("r#") && !alias_exempt {
+                    alias_map.get(raw_name)
+                } else {
+                    None
+                };
+
+                let mut translated: &str = raw_name;
+                let en_output_len = if let Some(en_name) = keyword_map.get(raw_name) {
+                    translated = en_name;
+                    en_name.chars().map(|c| c.len_utf16() as u32).sum::<u32>()
+                } else if let Some(en_name) = alias_repl {
+                    translated = en_name;
+                    let base: u32 = en_name.chars().map(|c| c.len_utf16() as u32).sum();
+                    if is_module_seg { base + 7 } else { base }
+                } else if is_module_seg {
                     // 模块路径段：虚拟文件中被补上 crate:: 前缀（7 个 UTF-16 单元）
                     zh_len + 7
                 } else {
@@ -820,12 +907,23 @@ fn build_column_map(
                 cumulative_diff += en_output_len as i32 - zh_len as i32;
                 zh_col += zh_len;
                 en_col += en_output_len;
+
+                // 更新声明态（按转译后的英文名；mut 透明传递声明状态）；
+                // RawIdent 在别名替换中归入符号分支，终结声明位
+                prev_is_decl = if token_text.starts_with("r#") {
+                    false
+                } else if translated == "mut" {
+                    prev_is_decl
+                } else {
+                    i18n_rust_engine::alias::DECL_KEYWORDS.contains(&translated)
+                };
             }
         } else {
-            // 非标识符、非空白 token：原样输出（UTF-16 计数）
+            // 非标识符、非空白 token：原样输出（UTF-16 计数），终结声明位
             let len: u32 = token_text.chars().map(|c| c.len_utf16() as u32).sum();
             zh_col += len;
             en_col += len;
+            prev_is_decl = false;
         }
 
         // 如果偏移差变化了，记录新的分段边界（当前行内）
@@ -847,6 +945,59 @@ fn build_column_map(
     }
 
     per_line_map
+}
+
+/// 预扫描中文 token 流，收集用户在声明位定义的标识符名（中文原名）
+///
+/// 状态机与 `build_column_map` 主循环一致：经关键字映射转译为英文后，
+/// 声明关键字（DECL_KEYWORDS）后紧跟的标识符计入集合；`mut` 在声明态内
+/// 透明传递；空白/注释不打断声明态；符号与 RawIdent 终结声明位；
+/// 宏调用分支（后跟开括号）终结声明态且不计入。
+/// 集合内的名字在全文使用处豁免别名替换，与 engine `alias::replace_aliases`
+/// 的两遍扫描语义一致。
+fn collect_zh_declared_names(
+    zh_tokens: &[rustc_lexer::Token],
+    zh_content: &str,
+    keyword_map: &HashMap<String, String>,
+    macro_map: &HashMap<String, String>,
+) -> HashSet<String> {
+    use rustc_lexer::TokenKind;
+    let mut declared = HashSet::new();
+    let mut prev_is_decl = false;
+    let mut offset = 0usize;
+    for (i, token) in zh_tokens.iter().enumerate() {
+        let text = &zh_content[offset..offset + token.len];
+        offset += token.len;
+        match token.kind {
+            TokenKind::Ident | TokenKind::RawIdent => {
+                let raw_name = text.strip_prefix("r#").unwrap_or(text);
+                let is_macro_call =
+                    macro_map.contains_key(raw_name) && is_open_paren_after(zh_tokens, i);
+                if is_macro_call {
+                    // 宏名后紧跟 !（非标识符），声明态终结
+                    prev_is_decl = false;
+                } else {
+                    if prev_is_decl && !text.starts_with("r#") {
+                        declared.insert(raw_name.to_string());
+                    }
+                    let translated = keyword_map
+                        .get(raw_name)
+                        .map(|s| s.as_str())
+                        .unwrap_or(raw_name);
+                    prev_is_decl = if text.starts_with("r#") {
+                        false
+                    } else if translated == "mut" {
+                        prev_is_decl
+                    } else {
+                        i18n_rust_engine::alias::DECL_KEYWORDS.contains(&translated)
+                    };
+                }
+            }
+            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {}
+            _ => prev_is_decl = false,
+        }
+    }
+    declared
 }
 
 /// 检查指定 token 之后下一个非空白 token 是否是开括号（( [ {）
@@ -908,7 +1059,12 @@ mod tests {
     #[test]
     fn test_update_document() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_map(), HashMap::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(
+            test_map(),
+            HashMap::new(),
+            HashMap::new(),
+            temp.path().to_path_buf(),
+        );
 
         let (entry, others) = cache
             .update_document("file:///test/main.zh", "让 可变 x = 5;", 1)
@@ -918,10 +1074,85 @@ mod tests {
         assert!(others.is_empty());
     }
 
+    /// 别名替换接通：库标识符转英文，声明位同名用户定义受保护（与 CLI 一致）
+    #[test]
+    fn test_alias_replacement_with_declaration_protection() {
+        let temp = tempfile::tempdir().unwrap();
+        let alias_map = HashMap::from([
+            ("字符串".into(), "String".into()),
+            ("新建".into(), "new".into()),
+        ]);
+        let cache = TranslationCache::new(
+            test_map(),
+            HashMap::new(),
+            alias_map,
+            temp.path().to_path_buf(),
+        );
+
+        let (entry, _) = cache
+            .update_document(
+                "file:///test/main.zh",
+                "让 新建 = 1;\n让 y = 新建;\n让 t = 字符串::新建();",
+                1,
+            )
+            .unwrap();
+        // 声明位 新建 保留；用户声明名的裸使用处（y = 新建）豁免；
+        // 但 `::` 限定后的路径段是库 API 访问，照常替换（字符串::新建 → String::new）
+        assert_eq!(
+            entry.en_content,
+            "let 新建 = 1;\nlet y = 新建;\nlet t = String::new();"
+        );
+    }
+
+    /// 无用户声明撞名时，别名在使用处照常替换
+    #[test]
+    fn test_alias_usage_replaced_when_not_declared() {
+        let temp = tempfile::tempdir().unwrap();
+        let alias_map = HashMap::from([("字符串".into(), "String".into())]);
+        let cache = TranslationCache::new(
+            test_map(),
+            HashMap::new(),
+            alias_map,
+            temp.path().to_path_buf(),
+        );
+
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "让 s: 字符串 = x;", 1)
+            .unwrap();
+        assert_eq!(entry.en_content, "let s: String = x;");
+    }
+
+    /// 别名替换后的列映射对齐：中英文列号双向转换在替换点精确
+    #[test]
+    fn test_alias_column_map_alignment() {
+        let temp = tempfile::tempdir().unwrap();
+        let alias_map = HashMap::from([("字符串".into(), "String".into())]);
+        let cache = TranslationCache::new(
+            test_map(),
+            HashMap::new(),
+            alias_map,
+            temp.path().to_path_buf(),
+        );
+        let uri = "file:///test/main.zh";
+        cache.update_document(uri, "让 s: 字符串 = x;", 1).unwrap();
+
+        // 中文列 5（字符串 起点）→ 英文列 7（String 起点），反向亦然
+        assert_eq!(cache.zh_col_to_en_col(uri, 0, 5), 7);
+        assert_eq!(cache.en_col_to_zh_col(uri, 0, 7), 5);
+        // 替换点之后的列（= 号：中文列 9 / 英文列 14）仍精确
+        assert_eq!(cache.zh_col_to_en_col(uri, 0, 9), 14);
+        assert_eq!(cache.en_col_to_zh_col(uri, 0, 14), 9);
+    }
+
     #[test]
     fn test_close_document() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_map(), HashMap::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(
+            test_map(),
+            HashMap::new(),
+            HashMap::new(),
+            temp.path().to_path_buf(),
+        );
 
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
@@ -936,7 +1167,12 @@ mod tests {
     #[test]
     fn test_query_by_virtual_uri() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_map(), HashMap::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(
+            test_map(),
+            HashMap::new(),
+            HashMap::new(),
+            temp.path().to_path_buf(),
+        );
 
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
@@ -976,7 +1212,12 @@ mod tests {
             ("公开".into(), "pub".into()),
         ]);
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(map, HashMap::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(
+            map,
+            HashMap::new(),
+            HashMap::new(),
+            temp.path().to_path_buf(),
+        );
 
         // 先打开 辅助.zh，使模块集合包含 辅助
         let (helper_entry, _) = cache
@@ -1030,7 +1271,12 @@ mod tests {
             ("整数".into(), "i32".into()),
         ]);
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(map, HashMap::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(
+            map,
+            HashMap::new(),
+            HashMap::new(),
+            temp.path().to_path_buf(),
+        );
         let (entry, _) = cache
             .update_document(
                 "file:///test/main.zh",
@@ -1093,7 +1339,12 @@ mod tests {
     #[test]
     fn test_update_document_encoded_chinese_filename() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_map(), HashMap::new(), temp.path().to_path_buf());
+        let cache = TranslationCache::new(
+            test_map(),
+            HashMap::new(),
+            HashMap::new(),
+            temp.path().to_path_buf(),
+        );
         let (entry, _) = cache
             .update_document("file:///test/%E6%B5%8B%E8%AF%95.zh", "让 x = 1;", 1)
             .unwrap();

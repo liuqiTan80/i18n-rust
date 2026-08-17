@@ -127,6 +127,121 @@ impl fmt::Display for TranspileError {
 
 impl std::error::Error for TranspileError {}
 
+/// 加载错误的目标数据源（选择本地化消息模板用）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoadTarget {
+    /// keywords.toml
+    Keywords,
+    /// module_paths.toml
+    ModulePaths,
+    /// stdlib.toml
+    Stdlib,
+    /// crates/*.toml 第三方库文件
+    ThirdParty,
+    /// 通用映射文件（MappingLoader 单文件）
+    Mapping,
+    /// 内置关键字数据（编译期嵌入）
+    BuiltinKeywords,
+    /// 内置模块路径数据（编译期嵌入）
+    BuiltinModulePaths,
+    /// 内置标准库数据（编译期嵌入）
+    BuiltinStdlib,
+}
+
+/// 语言包/映射表加载层的统一错误类型
+///
+/// 取代加载层旧有的 `Result<_, String>`：变体携带结构化上下文
+/// （目标/路径/原因），调用方可用 `matches!` 分类处理（如文件缺失走
+/// 回退链、解析失败直接终止）；Display 输出与旧 String 消息一致的
+/// 本地化文本（复用同一批 ui.toml 键），消息不漂移。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LoadError {
+    /// 必需文件缺失（如 keywords.toml 不存在）
+    FileMissing { target: LoadTarget, path: String },
+    /// 读取文件 IO 失败
+    ReadFailed {
+        target: LoadTarget,
+        path: Option<String>,
+        detail: String,
+    },
+    /// TOML 解析失败
+    ParseFailed {
+        target: LoadTarget,
+        path: Option<String>,
+        detail: String,
+    },
+    /// 第三方库目录（crates/）读取失败
+    DirReadFailed { detail: String },
+}
+
+impl fmt::Display for LoadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use crate::语言::f as msg;
+        match self {
+            Self::FileMissing { target, path } => {
+                let key = match target {
+                    LoadTarget::Keywords => "load_keywords_missing",
+                    _ => "load_map_file_missing",
+                };
+                write!(f, "{}", msg(key, &[path]))
+            }
+            Self::ReadFailed {
+                target,
+                path,
+                detail,
+            } => match target {
+                LoadTarget::Keywords => {
+                    write!(f, "{}", msg("load_read_keywords_failed", &[detail]))
+                }
+                LoadTarget::ModulePaths => {
+                    write!(f, "{}", msg("load_read_module_paths_failed", &[detail]))
+                }
+                LoadTarget::Mapping => {
+                    write!(f, "{}", msg("load_read_map_failed", &[detail]))
+                }
+                // 第三方库文件：消息模板含路径占位符
+                _ => {
+                    let path_str = path.clone().unwrap_or_default();
+                    write!(
+                        f,
+                        "{}",
+                        msg("load_read_map_path_failed", &[&path_str, detail])
+                    )
+                }
+            },
+            Self::ParseFailed {
+                target,
+                path,
+                detail,
+            } => {
+                let out = match target {
+                    LoadTarget::Keywords => msg("load_parse_keywords_failed", &[detail]),
+                    LoadTarget::ModulePaths => msg("load_parse_module_paths_failed", &[detail]),
+                    LoadTarget::Mapping => msg("load_parse_map_failed", &[detail]),
+                    LoadTarget::BuiltinKeywords => {
+                        msg("load_parse_builtin_keywords_failed", &[detail])
+                    }
+                    LoadTarget::BuiltinModulePaths => {
+                        msg("load_parse_builtin_paths_failed", &[detail])
+                    }
+                    LoadTarget::BuiltinStdlib => msg("load_parse_builtin_stdlib_failed", &[detail]),
+                    // stdlib/第三方库文件：消息模板含路径占位符
+                    LoadTarget::Stdlib | LoadTarget::ThirdParty => {
+                        let path_str = path.clone().unwrap_or_default();
+                        msg("load_parse_map_path_failed", &[&path_str, detail])
+                    }
+                };
+                write!(f, "{}", out)
+            }
+            Self::DirReadFailed { detail } => {
+                write!(f, "{}", msg("load_read_dir_failed", &[detail]))
+            }
+        }
+    }
+}
+
+impl std::error::Error for LoadError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -215,5 +330,38 @@ mod tests {
             reason: "未知故障".to_string(),
         });
         assert_eq!(err.to_string(), "未知故障");
+    }
+
+    #[test]
+    fn test_load_error_messages_match_legacy_keys() {
+        // 枚举化后消息与旧 String 错误一致（复用同一批 ui.toml 键）
+        let missing = LoadError::FileMissing {
+            target: LoadTarget::Keywords,
+            path: "/lp/keywords.toml".into(),
+        };
+        assert!(missing.to_string().contains("关键字文件不存在"));
+
+        let parse = LoadError::ParseFailed {
+            target: LoadTarget::BuiltinStdlib,
+            path: None,
+            detail: "expected value".into(),
+        };
+        assert_eq!(
+            parse.to_string(),
+            "解析内置标准库 TOML 失败: expected value"
+        );
+
+        let third = LoadError::ParseFailed {
+            target: LoadTarget::ThirdParty,
+            path: Some("\"crates/web.toml\"".into()),
+            detail: "bad".into(),
+        };
+        assert_eq!(
+            third.to_string(),
+            "解析映射表 \"crates/web.toml\" 失败: bad"
+        );
+
+        // 可用于程序化分类：文件缺失可回退，解析失败应终止
+        assert!(matches!(missing, LoadError::FileMissing { .. }));
     }
 }

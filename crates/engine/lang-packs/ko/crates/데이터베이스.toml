@@ -1,0 +1,33 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"데이터베이스" = "sqlx"
+"ORM" = "diesel"
+"SQLite" = "rusqlite"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# sqlx
+"풀" = "Pool"
+"연결_타입" = "Connection"
+"질의" = "query"
+"실행" = "execute"
+"가져오기_쿼리" = "fetch"
+"전부_가져오기" = "fetch_all"
+"하나_가져오기" = "fetch_one"
+"선택_가져오기" = "fetch_optional"
+"트랜잭션" = "Transaction"
+"마이그레이션" = "migrate"
+
+# diesel
+"질의_구성" = "QueryDsl"
+"삽입_가능" = "Insertable"
+"조회_가능" = "Queryable"
+"테이블" = "Table"
+"선별" = "select"
+"여과_조건" = "filter"
+"정렬_기준" = "order"
+"행수_제한" = "limit"
+
+# rusqlite
+"명령문" = "Statement"
+"준비_실행" = "prepare"

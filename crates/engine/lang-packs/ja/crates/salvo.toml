@@ -1,0 +1,394 @@
+# 自動生成されたサードパーティライブラリマッピング
+# crate: salvo
+# 生成時刻: 2026-08-16 11:12:02
+# このファイルの説明は AI が API 名とシグネチャに基づき自動生成したもので、元 crate の公式ドキュメント翻訳ではなく、学習参考用です。元 crate の著作権はそれぞれの作者に帰属します。
+# 人手による整備済み：識別子はすべて日本語に翻訳し、説明を補完。
+
+["模块路径"]
+"salvo" = "salvo"
+
+["标识符"]
+"コア別名" = "core"  # type core = salvo_core
+"捕獲器" = "Catcher"  # struct Catcher
+"既定ターゲット" = "DefaultGoal"  # struct DefaultGoal
+"ソケットアドレス" = "SocketAddr"  # enum SocketAddr
+"TCPリスナー" = "TcpListener"  # struct TcpListener<T>
+"TCPアクセプター" = "TcpAcceptor"  # struct TcpAcceptor
+"動的TCPアクセプター" = "DynTcpAcceptor"  # trait DynTcpAcceptor
+"動的TCPアクセプター化" = "ToDynTcpAcceptor"  # struct ToDynTcpAcceptor<A>
+"動的TCPアクセプター群" = "DynTcpAcceptors"  # struct DynTcpAcceptors
+"接続制御" = "ConnCtrl"  # type ConnCtrl = ctrl::ConnCtrl
+"HTTP1" = "http1"  # type http1 = hyper::server::conn::http1
+"HTTP2" = "http2"  # type http2 = hyper::server::conn::http2
+"統合アクセプター" = "JoinedAcceptor"  # type JoinedAcceptor = joined::JoinedAcceptor
+"統合リスナー" = "JoinedListener"  # type JoinedListener = joined::JoinedListener
+"受付済み接続" = "Accepted"  # struct Accepted<C, S>
+"アクセプター" = "Acceptor"  # trait Acceptor
+"保持状態" = "Holding"  # struct Holding
+"結合器" = "Coupler"  # trait Coupler
+"リスナートレイト" = "Listener"  # trait Listener
+"動的ストリーム" = "DynStream"  # struct DynStream
+"接続元" = "SourceFrom"  # enum SourceFrom
+"元解析器" = "SourceParser"  # enum SourceParser
+"メタデータ" = "Metadata"  # struct Metadata
+"フィールド" = "Field"  # struct Field
+"ソース" = "Source"  # struct Source
+"名前変更規則" = "RenameRule"  # type RenameRule = case::RenameRule
+"抽出可能" = "Extractible"  # trait Extractible<'ex>
+"チャンクファイル" = "ChunkedFile"  # struct ChunkedFile<T>
+"転送プロトコル" = "TransProto"  # enum TransProto
+"遮断情報" = "FuseInfo"  # struct FuseInfo
+"遮断設定" = "FuseConfig"  # struct FuseConfig
+"遮断動作" = "FuseAction"  # enum FuseAction
+"接続監視者" = "ConnObserver"  # trait ConnObserver
+"共有参照接続監視者" = "ArcConnObserver"  # type ArcConnObserver = std::sync::Arc<dyn ?>
+"遮断戦略" = "FusePolicy"  # trait FusePolicy
+"共有参照遮断戦略" = "ArcFusePolicy"  # type ArcFusePolicy = std::sync::Arc<dyn ?>
+"処理器トレイト" = "Handler"  # trait Handler
+"共有参照処理器" = "ArcHandler"  # struct ArcHandler
+"空の処理器" = "empty"  # fn empty() -> EmptyHandler
+"飛越判定" = "Skipper"  # trait Skipper
+"包み込み処理器" = "HoopedHandler"  # struct HoopedHandler
+"飛越なし" = "none_skipper"  # fn none_skipper(_req: &crate::Request, _depot: &crate::Depot) -> bool
+"構文解析エラー" = "ParseError"  # type ParseError = parse_error::ParseError
+"構文解析結果" = "ParseResult"  # type ParseResult = parse_error::ParseResult
+"状態エラー" = "StatusError"  # type StatusError = status_error::StatusError
+"状態結果" = "StatusResult"  # type StatusResult = status_error::StatusResult
+"フォームデータ" = "FormData"  # struct FormData
+"ファイル部分" = "FilePart"  # struct FilePart
+"要求部品" = "Parts"  # type Parts = http::request::Parts
+"全局安全上限" = "global_secure_max_size"  # fn global_secure_max_size() -> usize
+"全局安全上限設定" = "set_global_secure_max_size"  # fn set_global_secure_max_size(size: usize) -> ?
+"安全上限" = "SecureMaxSize"  # struct SecureMaxSize
+"HTTP要求" = "Request"  # struct Request
+"本体送信器" = "BodySender"  # type BodySender = crate::http::body::BodySender
+"バイトフレーム" = "BytesFrame"  # type BytesFrame = crate::http::body::BytesFrame
+"応答本体" = "ResBody"  # type ResBody = crate::http::body::ResBody
+"HTTP応答" = "Response"  # struct Response
+"安全Cookie戦略" = "SecureCookiePolicy"  # enum SecureCookiePolicy
+"本体" = "Body"  # type Body = hyper::body::Body
+"フレーム" = "Frame"  # type Frame = hyper::body::Frame
+"サイズヒント" = "SizeHint"  # type SizeHint = hyper::body::SizeHint
+"要求本体型" = "ReqBody"  # type ReqBody = req::ReqBody
+"HTTP本体" = "HyperBody"  # type HyperBody = hyper::body::Incoming
+"本体受信器" = "BodyReceiver"  # type BodyReceiver = channel::BodyReceiver
+"Cookie" = "cookie"  # type cookie = cookie
+"ヘッダ集合" = "headers"  # type headers = headers
+"HTTPメソッド" = "Method"  # type Method = http::method::Method
+"ヘッダマップ" = "HeaderMap"  # type HeaderMap = http::HeaderMap
+"ヘッダ名" = "HeaderName"  # type HeaderName = http::HeaderName
+"ヘッダ値" = "HeaderValue"  # type HeaderValue = http::HeaderValue
+"状態コード" = "StatusCode"  # type StatusCode = http::StatusCode
+"ヘッダ" = "header"  # type header = http::header
+"URI別名" = "uri"  # type uri = http::uri
+"HTTPレンジ" = "HttpRange"  # type HttpRange = range::HttpRange
+"HTTPバージョン" = "Version"  # type Version = http::version::Version
+"メディアタイプ" = "Mime"  # type Mime = mime::Mime
+"フィルタ情報" = "FilterInfo"  # enum FilterInfo
+"フィルタトレイト" = "Filter"  # trait Filter
+"関数フィルタ" = "FnFilter"  # struct FnFilter<F>
+"プロトコルスキーム" = "scheme"  # fn scheme(scheme: crate::http::uri::Scheme) -> SchemeFilter
+"ホスト" = "host"  # fn host<impl Into<String>>(host: impl ?) -> HostFilter
+"ポート" = "port"  # fn port(port: u16) -> PortFilter
+"パスフィルタ" = "path"  # fn path<impl Into<String>>(path: impl ?) -> PathFilter
+"試行パス" = "try_path"  # fn try_path<impl Into<String>>(path: impl ?) -> Result<PathFilter, String>
+"GETメソッド" = "get"  # fn get() -> MethodFilter
+"HEADメソッド" = "head"  # fn head() -> MethodFilter
+"OPTIONSメソッド" = "options"  # fn options() -> MethodFilter
+"POSTメソッド" = "post"  # fn post() -> MethodFilter
+"PATCHメソッド" = "patch"  # fn patch() -> MethodFilter
+"PUTメソッド" = "put"  # fn put() -> MethodFilter
+"QUERYメソッド" = "query"  # fn query() -> MethodFilter
+"DELETEフィルタ" = "delete"  # fn delete() -> MethodFilter
+"ルーター" = "Router"  # type Router = router::Router
+"パスパラメータ" = "PathParams"  # type PathParams = path_params::PathParams
+"フロー制御" = "FlowCtrl"  # type FlowCtrl = flow_ctrl::FlowCtrl
+"Tokioエグゼキューター" = "TokioExecutor"  # type TokioExecutor = hyper_util::rt::TokioExecutor
+"Tokio入出力" = "TokioIo"  # type TokioIo = hyper_util::rt::TokioIo
+"Tokioタイマー" = "TokioTimer"  # type TokioTimer = hyper_util::rt::TokioTimer
+"サーバーハンドル" = "ServerHandle"  # struct ServerHandle
+"サーバー" = "Server"  # struct Server<A>
+"JSON応答" = "Json"  # type Json = json::Json
+"リダイレクト" = "Redirect"  # type Redirect = redirect::Redirect
+"読み取りシーク" = "ReadSeeker"  # type ReadSeeker = seek::ReadSeeker
+"テキスト内容" = "Text"  # type Text = text::Text
+"書き込み器" = "Writer"  # trait Writer
+"書記器" = "Scribe"  # trait Scribe
+"テストクライアント" = "TestClient"  # type TestClient = client::TestClient
+"要求構築器" = "RequestBuilder"  # type RequestBuilder = request::RequestBuilder
+"送信先" = "SendTarget"  # type SendTarget = request::SendTarget
+"応答拡張" = "ResponseExt"  # type ResponseExt = response::ResponseExt
+"非同期トレイト" = "async_trait"  # type async_trait = async_trait::async_trait
+"倉庫" = "Depot"  # type Depot = crate::depot::Depot
+"サービス" = "Service"  # type Service = crate::service::Service
+"ハイパーライブラリ" = "hyper"  # type hyper = hyper
+"マクロ" = "macros"  # type macros = salvo_macros
+"ボックス化エラー" = "BoxedError"  # type BoxedError = self::error::BoxedError
+"エラー型" = "Error"  # type Error = self::error::Error
+"結果型" = "Result"  # type Result = std::result::Result<T, Error>
+"メディア型反復子" = "MimeIter"  # struct MimeIter<'a>
+"名称" = "Name"  # struct Name<'a>
+"文字列構文解析エラー" = "FromStrError"  # struct FromStrError
+"メディアパラメータ" = "Params"  # struct Params<'a>
+"ワイルドカード" = "STAR"  # const STAR: Name<''static'>
+"テキスト型" = "TEXT"  # const TEXT: Name<''static'>
+"画像" = "IMAGE"  # const IMAGE: Name<''static'>
+"音声" = "AUDIO"  # const AUDIO: Name<''static'>
+"動画" = "VIDEO"  # const VIDEO: Name<''static'>
+"アプリケーション型" = "APPLICATION"  # const APPLICATION: Name<''static'>
+"マルチパート" = "MULTIPART"  # const MULTIPART: Name<''static'>
+"メッセージ媒体" = "MESSAGE"  # const MESSAGE: Name<''static'>
+"モデル" = "MODEL"  # const MODEL: Name<''static'>
+"フォント" = "FONT"  # const FONT: Name<''static'>
+"純テキスト" = "PLAIN"  # const PLAIN: Name<''static'>
+"HTML" = "HTML"  # const HTML: Name<''static'>
+"XML" = "XML"  # const XML: Name<''static'>
+"JavaScript" = "JAVASCRIPT"  # const JAVASCRIPT: Name<''static'>
+"CSS" = "CSS"  # const CSS: Name<''static'>
+"CSV" = "CSV"  # const CSV: Name<''static'>
+"イベントストリーム" = "EVENT_STREAM"  # const EVENT_STREAM: Name<''static'>
+"電子名刺" = "VCARD"  # const VCARD: Name<''static'>
+"URLフォーム符号化" = "WWW_FORM_URLENCODED"  # const WWW_FORM_URLENCODED: Name<''static'>
+"メッセージパック" = "MSGPACK"  # const MSGPACK: Name<''static'>
+"バイトストリーム" = "OCTET_STREAM"  # const OCTET_STREAM: Name<''static'>
+"PDF" = "PDF"  # const PDF: Name<''static'>
+"WOFF" = "WOFF"  # const WOFF: Name<''static'>
+"WOFF2" = "WOFF2"  # const WOFF2: Name<''static'>
+"フォームデータ形式" = "FORM_DATA"  # const FORM_DATA: Name<''static'>
+"BMP" = "BMP"  # const BMP: Name<''static'>
+"GIF" = "GIF"  # const GIF: Name<''static'>
+"JPEG" = "JPEG"  # const JPEG: Name<''static'>
+"PNG" = "PNG"  # const PNG: Name<''static'>
+"SVG" = "SVG"  # const SVG: Name<''static'>
+"基礎" = "BASIC"  # const BASIC: Name<''static'>
+"MPEG" = "MPEG"  # const MPEG: Name<''static'>
+"MP4" = "MP4"  # const MP4: Name<''static'>
+"OGG" = "OGG"  # const OGG: Name<''static'>
+"文字集合" = "CHARSET"  # const CHARSET: Name<''static'>
+"境界値" = "BOUNDARY"  # const BOUNDARY: Name<''static'>
+"UTF8" = "UTF_8"  # const UTF_8: Name<''static'>
+"任意メディア" = "STAR_STAR"  # const STAR_STAR: Mime
+"任意テキスト" = "TEXT_STAR"  # const TEXT_STAR: Mime
+"純テキストメディア" = "TEXT_PLAIN"  # const TEXT_PLAIN: Mime
+"純テキストUTF8メディア" = "TEXT_PLAIN_UTF_8"  # const TEXT_PLAIN_UTF_8: Mime
+"HTMLテキスト" = "TEXT_HTML"  # const TEXT_HTML: Mime
+"HTMLテキストUTF8" = "TEXT_HTML_UTF_8"  # const TEXT_HTML_UTF_8: Mime
+"CSSテキスト" = "TEXT_CSS"  # const TEXT_CSS: Mime
+"CSSテキストUTF8" = "TEXT_CSS_UTF_8"  # const TEXT_CSS_UTF_8: Mime
+"JavaScriptテキスト" = "TEXT_JAVASCRIPT"  # const TEXT_JAVASCRIPT: Mime
+"XMLテキスト" = "TEXT_XML"  # const TEXT_XML: Mime
+"イベントストリームテキスト" = "TEXT_EVENT_STREAM"  # const TEXT_EVENT_STREAM: Mime
+"CSVテキスト" = "TEXT_CSV"  # const TEXT_CSV: Mime
+"CSVテキストUTF8" = "TEXT_CSV_UTF_8"  # const TEXT_CSV_UTF_8: Mime
+"タブ区切りテキスト" = "TEXT_TAB_SEPARATED_VALUES"  # const TEXT_TAB_SEPARATED_VALUES: Mime
+"タブ区切りテキストUTF8" = "TEXT_TAB_SEPARATED_VALUES_UTF_8"  # const TEXT_TAB_SEPARATED_VALUES_UTF_8: Mime
+"電子名刺テキスト" = "TEXT_VCARD"  # const TEXT_VCARD: Mime
+"任意画像" = "IMAGE_STAR"  # const IMAGE_STAR: Mime
+"JPEG画像" = "IMAGE_JPEG"  # const IMAGE_JPEG: Mime
+"GIF画像" = "IMAGE_GIF"  # const IMAGE_GIF: Mime
+"PNG画像" = "IMAGE_PNG"  # const IMAGE_PNG: Mime
+"BMP画像" = "IMAGE_BMP"  # const IMAGE_BMP: Mime
+"SVG画像" = "IMAGE_SVG"  # const IMAGE_SVG: Mime
+"WOFFフォント" = "FONT_WOFF"  # const FONT_WOFF: Mime
+"WOFF2フォント" = "FONT_WOFF2"  # const FONT_WOFF2: Mime
+"JSONアプリケーション" = "APPLICATION_JSON"  # const APPLICATION_JSON: Mime
+"JavaScriptアプリケーション" = "APPLICATION_JAVASCRIPT"  # const APPLICATION_JAVASCRIPT: Mime
+"JavaScriptアプリケーションUTF8" = "APPLICATION_JAVASCRIPT_UTF_8"  # const APPLICATION_JAVASCRIPT_UTF_8: Mime
+"URLフォーム符号化アプリケーション" = "APPLICATION_WWW_FORM_URLENCODED"  # const APPLICATION_WWW_FORM_URLENCODED: Mime
+"バイトストリームアプリケーション" = "APPLICATION_OCTET_STREAM"  # const APPLICATION_OCTET_STREAM: Mime
+"メッセージパックアプリケーション" = "APPLICATION_MSGPACK"  # const APPLICATION_MSGPACK: Mime
+"PDFアプリケーション" = "APPLICATION_PDF"  # const APPLICATION_PDF: Mime
+"マルチパートフォームデータ" = "MULTIPART_FORM_DATA"  # const MULTIPART_FORM_DATA: Mime
+
+["解释"]
+"コア別名" = "salvo_core コア crate の型別名、全コア API を搭載する。"
+"捕獲器" = "要求処理中に生じたエラーを捕獲し、統一的に応答へ変換する。"
+"既定ターゲット" = "エラー処理の既定ターゲット、エラー応答の最終行き先を決める。"
+"ソケットアドレス" = "ネットワークアドレスタイプ、IP アドレスとポートを表す。"
+"TCPリスナー" = "TCP ポートを監視するリスナー、接続ストリームを生成する。"
+"TCPアクセプター" = "TCP 接続を受け入れ要求ストリームへ変換するオブジェクト。"
+"動的TCPアクセプター" = "動的ディスパッチの TCP 接続アクセプタートレイト。"
+"動的TCPアクセプター化" = "具体アクセプターを動的アクセプターへ変換するラッパー。"
+"動的TCPアクセプター群" = "複数の動的アクセプターの集合物。"
+"接続制御" = "接続レベルの制御情報（接続保持の有無など）。"
+"HTTP1" = "HTTP/1.1 プロトコル接続タイプ（hyper 提供）。"
+"HTTP2" = "HTTP/2 プロトコル接続タイプ（hyper 提供）。"
+"統合アクセプター" = "複数のアクセプターを一つに統合する。"
+"統合リスナー" = "複数のリスナーを一つに統合する。"
+"受付済み接続" = "接続受付後に生じる（接続、アドレス）の結果。"
+"アクセプター" = "接続を受け入れ要求ストリームを生成するトレイト、カスタム実装が可能。"
+"保持状態" = "接続を保持する中間状態構造。"
+"結合器" = "リスナーが生成した接続をプロトコル処理へ接入するトレイト。"
+"リスナートレイト" = "監視して接続ストリームを生成するトレイト、TCP/Unix などをサポート。"
+"動的ストリーム" = "動的ディスパッチの接続ストリームタイプ。"
+"接続元" = "接続元を列挙（TCP、Unix ソケットなど）。"
+"元解析器" = "設定元を解析する解析器（ファイル、文字列など）。"
+"メタデータ" = "設定メタデータの記述（環境変数名、ファイルパスなど）。"
+"フィールド" = "設定フィールドの記述（名称、元、既定値など）。"
+"ソース" = "設定元の記述（環境変数、コマンドライン引数など）。"
+"名前変更規則" = "フィールド名の大文字小文字変換規則（キャメルケースからスネークケースなど）。"
+"抽出可能" = "要求からデータを抽出するトレイト、フォームや JSON などの抽出器が実装する。"
+"チャンクファイル" = "ファイルをチャンクごとに読み込み送信する応答書き込み器。"
+"転送プロトコル" = "転送レイヤーのプロトコル状態（TLS、HTTP/2 アップグレードなど）。"
+"遮断情報" = "サーキットブレーカーの状態情報（発動回数、遮断状態など）。"
+"遮断設定" = "サーキットブレーカーの設定（閾値、タイムアウトなど）。"
+"遮断動作" = "遮断発動時に実行する動作。"
+"接続監視者" = "接続のライフサイクルを観察するトレイト。"
+"共有参照接続監視者" = "所有権共有（Arc）の接続監視者。"
+"遮断戦略" = "遮断発動戦略のトレイト。"
+"共有参照遮断戦略" = "所有権共有（Arc）の遮断戦略。"
+"処理器トレイト" = "要求処理のコアトレイト、ルートとミドルウェアはいずれもこれを実装する。"
+"共有参照処理器" = "所有権共有（Arc）の処理器ラッパー。"
+"空の処理器" = "処理せずそのまま通過させる処理器を返す。"
+"飛越判定" = "現在の処理器を飛越するかどうかを判定するトレイト。"
+"包み込み処理器" = "追加ロジックを包む処理器、ミドルウェアはこれに基づき実装される。"
+"飛越なし" = "常に飛越しない判定関数。"
+"構文解析エラー" = "要求の解析失敗時に生じるエラータイプ。"
+"構文解析結果" = "解析操作の統一結果タイプ。"
+"状態エラー" = "HTTP 状態コードを伴うエラータイプ。"
+"状態結果" = "HTTP 状態コードを伴う結果タイプ。"
+"フォームデータ" = "multipart フォームデータの抽出器。"
+"ファイル部分" = "multipart フォーム内の一つのファイルブロック。"
+"要求部品" = "HTTP 要求のヘッダと拡張部品（本体を含まない）。"
+"全局安全上限" = "全局の要求本体安全サイズ上限を読み取る。"
+"全局安全上限設定" = "全局の要求本体安全サイズ上限を設定する。"
+"安全上限" = "要求本体の安全サイズ上限設定構造。"
+"HTTP要求" = "HTTP 要求オブジェクト、ヘッダ、本体、拡張情報を封入する。"
+"本体送信器" = "応答へ本体を送信する送信器。"
+"バイトフレーム" = "HTTP 本体中のバイトフレーム。"
+"応答本体" = "応答の本体タイプ。"
+"HTTP応答" = "HTTP 応答オブジェクト、状態コード、ヘッダ、本体を封入する。"
+"安全Cookie戦略" = "Cookie 安全戦略（安全 Cookie を有効にするかどうか）。"
+"本体" = "HTTP メッセージ本体タイプ（hyper 提供）。"
+"フレーム" = "HTTP 本体中のデータフレーム。"
+"サイズヒント" = "本体サイズのヒント情報。"
+"要求本体型" = "要求の本体タイプ。"
+"HTTP本体" = "hyper の受信本体（Incoming）。"
+"本体受信器" = "要求本体を受信する受信器。"
+"Cookie" = "cookie crate の型別名（Cookie の解析と構築）。"
+"ヘッダ集合" = "headers crate の型別名（型付きヘッダ集合）。"
+"HTTPメソッド" = "HTTP メソッドタイプ（GET/POST など）。"
+"ヘッダマップ" = "HTTP ヘッダマップ（多値ヘッダコンテナ）。"
+"ヘッダ名" = "HTTP ヘッダ名のタイプ。"
+"ヘッダ値" = "HTTP ヘッダ値のタイプ。"
+"状態コード" = "HTTP 状態コードのタイプ。"
+"ヘッダ" = "http ヘッダモジュールの型別名。"
+"URI別名" = "URI モジュールの型別名。"
+"HTTPレンジ" = "HTTP Range 要求範囲の解析タイプ。"
+"HTTPバージョン" = "HTTP プロトコルバージョンタイプ（HTTP/1.1、HTTP/2 など）。"
+"メディアタイプ" = "MIME メディアタイプ（text/html など）。"
+"フィルタ情報" = "フィルタの記述情報（一致するメソッド、パスなど）。"
+"フィルタトレイト" = "ルートフィルタトレイト、要求がルートに一致するかを決める。"
+"関数フィルタ" = "クロージャで実装したルートフィルタ。"
+"プロトコルスキーム" = "URI プロトコル（http/https）で要求をフィルタする。"
+"ホスト" = "要求のホスト名で要求をフィルタする。"
+"ポート" = "要求のポートで要求をフィルタする。"
+"パスフィルタ" = "要求のパスで要求をフィルタする。"
+"試行パス" = "パスでフィルタし、パスが不正な場合はエラーを返す。"
+"GETメソッド" = "GET メソッドの要求をフィルタする。"
+"HEADメソッド" = "HEAD メソッドの要求をフィルタする。"
+"OPTIONSメソッド" = "OPTIONS メソッドの要求をフィルタする。"
+"POSTメソッド" = "POST メソッドの要求をフィルタする。"
+"PATCHメソッド" = "PATCH メソッドの要求をフィルタする。"
+"PUTメソッド" = "PUT メソッドの要求をフィルタする。"
+"QUERYメソッド" = "QUERY メソッドの要求をフィルタする。"
+"DELETEフィルタ" = "DELETE メソッドの要求をフィルタする。"
+"ルーター" = "ルートテーブル、要求を一致する処理器へ振り分ける。"
+"パスパラメータ" = "パス中のパラメータ集合（/users/:id など）。"
+"フロー制御" = "処理器のフロー制御（続行、飛越、エラー）。"
+"Tokioエグゼキューター" = "Tokio 非同期エグゼキューター（hyper 統合用）。"
+"Tokio入出力" = "Tokio 入出力の適応タイプ。"
+"Tokioタイマー" = "Tokio タイマーの適応タイプ。"
+"サーバーハンドル" = "サーバー実行ハンドル、優雅な停止を要求できる。"
+"サーバー" = "Web サーバー本体、リスナーをバインドしてサービスを実行する。"
+"JSON応答" = "JSON 応答の書き込み器と抽出器。"
+"リダイレクト" = "リダイレクト応答の書き込み器。"
+"読み取りシーク" = "読み取りと位置取り（Seek）の両方をサポートする要求本体。"
+"テキスト内容" = "純テキスト応答の書き込み器。"
+"書き込み器" = "データを応答へ書き込むトレイト。"
+"書記器" = "応答へ内容を書き込み状態コードを返すトレイト。"
+"テストクライアント" = "統合テスト用の HTTP クライアント。"
+"要求構築器" = "テスト要求を構築する構築器。"
+"送信先" = "テスト要求の送信先（サーバー）。"
+"応答拡張" = "テスト応答の拡張メソッド集合。"
+"非同期トレイト" = "非同期トレイトマクロの型別名。"
+"倉庫" = "要求の共有データコンテナ、各ミドルウェアがここでデータを出し入れする。"
+"サービス" = "salvo サービス本体、hyper に駆動させて実行できる。"
+"ハイパーライブラリ" = "hyper crate の型別名（下位レイヤーの HTTP 実装）。"
+"マクロ" = "salvo プロシージャルマクロ crate の型別名。"
+"ボックス化エラー" = "ボックス化した動的エラー（Box<dyn Error>）。"
+"エラー型" = "salvo 汎用エラータイプ、状態コードとソースチェーンをサポート。"
+"結果型" = "salvo 統一の Result 別名（エラータイプは Error）。"
+"メディア型反復子" = "MIME タイプを反復解析する構造。"
+"名称" = "MIME タイプ名（text、html など）。"
+"文字列構文解析エラー" = "文字列からの MIME 解析に失敗した際のエラー。"
+"メディアパラメータ" = "MIME パラメータ（charset=utf-8 など）の反復子。"
+"ワイルドカード" = "メディアタイプのワイルドカード *（*/* 中の *）。"
+"テキスト型" = "text メインタイプ名（text/html など）。"
+"画像" = "image メインタイプ名（image/png など）。"
+"音声" = "audio メインタイプ名（audio/mp3 など）。"
+"動画" = "video メインタイプ名（video/mp4 など）。"
+"アプリケーション型" = "application メインタイプ名（application/json など）。"
+"マルチパート" = "multipart メインタイプ名（multipart/form-data など）。"
+"メッセージ媒体" = "message メインタイプ名（message/http など）。"
+"モデル" = "model メインタイプ名（model/gltf など）。"
+"フォント" = "font メインタイプ名（font/woff など）。"
+"純テキスト" = "plain サブタイプ名（text/plain）。"
+"HTML" = "html サブタイプ名（text/html）。"
+"XML" = "xml サブタイプ名（text/xml）。"
+"JavaScript" = "javascript サブタイプ名（text/javascript）。"
+"CSS" = "css サブタイプ名（text/css）。"
+"CSV" = "csv サブタイプ名（text/csv）。"
+"イベントストリーム" = "event-stream サブタイプ名（text/event-stream）。"
+"電子名刺" = "vcard サブタイプ名（text/vcard）。"
+"URLフォーム符号化" = "x-www-form-urlencoded サブタイプ名。"
+"メッセージパック" = "msgpack サブタイプ名（application/msgpack）。"
+"バイトストリーム" = "octet-stream サブタイプ名（バイナリデータストリーム）。"
+"PDF" = "pdf サブタイプ名（application/pdf）。"
+"WOFF" = "woff サブタイプ名（ウェブフォント形式）。"
+"WOFF2" = "woff2 サブタイプ名（ウェブフォント圧縮形式）。"
+"フォームデータ形式" = "form-data サブタイプ名（multipart フォーム）。"
+"BMP" = "bmp サブタイプ名（ビットマップ画像）。"
+"GIF" = "gif サブタイプ名（動画画像）。"
+"JPEG" = "jpeg サブタイプ名（写真画像）。"
+"PNG" = "png サブタイプ名（ビットマップ画像）。"
+"SVG" = "svg サブタイプ名（ベクター画像）。"
+"基礎" = "basic サブタイプ名。"
+"MPEG" = "mpeg サブタイプ名（動画）。"
+"MP4" = "mp4 サブタイプ名（動画）。"
+"OGG" = "ogg サブタイプ名（音声/動画）。"
+"文字集合" = "charset パラメータ名（charset=utf-8 など）。"
+"境界値" = "boundary パラメータ名（multipart の区切り境界）。"
+"UTF8" = "utf-8 文字集合名。"
+"任意メディア" = "*/* 任意メディアタイプ定数。"
+"任意テキスト" = "text/* 任意テキストタイプ定数。"
+"純テキストメディア" = "text/plain メディアタイプ定数。"
+"純テキストUTF8メディア" = "text/plain; charset=utf-8 メディアタイプ定数。"
+"HTMLテキスト" = "text/html メディアタイプ定数。"
+"HTMLテキストUTF8" = "text/html; charset=utf-8 メディアタイプ定数。"
+"CSSテキスト" = "text/css メディアタイプ定数。"
+"CSSテキストUTF8" = "text/css; charset=utf-8 メディアタイプ定数。"
+"JavaScriptテキスト" = "text/javascript メディアタイプ定数。"
+"XMLテキスト" = "text/xml メディアタイプ定数。"
+"イベントストリームテキスト" = "text/event-stream メディアタイプ定数。"
+"CSVテキスト" = "text/csv メディアタイプ定数。"
+"CSVテキストUTF8" = "text/csv; charset=utf-8 メディアタイプ定数。"
+"タブ区切りテキスト" = "text/tab-separated-values メディアタイプ定数。"
+"タブ区切りテキストUTF8" = "text/tab-separated-values; charset=utf-8 メディアタイプ定数。"
+"電子名刺テキスト" = "text/vcard メディアタイプ定数。"
+"任意画像" = "image/* メディアタイプ定数。"
+"JPEG画像" = "image/jpeg メディアタイプ定数。"
+"GIF画像" = "image/gif メディアタイプ定数。"
+"PNG画像" = "image/png メディアタイプ定数。"
+"BMP画像" = "image/bmp メディアタイプ定数。"
+"SVG画像" = "image/svg+xml メディアタイプ定数。"
+"WOFFフォント" = "font/woff メディアタイプ定数。"
+"WOFF2フォント" = "font/woff2 メディアタイプ定数。"
+"JSONアプリケーション" = "application/json メディアタイプ定数。"
+"JavaScriptアプリケーション" = "application/javascript メディアタイプ定数。"
+"JavaScriptアプリケーションUTF8" = "application/javascript; charset=utf-8 メディアタイプ定数。"
+"URLフォーム符号化アプリケーション" = "application/x-www-form-urlencoded メディアタイプ定数。"
+"バイトストリームアプリケーション" = "application/octet-stream メディアタイプ定数。"
+"メッセージパックアプリケーション" = "application/msgpack メディアタイプ定数。"
+"PDFアプリケーション" = "application/pdf メディアタイプ定数。"
+"マルチパートフォームデータ" = "multipart/form-data メディアタイプ定数。"

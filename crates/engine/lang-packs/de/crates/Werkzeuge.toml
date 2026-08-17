@@ -1,0 +1,50 @@
+# Crate-Namensmapping (für use-Pfade)
+["模块路径"]
+"zufallszahlen" = "rand"
+"datum_zeit" = "chrono"
+"zeitverarbeitung" = "time"
+"regulaere_ausdruecke" = "regex"
+"statischer_verzoegerer" = "lazy_static"
+"einmalzelle" = "once_cell"
+
+# Interne Identifikator-Mappings (Typen, Funktionen usw.)
+["标识符"]
+# rand
+"faden_zufall" = "thread_rng"
+"zufalls_merkmal" = "Rng"
+"zufalls_bereich" = "gen_range"
+"zufaellig" = "random"
+"mischen" = "shuffle"
+"auswaehlen_zufall" = "choose"
+"fuellen" = "fill"
+"stichprobe" = "sample"
+
+# chrono
+"lokale_zeit" = "Local"
+"weltzeit" = "Utc"
+"datum_uhrzeit" = "DateTime"
+"naives_datum" = "NaiveDate"
+"naive_zeit" = "NaiveTime"
+"dauer" = "Duration"
+"jetzt" = "now"
+"heute" = "today"
+"formatieren" = "format"
+"wert_parsen" = "parse"
+
+# time
+"datum_mit_versatz" = "OffsetDateTime"
+"lokales_datum" = "Date"
+
+# regex
+"regex_typ" = "Regex"
+"finden" = "find"
+"alle_finden" = "find_iter"
+"funde" = "captures"
+"ersetzen" = "replace"
+"teilen" = "split"
+"ist_treffer" = "is_match"
+
+# lazy_static / once_cell
+"verzoegert_statisch" = "lazy_static"
+"einmal_zelle_typ" = "OnceCell"
+"fauler_wert" = "Lazy"

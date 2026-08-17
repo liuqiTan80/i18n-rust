@@ -4,8 +4,8 @@
 // 同时缓存源映射（被替换标识符的源偏移与替换文本），供 LSP/调试使用。
 
 use crate::error::TranspileError;
-use std::cell::Cell;
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// 源映射条目：源文件中一个被替换的标识符 token
 ///
@@ -77,13 +77,16 @@ struct CacheEntry {
 /// - 语境指纹：关键字/模块路径/标识符别名映射内容的哈希，
 ///   语言包更新后旧缓存自动失效，保证翻译结果与映射一致
 /// - 淘汰策略：LRU（最近最少使用），容量可配置
+///
+/// 统计计数用 [`AtomicU64`]，类型满足 `Send + Sync`，
+/// 可置于 `Mutex`/`RwLock` 后在多线程间共享（如并行转译项目文件）。
 pub struct TranslationCache {
     entries: HashMap<u64, CacheEntry>,
     /// LRU 顺序：队首最旧、队尾最新
     order: VecDeque<u64>,
     capacity: usize,
-    hits: Cell<u64>,
-    misses: Cell<u64>,
+    hits: AtomicU64,
+    misses: AtomicU64,
 }
 
 impl TranslationCache {
@@ -93,8 +96,8 @@ impl TranslationCache {
             entries: HashMap::new(),
             order: VecDeque::new(),
             capacity: capacity.max(1),
-            hits: Cell::new(0),
-            misses: Cell::new(0),
+            hits: AtomicU64::new(0),
+            misses: AtomicU64::new(0),
         }
     }
 
@@ -141,11 +144,11 @@ impl TranslationCache {
                 if entry.content_length == content.len()
                     && entry.context_fingerprint == context_fingerprint =>
             {
-                self.hits.set(self.hits.get() + 1);
+                self.hits.fetch_add(1, Ordering::Relaxed);
                 Some(&entry.output)
             }
             _ => {
-                self.misses.set(self.misses.get() + 1);
+                self.misses.fetch_add(1, Ordering::Relaxed);
                 None
             }
         }
@@ -215,21 +218,22 @@ impl TranslationCache {
 
     /// 累计命中次数
     pub fn hit_count(&self) -> u64 {
-        self.hits.get()
+        self.hits.load(Ordering::Relaxed)
     }
 
     /// 累计未命中次数
     pub fn miss_count(&self) -> u64 {
-        self.misses.get()
+        self.misses.load(Ordering::Relaxed)
     }
 
     /// 命中率（0.0 ~ 1.0；无查询记录时为 0.0）
     pub fn hit_rate(&self) -> f64 {
-        let total = self.hits.get() + self.misses.get();
+        let hits = self.hits.load(Ordering::Relaxed);
+        let total = hits + self.misses.load(Ordering::Relaxed);
         if total == 0 {
             0.0
         } else {
-            self.hits.get() as f64 / total as f64
+            hits as f64 / total as f64
         }
     }
 

@@ -1,0 +1,39 @@
+# Mapeo de nombres de crate (para rutas use)
+["模块路径"]
+"cliente_http" = "reqwest"
+"http_bajo_nivel" = "hyper"
+"gRPC" = "tonic"
+"toma_web" = "websocket"
+
+# Mapeo de identificadores internos (tipos, funciones, etc.)
+["标识符"]
+# reqwest
+"cliente" = "Client"
+"peticion_red" = "Request"
+"respuesta" = "Response"
+"get_red" = "get"
+"post_red" = "post"
+"cuerpo_peticion" = "body"
+"encabezado" = "header"
+"parametros_consulta_url" = "query"
+"formato_json" = "json"
+"texto_respuesta" = "text"
+"bytes_respuesta" = "bytes"
+
+# hyper
+"servidor" = "Server"
+"servicio" = "Service"
+"tipo_metodo" = "Method"
+"tipo_uri" = "Uri"
+"codigo_estado" = "StatusCode"
+
+# tonic
+"canal_conexion" = "Channel"
+"estado_grpc" = "Status"
+
+# websocket
+"toma_web_tipo" = "WebSocket"
+"mensaje" = "Message"
+"binario" = "Binary"
+"cerrar" = "Close"
+"recibir" = "recv"

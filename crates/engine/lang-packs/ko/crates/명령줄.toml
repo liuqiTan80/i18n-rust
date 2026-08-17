@@ -1,0 +1,41 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"명령줄" = "clap"
+"구조체_옵션" = "structopt"
+"대화_상자" = "dialoguer"
+"콘솔" = "console"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# clap
+"명령줄_파서" = "Command"
+"명령줄_인수" = "Arg"
+"하위_명령" = "Subcommand"
+"값_열거" = "ValueEnum"
+"파서" = "Parser"
+"긴_인수" = "long"
+"짧은_인수" = "short"
+"도움말" = "help"
+"버전" = "version"
+"필수_지정" = "required"
+"인수_기본값" = "default_value"
+
+# structopt
+"구조체_옵션_파싱" = "StructOpt"
+"파싱_실행" = "parse"
+"인수에서_파싱" = "from_args"
+
+# dialoguer
+"입력_상자" = "Input"
+"확인_상자" = "Confirm"
+"선택_상자" = "Select"
+"다중_선택_상자" = "MultiSelect"
+"비밀번호_상자" = "Password"
+"대화_실행" = "Interact"
+
+# console
+"터미널" = "Term"
+"스타일" = "Style"
+"색상_스타일" = "style"
+"진행_표시줄" = "ProgressBar"
+"스피너" = "Spinner"

@@ -1,6 +1,8 @@
 // Unicode 混淆检测模块
 // 在词法处理前扫描源码，检测零宽字符、双向文本控制符与同形异义字符，
 // 防范通过不可见或相似字符进行的代码伪装（隐藏恶意代码、标识符欺骗等）。
+// 语言感知：当前方言合法使用某文字系统时（如 ru 方言的西里尔标识符），
+// 不报告该文字的同形异义告警，避免对合法代码的误报。
 
 /// 混淆类别枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,16 +104,19 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
                 detail: crate::语言::f("unicode_bidi_hint", &[&localized_char_name(ch, name)]),
             });
         } else if let Some((similar, name)) = homoglyph_char(ch) {
-            warnings.push(ConfusionWarning {
-                line,
-                column: col,
-                character: ch,
-                category: ConfusionCategory::Homoglyph,
-                detail: crate::语言::f(
-                    "unicode_homoglyph_hint",
-                    &[&similar.to_string(), &localized_char_name(ch, name)],
-                ),
-            });
+            // 当前方言合法使用该文字时（如 ru 方言的西里尔字母）不构成混淆，跳过
+            if !is_native_script_char(ch) {
+                warnings.push(ConfusionWarning {
+                    line,
+                    column: col,
+                    character: ch,
+                    category: ConfusionCategory::Homoglyph,
+                    detail: crate::语言::f(
+                        "unicode_homoglyph_hint",
+                        &[&similar.to_string(), &localized_char_name(ch, name)],
+                    ),
+                });
+            }
         }
         col += 1;
     }
@@ -215,6 +220,18 @@ fn homoglyph_char(ch: char) -> Option<(char, &'static str)> {
         .iter()
         .find(|(suspicious, _, _)| *suspicious == ch)
         .map(|(_, similar, name)| (*similar, *name))
+}
+
+/// 字符是否属于当前方言合法使用的文字系统
+///
+/// ru 方言用西里尔字母书写标识符，形似拉丁字母的西里尔字符是合法字符而非伪装；
+/// 希腊字母等其他同形字符与零宽/双向控制符不受豁免，仍然告警。
+fn is_native_script_char(ch: char) -> bool {
+    let code = ch as u32;
+    matches!(
+        (crate::语言::current_language().as_str(), code),
+        ("ru", 0x0400..=0x04FF) // 西里尔字母块
+    )
 }
 
 #[cfg(test)]
@@ -325,11 +342,36 @@ mod tests {
 
     #[test]
     fn test_multiline_position_counting() {
+        // 西里尔字符告警依赖当前语言为 zh（ru 下方豁免），需持锁串行
+        let _guard = zh_guard();
         let source = "函数 主函数() {\n    让 x = 1;\n    а = 2;\n}";
         let warnings = check_unicode_confusion(source);
         assert_eq!(warnings.len(), 1);
         assert_eq!(warnings[0].line, 3);
         assert_eq!(warnings[0].column, 5);
+    }
+
+    #[test]
+    fn test_russian_dialect_skips_cyrillic_homoglyph() {
+        let _guard = crate::语言::LANG_TEST_LOCK.lock().unwrap();
+        crate::语言::set_language("ru");
+        // 西里尔字符在 ru 方言中是合法标识符字符，不再报同形异义告警
+        let warnings = check_unicode_confusion("пусть а = 1;");
+        assert!(warnings.is_empty(), "ru 方言不应误报西里尔字符");
+        // 希腊字母与零宽字符在 ru 方言下仍然告警
+        let warnings = check_unicode_confusion("пусть ρ\u{200B} = 1;");
+        assert_eq!(warnings.len(), 2);
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.category == ConfusionCategory::Homoglyph)
+        );
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.category == ConfusionCategory::ZeroWidth)
+        );
+        crate::语言::set_language("zh");
     }
 
     #[test]

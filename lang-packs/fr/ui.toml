@@ -27,6 +27,9 @@
 "compile_error" = "Erreurs de compilation :\n{}"
 "load_error_msg_failed" = "Echec du chargement des messages d'erreur : {}"
 "warn_builtin_errors_failed" = "Avertissement : echec du chargement des messages d'erreur integres : {}"
+"no_project_root" = "Racine du projet introuvable (aucun Cargo.toml dans les dossiers parents). Fichier source : {}. Creez d'abord un projet avec `rzc init`."
+"transpile_file_failed" = "Echec de la transpilation de {} : {}"
+"run_program_failed" = "Le programme a echoue ({}):\n{}"
 
 # ---- creation de projet ----
 "dir_exists" = "Le repertoire {} existe deja"

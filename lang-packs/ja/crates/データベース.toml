@@ -1,0 +1,33 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"データベース" = "sqlx"
+"ORM" = "diesel"
+"SQLite" = "rusqlite"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# sqlx
+"プール" = "Pool"
+"接続型" = "Connection"
+"照会" = "query"
+"実行" = "execute"
+"フェッチ" = "fetch"
+"全フェッチ" = "fetch_all"
+"単一フェッチ" = "fetch_one"
+"任意フェッチ" = "fetch_optional"
+"トランザクション" = "Transaction"
+"移行実行" = "migrate"
+
+# diesel
+"照会構築" = "QueryDsl"
+"挿入可能" = "Insertable"
+"照会可能" = "Queryable"
+"テーブル" = "Table"
+"選別" = "select"
+"絞り込み条件" = "filter"
+"並び順" = "order"
+"行数制限" = "limit"
+
+# rusqlite
+"命令文" = "Statement"
+"準備実行" = "prepare"
