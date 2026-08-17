@@ -66,6 +66,11 @@ jobs:
         # 工作区含 rzc 与 i18n-rust-lsp 两个二进制，必须用 --bin 指定
         run: cargo run --quiet --bin rzc -- mapping auto --help | grep -q "crate"
 
+      - name: 第三方库映射质量门禁
+        # 校验全部内置语言包的 crates 映射：重复键 / 关键字避让 /
+        # 跨文件同键冲突 / 跨语言条目数一致性；发现错误时退出码非零
+        run: cargo run --quiet --bin rzc -- mapping check
+
   # ---------- 2. 三平台 release 二进制构建 ----------
   build:
     name: 构建 ${{ matrix.os_name }}-${{ matrix.arch }}

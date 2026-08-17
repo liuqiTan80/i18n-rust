@@ -122,7 +122,7 @@
 "仓库" = "Depot"  # type Depot = crate::depot::Depot
 "服务" = "Service"  # type Service = crate::service::Service
 "HTTP库" = "hyper"  # type hyper = hyper
-"宏" = "macros"  # type macros = salvo_macros
+"宏集" = "macros"  # type macros = salvo_macros
 "盒装错误" = "BoxedError"  # type BoxedError = self::error::BoxedError
 "错误类型" = "Error"  # type Error = self::error::Error
 "结果" = "Result"  # type Result = std::result::Result<T, Error>
@@ -315,7 +315,7 @@
 "仓库" = "请求共享数据容器，各中间件在此存取数据。"
 "服务" = "salvo 服务主体，可被 hyper 驱动运行。"
 "HTTP库" = "hyper crate 的类型别名（底层 HTTP 实现）。"
-"宏" = "salvo 过程宏 crate 的类型别名。"
+"宏集" = "salvo 过程宏 crate 的类型别名。"
 "盒装错误" = "装箱的动态错误（Box<dyn Error>）。"
 "错误类型" = "salvo 通用错误类型，支持状态码与来源链。"
 "结果" = "salvo 统一的 Result 别名（错误类型为 Error）。"

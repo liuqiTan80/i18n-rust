@@ -9,21 +9,21 @@
 ["标识符"]
 # reqwest
 "客户端" = "Client"
-"请求" = "Request"
-"响应" = "Response"
+"HTTP请求" = "Request"
+"HTTP响应" = "Response"
 "获取" = "get"
 "发送请求" = "post"
 "请求体" = "body"
 "头部" = "header"
 "查询参数" = "query"
-"JSON" = "json"
-"文本" = "text"
-"字节" = "bytes"
+"JSON格式" = "json"
+"文本响应" = "text"
+"字节响应" = "bytes"
 
 # hyper
 "服务器" = "Server"
 "服务" = "Service"
-"方法" = "Method"
+"HTTP方法" = "Method"
 "URI" = "Uri"
 "状态码" = "StatusCode"
 

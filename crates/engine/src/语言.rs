@@ -32,6 +32,38 @@ pub fn set_language(code: &str) {
     *lang_lock() = code.to_string();
 }
 
+/// RAII 语言作用域守卫：构造时设置语言，drop 时恢复进入前的值
+///
+/// 用于测试与临时切换场景，消除手工 `set_language` + 末尾恢复
+/// 的遗忘风险（忘记恢复会在并行测试间污染全局语言，是历史
+/// flaky 的根因类别）。注意：守卫只保证恢复，不保证串行化；
+/// 测试中仍应配合 [`LANG_TEST_LOCK`] 持锁使用。
+pub struct LanguageGuard {
+    previous: String,
+}
+
+impl LanguageGuard {
+    /// 切换到指定语言，记录进入前的语言供 drop 时恢复
+    pub fn enter(code: &str) -> Self {
+        let mut lang = lang_lock();
+        let previous = lang.clone();
+        *lang = code.to_string();
+        Self { previous }
+    }
+}
+
+impl Drop for LanguageGuard {
+    fn drop(&mut self) {
+        // mem::take 避免在 drop 中克隆；恢复后 previous 置空不再使用
+        *lang_lock() = std::mem::take(&mut self.previous);
+    }
+}
+
+/// 便捷入口：`let _g = 语言::with_language("ru");` 作用域内生效，离开自动恢复
+pub fn with_language(code: &str) -> LanguageGuard {
+    LanguageGuard::enter(code)
+}
+
 /// 当前全局语言代码（未设置时为 zh）
 pub fn current_language() -> String {
     let lang = lang_lock();
@@ -150,22 +182,36 @@ mod tests {
     #[test]
     fn test_set_language_de() {
         let _guard = LANG_TEST_LOCK.lock().unwrap();
-        set_language("de");
+        // 作用域守卫：离开时自动恢复进入前的语言，无需手工还原
+        let _lang = with_language("de");
         assert_eq!(current_language(), "de");
         // 纯函数按语言取模板，不受全局状态干扰
         assert_eq!(t_in("de", "err_line_col"), "Zeile {}, Spalte {}");
         assert_eq!(f_in("de", "err_line_col", &["1", "2"]), "Zeile 1, Spalte 2");
+    }
+
+    #[test]
+    fn test_language_guard_restores_previous() {
+        let _guard = LANG_TEST_LOCK.lock().unwrap();
         set_language("zh");
+        {
+            let _lang = with_language("ru");
+            assert_eq!(current_language(), "ru");
+            // 嵌套守卫逐层恢复
+            let _inner = with_language("de");
+            assert_eq!(current_language(), "de");
+        }
+        assert_eq!(current_language(), "zh");
     }
 
     #[test]
     fn test_fallback_chain() {
         let _guard = LANG_TEST_LOCK.lock().unwrap();
+        let _lang = with_language("de");
         // 德语表缺 unicode_name_*（仅 zh 提供），回退中文表
         assert_eq!(t_in("de", "unicode_name_200B"), "零宽空格");
         // 完全缺失的键回退键名
         assert_eq!(t_in("de", "no_such_key"), "no_such_key");
-        set_language("zh");
     }
 
     #[test]

@@ -14,18 +14,18 @@
 "资源" = "resource"
 "作用域" = "scope"
 "处理器" = "handler"
-"请求" = "HttpRequest"
-"响应" = "HttpResponse"
+"web请求" = "HttpRequest"
+"web响应" = "HttpResponse"
 "JSON" = "Json"
 "表单" = "Form"
 "路径" = "Path"
-"查询" = "Query"
+"查询提取器" = "Query"
 "中间件" = "middleware"
 
 # axum
 "路由到" = "route"
 "提取器" = "extract"
-"状态" = "State"
+"状态提取器" = "State"
 "扩展器" = "Extension"
 
 # warp

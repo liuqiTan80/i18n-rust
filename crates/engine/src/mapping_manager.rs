@@ -90,13 +90,20 @@ impl MappingManager {
         let crates_dir = lang_dir.join("crates");
         let mut alias_map = HashMap::new();
         if crates_dir.exists() && crates_dir.is_dir() {
-            let mut toml_files: Vec<std::path::PathBuf> = fs::read_dir(&crates_dir)
-                .into_iter()
-                .flatten()
-                .flatten()
-                .map(|entry| entry.path())
-                .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("toml"))
-                .collect();
+            // read_dir 或条目读取失败必须报错（不能静默吞掉），
+            // 否则第三方库映射整体丢失且用户无感知
+            let mut toml_files = Vec::new();
+            for entry in fs::read_dir(&crates_dir).map_err(|e| LoadError::DirReadFailed {
+                detail: e.to_string(),
+            })? {
+                let entry = entry.map_err(|e| LoadError::DirReadFailed {
+                    detail: e.to_string(),
+                })?;
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) == Some("toml") {
+                    toml_files.push(path);
+                }
+            }
             toml_files.sort();
             for file_path in toml_files {
                 let content =
@@ -117,10 +124,14 @@ impl MappingManager {
         // 4. 加载标准库映射（stdlib.toml，可选，最后加载以保证优先）
         //    与 crates/*.toml 相同格式：["模块路径"] + ["标识符"] 两节
         //    后加载会覆盖第三方库中同名的通用词（如 mpsc 的 "发送" 不被 HTTP 库的 "post" 覆盖）
+        //    文件存在但读取失败必须报错（不能静默跳过，否则标准库映射整体丢失）
         let stdlib_file = lang_dir.join("stdlib.toml");
-        if stdlib_file.exists()
-            && let Ok(content) = fs::read_to_string(&stdlib_file)
-        {
+        if stdlib_file.exists() {
+            let content = fs::read_to_string(&stdlib_file).map_err(|e| LoadError::ReadFailed {
+                target: LoadTarget::Stdlib,
+                path: Some(stdlib_file.display().to_string()),
+                detail: e.to_string(),
+            })?;
             merge_module_and_ident_sections(&content, &mut module_path_map, &mut alias_map)
                 .map_err(|e| LoadError::ParseFailed {
                     target: LoadTarget::Stdlib,

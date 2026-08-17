@@ -233,6 +233,16 @@ pub fn run_auto_generate(
         );
     }
 
+    // 目标文件已存在时给出覆盖警告（防止静默覆盖手工调整过的映射）
+    if output_path.exists() {
+        eprintln!(
+            "{}",
+            ui.f(
+                "mapping_overwrite_warn",
+                &[&output_path.display().to_string()]
+            )
+        );
+    }
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent)
             .with_context(|| ui.f("mg_err_mkdir", &[&parent.display().to_string()]))?;
@@ -802,7 +812,7 @@ fn extract_doc_json_internal(
                         .map(|kinds| {
                             kinds
                                 .iter()
-                                .any(|k| k.get("kind").map_or(true, |v| v.is_null()))
+                                .any(|k| k.get("kind").is_none_or(|v| v.is_null()))
                         })
                         .unwrap_or(true);
                     if is_normal {
@@ -1815,6 +1825,61 @@ const AI_PROMPT_EN: &str = "You are a teaching translation expert for Rust begin
 const AI_READ_TIMEOUT: u64 = 120;
 const AI_WRITE_TIMEOUT: u64 = 60;
 
+/// 调用 DeepSeek chat 接口的通用底层：发送 system+user 提示词，返回模型文本
+///
+/// 供映射生成（call_ai_generate_mapping）与脚手架翻译
+/// （mapping_check::run_scaffold --provider deepseek）共用。
+pub fn deepseek_chat(system_prompt: &str, user_prompt: &str) -> anyhow::Result<String> {
+    let ui = crate::ui::Ui::global();
+    let api_key =
+        std::env::var("DEEPSEEK_API_KEY").map_err(|_| anyhow!("{}", ui.t("mg_err_no_api_key")))?;
+    if api_key.is_empty() {
+        bail!("{}", ui.t("mg_err_api_key_empty"));
+    }
+    let base_url = std::env::var("DEEPSEEK_BASE_URL")
+        .unwrap_or_else(|_| "https://api.deepseek.com".to_string());
+    let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+    let request_body = serde_json::json!({
+        "model": "deepseek-chat",
+        "messages": [
+            { "role": "system", "content": system_prompt },
+            { "role": "user", "content": user_prompt }
+        ],
+        "temperature": 0.2,
+        "stream": false
+    });
+    let agent = ureq::AgentBuilder::new()
+        .timeout_connect(std::time::Duration::from_secs(AI_CONNECT_TIMEOUT))
+        .timeout_read(std::time::Duration::from_secs(AI_READ_TIMEOUT))
+        .timeout_write(std::time::Duration::from_secs(AI_WRITE_TIMEOUT))
+        .build();
+    let resp = agent
+        .post(&url)
+        .set("Content-Type", "application/json")
+        .set("Authorization", &format!("Bearer {}", api_key))
+        .send_string(&request_body.to_string())
+        .map_err(|e| anyhow!("{}", ui.f("mg_err_ai_request", &[&e.to_string()])))?;
+    if resp.status() != 200 {
+        bail!(
+            "{}",
+            ui.f("mg_err_ai_status", &[&resp.status().to_string()])
+        );
+    }
+    let resp_text = resp
+        .into_string()
+        .map_err(|e| anyhow!("{}", ui.f("mg_err_ai_read", &[&e.to_string()])))?;
+    let resp_json: Value = serde_json::from_str(&resp_text)
+        .map_err(|e| anyhow!("{}", ui.f("mg_err_ai_parse", &[&e.to_string()])))?;
+    resp_json
+        .get("choices")
+        .and_then(|c| c.get(0))
+        .and_then(|m| m.get("message"))
+        .and_then(|m| m.get("content"))
+        .and_then(Value::as_str)
+        .map(|s| s.to_string())
+        .ok_or_else(|| anyhow!("{}", ui.t("mg_err_ai_no_content")))
+}
+
 /// 调用 DeepSeek 生成中文名与解释，返回 (中文名→英文名, 中文名→解释)
 ///
 /// 只发送 API 英文名与类型签名；失败时上层回退规则模式。
@@ -1823,15 +1888,6 @@ pub fn call_ai_generate_mapping(
     lang: &str,
     entries: &[ApiEntry],
 ) -> anyhow::Result<(HashMap<String, String>, HashMap<String, String>)> {
-    let api_key = std::env::var("DEEPSEEK_API_KEY")
-        .map_err(|_| anyhow!("{}", crate::ui::Ui::global().t("mg_err_no_api_key")))?;
-    if api_key.is_empty() {
-        bail!("{}", crate::ui::Ui::global().t("mg_err_api_key_empty"));
-    }
-    let base_url = std::env::var("DEEPSEEK_BASE_URL")
-        .unwrap_or_else(|_| "https://api.deepseek.com".to_string());
-    let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
-
     let api_list = entries
         .iter()
         .map(|e| format!("- {} {}", e.kind.display(), e.signature))
@@ -1853,67 +1909,11 @@ pub fn call_ai_generate_mapping(
             crate_name, api_list
         )
     };
-    let request_body = serde_json::json!({
-        "model": "deepseek-chat",
-        "messages": [
-            {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": user_prompt
-            }
-        ],
-        "temperature": 0.2,
-        "stream": false
-    });
-
-    let agent = ureq::AgentBuilder::new()
-        .timeout_connect(std::time::Duration::from_secs(AI_CONNECT_TIMEOUT))
-        .timeout_read(std::time::Duration::from_secs(AI_READ_TIMEOUT))
-        .timeout_write(std::time::Duration::from_secs(AI_WRITE_TIMEOUT))
-        .build();
-    let resp = agent
-        .post(&url)
-        .set("Content-Type", "application/json")
-        .set("Authorization", &format!("Bearer {}", api_key))
-        .send_string(&request_body.to_string())
-        .map_err(|e| {
-            anyhow!(
-                "{}",
-                crate::ui::Ui::global().f("mg_err_ai_request", &[&e.to_string()])
-            )
-        })?;
-    if resp.status() != 200 {
-        bail!(
-            "{}",
-            crate::ui::Ui::global().f("mg_err_ai_status", &[&resp.status().to_string()])
-        );
-    }
-    let resp_text = resp.into_string().map_err(|e| {
-        anyhow!(
-            "{}",
-            crate::ui::Ui::global().f("mg_err_ai_read", &[&e.to_string()])
-        )
-    })?;
-    let resp_json: Value = serde_json::from_str(&resp_text).map_err(|e| {
-        anyhow!(
-            "{}",
-            crate::ui::Ui::global().f("mg_err_ai_parse", &[&e.to_string()])
-        )
-    })?;
-    let content = resp_json
-        .get("choices")
-        .and_then(|c| c.get(0))
-        .and_then(|m| m.get("message"))
-        .and_then(|m| m.get("content"))
-        .and_then(Value::as_str)
-        .ok_or_else(|| anyhow!("{}", crate::ui::Ui::global().t("mg_err_ai_no_content")))?;
+    let content = deepseek_chat(system_prompt, &user_prompt)?;
 
     let valid_english_names: HashSet<String> =
         entries.iter().map(|e| e.english_name.clone()).collect();
-    parse_ai_result(content, &valid_english_names)
+    parse_ai_result(&content, &valid_english_names)
 }
 
 /// 解析 AI 返回的 TOML 文本为 (中文名→英文名, 中文名→解释)；

@@ -813,10 +813,13 @@ fn is_supported_file(uri: &str, extensions: &[String]) -> bool {
     extensions.iter().any(|ext| uri.ends_with(ext))
 }
 
-/// 计算虚拟项目临时目录（按用户隔离）并拒绝符号链接
+/// 计算虚拟项目临时目录（按用户 + 进程实例隔离）并拒绝符号链接
 ///
 /// 固定共享的 /tmp 路径在多用户机器上可被预创建为符号链接，
 /// 后续写文件会跟随链接覆写任意位置；按用户名隔离并校验规避此风险。
+/// 同一用户的多个编辑器实例各起一个 LSP 代理进程，再叠加 PID 后缀
+/// 避免互相同目录覆写 Cargo.toml / src 内容；启动时清理已死进程
+/// 的残留目录（见 [`cleanup_stale_virtual_dirs`]）防止无限累积。
 fn virtual_temp_dir() -> anyhow::Result<PathBuf> {
     let user = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
@@ -831,7 +834,12 @@ fn virtual_temp_dir() -> anyhow::Result<PathBuf> {
             }
         })
         .collect();
-    let dir = std::env::temp_dir().join(format!("i18n_lsp_virtual_{}", safe_user));
+    cleanup_stale_virtual_dirs(&safe_user);
+    let dir = std::env::temp_dir().join(format!(
+        "i18n_lsp_virtual_{}_{}",
+        safe_user,
+        std::process::id()
+    ));
     if dir
         .symlink_metadata()
         .map(|m| m.file_type().is_symlink())
@@ -843,6 +851,68 @@ fn virtual_temp_dir() -> anyhow::Result<PathBuf> {
         );
     }
     Ok(dir)
+}
+
+/// 清理同用户的残留虚拟目录：仅删除名称中带 PID 后缀且进程已死的目录
+///
+/// 尽力而为：任何失败（目录列举失败、无法解析 PID、删除失败）都静默跳过，
+/// 不影响本实例启动。存活检查对 Unix（kill 0 信号）与 Windows
+/// （OpenProcess 语义的 tasklist 查询不可移植，退回 mtime 启发式）分别处理。
+fn cleanup_stale_virtual_dirs(safe_user: &str) {
+    let prefix = format!("i18n_lsp_virtual_{}_", safe_user);
+    let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name_str) = name.to_str() else {
+            continue;
+        };
+        // 仅处理本用户且带 PID 后缀的目录；无后缀的旧版目录不动（避免误删）
+        let Some(pid_str) = name_str.strip_prefix(&prefix) else {
+            continue;
+        };
+        if pid_str == std::process::id().to_string() {
+            continue; // 当前进程自己的目录
+        }
+        let Ok(pid) = pid_str.parse::<u32>() else {
+            continue;
+        };
+        if process_alive(pid) {
+            continue;
+        }
+        // 进程已死：目录是残留，尽力删除（失败静默）
+        let path = entry.path();
+        if path
+            .symlink_metadata()
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(true)
+        {
+            continue; // 符号链接不跟随删除
+        }
+        let _ = std::fs::remove_dir_all(&path);
+    }
+}
+
+/// 判断 PID 是否存活（仅用于残留目录清理，误判代价低）
+///
+/// Unix：kill 0 信号探活；返回 -1（进程不存在或无权限）时保守视为存活，
+/// 宁可残留目录下轮再清，也不误删活进程的文件。
+fn process_alive(pid: u32) -> bool {
+    #[cfg(unix)]
+    {
+        unsafe extern "C" {
+            fn kill(pid: i32, sig: i32) -> i32;
+        }
+        // 不实际发信号（sig=0），仅做存在性检查
+        unsafe { kill(pid as i32, 0) == 0 }
+    }
+    #[cfg(not(unix))]
+    {
+        // 非 Unix 平台无廉价探活手段：保守视为存活，不删除
+        let _ = pid;
+        true
+    }
 }
 
 /// 清理超时的待映射请求：向客户端应答错误，避免永久等待与条目泄漏

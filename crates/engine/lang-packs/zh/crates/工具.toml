@@ -15,7 +15,7 @@
 "随机范围" = "gen_range"
 "随机" = "random"
 "洗牌" = "shuffle"
-"选择" = "choose"
+"随机选择" = "choose"
 "填充" = "fill"
 "采样" = "sample"
 
@@ -49,4 +49,4 @@
 
 # once_cell
 "单次" = "OnceCell"
-"延迟" = "Lazy"
+"延迟静态值" = "Lazy"

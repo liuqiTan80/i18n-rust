@@ -8,10 +8,10 @@
 ["标识符"]
 # sqlx
 "池" = "Pool"
-"连接" = "Connection"
+"连接对象" = "Connection"
 "查询" = "query"
 "执行" = "execute"
-"获取" = "fetch"
+"抓取" = "fetch"
 "获取全部" = "fetch_all"
 "获取一个" = "fetch_one"
 "获取可选" = "fetch_optional"

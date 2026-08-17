@@ -18,8 +18,10 @@ use std::collections::HashMap;
 /// 采用 token 级替换（与 `replace_aliases` 一致）：
 /// - 仅替换**完整标识符 token**，避免破坏组合词
 ///   （如 `读取全部字符串` 中的 `字符串` 不会被误替换）；
-/// - 仅替换**后跟 `::` 的路径段**，避免误替换普通中文变量名；
-/// - 路径段与 `::` 之间可能有空白，替换时仅替换路径段本身。
+/// - 仅替换 **use 语句内**的路径段（含末段与单段路径，如 `使用 文件系统;`），
+///   use 内不可能出现用户变量，全量替换安全；
+/// - 表达式中的 `类型::关联函数`（如 `引用计数::新建`）不替换，
+///   留给别名映射处理成 `Rc::new`。
 pub fn replace_module_paths(source: &str, path_map: &HashMap<String, String>) -> String {
     if path_map.is_empty() {
         return source.to_string();
@@ -33,20 +35,16 @@ pub fn replace_module_paths(source: &str, path_map: &HashMap<String, String>) ->
     // 不能被模块路径映射误替换成 `rc::新建`
     let mut in_use_stmt = false;
 
-    for (i, token) in tokens.iter().enumerate() {
+    for token in tokens.iter() {
         let len = token.len;
         let text = &source[current_offset..current_offset + len];
         match token.kind {
             TokenKind::Ident => {
-                // 仅当该路径段后紧接 `::`（两个连续的 Colon token）时
-                // 才视为路径段
-                let is_path_segment = tokens
-                    .get(i + 1)
-                    .is_some_and(|t| matches!(t.kind, TokenKind::Colon))
-                    && tokens
-                        .get(i + 2)
-                        .is_some_and(|t| matches!(t.kind, TokenKind::Colon));
-                if in_use_stmt && is_path_segment {
+                // use 语句内所有路径段（含末段/单段）都查映射：
+                // use 中不可能出现用户变量，替换安全；
+                // 末段若不在路径映射（如 `服务器` 属于标识符别名），
+                // 保持原样交给别名替换处理
+                if in_use_stmt {
                     if let Some(english) = path_map.get(text) {
                         output.push_str(english);
                     } else {
@@ -100,6 +98,30 @@ mod tests {
         let map = sample_path_map();
         let result = replace_module_paths("标准集合::新建(5);", &map);
         assert_eq!(result, "标准集合::新建(5);");
+    }
+
+    /// use 语句末段（后跟分号）也参与路径映射替换
+    #[test]
+    fn test_use_tail_segment_replaced() {
+        let map = sample_path_map();
+        let result = replace_module_paths("使用 标准集合::字符串;", &map);
+        assert_eq!(result, "使用 std::collections::string;");
+    }
+
+    /// use 语句单段路径（无 `::`）直接映射整个模块
+    #[test]
+    fn test_use_single_segment_replaced() {
+        let map = sample_path_map();
+        let result = replace_module_paths("使用 文件系统;", &map);
+        assert_eq!(result, "使用 std::fs;");
+    }
+
+    /// 映射表未覆盖的末段保持原样，交给别名替换处理（如 `服务器` → `Server`）
+    #[test]
+    fn test_use_tail_unmapped_kept() {
+        let map = sample_path_map();
+        let result = replace_module_paths("使用 salvo::服务器;", &map);
+        assert_eq!(result, "使用 salvo::服务器;");
     }
 
     /// use 语句结束后（分号后）恢复默认行为

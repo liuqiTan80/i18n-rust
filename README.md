@@ -61,7 +61,12 @@ rzc run src/main.zh
 | `rzc check <文件>` | 类型检查，输出中文教学诊断 |
 | `rzc eject <文件>` | 导出为标准 Rust 代码 |
 | `rzc lang list` | 列出已安装语言包 |
+| `rzc lang install <码/目录>` | 安装语言包（远程仓库或本地目录，支持 `RZ_LANG_REPO` 自定义源） |
 | `rzc mapping auto <crate名>` | 自动生成第三方库映射 |
+| `rzc mapping check [目标]` | 第三方库映射质量校验（冲突/关键字避让/跨语言一致性） |
+| `rzc mapping scaffold <源> <目标>` | 新语言翻译脚手架，`--provider deepseek` 可 AI 自动翻译键名 |
+
+> 新增语言与第三方库映射维护见 [docs/contributing-lang-pack.md](docs/contributing-lang-pack.md) 与 [docs/third-party-mapping.md](docs/third-party-mapping.md)。
 
 ## ✨ 功能特性
 

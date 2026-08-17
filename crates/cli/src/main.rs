@@ -12,6 +12,7 @@ use std::process::Command;
 
 mod builtin_lang;
 mod lang_manager;
+mod mapping_check;
 mod mapping_gen;
 mod ui;
 
@@ -76,6 +77,24 @@ enum MappingCommand {
         #[arg(long)]
         output: Option<PathBuf>,
     },
+    /// 校验第三方库映射质量：重复键/关键字避让/跨文件冲突/条目数一致性
+    Check {
+        /// 内置语言代码（如 zh）或语言包目录路径；省略时校验全部内置语言
+        target: Option<String>,
+    },
+    /// 从源语言 crates 映射生成目标语言的翻译骨架（键保留待翻译，英文值不变）
+    Scaffold {
+        /// 源语言代码（内置语言，如 zh）
+        source: String,
+        /// 目标语言代码（新语言包目录名，如 vi）
+        target: String,
+        /// 输出目录（默认 lang-packs/<target>/crates/）
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// 翻译方式：rule（默认，生成 TODO 骨架待人工翻译）或 deepseek（AI 自动翻译键名，需 DEEPSEEK_API_KEY）
+        #[arg(long, default_value = "rule")]
+        provider: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -128,7 +147,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
         CliCommand::Run { file, lang_pack } => {
             let ui = ui_for_file(&file, &lang_pack);
             let source = fs::read_to_string(&file)?;
-            let manager = load_mapping(lang_pack, Some(&file))?;
+            let manager = load_mapping(lang_pack.clone(), Some(&file))?;
             let project_root = find_project_root(&file)?;
             // 入口文件写入 src/main.rs 作为 cargo run 的编译目标
             let source_path = project_root.join("src/main.rs");
@@ -166,7 +185,38 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // 失败时区分编译错误与程序运行时错误：
             // cargo 编译失败会在 stderr 输出 error[E....] / error: 前缀
             if stderr.contains("error[E") || stderr.contains("error:") {
-                eprintln!("{}", ui.f("compile_error", &[stderr.as_ref()]));
+                // 编译错误：追加一次 cargo check --message-format=json，
+                // 走与 check 命令相同的结构化诊断翻译管线（教学化错误消息）；
+                // 翻译无结果（Cargo.toml 错误/链接错误等）时回退原始 stderr
+                let check_out = Command::new("cargo")
+                    .arg("check")
+                    .arg("--message-format=json")
+                    .current_dir(&project_root)
+                    .output();
+                let translated = match check_out {
+                    Ok(co) => {
+                        let rustc_output = format!(
+                            "{}\n{}",
+                            String::from_utf8_lossy(&co.stdout),
+                            String::from_utf8_lossy(&co.stderr)
+                        );
+                        translate_cargo_diagnostics(
+                            &rustc_output,
+                            stderr.trim(),
+                            &ui,
+                            &lang_pack,
+                            &project_root,
+                            &manager,
+                            &source,
+                            &file,
+                            co.status.success(),
+                        )
+                    }
+                    Err(_) => false,
+                };
+                if !translated {
+                    eprintln!("{}", ui.f("compile_error", &[stderr.as_ref()]));
+                }
             } else {
                 eprintln!(
                     "{}",
@@ -214,145 +264,24 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 std::process::ExitCode::FAILURE
             };
 
-            // cargo --message-format=json 的编译器诊断输出到 stdout，cargo 自身消息在 stderr
+            // 结构化诊断翻译（与 run 编译失败路径共用同一管线）
             let stderr_text = String::from_utf8_lossy(&output.stderr).to_string();
             let rustc_output = format!(
                 "{}\n{}",
                 String::from_utf8_lossy(&output.stdout),
                 stderr_text
             );
-            use i18n_rust_engine::diagnostic::{
-                DiagnosticTranslator, ErrorTranslationManager, parse_diagnostic_output,
-            };
-
-            // 按语言代码选择错误消息：--lang-pack 目录 > 项目内 lang-packs/<lang>/ > 内置
-            let lang_code = file
-                .extension()
-                .and_then(|e| e.to_str())
-                .and_then(get_lang_code_from_extension)
-                .unwrap_or_else(ui::detect_ui_lang);
-            let error_msg_path = if let Some(path) = &lang_pack {
-                path.join("errors.toml")
-            } else if project_root
-                .join(format!("lang-packs/{}/errors.toml", lang_code))
-                .exists()
-            {
-                project_root.join(format!("lang-packs/{}/errors.toml", lang_code))
-            } else {
-                lang_manager::global_lang_dir()
-                    .join(&lang_code)
-                    .join("errors.toml")
-            };
-            let translator = if error_msg_path.exists() {
-                let translation_manager = ErrorTranslationManager::load_from_file(&error_msg_path)
-                    .map_err(|e| {
-                        anyhow::anyhow!("{}", ui.f("load_error_msg_failed", &[&e.to_string()]))
-                    })?;
-                let reverse_map: HashMap<String, String> = manager
-                    .get_section_mapping("类型")
-                    .map(|section| {
-                        section
-                            .iter()
-                            .map(|(k, v)| (v.clone(), k.clone()))
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                Some(DiagnosticTranslator::new(translation_manager, reverse_map))
-            } else {
-                // 回退到内置语言包（未知语言代码自动回退中文）
-                let builtin = builtin_lang::get_builtin_data(&lang_code);
-                match ErrorTranslationManager::load_from_string(builtin.errors_toml) {
-                    Ok(translation_manager) => {
-                        let reverse_map: HashMap<String, String> = manager
-                            .get_section_mapping("类型")
-                            .map(|section| {
-                                section
-                                    .iter()
-                                    .map(|(k, v)| (v.clone(), k.clone()))
-                                    .collect()
-                            })
-                            .unwrap_or_default();
-                        Some(DiagnosticTranslator::new(translation_manager, reverse_map))
-                    }
-                    Err(e) => {
-                        eprintln!("{}", ui.f("warn_builtin_errors_failed", &[&e.to_string()]));
-                        None
-                    }
-                }
-            };
-
-            let original_filename = file
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
-            let mut diagnostics = parse_diagnostic_output(&rustc_output);
-            // 保留 error/warning；不要求有错误码——无码的解析错误（如缺括号）
-            // 也必须显示，否则会被静默吞掉导致假“编译成功”
-            diagnostics.retain(|d| d.level == "error" || d.level == "warning");
-            let mut seen_codes = std::collections::HashSet::new();
-            diagnostics.retain(|d| {
-                if let Some(ref code) = d.code {
-                    seen_codes.insert(code.code.clone())
-                } else {
-                    true // 无错误码的诊断（解析错误等）不去重，直接保留
-                }
-            });
-
-            if diagnostics.is_empty() {
-                if output.status.success() {
-                    println!("{}", ui.t("success_compile"));
-                } else {
-                    // cargo 失败但无可解析的 JSON 诊断（Cargo.toml 语法错误、
-                    // 链接错误等）：原样输出 cargo 消息，绝不虚报“编译成功”
-                    eprintln!("{}", ui.f("compile_error", &[stderr_text.trim()]));
-                }
-                return Ok(exit_code);
-            }
-
-            if let Some(ref translator) = translator {
-                let mut teaching_list = translator.batch_translate(&diagnostics);
-                let mut seen_teaching_codes = std::collections::HashSet::new();
-                teaching_list.retain(|t| {
-                    t.error_code
-                        .as_ref()
-                        .map_or(true, |code| seen_teaching_codes.insert(code.clone()))
-                });
-                for teaching in &mut teaching_list {
-                    teaching.locations.iter_mut().for_each(|loc| {
-                        loc.file_name = original_filename.clone();
-                        loc.source_text = get_chinese_source_line(&source, loc.line_start);
-                    });
-                }
-                if teaching_list.is_empty() {
-                    if output.status.success() {
-                        println!("{}", ui.t("success_compile"));
-                    } else {
-                        eprintln!("{}", ui.f("compile_error", &[stderr_text.trim()]));
-                    }
-                } else {
-                    println!(
-                        "{}",
-                        i18n_rust_engine::diagnostic::TeachingDiagnostic::batch_format_as_text(
-                            &teaching_list
-                        )
-                    );
-                }
-            } else {
-                if !rustc_output.is_empty() {
-                    for line in rustc_output.lines() {
-                        if let Ok(raw) = serde_json::from_str::<serde_json::Value>(line) {
-                            if let Some(message) = raw.get("message") {
-                                println!("{}", message.as_str().unwrap_or(""));
-                            }
-                        } else {
-                            println!("{}", line);
-                        }
-                    }
-                } else {
-                    println!("{}", ui.t("success_compile"));
-                }
-            }
+            let _ = translate_cargo_diagnostics(
+                &rustc_output,
+                &stderr_text,
+                &ui,
+                &lang_pack,
+                &project_root,
+                &manager,
+                &source,
+                &file,
+                output.status.success(),
+            );
             Ok(exit_code)
         }
         CliCommand::Eject { file, lang_pack } => {
@@ -371,27 +300,59 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
         CliCommand::Lang { subcommand } => {
             handle_lang_command(subcommand).map(|()| std::process::ExitCode::SUCCESS)
         }
-        CliCommand::Mapping { subcommand } => {
-            let MappingCommand::Auto {
+        CliCommand::Mapping { subcommand } => match subcommand {
+            MappingCommand::Auto {
                 crate_name,
                 lang,
                 provider,
                 output,
-            } = subcommand;
-            let lang = lang.unwrap_or_else(mapping_gen::detect_system_language);
-            i18n_rust_engine::语言::set_language(&lang);
-            let output_path = output.unwrap_or_else(|| {
-                // 默认写入项目根的 lang-packs/：从 cwd 向上找 Cargo.toml，
-                // 保证任意子目录下执行都落到项目本地语言包（load_mapping 同一位置查找）
-                let base = std::env::current_dir()
-                    .ok()
-                    .and_then(|cwd| find_project_root_upward(&cwd))
-                    .unwrap_or_else(|| PathBuf::from("."));
-                base.join(format!("lang-packs/{}/crates/{}.toml", lang, crate_name))
-            });
-            mapping_gen::run_auto_generate(&crate_name, &lang, &provider, &output_path)
-                .map(|()| std::process::ExitCode::SUCCESS)
-        }
+            } => {
+                let lang = lang.unwrap_or_else(mapping_gen::detect_system_language);
+                i18n_rust_engine::语言::set_language(&lang);
+                let output_path = output.unwrap_or_else(|| {
+                    // 默认写入项目根的 lang-packs/：从 cwd 向上找 Cargo.toml，
+                    // 保证任意子目录下执行都落到项目本地语言包（load_mapping 同一位置查找）
+                    let base = std::env::current_dir()
+                        .ok()
+                        .and_then(|cwd| find_project_root_upward(&cwd))
+                        .unwrap_or_else(|| PathBuf::from("."));
+                    base.join(format!("lang-packs/{}/crates/{}.toml", lang, crate_name))
+                });
+                mapping_gen::run_auto_generate(&crate_name, &lang, &provider, &output_path)
+                    .map(|()| std::process::ExitCode::SUCCESS)
+                    .inspect(|_| {
+                        // 生成后自动对所在语言包跑一次冲突检测（仅提示，不改变退出码：
+                        // 语言包可能存在历史遗留问题，生成成功与否以写入结果为准）
+                        if let Some(lang_dir) = output_path.parent().and_then(|p| p.parent())
+                            && lang_dir.join("keywords.toml").exists()
+                            && let Some(dir_str) = lang_dir.to_str()
+                        {
+                            let _ = mapping_check::run_check(Some(dir_str));
+                        }
+                    })
+            }
+            MappingCommand::Check { target } => {
+                // check 输出的语言默认跟随系统语言
+                let lang = mapping_gen::detect_system_language();
+                i18n_rust_engine::语言::set_language(&lang);
+                match mapping_check::run_check(target.as_deref()) {
+                    Ok(true) => Ok(std::process::ExitCode::SUCCESS),
+                    Ok(false) => Ok(std::process::ExitCode::FAILURE),
+                    Err(err) => Err(err),
+                }
+            }
+            MappingCommand::Scaffold {
+                source,
+                target,
+                output,
+                provider,
+            } => {
+                let lang = mapping_gen::detect_system_language();
+                i18n_rust_engine::语言::set_language(&lang);
+                mapping_check::run_scaffold(&source, &target, output.as_deref(), &provider)
+                    .map(|()| std::process::ExitCode::SUCCESS)
+            }
+        },
     }
 }
 
@@ -494,6 +455,154 @@ fn find_project_root_upward(start: &Path) -> Option<PathBuf> {
 fn transpile_to_english(source: &str, manager: &MappingManager) -> String {
     let code = i18n_rust_engine::transpile_pipeline(source, manager).output;
     annotate_non_ascii_mods(&code)
+}
+
+/// 解析 cargo --message-format=json 输出并翻译为教学化诊断（check 与 run 共用）
+///
+/// 返回是否成功输出了翻译后的教学诊断；调用方据此决定是否回退原始文本。
+/// `cargo_ok=false` 且无可解析诊断时原样输出 cargo 消息，绝不虚报“编译成功”。
+#[allow(clippy::too_many_arguments)]
+fn translate_cargo_diagnostics(
+    rustc_output: &str,
+    stderr_text: &str,
+    ui: &ui::Ui,
+    lang_pack: &Option<PathBuf>,
+    project_root: &Path,
+    manager: &MappingManager,
+    source: &str,
+    file: &Path,
+    cargo_ok: bool,
+) -> bool {
+    use i18n_rust_engine::diagnostic::{
+        DiagnosticTranslator, ErrorTranslationManager, parse_diagnostic_output,
+    };
+
+    // 按语言代码选择错误消息：--lang-pack 目录 > 项目内 lang-packs/<lang>/ > 内置
+    let lang_code = file
+        .extension()
+        .and_then(|e| e.to_str())
+        .and_then(get_lang_code_from_extension)
+        .unwrap_or_else(ui::detect_ui_lang);
+    let error_msg_path = if let Some(path) = lang_pack {
+        path.join("errors.toml")
+    } else if project_root
+        .join(format!("lang-packs/{}/errors.toml", lang_code))
+        .exists()
+    {
+        project_root.join(format!("lang-packs/{}/errors.toml", lang_code))
+    } else {
+        lang_manager::global_lang_dir()
+            .join(&lang_code)
+            .join("errors.toml")
+    };
+    let reverse_map: HashMap<String, String> = manager
+        .get_section_mapping("类型")
+        .map(|section| {
+            section
+                .iter()
+                .map(|(k, v)| (v.clone(), k.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
+    let translator = if error_msg_path.exists() {
+        // 加载失败时降级到内置表，不因错误消息文件损坏阻断诊断展示
+        match ErrorTranslationManager::load_from_file(&error_msg_path) {
+            Ok(translation_manager) => Some(DiagnosticTranslator::new(
+                translation_manager,
+                reverse_map.clone(),
+            )),
+            Err(e) => {
+                eprintln!("{}", ui.f("load_error_msg_failed", &[&e.to_string()]));
+                None
+            }
+        }
+    } else {
+        None
+    };
+    // 文件路径不可用/加载失败时回退内置语言包（未知语言代码自动回退中文）
+    let translator = translator.or_else(|| {
+        let builtin = builtin_lang::get_builtin_data(&lang_code);
+        match ErrorTranslationManager::load_from_string(builtin.errors_toml) {
+            Ok(translation_manager) => Some(DiagnosticTranslator::new(
+                translation_manager,
+                reverse_map.clone(),
+            )),
+            Err(e) => {
+                eprintln!("{}", ui.f("warn_builtin_errors_failed", &[&e.to_string()]));
+                None
+            }
+        }
+    });
+
+    let original_filename = file
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    let mut diagnostics = parse_diagnostic_output(rustc_output);
+    // 保留 error/warning；不要求有错误码——无码的解析错误（如缺括号）
+    // 也必须显示，否则会被静默吞掉导致假“编译成功”
+    diagnostics.retain(|d| d.level == "error" || d.level == "warning");
+    let mut seen_codes = std::collections::HashSet::new();
+    diagnostics.retain(|d| {
+        if let Some(ref code) = d.code {
+            seen_codes.insert(code.code.clone())
+        } else {
+            true // 无错误码的诊断（解析错误等）不去重，直接保留
+        }
+    });
+
+    if diagnostics.is_empty() {
+        if cargo_ok {
+            println!("{}", ui.t("success_compile"));
+        } else {
+            // cargo 失败但无可解析的 JSON 诊断（Cargo.toml 语法错误、
+            // 链接错误等）：原样输出 cargo 消息，绝不虚报“编译成功”
+            eprintln!("{}", ui.f("compile_error", &[stderr_text.trim()]));
+        }
+        return false;
+    }
+
+    if let Some(ref translator) = translator {
+        let mut teaching_list = translator.batch_translate(&diagnostics);
+        let mut seen_teaching_codes = std::collections::HashSet::new();
+        teaching_list.retain(|t| {
+            t.error_code
+                .as_ref()
+                .is_none_or(|code| seen_teaching_codes.insert(code.clone()))
+        });
+        for teaching in &mut teaching_list {
+            teaching.locations.iter_mut().for_each(|loc| {
+                loc.file_name = original_filename.clone();
+                loc.source_text = get_chinese_source_line(source, loc.line_start);
+            });
+        }
+        if teaching_list.is_empty() {
+            if cargo_ok {
+                println!("{}", ui.t("success_compile"));
+            } else {
+                eprintln!("{}", ui.f("compile_error", &[stderr_text.trim()]));
+            }
+            return false;
+        }
+        println!(
+            "{}",
+            i18n_rust_engine::diagnostic::TeachingDiagnostic::batch_format_as_text(&teaching_list)
+        );
+        true
+    } else {
+        // 无翻译表：输出 JSON 中的原始 message，保证诊断不丢失
+        for line in rustc_output.lines() {
+            if let Ok(raw) = serde_json::from_str::<serde_json::Value>(line) {
+                if let Some(message) = raw.get("message") {
+                    println!("{}", message.as_str().unwrap_or(""));
+                }
+            } else if !line.trim().is_empty() {
+                println!("{}", line);
+            }
+        }
+        false
+    }
 }
 
 /// 为非 ASCII 模块名的文件式声明 `mod 名称;` 补充 `#[path = "名称.rs"]` 注解。
@@ -848,6 +957,25 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
                         .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
                         .mut_arg("provider", |arg| arg.help(ui.t("arg_provider_help")))
                         .mut_arg("output", |arg| arg.help(ui.t("arg_output_help")))
+                })
+                .mut_subcommand("check", |sub| {
+                    sub.about(ui.t("cmd_mapping_check_about"))
+                        .mut_arg("target", |arg| {
+                            arg.help(ui.t("cmd_mapping_check_target_help"))
+                        })
+                })
+                .mut_subcommand("scaffold", |sub| {
+                    sub.about(ui.t("cmd_mapping_scaffold_about"))
+                        .mut_arg("source", |arg| {
+                            arg.help(ui.t("cmd_mapping_scaffold_source_help"))
+                        })
+                        .mut_arg("target", |arg| {
+                            arg.help(ui.t("cmd_mapping_scaffold_target_help"))
+                        })
+                        .mut_arg("output", |arg| arg.help(ui.t("arg_output_help")))
+                        .mut_arg("provider", |arg| {
+                            arg.help(ui.t("cmd_mapping_scaffold_provider_help"))
+                        })
                 })
         })
 }

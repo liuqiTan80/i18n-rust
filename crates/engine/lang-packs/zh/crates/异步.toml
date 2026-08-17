@@ -1,6 +1,6 @@
 # crate 名称映射（用于 use 路径）
 ["模块路径"]
-"异步" = "tokio"
+"异步运行时" = "tokio"
 "异步标准" = "async-std"
 "未来" = "futures"
 "异步特征" = "async-trait"

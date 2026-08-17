@@ -12,7 +12,7 @@
 "调试" = "debug"
 "信息" = "info"
 "警告" = "warn"
-"错误" = "error"
+"日志错误" = "error"
 "跨度" = "span"
 "事件" = "event"
 "订阅者" = "subscriber"
@@ -24,7 +24,7 @@
 
 # env_logger
 "构建器" = "Builder"
-"过滤器" = "filter"
+"日志过滤器" = "filter"
 
 # tracing-subscriber
 "格式化层" = "fmt"

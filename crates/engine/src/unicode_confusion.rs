@@ -238,12 +238,20 @@ fn is_native_script_char(ch: char) -> bool {
 mod tests {
     use super::*;
 
-    /// 获取全局语言测试锁并确保 zh（unicode 字符名仅 zh 语言包提供中文映射；
-    /// 持锁防止 test_set_language_de 并行执行污染全局语言导致 flaky）
-    fn zh_guard() -> std::sync::MutexGuard<'static, ()> {
-        let guard = crate::语言::LANG_TEST_LOCK.lock().unwrap();
-        crate::语言::set_language("zh");
-        guard
+    /// 语言测试守卫：持全局测试锁串行化，并用 RAII 守卫确保语言恢复
+    ///（unicode 字符名仅 zh 语言包提供中文映射；字段顺序保证 drop 时
+    /// 先恢复语言、后释放锁，断言 panic 也不会污染全局语言）
+    struct LangTestGuard {
+        _lang: crate::语言::LanguageGuard,
+        _lock: std::sync::MutexGuard<'static, ()>,
+    }
+
+    fn zh_guard() -> LangTestGuard {
+        let lock = crate::语言::LANG_TEST_LOCK.lock().unwrap();
+        LangTestGuard {
+            _lang: crate::语言::with_language("zh"),
+            _lock: lock,
+        }
     }
 
     #[test]
@@ -353,8 +361,11 @@ mod tests {
 
     #[test]
     fn test_russian_dialect_skips_cyrillic_homoglyph() {
-        let _guard = crate::语言::LANG_TEST_LOCK.lock().unwrap();
-        crate::语言::set_language("ru");
+        // RAII 守卫：离开作用域（含断言 panic）自动恢复 zh，无需手工还原
+        let _guard = LangTestGuard {
+            _lang: crate::语言::with_language("ru"),
+            _lock: crate::语言::LANG_TEST_LOCK.lock().unwrap(),
+        };
         // 西里尔字符在 ru 方言中是合法标识符字符，不再报同形异义告警
         let warnings = check_unicode_confusion("пусть а = 1;");
         assert!(warnings.is_empty(), "ru 方言不应误报西里尔字符");
@@ -371,7 +382,6 @@ mod tests {
                 .iter()
                 .any(|w| w.category == ConfusionCategory::ZeroWidth)
         );
-        crate::语言::set_language("zh");
     }
 
     #[test]

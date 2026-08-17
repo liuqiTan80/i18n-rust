@@ -12,7 +12,7 @@
 "结果" = "Result"
 "上下文" = "context"
 "确保" = "ensure"
-"错误" = "bail"
+"错误中止" = "bail"
 
 # thiserror
 "错误派生" = "error"
