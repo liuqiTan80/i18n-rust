@@ -8,7 +8,7 @@
 一个完整的语言包目录（以 `vi` 越南语为例）结构如下：
 
 ```
-lang-packs/vi/
+crates/engine/lang-packs/vi/
 ├── keywords.toml      # 关键字映射（fn/let/mut/... → 母语词）
 ├── stdlib.toml        # 标准库别名（String/Vec/println!/... → 母语词）
 ├── module_paths.toml  # use 路径段映射（std/collections/... → 母语词）
@@ -30,7 +30,7 @@ lang-packs/vi/
 复制一份现成语言包作为起点，逐文件翻译键名：
 
 ```bash
-cp -r lang-packs/zh lang-packs/vi
+cp -r crates/engine/lang-packs/zh crates/engine/lang-packs/vi
 # 逐个编辑 keywords.toml / stdlib.toml / module_paths.toml / errors.toml / lang_info.toml / ui.toml
 ```
 
@@ -53,8 +53,8 @@ rzc mapping scaffold zh vi
 ### 2.3 校验
 
 ```bash
-rzc mapping check lang-packs/vi     # crates 映射：重复键/关键字碰撞/跨文件冲突
-rzc lang install lang-packs/vi      # 本地安装验证目录完整性
+rzc mapping check crates/engine/lang-packs/vi     # crates 映射：重复键/关键字碰撞/跨文件冲突
+rzc lang install crates/engine/lang-packs/vi      # 本地安装验证目录完整性
 rzc lang list                       # 确认出现在列表中
 ```
 
@@ -64,23 +64,19 @@ rzc lang list                       # 确认出现在列表中
 
 ### 路线 A：合入主仓库（推荐，所有人默认内置）
 
-1. Fork 本仓库，把语言包放入 `lang-packs/vi/`
-2. 同步发布副本（CI 有 diff 门禁，二者必须一致）：
-
-   ```bash
-   rsync -a --delete lang-packs/ crates/engine/lang-packs/
-   ```
-
-3. 若希望**编译期内置**（无需安装即可用），还需在
+1. Fork 本仓库，把语言包放入 `crates/engine/lang-packs/vi/`
+   （项目为单一数据源架构：编译期内嵌与文件系统消费共用这一份，
+   无需任何同步步骤）
+2. 若希望**编译期内置**（无需安装即可用），还需在
    `crates/cli/src/builtin_lang.rs` 中：
    - 用 `define_builtin_lang!` 宏添加 vi 的静态数据（含 crates/ 文件名列表）
    - 在 `get_builtin_data` 与 `has_builtin_lang` 增加分支
    - 更新 `builtin_lang_codes` 与相关测试断言
 
-   也可以只合入 `lang-packs/` 数据不内置——用户通过
+   也可以只合入数据不内置——用户通过
    `rzc lang install vi` 从主仓库远程安装（安装器已兼容
-   `lang-packs/<语言>` 目录结构）。
-4. 提交 PR。CI 会跑全量测试与 `rzc mapping check` 质量门禁。
+   `crates/engine/lang-packs/<语言>` 目录结构）。
+3. 提交 PR。CI 会跑全量测试与 `rzc mapping check` 质量门禁。
 
 ### 路线 B：自建语言包仓库（无需 PR，即发即用）
 
@@ -89,7 +85,7 @@ rzc lang list                       # 确认出现在列表中
 ```
 你的仓库/
 ├── vi/              # 结构一：仓库根直接放语言目录
-└── lang-packs/vi/   # 结构二：与主仓库相同（二选一即可）
+└── lang-packs/vi/   # 结构二：嵌套一层 lang-packs/（二选一即可）
 ```
 
 其他用户一条命令安装（git clone 优先，失败自动回退 curl 下载 ZIP）：
@@ -108,8 +104,7 @@ RZ_LANG_REPO=https://gitcode.com/你的账号/你的语言包仓库 rzc lang ins
 ## 4. 验证清单（提交前自查）
 
 - [ ] 顶层 6 个 toml 齐全，键的英文值未被改动
-- [ ] `rzc mapping check lang-packs/<码>` 无错误
-- [ ] `rzc lang install lang-packs/<码>` 安装成功
+- [ ] `rzc mapping check crates/engine/lang-packs/<码>` 无错误
+- [ ] `rzc lang install crates/engine/lang-packs/<码>` 安装成功
 - [ ] 母语方言源码 `rzc eject` 转出标准 Rust 且可编译
-- [ ] （路线 A）`lang-packs/` 与 `crates/engine/lang-packs/` 双副本一致
 - [ ] （路线 A）若内置，`cargo test --workspace` 全过

@@ -7,7 +7,7 @@
 //! 用法：
 //!   i18n-rust-lsp [--language-pack <路径>] [--extensions .zh,.en]
 //!
-//! 默认语言包路径：lang-packs/zh；默认扩展名：全部 11 个内置语言包的扩展名
+//! 默认语言包路径：crates/engine/lang-packs/zh（主仓库单副本）；默认扩展名：全部 11 个内置语言包的扩展名
 
 /// rust-analyzer 子进程管理（启动、消息收发、关闭）
 mod analyzer;
@@ -50,7 +50,7 @@ fn parse_extensions(list: &str) -> Vec<String> {
 
 /// 解析命令行参数
 fn parse_args() -> CliArgs {
-    let mut lang_pack_path = PathBuf::from("lang-packs/zh");
+    let mut lang_pack_path = PathBuf::from("crates/engine/lang-packs/zh");
     let mut extensions: Vec<String> = Vec::new();
 
     let args: Vec<String> = std::env::args().collect();
@@ -138,16 +138,18 @@ fn find_lang_pack_fallback(default: &std::path::Path, lang_code: &str) -> PathBu
         log::info!("在工作目录找到语言包: {}", found.display());
         return found;
     }
-    // 3. $HOME 下常见项目目录
+    // 3. $HOME 下常见项目目录（两种布局：主仓库单副本与用户项目约定）
     if let Ok(home) = std::env::var("HOME") {
         for project in &["code/zrRust", "zrRust"] {
-            let candidate = PathBuf::from(&home)
-                .join(project)
-                .join("lang-packs")
-                .join(lang_code);
-            if candidate.exists() {
-                log::info!("在 HOME 目录找到语言包: {}", candidate.display());
-                return candidate;
+            for layout in &["crates/engine/lang-packs", "lang-packs"] {
+                let candidate = PathBuf::from(&home)
+                    .join(project)
+                    .join(layout)
+                    .join(lang_code);
+                if candidate.exists() {
+                    log::info!("在 HOME 目录找到语言包: {}", candidate.display());
+                    return candidate;
+                }
             }
         }
     }
@@ -155,13 +157,16 @@ fn find_lang_pack_fallback(default: &std::path::Path, lang_code: &str) -> PathBu
     default.to_path_buf()
 }
 
-/// 从指定路径向上搜索 lang-packs/<lang_code>（最多 5 级）
+/// 从指定路径向上搜索语言包目录（最多 5 级；两种布局均探测：
+/// crates/engine/lang-packs/<码> 主仓库单副本与 lang-packs/<码> 用户项目约定）
 fn search_upward(start: &std::path::Path, lang_code: &str) -> Option<PathBuf> {
     let mut dir = start.parent()?.to_path_buf();
     for _ in 0..5 {
-        let candidate = dir.join("lang-packs").join(lang_code);
-        if candidate.exists() {
-            return Some(candidate);
+        for layout in &["crates/engine/lang-packs", "lang-packs"] {
+            let candidate = dir.join(layout).join(lang_code);
+            if candidate.exists() {
+                return Some(candidate);
+            }
         }
         if !dir.pop() {
             break;

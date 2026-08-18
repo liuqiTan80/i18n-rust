@@ -246,14 +246,21 @@ impl std::error::Error for LoadError {}
 mod tests {
     use super::*;
 
+    // 本模块消息经 语言::f 按当前语言格式化，断言前需钉住 zh 并串行化
+    fn zh_guard() -> crate::语言::LangTestGuard {
+        crate::语言::test_language("zh")
+    }
+
     #[test]
     fn test_source_location_describe() {
+        let _guard = zh_guard();
         let loc = SourceLocation::new(3, 5);
         assert_eq!(loc.describe(), "第 3 行第 5 列");
     }
 
     #[test]
     fn test_invalid_input_message() {
+        let _guard = zh_guard();
         let err = TranspileError::InvalidInput {
             reason: "源码为空".to_string(),
         };
@@ -262,6 +269,7 @@ mod tests {
 
     #[test]
     fn test_lex_error_message_with_location() {
+        let _guard = zh_guard();
         let err = TranspileError::LexError {
             location: SourceLocation::new(2, 10),
             detail: "无法识别的字符".to_string(),
@@ -274,6 +282,7 @@ mod tests {
 
     #[test]
     fn test_mapping_missing_with_and_without_location() {
+        let _guard = zh_guard();
         let with_loc = TranspileError::MappingMissing {
             name: "结构体".to_string(),
             location: Some(SourceLocation::new(1, 1)),
@@ -295,6 +304,7 @@ mod tests {
 
     #[test]
     fn test_confusion_char_message() {
+        let _guard = zh_guard();
         let err = TranspileError::ConfusionChar {
             location: SourceLocation::new(1, 4),
             character: '\u{200B}',
@@ -308,6 +318,7 @@ mod tests {
 
     #[test]
     fn test_cache_unavailable_message() {
+        let _guard = zh_guard();
         let err = TranspileError::CacheUnavailable {
             reason: "容量为 0".to_string(),
         };
@@ -316,6 +327,7 @@ mod tests {
 
     #[test]
     fn test_unsupported_construct_message() {
+        let _guard = zh_guard();
         let err = TranspileError::UnsupportedConstruct {
             construct: "宏_rules".to_string(),
             location: None,
@@ -334,6 +346,7 @@ mod tests {
 
     #[test]
     fn test_load_error_messages_match_legacy_keys() {
+        let _guard = zh_guard();
         // 枚举化后消息与旧 String 错误一致（复用同一批 ui.toml 键）
         let missing = LoadError::FileMissing {
             target: LoadTarget::Keywords,

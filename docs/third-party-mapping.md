@@ -18,7 +18,7 @@
 
 ## 2. 映射文件格式
 
-每个 crate 一个文件：`lang-packs/<语言>/crates/<文件>.toml`，三个可选节：
+每个 crate 一个文件：`crates/engine/lang-packs/<语言>/crates/<文件>.toml`，三个可选节：
 
 ```toml
 # ["模块路径"]：use 路径段替换（use 方言名::子模块 → use 英文路径）
@@ -49,8 +49,9 @@ rzc mapping auto salvo --lang zh --provider rule    # 离线规则模式
 rzc mapping auto salvo --lang zh                    # AI 模式（需 DEEPSEEK_API_KEY）
 ```
 
-提取目标 crate 公开 API 生成映射骨架，默认写入项目根
-`lang-packs/<lang>/crates/<crate>.toml`（已存在时先打印覆盖警告）。
+提取目标 crate 公开 API 生成映射骨架，默认写入项目语言包根
+`<项目语言包根>/<lang>/crates/<crate>.toml`（主仓库内为 crates/engine/lang-packs/，
+用户项目为 lang-packs/；已存在时先打印覆盖警告）。
 生成完成后**自动对所在语言包运行一次冲突检测**，便于立即发现新文件
 引入的键冲突。
 
@@ -81,7 +82,7 @@ rzc mapping scaffold zh vi --provider deepseek          # AI 自动翻译键名�
 rzc mapping scaffold zh vi --output 自定义目录           # 指定输出目录
 ```
 
-将源语言全部 crates 文件复制到 `lang-packs/<目标>/crates/`（可用
+将源语言全部 crates 文件复制到 `<项目语言包根>/<目标>/crates/`（可用
 `--output` 指定其他目录），英文值保持不变，每个键值行追加
 `# TODO(<目标>): 将键从 <源> 翻译` 注释。
 
@@ -109,17 +110,17 @@ rzc mapping scaffold zh vi --output 自定义目录           # 指定输出目�
 4. **同名复用**：不同 crate 中同一英文 API 语义一致时可用同键同值
    （如 salvo 与网络库共用 `HTTP请求 = Request`），同键同值安全。
 
-## 5. 注册发布与双副本同步
+## 5. 单一数据源与生效方式
 
-语言包存在两份副本，必须保持一致：
+语言包全项目只有一份：`crates/engine/lang-packs/`（编译期内嵌与
+文件系统消费共用同一数据，无需任何同步步骤）：
 
-- `lang-packs/`：根目录副本，供 LSP/离线发布/远程安装消费；
-- `crates/engine/lang-packs/`：编译期内嵌副本（`include_str!`），随 rzc 二进制分发。
+- rzc/LSP 的文件系统加载（`--lang-pack`、项目内覆盖、`rzc lang install`）直接读这份；
+- 编译期内嵌（`include_str!` 由 build.rs 扫描生成）也来自这份，随 rzc 二进制分发。
 
-修改后执行：
+修改后只需重新编译即可让内嵌数据生效：
 
 ```bash
-rsync -a --delete lang-packs/ crates/engine/lang-packs/
 cargo build --workspace   # 内嵌数据需重新编译才生效
 ```
 

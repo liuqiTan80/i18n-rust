@@ -333,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_load_from_dir_missing_keywords() {
-        let _guard = crate::语言::LANG_TEST_LOCK.lock().unwrap();
+        let _guard = crate::语言::test_language("zh");
         let temp = tempfile::tempdir().unwrap();
         let err = MappingManager::load_from_dir(temp.path()).unwrap_err();
         assert!(
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_load_from_dir_invalid_keywords() {
-        let _guard = crate::语言::LANG_TEST_LOCK.lock().unwrap();
+        let _guard = crate::语言::test_language("zh");
         let temp = tempfile::tempdir().unwrap();
         fs::write(temp.path().join("keywords.toml"), "这不是合法 TOML [[[").unwrap();
         let err = MappingManager::load_from_dir(temp.path()).unwrap_err();
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn test_load_from_builtin_invalid_stdlib() {
-        let _guard = crate::语言::LANG_TEST_LOCK.lock().unwrap();
+        let _guard = crate::语言::test_language("zh");
         let keywords = "[\"声明\"]\n";
         let module_paths = "[\"模块路径\"]\n";
         let err =

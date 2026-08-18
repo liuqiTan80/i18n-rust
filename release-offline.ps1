@@ -65,12 +65,13 @@ New-Item -ItemType Directory -Path (Join-Path $pack_dir 'lang-packs') -Force | O
 # 可执行文件
 Copy-Item 'target/release/rzc.exe' (Join-Path $pack_dir 'rzc.exe')
 
-# 语言包目录（可选扩展：远程安装的语言包；中文等已内置到可执行文件）
-if (Test-Path 'lang-packs') {
-    Copy-Item 'lang-packs/*' (Join-Path $pack_dir 'lang-packs') -Recurse -Force
-    Write-Host "   ✅ 已复制语言包：$((Get-ChildItem 'lang-packs' -Directory).Name -join ' ')"
+# 语言包目录（可选扩展：远程安装的语言包；中文等已内置到可执行文件）；
+# 单一数据源为 crates/engine/lang-packs/，包内仍按 lang-packs/ 布局（RZ_LANG_DIR 约定）
+if (Test-Path 'crates/engine/lang-packs') {
+    Copy-Item 'crates/engine/lang-packs/*' (Join-Path $pack_dir 'lang-packs') -Recurse -Force
+    Write-Host "   ✅ 已复制语言包：$((Get-ChildItem 'crates/engine/lang-packs' -Directory).Name -join ' ')"
 } else {
-    Write-Host "   ⚠️ 未找到 lang-packs/ 目录，跳过（内置中文语言包不受影响）"
+    Write-Host "   ⚠️ 未找到 crates/engine/lang-packs/ 目录，跳过（内置中文语言包不受影响）"
 }
 
 # 许可证与说明文档

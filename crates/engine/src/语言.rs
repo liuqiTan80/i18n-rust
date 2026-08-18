@@ -64,6 +64,31 @@ pub fn with_language(code: &str) -> LanguageGuard {
     LanguageGuard::enter(code)
 }
 
+/// 测试语言守卫：持 [`LANG_TEST_LOCK`] 串行化并切换到指定语言，
+/// drop 时先恢复原语言后释放锁（字段声明顺序决定 drop 顺序，
+/// 断言 panic 也不会泄漏语言或锁）。
+///
+/// 加锁抗毒化：即使先前有测试持锁 panic 导致锁中毒，也接管继续
+/// 执行，避免一次偶发断言失败沿锁毒化放大为整批测试连环失败。
+/// 所有修改或断言全局语言的测试应统一使用本守卫。
+#[cfg(test)]
+pub(crate) struct LangTestGuard {
+    _lang: LanguageGuard,
+    _lock: std::sync::MutexGuard<'static, ()>,
+}
+
+/// 测试入口：`let _g = 语言::test_language("zh");` 串行化 + 语言钉住，离开自动恢复
+#[cfg(test)]
+pub(crate) fn test_language(code: &str) -> LangTestGuard {
+    let lock = LANG_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    LangTestGuard {
+        _lang: LanguageGuard::enter(code),
+        _lock: lock,
+    }
+}
+
 /// 当前全局语言代码（未设置时为 zh）
 pub fn current_language() -> String {
     let lang = lang_lock();
@@ -172,8 +197,7 @@ mod tests {
 
     #[test]
     fn test_default_zh() {
-        let _guard = LANG_TEST_LOCK.lock().unwrap();
-        set_language("zh");
+        let _guard = test_language("zh");
         assert_eq!(current_language(), "zh");
         assert_eq!(t_in("zh", "err_line_col"), "第 {} 行第 {} 列");
         assert_eq!(t_in("zh", "cli_about"), "多语言 Rust 教学方言编译器");
@@ -181,9 +205,7 @@ mod tests {
 
     #[test]
     fn test_set_language_de() {
-        let _guard = LANG_TEST_LOCK.lock().unwrap();
-        // 作用域守卫：离开时自动恢复进入前的语言，无需手工还原
-        let _lang = with_language("de");
+        let _guard = test_language("de");
         assert_eq!(current_language(), "de");
         // 纯函数按语言取模板，不受全局状态干扰
         assert_eq!(t_in("de", "err_line_col"), "Zeile {}, Spalte {}");
@@ -192,8 +214,7 @@ mod tests {
 
     #[test]
     fn test_language_guard_restores_previous() {
-        let _guard = LANG_TEST_LOCK.lock().unwrap();
-        set_language("zh");
+        let _guard = test_language("zh");
         {
             let _lang = with_language("ru");
             assert_eq!(current_language(), "ru");
@@ -206,8 +227,7 @@ mod tests {
 
     #[test]
     fn test_fallback_chain() {
-        let _guard = LANG_TEST_LOCK.lock().unwrap();
-        let _lang = with_language("de");
+        let _guard = test_language("de");
         // 德语表缺 unicode_name_*（仅 zh 提供），回退中文表
         assert_eq!(t_in("de", "unicode_name_200B"), "零宽空格");
         // 完全缺失的键回退键名

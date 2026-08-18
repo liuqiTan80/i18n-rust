@@ -41,16 +41,6 @@ jobs:
       - name: 启用 Rust 构建缓存
         uses: Swatinem/rust-cache@v2
 
-      - name: 语言包双副本一致性检查
-        # 根目录 lang-packs/（LSP/离线发布/远程安装消费）与
-        # crates/engine/lang-packs/（rzc 编译期内嵌回退）必须完全一致；
-        # 修改语言包后先同步两份副本（rsync -a --delete lang-packs/ crates/engine/lang-packs/）
-        run: |
-          if ! diff -rq lang-packs crates/engine/lang-packs; then
-            echo "错误：语言包双副本已漂移，请执行 rsync -a --delete lang-packs/ crates/engine/lang-packs/ 后重新提交"
-            exit 1
-          fi
-
       - name: 检查代码格式
         run: cargo fmt --all -- --check
 

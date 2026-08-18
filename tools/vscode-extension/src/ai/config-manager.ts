@@ -89,16 +89,18 @@ export function currentLanguageCode(): string {
  * subdirectories, e.g. <root>/zh/, <root>/ru/)
  * Search order:
  * 1. Configuration i18n-rust.languagePackPath (explicit user setting)
- * 2. lang-packs/ under the current workspace
+ * 2. Workspace language packs: lang-packs/ (user project convention) or
+ *    crates/engine/lang-packs/ (main repo single-source layout)
  * 3. Global user directory ~/.rz/lang-packs (rzc's global install location)
  * Returns undefined when none exists (prompt builder falls back to English).
  */
 export function findLanguagePackRoot(): string | undefined {
     const candidates = [
         vscode.workspace.getConfiguration('i18n-rust').get<string>('languagePackPath', ''),
-        ...(vscode.workspace.workspaceFolders ?? []).map(folder =>
-            path.join(folder.uri.fsPath, 'lang-packs')
-        ),
+        ...(vscode.workspace.workspaceFolders ?? []).flatMap(folder => [
+            path.join(folder.uri.fsPath, 'lang-packs'),
+            path.join(folder.uri.fsPath, 'crates', 'engine', 'lang-packs')
+        ]),
         path.join(os.homedir(), '.rz', 'lang-packs')
     ];
     for (const candidate of candidates) {

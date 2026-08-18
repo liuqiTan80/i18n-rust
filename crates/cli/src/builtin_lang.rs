@@ -266,19 +266,19 @@ define_builtin_lang!(
 /// 用 [`define_builtin_lang!`] 添加对应 static 数据，并更新 [`builtin_lang_codes`]。
 pub fn get_builtin_data(lang_code: &str) -> &BuiltinLangData {
     match lang_code {
-        "zh" => &*ZH_DATA,
-        "en" => &*EN_DATA,
-        "de" => &*DE_DATA,
-        "ja" => &*JA_DATA,
-        "ru" => &*RU_DATA,
-        "es" => &*ES_DATA,
-        "fr" => &*FR_DATA,
-        "pt" => &*PT_DATA,
-        "ko" => &*KO_DATA,
-        "ar" => &*AR_DATA,
-        "hi" => &*HI_DATA,
+        "zh" => &ZH_DATA,
+        "en" => &EN_DATA,
+        "de" => &DE_DATA,
+        "ja" => &JA_DATA,
+        "ru" => &RU_DATA,
+        "es" => &ES_DATA,
+        "fr" => &FR_DATA,
+        "pt" => &PT_DATA,
+        "ko" => &KO_DATA,
+        "ar" => &AR_DATA,
+        "hi" => &HI_DATA,
         // 未知语言代码回退到中文（教学语言默认值）
-        _ => &*ZH_DATA,
+        _ => &ZH_DATA,
     }
 }
 

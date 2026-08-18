@@ -87,9 +87,10 @@ jobs:
           # 可执行文件（Windows 下为 rzc.exe）
           cp target/release/rzc "$DIR/rzc" 2>/dev/null || cp target/release/rzc.exe "$DIR/rzc.exe"
 
-          # 语言包目录（可选扩展：远程安装的语言包；中文等已内置到可执行文件）
-          if [ -d lang-packs ]; then
-            cp -r lang-packs/. "$DIR/lang-packs/"
+          # 语言包目录（可选扩展：远程安装的语言包；中文等已内置到可执行文件）；
+          # 单一数据源为 crates/engine/lang-packs/，包内仍按 lang-packs/ 布局（RZ_LANG_DIR 约定）
+          if [ -d crates/engine/lang-packs ]; then
+            cp -r crates/engine/lang-packs/. "$DIR/lang-packs/"
           fi
 
           # 许可证与说明文档

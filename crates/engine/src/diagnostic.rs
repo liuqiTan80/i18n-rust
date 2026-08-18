@@ -802,7 +802,7 @@ mod tests {
     /// 应回退提取并翻译 rustc 字面量占位符 `{integer}`
     #[test]
     fn test_translate_e0369_no_label_fallback_to_message() {
-        let _guard = crate::语言::LANG_TEST_LOCK.lock().unwrap();
+        let _guard = crate::语言::test_language("zh");
         let toml_content = r#"
 [E0369]
 "消息模板" = "类型不匹配：无法对 `{期望}` 和 `{实际}` 执行运算"
@@ -811,7 +811,6 @@ mod tests {
         let file = create_error_message_file(toml_content);
         let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
         let translator = DiagnosticTranslator::new(manager, create_test_type_map());
-        crate::语言::set_language("zh");
 
         let diagnostic = CompilerDiagnostic {
             message: "cannot add `{integer}` to `&str`".to_string(),
@@ -912,6 +911,8 @@ mod tests {
 
     #[test]
     fn test_extract_ownership_details_e0382() {
+        // narrative_text 按当前语言取模板，需钉住 zh 并串行化
+        let _guard = crate::语言::test_language("zh");
         // rustc 对 E0382 输出：主 span 是再次使用处，副 span 标记移动发生
         let diagnostic = create_ownership_diagnostic(
             "E0382",
@@ -937,6 +938,7 @@ mod tests {
 
     #[test]
     fn test_extract_ownership_details_e0502() {
+        let _guard = crate::语言::test_language("zh");
         // E0502：主 span 是可变借用处，另有不可变借用处与 borrow later used here
         let diagnostic = create_ownership_diagnostic(
             "E0502",
@@ -962,6 +964,7 @@ mod tests {
 
     #[test]
     fn test_extract_ownership_details_e0507() {
+        let _guard = crate::语言::test_language("zh");
         // E0507：主 span 即移动发生处，无再次使用位置
         let diagnostic = create_ownership_diagnostic(
             "E0507",
@@ -1011,7 +1014,7 @@ mod tests {
 
     #[test]
     fn test_translate_diagnostic_with_ownership_details_and_narrative() {
-        let _guard = crate::语言::LANG_TEST_LOCK.lock().unwrap();
+        let _guard = crate::语言::test_language("zh");
         let toml_content = r#"
 [E0382]
 "消息模板" = "值在移动后被使用：`{变量名}`"

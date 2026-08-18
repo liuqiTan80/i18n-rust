@@ -437,7 +437,8 @@ fn print_cross_lang_counts() {
 /// `rzc mapping scaffold` 入口
 ///
 /// source 必须是内置语言代码；output 为 None 时默认写入
-/// 项目根 `lang-packs/<target>/crates/`。
+/// 项目语言包根 `<target>/crates/`（主仓库内为 crates/engine/lang-packs/，
+/// 用户项目为 lang-packs/）。
 /// provider：`rule`（默认，生成 TODO 骨架待人工翻译）或
 /// `deepseek`（AI 自动翻译键名，需 DEEPSEEK_API_KEY）。
 pub fn run_scaffold(
@@ -461,7 +462,7 @@ pub fn run_scaffold(
                 .ok()
                 .and_then(|cwd| crate::find_project_root_upward(&cwd))
                 .unwrap_or_else(|| PathBuf::from("."));
-            base.join(format!("lang-packs/{}/crates", target))
+            crate::lang_pack_root_of(&base).join(format!("{}/crates", target))
         }
     };
     let (created, skipped) = scaffold(&view, target, &output_dir)?;

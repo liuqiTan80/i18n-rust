@@ -341,9 +341,9 @@ function 工作区根们(): string[] {
  *
  * 优先级：
  * 1. 配置 i18n-rust.languagePackPath（显式指定）
- * 2. 工作区中的 lang-packs/<代码> 目录（如 lang-packs/zh）
+ * 2. 工作区中的语言包目录（lang-packs/<代码> 或主仓库单副本结构 crates/engine/lang-packs/<代码>）
  * 3. 全局安装目录 ~/.rz/lang-packs/<代码>（rzc 全局安装位置）
- * 4. LSP 二进制所在项目的 lang-packs/<代码>（沿 PATH 查找）
+ * 4. LSP 二进制所在项目的语言包目录（沿 PATH 查找）
  * 5. 常见项目目录（~/code/zrRust 等）
  * 6. 找不到返回 undefined（LSP 使用默认内置映射）
  */
@@ -354,10 +354,10 @@ function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | 
         return 显式路径;
     }
     const 语言 = 语言代码(config.get<string>('languagePack', '中文'));
-    // 2. 工作区 lang-packs/<代码>
+    // 2. 工作区语言包（lang-packs/ 用户项目约定 + crates/engine/lang-packs/ 主仓库单副本）
     for (const 根 of 工作区根们()) {
-        const 候选 = path.join(根, 'lang-packs', 语言);
-        if (fs.existsSync(候选)) {
+        const 候选 = 语言包候选们(根, 语言);
+        if (候选) {
             return 候选;
         }
     }
@@ -366,7 +366,7 @@ function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | 
     if (fs.existsSync(全局候选)) {
         return 全局候选;
     }
-    // 4. LSP 二进制所在项目（沿 PATH 查找 i18n-rust-lsp，向上搜索 lang-packs）
+    // 4. LSP 二进制所在项目（沿 PATH 查找 i18n-rust-lsp，向上搜索语言包）
     const serverPath = config.get<string>('serverPath', 'i18n-rust-lsp');
     if (!path.isAbsolute(serverPath)) {
         const lspRealPath = findInPath(serverPath);
@@ -378,7 +378,24 @@ function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | 
     // 5. 常见项目目录
     const home = os.homedir();
     for (const 项目名 of ['code/zrRust', 'zrRust']) {
-        const 候选 = path.join(home, 项目名, 'lang-packs', 语言);
+        const 候选 = 语言包候选们(path.join(home, 项目名), 语言);
+        if (候选) {
+            return 候选;
+        }
+    }
+    return undefined;
+}
+
+/**
+ * 在指定基础目录下探测两种语言包布局：
+ * lang-packs/<代码>（用户项目约定）与 crates/engine/lang-packs/<代码>（主仓库单一数据源）
+ */
+function 语言包候选们(基础目录: string, 语言: string): string | undefined {
+    for (const 相对路径 of [
+        path.join('lang-packs', 语言),
+        path.join('crates', 'engine', 'lang-packs', 语言),
+    ]) {
+        const 候选 = path.join(基础目录, 相对路径);
         if (fs.existsSync(候选)) {
             return 候选;
         }
@@ -387,13 +404,13 @@ function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | 
 }
 
 /**
- * 从指定目录向上搜索 lang-packs/<代码> 目录（最多向上 5 级）
+ * 从指定目录向上搜索语言包目录（最多向上 5 级，两种布局均探测）
  */
 function 向上查找语言包(startDir: string, 语言: string): string | undefined {
     let dir = startDir;
     for (let i = 0; i < 5; i++) {
-        const 候选 = path.join(dir, 'lang-packs', 语言);
-        if (fs.existsSync(候选)) {
+        const 候选 = 语言包候选们(dir, 语言);
+        if (候选) {
             return 候选;
         }
         const parent = path.dirname(dir);
@@ -556,6 +573,9 @@ function 注册命令(context: vscode.ExtensionContext): void {
             vscode.window.showInformationMessage('语言服务器已重启');
         })
     );
+
+    // 映射工具命令（校验 / 翻译脚手架 / 安装语言包，依赖 rzc ≥ 0.3.3）
+    注册映射工具命令(context);
 
     // AI 相关命令（对话 / 选择提供商 / 模型列表）
     注册AI命令(context);
@@ -817,6 +837,132 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
     });
 
     context.subscriptions.push(client);
+}
+
+/**
+ * 注册映射工具命令：
+ * - mappingCheck：第三方库映射质量校验（全部内置语言或工作区指定语言包目录）
+ * - mappingScaffold：新语言翻译脚手架（rule 骨架 / deepseek AI 翻译）
+ * - langInstall：安装语言包（远程语言代码或本地目录）
+ */
+function 注册映射工具命令(context: vscode.ExtensionContext): void {
+    // 映射校验：工作区存在 lang-packs/ 时可选具体语言包目录，否则校验全部内置语言
+    context.subscriptions.push(
+        vscode.commands.registerCommand('i18n-rust.mappingCheck', async () => {
+            const rzc路径 = await 解析rzc();
+            if (!rzc路径) {
+                return;
+            }
+            const 工作区根 = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            let 目标参数 = '';
+            if (工作区根) {
+                // 两种布局均探测：lang-packs/（用户项目约定）与
+                // crates/engine/lang-packs/（主仓库单一数据源）
+                const langPacks目录 = [path.join(工作区根, 'lang-packs'),
+                    path.join(工作区根, 'crates', 'engine', 'lang-packs')]
+                    .find(目录 => fs.existsSync(目录));
+                if (langPacks目录) {
+                    const 子目录们 = fs.readdirSync(langPacks目录).filter(名 =>
+                        fs.existsSync(path.join(langPacks目录, 名, 'keywords.toml'))
+                    );
+                    const 选项们: { label: string; description: string }[] = [
+                        { label: '全部内置语言', description: 'rzc mapping check（含跨语言一致性对比）' }
+                    ];
+                    for (const 名 of 子目录们) {
+                        选项们.push({ label: 名, description: path.relative(工作区根, path.join(langPacks目录, 名)) });
+                    }
+                    const 选择 = await vscode.window.showQuickPick(选项们, {
+                        placeHolder: '选择校验目标'
+                    });
+                    if (!选择) {
+                        return;
+                    }
+                    if (选择.label !== '全部内置语言') {
+                        目标参数 = ` ${quoteShellArg(path.join(langPacks目录, 选择.label))}`;
+                    }
+                }
+            }
+            const 终端 = 获取命令终端(工作区根 ?? '.');
+            终端.show();
+            终端.sendText(`${quoteShellArg(rzc路径)} mapping check${目标参数}`);
+        })
+    );
+
+    // 翻译脚手架：选源语言 → 输入目标代码 → 选翻译方式 → 终端执行
+    context.subscriptions.push(
+        vscode.commands.registerCommand('i18n-rust.mappingScaffold', async () => {
+            const rzc路径 = await 解析rzc();
+            if (!rzc路径) {
+                return;
+            }
+            // 源语言必须是内置语言；en 无 crates 映射不可作源
+            const 源选项们 = 方言语言表
+                .filter(语言 => 语言.code !== 'en')
+                .map(语言 => ({ label: 语言.code, description: 语言.displayName }));
+            const 源选择 = await vscode.window.showQuickPick(源选项们, {
+                placeHolder: '选择源语言（从其 crates 映射生成骨架）'
+            });
+            if (!源选择) {
+                return;
+            }
+            const 目标 = await vscode.window.showInputBox({
+                prompt: '目标语言代码（新语言包目录名）',
+                placeHolder: '如 vi、th、tr',
+                validateInput: 值 =>
+                    /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(值.trim())
+                        ? undefined
+                        : '语言代码格式无效（如 vi、pt-BR）'
+            });
+            if (!目标) {
+                return;
+            }
+            const 方式选择 = await vscode.window.showQuickPick(
+                [
+                    {
+                        label: 'rule',
+                        description: '生成 TODO 骨架，键由人工翻译（默认）'
+                    },
+                    {
+                        label: 'deepseek',
+                        description: 'AI 自动翻译键名（需环境变量 DEEPSEEK_API_KEY）'
+                    }
+                ],
+                { placeHolder: '选择翻译方式' }
+            );
+            if (!方式选择) {
+                return;
+            }
+            const 工作区根 = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            const 终端 = 获取命令终端(工作区根 ?? '.');
+            终端.show();
+            终端.sendText(
+                `${quoteShellArg(rzc路径)} mapping scaffold ${quoteShellArg(源选择.label)} `
+                + `${quoteShellArg(目标.trim())} --provider ${方式选择.label}`
+            );
+        })
+    );
+
+    // 安装语言包：远程语言代码或本地目录路径
+    context.subscriptions.push(
+        vscode.commands.registerCommand('i18n-rust.langInstall', async () => {
+            const rzc路径 = await 解析rzc();
+            if (!rzc路径) {
+                return;
+            }
+            const 来源 = await vscode.window.showInputBox({
+                prompt: '安装语言包：输入远程语言代码或本地语言包目录路径',
+                placeHolder: '如 vi（远程，可用 RZ_LANG_REPO 指定仓库）或 /path/to/lang-pack',
+                validateInput: 值 => (值.trim() ? undefined : '不能为空')
+            });
+            if (!来源) {
+                return;
+            }
+            const 工作区根 = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            const 终端 = 获取命令终端(工作区根 ?? '.');
+            终端.show();
+            终端.sendText(`${quoteShellArg(rzc路径)} lang install ${quoteShellArg(来源.trim())}`);
+        })
+    );
 }
 
 /**

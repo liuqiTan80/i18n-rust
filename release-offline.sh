@@ -81,12 +81,13 @@ else
     cp "target/release/rzc" "$PACK_DIR/rzc"
 fi
 
-# 语言包目录（可选扩展：远程安装的语言包；中文等已内置到可执行文件）
-if [ -d "lang-packs" ]; then
-    cp -r lang-packs/. "$PACK_DIR/lang-packs/"
-    echo "   ✅ 已复制语言包：$(ls lang-packs | tr '\n' ' ')"
+# 语言包目录（可选扩展：远程安装的语言包；中文等已内置到可执行文件）；
+# 单一数据源为 crates/engine/lang-packs/，包内仍按 lang-packs/ 布局（RZ_LANG_DIR 约定）
+if [ -d "crates/engine/lang-packs" ]; then
+    cp -r crates/engine/lang-packs/. "$PACK_DIR/lang-packs/"
+    echo "   ✅ 已复制语言包：$(ls crates/engine/lang-packs | tr '\n' ' ')"
 else
-    echo "   ⚠️ 未找到 lang-packs/ 目录，跳过（内置中文语言包不受影响）"
+    echo "   ⚠️ 未找到 crates/engine/lang-packs/ 目录，跳过（内置中文语言包不受影响）"
 fi
 
 # 许可证与说明文档

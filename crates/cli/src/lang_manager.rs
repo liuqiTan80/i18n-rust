@@ -499,22 +499,26 @@ fn try_single_source(
 
 /// 从仓库目录安装指定语言包
 ///
-/// 依次探测两个位置：
+/// 依次探测三个位置：
 /// 1. 仓库根 `<语言码>/`（自建语言包仓库的约定结构）；
-/// 2. 仓库根 `lang-packs/<语言码>/`（主仓库 zrRust 的实际结构，
+/// 2. 仓库根 `lang-packs/<语言码>/`（兼容旧版双副本结构与第三方仓库）；
+/// 3. `crates/engine/lang-packs/<语言码>/`（主仓库 zrRust 单副本结构，
 ///    使 `rzc lang install <码>` 可直接从主仓库安装）。
 fn install_from_repo_dir(lang_code: &str, repo_dir: &Path, force: bool) -> anyhow::Result<()> {
     let lang_source = repo_dir.join(lang_code);
     let lang_source = if lang_source.is_dir() {
         lang_source
+    } else if repo_dir.join("lang-packs").join(lang_code).is_dir() {
+        repo_dir.join("lang-packs").join(lang_code)
+    } else if repo_dir
+        .join("crates/engine/lang-packs")
+        .join(lang_code)
+        .is_dir()
+    {
+        repo_dir.join("crates/engine/lang-packs").join(lang_code)
     } else {
-        let nested = repo_dir.join("lang-packs").join(lang_code);
-        if nested.is_dir() {
-            nested
-        } else {
-            let ui = crate::ui::Ui::global();
-            anyhow::bail!("{}", ui.f("remote_lang_not_found", &[lang_code]));
-        }
+        let ui = crate::ui::Ui::global();
+        anyhow::bail!("{}", ui.f("remote_lang_not_found", &[lang_code]));
     };
     validate_lang_pack_dir(&lang_source)?;
     copy_to_global_dir(&lang_source, lang_code, force)
@@ -806,7 +810,7 @@ mod tests {
         }
     }
 
-    /// 语言包放在仓库 `lang-packs/<语言码>/` 子目录时也能安装（主仓库结构）
+    /// 语言包放在仓库 `lang-packs/<语言码>/` 子目录时也能安装（兼容旧结构）
     #[test]
     fn test_install_from_repo_dir_nested_lang_packs() {
         let _lock = ENV_LOCK.lock().unwrap();
@@ -819,6 +823,25 @@ mod tests {
 
         install_from_repo_dir("法语", repo, false).unwrap();
         assert!(global_lang_dir().join("法语/keywords.toml").is_file());
+
+        unsafe {
+            std::env::remove_var("RZ_LANG_DIR");
+        }
+    }
+
+    /// 语言包放在 `crates/engine/lang-packs/<语言码>/` 时也能安装（主仓库单副本结构）
+    #[test]
+    fn test_install_from_repo_dir_engine_layout() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let temp_root = tempfile::tempdir().unwrap();
+        make_temp_lang_pack(&temp_root.path().join("crates/engine/lang-packs"), "德语");
+        let repo = temp_root.path();
+        unsafe {
+            std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));
+        }
+
+        install_from_repo_dir("德语", repo, false).unwrap();
+        assert!(global_lang_dir().join("德语/keywords.toml").is_file());
 
         unsafe {
             std::env::remove_var("RZ_LANG_DIR");

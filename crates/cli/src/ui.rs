@@ -39,8 +39,11 @@ impl Ui {
 
     /// 加载指定语言的界面消息（项目内 > 全局 > 内置）
     pub fn for_lang(lang_code: &str) -> Self {
-        // 1. 当前目录 lang-packs/<lang>/ui.toml（项目内自定义覆盖）
-        let local = Path::new("lang-packs").join(lang_code).join("ui.toml");
+        // 1. 当前目录项目语言包根 <lang>/ui.toml（项目内自定义覆盖；
+        //    主仓库为 crates/engine/lang-packs/，用户项目为 lang-packs/）
+        let local = crate::lang_pack_root_of(Path::new("."))
+            .join(lang_code)
+            .join("ui.toml");
         if local.is_file()
             && let Ok(content) = std::fs::read_to_string(&local)
         {

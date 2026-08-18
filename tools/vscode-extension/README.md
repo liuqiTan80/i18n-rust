@@ -10,6 +10,7 @@
 - **所有权可视化**：用颜色高亮变量的移动（黄）、再次使用（红）与生命周期（绿）
 - **代码片段**：内置常用代码片段（`函数`、`让`、`如果`、`循环` 等）
 - **一键命令**：运行（`Ctrl+Shift+R`）、类型检查（`Ctrl+Shift+C`）、导出标准 Rust
+- **语言包工具**（需 rzc ≥ 0.3.3）：命令面板提供映射质量校验（`mapping check`）、新语言翻译脚手架（`mapping scaffold`，支持 DeepSeek AI 自动翻译键名）、语言包安装（`lang install`）
 
 ## 离线安装
 
@@ -34,7 +35,7 @@
 4. 在文件选择对话框中，选中下载的 `i18n-rust-<版本>.vsix` 文件
 5. 点击 **安装**，安装完成后按提示 **重新加载** 窗口
 
-> 命令行方式：`code --install-extension i18n-rust-0.1.0.vsix`
+> 命令行方式：`code --install-extension i18n-rust-<版本>.vsix`
 
 ### 3. 验证安装
 

@@ -219,8 +219,19 @@ pub fn run_auto_generate(
         &explanation_table,
     );
 
-    // 4. 冲突检测：词法转译（关键字映射）先于别名替换执行，冲突的中文名生成后不会生效
-    let lang_pack_dir = PathBuf::from(format!("lang-packs/{}", lang));
+    // 4. 冲突检测：词法转译（关键字映射）先于别名替换执行，冲突的中文名生成后不会生效；
+    // 语言包目录优先从输出路径推导（…/<lang>/crates/<crate>.toml 的上两级），
+    // 推导失败时回退 cwd 的项目语言包根（主仓库为 crates/engine/lang-packs/）
+    let lang_pack_dir = output_path
+        .parent()
+        .and_then(|p| p.parent())
+        .filter(|dir| dir.join("keywords.toml").exists())
+        .map(|dir| dir.to_path_buf())
+        .unwrap_or_else(|| {
+            std::env::current_dir()
+                .map(|cwd| crate::lang_pack_root_of(&cwd).join(lang))
+                .unwrap_or_else(|_| PathBuf::from(format!("lang-packs/{}", lang)))
+        });
     for (chinese, keyword_english, this_english) in
         detect_keyword_conflicts(&lang_pack_dir, &chinese_name_table)
     {

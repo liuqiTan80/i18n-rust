@@ -73,7 +73,7 @@ enum MappingCommand {
         /// AI 服务商：deepseek（默认，需 DEEPSEEK_API_KEY 环境变量）或 rule（离线规则模式）
         #[arg(long, default_value = "deepseek")]
         provider: String,
-        /// 输出文件路径（默认 lang-packs/<lang>/crates/<crate_name>.toml）
+        /// 输出文件路径（默认项目语言包根：<lang>/crates/<crate_name>.toml）
         #[arg(long)]
         output: Option<PathBuf>,
     },
@@ -88,7 +88,7 @@ enum MappingCommand {
         source: String,
         /// 目标语言代码（新语言包目录名，如 vi）
         target: String,
-        /// 输出目录（默认 lang-packs/<target>/crates/）
+        /// 输出目录（默认项目语言包根：<target>/crates/）
         #[arg(long)]
         output: Option<PathBuf>,
         /// 翻译方式：rule（默认，生成 TODO 骨架待人工翻译）或 deepseek（AI 自动翻译键名，需 DEEPSEEK_API_KEY）
@@ -310,13 +310,14 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 let lang = lang.unwrap_or_else(mapping_gen::detect_system_language);
                 i18n_rust_engine::语言::set_language(&lang);
                 let output_path = output.unwrap_or_else(|| {
-                    // 默认写入项目根的 lang-packs/：从 cwd 向上找 Cargo.toml，
-                    // 保证任意子目录下执行都落到项目本地语言包（load_mapping 同一位置查找）
+                    // 默认写入项目语言包根：从 cwd 向上找 Cargo.toml，
+                    // 保证任意子目录下执行都落到项目本地语言包（load_mapping 同一位置查找）；
+                    // 主仓库内落到 crates/engine/lang-packs/（单一数据源），用户项目落 lang-packs/
                     let base = std::env::current_dir()
                         .ok()
                         .and_then(|cwd| find_project_root_upward(&cwd))
                         .unwrap_or_else(|| PathBuf::from("."));
-                    base.join(format!("lang-packs/{}/crates/{}.toml", lang, crate_name))
+                    lang_pack_root_of(&base).join(format!("{}/crates/{}.toml", lang, crate_name))
                 });
                 mapping_gen::run_auto_generate(&crate_name, &lang, &provider, &output_path)
                     .map(|()| std::process::ExitCode::SUCCESS)
@@ -451,6 +452,18 @@ fn find_project_root_upward(start: &Path) -> Option<PathBuf> {
     }
 }
 
+/// 项目内语言包根目录：主仓库 zrRust 为单副本结构 `crates/engine/lang-packs/`
+///（编译期内嵌与文件系统消费共用同一份数据）；
+/// 普通用户项目仍沿用 `lang-packs/` 约定（自定义覆盖）
+pub(crate) fn lang_pack_root_of(base: &Path) -> PathBuf {
+    let engine_pack = base.join("crates/engine/lang-packs");
+    if engine_pack.is_dir() {
+        engine_pack
+    } else {
+        base.join("lang-packs")
+    }
+}
+
 /// 统一转译管线（复用 engine）：Unicode 检查 → 关键字/宏转译 → 模块路径替换 → 别名替换 → 非 ASCII 模块注解
 fn transpile_to_english(source: &str, manager: &MappingManager) -> String {
     let code = i18n_rust_engine::transpile_pipeline(source, manager).output;
@@ -485,11 +498,14 @@ fn translate_cargo_diagnostics(
         .unwrap_or_else(ui::detect_ui_lang);
     let error_msg_path = if let Some(path) = lang_pack {
         path.join("errors.toml")
-    } else if project_root
-        .join(format!("lang-packs/{}/errors.toml", lang_code))
+    } else if lang_pack_root_of(project_root)
+        .join(&lang_code)
+        .join("errors.toml")
         .exists()
     {
-        project_root.join(format!("lang-packs/{}/errors.toml", lang_code))
+        lang_pack_root_of(project_root)
+            .join(&lang_code)
+            .join("errors.toml")
     } else {
         lang_manager::global_lang_dir()
             .join(&lang_code)
@@ -855,16 +871,18 @@ fn load_mapping(
             ui.f("unknown_extension", &[extension, &available_text])
         )
     })?;
-    // 3. 项目根的 lang-packs/<lang>/ 目录存在时优先使用（自定义覆盖）
+    // 3. 项目内语言包目录存在时优先使用（自定义覆盖）：
+    //    主仓库为 crates/engine/lang-packs/<lang>（单一数据源），用户项目为 lang-packs/<lang>；
     //    项目根从源文件向上查找；源文件不在项目内时回退 cwd，兼容旧用法
     let mut local_candidates: Vec<PathBuf> = Vec::new();
     if let Some(file) = source_file
         && let Some(parent) = file.parent()
         && let Some(root) = find_project_root_upward(parent)
     {
-        local_candidates.push(root.join("lang-packs").join(&lang_code));
+        local_candidates.push(lang_pack_root_of(&root).join(&lang_code));
     }
-    local_candidates.push(PathBuf::from(format!("lang-packs/{}", lang_code)));
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    local_candidates.push(lang_pack_root_of(&cwd).join(&lang_code));
     for local_path in &local_candidates {
         if local_path.exists() {
             return MappingManager::load_from_dir(local_path).map_err(|e| {
