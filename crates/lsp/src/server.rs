@@ -232,7 +232,13 @@ impl ProxyServer {
                 "workspaceFolders": [{
                     "uri": virtual_project,
                     "name": "i18n-virtual"
-                }]
+                }],
+                // 虚拟项目无依赖/无构建脚本/无过程宏：关闭相应后台任务，
+                // 减少启动与保存时的 cargo 开销；诊断（checkOnSave）保留
+                "initializationOptions": {
+                    "cargo": { "buildScripts": { "enable": false } },
+                    "procMacro": { "enable": false }
+                }
             }
         });
 
@@ -268,7 +274,7 @@ impl ProxyServer {
             "capabilities": {
                 "textDocumentSync": {
                     "openClose": true,
-                    "change": 1,
+                    "change": 2,
                     "save": { "includeText": true }
                 },
                 "completionProvider": {
@@ -288,7 +294,7 @@ impl ProxyServer {
             },
             "serverInfo": {
                 "name": "i18n-rust-lsp",
-                "version": "0.1.0"
+                "version": env!("CARGO_PKG_VERSION")
             }
         });
 
@@ -540,6 +546,11 @@ impl ProxyServer {
     }
 
     /// 处理文档变更
+    ///
+    /// 代理声明增量同步（change=2）以减少客户端→代理的传输量：
+    /// 无 range 的变更项为全量文本（兼容旧客户端），
+    /// 带 range 的按 LSP 位置（UTF-16）逐项应用到缓存中的母语文本。
+    /// 应用后仍全量重译，并以全量替换通知 rust-analyzer。
     fn handle_did_change(&self, params: &Value) -> anyhow::Result<()> {
         let doc = &params["textDocument"];
         let uri = doc["uri"].as_str().unwrap_or("");
@@ -549,24 +560,40 @@ impl ProxyServer {
             return Ok(());
         }
 
-        if let Some(changes_list) = params["contentChanges"].as_array()
-            && let Some(last) = changes_list.last()
-            && let Some(content) = last["text"].as_str()
-        {
-            let (entry, _) = self.cache.update_document(uri, content, version)?;
-            let ra_msg = json!({
-                "jsonrpc": "2.0",
-                "method": "textDocument/didChange",
-                "params": {
-                    "textDocument": {
-                        "uri": entry.virtual_uri,
-                        "version": version
-                    },
-                    "contentChanges": [{ "text": entry.en_content }]
+        let Some(changes_list) = params["contentChanges"].as_array() else {
+            return Ok(());
+        };
+
+        // 在缓存旧文本上按序应用变更，得到新全文
+        let mut content = self
+            .cache
+            .query_original(uri)
+            .map(|e| e.zh_content.clone())
+            .unwrap_or_default();
+        for change in changes_list {
+            if let Some(text) = change["text"].as_str() {
+                if change.get("range").is_none() {
+                    // 全量替换
+                    content = text.to_string();
+                } else {
+                    apply_incremental_change(&mut content, &change["range"], text);
                 }
-            });
-            self.analyzer.send(&ra_msg)?;
+            }
         }
+
+        let (entry, _) = self.cache.update_document(uri, &content, version)?;
+        let ra_msg = json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": {
+                    "uri": entry.virtual_uri,
+                    "version": version
+                },
+                "contentChanges": [{ "text": entry.en_content }]
+            }
+        });
+        self.analyzer.send(&ra_msg)?;
         Ok(())
     }
 
@@ -990,6 +1017,41 @@ fn text_end_position(content: &str) -> Value {
     json!({ "line": line_count - 1, "character": col_count })
 }
 
+/// 将增量变更（range + text）应用到母语文本
+///
+/// LSP 位置按 UTF-16 code unit 计数；越界位置钳制到行尾/文末，
+/// 防御客户端发来异常 range 时 panic。
+fn apply_incremental_change(content: &mut String, range: &Value, text: &str) {
+    let start = lsp_position_to_offset(content, &range["start"]);
+    let end = lsp_position_to_offset(content, &range["end"]).max(start);
+    content.replace_range(start..end, text);
+}
+
+/// LSP 位置（line/character，UTF-16）→ 文本字节偏移
+///
+/// 行号越界钳制到最后一行；列号越界钳制到行尾（含换行符前）。
+fn lsp_position_to_offset(content: &str, position: &Value) -> usize {
+    let line = position["line"].as_u64().unwrap_or(0) as u32;
+    let character = position["character"].as_u64().unwrap_or(0) as u32;
+    let mut line_start = 0usize;
+    for (当前行, (idx, _)) in content.match_indices('\n').enumerate() {
+        if 当前行 as u32 == line {
+            break;
+        }
+        line_start = idx + 1;
+    }
+    // 行内按 UTF-16 单元前进，列号用尽或到达行尾（不含换行符）即停
+    let line_text = &content[line_start..];
+    let mut utf16 = 0u32;
+    for (i, c) in line_text.char_indices() {
+        if c == '\n' || utf16 >= character {
+            return line_start + i;
+        }
+        utf16 += c.len_utf16() as u32;
+    }
+    line_start + line_text.len()
+}
+
 /// 将 LSP 位置（position）从母语坐标转换为英文坐标
 ///
 /// 当前翻译逐行替换关键字、行数保持不变（行映射为 1:1），
@@ -1363,5 +1425,56 @@ mod tests {
             text_end_position("行\n"),
             json!({ "line": 1, "character": 0 })
         );
+    }
+
+    #[test]
+    fn test_lsp_position_to_offset() {
+        let text = "让 可变 x = 5;\n让 y = 10;";
+        // 首行中文列：「可变」起点（列 2）
+        let pos = json!({ "line": 0, "character": 2 });
+        assert_eq!(lsp_position_to_offset(text, &pos), "让 ".len());
+        // 第二行起点
+        let pos = json!({ "line": 1, "character": 0 });
+        assert_eq!(lsp_position_to_offset(text, &pos), "让 可变 x = 5;\n".len());
+        // 列号越界钳制到行尾（不含换行符）
+        let pos = json!({ "line": 0, "character": 999 });
+        assert_eq!(lsp_position_to_offset(text, &pos), "让 可变 x = 5;".len());
+        // 行号越界钳制到最后一行
+        let pos = json!({ "line": 99, "character": 2 });
+        assert_eq!(
+            lsp_position_to_offset(text, &pos),
+            "让 可变 x = 5;\n让 ".len()
+        );
+    }
+
+    #[test]
+    fn test_apply_incremental_change() {
+        // 中文行内插入
+        let mut text = "让 x = 5;".to_string();
+        let range = json!({
+            "start": { "line": 0, "character": 2 },
+            "end": { "line": 0, "character": 2 }
+        });
+        apply_incremental_change(&mut text, &range, "可变 ");
+        assert_eq!(text, "让 可变 x = 5;");
+
+        // 跨行删除替换
+        let mut text = "行一\n行二\n行三".to_string();
+        let range = json!({
+            "start": { "line": 0, "character": 1 },
+            "end": { "line": 1, "character": 1 }
+        });
+        apply_incremental_change(&mut text, &range, "新");
+        // 删除「一\n行」并插入「新」
+        assert_eq!(text, "行新二\n行三");
+
+        // 异常 range（end < start）不 panic，退化为插入
+        let mut text = "abc".to_string();
+        let range = json!({
+            "start": { "line": 0, "character": 3 },
+            "end": { "line": 0, "character": 1 }
+        });
+        apply_incremental_change(&mut text, &range, "X");
+        assert_eq!(text, "abcX");
     }
 }

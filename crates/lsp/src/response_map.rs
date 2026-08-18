@@ -28,27 +28,18 @@ pub struct ResponseMapper {
 impl ResponseMapper {
     /// 创建新的响应映射器
     ///
-    /// 反向表由关键字映射与别名映射反转并按母语词排序插入，
-    /// 多对一冲突时保留排序最小者，保证结果确定性。
+    /// 反向表直接复用 TranslationCache 构造时预构建的合并表
+    /// （关键字反转后合并别名反转，多对一冲突保留排序最小者，
+    /// 结果确定），避免每次构造映射器重复构建。
     pub fn new(cache: Arc<TranslationCache>) -> Self {
-        let mut pairs: Vec<(&String, &String)> = cache.keyword_map().iter().collect();
-        pairs.sort();
         // 英文语言包为恒等映射（键=值），无需也无法做语言过滤
-        let strict_native_filter = pairs.iter().any(|(native, english)| native != english);
-        let mut reverse_map = std::collections::HashMap::with_capacity(pairs.len());
-        for (native, english) in pairs {
-            reverse_map.entry(english.clone()).or_insert(native.clone());
-        }
-        // 别名反转（标准库/第三方库标识符）：同英文名的关键字先入为主，
-        // 保证补全/代码操作中的库 API 也能还原为母语别名
-        let mut alias_pairs: Vec<(&String, &String)> = cache.alias_map().iter().collect();
-        alias_pairs.sort();
-        for (native, english) in alias_pairs {
-            reverse_map.entry(english.clone()).or_insert(native.clone());
-        }
+        let strict_native_filter = cache
+            .keyword_map()
+            .iter()
+            .any(|(native, english)| native != english);
         Self {
+            reverse_map: cache.reverse_map().clone(),
             cache,
-            reverse_map,
             strict_native_filter,
         }
     }
@@ -61,7 +52,7 @@ impl ResponseMapper {
     /// 将虚拟 URI 替换为原始 URI
     pub fn restore_uri(&self, uri: &str) -> String {
         if let Some(entry) = self.cache.query_by_virtual_uri(uri) {
-            entry.original_uri
+            entry.original_uri.clone()
         } else {
             uri.to_string()
         }
@@ -1241,7 +1232,7 @@ mod tests {
                 "kind": "quickfix",
                 "edit": {
                     "changes": {
-                        entry.virtual_uri: [{
+                        entry.virtual_uri.clone(): [{
                             "range": {
                                 "start": { "line": 0, "character": 0 },
                                 "end": { "line": 0, "character": 2 }

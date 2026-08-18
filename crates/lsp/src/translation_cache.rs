@@ -53,7 +53,10 @@ pub struct ColumnMapPoint {
 /// 持有所有已打开文档的翻译结果，并提供线程安全的读写接口。
 pub struct TranslationCache {
     /// URI → 翻译条目
-    entries: RwLock<HashMap<String, TranslationEntry>>,
+    ///
+    /// 条目以 Arc 共享：查询返回廉价引用计数克隆，避免每次按键
+    /// 都全量克隆源码与列映射等大字段。
+    entries: RwLock<HashMap<String, Arc<TranslationEntry>>>,
     /// 关键字映射表（中文 → 英文）
     keyword_map: Arc<HashMap<String, String>>,
     /// 宏映射表（中文宏名 → 英文宏名，用于自动补充感叹号）
@@ -64,8 +67,17 @@ pub struct TranslationCache {
     temp_dir: PathBuf,
     /// 模块集合版本号：模块集合（已打开方言文件的文件名）变化时递增。
     /// 供 ProxyServer 判断是否需要重载虚拟项目工作区，
-    /// 避免每次打开/关闭文档都触发 rust-analyzer 全量重扫。
+    /// 避免每次打开/关闭文档同学都触发 rust-analyzer 全量重扫。
     module_version: std::sync::atomic::AtomicU64,
+    /// 合并反向表（英文 → 母语）：关键字反转后合并别名反转（关键字先入为主）。
+    /// 映射表构造后不可变，构造时预构建一次，
+    /// 供反向转译与 ResponseMapper 共用，避免每次调用重复构建。
+    reverse_map: Arc<HashMap<String, String>>,
+    /// 文档变更代号：任何文档打开/更新/关闭时递增，用于用户词汇缓存失效
+    docs_generation: std::sync::atomic::AtomicU64,
+    /// 用户词汇缓存：(代号, 结果)。代号匹配时直接复用，
+    /// 避免每次补全请求都重新词法扫描全部已打开文档
+    user_tokens_cache: std::sync::Mutex<(u64, Option<HashSet<String>>)>,
 }
 
 impl TranslationCache {
@@ -95,6 +107,11 @@ impl TranslationCache {
         }
         let _ = std::fs::create_dir_all(&temp_dir);
         let _ = std::fs::create_dir_all(temp_dir.join("src"));
+        // 合并反向表预构建：关键字反转优先，别名反转仅在英文键未占用时并入
+        let mut reverse_map = build_reverse_map(&keyword_map);
+        for (english, native) in build_reverse_map(&alias_map) {
+            reverse_map.entry(english).or_insert(native);
+        }
         let cache = Arc::new(Self {
             entries: RwLock::new(HashMap::new()),
             keyword_map: Arc::new(keyword_map),
@@ -102,6 +119,9 @@ impl TranslationCache {
             alias_map: Arc::new(alias_map),
             temp_dir,
             module_version: std::sync::atomic::AtomicU64::new(0),
+            reverse_map: Arc::new(reverse_map),
+            docs_generation: std::sync::atomic::AtomicU64::new(0),
+            user_tokens_cache: std::sync::Mutex::new((0, None)),
         });
         // 初始时生成空虚拟项目，供 rust-analyzer 工作区发现
         cache.refresh_virtual_project();
@@ -111,7 +131,8 @@ impl TranslationCache {
     /// 打开或更新一个文档的翻译
     ///
     /// 将中文内容翻译为英文，写入虚拟文件，并记录行映射。
-    /// 返回 (当前条目, 其他因模块集合变化而被重写的条目)。
+    /// 返回 (当前条目, 其他因模块集合变化而被重写的条目)；
+    /// 条目以 Arc 共享，调用方按需廉价克隆。
     ///
     /// 模块集合 = 所有已打开方言文件的文件名（不含扩展名）。
     /// 打开新文件会新增模块，使其他文件的虚拟内容可能新增
@@ -121,7 +142,7 @@ impl TranslationCache {
         uri: &str,
         content: &str,
         version: i32,
-    ) -> anyhow::Result<(TranslationEntry, Vec<TranslationEntry>)> {
+    ) -> anyhow::Result<(Arc<TranslationEntry>, Vec<Arc<TranslationEntry>>)> {
         let original_path = uri_to_path(uri);
 
         // Unicode 混淆安全检查（零宽/双向/同形字符）：仅告警不阻断翻译
@@ -165,7 +186,7 @@ impl TranslationCache {
                 .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock")))?;
             table.insert(
                 uri.to_string(),
-                TranslationEntry {
+                Arc::new(TranslationEntry {
                     original_uri: uri.to_string(),
                     original_path: original_path.clone(),
                     zh_content: content.to_string(),
@@ -175,13 +196,20 @@ impl TranslationCache {
                     line_map,
                     column_map: Vec::new(),
                     version,
-                },
+                }),
             );
         }
 
-        // 模块集合变化时重写全部条目，否则只重写当前条目
+        // 内容可能变化：递增文档变更代号，使用户词汇缓存失效
+        self.docs_generation
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+        // 模块集合变化时重写全部条目并刷新虚拟项目，否则只重写当前条目
         let changes = if set_changed {
-            self.bump_module_version();
+            let _ = self.bump_module_version();
+            // main.rs/Cargo.toml 只依赖模块集合：纯内容编辑不触发，
+            // 每次按键省去数次磁盘写与全表遍历
+            self.refresh_virtual_project();
             self.rewrite_all(&new_module_names)
         } else {
             let mut changes = Vec::new();
@@ -191,13 +219,10 @@ impl TranslationCache {
             changes
         };
 
-        // 更新虚拟项目文件（聚合 main.rs），使跨文件语义分析可用
-        self.refresh_virtual_project();
-
         let entry = self.query_original(uri).ok_or_else(|| {
             anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_entry_missing", &[uri]))
         })?;
-        let other_changes: Vec<TranslationEntry> = changes
+        let other_changes: Vec<Arc<TranslationEntry>> = changes
             .into_iter()
             .filter(|e| e.original_uri != uri)
             .collect();
@@ -215,8 +240,9 @@ impl TranslationCache {
     /// 关闭文档，清理虚拟文件
     ///
     /// 返回其余条目中因模块集合缩小而被重写的条目列表。
-    pub fn close_document(&self, uri: &str) -> anyhow::Result<Vec<TranslationEntry>> {
-        {
+    /// 文档本就不在缓存中时不做任何工作（模块集合未变，无需重写/刷新）。
+    pub fn close_document(&self, uri: &str) -> anyhow::Result<Vec<Arc<TranslationEntry>>> {
+        let removed = {
             let mut table = self
                 .entries
                 .write()
@@ -224,22 +250,32 @@ impl TranslationCache {
             if let Some(entry) = table.remove(uri) {
                 let _ = std::fs::remove_file(&entry.virtual_path);
                 // 模块集合缩小，版本号递增（供工作区重载判断）
-                self.bump_module_version();
+                let _ = self.bump_module_version();
                 log::info!("{}", crate::ui::global().f("lsp_log_cache_removed", &[uri]));
+                true
+            } else {
+                false
             }
+        };
+        if !removed {
+            return Ok(Vec::new());
         }
+
+        // 内容可能变化：递增文档变更代号，使用户词汇缓存失效
+        self.docs_generation
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
         // 模块集合缩小：重写其余条目（去掉对已关闭模块的 crate:: 前缀）
         let module_names = self.current_module_names(None);
         let changes = self.rewrite_all(&module_names);
 
-        // 更新虚拟项目文件
+        // 模块集合变化：刷新虚拟项目文件（main.rs 聚合）
         self.refresh_virtual_project();
         Ok(changes)
     }
 
-    /// 根据原始 URI 查询翻译条目
-    pub fn query_original(&self, uri: &str) -> Option<TranslationEntry> {
+    /// 根据原始 URI 查询翻译条目（Arc 廉价克隆，不复制内容）
+    pub fn query_original(&self, uri: &str) -> Option<Arc<TranslationEntry>> {
         let table = self.entries.read().ok()?;
         table.get(uri).cloned()
     }
@@ -250,7 +286,28 @@ impl TranslationCache {
     /// 注释与字符串字面量天然被词法器排除）。供补全语言过滤区分
     /// “用户自己定义的项”与“未翻译的外部英文项”：
     /// 用户源码中出现过的名词（无论母语还是英文）都视为其可见词汇。
+    ///
+    /// 结果按文档变更代号缓存：文档未变化时重复补全请求直接复用，
+    /// 词法扫描只在文档变更后首次调用时发生。
     pub fn user_defined_tokens(&self) -> HashSet<String> {
+        let 代号 = self
+            .docs_generation
+            .load(std::sync::atomic::Ordering::SeqCst);
+        if let Ok(guard) = self.user_tokens_cache.lock()
+            && guard.0 == 代号
+            && let Some(set) = &guard.1
+        {
+            return set.clone();
+        }
+        let tokens = self.scan_user_tokens();
+        if let Ok(mut guard) = self.user_tokens_cache.lock() {
+            *guard = (代号, Some(tokens.clone()));
+        }
+        tokens
+    }
+
+    /// 词法扫描所有已打开文档的原文，收集标识符（无缓存）
+    fn scan_user_tokens(&self) -> HashSet<String> {
         use rustc_lexer::{TokenKind, tokenize};
         let mut tokens = HashSet::new();
         let table = match self.entries.read() {
@@ -270,22 +327,22 @@ impl TranslationCache {
         tokens
     }
 
-    /// 根据虚拟 URI 反查原始条目
+    /// 根据虚拟 URI 反查原始条目（Arc 廉价克隆，不复制内容）
     ///
     /// rust-analyzer 返回的 URI 可能是 URL 百分号编码形式（如中文路径），
     /// 而缓存的虚拟 URI 是未编码的原始形式，因此先精确匹配，
     /// 失败后再解码匹配。
-    pub fn query_by_virtual_uri(&self, virtual_uri: &str) -> Option<TranslationEntry> {
+    pub fn query_by_virtual_uri(&self, virtual_uri: &str) -> Option<Arc<TranslationEntry>> {
         let table = self.entries.read().ok()?;
         for entry in table.values() {
             if entry.virtual_uri == virtual_uri {
-                return Some(entry.clone());
+                return Some(Arc::clone(entry));
             }
         }
         let decoded = url_decode(virtual_uri);
         for entry in table.values() {
             if entry.virtual_uri == decoded {
-                return Some(entry.clone());
+                return Some(Arc::clone(entry));
             }
         }
         None
@@ -299,6 +356,13 @@ impl TranslationCache {
     /// 获取别名映射的引用（标准库/第三方库标识符，供反向转译合并使用）
     pub fn alias_map(&self) -> &HashMap<String, String> {
         &self.alias_map
+    }
+
+    /// 获取合并反向表的引用（英文 → 母语，关键字优先于别名）
+    ///
+    /// 构造时预构建，供 ResponseMapper 共用，避免重复构建。
+    pub fn reverse_map(&self) -> &HashMap<String, String> {
+        &self.reverse_map
     }
 
     /// 将英文（虚拟文件）列号映射回中文（原始文件）列号
@@ -333,18 +397,11 @@ impl TranslationCache {
     ///
     /// 供代码格式化（textDocument/formatting）与补全/代码操作文本还原使用：
     /// 英文代码经 rustfmt 格式化后，据此还原为母语代码。
-    /// 反向表由正向关键字映射与别名映射反转合并得到（关键字优先），
+    /// 反向表为构造时预构建的合并表（关键字优先），
     /// 保证与正向翻译互逆；模块路径重写插入的 `crate::` 前缀在此被删除。
     pub fn reverse_transpile(&self, en_content: &str) -> String {
-        let mut reverse_map = build_reverse_map(&self.keyword_map);
-        // 别名反转合并：标准库/第三方库标识符（如 push → 推入）；
-        // 同英文名的关键字先入为主，与 ResponseMapper 反向表策略一致
-        let alias_reverse = build_reverse_map(&self.alias_map);
-        for (english, native) in alias_reverse {
-            reverse_map.entry(english).or_insert(native);
-        }
         let module_names = self.current_module_names(None);
-        lexer::reverse_transpile(en_content, &reverse_map, &module_names)
+        lexer::reverse_transpile(en_content, &self.reverse_map, &module_names)
     }
 
     /// 获取虚拟项目目录的 file:// URI（供工作区通知使用）
@@ -359,6 +416,7 @@ impl TranslationCache {
     }
 
     /// 递增模块集合版本号，返回新值
+    #[must_use]
     pub fn bump_module_version(&self) -> u64 {
         self.module_version
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
@@ -388,7 +446,11 @@ impl TranslationCache {
     /// 重写单个条目的虚拟内容：翻译 + 模块路径加 `crate::` 前缀 + 重建列映射 + 写盘
     ///
     /// 内容未发生变化（模块集合未引入新前缀）时返回 None。
-    fn rewrite_entry(&self, uri: &str, module_names: &HashSet<String>) -> Option<TranslationEntry> {
+    fn rewrite_entry(
+        &self,
+        uri: &str,
+        module_names: &HashSet<String>,
+    ) -> Option<Arc<TranslationEntry>> {
         let old_entry = self.query_original(uri)?;
         let en_content = lexer::transpile_source_with_macro_map(
             &old_entry.zh_content,
@@ -412,11 +474,12 @@ impl TranslationCache {
             module_names,
         );
 
-        let new_entry = TranslationEntry {
+        // 构造新版本需要克隆旧条目一次；此后查询均为 Arc 廉价克隆
+        let new_entry = Arc::new(TranslationEntry {
             en_content: en_content.clone(),
-            column_map: column_map.clone(),
-            ..old_entry.clone()
-        };
+            column_map,
+            ..(*old_entry).clone()
+        });
 
         // 写入虚拟文件到磁盘（rust-analyzer 需要文件系统支持）
         let _ = std::fs::write(&new_entry.virtual_path, &en_content);
@@ -427,7 +490,7 @@ impl TranslationCache {
                 Err(_) => return None,
             };
             if let Some(entry) = table.get_mut(uri) {
-                *entry = new_entry.clone();
+                *entry = Arc::clone(&new_entry);
             }
         }
 
@@ -441,7 +504,7 @@ impl TranslationCache {
     /// 用给定的模块名集合重写缓存中的所有条目
     ///
     /// 返回内容实际发生变化的条目列表（供调用方通知 rust-analyzer）。
-    fn rewrite_all(&self, module_names: &HashSet<String>) -> Vec<TranslationEntry> {
+    fn rewrite_all(&self, module_names: &HashSet<String>) -> Vec<Arc<TranslationEntry>> {
         let uris: Vec<String> = {
             let table = match self.entries.read() {
                 Ok(t) => t,
@@ -1162,6 +1225,52 @@ mod tests {
         cache.close_document("file:///test/main.zh").unwrap();
         assert!(!entry.virtual_path.exists());
         assert!(cache.query_original("file:///test/main.zh").is_none());
+    }
+
+    /// 关闭不在缓存中的文档：幂等早返回，不触发重写
+    #[test]
+    fn test_close_document_missing_is_noop() {
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(
+            test_map(),
+            HashMap::new(),
+            HashMap::new(),
+            temp.path().to_path_buf(),
+        );
+        cache
+            .update_document("file:///test/main.zh", "让 x = 1;", 1)
+            .unwrap();
+        let version_before = cache.module_version();
+        let changes = cache.close_document("file:///test/不存在.zh").unwrap();
+        assert!(changes.is_empty());
+        // 模块集合未变：版本号不递增
+        assert_eq!(cache.module_version(), version_before);
+    }
+
+    /// 用户词汇缓存：文档未变时命中，变更后失效重建
+    #[test]
+    fn test_user_defined_tokens_cache_invalidation() {
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(
+            test_map(),
+            HashMap::new(),
+            HashMap::new(),
+            temp.path().to_path_buf(),
+        );
+        cache
+            .update_document("file:///test/main.zh", "函数 自定义甲() {}", 1)
+            .unwrap();
+        let first = cache.user_defined_tokens();
+        assert!(first.contains("自定义甲"));
+        // 命中路径：结果一致
+        assert_eq!(first, cache.user_defined_tokens());
+        // 文档变更后缓存失效，新名词可见
+        cache
+            .update_document("file:///test/main.zh", "函数 自定义乙() {}", 2)
+            .unwrap();
+        let second = cache.user_defined_tokens();
+        assert!(second.contains("自定义乙"));
+        assert!(!second.contains("自定义甲"));
     }
 
     #[test]
