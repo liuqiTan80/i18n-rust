@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 const 脚本目录 = path.dirname(fileURLToPath(import.meta.url));
 const 扩展目录 = path.resolve(脚本目录, '..');
 const 仓库根 = path.resolve(扩展目录, '..', '..');
-const 语言包根 = path.join(仓库根, 'lang-packs');
+const 语言包根 = path.join(仓库根, 'crates', 'engine', 'lang-packs');
 const 语法目录 = path.join(扩展目录, 'syntaxes');
 const 模板路径 = path.join(语法目录, 'rust-zh.tmLanguage.json');
 
