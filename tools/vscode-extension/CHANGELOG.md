@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3
+
+### 修复
+- LSP 在 Windows 上找不到 rust-analyzer 导致启动即退出、反复重启：查找逻辑跨平台化（PATH 扫描替代 Unix 专属 which，支持 PATHEXT/.exe；主目录定位回退 USERPROFILE），并补充 ~/.cargo/bin 候选。
+
 ## 0.5.2
 
 ### 新增

@@ -1,6 +1,6 @@
 [package]
 name = "i18n-rust-lsp"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2024"
 description = "LSP 代理服务器：将方言 Rust 代码翻译为标准 Rust 后交给 rust-analyzer"
 license = "MIT"
@@ -26,7 +26,7 @@ env_logger = "0.11"
 crossbeam-channel = "0.5"
 
 # 内部引擎（发布时 path 自动转为 crates.io 版本依赖，故必须显式声明版本）
-i18n-rust-engine = { path = "../engine", version = "0.5.2" }
+i18n-rust-engine = { path = "../engine", version = "0.5.3" }
 
 # 词法分析（列映射用）
 rustc_lexer = "0.1"

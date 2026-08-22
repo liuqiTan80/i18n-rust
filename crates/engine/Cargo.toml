@@ -1,6 +1,6 @@
 [package]
 name = "i18n-rust-engine"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2024"
 description = "多语言 Rust 教学方言核心引擎：词法转译、映射管理、诊断翻译、增量缓存"
 license = "MIT"
