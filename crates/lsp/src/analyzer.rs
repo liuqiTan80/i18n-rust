@@ -4,7 +4,7 @@
 //! 通过 stdin/stdout 以 LSP 协议（Content-Length 分帧）与之通信。
 
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -206,8 +206,8 @@ fn read_one_lsp_message<R: BufRead>(reader: &mut R) -> Option<Value> {
 /// 优先级：
 /// 1. RUST_ANALYZER_PATH 环境变量
 /// 2. rustup which --toolchain stable（真实路径，不受项目 rust-toolchain.toml 影响）
-/// 3. PATH 中的 rust-analyzer
-/// 4. 常见安装位置
+/// 3. PATH 扫描（跨平台，替代 Unix 专属 which；Windows 追加 PATHEXT 后缀）
+/// 4. 常见安装位置（含 ~/.cargo/bin，Windows 回退 USERPROFILE）
 fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
     if let Ok(path) = std::env::var("RUST_ANALYZER_PATH") {
         let p = PathBuf::from(&path);
@@ -232,17 +232,14 @@ fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
         }
     }
 
-    if let Ok(output) = Command::new("which").arg("rust-analyzer").output()
-        && output.status.success()
-    {
-        let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !s.is_empty() {
-            return Ok(PathBuf::from(s));
-        }
+    // PATH 扫描：Windows 无 which 命令，直接按目录枚举（支持 .exe 后缀）
+    if let Some(p) = find_in_path("rust-analyzer") {
+        return Ok(p);
     }
 
     let candidates = [
         home_path("cargo/bin/rust-analyzer"),
+        home_path(".cargo/bin/rust-analyzer"),
         PathBuf::from("/usr/local/bin/rust-analyzer"),
         PathBuf::from("/usr/bin/rust-analyzer"),
     ];
@@ -255,11 +252,53 @@ fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
     anyhow::bail!("{}", crate::ui::global().t("lsp_err_ra_not_found"))
 }
 
+/// 在 PATH 环境变量中查找可执行文件（跨平台）
+///
+/// Windows 下按 PATHEXT 依次追加后缀（.exe 等）探测；
+/// 名称自带扩展名（如 xxx.exe）时不重复追加。
+fn find_in_path(name: &str) -> Option<PathBuf> {
+    let path_env = std::env::var("PATH").ok()?;
+    let separator = if cfg!(windows) { ';' } else { ':' };
+    let mut suffixes: Vec<String> = vec![String::new()];
+    if cfg!(windows) {
+        if let Ok(pathext) = std::env::var("PATHEXT") {
+            suffixes = pathext
+                .split(';')
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect();
+        }
+        if !suffixes.iter().any(|s| s.eq_ignore_ascii_case(".exe")) {
+            suffixes.push(".exe".to_string());
+        }
+    }
+    for dir in path_env.split(separator) {
+        if dir.is_empty() {
+            continue;
+        }
+        for suffix in &suffixes {
+            let candidate = if !suffix.is_empty() && Path::new(name).extension().is_none() {
+                Path::new(dir).join(format!("{name}{suffix}"))
+            } else {
+                Path::new(dir).join(name)
+            };
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
 fn home_path(relative: &str) -> PathBuf {
-    if let Ok(home) = std::env::var("HOME") {
-        PathBuf::from(home).join(relative)
-    } else {
+    // HOME（Unix）优先，USERPROFILE（Windows）回退，保证跨平台定位到用户主目录
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_default();
+    if home.is_empty() {
         PathBuf::from(relative)
+    } else {
+        PathBuf::from(home).join(relative)
     }
 }
 
@@ -347,6 +386,32 @@ mod tests {
         assert_eq!(found, tmp.path());
         unsafe {
             std::env::remove_var("RUST_ANALYZER_PATH");
+        }
+    }
+
+    /// PATH 扫描：临时目录注入 PATH 后应找到带平台后缀的二进制
+    #[test]
+    fn test_find_in_path() {
+        let tmp = tempfile::tempdir().expect("创建临时目录失败");
+        let exe_name = if cfg!(windows) { "mytool.exe" } else { "mytool" };
+        let bin = tmp.path().join(exe_name);
+        std::fs::write(&bin, "x").expect("写入临时文件失败");
+        let separator = if cfg!(windows) { ';' } else { ':' };
+        unsafe {
+            let old = std::env::var("PATH").unwrap_or_default();
+            std::env::set_var("PATH", format!("{}{separator}{old}", tmp.path().display()));
+            let found = find_in_path("mytool");
+            std::env::set_var("PATH", old);
+            // Windows 文件系统不区分大小写，PATHEXT 可能为大写（如 .EXE），仅比较文件名忽略大小写
+            let found = found.expect("PATH 扫描应找到 mytool");
+            assert!(
+                found
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .eq_ignore_ascii_case(exe_name),
+                "PATH 扫描应找到 {bin:?}，实际 {found:?}"
+            );
         }
     }
 }
