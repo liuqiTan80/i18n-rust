@@ -112,15 +112,15 @@
       "patterns": [
         {
           "name": "keyword.control.rust-ko",
-          "match": "\\b(그렇지_않으면|만약|매치|루프|동안|각각|안에|중단|계속|반환)\\b"
+          "match": "\\b(while let|그렇지_않으면|if let|만약|매치|루프|동안|각각|안에|중단|계속|반환)\\b"
         },
         {
           "name": "keyword.declaration.rust-ko",
-          "match": "\\b(트레이트|크레이트|구조체|열거형|함수|선언|가변|상수|정적|타입|구현|모듈|공개|상위|외부|사용|로서|메인)\\b"
+          "match": "\\b(derive|트레이트|크레이트|구조체|열거형|함수|선언|가변|상수|정적|타입|구현|모듈|공개|상위|외부|사용|로서|메인)\\b"
         },
         {
           "name": "keyword.other.rust-ko",
-          "match": "\\b(가변_참조|안전_불가|역참조|비동기|참조|이동|박스|대기|동적)\\b"
+          "match": "\\b(가변_참조|안전_불가|ref|역참조|비동기|참조|이동|박스|대기|동적)\\b"
         },
         {
           "name": "constant.language.boolean.rust-ko",
@@ -140,7 +140,7 @@
         },
         {
           "name": "storage.type.rust-ko",
-          "match": "\\b(문자열_참조|텍스트|문자열|해시맵|문자|논리|벡터|옵션|결과|박스)\\b"
+          "match": "\\b(문자열_참조|where|텍스트|문자열|해시맵|문자|논리|벡터|옵션|결과|박스)\\b"
         },
         {
           "name": "constant.other.rust-ko",
@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-ko",
-          "match": "\\b(오류_출력_줄|포함_문자열|포함_바이트|오류_출력|단언_동일|단언_다름|도달_불가|환경_옵션|출력_줄|작성_줄|문자열화|미구현|포맷|출력|단언|예정|패닉|벡터|작성|포함|파일|환경|설정|열|줄)!"
+          "match": "\\b(debug_assert_matches|debug_assert_eq|assert_matches|compile_error|debug_assert|macro_rules|cfg_select|오류_출력_줄|포함_문자열|포함_바이트|macro|오류_출력|단언_동일|단언_다름|도달_불가|환경_옵션|출력_줄|작성_줄|문자열화|미구현|포맷|출력|단언|예정|패닉|벡터|작성|포함|파일|환경|설정|열|줄)!"
         }
       ]
     },

@@ -112,15 +112,15 @@
       "patterns": [
         {
           "name": "keyword.control.rust-es",
-          "match": "\\b(coincidir|continuar|mientras|devolver|romper|bucle|sino|para|si|en)\\b"
+          "match": "\\b(while let|coincidir|continuar|mientras|devolver|if let|romper|bucle|sino|para|si|en)\\b"
         },
         {
           "name": "keyword.declaration.rust-es",
-          "match": "\\b(implementacion|enumeracion|estructura|constante|principal|estatico|superior|funcion|mutable|publico|paquete|externo|modulo|dejar|rasgo|tipo|usar|como)\\b"
+          "match": "\\b(implementacion|enumeracion|estructura|constante|principal|estatico|superior|funcion|mutable|publico|paquete|externo|derive|modulo|dejar|rasgo|tipo|usar|como)\\b"
         },
         {
           "name": "keyword.other.rust-es",
-          "match": "\\b(referencia_mutable|desreferencia|referencia|asincrono|inseguro|dinamico|esperar|mover|caja)\\b"
+          "match": "\\b(referencia_mutable|desreferencia|referencia|asincrono|inseguro|dinamico|esperar|mover|caja|ref)\\b"
         },
         {
           "name": "constant.language.boolean.rust-es",
@@ -140,7 +140,7 @@
         },
         {
           "name": "storage.type.rust-es",
-          "match": "\\b(referencia_cadena|resultado|caracter|booleano|cadena|vector|opcion|texto|mapa|caja)\\b"
+          "match": "\\b(referencia_cadena|resultado|caracter|booleano|cadena|vector|opcion|where|texto|mapa|caja)\\b"
         },
         {
           "name": "constant.other.rust-es",
@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-es",
-          "match": "\\b(imprimir_error_linea|afirmar_distinto|no_implementado|imprimir_linea|imprimir_error|escribir_linea|incluir_cadena|opcion_entorno|afirmar_igual|incluir_bytes|inalcanzable|textualizar|pendiente|imprimir|escribir|formato|afirmar|incluir|columna|archivo|entorno|panico|vector|config|linea)!"
+          "match": "\\b(debug_assert_matches|imprimir_error_linea|afirmar_distinto|debug_assert_eq|no_implementado|assert_matches|imprimir_linea|imprimir_error|escribir_linea|incluir_cadena|opcion_entorno|compile_error|afirmar_igual|incluir_bytes|debug_assert|inalcanzable|macro_rules|textualizar|cfg_select|pendiente|imprimir|escribir|formato|afirmar|incluir|columna|archivo|entorno|panico|vector|config|macro|linea)!"
         }
       ]
     },

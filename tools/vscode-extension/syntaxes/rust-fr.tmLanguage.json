@@ -112,15 +112,15 @@
       "patterns": [
         {
           "name": "keyword.control.rust-fr",
-          "match": "\\b(correspondre|continuer|retourner|tant_que|boucle|rompre|sinon|pour|dans|si)\\b"
+          "match": "\\b(correspondre|while let|continuer|retourner|tant_que|if let|boucle|rompre|sinon|pour|dans|si)\\b"
         },
         {
           "name": "keyword.declaration.rust-fr",
-          "match": "\\b(implementation|enumeration|principale|constante|structure|fonction|statique|publique|utiliser|laisser|mutable|externe|module|caisse|trait|super|comme|type)\\b"
+          "match": "\\b(implementation|enumeration|principale|constante|structure|fonction|statique|publique|utiliser|laisser|mutable|externe|derive|module|caisse|trait|super|comme|type)\\b"
         },
         {
           "name": "keyword.other.rust-fr",
-          "match": "\\b(reference_mutable|dereference|asynchrone|reference|dangereux|dynamique|deplacer|attendre|boite)\\b"
+          "match": "\\b(reference_mutable|dereference|asynchrone|reference|dangereux|dynamique|deplacer|attendre|boite|ref)\\b"
         },
         {
           "name": "constant.language.boolean.rust-fr",
@@ -140,7 +140,7 @@
         },
         {
           "name": "storage.type.rust-fr",
-          "match": "\\b(reference_chaine|dictionnaire|caractere|resultat|booleen|vecteur|chaine|option|texte|boite)\\b"
+          "match": "\\b(reference_chaine|dictionnaire|caractere|resultat|booleen|vecteur|chaine|option|where|texte|boite)\\b"
         },
         {
           "name": "constant.other.rust-fr",
@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-fr",
-          "match": "\\b(afficher_erreur_ligne|option_environnement|affirmer_different|afficher_erreur|afficher_ligne|non_implemente|inclure_chaine|inclure_octets|affirmer_egal|environnement|inaccessible|ecrire_ligne|textualiser|plus_tard|afficher|affirmer|panique|vecteur|inclure|colonne|fichier|format|ecrire|config|ligne)!"
+          "match": "\\b(afficher_erreur_ligne|debug_assert_matches|option_environnement|affirmer_different|debug_assert_eq|afficher_erreur|assert_matches|afficher_ligne|non_implemente|inclure_chaine|inclure_octets|compile_error|affirmer_egal|environnement|debug_assert|inaccessible|ecrire_ligne|macro_rules|textualiser|cfg_select|plus_tard|afficher|affirmer|panique|vecteur|inclure|colonne|fichier|format|ecrire|config|macro|ligne)!"
         }
       ]
     },

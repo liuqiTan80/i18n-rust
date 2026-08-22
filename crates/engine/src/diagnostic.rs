@@ -327,6 +327,50 @@ fn entry_from_value(val: &toml::Value) -> ErrorMessageEntry {
     }
 }
 
+/// 对带模块路径的类型名做最长后缀匹配
+///
+/// `std::fmt::Display` 逐段尝试（fmt::Display → Display），命中映射段后
+/// 保留原路径前缀，仅替换命中段：`std::fmt::Display` → `std::fmt::显示`。
+fn replace_type_token(token: &str, type_map: &HashMap<String, String>) -> Option<String> {
+    let segments: Vec<&str> = token.split("::").collect();
+    for i in 1..segments.len() {
+        let suffix = segments[i..].join("::");
+        if let Some(zh) = type_map.get(&suffix) {
+            let mut result = segments[..i].join("::");
+            if !result.is_empty() {
+                result.push_str("::");
+            }
+            result.push_str(zh);
+            return Some(result);
+        }
+    }
+    None
+}
+
+/// 用后缀原文中的单引号内容填充模板的 {q0}/{q1} 捕获占位符
+///
+/// 用于 "Unicode character '，' (…) looks like ',' (…)" 这类 help 消息：
+/// 前缀 key 以引号结尾，rest 中第 0/2 个单引号分段即两个被比较的字符。
+/// 返回 (填充结果, 是否完整覆盖)：模板不含占位符或捕获不足时第二项为 false，
+/// 调用方需自行追加英文后缀；完整覆盖时不再追加，避免中英文混排。
+fn fill_quote_captures(template: &str, rest: &str) -> (String, bool) {
+    let segs: Vec<&str> = rest.split('\'').collect();
+    let mut result = template.to_string();
+    let mut consumed_any = false;
+    for (i, placeholder) in ["{q0}", "{q1}"].iter().enumerate() {
+        if result.contains(placeholder) {
+            match segs.get(i * 2) {
+                Some(content) => {
+                    result = result.replace(placeholder, content);
+                    consumed_any = true;
+                }
+                None => return (template.to_string(), false),
+            }
+        }
+    }
+    (result, consumed_any)
+}
+
 /// 从 rustc 诊断中提取所有权错误详情
 ///
 /// 解析主 span 与子 span 的标签：
@@ -587,7 +631,15 @@ impl DiagnosticTranslator {
                     .map(|(entry, rest)| {
                         let mut text = entry.message_template.clone();
                         if let Some(rest) = rest {
-                            text.push_str(rest);
+                            // 模板含 {q0}/{q1} 捕获占位符时，从后缀原文提取单引号内容填充
+                            //（如 "Unicode character '，' (…) looks like ',' (…)" →
+                            //  "Unicode 字符 '，' 形似 ','，但它并不是它"）；
+                            // 捕获完整覆盖时不再追加英文后缀。
+                            let (filled, consumed) = fill_quote_captures(&text, rest);
+                            text = filled;
+                            if !consumed {
+                                text.push_str(rest);
+                            }
                         }
                         text
                     })
@@ -630,6 +682,9 @@ impl DiagnosticTranslator {
                 }
             }
         }
+        // 占位符填充的才是运行时实际类型名，需再次中文化
+        //（如 E0277 的 `std::fmt::Display` → `std::fmt::显示`、`{integer}` → `整数`）
+        translated_message = self.replace_type_names(translated_message);
 
         let children = diagnostic
             .children
@@ -665,6 +720,9 @@ impl DiagnosticTranslator {
         for token in extract_backtick_tokens(&result) {
             if let Some(zh) = self.type_map.get(&token) {
                 result = result.replace(&format!("`{}`", token), &format!("`{}`", zh));
+            } else if let Some(replaced) = replace_type_token(&token, &self.type_map) {
+                // 带模块路径的类型名：最长后缀匹配（std::fmt::Display → std::fmt::显示）
+                result = result.replace(&format!("`{}`", token), &format!("`{}`", replaced));
             }
         }
         result
@@ -1033,6 +1091,88 @@ mod tests {
         assert_eq!(
             teaching.teaching_hints,
             vec!["修复建议：你是否想用 `foo`?"]
+        );
+    }
+
+    /// Unicode 混淆 help：{q0}/{q1} 捕获占位符从单引号分段提取两个字符
+    #[test]
+    fn test_translate_help_unicode_quote_captures() {
+        let _guard = crate::语言::test_language("zh");
+        let toml_content = r#"
+["消息翻译"."Unicode character '"]
+"消息模板" = "Unicode 字符 '{q0}' 形似 '{q1}'，但它并不是它"
+"#;
+        let file = create_error_message_file(toml_content);
+        let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+
+        let diagnostic = CompilerDiagnostic {
+            message: "unknown start of token: \\u{ff0c}".to_string(),
+            code: None,
+            level: "error".to_string(),
+            spans: vec![],
+            children: vec![CompilerDiagnostic {
+                message: "Unicode character '，' (Fullwidth Comma) looks like ',' (Comma), but it is not"
+                    .to_string(),
+                code: None,
+                level: "help".to_string(),
+                spans: vec![],
+                children: vec![],
+                rendered: None,
+            }],
+            rendered: None,
+        };
+        let teaching = translator.translate_diagnostic(&diagnostic);
+
+        assert_eq!(
+            teaching.teaching_hints,
+            vec!["修复建议：Unicode 字符 '，' 形似 ','，但它并不是它"]
+        );
+    }
+
+    /// 带模块路径的类型名：最长后缀匹配（std::fmt::Display → std::fmt::显示）
+    #[test]
+    fn test_replace_type_token_longest_suffix() {
+        let mut type_map = create_test_type_map();
+        type_map.insert("Display".into(), "显示".into());
+        assert_eq!(
+            replace_type_token("std::fmt::Display", &type_map),
+            Some("std::fmt::显示".to_string())
+        );
+        assert_eq!(replace_type_token("std::io::Error", &type_map), None);
+    }
+
+    /// E0277 占位符填充后的实际类型名也应中文化（{类型}/{特征} → 中文 + 后缀匹配）
+    #[test]
+    fn test_translate_e0277_placeholder_types_localized() {
+        let _guard = crate::语言::test_language("zh");
+        let toml_content = r#"
+[E0277]
+"消息模板" = "类型 `{类型}` 未实现特征 `{特征}`"
+"教学提示" = "请为该类型实现所需的特征。"
+"#;
+        let file = create_error_message_file(toml_content);
+        let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
+        let mut type_map = create_test_type_map();
+        type_map.insert("Display".into(), "显示".into());
+        let translator = DiagnosticTranslator::new(manager, type_map);
+
+        let diagnostic = CompilerDiagnostic {
+            message: "`({integer}, {integer}, &str)` doesn't implement `std::fmt::Display`".to_string(),
+            code: Some(DiagnosticCode {
+                code: "E0277".to_string(),
+                explanation: None,
+            }),
+            level: "error".to_string(),
+            spans: vec![],
+            children: vec![],
+            rendered: None,
+        };
+        let teaching = translator.translate_diagnostic(&diagnostic);
+
+        assert_eq!(
+            teaching.translated_message,
+            "类型 `(整数, 整数, &str)` 未实现特征 `std::fmt::显示`"
         );
     }
 

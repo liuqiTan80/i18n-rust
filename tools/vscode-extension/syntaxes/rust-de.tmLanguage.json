@@ -112,15 +112,15 @@
       "patterns": [
         {
           "name": "keyword.control.rust-de",
-          "match": "\\b(abgleich|schleife|solange|zurueck|weiter|sonst|stopp|wenn|fuer|in)\\b"
+          "match": "\\b(while let|abgleich|schleife|solange|zurueck|if let|weiter|sonst|stopp|wenn|fuer|in)\\b"
         },
         {
           "name": "keyword.declaration.rust-de",
-          "match": "\\b(hauptfunktion|aufzaehlung|implement|funktion|statisch|struktur|mutabel|merkmal|extern|konst|modul|offen|paket|ueber|nutze|lass|typ|als)\\b"
+          "match": "\\b(hauptfunktion|aufzaehlung|implement|funktion|statisch|struktur|mutabel|merkmal|derive|extern|konst|modul|offen|paket|ueber|nutze|lass|typ|als)\\b"
         },
         {
           "name": "keyword.other.rust-de",
-          "match": "\\b(mutabelReferenz|dereferenz|verschiebe|asynchron|dynamisch|referenz|unsicher|abwarten|kiste)\\b"
+          "match": "\\b(mutabelReferenz|dereferenz|verschiebe|asynchron|dynamisch|referenz|unsicher|abwarten|kiste|ref)\\b"
         },
         {
           "name": "constant.language.boolean.rust-de",
@@ -140,7 +140,7 @@
         },
         {
           "name": "storage.type.rust-de",
-          "match": "\\b(zeichenkettenreferenz|zeichenkette|ergebnis|zeichen|hashmap|vektor|option|kiste|text|bool)\\b"
+          "match": "\\b(zeichenkettenreferenz|zeichenkette|ergebnis|zeichen|hashmap|vektor|option|where|kiste|text|bool)\\b"
         },
         {
           "name": "constant.other.rust-de",
@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-de",
-          "match": "\\b(nichtImplementiert|fehlerDruckeZeile|behaupteUngleich|behaupteGleich|optionUmgebung|schreibeZeile|bindeBytesEin|fehlerDrucke|unerreichbar|bindeTextEin|vertextliche|druckeZeile|formatiere|behaupte|schreibe|bindeEin|umgebung|drucke|vektor|spalte|konfig|offen|panik|datei|zeile)!"
+          "match": "\\b(debug_assert_matches|nichtImplementiert|fehlerDruckeZeile|behaupteUngleich|debug_assert_eq|assert_matches|behaupteGleich|optionUmgebung|compile_error|schreibeZeile|bindeBytesEin|debug_assert|fehlerDrucke|unerreichbar|bindeTextEin|vertextliche|macro_rules|druckeZeile|zuErledigen|cfg_select|formatiere|behaupte|schreibe|bindeEin|umgebung|drucke|vektor|spalte|konfig|macro|panik|datei|zeile)!"
         }
       ]
     },

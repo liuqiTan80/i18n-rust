@@ -677,7 +677,10 @@ fn translate_cargo_diagnostics(
             .join(&lang_code)
             .join("errors.toml")
     };
-    let reverse_map: HashMap<String, String> = manager
+    // 类型映射（英文 → 中文）：keywords ["类型"] 节反转 + stdlib 标识符别名反转补充，
+    // 供诊断消息中的类型/特征名中文化（如 `std::fmt::Display` → `std::fmt::显示`）；
+    // 类型节优先，stdlib 仅补充缺失条目（不覆盖）。
+    let mut reverse_map: HashMap<String, String> = manager
         .get_section_mapping("类型")
         .map(|section| {
             section
@@ -686,6 +689,9 @@ fn translate_cargo_diagnostics(
                 .collect()
         })
         .unwrap_or_default();
+    for (中文, 英文) in manager.get_alias_map() {
+        reverse_map.entry(英文.clone()).or_insert_with(|| 中文.clone());
+    }
     let translator = if error_msg_path.exists() {
         // 加载失败时降级到内置表，不因错误消息文件损坏阻断诊断展示
         match ErrorTranslationManager::load_from_file(&error_msg_path) {

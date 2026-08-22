@@ -112,15 +112,15 @@
       "patterns": [
         {
           "name": "keyword.control.rust-en",
-          "match": "\\b(continue|return|match|while|break|else|loop|for|if|in)\\b"
+          "match": "\\b(while let|continue|if let|return|match|while|break|else|loop|for|if|in)\\b"
         },
         {
           "name": "keyword.declaration.rust-en",
-          "match": "\\b(static|struct|extern|const|trait|crate|super|enum|type|impl|main|let|mut|mod|pub|use|fn|as)\\b"
+          "match": "\\b(derive|static|struct|extern|const|trait|crate|super|enum|type|impl|main|let|mut|mod|pub|use|fn|as)\\b"
         },
         {
           "name": "keyword.other.rust-en",
-          "match": "\\b(unsafe|async|await|move|Box|dyn)\\b"
+          "match": "\\b(unsafe|async|await|move|ref|Box|dyn)\\b"
         },
         {
           "name": "constant.language.boolean.rust-en",
@@ -140,7 +140,7 @@
         },
         {
           "name": "storage.type.rust-en",
-          "match": "\\b(HashMap|String|Option|Result|char|bool|str|Vec|Box)\\b"
+          "match": "\\b(HashMap|String|Option|Result|where|char|bool|str|Vec|Box)\\b"
         },
         {
           "name": "constant.other.rust-en",
@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-en",
-          "match": "\\b(unimplemented|include_bytes|unreachable|include_str|option_env|assert_eq|assert_ne|stringify|eprintln|println|writeln|include|format|eprint|assert|column|print|panic|write|todo|file|line|vec|env|cfg)!"
+          "match": "\\b(debug_assert_matches|debug_assert_eq|assert_matches|compile_error|unimplemented|include_bytes|debug_assert|macro_rules|unreachable|include_str|cfg_select|option_env|assert_eq|assert_ne|stringify|eprintln|println|writeln|include|format|eprint|assert|column|macro|print|panic|write|todo|file|line|vec|env|cfg)!"
         }
       ]
     },

@@ -112,15 +112,15 @@
       "patterns": [
         {
           "name": "keyword.control.rust-ja",
-          "match": "\\b(そうでなければ|マッチ|ループ|もし|中断|続行|返す|間|各|中)\\b"
+          "match": "\\b(while let|そうでなければ|if let|マッチ|ループ|もし|中断|続行|返す|間|各|中)\\b"
         },
         {
           "name": "keyword.declaration.rust-ja",
-          "match": "\\b(モジュール|トレイト|クレート|構造体|列挙型|として|主関数|関数|宣言|可変|定数|静的|実装|公開|外部|使用|型|親)\\b"
+          "match": "\\b(derive|モジュール|トレイト|クレート|構造体|列挙型|として|主関数|関数|宣言|可変|定数|静的|実装|公開|外部|使用|型|親)\\b"
         },
         {
           "name": "keyword.other.rust-ja",
-          "match": "\\b(安全でない|可変参照|ボックス|逆参照|非同期|参照|移動|待機|動的)\\b"
+          "match": "\\b(安全でない|可変参照|ボックス|ref|逆参照|非同期|参照|移動|待機|動的)\\b"
         },
         {
           "name": "constant.language.boolean.rust-ja",
@@ -140,7 +140,7 @@
         },
         {
           "name": "storage.type.rust-ja",
-          "match": "\\b(ハッシュマップ|文字列参照|オプション|文字列型|リザルト|ボックス|文字列|ブール|ベクタ|文字)\\b"
+          "match": "\\b(ハッシュマップ|where|文字列参照|オプション|文字列型|リザルト|ボックス|文字列|ブール|ベクタ|文字)\\b"
         },
         {
           "name": "constant.other.rust-ja",
@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-ja",
-          "match": "\\b(文字列取り込み|バイト取り込み|オプション環境|フォーマット|エラー表示行|アサート非等|エラー表示|アサート等|書き込み行|アサート|到達不能|パニック|書き込み|取り込み|文字列化|ファイル|表示行|未実装|ベクタ|表示|後で|環境|設定|列|行)!"
+          "match": "\\b(debug_assert_matches|debug_assert_eq|assert_matches|compile_error|debug_assert|macro_rules|cfg_select|文字列取り込み|バイト取り込み|オプション環境|フォーマット|エラー表示行|アサート非等|macro|エラー表示|アサート等|書き込み行|アサート|到達不能|パニック|書き込み|取り込み|文字列化|ファイル|表示行|未実装|ベクタ|表示|後で|環境|設定|列|行)!"
         }
       ]
     },

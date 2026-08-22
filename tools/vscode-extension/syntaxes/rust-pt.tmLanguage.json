@@ -112,15 +112,15 @@
       "patterns": [
         {
           "name": "keyword.control.rust-pt",
-          "match": "\\b(corresponder|continuar|enquanto|retornar|quebrar|senao|laco|para|se|em)\\b"
+          "match": "\\b(corresponder|while let|continuar|enquanto|retornar|quebrar|if let|senao|laco|para|se|em)\\b"
         },
         {
           "name": "keyword.declaration.rust-pt",
-          "match": "\\b(implementacao|enumeracao|constante|estrutura|principal|estatico|superior|mutavel|publico|externo|funcao|deixar|modulo|pacote|trait|tipo|usar|como)\\b"
+          "match": "\\b(implementacao|enumeracao|constante|estrutura|principal|estatico|superior|mutavel|publico|externo|derive|funcao|deixar|modulo|pacote|trait|tipo|usar|como)\\b"
         },
         {
           "name": "keyword.other.rust-pt",
-          "match": "\\b(referencia_mutavel|desreferencia|referencia|assincrono|inseguro|aguardar|dinamico|mover|caixa)\\b"
+          "match": "\\b(referencia_mutavel|desreferencia|referencia|assincrono|inseguro|aguardar|dinamico|mover|caixa|ref)\\b"
         },
         {
           "name": "constant.language.boolean.rust-pt",
@@ -140,7 +140,7 @@
         },
         {
           "name": "storage.type.rust-pt",
-          "match": "\\b(referencia_cadeia|caractere|resultado|booleano|cadeia|texto|vetor|opcao|caixa|mapa)\\b"
+          "match": "\\b(referencia_cadeia|caractere|resultado|booleano|cadeia|where|texto|vetor|opcao|caixa|mapa)\\b"
         },
         {
           "name": "constant.other.rust-pt",
@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-pt",
-          "match": "\\b(imprimir_erro_linha|afirmar_diferente|nao_implementado|imprimir_linha|escrever_linha|incluir_cadeia|opcao_ambiente|imprimir_erro|afirmar_igual|incluir_bytes|inalcancavel|textualizar|imprimir|pendente|escrever|ambiente|formato|afirmar|incluir|arquivo|panico|coluna|config|vetor|linha)!"
+          "match": "\\b(debug_assert_matches|imprimir_erro_linha|afirmar_diferente|nao_implementado|debug_assert_eq|assert_matches|imprimir_linha|escrever_linha|incluir_cadeia|opcao_ambiente|compile_error|imprimir_erro|afirmar_igual|incluir_bytes|debug_assert|inalcancavel|macro_rules|textualizar|cfg_select|imprimir|pendente|escrever|ambiente|formato|afirmar|incluir|arquivo|panico|coluna|config|macro|vetor|linha)!"
         }
       ]
     },
