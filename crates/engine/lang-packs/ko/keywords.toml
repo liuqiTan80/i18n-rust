@@ -5,6 +5,7 @@
 # 선언 키워드
 # ============================================
 ["声明"]
+"derive" = "derive"
 "함수" = "fn"
 "선언" = "let"
 "가변" = "mut"
@@ -27,6 +28,8 @@
 # 제어 흐름 키워드
 # ============================================
 ["控制流"]
+"if let" = "if let"
+"while let" = "while let"
 "만약" = "if"
 "그렇지_않으면" = "else"
 "매치" = "match"
@@ -42,6 +45,7 @@
 # 타입
 # ============================================
 ["类型"]
+"where" = "where"
 "정수" = "i32"
 "긴_정수" = "i64"
 "짧은_정수" = "i16"
@@ -87,6 +91,7 @@
 # 메모리와 참조
 # ============================================
 ["内存"]
+"ref" = "ref"
 "참조" = "&"
 "가변_참조" = "&mut"
 "역참조" = "*"
@@ -111,6 +116,14 @@
 
 # ============================================
 ["宏"]
+"macro" = "macro"
+"macro_rules" = "macro_rules"
+"assert_matches" = "assert_matches"
+"debug_assert" = "debug_assert"
+"debug_assert_eq" = "debug_assert_eq"
+"debug_assert_matches" = "debug_assert_matches"
+"cfg_select" = "cfg_select"
+"compile_error" = "compile_error"
 "포맷" = "format"
 "출력_줄" = "println"
 "출력" = "print"

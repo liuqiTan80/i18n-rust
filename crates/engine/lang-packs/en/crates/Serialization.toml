@@ -1,0 +1,29 @@
+# crate name mapping (for use paths)
+["模块路径"]
+"serde" = "serde"
+"serde_json" = "serde_json"
+"toml" = "toml"
+"bincode" = "bincode"
+
+# internal identifier mapping (types, functions, etc.)
+["标识符"]
+# serde
+"Serialize" = "Serialize"
+"Deserialize" = "Deserialize"
+"serialize" = "serialize"
+"deserialize" = "deserialize"
+
+# serde_json
+"Value" = "Value"
+"Object" = "Object"
+"Array" = "Array"
+"from_str" = "from_str"
+"to_string" = "to_string"
+"from_reader" = "from_reader"
+"to_writer" = "to_writer"
+
+# toml
+
+# bincode
+"encode" = "encode"
+"decode" = "decode"

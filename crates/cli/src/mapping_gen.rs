@@ -173,6 +173,13 @@ pub fn run_auto_generate(
                 Ok((ai_identifiers, ai_explanations)) => {
                     // AI 中文名覆盖规则名（校验英文名合法性，防止 AI 幻觉改名）
                     for (chinese_name, english_name) in ai_identifiers {
+                        // 先采集 AI 解释：即使名字与规则名重复（常见情形），
+                        // 解释也不应丢弃
+                        if let Some(explanation) = ai_explanations.get(&chinese_name)
+                            && !explanation.is_empty()
+                        {
+                            explanation_table.insert(chinese_name.clone(), explanation.clone());
+                        }
                         if chinese_name_table
                             .iter()
                             .any(|(name, _)| name == &chinese_name)
@@ -185,11 +192,6 @@ pub fn run_auto_generate(
                         {
                             chinese_name_table.remove(pos);
                             chinese_name_table.push((chinese_name.clone(), english_name));
-                        }
-                        if let Some(explanation) = ai_explanations.get(&chinese_name)
-                            && !explanation.is_empty()
-                        {
-                            explanation_table.insert(chinese_name, explanation.clone());
                         }
                     }
                     println!("{}", ui.f("mapping_ai_success", &[provider]));
@@ -1148,23 +1150,18 @@ pub fn detect_keyword_conflicts(
     let Ok(content) = fs::read_to_string(lang_pack_dir.join("keywords.toml")) else {
         return Vec::new();
     };
-    let Ok(toml::Value::Table(table)) = toml::from_str::<toml::Value>(&content) else {
+    // 复用引擎权威语义（按节名升序合并、后到覆盖），与运行时生效的
+    // 关键字映射一致；否则按文档顺序先到先得会误报冲突
+    let Ok(sections) = i18n_rust_engine::mapping_source::parse_toml_sections(&content) else {
         return Vec::new();
     };
+    let keyword_map = i18n_rust_engine::mapping_source::flatten_sections(&sections);
     let mut conflicts = Vec::new();
     for (chinese, english) in chinese_name_table {
-        // 遍历关键字表所有节（声明/控制流/类型/错误处理…）
-        for (_, section) in &table {
-            let toml::Value::Table(entry) = section else {
-                continue;
-            };
-            let Some(toml::Value::String(keyword_english)) = entry.get(chinese) else {
-                continue;
-            };
-            if keyword_english != english {
-                conflicts.push((chinese.clone(), keyword_english.clone(), english.clone()));
-            }
-            break;
+        if let Some(keyword_english) = keyword_map.get(chinese)
+            && keyword_english != english
+        {
+            conflicts.push((chinese.clone(), keyword_english.clone(), english.clone()));
         }
     }
     conflicts
@@ -1706,12 +1703,21 @@ fn translate_words(english_name: &str) -> String {
 
 // ==================== TOML 输出 ====================
 
-/// TOML 字符串转义
+/// TOML 字符串转义（含 \r 与其余控制字符，避免生成非法 TOML）
 fn escape_toml(s: &str) -> String {
-    s.replace('\\', "\\\\")
+    let escaped = s
+        .replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\n', "\\n")
         .replace('\t', "\\t")
+        .replace('\r', "\\r");
+    escaped
+        .chars()
+        .map(|c| match c {
+            c if (c as u32) < 0x20 => format!("\\u{:04X}", c as u32),
+            c => c.to_string(),
+        })
+        .collect()
 }
 
 /// 当前时间字符串（UTC，`YYYY-MM-DD HH:MM:SS`）

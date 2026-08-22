@@ -2,7 +2,7 @@
   "name": "i18n-rust",
   "displayName": "i18n-rust - Write Rust in Any Language",
   "description": "Write Rust code in your native language, with support for syntax highlighting, intelligent code completion, and error hints.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "publisher": "i18n-rust",
   "license": "MIT",
   "repository": {
@@ -194,6 +194,11 @@
       {
         "command": "i18n-rust.langInstall",
         "title": "i18n: 安装语言包 (lang install)"
+      },
+      {
+        "command": "i18n-rust.cargoAdd",
+        "title": "i18n: 添加依赖 (cargo add)",
+        "icon": "$(package)"
       }
     ],
     "menus": {

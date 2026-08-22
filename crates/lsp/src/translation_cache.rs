@@ -613,7 +613,13 @@ fn sanitize_module_name(name: &str) -> String {
 /// 必须完整解码，否则文件名残留 %XX 导致模块名非法。
 fn uri_to_path(uri: &str) -> PathBuf {
     if let Some(path) = uri.strip_prefix("file://") {
-        PathBuf::from(url_decode(path))
+        let decoded = url_decode(path);
+        // Windows 形式 file:///C:/...：盘符前的前导 `/` 不属于路径
+        let bytes = decoded.as_bytes();
+        if bytes.len() >= 3 && bytes[0] == b'/' && bytes[2] == b':' {
+            return PathBuf::from(&decoded[1..]);
+        }
+        PathBuf::from(decoded)
     } else {
         PathBuf::from(uri)
     }
@@ -654,13 +660,22 @@ fn hex_value(b: u8) -> Option<u8> {
 
 /// 将文件路径转换为 file:// URI
 ///
-/// 对非 URI 安全字符做百分号编码（路径含空格/中文时生成合法 URI）
+/// 对非 URI 安全字符做百分号编码（路径含空格/中文时生成合法 URI）。
+/// Windows 路径额外处理：反斜杠归一为正斜杠、盘符前补 `/`、盘符转小写，
+/// 与 rust-analyzer 返回的规范形式（file:///c:/...）保持一致，
+/// 否则两端 URI 永不相等，查询/还原全链路失效。
 fn path_to_uri(path: &Path) -> String {
     let mut uri = String::from("file://");
-    let text = path.to_string_lossy();
+    let mut text = path.to_string_lossy().replace('\\', "/");
+    // 盘符路径（X:/...）补前导斜杠并统一小写盘符（RA 返回小写）
+    let bytes = text.as_bytes();
+    if bytes.len() >= 2 && bytes[1] == b':' && !text.starts_with('/') {
+        text.insert(0, '/');
+        text.replace_range(1..2, &text[1..2].to_lowercase());
+    }
     for &byte in text.as_bytes() {
         match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' => {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' | b':' => {
                 uri.push(byte as char)
             }
             _ => uri.push_str(&format!("%{:02X}", byte)),
@@ -1108,6 +1123,32 @@ fn generate_line_map(zh_content: &str, en_content: &str) -> Vec<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// URI 双向转换：Unix 路径、空格/中文编码、Windows 盘符形式
+    #[test]
+    fn test_path_uri_roundtrip() {
+        // Unix：根路径保留，空格百分号编码
+        assert_eq!(
+            path_to_uri(Path::new("/tmp/a b/main.rs")),
+            "file:///tmp/a%20b/main.rs"
+        );
+        assert_eq!(
+            uri_to_path("file:///tmp/a%20b/main.rs"),
+            PathBuf::from("/tmp/a b/main.rs")
+        );
+
+        // Windows：反斜杠归一、盘符前补 /、盘符转小写（与 rust-analyzer 一致）
+        assert_eq!(
+            path_to_uri(Path::new("C:\\Users\\x\\main.rs")),
+            "file:///c:/Users/x/main.rs"
+        );
+        // 反向：盘符前导 / 被剥离
+        let back = uri_to_path("file:///c:/Users/x/main.rs");
+        assert_eq!(
+            back.to_string_lossy().replace('\\', "/"),
+            "c:/Users/x/main.rs"
+        );
+    }
 
     fn test_map() -> HashMap<String, String> {
         HashMap::from([

@@ -393,6 +393,27 @@ fn extract_expected_found(text: &str) -> Option<(String, String)> {
     Some((exp, fnd))
 }
 
+/// 整词替换：仅当目标前后字符均非标识符字符（字母/数字/下划线）时替换，
+/// 避免裸词模式（如 integer）误伤 to_integer/integer_count 等标识符子串
+fn replace_whole_word(text: &str, from: &str, to: &str) -> String {
+    let is_ident_char = |c: char| c.is_alphanumeric() || c == '_';
+    let mut result = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(pos) = rest.find(from) {
+        let end = pos + from.len();
+        let before_ok = rest[..pos]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !is_ident_char(c));
+        let after_ok = rest[end..].chars().next().is_none_or(|c| !is_ident_char(c));
+        result.push_str(&rest[..pos]);
+        result.push_str(if before_ok && after_ok { to } else { from });
+        rest = &rest[end..];
+    }
+    result.push_str(rest);
+    result
+}
+
 /// 提取文本中所有反引号包裹的内容（按出现顺序）
 fn extract_backtick_tokens(text: &str) -> Vec<String> {
     let mut tokens = Vec::new();
@@ -544,12 +565,13 @@ impl DiagnosticTranslator {
     fn replace_type_names(&self, message: String) -> String {
         let mut result = message;
         // rustc 未推断字面量占位符（`{integer}`/`{float}`）及 1.97+ 裸显示名
-        // （`integer`/`floating-point number`）按全局语言翻译
+        // （`integer`/`floating-point number`）按全局语言翻译；
+        // 裸 integer 用整词匹配，避免误伤 to_integer/integer_count 等标识符
         result = result
             .replace("{integer}", &crate::语言::t("diag_rustc_integer"))
             .replace("{float}", &crate::语言::t("diag_rustc_float"))
-            .replace("floating-point number", &crate::语言::t("diag_rustc_float"))
-            .replace("integer", &crate::语言::t("diag_rustc_integer"));
+            .replace("floating-point number", &crate::语言::t("diag_rustc_float"));
+        result = replace_whole_word(&result, "integer", &crate::语言::t("diag_rustc_integer"));
         // 类型映射：仅替换反引号包裹的完整类型名（rustc 诊断中的类型均在反引号内），
         // 避免 "str"→"文本" 等短条目把消息中的 "string" 部分替换成 "文本ing"
         for token in extract_backtick_tokens(&result) {
@@ -698,6 +720,68 @@ impl TeachingDiagnostic {
         }
         output
     }
+}
+
+// ============================================================
+// 未解析导入检测（CLI / LSP 共用的依赖提示基础设施）
+// ============================================================
+
+/// 判断诊断消息是否为未解析导入类错误（英文原文匹配）
+///
+/// 覆盖 rustc E0432（unresolved import）与 E0433（failed to resolve:
+/// use of undeclared crate or module）两种消息格式。
+pub fn is_unresolved_import_message(message: &str) -> bool {
+    message.contains("unresolved import") || message.contains("use of undeclared crate or module")
+}
+
+/// 提取消息中所有反引号包裹路径的首段（:: 分隔）
+///
+/// 仅取形如路径的内容（标识符字符与 ::），过滤含空格的自由文本；
+/// 翻译后的诊断同样保留反引号内容，故母语/英文消息均可提取。
+pub fn extract_backtick_first_segments(text: &str) -> Vec<String> {
+    let mut segs = Vec::new();
+    let mut rest = text;
+    while let Some(start) = rest.find('`') {
+        let after = &rest[start + 1..];
+        let Some(end) = after.find('`') else { break };
+        let inner = &after[..end];
+        rest = &after[end + 1..];
+        if !inner.is_empty()
+            && inner
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == ':')
+        {
+            let first = inner.split("::").next().unwrap_or(inner);
+            if !first.is_empty() {
+                segs.push(first.to_string());
+            }
+        }
+    }
+    segs
+}
+
+/// 从未解析导入消息提取候选 crate 名（去重，排除标准库与保留路径）
+///
+/// 非未解析导入消息返回空列表。供 CLI 编译诊断提示与 LSP
+/// 快捷修复代码动作共用：提示用户通过 `rzc add <crate>` 添加依赖。
+pub fn unresolved_crate_candidates(message: &str) -> Vec<String> {
+    if !is_unresolved_import_message(message) {
+        return Vec::new();
+    }
+    let mut result = Vec::new();
+    for seg in extract_backtick_first_segments(message) {
+        if matches!(
+            seg.as_str(),
+            "std" | "core" | "alloc" | "self" | "super" | "crate" | "proc_macro"
+        ) || seg.chars().next().is_some_and(|c| c.is_ascii_digit())
+        {
+            continue;
+        }
+        if !result.contains(&seg) {
+            result.push(seg);
+        }
+    }
+    result
 }
 
 // ============================================================
@@ -1042,5 +1126,69 @@ mod tests {
         let text = teaching.format_as_text();
         assert!(text.contains("📌 变量 `数据` 在第 3 行被移动，第 5 行尝试再次使用。"));
         assert!(text.contains("💡 Rust 中值被移动后不能再使用。"));
+    }
+
+    /// 反引号首段提取：路径取首段，含空格的自由文本不提取
+    #[test]
+    fn test_extract_backtick_first_segments() {
+        assert_eq!(
+            extract_backtick_first_segments("unresolved imports `a`, `b::c`"),
+            vec!["a", "b"]
+        );
+        assert_eq!(
+            extract_backtick_first_segments("unresolved import `serde_json::Value`"),
+            vec!["serde_json"]
+        );
+        assert!(extract_backtick_first_segments("expected type `i32 x`").is_empty());
+        assert!(extract_backtick_first_segments("无反引号消息").is_empty());
+    }
+
+    /// 整词替换不误伤标识符子串；边界（串首/串尾/空格）正常命中
+    #[test]
+    fn test_replace_whole_word_boundary() {
+        assert_eq!(
+            replace_whole_word("expected integer, found &str", "integer", "整数"),
+            "expected 整数, found &str"
+        );
+        // 标识符子串不替换
+        assert_eq!(
+            replace_whole_word("no method named to_integer", "integer", "整数"),
+            "no method named to_integer"
+        );
+        assert_eq!(
+            replace_whole_word("integer_count", "integer", "整数"),
+            "integer_count"
+        );
+        // 串首/串尾边界
+        assert_eq!(replace_whole_word("integer", "integer", "整数"), "整数");
+    }
+
+    /// 未解析导入识别：E0432/E0433 两种消息格式命中，其他消息不命中
+    #[test]
+    fn test_is_unresolved_import_message() {
+        assert!(is_unresolved_import_message(
+            "unresolved import `serde_json`"
+        ));
+        assert!(is_unresolved_import_message(
+            "failed to resolve: use of undeclared crate or module `tokio`"
+        ));
+        // 翻译后的母语消息不命中（由调用方按错误码兼容处理）
+        assert!(!is_unresolved_import_message("未解析的导入 `serde_json`"));
+        assert!(!is_unresolved_import_message("unused variable `x`"));
+    }
+
+    /// 候选 crate 提取：去重 + 排除标准库与保留路径；非目标消息返回空
+    #[test]
+    fn test_unresolved_crate_candidates() {
+        assert_eq!(
+            unresolved_crate_candidates("unresolved import `serde_json`"),
+            vec!["serde_json"]
+        );
+        assert_eq!(
+            unresolved_crate_candidates("unresolved imports `tokio`, `tokio::time`, `std::io`"),
+            vec!["tokio"]
+        );
+        assert!(unresolved_crate_candidates("unresolved import `self::inner`").is_empty());
+        assert!(unresolved_crate_candidates("mismatched types").is_empty());
     }
 }

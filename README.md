@@ -4,9 +4,9 @@
 
 </div>
 
-# rzc：多语言 Rust 教学方言编译器
+# rzc：母语编写 Rust 配套了中文教程
 
-用你的母语编写 Rust 程序，rzc 自动翻译为标准 Rust 并编译运行——学编程，不背英语。
+用中文编写 Rust 程序，rzc 自动翻译为标准 Rust 并编译运行——学编程，不背英语。
 
 ```rust
 // src/main.zh —— 中文 Rust 教学方言
@@ -73,7 +73,7 @@ rzc run src/main.zh
 - **母语编程**：用中文关键字（`函数`、`让`、`如果`、`返回`…）编写完整 Rust 程序
 - **多语言原生**：内置 11 种语言包（中/英/德/日/俄/西/法/葡/韩/阿/印地），扩展名自动匹配（`.zh`、`.ja`、`.ru`…）
 - **本地化诊断**：`rzc check` 把 rustc 错误翻译为对应语言，附带 💡 教学提示
-- **VS Code 扩展**：从 [Releases](https://github.com/liuqiTan80/i18n-rust/releases) 下载 `i18n-rust.vsix`，在 VS Code 中选择「从 VSIX 安装」即可（详见[安装说明](tools/vscode-extension/)）。提供语法高亮、智能补全、所有权可视化（颜色高亮变量移动与再使用）、一键运行/检查、AI 对话、语言包工具（映射校验/翻译脚手架/语言包安装）等完整 IDE 体验
+- **VS Code 扩展**：从 [百度网盘]( https://pan.baidu.com/s/19vVLwRI8q43rYUtHYAqWzw?pwd=i18n) 下载 `i18n-rust.vsix`，在 VS Code 中选择「从 VSIX 安装」即可（详见[安装说明](tools/vscode-extension/)）。提供语法高亮、智能补全、所有权可视化（颜色高亮变量移动与再使用）、一键运行/检查、AI 对话、语言包工具（映射校验/翻译脚手架/语言包安装）等完整 IDE 体验
 - **完整 LSP 支持**：补全、悬停、定义跳转、引用查找、重命名、代码格式化
 - **渐进过渡**：`rzc eject` 一键导出标准 Rust 代码，平滑迁移生态
 

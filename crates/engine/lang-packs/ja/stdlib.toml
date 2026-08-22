@@ -5,6 +5,7 @@
 # 標準ライブラリのモジュールパス（use 文用）
 # ============================================
 ["模块路径"]
+"atomic" = "atomic"
 "標準ライブラリ" = "std"
 "コア" = "core"
 "アロケーション" = "alloc"
@@ -650,3 +651,19 @@
 "非同期睡眠" = "sleep"
 "非同期生成" = "spawn"
 "ブロック実行" = "block_on"
+
+# zh 基准补齐（英语原名恒等映射）
+"from" = "from"
+"set" = "set"
+"contains_key" = "contains_key"
+"contains_value" = "contains_value"
+"Weak" = "Weak"
+"strong_count" = "strong_count"
+"weak_count" = "weak_count"
+"downgrade" = "downgrade"
+"upgrade" = "upgrade"
+"send" = "send"
+"now" = "now"
+"cmp" = "cmp"
+"ParseIntError" = "ParseIntError"
+"test" = "test"

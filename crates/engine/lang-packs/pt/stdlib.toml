@@ -5,6 +5,7 @@
 # Caminhos de modulos de la biblioteca padrao (para use)
 # ============================================
 ["模块路径"]
+"atomic" = "atomic"
 "padrao" = "std"
 "nucleo" = "core"
 "alocacao" = "alloc"
@@ -652,3 +653,18 @@
 "dormir_assincrono" = "sleep"
 "lancar_assincrono" = "spawn"
 "bloquear_execucao" = "block_on"
+
+# zh 基准补齐（英语原名恒等映射）
+"set" = "set"
+"contains_key" = "contains_key"
+"contains_value" = "contains_value"
+"Weak" = "Weak"
+"strong_count" = "strong_count"
+"weak_count" = "weak_count"
+"downgrade" = "downgrade"
+"upgrade" = "upgrade"
+"send" = "send"
+"now" = "now"
+"cmp" = "cmp"
+"ParseIntError" = "ParseIntError"
+"test" = "test"

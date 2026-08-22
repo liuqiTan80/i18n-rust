@@ -5,6 +5,7 @@
 # Palavras-chave de declaração
 # ============================================
 ["声明"]
+"derive" = "derive"
 "funcao" = "fn"
 "deixar" = "let"
 "mutavel" = "mut"
@@ -27,6 +28,8 @@
 # Palavras-chave de controle de fluxo
 # ============================================
 ["控制流"]
+"if let" = "if let"
+"while let" = "while let"
 "se" = "if"
 "senao" = "else"
 "corresponder" = "match"
@@ -42,6 +45,7 @@
 # Tipos
 # ============================================
 ["类型"]
+"where" = "where"
 "inteiro" = "i32"
 "inteiro_longo" = "i64"
 "inteiro_curto" = "i16"
@@ -87,6 +91,7 @@
 # Memória e referências
 # ============================================
 ["内存"]
+"ref" = "ref"
 "referencia" = "&"
 "referencia_mutavel" = "&mut"
 "desreferencia" = "*"
@@ -111,6 +116,14 @@
 
 # ============================================
 ["宏"]
+"macro" = "macro"
+"macro_rules" = "macro_rules"
+"assert_matches" = "assert_matches"
+"debug_assert" = "debug_assert"
+"debug_assert_eq" = "debug_assert_eq"
+"debug_assert_matches" = "debug_assert_matches"
+"cfg_select" = "cfg_select"
+"compile_error" = "compile_error"
 "formato" = "format"
 "imprimir_linha" = "println"
 "imprimir" = "print"

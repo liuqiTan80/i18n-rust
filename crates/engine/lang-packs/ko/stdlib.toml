@@ -5,6 +5,7 @@
 # 표준 라이브러리 모듈 경로 (use 용)
 # ============================================
 ["模块路径"]
+"atomic" = "atomic"
 "표준" = "std"
 "핵심" = "core"
 "할당" = "alloc"
@@ -652,3 +653,18 @@
 "비동기_수면" = "sleep"
 "비동기_시작" = "spawn"
 "실행_차단" = "block_on"
+
+# zh 基准补齐（英语原名恒等映射）
+"set" = "set"
+"contains_key" = "contains_key"
+"contains_value" = "contains_value"
+"Weak" = "Weak"
+"strong_count" = "strong_count"
+"weak_count" = "weak_count"
+"downgrade" = "downgrade"
+"upgrade" = "upgrade"
+"send" = "send"
+"now" = "now"
+"cmp" = "cmp"
+"ParseIntError" = "ParseIntError"
+"test" = "test"

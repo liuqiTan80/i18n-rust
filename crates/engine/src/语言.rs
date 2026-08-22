@@ -228,8 +228,11 @@ mod tests {
     #[test]
     fn test_fallback_chain() {
         let _guard = test_language("de");
-        // 德语表缺 unicode_name_*（仅 zh 提供），回退中文表
-        assert_eq!(t_in("de", "unicode_name_200B"), "零宽空格");
+        // unicode_name_* 已同步到全部语言包（英文 Unicode 标准名），直接命中德语表
+        assert_eq!(
+            t_in("de", "unicode_name_200B"),
+            "\u{200b} (Zero Width Space)"
+        );
         // 完全缺失的键回退键名
         assert_eq!(t_in("de", "no_such_key"), "no_such_key");
     }

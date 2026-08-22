@@ -143,24 +143,18 @@ fn extract_sections(content: &str) -> Result<(NameMap, NameMap), String> {
     Ok((module_paths, idents))
 }
 
-/// 提取 keywords.toml 中所有节的“母语词 → 英文”映射（首个出现的节胜出）
+/// 提取 keywords.toml 中所有节的“母语词 → 英文”映射
+///
+/// 复用引擎权威语义（flatten_sections：按节名升序合并，后到覆盖），
+/// 与运行时实际生效的关键字映射保持一致，避免校验误报。
 ///
 /// 用于关键字避让检测：需比较 crates 键与关键字的**值**是否一致，
 /// 同值视为安全冗余（关键字替换与 crates 替换结果相同），不同值才是真冲突。
 fn extract_keyword_map(content: &str) -> HashMap<String, String> {
-    let mut map = HashMap::new();
-    if let Ok(toml::Value::Table(table)) = toml::from_str::<toml::Value>(content) {
-        for (_, section) in table {
-            if let toml::Value::Table(entries) = section {
-                for (k, v) in entries {
-                    if let toml::Value::String(s) = v {
-                        map.entry(k).or_insert(s);
-                    }
-                }
-            }
-        }
+    match i18n_rust_engine::mapping_source::parse_toml_sections(content) {
+        Ok(sections) => i18n_rust_engine::mapping_source::flatten_sections(&sections),
+        Err(_) => HashMap::new(),
     }
-    map
 }
 
 /// 校验单个语言包的 crates 映射质量

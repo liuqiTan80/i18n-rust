@@ -5,6 +5,7 @@
 # Пути модулей стандартной библиотеки (для use)
 # ============================================
 ["模块路径"]
+"atomic" = "atomic"
 "стандарт" = "std"
 "ядро" = "core"
 "выделение" = "alloc"
@@ -651,3 +652,18 @@
 "асинхронный_сон" = "sleep"
 "запусти_асинхронно" = "spawn"
 "блокируй_выполнение" = "block_on"
+
+# zh 基准补齐（英语原名恒等映射）
+"set" = "set"
+"contains_key" = "contains_key"
+"contains_value" = "contains_value"
+"Weak" = "Weak"
+"strong_count" = "strong_count"
+"weak_count" = "weak_count"
+"downgrade" = "downgrade"
+"upgrade" = "upgrade"
+"send" = "send"
+"now" = "now"
+"cmp" = "cmp"
+"ParseIntError" = "ParseIntError"
+"test" = "test"

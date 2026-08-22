@@ -49,6 +49,12 @@ enum CliCommand {
         #[arg(short, long)]
         lang_pack: Option<PathBuf>,
     },
+    /// 为当前项目添加第三方依赖（封装 cargo add，附带母语映射提示）
+    Add {
+        /// crate 名或 名称@版本，可多个（如 serde tokio@1）
+        #[arg(required = true)]
+        crates: Vec<String>,
+    },
     /// 语言包管理（list / install / remove）
     Lang {
         #[command(subcommand)]
@@ -76,6 +82,9 @@ enum MappingCommand {
         /// 输出文件路径（默认项目语言包根：<lang>/crates/<crate_name>.toml）
         #[arg(long)]
         output: Option<PathBuf>,
+        /// 生成映射后同时将该 crate 加入当前项目的 Cargo.toml（cargo add）
+        #[arg(long)]
+        install: bool,
     },
     /// 校验第三方库映射质量：重复键/关键字避让/跨文件冲突/条目数一致性
     Check {
@@ -300,12 +309,14 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
         CliCommand::Lang { subcommand } => {
             handle_lang_command(subcommand).map(|()| std::process::ExitCode::SUCCESS)
         }
+        CliCommand::Add { crates } => handle_add_command(&crates),
         CliCommand::Mapping { subcommand } => match subcommand {
             MappingCommand::Auto {
                 crate_name,
                 lang,
                 provider,
                 output,
+                install,
             } => {
                 let lang = lang.unwrap_or_else(mapping_gen::detect_system_language);
                 i18n_rust_engine::语言::set_language(&lang);
@@ -322,6 +333,10 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 mapping_gen::run_auto_generate(&crate_name, &lang, &provider, &output_path)
                     .map(|()| std::process::ExitCode::SUCCESS)
                     .inspect(|_| {
+                        // --install：生成成功后把 crate 加入当前项目依赖（用户项目内执行时）
+                        if install {
+                            install_crate_to_current_project(&crate_name);
+                        }
                         // 生成后自动对所在语言包跑一次冲突检测（仅提示，不改变退出码：
                         // 语言包可能存在历史遗留问题，生成成功与否以写入结果为准）
                         if let Some(lang_dir) = output_path.parent().and_then(|p| p.parent())
@@ -417,6 +432,131 @@ fn handle_lang_command(subcommand: LangCommand) -> anyhow::Result<()> {
     }
 }
 
+/// 处理 `rzc add` 子命令：封装 cargo add，成功后提示母语映射可用性
+fn handle_add_command(crates: &[String]) -> anyhow::Result<std::process::ExitCode> {
+    let ui = ui::Ui::global();
+    let cwd = std::env::current_dir()?;
+    let project_root = find_project_root_upward(&cwd)
+        .ok_or_else(|| anyhow::anyhow!("{}", ui.t("add_no_project")))?;
+    let status = Command::new("cargo")
+        .arg("add")
+        .args(crates)
+        .current_dir(&project_root)
+        .status()
+        .map_err(|e| anyhow::anyhow!("{}", ui.f("add_cargo_failed", &[&e.to_string()])))?;
+    if !status.success() {
+        // cargo add 自身已输出错误详情，直接传播退出码
+        return Ok(std::process::ExitCode::FAILURE);
+    }
+    let lang_code = ui::detect_ui_lang();
+    for spec in crates {
+        // 依赖名取 @版本 前段，并将 - 归一为 _（代码中 use 路径用下划线）
+        let crate_name = spec.split('@').next().unwrap_or(spec).replace('-', "_");
+        match find_crate_mapping_alias(&lang_code, &project_root, &crate_name) {
+            Some(alias) => println!("{}", ui.f("add_mapping_ready", &[&crate_name, &alias])),
+            None => println!(
+                "{}",
+                ui.f("add_mapping_missing", &[&crate_name, &crate_name])
+            ),
+        }
+    }
+    Ok(std::process::ExitCode::SUCCESS)
+}
+
+/// 查找 crate 在当前语言映射中的母语别名（项目/全局语言包 > 内置）
+///
+/// 扫描 crates/*.toml 的 ["模块路径"] 节：值的首段（:: 分隔）与 crate 名
+/// 匹配即命中（如 "HTTP客户端" = "reqwest" → 首段 reqwest）；
+/// 命中时返回对应母语键作为示例提示。
+fn find_crate_mapping_alias(
+    lang_code: &str,
+    project_root: &Path,
+    crate_name: &str,
+) -> Option<String> {
+    // 1. 项目内语言包与全局用户语言包的 crates/ 目录
+    let dirs = [
+        lang_pack_root_of(project_root)
+            .join(lang_code)
+            .join("crates"),
+        lang_manager::global_lang_dir()
+            .join(lang_code)
+            .join("crates"),
+    ];
+    for dir in &dirs {
+        let Ok(entries) = fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("toml") {
+                continue;
+            }
+            if let Ok(content) = fs::read_to_string(&path)
+                && let Some(alias) = find_alias_in_toml(&content, crate_name)
+            {
+                return Some(alias);
+            }
+        }
+    }
+    // 2. 内置语言包（未知语言代码自动回退中文）
+    let builtin = builtin_lang::get_builtin_data(lang_code);
+    for (_, content) in builtin.crates_data {
+        if let Some(alias) = find_alias_in_toml(content, crate_name) {
+            return Some(alias);
+        }
+    }
+    None
+}
+
+/// 在单个映射 TOML 内容中查找 crate 对应的母语别名
+fn find_alias_in_toml(content: &str, crate_name: &str) -> Option<String> {
+    let value: toml::Value = toml::from_str(content).ok()?;
+    let paths = value.get("模块路径")?.as_table()?;
+    for (key, val) in paths {
+        let Some(en_path) = val.as_str() else {
+            continue;
+        };
+        let first_seg = en_path.split("::").next().unwrap_or(en_path);
+        if first_seg.replace('-', "_") == crate_name {
+            return Some(key.clone());
+        }
+    }
+    None
+}
+
+/// mapping auto --install：把 crate 加入当前项目依赖（找不到项目时仅告警）
+fn install_crate_to_current_project(crate_name: &str) {
+    let ui = ui::Ui::global();
+    let Some(root) = std::env::current_dir()
+        .ok()
+        .and_then(|cwd| find_project_root_upward(&cwd))
+    else {
+        println!("{}", ui.t("mapping_auto_install_no_project"));
+        return;
+    };
+    match Command::new("cargo")
+        .arg("add")
+        .arg(crate_name)
+        .current_dir(&root)
+        .status()
+    {
+        Ok(status) if status.success() => {
+            println!("{}", ui.f("mapping_auto_installed", &[crate_name]))
+        }
+        Ok(status) => println!(
+            "{}",
+            ui.f(
+                "mapping_auto_install_failed",
+                &[crate_name, &status.to_string()]
+            )
+        ),
+        Err(e) => println!(
+            "{}",
+            ui.f("mapping_auto_install_failed", &[crate_name, &e.to_string()])
+        ),
+    }
+}
+
 /// 根据源码文件定位项目根（包含 Cargo.toml 的目录）
 fn find_project_root(file: &Path) -> anyhow::Result<PathBuf> {
     let file_dir = if file.is_absolute() {
@@ -489,6 +629,9 @@ fn translate_cargo_diagnostics(
     use i18n_rust_engine::diagnostic::{
         DiagnosticTranslator, ErrorTranslationManager, parse_diagnostic_output,
     };
+
+    // 未解析导入提取：诊断展示后附带 `rzc add` 加依赖提示（教学化引导）
+    let unresolved_crates = extract_unresolved_crates(rustc_output);
 
     // 按语言代码选择错误消息：--lang-pack 目录 > 项目内 lang-packs/<lang>/ > 内置
     let lang_code = file
@@ -576,6 +719,7 @@ fn translate_cargo_diagnostics(
             // 链接错误等）：原样输出 cargo 消息，绝不虚报“编译成功”
             eprintln!("{}", ui.f("compile_error", &[stderr_text.trim()]));
         }
+        print_dependency_hints(&unresolved_crates, ui);
         return false;
     }
 
@@ -599,12 +743,14 @@ fn translate_cargo_diagnostics(
             } else {
                 eprintln!("{}", ui.f("compile_error", &[stderr_text.trim()]));
             }
+            print_dependency_hints(&unresolved_crates, ui);
             return false;
         }
         println!(
             "{}",
             i18n_rust_engine::diagnostic::TeachingDiagnostic::batch_format_as_text(&teaching_list)
         );
+        print_dependency_hints(&unresolved_crates, ui);
         true
     } else {
         // 无翻译表：输出 JSON 中的原始 message，保证诊断不丢失
@@ -617,7 +763,70 @@ fn translate_cargo_diagnostics(
                 println!("{}", line);
             }
         }
+        print_dependency_hints(&unresolved_crates, ui);
         false
+    }
+}
+
+/// 从 cargo --message-format=json 输出提取未声明的 crate 名
+///
+/// 识别 unresolved import（E0432）与 failed to resolve（E0433）诊断，
+/// 候选提取复用 engine 共享逻辑（已去重，排除标准库与保留路径）。
+fn extract_unresolved_crates(rustc_output: &str) -> Vec<String> {
+    use i18n_rust_engine::diagnostic::{is_unresolved_import_message, unresolved_crate_candidates};
+    let mut result: Vec<String> = Vec::new();
+    for line in rustc_output.lines() {
+        let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        // cargo JSON 流中诊断嵌套在 compiler-message 条目里；
+        // 兼容直接的诊断对象两种形态
+        let message_obj = if entry.get("reason").is_some() {
+            entry.get("message")
+        } else {
+            Some(&entry)
+        };
+        let Some(msg) = message_obj else { continue };
+        let level = msg.get("level").and_then(|v| v.as_str()).unwrap_or("");
+        if level != "error" {
+            continue;
+        }
+        let code = msg
+            .get("code")
+            .and_then(|c| c.get("code"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let text = msg.get("message").and_then(|v| v.as_str()).unwrap_or("");
+        if !matches!(code, "E0432" | "E0433") && !is_unresolved_import_message(text) {
+            continue;
+        }
+        for seg in unresolved_crate_candidates(text) {
+            if !result.contains(&seg) {
+                result.push(seg);
+            }
+        }
+        // 码命中但消息文本未命中时（消息格式变化），退化到纯首段提取
+        if matches!(code, "E0432" | "E0433") && unresolved_crate_candidates(text).is_empty() {
+            use i18n_rust_engine::diagnostic::extract_backtick_first_segments;
+            for seg in extract_backtick_first_segments(text) {
+                if !matches!(
+                    seg.as_str(),
+                    "std" | "core" | "alloc" | "self" | "super" | "crate" | "proc_macro"
+                ) && !seg.chars().next().is_some_and(|c| c.is_ascii_digit())
+                    && !result.contains(&seg)
+                {
+                    result.push(seg);
+                }
+            }
+        }
+    }
+    result
+}
+
+/// 输出未声明依赖的 `rzc add` 提示（无候选时静默）
+fn print_dependency_hints(crates: &[String], ui: &ui::Ui) {
+    for name in crates {
+        eprintln!("{}", ui.f("hint_add_dependency", &[name, name]));
     }
 }
 
@@ -962,6 +1171,10 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
         .mut_subcommand("run", |cmd| cmd.about(ui.t("cmd_run_about")))
         .mut_subcommand("check", |cmd| cmd.about(ui.t("cmd_check_about")))
         .mut_subcommand("eject", |cmd| cmd.about(ui.t("cmd_eject_about")))
+        .mut_subcommand("add", |cmd| {
+            cmd.about(ui.t("cmd_add_about"))
+                .mut_arg("crates", |arg| arg.help(ui.t("arg_add_crates_help")))
+        })
         .mut_subcommand("lang", |cmd| {
             cmd.about(ui.t("cmd_lang_about"))
                 .mut_subcommand("list", |sub| sub.about(ui.t("cmd_lang_list_about")))
@@ -975,6 +1188,7 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
                         .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
                         .mut_arg("provider", |arg| arg.help(ui.t("arg_provider_help")))
                         .mut_arg("output", |arg| arg.help(ui.t("arg_output_help")))
+                        .mut_arg("install", |arg| arg.help(ui.t("arg_install_help")))
                 })
                 .mut_subcommand("check", |sub| {
                     sub.about(ui.t("cmd_mapping_check_about"))
@@ -1011,8 +1225,8 @@ fn get_lang_code_from_extension(extension: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        annotate_non_ascii_mods, get_lang_code_from_extension, transpile_project_files,
-        transpile_to_english,
+        annotate_non_ascii_mods, extract_unresolved_crates, find_alias_in_toml,
+        get_lang_code_from_extension, transpile_project_files, transpile_to_english,
     };
 
     /// 加载内置中文映射管理器（测试转译管线用）
@@ -1106,6 +1320,41 @@ mod tests {
         assert_eq!(
             out,
             "函数 main() {\n    #[path = \"数学.rs\"]\n    mod 数学;\n}"
+        );
+    }
+
+    /// cargo JSON 流中提取未声明 crate：E0432/E0433 命中，标准库与重复项排除
+    #[test]
+    fn test_extract_unresolved_crates() {
+        let line1 = r#"{"reason":"compiler-message","message":{"message":"unresolved import `serde_json`","code":{"code":"E0432"},"level":"error"}}"#;
+        let line2 = r#"{"reason":"compiler-message","message":{"message":"failed to resolve: use of undeclared crate or module `tokio`","code":{"code":"E0433"},"level":"error"}}"#;
+        let line3 = r#"{"reason":"compiler-message","message":{"message":"unresolved import `std::collections`","code":{"code":"E0432"},"level":"error"}}"#;
+        let line4 = r#"{"reason":"compiler-message","message":{"message":"unresolved import `serde_json`","code":{"code":"E0432"},"level":"error"}}"#;
+        let line5 = r#"{"reason":"compiler-message","message":{"message":"unused variable `x`","code":{"code":"E0432"},"level":"warning"}}"#;
+        let output = [line1, line2, line3, line4, line5].join("\n");
+        assert_eq!(
+            extract_unresolved_crates(&output),
+            vec!["serde_json", "tokio"]
+        );
+    }
+
+    /// 映射 TOML 中按 crate 首段查找母语别名；连字符 crate 名归一匹配
+    #[test]
+    fn test_find_alias_in_toml() {
+        let toml = "[\"模块路径\"]\n\"HTTP客户端\" = \"reqwest\"\n\"时间\" = \"chrono::prelude\"\n";
+        assert_eq!(
+            find_alias_in_toml(toml, "reqwest").as_deref(),
+            Some("HTTP客户端")
+        );
+        assert_eq!(find_alias_in_toml(toml, "chrono").as_deref(), Some("时间"));
+        assert_eq!(find_alias_in_toml(toml, "tokio"), None);
+        assert_eq!(
+            find_alias_in_toml(
+                "[\"模块路径\"]\n\"序列化\" = \"serde-json\"\n",
+                "serde_json"
+            )
+            .as_deref(),
+            Some("序列化")
         );
     }
 }

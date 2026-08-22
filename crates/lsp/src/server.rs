@@ -55,6 +55,9 @@ struct PendingRequestInfo {
     original_uri: String,
     /// 转发时刻（用于超时清理，避免响应永不到达时条目无限累积）
     created_at: std::time::Instant,
+    /// codeAction 请求上下文诊断中提取的未声明 crate 名
+    ///（响应时注入“添加依赖”快捷修复；非 codeAction 请求为空）
+    unresolved_crates: Vec<String>,
 }
 
 /// 转发请求的等待超时：超过后向客户端应答错误并丢弃条目
@@ -756,6 +759,15 @@ impl ProxyServer {
                     method: req.method.clone(),
                     original_uri: original_uri.clone(),
                     created_at: std::time::Instant::now(),
+                    unresolved_crates: if req.method == "textDocument/codeAction" {
+                        let diags = req.params["context"]["diagnostics"]
+                            .as_array()
+                            .map(|a| a.as_slice())
+                            .unwrap_or(&[]);
+                        extract_unresolved_crates_from_diagnostics(diags)
+                    } else {
+                        Vec::new()
+                    },
                 },
             );
         }
@@ -838,6 +850,39 @@ impl ProxyServer {
 /// 判断 URI 是否以任一受支持的方言扩展名结尾
 fn is_supported_file(uri: &str, extensions: &[String]) -> bool {
     extensions.iter().any(|ext| uri.ends_with(ext))
+}
+
+/// 从 codeAction 请求上下文诊断中提取未声明的 crate 名
+///
+/// 消息可能是英文原文（rust-analyzer 直发）或翻译后的母语文本
+///（经我方 publish 后由客户端回传）：两者都保留反引号包裹的路径
+/// 内容，提取逻辑统一；母语消息按本地化短语表判定未解析导入。
+fn extract_unresolved_crates_from_diagnostics(diags: &[Value]) -> Vec<String> {
+    let translated_phrase = crate::ui::global().t("lsp_phrase_unresolved_import");
+    let mut result = Vec::new();
+    for diag in diags {
+        let Some(msg) = diag.get("message").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        let is_unresolved = i18n_rust_engine::diagnostic::is_unresolved_import_message(msg)
+            || msg.contains(translated_phrase.as_str());
+        if !is_unresolved {
+            continue;
+        }
+        for seg in i18n_rust_engine::diagnostic::extract_backtick_first_segments(msg) {
+            if matches!(
+                seg.as_str(),
+                "std" | "core" | "alloc" | "self" | "super" | "crate" | "proc_macro"
+            ) || seg.chars().next().is_some_and(|c| c.is_ascii_digit())
+            {
+                continue;
+            }
+            if !result.contains(&seg) {
+                result.push(seg);
+            }
+        }
+    }
+    result
 }
 
 /// 计算虚拟项目临时目录（按用户 + 进程实例隔离）并拒绝符号链接
@@ -1120,7 +1165,9 @@ fn handle_analyzer_message(
                     mapper.map_document_symbol_response(&result, &info.original_uri)
                 }
                 "textDocument/codeAction" => {
-                    mapper.map_code_action_response(&result, &info.original_uri)
+                    let mapped = mapper.map_code_action_response(&result, &info.original_uri);
+                    // 未解析导入错误时注入“添加依赖”快捷修复（cargo add）
+                    mapper.inject_add_dependency_actions(&mapped, &info.unresolved_crates)
                 }
                 "codeAction/resolve" => mapper.map_code_action_resolve_response(&result),
                 "textDocument/rename" => mapper.map_rename_response(&result),
@@ -1476,5 +1523,28 @@ mod tests {
         });
         apply_incremental_change(&mut text, &range, "X");
         assert_eq!(text, "abcX");
+    }
+
+    /// 从诊断列表提取未声明 crate 候选：英文原文命中、保留名单过滤、
+    /// 无关消息不命中、跨诊断去重
+    #[test]
+    fn test_extract_unresolved_crates_from_diagnostics() {
+        let diags = vec![
+            json!({"message": "unresolved import `serde_json`"}),
+            json!({"message": "use of undeclared crate or module `reqwest`"}),
+            json!({"message": "unresolved import `std::collections`"}),
+            json!({"message": "unresolved import `crate::模块`"}),
+            json!({"message": "cannot find value `x` in this scope"}),
+            json!({"message": "unresolved import `serde_json`"}),
+        ];
+        assert_eq!(
+            extract_unresolved_crates_from_diagnostics(&diags),
+            vec!["serde_json".to_string(), "reqwest".to_string()]
+        );
+
+        // 无诊断 / 无匹配消息 → 空列表
+        assert!(extract_unresolved_crates_from_diagnostics(&[]).is_empty());
+        let other = vec![json!({"message": "mismatched types"})];
+        assert!(extract_unresolved_crates_from_diagnostics(&other).is_empty());
     }
 }

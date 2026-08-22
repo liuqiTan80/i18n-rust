@@ -1,0 +1,27 @@
+# crate name mapping (for use paths)
+["模块路径"]
+"anyhow" = "anyhow"
+"thiserror" = "thiserror"
+"color_eyre" = "color_eyre"
+"snafu" = "snafu"
+
+# internal identifier mapping (types, functions, etc.)
+["标识符"]
+# anyhow
+"Error" = "Error"
+"Result" = "Result"
+"context" = "context"
+"ensure" = "ensure"
+"bail" = "bail"
+
+# thiserror
+"error" = "error"
+"source" = "source"
+"display" = "display"
+
+# color-eyre
+"install" = "install"
+"Report" = "Report"
+
+# snafu
+"return" = "return"

@@ -553,6 +553,38 @@ impl ResponseMapper {
         }
     }
 
+    /// 注入“添加依赖”快捷修复：未解析导入错误时提供一键 cargo add
+    ///
+    /// 命令由 VS Code 扩展注册（i18n-rust.cargoAdd）在工作区终端执行；
+    /// 动作标题中的 crate 名反查母语别名（如 reqwest → HTTP客户端），
+    /// 与母语源码的阅读体验保持一致。
+    pub fn inject_add_dependency_actions(&self, response: &Value, crates: &[String]) -> Value {
+        if crates.is_empty() {
+            return response.clone();
+        }
+        let mut actions = match response {
+            Value::Array(list) => list.clone(),
+            _ => Vec::new(),
+        };
+        for crate_name in crates {
+            // 英文 crate 名反查母语别名（关键字/别名表），未命中保持原名
+            let display = self
+                .reverse_lookup(crate_name)
+                .unwrap_or_else(|| crate_name.clone());
+            let title = crate::ui::global().f("lsp_action_add_dependency", &[&display]);
+            actions.push(json!({
+                "title": title,
+                "kind": "quickfix",
+                "command": {
+                    "title": title,
+                    "command": "i18n-rust.cargoAdd",
+                    "arguments": [crate_name]
+                }
+            }));
+        }
+        Value::Array(actions)
+    }
+
     /// 映射文档符号响应
     ///
     /// 将每个符号的 range 和 selectionRange 映射回原始文件，
@@ -1004,8 +1036,36 @@ fn translate_diagnostic_message(message: &str) -> String {
         result.push_str(&ui.t("lsp_hint_cannot_find"));
     } else if message.contains("unused") {
         result.push_str(&ui.t("lsp_hint_unused"));
+    } else if i18n_rust_engine::diagnostic::is_unresolved_import_message(message) {
+        // 未解析导入：提示通过 `rzc add <crate>` 添加缺失依赖
+        if let Some(crate_name) =
+            i18n_rust_engine::diagnostic::unresolved_crate_candidates(message).first()
+        {
+            result.push_str(&ui.f("lsp_hint_add_dependency", &[crate_name]));
+        }
     }
 
+    result
+}
+
+/// 整词替换：仅当目标前后字符均非 ASCII 标识符字符时替换，
+/// 避免裸词模式误伤标识符子串（如 unexpected 中的 expected）
+fn replace_whole_word(text: &str, from: &str, to: &str) -> String {
+    let is_ident_char = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let mut result = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(pos) = rest.find(from) {
+        let end = pos + from.len();
+        let before_ok = rest[..pos]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !is_ident_char(c));
+        let after_ok = rest[end..].chars().next().is_none_or(|c| !is_ident_char(c));
+        result.push_str(&rest[..pos]);
+        result.push_str(if before_ok && after_ok { to } else { from });
+        rest = &rest[end..];
+    }
+    result.push_str(rest);
     result
 }
 
@@ -1015,7 +1075,13 @@ fn replace_outside_backticks(input: &str, replacements: &[(String, String)]) -> 
     let apply = |segment: &str| -> String {
         let mut text = segment.to_string();
         for (from, to) in replacements {
-            text = text.replace(from.as_str(), to.as_str());
+            // 单词模式（如 integer/expected）用整词匹配，避免误伤
+            // to_integer/unexpected 等标识符子串；短语模式保持子串替换
+            text = if from.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+                replace_whole_word(&text, from, to)
+            } else {
+                text.replace(from.as_str(), to.as_str())
+            };
         }
         text
     };
@@ -1709,6 +1775,42 @@ mod tests {
         assert_eq!(label_identifier_suffix("m::"), Some("m"));
         assert_eq!(label_identifier_suffix("println!"), Some("println"));
         assert_eq!(label_identifier_suffix("(…)"), None);
+    }
+
+    /// 注入添加依赖动作：空候选列表原样返回，非空追加 quickfix 动作
+    #[test]
+    fn test_inject_add_dependency_actions() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+
+        // 空 crates：原响应原样返回
+        let original = json!([{"title": "既有动作", "kind": "quickfix"}]);
+        assert_eq!(
+            mapper.inject_add_dependency_actions(&original, &[]),
+            original
+        );
+
+        // 非空 crates：追加动作，command 指向扩展注册的 cargoAdd
+        let injected = mapper.inject_add_dependency_actions(&original, &["serde_json".to_string()]);
+        let actions = injected.as_array().unwrap();
+        assert_eq!(actions.len(), 2);
+        let added = &actions[1];
+        assert_eq!(added["kind"], "quickfix");
+        assert_eq!(added["command"]["command"], "i18n-rust.cargoAdd");
+        assert_eq!(added["command"]["arguments"][0], "serde_json");
+
+        // 非数组响应（如 null）也能注入
+        let injected = mapper.inject_add_dependency_actions(&Value::Null, &["tokio".to_string()]);
+        assert_eq!(injected.as_array().unwrap().len(), 1);
+    }
+
+    /// 未解析导入诊断追加依赖提示（内置 zh 回退含 lsp_hint_add_dependency 键）
+    #[test]
+    fn test_translate_diagnostic_unresolved_import_hint() {
+        let translated = translate_diagnostic_message("unresolved import `serde_json`");
+        // 反引号内容保留（提取依赖原名），且追加了 rzc add 提示
+        assert!(translated.contains("`serde_json`"));
+        assert!(translated.contains("rzc add serde_json"));
     }
 
     /// 诊断翻译不替换反引号内的标识符（避免误伤变量名中的子串）

@@ -963,6 +963,38 @@ function 注册映射工具命令(context: vscode.ExtensionContext): void {
             终端.sendText(`${quoteShellArg(rzc路径)} lang install ${quoteShellArg(来源.trim())}`);
         })
     );
+
+    // 添加依赖：LSP 快捷修复（unresolved import）注入的代码动作入口，
+    // 参数为 crate 名（可带 @version）；无参时弹输入框手动指定。
+    // 优先 rzc add（附带母语映射提示），找不到 rzc 退化 cargo add
+    context.subscriptions.push(
+        vscode.commands.registerCommand('i18n-rust.cargoAdd', async (crate名?: string) => {
+            if (!crate名) {
+                crate名 = await vscode.window.showInputBox({
+                    prompt: '添加依赖：输入 crate 名（可带 @版本）',
+                    placeHolder: '如 serde_json 或 tokio@1',
+                    validateInput: 值 => (值.trim() ? undefined : '不能为空')
+                });
+            }
+            if (!crate名) {
+                return;
+            }
+            const 工作区根 = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!工作区根) {
+                vscode.window.showWarningMessage('未打开工作区，无法添加依赖');
+                return;
+            }
+            const 终端 = 获取命令终端(工作区根);
+            终端.show();
+            const config = vscode.workspace.getConfiguration('i18n-rust');
+            const rzc路径 = 解析可执行文件(config.get<string>('rzcPath', 'rzc'), 工作区根们());
+            if (rzc路径) {
+                终端.sendText(`${quoteShellArg(rzc路径)} add ${quoteShellArg(crate名.trim())}`);
+            } else {
+                终端.sendText(`cargo add ${quoteShellArg(crate名.trim())}`);
+            }
+        })
+    );
 }
 
 /**
@@ -991,10 +1023,15 @@ function 获取命令终端(cwd: string): vscode.Terminal {
     if (命令终端 && !命令终端.exitStatus && 命令终端工作目录 === cwd) {
         return 命令终端;
     }
-    命令终端?.dispose();
-    命令终端 = vscode.window.createTerminal({ name: 'i18n-rust', cwd });
-    命令终端工作目录 = cwd;
-    return 命令终端;
+    if (!命令终端 || 命令终端.exitStatus) {
+        // 旧终端已退出：安全重建并复用引用
+        命令终端 = vscode.window.createTerminal({ name: 'i18n-rust', cwd });
+        命令终端工作目录 = cwd;
+        return 命令终端;
+    }
+    // cwd 变了但旧终端仍在运行（可能有长时间编译/运行中的程序）：
+    // 不 dispose 避免杀死进程，新建独立终端（不覆盖复用引用）
+    return vscode.window.createTerminal({ name: 'i18n-rust', cwd });
 }
 
 /**

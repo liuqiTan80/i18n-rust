@@ -79,8 +79,23 @@ define_builtin_lang!(
     ]
 );
 
-// 英文内置语言包（恒等映射，用于验证多语言架构）
-define_builtin_lang!(EN_DATA, "en", []);
+// 英文内置语言包（恒等映射，用于验证多语言架构 + 10 个第三方库映射）
+define_builtin_lang!(
+    EN_DATA,
+    "en",
+    [
+        "Serialization.toml",
+        "Async.toml",
+        "CommandLine.toml",
+        "Database.toml",
+        "Tools.toml",
+        "Logging.toml",
+        "Network.toml",
+        "ErrorHandling.toml",
+        "WebFramework.toml",
+        "salvo.toml",
+    ]
+);
 
 // 德语内置语言包（德语错误教学提示 + 10 个第三方库映射）
 define_builtin_lang!(
@@ -339,22 +354,19 @@ mod tests {
         assert!(std::ptr::eq(data, zh), "未知语言应回退到中文包");
     }
 
-    /// 除英文外全部内置语言均含 10 个第三方库映射（英文为恒等包，无映射）；
-    /// 中文标准库映射包含模块路径与标识符两节（数量远多于恒等包）
+    /// 全部 11 个内置语言均含 10 个第三方库映射；
+    /// stdlib.toml 两节齐全（模块路径 + 标识符）
     #[test]
     fn test_crates_data_per_lang() {
-        for code in ["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
+        for code in [
+            "zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi",
+        ] {
             assert_eq!(
                 get_builtin_data(code).crates_data.len(),
                 10,
                 "{code} 应含 10 个第三方库映射"
             );
         }
-        assert_eq!(
-            get_builtin_data("en").crates_data.len(),
-            0,
-            "en 恒等包不含第三方库映射"
-        );
         // stdlib.toml 中模块路径与标识符两节均存在
         for data in [get_builtin_data("zh"), get_builtin_data("en")] {
             assert!(data.stdlib_toml.contains("[\"模块路径\"]"));

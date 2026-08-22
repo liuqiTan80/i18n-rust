@@ -2,6 +2,7 @@
 # प्रारूप: हिन्दी नाम = "अंग्रेज़ी नाम"
 
 ["声明"]
+"derive" = "derive"
 "फंक्शन" = "fn"
 "मानो" = "let"
 "परिवर्तनीय" = "mut"
@@ -20,9 +21,10 @@
 "उपयोग" = "use"
 "के_रूप" = "as"
 "मुख्य" = "main"
-"जेनरिक" = "generic"
 
 ["控制流"]
+"if let" = "if let"
+"while let" = "while let"
 "यदि" = "if"
 "अन्यथा" = "else"
 "मिलान" = "match"
@@ -35,6 +37,7 @@
 "लौटाओ" = "return"
 
 ["类型"]
+"where" = "where"
 "पूर्णांक" = "i32"
 "पूर्णांक_8" = "i8"
 "पूर्णांक_16" = "i16"
@@ -63,9 +66,6 @@
 "सफल" = "Ok"
 "त्रुटि" = "Err"
 "डिब्बा" = "Box"
-"सरणी" = "array"
-"टपल" = "tuple"
-"स्लाइस" = "slice"
 
 ["逻辑值"]
 "सत्य" = "true"
@@ -79,12 +79,10 @@
 "पाठ_संदर्भ" = "&str"
 
 ["内存"]
+"ref" = "ref"
 "संदर्भ" = "&"
 "परिवर्तनीय_संदर्भ" = "&mut"
-"व्युत्क्रम" = "&dyn"
 "स्थानांतरित" = "move"
-"जीवनकाल" = "lifetime"
-"रिक्त_संदर्भ" = "null"
 "विसंदर्भ" = "*"
 
 ["不安全"]
@@ -95,11 +93,17 @@
 
 ["错误处理"]
 "उठाओ" = "panic"
-"फेंको" = "throw"
-"पकड़ो" = "catch"
 "जांच" = "assert"
 
 ["宏"]
+"macro" = "macro"
+"macro_rules" = "macro_rules"
+"assert_matches" = "assert_matches"
+"debug_assert" = "debug_assert"
+"debug_assert_eq" = "debug_assert_eq"
+"debug_assert_matches" = "debug_assert_matches"
+"cfg_select" = "cfg_select"
+"compile_error" = "compile_error"
 "प्रारूप" = "format"
 "पंक्ति_छापो" = "println"
 "छापो" = "print"

@@ -1,0 +1,32 @@
+# crate name mapping (for use paths)
+["模块路径"]
+"tracing" = "tracing"
+"log" = "log"
+"env_logger" = "env_logger"
+"tracing-subscriber" = "tracing-subscriber"
+
+# internal identifier mapping (types, functions, etc.)
+["标识符"]
+# tracing
+"trace" = "trace"
+"debug" = "debug"
+"info" = "info"
+"warn" = "warn"
+"error" = "error"
+"span" = "span"
+"event" = "event"
+"subscriber" = "subscriber"
+"init" = "init"
+
+# log
+"Level" = "Level"
+"Record" = "Record"
+
+# env_logger
+"Builder" = "Builder"
+"filter" = "filter"
+
+# tracing-subscriber
+"fmt" = "fmt"
+"json" = "json"
+"registry" = "registry"

@@ -6,6 +6,7 @@
 # Deklarationsschlüsselwörter
 # ============================================
 ["声明"]
+"derive" = "derive"
 "funktion" = "fn"
 "lass" = "let"
 "mutabel" = "mut"
@@ -28,6 +29,8 @@
 # Kontrollfluss-Schlüsselwörter
 # ============================================
 ["控制流"]
+"if let" = "if let"
+"while let" = "while let"
 "wenn" = "if"
 "sonst" = "else"
 "abgleich" = "match"
@@ -43,6 +46,7 @@
 # Typ-Schlüsselwörter
 # ============================================
 ["类型"]
+"where" = "where"
 "ganzzahl" = "i32"
 "langganzzahl" = "i64"
 "kurzganzzahl" = "i16"
@@ -88,6 +92,7 @@
 # Speicher und Referenzen
 # ============================================
 ["内存"]
+"ref" = "ref"
 "referenz" = "&"
 "mutabelReferenz" = "&mut"
 "dereferenz" = "*"
@@ -112,6 +117,14 @@
 
 # ============================================
 ["宏"]
+"macro" = "macro"
+"macro_rules" = "macro_rules"
+"assert_matches" = "assert_matches"
+"debug_assert" = "debug_assert"
+"debug_assert_eq" = "debug_assert_eq"
+"debug_assert_matches" = "debug_assert_matches"
+"cfg_select" = "cfg_select"
+"compile_error" = "compile_error"
 "formatiere" = "format"
 "druckeZeile" = "println"
 "drucke" = "print"
@@ -121,7 +134,7 @@
 "behaupteGleich" = "assert_eq"
 "behaupteUngleich" = "assert_ne"
 "nichtImplementiert" = "unimplemented"
-"offen" = "todo"
+"zuErledigen" = "todo"
 "unerreichbar" = "unreachable"
 "panik" = "panic"
 "vektor" = "vec"

@@ -383,6 +383,10 @@ pub fn install_lang(source: &str, force: bool) -> anyhow::Result<()> {
 /// 内置语言包不可删除；同名用户安装包存在时优先删除用户安装的。
 pub fn remove_lang(lang_code: &str) -> anyhow::Result<()> {
     let ui = crate::ui::Ui::global();
+    // 校验语言代码，防止 ../ 等路径遍历导致删除语言包目录之外的目录
+    if !validate_lang_code(lang_code) {
+        anyhow::bail!("{}", ui.f("invalid_lang_code", &[lang_code]));
+    }
     let target_dir = global_lang_dir().join(lang_code);
     if target_dir.is_dir() {
         fs::remove_dir_all(&target_dir)?;

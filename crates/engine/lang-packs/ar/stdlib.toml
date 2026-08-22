@@ -5,6 +5,7 @@
 # مسارات de وحدات de la مكتبة قياسي (para استخدم)
 # ============================================
 ["模块路径"]
+"atomic" = "atomic"
 "قياسي" = "std"
 "نواة" = "core"
 "تخصيص" = "alloc"
@@ -652,3 +653,18 @@
 "نوم_غير_متزامن" = "sleep"
 "إطلاق_غير_متزامن" = "spawn"
 "حظر_تنفيذ" = "block_on"
+
+# zh 基准补齐（英语原名恒等映射）
+"set" = "set"
+"contains_key" = "contains_key"
+"contains_value" = "contains_value"
+"Weak" = "Weak"
+"strong_count" = "strong_count"
+"weak_count" = "weak_count"
+"downgrade" = "downgrade"
+"upgrade" = "upgrade"
+"send" = "send"
+"now" = "now"
+"cmp" = "cmp"
+"ParseIntError" = "ParseIntError"
+"test" = "test"
