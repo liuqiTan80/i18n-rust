@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://gitcode.com/tan80/zrRust"
+    "url": "https://github.com/liuqiTan80/i18n-rust"
   },
   "engines": {
     "vscode": "^1.85.0"
