@@ -347,6 +347,40 @@ fn replace_type_token(token: &str, type_map: &HashMap<String, String>) -> Option
     None
 }
 
+/// 本地化带模块路径的类型名（三段式）
+///
+/// 1. 类型后缀段映射：`std::fmt::Display` → `std::fmt::可显示`
+/// 2. 路径前缀完整匹配（从长到短）：`std::fmt` → `标准库::格式化`（或 `std` → `标准库`）
+/// 3. 剩余中间段单段映射：`fmt` → `格式化`
+/// 最终：`std::fmt::Display` → `标准库::格式化::可显示`；
+/// 仅含路径（如 `std::io::Error`）未命中任何段时返回 None 保持原样。
+fn localize_type_token(token: &str, map: &HashMap<String, String>) -> Option<String> {
+    let original = token.to_string();
+    // 1. 类型后缀段映射
+    let mut result = replace_type_token(token, map).unwrap_or_else(|| token.to_string());
+    // 2. 路径前缀完整匹配（从长到短）
+    let mut segments: Vec<String> = result.split("::").map(|s| s.to_string()).collect();
+    if segments.len() >= 2 {
+        for i in (1..segments.len()).rev() {
+            let prefix = segments[..i].join("::");
+            if let Some(zh) = map.get(&prefix) {
+                let rest = segments[i..].join("::");
+                segments = vec![zh.clone()];
+                segments.extend(rest.split("::").map(|s| s.to_string()));
+                break;
+            }
+        }
+        // 3. 剩余中间段单段映射（跳过首尾，避免误伤已替换的路径与类型段）
+        for i in 1..segments.len().saturating_sub(1) {
+            if let Some(zh) = map.get(&segments[i]) {
+                segments[i] = zh.clone();
+            }
+        }
+    }
+    let result = segments.join("::");
+    (result != original).then_some(result)
+}
+
 /// 用后缀原文中的单引号内容填充模板的 {q0}/{q1} 捕获占位符
 ///
 /// 用于 "Unicode character '，' (…) looks like ',' (…)" 这类 help 消息：
@@ -720,8 +754,9 @@ impl DiagnosticTranslator {
         for token in extract_backtick_tokens(&result) {
             if let Some(zh) = self.type_map.get(&token) {
                 result = result.replace(&format!("`{}`", token), &format!("`{}`", zh));
-            } else if let Some(replaced) = replace_type_token(&token, &self.type_map) {
-                // 带模块路径的类型名：最长后缀匹配（std::fmt::Display → std::fmt::显示）
+            } else if let Some(replaced) = localize_type_token(&token, &self.type_map) {
+                // 带模块路径的类型名：三段式本地化
+                //（std::fmt::Display → 标准库::格式化::可显示）
                 result = result.replace(&format!("`{}`", token), &format!("`{}`", replaced));
             }
         }
@@ -1140,6 +1175,31 @@ mod tests {
             Some("std::fmt::显示".to_string())
         );
         assert_eq!(replace_type_token("std::io::Error", &type_map), None);
+    }
+
+    /// 三段式本地化：类型段 + 路径前缀 + 中间段全中文化
+    #[test]
+    fn test_localize_type_token_full_path() {
+        let mut map = create_test_type_map();
+        map.insert("Display".into(), "可显示".into());
+        map.insert("fmt".into(), "格式化".into());
+        map.insert("std".into(), "标准库".into());
+        // 类型 + 路径 + 中间段全部命中
+        assert_eq!(
+            localize_type_token("std::fmt::Display", &map),
+            Some("标准库::格式化::可显示".to_string())
+        );
+        // 仅类型段命中：路径保持原样
+        assert_eq!(
+            localize_type_token("alloc::String", &map),
+            Some("alloc::字符串".to_string())
+        );
+        // 无任何段命中：保持原样返回 None（unknown 段不在映射中）
+        assert_eq!(localize_type_token("unknown::io::Error", &map), None);
+        // 无 :: 路径的类型名（如 &str）由上层整串命中处理，此处不处理属预期
+        map.insert("&str".into(), "字符串引用".into());
+        assert_eq!(localize_type_token("&str", &map), None);
+        assert_eq!(map.get("&str"), Some(&"字符串引用".to_string()));
     }
 
     /// E0277 占位符填充后的实际类型名也应中文化（{类型}/{特征} → 中文 + 后缀匹配）
