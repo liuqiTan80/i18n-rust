@@ -79,10 +79,16 @@ pub struct ErrorMessageEntry {
     pub teaching_hint: Option<String>,
 }
 
-/// 错误消息翻译管理器：按错误码查询翻译条目
+/// 错误消息翻译管理器：按错误码或消息文本查询翻译条目
 #[derive(Debug, Clone)]
 pub struct ErrorTranslationManager {
+    /// 错误码表：错误码 → 翻译条目（errors.toml 顶层 [E0xxx] 节）
     pub translation_table: HashMap<String, ErrorMessageEntry>,
+    /// 消息表：英文消息原文 → 翻译条目（errors.toml [消息翻译] 节）
+    ///
+    /// 覆盖无错误码的 rustc 消息（如 format 参数检查）与常见 help 短语；
+    /// 支持精确匹配与最长前缀匹配（如 "did you mean " 可保留动态后缀）。
+    message_map: HashMap<String, ErrorMessageEntry>,
 }
 
 impl ErrorTranslationManager {
@@ -97,16 +103,55 @@ impl ErrorTranslationManager {
         Self::load_from_string(&content)
     }
 
-    /// 从 TOML 字符串加载错误翻译表（用于内置数据）
+    /// 从 TOML 字符串加载错误翻译表
+    ///
+    /// 顶层表分为两类：`[E0xxx]` 等错误码表（含 "消息模板"/"教学提示"）
+    /// 与 `[消息翻译]` 消息表（键为英文消息原文，同样含模板与提示）。
     pub fn load_from_string(content: &str) -> Result<Self, String> {
-        let translation_table: HashMap<String, ErrorMessageEntry> = toml::from_str(content)
+        let value: toml::Value = toml::from_str(content)
             .map_err(|e| crate::语言::f("err_parse_error_messages", &[&e.to_string()]))?;
-        Ok(Self { translation_table })
+        let mut translation_table = HashMap::new();
+        let mut message_map = HashMap::new();
+        if let Some(table) = value.as_table() {
+            for (key, val) in table {
+                if key == "消息翻译" {
+                    if let Some(entries) = val.as_table() {
+                        for (msg, entry) in entries {
+                            message_map.insert(msg.clone(), entry_from_value(entry));
+                        }
+                    }
+                } else {
+                    translation_table.insert(key.clone(), entry_from_value(val));
+                }
+            }
+        }
+        Ok(Self {
+            translation_table,
+            message_map,
+        })
     }
 
     /// 按错误码查询翻译条目
     pub fn query(&self, error_code: &str) -> Option<&ErrorMessageEntry> {
         self.translation_table.get(error_code)
+    }
+
+    /// 按消息原文查询翻译条目
+    ///
+    /// 优先精确匹配；未命中时按最长前缀匹配（返回未翻译的后缀原文，
+    /// 供调用方拼接到模板后，保留 `did you mean \`x\`` 等动态内容）。
+    pub fn query_by_message<'a, 'b>(
+        &'a self,
+        message: &'b str,
+    ) -> Option<(&'a ErrorMessageEntry, Option<&'b str>)> {
+        if let Some(entry) = self.message_map.get(message) {
+            return Some((entry, None));
+        }
+        self.message_map
+            .iter()
+            .filter(|(key, _)| message.starts_with(*key))
+            .max_by_key(|(key, _)| key.len())
+            .map(|(key, entry)| (entry, Some(&message[key.len()..])))
     }
 
     /// 已覆盖的错误码数量
@@ -266,6 +311,21 @@ impl OwnershipDetails {
 
 /// 所有权相关错误码（E0382 使用已移动的值 / E0502 同时可变与不可变借用 / E0507 不能移出借用的内容）
 pub const OWNERSHIP_ERROR_CODES: [&str; 3] = ["E0382", "E0502", "E0507"];
+
+/// 从 TOML 值构建翻译条目（消息模板缺失时回退空串，避免解析失败丢失整表）
+fn entry_from_value(val: &toml::Value) -> ErrorMessageEntry {
+    ErrorMessageEntry {
+        message_template: val
+            .get("消息模板")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string(),
+        teaching_hint: val
+            .get("教学提示")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+    }
+}
 
 /// 从 rustc 诊断中提取所有权错误详情
 ///
@@ -462,7 +522,13 @@ impl DiagnosticTranslator {
 
         let matched_entry = error_code
             .as_deref()
-            .and_then(|code| self.translation_manager.query(code));
+            .and_then(|code| self.translation_manager.query(code))
+            // 无错误码或错误码未收录时，按消息原文匹配（[消息翻译] 节）
+            .or_else(|| {
+                self.translation_manager
+                    .query_by_message(&diagnostic.message)
+                    .map(|(entry, _)| entry)
+            });
 
         // 从主要 span 的 label 中提取 expected 和 found；
         // rustc 1.97+ 的算术错误（E0369 等）不再输出 label，类型信息
@@ -490,6 +556,16 @@ impl DiagnosticTranslator {
                 // 无法提取期望/实际类型时回退 rustc 原文，避免输出裸占位符
                 template = diagnostic.message.clone();
             }
+            // 消息表前缀匹配时，把未翻译的动态后缀拼回模板
+            //（如 "did you mean " → "你是否想用 `foo`?"），
+            // 错误码条目（无后缀）不受影响。
+            if let Some(rest) = self
+                .translation_manager
+                .query_by_message(&diagnostic.message)
+                .and_then(|(_, rest)| rest)
+            {
+                template.push_str(rest);
+            }
             // 对模板中的类型名进行中文化替换
             self.replace_type_names(template)
         } else {
@@ -504,7 +580,19 @@ impl DiagnosticTranslator {
         }
         for child in &diagnostic.children {
             if child.level == "help" {
-                teaching_hints.push(crate::语言::f("diag_fix_suggestion", &[&child.message]));
+                // help 短语优先查消息表翻译（前缀匹配保留动态后缀），未命中保留原文
+                let hint = self
+                    .translation_manager
+                    .query_by_message(&child.message)
+                    .map(|(entry, rest)| {
+                        let mut text = entry.message_template.clone();
+                        if let Some(rest) = rest {
+                            text.push_str(rest);
+                        }
+                        text
+                    })
+                    .unwrap_or_else(|| child.message.clone());
+                teaching_hints.push(crate::语言::f("diag_fix_suggestion", &[&hint]));
             }
         }
 
@@ -879,6 +967,72 @@ mod tests {
         assert_eq!(
             teaching.translated_message,
             "类型不匹配：期望 `有符号整数32`，实际得到 `字符串引用`"
+        );
+    }
+
+    /// 无错误码消息：命中 [消息翻译] 节精确条目，标题与教学提示均翻译
+    #[test]
+    fn test_translate_without_code_matches_message_map() {
+        let _guard = crate::语言::test_language("zh");
+        let toml_content = r#"
+["消息翻译"."format argument must be a string literal"]
+"消息模板" = "format 参数必须是字符串字面量"
+"教学提示" = "第一个参数应带引号。"
+"#;
+        let file = create_error_message_file(toml_content);
+        let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+
+        let diagnostic = CompilerDiagnostic {
+            message: "format argument must be a string literal".to_string(),
+            code: None,
+            level: "error".to_string(),
+            spans: vec![],
+            children: vec![],
+            rendered: None,
+        };
+        let teaching = translator.translate_diagnostic(&diagnostic);
+
+        assert_eq!(teaching.translated_message, "format 参数必须是字符串字面量");
+        assert_eq!(teaching.teaching_hints, vec!["第一个参数应带引号。"]);
+    }
+
+    /// 前缀匹配：help 短语 "did you mean " 保留动态后缀（`foo`?）
+    #[test]
+    fn test_translate_help_prefix_keeps_dynamic_rest() {
+        let _guard = crate::语言::test_language("zh");
+        let toml_content = r#"
+["消息翻译"."did you mean "]
+"消息模板" = "你是否想用 "
+"#;
+        let file = create_error_message_file(toml_content);
+        let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+
+        let diagnostic = CompilerDiagnostic {
+            message: "no method named `foo`".to_string(),
+            code: Some(DiagnosticCode {
+                code: "E0599".to_string(),
+                explanation: None,
+            }),
+            level: "error".to_string(),
+            spans: vec![],
+            children: vec![CompilerDiagnostic {
+                message: "did you mean `foo`?".to_string(),
+                code: None,
+                level: "help".to_string(),
+                spans: vec![],
+                children: vec![],
+                rendered: None,
+            }],
+            rendered: None,
+        };
+        let teaching = translator.translate_diagnostic(&diagnostic);
+
+        // help 子诊断：前缀翻译 + 动态后缀保留，包上"修复建议："前缀
+        assert_eq!(
+            teaching.teaching_hints,
+            vec!["修复建议：你是否想用 `foo`?"]
         );
     }
 
