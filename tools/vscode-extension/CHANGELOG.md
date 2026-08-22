@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2
+
+### 新增
+- `rzc install lsp` 一键安装语言服务器（VS Code 扩展的补全/诊断后端）：优先从离线包同目录免网络复制，否则从 crates.io 安装与 rzc 版本严格一致的版本。
+
+### 改进
+- LSP 缺失时的错误提示改为引导安装：`rzc install lsp`（或 `cargo install i18n-rust-lsp`）。
+
 ## 0.4.0
 
 ### 新增

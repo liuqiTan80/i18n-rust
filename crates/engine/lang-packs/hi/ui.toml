@@ -143,6 +143,17 @@
 "lang_not_builtin" = "भाषा पैक '{}' अंतर्निहित नहीं है; `rzc lang install {}` से स्थापित करें।"
 "unrecognized_ext" = "स्रोत फ़ाइल एक्सटेंशन पहचाना नहीं जा सका"
 
+# ---- घटक स्थापना ----
+"cmd_install_about" = "सहायक घटक स्थापित करें (भाषा सर्वर i18n-rust-lsp)"
+"cmd_install_lsp_about" = "भाषा सर्वर i18n-rust-lsp स्थापित करें (VS Code एक्सटेंशन का पूर्णता/निदान बैकएंड)"
+"lsp_install_already" = "✅ भाषा सर्वर i18n-rust-lsp पहले से स्थापित है: {} (पुनः स्थापित करने के लिए --force उपयोग करें)"
+"lsp_install_local" = "✅ भाषा सर्वर ऑफ़लाइन पैकेज से स्थापित किया गया: {}"
+"lsp_install_cargo" = "cargo के माध्यम से crates.io से i18n-rust-lsp {} स्थापित हो रहा है ..."
+"lsp_install_done" = "✅ भाषा सर्वर i18n-rust-lsp {} स्थापित हो गया।"
+"lsp_install_hint" = "   सक्रिय करने के लिए VS Code पुनः प्रारंभ करें या «i18n-rust: सर्वर पुनः प्रारंभ करें» चलाएँ (स्थापित: {})"
+"lsp_install_no_cargo" = "cargo चलाने में विफल: {}। पहले Rust टूलचेन (https://rustup.rs) स्थापित करें, या रिलीज़ पृष्ठ से i18n-rust-lsp मैन्युअल रूप से डाउनलोड करें।"
+"lsp_install_failed" = "cargo install विफल ({}). नेटवर्क कनेक्शन जाँचें, या रिलीज़ पृष्ठ से i18n-rust-lsp मैन्युअल रूप से डाउनलोड करें।"
+
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP प्रॉक्सी सर्वर"
 "lsp_usage" = "उपयोग: i18n-rust-lsp [विकल्प]"

@@ -146,6 +146,17 @@
 "lang_not_builtin" = "حزمة اللغة '{}' غير مدمجة؛ ثبّتها عبر `rzc lang install {}`."
 "unrecognized_ext" = "لا يمكن التعرف على امتداد الملف"
 
+# ---- تثبيت المكونات ----
+"cmd_install_about" = "تثبيت المكونات المساعدة (خادم اللغة i18n-rust-lsp)"
+"cmd_install_lsp_about" = "تثبيت خادم اللغة i18n-rust-lsp (الخلفية للإكمال/التشخيص في إضافة VS Code)"
+"lsp_install_already" = "✅ خادم اللغة i18n-rust-lsp مثبت بالفعل: {} (استخدم --force لإعادة التثبيت)"
+"lsp_install_local" = "✅ تم تثبيت خادم اللغة من الحزمة دون اتصال: {}"
+"lsp_install_cargo" = "جارٍ تثبيت i18n-rust-lsp {} من crates.io عبر cargo ..."
+"lsp_install_done" = "✅ تم تثبيت خادم اللغة i18n-rust-lsp {}."
+"lsp_install_hint" = "   أعد تشغيل VS Code أو نفّذ «i18n-rust: إعادة تشغيل الخادم» للتفعيل (مثبت في: {})"
+"lsp_install_no_cargo" = "فشل تنفيذ cargo: {}. ثبّت مجموعة أدوات Rust (https://rustup.rs) أولاً، أو نزّل i18n-rust-lsp يدويًا من صفحة الإصدارات."
+"lsp_install_failed" = "فشل cargo install ({}). تحقق من اتصال الشبكة أو نزّل i18n-rust-lsp يدويًا من صفحة الإصدارات."
+
 # ---- LSP ----
 "lsp_about" = "خادم وكيل LSP لـ i18n-rust"
 "lsp_usage" = "الاستخدام: i18n-rust-lsp [خيارات]"

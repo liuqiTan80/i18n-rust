@@ -146,6 +146,17 @@
 "lang_not_builtin" = "Sprachpaket '{}' ist nicht eingebaut; installieren mit `rzc lang install {}`."
 "unrecognized_ext" = "Dateierweiterung nicht erkennbar"
 
+# ---- Komponenteninstallation ----
+"cmd_install_about" = "Zusatzkomponenten installieren (Sprachserver i18n-rust-lsp)"
+"cmd_install_lsp_about" = "Sprachserver i18n-rust-lsp installieren (Backend für Vervollständigung/Diagnose der VS-Code-Erweiterung)"
+"lsp_install_already" = "✅ Sprachserver i18n-rust-lsp bereits installiert: {} (für Neuinstallation --force verwenden)"
+"lsp_install_local" = "✅ Sprachserver aus dem Offline-Paket installiert: {}"
+"lsp_install_cargo" = "Installiere i18n-rust-lsp {} von crates.io über cargo ..."
+"lsp_install_done" = "✅ Sprachserver i18n-rust-lsp {} installiert."
+"lsp_install_hint" = "   VS Code neu starten oder „i18n-rust: Server neu starten“ ausführen, um zu aktivieren (installiert unter: {})"
+"lsp_install_no_cargo" = "cargo konnte nicht ausgeführt werden: {}. Bitte zuerst die Rust-Toolchain (https://rustup.rs) installieren oder i18n-rust-lsp manuell von der Release-Seite herunterladen."
+"lsp_install_failed" = "cargo install fehlgeschlagen ({}). Netzwerkverbindung prüfen oder i18n-rust-lsp manuell von der Release-Seite herunterladen."
+
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP-Proxy-Server"
 "lsp_usage" = "Verwendung: i18n-rust-lsp [Optionen]"

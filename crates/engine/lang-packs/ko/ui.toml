@@ -146,6 +146,17 @@
 "lang_not_builtin" = "언어팩 '{}' 은(는) 내장되어 있지 않습니다. `rzc lang install {}` 로 설치하세요."
 "unrecognized_ext" = "소스 파일 확장자를 인식할 수 없습니다"
 
+# ---- 구성 요소 설치 ----
+"cmd_install_about" = "보조 구성 요소 설치(언어 서버 i18n-rust-lsp)"
+"cmd_install_lsp_about" = "언어 서버 i18n-rust-lsp 설치(VS Code 확장의 자동 완성/진단 백엔드)"
+"lsp_install_already" = "✅ 언어 서버 i18n-rust-lsp가 이미 설치되어 있습니다: {} (재설치하려면 --force 사용)"
+"lsp_install_local" = "✅ 오프라인 패키지에서 언어 서버를 설치했습니다: {}"
+"lsp_install_cargo" = "cargo를 통해 crates.io에서 i18n-rust-lsp {} 설치 중 ..."
+"lsp_install_done" = "✅ 언어 서버 i18n-rust-lsp {} 설치가 완료되었습니다."
+"lsp_install_hint" = "   활성화하려면 VS Code를 다시 시작하거나 「i18n-rust: 서버 다시 시작」을 실행하세요(설치 위치: {})"
+"lsp_install_no_cargo" = "cargo 실행 실패: {}. 먼저 Rust 도구 체인(https://rustup.rs)을 설치하거나 릴리스 페이지에서 i18n-rust-lsp를 수동으로 다운로드하세요."
+"lsp_install_failed" = "cargo install 실패({}). 네트워크 연결을 확인하거나 릴리스 페이지에서 i18n-rust-lsp를 수동으로 다운로드하세요."
+
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP 프록시 서버"
 "lsp_usage" = "사용법: i18n-rust-lsp [옵션]"

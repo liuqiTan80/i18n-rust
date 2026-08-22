@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 mod builtin_lang;
+mod install;
 mod lang_manager;
 mod mapping_check;
 mod mapping_gen;
@@ -64,6 +65,21 @@ enum CliCommand {
     Mapping {
         #[command(subcommand)]
         subcommand: MappingCommand,
+    },
+    /// 安装配套组件（语言服务器 i18n-rust-lsp 等）
+    Install {
+        #[command(subcommand)]
+        subcommand: Option<InstallCommand>,
+    },
+}
+
+#[derive(Subcommand)]
+enum InstallCommand {
+    /// 安装语言服务器 i18n-rust-lsp（VS Code 扩展的补全/诊断后端）
+    Lsp {
+        /// 已存在时强制覆盖安装
+        #[arg(short = 'f', long = "force")]
+        force: bool,
     },
 }
 
@@ -304,6 +320,13 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 "{}",
                 ui.f("exported_to", &[&output_path.display().to_string()])
             );
+            Ok(std::process::ExitCode::SUCCESS)
+        }
+        CliCommand::Install { subcommand } => {
+            // 省略子命令时默认安装全部组件（当前仅语言服务器）
+            match subcommand.unwrap_or(InstallCommand::Lsp { force: false }) {
+                InstallCommand::Lsp { force } => install::install_lsp(&ui, force)?,
+            }
             Ok(std::process::ExitCode::SUCCESS)
         }
         CliCommand::Lang { subcommand } => {
@@ -1174,6 +1197,10 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
         .mut_subcommand("add", |cmd| {
             cmd.about(ui.t("cmd_add_about"))
                 .mut_arg("crates", |arg| arg.help(ui.t("arg_add_crates_help")))
+        })
+        .mut_subcommand("install", |cmd| {
+            cmd.about(ui.t("cmd_install_about"))
+                .mut_subcommand("lsp", |sub| sub.about(ui.t("cmd_install_lsp_about")))
         })
         .mut_subcommand("lang", |cmd| {
             cmd.about(ui.t("cmd_lang_about"))

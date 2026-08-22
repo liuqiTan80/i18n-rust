@@ -146,6 +146,17 @@
 "lang_not_builtin" = "言語パック '{}' は組み込まれていません。`rzc lang install {}` でインストールしてください。"
 "unrecognized_ext" = "ソースファイルの拡張子を認識できません"
 
+# ---- コンポーネントのインストール ----
+"cmd_install_about" = "付属コンポーネントをインストール（言語サーバー i18n-rust-lsp）"
+"cmd_install_lsp_about" = "言語サーバー i18n-rust-lsp をインストール（VS Code 拡張の補完・診断バックエンド）"
+"lsp_install_already" = "✅ 言語サーバー i18n-rust-lsp はインストール済み：{}（再インストールは --force を追加）"
+"lsp_install_local" = "✅ オフラインパッケージから言語サーバーをインストール：{}"
+"lsp_install_cargo" = "cargo で crates.io から i18n-rust-lsp {} をインストール中 ..."
+"lsp_install_done" = "✅ 言語サーバー i18n-rust-lsp {} のインストールが完了しました。"
+"lsp_install_hint" = "   VS Code を再起動するか「i18n-rust: サーバーを再起動」を実行すると有効になります（インストール先：{}）"
+"lsp_install_no_cargo" = "cargo の実行に失敗：{}。Rust ツールチェーン（https://rustup.rs）をインストールするか、リリースページから i18n-rust-lsp を手動ダウンロードしてください。"
+"lsp_install_failed" = "cargo install が失敗しました（{}）。ネットワーク接続を確認するか、リリースページから i18n-rust-lsp を手動ダウンロードしてください。"
+
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP プロキシサーバー"
 "lsp_usage" = "使用方法: i18n-rust-lsp [オプション]"

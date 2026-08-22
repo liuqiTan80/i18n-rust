@@ -84,6 +84,17 @@
 "lang_not_builtin" = "语言包 '{}' 未内置，请通过 `rzc lang install {}` 下载安装。"
 "unrecognized_ext" = "无法识别源文件扩展名"
 
+# ---- 组件安装 ----
+"cmd_install_about" = "安装配套组件（语言服务器 i18n-rust-lsp）"
+"cmd_install_lsp_about" = "安装语言服务器 i18n-rust-lsp（VS Code 扩展的补全/诊断后端）"
+"lsp_install_already" = "✅ 语言服务器 i18n-rust-lsp 已安装：{}（如需重装请加 --force）"
+"lsp_install_local" = "✅ 已从离线包安装语言服务器：{}"
+"lsp_install_cargo" = "正在通过 cargo 从 crates.io 安装 i18n-rust-lsp {} ..."
+"lsp_install_done" = "✅ 语言服务器 i18n-rust-lsp {} 安装完成。"
+"lsp_install_hint" = "   重启 VS Code 或执行「i18n-rust: 重启服务器」即可生效（安装位置：{}）"
+"lsp_install_no_cargo" = "执行 cargo 失败：{}。请先安装 Rust 工具链（https://rustup.rs），或从发布页手动下载 i18n-rust-lsp。"
+"lsp_install_failed" = "cargo install 失败（{}）。请检查网络连接，或从发布页手动下载 i18n-rust-lsp。"
+
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP 代理服务器"
 "lsp_usage" = "用法: i18n-rust-lsp [选项]"

@@ -146,6 +146,17 @@
 "lang_not_builtin" = "Language pack '{}' is not built in; install it with `rzc lang install {}`."
 "unrecognized_ext" = "Cannot recognize source file extension"
 
+# ---- Component installation ----
+"cmd_install_about" = "Install companion components (language server i18n-rust-lsp)"
+"cmd_install_lsp_about" = "Install the language server i18n-rust-lsp (completion/diagnostics backend for the VS Code extension)"
+"lsp_install_already" = "✅ Language server i18n-rust-lsp already installed: {} (use --force to reinstall)"
+"lsp_install_local" = "✅ Language server installed from the offline bundle: {}"
+"lsp_install_cargo" = "Installing i18n-rust-lsp {} from crates.io via cargo ..."
+"lsp_install_done" = "✅ Language server i18n-rust-lsp {} installed."
+"lsp_install_hint" = "   Restart VS Code or run \"i18n-rust: Restart Server\" to activate (installed at: {})"
+"lsp_install_no_cargo" = "Failed to run cargo: {}. Install the Rust toolchain (https://rustup.rs) first, or download i18n-rust-lsp manually from the release page."
+"lsp_install_failed" = "cargo install failed ({}). Check your network connection, or download i18n-rust-lsp manually from the release page."
+
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP proxy server"
 "lsp_usage" = "Usage: i18n-rust-lsp [options]"

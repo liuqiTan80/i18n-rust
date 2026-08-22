@@ -754,7 +754,7 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
         工作区根们()
     );
     if (!服务器路径) {
-        const 消息 = '未找到 i18n-rust-lsp 可执行文件。请安装 rzc 工具链，或在设置 i18n-rust.serverPath 中指定二进制路径（高亮/补全/诊断功能暂不可用）。';
+        const 消息 = '未找到 i18n-rust-lsp 可执行文件。请运行 `rzc install lsp`（或 `cargo install i18n-rust-lsp`）安装语言服务器，或在设置 i18n-rust.serverPath 中指定二进制路径（高亮/补全/诊断功能暂不可用）。';
         日志(消息);
         vscode.window.showErrorMessage(消息, '打开设置').then(操作 => {
             if (操作 === '打开设置') {
