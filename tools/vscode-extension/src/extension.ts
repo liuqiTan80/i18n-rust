@@ -34,7 +34,7 @@ import {
 } from './ai/config-manager';
 import { AIError } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
-import { 全角符号映射, 扫描词法状态, 词法状态, 计算插入字符位置们 } from './fullwidth-convert';
+import { 全角符号映射, 扫描词法状态, 词法状态, 计算插入字符位置们, 应转换全角 } from './fullwidth-convert';
 import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
 import { quoteCommandArg, quoteShellArg } from './shell';
 import { findInPath, 解析可执行文件 } from './executable';
@@ -258,15 +258,6 @@ function 转行号(行号: any, 文档: vscode.TextDocument): number {
 }
 
 /**
- * 判断文档中指定位置是否处于字符串或注释内
- * （从文档开头扫描到该位置，维护 Rust 词法状态）
- */
-function 是否在字符串或注释(文档: vscode.TextDocument, 位置: vscode.Position): boolean {
-    const 前缀 = 文档.getText(new vscode.Range(文档.positionAt(0), 位置));
-    return 扫描词法状态(前缀) !== 词法状态.代码;
-}
-
-/**
  * 注册全角符号自动转换：
  * 在代码区（非字符串、非注释）输入全角符号时自动替换为半角符号；
  * 字符串与注释内的全角符号保持原样（内容可能是有意义的母语标点）。
@@ -302,12 +293,15 @@ function 注册全角符号转换(context: vscode.ExtensionContext): void {
             const 替换们: { 范围: vscode.Range; 文本: string }[] = [];
             const 位置们 = 计算插入字符位置们(变更.range.start.line, 变更.range.start.character, 变更.text);
             for (const { 索引, 行, 列 } of 位置们) {
-                const 半角 = 全角符号映射[变更.text[索引]];
+                const 字符 = 变更.text[索引];
+                const 半角 = 全角符号映射[字符];
                 if (!半角) {
                     continue;
                 }
                 const 插入位置 = new vscode.Position(行, 列);
-                if (是否在字符串或注释(文档, 插入位置)) {
+                // 从文档开头扫描到插入位置判定词法状态（代码/字符串/注释）
+                const 前缀 = 文档.getText(new vscode.Range(文档.positionAt(0), 插入位置));
+                if (!应转换全角(扫描词法状态(前缀), 字符)) {
                     continue;
                 }
                 替换们.push({

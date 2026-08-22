@@ -7,7 +7,7 @@
 import * as assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { quoteCommandArg, quotePosixArg, quoteWindowsArg } from '../shell';
-import { 计算插入字符位置们, 扫描词法状态, 词法状态 } from '../fullwidth-convert';
+import { 应转换全角, 计算插入字符位置们, 扫描词法状态, 词法状态 } from '../fullwidth-convert';
 import { 语言代码, 按代码查找, 方言语言表, 方言语言Id } from '../languages';
 
 // ============================================================
@@ -42,6 +42,30 @@ test('Windows 命令名：PowerShell 调用运算符前缀（cmd 亦兼容）', 
     );
 });
 // 注：POSIX 分支行为与 quotePosixArg 一致（单引号），已由上方 POSIX 引用测试覆盖
+
+// ============================================================
+// 全角转换决策（应转换全角）
+// ============================================================
+
+test('转换决策：代码区全角一律转换', () => {
+    assert.equal(应转换全角(词法状态.代码, '，'), true);
+    assert.equal(应转换全角(词法状态.代码, '“'), true);
+    assert.equal(应转换全角(词法状态.代码, '”'), true);
+});
+
+test('转换决策：双引号字符串内中文引号仍转换（输入法配对），其余标点保留', () => {
+    assert.equal(应转换全角(词法状态.双引号字符串, '“'), true);
+    assert.equal(应转换全角(词法状态.双引号字符串, '”'), true);
+    assert.equal(应转换全角(词法状态.双引号字符串, '，'), false);
+    assert.equal(应转换全角(词法状态.双引号字符串, '。'), false);
+});
+
+test('转换决策：注释/字符/原始字符串内一律保留', () => {
+    assert.equal(应转换全角(词法状态.行注释, '“'), false);
+    assert.equal(应转换全角(词法状态.块注释, '”'), false);
+    assert.equal(应转换全角(词法状态.单引号字符, '“'), false);
+    assert.equal(应转换全角(词法状态.原始字符串, '”'), false);
+});
 
 // ============================================================
 // 插入位置计算（全角转换换行感知）
