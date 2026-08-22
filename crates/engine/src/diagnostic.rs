@@ -138,20 +138,41 @@ impl ErrorTranslationManager {
 
     /// 按消息原文查询翻译条目
     ///
-    /// 优先精确匹配；未命中时按最长前缀匹配（返回未翻译的后缀原文，
-    /// 供调用方拼接到模板后，保留 `did you mean \`x\`` 等动态内容）。
+    /// 匹配顺序：精确匹配 → 最长前缀匹配 → 最长后缀匹配。
+    /// 返回未匹配的动态部分（前缀匹配为后缀原文，后缀匹配为前缀原文），
+    /// 供调用方拼接到模板后，保留 `did you mean \`x\``、`function \`foo\` is never used` 等动态内容。
+    /// 后缀键以 `~` 开头（如 `~ is never used`），解决动态名位于消息中间的
+    /// lint 警告（dead_code/non_snake_case 族）无法用前缀键覆盖的问题。
     pub fn query_by_message<'a, 'b>(
         &'a self,
         message: &'b str,
     ) -> Option<(&'a ErrorMessageEntry, Option<&'b str>)> {
+        // 1. 精确匹配
         if let Some(entry) = self.message_map.get(message) {
             return Some((entry, None));
         }
-        self.message_map
-            .iter()
-            .filter(|(key, _)| message.starts_with(*key))
-            .max_by_key(|(key, _)| key.len())
-            .map(|(key, entry)| (entry, Some(&message[key.len()..])))
+        // 2. 最长前缀 / 最长后缀候选（前缀优先，其模板通常更完整、含类型词）
+        let mut best_prefix: Option<(usize, &str, &ErrorMessageEntry)> = None;
+        let mut best_suffix: Option<(usize, &str, &ErrorMessageEntry)> = None;
+        for (key, entry) in &self.message_map {
+            if let Some(suffix_key) = key.strip_prefix('~') {
+                if let Some(prefix) = message.strip_suffix(suffix_key) {
+                    if best_suffix
+                        .map_or(true, |(len, _, _)| suffix_key.len() > len)
+                    {
+                        best_suffix = Some((suffix_key.len(), prefix, entry));
+                    }
+                }
+            } else if message.starts_with(key.as_str()) {
+                if best_prefix.map_or(true, |(len, _, _)| key.len() > len) {
+                    best_prefix = Some((key.len(), &message[key.len()..], entry));
+                }
+            }
+        }
+        if let Some((_, rest, entry)) = best_prefix {
+            return Some((entry, Some(rest)));
+        }
+        best_suffix.map(|(_, prefix, entry)| (entry, Some(prefix)))
     }
 
     /// 已覆盖的错误码数量
@@ -381,19 +402,27 @@ fn localize_type_token(token: &str, map: &HashMap<String, String>) -> Option<Str
     (result != original).then_some(result)
 }
 
-/// 用后缀原文中的单引号内容填充模板的 {q0}/{q1} 捕获占位符
+/// 用消息的动态部分（前缀匹配的后缀原文 / 后缀匹配的前缀原文）中的
+/// 单引号内容填充模板的 {q0}/{q1} 捕获占位符
 ///
-/// 用于 "Unicode character '，' (…) looks like ',' (…)" 这类 help 消息：
-/// 前缀 key 以引号结尾，rest 中第 0/2 个单引号分段即两个被比较的字符。
-/// 返回 (填充结果, 是否完整覆盖)：模板不含占位符或捕获不足时第二项为 false，
-/// 调用方需自行追加英文后缀；完整覆盖时不再追加，避免中英文混排。
-fn fill_quote_captures(template: &str, rest: &str) -> (String, bool) {
-    let segs: Vec<&str> = rest.split('\'').collect();
+/// 用于 "function `foo` is never used" 这类动态名在中间的消息：
+/// 模板写完整语义（"函数 `{q0}` 从未被使用"），捕获不足时回退原模板
+///（调用方追加动态原文），完整覆盖时不追加，避免中英文混排。
+fn fill_quote_captures(template: &str, dynamic: &str) -> (String, bool) {
     let mut result = template.to_string();
     let mut consumed_any = false;
     for (i, placeholder) in ["{q0}", "{q1}"].iter().enumerate() {
         if result.contains(placeholder) {
-            match segs.get(i * 2) {
+            // 反引号场景（dead_code 等）：取最后一个引号对之间的内容——
+            // 前缀键已含左反引号（rest="foo` is never used"）时取右引号前的内容，
+            // 后缀键场景（prefix="function `foo`"）时取引号对之间，rsplit 两种均正确；
+            // 单引号场景（Unicode 混淆 help）按段隔取（第 0/2 段为两个被比较的字符）。
+            let content = if dynamic.contains('`') {
+                dynamic.rsplit('`').nth(1)
+            } else {
+                dynamic.split('\'').nth(i * 2)
+            };
+            match content {
                 Some(content) => {
                     result = result.replace(placeholder, content);
                     consumed_any = true;
@@ -634,15 +663,21 @@ impl DiagnosticTranslator {
                 // 无法提取期望/实际类型时回退 rustc 原文，避免输出裸占位符
                 template = diagnostic.message.clone();
             }
-            // 消息表前缀匹配时，把未翻译的动态后缀拼回模板
+            // 消息表前缀/后缀匹配时，把未翻译的动态部分拼回模板
             //（如 "did you mean " → "你是否想用 `foo`?"），
-            // 错误码条目（无后缀）不受影响。
-            if let Some(rest) = self
+            // 或经 {q0}/{q1} 捕获完整化（如 "function `foo` is never used" →
+            //  "函数 `foo` 从未被使用"）；错误码条目（无动态部分）不受影响。
+            if let Some((_, rest)) = self
                 .translation_manager
                 .query_by_message(&diagnostic.message)
-                .and_then(|(_, rest)| rest)
             {
-                template.push_str(rest);
+                if let Some(rest) = rest {
+                    let (filled, consumed) = fill_quote_captures(&template, rest);
+                    template = filled;
+                    if !consumed {
+                        template.push_str(rest);
+                    }
+                }
             }
             // 对模板中的类型名进行中文化替换
             self.replace_type_names(template)
@@ -1234,6 +1269,48 @@ mod tests {
             teaching.translated_message,
             "类型 `(整数, 整数, &str)` 未实现特征 `std::fmt::显示`"
         );
+    }
+
+    /// 后缀键（~ 开头）：动态名在消息中间的 lint 警告（dead_code/non_snake_case）
+    #[test]
+    fn test_translate_suffix_key_never_used() {
+        let _guard = crate::语言::test_language("zh");
+        let toml_content = r#"
+["消息翻译"."function `"]
+"消息模板" = "函数 `{q0}` 从未被使用"
+
+["消息翻译"."~ is never used"]
+"消息模板" = "`{q0}` 从未被使用"
+
+["消息翻译"."~ should have an upper camel case name"]
+"消息模板" = "`{q0}` 应使用大写驼峰命名"
+"#;
+        let file = create_error_message_file(toml_content);
+        let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+
+        // 前缀键优先：含类型词 "函数"，比通用后缀键更完整
+        let diag = |message: &str| CompilerDiagnostic {
+            message: message.to_string(),
+            code: None,
+            level: "warning".to_string(),
+            spans: vec![],
+            children: vec![],
+            rendered: None,
+        };
+        let teaching = translator.translate_diagnostic(&diag("function `foo` is never used"));
+        assert_eq!(teaching.translated_message, "函数 `foo` 从未被使用");
+
+        // 无前缀键命中时走后缀键：动态名前缀保留在 {q0} 捕获中
+        let teaching = translator.translate_diagnostic(&diag("type `myStruct` should have an upper camel case name"));
+        assert_eq!(
+            teaching.translated_message,
+            "`myStruct` 应使用大写驼峰命名"
+        );
+
+        // 后缀键精确兜底：enum 无专用前缀键时用通用模板
+        let teaching = translator.translate_diagnostic(&diag("type `Foo` is never used"));
+        assert_eq!(teaching.translated_message, "`Foo` 从未被使用");
     }
 
     /// rustc 1.97+ 算术错误（E0369）无 label，类型嵌入 message，
