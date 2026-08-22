@@ -23,6 +23,20 @@ export function quoteShellArg(arg: string): string {
 }
 
 /**
+ * 将可执行文件路径引用为命令名（命令行第一个 token）
+ *
+ * Windows：带引号的命令名在 PowerShell 中必须加调用运算符 `& `，
+ * 否则 `"路径" run ...` 会被解析为字符串表达式而报语法错误；
+ * cmd 中行首 `&` 后跟命令同样合法（空命令被忽略），故统一加前缀。
+ */
+export function quoteCommandArg(arg: string): string {
+    if (os.platform() === 'win32') {
+        return `& ${quoteWindowsArg(arg)}`;
+    }
+    return quotePosixArg(arg);
+}
+
+/**
  * POSIX 单引号引用（POSIX sh 规范：单引号内无转义，需断开重开）
  */
 export function quotePosixArg(arg: string): string {

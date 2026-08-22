@@ -36,7 +36,7 @@ import { AIError } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
 import { 全角符号映射, 扫描词法状态, 词法状态, 计算插入字符位置们 } from './fullwidth-convert';
 import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
-import { quoteShellArg } from './shell';
+import { quoteCommandArg, quoteShellArg } from './shell';
 import { findInPath, 解析可执行文件 } from './executable';
 
 const execFileAsync = promisify(cp.execFile);
@@ -884,7 +884,7 @@ function 注册映射工具命令(context: vscode.ExtensionContext): void {
             }
             const 终端 = 获取命令终端(工作区根 ?? '.');
             终端.show();
-            终端.sendText(`${quoteShellArg(rzc路径)} mapping check${目标参数}`);
+            终端.sendText(`${quoteCommandArg(rzc路径)} mapping check${目标参数}`);
         })
     );
 
@@ -936,7 +936,7 @@ function 注册映射工具命令(context: vscode.ExtensionContext): void {
             const 终端 = 获取命令终端(工作区根 ?? '.');
             终端.show();
             终端.sendText(
-                `${quoteShellArg(rzc路径)} mapping scaffold ${quoteShellArg(源选择.label)} `
+                `${quoteCommandArg(rzc路径)} mapping scaffold ${quoteShellArg(源选择.label)} `
                 + `${quoteShellArg(目标.trim())} --provider ${方式选择.label}`
             );
         })
@@ -960,7 +960,7 @@ function 注册映射工具命令(context: vscode.ExtensionContext): void {
             const 工作区根 = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
             const 终端 = 获取命令终端(工作区根 ?? '.');
             终端.show();
-            终端.sendText(`${quoteShellArg(rzc路径)} lang install ${quoteShellArg(来源.trim())}`);
+            终端.sendText(`${quoteCommandArg(rzc路径)} lang install ${quoteShellArg(来源.trim())}`);
         })
     );
 
@@ -989,7 +989,7 @@ function 注册映射工具命令(context: vscode.ExtensionContext): void {
             const config = vscode.workspace.getConfiguration('i18n-rust');
             const rzc路径 = 解析可执行文件(config.get<string>('rzcPath', 'rzc'), 工作区根们());
             if (rzc路径) {
-                终端.sendText(`${quoteShellArg(rzc路径)} add ${quoteShellArg(crate名.trim())}`);
+                终端.sendText(`${quoteCommandArg(rzc路径)} add ${quoteShellArg(crate名.trim())}`);
             } else {
                 终端.sendText(`cargo add ${quoteShellArg(crate名.trim())}`);
             }
@@ -1065,7 +1065,7 @@ async function 运行文件(文件路径: string): Promise<void> {
     const 终端 = 获取命令终端(path.dirname(文件路径));
     终端.show();
     // 参数安全引用，防止路径中的引号/反引号等导致命令注入
-    终端.sendText(`${quoteShellArg(rzc路径)} run ${quoteShellArg(文件路径)}`);
+    终端.sendText(`${quoteCommandArg(rzc路径)} run ${quoteShellArg(文件路径)}`);
 }
 
 /**
@@ -1087,7 +1087,7 @@ async function 检查文件(文件路径: string): Promise<void> {
     }
     const 终端 = 获取命令终端(path.dirname(文件路径));
     终端.show();
-    终端.sendText(`${quoteShellArg(rzc路径)} check ${quoteShellArg(文件路径)}`);
+    终端.sendText(`${quoteCommandArg(rzc路径)} check ${quoteShellArg(文件路径)}`);
 }
 
 /**

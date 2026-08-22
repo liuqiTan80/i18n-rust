@@ -6,7 +6,7 @@
 
 import * as assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { quotePosixArg, quoteWindowsArg } from '../shell';
+import { quoteCommandArg, quotePosixArg, quoteWindowsArg } from '../shell';
 import { 计算插入字符位置们, 扫描词法状态, 词法状态 } from '../fullwidth-convert';
 import { 语言代码, 按代码查找, 方言语言表, 方言语言Id } from '../languages';
 
@@ -34,6 +34,14 @@ test('Windows 引用：双引号加倍', () => {
 test('Windows 引用：反引号与 % 转义', () => {
     assert.equal(quoteWindowsArg('a`b%c'), '"a``b^%c"');
 });
+
+test('Windows 命令名：PowerShell 调用运算符前缀（cmd 亦兼容）', () => {
+    assert.equal(
+        quoteCommandArg('C:\\Users\\t67\\.cargo\\bin\\rzc.EXE'),
+        '& "C:\\Users\\t67\\.cargo\\bin\\rzc.EXE"'
+    );
+});
+// 注：POSIX 分支行为与 quotePosixArg 一致（单引号），已由上方 POSIX 引用测试覆盖
 
 // ============================================================
 // 插入位置计算（全角转换换行感知）
