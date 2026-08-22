@@ -357,7 +357,7 @@ fn replace_type_token(token: &str, type_map: &HashMap<String, String>) -> Option
 fn localize_type_token(token: &str, map: &HashMap<String, String>) -> Option<String> {
     let original = token.to_string();
     // 1. 类型后缀段映射
-    let mut result = replace_type_token(token, map).unwrap_or_else(|| token.to_string());
+    let result = replace_type_token(token, map).unwrap_or_else(|| token.to_string());
     // 2. 路径前缀完整匹配（从长到短）
     let mut segments: Vec<String> = result.split("::").map(|s| s.to_string()).collect();
     if segments.len() >= 2 {

@@ -157,6 +157,13 @@
 "lsp_install_no_cargo" = "فشل تنفيذ cargo: {}. ثبّت مجموعة أدوات Rust (https://rustup.rs) أولاً، أو نزّل i18n-rust-lsp يدويًا من صفحة الإصدارات."
 "lsp_install_failed" = "فشل cargo install ({}). تحقق من اتصال الشبكة أو نزّل i18n-rust-lsp يدويًا من صفحة الإصدارات."
 
+# ---- تقدم cargo ----
+"cargo_progress_compiling" = "جارٍ الترجمة {}"
+"cargo_progress_checking" = "جارٍ الفحص {}"
+"cargo_progress_finished" = "اكتمل الترجمة {}"
+"cargo_progress_running" = "جارٍ التشغيل {}"
+"cargo_progress_error" = "خطأ: {}"
+
 # ---- LSP ----
 "lsp_about" = "خادم وكيل LSP لـ i18n-rust"
 "lsp_usage" = "الاستخدام: i18n-rust-lsp [خيارات]"

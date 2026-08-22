@@ -154,6 +154,13 @@
 "lsp_install_no_cargo" = "cargo चलाने में विफल: {}। पहले Rust टूलचेन (https://rustup.rs) स्थापित करें, या रिलीज़ पृष्ठ से i18n-rust-lsp मैन्युअल रूप से डाउनलोड करें।"
 "lsp_install_failed" = "cargo install विफल ({}). नेटवर्क कनेक्शन जाँचें, या रिलीज़ पृष्ठ से i18n-rust-lsp मैन्युअल रूप से डाउनलोड करें।"
 
+# ---- cargo प्रगति ----
+"cargo_progress_compiling" = "संकलित किया जा रहा है {}"
+"cargo_progress_checking" = "जाँच की जा रही है {}"
+"cargo_progress_finished" = "संकलन पूर्ण {}"
+"cargo_progress_running" = "चलाया जा रहा है {}"
+"cargo_progress_error" = "त्रुटि: {}"
+
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP प्रॉक्सी सर्वर"
 "lsp_usage" = "उपयोग: i18n-rust-lsp [विकल्प]"

@@ -157,6 +157,13 @@
 "lsp_install_no_cargo" = "cargo konnte nicht ausgeführt werden: {}. Bitte zuerst die Rust-Toolchain (https://rustup.rs) installieren oder i18n-rust-lsp manuell von der Release-Seite herunterladen."
 "lsp_install_failed" = "cargo install fehlgeschlagen ({}). Netzwerkverbindung prüfen oder i18n-rust-lsp manuell von der Release-Seite herunterladen."
 
+# ---- cargo-Fortschritt ----
+"cargo_progress_compiling" = "Kompiliere {}"
+"cargo_progress_checking" = "Prüfe {}"
+"cargo_progress_finished" = "Build fertig {}"
+"cargo_progress_running" = "Starte {}"
+"cargo_progress_error" = "Fehler: {}"
+
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP-Proxy-Server"
 "lsp_usage" = "Verwendung: i18n-rust-lsp [Optionen]"

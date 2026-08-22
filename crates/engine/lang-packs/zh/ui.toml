@@ -95,6 +95,13 @@
 "lsp_install_no_cargo" = "执行 cargo 失败：{}。请先安装 Rust 工具链（https://rustup.rs），或从发布页手动下载 i18n-rust-lsp。"
 "lsp_install_failed" = "cargo install 失败（{}）。请检查网络连接，或从发布页手动下载 i18n-rust-lsp。"
 
+# ---- cargo 进度 ----
+"cargo_progress_compiling" = "正在编译 {}"
+"cargo_progress_checking" = "正在检查 {}"
+"cargo_progress_finished" = "编译完成 {}"
+"cargo_progress_running" = "正在运行 {}"
+"cargo_progress_error" = "错误：{}"
+
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP 代理服务器"
 "lsp_usage" = "用法: i18n-rust-lsp [选项]"

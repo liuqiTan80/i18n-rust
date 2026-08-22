@@ -7,8 +7,9 @@ use clap::{FromArgMatches, Parser, Subcommand};
 use i18n_rust_engine::mapping_manager::MappingManager;
 use std::collections::HashMap;
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 mod builtin_lang;
 mod install;
@@ -180,10 +181,16 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
             transpile_project_files(&project_root, &file, &manager)?;
 
-            let output = Command::new("cargo")
-                .arg("run")
+            // --message-format=json：编译诊断（warning/error）走 JSON 行翻译，
+            // 程序自身 stdout/stderr 原样透传（cargo 不包装子进程输出），
+            // 避免英文警告与程序输出混淆，也无需二次编译。
+            let mut child = Command::new("cargo")
+                .args(["run", "--message-format=json"])
                 .current_dir(&project_root)
-                .output()
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
                 .map_err(|e| {
                     anyhow::anyhow!(
                         "{}",
@@ -193,67 +200,80 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                         )
                     )
                 })?;
-
-            // 无论成败先输出程序 stdout
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            if !stdout.is_empty() {
-                print!("{}", stdout);
-            }
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            if output.status.success() {
-                // 成功时 stderr 含编译警告，同样展示
-                if !stderr.trim().is_empty() {
-                    eprint!("{}", stderr);
-                }
-                return Ok(std::process::ExitCode::SUCCESS);
-            }
-            // 失败时区分编译错误与程序运行时错误：
-            // cargo 编译失败会在 stderr 输出 error[E....] / error: 前缀
-            if stderr.contains("error[E") || stderr.contains("error:") {
-                // 编译错误：追加一次 cargo check --message-format=json，
-                // 走与 check 命令相同的结构化诊断翻译管线（教学化错误消息）；
-                // 翻译无结果（Cargo.toml 错误/链接错误等）时回退原始 stderr
-                let check_out = Command::new("cargo")
-                    .arg("check")
-                    .arg("--message-format=json")
-                    .current_dir(&project_root)
-                    .output();
-                let translated = match check_out {
-                    Ok(co) => {
-                        let rustc_output = format!(
-                            "{}\n{}",
-                            String::from_utf8_lossy(&co.stdout),
-                            String::from_utf8_lossy(&co.stderr)
-                        );
-                        translate_cargo_diagnostics(
-                            &rustc_output,
-                            stderr.trim(),
-                            &ui,
-                            &lang_pack,
-                            &project_root,
-                            &manager,
-                            &source,
-                            &file,
-                            co.status.success(),
-                        )
+            let stdout = child
+                .stdout
+                .take()
+                .expect("cargo run stdout 管道应存在");
+            // stderr 线程逐行翻译 cargo 进度（Compiling/Finished 等），
+            // 其余行（程序 stderr）原样透传
+            let stderr_pipe = child
+                .stderr
+                .take()
+                .expect("cargo run stderr 管道应存在");
+            let stderr_handle = std::thread::spawn(move || {
+                let ui = ui::Ui::global();
+                let reader = BufReader::new(stderr_pipe);
+                for line in reader.lines() {
+                    match line {
+                        Ok(line) => eprintln!("{}", translate_cargo_progress(&line, &ui)),
+                        Err(_) => break,
                     }
-                    Err(_) => false,
-                };
-                if !translated {
-                    eprintln!("{}", ui.f("compile_error", &[stderr.as_ref()]));
                 }
-            } else {
-                eprintln!(
+            });
+            let reader = BufReader::new(stdout);
+            // 收集 cargo JSON 诊断行（含 reason 字段），其余行视为程序输出原样透传
+            let mut json_lines = String::new();
+            for line in reader.lines() {
+                let line = line.map_err(|e| {
+                    anyhow::anyhow!(
+                        "{}",
+                        ui.f(
+                            "cargo_run_failed",
+                            &[&project_root.display().to_string(), &e.to_string()]
+                        )
+                    )
+                })?;
+                if line.starts_with('{') {
+                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(&line) {
+                        if value.get("reason").is_some() {
+                            json_lines.push_str(&line);
+                            json_lines.push('\n');
+                            continue;
+                        }
+                    }
+                }
+                println!("{line}");
+            }
+            let status = child.wait().map_err(|e| {
+                anyhow::anyhow!(
                     "{}",
                     ui.f(
-                        "run_program_failed",
-                        &[&output.status.to_string(), stderr.trim()]
+                        "cargo_run_failed",
+                        &[&project_root.display().to_string(), &e.to_string()]
                     )
+                )
+            })?;
+            let _ = stderr_handle.join();
+
+            // 编译诊断翻译（warning/error 均覆盖）；
+            // 无诊断且成功时静默（程序已运行，不再提示编译状态）
+            if !json_lines.is_empty() {
+                let _ = translate_cargo_diagnostics(
+                    &json_lines,
+                    "",
+                    &ui,
+                    &lang_pack,
+                    &project_root,
+                    &manager,
+                    &source,
+                    &file,
+                    status.success(),
+                    true,
                 );
             }
+
             // 传播被运行程序的退出码（信号终止等无码场景回退 1）
-            Ok(output
-                .status
+            Ok(status
                 .code()
                 .map(|c| std::process::ExitCode::from(c as u8))
                 .unwrap_or(std::process::ExitCode::FAILURE))
@@ -306,6 +326,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 &source,
                 &file,
                 output.status.success(),
+                false, // check 场景：无诊断且成功时提示“编译成功”
             );
             Ok(exit_code)
         }
@@ -633,10 +654,33 @@ fn transpile_to_english(source: &str, manager: &MappingManager) -> String {
     annotate_non_ascii_mods(&code)
 }
 
+/// 翻译 cargo 的人类可读进度行（json 模式下这些行仍输出到 stderr）
+///
+/// 命中固定前缀（Compiling/Finished/Running 等）时翻译；
+/// 其余行（程序 stderr 等）原样返回。
+fn translate_cargo_progress(line: &str, ui: &ui::Ui) -> String {
+    // cargo 进度行带行首缩进（如 "   Compiling ..."），先去除空白再匹配前缀
+    let trimmed = line.trim_start();
+    for (prefix, key) in [
+        ("Compiling ", "cargo_progress_compiling"),
+        ("Checking ", "cargo_progress_checking"),
+        ("Finished ", "cargo_progress_finished"),
+        ("Running ", "cargo_progress_running"),
+        ("error: ", "cargo_progress_error"),
+    ] {
+        if let Some(rest) = trimmed.strip_prefix(prefix) {
+            return ui.f(key, &[rest.trim_start()]);
+        }
+    }
+    line.to_string()
+}
+
 /// 解析 cargo --message-format=json 输出并翻译为教学化诊断（check 与 run 共用）
 ///
 /// 返回是否成功输出了翻译后的教学诊断；调用方据此决定是否回退原始文本。
 /// `cargo_ok=false` 且无可解析诊断时原样输出 cargo 消息，绝不虚报“编译成功”。
+/// `silent_success=true`（run 场景）时，无诊断且编译成功保持静默——
+/// 程序已运行，不再提示“编译成功”。
 #[allow(clippy::too_many_arguments)]
 fn translate_cargo_diagnostics(
     rustc_output: &str,
@@ -648,6 +692,7 @@ fn translate_cargo_diagnostics(
     source: &str,
     file: &Path,
     cargo_ok: bool,
+    silent_success: bool,
 ) -> bool {
     use i18n_rust_engine::diagnostic::{
         DiagnosticTranslator, ErrorTranslationManager, parse_diagnostic_output,
@@ -757,7 +802,9 @@ fn translate_cargo_diagnostics(
 
     if diagnostics.is_empty() {
         if cargo_ok {
-            println!("{}", ui.t("success_compile"));
+            if !silent_success {
+                println!("{}", ui.t("success_compile"));
+            }
         } else {
             // cargo 失败但无可解析的 JSON 诊断（Cargo.toml 语法错误、
             // 链接错误等）：原样输出 cargo 消息，绝不虚报“编译成功”
@@ -783,7 +830,9 @@ fn translate_cargo_diagnostics(
         }
         if teaching_list.is_empty() {
             if cargo_ok {
-                println!("{}", ui.t("success_compile"));
+                if !silent_success {
+                    println!("{}", ui.t("success_compile"));
+                }
             } else {
                 eprintln!("{}", ui.f("compile_error", &[stderr_text.trim()]));
             }

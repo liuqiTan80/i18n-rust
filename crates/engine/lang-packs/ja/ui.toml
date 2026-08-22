@@ -157,6 +157,13 @@
 "lsp_install_no_cargo" = "cargo の実行に失敗：{}。Rust ツールチェーン（https://rustup.rs）をインストールするか、リリースページから i18n-rust-lsp を手動ダウンロードしてください。"
 "lsp_install_failed" = "cargo install が失敗しました（{}）。ネットワーク接続を確認するか、リリースページから i18n-rust-lsp を手動ダウンロードしてください。"
 
+# ---- cargo 進行状況 ----
+"cargo_progress_compiling" = "コンパイル中: {}"
+"cargo_progress_checking" = "チェック中: {}"
+"cargo_progress_finished" = "コンパイル完了: {}"
+"cargo_progress_running" = "実行中: {}"
+"cargo_progress_error" = "エラー: {}"
+
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP プロキシサーバー"
 "lsp_usage" = "使用方法: i18n-rust-lsp [オプション]"
