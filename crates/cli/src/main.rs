@@ -1083,6 +1083,38 @@ fn transpile_project_files(
     Ok(())
 }
 
+/// 探测本机当前生效工具链的通道号（如 `1.98` / `nightly`）
+///
+/// 解析 `rustc --version` 输出的第二段（形如 `1.98.0 (哈希 日期)` 或 `1.98.0-nightly`），
+/// 取主次版本号作为 channel；nightly/beta 通道原样返回。
+/// rustc 不在 PATH 或输出格式异常时返回 None（调用方跳过生成锁定文件）。
+fn detect_toolchain_channel() -> Option<String> {
+    let output = std::process::Command::new("rustc")
+        .arg("--version")
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let version = stdout.split_whitespace().nth(1)?;
+    if version.contains("nightly") {
+        return Some("nightly".to_string());
+    }
+    if version.contains("beta") {
+        return Some("beta".to_string());
+    }
+    // "1.98.0" → "1.98"（channel 只保留主次版本，补丁版本由工具链自行解析）
+    let mut parts = version.split('.');
+    let major = parts.next()?;
+    let minor = parts.next()?;
+    if major.chars().all(|c| c.is_ascii_digit()) && minor.chars().all(|c| c.is_ascii_digit()) {
+        Some(format!("{major}.{minor}"))
+    } else {
+        None
+    }
+}
+
 fn get_chinese_source_line(source: &str, line_num: u32) -> Option<String> {
     if line_num == 0 {
         return None;
@@ -1116,10 +1148,18 @@ fn create_project(project_name: &str, lang: &str) -> anyhow::Result<()> {
         })
         .collect();
     fs::create_dir_all(project_path.join("src"))?;
-    fs::write(
-        project_path.join("rust-toolchain.toml"),
-        "[toolchain]\nchannel = \"1.85\"\ncomponents = [\"rustc\", \"cargo\"]\n",
-    )?;
+    // 版本锁定：固定到本机当前工具链版本（动态探测，避免硬编码随时间过时，
+    // 导致 rust-analyzer 等工具报"工具链过于陈旧"）；探测失败时不生成锁定文件，
+    // 项目跟随系统默认工具链。components 含 rust-analyzer/rust-src 供 IDE 使用。
+    if let Some(channel) = detect_toolchain_channel() {
+        fs::write(
+            project_path.join("rust-toolchain.toml"),
+            format!(
+                "[toolchain]\nchannel = \"{channel}\"\ncomponents = [\"rustc\", \"cargo\", \"rust-analyzer\", \"rust-src\"]\n"
+            ),
+        )?;
+    }
+
     fs::write(
         project_path.join("Cargo.toml"),
         format!(
@@ -1322,8 +1362,9 @@ fn get_lang_code_from_extension(extension: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        annotate_non_ascii_mods, extract_unresolved_crates, find_alias_in_toml,
-        get_lang_code_from_extension, transpile_project_files, transpile_to_english,
+        annotate_non_ascii_mods, detect_toolchain_channel, extract_unresolved_crates,
+        find_alias_in_toml, get_lang_code_from_extension, transpile_project_files,
+        transpile_to_english,
     };
 
     /// 加载内置中文映射管理器（测试转译管线用）
@@ -1338,9 +1379,26 @@ mod tests {
         .expect("内置中文语言包应可加载")
     }
 
+    /// 工具链通道探测：开发/CI 环境必有 rustc；主次版本号形如 `1.98`，通道词原样
+    #[test]
+    fn test_detect_toolchain_channel() {
+        let channel = detect_toolchain_channel().expect("测试环境应有 rustc");
+        let is_version = channel
+            .split_once('.')
+            .is_some_and(|(a, b)| !a.is_empty() && !b.is_empty() && a.chars().chain(b.chars()).all(|c| c.is_ascii_digit()));
+        assert!(
+            is_version || matches!(channel.as_str(), "nightly" | "beta"),
+            "意外的通道格式：{channel}"
+        );
+    }
+
     /// 已内置的语言包扩展名可解析出语言代码
+    ///
+    /// 持环境变量锁：扩展名映射会扫描全局语言包目录（受 RZ_LANG_DIR 影响），
+    /// lang_manager 的环境变量测试并发修改该变量时会污染本测试
     #[test]
     fn test_lang_code_from_extension_builtin() {
+        let _lock = crate::lang_manager::tests::env_lock();
         assert_eq!(get_lang_code_from_extension("zh").as_deref(), Some("zh"));
         assert_eq!(get_lang_code_from_extension("en").as_deref(), Some("en"));
         assert_eq!(get_lang_code_from_extension("de").as_deref(), Some("de"));
@@ -1349,9 +1407,10 @@ mod tests {
         assert_eq!(get_lang_code_from_extension("hi").as_deref(), Some("hi"));
     }
 
-    /// 未知扩展名返回 None
+    /// 未知扩展名返回 None（同样受 RZ_LANG_DIR 影响，需持锁）
     #[test]
     fn test_lang_code_from_extension_unknown() {
+        let _lock = crate::lang_manager::tests::env_lock();
         assert_eq!(get_lang_code_from_extension("xyz"), None);
     }
 

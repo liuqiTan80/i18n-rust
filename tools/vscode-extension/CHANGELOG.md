@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.5
+
+### 修复
+- `rzc init` 生成的 `rust-toolchain.toml` 不再硬编码 1.85：改为动态探测本机当前生效工具链版本（components 含 rust-analyzer/rust-src），避免 rust-analyzer 报"工具链过于陈旧"导致方言文件语义着色（变量颜色）失效。
+- 测试环境变量竞态修复：依赖/修改 `RZ_LANG_DIR`、`LANG` 等环境变量的测试统一持进程级互斥锁，消除并行测试互相污染。
+
+### 文档
+- 重构 README：新增功能特性、命令速查、项目结构与工作原理等章节，补充 CI/crates.io/许可证徽章。
+- 新增 `docs/dialect-framework-blueprint.md`（方言编程框架生成蓝图）。
+
 ## 0.5.3
 
 ### 修复

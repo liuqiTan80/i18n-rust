@@ -2,7 +2,7 @@
   "name": "i18n-rust",
   "displayName": "i18n-rust - Write Rust in Any Language",
   "description": "Write Rust code in your native language, with support for syntax highlighting, intelligent code completion, and error hints.",
-  "version": "0.5.3",
+  "version": "0.5.5",
   "publisher": "i18n-rust",
   "license": "MIT",
   "repository": {

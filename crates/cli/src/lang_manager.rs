@@ -726,11 +726,18 @@ impl Drop for TempDir {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
-    /// 环境变量互斥锁：测试并行运行时保护 RZ_LANG_DIR 等全局环境变量
+    /// 环境变量互斥锁：测试并行运行时保护 RZ_LANG_DIR 等全局环境变量。
+    /// crate 级共享（而非模块私有）：其他模块（main/ui）中依赖环境变量状态、
+    /// 或修改环境变量的测试同样必须持有本锁，否则并发执行时互相污染。
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// 获取环境变量互斥锁（供其他测试模块复用）
+    pub(crate) fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        ENV_LOCK.lock().unwrap()
+    }
 
     /// 在临时根下制作一个最小语言包目录（含 crates/ 子目录）
     fn make_temp_lang_pack(root: &Path, name: &str) {

@@ -224,6 +224,8 @@ mod tests {
 
     #[test]
     fn test_detect_system_language_tags() {
+        // 修改全局环境变量（LANG），需持环境变量锁避免污染并发测试
+        let _lock = crate::lang_manager::tests::env_lock();
         for (locale, expected) in [
             ("zh_CN.UTF-8", "zh"),
             ("en_US.UTF-8", "en"),
@@ -250,6 +252,8 @@ mod tests {
 
     #[test]
     fn test_detect_ui_lang_env_priority() {
+        // 修改全局环境变量（RZ_LANG），需持环境变量锁避免污染并发测试
+        let _lock = crate::lang_manager::tests::env_lock();
         unsafe {
             std::env::set_var("RZ_LANG", "ru");
         }
