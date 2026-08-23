@@ -19,7 +19,7 @@ use i18n_rust_engine::mapping_source;
 
 use crate::analyzer::AnalyzerConnection;
 use crate::response_map::ResponseMapper;
-use crate::translation_cache::{TranslationCache, TranslationEntry};
+use crate::translation_cache::{TranslationCache, TranslationEntry, path_to_uri};
 
 /// 默认支持的方言文件扩展名（与内置语言包 lang_info.toml 的扩展名一致）
 /// 可通过命令行 `--extensions` 参数覆盖
@@ -48,6 +48,11 @@ pub struct ProxyServer {
     /// rust-analyzer 声明的语义着色能力（initialize 响应透传给客户端，
     /// 保证 legend 与 token 类型索引一致，否则变量等语义着色错乱）
     ra_semantic_tokens_provider: std::sync::Mutex<Option<Value>>,
+    /// 最近一次转发的内置诊断（方言 uri → 诊断列表）：代理自跑 cargo check
+    /// 后合并发布，避免 check 结果覆盖语法/类型等实时诊断
+    builtin_diags: Arc<std::sync::Mutex<HashMap<String, Vec<Value>>>>,
+    /// cargo check 是否在运行（didSave 频繁时跳过进行中的 check，避免并发卡锁）
+    check_running: Arc<std::sync::atomic::AtomicBool>,
 }
 
 /// 记录一个转发给 rust-analyzer 的请求的原始信息
@@ -112,6 +117,8 @@ impl ProxyServer {
             },
             last_module_version: std::sync::atomic::AtomicI64::new(-1),
             ra_semantic_tokens_provider: std::sync::Mutex::new(None),
+            builtin_diags: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            check_running: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         };
 
         Ok((server, io_threads))
@@ -245,6 +252,9 @@ impl ProxyServer {
                 "initializationOptions": {
                     "cargo": { "buildScripts": { "enable": false } },
                     "procMacro": { "enable": false }
+                    // 注：不启用 rust-analyzer 的 checkOnSave——其诊断在虚拟项目
+                    // 上不可达（cargo 常驻但无诊断发布）；改为代理在 didSave 时
+                    // 自跑 cargo check 并发布（见 trigger_cargo_check）
                 }
             }
         });
@@ -255,21 +265,40 @@ impl ProxyServer {
         // 避免在半初始化状态下继续服务导致行为不可预测）
         let mut 初始化完成 = false;
         for _ in 0..200 {
-            if let Some(response) = self.analyzer.try_recv()
-                && response.get("id").and_then(|v| v.as_i64()) == Some(0)
-            {
-                // 保存 rust-analyzer 的语义着色能力声明：initialize 响应
-                // 透传给客户端，保证 legend 与 token 类型索引一致
-                // （否则变量/参数等语义 token 的类型索引错位，着色乱或不显示）
-                let provider = response["result"]["capabilities"]["semanticTokensProvider"].clone();
-                if !provider.is_null()
-                    && let Ok(mut slot) = self.ra_semantic_tokens_provider.lock()
-                {
-                    *slot = Some(provider);
+            if let Some(msg) = self.analyzer.try_recv() {
+                if msg.get("id").and_then(|v| v.as_i64()) == Some(0) {
+                    // 保存 rust-analyzer 的语义着色能力声明：initialize 响应
+                    // 透传给客户端，保证 legend 与 token 类型索引一致
+                    // （否则变量/参数等语义 token 的类型索引错位，着色乱或不显示）
+                    let provider = msg["result"]["capabilities"]["semanticTokensProvider"].clone();
+                    if !provider.is_null()
+                        && let Ok(mut slot) = self.ra_semantic_tokens_provider.lock()
+                    {
+                        *slot = Some(provider);
+                    }
+                    log::info!("{}", crate::ui::global().t("lsp_log_ra_init_done"));
+                    初始化完成 = true;
+                    break;
                 }
-                log::info!("{}", crate::ui::global().t("lsp_log_ra_init_done"));
-                初始化完成 = true;
-                break;
+                // 初始化期间 rust-analyzer 可能主动请求配置（workspace/configuration）：
+                // 必须立即响应，否则它一直等待导致配置加载挂起。
+                // 全部返回 null 表示使用默认配置（checkOnSave 默认关闭，
+                // 诊断由代理自跑 cargo check 提供，见 trigger_cargo_check）。
+                if msg.get("method").and_then(|v| v.as_str()) == Some("workspace/configuration") {
+                    let count = msg["params"]["items"]
+                        .as_array()
+                        .map(|a| a.len())
+                        .unwrap_or(0);
+                    let result = Value::Array(vec![Value::Null; count]);
+                    let response = json!({
+                        "jsonrpc": "2.0",
+                        "id": msg["id"].clone(),
+                        "result": result
+                    });
+                    if let Err(e) = self.analyzer.send(&response) {
+                        log::warn!("配置响应发送失败: {e}");
+                    }
+                }
             }
             thread::sleep(std::time::Duration::from_millis(50));
         }
@@ -348,6 +377,8 @@ impl ProxyServer {
         // rust-analyzer 主动请求（如 workspace/diagnostic/refresh）
         // 的响应需要回发给 rust-analyzer 本身，而非客户端。
         let ra_sender = self.analyzer.sender_clone();
+        // 内置诊断缓存：cargo check 结果合并发布时使用
+        let builtin_diags = self.builtin_diags.clone();
 
         thread::spawn(move || {
             // 用 recv_timeout 代替阻塞 recv，使无消息时也能周期性
@@ -355,9 +386,14 @@ impl ProxyServer {
             let mut 上次清理 = std::time::Instant::now();
             loop {
                 match receiver.recv_timeout(std::time::Duration::from_secs(1)) {
-                    Ok(msg) => {
-                        handle_analyzer_message(&msg, &mapper, &sender, &pending, &ra_sender)
-                    }
+                    Ok(msg) => handle_analyzer_message(
+                        &msg,
+                        &mapper,
+                        &sender,
+                        &pending,
+                        &ra_sender,
+                        &builtin_diags,
+                    ),
                     Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
                     Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
                 }
@@ -681,6 +717,168 @@ impl ProxyServer {
             });
             self.analyzer.send(&ra_msg)?;
         }
+
+        // 代理自跑 cargo check 并发布诊断：rust-analyzer 的 checkOnSave 在
+        // 虚拟项目上诊断不可达（cargo 常驻但无发布），而所有权可视化依赖
+        // E0382 等 check 诊断（移动黄/使用红/生命周期绿）
+        self.trigger_cargo_check()?;
+        Ok(())
+    }
+
+    /// 异步执行 cargo check 并发布诊断
+    ///
+    /// rust-analyzer 的 checkOnSave 在虚拟项目上诊断不可达（cargo 常驻但
+    /// 无诊断发布），改为代理直接跑 `cargo check --message-format=json`，
+    /// 解析 compiler-message 行转换为 LSP 诊断，合并最近一次内置诊断后
+    /// 发布给客户端。教学场景虚拟项目无第三方依赖，check 开销可控。
+    fn trigger_cargo_check(&self) -> anyhow::Result<()> {
+        let cache = self.cache.clone();
+        let mapper = self.mapper.clone();
+        let sender = self.connection.sender.clone();
+        let builtin_diags = self.builtin_diags.clone();
+        let check_running = self.check_running.clone();
+        let project_dir = cache.virtual_project_dir();
+
+        // 并发保护：上一次 check 未结束（可能卡在锁等待）时跳过本次
+        if check_running.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return Ok(());
+        }
+
+        std::thread::spawn(move || {
+            // 超时控制：cargo 在锁竞争等场景可能长时间不退出，
+            // 轮询等待最多 30 秒后强杀，避免每次保存都挂起一个进程
+            let child = match std::process::Command::new("cargo")
+                // --offline：虚拟项目无第三方依赖，跳过 crates.io 索引访问
+                // （无 Cargo.lock 时 cargo 默认联网解析依赖，网络不可达会卡死）
+                .args(["check", "--offline", "--message-format=json"])
+                .current_dir(&project_dir)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()
+            {
+                Ok(c) => c,
+                Err(e) => {
+                    log::warn!("cargo check spawn failed: {e}");
+                    check_running.store(false, std::sync::atomic::Ordering::SeqCst);
+                    return;
+                }
+            };
+            let mut child_opt = Some(child);
+            let mut output = None;
+            let mut timed_out = false;
+            for i in 0..300 {
+                match child_opt.as_mut().map(|c| c.try_wait()) {
+                    Some(Ok(Some(_))) => {
+                        output = child_opt.take().and_then(|c| c.wait_with_output().ok());
+                        break;
+                    }
+                    Some(Ok(None)) => {
+                        if i == 299 {
+                            timed_out = true;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                    }
+                    _ => break,
+                }
+            }
+            if timed_out {
+                log::warn!("cargo check timeout killed");
+                if let Some(mut c) = child_opt.take() {
+                    let _ = c.kill();
+                    let _ = c.wait();
+                }
+            }
+            check_running.store(false, std::sync::atomic::Ordering::SeqCst);
+            let Some(output) = output else {
+                return;
+            };
+
+            // 解析 compiler-message 行 → 按虚拟 uri 聚合（值 = (方言 uri, 诊断列表)）
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let mut by_uri: HashMap<String, (String, Vec<Value>)> = HashMap::new();
+            for line in stdout.lines() {
+                let Ok(v) = serde_json::from_str::<Value>(line) else {
+                    continue;
+                };
+                if v["reason"].as_str() != Some("compiler-message") {
+                    continue;
+                }
+                let msg = &v["message"];
+                let Some(span) = msg["spans"].as_array().and_then(|a| a.first()) else {
+                    continue;
+                };
+                let Some(file) = span["file_name"].as_str() else {
+                    continue;
+                };
+                // rustc 可能输出相对路径（cwd 为虚拟项目目录），拼上项目目录
+                let file_path = if std::path::Path::new(file).is_absolute() {
+                    std::path::PathBuf::from(file)
+                } else {
+                    project_dir.join(file)
+                };
+                // 仅处理虚拟方言文件（聚合 main.rs、标准库等跳过）
+                let Some(entry) = cache.query_by_virtual_uri(&path_to_uri(&file_path)) else {
+                    continue;
+                };
+                let line = span["line_start"].as_u64().unwrap_or(1).saturating_sub(1);
+                let col = span["column_start"].as_u64().unwrap_or(1).saturating_sub(1);
+                let end_line = span["line_end"]
+                    .as_u64()
+                    .unwrap_or(line + 1)
+                    .saturating_sub(1);
+                let end_col = span["column_end"]
+                    .as_u64()
+                    .unwrap_or(col + 1)
+                    .saturating_sub(1);
+                let code = msg["code"]["code"].as_str().unwrap_or("").to_string();
+                let severity = match msg["level"].as_str() {
+                    Some("error") => 1,
+                    Some("warning") => 2,
+                    _ => 3,
+                };
+                let diag = json!({
+                    "range": {
+                        "start": { "line": line, "character": col },
+                        "end": { "line": end_line, "character": end_col }
+                    },
+                    "severity": severity,
+                    "code": code,
+                    "message": msg["message"].as_str().unwrap_or(""),
+                });
+                by_uri
+                    .entry(entry.virtual_uri.clone())
+                    .or_insert_with(|| (entry.original_uri.clone(), Vec::new()))
+                    .1
+                    .push(diag);
+            }
+
+            // 合并内置诊断（语法/类型）后发布：同 code 且同起始行视为重复。
+            // 注意：map_diagnostics 期望输入虚拟 uri（内部还原为方言 uri），
+            // 传方言 uri 会导致位置映射查不到条目而丢失全部诊断。
+            for (virtual_uri, (original_uri, mut diags)) in by_uri {
+                if let Ok(guard) = builtin_diags.lock()
+                    && let Some(builtin) = guard.get(&original_uri)
+                {
+                    for e in builtin.clone() {
+                        let dup = diags.iter().any(|d| {
+                            d["code"] == e["code"]
+                                && d["range"]["start"]["line"] == e["range"]["start"]["line"]
+                        });
+                        if !dup {
+                            diags.push(e);
+                        }
+                    }
+                }
+                let params = json!({ "uri": virtual_uri, "diagnostics": diags });
+                let mapped = mapper.map_diagnostics(&params);
+                let notification = Notification {
+                    method: "textDocument/publishDiagnostics".to_string(),
+                    params: mapped,
+                };
+                let _ = sender.send(Message::Notification(notification));
+            }
+        });
         Ok(())
     }
 
@@ -1142,6 +1340,7 @@ fn handle_analyzer_message(
     sender: &crossbeam_channel::Sender<Message>,
     pending: &Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
     reply_sender: &crate::analyzer::Sender,
+    builtin_diags: &Arc<std::sync::Mutex<HashMap<String, Vec<Value>>>>,
 ) {
     if let Some(id) = msg.get("id").and_then(|v| v.as_i64()) {
         // 是响应
@@ -1212,8 +1411,8 @@ fn handle_analyzer_message(
             // 必须把响应回发给 rust-analyzer 本身，否则它会一直等待。
             let method = msg["method"].as_str().unwrap_or("");
             let result = if method == "workspace/configuration" {
-                // 规范要求返回与请求项等长的数组（每项用 null 表示默认配置），
-                // 直接返回 null 会被 rust-analyzer 视为协议错误
+                // 全部返回 null 使用默认配置：checkOnSave 默认关闭，
+                // 诊断由代理自跑 cargo check 提供（见 trigger_cargo_check）
                 let count = msg["params"]["items"]
                     .as_array()
                     .map(|a| a.len())
@@ -1242,6 +1441,15 @@ fn handle_analyzer_message(
                         return;
                     }
                     let mapped = mapper.map_diagnostics(params);
+                    // 缓存映射后的内置诊断（方言坐标），供 cargo check 结果合并发布
+                    if let Ok(mut guard) = builtin_diags.lock() {
+                        let uri = mapped["uri"].as_str().unwrap_or("").to_string();
+                        let list = mapped["diagnostics"]
+                            .as_array()
+                            .map(|a| a.to_vec())
+                            .unwrap_or_default();
+                        guard.insert(uri, list);
+                    }
                     let notification = Notification {
                         method: method.to_string(),
                         params: mapped,
