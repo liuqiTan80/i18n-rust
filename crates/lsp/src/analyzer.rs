@@ -393,7 +393,11 @@ mod tests {
     #[test]
     fn test_find_in_path() {
         let tmp = tempfile::tempdir().expect("创建临时目录失败");
-        let exe_name = if cfg!(windows) { "mytool.exe" } else { "mytool" };
+        let exe_name = if cfg!(windows) {
+            "mytool.exe"
+        } else {
+            "mytool"
+        };
         let bin = tmp.path().join(exe_name);
         std::fs::write(&bin, "x").expect("写入临时文件失败");
         let separator = if cfg!(windows) { ';' } else { ':' };

@@ -28,7 +28,7 @@ pub struct BuiltinLangData {
 ///
 /// 参数：
 /// - `$name`：生成的 `static` 变量名
-/// - `$lang_dir`：语言包目录名（如 `"zh"`、`"en"`、`"de"`）
+/// - `$lang_dir`：语言包目录名（如 `"zh"`、`"de"`）
 /// - `$($crate_file),*`：第三方库映射文件名列表，
 ///   文件名随语言包本地化（中文为 `序列化.toml`、俄语为 `Сериализация.toml`、
 ///   日语为 `直列化.toml` 等，salvo.toml 为 crate 专有名词保持不变），
@@ -75,24 +75,6 @@ define_builtin_lang!(
         "网络.toml",
         "错误处理.toml",
         "Web框架.toml",
-        "salvo.toml",
-    ]
-);
-
-// 英文内置语言包（恒等映射，用于验证多语言架构 + 10 个第三方库映射）
-define_builtin_lang!(
-    EN_DATA,
-    "en",
-    [
-        "Serialization.toml",
-        "Async.toml",
-        "CommandLine.toml",
-        "Database.toml",
-        "Tools.toml",
-        "Logging.toml",
-        "Network.toml",
-        "ErrorHandling.toml",
-        "WebFramework.toml",
         "salvo.toml",
     ]
 );
@@ -261,15 +243,19 @@ define_builtin_lang!(
 
 /// 根据语言代码获取内置语言包数据
 ///
-/// 已知语言代码（`"zh"` / `"en"` / `"de"`）返回对应语言包；
+/// 已知语言代码（`"zh"` / `"de"`）返回对应语言包；
 /// **未知语言代码自动回退到中文**，保证任何语言设置下都有可用数据。
+///
+/// 内部数据由构建脚本（build.rs）从 `crates/engine/lang-packs/` 扫描生成，
+/// 新增语言包后需重新构建；删除语言包（如英文，Rust 本就以英文书写，
+/// 恒等映射无教学价值）时同步更新本文件与各引用点。
 ///
 /// # 使用示例
 ///
 /// 根据用户设置（如命令行参数、文件扩展名或环境变量）获取语言数据：
 ///
 /// ```
-/// // 用户设置的语言代码（实际来源可为 --语言包 参数或 .zh/.en/.de 文件扩展名）
+/// // 用户设置的语言代码（实际来源可为 --语言包 参数或 .zh/.de 文件扩展名）
 /// let lang_code = std::env::var("RZ_LANG").unwrap_or_else(|_| "zh".to_string());
 /// let data = get_builtin_data(&lang_code); // 未知代码自动回退中文
 ///
@@ -282,7 +268,6 @@ define_builtin_lang!(
 pub fn get_builtin_data(lang_code: &str) -> &BuiltinLangData {
     match lang_code {
         "zh" => &ZH_DATA,
-        "en" => &EN_DATA,
         "de" => &DE_DATA,
         "ja" => &JA_DATA,
         "ru" => &RU_DATA,
@@ -304,7 +289,7 @@ pub fn get_builtin_data(lang_code: &str) -> &BuiltinLangData {
 pub fn has_builtin_lang(lang_code: &str) -> bool {
     matches!(
         lang_code,
-        "zh" | "en" | "de" | "ja" | "ru" | "es" | "fr" | "pt" | "ko" | "ar" | "hi"
+        "zh" | "de" | "ja" | "ru" | "es" | "fr" | "pt" | "ko" | "ar" | "hi"
     )
 }
 
@@ -313,9 +298,7 @@ pub fn has_builtin_lang(lang_code: &str) -> bool {
 /// 供 `rzc lang list` 展示与 `rzc lang remove` 的内置保护使用。
 /// 其他语言通过 `rzc lang install` 从远程仓库安装。
 pub fn builtin_lang_codes() -> Vec<&'static str> {
-    vec![
-        "zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi",
-    ]
+    vec!["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"]
 }
 
 #[cfg(test)]
@@ -354,13 +337,11 @@ mod tests {
         assert!(std::ptr::eq(data, zh), "未知语言应回退到中文包");
     }
 
-    /// 全部 11 个内置语言均含 10 个第三方库映射；
+    /// 全部内置语言均含 10 个第三方库映射；
     /// stdlib.toml 两节齐全（模块路径 + 标识符）
     #[test]
     fn test_crates_data_per_lang() {
-        for code in [
-            "zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi",
-        ] {
+        for code in ["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
             assert_eq!(
                 get_builtin_data(code).crates_data.len(),
                 10,
@@ -368,7 +349,7 @@ mod tests {
             );
         }
         // stdlib.toml 中模块路径与标识符两节均存在
-        for data in [get_builtin_data("zh"), get_builtin_data("en")] {
+        for data in [get_builtin_data("zh"), get_builtin_data("de")] {
             assert!(data.stdlib_toml.contains("[\"模块路径\"]"));
             assert!(data.stdlib_toml.contains("[\"标识符\"]"));
         }

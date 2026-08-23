@@ -2,7 +2,7 @@
 //!
 //! LSP 代理服务器的核心逻辑：
 //! 1. 通过 lsp-server 与编辑器客户端建立 LSP 连接
-//! 2. 接收方言文件（.zh/.en/.de 等）变更，翻译后通知 rust-analyzer
+//! 2. 接收方言文件（.zh/.de 等）变更，翻译后通知 rust-analyzer
 //! 3. 转发 rust-analyzer 的响应/通知，并还原位置信息
 //! 4. 翻译诊断消息为对应语言
 
@@ -24,7 +24,7 @@ use crate::translation_cache::{TranslationCache, TranslationEntry};
 /// 默认支持的方言文件扩展名（与内置语言包 lang_info.toml 的扩展名一致）
 /// 可通过命令行 `--extensions` 参数覆盖
 const DEFAULT_EXTENSIONS: &[&str] = &[
-    ".zh", ".en", ".de", ".ja", ".ru", ".es", ".fr", ".pt", ".ko", ".ar", ".hi",
+    ".zh", ".de", ".ja", ".ru", ".es", ".fr", ".pt", ".ko", ".ar", ".hi",
 ];
 
 /// LSP 代理服务器
@@ -41,7 +41,7 @@ pub struct ProxyServer {
     request_counter: Arc<std::sync::atomic::AtomicI64>,
     /// 待映射的 rust-analyzer 请求 ID → 原始客户端请求信息
     pending_requests: Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
-    /// 支持的方言文件扩展名列表（如 `.zh`、`.en`）
+    /// 支持的方言文件扩展名列表（如 `.zh`、`.de`）
     supported_extensions: Vec<String>,
     /// 上次重载时的模块集合版本号（初值 -1 保证首个文档打开时重载一次）
     last_module_version: std::sync::atomic::AtomicI64,
@@ -67,7 +67,7 @@ impl ProxyServer {
     /// 创建并初始化代理服务器
     ///
     /// `extensions`: 支持的方言文件扩展名列表（如 `.zh`），
-    /// 传空列表时使用默认值（`.zh` / `.en` / `.de`）。
+    /// 传空列表时使用默认值（`.zh` / `.de`）。
     pub fn new(
         lang_pack_path: &Path,
         extensions: &[String],
@@ -1303,7 +1303,7 @@ mod tests {
             &extensions
         ));
         assert!(is_supported_file(
-            "file:///project/src/main.en",
+            "file:///project/src/main.zh",
             &extensions
         ));
         assert!(is_supported_file(

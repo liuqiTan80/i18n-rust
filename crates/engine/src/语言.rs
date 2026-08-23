@@ -239,9 +239,7 @@ mod tests {
 
     #[test]
     fn test_all_langs_have_common_keys() {
-        for code in [
-            "zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi",
-        ] {
+        for code in ["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
             let table = table_for(code);
             for key in ["err_line_col", "diag_kind_error", "mapping_cat_keywords"] {
                 assert!(table.contains_key(key), "{code} 缺少 {key}");

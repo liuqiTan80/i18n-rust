@@ -200,16 +200,10 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                         )
                     )
                 })?;
-            let stdout = child
-                .stdout
-                .take()
-                .expect("cargo run stdout 管道应存在");
+            let stdout = child.stdout.take().expect("cargo run stdout 管道应存在");
             // stderr 线程逐行翻译 cargo 进度（Compiling/Finished 等），
             // 其余行（程序 stderr）原样透传
-            let stderr_pipe = child
-                .stderr
-                .take()
-                .expect("cargo run stderr 管道应存在");
+            let stderr_pipe = child.stderr.take().expect("cargo run stderr 管道应存在");
             let stderr_handle = std::thread::spawn(move || {
                 let ui = ui::Ui::global();
                 let reader = BufReader::new(stderr_pipe);
@@ -233,14 +227,13 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                         )
                     )
                 })?;
-                if line.starts_with('{') {
-                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(&line) {
-                        if value.get("reason").is_some() {
-                            json_lines.push_str(&line);
-                            json_lines.push('\n');
-                            continue;
-                        }
-                    }
+                if line.starts_with('{')
+                    && let Ok(value) = serde_json::from_str::<serde_json::Value>(&line)
+                    && value.get("reason").is_some()
+                {
+                    json_lines.push_str(&line);
+                    json_lines.push('\n');
+                    continue;
                 }
                 println!("{line}");
             }
@@ -728,7 +721,8 @@ fn translate_cargo_diagnostics(
     // 过滤英文键的反向修正条目（如 stdlib 的 "format" = "fmt"，仅供转译管线修正路径段），
     // 避免诊断翻译中出现英文值。
     let 是中文键 = |键: &str| {
-        !键.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+        !键.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
     };
     let mut reverse_map: HashMap<String, String> = manager
         .get_section_mapping("类型")
@@ -742,7 +736,9 @@ fn translate_cargo_diagnostics(
         .unwrap_or_default();
     for (中文, 英文) in manager.get_alias_map() {
         if 是中文键(中文) {
-            reverse_map.entry(英文.clone()).or_insert_with(|| 中文.clone());
+            reverse_map
+                .entry(英文.clone())
+                .or_insert_with(|| 中文.clone());
         }
     }
     // 模块路径映射补充（std → 标准库 等，供 `std::fmt::Display` 的路径段中文化）；
@@ -1383,9 +1379,9 @@ mod tests {
     #[test]
     fn test_detect_toolchain_channel() {
         let channel = detect_toolchain_channel().expect("测试环境应有 rustc");
-        let is_version = channel
-            .split_once('.')
-            .is_some_and(|(a, b)| !a.is_empty() && !b.is_empty() && a.chars().chain(b.chars()).all(|c| c.is_ascii_digit()));
+        let is_version = channel.split_once('.').is_some_and(|(a, b)| {
+            !a.is_empty() && !b.is_empty() && a.chars().chain(b.chars()).all(|c| c.is_ascii_digit())
+        });
         assert!(
             is_version || matches!(channel.as_str(), "nightly" | "beta"),
             "意外的通道格式：{channel}"
@@ -1400,7 +1396,6 @@ mod tests {
     fn test_lang_code_from_extension_builtin() {
         let _lock = crate::lang_manager::tests::env_lock();
         assert_eq!(get_lang_code_from_extension("zh").as_deref(), Some("zh"));
-        assert_eq!(get_lang_code_from_extension("en").as_deref(), Some("en"));
         assert_eq!(get_lang_code_from_extension("de").as_deref(), Some("de"));
         assert_eq!(get_lang_code_from_extension("ru").as_deref(), Some("ru"));
         assert_eq!(get_lang_code_from_extension("ja").as_deref(), Some("ja"));

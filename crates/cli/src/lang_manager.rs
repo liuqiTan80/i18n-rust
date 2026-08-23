@@ -287,7 +287,6 @@ pub fn static_extension_map() -> HashMap<String, String> {
         ("ru", "俄语"),
         ("ja", "日语"),
         ("ko", "韩语"),
-        ("en", "英语"),
     ]
     .into_iter()
     .map(|(ext, code)| (ext.to_string(), code.to_string()))

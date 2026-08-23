@@ -122,9 +122,9 @@ test('词法扫描：生命周期标注不误判为字符字面量', () => {
 // 语言注册表
 // ============================================================
 
-test('语言表：11 种语言且 languageId 唯一', () => {
-    assert.equal(方言语言表.length, 11);
-    assert.equal(new Set(方言语言Id).size, 11);
+test('语言表：10 种语言且 languageId 唯一', () => {
+    assert.equal(方言语言表.length, 10);
+    assert.equal(new Set(方言语言Id).size, 10);
     for (const 语言 of 方言语言表) {
         assert.equal(语言.languageId, `rust-${语言.code}`);
         assert.equal(语言.extension, 语言.code);
@@ -139,7 +139,7 @@ test('语言代码：显示名映射与非法值回退', () => {
 });
 
 test('按代码查找：覆盖全部语言包目录名', () => {
-    for (const code of ['zh', 'en', 'ja', 'de', 'es', 'fr', 'pt', 'ru', 'ko', 'hi', 'ar']) {
+    for (const code of ['zh', 'ja', 'de', 'es', 'fr', 'pt', 'ru', 'ko', 'hi', 'ar']) {
         assert.ok(按代码查找(code), `缺少语言 ${code}`);
     }
 });

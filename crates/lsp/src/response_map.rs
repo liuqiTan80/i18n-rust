@@ -1762,7 +1762,7 @@ mod tests {
                 { "label": "serde_json" }
             ]
         });
-        let mapped = mapper.map_completion_response(&response, "file:///test/main.en");
+        let mapped = mapper.map_completion_response(&response, "file:///test/main.zh");
         assert_eq!(mapped["items"].as_array().unwrap().len(), 3);
     }
 

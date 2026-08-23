@@ -1,7 +1,7 @@
 /**
  * 方言语言注册表（单一数据源）
  *
- * 与引擎支持的 11 种语言包一一对应（lang-packs/<code>/）。
+ * 与引擎支持的 10 种语言包一一对应（lang-packs/<code>/）。
  * package.json 的语言注册、when 条件与运行时逻辑均以本表为准；
  * 新增语言时同步更新本表、package.json 并重新运行 npm run gen:grammars。
  */
@@ -21,11 +21,10 @@ export interface 方言语言 {
 }
 
 /**
- * 全部 11 种受支持的方言语言（顺序即菜单展示顺序）
+ * 全部 10 种受支持的方言语言（顺序即菜单展示顺序）
  */
 export const 方言语言表: readonly 方言语言[] = [
     { code: 'zh', languageId: 'rust-zh', extension: 'zh', displayName: '中文' },
-    { code: 'en', languageId: 'rust-en', extension: 'en', displayName: 'English' },
     { code: 'ja', languageId: 'rust-ja', extension: 'ja', displayName: '日本語' },
     { code: 'de', languageId: 'rust-de', extension: 'de', displayName: 'Deutsch' },
     { code: 'es', languageId: 'rust-es', extension: 'es', displayName: 'Español' },

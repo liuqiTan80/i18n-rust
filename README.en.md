@@ -9,7 +9,7 @@
 Write Rust programs in your native language. rzc automatically translates them to standard Rust, compiles and runs — learn programming, not English.
 
 ```rust
-// src/main.en — English Rust teaching dialect
+// src/main.zh — the Chinese Rust teaching dialect
 fn main() {
     let mut count = 10;
     count = count + 1;
@@ -18,7 +18,7 @@ fn main() {
 ```
 
 ```bash
-$ rzc run src/main.en
+$ rzc run src/main.zh
 Count: 11
 ```
 
@@ -45,10 +45,10 @@ cargo build --release --workspace                # binary at target/release/rzc
 ```bash
 rzc init my-project
 cd my-project
-rzc run src/main.en
+rzc run src/main.zh
 ```
 
-`rzc init` creates a complete runnable project skeleton (`Cargo.toml` + `src/main.en`) — just run it.
+`rzc init` creates a complete runnable project skeleton (`Cargo.toml` + `src/main.zh`) — just run it.
 
 ## 🛠️ Commands
 

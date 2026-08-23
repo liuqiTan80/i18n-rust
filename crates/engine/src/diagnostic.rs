@@ -156,17 +156,15 @@ impl ErrorTranslationManager {
         let mut best_suffix: Option<(usize, &str, &ErrorMessageEntry)> = None;
         for (key, entry) in &self.message_map {
             if let Some(suffix_key) = key.strip_prefix('~') {
-                if let Some(prefix) = message.strip_suffix(suffix_key) {
-                    if best_suffix
-                        .map_or(true, |(len, _, _)| suffix_key.len() > len)
-                    {
-                        best_suffix = Some((suffix_key.len(), prefix, entry));
-                    }
+                if let Some(prefix) = message.strip_suffix(suffix_key)
+                    && best_suffix.is_none_or(|(len, _, _)| suffix_key.len() > len)
+                {
+                    best_suffix = Some((suffix_key.len(), prefix, entry));
                 }
-            } else if message.starts_with(key.as_str()) {
-                if best_prefix.map_or(true, |(len, _, _)| key.len() > len) {
-                    best_prefix = Some((key.len(), &message[key.len()..], entry));
-                }
+            } else if message.starts_with(key.as_str())
+                && best_prefix.is_none_or(|(len, _, _)| key.len() > len)
+            {
+                best_prefix = Some((key.len(), &message[key.len()..], entry));
             }
         }
         if let Some((_, rest, entry)) = best_prefix {
@@ -373,8 +371,8 @@ fn replace_type_token(token: &str, type_map: &HashMap<String, String>) -> Option
 /// 1. 类型后缀段映射：`std::fmt::Display` → `std::fmt::可显示`
 /// 2. 路径前缀完整匹配（从长到短）：`std::fmt` → `标准库::格式化`（或 `std` → `标准库`）
 /// 3. 剩余中间段单段映射：`fmt` → `格式化`
-/// 最终：`std::fmt::Display` → `标准库::格式化::可显示`；
-/// 仅含路径（如 `std::io::Error`）未命中任何段时返回 None 保持原样。
+///    最终：`std::fmt::Display` → `标准库::格式化::可显示`；
+///    仅含路径（如 `std::io::Error`）未命中任何段时返回 None 保持原样。
 fn localize_type_token(token: &str, map: &HashMap<String, String>) -> Option<String> {
     let original = token.to_string();
     // 1. 类型后缀段映射
@@ -670,13 +668,12 @@ impl DiagnosticTranslator {
             if let Some((_, rest)) = self
                 .translation_manager
                 .query_by_message(&diagnostic.message)
+                && let Some(rest) = rest
             {
-                if let Some(rest) = rest {
-                    let (filled, consumed) = fill_quote_captures(&template, rest);
-                    template = filled;
-                    if !consumed {
-                        template.push_str(rest);
-                    }
+                let (filled, consumed) = fill_quote_captures(&template, rest);
+                template = filled;
+                if !consumed {
+                    template.push_str(rest);
                 }
             }
             // 对模板中的类型名进行中文化替换
@@ -1158,10 +1155,7 @@ mod tests {
         let teaching = translator.translate_diagnostic(&diagnostic);
 
         // help 子诊断：前缀翻译 + 动态后缀保留，包上"修复建议："前缀
-        assert_eq!(
-            teaching.teaching_hints,
-            vec!["修复建议：你是否想用 `foo`?"]
-        );
+        assert_eq!(teaching.teaching_hints, vec!["修复建议：你是否想用 `foo`?"]);
     }
 
     /// Unicode 混淆 help：{q0}/{q1} 捕获占位符从单引号分段提取两个字符
@@ -1182,8 +1176,9 @@ mod tests {
             level: "error".to_string(),
             spans: vec![],
             children: vec![CompilerDiagnostic {
-                message: "Unicode character '，' (Fullwidth Comma) looks like ',' (Comma), but it is not"
-                    .to_string(),
+                message:
+                    "Unicode character '，' (Fullwidth Comma) looks like ',' (Comma), but it is not"
+                        .to_string(),
                 code: None,
                 level: "help".to_string(),
                 spans: vec![],
@@ -1253,7 +1248,8 @@ mod tests {
         let translator = DiagnosticTranslator::new(manager, type_map);
 
         let diagnostic = CompilerDiagnostic {
-            message: "`({integer}, {integer}, &str)` doesn't implement `std::fmt::Display`".to_string(),
+            message: "`({integer}, {integer}, &str)` doesn't implement `std::fmt::Display`"
+                .to_string(),
             code: Some(DiagnosticCode {
                 code: "E0277".to_string(),
                 explanation: None,
@@ -1302,11 +1298,10 @@ mod tests {
         assert_eq!(teaching.translated_message, "函数 `foo` 从未被使用");
 
         // 无前缀键命中时走后缀键：动态名前缀保留在 {q0} 捕获中
-        let teaching = translator.translate_diagnostic(&diag("type `myStruct` should have an upper camel case name"));
-        assert_eq!(
-            teaching.translated_message,
-            "`myStruct` 应使用大写驼峰命名"
-        );
+        let teaching = translator.translate_diagnostic(&diag(
+            "type `myStruct` should have an upper camel case name",
+        ));
+        assert_eq!(teaching.translated_message, "`myStruct` 应使用大写驼峰命名");
 
         // 后缀键精确兜底：enum 无专用前缀键时用通用模板
         let teaching = translator.translate_diagnostic(&diag("type `Foo` is never used"));

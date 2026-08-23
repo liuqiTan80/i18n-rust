@@ -3,7 +3,7 @@
  *
  * 以 syntaxes/rust-zh.tmLanguage.json 为模板，读取仓库根目录
  * lang-packs/<code>/keywords.toml 与 lang_info.toml，
- * 为全部 11 种方言生成 syntaxes/rust-<code>.tmLanguage.json。
+ * 为全部 10 种方言生成 syntaxes/rust-<code>.tmLanguage.json。
  *
  * 用法：node scripts/gen-grammars.mjs（npm run gen:grammars）
  *
@@ -30,7 +30,7 @@ const 语法目录 = path.join(扩展目录, 'syntaxes');
 const 模板路径 = path.join(语法目录, 'rust-zh.tmLanguage.json');
 
 /** 全部方言代码（与 src/languages.ts 保持一致） */
-const 代码们 = ['zh', 'en', 'ja', 'de', 'es', 'fr', 'pt', 'ru', 'ko', 'hi', 'ar'];
+const 代码们 = ['zh', 'ja', 'de', 'es', 'fr', 'pt', 'ru', 'ko', 'hi', 'ar'];
 
 /** 表名 → 生成目标分类 */
 const 表分类映射 = {

@@ -161,9 +161,7 @@ mod tests {
 
     #[test]
     fn test_builtin_all_langs_available() {
-        for code in [
-            "zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi",
-        ] {
+        for code in ["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
             assert!(builtin_ui(code).is_some(), "{code} 应内置 ui.toml");
         }
     }

@@ -52,7 +52,7 @@ cargo build --release            # 发布优化版（第十八章）
 | 运行当前文件 (run) | 编译并运行 | `Ctrl+Shift+R` |
 | 检查当前文件 (check) | 只检查 | `Ctrl+Shift+C` |
 | 导出标准 Rust (eject) | 转成 .rs | |
-| 选择语言包 (selectLanguagePack) | 切换 11 种语言 | |
+| 选择语言包 (selectLanguagePack) | 切换 10 种语言 | |
 | 重启语言服务器 (restartServer) | LSP 卡住时用 | |
 | AI 对话 (aiChat) | AI 辅助（需配置） | |
 | 校验映射 (mappingCheck) | 检查映射文件 | |

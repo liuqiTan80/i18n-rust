@@ -113,7 +113,7 @@ jobs:
       - name: 安装 Node.js（使用锁定依赖缓存）
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: tools/vscode-extension/package-lock.json
 

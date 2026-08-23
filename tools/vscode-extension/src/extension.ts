@@ -2,7 +2,7 @@
  * i18n-rust VS Code 扩展
  *
  * 功能：
- * - 11 种方言（zh/en/ja/de/es/fr/pt/ru/ko/hi/ar）语法高亮与语言注册
+ * - 10 种方言（zh/ja/de/es/fr/pt/ru/ko/hi/ar）语法高亮与语言注册
  * - LSP 客户端连接 i18n-rust-lsp
  * - 提供 Run/Check/Eject 命令（终端复用、参数安全引用）
  * - 状态栏显示当前语言包
@@ -502,7 +502,7 @@ function 注册命令(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('i18n-rust.run', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
             if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
-                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.en/.ja 等）');
+                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.ja 等）');
                 return;
             }
 
@@ -516,7 +516,7 @@ function 注册命令(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('i18n-rust.check', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
             if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
-                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.en/.ja 等）');
+                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.ja 等）');
                 return;
             }
 
@@ -530,7 +530,7 @@ function 注册命令(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('i18n-rust.eject', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
             if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
-                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.en/.ja 等）');
+                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.ja 等）');
                 return;
             }
 
@@ -889,9 +889,8 @@ function 注册映射工具命令(context: vscode.ExtensionContext): void {
             if (!rzc路径) {
                 return;
             }
-            // 源语言必须是内置语言；en 无 crates 映射不可作源
+            // 源语言为全部内置语言（各语言均含 crates 映射）
             const 源选项们 = 方言语言表
-                .filter(语言 => 语言.code !== 'en')
                 .map(语言 => ({ label: 语言.code, description: 语言.displayName }));
             const 源选择 = await vscode.window.showQuickPick(源选项们, {
                 placeHolder: '选择源语言（从其 crates 映射生成骨架）'
