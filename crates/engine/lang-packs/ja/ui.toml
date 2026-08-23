@@ -156,6 +156,9 @@
 "lsp_install_hint" = "   VS Code を再起動するか「i18n-rust: サーバーを再起動」を実行すると有効になります（インストール先：{}）"
 "lsp_install_no_cargo" = "cargo の実行に失敗：{}。Rust ツールチェーン（https://rustup.rs）をインストールするか、リリースページから i18n-rust-lsp を手動ダウンロードしてください。"
 "lsp_install_failed" = "cargo install が失敗しました（{}）。ネットワーク接続を確認するか、リリースページから i18n-rust-lsp を手動ダウンロードしてください。"
+"lsp_install_version_mismatch" = "インストール済み言語サーバーのバージョン {} は、現在の rzc {} と一致しません。`rzc install lsp --force` を実行して再インストールしてください。"
+"lsp_install_version_unknown" = "インストール済み言語サーバー {} のバージョンを確認できません。`rzc install lsp --force` で rzc と一致させてください。"
+"lsp_version_opt" = "--version, -V    バージョンを表示"
 
 # ---- cargo 進行状況 ----
 "cargo_progress_compiling" = "コンパイル中: {}"
@@ -169,7 +172,7 @@
 "lsp_usage" = "使用方法: i18n-rust-lsp [オプション]"
 "lsp_options" = "オプション:"
 "lsp_lang_pack_opt" = "  --language-pack, -l <パス>  言語パックディレクトリのパス（既定: lang-packs/zh）"
-"lsp_extensions_opt" = "  --extensions <リスト>       方言拡張子リスト（既定: .zh,.en,.de）"
+"lsp_extensions_opt" = "  --extensions <リスト>       方言拡張子リスト（既定: .zh,.de,.ja）"
 "lsp_help_opt" = "  --help, -h                  ヘルプを表示"
 "lsp_err_lang_pack" = "エラー: --language-pack にはパスが必要です"
 "lsp_err_extensions" = "エラー: --extensions には拡張子リスト（カンマ区切り）が必要です"

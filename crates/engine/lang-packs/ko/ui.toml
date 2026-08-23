@@ -156,6 +156,9 @@
 "lsp_install_hint" = "   활성화하려면 VS Code를 다시 시작하거나 「i18n-rust: 서버 다시 시작」을 실행하세요(설치 위치: {})"
 "lsp_install_no_cargo" = "cargo 실행 실패: {}. 먼저 Rust 도구 체인(https://rustup.rs)을 설치하거나 릴리스 페이지에서 i18n-rust-lsp를 수동으로 다운로드하세요."
 "lsp_install_failed" = "cargo install 실패({}). 네트워크 연결을 확인하거나 릴리스 페이지에서 i18n-rust-lsp를 수동으로 다운로드하세요."
+"lsp_install_version_mismatch" = "설치된 언어 서버 버전 {}이(가) 현재 rzc {}과(와) 일치하지 않습니다. `rzc install lsp --force`를 실행하여 다시 설치하세요."
+"lsp_install_version_unknown" = "설치된 언어 서버 {}의 버전을 확인할 수 없습니다. `rzc install lsp --force`를 실행하여 rzc와 일치시키세요."
+"lsp_version_opt" = "--version, -V    버전 표시"
 
 # ---- cargo 진행 상황 ----
 "cargo_progress_compiling" = "컴파일 중: {}"
@@ -169,7 +172,7 @@
 "lsp_usage" = "사용법: i18n-rust-lsp [옵션]"
 "lsp_options" = "옵션:"
 "lsp_lang_pack_opt" = "  --language-pack, -l <경로>   언어팩 디렉터리 경로 (기본값: lang-packs/zh)"
-"lsp_extensions_opt" = "  --extensions <목록>         방언 확장자 목록 (기본값: .zh,.en,.de)"
+"lsp_extensions_opt" = "  --extensions <목록>         방언 확장자 목록 (기본값: .zh,.de,.ja)"
 "lsp_help_opt" = "  --help, -h                   도움말 표시"
 "lsp_err_lang_pack" = "오류: --language-pack 에는 경로가 필요합니다"
 "lsp_err_extensions" = "오류: --extensions 에는 확장자 목록(쉼표 구분)이 필요합니다"

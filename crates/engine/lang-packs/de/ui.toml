@@ -156,6 +156,9 @@
 "lsp_install_hint" = "   VS Code neu starten oder „i18n-rust: Server neu starten“ ausführen, um zu aktivieren (installiert unter: {})"
 "lsp_install_no_cargo" = "cargo konnte nicht ausgeführt werden: {}. Bitte zuerst die Rust-Toolchain (https://rustup.rs) installieren oder i18n-rust-lsp manuell von der Release-Seite herunterladen."
 "lsp_install_failed" = "cargo install fehlgeschlagen ({}). Netzwerkverbindung prüfen oder i18n-rust-lsp manuell von der Release-Seite herunterladen."
+"lsp_install_version_mismatch" = "Installierte Sprachserver-Version {} stimmt nicht mit rzc {} überein. Führen Sie `rzc install lsp --force` aus."
+"lsp_install_version_unknown" = "Version des installierten Sprachservers {} kann nicht ermittelt werden. Führen Sie `rzc install lsp --force` aus."
+"lsp_version_opt" = "--version, -V    Version anzeigen"
 
 # ---- cargo-Fortschritt ----
 "cargo_progress_compiling" = "Kompiliere {}"
@@ -169,7 +172,7 @@
 "lsp_usage" = "Verwendung: i18n-rust-lsp [Optionen]"
 "lsp_options" = "Optionen:"
 "lsp_lang_pack_opt" = "  --language-pack, -l <pfad>  Pfad des Sprachpaket-Verzeichnisses (Standard: lang-packs/zh)"
-"lsp_extensions_opt" = "  --extensions <liste>       Dialekt-Erweiterungsliste (Standard: .zh,.en,.de)"
+"lsp_extensions_opt" = "  --extensions <liste>       Dialekt-Erweiterungsliste (Standard: .zh,.de,.ja)"
 "lsp_help_opt" = "  --help, -h                  Hilfe anzeigen"
 "lsp_err_lang_pack" = "Fehler: --language-pack benoetigt einen Pfad"
 "lsp_err_extensions" = "Fehler: --extensions benoetigt eine Erweiterungsliste (durch Komma getrennt)"

@@ -156,6 +156,9 @@
 "lsp_install_hint" = "   Redémarrez VS Code ou exécutez « i18n-rust : Redémarrer le serveur » pour activer (installé à : {})"
 "lsp_install_no_cargo" = "Échec de l'exécution de cargo : {}. Installez d'abord la chaîne d'outils Rust (https://rustup.rs) ou téléchargez i18n-rust-lsp manuellement depuis la page de version."
 "lsp_install_failed" = "cargo install a échoué ({}). Vérifiez votre connexion réseau ou téléchargez i18n-rust-lsp manuellement depuis la page de version."
+"lsp_install_version_mismatch" = "La version {} du serveur de langage installé ne correspond pas à rzc {}. Exécutez `rzc install lsp --force`."
+"lsp_install_version_unknown" = "Impossible de déterminer la version du serveur de langage installé {}; exécutez `rzc install lsp --force`."
+"lsp_version_opt" = "--version, -V    Afficher la version"
 
 # ---- Progression de cargo ----
 "cargo_progress_compiling" = "Compilation de {}"
@@ -169,7 +172,7 @@
 "lsp_usage" = "Utilisation : i18n-rust-lsp [options]"
 "lsp_options" = "Options :"
 "lsp_lang_pack_opt" = "  --language-pack, -l <chemin>  Chemin du repertoire du pack (par defaut : lang-packs/zh)"
-"lsp_extensions_opt" = "  --extensions <liste>         Liste d'extensions de dialecte (par defaut : .zh,.en,.de)"
+"lsp_extensions_opt" = "  --extensions <liste>         Liste d'extensions de dialecte (par defaut : .zh,.de,.ja)"
 "lsp_help_opt" = "  --help, -h                    Afficher l'aide"
 "lsp_err_lang_pack" = "Erreur : --language-pack requiert un chemin"
 "lsp_err_extensions" = "Erreur : --extensions requiert une liste d'extensions (separees par des virgules)"

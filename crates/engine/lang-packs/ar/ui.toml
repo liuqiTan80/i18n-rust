@@ -156,6 +156,9 @@
 "lsp_install_hint" = "   أعد تشغيل VS Code أو نفّذ «i18n-rust: إعادة تشغيل الخادم» للتفعيل (مثبت في: {})"
 "lsp_install_no_cargo" = "فشل تنفيذ cargo: {}. ثبّت مجموعة أدوات Rust (https://rustup.rs) أولاً، أو نزّل i18n-rust-lsp يدويًا من صفحة الإصدارات."
 "lsp_install_failed" = "فشل cargo install ({}). تحقق من اتصال الشبكة أو نزّل i18n-rust-lsp يدويًا من صفحة الإصدارات."
+"lsp_install_version_mismatch" = "إصدار خادم اللغة المثبت {} لا يتطابق مع rzc الحالي {}. نفّذ `rzc install lsp --force` لإعادة التثبيت."
+"lsp_install_version_unknown" = "تعذّر تحديد إصدار خادم اللغة المثبت {}؛ نفّذ `rzc install lsp --force` لضمان التوافق مع rzc."
+"lsp_version_opt" = "--version, -V    عرض الإصدار"
 
 # ---- تقدم cargo ----
 "cargo_progress_compiling" = "جارٍ الترجمة {}"
@@ -169,7 +172,7 @@
 "lsp_usage" = "الاستخدام: i18n-rust-lsp [خيارات]"
 "lsp_options" = "الخيارات:"
 "lsp_lang_pack_opt" = "  --language-pack, -l <مسار>   مسار مجلد حزمة اللغة (الافتراضي: lang-packs/zh)"
-"lsp_extensions_opt" = "  --extensions <قائمة>         قائمة امتدادات اللهجة (الافتراضي: .zh,.en,.de)"
+"lsp_extensions_opt" = "  --extensions <قائمة>         قائمة امتدادات اللهجة (الافتراضي: .zh,.de,.ja)"
 "lsp_help_opt" = "  --help, -h                    عرض المساعدة"
 "lsp_err_lang_pack" = "خطأ: --language-pack يتطلب مسارا"
 "lsp_err_extensions" = "خطأ: --extensions يتطلب قائمة امتدادات (مفصولة بفواصل)"

@@ -153,6 +153,9 @@
 "lsp_install_hint" = "   सक्रिय करने के लिए VS Code पुनः प्रारंभ करें या «i18n-rust: सर्वर पुनः प्रारंभ करें» चलाएँ (स्थापित: {})"
 "lsp_install_no_cargo" = "cargo चलाने में विफल: {}। पहले Rust टूलचेन (https://rustup.rs) स्थापित करें, या रिलीज़ पृष्ठ से i18n-rust-lsp मैन्युअल रूप से डाउनलोड करें।"
 "lsp_install_failed" = "cargo install विफल ({}). नेटवर्क कनेक्शन जाँचें, या रिलीज़ पृष्ठ से i18n-rust-lsp मैन्युअल रूप से डाउनलोड करें।"
+"lsp_install_version_mismatch" = "स्थापित भाषा सर्वर संस्करण {}, वर्तमान rzc {} से मेल नहीं खाता। `rzc install lsp --force` चलाकर पुनः स्थापित करें।"
+"lsp_install_version_unknown" = "स्थापित भाषा सर्वर {} का संस्करण निर्धारित नहीं किया जा सका; `rzc install lsp --force` चलाएँ।"
+"lsp_version_opt" = "--version, -V    संस्करण दिखाएँ"
 
 # ---- cargo प्रगति ----
 "cargo_progress_compiling" = "संकलित किया जा रहा है {}"
@@ -166,7 +169,7 @@
 "lsp_usage" = "उपयोग: i18n-rust-lsp [विकल्प]"
 "lsp_options" = "विकल्प:"
 "lsp_lang_pack_opt" = "  --language-pack, -l <पथ>   भाषा पैक निर्देशिका पथ (डिफ़ॉल्ट: lang-packs/zh)"
-"lsp_extensions_opt" = "  --extensions <सूची>        बोली एक्सटेंशन सूची (डिफ़ॉल्ट: .zh,.en,.de)"
+"lsp_extensions_opt" = "  --extensions <सूची>        बोली एक्सटेंशन सूची (डिफ़ॉल्ट: .zh,.de,.ja)"
 "lsp_help_opt" = "  --help, -h                  सहायता दिखाएँ"
 "lsp_err_lang_pack" = "त्रुटि: --language-pack को पथ चाहिए"
 "lsp_err_extensions" = "त्रुटि: --extensions को एक्सटेंशन सूची (अल्पविराम से अलग) चाहिए"

@@ -1,13 +1,13 @@
 //! i18n-rust LSP 代理服务器
 //!
-//! 作为 LSP 服务器接收编辑器的连接，将方言 Rust 文件（.zh/.en/.de 等）
+//! 作为 LSP 服务器接收编辑器的连接，将方言 Rust 文件（.zh/.de 等）
 //! 翻译为标准 Rust 后交给 rust-analyzer 处理，实现母语代码的
 //! 智能补全、错误提示等功能。
 //!
 //! 用法：
-//!   i18n-rust-lsp [--language-pack <路径>] [--extensions .zh,.en]
+//!   i18n-rust-lsp [--language-pack <路径>] [--extensions .zh,.de]
 //!
-//! 默认语言包路径：crates/engine/lang-packs/zh（主仓库单副本）；默认扩展名：全部 11 个内置语言包的扩展名
+//! 默认语言包路径：crates/engine/lang-packs/zh（主仓库单副本）；默认扩展名：全部内置语言包的扩展名
 
 /// rust-analyzer 子进程管理（启动、消息收发、关闭）
 mod analyzer;
@@ -33,7 +33,7 @@ struct CliArgs {
 /// 解析逗号分隔的扩展名列表，自动补充 `.` 前缀
 ///
 /// 空项（如 `"zh,,en"`）被忽略。
-/// 示例：`"zh, .en,de"` → `[".zh", ".en", ".de"]`
+/// 示例：`"zh, .de,ja"` → `[".zh", ".de", ".ja"]`
 fn parse_extensions(list: &str) -> Vec<String> {
     list.split(',')
         .map(str::trim)
@@ -82,6 +82,11 @@ fn parse_args() -> CliArgs {
                 print_help(&ui);
                 std::process::exit(0);
             }
+            // 输出版本号（纯版本号，供 rzc install 版本校验解析）
+            "--version" | "-V" => {
+                println!("{}", env!("CARGO_PKG_VERSION"));
+                std::process::exit(0);
+            }
             // VSCode LanguageClient 会传递 --stdio 参数，我们默认就使用 stdio，直接忽略
             "--stdio" => {
                 i += 1;
@@ -110,6 +115,7 @@ fn print_help(ui: &ui::Ui) {
     println!("{}", ui.t("lsp_options"));
     println!("{}", ui.t("lsp_lang_pack_opt"));
     println!("{}", ui.t("lsp_extensions_opt"));
+    println!("{}", ui.t("lsp_version_opt"));
     println!("{}", ui.t("lsp_help_opt"));
 }
 
@@ -224,8 +230,8 @@ mod tests {
     /// 带点与不带点的扩展名统一补点
     #[test]
     fn test_parse_extensions_unifies_dot_prefix() {
-        assert_eq!(parse_extensions(".zh,.en,.de"), vec![".zh", ".en", ".de"]);
-        assert_eq!(parse_extensions("zh, en,de"), vec![".zh", ".en", ".de"]);
+        assert_eq!(parse_extensions(".zh,.de,.ja"), vec![".zh", ".de", ".ja"]);
+        assert_eq!(parse_extensions("zh, de,ja"), vec![".zh", ".de", ".ja"]);
     }
 
     /// 空列表与单个扩展名
@@ -234,6 +240,6 @@ mod tests {
         assert!(parse_extensions("").is_empty());
         assert!(parse_extensions("  , ").is_empty());
         assert_eq!(parse_extensions("zh"), vec![".zh"]);
-        assert_eq!(parse_extensions("zh,,en"), vec![".zh", ".en"]);
+        assert_eq!(parse_extensions("zh,,de"), vec![".zh", ".de"]);
     }
 }

@@ -156,6 +156,9 @@
 "lsp_install_hint" = "   Перезапустите VS Code или выполните «i18n-rust: Перезапустить сервер», чтобы активировать (установлен в: {})"
 "lsp_install_no_cargo" = "Не удалось выполнить cargo: {}. Установите инструментарий Rust (https://rustup.rs) или загрузите i18n-rust-lsp вручную со страницы релиза."
 "lsp_install_failed" = "cargo install не удалось ({}). Проверьте сетевое подключение или загрузите i18n-rust-lsp вручную со страницы релиза."
+"lsp_install_version_mismatch" = "Установленная версия языкового сервера {} не совпадает с текущей версией rzc {}. Выполните `rzc install lsp --force`."
+"lsp_install_version_unknown" = "Не удалось определить версию установленного языкового сервера {}; выполните `rzc install lsp --force`."
+"lsp_version_opt" = "--version, -V    Показать версию"
 
 # ---- Ход работы cargo ----
 "cargo_progress_compiling" = "Компиляция {}"
@@ -169,7 +172,7 @@
 "lsp_usage" = "Использование: i18n-rust-lsp [параметры]"
 "lsp_options" = "Параметры:"
 "lsp_lang_pack_opt" = "  --language-pack, -l <путь>   Путь к каталогу языкового пакета (по умолчанию: lang-packs/zh)"
-"lsp_extensions_opt" = "  --extensions <список>        Список расширений диалекта (по умолчанию: .zh,.en,.de)"
+"lsp_extensions_opt" = "  --extensions <список>        Список расширений диалекта (по умолчанию: .zh,.de,.ja)"
 "lsp_help_opt" = "  --help, -h                   Показать справку"
 "lsp_err_lang_pack" = "Ошибка: --language-pack требует путь"
 "lsp_err_extensions" = "Ошибка: --extensions требует список расширений (через запятую)"

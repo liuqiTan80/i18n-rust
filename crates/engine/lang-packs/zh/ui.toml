@@ -94,6 +94,9 @@
 "lsp_install_hint" = "   重启 VS Code 或执行「i18n-rust: 重启服务器」即可生效（安装位置：{}）"
 "lsp_install_no_cargo" = "执行 cargo 失败：{}。请先安装 Rust 工具链（https://rustup.rs），或从发布页手动下载 i18n-rust-lsp。"
 "lsp_install_failed" = "cargo install 失败（{}）。请检查网络连接，或从发布页手动下载 i18n-rust-lsp。"
+"lsp_install_version_mismatch" = "已安装的语言服务器版本为 {}，与当前 rzc 版本 {} 不一致。请执行 `rzc install lsp --force` 重新安装以保持一致。"
+"lsp_install_version_unknown" = "无法确定已安装语言服务器 {} 的版本；如需确保与 rzc 一致，请执行 `rzc install lsp --force`。"
+"lsp_version_opt" = "--version, -V    输出版本号"
 
 # ---- cargo 进度 ----
 "cargo_progress_compiling" = "正在编译 {}"
@@ -107,7 +110,7 @@
 "lsp_usage" = "用法: i18n-rust-lsp [选项]"
 "lsp_options" = "选项:"
 "lsp_lang_pack_opt" = "  --language-pack, -l <路径>  语言包目录路径（默认: lang-packs/zh）"
-"lsp_extensions_opt" = "  --extensions <列表>       方言扩展名列表（默认: .zh,.en,.de）"
+"lsp_extensions_opt" = "  --extensions <列表>       方言扩展名列表（默认: .zh,.de,.ja）"
 "lsp_help_opt" = "  --help, -h                  显示帮助信息"
 "lsp_err_lang_pack" = "错误: --language-pack 需要指定路径"
 "lsp_err_extensions" = "错误: --extensions 需要指定扩展名列表（逗号分隔）"
