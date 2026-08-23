@@ -135,6 +135,19 @@ pub fn builtin_file(lang: &str, file: &str) -> Option<&'static str> {
         .map(|(_, _, content)| *content)
 }
 
+/// 列出某语言的全部内嵌语言包文件（相对路径 → 内容）
+///
+/// 供 CLI / LSP 在无语言包目录时物化完整内置包：与磁盘语言包
+/// 完全同源（关键字/宏/别名全量），避免硬编码旧表随语言包演进
+/// 而残缺（如缺宏表、缺新关键字）导致转译不完整。
+pub fn builtin_lang_files(lang: &str) -> Vec<(&'static str, &'static str)> {
+    BUILTIN_FILES
+        .iter()
+        .filter(|(l, _, _)| *l == lang)
+        .map(|(_, f, c)| (*f, *c))
+        .collect()
+}
+
 /// 按语言代码取消息表（未知语言回退中文表）；路由由 build.rs 生成
 fn table_for(code: &str) -> &'static HashMap<String, String> {
     ui_table_for(code)

@@ -1282,6 +1282,15 @@ fn load_language_pack(lang_pack_path: &Path) -> anyhow::Result<LangPackMaps> {
     }
 
     log::warn!("{}", crate::ui::global().t("lsp_warn_builtin_fallback"));
+    // 语言包目录缺失时的回退：物化 engine 编译期内嵌的完整中文语言包后
+    // 走统一加载器（与 CLI 完全同源，含关键字/宏/别名全量）。
+    // 不可再退回 create_builtin_keyword_mapping()：那是早期硬编码旧表
+    // （54 个旧词、无宏表、无 `让` 等新关键字），会导致转译残缺——
+    // 如 `打印行!` 不翻译报 cannot find macro、`让` 不翻译报语法错误。
+    if let Some(maps) = load_builtin_zh_fallback() {
+        return Ok(maps);
+    }
+    // 极端兜底：物化失败时退回硬编码旧表（可能残缺，但保证可启动）
     Ok((
         mapping_source::create_builtin_keyword_mapping(),
         HashMap::new(),
@@ -1289,10 +1298,53 @@ fn load_language_pack(lang_pack_path: &Path) -> anyhow::Result<LangPackMaps> {
     ))
 }
 
+/// 从 engine 编译期内嵌的中文语言包物化出完整映射
+///
+/// 将内嵌文件（keywords/stdlib/module_paths/crates/*.toml）写入临时目录，
+/// 复用 [`MappingManager::load_from_dir`] 统一加载，保证与磁盘语言包完全同源。
+fn load_builtin_zh_fallback() -> Option<LangPackMaps> {
+    let dir = tempfile::tempdir().ok()?;
+    let zh_dir = dir.path().join("zh");
+    std::fs::create_dir_all(&zh_dir).ok()?;
+    for (file, content) in i18n_rust_engine::语言::builtin_lang_files("zh") {
+        // crates/*.toml 等含子目录的文件：逐级创建父目录
+        if let Some(parent) = std::path::Path::new(file).parent()
+            && !parent.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(zh_dir.join(parent)).ok()?;
+        }
+        std::fs::write(zh_dir.join(file), content).ok()?;
+    }
+    let manager = i18n_rust_engine::mapping_manager::MappingManager::load_from_dir(&zh_dir).ok()?;
+    Some((
+        manager.keyword_map.clone(),
+        manager.get_macro_map(),
+        manager.alias_map.clone(),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    /// 语言包目录缺失时的回退必须加载完整中文表（含宏与 `让` 等新关键字），
+    /// 而非硬编码旧表——否则 `打印行!` 不翻译报 cannot find macro、
+    /// `让` 不翻译报语法错误（真实事故：扩展未找到语言包目录时触发）
+    #[test]
+    fn test_load_language_pack_fallback_complete() {
+        let (keywords, macros, aliases) =
+            load_language_pack(Path::new("/不存在的目录")).expect("fallback 应成功");
+        assert_eq!(keywords.get("让").map(String::as_str), Some("let"));
+        assert_eq!(macros.get("打印行").map(String::as_str), Some("println"));
+        assert!(
+            keywords.len() >= 100,
+            "完整关键字表应 ≥100，实际 {}",
+            keywords.len()
+        );
+        assert!(macros.len() >= 30, "宏表应 ≥30，实际 {}", macros.len());
+        assert!(!aliases.is_empty(), "别名表不应为空");
+    }
 
     /// 默认扩展名列表覆盖全部 11 个内置语言包，未知扩展名不匹配
     #[test]
