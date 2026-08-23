@@ -34,7 +34,7 @@ import {
 } from './ai/config-manager';
 import { AIError } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
-import { 全角符号映射, 扫描词法状态, 词法状态, 计算插入字符位置们, 应转换全角 } from './fullwidth-convert';
+import { 全角符号映射, 扫描词法状态, 计算插入字符位置们, 应转换全角 } from './fullwidth-convert';
 import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
 import { quoteCommandArg, quoteShellArg } from './shell';
 import { findInPath, 解析可执行文件 } from './executable';
