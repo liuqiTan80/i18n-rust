@@ -45,6 +45,9 @@ pub struct ProxyServer {
     supported_extensions: Vec<String>,
     /// 上次重载时的模块集合版本号（初值 -1 保证首个文档打开时重载一次）
     last_module_version: std::sync::atomic::AtomicI64,
+    /// rust-analyzer 声明的语义着色能力（initialize 响应透传给客户端，
+    /// 保证 legend 与 token 类型索引一致，否则变量等语义着色错乱）
+    ra_semantic_tokens_provider: std::sync::Mutex<Option<Value>>,
 }
 
 /// 记录一个转发给 rust-analyzer 的请求的原始信息
@@ -108,6 +111,7 @@ impl ProxyServer {
                 extensions.to_vec()
             },
             last_module_version: std::sync::atomic::AtomicI64::new(-1),
+            ra_semantic_tokens_provider: std::sync::Mutex::new(None),
         };
 
         Ok((server, io_threads))
@@ -254,6 +258,15 @@ impl ProxyServer {
             if let Some(response) = self.analyzer.try_recv()
                 && response.get("id").and_then(|v| v.as_i64()) == Some(0)
             {
+                // 保存 rust-analyzer 的语义着色能力声明：initialize 响应
+                // 透传给客户端，保证 legend 与 token 类型索引一致
+                // （否则变量/参数等语义 token 的类型索引错位，着色乱或不显示）
+                let provider = response["result"]["capabilities"]["semanticTokensProvider"].clone();
+                if !provider.is_null()
+                    && let Ok(mut slot) = self.ra_semantic_tokens_provider.lock()
+                {
+                    *slot = Some(provider);
+                }
                 log::info!("{}", crate::ui::global().t("lsp_log_ra_init_done"));
                 初始化完成 = true;
                 break;
@@ -273,7 +286,7 @@ impl ProxyServer {
 
     /// 回复客户端 initialize 响应
     fn reply_initialize(&self, id: lsp_server::RequestId) -> anyhow::Result<()> {
-        let capabilities = json!({
+        let mut capabilities = json!({
             "capabilities": {
                 "textDocumentSync": {
                     "openClose": true,
@@ -300,6 +313,13 @@ impl ProxyServer {
                 "version": env!("CARGO_PKG_VERSION")
             }
         });
+        // 透传 rust-analyzer 的语义着色能力（含 legend），
+        // 使客户端请求 semanticTokens 并正确渲染变量/参数等颜色
+        if let Ok(slot) = self.ra_semantic_tokens_provider.lock()
+            && let Some(provider) = slot.as_ref()
+        {
+            capabilities["capabilities"]["semanticTokensProvider"] = provider.clone();
+        }
 
         let response = Response {
             id,
@@ -1173,6 +1193,9 @@ fn handle_analyzer_message(
                 "textDocument/rename" => mapper.map_rename_response(&result),
                 "textDocument/documentHighlight" => {
                     mapper.map_document_highlight_response(&result, &info.original_uri)
+                }
+                "textDocument/semanticTokens/full" | "textDocument/semanticTokens/range" => {
+                    mapper.map_semantic_tokens_response(&result, &info.original_uri)
                 }
                 _ => result,
             };

@@ -344,6 +344,76 @@ impl ResponseMapper {
         }
     }
 
+    /// 映射语义着色响应（semanticTokens/full、semanticTokens/range）
+    ///
+    /// rust-analyzer 返回的 token 坐标基于虚拟 .rs（转译产物），
+    /// 必须还原到方言文件坐标，否则变量/参数等颜色落在错误位置
+    /// 或完全不显示。data 为 LSP delta 编码（每 5 项一组）：
+    /// `[deltaLine, deltaStart, length, tokenType, tokenModifiers]`——
+    /// 先还原为绝对坐标，逐 token 映射起点与终点列，再重新 delta 编码。
+    /// resultId 原样透传（客户端依赖它做增量请求）。
+    pub fn map_semantic_tokens_response(&self, response: &Value, original_uri: &str) -> Value {
+        let mut result = response.clone();
+        let Some(data) = result.get("data").and_then(|v| v.as_array()) else {
+            return result;
+        };
+
+        // 1. delta 编码 → 绝对坐标（跨行时列归零重置，同行时列累加）
+        let mut tokens: Vec<(u32, u32, u32, u32, u32)> = Vec::new();
+        let mut line = 0u32;
+        let mut col = 0u32;
+        for chunk in data.chunks(5) {
+            if chunk.len() < 5 {
+                break;
+            }
+            let delta_line = chunk[0].as_u64().unwrap_or(0) as u32;
+            let delta_start = chunk[1].as_u64().unwrap_or(0) as u32;
+            let length = chunk[2].as_u64().unwrap_or(0) as u32;
+            let token_type = chunk[3].as_u64().unwrap_or(0) as u32;
+            let modifiers = chunk[4].as_u64().unwrap_or(0) as u32;
+            line = line.saturating_add(delta_line);
+            col = if delta_line == 0 {
+                col.saturating_add(delta_start)
+            } else {
+                delta_start
+            };
+            tokens.push((line, col, length, token_type, modifiers));
+        }
+
+        // 2. 起点/终点列分别还原到方言坐标，长度取映射后的差值
+        //（关键字替换改变了列宽，如 `让`(1) → `let`(3)，长度必须重算）
+        let mut mapped: Vec<(u32, u32, u32, u32, u32)> = Vec::new();
+        for (t_line, t_col, t_len, t_type, t_mod) in tokens {
+            let (zh_line, zh_start) = self.restore_position(original_uri, t_line, t_col);
+            let (_, zh_end) =
+                self.restore_position(original_uri, t_line, t_col.saturating_add(t_len));
+            let zh_len = zh_end.saturating_sub(zh_start).max(1);
+            mapped.push((zh_line, zh_start, zh_len, t_type, t_mod));
+        }
+
+        // 3. 重新 delta 编码
+        let mut new_data = Vec::with_capacity(mapped.len() * 5);
+        let mut prev_line = 0u32;
+        let mut prev_col = 0u32;
+        for (t_line, t_col, t_len, t_type, t_mod) in mapped {
+            let delta_line = t_line.saturating_sub(prev_line);
+            let delta_start = if delta_line == 0 {
+                t_col.saturating_sub(prev_col)
+            } else {
+                t_col
+            };
+            new_data.push(json!(delta_line));
+            new_data.push(json!(delta_start));
+            new_data.push(json!(t_len));
+            new_data.push(json!(t_type));
+            new_data.push(json!(t_mod));
+            prev_line = t_line;
+            prev_col = t_col;
+        }
+        result["data"] = Value::Array(new_data);
+        result
+    }
+
     /// 映射定义跳转响应（Location 或 Location[]）
     pub fn map_definition_response(&self, response: &Value) -> Value {
         match response {
@@ -1541,6 +1611,37 @@ mod tests {
         assert_eq!(
             mapper.map_document_highlight_response(&Value::Null, ""),
             Value::Array(Vec::new())
+        );
+    }
+
+    /// 语义着色响应的 delta 编码必须还原为母语坐标，
+    /// 且长度按映射后的列差重算（关键字替换改变列宽）
+    #[test]
+    fn test_map_semantic_tokens_response() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let (_entry, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 1;\n让 y = x;", 1)
+            .unwrap();
+
+        // 英文坐标（"let" 占 3 列，变量 x/y 在列 4/8）；
+        // delta 编码：[deltaLine, deltaStart, length, tokenType, tokenModifiers]
+        let response = json!({
+            "resultId": "abc",
+            "data": [
+                0, 0, 3, 14, 0,   // let   行0 列0
+                0, 4, 1, 6, 0,    // x     行0 列4
+                1, 4, 1, 6, 0,    // y     行1 列4（跨行，列重置为绝对）
+                0, 4, 1, 6, 0     // x     行1 列8
+            ]
+        });
+        let mapped = mapper.map_semantic_tokens_response(&response, "file:///test/main.zh");
+        // resultId 透传；重新 delta 编码后的中文坐标：
+        // 让(0,0,len1)、x(0,2)、y(1,2)、x(1,6)
+        assert_eq!(mapped["resultId"], "abc");
+        assert_eq!(
+            mapped["data"],
+            json!([0, 0, 1, 14, 0, 0, 2, 1, 6, 0, 1, 2, 1, 6, 0, 0, 4, 1, 6, 0])
         );
     }
 
