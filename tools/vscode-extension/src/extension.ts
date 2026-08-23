@@ -47,6 +47,8 @@ const 方言扩展名正则 = /\.(zh|en|ja|de|es|fr|pt|ru|ko|hi|ar)$/;
 let client: LanguageClient | undefined;
 let statusBarItem: vscode.StatusBarItem;
 // LSP 自动重启计数（防止崩溃循环导致无限重启）
+// 上限放宽：rust-analyzer 工作区重载存在已知竞态崩溃（sysroot SendError panic），
+// 崩后自动恢复优于“不再重启”的体验；20 次仍可防止死循环刷屏
 let 自动重启次数 = 0;
 // 日志输出通道（替代 console.log，便于用户排查问题）
 let 日志通道: vscode.OutputChannel;
@@ -799,7 +801,7 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
                 action: (count ?? 0) >= 3 ? ErrorAction.Shutdown : ErrorAction.Continue
             }),
             closed: () => {
-                if (自动重启次数 < 5) {
+                if (自动重启次数 < 20) {
                     自动重启次数++;
                     vscode.window.showWarningMessage(
                         `i18n-rust 语言服务器异常退出，正在自动重启（第 ${自动重启次数} 次）...`

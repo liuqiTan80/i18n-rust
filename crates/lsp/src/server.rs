@@ -53,6 +53,9 @@ pub struct ProxyServer {
     builtin_diags: Arc<std::sync::Mutex<HashMap<String, Vec<Value>>>>,
     /// cargo check 是否在运行（didSave 频繁时跳过进行中的 check，避免并发卡锁）
     check_running: Arc<std::sync::atomic::AtomicBool>,
+    /// 虚拟项目工作区是否已加入 rust-analyzer（首次以纯 added 添加，
+    /// 避免与 initialized 的初始加载并发触发 rust-analyzer 崩溃）
+    workspace_added: std::sync::atomic::AtomicBool,
 }
 
 /// 记录一个转发给 rust-analyzer 的请求的原始信息
@@ -119,6 +122,7 @@ impl ProxyServer {
             ra_semantic_tokens_provider: std::sync::Mutex::new(None),
             builtin_diags: Arc::new(std::sync::Mutex::new(HashMap::new())),
             check_running: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            workspace_added: std::sync::atomic::AtomicBool::new(false),
         };
 
         Ok((server, io_threads))
@@ -494,29 +498,19 @@ impl ProxyServer {
             "textDocument/didClose" => self.handle_did_close(&notif.params),
             "textDocument/didSave" => self.handle_did_save(&notif.params),
             "initialized" => {
-                // 转发给 rust-analyzer，并将虚拟项目目录加入其工作区，
-                // 使其加载自动生成的 Cargo.toml，获得跨文件语义分析能力
+                // 转发 initialized 给 rust-analyzer。
+                // 注意：虚拟项目工作区不在此时添加——若此时加入，rust-analyzer
+                // 立即异步加载项目（sysroot 线程），而紧接着的首次 didOpen 会
+                // 触发 removed+added 重载，两次加载并发导致 rust-analyzer 内部
+                // channel 竞态 panic（reload.rs SendError unwrap，进程崩溃）。
+                // 改为首次 didOpen 时以纯 added 添加（见 reload_virtual_project），
+                // 此时虚拟文件已完整写入，一次加载即可。
                 let msg = json!({
                     "jsonrpc": "2.0",
                     "method": "initialized",
                     "params": {}
                 });
-                self.analyzer.send(&msg)?;
-
-                let workspace_notification = json!({
-                    "jsonrpc": "2.0",
-                    "method": "workspace/didChangeWorkspaceFolders",
-                    "params": {
-                        "event": {
-                            "added": [{
-                                "uri": self.cache.virtual_project_uri(),
-                                "name": "i18n-virtual"
-                            }],
-                            "removed": []
-                        }
-                    }
-                });
-                self.analyzer.send(&workspace_notification)
+                self.analyzer.send(&msg)
             }
             _ => {
                 let msg = json!({
@@ -886,20 +880,40 @@ impl ProxyServer {
     ///
     /// 虚拟项目的 main.rs 聚合了新打开的 .zh 文件的模块，
     /// 但文件系统监听可能失败（notify error），
-    /// 因此打开文档后显式触发 removed+added 重载，
-    /// 让 rust-analyzer 重新扫描并识别新模块。
+    /// 因此打开文档后显式触发重载，让 rust-analyzer 重新扫描并识别新模块。
+    ///
+    /// 首次以纯 added 添加工作区（此时虚拟文件已完整写入，一次加载即可）；
+    /// 后续模块变化用 removed+added 强制重扫。
+    /// 绝不能在 initialized 时就添加工作区：那会与随后的首次重载并发，
+    /// 触发 rust-analyzer 的 sysroot 加载竞态崩溃（loaded_sysroot SendError panic）。
     fn reload_virtual_project(&self) -> anyhow::Result<()> {
         let uri = self.cache.virtual_project_uri();
-        let notification = json!({
-            "jsonrpc": "2.0",
-            "method": "workspace/didChangeWorkspaceFolders",
-            "params": {
-                "event": {
-                    "removed": [{ "uri": uri, "name": "i18n-virtual" }],
-                    "added": [{ "uri": uri, "name": "i18n-virtual" }]
+        let first_add = !self
+            .workspace_added
+            .swap(true, std::sync::atomic::Ordering::SeqCst);
+        let notification = if first_add {
+            json!({
+                "jsonrpc": "2.0",
+                "method": "workspace/didChangeWorkspaceFolders",
+                "params": {
+                    "event": {
+                        "added": [{ "uri": uri, "name": "i18n-virtual" }],
+                        "removed": []
+                    }
                 }
-            }
-        });
+            })
+        } else {
+            json!({
+                "jsonrpc": "2.0",
+                "method": "workspace/didChangeWorkspaceFolders",
+                "params": {
+                    "event": {
+                        "removed": [{ "uri": uri, "name": "i18n-virtual" }],
+                        "added": [{ "uri": uri, "name": "i18n-virtual" }]
+                    }
+                }
+            })
+        };
         self.analyzer.send(&notification)
     }
 
