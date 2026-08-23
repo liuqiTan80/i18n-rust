@@ -341,7 +341,7 @@ i18n-rust 扩展有个贴心功能：在代码区输入全角符号时，**自�
 2. 搜索 `i18n-rust`；
 3. 找到 **i18n-rust.rzcPath**，填入 rzc 的完整路径，例如：
    - Windows：`C:\Users\你的用户名\.cargo\bin\rzc.exe`
-   - macOS/Linux：`/Users/你的用户名/.cargo/bin/rzc`
+   - macOS/Linux：`/home/你的用户名/.cargo/bin/rzc`
 
 （同一设置页还有 `i18n-rust.serverPath`，用于指定语言服务器程序的位置，一般不用改。）
 
