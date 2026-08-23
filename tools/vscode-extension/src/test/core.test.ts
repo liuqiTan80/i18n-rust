@@ -35,13 +35,15 @@ test('Windows 引用：反引号与 % 转义', () => {
     assert.equal(quoteWindowsArg('a`b%c'), '"a``b^%c"');
 });
 
-test('Windows 命令名：PowerShell 调用运算符前缀（cmd 亦兼容）', () => {
-    assert.equal(
-        quoteCommandArg('C:\\Users\\t67\\.cargo\\bin\\rzc.EXE'),
-        '& "C:\\Users\\t67\\.cargo\\bin\\rzc.EXE"'
-    );
+test('命令名引用按平台分支（Windows 加 PowerShell 调用运算符前缀，cmd 亦兼容）', () => {
+    const 路径 = 'C:\\Users\\t67\\.cargo\\bin\\rzc.EXE';
+    if (process.platform === 'win32') {
+        assert.equal(quoteCommandArg(路径), '& "C:\\Users\\t67\\.cargo\\bin\\rzc.EXE"');
+    } else {
+        // POSIX 分支与 quotePosixArg 一致（单引号），已由上方 POSIX 引用测试覆盖
+        assert.equal(quoteCommandArg(路径), `'C:\\Users\\t67\\.cargo\\bin\\rzc.EXE'`);
+    }
 });
-// 注：POSIX 分支行为与 quotePosixArg 一致（单引号），已由上方 POSIX 引用测试覆盖
 
 // ============================================================
 // 全角转换决策（应转换全角）
