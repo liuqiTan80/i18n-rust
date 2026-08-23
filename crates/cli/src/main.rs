@@ -662,6 +662,15 @@ fn translate_cargo_progress(line: &str, ui: &ui::Ui) -> String {
         ("error: ", "cargo_progress_error"),
     ] {
         if let Some(rest) = trimmed.strip_prefix(prefix) {
+            // error 摘要（如 "could not compile `__` due to N previous error"）
+            // 二次翻译固定短语，其余保留原文
+            if key == "cargo_progress_error" {
+                let rest = rest
+                    .strip_prefix("could not compile ")
+                    .map(|r| ui.f("cargo_progress_could_not_compile", &[r.trim_start()]))
+                    .unwrap_or_else(|| rest.to_string());
+                return ui.f(key, &[&rest]);
+            }
             return ui.f(key, &[rest.trim_start()]);
         }
     }

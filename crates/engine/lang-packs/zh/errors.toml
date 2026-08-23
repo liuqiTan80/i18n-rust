@@ -2269,3 +2269,83 @@
 "消息模板" = "Unicode 字符 '{q0}' 形似 '{q1}'，但它并不是它"
 "教学提示" = "代码中的全角符号与半角符号形状相似但不相同，编译器无法识别。请在代码区使用半角符号（如逗号、括号、引号）。"
 
+# ---- 语法错误（expected 家族兜底；更长的精确键优先匹配） ----
+["消息翻译"."expected "]
+"消息模板" = "期望 "
+
+# ---- help 建议（consider/try 家族兜底；精确键优先） ----
+["消息翻译"."consider "]
+"消息模板" = "考虑 "
+["消息翻译"."try "]
+"消息模板" = "尝试 "
+
+# ---- 所有权/借用 span label（E0382/E0502/E0507 等，无码或 label 兜底） ----
+["消息翻译"."value moved here"]
+"消息模板" = "值在此处被移动"
+["消息翻译"."value borrowed here after move"]
+"消息模板" = "值在移动后被借用到此处"
+["消息翻译"."value moved into closure here"]
+"消息模板" = "值在此处被移入闭包"
+["消息翻译"."value captured here"]
+"消息模板" = "值在此处被捕获"
+["消息翻译"."move occurs because "]
+"消息模板" = "移动发生的原因："
+["消息翻译"."borrow of moved value: `"]
+"消息模板" = "借用已移动的值：`{q0}`"
+["消息翻译"."use of moved value: `"]
+"消息模板" = "使用了已移动的值：`{q0}`"
+["消息翻译"."cannot borrow `"]
+"消息模板" = "无法借用 `"
+["消息翻译"."cannot move out of `"]
+"消息模板" = "无法移出 `"
+["消息翻译"."cannot assign to `"]
+"消息模板" = "无法给 `"
+["消息翻译"."cannot mutate immutable variable `"]
+"消息模板" = "无法修改不可变变量 `{q0}`"
+"教学提示" = "变量默认不可变，如需修改请用 `让 可变` 声明。"
+
+# ---- 类型错误兜底（无码或码表未覆盖的消息原文） ----
+["消息翻译"."mismatched types"]
+"消息模板" = "类型不匹配"
+"教学提示" = "两边的类型不一致，检查变量类型或使用 `作为` 转换。"
+["消息翻译"."type annotations needed"]
+"消息模板" = "需要类型标注"
+["消息翻译"."cannot infer type for `"]
+"消息模板" = "无法为 `{q0}` 推断类型"
+["消息翻译"."no method named `"]
+"消息模板" = "找不到名为 `{q0}` 的方法"
+["消息翻译"."no function named `"]
+"消息模板" = "找不到名为 `{q0}` 的函数"
+["消息翻译"."no variant named `"]
+"消息模板" = "找不到名为 `{q0}` 的枚举变体"
+["消息翻译"."no field `"]
+"消息模板" = "找不到字段 `{q0}`"
+["消息翻译"."no associated item named `"]
+"消息模板" = "找不到名为 `{q0}` 的关联项"
+["消息翻译"."the trait bound `"]
+"消息模板" = "特征约束 `"
+["消息翻译"."the size for values of type `"]
+"消息模板" = "类型 `{q0}` 的值大小在编译期无法确定"
+["消息翻译"."does not live long enough"]
+"消息模板" = "生命周期不足"
+"教学提示" = "引用的生命周期无法满足要求，检查引用是否在作用域内有效。"
+["消息翻译"."cannot return value referencing local variable "]
+"消息模板" = "不能返回引用局部变量的值"
+["消息翻译"."cannot return reference to local variable `"]
+"消息模板" = "不能返回对局部变量 `{q0}` 的引用"
+["消息翻译"."this arithmetic operation will overflow"]
+"消息模板" = "此算术运算将溢出"
+"教学提示" = "运算结果超出类型取值范围，可换用更大的类型（如 `长整数`）。"
+
+# ---- note 消息 ----
+["消息翻译"."the function `main` is defined here"]
+"消息模板" = "`主函数` 在此处定义"
+["消息翻译"."required by "]
+"消息模板" = "由 "
+["消息翻译"."this error originates in the macro `"]
+"消息模板" = "此错误来源于宏 `{q0}`"
+["消息翻译"."in this macro invocation"]
+"消息模板" = "在此宏调用中"
+["消息翻译"."the `main` function is the entry point of the program"]
+"消息模板" = "`主函数` 是程序的入口点"
+

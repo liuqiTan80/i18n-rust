@@ -104,6 +104,7 @@
 "cargo_progress_finished" = "编译完成 {}"
 "cargo_progress_running" = "正在运行 {}"
 "cargo_progress_error" = "错误：{}"
+"cargo_progress_could_not_compile" = "无法编译 {}"
 
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP 代理服务器"
