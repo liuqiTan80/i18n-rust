@@ -760,10 +760,19 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
         return;
     }
     日志(`LSP 二进制: ${服务器路径}`);
+    // 记录 LSP 版本与语言包路径（排查二进制新旧/语言包加载问题）
+    cp.exec(`"${服务器路径}" --version`, { timeout: 5000 }, (err, stdout) => {
+        if (!err && stdout.trim()) {
+            日志(`LSP 版本: ${stdout.trim()}`);
+        } else {
+            日志(`LSP 版本查询失败: ${err?.message ?? '未知'}`);
+        }
+    });
+    const 语言包路径 = 查找语言包路径(config);
+    日志(`语言包路径: ${语言包路径 ?? '未找到（使用内置）'}`);
 
     // 服务器选项：显式传递语言包路径（LSP 默认相对路径依赖启动目录，通常找不到）
     const args: string[] = [];
-    const 语言包路径 = 查找语言包路径(config);
     if (语言包路径) {
         args.push('--language-pack', 语言包路径);
         日志(`语言包目录: ${语言包路径}`);
