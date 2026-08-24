@@ -10,6 +10,7 @@ pub mod logger;
 pub mod mapping_manager;
 pub mod mapping_source;
 pub mod module_path;
+pub mod toolchain;
 pub mod unicode_confusion;
 #[path = "语言.rs"]
 pub mod 语言;

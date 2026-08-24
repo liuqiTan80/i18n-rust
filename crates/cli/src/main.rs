@@ -72,6 +72,8 @@ enum CliCommand {
         #[command(subcommand)]
         subcommand: Option<InstallCommand>,
     },
+    /// 诊断工具链环境：内置工具链 / PATH / 版本对比
+    Doctor,
 }
 
 #[derive(Subcommand)]
@@ -79,6 +81,18 @@ enum InstallCommand {
     /// 安装语言服务器 i18n-rust-lsp（VS Code 扩展的补全/诊断后端）
     Lsp {
         /// 已存在时强制覆盖安装
+        #[arg(short = 'f', long = "force")]
+        force: bool,
+    },
+    /// 一键安装内置工具链（standalone rustc/cargo/rust-analyzer，脱离 rustup）
+    Toolchain {
+        /// 工具链版本（默认与 rzc 锁定版本一致，如 1.98.0）
+        #[arg(long, default_value = i18n_rust_engine::toolchain::LOCKED_TOOLCHAIN_VERSION)]
+        version: String,
+        /// rust-analyzer 官方 Release tag（默认锁定版本）
+        #[arg(long, default_value = crate::install::RA_RELEASE_TAG)]
+        ra_tag: String,
+        /// 已存在时强制重新安装
         #[arg(short = 'f', long = "force")]
         force: bool,
     },
@@ -175,16 +189,30 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack.clone(), Some(&file))?;
             let project_root = find_project_root(&file)?;
-            // 入口文件写入 src/main.rs 作为 cargo run 的编译目标
+            // 入口文件写入 src/main.rs 作为编译目标
             let source_path = project_root.join("src/main.rs");
             fs::write(&source_path, transpile_to_english(&source, &manager))?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
             transpile_project_files(&project_root, &file, &manager)?;
 
+            // 单文件项目直调 rustc：绕开 cargo 的索引/项目结构（教学单文件
+            // 场景编译更快、无网络索引问题）；多文件/有依赖项目回退 cargo
+            if can_use_direct_rustc(&project_root, &file) {
+                return run_direct_rustc(
+                    &ui,
+                    &project_root,
+                    &source_path,
+                    &lang_pack,
+                    &manager,
+                    &source,
+                    &file,
+                );
+            }
+
             // --message-format=json：编译诊断（warning/error）走 JSON 行翻译，
             // 程序自身 stdout/stderr 原样透传（cargo 不包装子进程输出），
             // 避免英文警告与程序输出混淆，也无需二次编译。
-            let mut child = Command::new("cargo")
+            let mut child = Command::new(resolve_cargo())
                 .args(["run", "--message-format=json"])
                 .current_dir(&project_root)
                 .stdin(Stdio::inherit())
@@ -281,7 +309,20 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
             transpile_project_files(&project_root, &file, &manager)?;
 
-            let output = Command::new("cargo")
+            // 单文件项目直调 rustc（绕开 cargo）；多文件/有依赖项目回退 cargo
+            if can_use_direct_rustc(&project_root, &file) {
+                return check_direct_rustc(
+                    &ui,
+                    &project_root,
+                    &source_path,
+                    &lang_pack,
+                    &manager,
+                    &source,
+                    &file,
+                );
+            }
+
+            let output = Command::new(resolve_cargo())
                 .arg("check")
                 .arg("--message-format=json")
                 .current_dir(&project_root)
@@ -340,9 +381,15 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // 省略子命令时默认安装全部组件（当前仅语言服务器）
             match subcommand.unwrap_or(InstallCommand::Lsp { force: false }) {
                 InstallCommand::Lsp { force } => install::install_lsp(&ui, force)?,
+                InstallCommand::Toolchain {
+                    version,
+                    ra_tag,
+                    force,
+                } => install::install_toolchain(&ui, &version, &ra_tag, force)?,
             }
             Ok(std::process::ExitCode::SUCCESS)
         }
+        CliCommand::Doctor => install::doctor(&ui).map(|()| std::process::ExitCode::SUCCESS),
         CliCommand::Lang { subcommand } => {
             handle_lang_command(subcommand).map(|()| std::process::ExitCode::SUCCESS)
         }
@@ -475,7 +522,7 @@ fn handle_add_command(crates: &[String]) -> anyhow::Result<std::process::ExitCod
     let cwd = std::env::current_dir()?;
     let project_root = find_project_root_upward(&cwd)
         .ok_or_else(|| anyhow::anyhow!("{}", ui.t("add_no_project")))?;
-    let status = Command::new("cargo")
+    let status = Command::new(resolve_cargo())
         .arg("add")
         .args(crates)
         .current_dir(&project_root)
@@ -571,7 +618,7 @@ fn install_crate_to_current_project(crate_name: &str) {
         println!("{}", ui.t("mapping_auto_install_no_project"));
         return;
     };
-    match Command::new("cargo")
+    match Command::new(resolve_cargo())
         .arg("add")
         .arg(crate_name)
         .current_dir(&root)
@@ -645,6 +692,158 @@ pub(crate) fn lang_pack_root_of(base: &Path) -> PathBuf {
 fn transpile_to_english(source: &str, manager: &MappingManager) -> String {
     let code = i18n_rust_engine::transpile_pipeline(source, manager).output;
     annotate_non_ascii_mods(&code)
+}
+
+/// 解析 cargo 可执行文件：内置工具链（~/.rz/toolchain）优先，PATH 回退；
+/// 找不到时返回 "cargo" 由系统报错（保持与旧行为一致的报错信息）
+pub fn resolve_cargo() -> PathBuf {
+    i18n_rust_engine::toolchain::find_toolchain_bin("cargo")
+        .unwrap_or_else(|| PathBuf::from("cargo"))
+}
+
+/// 解析 rustc 可执行文件：内置工具链优先，PATH 回退
+pub fn resolve_rustc() -> PathBuf {
+    i18n_rust_engine::toolchain::find_toolchain_bin("rustc")
+        .unwrap_or_else(|| PathBuf::from("rustc"))
+}
+
+/// 判断是否可单文件直调 rustc：src/ 下仅一个方言文件且 Cargo.toml 无依赖
+///
+/// 教学单文件项目（仅 main.zh）直调 rustc 绕开 cargo：无索引网络开销、
+/// 无需 Cargo.lock 预生成，编译诊断格式与 cargo 完全一致；
+/// 多文件（mod 引用）或有依赖的项目回退 cargo 流程。
+fn can_use_direct_rustc(project_root: &Path, file: &Path) -> bool {
+    let dialects = ["zh", "ja", "de", "es", "fr", "pt", "ru", "ko", "hi", "ar"];
+    // src/ 下方言文件计数（入口 main.zh 之外还有方言文件 → 多文件项目）
+    let src = project_root.join("src");
+    let mut dialect_count = 0usize;
+    if let Ok(entries) = fs::read_dir(&src) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if dialects.iter().any(|d| name.ends_with(&format!(".{d}"))) {
+                dialect_count += 1;
+            }
+        }
+    }
+    if dialect_count != 1 {
+        return false;
+    }
+    // 入口文件必须是 src/main.zh（聚合 main.rs 已写入）
+    if file.file_name().and_then(|s| s.to_str()) != Some("main.zh") {
+        return false;
+    }
+    // Cargo.toml 的 [dependencies] 非空（有第三方依赖）时回退 cargo
+    let cargo_toml = project_root.join("Cargo.toml");
+    if let Ok(content) = fs::read_to_string(&cargo_toml)
+        && let Some(after) = content.split("[dependencies]").nth(1)
+    {
+        let has_dep = after
+            .lines()
+            .any(|l| l.trim().starts_with('"') || l.trim().starts_with(' '));
+        if has_dep {
+            return false;
+        }
+    }
+    true
+}
+
+/// 单文件直调 rustc 运行：编译（--error-format=json）→ 翻译诊断 → 运行 exe
+fn run_direct_rustc(
+    ui: &ui::Ui,
+    project_root: &Path,
+    source_path: &Path,
+    lang_pack: &Option<PathBuf>,
+    manager: &MappingManager,
+    source: &str,
+    file: &Path,
+) -> anyhow::Result<std::process::ExitCode> {
+    let exe = std::env::temp_dir().join(format!("rzc-run-{}.exe", std::process::id()));
+    let output = Command::new(resolve_rustc())
+        .args(["--edition", "2024", "--error-format=json"])
+        .arg(source_path)
+        .arg("-o")
+        .arg(&exe)
+        .output()
+        .map_err(|e| anyhow::anyhow!("rustc 启动失败: {e}"))?;
+    let stderr_text = String::from_utf8_lossy(&output.stderr).to_string();
+    let rustc_output = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        stderr_text
+    );
+    let ok = output.status.success();
+    if !rustc_output.trim().is_empty() {
+        let _ = translate_cargo_diagnostics(
+            &rustc_output,
+            &stderr_text,
+            ui,
+            lang_pack,
+            project_root,
+            manager,
+            source,
+            file,
+            ok,
+            true,
+        );
+    }
+    if !ok {
+        return Ok(std::process::ExitCode::FAILURE);
+    }
+    // 编译成功：运行程序并传播退出码
+    let status = Command::new(&exe)
+        .status()
+        .map_err(|e| anyhow::anyhow!("运行失败: {e}"))?;
+    let _ = std::fs::remove_file(&exe);
+    Ok(status
+        .code()
+        .map(|c| std::process::ExitCode::from(c as u8))
+        .unwrap_or(std::process::ExitCode::FAILURE))
+}
+
+/// 单文件直调 rustc 检查：编译（--emit=metadata，不生成可执行文件）
+fn check_direct_rustc(
+    ui: &ui::Ui,
+    project_root: &Path,
+    source_path: &Path,
+    lang_pack: &Option<PathBuf>,
+    manager: &MappingManager,
+    source: &str,
+    file: &Path,
+) -> anyhow::Result<std::process::ExitCode> {
+    let output = Command::new(resolve_rustc())
+        .args([
+            "--edition",
+            "2024",
+            "--error-format=json",
+            "--emit=metadata",
+        ])
+        .arg(source_path)
+        .output()
+        .map_err(|e| anyhow::anyhow!("rustc 启动失败: {e}"))?;
+    let exit_code = if output.status.success() {
+        std::process::ExitCode::SUCCESS
+    } else {
+        std::process::ExitCode::FAILURE
+    };
+    let stderr_text = String::from_utf8_lossy(&output.stderr).to_string();
+    let rustc_output = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        stderr_text
+    );
+    let _ = translate_cargo_diagnostics(
+        &rustc_output,
+        &stderr_text,
+        ui,
+        lang_pack,
+        project_root,
+        manager,
+        source,
+        file,
+        output.status.success(),
+        false,
+    );
+    Ok(exit_code)
 }
 
 /// 翻译 cargo 的人类可读进度行（json 模式下这些行仍输出到 stderr）
@@ -1109,7 +1308,7 @@ fn transpile_project_files(
 /// 取主次版本号作为 channel；nightly/beta 通道原样返回。
 /// rustc 不在 PATH 或输出格式异常时返回 None（调用方跳过生成锁定文件）。
 fn detect_toolchain_channel() -> Option<String> {
-    let output = std::process::Command::new("rustc")
+    let output = std::process::Command::new(resolve_rustc())
         .arg("--version")
         .output()
         .ok()?;

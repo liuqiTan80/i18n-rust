@@ -98,6 +98,16 @@
 "lsp_install_version_unknown" = "无法确定已安装语言服务器 {} 的版本；如需确保与 rzc 一致，请执行 `rzc install lsp --force`。"
 "lsp_version_opt" = "--version, -V    输出版本号"
 
+# ---- 内置工具链（rzc install toolchain / rzc doctor） ----
+"tc_install_help" = "一键安装内置工具链（standalone rustc/cargo/rust-analyzer，脱离 rustup）"
+"tc_doctor_help" = "诊断工具链环境：内置工具链 / PATH / 版本对比"
+"tc_install_already" = "内置工具链已安装（{}）；如需更新版本请使用 --force 重新安装"
+"tc_download_rustc" = "正在下载 rustc/cargo（官方 standalone，体积较大，请耐心等待）...\n  {}"
+"tc_extracting" = "正在解压并安装..."
+"tc_ra_installed" = "rust-analyzer {} 已安装"
+"tc_ra_skipped" = "rust-analyzer 下载失败（{}）；可稍后执行 rzc install lsp 或手动安装"
+"tc_install_done" = "内置工具链安装完成：{}\nrzc 与 LSP 将优先使用内置工具链，不再依赖 rustup 与 PATH 配置"
+
 # ---- cargo 进度 ----
 "cargo_progress_compiling" = "正在编译 {}"
 "cargo_progress_checking" = "正在检查 {}"

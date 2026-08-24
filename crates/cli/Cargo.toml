@@ -23,6 +23,9 @@ rustc_lexer = "0.1"
 zip = "2"
 # mapping auto 的 AI 调用：轻量同步 HTTP 客户端（rustls 特性避免系统 OpenSSL 依赖）
 ureq = { version = "2", features = ["rustls"] }
+# 内置工具链安装：临时目录 + tar.gz 解压（standalone rustc/cargo）
+tempfile = "3"
+flate2 = "1"
+tar = "0.4"
 
 [dev-dependencies]
-tempfile = "3"

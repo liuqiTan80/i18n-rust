@@ -755,7 +755,7 @@ fn extract_doc_json_internal(
 
     // 1. metadata：定位目标 crate 的 manifest
     let metadata_output = run_command(
-        Command::new("cargo")
+        Command::new(crate::resolve_cargo())
             .arg("metadata")
             .arg("--format-version")
             .arg("1")
@@ -839,7 +839,7 @@ fn extract_doc_json_internal(
 
     // 2. cargo build：编译依赖树，解析依赖 .rlib/.so 路径
     let build_output = run_command(
-        Command::new("cargo")
+        Command::new(crate::resolve_cargo())
             .arg("build")
             .arg("--message-format=json")
             .current_dir(project_root),

@@ -110,7 +110,7 @@ fn install_from_local(ui: &Ui, local: &Path, target: &Path) -> anyhow::Result<()
 fn install_from_crates(ui: &Ui, target: &Path) -> anyhow::Result<()> {
     let version = env!("CARGO_PKG_VERSION");
     println!("{}", ui.f("lsp_install_cargo", &[version]));
-    let status = Command::new("cargo")
+    let status = Command::new(crate::resolve_cargo())
         .arg("install")
         .arg(LSP_BIN)
         .arg("--version")
@@ -165,6 +165,165 @@ fn installed_lsp_version(target: &Path) -> Option<String> {
     }
 }
 
+// ============================================================
+// 内置工具链（standalone rustc/cargo/rust-analyzer）
+// ============================================================
+
+/// rust-analyzer 官方 Release tag（随官方发布升级；可用 --ra-tag 覆盖）
+pub const RA_RELEASE_TAG: &str = "2026-08-24";
+
+/// 当前平台的目标三元组（官方 dist 与 rust-analyzer Release 资产名用）
+fn target_triple() -> &'static str {
+    match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("windows", "x86_64") => "x86_64-pc-windows-msvc",
+        ("linux", "x86_64") => "x86_64-unknown-linux-gnu",
+        ("macos", "aarch64") => "aarch64-apple-darwin",
+        ("macos", "x86_64") => "x86_64-apple-darwin",
+        (os, arch) => {
+            panic!("不支持的平台 {os}/{arch}（内置工具链暂未覆盖）")
+        }
+    }
+}
+
+/// 安装内置工具链（standalone rustc/cargo/rust-analyzer）到 ~/.rz/toolchain
+///
+/// rustc/cargo 来自官方 dist（static.rust-lang.org，含全套组件）；
+/// rust-analyzer 来自官方 GitHub Release（下载失败不阻塞——可稍后补装）。
+/// 安装后 rzc 与 LSP 优先使用内置工具链，不再依赖 rustup 与 PATH 配置。
+pub fn install_toolchain(ui: &Ui, version: &str, ra_tag: &str, force: bool) -> anyhow::Result<()> {
+    use i18n_rust_engine::toolchain::{rz_home, toolchain_bin_dir};
+
+    let bin_dir = toolchain_bin_dir();
+    let rustc_exe = bin_dir.join(format!("rustc{EXE_SUFFIX}"));
+    if rustc_exe.is_file() && !force {
+        println!(
+            "{}",
+            ui.f("tc_install_already", &[&bin_dir.display().to_string()])
+        );
+        return Ok(());
+    }
+
+    let triple = target_triple();
+    let tmp = tempfile::tempdir()?;
+
+    // 1. rustc/cargo standalone（官方 dist 单包含全部组件）
+    let url = format!("https://static.rust-lang.org/dist/rust-{version}-{triple}.tar.gz");
+    println!("{}", ui.f("tc_download_rustc", &[&url]));
+    let archive = tmp.path().join("rust.tar.gz");
+    download_to(&url, &archive)?;
+    println!("{}", ui.t("tc_extracting"));
+    extract_tar_gz(&archive, tmp.path())?;
+    let root = tmp.path().join(format!("rust-{version}-{triple}"));
+    std::fs::create_dir_all(&bin_dir)?;
+    copy_bin_dir(&root.join("rustc").join("bin"), &bin_dir)?;
+    copy_bin_dir(&root.join("cargo").join("bin"), &bin_dir)?;
+
+    // 2. rust-analyzer（官方 GitHub Release；失败不阻塞主流程）
+    let ra_name = format!(
+        "rust-analyzer-{triple}{}",
+        if std::env::consts::OS == "windows" {
+            ".exe"
+        } else {
+            ""
+        }
+    );
+    let ra_url =
+        format!("https://github.com/rust-lang/rust-analyzer/releases/download/{ra_tag}/{ra_name}");
+    let ra_dest = bin_dir.join(format!("rust-analyzer{EXE_SUFFIX}"));
+    match download_to(&ra_url, &ra_dest) {
+        Ok(()) => println!("{}", ui.f("tc_ra_installed", &[ra_tag])),
+        Err(e) => println!("{}", ui.f("tc_ra_skipped", &[&e.to_string()])),
+    }
+
+    // 3. 记录版本
+    let toolchain_dir = rz_home().join("toolchain");
+    std::fs::create_dir_all(&toolchain_dir)?;
+    std::fs::write(toolchain_dir.join("version.txt"), version)?;
+    println!(
+        "{}",
+        ui.f("tc_install_done", &[&bin_dir.display().to_string()])
+    );
+    Ok(())
+}
+
+/// ureq 流式下载到文件（大文件不驻留内存）
+fn download_to(url: &str, dest: &Path) -> anyhow::Result<()> {
+    let resp = ureq::get(url)
+        .timeout(std::time::Duration::from_secs(600))
+        .call()
+        .map_err(|e| anyhow::anyhow!("下载失败: {e}"))?;
+    let mut reader = resp.into_reader();
+    let mut file = std::fs::File::create(dest)?;
+    std::io::copy(&mut reader, &mut file)?;
+    Ok(())
+}
+
+/// 解压 tar.gz 到目标目录（tar crate 默认拒绝 `..` 与绝对路径，路径安全）
+fn extract_tar_gz(archive: &Path, dest: &Path) -> anyhow::Result<()> {
+    let file = std::fs::File::open(archive)?;
+    let gz = flate2::read::GzDecoder::new(file);
+    let mut tar = tar::Archive::new(gz);
+    tar.unpack(dest)?;
+    Ok(())
+}
+
+/// 复制目录内全部文件到目标目录（跳过已存在，避免覆盖冲突）
+fn copy_bin_dir(from: &Path, to: &Path) -> anyhow::Result<()> {
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let dest = to.join(entry.file_name());
+        if dest.is_file() {
+            continue;
+        }
+        std::fs::copy(entry.path(), &dest)?;
+    }
+    Ok(())
+}
+
+/// 环境诊断：rzc / 内置工具链 / PATH 工具链 / 版本对比
+pub fn doctor(ui: &Ui) -> anyhow::Result<()> {
+    use i18n_rust_engine::toolchain::{
+        LOCKED_TOOLCHAIN_VERSION, find_toolchain_bin, installed_toolchain_version,
+        toolchain_bin_dir,
+    };
+
+    println!("=== rzc doctor ===");
+    println!("rzc: {}", env!("CARGO_PKG_VERSION"));
+
+    let bin_dir = toolchain_bin_dir();
+    let builtin_version = installed_toolchain_version();
+    match &builtin_version {
+        Some(v) => println!("内置工具链: {}（{}）", v, bin_dir.display()),
+        None => {
+            println!("内置工具链: 未安装（可执行 rzc install toolchain 一键安装，脱离 rustup）")
+        }
+    }
+
+    for name in ["rustc", "cargo", "rust-analyzer"] {
+        let builtin = bin_dir.join(format!("{name}{EXE_SUFFIX}"));
+        let via = if builtin.is_file() {
+            format!("内置（{}）", builtin.display())
+        } else {
+            match find_toolchain_bin(name) {
+                Some(p) => format!("PATH（{}）", p.display()),
+                None => "未找到".to_string(),
+            }
+        };
+        println!("{name}: {via}");
+    }
+
+    if let Some(v) = builtin_version.as_deref()
+        && v != LOCKED_TOOLCHAIN_VERSION
+    {
+        println!(
+            "提示: 内置工具链 {} 与锁定版本 {} 不一致（rzc install toolchain --force 更新）",
+            v, LOCKED_TOOLCHAIN_VERSION
+        );
+    }
+    let _ = ui;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -188,5 +347,12 @@ mod tests {
     #[test]
     fn test_check_lsp_version_unknown() {
         assert_eq!(check_lsp_version(None, "0.5.5"), VersionCheck::Unknown);
+    }
+
+    #[test]
+    fn test_target_triple_supported() {
+        // 当前平台必须能被识别（不 panic）
+        let triple = target_triple();
+        assert!(!triple.is_empty());
     }
 }

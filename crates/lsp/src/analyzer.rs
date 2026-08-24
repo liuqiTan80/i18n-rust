@@ -204,11 +204,17 @@ fn read_one_lsp_message<R: BufRead>(reader: &mut R) -> Option<Value> {
 /// 查找 rust-analyzer 可执行文件
 ///
 /// 优先级：
+/// 0. 内置工具链（~/.rz/toolchain/bin，`rzc install toolchain` 安装的 standalone 版）
 /// 1. RUST_ANALYZER_PATH 环境变量
 /// 2. rustup which --toolchain stable（真实路径，不受项目 rust-toolchain.toml 影响）
 /// 3. PATH 扫描（跨平台，替代 Unix 专属 which；Windows 追加 PATHEXT 后缀）
 /// 4. 常见安装位置（含 ~/.cargo/bin，Windows 回退 USERPROFILE）
 fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
+    // 0. 内置工具链（脱离 rustup 的 standalone 版本，版本自管）
+    if let Some(p) = i18n_rust_engine::toolchain::find_toolchain_bin("rust-analyzer") {
+        return Ok(p);
+    }
+
     if let Ok(path) = std::env::var("RUST_ANALYZER_PATH") {
         let p = PathBuf::from(&path);
         if p.exists() {
