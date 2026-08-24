@@ -1,4 +1,4 @@
-# =============================================================
+﻿# =============================================================
 # rzc 离线发布包构建脚本（Windows / PowerShell）
 #
 # 功能：
@@ -78,7 +78,9 @@ if (Test-Path 'target/release/i18n-rust-lsp.exe') {
 # 内置工具链（~/.rz/toolchain/bin，若已安装则一并打包；离线包即开即用）
 $tc_src = Join-Path $HOME '.rz/toolchain/bin'
 if (Test-Path $tc_src) {
-    Copy-Item $tc_src (Join-Path $pack_dir 'toolchain') -Recurse -Force
+    $tc_dest = Join-Path $pack_dir 'toolchain/bin'
+    New-Item -ItemType Directory -Path $tc_dest -Force | Out-Null
+    Copy-Item (Join-Path $tc_src '*') $tc_dest -Recurse -Force
     Write-Host "   ? 已附带内置工具链（rustc/cargo/rust-analyzer），安装后无需 rustup"
 } else {
     Write-Host "   ? 未找到 ~/.rz/toolchain/bin（可先执行 rzc install toolchain 再打包，离线包将包含完整工具链）"
@@ -92,6 +94,22 @@ if (Test-Path $tc_src) {
 if (Test-Path 'LICENSE') { Copy-Item 'LICENSE' $pack_dir }
 if (Test-Path 'README.md') { Copy-Item 'README.md' $pack_dir }
 
+# 语言服务器（离线包内自带，rzc install 优先复制同目录二进制）
+if (Test-Path 'target/release/i18n-rust-lsp.exe') {
+    Copy-Item 'target/release/i18n-rust-lsp.exe' (Join-Path $pack_dir 'i18n-rust-lsp.exe')
+    Write-Host "   已附带语言服务器 i18n-rust-lsp.exe"
+}
+
+# 内置工具链（~/.rz/toolchain/bin，若已安装则一并打包；离线包即开即用）
+$tc_src = Join-Path $HOME '.rz/toolchain/bin'
+if (Test-Path $tc_src) {
+    $tc_dest = Join-Path $pack_dir 'toolchain/bin'
+    New-Item -ItemType Directory -Path $tc_dest -Force | Out-Null
+    Copy-Item (Join-Path $tc_src '*') $tc_dest -Recurse -Force
+    Write-Host "   已附带内置工具链（rustc/cargo/rust-analyzer），安装后无需 rustup"
+} else {
+    Write-Host "   未找到 ~/.rz/toolchain/bin（可先执行 rzc install toolchain 再打包，离线包将包含完整工具链）"
+}
 # 使用说明
 $readme_content = @'
 # rzc 离线发布包使用说明
