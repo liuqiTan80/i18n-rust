@@ -112,23 +112,23 @@
       "patterns": [
         {
           "name": "keyword.control.rust-es",
-          "match": "\\b(while let|coincidir|continuar|mientras|devolver|if let|romper|bucle|sino|para|si|en)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(while let|coincidir|continuar|mientras|devolver|if let|romper|bucle|sino|para|si|en)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "keyword.declaration.rust-es",
-          "match": "\\b(implementacion|enumeracion|estructura|constante|principal|estatico|superior|funcion|mutable|publico|paquete|externo|derive|modulo|dejar|rasgo|tipo|usar|como)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(implementacion|enumeracion|estructura|constante|principal|estatico|superior|funcion|mutable|publico|paquete|externo|derive|modulo|dejar|rasgo|tipo|usar|como)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "keyword.other.rust-es",
-          "match": "\\b(referencia_mutable|desreferencia|referencia|asincrono|inseguro|dinamico|esperar|mover|caja|ref)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(referencia_mutable|desreferencia|referencia|asincrono|inseguro|dinamico|esperar|mover|caja|ref)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "constant.language.boolean.rust-es",
-          "match": "\\b(verdadero|falso)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(verdadero|falso)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "constant.language.rust-es",
-          "match": "\\b(vacio|mismo|Mismo)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(vacio|mismo|Mismo)(?![\\p{L}\\p{M}\\p{N}_])"
         }
       ]
     },
@@ -136,15 +136,15 @@
       "patterns": [
         {
           "name": "storage.type.numeric.rust-es",
-          "match": "\\b(flotante_corto|natural_largo|natural_corto|natural_micro|entero_largo|entero_corto|entero_micro|flotante|natural|entero|byte)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(flotante_corto|natural_largo|natural_corto|natural_micro|entero_largo|entero_corto|entero_micro|flotante|natural|entero|byte)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "storage.type.rust-es",
-          "match": "\\b(referencia_cadena|resultado|caracter|booleano|cadena|vector|opcion|where|texto|mapa|caja)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(referencia_cadena|resultado|caracter|booleano|cadena|vector|opcion|where|texto|mapa|caja)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "constant.other.rust-es",
-          "match": "\\b(ninguno|alguno|exito|error)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(ninguno|alguno|exito|error)(?![\\p{L}\\p{M}\\p{N}_])"
         }
       ]
     },
@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-es",
-          "match": "\\b(debug_assert_matches|imprimir_error_linea|afirmar_distinto|debug_assert_eq|no_implementado|assert_matches|imprimir_linea|imprimir_error|escribir_linea|incluir_cadena|opcion_entorno|compile_error|afirmar_igual|incluir_bytes|debug_assert|inalcanzable|macro_rules|textualizar|cfg_select|pendiente|imprimir|escribir|formato|afirmar|incluir|columna|archivo|entorno|panico|vector|config|macro|linea)!"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(debug_assert_matches|imprimir_error_linea|afirmar_distinto|debug_assert_eq|no_implementado|assert_matches|imprimir_linea|imprimir_error|escribir_linea|incluir_cadena|opcion_entorno|compile_error|afirmar_igual|incluir_bytes|debug_assert|inalcanzable|macro_rules|textualizar|cfg_select|pendiente|imprimir|escribir|formato|afirmar|incluir|columna|archivo|entorno|panico|vector|config|macro|linea)!"
         }
       ]
     },

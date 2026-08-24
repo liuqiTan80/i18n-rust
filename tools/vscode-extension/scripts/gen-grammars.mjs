@@ -94,10 +94,16 @@ function 是数值型(值) {
     return /^(?:[iu](?:8|16|32|64|128|size)|f32|f64)$/.test(值);
 }
 
-/** 构造 \b(词1|词2)\b 模式（按长度降序，长词优先匹配） */
+/** 构造 Unicode 边界词组模式（按长度降序，长词优先匹配）
+ *
+ * 不能用 \b：oniguruma 的 \b 是 ASCII 词边界（\w = [A-Za-z0-9_]），
+ * 中文词两侧（空格/中文）都不是 \w，边界永不成立 → 规则对中文全部失效。
+ * 改用 Unicode 属性前后置断言：前/后都不是字母、组合符号、数字、下划线。
+ * 注意：方言单词本身可能含空格/连字符（如 `让 可变` 不在词表内，词表仅单词），
+ * 连字符词（`创建_向量` 等）由 \p{N}_ 覆盖。 */
 function 词组模式(词们) {
     const 去重 = [...new Set(词们)].sort((a, b) => b.length - a.length);
-    return `\\b(${去重.map(转义).join('|')})\\b`;
+    return `(?<![\\p{L}\\p{M}\\p{N}_])(${去重.map(转义).join('|')})(?![\\p{L}\\p{M}\\p{N}_])`;
 }
 
 /**
@@ -162,7 +168,7 @@ function 构建语法节(关键字表) {
     const 宏模式们 = [];
     if (宏们.length > 0) {
         const 去重 = [...new Set(宏们)].sort((a, b) => b.length - a.length).map(转义).join('|');
-        宏模式们.push({ name: 'SCOPE.macro.rust-zh', match: `\\b(${去重})!` });
+        宏模式们.push({ name: 'SCOPE.macro.rust-zh', match: `(?<![\\p{L}\\p{M}\\p{N}_])(${去重})!` });
     }
     return { 关键字模式们, 类型模式们, 宏模式们 };
 }

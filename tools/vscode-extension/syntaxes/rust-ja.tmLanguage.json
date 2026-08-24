@@ -112,23 +112,23 @@
       "patterns": [
         {
           "name": "keyword.control.rust-ja",
-          "match": "\\b(while let|そうでなければ|if let|マッチ|ループ|もし|中断|続行|返す|間|各|中)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(while let|そうでなければ|if let|マッチ|ループ|もし|中断|続行|返す|間|各|中)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "keyword.declaration.rust-ja",
-          "match": "\\b(derive|モジュール|トレイト|クレート|構造体|列挙型|として|主関数|関数|宣言|可変|定数|静的|実装|公開|外部|使用|型|親)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(derive|モジュール|トレイト|クレート|構造体|列挙型|として|主関数|関数|宣言|可変|定数|静的|実装|公開|外部|使用|型|親)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "keyword.other.rust-ja",
-          "match": "\\b(安全でない|可変参照|ボックス|ref|逆参照|非同期|参照|移動|待機|動的)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(安全でない|可変参照|ボックス|ref|逆参照|非同期|参照|移動|待機|動的)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "constant.language.boolean.rust-ja",
-          "match": "\\b(真|偽)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(真|偽)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "constant.language.rust-ja",
-          "match": "\\b(自己|自身|空)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(自己|自身|空)(?![\\p{L}\\p{M}\\p{N}_])"
         }
       ]
     },
@@ -136,15 +136,15 @@
       "patterns": [
         {
           "name": "storage.type.numeric.rust-ja",
-          "match": "\\b(単精度浮動小数点数|無符号長整数|無符号短整数|無符号微整数|浮動小数点数|無符号整数|長整数|短整数|微整数|バイト|整数)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(単精度浮動小数点数|無符号長整数|無符号短整数|無符号微整数|浮動小数点数|無符号整数|長整数|短整数|微整数|バイト|整数)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "storage.type.rust-ja",
-          "match": "\\b(ハッシュマップ|where|文字列参照|オプション|文字列型|リザルト|ボックス|文字列|ブール|ベクタ|文字)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(ハッシュマップ|where|文字列参照|オプション|文字列型|リザルト|ボックス|文字列|ブール|ベクタ|文字)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "constant.other.rust-ja",
-          "match": "\\b(エラー|あり|なし|成功)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(エラー|あり|なし|成功)(?![\\p{L}\\p{M}\\p{N}_])"
         }
       ]
     },
@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-ja",
-          "match": "\\b(debug_assert_matches|debug_assert_eq|assert_matches|compile_error|debug_assert|macro_rules|cfg_select|文字列取り込み|バイト取り込み|オプション環境|フォーマット|エラー表示行|アサート非等|macro|エラー表示|アサート等|書き込み行|アサート|到達不能|パニック|書き込み|取り込み|文字列化|ファイル|表示行|未実装|ベクタ|表示|後で|環境|設定|列|行)!"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(debug_assert_matches|debug_assert_eq|assert_matches|compile_error|debug_assert|macro_rules|cfg_select|文字列取り込み|バイト取り込み|オプション環境|フォーマット|エラー表示行|アサート非等|macro|エラー表示|アサート等|書き込み行|アサート|到達不能|パニック|書き込み|取り込み|文字列化|ファイル|表示行|未実装|ベクタ|表示|後で|環境|設定|列|行)!"
         }
       ]
     },

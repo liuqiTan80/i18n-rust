@@ -112,23 +112,23 @@
       "patterns": [
         {
           "name": "keyword.control.rust-de",
-          "match": "\\b(while let|abgleich|schleife|solange|zurueck|if let|weiter|sonst|stopp|wenn|fuer|in)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(while let|abgleich|schleife|solange|zurueck|if let|weiter|sonst|stopp|wenn|fuer|in)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "keyword.declaration.rust-de",
-          "match": "\\b(hauptfunktion|aufzaehlung|implement|funktion|statisch|struktur|mutabel|merkmal|derive|extern|konst|modul|offen|paket|ueber|nutze|lass|typ|als)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(hauptfunktion|aufzaehlung|implement|funktion|statisch|struktur|mutabel|merkmal|derive|extern|konst|modul|offen|paket|ueber|nutze|lass|typ|als)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "keyword.other.rust-de",
-          "match": "\\b(mutabelReferenz|dereferenz|verschiebe|asynchron|dynamisch|referenz|unsicher|abwarten|kiste|ref)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(mutabelReferenz|dereferenz|verschiebe|asynchron|dynamisch|referenz|unsicher|abwarten|kiste|ref)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "constant.language.boolean.rust-de",
-          "match": "\\b(falsch|wahr)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(falsch|wahr)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "constant.language.rust-de",
-          "match": "\\b(selbst|Selbst|leer)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(selbst|Selbst|leer)(?![\\p{L}\\p{M}\\p{N}_])"
         }
       ]
     },
@@ -136,15 +136,15 @@
       "patterns": [
         {
           "name": "storage.type.numeric.rust-de",
-          "match": "\\b(einfachkommazahl|mikronaturzahl|mikroganzzahl|langnaturzahl|kurznaturzahl|langganzzahl|kurzganzzahl|naturzahl|kommazahl|ganzzahl|byte)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(einfachkommazahl|mikronaturzahl|mikroganzzahl|langnaturzahl|kurznaturzahl|langganzzahl|kurzganzzahl|naturzahl|kommazahl|ganzzahl|byte)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "storage.type.rust-de",
-          "match": "\\b(zeichenkettenreferenz|zeichenkette|ergebnis|zeichen|hashmap|vektor|option|where|kiste|text|bool)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(zeichenkettenreferenz|zeichenkette|ergebnis|zeichen|hashmap|vektor|option|where|kiste|text|bool)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "constant.other.rust-de",
-          "match": "\\b(nichts|fehler|etwas|ok)\\b"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(nichts|fehler|etwas|ok)(?![\\p{L}\\p{M}\\p{N}_])"
         }
       ]
     },
@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-de",
-          "match": "\\b(debug_assert_matches|nichtImplementiert|fehlerDruckeZeile|behaupteUngleich|debug_assert_eq|assert_matches|behaupteGleich|optionUmgebung|compile_error|schreibeZeile|bindeBytesEin|debug_assert|fehlerDrucke|unerreichbar|bindeTextEin|vertextliche|macro_rules|druckeZeile|zuErledigen|cfg_select|formatiere|behaupte|schreibe|bindeEin|umgebung|drucke|vektor|spalte|konfig|macro|panik|datei|zeile)!"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(debug_assert_matches|nichtImplementiert|fehlerDruckeZeile|behaupteUngleich|debug_assert_eq|assert_matches|behaupteGleich|optionUmgebung|compile_error|schreibeZeile|bindeBytesEin|debug_assert|fehlerDrucke|unerreichbar|bindeTextEin|vertextliche|macro_rules|druckeZeile|zuErledigen|cfg_select|formatiere|behaupte|schreibe|bindeEin|umgebung|drucke|vektor|spalte|konfig|macro|panik|datei|zeile)!"
         }
       ]
     },
