@@ -667,7 +667,22 @@ fn translate_cargo_progress(line: &str, ui: &ui::Ui) -> String {
             if key == "cargo_progress_error" {
                 let rest = rest
                     .strip_prefix("could not compile ")
-                    .map(|r| ui.f("cargo_progress_could_not_compile", &[r.trim_start()]))
+                    .map(|r| {
+                        // 尾部 "due to N previous errors" 一并本地化：
+                        // 如 `abc` (bin "abc") due to 9 previous errors
+                        let trimmed = r.trim_start();
+                        match trimmed.split_once(" due to ") {
+                            Some((main_part, due_part)) => {
+                                let count = due_part.split_whitespace().next().unwrap_or("");
+                                format!(
+                                    "{}{}",
+                                    ui.f("cargo_progress_could_not_compile", &[main_part]),
+                                    ui.f("cargo_progress_due_to", &[count])
+                                )
+                            }
+                            None => ui.f("cargo_progress_could_not_compile", &[trimmed]),
+                        }
+                    })
                     .unwrap_or_else(|| rest.to_string());
                 return ui.f(key, &[&rest]);
             }
