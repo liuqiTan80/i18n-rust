@@ -1153,12 +1153,18 @@ fn translate_diagnostic_message_single(message: &str, with_hint: bool) -> String
     {
         let mut text = entry.message_template.clone();
         if let Some(rest) = rest {
-            // {q0}/{q1} 占位符：从动态部分提取引号内容（如 `红绿灯::黄灯`）
+            // {q0}/{q1} 占位符：从动态部分提取引号内容（如 `红绿灯::黄灯`）。
+            // {q0} 取第一个引号对（后缀键场景）；引号数为 1 时（前缀键
+            // 场景，rest 以 "foo`" 开头）用 rsplit 取唯一内容；{q1} 取最后一个。
             let mut filled = false;
             for (i, placeholder) in ["{q0}", "{q1}"].iter().enumerate() {
                 if text.contains(placeholder) {
                     let content = if rest.contains('`') {
-                        rest.split('`').nth(i * 2 + 1)
+                        if i == 1 || rest.matches('`').count() == 1 {
+                            rest.rsplit('`').nth(1)
+                        } else {
+                            rest.split('`').nth(1)
+                        }
                     } else {
                         rest.split('\'').nth(i * 2 + 1)
                     };

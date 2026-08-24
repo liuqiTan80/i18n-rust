@@ -2230,6 +2230,18 @@
 ["消息翻译"."~ is never constructed"]
 "消息模板" = "`{q0}` 从未被构造"
 
+# ---- dead_code 复数变体（variants `A` and `B` are never ...） ----
+["消息翻译"."~ are never constructed"]
+"消息模板" = "`{q0}` 和 `{q1}` 从未被构造"
+"教学提示" = "这些枚举变体从未被使用，可删除，或添加 #[允许(死代码)] 临时抑制。"
+
+["消息翻译"."~ are never used"]
+"消息模板" = "`{q0}` 和 `{q1}` 从未被使用"
+"教学提示" = "这些项声明后从未使用，可删除，或添加 #[允许(死代码)] 临时抑制。"
+
+["消息翻译"."~ are never read"]
+"消息模板" = "`{q0}` 和 `{q1}` 从未被读取"
+
 # ---- 命名规范（non_snake_case / non_camel_case_types） ----
 ["消息翻译"."~ should have a snake case name"]
 "消息模板" = "`{q0}` 应使用蛇形命名（小写字母加下划线）"

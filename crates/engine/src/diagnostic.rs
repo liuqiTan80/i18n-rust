@@ -411,12 +411,18 @@ fn fill_quote_captures(template: &str, dynamic: &str) -> (String, bool) {
     let mut consumed_any = false;
     for (i, placeholder) in ["{q0}", "{q1}"].iter().enumerate() {
         if result.contains(placeholder) {
-            // 反引号场景（dead_code 等）：取最后一个引号对之间的内容——
-            // 前缀键已含左反引号（rest="foo` is never used"）时取右引号前的内容，
-            // 后缀键场景（prefix="function `foo`"）时取引号对之间，rsplit 两种均正确；
+            // 反引号场景（dead_code 等）：
+            // - {q0} 取第一个引号对内容（后缀键："variants `黄灯` and `绿灯` "）；
+            //   但前缀键（"function `foo` is never used" 的 rest="foo` is never used"）
+            //   只有一个引号，rsplit 才能取到引号内内容，故引号数为 1 时用 rsplit；
+            // - {q1} 取最后一个引号对内容（rsplit）。
             // 单引号场景（Unicode 混淆 help）按段隔取（第 0/2 段为两个被比较的字符）。
             let content = if dynamic.contains('`') {
-                dynamic.rsplit('`').nth(1)
+                if i == 1 || dynamic.matches('`').count() == 1 {
+                    dynamic.rsplit('`').nth(1)
+                } else {
+                    dynamic.split('`').nth(1)
+                }
             } else {
                 dynamic.split('\'').nth(i * 2)
             };
