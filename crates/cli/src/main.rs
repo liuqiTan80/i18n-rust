@@ -228,10 +228,16 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                         )
                     )
                 })?;
-            let stdout = child.stdout.take().expect("cargo run stdout 管道应存在");
+            let stdout = child
+                .stdout
+                .take()
+                .ok_or_else(|| anyhow::anyhow!("cargo run stdout 管道不可用"))?;
             // stderr 线程逐行翻译 cargo 进度（Compiling/Finished 等），
             // 其余行（程序 stderr）原样透传
-            let stderr_pipe = child.stderr.take().expect("cargo run stderr 管道应存在");
+            let stderr_pipe = child
+                .stderr
+                .take()
+                .ok_or_else(|| anyhow::anyhow!("cargo run stderr 管道不可用"))?;
             let stderr_handle = std::thread::spawn(move || {
                 let ui = ui::Ui::global();
                 let reader = BufReader::new(stderr_pipe);
