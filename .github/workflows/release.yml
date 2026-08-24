@@ -139,7 +139,10 @@ jobs:
           ./rzc run src/main.zh   # 翻译并运行中文代码
           ./rzc check src/main.zh # 类型检查（中文错误提示）
           ./rzc lang list         # 查看语言包
-          ./rzc install lsp       # 安装语言服务器（VS Code 扩展后端，包内免网络复制）          ## 内置工具链
+          ./rzc install lsp       # 安装语言服务器（VS Code 扩展后端，包内免网络复制）
+          ```
+
+          ## 内置工具链
 
           包内 `toolchain/bin/` 已附带官方 standalone rustc/cargo/rust-analyzer，
           开箱即用，无需安装 rustup 或配置 PATH：

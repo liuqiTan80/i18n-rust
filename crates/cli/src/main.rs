@@ -737,9 +737,11 @@ fn can_use_direct_rustc(project_root: &Path, file: &Path) -> bool {
     if let Ok(content) = fs::read_to_string(&cargo_toml)
         && let Some(after) = content.split("[dependencies]").nth(1)
     {
-        let has_dep = after
-            .lines()
-            .any(|l| l.trim().starts_with('"') || l.trim().starts_with(' '));
+        // 依赖行形如 `rand = "0.8"`；注释/空行/子表头不算依赖
+        let has_dep = after.lines().any(|l| {
+            let t = l.trim();
+            !t.is_empty() && !t.starts_with('#') && !t.starts_with('[') && t.contains('=')
+        });
         if has_dep {
             return false;
         }
@@ -789,10 +791,14 @@ fn run_direct_rustc(
     if !ok {
         return Ok(std::process::ExitCode::FAILURE);
     }
-    // 编译成功：运行程序并传播退出码
-    let status = Command::new(&exe)
-        .status()
-        .map_err(|e| anyhow::anyhow!("运行失败: {e}"))?;
+    // 编译成功：运行程序并传播退出码（无论成败都清理临时 exe）
+    let status = match Command::new(&exe).status() {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = std::fs::remove_file(&exe);
+            return Err(anyhow::anyhow!("运行失败: {e}"));
+        }
+    };
     let _ = std::fs::remove_file(&exe);
     Ok(status
         .code()
@@ -1581,9 +1587,9 @@ fn get_lang_code_from_extension(extension: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        annotate_non_ascii_mods, detect_toolchain_channel, extract_unresolved_crates,
-        find_alias_in_toml, get_lang_code_from_extension, transpile_project_files,
-        transpile_to_english,
+        annotate_non_ascii_mods, can_use_direct_rustc, detect_toolchain_channel,
+        extract_unresolved_crates, find_alias_in_toml, get_lang_code_from_extension,
+        transpile_project_files, transpile_to_english,
     };
 
     /// 加载内置中文映射管理器（测试转译管线用）
@@ -1683,6 +1689,56 @@ mod tests {
     fn test_annotate_non_ascii_mod_skip_ascii_and_inline() {
         assert_eq!(annotate_non_ascii_mods("mod math;"), "mod math;");
         assert_eq!(annotate_non_ascii_mods("mod 数学 { }"), "mod 数学 { }");
+    }
+
+    /// 单文件直调 rustc 的启用条件：仅 main.zh 且无依赖
+    #[test]
+    fn test_can_use_direct_rustc_single_file_no_deps() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"t\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/main.zh"), "函数 主函数() {}\n").unwrap();
+        assert!(can_use_direct_rustc(root, &root.join("src/main.zh")));
+    }
+
+    /// 有第三方依赖时回退 cargo（依赖行 `rand = \"0.8\"`）
+    #[test]
+    fn test_can_use_direct_rustc_deps_fall_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"t\"\nversion = \"0.1.0\"\n[dependencies]\nrand = \"0.8\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/main.zh"), "函数 主函数() {}\n").unwrap();
+        assert!(!can_use_direct_rustc(root, &root.join("src/main.zh")));
+    }
+
+    /// 多文件项目（src/ 下有第二个方言文件）回退 cargo
+    #[test]
+    fn test_can_use_direct_rustc_multi_file_fall_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"t\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/main.zh"), "函数 主函数() {}\n").unwrap();
+        std::fs::write(
+            root.join("src/数学.zh"),
+            "函数 加(a: 整数, b: 整数) -> 整数 { a + b }\n",
+        )
+        .unwrap();
+        assert!(!can_use_direct_rustc(root, &root.join("src/main.zh")));
     }
 
     /// 已有 #[path] 注解时不重复添加；缩进保持
