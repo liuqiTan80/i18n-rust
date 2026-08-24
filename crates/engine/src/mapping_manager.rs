@@ -26,6 +26,9 @@ pub struct MappingManager {
     pub keyword_map: HashMap<String, String>,
     /// 按节（section）组织的关键字映射（用于查询宏名称等）
     section_map: HashMap<String, HashMap<String, String>>,
+    /// 派生特征映射（`#[派生(...)]` 属性内专用：中文特征名 → 英文，
+    /// 如 `克隆` → `Clone`；不并入 keyword_map，避免与方法名别名冲突）
+    derive_map: HashMap<String, String>,
     /// 模块路径映射（如 `标准库` → `std`）
     pub module_path_map: HashMap<String, String>,
     /// 标识符别名映射（标准库/第三方库的类型与函数名翻译）
@@ -62,7 +65,13 @@ impl MappingManager {
                 path: None,
                 detail: e.to_string(),
             })?;
-        let keyword_map = flatten_sections(&section_map);
+        // 派生特征节单独存放（不并入关键字表，避免与方法名别名冲突），
+        // 并从扁平化关键字表中移除对应键
+        let derive_map = section_map.get("派生特征").cloned().unwrap_or_default();
+        let mut keyword_map = flatten_sections(&section_map);
+        for key in derive_map.keys() {
+            keyword_map.remove(key);
+        }
 
         // 2. 加载模块路径映射（来自 module_paths.toml）
         let module_paths_file = lang_dir.join("module_paths.toml");
@@ -143,6 +152,7 @@ impl MappingManager {
         Ok(Self {
             keyword_map,
             section_map,
+            derive_map,
             module_path_map,
             alias_map,
         })
@@ -168,7 +178,12 @@ impl MappingManager {
                 path: None,
                 detail: e.to_string(),
             })?;
-        let keyword_map = flatten_sections(&section_map);
+        // 派生特征节单独存放（不并入关键字表），并从扁平化关键字表中移除
+        let derive_map = section_map.get("派生特征").cloned().unwrap_or_default();
+        let mut keyword_map = flatten_sections(&section_map);
+        for key in derive_map.keys() {
+            keyword_map.remove(key);
+        }
 
         // 2. 解析模块路径映射
         let mut module_path_map = HashMap::new();
@@ -211,6 +226,7 @@ impl MappingManager {
         Ok(Self {
             keyword_map,
             section_map,
+            derive_map,
             module_path_map,
             alias_map,
         })
@@ -268,6 +284,14 @@ impl MappingManager {
     /// keyword_map 中值被类型节覆盖，宏调用必须用本映射才能得到正确的英文宏名。
     pub fn get_macro_map(&self) -> HashMap<String, String> {
         self.section_map.get("宏").cloned().unwrap_or_default()
+    }
+
+    /// 获取派生特征映射（中文特征名 → 英文），来自 `["派生特征"]` 节
+    ///
+    /// 仅在 `#[派生(...)]` 属性内生效（词法转译的派生参数态），
+    /// 如 `克隆` → `Clone`；方法调用 `值.克隆()` 仍走别名表（`clone` 小写）。
+    pub fn get_derive_map(&self) -> HashMap<String, String> {
+        self.derive_map.clone()
     }
 }
 

@@ -147,12 +147,23 @@ fn extract_sections(content: &str) -> Result<(NameMap, NameMap), String> {
 ///
 /// 复用引擎权威语义（flatten_sections：按节名升序合并，后到覆盖），
 /// 与运行时实际生效的关键字映射保持一致，避免校验误报。
+/// `["派生特征"]` 节仅在 `#[派生(...)]` 属性内生效（不并入关键字表），
+/// 此处同步排除，否则与 stdlib/crates 的同键异值（如 `调试`: Debug/debug）
+/// 会被误报为冲突。
 ///
 /// 用于关键字避让检测：需比较 crates 键与关键字的**值**是否一致，
 /// 同值视为安全冗余（关键字替换与 crates 替换结果相同），不同值才是真冲突。
 fn extract_keyword_map(content: &str) -> HashMap<String, String> {
     match i18n_rust_engine::mapping_source::parse_toml_sections(content) {
-        Ok(sections) => i18n_rust_engine::mapping_source::flatten_sections(&sections),
+        Ok(sections) => {
+            let mut map = i18n_rust_engine::mapping_source::flatten_sections(&sections);
+            if let Some(derive) = sections.get("派生特征") {
+                for key in derive.keys() {
+                    map.remove(key);
+                }
+            }
+            map
+        }
         Err(_) => HashMap::new(),
     }
 }

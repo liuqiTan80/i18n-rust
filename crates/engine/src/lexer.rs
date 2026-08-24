@@ -24,7 +24,7 @@ pub struct TranspileResult {
 /// 返回：标准 Rust 源代码
 pub fn transpile_source(source: &str, keyword_map: &HashMap<String, String>) -> String {
     let empty_map = HashMap::new();
-    transpile_source_with_macro_map(source, keyword_map, &empty_map)
+    transpile_source_with_macro_map(source, keyword_map, &empty_map, &HashMap::new())
 }
 
 /// 将母语 Rust 源代码转换为标准 Rust 源代码字符串（支持宏感叹号自动补充）
@@ -55,7 +55,7 @@ pub fn transpile_source_with_macros(
             )
         })
         .collect();
-    transpile_with_map(source, keyword_map, &macro_map).output
+    transpile_with_map(source, keyword_map, &macro_map, &HashMap::new()).output
 }
 
 /// 同 [`transpile_source_with_macros`]，但宏名英文替换来自宏映射表
@@ -65,8 +65,9 @@ pub fn transpile_source_with_macro_map(
     source: &str,
     keyword_map: &HashMap<String, String>,
     macro_map: &HashMap<String, String>,
+    derive_map: &HashMap<String, String>,
 ) -> String {
-    transpile_with_map(source, keyword_map, macro_map).output
+    transpile_with_map(source, keyword_map, macro_map, derive_map).output
 }
 
 /// 同 [`transpile_source_with_macros`]，同时产出源映射（被替换标识符的源偏移与翻译前后文本）
@@ -76,12 +77,28 @@ pub fn transpile_with_map(
     source: &str,
     keyword_map: &HashMap<String, String>,
     macro_map: &HashMap<String, String>,
+    derive_map: &HashMap<String, String>,
 ) -> TranspileResult {
     // 收集所有 token 以便前瞻/后顾
     let token_stream: Vec<_> = tokenize(source).collect();
+    // 预计算每个 token 的文本（派生属性上下文回溯需要前一个标识符的内容）
+    let token_texts: Vec<&str> = {
+        let mut offset = 0;
+        token_stream
+            .iter()
+            .map(|t| {
+                let s = &source[offset..offset + t.len];
+                offset += t.len;
+                s
+            })
+            .collect()
+    };
     let mut output = String::new();
     let mut current_offset = 0;
     let mut source_map = Vec::new();
+    // 派生参数态：`#[派生(` 之后的参数（直到 `)`）内的标识符
+    // 优先查派生特征映射（`克隆` → `Clone`），避免与方法名别名（小写 clone）冲突
+    let mut in_derive_params = false;
 
     for i in 0..token_stream.len() {
         let token = &token_stream[i];
@@ -132,8 +149,15 @@ pub fn transpile_with_map(
                 }
 
                 if !handled {
-                    // 普通关键字替换
-                    let replacement = if let Some(inner) = text.strip_prefix("r#") {
+                    // 派生参数态内：优先查派生特征映射（如 `克隆` → `Clone`）
+                    let derive_replacement = if in_derive_params {
+                        derive_map.get(raw_name).cloned()
+                    } else {
+                        None
+                    };
+                    let replacement = if let Some(en) = derive_replacement {
+                        en
+                    } else if let Some(inner) = text.strip_prefix("r#") {
                         keyword_map
                             .get(inner)
                             .map(|en| format!("r#{}", en))
@@ -170,6 +194,20 @@ pub fn transpile_with_map(
                     output.push_str(final_replacement);
                 }
             }
+            TokenKind::OpenParen => {
+                // 派生属性：`派生`（转译为 derive）后跟 `(` 进入参数态
+                if !in_derive_params
+                    && prev_ident_is(&token_stream, &token_texts, i, keyword_map, "derive")
+                {
+                    in_derive_params = true;
+                }
+                output.push_str(text);
+            }
+            TokenKind::CloseParen => {
+                // 离开派生参数态
+                in_derive_params = false;
+                output.push_str(text);
+            }
             // 其他所有 token 直接原样输出
             _ => output.push_str(text),
         }
@@ -187,6 +225,35 @@ fn find_next_non_ws_kind(token_stream: &[rustc_lexer::Token], start: usize) -> O
         }
     }
     None
+}
+
+/// 判断当前位置之前的第一个非空白标识符（经关键字映射后）是否等于指定英文值
+///
+/// 用于识别派生属性：`#[派生(...)]` 中 `派生` 的映射值为 `derive`。
+fn prev_ident_is(
+    token_stream: &[rustc_lexer::Token],
+    token_texts: &[&str],
+    current: usize,
+    keyword_map: &HashMap<String, String>,
+    en_value: &str,
+) -> bool {
+    let mut j = current;
+    while j > 0 {
+        j -= 1;
+        let kind = token_stream[j].kind;
+        if is_whitespace(kind) {
+            continue;
+        }
+        if matches!(kind, TokenKind::Ident | TokenKind::RawIdent) {
+            let name = token_texts[j].strip_prefix("r#").unwrap_or(token_texts[j]);
+            return keyword_map
+                .get(name)
+                .map(|v| v == en_value)
+                .unwrap_or(false);
+        }
+        return false;
+    }
+    false
 }
 
 /// 将标准 Rust 源码反向转译为母语源码
@@ -461,7 +528,7 @@ mod tests {
         let source = "打印行(\"你好\")";
         let expected = "println!(\"你好\")";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
         );
     }
@@ -473,7 +540,7 @@ mod tests {
         let source = "打印行!(\"你好\")";
         let expected = "println!(\"你好\")";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
         );
     }
@@ -485,7 +552,7 @@ mod tests {
         let source = "函数 主函数() { 打印行(\"你好\") }";
         // 注意：主函数 不在映射中，所以保持原样
         // 但 函数 → fn，打印行 → println!
-        let actual = transpile_source_with_macro_map(source, &map, &macros);
+        let actual = transpile_source_with_macro_map(source, &map, &macros, &HashMap::new());
         assert!(actual.contains("fn"));
         assert!(actual.contains("println!(\"你好\")"));
     }
@@ -498,7 +565,7 @@ mod tests {
         let source = "字符串::从(\"x\")";
         let expected = "字符串::从(\"x\")";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
         );
     }
@@ -512,7 +579,7 @@ mod tests {
         let source = "#[配置(测试)]\n#[断言]";
         let expected = "#[cfg(测试)]\n#[assert]";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
         );
     }
@@ -526,7 +593,7 @@ mod tests {
         let source = "#![配置(测试)]";
         let expected = "#![cfg(测试)]";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
         );
     }
@@ -539,7 +606,7 @@ mod tests {
         let source = "断言(5 > 3)";
         let expected = "assert!(5 > 3)";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
         );
     }
@@ -552,7 +619,7 @@ mod tests {
         let source = "std::打印行(\"你好\")";
         let expected = "std::println(\"你好\")";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
         );
     }
@@ -564,7 +631,7 @@ mod tests {
         let source = "向量![1, 2, 3]";
         let expected = "vec![1, 2, 3]";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
         );
     }
@@ -576,7 +643,7 @@ mod tests {
         let source = "向量[1, 2, 3]";
         let expected = "vec![1, 2, 3]";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
         );
     }
@@ -591,8 +658,46 @@ mod tests {
         let source = "让 v = 向量![1, 2, 3];";
         let expected = "let v = vec![1, 2, 3];";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
+        );
+    }
+
+    #[test]
+    fn test_derive_params_use_derive_map() {
+        // 派生属性内的特征名走派生特征映射（`克隆` → `Clone` 大写）
+        let mut map = create_test_map();
+        map.insert("派生".to_string(), "derive".to_string());
+        let mut derive = HashMap::new();
+        derive.insert("克隆".to_string(), "Clone".to_string());
+        derive.insert("调试".to_string(), "Debug".to_string());
+        let empty = HashMap::new();
+        let source = "#[派生(克隆, 调试)]\n结构体 点 {";
+        let expected = "#[derive(Clone, Debug)]\n结构体 点 {";
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &empty, &derive),
+            expected
+        );
+        // 方法调用 `值.克隆()` 不受派生映射影响（无上下文匹配，走关键字表）
+        let source2 = "值.克隆();";
+        assert_eq!(
+            transpile_source_with_macro_map(source2, &map, &empty, &derive),
+            "值.克隆();"
+        );
+    }
+
+    #[test]
+    fn test_derive_params_with_keyword_replacement() {
+        // 派生属性本身的关键字（派生→derive）与参数（克隆→Clone）同时替换
+        let mut map = create_test_map();
+        map.insert("派生".to_string(), "derive".to_string());
+        let mut derive = HashMap::new();
+        derive.insert("克隆".to_string(), "Clone".to_string());
+        let empty = HashMap::new();
+        let source = "#[派生(克隆)]";
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &empty, &derive),
+            "#[derive(Clone)]"
         );
     }
 
@@ -603,7 +708,7 @@ mod tests {
         let source = "打印行(\"你好\")";
         let expected = "println(\"你好\")"; // 不补 !
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &empty),
+            transpile_source_with_macro_map(source, &map, &empty, &HashMap::new()),
             expected
         );
     }
@@ -615,7 +720,7 @@ mod tests {
         let source = "打印行(\"甲\"); 打印(\"乙\")";
         let expected = "println!(\"甲\"); print!(\"乙\")";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &macros),
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
         );
     }
@@ -629,7 +734,7 @@ mod tests {
         let source = "宏规则 创建向量 { () => { } }";
         let expected = "macro_rules! 创建向量 { () => { } }";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &empty),
+            transpile_source_with_macro_map(source, &map, &empty, &HashMap::new()),
             expected
         );
     }
@@ -643,7 +748,7 @@ mod tests {
         let source = "让 x = 宏规则;";
         let expected = "let x = macro_rules;";
         assert_eq!(
-            transpile_source_with_macro_map(source, &map, &empty),
+            transpile_source_with_macro_map(source, &map, &empty, &HashMap::new()),
             expected
         );
     }
@@ -655,10 +760,10 @@ mod tests {
         let map = create_test_map();
         let macros = create_macro_map();
         let source = "函数 主函数() { 让 x = 5; 打印行(\"你好\") }";
-        let result = transpile_with_map(source, &map, &macros);
+        let result = transpile_with_map(source, &map, &macros, &HashMap::new());
         assert_eq!(
             result.output,
-            transpile_source_with_macro_map(source, &map, &macros)
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new())
         );
     }
 
@@ -667,7 +772,7 @@ mod tests {
         let map = create_test_map();
         let macros = create_macro_map();
         let source = "函数 主函数() { 让 x = 5; 打印行(\"你好\") }";
-        let result = transpile_with_map(source, &map, &macros);
+        let result = transpile_with_map(source, &map, &macros, &HashMap::new());
 
         // 函数/让/打印行 被替换，主函数 未命中映射不记录
         let fn_entry = result
@@ -709,7 +814,7 @@ mod tests {
         map.insert("匹配".to_string(), "match".to_string());
         let empty = HashMap::new();
         let source = "让 r#匹配 = 1;";
-        let result = transpile_with_map(source, &map, &empty);
+        let result = transpile_with_map(source, &map, &empty, &HashMap::new());
         assert_eq!(result.output, "let r#match = 1;");
         let entry = result
             .source_map

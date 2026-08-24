@@ -88,7 +88,9 @@ pub fn transpile_pipeline(
     }
 
     let macro_map = manager.get_macro_map();
-    let result = lexer::transpile_with_map(source, manager.get_keyword_map(), &macro_map);
+    let derive_map = manager.get_derive_map();
+    let result =
+        lexer::transpile_with_map(source, manager.get_keyword_map(), &macro_map, &derive_map);
     let mut translated = result.output;
     if !manager.module_path_map.is_empty() {
         translated = module_path::replace_module_paths(&translated, manager.get_module_path_map());

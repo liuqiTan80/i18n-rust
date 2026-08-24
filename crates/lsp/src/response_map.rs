@@ -1262,6 +1262,7 @@ mod tests {
             map,
             HashMap::new(),
             HashMap::new(),
+            HashMap::new(),
             temp.path().to_path_buf(),
         );
         (cache, temp)
@@ -1901,6 +1902,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
             map,
+            HashMap::new(),
             HashMap::new(),
             HashMap::new(),
             temp.path().to_path_buf(),

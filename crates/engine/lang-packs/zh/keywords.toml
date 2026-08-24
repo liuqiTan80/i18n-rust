@@ -150,3 +150,13 @@
 "配置" = "cfg"
 "宏" = "macro"
 "宏规则" = "macro_rules"
+["派生特征"]
+"克隆" = "Clone"
+"复制" = "Copy"
+"调试" = "Debug"
+"部分相等" = "PartialEq"
+"相等" = "Eq"
+"部分排序" = "PartialOrd"
+"排序" = "Ord"
+"哈希" = "Hash"
+"默认" = "Default"

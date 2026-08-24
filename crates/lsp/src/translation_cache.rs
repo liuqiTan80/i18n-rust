@@ -61,6 +61,8 @@ pub struct TranslationCache {
     keyword_map: Arc<HashMap<String, String>>,
     /// 宏映射表（中文宏名 → 英文宏名，用于自动补充感叹号）
     macro_map: Arc<HashMap<String, String>>,
+    /// 派生特征映射表（`#[派生(...)]` 内专用：中文特征名 → 英文大写）
+    derive_map: Arc<HashMap<String, String>>,
     /// 别名映射表（标准库/第三方库标识符：中文 → 英文，带声明位保护）
     alias_map: Arc<HashMap<String, String>>,
     /// 虚拟文件存放的临时目录
@@ -90,6 +92,7 @@ impl TranslationCache {
     pub fn new(
         keyword_map: HashMap<String, String>,
         macro_map: HashMap<String, String>,
+        derive_map: HashMap<String, String>,
         alias_map: HashMap<String, String>,
         temp_dir: PathBuf,
     ) -> Arc<Self> {
@@ -116,6 +119,7 @@ impl TranslationCache {
             entries: RwLock::new(HashMap::new()),
             keyword_map: Arc::new(keyword_map),
             macro_map: Arc::new(macro_map),
+            derive_map: Arc::new(derive_map),
             alias_map: Arc::new(alias_map),
             temp_dir,
             module_version: std::sync::atomic::AtomicU64::new(0),
@@ -461,6 +465,7 @@ impl TranslationCache {
             &old_entry.zh_content,
             &self.keyword_map,
             &self.macro_map,
+            &self.derive_map,
         );
         let en_content = rewrite_module_paths(&en_content, module_names);
         // 别名替换（与 CLI 统一管线一致）：标准库/第三方库标识符转英文，
@@ -1208,6 +1213,7 @@ mod tests {
             test_map(),
             HashMap::new(),
             HashMap::new(),
+            HashMap::new(),
             temp.path().to_path_buf(),
         );
 
@@ -1229,6 +1235,7 @@ mod tests {
         ]);
         let cache = TranslationCache::new(
             test_map(),
+            HashMap::new(),
             HashMap::new(),
             alias_map,
             temp.path().to_path_buf(),
@@ -1257,6 +1264,7 @@ mod tests {
         let cache = TranslationCache::new(
             test_map(),
             HashMap::new(),
+            HashMap::new(),
             alias_map,
             temp.path().to_path_buf(),
         );
@@ -1274,6 +1282,7 @@ mod tests {
         let alias_map = HashMap::from([("字符串".into(), "String".into())]);
         let cache = TranslationCache::new(
             test_map(),
+            HashMap::new(),
             HashMap::new(),
             alias_map,
             temp.path().to_path_buf(),
@@ -1294,6 +1303,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
             test_map(),
+            HashMap::new(),
             HashMap::new(),
             HashMap::new(),
             temp.path().to_path_buf(),
@@ -1317,6 +1327,7 @@ mod tests {
             test_map(),
             HashMap::new(),
             HashMap::new(),
+            HashMap::new(),
             temp.path().to_path_buf(),
         );
         cache
@@ -1335,6 +1346,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
             test_map(),
+            HashMap::new(),
             HashMap::new(),
             HashMap::new(),
             temp.path().to_path_buf(),
@@ -1360,6 +1372,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
             test_map(),
+            HashMap::new(),
             HashMap::new(),
             HashMap::new(),
             temp.path().to_path_buf(),
@@ -1405,6 +1418,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
             map,
+            HashMap::new(),
             HashMap::new(),
             HashMap::new(),
             temp.path().to_path_buf(),
@@ -1464,6 +1478,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
             map,
+            HashMap::new(),
             HashMap::new(),
             HashMap::new(),
             temp.path().to_path_buf(),
@@ -1532,6 +1547,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
             test_map(),
+            HashMap::new(),
             HashMap::new(),
             HashMap::new(),
             temp.path().to_path_buf(),

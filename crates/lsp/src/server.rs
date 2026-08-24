@@ -84,7 +84,7 @@ impl ProxyServer {
         extensions: &[String],
     ) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
         // 1. 加载语言包
-        let (keyword_map, macro_map, alias_map) = load_language_pack(lang_pack_path)?;
+        let (keyword_map, macro_map, derive_map, alias_map) = load_language_pack(lang_pack_path)?;
         log::info!(
             "{}",
             crate::ui::global().f(
@@ -95,7 +95,7 @@ impl ProxyServer {
 
         // 2. 创建翻译缓存（临时目录按用户隔离，避免多用户共享 /tmp 路径）
         let temp_dir = virtual_temp_dir()?;
-        let cache = TranslationCache::new(keyword_map, macro_map, alias_map, temp_dir);
+        let cache = TranslationCache::new(keyword_map, macro_map, derive_map, alias_map, temp_dir);
 
         // 3. 启动 rust-analyzer
         let analyzer = AnalyzerConnection::start()?;
@@ -1494,14 +1494,15 @@ fn handle_analyzer_message(
     }
 }
 
-/// 语言包三映射表：(关键字映射, 宏映射, 别名映射)
+/// 语言包四映射表：(关键字映射, 宏映射, 派生特征映射, 别名映射)
 type LangPackMaps = (
+    HashMap<String, String>,
     HashMap<String, String>,
     HashMap<String, String>,
     HashMap<String, String>,
 );
 
-/// 加载语言包：返回 (关键字映射, 宏映射, 别名映射)
+/// 加载语言包：返回 (关键字映射, 宏映射, 派生特征映射, 别名映射)
 ///
 /// 关键字与别名分离（与 CLI 统一管线对齐）：关键字在词法阶段无条件替换，
 /// 标准库/第三方库标识符（别名）在词法转译后经声明位保护替换，
@@ -1510,7 +1511,7 @@ fn load_language_pack(lang_pack_path: &Path) -> anyhow::Result<LangPackMaps> {
     let mappings_path = lang_pack_path.join("映射表");
     if mappings_path.exists() {
         match mapping_source::load_keyword_mapping(lang_pack_path) {
-            Ok(map) => return Ok((map, HashMap::new(), HashMap::new())),
+            Ok(map) => return Ok((map, HashMap::new(), HashMap::new(), HashMap::new())),
             Err(e) => log::warn!(
                 "{}",
                 crate::ui::global().f("lsp_log_mappings_fallback", &[&e.to_string()])
@@ -1534,6 +1535,7 @@ fn load_language_pack(lang_pack_path: &Path) -> anyhow::Result<LangPackMaps> {
         return Ok((
             manager.keyword_map.clone(),
             manager.get_macro_map(),
+            manager.get_derive_map(),
             manager.alias_map.clone(),
         ));
     }
@@ -1550,6 +1552,7 @@ fn load_language_pack(lang_pack_path: &Path) -> anyhow::Result<LangPackMaps> {
     // 极端兜底：物化失败时退回硬编码旧表（可能残缺，但保证可启动）
     Ok((
         mapping_source::create_builtin_keyword_mapping(),
+        HashMap::new(),
         HashMap::new(),
         HashMap::new(),
     ))
@@ -1576,6 +1579,7 @@ fn load_builtin_zh_fallback() -> Option<LangPackMaps> {
     Some((
         manager.keyword_map.clone(),
         manager.get_macro_map(),
+        manager.get_derive_map(),
         manager.alias_map.clone(),
     ))
 }
@@ -1590,9 +1594,10 @@ mod tests {
     /// `让` 不翻译报语法错误（真实事故：扩展未找到语言包目录时触发）
     #[test]
     fn test_load_language_pack_fallback_complete() {
-        let (keywords, macros, aliases) =
+        let (keywords, macros, derives, aliases) =
             load_language_pack(Path::new("/不存在的目录")).expect("fallback 应成功");
         assert_eq!(keywords.get("让").map(String::as_str), Some("let"));
+        assert_eq!(derives.get("克隆").map(String::as_str), Some("Clone"));
         assert_eq!(macros.get("打印行").map(String::as_str), Some("println"));
         assert!(
             keywords.len() >= 100,
@@ -1660,6 +1665,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
             map,
+            HashMap::new(),
             HashMap::new(),
             HashMap::new(),
             temp.path().to_path_buf(),
