@@ -2372,3 +2372,21 @@
 ["消息翻译"."this `match` arm has code that runs when it is empty"]
 "消息模板" = "此 `匹配` 分支包含空值时的代码"
 
+# ---- match 不完整（E0004：rustc 与 rust-analyzer 两种消息格式） ----
+["消息翻译"."non-exhaustive patterns: "]
+"消息模板" = "匹配不完整：`{q0}` 未被覆盖"
+"教学提示" = "`匹配` 必须覆盖枚举的所有分支：末尾加一个 `_ =>` 通配分支，或补齐缺失的分支。"
+
+["消息翻译"."missing match arm: "]
+"消息模板" = "缺少匹配分支：`{q0}` 未被覆盖"
+"教学提示" = "`匹配` 遗漏了枚举的某个分支，末尾加 `_ =>` 通配分支或补齐缺失分支。"
+
+["消息翻译"."the matched value is of type "]
+"消息模板" = "被匹配的值的类型是 `{q0}`"
+
+["消息翻译"."~ defined here"]
+"消息模板" = "`{q0}` 在此处定义"
+
+["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown: "]
+"消息模板" = "请确保所有情况都被处理：添加一个通配分支（`_ => ...`）或显式分支，例如："
+

@@ -85,6 +85,9 @@ impl ProxyServer {
     ) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
         // 1. 加载语言包
         let (keyword_map, macro_map, derive_map, alias_map) = load_language_pack(lang_pack_path)?;
+        // 初始化诊断消息翻译器（errors.toml 消息表，与 CLI 同源），
+        // 供 map_diagnostics 翻译 rust-analyzer 诊断（E0004 等）
+        crate::response_map::init_diagnostic_translator(lang_pack_path);
         log::info!(
             "{}",
             crate::ui::global().f(

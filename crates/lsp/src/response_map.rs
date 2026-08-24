@@ -1088,19 +1088,100 @@ fn construct_position_from_range(file_name: &str, range: &Value) -> Option<Diagn
     })
 }
 
+/// 诊断消息翻译器（errors.toml 消息表）：与 CLI 同源，覆盖 rustc/rust-analyzer
+/// 的常见消息（精确/最长前缀/最长后缀匹配）。由服务器启动时初始化
+///（语言包目录 errors.toml，缺失时回退内置 zh）；未初始化时为 None，
+/// 翻译退化为下方轻量短语替换。
+static DIAGNOSTIC_TRANSLATOR: std::sync::OnceLock<
+    Option<i18n_rust_engine::diagnostic::ErrorTranslationManager>,
+> = std::sync::OnceLock::new();
+
+/// 初始化诊断消息翻译器（语言包 errors.toml；失败/缺失时尝试内置 zh）
+pub fn init_diagnostic_translator(lang_pack_path: &std::path::Path) {
+    let translator = i18n_rust_engine::diagnostic::ErrorTranslationManager::load_from_file(
+        &lang_pack_path.join("errors.toml"),
+    )
+    .ok()
+    .or_else(builtin_zh_error_translator);
+    let _ = DIAGNOSTIC_TRANSLATOR.set(translator);
+}
+
+/// 物化引擎内嵌的中文 errors.toml 并加载翻译器（语言包目录缺失时兜底）
+fn builtin_zh_error_translator() -> Option<i18n_rust_engine::diagnostic::ErrorTranslationManager> {
+    let dir = tempfile::tempdir().ok()?;
+    let content = i18n_rust_engine::语言::builtin_lang_files("zh")
+        .iter()
+        .find(|(f, _)| *f == "errors.toml")?
+        .1;
+    std::fs::write(dir.path().join("errors.toml"), content).ok()?;
+    i18n_rust_engine::diagnostic::ErrorTranslationManager::load_from_file(
+        &dir.path().join("errors.toml"),
+    )
+    .ok()
+}
+
 /// 翻译诊断消息为当前界面语言
 ///
-/// 尝试匹配常见的 rustc 错误模式并翻译（短语表随语言包变化，
-/// 非 zh 语言回退英文原文）。完整翻译由核心引擎的
-/// `DiagnosticTranslator` 处理，此处提供轻量级的关键字替换。
+/// 优先使用错误消息表（errors.toml [消息翻译] 节，与 CLI 同源，含教学提示）；
+/// 未命中时退化为轻量短语替换。多行消息按行逐条翻译后拼接。
 /// 替换仅作用于反引号之外的文本，避免误伤消息中引用的
 /// 标识符/类型名（如变量名 `expected_value` 含子串 "expected"）。
 fn translate_diagnostic_message(message: &str) -> String {
+    // 多行消息（rust-analyzer 的 E0004 等）逐行翻译
+    if message.contains('\n') {
+        let mut first = true;
+        let lines: Vec<String> = message
+            .split('\n')
+            .map(|line| {
+                let translated = translate_diagnostic_message_single(line, first);
+                first = false;
+                translated
+            })
+            .collect();
+        return lines.join("\n");
+    }
+    translate_diagnostic_message_single(message, true)
+}
+
+/// 单行诊断消息翻译：消息表优先，轻量短语表兜底
+fn translate_diagnostic_message_single(message: &str, with_hint: bool) -> String {
     let ui = crate::ui::global();
 
-    // rustc 未推断字面量占位符（`{integer}`/`{float}`）及 1.97+ 裸显示名
-    // （`integer`/`floating-point number`）按界面语言翻译；
-    // 有序替换：先替换长模式再替换短模式，避免短模式重复命中
+    // 1. 错误消息表（与 CLI 同源）：精确/最长前缀/最长后缀匹配
+    if let Some(translator) = DIAGNOSTIC_TRANSLATOR.get().and_then(|opt| opt.as_ref())
+        && let Some((entry, rest)) = translator.query_by_message(message)
+    {
+        let mut text = entry.message_template.clone();
+        if let Some(rest) = rest {
+            // {q0}/{q1} 占位符：从动态部分提取引号内容（如 `红绿灯::黄灯`）
+            let mut filled = false;
+            for (i, placeholder) in ["{q0}", "{q1}"].iter().enumerate() {
+                if text.contains(placeholder) {
+                    let content = if rest.contains('`') {
+                        rest.split('`').nth(i * 2 + 1)
+                    } else {
+                        rest.split('\'').nth(i * 2 + 1)
+                    };
+                    if let Some(content) = content {
+                        text = text.replace(placeholder, content);
+                        filled = true;
+                    }
+                    break;
+                }
+            }
+            if !filled {
+                // 无占位符：模板后拼接动态部分（保留 did you mean `x` 等）
+                text.push_str(rest);
+            }
+        }
+        if with_hint && let Some(hint) = &entry.teaching_hint {
+            text.push('\n');
+            text.push_str(hint);
+        }
+        return text;
+    }
+
+    // 2. 轻量短语替换（兜底）
     let mut replacements: Vec<(String, String)> = vec![
         ("{integer}".to_string(), ui.t("diag_rustc_integer")),
         ("{float}".to_string(), ui.t("diag_rustc_float")),
