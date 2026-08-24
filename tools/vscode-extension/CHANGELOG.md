@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.1
+
+### 修复
+- **单文件直调判断修正**：有第三方依赖的项目不再误启用 rustc 直调（依赖行识别修正）；单文件判定范围扩展到项目根；临时 exe 失败时清理。
+- **工具链下载安全**：`rzc install toolchain` 校验官方 SHA-256（防篡改）；`rzc doctor` 重构（状态行纯函数 + 版本升级指引）。
+- **发布工作流健壮性**：修复 release.yml 结构损坏（缓存步骤缩进）；CI 工具链下载跨 run 缓存（300MB 复用）；LSP 的 PATH 扫描统一到 engine 工具链定位（删除重复实现）。
+- **生产代码 unwrap 清零**：cargo run 管道 expect 改为错误传播。
+
+### 文档
+- README 与附录D 补充 `rzc install toolchain`/`rzc doctor`；离线发布包内置完整工具链（即开即用，无需 rustup）。
+
 ## 0.6.0
 
 ### 新增
