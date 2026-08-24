@@ -222,13 +222,8 @@
         },
         {
           "when": "resourceLangId == rust-zh || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
-          "command": "editor.action.formatDocument",
-          "group": "i18n@4"
-        },
-        {
-          "when": "resourceLangId == rust-zh || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
           "command": "i18n-rust.aiChat",
-          "group": "i18n@5"
+          "group": "i18n@4"
         }
       ]
     },
