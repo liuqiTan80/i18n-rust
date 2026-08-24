@@ -4,7 +4,7 @@
 //! 通过 stdin/stdout 以 LSP 协议（Content-Length 分帧）与之通信。
 
 use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -238,8 +238,8 @@ fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
         }
     }
 
-    // PATH 扫描：Windows 无 which 命令，直接按目录枚举（支持 .exe 后缀）
-    if let Some(p) = find_in_path("rust-analyzer") {
+    // PATH 扫描（engine 工具链定位统一实现：含 Windows PATHEXT 探测）
+    if let Some(p) = i18n_rust_engine::toolchain::find_toolchain_bin("rust-analyzer") {
         return Ok(p);
     }
 
@@ -256,44 +256,6 @@ fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
     }
 
     anyhow::bail!("{}", crate::ui::global().t("lsp_err_ra_not_found"))
-}
-
-/// 在 PATH 环境变量中查找可执行文件（跨平台）
-///
-/// Windows 下按 PATHEXT 依次追加后缀（.exe 等）探测；
-/// 名称自带扩展名（如 xxx.exe）时不重复追加。
-fn find_in_path(name: &str) -> Option<PathBuf> {
-    let path_env = std::env::var("PATH").ok()?;
-    let separator = if cfg!(windows) { ';' } else { ':' };
-    let mut suffixes: Vec<String> = vec![String::new()];
-    if cfg!(windows) {
-        if let Ok(pathext) = std::env::var("PATHEXT") {
-            suffixes = pathext
-                .split(';')
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string())
-                .collect();
-        }
-        if !suffixes.iter().any(|s| s.eq_ignore_ascii_case(".exe")) {
-            suffixes.push(".exe".to_string());
-        }
-    }
-    for dir in path_env.split(separator) {
-        if dir.is_empty() {
-            continue;
-        }
-        for suffix in &suffixes {
-            let candidate = if !suffix.is_empty() && Path::new(name).extension().is_none() {
-                Path::new(dir).join(format!("{name}{suffix}"))
-            } else {
-                Path::new(dir).join(name)
-            };
-            if candidate.is_file() {
-                return Some(candidate);
-            }
-        }
-    }
-    None
 }
 
 fn home_path(relative: &str) -> PathBuf {
@@ -395,33 +357,11 @@ mod tests {
         }
     }
 
-    /// PATH 扫描：临时目录注入 PATH 后应找到带平台后缀的二进制
+    /// PATH 扫描由 engine 工具链定位统一实现（见 crates/engine/src/toolchain.rs）
     #[test]
-    fn test_find_in_path() {
-        let tmp = tempfile::tempdir().expect("创建临时目录失败");
-        let exe_name = if cfg!(windows) {
-            "mytool.exe"
-        } else {
-            "mytool"
-        };
-        let bin = tmp.path().join(exe_name);
-        std::fs::write(&bin, "x").expect("写入临时文件失败");
-        let separator = if cfg!(windows) { ';' } else { ':' };
-        unsafe {
-            let old = std::env::var("PATH").unwrap_or_default();
-            std::env::set_var("PATH", format!("{}{separator}{old}", tmp.path().display()));
-            let found = find_in_path("mytool");
-            std::env::set_var("PATH", old);
-            // Windows 文件系统不区分大小写，PATHEXT 可能为大写（如 .EXE），仅比较文件名忽略大小写
-            let found = found.expect("PATH 扫描应找到 mytool");
-            assert!(
-                found
-                    .file_name()
-                    .unwrap()
-                    .to_string_lossy()
-                    .eq_ignore_ascii_case(exe_name),
-                "PATH 扫描应找到 {bin:?}，实际 {found:?}"
-            );
-        }
+    fn test_engine_find_toolchain_bin_missing() {
+        // 内置与 PATH 都不存在的二进制名应返回 None（不 panic）
+        let name = format!("__ra_nonexistent__{}", std::process::id());
+        assert!(i18n_rust_engine::toolchain::find_toolchain_bin(&name).is_none());
     }
 }

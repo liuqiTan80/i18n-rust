@@ -211,6 +211,17 @@ pub fn install_toolchain(ui: &Ui, version: &str, ra_tag: &str, force: bool) -> a
     println!("{}", ui.f("tc_download_rustc", &[&url]));
     let archive = tmp.path().join("rust.tar.gz");
     download_to(&url, &archive)?;
+    // 校验官方 SHA-256（官方 dist 提供 .sha256 文件；不匹配视为下载被篡改）
+    let sha_url = format!("{url}.sha256");
+    let expected = download_text(&sha_url)?
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .to_string();
+    let actual = sha256_file(&archive)?;
+    if expected.len() == 64 && actual != expected {
+        anyhow::bail!("rustc 包 SHA-256 校验失败（下载可能被篡改，请重试）");
+    }
     println!("{}", ui.t("tc_extracting"));
     extract_tar_gz(&archive, tmp.path())?;
     let root = tmp.path().join(format!("rust-{version}-{triple}"));
@@ -258,6 +269,28 @@ fn download_to(url: &str, dest: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// ureq 下载文本内容（如官方 .sha256 校验文件）
+fn download_text(url: &str) -> anyhow::Result<String> {
+    let resp = ureq::get(url)
+        .timeout(std::time::Duration::from_secs(60))
+        .call()
+        .map_err(|e| anyhow::anyhow!("下载失败: {e}"))?;
+    let mut text = String::new();
+    resp.into_reader()
+        .read_to_string(&mut text)
+        .map_err(|e| anyhow::anyhow!("读取失败: {e}"))?;
+    Ok(text)
+}
+
+/// 计算文件 SHA-256（十六进制小写）
+fn sha256_file(path: &Path) -> anyhow::Result<String> {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    let mut file = std::fs::File::open(path)?;
+    std::io::copy(&mut file, &mut hasher)?;
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
 /// 解压 tar.gz 到目标目录（tar crate 默认拒绝 `..` 与绝对路径，路径安全）
 fn extract_tar_gz(archive: &Path, dest: &Path) -> anyhow::Result<()> {
     let file = std::fs::File::open(archive)?;
@@ -283,8 +316,7 @@ fn copy_bin_dir(from: &Path, to: &Path) -> anyhow::Result<()> {
 /// 环境诊断：rzc / 内置工具链 / PATH 工具链 / 版本对比
 pub fn doctor(ui: &Ui) -> anyhow::Result<()> {
     use i18n_rust_engine::toolchain::{
-        LOCKED_TOOLCHAIN_VERSION, find_toolchain_bin, installed_toolchain_version,
-        toolchain_bin_dir,
+        LOCKED_TOOLCHAIN_VERSION, installed_toolchain_version, toolchain_bin_dir,
     };
 
     println!("=== rzc doctor ===");
@@ -299,17 +331,8 @@ pub fn doctor(ui: &Ui) -> anyhow::Result<()> {
         }
     }
 
-    for name in ["rustc", "cargo", "rust-analyzer"] {
-        let builtin = bin_dir.join(format!("{name}{EXE_SUFFIX}"));
-        let via = if builtin.is_file() {
-            format!("内置（{}）", builtin.display())
-        } else {
-            match find_toolchain_bin(name) {
-                Some(p) => format!("PATH（{}）", p.display()),
-                None => "未找到".to_string(),
-            }
-        };
-        println!("{name}: {via}");
+    for line in component_status_lines(&bin_dir) {
+        println!("{line}");
     }
 
     if let Some(v) = builtin_version.as_deref()
@@ -320,8 +343,33 @@ pub fn doctor(ui: &Ui) -> anyhow::Result<()> {
             v, LOCKED_TOOLCHAIN_VERSION
         );
     }
+    println!(
+        "升级内置工具链：rzc install toolchain --version <新版本> --force（当前锁定 {}）",
+        LOCKED_TOOLCHAIN_VERSION
+    );
     let _ = ui;
     Ok(())
+}
+
+/// 各组件来源状态行（纯函数，便于测试）：`rustc: 内置（路径）` / `cargo: PATH（路径）` 等
+fn component_status_lines(bin_dir: &std::path::Path) -> Vec<String> {
+    use i18n_rust_engine::toolchain::find_toolchain_bin;
+
+    ["rustc", "cargo", "rust-analyzer"]
+        .iter()
+        .map(|name| {
+            let builtin = bin_dir.join(format!("{name}{EXE_SUFFIX}"));
+            let via = if builtin.is_file() {
+                format!("内置（{}）", builtin.display())
+            } else {
+                match find_toolchain_bin(name) {
+                    Some(p) => format!("PATH（{}）", p.display()),
+                    None => "未找到".to_string(),
+                }
+            };
+            format!("{name}: {via}")
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -354,5 +402,31 @@ mod tests {
         // 当前平台必须能被识别（不 panic）
         let triple = target_triple();
         assert!(!triple.is_empty());
+    }
+
+    /// SHA-256 计算正确性（空文件与已知内容）
+    #[test]
+    fn test_sha256_file_known_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("a.txt");
+        std::fs::write(&f, b"hello").unwrap();
+        // `hello` 的 SHA-256（标准已知值）
+        assert_eq!(
+            sha256_file(&f).unwrap(),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+    }
+
+    /// 内置工具链存在时状态行标记为内置
+    #[test]
+    fn test_component_status_lines_builtin() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path();
+        std::fs::write(bin.join(format!("rustc{EXE_SUFFIX}")), b"x").unwrap();
+        let lines = component_status_lines(bin);
+        assert!(lines.iter().any(|l| l.starts_with("rustc: 内置")));
+        // 其余组件未内置时标记 PATH 或未找到（不 panic）
+        assert!(lines.iter().any(|l| l.starts_with("cargo:")));
+        assert!(lines.iter().any(|l| l.starts_with("rust-analyzer:")));
     }
 }

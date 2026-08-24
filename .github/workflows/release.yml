@@ -71,7 +71,12 @@ jobs:
       - name: 编译 rzc 与语言服务器（release）
         run: cargo build --release -p rzc -p i18n-rust-lsp
 
-      - name: 组装发布目录
+            - name: 缓存工具链下载包（三平台各约 300MB，跨 run 复用）
+        uses: actions/cache@v4
+        with:
+          path: /tmp/rust.tar.gz
+          key: rust-toolchain-${{ matrix.os_name }}-${{ github.ref_name }}
+- name: 组装发布目录
         shell: bash
         run: |
           # 注意：bash 变量名必须为 ASCII（中文变量名会被当作命令执行）
@@ -109,7 +114,9 @@ jobs:
           mkdir -p "$DIR/toolchain/bin"
           RUST_DIST="https://static.rust-lang.org/dist/rust-$VERSION-$TRIPLE.tar.gz"
           echo "下载工具链: $RUST_DIST"
-          curl -sL "$RUST_DIST" -o /tmp/rust.tar.gz
+                    if [ ! -f /tmp/rust.tar.gz ]; then
+            curl -sL "$RUST_DIST" -o /tmp/rust.tar.gz
+          fi
           tar -xzf /tmp/rust.tar.gz -C /tmp
           cp /tmp/rust-$VERSION-$TRIPLE/rustc/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true
           cp /tmp/rust-$VERSION-$TRIPLE/cargo/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true

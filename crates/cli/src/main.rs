@@ -714,14 +714,16 @@ pub fn resolve_rustc() -> PathBuf {
 /// 多文件（mod 引用）或有依赖的项目回退 cargo 流程。
 fn can_use_direct_rustc(project_root: &Path, file: &Path) -> bool {
     let dialects = ["zh", "ja", "de", "es", "fr", "pt", "ru", "ko", "hi", "ar"];
-    // src/ 下方言文件计数（入口 main.zh 之外还有方言文件 → 多文件项目）
-    let src = project_root.join("src");
+    // 方言文件计数：src/ 与项目根都扫（教学项目 src/main.zh 为主，
+    // 项目根也可能放 main.zh）；超过 1 个视为多文件项目
     let mut dialect_count = 0usize;
-    if let Ok(entries) = fs::read_dir(&src) {
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().to_string();
-            if dialects.iter().any(|d| name.ends_with(&format!(".{d}"))) {
-                dialect_count += 1;
+    for dir in [project_root.join("src"), project_root.to_path_buf()] {
+        if let Ok(entries) = fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if dialects.iter().any(|d| name.ends_with(&format!(".{d}"))) {
+                    dialect_count += 1;
+                }
             }
         }
     }
