@@ -389,7 +389,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             }
             Ok(std::process::ExitCode::SUCCESS)
         }
-        CliCommand::Doctor => install::doctor(&ui).map(|()| std::process::ExitCode::SUCCESS),
+        CliCommand::Doctor => install::doctor().map(|()| std::process::ExitCode::SUCCESS),
         CliCommand::Lang { subcommand } => {
             handle_lang_command(subcommand).map(|()| std::process::ExitCode::SUCCESS)
         }

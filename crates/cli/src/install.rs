@@ -314,7 +314,7 @@ fn copy_bin_dir(from: &Path, to: &Path) -> anyhow::Result<()> {
 }
 
 /// 环境诊断：rzc / 内置工具链 / PATH 工具链 / 版本对比
-pub fn doctor(ui: &Ui) -> anyhow::Result<()> {
+pub fn doctor() -> anyhow::Result<()> {
     use i18n_rust_engine::toolchain::{
         LOCKED_TOOLCHAIN_VERSION, installed_toolchain_version, toolchain_bin_dir,
     };
@@ -347,7 +347,6 @@ pub fn doctor(ui: &Ui) -> anyhow::Result<()> {
         "升级内置工具链：rzc install toolchain --version <新版本> --force（当前锁定 {}）",
         LOCKED_TOOLCHAIN_VERSION
     );
-    let _ = ui;
     Ok(())
 }
 
