@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.8
+
+### 修复
+- **LSP 稳定性**：修复 rust-analyzer 工作区重载竞态导致的随机崩溃（loaded_sysroot SendError panic）——虚拟项目工作区改在首次打开文档时以纯 added 添加，消除与初始化加载的并发；扩展自动重启上限放宽至 20 次，崩溃后自动恢复。
+- **中文消息补全**：新增 40 个高频翻译键（语法错误 expected 兜底、help 建议 consider/try 兜底、所有权/借用 label、类型错误、note 消息）；`could not compile` 错误摘要译为「无法编译」。
+
 ## 0.5.7
 
 ### 新增
