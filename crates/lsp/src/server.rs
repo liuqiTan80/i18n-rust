@@ -209,7 +209,9 @@ impl ProxyServer {
                     "textDocument": {
                         "completion": {
                             "completionItem": {
-                                "snippetSupport": false,
+                                // 启用 snippet：rust-analyzer 的方法/关键字补全
+                                // 依赖 snippet 才能附带括号（如 `长度()`）与占位符
+                                "snippetSupport": true,
                                 "labelDetailsSupport": true
                             }
                         },
@@ -255,10 +257,13 @@ impl ProxyServer {
                 // 减少启动与保存时的 cargo 开销；诊断（checkOnSave）保留
                 "initializationOptions": {
                     "cargo": { "buildScripts": { "enable": false } },
-                    "procMacro": { "enable": false }
+                    "procMacro": { "enable": false },
                     // 注：不启用 rust-analyzer 的 checkOnSave——其诊断在虚拟项目
                     // 上不可达（cargo 常驻但无诊断发布）；改为代理在 didSave 时
                     // 自跑 cargo check 并发布（见 trigger_cargo_check）
+                    // custom snippet：方法/关键字补全附带括号与占位符
+                    //（如 `长度()`、`让 可变 ${1:x}`），配合 snippetSupport 使用
+                    "completion": { "snippets": "custom" }
                 }
             }
         });
@@ -286,14 +291,18 @@ impl ProxyServer {
                 }
                 // 初始化期间 rust-analyzer 可能主动请求配置（workspace/configuration）：
                 // 必须立即响应，否则它一直等待导致配置加载挂起。
-                // 全部返回 null 表示使用默认配置（checkOnSave 默认关闭，
-                // 诊断由代理自跑 cargo check 提供，见 trigger_cargo_check）。
+                // 返回补全 snippet 配置（方法补全附带括号），其余键用默认
+                //（checkOnSave 默认关闭，诊断由代理自跑 cargo check 提供）。
                 if msg.get("method").and_then(|v| v.as_str()) == Some("workspace/configuration") {
                     let count = msg["params"]["items"]
                         .as_array()
                         .map(|a| a.len())
                         .unwrap_or(0);
-                    let result = Value::Array(vec![Value::Null; count]);
+                    let result = Value::Array(
+                        (0..count)
+                            .map(|_| json!({ "completion": { "snippets": "custom" } }))
+                            .collect(),
+                    );
                     let response = json!({
                         "jsonrpc": "2.0",
                         "id": msg["id"].clone(),
@@ -1425,13 +1434,16 @@ fn handle_analyzer_message(
             // 必须把响应回发给 rust-analyzer 本身，否则它会一直等待。
             let method = msg["method"].as_str().unwrap_or("");
             let result = if method == "workspace/configuration" {
-                // 全部返回 null 使用默认配置：checkOnSave 默认关闭，
-                // 诊断由代理自跑 cargo check 提供（见 trigger_cargo_check）
+                // 返回补全 snippet 配置（方法补全附带括号）；其余默认
                 let count = msg["params"]["items"]
                     .as_array()
                     .map(|a| a.len())
                     .unwrap_or(0);
-                Value::Array(vec![Value::Null; count])
+                Value::Array(
+                    (0..count)
+                        .map(|_| json!({ "completion": { "snippets": "custom" } }))
+                        .collect(),
+                )
             } else {
                 Value::Null
             };

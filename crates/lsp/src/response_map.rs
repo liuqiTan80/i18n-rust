@@ -139,6 +139,12 @@ impl ResponseMapper {
                         if let Some(location) = item.get("location") {
                             mapped_item["location"] = self.restore_location(location);
                         }
+                        // 子消息（help/note）同样翻译——悬停查看诊断详情时
+                        // 不泄漏英文（如 "value moved here"、"consider ..."）
+                        if let Some(message) = item.get("message").and_then(|v| v.as_str()) {
+                            mapped_item["message"] =
+                                Value::String(translate_diagnostic_message(message));
+                        }
                         mapped_related.push(mapped_item);
                     }
                     mapped["relatedInformation"] = Value::Array(mapped_related);
@@ -279,6 +285,51 @@ impl ResponseMapper {
                     && let Some(zh_name) = self.reverse_lookup(insert_text)
                 {
                     mapped["insertText"] = Value::String(zh_name);
+                }
+
+                // 7. 方法/函数补全补括号：rust-analyzer 的 snippet 配置在代理
+                //    环境不可靠（方法补全默认不带括号），这里对方法/函数类
+                //    补全项在 textEdit 末尾补 snippet 括号，光标自动落在括号内
+                //    （教学常用场景如 `长度()`）；已带括号（含参数占位）跳过。
+                let kind = item.get("kind").and_then(|v| v.as_i64()).unwrap_or(0);
+                if matches!(kind, 2 | 3)
+                    && let Some(text) = mapped["textEdit"]["newText"].as_str()
+                    && !text.contains('(')
+                {
+                    mapped["textEdit"]["newText"] = Value::String(format!("{}(${{1:}})", text));
+                    // 2 = Snippet 格式：占位符由客户端解析，光标落在括号内
+                    mapped["insertTextFormat"] = Value::Number(2.into());
+                }
+
+                // 8. 关键字补全前导空格：rust-analyzer 的 "let mut" 组合 snippet
+                //    在代理环境不可用，散落的关键字项（如 `可变`）直接插入会与
+                //    前一标识符粘连（`让可变`）。判断 newText 的首个标识符是否
+                //    为关键字映射表中的词（不依赖 kind，rust-analyzer 的关键字
+                //    补全 kind 不可靠），且前一字符是标识符时在 textEdit 前补空格。
+                if let Some(text) = mapped["textEdit"]["newText"].as_str() {
+                    let first_word = text
+                        .split(|c: char| c.is_whitespace() || c == '$')
+                        .next()
+                        .unwrap_or("");
+                    if !first_word.is_empty() && self.cache.keyword_map().contains_key(first_word) {
+                        let start = mapped["textEdit"]["range"]["start"].clone();
+                        if let (Some(line), Some(col)) = (
+                            start["line"].as_u64().map(|v| v as usize),
+                            start["character"].as_u64().map(|v| v as usize),
+                        ) && col > 0
+                            && let Some(entry) = self.cache.query_original(original_uri)
+                            && let Some(line_text) = entry.zh_content.lines().nth(line)
+                        {
+                            let prev = line_text.chars().nth(col - 1);
+                            let needs_space = prev.is_some_and(|c| {
+                                !c.is_whitespace()
+                                    && !matches!(c, '(' | '.' | ':' | ',' | ';' | '{' | '[' | '!')
+                            });
+                            if needs_space && !text.starts_with(char::is_whitespace) {
+                                mapped["textEdit"]["newText"] = Value::String(format!(" {text}"));
+                            }
+                        }
+                    }
                 }
 
                 mapped_items.push(mapped);

@@ -470,17 +470,18 @@ impl TranslationCache {
         } else {
             i18n_rust_engine::alias::replace_aliases(&en_content, &self.alias_map)
         };
-        // main 文件（main.zh）的 `fn main` 提升为 pub：虚拟项目的 crate 入口
-        // 在聚合 main.rs 中转发调用 `main::main()`，模块内 fn 默认私有会触发
-        // cargo check E0603（function `main` is private）使 checkOnSave 诊断
-        // 整体失败（所有权可视化依赖 E0382 等诊断）。教学场景字符串/注释中
-        // 含 "fn main(" 极罕见，直接替换可接受；pub 不影响编辑器内语义。
-        let en_content =
-            if old_entry.original_path.file_stem().and_then(|s| s.to_str()) == Some("main") {
-                en_content.replace("fn main(", "pub fn main(")
-            } else {
-                en_content
-            };
+        // main 文件（main.zh）的 `fn main` 仅在磁盘虚拟文件中提升为 pub：
+        // 虚拟项目的 crate 入口在聚合 main.rs 中转发调用 `main::main()`，
+        // 模块内 fn 默认私有会触发 cargo check E0603。但发送给 rust-analyzer
+        // 的内存文档必须保持用户原文（无 pub）——否则语义 token 多出 pub、
+        // fn/main 位置偏移，变量等颜色错乱。
+        //（column_map 基于无 pub 内容构建，与内存文档一致）
+        let is_main = old_entry.original_path.file_stem().and_then(|s| s.to_str()) == Some("main");
+        let disk_content = if is_main {
+            en_content.replace("fn main(", "pub fn main(")
+        } else {
+            en_content.clone()
+        };
         let column_map = build_column_map(
             &old_entry.zh_content,
             &en_content,
@@ -497,13 +498,13 @@ impl TranslationCache {
             ..(*old_entry).clone()
         });
 
-        // 写入虚拟文件到磁盘（rust-analyzer 需要文件系统支持）
+        // 写入虚拟文件到磁盘（rust-analyzer 需要文件系统支持；main 文件写 pub 版）
         // 先确保父目录存在（首次打开时 src/ 可能尚未创建，
         // 直接写会静默失败导致 cargo check 读到不完整的虚拟项目）
         if let Some(parent) = new_entry.virtual_path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let _ = std::fs::write(&new_entry.virtual_path, &en_content);
+        let _ = std::fs::write(&new_entry.virtual_path, &disk_content);
 
         {
             let mut table = match self.entries.write() {
