@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0
+
+### 新增
+- **内置官方工具链（脱离 rustup）**：`rzc install toolchain` 一键下载官方 standalone rustc/cargo/rust-analyzer 到 `~/.rz/toolchain`；`rzc doctor` 环境诊断；rzc 与 LSP 自动优先使用内置工具链——无需 rustup、无需 PATH 配置、无组件管理、无网络索引卡死。
+- **单文件直调 rustc**：单文件项目（仅 main.zh、无依赖）`rzc run/check` 直接调用 rustc 绕开 cargo（无索引开销、无 Cargo.lock 依赖），诊断翻译完全复用；多文件/有依赖自动回退 cargo。
+
+### 修复
+- **语义着色同标识符跨行颜色一致**：rust-analyzer 的 token 修饰符（声明处 declaration、宏参数内 macro 等）在 VS Code 有独立颜色，代理侧强制清零——同一类型全局同色，便于按颜色查找标识符。
+
 ## 0.5.11
 
 ### 修复
