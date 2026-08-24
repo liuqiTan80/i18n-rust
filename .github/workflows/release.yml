@@ -75,7 +75,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/rust.tar.gz
-          key: rust-toolchain-${{ matrix.os_name }}-${{ github.ref_name }}
+          key: rust-toolchain-${{ matrix.os_name }}-1.98.0
       - name: 组装发布目录
         shell: bash
         run: |
@@ -112,14 +112,16 @@ jobs:
             TRIPLE="aarch64-apple-darwin"
           fi
           mkdir -p "$DIR/toolchain/bin"
-          RUST_DIST="https://static.rust-lang.org/dist/rust-$VERSION-$TRIPLE.tar.gz"
+          # Rust 工具链版本：与 rzc install toolchain 的锁定版本一致（LOCKED_TOOLCHAIN_VERSION），非项目版本号
+          RUST_VERSION="1.98.0"
+          RUST_DIST="https://static.rust-lang.org/dist/rust-$RUST_VERSION-$TRIPLE.tar.gz"
           echo "下载工具链: $RUST_DIST"
           if [ ! -f /tmp/rust.tar.gz ]; then
             curl -sL "$RUST_DIST" -o /tmp/rust.tar.gz
           fi
           tar -xzf /tmp/rust.tar.gz -C /tmp
-          cp /tmp/rust-$VERSION-$TRIPLE/rustc/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true
-          cp /tmp/rust-$VERSION-$TRIPLE/cargo/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true
+          cp /tmp/rust-$RUST_VERSION-$TRIPLE/rustc/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true
+          cp /tmp/rust-$RUST_VERSION-$TRIPLE/cargo/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true
           # rust-analyzer（官方 Release，锁定 tag；rzc install toolchain 同源）
           RA_TAG="2026-08-24"
           RA_NAME="rust-analyzer-$TRIPLE"
