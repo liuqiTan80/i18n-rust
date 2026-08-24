@@ -433,13 +433,17 @@ impl ResponseMapper {
 
         // 2. 起点/终点列分别还原到方言坐标，长度取映射后的差值
         //（关键字替换改变了列宽，如 `让`(1) → `let`(3)，长度必须重算）
+        // 修饰符强制清零：rust-analyzer 对同一标识符在不同位置打不同修饰符
+        //（声明处 declaration、宏参数内 macro 等），VS Code 对修饰符有独立
+        // 颜色/样式（如宏参数蓝色、声明加粗），导致同一变量不同行颜色不一，
+        // 干扰用户按颜色查找标识符。教学场景以类型色为准，修饰符信息放弃。
         let mut mapped: Vec<(u32, u32, u32, u32, u32)> = Vec::new();
-        for (t_line, t_col, t_len, t_type, t_mod) in tokens {
+        for (t_line, t_col, t_len, t_type, _t_mod) in tokens {
             let (zh_line, zh_start) = self.restore_position(original_uri, t_line, t_col);
             let (_, zh_end) =
                 self.restore_position(original_uri, t_line, t_col.saturating_add(t_len));
             let zh_len = zh_end.saturating_sub(zh_start).max(1);
-            mapped.push((zh_line, zh_start, zh_len, t_type, t_mod));
+            mapped.push((zh_line, zh_start, zh_len, t_type, 0));
         }
 
         // 3. 重新 delta 编码
