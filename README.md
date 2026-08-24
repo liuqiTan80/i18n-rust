@@ -56,7 +56,15 @@ $ rzc run src/main.zh
 >
 > ```bash
 > rzc install lsp
+
+> **推荐：内置官方工具链**（脱离 rustup，无需 PATH 配置、无组件管理、无网络索引卡死）：
+>
+> ```bash
+> rzc install toolchain   # 一键安装 standalone rustc/cargo/rust-analyzer 到 ~/.rz/toolchain
+> rzc doctor              # 查看工具链环境状态（内置 / PATH / 版本对比）
 > ```
+>
+> 安装后 rzc 与 LSP 自动优先使用内置工具链；单文件项目直调 rustc，无需 cargo 索引。> ```
 
 **IDE 扩展**：从 [GitHub Releases](https://github.com/liuqiTan80/i18n-rust/releases)（或[百度网盘](https://pan.baidu.com/s/19EGFN7kTS-ASNXvwbXINJQ?pwd=i18n)）下载 `i18n-rust-*.vsix`，在编辑器中选择「从 VSIX 安装」。
 
@@ -173,3 +181,4 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 ## 📄 许可证
 
 [MIT](LICENSE) © tan80
+

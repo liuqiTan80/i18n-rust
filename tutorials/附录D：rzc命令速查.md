@@ -17,6 +17,9 @@
 | `rzc mapping check` | 校验第三方库映射文件 | |
 | `rzc mapping scaffold` | 为新语言生成映射脚手架 | |
 | `rzc cargo add 库名` | 添加依赖（转发给 cargo） | `rzc cargo add rand` |
+| `rzc install lsp` | 安装语言服务器（VS Code 智能提示） | |
+| `rzc install toolchain` | 一键安装内置官方工具链（standalone rustc/cargo/rust-analyzer，脱离 rustup） | |
+| `rzc doctor` | 诊断工具链环境（内置 / PATH / 版本对比） | |
 | `rzc --version` | 查看版本 | |
 
 ### 日常流水线

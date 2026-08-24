@@ -98,7 +98,28 @@ jobs:
 
           # 许可证与说明文档
           [ -f LICENSE ] && cp LICENSE "$DIR/" || true
-          [ -f README.md ] && cp README.md "$DIR/" || true
+          [ -f README.md ] && cp README.md "$DIR/" || true          # 内置工具链（standalone rustc/cargo/rust-analyzer）：离线包即开即用，无需 rustup
+          if [ "${{ matrix.os_name }}" = "windows" ]; then
+            TRIPLE="x86_64-pc-windows-msvc"
+          elif [ "${{ matrix.os_name }}" = "linux" ]; then
+            TRIPLE="x86_64-unknown-linux-gnu"
+          else
+            TRIPLE="aarch64-apple-darwin"
+          fi
+          mkdir -p "$DIR/toolchain/bin"
+          RUST_DIST="https://static.rust-lang.org/dist/rust-$VERSION-$TRIPLE.tar.gz"
+          echo "下载工具链: $RUST_DIST"
+          curl -sL "$RUST_DIST" -o /tmp/rust.tar.gz
+          tar -xzf /tmp/rust.tar.gz -C /tmp
+          cp /tmp/rust-$VERSION-$TRIPLE/rustc/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true
+          cp /tmp/rust-$VERSION-$TRIPLE/cargo/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true
+          # rust-analyzer（官方 Release，锁定 tag；rzc install toolchain 同源）
+          RA_TAG="2026-08-24"
+          RA_NAME="rust-analyzer-$TRIPLE"
+          [ "${{ matrix.os_name }}" = "windows" ] && RA_NAME="$RA_NAME.exe"
+          curl -sL "https://github.com/rust-lang/rust-analyzer/releases/download/$RA_TAG/$RA_NAME" -o "$DIR/toolchain/bin/$RA_NAME"
+          chmod +x "$DIR/toolchain/bin/"* 2>/dev/null || true
+          echo "工具链已打包：$(ls "$DIR/toolchain/bin")"
 
           # 使用说明
           cat > "$DIR/使用说明.md" <<'说明'
@@ -118,7 +139,15 @@ jobs:
           ./rzc run src/main.zh   # 翻译并运行中文代码
           ./rzc check src/main.zh # 类型检查（中文错误提示）
           ./rzc lang list         # 查看语言包
-          ./rzc install lsp       # 安装语言服务器（VS Code 扩展后端，包内免网络复制）
+          ./rzc install lsp       # 安装语言服务器（VS Code 扩展后端，包内免网络复制）          ## 内置工具链
+
+          包内 `toolchain/bin/` 已附带官方 standalone rustc/cargo/rust-analyzer，
+          开箱即用，无需安装 rustup 或配置 PATH：
+
+          ```bash
+          ./rzc install toolchain --force  # 就地安装内置工具链（包内免网络复制）
+          ./rzc doctor                     # 查看工具链状态
+          ```
           ```
 
           ## 可选：使用包内语言包目录
@@ -132,7 +161,7 @@ jobs:
 
           ## 系统要求
 
-          - 需要 Rust 编译运行环境（rzc 通过 cargo 调用 rustc）
+          - 包内已含完整工具链（rustc/cargo/rust-analyzer），无需安装 Rust 环境
           - Linux：glibc 2.31+；macOS：11.0+；Windows：10 1803+
           说明
 

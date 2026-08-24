@@ -1,4 +1,4 @@
-﻿# =============================================================
+# =============================================================
 # rzc 离线发布包构建脚本（Windows / PowerShell）
 #
 # 功能：
@@ -69,6 +69,20 @@ Copy-Item 'target/release/rzc.exe' (Join-Path $pack_dir 'rzc.exe')
 # 单一数据源为 crates/engine/lang-packs/，包内仍按 lang-packs/ 布局（RZ_LANG_DIR 约定）
 if (Test-Path 'crates/engine/lang-packs') {
     Copy-Item 'crates/engine/lang-packs/*' (Join-Path $pack_dir 'lang-packs') -Recurse -Force
+# 语言服务器（离线包内自带，rzc install 优先复制同目录二进制）
+if (Test-Path 'target/release/i18n-rust-lsp.exe') {
+    Copy-Item 'target/release/i18n-rust-lsp.exe' (Join-Path $pack_dir 'i18n-rust-lsp.exe')
+    Write-Host "   ? 已附带语言服务器 i18n-rust-lsp.exe"
+}
+
+# 内置工具链（~/.rz/toolchain/bin，若已安装则一并打包；离线包即开即用）
+$tc_src = Join-Path $HOME '.rz/toolchain/bin'
+if (Test-Path $tc_src) {
+    Copy-Item $tc_src (Join-Path $pack_dir 'toolchain') -Recurse -Force
+    Write-Host "   ? 已附带内置工具链（rustc/cargo/rust-analyzer），安装后无需 rustup"
+} else {
+    Write-Host "   ? 未找到 ~/.rz/toolchain/bin（可先执行 rzc install toolchain 再打包，离线包将包含完整工具链）"
+}
     Write-Host "   ✅ 已复制语言包：$((Get-ChildItem 'crates/engine/lang-packs' -Directory).Name -join ' ')"
 } else {
     Write-Host "   ⚠️ 未找到 crates/engine/lang-packs/ 目录，跳过（内置中文语言包不受影响）"
