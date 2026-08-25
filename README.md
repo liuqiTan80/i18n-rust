@@ -42,34 +42,54 @@ $ rzc run src/main.zh
 
 ## 📦 安装
 
-**前置条件**：已安装 [Rust 工具链](https://www.rust-lang.org/tools/install)（rustup 的 stable 即可）。
+### 方式一：离线发布包（推荐，零环境配置）
 
-| 方式              | 命令                                               | 适用场景        |
-|-------------------|----------------------------------------------------|----------------|
-| crates.io（推荐） | `cargo install rzc`                                | 有网络 |
-| 离线发布包        | 下载 Release 离线包后运行 `rzc install`             | 教学机房/无网络 |
-| 源码构建          | `git clone` 后 `cargo build --release --workspace` | 参与开发 |
+从 [GitHub Releases](https://github.com/liuqiTan80/i18n-rust/releases)（或[百度网盘](https://pan.baidu.com/s/19EGFN7kTS-ASNXvwbXINJQ?pwd=i18n)）下载对应平台的离线包：
 
-装完即用：**10 种语言包已内置在二进制中，无需任何额外配置**。
+| 平台 | 包名 |
+|---|---|
+| Windows | `rzc-<版本>-windows-x86_64.zip` |
+| Linux | `rzc-<版本>-linux-x86_64.tar.gz` |
+| macOS | `rzc-<版本>-macos-aarch64.tar.gz` |
 
-> 要在 VS Code / Qoder 里获得补全、跳转、悬停等完整智能提示，还需语言服务器（一条命令，自动安装）：
->
-> ```bash
-> rzc install lsp
+**离线包已内置完整工具链**（rustc/cargo/rust-analyzer）与 10 种语言包——解压即用，**无需安装 Rust、无需 rustup、无需 PATH 配置**。适合教学机房、无网络环境与网盘分发。
 
-> **推荐：内置官方工具链**（脱离 rustup，无需 PATH 配置、无组件管理、无网络索引卡死）：
->
-> ```bash
-> rzc install toolchain   # 一键安装 standalone rustc/cargo/rust-analyzer 到 ~/.rz/toolchain
-> rzc doctor              # 查看工具链环境状态（内置 / PATH / 版本对比）
-> ```
->
-> 安装后 rzc 与 LSP 自动优先使用内置工具链；单文件项目直调 rustc，无需 cargo 索引。
+### 方式二：crates.io（有网络时）
 
-**IDE 扩展**：从 [GitHub Releases](https://github.com/liuqiTan80/i18n-rust/releases)（或[百度网盘](https://pan.baidu.com/s/19EGFN7kTS-ASNXvwbXINJQ?pwd=i18n)）下载 `i18n-rust-*.vsix`，在编辑器中选择「从 VSIX 安装」。
+```bash
+cargo install rzc
+```
 
----
+### 方式三：源码构建（参与开发时）
 
+```bash
+git clone https://github.com/liuqiTan80/i18n-rust
+cd i18n-rust
+cargo build --release --workspace
+```
+
+### 完整功能配置（一条命令各就位）
+
+```bash
+rzc install lsp          # 语言服务器（VS Code 补全/诊断/悬停后端）
+rzc install toolchain    # 内置官方工具链（standalone rustc/cargo/rust-analyzer 到 ~/.rz/toolchain）
+rzc doctor               # 查看工具链环境状态（内置 / PATH / 版本对比）
+```
+
+安装后 rzc 与 LSP 自动优先使用内置工具链，单文件项目直调 rustc，无需 cargo 索引。
+
+### IDE 扩展（VS Code / Qoder）
+
+下载 `i18n-rust-<版本>.vsix`（与离线包同源发布），在编辑器中选择「从 VSIX 安装」，重载窗口后获得语法高亮、补全、诊断、悬停、所有权可视化等全部功能（语言服务器由 `rzc install lsp` 提供，自动定位内置工具链）。
+
+### 环境变量（可选，一般无需配置）
+
+| 变量 | 作用 |
+|---|---|
+| `RZ_LANG_DIR` | 指定语言包目录（默认使用内置语言包） |
+| `RUST_ANALYZER_PATH` | 指定 rust-analyzer 路径（自动检测失败时） |
+
+VS Code 设置 `i18n-rust.serverPath` 可显式指定 LSP 二进制路径（自动检测失败时使用）。
 ## 🚀 快速开始
 
 ```bash

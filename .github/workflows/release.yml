@@ -126,7 +126,7 @@ jobs:
           RA_TAG="2026-08-24"
           RA_NAME="rust-analyzer-$TRIPLE"
           [ "${{ matrix.os_name }}" = "windows" ] && RA_NAME="$RA_NAME.exe"
-          curl -sL "https://github.com/rust-lang/rust-analyzer/releases/download/$RA_TAG/$RA_NAME" -o "$DIR/toolchain/bin/$RA_NAME"
+          curl -sL "https://github.com/rust-lang/rust-analyzer/releases/download/$RA_TAG/$RA_NAME" -o "$DIR/toolchain/bin/rust-analyzer$([ "${{ matrix.os_name }}" = "windows" ] && echo .exe)"
           chmod +x "$DIR/toolchain/bin/"* 2>/dev/null || true
           echo "工具链已打包：$(ls "$DIR/toolchain/bin")"
 
