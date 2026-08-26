@@ -172,14 +172,13 @@ fn main() -> std::process::ExitCode {
         }
         return std::process::ExitCode::SUCCESS;
     }
-    let code = match run() {
+    match run() {
         Ok(code) => code,
         Err(err) => {
             eprintln!("Error: {err:#}");
             std::process::ExitCode::FAILURE
         }
-    };
-    code
+    }
 }
 
 fn run() -> anyhow::Result<std::process::ExitCode> {

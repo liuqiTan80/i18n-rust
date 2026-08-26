@@ -210,16 +210,17 @@ fn read_one_lsp_message<R: BufRead>(reader: &mut R) -> Option<Value> {
 /// 3. PATH 扫描（跨平台，替代 Unix 专属 which；Windows 追加 PATHEXT 后缀）
 /// 4. 常见安装位置（含 ~/.cargo/bin，Windows 回退 USERPROFILE）
 fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
-    // 0. 内置工具链（脱离 rustup 的 standalone 版本，版本自管）
-    if let Some(p) = i18n_rust_engine::toolchain::find_toolchain_bin("rust-analyzer") {
-        return Ok(p);
-    }
-
+    // 0. 用户显式指定的环境变量（最高优先级，覆盖内置与 PATH）
     if let Ok(path) = std::env::var("RUST_ANALYZER_PATH") {
         let p = PathBuf::from(&path);
         if p.exists() {
             return Ok(p);
         }
+    }
+
+    // 1. 内置工具链（脱离 rustup 的 standalone 版本，版本自管）
+    if let Some(p) = i18n_rust_engine::toolchain::find_toolchain_bin("rust-analyzer") {
+        return Ok(p);
     }
 
     // rustup which 返回真实二进制路径（非 shim），避免被项目 rust-toolchain.toml

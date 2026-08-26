@@ -371,65 +371,6 @@ fn component_status_lines(bin_dir: &std::path::Path) -> Vec<String> {
         .collect()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_check_lsp_version_match() {
-        assert_eq!(
-            check_lsp_version(Some("0.5.5".to_string()), "0.5.5"),
-            VersionCheck::Match
-        );
-    }
-
-    #[test]
-    fn test_check_lsp_version_mismatch() {
-        assert_eq!(
-            check_lsp_version(Some("0.5.3".to_string()), "0.5.5"),
-            VersionCheck::Mismatch("0.5.3".to_string())
-        );
-    }
-
-    #[test]
-    fn test_check_lsp_version_unknown() {
-        assert_eq!(check_lsp_version(None, "0.5.5"), VersionCheck::Unknown);
-    }
-
-    #[test]
-    fn test_target_triple_supported() {
-        // 当前平台必须能被识别（不 panic）
-        let triple = target_triple();
-        assert!(!triple.is_empty());
-    }
-
-    /// SHA-256 计算正确性（空文件与已知内容）
-    #[test]
-    fn test_sha256_file_known_content() {
-        let dir = tempfile::tempdir().unwrap();
-        let f = dir.path().join("a.txt");
-        std::fs::write(&f, b"hello").unwrap();
-        // `hello` 的 SHA-256（标准已知值）
-        assert_eq!(
-            sha256_file(&f).unwrap(),
-            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
-        );
-    }
-
-    /// 内置工具链存在时状态行标记为内置
-    #[test]
-    fn test_component_status_lines_builtin() {
-        let dir = tempfile::tempdir().unwrap();
-        let bin = dir.path();
-        std::fs::write(bin.join(format!("rustc{EXE_SUFFIX}")), b"x").unwrap();
-        let lines = component_status_lines(bin);
-        assert!(lines.iter().any(|l| l.starts_with("rustc: 内置")));
-        // 其余组件未内置时标记 PATH 或未找到（不 panic）
-        assert!(lines.iter().any(|l| l.starts_with("cargo:")));
-        assert!(lines.iter().any(|l| l.starts_with("rust-analyzer:")));
-    }
-}
-
 /// 双击 rzc.exe（或终端无参数运行）时的环境安装向导：
 /// 逐项检查组件状态，标注「已就绪 ✓」或「缺失 ✗ + 解决命令」。
 pub fn show_setup_wizard() {
@@ -502,3 +443,62 @@ pub fn show_setup_wizard() {
     println!();
     println!("详细教程见《开篇：这本书怎么用》与《第一章：用好 VS Code 扩展》。");
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_check_lsp_version_match() {
+        assert_eq!(
+            check_lsp_version(Some("0.5.5".to_string()), "0.5.5"),
+            VersionCheck::Match
+        );
+    }
+
+    #[test]
+    fn test_check_lsp_version_mismatch() {
+        assert_eq!(
+            check_lsp_version(Some("0.5.3".to_string()), "0.5.5"),
+            VersionCheck::Mismatch("0.5.3".to_string())
+        );
+    }
+
+    #[test]
+    fn test_check_lsp_version_unknown() {
+        assert_eq!(check_lsp_version(None, "0.5.5"), VersionCheck::Unknown);
+    }
+
+    #[test]
+    fn test_target_triple_supported() {
+        // 当前平台必须能被识别（不 panic）
+        let triple = target_triple();
+        assert!(!triple.is_empty());
+    }
+
+    /// SHA-256 计算正确性（空文件与已知内容）
+    #[test]
+    fn test_sha256_file_known_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("a.txt");
+        std::fs::write(&f, b"hello").unwrap();
+        // `hello` 的 SHA-256（标准已知值）
+        assert_eq!(
+            sha256_file(&f).unwrap(),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+    }
+
+    /// 内置工具链存在时状态行标记为内置
+    #[test]
+    fn test_component_status_lines_builtin() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path();
+        std::fs::write(bin.join(format!("rustc{EXE_SUFFIX}")), b"x").unwrap();
+        let lines = component_status_lines(bin);
+        assert!(lines.iter().any(|l| l.starts_with("rustc: 内置")));
+        // 其余组件未内置时标记 PATH 或未找到（不 panic）
+        assert!(lines.iter().any(|l| l.starts_with("cargo:")));
+        assert!(lines.iter().any(|l| l.starts_with("rust-analyzer:")));
+    }
+}
+
