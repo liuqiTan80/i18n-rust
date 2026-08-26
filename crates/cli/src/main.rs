@@ -157,13 +157,23 @@ enum LangCommand {
 }
 
 fn main() -> std::process::ExitCode {
-    match run() {
+    use std::io::{IsTerminal, Read};
+    let code = match run() {
         Ok(code) => code,
         Err(err) => {
             eprintln!("Error: {err:#}");
             std::process::ExitCode::FAILURE
         }
+    };
+    // Windows 双击 rzc.exe（无参数且 stdin 是交互终端）：帮助/输出后等待按键，
+    // 避免黑窗口一闪而过看不到内容；命令行/管道场景不受影响
+    if std::env::args().len() == 1 && std::io::stdin().is_terminal() {
+        println!();
+        println!("按任意键退出...");
+        let mut buf = [0u8; 1];
+        let _ = std::io::stdin().read_exact(&mut buf);
     }
+    code
 }
 
 fn run() -> anyhow::Result<std::process::ExitCode> {

@@ -126,7 +126,7 @@ $readme_content = @'
 
 ## 快速开始
 
-- **Windows**：双击运行 `rzc.exe`，或在 PowerShell 中执行 `.\rzc.exe --help` 查看命令
+- **Windows**：在 PowerShell 中进入解压目录执行 `.\rzc.exe --help` 查看帮助（直接双击 `rzc.exe` 也会显示帮助，按任意键退出）；
 - **Linux / macOS**：直接运行 `./rzc`
 
 中文语言包已内置到可执行文件中，开箱即用，无需任何配置。
