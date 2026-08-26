@@ -380,6 +380,9 @@ pub fn show_setup_wizard() {
     println!("════════════ i18n-rust 环境安装向导 ════════════");
     println!("rzc 本体          v{}（已就绪）", env!("CARGO_PKG_VERSION"));
     println!();
+    println!("  💡 也可下载「完整离线版」：一个压缩包已含 VS Code（预装扩展）+");
+    println!("     工具链 + 全部组件，解压双击即可用，不会下错版本。");
+    println!();
 
     // 1. 内置工具链（rustc / cargo / rust-analyzer）
     println!("【第 1 步】编译器与工具链（rzc install toolchain 一键安装）");
@@ -501,4 +504,3 @@ mod tests {
         assert!(lines.iter().any(|l| l.starts_with("rust-analyzer:")));
     }
 }
-
