@@ -90,6 +90,26 @@ rzc doctor               # 查看工具链环境状态（内置 / PATH / 版本�
 | `RUST_ANALYZER_PATH` | 指定 rust-analyzer 路径（自动检测失败时） |
 
 VS Code 设置 `i18n-rust.serverPath` 可显式指定 LSP 二进制路径（自动检测失败时使用）。
+
+### 升级工具链中的某个软件
+
+| 场景 | 命令 |
+|---|---|
+| 升级 rustc/cargo（如 1.98 → 1.99） | `rzc install toolchain --version 1.99.0 --force` |
+| 仅升级 rust-analyzer（免重下 300MB） | `rzc install toolchain --ra-tag <日期tag> --ra-only --force` |
+| 查看当前版本与状态 | `rzc doctor` |
+
+### 更换编辑器（如改用 VSCodium / Cursor 等 VS Code 系）
+
+i18n-rust 扩展（.vsix）兼容所有 VS Code 系编辑器；rzc、语言服务器与工具链均与编辑器无关：
+
+1. 新编辑器 → 扩展 → 「Install from VSIX」→ 选 `i18n-rust-<版本>.vsix`；
+2. 把组件接入系统标准位置（用完整版包内 rzc 执行）：
+   ```bash
+   rzc install lsp        # 语言服务器 → ~/.cargo/bin
+   rzc install toolchain  # 内置工具链 → ~/.rz/toolchain（或直接复制完整版包内 toolchain/bin）
+   ```
+3. 打开 `.zh` 文件即用（扩展自动定位语言服务器与工具链；也可用环境变量 RUST_ANALYZER_PATH 或设置 i18n-rust.serverPath 显式指定）。
 ## 🚀 快速开始
 
 ```bash

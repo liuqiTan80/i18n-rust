@@ -189,11 +189,22 @@ fn target_triple() -> &'static str {
 ///
 /// rustc/cargo 来自官方 dist（static.rust-lang.org，含全套组件）；
 /// rust-analyzer 来自官方 GitHub Release（下载失败不阻塞——可稍后补装）。
+/// `ra_only` 为 true 时仅升级 rust-analyzer（跳过 rustc/cargo 的 300MB 重下）。
 /// 安装后 rzc 与 LSP 优先使用内置工具链，不再依赖 rustup 与 PATH 配置。
-pub fn install_toolchain(ui: &Ui, version: &str, ra_tag: &str, force: bool) -> anyhow::Result<()> {
+pub fn install_toolchain(
+    ui: &Ui,
+    version: &str,
+    ra_tag: &str,
+    force: bool,
+    ra_only: bool,
+) -> anyhow::Result<()> {
     use i18n_rust_engine::toolchain::{rz_home, toolchain_bin_dir};
 
     let bin_dir = toolchain_bin_dir();
+    if ra_only {
+        return install_rust_analyzer_only(ui, ra_tag, &bin_dir);
+    }
+
     let rustc_exe = bin_dir.join(format!("rustc{EXE_SUFFIX}"));
     if rustc_exe.is_file() && !force {
         println!(
@@ -254,6 +265,25 @@ pub fn install_toolchain(ui: &Ui, version: &str, ra_tag: &str, force: bool) -> a
         "{}",
         ui.f("tc_install_done", &[&bin_dir.display().to_string()])
     );
+    Ok(())
+}
+
+/// 仅升级 rust-analyzer（跳过 rustc/cargo 的 300MB 重下）
+fn install_rust_analyzer_only(ui: &Ui, ra_tag: &str, bin_dir: &Path) -> anyhow::Result<()> {
+    let triple = target_triple();
+    let ra_name = format!(
+        "rust-analyzer-{triple}{}",
+        if std::env::consts::OS == "windows" {
+            ".exe"
+        } else {
+            ""
+        }
+    );
+    let ra_url =
+        format!("https://github.com/rust-lang/rust-analyzer/releases/download/{ra_tag}/{ra_name}");
+    let ra_dest = bin_dir.join(format!("rust-analyzer{EXE_SUFFIX}"));
+    download_to(&ra_url, &ra_dest)?;
+    println!("{}", ui.f("tc_ra_installed", &[ra_tag]));
     Ok(())
 }
 

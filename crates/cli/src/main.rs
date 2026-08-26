@@ -92,6 +92,9 @@ enum InstallCommand {
         /// rust-analyzer 官方 Release tag（默认锁定版本）
         #[arg(long, default_value = crate::install::RA_RELEASE_TAG)]
         ra_tag: String,
+        /// 仅升级 rust-analyzer（跳过 rustc/cargo 的 300MB 重下）
+        #[arg(long)]
+        ra_only: bool,
         /// 已存在时强制重新安装
         #[arg(short = 'f', long = "force")]
         force: bool,
@@ -405,8 +408,9 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 InstallCommand::Toolchain {
                     version,
                     ra_tag,
+                    ra_only,
                     force,
-                } => install::install_toolchain(&ui, &version, &ra_tag, force)?,
+                } => install::install_toolchain(&ui, &version, &ra_tag, force, ra_only)?,
             }
             Ok(std::process::ExitCode::SUCCESS)
         }
