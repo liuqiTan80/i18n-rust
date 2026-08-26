@@ -76,6 +76,16 @@ if (Test-Path 'target/release/i18n-rust-lsp.exe') {
 }
 
 # 内置工具链（~/.rz/toolchain/bin，若已安装则一并打包；离线包即开即用）
+
+# VC++ 运行库（新系统可能缺失，随包分发；从系统 System32 复制）
+foreach ($dll in @('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll', 'concrt140.dll')) {
+    $src = Join-Path $env:WINDIR "System32\$dll"
+    if (Test-Path $src) {
+        Copy-Item $src (Join-Path $pack_dir $dll)
+        Write-Host "   已附带运行库 $dll"
+    }
+}
+
 $tc_src = Join-Path $HOME '.rz/toolchain/bin'
 if (Test-Path $tc_src) {
     $tc_dest = Join-Path $pack_dir 'toolchain/bin'

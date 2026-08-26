@@ -129,6 +129,12 @@ jobs:
           curl -sL "https://github.com/rust-lang/rust-analyzer/releases/download/$RA_TAG/$RA_NAME" -o "$DIR/toolchain/bin/rust-analyzer$([ "${{ matrix.os_name }}" = "windows" ] && echo .exe)"
           chmod +x "$DIR/toolchain/bin/"* 2>/dev/null || true
           echo "工具链已打包：$(ls "$DIR/toolchain/bin")"
+          # VC++ 运行库（新系统可能缺失，随包分发；Windows 运行器自带）
+          if [ "${{ matrix.os_name }}" = "windows" ]; then
+            for dll in vcruntime140.dll vcruntime140_1.dll msvcp140.dll concrt140.dll; do
+              cp "/c/Windows/System32/$dll" "$DIR/" 2>/dev/null || true
+            done
+          fi
 
           # 使用说明
           cat > "$DIR/使用说明.md" <<'说明'
