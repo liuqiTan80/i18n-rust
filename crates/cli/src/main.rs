@@ -157,7 +157,7 @@ enum LangCommand {
 }
 
 fn main() -> std::process::ExitCode {
-    use std::io::{IsTerminal, Read};
+    use std::io::Read;
     let code = match run() {
         Ok(code) => code,
         Err(err) => {
@@ -165,9 +165,10 @@ fn main() -> std::process::ExitCode {
             std::process::ExitCode::FAILURE
         }
     };
-    // Windows 双击 rzc.exe（无参数且 stdin 是交互终端）：帮助/输出后等待按键，
-    // 避免黑窗口一闪而过看不到内容；命令行/管道场景不受影响
-    if std::env::args().len() == 1 && std::io::stdin().is_terminal() {
+    // Windows 双击 rzc.exe（无参数）：帮助后等待按键，避免黑窗一闪而过。
+    // 不依赖 is_terminal——双击场景的 stdin 终端检测在 Windows 上不可靠；
+    // 管道/重定向场景 read 立即返回（EOF 或已有数据），不会阻塞。
+    if std::env::args().len() == 1 {
         println!();
         println!("按任意键退出...");
         let mut buf = [0u8; 1];
