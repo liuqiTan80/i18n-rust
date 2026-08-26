@@ -158,6 +158,20 @@ enum LangCommand {
 
 fn main() -> std::process::ExitCode {
     use std::io::{IsTerminal, Read};
+    // Windows 双击 rzc.exe（无参数且 stdout 是终端）：显示环境安装向导（逐项检查
+    // 组件状态与解决方式）并停留，避免黑窗一闪而过。用 stdout 检测（双击时 stdout
+    // 连控制台）而非 stdin（双击场景 stdin 句柄可能无效，read 立即 EOF 导致秒关）；
+    // stdin 读取失败时停留数秒兜底。管道/重定向场景 stdout 非终端，走正常流程。
+    if std::env::args().len() == 1 && std::io::stdout().is_terminal() {
+        install::show_setup_wizard();
+        println!();
+        println!("按任意键退出...");
+        let mut buf = [0u8; 1];
+        if std::io::stdin().read_exact(&mut buf).is_err() {
+            std::thread::sleep(std::time::Duration::from_secs(8));
+        }
+        return std::process::ExitCode::SUCCESS;
+    }
     let code = match run() {
         Ok(code) => code,
         Err(err) => {
@@ -165,18 +179,6 @@ fn main() -> std::process::ExitCode {
             std::process::ExitCode::FAILURE
         }
     };
-    // Windows 双击 rzc.exe（无参数且 stdout 是终端）：帮助后等待按键，避免黑窗一闪而过。
-    // 用 stdout 检测（双击时 stdout 连控制台）而非 stdin（双击场景 stdin 句柄可能无效，
-    // read 立即 EOF 导致窗口秒关）；stdin 读取失败时停留数秒兜底让用户读到帮助。
-    // 管道/重定向场景 stdout 非终端，完全不等待。
-    if std::env::args().len() == 1 && std::io::stdout().is_terminal() {
-        println!();
-        println!("按任意键退出...");
-        let mut buf = [0u8; 1];
-        if std::io::stdin().read_exact(&mut buf).is_err() {
-            std::thread::sleep(std::time::Duration::from_secs(5));
-        }
-    }
     code
 }
 

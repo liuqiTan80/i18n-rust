@@ -429,3 +429,76 @@ mod tests {
         assert!(lines.iter().any(|l| l.starts_with("rust-analyzer:")));
     }
 }
+
+/// 双击 rzc.exe（或终端无参数运行）时的环境安装向导：
+/// 逐项检查组件状态，标注「已就绪 ✓」或「缺失 ✗ + 解决命令」。
+pub fn show_setup_wizard() {
+    use i18n_rust_engine::toolchain::{find_toolchain_bin, toolchain_bin_dir};
+    let exe = std::env::consts::EXE_SUFFIX;
+
+    println!("════════════ i18n-rust 环境安装向导 ════════════");
+    println!("rzc 本体          v{}（已就绪）", env!("CARGO_PKG_VERSION"));
+    println!();
+
+    // 1. 内置工具链（rustc / cargo / rust-analyzer）
+    println!("【第 1 步】编译器与工具链（rzc install toolchain 一键安装）");
+    for (name, install_cmd) in [
+        ("rustc", "rzc install toolchain"),
+        ("cargo", "rzc install toolchain"),
+        ("rust-analyzer", "rzc install toolchain --force"),
+    ] {
+        let builtin = toolchain_bin_dir().join(format!("{name}{exe}"));
+        let (mark, detail) = if builtin.is_file() {
+            ("✓ 已就绪", format!("内置（{}）", builtin.display()))
+        } else if let Some(p) = find_toolchain_bin(name) {
+            ("✓ 已就绪", format!("PATH（{}）", p.display()))
+        } else {
+            (
+                "✗ 缺失",
+                format!("未找到 → 运行: {install_cmd}（需联网，约 300MB）"),
+            )
+        };
+        println!("  [{mark}] {name:<14} {detail}");
+    }
+    println!();
+
+    // 2. 语言服务器（VS Code 补全/诊断后端）
+    println!("【第 2 步】语言服务器 i18n-rust-lsp（rzc install lsp 一键安装）");
+    if let Some(p) = find_toolchain_bin("i18n-rust-lsp") {
+        println!("  [✓ 已就绪] {}", p.display());
+        if let Ok(output) = std::process::Command::new(&p).arg("--version").output() {
+            let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !version.is_empty() {
+                println!("              版本 {version}");
+            }
+        }
+    } else {
+        println!("  [✗ 缺失] 未找到 i18n-rust-lsp{exe} → 运行: rzc install lsp");
+    }
+    println!();
+
+    // 3. VS Code 扩展
+    println!("【第 3 步】VS Code 扩展（.vsix 手动安装，未发布到扩展商城）");
+    println!("  [? 手动] 从网盘或 GitHub Releases 下载 i18n-rust-<版本>.vsix");
+    println!("           → VS Code 命令面板（Ctrl+Shift+P）→ Install from VSIX 选择该文件");
+    println!();
+
+    // 4. 环境变量（可选）
+    println!("【第 4 步】环境变量（可选，一般无需配置）");
+    println!("  RZ_LANG_DIR        指定语言包目录（默认内置）");
+    println!("  RUST_ANALYZER_PATH 指定 rust-analyzer 路径（自动检测失败时）");
+    println!("  VS Code 设置 i18n-rust.serverPath 可指定语言服务器路径");
+    println!();
+
+    // 常用命令
+    println!("────────── 常用命令速查 ──────────");
+    println!("  rzc init 我的项目        创建新项目");
+    println!("  rzc run src/main.zh      运行中文代码");
+    println!("  rzc check src/main.zh    类型检查（中文错误提示）");
+    println!("  rzc install toolchain    一键安装内置工具链");
+    println!("  rzc install lsp          安装语言服务器");
+    println!("  rzc doctor               查看工具链环境状态");
+    println!("  rzc --help               查看全部命令");
+    println!();
+    println!("详细教程见《开篇：这本书怎么用》与《第一章：用好 VS Code 扩展》。");
+}
