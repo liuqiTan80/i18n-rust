@@ -15,14 +15,22 @@
 #
 # 说明：
 #   - GitCode CI 兼容 GitHub Actions 语法，本文件可直接使用；
-#   - 项目采用中文标识符设计（如 函数、转译源码），clippy 的
-#     snake_case 等风格警告属预期行为，不阻塞 CI。
+#   - clippy 以 -D warnings 门禁（当前工作区已保持零警告）；
+#   - 依赖漏洞审计使用 rustsec/audit-check（基于 RustSec 公告库）。
 # =============================================================
 name: 持续集成
 
 on:
   push:
   pull_request:
+
+permissions:
+  contents: read
+
+# 同一分支的重复推送取消旧运行，避免并发浪费
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ---------- 1. 测试与代码质量 ----------
@@ -44,13 +52,16 @@ jobs:
       - name: 检查代码格式
         run: cargo fmt --all -- --check
 
-      - name: 运行单元测试（全部 crate）
-        run: cargo test --workspace
+      - name: 运行单元测试（debug，锁定依赖）
+        run: cargo test --workspace --locked
 
-      - name: 运行 Clippy 代码质量检查
-        # 中文标识符会触发 snake_case 等风格警告，属设计预期，不阻塞 CI；
-        # 其他真正的代码质量问题会输出警告供开发者参考。
-        run: cargo clippy --workspace --all-targets
+      - name: 运行单元测试（release 优化）
+        # release 模式下的测试此前从未运行，可暴露仅在优化下出现的
+        # 数值/溢出/内联行为差异
+        run: cargo test --workspace --release --locked
+
+      - name: 运行 Clippy 代码质量检查（警告视为错误）
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: 验证 mapping auto 帮助文本
         # 工作区含 rzc 与 i18n-rust-lsp 两个二进制，必须用 --bin 指定
@@ -61,9 +72,25 @@ jobs:
         # 跨文件同键冲突 / 跨语言条目数一致性；发现错误时退出码非零
         run: cargo run --quiet --bin rzc -- mapping check
 
-  # ---------- 2. 三平台 release 二进制构建 ----------
+  # ---------- 2. 依赖漏洞审计（RustSec 公告库） ----------
+  audit:
+    name: 依赖漏洞审计
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cargo audit（扫描 Cargo.lock 已知漏洞）
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------- 3. 三平台 release 二进制构建 ----------
   build:
-    name: 构建 ${{ matrix.os_name }}-${{ matrix.arch }}
+    name: 构建并测试 ${{ matrix.os_name }}-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -89,8 +116,17 @@ jobs:
       - name: 启用 Rust 构建缓存
         uses: Swatinem/rust-cache@v2
 
-      - name: 编译全部 crate（release）
-        run: cargo build --release --workspace
+      - name: 编译全部 crate（release，锁定依赖）
+        run: cargo build --release --workspace --locked
+
+      - name: 二进制冒烟测试（--version / --help）
+        # 三个平台各自验证产物可执行，捕获链接/平台问题
+        run: |
+          ./target/release/rzc --version
+          ./target/release/i18n-rust-lsp --version
+
+      - name: 平台相关单测（Windows/macOS 的 PATH 扫描、进程管理路径）
+        run: cargo test --release -p rzc -p i18n-rust-lsp --locked
 
       - name: 上传二进制产物
         uses: actions/upload-artifact@v4
@@ -102,7 +138,7 @@ jobs:
             target/release/i18n-rust-lsp*
           if-no-files-found: error
 
-  # ---------- 3. VS Code 扩展打包 ----------
+  # ---------- 4. VS Code 扩展打包 ----------
   vsix:
     name: 构建 VS Code 扩展
     runs-on: ubuntu-latest
@@ -133,10 +169,11 @@ jobs:
 
       - name: 打包 .vsix
         working-directory: tools/vscode-extension
-        # release/ 目录已加入 .gitignore（不再被 git 跟踪），checkout 后不存在，需先创建
+        # release/ 目录已加入 .gitignore（不再被 git 跟踪），checkout 后不存在，需先创建；
+        # --no-install 使用 npm ci 安装的锁定版本 @vscode/vsce，避免浮动最新版打出的包不一致
         run: |
           mkdir -p ../../release/
-          npx --yes @vscode/vsce package --out ../../release/ --baseContentUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/ --baseImagesUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/
+          npx --no-install @vscode/vsce package --out ../../release/ --baseContentUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/ --baseImagesUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/
 
       - name: 上传扩展包产物
         uses: actions/upload-artifact@v4

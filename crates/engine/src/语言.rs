@@ -153,6 +153,46 @@ fn table_for(code: &str) -> &'static HashMap<String, String> {
     ui_table_for(code)
 }
 
+/// 内置语言包代码列表（从 lang-packs/ 目录自动生成，单一事实源）
+///
+/// 由 build.rs 扫描目录生成 [`BUILTIN_FILES`] 后在此去重排序；
+/// 新增/删除语言包无需修改任何 Rust 代码，重新编译即自动纳入。
+/// CLI / LSP 的语言清单（rzc lang、扩展名推断、系统语言检测）均以本函数为源。
+pub fn builtin_language_codes() -> Vec<&'static str> {
+    let mut codes: Vec<&'static str> = BUILTIN_FILES.iter().map(|(l, _, _)| *l).collect();
+    codes.sort_unstable();
+    codes.dedup();
+    codes
+}
+
+/// 判断语言代码是否有对应的内置语言包
+pub fn has_builtin_language(code: &str) -> bool {
+    BUILTIN_FILES.iter().any(|(l, _, _)| *l == code)
+}
+
+/// 内置语言包扩展名列表（来自各语言包 lang_info.toml 的 `"扩展名"` 字段）
+///
+/// 与 [`builtin_language_codes`] 同源（代码与扩展名一一对应），
+/// 供 CLI / LSP 在缺省时推断方言文件扩展名，避免在各 crate 中
+/// 手工维护扩展名清单（历史上曾与语言包目录漂移）。
+pub fn builtin_language_extensions() -> Vec<String> {
+    builtin_language_codes()
+        .into_iter()
+        .filter_map(lang_info_extension)
+        .collect()
+}
+
+/// 解析语言包 lang_info.toml 的扩展名字段
+fn lang_info_extension(lang: &str) -> Option<String> {
+    let content = builtin_file(lang, "lang_info.toml")?;
+    let value: toml::Value = toml::from_str(content).ok()?;
+    value
+        .get("语言包")?
+        .get("扩展名")?
+        .as_str()
+        .map(String::from)
+}
+
 /// 取指定语言的消息模板；缺失时回退中文表，再缺失回退键名本身
 fn t_in(code: &str, key: &str) -> String {
     if code != "zh"
@@ -252,12 +292,31 @@ mod tests {
 
     #[test]
     fn test_all_langs_have_common_keys() {
-        for code in ["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
+        // 语言集合来自 lang-packs 目录（单一事实源），随语言包增删自动适应
+        let codes = builtin_language_codes();
+        assert!(codes.len() >= 10, "内置语言包数量异常: {}", codes.len());
+        for code in codes {
             let table = table_for(code);
             for key in ["err_line_col", "diag_kind_error", "mapping_cat_keywords"] {
                 assert!(table.contains_key(key), "{code} 缺少 {key}");
             }
         }
+    }
+
+    #[test]
+    fn test_builtin_languages_single_source() {
+        // 代码列表与扩展名一一对应，且每语言都有 lang_info.toml 元数据
+        let codes = builtin_language_codes();
+        let extensions = builtin_language_extensions();
+        assert_eq!(codes.len(), extensions.len());
+        for code in &codes {
+            assert!(has_builtin_language(code), "{code} 应被识别为内置语言");
+        }
+        // 扩展名去重（任一语言有且仅有一个扩展名）
+        let mut sorted = extensions.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(sorted.len(), extensions.len());
     }
 
     #[test]

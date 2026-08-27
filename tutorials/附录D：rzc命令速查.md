@@ -18,7 +18,7 @@
 | `rzc mapping scaffold` | 为新语言生成映射脚手架 | |
 | `rzc cargo add 库名` | 添加依赖（转发给 cargo） | `rzc cargo add rand` |
 | `rzc install lsp` | 安装语言服务器（VS Code 智能提示） | |
-| `rzc install toolchain` | 一键安装内置官方工具链（standalone rustc/cargo/rust-analyzer，脱离 rustup） | |
+| `rzc install toolchain` | 一键安装内置官方工具链（独立版 rustc/cargo/rust-analyzer，脱离 rustup） | |
 | `rzc doctor` | 诊断工具链环境（内置 / PATH / 版本对比） | |
 | `rzc --version` | 查看版本 | |
 
@@ -38,7 +38,7 @@ cargo build --release            # 发布优化版（第十八章）
 
 | 命令 | 作用 |
 |---|---|
-| `cargo build` | 构建（debug 版） |
+| `cargo build` | 构建（调试版） |
 | `cargo build --release` | 构建（优化版，给用户） |
 | `cargo test` | 运行所有测试 |
 | `cargo add 库名` | 添加第三方依赖 |
@@ -56,7 +56,7 @@ cargo build --release            # 发布优化版（第十八章）
 | 检查当前文件 (check) | 只检查 | `Ctrl+Shift+C` |
 | 导出标准 Rust (eject) | 转成 .rs | |
 | 选择语言包 (selectLanguagePack) | 切换 10 种语言 | |
-| 重启语言服务器 (restartServer) | LSP 卡住时用 | |
+| 重启语言服务器 (restartServer) | 语言服务器卡住时用 | |
 | AI 对话 (aiChat) | AI 辅助（需配置） | |
 | 校验映射 (mappingCheck) | 检查映射文件 | |
 | 生成映射脚手架 (mappingScaffold) | 新语言模板 | |

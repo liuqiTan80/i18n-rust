@@ -542,7 +542,7 @@ fn ai_translate_scaffold(
         let batch_map = ai_translate_keys(source_lang, target, batch, &forbidden, &used)?;
         translations.extend(batch_map);
     }
-    let replaced = apply_translations(output_dir, &translations, target);
+    let replaced = apply_translations(output_dir, &translations, target)?;
     println!(
         "{}",
         ui.f(
@@ -587,7 +587,7 @@ fn ai_translate_scaffold(
             )
         );
         let renames = ai_rename_conflicts(target, &conflict_items, &forbidden)?;
-        apply_file_renames(output_dir, &renames, target);
+        apply_file_renames(output_dir, &renames, target)?;
     }
     // 重试后仍可能有残留冲突：输出最终报告供人工处理
     let view = view_from_crates_dir(output_dir, source_view);
@@ -773,7 +773,7 @@ fn apply_translations(
     output_dir: &Path,
     translations: &HashMap<String, String>,
     target: &str,
-) -> usize {
+) -> anyhow::Result<usize> {
     let mut replaced = 0;
     let todo_mark = format!("TODO({target})");
     for entry in list_toml_files(output_dir).unwrap_or_default() {
@@ -795,9 +795,11 @@ fn apply_translations(
             out.push_str(line);
             out.push('\n');
         }
-        let _ = std::fs::write(&entry, out);
+        // 写回失败必须上抛（此前静默吞掉会让用户看到"成功"但文件未更新）
+        std::fs::write(&entry, out)
+            .map_err(|e| anyhow::anyhow!("翻译结果写回失败: {}: {e}", entry.display()))?;
     }
-    replaced
+    Ok(replaced)
 }
 
 /// 按 (文件名, 旧键) 精确改名（冲突重试轮次用）
@@ -805,7 +807,7 @@ fn apply_file_renames(
     output_dir: &Path,
     renames: &HashMap<(String, String), String>,
     target: &str,
-) {
+) -> anyhow::Result<()> {
     for entry in list_toml_files(output_dir).unwrap_or_default() {
         let file_name = entry
             .file_name()
@@ -839,8 +841,10 @@ fn apply_file_renames(
                 out.push('\n');
             }
         }
-        let _ = std::fs::write(&entry, out);
+        std::fs::write(&entry, out)
+            .map_err(|e| anyhow::anyhow!("改名结果写回失败: {}: {e}", entry.display()))?;
     }
+    Ok(())
 }
 
 /// 从已生成的 crates 目录构造校验视图（keywords/stdlib 取自源包）
@@ -1083,7 +1087,7 @@ mod tests {
 
         let mut translations = HashMap::new();
         translations.insert("服务器".to_string(), "Máy chủ".to_string());
-        let replaced = apply_translations(dir.path(), &translations, "vi");
+        let replaced = apply_translations(dir.path(), &translations, "vi").unwrap();
         assert_eq!(replaced, 1);
 
         let content = std::fs::read_to_string(&file).unwrap();
@@ -1129,7 +1133,7 @@ mod tests {
             ("a.toml".to_string(), "连接".to_string()),
             "连接等待".to_string(),
         );
-        apply_file_renames(dir.path(), &renames, "vi");
+        apply_file_renames(dir.path(), &renames, "vi").unwrap();
         let content = std::fs::read_to_string(&file).unwrap();
         assert!(content.contains("\"连接等待\" = \"join\""));
         assert!(content.contains("\"其他\" = \"other\"  # 注释保留"));

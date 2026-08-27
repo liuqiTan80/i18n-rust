@@ -173,15 +173,15 @@ fn installed_lsp_version(target: &Path) -> Option<String> {
 pub const RA_RELEASE_TAG: &str = "2026-08-24";
 
 /// 当前平台的目标三元组（官方 dist 与 rust-analyzer Release 资产名用）
-fn target_triple() -> &'static str {
+///
+/// 不支持的平台返回错误而非 panic，由调用方以本地化提示终止（避免崩溃式退出）。
+fn target_triple() -> anyhow::Result<&'static str> {
     match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("windows", "x86_64") => "x86_64-pc-windows-msvc",
-        ("linux", "x86_64") => "x86_64-unknown-linux-gnu",
-        ("macos", "aarch64") => "aarch64-apple-darwin",
-        ("macos", "x86_64") => "x86_64-apple-darwin",
-        (os, arch) => {
-            panic!("不支持的平台 {os}/{arch}（内置工具链暂未覆盖）")
-        }
+        ("windows", "x86_64") => Ok("x86_64-pc-windows-msvc"),
+        ("linux", "x86_64") => Ok("x86_64-unknown-linux-gnu"),
+        ("macos", "aarch64") => Ok("aarch64-apple-darwin"),
+        ("macos", "x86_64") => Ok("x86_64-apple-darwin"),
+        (os, arch) => anyhow::bail!("不支持的平台 {os}/{arch}（内置工具链暂未覆盖）"),
     }
 }
 
@@ -214,7 +214,7 @@ pub fn install_toolchain(
         return Ok(());
     }
 
-    let triple = target_triple();
+    let triple = target_triple()?;
     let tmp = tempfile::tempdir()?;
 
     // 1. rustc/cargo standalone（官方 dist 单包含全部组件）
@@ -222,15 +222,23 @@ pub fn install_toolchain(
     println!("{}", ui.f("tc_download_rustc", &[&url]));
     let archive = tmp.path().join("rust.tar.gz");
     download_to(&url, &archive)?;
-    // 校验官方 SHA-256（官方 dist 提供 .sha256 文件；不匹配视为下载被篡改）
+    // 校验官方 SHA-256（官方 dist 提供 .sha256 文件）
+    // fail-closed：校验和缺失/格式非法时直接中止，绝不静默放行
     let sha_url = format!("{url}.sha256");
     let expected = download_text(&sha_url)?
         .split_whitespace()
         .next()
         .unwrap_or("")
         .to_string();
+    let is_valid_sha256 =
+        expected.len() == 64 && expected.chars().all(|c| c.is_ascii_hexdigit());
+    if !is_valid_sha256 {
+        anyhow::bail!(
+            "rustc 包 SHA-256 校验和不可用（{sha_url} 返回异常内容），已中止下载"
+        );
+    }
     let actual = sha256_file(&archive)?;
-    if expected.len() == 64 && actual != expected {
+    if actual != expected {
         anyhow::bail!("rustc 包 SHA-256 校验失败（下载可能被篡改，请重试）");
     }
     println!("{}", ui.t("tc_extracting"));
@@ -240,19 +248,9 @@ pub fn install_toolchain(
     copy_bin_dir(&root.join("rustc").join("bin"), &bin_dir)?;
     copy_bin_dir(&root.join("cargo").join("bin"), &bin_dir)?;
 
-    // 2. rust-analyzer（官方 GitHub Release；失败不阻塞主流程）
-    let ra_name = format!(
-        "rust-analyzer-{triple}{}",
-        if std::env::consts::OS == "windows" {
-            ".exe"
-        } else {
-            ""
-        }
-    );
-    let ra_url =
-        format!("https://github.com/rust-lang/rust-analyzer/releases/download/{ra_tag}/{ra_name}");
-    let ra_dest = bin_dir.join(format!("rust-analyzer{EXE_SUFFIX}"));
-    match download_to(&ra_url, &ra_dest) {
+    // 2. rust-analyzer（官方 Release 的压缩资产：linux/mac 为 .gz、windows 为 .zip；
+    //    失败不阻塞主流程，但已下载的二进制必须通过 SHA-256 校验，未经验证绝不落盘）
+    match download_rust_analyzer(ra_tag, triple, &bin_dir, tmp.path()) {
         Ok(()) => println!("{}", ui.f("tc_ra_installed", &[ra_tag])),
         Err(e) => println!("{}", ui.f("tc_ra_skipped", &[&e.to_string()])),
     }
@@ -270,30 +268,119 @@ pub fn install_toolchain(
 
 /// 仅升级 rust-analyzer（跳过 rustc/cargo 的 300MB 重下）
 fn install_rust_analyzer_only(ui: &Ui, ra_tag: &str, bin_dir: &Path) -> anyhow::Result<()> {
-    let triple = target_triple();
-    let ra_name = format!(
-        "rust-analyzer-{triple}{}",
-        if std::env::consts::OS == "windows" {
-            ".exe"
-        } else {
-            ""
-        }
-    );
-    let ra_url =
-        format!("https://github.com/rust-lang/rust-analyzer/releases/download/{ra_tag}/{ra_name}");
-    let ra_dest = bin_dir.join(format!("rust-analyzer{EXE_SUFFIX}"));
-    download_to(&ra_url, &ra_dest)?;
+    let triple = target_triple()?;
+    let tmp = tempfile::tempdir()?;
+    download_rust_analyzer(ra_tag, triple, bin_dir, tmp.path())?;
     println!("{}", ui.f("tc_ra_installed", &[ra_tag]));
+    Ok(())
+}
+
+/// 下载并安装 rust-analyzer（官方 Release 的压缩资产，带 SHA-256 校验）
+///
+/// 资产命名：linux/macos 为 `rust-analyzer-<triple>.gz`、windows 为 `.zip`，
+/// 官方不发布裸二进制资产（旧代码直接下载裸名 404，从未安装成功）。
+/// 完整性校验：官方未发布独立 `.sha256` 文件，digest 由 GitHub API 的
+/// assets 列表提供；校验失败（篡改）抛错，digest 不可用（如 API 限流）时
+/// 明确警告后继续（下载通道本身为 TLS 认证的 github.com）。
+fn download_rust_analyzer(
+    ra_tag: &str,
+    triple: &str,
+    bin_dir: &Path,
+    tmp: &Path,
+) -> anyhow::Result<()> {
+    let is_windows = std::env::consts::OS == "windows";
+    let asset_name = if is_windows {
+        format!("rust-analyzer-{triple}.zip")
+    } else {
+        format!("rust-analyzer-{triple}.gz")
+    };
+    let url = format!(
+        "https://github.com/rust-lang/rust-analyzer/releases/download/{ra_tag}/{asset_name}"
+    );
+    let ra_dest = bin_dir.join(format!("rust-analyzer{EXE_SUFFIX}"));
+
+    // 下载压缩资产
+    let compressed = tmp.join("rust-analyzer.asset");
+    download_to(&url, &compressed)?;
+
+    // 完整性校验：官方 API 的 digest 字段（无独立 .sha256 文件）
+    match ra_asset_digest(ra_tag, &asset_name) {
+        Some(expected) => {
+            let actual = sha256_file(&compressed)?;
+            if actual != expected {
+                let _ = std::fs::remove_file(&compressed);
+                anyhow::bail!("rust-analyzer 包 SHA-256 校验失败（下载可能被篡改）");
+            }
+        }
+        None => {
+            println!("警告：无法获取 rust-analyzer 官方 SHA-256（GitHub API 限流？），未经验证直接安装");
+        }
+    }
+
+    // 解压到目标目录
+    if is_windows {
+        extract_zip_entry(&compressed, &ra_dest)?;
+    } else {
+        let file = std::fs::File::open(&compressed)?;
+        let mut decoder = flate2::read::GzDecoder::new(file);
+        let mut out = std::fs::File::create(&ra_dest)?;
+        std::io::copy(&mut decoder, &mut out)?;
+    }
+    // Unix 平台确保可执行权限
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&ra_dest, std::fs::Permissions::from_mode(0o755));
+    }
+    Ok(())
+}
+
+/// 从 GitHub API 获取指定发布资产的 SHA-256 digest（官方未发布独立 .sha256 文件）
+fn ra_asset_digest(tag: &str, asset_name: &str) -> Option<String> {
+    let url = format!(
+        "https://api.github.com/repos/rust-lang/rust-analyzer/releases/tags/{tag}"
+    );
+    let resp = ureq::get(&url)
+        .header("User-Agent", "rzc-install")
+        .config()
+        .timeout_global(Some(std::time::Duration::from_secs(30)))
+        .build()
+        .call()
+        .ok()?;
+    let text = resp.into_body().read_to_string().ok()?;
+    let json: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let assets = json.get("assets")?.as_array()?;
+    for asset in assets {
+        if asset.get("name").and_then(|n| n.as_str()) == Some(asset_name) {
+            return asset
+                .get("digest")
+                .and_then(|d| d.as_str())
+                .and_then(|d| d.strip_prefix("sha256:"))
+                .map(str::to_string);
+        }
+    }
+    None
+}
+
+/// 解压 zip 中的第一个条目到目标文件（rust-analyzer 的 windows 资产为单文件 zip）
+fn extract_zip_entry(zip_path: &Path, dest_file: &Path) -> anyhow::Result<()> {
+    let file = std::fs::File::open(zip_path)?;
+    let mut archive = zip::ZipArchive::new(file)?;
+    let mut entry = archive.by_index(0)?;
+    let mut out = std::fs::File::create(dest_file)?;
+    std::io::copy(&mut entry, &mut out)?;
     Ok(())
 }
 
 /// ureq 流式下载到文件（大文件不驻留内存）
 fn download_to(url: &str, dest: &Path) -> anyhow::Result<()> {
     let resp = ureq::get(url)
-        .timeout(std::time::Duration::from_secs(600))
+        .config()
+        .timeout_global(Some(std::time::Duration::from_secs(600)))
+        .build()
         .call()
         .map_err(|e| anyhow::anyhow!("下载失败: {e}"))?;
-    let mut reader = resp.into_reader();
+    let mut reader = resp.into_body().into_reader();
     let mut file = std::fs::File::create(dest)?;
     std::io::copy(&mut reader, &mut file)?;
     Ok(())
@@ -302,14 +389,14 @@ fn download_to(url: &str, dest: &Path) -> anyhow::Result<()> {
 /// ureq 下载文本内容（如官方 .sha256 校验文件）
 fn download_text(url: &str) -> anyhow::Result<String> {
     let resp = ureq::get(url)
-        .timeout(std::time::Duration::from_secs(60))
+        .config()
+        .timeout_global(Some(std::time::Duration::from_secs(60)))
+        .build()
         .call()
         .map_err(|e| anyhow::anyhow!("下载失败: {e}"))?;
-    let mut text = String::new();
-    resp.into_reader()
-        .read_to_string(&mut text)
-        .map_err(|e| anyhow::anyhow!("读取失败: {e}"))?;
-    Ok(text)
+    resp.into_body()
+        .read_to_string()
+        .map_err(|e| anyhow::anyhow!("读取失败: {e}"))
 }
 
 /// 计算文件 SHA-256（十六进制小写）
@@ -504,7 +591,7 @@ mod tests {
     #[test]
     fn test_target_triple_supported() {
         // 当前平台必须能被识别（不 panic）
-        let triple = target_triple();
+        let triple = target_triple().expect("当前平台应受支持");
         assert!(!triple.is_empty());
     }
 

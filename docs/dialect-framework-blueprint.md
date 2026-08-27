@@ -7,7 +7,7 @@
 >
 > 参考实现仓库结构：`crates/engine`（语言无关引擎）、`crates/cli`（rzc 命令行）、
 > `crates/lsp`（LSP 代理）、`tools/vscode-extension`（IDE 扩展）、
-> `crates/engine/lang-packs/`（11 个自然语言包）。
+> `crates/engine/lang-packs/`（10 个自然语言包）。
 
 ---
 

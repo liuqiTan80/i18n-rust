@@ -125,15 +125,3 @@ export function getSystemPrompt(): string {
     }
     return buildSystemPrompt(currentLanguageCode(), findLanguagePackRoot());
 }
-
-/**
- * Subscribe to AI config or language pack changes
- * (provider/baseUrl/languagePack changes trigger the callback)
- */
-export function subscribeConfigChange(callback: () => void): vscode.Disposable {
-    return vscode.workspace.onDidChangeConfiguration(change => {
-        if (change.affectsConfiguration('i18n-rust.ai') || change.affectsConfiguration('i18n-rust.languagePack')) {
-            callback();
-        }
-    });
-}

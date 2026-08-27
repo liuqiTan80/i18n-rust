@@ -124,12 +124,13 @@ rzc mapping scaffold zh vi --output 自定义目录           # 指定输出目�
 cargo build --workspace   # 内嵌数据需重新编译才生效
 ```
 
-CI 已内置双副本一致性门禁与映射质量门禁（`rzc mapping check`）。
+CI 已内置映射质量门禁（`rzc mapping check`）。
 
 ## 6. 关于 en（英语）包
 
-英语包的母语键即英文本身，第三方映射为恒等替换，**无需 crates/ 目录**；
-`rzc mapping check` 的跨语言条目数一致性对比会自动跳过无 crates 文件的语言。
+en 语言包已于 0.5.6 移除：英语即 Rust 的原语言，无需方言层转译。
+历史上英语包的母语键即英文本身、第三方映射为恒等替换、无需 crates/ 目录；
+如需恢复可参考 git 历史中 0.5.x 的语言包结构。
 
 ## 7. 验证清单
 
@@ -139,4 +140,5 @@ CI 已内置双副本一致性门禁与映射质量门禁（`rzc mapping check`�
 2. `rzc mapping check`（全部内置语言 + 一致性）；
 3. 编写使用新映射词的方言源码，`rzc eject` 检查转译结果；
 4. `cargo test --workspace`（含全内置语言通过校验的回归测试）；
-5. `rsync -a --delete lang-packs/ crates/engine/lang-packs/` 同步双副本。
+5. 语言包目录 `crates/engine/lang-packs/` 为唯一事实源（build.rs 自动内嵌），
+   无需维护第二副本。

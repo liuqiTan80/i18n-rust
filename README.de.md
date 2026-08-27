@@ -64,7 +64,7 @@ rzc run src/main.de
 ## ✨ Funktionen
 
 - **Programmieren in der Muttersprache**: vollständige Rust-Programme mit Schlüsselwörtern deiner Sprache
-- **Mehrsprachig**: 11 eingebaute Sprachpakete (de/zh/en/ja/ru/es/fr/pt/ko/ar/hi), automatische Erkennung per Dateiendung
+- **Mehrsprachig**: 10 eingebaute Sprachpakete (de/zh/ja/ru/es/fr/pt/ko/ar/hi), automatische Erkennung per Dateiendung
 - **Lokalisierte Diagnose**: `rzc check` übersetzt rustc-Fehler in die Sprache der Datei, mit 💡 Lehrhinweisen
 - **Eigentums-Visualisierung**: VS-Code-Erweiterung (Suche `i18n-rust`) hebt Verschiebungen und Wiederverwendung von Variablen farbig hervor
 - **Volle LSP-Unterstützung**: Vervollständigung, Hover, Gehe-zu-Definition, Referenzen, Umbenennen
@@ -72,7 +72,7 @@ rzc run src/main.de
 
 ## 📖 Tutorial
 
-Ein vollständiges chinesisches Anfängertutorial (24 Kapitel + 4 Anhänge) — siehe [tutorials/](tutorials/).
+Ein vollständiges chinesisches Anfängertutorial (26 Kapitel + Glossar + 5 Anhänge) — siehe [tutorials/](tutorials/).
 
 ## 📄 Lizenz
 

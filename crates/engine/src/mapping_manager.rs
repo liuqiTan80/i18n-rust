@@ -238,6 +238,24 @@ impl MappingManager {
         Self::load_from_dir(dir)
     }
 
+    /// 从已解析的映射表直接构造（旧格式语言包/降级场景）
+    ///
+    /// 不包含节信息（宏表/派生表为空），仅提供关键字/模块路径/别名三类映射；
+    /// 用于 LSP 旧"映射表"目录格式与硬编码兜底表的接入。
+    pub fn from_flat_maps(
+        keyword_map: HashMap<String, String>,
+        module_path_map: HashMap<String, String>,
+        alias_map: HashMap<String, String>,
+    ) -> Self {
+        Self {
+            keyword_map,
+            section_map: HashMap::new(),
+            derive_map: HashMap::new(),
+            module_path_map,
+            alias_map,
+        }
+    }
+
     /// 查询关键字映射
     pub fn query(&self, zh_keyword: &str) -> Option<&String> {
         self.keyword_map.get(zh_keyword)

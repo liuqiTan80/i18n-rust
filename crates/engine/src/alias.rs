@@ -11,6 +11,20 @@
 use rustc_lexer::{TokenKind, tokenize};
 use std::collections::{HashMap, HashSet};
 
+use crate::cache::SourceMapEntry;
+
+/// 单阶段替换结果：输出与编辑表
+///
+/// 编辑表以**本阶段输入文本**的字节偏移记录（input_offset 升序、互不重叠），
+/// replacement 为本阶段输出文本。
+#[derive(Debug, Clone)]
+pub struct ReplaceResult {
+    /// 替换后的文本
+    pub output: String,
+    /// 编辑表
+    pub edits: Vec<SourceMapEntry>,
+}
+
 /// 声明位关键字（转译后的英文形式）：其后紧跟的标识符为用户定义
 ///
 /// 不含 `mut`：仅 `让 mut 名称` 场景下透明传递声明状态（见替换循环），
@@ -66,9 +80,20 @@ pub fn collect_declared_names(source: &str) -> HashSet<String> {
 /// # 返回
 /// 替换后的源代码字符串
 pub fn replace_aliases(source: &str, alias_map: &HashMap<String, String>) -> String {
+    replace_aliases_with_map(source, alias_map).output
+}
+
+/// 同 [`replace_aliases`]，同时产出编辑表（本阶段输入坐标）
+pub fn replace_aliases_with_map(
+    source: &str,
+    alias_map: &HashMap<String, String>,
+) -> ReplaceResult {
     // 映射表为空时直接返回，避免不必要的词法分析开销
     if alias_map.is_empty() {
-        return source.to_string();
+        return ReplaceResult {
+            output: source.to_string(),
+            edits: Vec::new(),
+        };
     }
     // 第一遍：收集用户声明名，裸使用处豁免
     let declared = collect_declared_names(source);
@@ -76,6 +101,7 @@ pub fn replace_aliases(source: &str, alias_map: &HashMap<String, String>) -> Str
     let mut last_was_colon = false;
     let token_stream = tokenize(source);
     let mut output = String::new();
+    let mut edits = Vec::new();
     let mut current_offset = 0;
     // 上一个有意义 token 是否为声明关键字；空白/注释不重置该状态
     let mut prev_is_decl = false;
@@ -93,6 +119,7 @@ pub fn replace_aliases(source: &str, alias_map: &HashMap<String, String>) -> Str
                     // 声明位标识符或用户声明名的裸使用处：保留原样
                     output.push_str(text);
                 } else if let Some(english) = alias_map.get(text) {
+                    edits.push(SourceMapEntry::new(current_offset, len, text, english));
                     output.push_str(english);
                 } else {
                     output.push_str(text);
@@ -124,7 +151,7 @@ pub fn replace_aliases(source: &str, alias_map: &HashMap<String, String>) -> Str
         }
         current_offset += len;
     }
-    output
+    ReplaceResult { output, edits }
 }
 
 #[cfg(test)]

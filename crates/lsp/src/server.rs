@@ -21,11 +21,15 @@ use crate::analyzer::AnalyzerConnection;
 use crate::response_map::ResponseMapper;
 use crate::translation_cache::{TranslationCache, TranslationEntry, path_to_uri};
 
-/// 默认支持的方言文件扩展名（与内置语言包 lang_info.toml 的扩展名一致）
+/// 默认支持的方言文件扩展名（与内置语言包 lang_info.toml 的扩展名一致，
+/// 单一来源：引擎 lang-packs 目录，避免清单与语言包漂移）；
 /// 可通过命令行 `--extensions` 参数覆盖
-const DEFAULT_EXTENSIONS: &[&str] = &[
-    ".zh", ".de", ".ja", ".ru", ".es", ".fr", ".pt", ".ko", ".ar", ".hi",
-];
+fn default_extensions() -> Vec<String> {
+    i18n_rust_engine::语言::builtin_language_extensions()
+        .into_iter()
+        .map(|e| format!(".{e}"))
+        .collect()
+}
 
 /// LSP 代理服务器
 pub struct ProxyServer {
@@ -83,8 +87,8 @@ impl ProxyServer {
         lang_pack_path: &Path,
         extensions: &[String],
     ) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
-        // 1. 加载语言包
-        let (keyword_map, macro_map, derive_map, alias_map) = load_language_pack(lang_pack_path)?;
+        // 1. 加载语言包（统一映射管理器，含模块路径映射）
+        let manager = load_language_pack(lang_pack_path)?;
         // 初始化诊断消息翻译器（errors.toml 消息表，与 CLI 同源），
         // 供 map_diagnostics 翻译 rust-analyzer 诊断（E0004 等）
         crate::response_map::init_diagnostic_translator(lang_pack_path);
@@ -92,13 +96,16 @@ impl ProxyServer {
             "{}",
             crate::ui::global().f(
                 "lsp_log_loaded_mappings",
-                &[&keyword_map.len().to_string(), &macro_map.len().to_string()]
+                &[
+                    &manager.keyword_map.len().to_string(),
+                    &manager.get_macro_map().len().to_string()
+                ]
             )
         );
 
         // 2. 创建翻译缓存（临时目录按用户隔离，避免多用户共享 /tmp 路径）
         let temp_dir = virtual_temp_dir()?;
-        let cache = TranslationCache::new(keyword_map, macro_map, derive_map, alias_map, temp_dir);
+        let cache = TranslationCache::new(manager, temp_dir);
 
         // 3. 启动 rust-analyzer
         let analyzer = AnalyzerConnection::start()?;
@@ -117,7 +124,7 @@ impl ProxyServer {
             request_counter: Arc::new(std::sync::atomic::AtomicI64::new(1000)),
             pending_requests: Arc::new(std::sync::Mutex::new(HashMap::new())),
             supported_extensions: if extensions.is_empty() {
-                DEFAULT_EXTENSIONS.iter().map(|s| s.to_string()).collect()
+                default_extensions()
             } else {
                 extensions.to_vec()
             },
@@ -1497,24 +1504,26 @@ fn handle_analyzer_message(
     }
 }
 
-/// 语言包四映射表：(关键字映射, 宏映射, 派生特征映射, 别名映射)
-type LangPackMaps = (
-    HashMap<String, String>,
-    HashMap<String, String>,
-    HashMap<String, String>,
-    HashMap<String, String>,
-);
-
-/// 加载语言包：返回 (关键字映射, 宏映射, 派生特征映射, 别名映射)
+/// 加载语言包：返回统一映射管理器（关键字/宏/派生/模块路径/别名全量）
 ///
 /// 关键字与别名分离（与 CLI 统一管线对齐）：关键字在词法阶段无条件替换，
 /// 标准库/第三方库标识符（别名）在词法转译后经声明位保护替换，
 /// 避免用户声明与库别名撞名时被误替换（如 `让 新 = 5`）。
-fn load_language_pack(lang_pack_path: &Path) -> anyhow::Result<LangPackMaps> {
+/// 模块路径映射随统一管线一并启用（use 语句路径段中文化）。
+fn load_language_pack(
+    lang_pack_path: &Path,
+) -> anyhow::Result<i18n_rust_engine::mapping_manager::MappingManager> {
     let mappings_path = lang_pack_path.join("映射表");
     if mappings_path.exists() {
         match mapping_source::load_keyword_mapping(lang_pack_path) {
-            Ok(map) => return Ok((map, HashMap::new(), HashMap::new(), HashMap::new())),
+            Ok(map) => {
+                // 旧"映射表"目录格式：仅有扁平关键字表，宏/派生/模块路径/别名表为空
+                return Ok(i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+                    map,
+                    HashMap::new(),
+                    HashMap::new(),
+                ));
+            }
             Err(e) => log::warn!(
                 "{}",
                 crate::ui::global().f("lsp_log_mappings_fallback", &[&e.to_string()])
@@ -1525,22 +1534,14 @@ fn load_language_pack(lang_pack_path: &Path) -> anyhow::Result<LangPackMaps> {
     let keywords_path = lang_pack_path.join("keywords.toml");
     if keywords_path.exists() {
         // 复用 engine 统一加载器（与 CLI 完全同源）：关键字/别名分离、
-        // stdlib 优先于第三方库、crates/*.toml 按文件名排序合并；
-        // 模块路径映射 LSP 虚拟项目不使用，但随同一入口加载保持语义一致
-        let manager =
-            i18n_rust_engine::mapping_manager::MappingManager::load_from_dir(lang_pack_path)
-                .map_err(|e| {
-                    anyhow::anyhow!(
-                        "{}",
-                        crate::ui::global().f("lsp_err_load_keywords", &[&e.to_string()])
-                    )
-                })?;
-        return Ok((
-            manager.keyword_map.clone(),
-            manager.get_macro_map(),
-            manager.get_derive_map(),
-            manager.alias_map.clone(),
-        ));
+        // stdlib 优先于第三方库、crates/*.toml 按文件名排序合并
+        return i18n_rust_engine::mapping_manager::MappingManager::load_from_dir(lang_pack_path)
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "{}",
+                    crate::ui::global().f("lsp_err_load_keywords", &[&e.to_string()])
+                )
+            });
     }
 
     log::warn!("{}", crate::ui::global().t("lsp_warn_builtin_fallback"));
@@ -1549,23 +1550,22 @@ fn load_language_pack(lang_pack_path: &Path) -> anyhow::Result<LangPackMaps> {
     // 不可再退回 create_builtin_keyword_mapping()：那是早期硬编码旧表
     // （54 个旧词、无宏表、无 `让` 等新关键字），会导致转译残缺——
     // 如 `打印行!` 不翻译报 cannot find macro、`让` 不翻译报语法错误。
-    if let Some(maps) = load_builtin_zh_fallback() {
-        return Ok(maps);
+    if let Some(manager) = load_builtin_zh_fallback() {
+        return Ok(manager);
     }
     // 极端兜底：物化失败时退回硬编码旧表（可能残缺，但保证可启动）
-    Ok((
+    Ok(i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
         mapping_source::create_builtin_keyword_mapping(),
-        HashMap::new(),
         HashMap::new(),
         HashMap::new(),
     ))
 }
 
-/// 从 engine 编译期内嵌的中文语言包物化出完整映射
+/// 从 engine 编译期内嵌的中文语言包物化出完整映射管理器
 ///
 /// 将内嵌文件（keywords/stdlib/module_paths/crates/*.toml）写入临时目录，
 /// 复用 [`MappingManager::load_from_dir`] 统一加载，保证与磁盘语言包完全同源。
-fn load_builtin_zh_fallback() -> Option<LangPackMaps> {
+fn load_builtin_zh_fallback() -> Option<i18n_rust_engine::mapping_manager::MappingManager> {
     let dir = tempfile::tempdir().ok()?;
     let zh_dir = dir.path().join("zh");
     std::fs::create_dir_all(&zh_dir).ok()?;
@@ -1578,13 +1578,7 @@ fn load_builtin_zh_fallback() -> Option<LangPackMaps> {
         }
         std::fs::write(zh_dir.join(file), content).ok()?;
     }
-    let manager = i18n_rust_engine::mapping_manager::MappingManager::load_from_dir(&zh_dir).ok()?;
-    Some((
-        manager.keyword_map.clone(),
-        manager.get_macro_map(),
-        manager.get_derive_map(),
-        manager.alias_map.clone(),
-    ))
+    i18n_rust_engine::mapping_manager::MappingManager::load_from_dir(&zh_dir).ok()
 }
 
 #[cfg(test)]
@@ -1597,24 +1591,42 @@ mod tests {
     /// `让` 不翻译报语法错误（真实事故：扩展未找到语言包目录时触发）
     #[test]
     fn test_load_language_pack_fallback_complete() {
-        let (keywords, macros, derives, aliases) =
+        let manager =
             load_language_pack(Path::new("/不存在的目录")).expect("fallback 应成功");
-        assert_eq!(keywords.get("让").map(String::as_str), Some("let"));
-        assert_eq!(derives.get("克隆").map(String::as_str), Some("Clone"));
-        assert_eq!(macros.get("打印行").map(String::as_str), Some("println"));
-        assert!(
-            keywords.len() >= 100,
-            "完整关键字表应 ≥100，实际 {}",
-            keywords.len()
+        assert_eq!(
+            manager.keyword_map.get("让").map(String::as_str),
+            Some("let")
         );
-        assert!(macros.len() >= 30, "宏表应 ≥30，实际 {}", macros.len());
-        assert!(!aliases.is_empty(), "别名表不应为空");
+        assert_eq!(
+            manager.get_derive_map().get("克隆").map(String::as_str),
+            Some("Clone")
+        );
+        assert_eq!(
+            manager.get_macro_map().get("打印行").map(String::as_str),
+            Some("println")
+        );
+        assert!(
+            manager.keyword_map.len() >= 100,
+            "完整关键字表应 ≥100，实际 {}",
+            manager.keyword_map.len()
+        );
+        assert!(
+            manager.get_macro_map().len() >= 30,
+            "宏表应 ≥30，实际 {}",
+            manager.get_macro_map().len()
+        );
+        assert!(!manager.alias_map.is_empty(), "别名表不应为空");
+        assert!(
+            !manager.module_path_map.is_empty(),
+            "模块路径表不应为空"
+        );
     }
 
-    /// 默认扩展名列表覆盖全部 11 个内置语言包，未知扩展名不匹配
+    /// 默认扩展名列表覆盖全部内置语言包（引擎 lang-packs 单一来源），未知扩展名不匹配
     #[test]
     fn test_is_supported_file_defaults() {
-        let extensions: Vec<String> = DEFAULT_EXTENSIONS.iter().map(|s| s.to_string()).collect();
+        let extensions = default_extensions();
+        assert!(extensions.len() >= 10, "内置语言包数量异常");
         assert!(is_supported_file(
             "file:///project/src/main.zh",
             &extensions
@@ -1660,19 +1672,17 @@ mod tests {
     }
 
     fn create_test_cache() -> (Arc<TranslationCache>, tempfile::TempDir) {
-        let map = HashMap::from([
-            ("函数".into(), "fn".into()),
-            ("让".into(), "let".into()),
-            ("可变".into(), "mut".into()),
-        ]);
-        let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(
-            map,
+        let manager = i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+            HashMap::from([
+                ("函数".into(), "fn".into()),
+                ("让".into(), "let".into()),
+                ("可变".into(), "mut".into()),
+            ]),
             HashMap::new(),
             HashMap::new(),
-            HashMap::new(),
-            temp.path().to_path_buf(),
         );
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(manager, temp.path().to_path_buf());
         (cache, temp)
     }
 

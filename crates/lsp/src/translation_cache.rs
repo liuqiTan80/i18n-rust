@@ -7,7 +7,17 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
+use i18n_rust_engine::cache::SourceMapEntry;
 use i18n_rust_engine::lexer;
+use i18n_rust_engine::mapping_manager::MappingManager;
+
+/// 虚拟项目磁盘操作：失败必须记录日志——虚拟项目是 rust-analyzer 的分析基础，
+/// 写失败会导致补全/诊断静默失效且无任何线索可查
+fn log_io_err(context: &str, path: &Path, result: std::io::Result<()>) {
+    if let Err(e) = result {
+        log::warn!("虚拟项目 IO 失败：{context} {}：{e}", path.display());
+    }
+}
 
 /// 单个文档的翻译缓存条目
 #[derive(Debug, Clone)]
@@ -57,14 +67,9 @@ pub struct TranslationCache {
     /// 条目以 Arc 共享：查询返回廉价引用计数克隆，避免每次按键
     /// 都全量克隆源码与列映射等大字段。
     entries: RwLock<HashMap<String, Arc<TranslationEntry>>>,
-    /// 关键字映射表（中文 → 英文）
-    keyword_map: Arc<HashMap<String, String>>,
-    /// 宏映射表（中文宏名 → 英文宏名，用于自动补充感叹号）
-    macro_map: Arc<HashMap<String, String>>,
-    /// 派生特征映射表（`#[派生(...)]` 内专用：中文特征名 → 英文大写）
-    derive_map: Arc<HashMap<String, String>>,
-    /// 别名映射表（标准库/第三方库标识符：中文 → 英文，带声明位保护）
-    alias_map: Arc<HashMap<String, String>>,
+    /// 统一映射管理器（关键字/宏/派生/模块路径/别名，与 CLI 管线完全同源）。
+    /// 转译与列映射统一走引擎完整管线，规则唯一来源为引擎。
+    manager: Arc<MappingManager>,
     /// 虚拟文件存放的临时目录
     temp_dir: PathBuf,
     /// 模块集合版本号：模块集合（已打开方言文件的文件名）变化时递增。
@@ -85,17 +90,9 @@ pub struct TranslationCache {
 impl TranslationCache {
     /// 创建新的翻译缓存
     ///
-    /// - 关键字映射：用于词法翻译
-    /// - 宏映射表：用于自动补充宏感叹号（中文宏名 → 英文宏名）
-    /// - 别名映射：标准库/第三方库标识符替换（带声明位保护，与 CLI 管线一致）
+    /// - 映射管理器：统一持有关键字/宏/派生/模块路径/别名映射（与 CLI 管线同源）
     /// - 临时目录：虚拟 .rs 文件的存放位置
-    pub fn new(
-        keyword_map: HashMap<String, String>,
-        macro_map: HashMap<String, String>,
-        derive_map: HashMap<String, String>,
-        alias_map: HashMap<String, String>,
-        temp_dir: PathBuf,
-    ) -> Arc<Self> {
+    pub fn new(manager: MappingManager, temp_dir: PathBuf) -> Arc<Self> {
         // 安全检查：临时目录若已被替换为符号链接则拒绝使用，
         // 防止后续写文件时跟随链接覆写任意位置
         if temp_dir
@@ -108,19 +105,21 @@ impl TranslationCache {
                 crate::ui::global().f("lsp_err_temp_symlink", &[&temp_dir.display().to_string()])
             );
         }
-        let _ = std::fs::create_dir_all(&temp_dir);
-        let _ = std::fs::create_dir_all(temp_dir.join("src"));
+        log_io_err("创建临时目录", &temp_dir, std::fs::create_dir_all(&temp_dir));
+        log_io_err(
+            "创建 src 目录",
+            &temp_dir.join("src"),
+            std::fs::create_dir_all(temp_dir.join("src")),
+        );
         // 合并反向表预构建：关键字反转优先，别名反转仅在英文键未占用时并入
-        let mut reverse_map = build_reverse_map(&keyword_map);
-        for (english, native) in build_reverse_map(&alias_map) {
+        let mut reverse_map = build_reverse_map(&manager.keyword_map);
+        for (english, native) in build_reverse_map(&manager.alias_map) {
             reverse_map.entry(english).or_insert(native);
         }
+        let manager = Arc::new(manager);
         let cache = Arc::new(Self {
             entries: RwLock::new(HashMap::new()),
-            keyword_map: Arc::new(keyword_map),
-            macro_map: Arc::new(macro_map),
-            derive_map: Arc::new(derive_map),
-            alias_map: Arc::new(alias_map),
+            manager,
             temp_dir,
             module_version: std::sync::atomic::AtomicU64::new(0),
             reverse_map: Arc::new(reverse_map),
@@ -252,7 +251,11 @@ impl TranslationCache {
                 .write()
                 .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock")))?;
             if let Some(entry) = table.remove(uri) {
-                let _ = std::fs::remove_file(&entry.virtual_path);
+                log_io_err(
+                    "删除虚拟文件",
+                    &entry.virtual_path,
+                    std::fs::remove_file(&entry.virtual_path),
+                );
                 // 模块集合缩小，版本号递增（供工作区重载判断）
                 let _ = self.bump_module_version();
                 log::info!("{}", crate::ui::global().f("lsp_log_cache_removed", &[uri]));
@@ -354,12 +357,12 @@ impl TranslationCache {
 
     /// 获取关键字映射的引用
     pub fn keyword_map(&self) -> &HashMap<String, String> {
-        &self.keyword_map
+        &self.manager.keyword_map
     }
 
     /// 获取别名映射的引用（标准库/第三方库标识符，供反向转译合并使用）
     pub fn alias_map(&self) -> &HashMap<String, String> {
-        &self.alias_map
+        &self.manager.alias_map
     }
 
     /// 获取合并反向表的引用（英文 → 母语，关键字优先于别名）
@@ -455,26 +458,23 @@ impl TranslationCache {
     /// 重写单个条目的虚拟内容：翻译 + 模块路径加 `crate::` 前缀 + 重建列映射 + 写盘
     ///
     /// 内容未发生变化（模块集合未引入新前缀）时返回 None。
+    ///
+    /// 转译与列映射统一走引擎完整管线（`transpile_pipeline_with_map`）：
+    /// 词法 → use 路径 → `crate::` 前缀（跨文件引用）→ 别名，
+    /// 列映射基于引擎实测的 `pipeline_map` 回放（[`replay_column_map`]），
+    /// 不复刻任何转译规则——规则唯一来源是引擎，杜绝平行实现漂移。
     fn rewrite_entry(
         &self,
         uri: &str,
         module_names: &HashSet<String>,
     ) -> Option<Arc<TranslationEntry>> {
         let old_entry = self.query_original(uri)?;
-        let en_content = lexer::transpile_source_with_macro_map(
+        let output = i18n_rust_engine::transpile_pipeline_with_map(
             &old_entry.zh_content,
-            &self.keyword_map,
-            &self.macro_map,
-            &self.derive_map,
+            &self.manager,
+            Some(module_names),
         );
-        let en_content = rewrite_module_paths(&en_content, module_names);
-        // 别名替换（与 CLI 统一管线一致）：标准库/第三方库标识符转英文，
-        // 声明位用户定义受保护；列映射模拟同一替换以保持列偏移精确
-        let en_content = if self.alias_map.is_empty() {
-            en_content
-        } else {
-            i18n_rust_engine::alias::replace_aliases(&en_content, &self.alias_map)
-        };
+        let en_content = output.output;
         // main 文件（main.zh）的 `fn main` 仅在磁盘虚拟文件中提升为 pub：
         // 虚拟项目的 crate 入口在聚合 main.rs 中转发调用 `main::main()`，
         // 模块内 fn 默认私有会触发 cargo check E0603。但发送给 rust-analyzer
@@ -487,14 +487,7 @@ impl TranslationCache {
         } else {
             en_content.clone()
         };
-        let column_map = build_column_map(
-            &old_entry.zh_content,
-            &en_content,
-            &self.keyword_map,
-            &self.macro_map,
-            &self.alias_map,
-            module_names,
-        );
+        let column_map = replay_column_map(&old_entry.zh_content, &output.pipeline_map);
 
         // 构造新版本需要克隆旧条目一次；此后查询均为 Arc 廉价克隆
         let new_entry = Arc::new(TranslationEntry {
@@ -507,9 +500,17 @@ impl TranslationCache {
         // 先确保父目录存在（首次打开时 src/ 可能尚未创建，
         // 直接写会静默失败导致 cargo check 读到不完整的虚拟项目）
         if let Some(parent) = new_entry.virtual_path.parent() {
-            let _ = std::fs::create_dir_all(parent);
+            log_io_err(
+                "创建父目录",
+                parent,
+                std::fs::create_dir_all(parent),
+            );
         }
-        let _ = std::fs::write(&new_entry.virtual_path, &disk_content);
+        log_io_err(
+            "写入虚拟文件",
+            &new_entry.virtual_path,
+            std::fs::write(&new_entry.virtual_path, &disk_content),
+        );
 
         {
             let mut table = match self.entries.write() {
@@ -564,17 +565,33 @@ impl TranslationCache {
         // [[bin]] 使其成为二进制 crate，fn main() 即为入口
         // [workspace] 空表使其脱离任何父工作区，避免被上层 Cargo.toml 吞并
         let cargo_content = "[package]\nname = \"i18n-virtual\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[[bin]]\npath = \"src/main.rs\"\nname = \"i18n-virtual\"\n\n[workspace]\n";
-        let _ = std::fs::write(self.temp_dir.join("Cargo.toml"), cargo_content);
+        log_io_err(
+            "写入 Cargo.toml",
+            &self.temp_dir.join("Cargo.toml"),
+            std::fs::write(self.temp_dir.join("Cargo.toml"), cargo_content),
+        );
         // 预生成 Cargo.lock：无依赖项目内容固定。缺少锁文件时 cargo
         // （rust-analyzer 的 cargo metadata / 代理的 check）会尝试联网更新
         // crates.io 索引，网络不可达时进程卡死且无诊断
         let lock_content = "# This file is automatically @generated by Cargo.\n# It is not intended for manual editing.\nversion = 3\n\n[[package]]\nname = \"i18n-virtual\"\nversion = \"0.1.0\"\n";
-        let _ = std::fs::write(self.temp_dir.join("Cargo.lock"), lock_content);
+        log_io_err(
+            "写入 Cargo.lock",
+            &self.temp_dir.join("Cargo.lock"),
+            std::fs::write(self.temp_dir.join("Cargo.lock"), lock_content),
+        );
 
         // 清理旧版本残留文件（避免 rust-analyzer 同时读取 lib.rs 和 main.rs）
-        let _ = std::fs::remove_file(self.temp_dir.join("src").join("lib.rs"));
+        log_io_err(
+            "清理残留 lib.rs",
+            &self.temp_dir.join("src").join("lib.rs"),
+            std::fs::remove_file(self.temp_dir.join("src").join("lib.rs")),
+        );
         // 确保 src 目录存在（首次启动时可能尚未创建，写盘会静默失败）
-        let _ = std::fs::create_dir_all(self.temp_dir.join("src"));
+        log_io_err(
+            "创建 src 目录",
+            &self.temp_dir.join("src"),
+            std::fs::create_dir_all(self.temp_dir.join("src")),
+        );
 
         // src/main.rs：以 #[path] 属性按模块名聚合所有虚拟文件
         // #![allow(dead_code)] 抑制辅助函数/类型的未使用警告
@@ -625,7 +642,11 @@ impl TranslationCache {
         if has_main_module {
             main_content.push_str("fn main() { main::main() }\n");
         }
-        let _ = std::fs::write(self.temp_dir.join("src").join("main.rs"), main_content);
+        log_io_err(
+            "写入聚合 main.rs",
+            &self.temp_dir.join("src").join("main.rs"),
+            std::fs::write(self.temp_dir.join("src").join("main.rs"), main_content),
+        );
     }
 }
 
@@ -787,165 +808,39 @@ fn build_reverse_map(forward: &HashMap<String, String>) -> HashMap<String, Strin
     reverse
 }
 
-/// 为已知模块路径段添加 `crate::` 前缀
+/// 由引擎全管线编辑地图重建列偏移映射
 ///
-/// Rust 2018+ 中，子模块内的裸路径 `模块::项` 无法解析到 crate 根的模块，
-/// 必须写成 `crate::模块::项` 或先 use。由于虚拟项目把每个 .zh 文件聚合为
-/// 同一 crate 的兄弟模块，此处为引用其他模块的路径段自动补全前缀，
-/// 使 rust-analyzer 能够解析跨文件引用（references/rename）。
+/// 对母语源逐 token 推进：命中地图条目的 token 输出长度取 replacement 的
+/// UTF-16 长度（与真实转译输出一致，含宏自动补的 `!` 与 `crate::` 前缀），
+/// 未命中的 token 原样长度；累计偏移差变化处记录分段点。
 ///
-/// 已带前缀的路径（`crate::辅助`、`其他::辅助`）不会被重复处理。
-fn rewrite_module_paths(content: &str, module_names: &HashSet<String>) -> String {
-    if module_names.is_empty() || content.is_empty() {
-        return content.to_string();
-    }
-    use rustc_lexer::{TokenKind, tokenize};
-    let tokens: Vec<_> = tokenize(content).collect();
-    let is_whitespace = |k: TokenKind| {
-        matches!(
-            k,
-            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
-        )
-    };
-    let is_ident = |k: TokenKind| matches!(k, TokenKind::Ident | TokenKind::RawIdent);
-
-    let mut output = String::with_capacity(content.len() + module_names.len() * 8);
-    let mut offset = 0usize;
-
-    for i in 0..tokens.len() {
-        let token = &tokens[i];
-        let text = &content[offset..][..token.len];
-        offset += token.len;
-
-        if is_whitespace(token.kind) {
-            output.push_str(text);
-            continue;
-        }
-
-        // 模块路径段：标识符属于已知模块名、后跟 `::`、且不在既有路径段之后
-        // （`crate::辅助`、`a::辅助` 中的 `辅助` 已处于路径内，跳过）
-        let needs_prefix = is_ident(token.kind) && {
-            let raw_name = text.strip_prefix("r#").unwrap_or(text);
-            module_names.contains(raw_name)
-                && is_path_separator_after(&tokens, i)
-                && !is_path_separator_before(&tokens, i)
-        };
-        if needs_prefix {
-            output.push_str("crate::");
-        }
-        output.push_str(text);
-    }
-    output
-}
-
-/// 检查指定 token 之后两个连续的非空白 token 是否为 `::`
-///
-/// rustc_lexer 将 `::` 拆分为两个 `Colon` token。
-fn is_path_separator_after(tokens: &[rustc_lexer::Token], current: usize) -> bool {
-    use rustc_lexer::TokenKind;
-    let is_whitespace = |k: TokenKind| {
-        matches!(
-            k,
-            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
-        )
-    };
-    let mut colon_count = 0;
-    for token in &tokens[(current + 1)..] {
-        if is_whitespace(token.kind) {
-            continue;
-        }
-        if matches!(token.kind, TokenKind::Colon) {
-            colon_count += 1;
-            if colon_count >= 2 {
-                return true;
-            }
-            continue;
-        }
-        return false;
-    }
-    false
-}
-
-/// 检查指定 token 之前两个连续的非空白 token 是否为 `::`
-fn is_path_separator_before(tokens: &[rustc_lexer::Token], current: usize) -> bool {
-    use rustc_lexer::TokenKind;
-    let is_whitespace = |k: TokenKind| {
-        matches!(
-            k,
-            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
-        )
-    };
-    let mut colon_count = 0;
-    for token in tokens[..current].iter().rev() {
-        if is_whitespace(token.kind) {
-            continue;
-        }
-        if matches!(token.kind, TokenKind::Colon) {
-            colon_count += 1;
-            if colon_count >= 2 {
-                return true;
-            }
-        } else {
-            return false;
-        }
-    }
-    false
-}
-
-/// 构建列偏移映射
-///
-/// 扫描中文 token 流，模拟翻译过程，记录每次替换导致的列偏移变化。
-/// 列号按 LSP 的 UTF-16 code unit 计数，并按行分段存储
-/// （每行独立从 0 开始，换行时偏移差重置）。
-/// 不依赖英文 token 流，避免宏感叹号插入导致的 token 不对齐问题。
-///
-/// `module_names` 用于模拟模块路径重写：命中模块路径段时英文侧多出
-/// `crate::` 前缀（7 个 UTF-16 单元），与 `rewrite_module_paths` 保持一致。
-///
-/// `alias_map` 用于模拟别名替换：与 engine `alias::replace_aliases` 同一
-/// 声明位保护状态机（声明关键字后紧跟的标识符为用户定义，不替换；
-/// `mut` 在声明态内透明传递），且用户声明名在全文使用处全局豁免
-/// （预扫描收集声明名，与 engine 两遍扫描语义一致），保证列偏移与真实转译输出一致。
-fn build_column_map(
+/// 不包含任何转译判定——规则的唯一来源是引擎（`transpile_pipeline_with_map`），
+/// 此处仅做纯算术回放，杜绝与引擎转译逻辑的平行实现漂移。
+fn replay_column_map(
     zh_content: &str,
-    _en_content: &str,
-    keyword_map: &HashMap<String, String>,
-    macro_map: &HashMap<String, String>,
-    alias_map: &HashMap<String, String>,
-    module_names: &HashSet<String>,
+    pipeline_map: &[SourceMapEntry],
 ) -> Vec<Vec<ColumnMapPoint>> {
-    use rustc_lexer::tokenize;
+    use rustc_lexer::{TokenKind, tokenize};
 
-    let zh_tokens: Vec<_> = tokenize(zh_content).collect();
-    // 预扫描：收集用户声明名（中文原名），使用处豁免别名替换，
-    // 与 engine `alias::replace_aliases` 的两遍扫描语义一致
-    let declared_names = collect_zh_declared_names(&zh_tokens, zh_content, keyword_map, macro_map);
-    let mut per_line_map: Vec<Vec<ColumnMapPoint>> = Vec::new();
+    // 索引：源偏移 → 条目（token 级替换，一个 token 至多一条）
+    let by_offset: HashMap<usize, &SourceMapEntry> =
+        pipeline_map.iter().map(|e| (e.source_offset, e)).collect();
+
+    let mut per_line_map: Vec<Vec<ColumnMapPoint>> =
+        vec![vec![ColumnMapPoint { en_col: 0, zh_col: 0, offset_diff: 0 }]];
     let mut zh_col = 0u32;
     let mut en_col = 0u32;
     let mut cumulative_diff = 0i32; // 当前行内 en_col - zh_col
     let mut current_offset = 0usize;
-    // 声明位保护状态（与 alias::replace_aliases 一致，跨行保持）
-    let mut prev_is_decl = false;
-
-    // 第一行起点
-    per_line_map.push(vec![ColumnMapPoint {
-        en_col: 0,
-        zh_col: 0,
-        offset_diff: 0,
-    }]);
-
-    use rustc_lexer::TokenKind;
     let is_whitespace = |k: TokenKind| {
         matches!(
             k,
             TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
         )
     };
-    let is_ident = |k: TokenKind| matches!(k, TokenKind::Ident | TokenKind::RawIdent);
 
-    for i in 0..zh_tokens.len() {
-        let token = &zh_tokens[i];
+    for token in tokenize(zh_content) {
+        let token_start = current_offset;
         let token_text = &zh_content[current_offset..][..token.len];
         current_offset += token.len;
 
@@ -970,85 +865,16 @@ fn build_column_map(
             continue;
         }
 
-        if is_ident(token.kind) {
-            let raw_name = token_text.strip_prefix("r#").unwrap_or(token_text);
-            let zh_len: u32 = token_text.chars().map(|c| c.len_utf16() as u32).sum();
+        // 输出长度：命中地图条目取 replacement 的 UTF-16 长度，否则原样
+        let zh_len: u32 = token_text.chars().map(|c| c.len_utf16() as u32).sum();
+        let en_len: u32 = match by_offset.get(&token_start) {
+            Some(e) => e.replacement.chars().map(|c| c.len_utf16() as u32).sum(),
+            None => zh_len,
+        };
 
-            // 检查是否为宏名（后跟开括号）
-            let is_macro_call =
-                macro_map.contains_key(raw_name) && is_open_paren_after(&zh_tokens, i);
-
-            if is_macro_call {
-                // 英文名取自宏映射（与 transpile_source_with_macro_map 一致），
-                // 后跟开括号时补 !，与真实转译输出保持列偏移一致
-                let en_name = macro_map
-                    .get(raw_name)
-                    .map(|s| s.as_str())
-                    .unwrap_or(raw_name);
-                let en_name_len: u32 = en_name.chars().map(|c| c.len_utf16() as u32).sum();
-
-                // 翻译后的英文输出：英文名 + 补上的 !（宏名必然在映射中才会命中此分支）
-                let en_output_len = en_name_len + 1; // +1 for inserted !
-
-                cumulative_diff += en_output_len as i32 - zh_len as i32;
-                zh_col += zh_len;
-                en_col += en_output_len;
-                // 别名替换阶段宏名后紧跟 !（非标识符），声明态终结
-                prev_is_decl = false;
-            } else {
-                // 普通标识符：关键字映射 > 模块路径前缀/别名替换 > 原样
-                let is_module_seg = module_names.contains(raw_name)
-                    && is_path_separator_after(&zh_tokens, i)
-                    && !is_path_separator_before(&zh_tokens, i);
-                // 别名替换模拟（仅正常 Ident 参与，RawIdent 不命中，
-                // 与 alias::replace_aliases 的 token 匹配行为一致）；
-                // 用户声明名的裸使用处豁免，但 `::` 限定后的路径段
-                // （库 API 限定访问）不受豁免，与 engine 语义一致
-                let alias_exempt = prev_is_decl
-                    || (declared_names.contains(raw_name)
-                        && !is_path_separator_before(&zh_tokens, i));
-                let alias_repl = if !token_text.starts_with("r#") && !alias_exempt {
-                    alias_map.get(raw_name)
-                } else {
-                    None
-                };
-
-                let mut translated: &str = raw_name;
-                let en_output_len = if let Some(en_name) = keyword_map.get(raw_name) {
-                    translated = en_name;
-                    en_name.chars().map(|c| c.len_utf16() as u32).sum::<u32>()
-                } else if let Some(en_name) = alias_repl {
-                    translated = en_name;
-                    let base: u32 = en_name.chars().map(|c| c.len_utf16() as u32).sum();
-                    if is_module_seg { base + 7 } else { base }
-                } else if is_module_seg {
-                    // 模块路径段：虚拟文件中被补上 crate:: 前缀（7 个 UTF-16 单元）
-                    zh_len + 7
-                } else {
-                    zh_len
-                };
-
-                cumulative_diff += en_output_len as i32 - zh_len as i32;
-                zh_col += zh_len;
-                en_col += en_output_len;
-
-                // 更新声明态（按转译后的英文名；mut 透明传递声明状态）；
-                // RawIdent 在别名替换中归入符号分支，终结声明位
-                prev_is_decl = if token_text.starts_with("r#") {
-                    false
-                } else if translated == "mut" {
-                    prev_is_decl
-                } else {
-                    i18n_rust_engine::alias::DECL_KEYWORDS.contains(&translated)
-                };
-            }
-        } else {
-            // 非标识符、非空白 token：原样输出（UTF-16 计数），终结声明位
-            let len: u32 = token_text.chars().map(|c| c.len_utf16() as u32).sum();
-            zh_col += len;
-            en_col += len;
-            prev_is_decl = false;
-        }
+        cumulative_diff += en_len as i32 - zh_len as i32;
+        zh_col += zh_len;
+        en_col += en_len;
 
         // 如果偏移差变化了，记录新的分段边界（当前行内）
         let last_diff = per_line_map
@@ -1069,80 +895,6 @@ fn build_column_map(
     }
 
     per_line_map
-}
-
-/// 预扫描中文 token 流，收集用户在声明位定义的标识符名（中文原名）
-///
-/// 状态机与 `build_column_map` 主循环一致：经关键字映射转译为英文后，
-/// 声明关键字（DECL_KEYWORDS）后紧跟的标识符计入集合；`mut` 在声明态内
-/// 透明传递；空白/注释不打断声明态；符号与 RawIdent 终结声明位；
-/// 宏调用分支（后跟开括号）终结声明态且不计入。
-/// 集合内的名字在全文使用处豁免别名替换，与 engine `alias::replace_aliases`
-/// 的两遍扫描语义一致。
-fn collect_zh_declared_names(
-    zh_tokens: &[rustc_lexer::Token],
-    zh_content: &str,
-    keyword_map: &HashMap<String, String>,
-    macro_map: &HashMap<String, String>,
-) -> HashSet<String> {
-    use rustc_lexer::TokenKind;
-    let mut declared = HashSet::new();
-    let mut prev_is_decl = false;
-    let mut offset = 0usize;
-    for (i, token) in zh_tokens.iter().enumerate() {
-        let text = &zh_content[offset..offset + token.len];
-        offset += token.len;
-        match token.kind {
-            TokenKind::Ident | TokenKind::RawIdent => {
-                let raw_name = text.strip_prefix("r#").unwrap_or(text);
-                let is_macro_call =
-                    macro_map.contains_key(raw_name) && is_open_paren_after(zh_tokens, i);
-                if is_macro_call {
-                    // 宏名后紧跟 !（非标识符），声明态终结
-                    prev_is_decl = false;
-                } else {
-                    if prev_is_decl && !text.starts_with("r#") {
-                        declared.insert(raw_name.to_string());
-                    }
-                    let translated = keyword_map
-                        .get(raw_name)
-                        .map(|s| s.as_str())
-                        .unwrap_or(raw_name);
-                    prev_is_decl = if text.starts_with("r#") {
-                        false
-                    } else if translated == "mut" {
-                        prev_is_decl
-                    } else {
-                        i18n_rust_engine::alias::DECL_KEYWORDS.contains(&translated)
-                    };
-                }
-            }
-            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {}
-            _ => prev_is_decl = false,
-        }
-    }
-    declared
-}
-
-/// 检查指定 token 之后下一个非空白 token 是否是开括号（( [ {）
-fn is_open_paren_after(tokens: &[rustc_lexer::Token], current: usize) -> bool {
-    use rustc_lexer::TokenKind;
-    let is_whitespace = |k: TokenKind| {
-        matches!(
-            k,
-            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
-        )
-    };
-    for token in &tokens[(current + 1)..] {
-        if is_whitespace(token.kind) {
-            continue;
-        }
-        return matches!(
-            token.kind,
-            TokenKind::OpenParen | TokenKind::OpenBracket | TokenKind::OpenBrace
-        );
-    }
-    false
 }
 
 /// 生成英文行号到中文行号的映射
@@ -1206,14 +958,16 @@ mod tests {
         ])
     }
 
+    /// 构造测试用映射管理器（关键字表 + 可选别名表，模块路径/宏/派生表为空）
+    fn test_manager(alias_map: HashMap<String, String>) -> MappingManager {
+        MappingManager::from_flat_maps(test_map(), HashMap::new(), alias_map)
+    }
+
     #[test]
     fn test_update_document() {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
-            test_map(),
-            HashMap::new(),
-            HashMap::new(),
-            HashMap::new(),
+            test_manager(HashMap::new()),
             temp.path().to_path_buf(),
         );
 
@@ -1234,10 +988,7 @@ mod tests {
             ("新建".into(), "new".into()),
         ]);
         let cache = TranslationCache::new(
-            test_map(),
-            HashMap::new(),
-            HashMap::new(),
-            alias_map,
+            test_manager(alias_map),
             temp.path().to_path_buf(),
         );
 
@@ -1262,10 +1013,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let alias_map = HashMap::from([("字符串".into(), "String".into())]);
         let cache = TranslationCache::new(
-            test_map(),
-            HashMap::new(),
-            HashMap::new(),
-            alias_map,
+            test_manager(alias_map),
             temp.path().to_path_buf(),
         );
 
@@ -1281,10 +1029,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let alias_map = HashMap::from([("字符串".into(), "String".into())]);
         let cache = TranslationCache::new(
-            test_map(),
-            HashMap::new(),
-            HashMap::new(),
-            alias_map,
+            test_manager(alias_map),
             temp.path().to_path_buf(),
         );
         let uri = "file:///test/main.zh";
@@ -1302,10 +1047,7 @@ mod tests {
     fn test_close_document() {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
-            test_map(),
-            HashMap::new(),
-            HashMap::new(),
-            HashMap::new(),
+            test_manager(HashMap::new()),
             temp.path().to_path_buf(),
         );
 
@@ -1324,10 +1066,7 @@ mod tests {
     fn test_close_document_missing_is_noop() {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
-            test_map(),
-            HashMap::new(),
-            HashMap::new(),
-            HashMap::new(),
+            test_manager(HashMap::new()),
             temp.path().to_path_buf(),
         );
         cache
@@ -1345,10 +1084,7 @@ mod tests {
     fn test_user_defined_tokens_cache_invalidation() {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
-            test_map(),
-            HashMap::new(),
-            HashMap::new(),
-            HashMap::new(),
+            test_manager(HashMap::new()),
             temp.path().to_path_buf(),
         );
         cache
@@ -1371,10 +1107,7 @@ mod tests {
     fn test_query_by_virtual_uri() {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
-            test_map(),
-            HashMap::new(),
-            HashMap::new(),
-            HashMap::new(),
+            test_manager(HashMap::new()),
             temp.path().to_path_buf(),
         );
 
@@ -1386,43 +1119,20 @@ mod tests {
     }
 
     #[test]
-    fn test_rewrite_module_paths() {
-        let set = HashSet::from(["辅助".to_string(), "主".to_string()]);
-
-        // 裸路径加前缀
-        assert_eq!(
-            rewrite_module_paths("fn main() {\n    辅助::辅助函数();\n}", &set),
-            "fn main() {\n    crate::辅助::辅助函数();\n}"
-        );
-        // 已有 crate:: 前缀的不重复处理
-        assert_eq!(
-            rewrite_module_paths("crate::辅助::辅助函数()", &set),
-            "crate::辅助::辅助函数()"
-        );
-        // 非模块名的标识符路径不处理
-        assert_eq!(rewrite_module_paths("x::方法()", &set), "x::方法()");
-        // 空集合保持原样
-        assert_eq!(
-            rewrite_module_paths("辅助::辅助函数()", &HashSet::new()),
-            "辅助::辅助函数()"
-        );
-    }
-
-    #[test]
     fn test_module_path_column_map() {
-        let map = HashMap::from([
-            ("函数".into(), "fn".into()),
-            ("让".into(), "let".into()),
-            ("公开".into(), "pub".into()),
-        ]);
-        let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(
-            map,
+        // crate:: 前缀重写逻辑已迁入引擎（module_path::qualify_module_paths_with_map，
+        // 其行为测试在引擎侧）；此处验证列映射与虚拟内容经由完整管线正确对齐
+        let manager = MappingManager::from_flat_maps(
+            HashMap::from([
+                ("函数".into(), "fn".into()),
+                ("让".into(), "let".into()),
+                ("公开".into(), "pub".into()),
+            ]),
             HashMap::new(),
             HashMap::new(),
-            HashMap::new(),
-            temp.path().to_path_buf(),
         );
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(manager, temp.path().to_path_buf());
 
         // 先打开 辅助.zh，使模块集合包含 辅助
         let (helper_entry, _) = cache
@@ -1461,6 +1171,38 @@ mod tests {
         assert!(others.is_empty());
     }
 
+    /// use 语句路径段中文化（LSP 此前缺失的环节，现经引擎完整管线修复）
+    #[test]
+    fn test_use_stmt_module_path_translated() {
+        let manager = MappingManager::load_from_builtin(
+            r#"
+["声明"]
+"函数" = "fn"
+"让" = "let"
+"使用" = "use"
+"#,
+            r#"
+["模块路径"]
+"标准集合" = "std::collections"
+"#,
+            r#"
+["标识符"]
+"哈希映射" = "HashMap"
+"#,
+            &[],
+        )
+        .expect("管理器创建失败");
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(manager, temp.path().to_path_buf());
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", "使用 标准集合::哈希映射;", 1)
+            .unwrap();
+        assert_eq!(entry.en_content, "use std::collections::HashMap;");
+        // 列映射与虚拟内容对齐：行首位置 zh↔en 恒等
+        assert_eq!(cache.zh_col_to_en_col(&entry.virtual_uri, 0, 0), 0);
+        assert_eq!(cache.en_col_to_zh_col(&entry.virtual_uri, 0, 0), 0);
+    }
+
     #[test]
     fn test_line_map() {
         let map = generate_line_map("行0\n行1\n行2", "line0\nline1\nline2");
@@ -1469,20 +1211,18 @@ mod tests {
 
     #[test]
     fn test_reverse_transpile() {
-        let map = HashMap::from([
-            ("函数".into(), "fn".into()),
-            ("让".into(), "let".into()),
-            ("打印行".into(), "println".into()),
-            ("整数".into(), "i32".into()),
-        ]);
-        let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(
-            map,
+        let manager = MappingManager::from_flat_maps(
+            HashMap::from([
+                ("函数".into(), "fn".into()),
+                ("让".into(), "let".into()),
+                ("打印行".into(), "println".into()),
+                ("整数".into(), "i32".into()),
+            ]),
             HashMap::new(),
             HashMap::new(),
-            HashMap::new(),
-            temp.path().to_path_buf(),
         );
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(manager, temp.path().to_path_buf());
         let (entry, _) = cache
             .update_document(
                 "file:///test/main.zh",
@@ -1546,10 +1286,7 @@ mod tests {
     fn test_update_document_encoded_chinese_filename() {
         let temp = tempfile::tempdir().unwrap();
         let cache = TranslationCache::new(
-            test_map(),
-            HashMap::new(),
-            HashMap::new(),
-            HashMap::new(),
+            test_manager(HashMap::new()),
             temp.path().to_path_buf(),
         );
         let (entry, _) = cache

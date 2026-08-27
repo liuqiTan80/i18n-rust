@@ -43,9 +43,54 @@ on:
         default: false
 
 jobs:
+  # ---------- 0. 发布前置质量门禁：任一失败中止 package/vsix/crates ----------
+  check:
+    name: 发布质量门禁
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链（含 clippy 与 rustfmt）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: 检查代码格式
+        run: cargo fmt --all -- --check
+
+      - name: Clippy（警告视为错误）
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: 单元测试（debug + release，锁定依赖）
+        run: |
+          cargo test --workspace --locked
+          cargo test --workspace --release --locked
+
+      - name: 第三方库映射质量门禁
+        run: cargo run --quiet --bin rzc -- mapping check
+
+      - name: 版本一致性校验（三 crate == 扩展 == tag，CHANGELOG 有对应条目）
+        run: |
+          set -e
+          V="$(grep -m1 '^version = ' crates/engine/Cargo.toml | cut -d'"' -f2)"
+          for C in crates/engine crates/cli crates/lsp; do
+            CV="$(grep -m1 '^version = ' "$C/Cargo.toml" | cut -d'"' -f2)"
+            [ "$CV" = "$V" ] || { echo "❌ $C 版本 $CV 与引擎 $V 不一致"; exit 1; }
+          done
+          JSV="$(grep -m1 '"version"' tools/vscode-extension/package.json | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+          [ "$JSV" = "$V" ] || { echo "❌ 扩展版本 $JSV 与 Rust 侧 $V 不一致"; exit 1; }
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME#v}"
+            [ "$TAG" = "$V" ] || { echo "❌ tag v$TAG 与版本 $V 不一致"; exit 1; }
+          fi
+          grep -q "^## $V" tools/vscode-extension/CHANGELOG.md || { echo "❌ CHANGELOG 缺少 $V 条目"; exit 1; }
+          echo "✅ 版本一致：$V"
+
   # ---------- 构建：三个平台各自编译并打包 rzc 离线包 ----------
   package:
     name: 构建离线包 ${{ matrix.os_name }}-${{ matrix.arch }}
+    needs: check
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -68,14 +113,26 @@ jobs:
       - name: 安装 Rust 工具链
         uses: dtolnay/rust-toolchain@stable
 
-      - name: 编译 rzc 与语言服务器（release）
-        run: cargo build --release -p rzc -p i18n-rust-lsp
+      - name: 编译 rzc 与语言服务器（release，锁定依赖）
+        run: cargo build --release -p rzc -p i18n-rust-lsp --locked
+
+      - name: 二进制冒烟测试
+        run: |
+          ./target/release/rzc --version
+          ./target/release/i18n-rust-lsp --version
+
+      - name: 读取锁定工具链版本（单一数据源：代码内常量，与 rzc install toolchain 同源）
+        id: toolchain-version
+        shell: bash
+        run: |
+          echo "rust=$(grep -m1 'LOCKED_TOOLCHAIN_VERSION' crates/engine/src/toolchain.rs | grep -oE '"[0-9.]+"' | tr -d '"')" >> "$GITHUB_OUTPUT"
+          echo "ra_tag=$(grep -m1 'RA_RELEASE_TAG' crates/cli/src/install.rs | grep -oE '"[0-9-]+"' | tr -d '"')" >> "$GITHUB_OUTPUT"
 
       - name: 缓存工具链下载包（三平台各约 300MB，跨 run 复用）
         uses: actions/cache@v4
         with:
           path: /tmp/rust.tar.gz
-          key: rust-toolchain-${{ matrix.os_name }}-1.98.0
+          key: rust-toolchain-${{ matrix.os_name }}-${{ steps.toolchain-version.outputs.rust }}
       - name: 组装发布目录
         shell: bash
         run: |
@@ -112,21 +169,38 @@ jobs:
             TRIPLE="aarch64-apple-darwin"
           fi
           mkdir -p "$DIR/toolchain/bin"
-          # Rust 工具链版本：与 rzc install toolchain 的锁定版本一致（LOCKED_TOOLCHAIN_VERSION），非项目版本号
-          RUST_VERSION="1.98.0"
+          # Rust 工具链版本：单一数据源（toolchain.rs LOCKED_TOOLCHAIN_VERSION），非项目版本号
+          RUST_VERSION="${{ steps.toolchain-version.outputs.rust }}"
+          RA_TAG="${{ steps.toolchain-version.outputs.ra_tag }}"
           RUST_DIST="https://static.rust-lang.org/dist/rust-$RUST_VERSION-$TRIPLE.tar.gz"
           echo "下载工具链: $RUST_DIST"
           if [ ! -f /tmp/rust.tar.gz ]; then
             curl -sL "$RUST_DIST" -o /tmp/rust.tar.gz
           fi
+          # 校验工具链包 SHA-256（fail-closed：校验和缺失或不匹配即中止）
+          curl -sL "$RUST_DIST.sha256" -o /tmp/rust.tar.gz.sha256
+          EXPECTED="$(awk '{print $1}' /tmp/rust.tar.gz.sha256 | tr -d '\r')"
+          ACTUAL="$(sha256sum /tmp/rust.tar.gz | awk '{print $1}')"
+          if [ "${#EXPECTED}" != "64" ] || [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "❌ 工具链包 SHA-256 校验失败（$RUST_DIST）" >&2
+            exit 1
+          fi
           tar -xzf /tmp/rust.tar.gz -C /tmp
           cp /tmp/rust-$RUST_VERSION-$TRIPLE/rustc/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true
           cp /tmp/rust-$RUST_VERSION-$TRIPLE/cargo/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true
-          # rust-analyzer（官方 Release，锁定 tag；rzc install toolchain 同源）
-          RA_TAG="2026-08-24"
-          RA_NAME="rust-analyzer-$TRIPLE"
-          [ "${{ matrix.os_name }}" = "windows" ] && RA_NAME="$RA_NAME.exe"
-          curl -sL "https://github.com/rust-lang/rust-analyzer/releases/download/$RA_TAG/$RA_NAME" -o "$DIR/toolchain/bin/rust-analyzer$([ "${{ matrix.os_name }}" = "windows" ] && echo .exe)"
+          # rust-analyzer：官方 Release 以压缩资产发布（linux/mac 为 .gz、windows 为 .zip），
+          # 无裸二进制（旧写法 404 会把错误页装进离线包）；下载后解压为可执行文件
+          if [ "${{ matrix.os_name }}" = "windows" ]; then
+            RA_ASSET="rust-analyzer-$TRIPLE.zip"
+          else
+            RA_ASSET="rust-analyzer-$TRIPLE.gz"
+          fi
+          curl -sL "https://github.com/rust-lang/rust-analyzer/releases/download/$RA_TAG/$RA_ASSET" -o /tmp/ra.asset
+          if [ "${{ matrix.os_name }}" = "windows" ]; then
+            tar -xf /tmp/ra.asset -C "$DIR/toolchain/bin/"
+          else
+            gunzip -c /tmp/ra.asset > "$DIR/toolchain/bin/rust-analyzer"
+          fi
           chmod +x "$DIR/toolchain/bin/"* 2>/dev/null || true
           echo "工具链已打包：$(ls "$DIR/toolchain/bin")"
           # VC++ 运行库（新系统可能缺失，随包分发；Windows 运行器自带）
@@ -202,6 +276,13 @@ jobs:
           echo "打包完成：release/ 下的产物为："
           ls -lh release/
 
+      - name: 生成校验和（SHA256SUMS，随 Release 发布供用户核验）
+        shell: bash
+        run: |
+          cd release
+          sha256sum *.tar.gz *.zip > SHA256SUMS 2>/dev/null || true
+          cat SHA256SUMS
+
       - name: 上传构建产物（供发布步骤使用）
         uses: actions/upload-artifact@v4
         with:
@@ -212,6 +293,7 @@ jobs:
   # ---------- VS Code 扩展打包 ----------
   vsix:
     name: 构建 VS Code 扩展
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
@@ -240,10 +322,11 @@ jobs:
 
       - name: 打包 .vsix
         working-directory: tools/vscode-extension
-        # release/ 目录已加入 .gitignore（不再被 git 跟踪），checkout 后不存在，需先创建
+        # release/ 目录已加入 .gitignore（不再被 git 跟踪），checkout 后不存在，需先创建；
+        # --no-install 使用 npm ci 安装的锁定版本 @vscode/vsce，避免浮动最新版打出的包不一致
         run: |
           mkdir -p ../../release/
-          npx --yes @vscode/vsce package --out ../../release/ --baseContentUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/ --baseImagesUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/
+          npx --no-install @vscode/vsce package --out ../../release/ --baseContentUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/ --baseImagesUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/
 
       - name: 上传扩展包产物（供发布步骤使用）
         uses: actions/upload-artifact@v4
@@ -321,7 +404,7 @@ jobs:
   # 故用 job 级 env 注入令牌，发布步骤以 env 非空判断是否执行。
   crates:
     name: 发布 crates.io
-    needs: package
+    needs: [check, package]
     # tag 触发时自动发布；手动触发需勾选"发布到 crates.io"
     if: (github.event_name == 'workflow_dispatch' && inputs.publish_crates) || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
@@ -351,6 +434,8 @@ jobs:
               echo "跳过 $CRATE：$VERSION 已存在于 crates.io"
             else
               echo "发布 $CRATE $VERSION ..."
-              cargo publish -p "$CRATE"
+              # 发布前 dry-run 校验（含 --locked：锁文件必须与清单一致）
+              cargo publish -p "$CRATE" --dry-run --locked
+              cargo publish -p "$CRATE" --locked
             fi
           done

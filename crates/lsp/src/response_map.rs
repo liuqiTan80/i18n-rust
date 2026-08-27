@@ -1347,15 +1347,13 @@ mod tests {
     use std::collections::HashMap;
 
     fn create_test_cache() -> (Arc<TranslationCache>, tempfile::TempDir) {
-        let map = HashMap::from([("函数".into(), "fn".into()), ("让".into(), "let".into())]);
-        let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(
-            map,
+        let manager = i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+            HashMap::from([("函数".into(), "fn".into()), ("让".into(), "let".into())]),
             HashMap::new(),
             HashMap::new(),
-            HashMap::new(),
-            temp.path().to_path_buf(),
         );
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(manager, temp.path().to_path_buf());
         (cache, temp)
     }
 
@@ -1989,15 +1987,13 @@ mod tests {
     /// 英文语言包（恒等映射）不启用语言过滤，所有项保留
     #[test]
     fn test_map_completion_no_filter_for_identity_pack() {
-        let map = HashMap::from([("fn".into(), "fn".into()), ("let".into(), "let".into())]);
-        let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(
-            map,
+        let manager = i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+            HashMap::from([("fn".into(), "fn".into()), ("let".into(), "let".into())]),
             HashMap::new(),
             HashMap::new(),
-            HashMap::new(),
-            temp.path().to_path_buf(),
         );
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(manager, temp.path().to_path_buf());
         let mapper = ResponseMapper::new(cache);
 
         let response = json!({

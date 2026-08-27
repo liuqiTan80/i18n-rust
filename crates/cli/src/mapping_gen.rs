@@ -1865,16 +1865,18 @@ pub fn deepseek_chat(system_prompt: &str, user_prompt: &str) -> anyhow::Result<S
         "temperature": 0.2,
         "stream": false
     });
-    let agent = ureq::AgentBuilder::new()
-        .timeout_connect(std::time::Duration::from_secs(AI_CONNECT_TIMEOUT))
-        .timeout_read(std::time::Duration::from_secs(AI_READ_TIMEOUT))
-        .timeout_write(std::time::Duration::from_secs(AI_WRITE_TIMEOUT))
-        .build();
+    let agent = ureq::Agent::config_builder()
+        .timeout_connect(Some(std::time::Duration::from_secs(AI_CONNECT_TIMEOUT)))
+        .timeout_global(Some(std::time::Duration::from_secs(
+            AI_READ_TIMEOUT + AI_WRITE_TIMEOUT,
+        )))
+        .build()
+        .new_agent();
     let resp = agent
         .post(&url)
-        .set("Content-Type", "application/json")
-        .set("Authorization", &format!("Bearer {}", api_key))
-        .send_string(&request_body.to_string())
+        .header("Content-Type", "application/json")
+        .header("Authorization", &format!("Bearer {}", api_key))
+        .send(request_body.to_string())
         .map_err(|e| anyhow!("{}", ui.f("mg_err_ai_request", &[&e.to_string()])))?;
     if resp.status() != 200 {
         bail!(
@@ -1883,7 +1885,8 @@ pub fn deepseek_chat(system_prompt: &str, user_prompt: &str) -> anyhow::Result<S
         );
     }
     let resp_text = resp
-        .into_string()
+        .into_body()
+        .read_to_string()
         .map_err(|e| anyhow!("{}", ui.f("mg_err_ai_read", &[&e.to_string()])))?;
     let resp_json: Value = serde_json::from_str(&resp_text)
         .map_err(|e| anyhow!("{}", ui.f("mg_err_ai_parse", &[&e.to_string()])))?;

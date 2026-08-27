@@ -64,7 +64,7 @@ rzc run src/main.fr
 ## ✨ Fonctionnalités
 
 - **Programmation en langue maternelle** : écrivez des programmes Rust complets avec les mots-clés de votre langue
-- **Multilingue par conception** : 11 packs de langue intégrés (fr/zh/en/de/ja/ru/es/pt/ko/ar/hi), détection automatique par extension
+- **Multilingue par conception** : 10 packs de langue intégrés (fr/zh/de/ja/ru/es/pt/ko/ar/hi), détection automatique par extension
 - **Diagnostics localisés** : `rzc check` traduit les erreurs rustc dans la langue du fichier, avec 💡 conseils pédagogiques
 - **Visualisation de la propriété** : l'extension VS Code (recherchez `i18n-rust`) surligne les déplacements et réutilisations de variables
 - **Support LSP complet** : complétion, survol, aller à la définition, références, renommage
@@ -72,7 +72,7 @@ rzc run src/main.fr
 
 ## 📖 Tutoriel
 
-Un tutoriel complet en chinois pour débutants (24 chapitres + 4 annexes) — voir [tutorials/](tutorials/).
+Un tutoriel complet en chinois pour débutants (26 chapitres + glossaire + 5 annexes) — voir [tutorials/](tutorials/).
 
 ## 📄 Licence
 

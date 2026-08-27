@@ -7,7 +7,6 @@
  */
 
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 /**
@@ -104,11 +103,4 @@ export function 解析可执行文件(
         }
     }
     return findInPath(名称);
-}
-
-/**
- * 用户主目录（语言包全局安装位置 ~/.rz/lang-packs 的基准）
- */
-export function 用户主目录(): string {
-    return os.homedir();
 }

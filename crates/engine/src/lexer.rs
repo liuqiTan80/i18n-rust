@@ -7,13 +7,16 @@ use crate::cache::SourceMapEntry;
 use rustc_lexer::{TokenKind, tokenize};
 use std::collections::{HashMap, HashSet};
 
-/// 转译结果：标准 Rust 输出与源映射
+/// 转译结果：标准 Rust 输出、词法阶段源映射与全管线编辑表
 #[derive(Debug, Clone)]
 pub struct TranspileResult {
     /// 转译后的代码文本
     pub output: String,
-    /// 源映射条目列表（记录被替换的标识符）
+    /// 词法阶段源映射条目列表（记录被替换的标识符，replacement 不含补的 `!`）
     pub source_map: Vec<SourceMapEntry>,
+    /// 全管线编辑表：与 source_map 同偏移，但 replacement 为**最终输出文本**
+    ///（宏调用自动补充的 `!` 已计入 replacement），供全管线编辑地图组合使用
+    pub final_edits: Vec<SourceMapEntry>,
 }
 
 /// 将母语 Rust 源代码转换为标准 Rust 源代码字符串
@@ -96,6 +99,8 @@ pub fn transpile_with_map(
     let mut output = String::new();
     let mut current_offset = 0;
     let mut source_map = Vec::new();
+    // 全管线编辑表：replacement 为最终输出文本（宏补的 `!` 计入），与 source_map 同偏移
+    let mut final_edits = Vec::new();
     // 派生参数态：`#[派生(` 之后的参数（直到 `)`）内的标识符
     // 优先查派生特征映射（`克隆` → `Clone`），避免与方法名别名（小写 clone）冲突
     let mut in_derive_params = false;
@@ -137,6 +142,21 @@ pub fn transpile_with_map(
                                 length,
                                 text,
                                 &final_text,
+                            ));
+                        }
+                        // 最终输出文本（含自动补充的 `!`）：
+                        // 与 source_map 语义不同——replacement 即输出原文，供列映射回放
+                        let appended = if is_open_bracket(next_kind) {
+                            format!("{}!", final_text)
+                        } else {
+                            final_text.clone()
+                        };
+                        if appended != text {
+                            final_edits.push(SourceMapEntry::new(
+                                current_offset,
+                                length,
+                                text,
+                                &appended,
                             ));
                         }
                         output.push_str(&final_text);
@@ -190,6 +210,12 @@ pub fn transpile_with_map(
                             text,
                             final_replacement,
                         ));
+                        final_edits.push(SourceMapEntry::new(
+                            current_offset,
+                            length,
+                            text,
+                            final_replacement,
+                        ));
                     }
                     output.push_str(final_replacement);
                 }
@@ -214,7 +240,11 @@ pub fn transpile_with_map(
         current_offset += length;
     }
 
-    TranspileResult { output, source_map }
+    TranspileResult {
+        output,
+        source_map,
+        final_edits,
+    }
 }
 
 /// 查找从指定位置开始的第一个非空白 token 的 kind

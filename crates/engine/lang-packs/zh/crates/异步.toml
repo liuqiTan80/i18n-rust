@@ -3,6 +3,7 @@
 "异步运行时" = "tokio"
 "异步标准" = "async-std"
 "未来" = "futures"
+"执行器" = "executor"
 "异步特征" = "async-trait"
 
 # 内部标识符映射（用于库内的类型、函数等）

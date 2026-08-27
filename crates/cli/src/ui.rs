@@ -141,26 +141,18 @@ pub fn detect_ui_lang() -> String {
 ///
 /// 读取 LC_ALL / LC_MESSAGES / LANG 环境变量，取首段语言标签
 /// （如 `zh_CN.UTF-8` → `zh`）匹配已支持语言；无法识别时默认中文。
+/// 语言集合来自引擎 lang-packs 目录（单一事实源），不在此处维护匹配表。
 pub fn detect_system_language() -> String {
     for var in ["LC_ALL", "LC_MESSAGES", "LANG"] {
         if let Ok(val) = std::env::var(var) {
             let lower = val.to_lowercase();
             let tag = lower.split(['_', '-', '.']).next().unwrap_or("").trim();
-            let code = match tag {
-                "zh" | "cmn" => "zh",
-                "en" => "en",
-                "de" => "de",
-                "ja" => "ja",
-                "ru" => "ru",
-                "es" => "es",
-                "fr" => "fr",
-                "pt" => "pt",
-                "ko" => "ko",
-                "ar" => "ar",
-                "hi" => "hi",
-                _ => continue,
-            };
-            return code.to_string();
+            // 普通话标签 cmn 归入中文（其余标签按内置语言代码集合精确匹配）
+            let code = if tag == "cmn" { "zh" } else { tag };
+            if i18n_rust_engine::语言::builtin_language_codes().contains(&code)
+            {
+                return code.to_string();
+            }
         }
     }
     "zh".to_string()
@@ -228,7 +220,8 @@ mod tests {
         let _lock = crate::lang_manager::tests::env_lock();
         for (locale, expected) in [
             ("zh_CN.UTF-8", "zh"),
-            ("en_US.UTF-8", "en"),
+            // en 语言包已移除（0.5.6），en 区域设置有效回退到默认 zh
+            ("en_US.UTF-8", "zh"),
             ("de_DE.UTF-8", "de"),
             ("ja_JP.UTF-8", "ja"),
             ("ru_RU.UTF-8", "ru"),
@@ -238,6 +231,8 @@ mod tests {
             ("ko_KR.UTF-8", "ko"),
             ("ar_SA.UTF-8", "ar"),
             ("hi_IN.UTF-8", "hi"),
+            // 普通话标签 cmn 归入中文
+            ("cmn_CN.UTF-8", "zh"),
         ] {
             unsafe {
                 std::env::set_var("LANG", locale);

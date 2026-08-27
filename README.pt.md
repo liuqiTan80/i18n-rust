@@ -64,7 +64,7 @@ O `rzc init` cria um esqueleto de projeto executável (`Cargo.toml` + `src/main.
 ## ✨ Recursos
 
 - **Programação no seu idioma**: escreva programas Rust completos com as palavras-chave da sua língua
-- **Multilíngue por design**: 11 pacotes de idioma integrados (pt/zh/en/de/ja/ru/es/fr/ko/ar/hi), detecção automática por extensão
+- **Multilíngue por design**: 10 pacotes de idioma integrados (pt/zh/de/ja/ru/es/fr/ko/ar/hi), detecção automática por extensão
 - **Diagnósticos localizados**: `rzc check` traduz erros do rustc para o idioma do arquivo, com 💡 dicas educacionais
 - **Visualização de propriedade**: a extensão VS Code (pesquise `i18n-rust`) realça movimentações e reutilizações de variáveis
 - **Suporte LSP completo**: autocompletar, passar o mouse, ir para definição, referências, renomear
@@ -72,7 +72,7 @@ O `rzc init` cria um esqueleto de projeto executável (`Cargo.toml` + `src/main.
 
 ## 📖 Tutorial
 
-Um tutorial completo em chinês para iniciantes (24 capítulos + 4 apêndices) — veja [tutorials/](tutorials/).
+Um tutorial completo em chinês para iniciantes (26 capítulos + glossário + 5 apêndices) — veja [tutorials/](tutorials/).
 
 ## 📄 Licença
 

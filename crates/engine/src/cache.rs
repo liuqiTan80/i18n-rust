@@ -7,11 +7,15 @@ use crate::error::TranspileError;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-/// 源映射条目：源文件中一个被替换的标识符 token
+/// 源映射条目：输入文本中一个被替换的标识符 token
 ///
-/// 记录源侧信息（字节偏移、长度）与翻译前后文本；
+/// 记录输入侧信息（字节偏移、长度）与翻译前后文本；
 /// 不提供目标偏移——完整管线后续的模块路径替换/别名替换会改变输出偏移，
-/// 源侧信息始终保持精确。
+/// 输入侧信息始终保持精确。
+/// 语义按使用场景分两级：
+/// - 词法阶段 `source_map`：偏移为母语源坐标，replacement 为词法阶段文本；
+/// - 全管线 `pipeline_map`：偏移为母语源坐标，replacement 为**最终输出文本**；
+/// - 各中间阶段 `_with_map` 的 edits：偏移为该阶段输入文本坐标。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceMapEntry {
     /// 源文件中的字节偏移（token 起点）
@@ -35,13 +39,17 @@ impl SourceMapEntry {
     }
 }
 
-/// 翻译产物：翻译后的代码与源映射
+/// 翻译产物：翻译后的代码、词法阶段源映射与全管线编辑地图
 #[derive(Debug, Clone, PartialEq)]
 pub struct TranspileOutput {
     /// 翻译后的代码文本
     pub output: String,
-    /// 源映射条目列表
+    /// 词法阶段源映射（向后兼容：仅含词法阶段的替换，replacement 为词法阶段文本）
     pub source_map: Vec<SourceMapEntry>,
+    /// 全管线编辑地图：以母语源偏移升序记录，replacement 为**最终输出文本**
+    ///（宏调用自动补充的 `!` 已计入 replacement）。
+    /// 列映射等消费方只需回放此表，无需复刻任何转译规则。
+    pub pipeline_map: Vec<SourceMapEntry>,
 }
 
 impl TranspileOutput {
@@ -50,12 +58,30 @@ impl TranspileOutput {
         Self {
             output,
             source_map: Vec::new(),
+            pipeline_map: Vec::new(),
         }
     }
 
-    /// 创建输出并附带源映射
+    /// 创建输出并附带词法阶段源映射
     pub fn with_map(output: String, source_map: Vec<SourceMapEntry>) -> Self {
-        Self { output, source_map }
+        Self {
+            output,
+            source_map,
+            pipeline_map: Vec::new(),
+        }
+    }
+
+    /// 创建输出并附带词法阶段源映射与全管线编辑地图
+    pub fn with_full_map(
+        output: String,
+        source_map: Vec<SourceMapEntry>,
+        pipeline_map: Vec<SourceMapEntry>,
+    ) -> Self {
+        Self {
+            output,
+            source_map,
+            pipeline_map,
+        }
     }
 }
 

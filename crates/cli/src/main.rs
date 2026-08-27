@@ -209,7 +209,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let project_root = find_project_root(&file)?;
             // 入口文件写入 src/main.rs 作为编译目标
             let source_path = project_root.join("src/main.rs");
-            fs::write(&source_path, transpile_to_english(&source, &manager))?;
+            write_transpiled(&source_path, &transpile_to_english(&source, &manager), &ui)?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
             transpile_project_files(&project_root, &file, &manager)?;
 
@@ -329,7 +329,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let manager = load_mapping(lang_pack.clone(), Some(&file))?;
             let project_root = find_project_root(&file)?;
             let source_path = project_root.join("src/main.rs");
-            fs::write(&source_path, transpile_to_english(&source, &manager))?;
+            write_transpiled(&source_path, &transpile_to_english(&source, &manager), &ui)?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
             transpile_project_files(&project_root, &file, &manager)?;
 
@@ -738,7 +738,14 @@ pub fn resolve_rustc() -> PathBuf {
 /// 无需 Cargo.lock 预生成，编译诊断格式与 cargo 完全一致；
 /// 多文件（mod 引用）或有依赖的项目回退 cargo 流程。
 fn can_use_direct_rustc(project_root: &Path, file: &Path) -> bool {
-    let dialects = ["zh", "ja", "de", "es", "fr", "pt", "ru", "ko", "hi", "ar"];
+    // 动态方言扩展名（内置 + 用户安装），避免硬编码列表与
+    // `rzc lang install` 安装的新语言包脱节（新增语言走不了快速路径）
+    let extensions = lang_manager::all_available_extensions();
+    let is_dialect_file = |name: &str| {
+        extensions
+            .iter()
+            .any(|e| name.ends_with(&format!(".{e}")))
+    };
     // 方言文件计数：src/ 与项目根都扫（教学项目 src/main.zh 为主，
     // 项目根也可能放 main.zh）；超过 1 个视为多文件项目
     let mut dialect_count = 0usize;
@@ -746,7 +753,7 @@ fn can_use_direct_rustc(project_root: &Path, file: &Path) -> bool {
         if let Ok(entries) = fs::read_dir(&dir) {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();
-                if dialects.iter().any(|d| name.ends_with(&format!(".{d}"))) {
+                if is_dialect_file(&name) {
                     dialect_count += 1;
                 }
             }
@@ -755,8 +762,15 @@ fn can_use_direct_rustc(project_root: &Path, file: &Path) -> bool {
     if dialect_count != 1 {
         return false;
     }
-    // 入口文件必须是 src/main.zh（聚合 main.rs 已写入）
-    if file.file_name().and_then(|s| s.to_str()) != Some("main.zh") {
+    // 入口文件必须是 src/main.<方言扩展名>（聚合 main.rs 已写入）
+    let is_main_entry = file
+        .file_name()
+        .and_then(|s| s.to_str())
+        .is_some_and(|name| {
+            let (stem, ext) = name.rsplit_once('.').unwrap_or((name, ""));
+            stem == "main" && extensions.iter().any(|e| e == ext)
+        });
+    if !is_main_entry {
         return false;
     }
     // Cargo.toml 的 [dependencies] 非空（有第三方依赖）时回退 cargo
@@ -1327,11 +1341,36 @@ fn transpile_project_files(
                 )
             )
         })?;
-        fs::write(
-            path.with_extension("rs"),
-            transpile_to_english(&source, manager),
+        write_transpiled(
+            &path.with_extension("rs"),
+            &transpile_to_english(&source, manager),
+            &ui,
         )?;
     }
+    Ok(())
+}
+
+/// 写转译产物：目标已存在且内容不同时先备份为 `.rs.bak`，绝不静默覆盖用户文件。
+///
+/// 幂等重跑（内容一致）不产生备份；无同名手写文件时行为与直接写入完全一致。
+fn write_transpiled(path: &Path, content: &str, ui: &crate::ui::Ui) -> anyhow::Result<()> {
+    if let Ok(existing) = fs::read_to_string(path)
+        && existing != content
+    {
+        let backup = path.with_extension("rs.bak");
+        fs::rename(path, &backup)?;
+        println!(
+            "{}",
+            ui.f(
+                "transpile_backup",
+                &[
+                    &path.display().to_string(),
+                    &backup.display().to_string()
+                ]
+            )
+        );
+    }
+    fs::write(path, content)?;
     Ok(())
 }
 
@@ -1616,7 +1655,7 @@ mod tests {
     use super::{
         annotate_non_ascii_mods, can_use_direct_rustc, detect_toolchain_channel,
         extract_unresolved_crates, find_alias_in_toml, get_lang_code_from_extension,
-        transpile_project_files, transpile_to_english,
+        transpile_project_files, transpile_to_english, write_transpiled,
     };
 
     /// 加载内置中文映射管理器（测试转译管线用）
@@ -1695,6 +1734,32 @@ mod tests {
         assert!(manual_rs.contains("手写文件不覆盖"));
         // 入口文件未被重复转译（无 main.rs 产生，由调用方单独写入）
         assert!(!root.join("src/main.rs").exists());
+    }
+
+    /// write_transpiled 备份语义（let-chain 守卫）：目标存在且内容不同才备份为 .rs.bak；
+    /// 内容相同（幂等重跑）不产生备份，绝不静默覆盖用户文件
+    #[test]
+    fn test_write_transpiled_backup_only_on_change() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("main.rs");
+        let ui = crate::ui::Ui::for_lang("zh");
+
+        // 首次写入：文件不存在，直接写盘，无备份
+        write_transpiled(&path, "v1", &ui).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "v1");
+        assert!(!path.with_extension("rs.bak").exists());
+
+        // 内容相同：幂等重跑，不产生备份，文件保持 v1
+        write_transpiled(&path, "v1", &ui).unwrap();
+        assert!(!path.with_extension("rs.bak").exists());
+
+        // 内容不同：旧内容备份为 .rs.bak，文件更新为新内容
+        write_transpiled(&path, "v2", &ui).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "v2");
+        assert_eq!(
+            std::fs::read_to_string(path.with_extension("rs.bak")).unwrap(),
+            "v1"
+        );
     }
 
     /// 非 ASCII 文件式 mod 声明补 #[path] 注解（绕过 rustc E0754）

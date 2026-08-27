@@ -761,13 +761,18 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
     }
     日志(`LSP 二进制: ${服务器路径}`);
     // 记录 LSP 版本与语言包路径（排查二进制新旧/语言包加载问题）
-    cp.exec(`"${服务器路径}" --version`, { timeout: 5000 }, (err, stdout) => {
-        if (!err && stdout.trim()) {
-            日志(`LSP 版本: ${stdout.trim()}`);
-        } else {
+    // 用 execFile 传参数数组而非 cp.exec 拼接字符串：服务器路径来自
+    // i18n-rust.serverPath 配置（可被仓库 .vscode/settings.json 注入），
+    // 走 shell 会被展开 $()/反引号/`${}`，存在命令注入面
+    execFileAsync(服务器路径, ['--version'], { timeout: 5000 })
+        .then(({ stdout }) => {
+            if (stdout.trim()) {
+                日志(`LSP 版本: ${stdout.trim()}`);
+            }
+        })
+        .catch((err: Error) => {
             日志(`LSP 版本查询失败: ${err?.message ?? '未知'}`);
-        }
-    });
+        });
     const 语言包路径 = 查找语言包路径(config);
     日志(`语言包路径: ${语言包路径 ?? '未找到（使用内置）'}`);
 

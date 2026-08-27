@@ -286,19 +286,19 @@ pub fn get_builtin_data(lang_code: &str) -> &BuiltinLangData {
 ///
 /// 用于区分"已内置的语言"与"需通过 `rzc lang install` 远程安装的语言"，
 /// 避免未知语言被静默回退到中文时用户无感知。
+/// 单一事实源：引擎 lang-packs 目录（build.rs 自动生成）。
 pub fn has_builtin_lang(lang_code: &str) -> bool {
-    matches!(
-        lang_code,
-        "zh" | "de" | "ja" | "ru" | "es" | "fr" | "pt" | "ko" | "ar" | "hi"
-    )
+    i18n_rust_engine::语言::has_builtin_language(lang_code)
 }
 
 /// 所有内置语言包的代码列表
 ///
 /// 供 `rzc lang list` 展示与 `rzc lang remove` 的内置保护使用。
 /// 其他语言通过 `rzc lang install` 从远程仓库安装。
+/// 单一事实源：引擎 lang-packs 目录（build.rs 自动生成），
+/// 避免代码清单与语言包目录、扩展名清单并行维护而漂移。
 pub fn builtin_lang_codes() -> Vec<&'static str> {
-    vec!["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"]
+    i18n_rust_engine::语言::builtin_language_codes()
 }
 
 #[cfg(test)]
