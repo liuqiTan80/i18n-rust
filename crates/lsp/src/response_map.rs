@@ -8,7 +8,7 @@ use std::sync::Arc;
 use i18n_rust_engine::diagnostic::{DiagnosticLocation, OwnershipDetails};
 use serde_json::{Value, json};
 
-use crate::translation_cache::{TranslationCache, TranslationEntry};
+use crate::translation_cache::{TranslationCache, TranslationEntry, en_col_to_zh_col_single};
 
 /// 响应映射器
 ///
@@ -58,31 +58,27 @@ impl ResponseMapper {
         }
     }
 
-    /// 将英文（虚拟文件）行号映射回中文（原始文件）行号
-    pub fn restore_line(&self, uri: &str, en_line: u32) -> u32 {
-        if let Some(entry) = self.cache.query_by_virtual_uri(uri) {
-            restore_line_single(&entry, en_line)
-        } else {
-            en_line
-        }
-    }
-
-    /// 映射一条 LSP 位置（行、列）从虚拟文件到原始文件
-    pub fn restore_position(&self, uri: &str, line: u32, col: u32) -> (u32, u32) {
-        let zh_line = self.restore_line(uri, line);
-        let zh_col = self.cache.en_col_to_zh_col(uri, line, col);
-        (zh_line, zh_col)
-    }
-
-    /// 映射一个 LSP Range
-    pub fn restore_range(&self, uri: &str, range: &Value) -> Value {
+    /// 预取条目后映射一个 LSP Range（无锁纯函数）
+    ///
+    /// 循环场景（诊断/定义/引用等批量映射）由调用方预取条目一次，
+    /// 复用同一文档的列映射，避免每条 range 重复加锁查询缓存。
+    fn restore_range_with_entry(entry: Option<&TranslationEntry>, range: &Value) -> Value {
+        let map_position = |line: u32, col: u32| -> (u32, u32) {
+            match entry {
+                Some(e) => (
+                    restore_line_single(e, line),
+                    en_col_to_zh_col_single(e, line, col),
+                ),
+                None => (line, col),
+            }
+        };
         let start_line = range["start"]["line"].as_u64().unwrap_or(0) as u32;
         let start_col = range["start"]["character"].as_u64().unwrap_or(0) as u32;
         let end_line = range["end"]["line"].as_u64().unwrap_or(0) as u32;
         let end_col = range["end"]["character"].as_u64().unwrap_or(0) as u32;
 
-        let (zh_start_line, zh_start_col) = self.restore_position(uri, start_line, start_col);
-        let (zh_end_line, zh_end_col) = self.restore_position(uri, end_line, end_col);
+        let (zh_start_line, zh_start_col) = map_position(start_line, start_col);
+        let (zh_end_line, zh_end_col) = map_position(end_line, end_col);
 
         json!({
             "start": { "line": zh_start_line, "character": zh_start_col },
@@ -90,16 +86,47 @@ impl ResponseMapper {
         })
     }
 
-    /// 映射一个 LSP Location（URI + Range）
-    pub fn restore_location(&self, location: &Value) -> Value {
-        let virtual_uri = location["uri"].as_str().unwrap_or("");
-        let original_uri = self.restore_uri(virtual_uri);
-        let original_range = self.restore_range(virtual_uri, &location["range"]);
+    /// 映射一个 LSP Range
+    pub fn restore_range(&self, uri: &str, range: &Value) -> Value {
+        // 预取翻译条目一次：起点/终点列映射基于同一文档，一次查询后
+        // 走无锁纯函数，避免每处 range 重复锁（诊断/高亮/符号/编辑
+        // 每处 2 次 restore_position，每次内部 2-4 次锁获取）
+        let entry = self
+            .cache
+            .query_by_virtual_uri(uri)
+            .or_else(|| self.cache.query_original(uri));
+        Self::restore_range_with_entry(entry.as_deref(), range)
+    }
+
+    /// 预取条目后映射一个 LSP Location（无锁纯函数）
+    ///
+    /// URI 还原与 range 映射共用同一预取条目；循环场景（诊断的
+    /// relatedInformation、定义/引用批量映射）由调用方预取避免重复加锁。
+    fn restore_location_with_entry(
+        entry: Option<&TranslationEntry>,
+        virtual_uri: &str,
+        location: &Value,
+    ) -> Value {
+        let original_uri = match entry {
+            Some(e) => e.original_uri.clone(),
+            None => virtual_uri.to_string(),
+        };
+        let original_range = Self::restore_range_with_entry(entry, &location["range"]);
 
         json!({
             "uri": original_uri,
             "range": original_range
         })
+    }
+
+    /// 映射一个 LSP Location（URI + Range）
+    pub fn restore_location(&self, location: &Value) -> Value {
+        let virtual_uri = location["uri"].as_str().unwrap_or("");
+        let entry = self
+            .cache
+            .query_by_virtual_uri(virtual_uri)
+            .or_else(|| self.cache.query_original(virtual_uri));
+        Self::restore_location_with_entry(entry.as_deref(), virtual_uri, location)
     }
 
     /// 映射 rust-analyzer 的 publishDiagnostics 通知
@@ -108,7 +135,17 @@ impl ResponseMapper {
     /// 并尝试翻译诊断消息为中文。
     pub fn map_diagnostics(&self, params: &Value) -> Value {
         let virtual_uri = params["uri"].as_str().unwrap_or("");
-        let original_uri = self.restore_uri(virtual_uri);
+        // 预取条目一次：所有诊断的 range/relatedInformation 映射基于同一
+        // 文档，循环内复用条目走无锁纯函数（诊断通常 10-50 条，避免每条
+        // range × 2 锁、每条 relatedInformation × 4 锁）
+        let entry = self
+            .cache
+            .query_by_virtual_uri(virtual_uri)
+            .or_else(|| self.cache.query_original(virtual_uri));
+        let original_uri = match &entry {
+            Some(e) => e.original_uri.clone(),
+            None => virtual_uri.to_string(),
+        };
         let diagnostics_list = params["diagnostics"].as_array();
 
         let mut mapped_diagnostics = Vec::new();
@@ -126,7 +163,8 @@ impl ResponseMapper {
 
                 // 映射范围（使用列映射）
                 if diag.get("range").is_some() {
-                    mapped["range"] = self.restore_range(virtual_uri, &diag["range"]);
+                    mapped["range"] =
+                        Self::restore_range_with_entry(entry.as_deref(), &diag["range"]);
                 }
 
                 // 映射 relatedInformation 中的位置
@@ -137,7 +175,20 @@ impl ResponseMapper {
                     for item in related_info {
                         let mut mapped_item = item.clone();
                         if let Some(location) = item.get("location") {
-                            mapped_item["location"] = self.restore_location(location);
+                            // 同文件位置复用主条目（跨文件才按需查询）
+                            let loc_uri = location["uri"].as_str().unwrap_or("");
+                            let loc_entry = if loc_uri == virtual_uri {
+                                entry.clone()
+                            } else {
+                                self.cache
+                                    .query_by_virtual_uri(loc_uri)
+                                    .or_else(|| self.cache.query_original(loc_uri))
+                            };
+                            mapped_item["location"] = Self::restore_location_with_entry(
+                                loc_entry.as_deref(),
+                                loc_uri,
+                                location,
+                            );
                         }
                         // 子消息（help/note）同样翻译——悬停查看诊断详情时
                         // 不泄漏英文（如 "value moved here"、"consider ..."）
@@ -195,8 +246,9 @@ impl ResponseMapper {
         if let Some(items_list) = result.get("items").and_then(|v| v.as_array()) {
             let mut mapped_items = Vec::new();
             // 语言过滤白名单（用户源码中出现过的标识符）懒加载，
-            // 仅在确实遇到未翻译的纯英文项时才扫描一次
-            let mut user_tokens: Option<std::collections::HashSet<String>> = None;
+            // 仅在确实遇到未翻译的纯英文项时才扫描一次；
+            // Arc 共享避免每次补全请求克隆整个集合
+            let mut user_tokens: Option<std::sync::Arc<std::collections::HashSet<String>>> = None;
             for item in items_list {
                 let mut mapped = item.clone();
 
@@ -409,6 +461,24 @@ impl ResponseMapper {
             return result;
         };
 
+        // 预取翻译条目：每个 token 的列映射都基于同一文档，
+        // 只查一次（O(1) 索引），避免每个 token 重复锁与表扫描
+        let entry = self
+            .cache
+            .query_by_virtual_uri(original_uri)
+            .or_else(|| self.cache.query_original(original_uri));
+        // 无条目（异常 URI）时位置原样透传
+        let map_position = |line: u32, col: u32| -> (u32, u32) {
+            match &entry {
+                Some(e) => {
+                    let zh_line = restore_line_single(e, line);
+                    let zh_col = en_col_to_zh_col_single(e, line, col);
+                    (zh_line, zh_col)
+                }
+                None => (line, col),
+            }
+        };
+
         // 1. delta 编码 → 绝对坐标（跨行时列归零重置，同行时列累加）
         let mut tokens: Vec<(u32, u32, u32, u32, u32)> = Vec::new();
         let mut line = 0u32;
@@ -439,9 +509,8 @@ impl ResponseMapper {
         // 干扰用户按颜色查找标识符。教学场景以类型色为准，修饰符信息放弃。
         let mut mapped: Vec<(u32, u32, u32, u32, u32)> = Vec::new();
         for (t_line, t_col, t_len, t_type, _t_mod) in tokens {
-            let (zh_line, zh_start) = self.restore_position(original_uri, t_line, t_col);
-            let (_, zh_end) =
-                self.restore_position(original_uri, t_line, t_col.saturating_add(t_len));
+            let (zh_line, zh_start) = map_position(t_line, t_col);
+            let (_, zh_end) = map_position(t_line, t_col.saturating_add(t_len));
             let zh_len = zh_end.saturating_sub(zh_start).max(1);
             mapped.push((zh_line, zh_start, zh_len, t_type, 0));
         }
@@ -771,7 +840,9 @@ impl ResponseMapper {
         if text.contains("${") {
             return text.to_string();
         }
-        self.cache.reverse_transpile(text)
+        // 补全片段无文档上下文：不删除任何 crate:: 前缀（宁可保留代理
+        // 前缀，也不误删用户手写的前缀——见 TranslationCache::reverse_transpile）
+        self.cache.reverse_transpile(None, text)
     }
 
     /// 映射一个 WorkspaceEdit（changes + documentChanges）
@@ -1147,6 +1218,65 @@ fn translate_diagnostic_message(message: &str) -> String {
     translate_diagnostic_message_single(message, true)
 }
 
+/// 轻量短语替换表（诊断翻译兜底）：UI 全局语言固定，首次构建后缓存。
+/// 诊断每次按键都会发布，若每次翻译都重新构建 ~30 对 String 是纯浪费。
+static DIAG_PHRASE_REPLACEMENTS: std::sync::OnceLock<Vec<(String, String)>> =
+    std::sync::OnceLock::new();
+
+/// 获取（并惰性构建）轻量短语替换表
+fn diag_phrase_replacements() -> &'static Vec<(String, String)> {
+    DIAG_PHRASE_REPLACEMENTS.get_or_init(|| {
+        let ui = crate::ui::global();
+        let mut replacements: Vec<(String, String)> = vec![
+            ("{integer}".to_string(), ui.t("diag_rustc_integer")),
+            ("{float}".to_string(), ui.t("diag_rustc_float")),
+            (
+                "floating-point number".to_string(),
+                ui.t("diag_rustc_float"),
+            ),
+            ("integer".to_string(), ui.t("diag_rustc_integer")),
+        ];
+
+        // 常见错误模式翻译
+        let replace_table = [
+            ("cannot find value", ui.t("lsp_phrase_cannot_find_value")),
+            ("cannot find type", ui.t("lsp_phrase_cannot_find_type")),
+            (
+                "cannot find function",
+                ui.t("lsp_phrase_cannot_find_function"),
+            ),
+            ("cannot find module", ui.t("lsp_phrase_cannot_find_module")),
+            ("mismatched types", ui.t("lsp_phrase_mismatched_types")),
+            ("type mismatch", ui.t("lsp_phrase_type_mismatch")),
+            ("expected", ui.t("lsp_phrase_expected")),
+            ("found", ui.t("lsp_phrase_found")),
+            ("unused variable", ui.t("lsp_phrase_unused_variable")),
+            ("unused import", ui.t("lsp_phrase_unused_import")),
+            ("cannot borrow", ui.t("lsp_phrase_cannot_borrow")),
+            (
+                "borrowed as immutable",
+                ui.t("lsp_phrase_borrowed_immutable"),
+            ),
+            ("borrowed as mutable", ui.t("lsp_phrase_borrowed_mutable")),
+            ("no method named", ui.t("lsp_phrase_no_method_named")),
+            ("method not found", ui.t("lsp_phrase_method_not_found")),
+            ("field", ui.t("lsp_phrase_field")),
+            ("does not implement", ui.t("lsp_phrase_does_not_implement")),
+            ("the trait", ui.t("lsp_phrase_the_trait")),
+            ("is not satisfied", ui.t("lsp_phrase_is_not_satisfied")),
+            ("unresolved import", ui.t("lsp_phrase_unresolved_import")),
+            ("file not found", ui.t("lsp_phrase_file_not_found")),
+            ("aborting due to", ui.t("lsp_phrase_aborting_due_to")),
+            ("previous error", ui.t("lsp_phrase_previous_error")),
+        ];
+
+        for (en, localized) in replace_table {
+            replacements.push((en.to_string(), localized));
+        }
+        replacements
+    })
+}
+
 /// 单行诊断消息翻译：消息表优先，轻量短语表兜底
 fn translate_diagnostic_message_single(message: &str, with_hint: bool) -> String {
     let ui = crate::ui::global();
@@ -1191,55 +1321,9 @@ fn translate_diagnostic_message_single(message: &str, with_hint: bool) -> String
         return text;
     }
 
-    // 2. 轻量短语替换（兜底）
-    let mut replacements: Vec<(String, String)> = vec![
-        ("{integer}".to_string(), ui.t("diag_rustc_integer")),
-        ("{float}".to_string(), ui.t("diag_rustc_float")),
-        (
-            "floating-point number".to_string(),
-            ui.t("diag_rustc_float"),
-        ),
-        ("integer".to_string(), ui.t("diag_rustc_integer")),
-    ];
-
-    // 常见错误模式翻译
-    let replace_table = [
-        ("cannot find value", ui.t("lsp_phrase_cannot_find_value")),
-        ("cannot find type", ui.t("lsp_phrase_cannot_find_type")),
-        (
-            "cannot find function",
-            ui.t("lsp_phrase_cannot_find_function"),
-        ),
-        ("cannot find module", ui.t("lsp_phrase_cannot_find_module")),
-        ("mismatched types", ui.t("lsp_phrase_mismatched_types")),
-        ("type mismatch", ui.t("lsp_phrase_type_mismatch")),
-        ("expected", ui.t("lsp_phrase_expected")),
-        ("found", ui.t("lsp_phrase_found")),
-        ("unused variable", ui.t("lsp_phrase_unused_variable")),
-        ("unused import", ui.t("lsp_phrase_unused_import")),
-        ("cannot borrow", ui.t("lsp_phrase_cannot_borrow")),
-        (
-            "borrowed as immutable",
-            ui.t("lsp_phrase_borrowed_immutable"),
-        ),
-        ("borrowed as mutable", ui.t("lsp_phrase_borrowed_mutable")),
-        ("no method named", ui.t("lsp_phrase_no_method_named")),
-        ("method not found", ui.t("lsp_phrase_method_not_found")),
-        ("field", ui.t("lsp_phrase_field")),
-        ("does not implement", ui.t("lsp_phrase_does_not_implement")),
-        ("the trait", ui.t("lsp_phrase_the_trait")),
-        ("is not satisfied", ui.t("lsp_phrase_is_not_satisfied")),
-        ("unresolved import", ui.t("lsp_phrase_unresolved_import")),
-        ("file not found", ui.t("lsp_phrase_file_not_found")),
-        ("aborting due to", ui.t("lsp_phrase_aborting_due_to")),
-        ("previous error", ui.t("lsp_phrase_previous_error")),
-    ];
-
-    for (en, localized) in replace_table {
-        replacements.push((en.to_string(), localized));
-    }
-
-    let mut result = replace_outside_backticks(message, &replacements);
+    // 2. 轻量短语替换（兜底）：静态表首次构建后缓存，避免每次分配
+    let replacements = diag_phrase_replacements();
+    let mut result = replace_outside_backticks(message, replacements);
 
     // 添加教学提示
     if message.contains("mismatched types") || message.contains("type mismatch") {
@@ -1373,7 +1457,7 @@ mod tests {
     }
 
     #[test]
-    fn test_restore_line() {
+    fn test_restore_range() {
         let (cache, _temp) = create_test_cache();
         let mapper = ResponseMapper::new(cache.clone());
 
@@ -1381,8 +1465,16 @@ mod tests {
             .update_document("file:///test/main.zh", "让 x = 1;\n让 y = 2;", 1)
             .unwrap();
 
-        assert_eq!(mapper.restore_line(&entry.virtual_uri, 0), 0);
-        assert_eq!(mapper.restore_line(&entry.virtual_uri, 1), 1);
+        // 行映射：虚拟行号还原为中文行号（1:1）
+        // 列映射：`让`→`let` 每行偏移 +2，英文列 4-5（y）对应中文列 2-3
+        let range = mapper.restore_range(
+            &entry.virtual_uri,
+            &json!({ "start": { "line": 1, "character": 4 }, "end": { "line": 1, "character": 5 } }),
+        );
+        assert_eq!(range["start"]["line"], 1);
+        assert_eq!(range["start"]["character"], 2);
+        assert_eq!(range["end"]["line"], 1);
+        assert_eq!(range["end"]["character"], 3);
     }
 
     #[test]

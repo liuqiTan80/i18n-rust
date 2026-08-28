@@ -6,6 +6,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
+use std::sync::OnceLock;
 
 // 解析原语与 mapping_source 共用单一实现（节表解析/两节合并），
 // 避免两个加载器对同一 TOML 格式的理解漂移
@@ -33,6 +34,10 @@ pub struct MappingManager {
     pub module_path_map: HashMap<String, String>,
     /// 标识符别名映射（标准库/第三方库的类型与函数名翻译）
     pub alias_map: HashMap<String, String>,
+    /// 语境指纹缓存：映射表构造后不可变，首次计算后复用。
+    /// 每次转译都全量重算指纹（构建全部键值对 + 排序 + 哈希）
+    /// 在批量转译场景是纯浪费（语言包不变则指纹恒定）。
+    fingerprint_cache: OnceLock<u64>,
 }
 
 impl MappingManager {
@@ -155,6 +160,7 @@ impl MappingManager {
             derive_map,
             module_path_map,
             alias_map,
+            fingerprint_cache: OnceLock::new(),
         })
     }
 
@@ -229,6 +235,7 @@ impl MappingManager {
             derive_map,
             module_path_map,
             alias_map,
+            fingerprint_cache: OnceLock::new(),
         })
     }
 
@@ -253,6 +260,7 @@ impl MappingManager {
             derive_map: HashMap::new(),
             module_path_map,
             alias_map,
+            fingerprint_cache: OnceLock::new(),
         }
     }
 
@@ -279,6 +287,18 @@ impl MappingManager {
     /// 获取标识符别名映射表
     pub fn get_alias_map(&self) -> &HashMap<String, String> {
         &self.alias_map
+    }
+
+    /// 翻译语境指纹（惰性计算并缓存）：任一映射表内容变化时指纹变化。
+    /// 映射表在构造后不可变，多次转译共用同一指纹，避免每次全量重算。
+    pub fn context_fingerprint(&self) -> u64 {
+        *self.fingerprint_cache.get_or_init(|| {
+            crate::cache::TranslationCache::generate_context_fingerprint(
+                &self.keyword_map,
+                &self.module_path_map,
+                &self.alias_map,
+            )
+        })
     }
 
     /// 获取所有在 `["宏"]` 节中定义的中文宏名集合（不含感叹号）

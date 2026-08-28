@@ -4,7 +4,7 @@
 // 同时缓存源映射（被替换标识符的源偏移与替换文本），供 LSP/调试使用。
 
 use crate::error::TranspileError;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// 源映射条目：输入文本中一个被替换的标识符 token
@@ -108,8 +108,11 @@ struct CacheEntry {
 /// 可置于 `Mutex`/`RwLock` 后在多线程间共享（如并行转译项目文件）。
 pub struct TranslationCache {
     entries: HashMap<u64, CacheEntry>,
-    /// LRU 顺序：队首最旧、队尾最新
-    order: VecDeque<u64>,
+    /// LRU 顺序：队首最旧、队尾最新；每个条目附带代际计数器，
+    /// `mark_hit` 递增代际并在队尾添加新条目，旧代际条目在淘汰时惰性跳过
+    order: VecDeque<(u64, u64)>,
+    /// 每个哈希的当前代际：与队列条目的代际匹配时为有效条目
+    generations: HashMap<u64, u64>,
     capacity: usize,
     hits: AtomicU64,
     misses: AtomicU64,
@@ -121,6 +124,7 @@ impl TranslationCache {
         Self {
             entries: HashMap::new(),
             order: VecDeque::new(),
+            generations: HashMap::new(),
             capacity: capacity.max(1),
             hits: AtomicU64::new(0),
             misses: AtomicU64::new(0),
@@ -153,7 +157,10 @@ impl TranslationCache {
         let mut pairs: Vec<String> = Vec::new();
         for map in [keyword_map, module_path_map, alias_map] {
             for (key, value) in map {
-                pairs.push(format!("{}={}", key, value));
+                // 长度前缀 + NUL 定界：键/值中出现任意字符（含 `=`、`\0`）
+                // 都不会产生歧义（`"a=b"/"c"` 与 `"a"/"b=c"` 若用 `=`
+                // 拼接会生成相同指纹，缓存语境误判为未变化）
+                pairs.push(format!("{}:{}\0{}", key.len(), key, value));
             }
         }
         pairs.sort();
@@ -198,9 +205,23 @@ impl TranslationCache {
     where
         F: FnOnce() -> Result<TranspileOutput, TranspileError>,
     {
-        if let Some(output) = self.query(content, context_fingerprint) {
-            let output = output.clone();
-            let hash = Self::compute_content_hash(content);
+        // 预计算哈希一次（旧实现 miss 路径计算两次）
+        let hash = Self::compute_content_hash(content);
+        // 内联查询逻辑，避免 `query()` 重复计算哈希
+        let cached = match self.entries.get(&hash) {
+            Some(entry)
+                if entry.content_length == content.len()
+                    && entry.context_fingerprint == context_fingerprint =>
+            {
+                self.hits.fetch_add(1, Ordering::Relaxed);
+                Some(entry.output.clone())
+            }
+            _ => {
+                self.misses.fetch_add(1, Ordering::Relaxed);
+                None
+            }
+        };
+        if let Some(output) = cached {
             crate::log_info!(
                 "translation_cache",
                 "{}",
@@ -212,7 +233,6 @@ impl TranslationCache {
             self.mark_hit(hash);
             return Ok(output);
         }
-        let hash = Self::compute_content_hash(content);
         crate::log_info!(
             "translation_cache",
             "{}",
@@ -230,6 +250,7 @@ impl TranslationCache {
     pub fn clear(&mut self) {
         self.entries.clear();
         self.order.clear();
+        self.generations.clear();
     }
 
     /// 当前缓存条目数
@@ -288,22 +309,53 @@ impl TranslationCache {
                 output,
             },
         );
-        self.order.push_back(hash);
-        while self.order.len() > self.capacity {
-            if let Some(oldest) = self.order.pop_front() {
-                self.entries.remove(&oldest);
-                crate::log_debug!(
-                    "translation_cache",
-                    "{}",
-                    crate::语言::f("log_cache_evict", &[&oldest.to_string()])
-                );
+        let generation = self.generations.entry(hash).or_insert(0);
+        self.order.push_back((hash, *generation));
+        // 淘汰最旧有效条目（跳过代际不匹配的过时条目）
+        while self.entries.len() > self.capacity {
+            while let Some((front_hash, front_gen)) = self.order.pop_front() {
+                if self.generations.get(&front_hash) == Some(&front_gen) {
+                    // 代际匹配：这是有效条目，执行淘汰
+                    self.generations.remove(&front_hash);
+                    self.entries.remove(&front_hash);
+                    crate::log_debug!(
+                        "translation_cache",
+                        "{}",
+                        crate::语言::f("log_cache_evict", &[&front_hash.to_string()])
+                    );
+                    break;
+                }
+                // 代际不匹配：过时条目，惰性跳过
             }
         }
     }
 
+    /// O(1) LRU 命中更新：递增代际并在队尾添加新条目，
+    /// 旧代际条目留在队列中，淘汰时因代际不匹配被惰性跳过；
+    /// 队列膨胀超过阈值（容量 4 倍，最少 64）时压缩，
+    /// 防止长期运行（如 LSP 会话）下过时条目无限累积
     fn mark_hit(&mut self, hash: u64) {
-        self.order.retain(|key| *key != hash);
-        self.order.push_back(hash);
+        let generation = self.generations.entry(hash).or_insert(0);
+        *generation += 1;
+        self.order.push_back((hash, *generation));
+        if self.order.len() > self.capacity.saturating_mul(4).max(64) {
+            self.compact_order();
+        }
+    }
+
+    /// 压缩 LRU 队列：从队尾（最新）向队首扫描，每个哈希只保留
+    /// 最后一次访问的有效条目，其余过时条目全部移除
+    ///（压缩后队列长度 ≤ 缓存条目数 ≤ 容量，淘汰逻辑照常工作）
+    fn compact_order(&mut self) {
+        let mut seen = HashSet::new();
+        let mut compact: VecDeque<(u64, u64)> =
+            VecDeque::with_capacity(self.entries.len());
+        for &(hash, generation) in self.order.iter().rev() {
+            if seen.insert(hash) && self.generations.get(&hash) == Some(&generation) {
+                compact.push_front((hash, generation));
+            }
+        }
+        self.order = compact;
     }
 }
 
@@ -407,6 +459,41 @@ mod tests {
         assert!(cache.query("内容甲", fp).is_none());
         assert!(cache.query("内容乙", fp).is_some());
         assert!(cache.query("内容丙", fp).is_some());
+    }
+
+    /// 大量命中后 LRU 队列必须压缩，不能随命中次数无限增长
+    ///（长期运行如 LSP 会话下，过时条目累积是内存泄漏）
+    #[test]
+    fn test_queue_compacts_after_many_hits() {
+        let mut cache = TranslationCache::new(2);
+        let fp = sample_fingerprint();
+        cache.insert("内容甲", fp, sample_output("甲"));
+        cache.insert("内容乙", fp, sample_output("乙"));
+        // 命中 100 次：队列越过压缩阈值（容量 4 倍、最少 64）后必须压缩回有界；
+        // 无压缩机制时 100 次命中会积累到 102 条
+        for _ in 0..100 {
+            cache
+                .get_or_transpile("内容甲", fp, || Ok(sample_output("甲")))
+                .expect("翻译失败");
+        }
+        assert!(cache.order.len() <= 64, "队列未压缩: {}", cache.order.len());
+        // 压缩不影响 LRU 淘汰语义：再插入第三个条目，最旧的乙被淘汰
+        cache.insert("内容丙", fp, sample_output("丙"));
+        assert!(cache.query("内容甲", fp).is_some());
+        assert!(cache.query("内容乙", fp).is_none());
+        assert!(cache.query("内容丙", fp).is_some());
+    }
+
+    /// 键/值含 `=` 时指纹不得碰撞（旧实现用 `=` 拼接会产生歧义）
+    #[test]
+    fn test_fingerprint_no_separator_collision() {
+        let empty = HashMap::new();
+        let a = HashMap::from([("a=b".to_string(), "c".to_string())]);
+        let b = HashMap::from([("a".to_string(), "b=c".to_string())]);
+        assert_ne!(
+            TranslationCache::generate_context_fingerprint(&a, &empty, &empty),
+            TranslationCache::generate_context_fingerprint(&b, &empty, &empty)
+        );
     }
 
     #[test]

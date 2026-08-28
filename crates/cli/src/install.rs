@@ -268,6 +268,8 @@ pub fn install_toolchain(
 
 /// 仅升级 rust-analyzer（跳过 rustc/cargo 的 300MB 重下）
 fn install_rust_analyzer_only(ui: &Ui, ra_tag: &str, bin_dir: &Path) -> anyhow::Result<()> {
+    // 首次运行时 ~/.rz/toolchain/bin 可能不存在，须先创建（否则解压后 rename 报 ENOENT）
+    std::fs::create_dir_all(bin_dir)?;
     let triple = target_triple()?;
     let tmp = tempfile::tempdir()?;
     download_rust_analyzer(ra_tag, triple, bin_dir, tmp.path())?;
@@ -497,8 +499,8 @@ pub fn show_setup_wizard() {
     println!("════════════ i18n-rust 环境安装向导 ════════════");
     println!("rzc 本体          v{}（已就绪）", env!("CARGO_PKG_VERSION"));
     println!();
-    println!("  💡 也可下载「完整离线版」：一个压缩包已含 VS Code（预装扩展）+");
-    println!("     工具链 + 全部组件，解压双击即可用，不会下错版本。");
+    println!("  💡 也可下载「离线发布包」：压缩包已含 rust-analyzer + 语言服务器 +");
+    println!("     语言包与教程，适合无网络环境（离线包由本地构建，手动分发）。");
     println!();
 
     // 1. 内置工具链（rustc / cargo / rust-analyzer）

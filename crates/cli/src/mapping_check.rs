@@ -639,16 +639,40 @@ fn list_toml_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
 }
 
 /// 解析 `"键" = "值" ...` 行，返回 (键, 值)
+///
+/// 键与值均支持转义引号（`\"`），避免在转义处错误截断。
 fn parse_key_value_line(line: &str) -> Option<(String, String)> {
     let trimmed = line.trim();
     let mut parts = trimmed.splitn(2, '=');
     let key_part = parts.next()?.trim();
     let value_part = parts.next()?.trim();
-    let key = key_part.strip_prefix('"')?.strip_suffix('"')?;
-    // 值可能带行尾注释，取第一个引号对
-    let value = value_part.strip_prefix('"')?;
-    let value = value.split('"').next()?;
-    Some((key.to_string(), value.to_string()))
+    // 键与值共用同一转义感知解析（键侧此前只剥外层引号，
+    // 转义引号会残留在键中导致后续查表静默失败）
+    let key = parse_quoted_inner(key_part)?;
+    let value = parse_quoted_inner(value_part)?;
+    Some((key, value))
+}
+
+/// 解析带转义的引号内容：剥离前缀引号后逐字符扫描，
+/// 转义序列取下一字符原样保留，遇未转义引号即结束
+fn parse_quoted_inner(part: &str) -> Option<String> {
+    let inner = part.strip_prefix('"')?;
+    let mut out = String::new();
+    let mut chars = inner.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            // 转义序列：取下一个字符原样保留
+            if let Some(next) = chars.next() {
+                out.push(next);
+            }
+        } else if ch == '"' {
+            // 未转义的引号：内容结束
+            break;
+        } else {
+            out.push(ch);
+        }
+    }
+    Some(out)
 }
 
 /// 调用 AI 批量翻译键名，返回 源键→目标语言键
@@ -1056,6 +1080,14 @@ mod tests {
         assert_eq!(v, "Server");
         assert!(parse_key_value_line("# 注释行").is_none());
         assert!(parse_key_value_line("[\"标识符\"]").is_none());
+    }
+
+    /// 键与值两侧的转义引号都应正确还原（此前键侧不处理转义）
+    #[test]
+    fn test_parse_key_value_line_escaped_quotes() {
+        let (k, v) = parse_key_value_line("\"foo\\\"bar\" = \"va\\\"lue\"").unwrap();
+        assert_eq!(k, "foo\"bar");
+        assert_eq!(v, "va\"lue");
     }
 
     /// AI 返回 JSON 解析：容忍围栏与杂讯，丢弃空条目

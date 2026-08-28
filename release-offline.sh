@@ -3,10 +3,12 @@
 # rzc 离线发布包构建脚本（Linux / macOS）
 #
 # 功能：
-#   1. cargo build --release 编译 rzc 可执行文件
-#   2. 将可执行文件、lang-packs/ 目录、许可证与说明文档组装到临时目录
-#   3. 打包为 .tar.gz（Windows 下运行本脚本时自动改用 .zip）
-#   4. 输出压缩包路径
+#   1. cargo build --release 编译 rzc 与语言服务器 i18n-rust-lsp
+#   2. 附带 rust-analyzer（官方 Release 资产下载不稳定，随包分发；
+#      来源为 ~/.rz/toolchain/bin，即 rzc install toolchain 安装的内置工具链）
+#   3. 将可执行文件、语言包、教程、许可证与说明文档组装到临时目录
+#   4. 打包为 .tar.gz（Windows 下运行本脚本时自动改用 .zip）
+#   5. 输出压缩包路径
 #
 # 用法：
 #   ./release-offline.sh
@@ -15,9 +17,9 @@
 #   release/rzc-<版本>-<平台>-<架构>.tar.gz
 #
 # 提示：
-#   - 中文语言包已内置到可执行文件，解压后开箱即用；
-#   - 包内附带的 lang-packs/ 目录为可选扩展（远程安装的语言包），
-#     可通过环境变量 RZ_LANG_DIR 指向该目录使用。
+#   - 本包不内置 rustc/cargo 与 VS Code（发布方案已取消）；编译运行中文代码
+#     需自行安装 Rust 环境，或联网执行 rzc install toolchain；
+#   - 离线包由本地编译，手动上传到 Release / 网盘分发。
 # =============================================================
 set -euo pipefail
 
@@ -65,8 +67,8 @@ echo "======================================================"
 
 # ---------- 3. 编译 release 二进制 ----------
 echo ""
-echo "📦 第 1 步：编译 rzc（release）..."
-cargo build --release -p rzc
+echo "📦 第 1 步：编译 rzc 与语言服务器（release）..."
+cargo build --release -p rzc -p i18n-rust-lsp
 
 # ---------- 4. 组装发布目录 ----------
 echo "📁 第 2 步：组装发布目录..."
@@ -79,6 +81,31 @@ if [ -f "target/release/rzc.exe" ]; then
     cp "target/release/rzc.exe" "$PACK_DIR/rzc.exe"
 else
     cp "target/release/rzc" "$PACK_DIR/rzc"
+fi
+
+# 语言服务器（VS Code 扩展后端；与 rzc 同目录，`rzc install lsp` 可免网络直接安装）
+if [ -f "target/release/i18n-rust-lsp.exe" ]; then
+    cp "target/release/i18n-rust-lsp.exe" "$PACK_DIR/i18n-rust-lsp.exe"
+else
+    cp "target/release/i18n-rust-lsp" "$PACK_DIR/i18n-rust-lsp"
+fi
+
+# rust-analyzer：发布方案中唯一保留随包分发的第三方组件（官方资产下载不稳定）；
+# 来源为本地 rzc install toolchain 安装的内置工具链（~/.rz/toolchain/bin）
+RA_SRC="$HOME/.rz/toolchain/bin/rust-analyzer"
+if [ -f "$RA_SRC" ]; then
+    mkdir -p "$PACK_DIR/toolchain/bin"
+    cp "$RA_SRC" "$PACK_DIR/toolchain/bin/"
+    echo "   ✅ 已附带 rust-analyzer（$("$RA_SRC" --version 2>/dev/null || echo 未知版本)）"
+else
+    echo "   ⚠️ 未找到 $RA_SRC，跳过 rust-analyzer"
+    echo "      可先执行 rzc install toolchain --ra-only --force 安装后再打包"
+fi
+
+# 教程（教学场景离线分发）
+if [ -d "tutorials" ]; then
+    cp -r tutorials "$PACK_DIR/教程"
+    echo "   ✅ 已附带教程目录"
 fi
 
 # 语言包目录（可选扩展：远程安装的语言包；中文等已内置到可执行文件）；
@@ -113,6 +140,34 @@ cat > "$PACK_DIR/使用说明.md" <<'说明'
 ./rzc check src/main.zh # 类型检查（中文错误提示）
 ./rzc lang list         # 查看语言包
 ```
+
+## 包内容
+
+本包为本地编译的离线发布包，包含：
+
+- `rzc`（命令行工具）与 `i18n-rust-lsp`（语言服务器，VS Code 扩展后端）
+- `toolchain/bin/rust-analyzer`（官方 rust-analyzer：其发布资产下载不稳定，随包附送）
+- `lang-packs/`（可选语言包目录）与 `教程/`
+
+## rust-analyzer 接入（VS Code 使用）
+
+包内 rust-analyzer 不会自动注册，二选一：
+
+```bash
+# 方式一：复制到 rzc 内置工具链目录（rzc / LSP 自动优先使用）
+mkdir -p ~/.rz/toolchain/bin
+cp toolchain/bin/rust-analyzer ~/.rz/toolchain/bin/
+
+# 方式二：环境变量指定（无需复制）
+export RUST_ANALYZER_PATH="$(pwd)/toolchain/bin/rust-analyzer"
+```
+
+## Rust 编译环境（rustc/cargo）
+
+本包**不再内置 rustc/cargo**（发布方案已取消）：编译运行中文代码需自行安装 Rust 环境：
+
+- 联网机器：`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`（或使用发行版软件包）；
+- 或联网后执行 `rzc install toolchain`（官方 standalone 工具链安装到 ~/.rz/toolchain）。
 
 ## 可选：使用包内语言包目录
 
@@ -155,4 +210,4 @@ echo "✅ 离线发布包已生成：$(pwd)/$ARCHIVE"
 echo "   包内结构："
 tar -tzf "$ARCHIVE" 2>/dev/null | head -20 || unzip -l "$ARCHIVE" 2>/dev/null | head -20 || true
 echo ""
-echo "💡 部署方式：将压缩包拷贝到目标机器，解压后直接运行其中的 rzc（或 rzc.exe）即可。"
+echo "💡 部署方式：将压缩包手动上传到 Release / 网盘，用户解压后直接运行其中的 rzc（或 rzc.exe）即可。"

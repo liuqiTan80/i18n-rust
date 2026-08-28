@@ -38,6 +38,10 @@ pub struct TranslationEntry {
     pub line_map: Vec<u32>,
     /// 列偏移映射（每行一个分段表，行号 → 该行的分段边界点）
     pub column_map: Vec<Vec<ColumnMapPoint>>,
+    /// 代理添加的 `crate::` 前缀在英文输出中的非空白 token 序号
+    ///（仅 LSP 虚拟项目跨文件引用重写产生；供反向转译精确删除，
+    /// 避免误删用户显式书写的 `crate::` 前缀）
+    pub added_crate_tokens: HashSet<usize>,
     /// 文档版本
     pub version: i32,
 }
@@ -67,6 +71,12 @@ pub struct TranslationCache {
     /// 条目以 Arc 共享：查询返回廉价引用计数克隆，避免每次按键
     /// 都全量克隆源码与列映射等大字段。
     entries: RwLock<HashMap<String, Arc<TranslationEntry>>>,
+    /// 虚拟 URI → 翻译条目索引：RA 响应映射热路径的 O(1) 反查。
+    /// 直存 Arc 引用：命中时一次锁完成查询（存原始 URI 还需二次查 entries）；
+    /// 无索引时每次语义 token/诊断/高亮/引用映射都线性扫描全表
+    ///（语义 token 每个 token 查 2 次，O(n) 放大到 O(n×token数)），
+    /// 条目插入/替换/移除时与 entries 同步维护。
+    virtual_index: RwLock<HashMap<String, Arc<TranslationEntry>>>,
     /// 统一映射管理器（关键字/宏/派生/模块路径/别名，与 CLI 管线完全同源）。
     /// 转译与列映射统一走引擎完整管线，规则唯一来源为引擎。
     manager: Arc<MappingManager>,
@@ -82,9 +92,9 @@ pub struct TranslationCache {
     reverse_map: Arc<HashMap<String, String>>,
     /// 文档变更代号：任何文档打开/更新/关闭时递增，用于用户词汇缓存失效
     docs_generation: std::sync::atomic::AtomicU64,
-    /// 用户词汇缓存：(代号, 结果)。代号匹配时直接复用，
-    /// 避免每次补全请求都重新词法扫描全部已打开文档
-    user_tokens_cache: std::sync::Mutex<(u64, Option<HashSet<String>>)>,
+    /// 用户词汇缓存：(代号, 结果)。Arc 共享避免每次补全请求克隆整个集合，
+    /// 代号匹配时直接复用，避免重复词法扫描全部已打开文档
+    user_tokens_cache: std::sync::Mutex<(u64, Option<Arc<HashSet<String>>>)>,
 }
 
 impl TranslationCache {
@@ -119,6 +129,7 @@ impl TranslationCache {
         let manager = Arc::new(manager);
         let cache = Arc::new(Self {
             entries: RwLock::new(HashMap::new()),
+            virtual_index: RwLock::new(HashMap::new()),
             manager,
             temp_dir,
             module_version: std::sync::atomic::AtomicU64::new(0),
@@ -173,10 +184,33 @@ impl TranslationCache {
         ));
         let virtual_uri = path_to_uri(&virtual_path);
 
-        // 判断模块集合是否变化（打开新文件会新增模块）
-        let new_module_names = self.current_module_names(Some(&original_path));
-        let old_module_names = self.current_module_names(None);
-        let set_changed = new_module_names != old_module_names;
+        // 判断模块集合是否变化（打开新文件会新增模块）。
+        // 集合变化 ⟺ 新文件模块名不在旧集合中：单次遍历顺带构建新集合，
+        // 避免两次全表扫描各建一个 HashSet 再比较（每次按键的热路径）。
+        // 注意首开文件（旧集合为空）必然变化：新名字不在空集中
+        let new_name = original_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default()
+            .to_string();
+        let (set_changed, new_module_names) = {
+            let mut names = HashSet::new();
+            let mut existed = false;
+            if let Ok(table) = self.entries.read() {
+                for entry in table.values() {
+                    if let Some(name) =
+                        entry.original_path.file_stem().and_then(|s| s.to_str())
+                    {
+                        if name == new_name {
+                            existed = true;
+                        }
+                        names.insert(name.to_string());
+                    }
+                }
+            }
+            names.insert(new_name);
+            (!existed, names)
+        };
 
         // 行映射不依赖模块路径重写（重写不改变行数），先按中文行数生成
         let line_map = generate_line_map(content, content);
@@ -187,20 +221,23 @@ impl TranslationCache {
                 .entries
                 .write()
                 .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock")))?;
-            table.insert(
-                uri.to_string(),
-                Arc::new(TranslationEntry {
-                    original_uri: uri.to_string(),
-                    original_path: original_path.clone(),
-                    zh_content: content.to_string(),
-                    en_content: String::new(),
-                    virtual_uri: virtual_uri.clone(),
-                    virtual_path: virtual_path.clone(),
-                    line_map,
-                    column_map: Vec::new(),
-                    version,
-                }),
-            );
+            let new_entry = Arc::new(TranslationEntry {
+                original_uri: uri.to_string(),
+                original_path: original_path.clone(),
+                zh_content: content.to_string(),
+                en_content: String::new(),
+                virtual_uri: virtual_uri.clone(),
+                virtual_path: virtual_path.clone(),
+                line_map,
+                column_map: Vec::new(),
+                added_crate_tokens: HashSet::new(),
+                version,
+            });
+            table.insert(uri.to_string(), Arc::clone(&new_entry));
+            // 同步虚拟 URI 索引（同一 uri 的 virtual_uri 恒定，插入一次即可）
+            if let Ok(mut index) = self.virtual_index.write() {
+                index.insert(virtual_uri.clone(), Arc::clone(&new_entry));
+            }
         }
 
         // 内容可能变化：递增文档变更代号，使用户词汇缓存失效
@@ -256,6 +293,10 @@ impl TranslationCache {
                     &entry.virtual_path,
                     std::fs::remove_file(&entry.virtual_path),
                 );
+                // 同步移除虚拟 URI 索引
+                if let Ok(mut index) = self.virtual_index.write() {
+                    index.remove(&entry.virtual_uri);
+                }
                 // 模块集合缩小，版本号递增（供工作区重载判断）
                 let _ = self.bump_module_version();
                 log::info!("{}", crate::ui::global().f("lsp_log_cache_removed", &[uri]));
@@ -296,7 +337,7 @@ impl TranslationCache {
     ///
     /// 结果按文档变更代号缓存：文档未变化时重复补全请求直接复用，
     /// 词法扫描只在文档变更后首次调用时发生。
-    pub fn user_defined_tokens(&self) -> HashSet<String> {
+    pub fn user_defined_tokens(&self) -> Arc<HashSet<String>> {
         let 代号 = self
             .docs_generation
             .load(std::sync::atomic::Ordering::SeqCst);
@@ -304,11 +345,11 @@ impl TranslationCache {
             && guard.0 == 代号
             && let Some(set) = &guard.1
         {
-            return set.clone();
+            return Arc::clone(set);
         }
-        let tokens = self.scan_user_tokens();
+        let tokens = Arc::new(self.scan_user_tokens());
         if let Ok(mut guard) = self.user_tokens_cache.lock() {
-            *guard = (代号, Some(tokens.clone()));
+            *guard = (代号, Some(Arc::clone(&tokens)));
         }
         tokens
     }
@@ -340,6 +381,16 @@ impl TranslationCache {
     /// 而缓存的虚拟 URI 是未编码的原始形式，因此先精确匹配，
     /// 失败后再解码匹配。
     pub fn query_by_virtual_uri(&self, virtual_uri: &str) -> Option<Arc<TranslationEntry>> {
+        // 索引 O(1) 反查：直存 Arc 引用，命中时一次锁完成
+        //（RA 响应映射热路径：语义 token 每个 token 查 2 次、
+        // 诊断/高亮/引用/定义每处位置查 2-5 次；无索引时
+        // 这些放大到 O(n×次数)）
+        if let Ok(index) = self.virtual_index.read()
+            && let Some(entry) = index.get(virtual_uri)
+        {
+            return Some(Arc::clone(entry));
+        }
+        // 兜底：索引未命中时回退线性扫描（含 URL 解码匹配）
         let table = self.entries.read().ok()?;
         for entry in table.values() {
             if entry.virtual_uri == virtual_uri {
@@ -372,43 +423,41 @@ impl TranslationCache {
         &self.reverse_map
     }
 
-    /// 将英文（虚拟文件）列号映射回中文（原始文件）列号
-    ///
-    /// 接受虚拟 URI 或原始 URI（先查虚拟，再查原始）。
-    pub fn en_col_to_zh_col(&self, uri: &str, line: u32, en_col: u32) -> u32 {
-        let entry = self
-            .query_by_virtual_uri(uri)
-            .or_else(|| self.query_original(uri));
-        if let Some(entry) = entry {
-            en_col_to_zh_col_single(&entry, line, en_col)
-        } else {
-            en_col
-        }
-    }
-
     /// 将中文（原始文件）列号转换为英文（虚拟文件）列号
     ///
-    /// 接受原始 URI 或虚拟 URI（先查虚拟，再查原始）。
-    pub fn zh_col_to_en_col(&self, uri: &str, line: u32, zh_col: u32) -> u32 {
-        let entry = self
-            .query_by_virtual_uri(uri)
-            .or_else(|| self.query_original(uri));
-        if let Some(entry) = entry {
-            zh_col_to_en_col_single(&entry, line, zh_col)
-        } else {
-            zh_col
-        }
-    }
+    /// 由调用方先经 query_by_virtual_uri/query_original 预取条目后，
+    /// 调用无锁纯函数 zh_col_to_en_col_single（请求方向位置转换热路径）。
 
     /// 将英文（虚拟文件）内容反向翻译为母语内容
     ///
     /// 供代码格式化（textDocument/formatting）与补全/代码操作文本还原使用：
     /// 英文代码经 rustfmt 格式化后，据此还原为母语代码。
     /// 反向表为构造时预构建的合并表（关键字优先），
-    /// 保证与正向翻译互逆；模块路径重写插入的 `crate::` 前缀在此被删除。
-    pub fn reverse_transpile(&self, en_content: &str) -> String {
-        let module_names = self.current_module_names(None);
-        lexer::reverse_transpile(en_content, &self.reverse_map, &module_names)
+    /// 保证与正向翻译互逆。
+    ///
+    /// `uri` 为文档原始 URI：传入时按该文档的编辑地图精确删除代理添加的
+    /// `crate::` 前缀（用户手写的前缀保留）；为 None（补全片段等无文档
+    /// 上下文场景）时不删除任何前缀，宁可保留代理前缀也不误删用户手写。
+    pub fn reverse_transpile(&self, uri: Option<&str>, en_content: &str) -> String {
+        // 无文档上下文或条目无代理前缀时，module_names 完全不被使用
+        //（lexer 仅在 added_crate_tokens 命中后才查模块名集合）——
+        // 跳过全表扫描：补全/代码操作响应的每个片段都走这里，
+        // 每次省一次 O(文档数) 的读锁遍历
+        let added_crate_tokens = uri
+            .and_then(|u| self.query_original(u))
+            .map(|e| e.added_crate_tokens.clone())
+            .unwrap_or_default();
+        let module_names = if added_crate_tokens.is_empty() {
+            HashSet::new()
+        } else {
+            self.current_module_names(None)
+        };
+        lexer::reverse_transpile(
+            en_content,
+            &self.reverse_map,
+            &module_names,
+            &added_crate_tokens,
+        )
     }
 
     /// 获取虚拟项目目录的 file:// URI（供工作区通知使用）
@@ -475,7 +524,6 @@ impl TranslationCache {
             Some(module_names),
         );
         let en_content = output.output;
-        // main 文件（main.zh）的 `fn main` 仅在磁盘虚拟文件中提升为 pub：
         // 虚拟项目的 crate 入口在聚合 main.rs 中转发调用 `main::main()`，
         // 模块内 fn 默认私有会触发 cargo check E0603。但发送给 rust-analyzer
         // 的内存文档必须保持用户原文（无 pub）——否则语义 token 多出 pub、
@@ -483,16 +531,39 @@ impl TranslationCache {
         //（column_map 基于无 pub 内容构建，与内存文档一致）
         let is_main = old_entry.original_path.file_stem().and_then(|s| s.to_str()) == Some("main");
         let disk_content = if is_main {
-            en_content.replace("fn main(", "pub fn main(")
+            // 逐行查找函数声明（行首空白后紧跟 `fn main(`），
+            // 避免朴素子串替换误命中注释或字符串字面量中的 `fn main(`
+            let mut result = String::with_capacity(en_content.len() + 8);
+            for line in en_content.lines() {
+                let trimmed = line.trim_start();
+                let indent_len = line.len() - trimmed.len();
+                if trimmed.starts_with("fn main(") {
+                    result.push_str(&line[..indent_len]);
+                    result.push_str("pub ");
+                    result.push_str(trimmed);
+                } else {
+                    result.push_str(line);
+                }
+                result.push('\n');
+            }
+            // 保留原文末尾是否有换行的精确性
+            if !en_content.ends_with('\n') && result.ends_with('\n') {
+                result.pop();
+            }
+            result
         } else {
             en_content.clone()
         };
         let column_map = replay_column_map(&old_entry.zh_content, &output.pipeline_map);
+        // 代理添加的 crate:: 前缀记录（token 序号）：反向转译时只删这些前缀
+        let added_crate_tokens =
+            lexer::added_crate_token_indices(&en_content, &output.pipeline_map);
 
         // 构造新版本需要克隆旧条目一次；此后查询均为 Arc 廉价克隆
         let new_entry = Arc::new(TranslationEntry {
             en_content: en_content.clone(),
             column_map,
+            added_crate_tokens,
             ..(*old_entry).clone()
         });
 
@@ -519,6 +590,11 @@ impl TranslationCache {
             };
             if let Some(entry) = table.get_mut(uri) {
                 *entry = Arc::clone(&new_entry);
+            }
+            // 条目已替换：同步索引指向最新 Arc（语义 token/诊断等经索引
+            // 查询若拿到旧版本，列映射与虚拟内容会错位）
+            if let Ok(mut index) = self.virtual_index.write() {
+                index.insert(new_entry.virtual_uri.clone(), Arc::clone(&new_entry));
             }
         }
 
@@ -556,9 +632,26 @@ impl TranslationCache {
     /// 使用 [[bin]] 而非 [lib]，使 `fn main()` 被识别为程序入口，
     /// 避免 `function main is never used` 警告。
     fn refresh_virtual_project(&self) {
-        let table = match self.entries.read() {
-            Ok(t) => t,
-            Err(_) => return,
+        // 先在锁内收集所需数据、释放读锁，再执行磁盘 I/O：
+        // 持读锁期间做文件系统操作会阻塞所有写入者（rewrite_entry 等）
+        let modules: Vec<(String, PathBuf)> = {
+            let table = match self.entries.read() {
+                Ok(t) => t,
+                Err(_) => return,
+            };
+            table
+                .values()
+                .map(|e| {
+                    (
+                        e.original_path
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or_default()
+                            .to_string(),
+                        e.virtual_path.clone(),
+                    )
+                })
+                .collect()
         };
 
         // Cargo.toml（包名保留英文，见项目规范）
@@ -602,12 +695,7 @@ impl TranslationCache {
         // 模块名净化为合法 Rust 标识符，并在重名时追加哈希后缀
         let mut used_names: HashSet<String> = HashSet::new();
         let mut has_main_module = false;
-        for entry in table.values() {
-            let stem = entry
-                .original_path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("");
+        for (stem, virtual_path) in &modules {
             if stem == "main" {
                 has_main_module = true;
             }
@@ -620,12 +708,11 @@ impl TranslationCache {
                 use std::collections::hash_map::DefaultHasher;
                 use std::hash::{Hash, Hasher};
                 let mut h = DefaultHasher::new();
-                entry.virtual_path.as_path().hash(&mut h);
+                virtual_path.as_path().hash(&mut h);
                 module_name = format!("{}_{:x}", module_name, h.finish());
                 used_names.insert(module_name.clone());
             }
-            let file_name = entry
-                .virtual_path
+            let file_name = virtual_path
                 .file_name()
                 .and_then(|s| s.to_str())
                 .unwrap_or("");
@@ -752,7 +839,10 @@ pub(crate) fn path_to_uri(path: &Path) -> String {
 }
 
 /// 根据列映射条目将英文列转换为中文列（按行查询）
-fn en_col_to_zh_col_single(entry: &TranslationEntry, line: u32, en_col: u32) -> u32 {
+///
+/// pub(crate)：供 ResponseMapper 的语义 token 预取条目路径直接调用
+///（避免每 token 重复锁与表扫描）。
+pub(crate) fn en_col_to_zh_col_single(entry: &TranslationEntry, line: u32, en_col: u32) -> u32 {
     let row = entry
         .column_map
         .get(line as usize)
@@ -774,7 +864,10 @@ fn en_col_to_zh_col_single(entry: &TranslationEntry, line: u32, en_col: u32) -> 
 }
 
 /// 根据列映射条目将中文列转换为英文列（按行查询）
-fn zh_col_to_en_col_single(entry: &TranslationEntry, line: u32, zh_col: u32) -> u32 {
+///
+/// pub(crate)：供 server.rs 请求方向位置转换直接调用
+///（调用方已持有预取的条目，避免每处位置重复锁与表查询）。
+pub(crate) fn zh_col_to_en_col_single(entry: &TranslationEntry, line: u32, zh_col: u32) -> u32 {
     let row = entry
         .column_map
         .get(line as usize)
@@ -1033,14 +1126,14 @@ mod tests {
             temp.path().to_path_buf(),
         );
         let uri = "file:///test/main.zh";
-        cache.update_document(uri, "让 s: 字符串 = x;", 1).unwrap();
+        let (entry, _) = cache.update_document(uri, "让 s: 字符串 = x;", 1).unwrap();
 
         // 中文列 5（字符串 起点）→ 英文列 7（String 起点），反向亦然
-        assert_eq!(cache.zh_col_to_en_col(uri, 0, 5), 7);
-        assert_eq!(cache.en_col_to_zh_col(uri, 0, 7), 5);
+        assert_eq!(zh_col_to_en_col_single(&entry, 0, 5), 7);
+        assert_eq!(en_col_to_zh_col_single(&entry, 0, 7), 5);
         // 替换点之后的列（= 号：中文列 9 / 英文列 14）仍精确
-        assert_eq!(cache.zh_col_to_en_col(uri, 0, 9), 14);
-        assert_eq!(cache.en_col_to_zh_col(uri, 0, 14), 9);
+        assert_eq!(zh_col_to_en_col_single(&entry, 0, 9), 14);
+        assert_eq!(en_col_to_zh_col_single(&entry, 0, 14), 9);
     }
 
     #[test]
@@ -1116,6 +1209,27 @@ mod tests {
             .unwrap();
         let found = cache.query_by_virtual_uri(&entry.virtual_uri).unwrap();
         assert_eq!(found.original_uri, "file:///test/main.zh");
+        // 解码形式（索引未命中时回退线性扫描）仍可查到
+        let decoded = url_decode(&entry.virtual_uri);
+        let found = cache.query_by_virtual_uri(&decoded).unwrap();
+        assert_eq!(found.original_uri, "file:///test/main.zh");
+        // 中文文件名：编码 URI 经索引命中
+        let (entry_cn, _) = cache
+            .update_document("file:///test/%E6%B5%8B%E8%AF%95.zh", "让 x = 1;", 1)
+            .unwrap();
+        assert!(
+            cache.query_by_virtual_uri(&entry_cn.virtual_uri).is_some(),
+            "编码 URI 应经索引命中"
+        );
+        // 内容更新（rewrite_entry 替换条目）后，索引应指向最新版本
+        let (entry_v2, _) = cache
+            .update_document("file:///test/main.zh", "让 x = 2;", 2)
+            .unwrap();
+        let found = cache.query_by_virtual_uri(&entry_v2.virtual_uri).unwrap();
+        assert_eq!(found.en_content, "let x = 2;");
+        // 关闭文档后索引同步清理，查询不再命中
+        cache.close_document("file:///test/main.zh").unwrap();
+        assert!(cache.query_by_virtual_uri(&entry.virtual_uri).is_none());
     }
 
     #[test]
@@ -1162,11 +1276,11 @@ mod tests {
         );
 
         // 中文列 8 → 英文列 15
-        assert_eq!(cache.zh_col_to_en_col(&entry.virtual_uri, 1, 8), 15);
+        assert_eq!(zh_col_to_en_col_single(&entry, 1, 8), 15);
         // 英文列 15 → 中文列 8
-        assert_eq!(cache.en_col_to_zh_col(&entry.virtual_uri, 1, 15), 8);
+        assert_eq!(en_col_to_zh_col_single(&entry, 1, 15), 8);
         // 英文列 19（辅助函数末尾）→ 中文列 12
-        assert_eq!(cache.en_col_to_zh_col(&entry.virtual_uri, 1, 19), 12);
+        assert_eq!(en_col_to_zh_col_single(&entry, 1, 19), 12);
         // 辅助.zh 未引用任何模块，内容不变，不进入变更列表
         assert!(others.is_empty());
     }
@@ -1199,8 +1313,8 @@ mod tests {
             .unwrap();
         assert_eq!(entry.en_content, "use std::collections::HashMap;");
         // 列映射与虚拟内容对齐：行首位置 zh↔en 恒等
-        assert_eq!(cache.zh_col_to_en_col(&entry.virtual_uri, 0, 0), 0);
-        assert_eq!(cache.en_col_to_zh_col(&entry.virtual_uri, 0, 0), 0);
+        assert_eq!(zh_col_to_en_col_single(&entry, 0, 0), 0);
+        assert_eq!(en_col_to_zh_col_single(&entry, 0, 0), 0);
     }
 
     #[test]
@@ -1238,7 +1352,7 @@ mod tests {
         // 模拟 rustfmt 输出：统一缩进为 4 空格
         let formatted_en =
             "fn 主函数() {\n    let count = 1;\n    println!(\"count={}\", count);\n}\n";
-        let restored = cache.reverse_transpile(formatted_en);
+        let restored = cache.reverse_transpile(Some("file:///test/main.zh"), formatted_en);
         // 关键字/宏还原为母语，英文自定义标识符 count 与中文标识符 主函数 保留
         assert_eq!(
             restored,

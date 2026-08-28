@@ -300,10 +300,16 @@ fn prev_ident_is(
 /// 以 token 为单位匹配，天然避免子串误替换
 /// （如 `i32` 不会被更短的 `i3` 错误替换），
 /// 注释与字符串字面量内容保持原样，与正向翻译一一对应。
+///
+/// `added_crate_tokens` 为代理（LSP 虚拟项目）添加的 `crate::` 前缀在英文
+/// 输出中的非空白 token 序号（见 [`added_crate_token_indices`]）：仅删除这些
+/// 位置的前缀；用户显式书写的 `crate::`（不在集合中）原样保留，反向转译
+/// 不再无差别删除，避免还原后代码丢失用户手写前缀。
 pub fn reverse_transpile(
     source: &str,
     reverse_map: &HashMap<String, String>,
     module_names: &HashSet<String>,
+    added_crate_tokens: &HashSet<usize>,
 ) -> String {
     // 收集 (token 种类, 文本) 对以便前瞻/后顾
     let token_stream: Vec<(TokenKind, &str)> = {
@@ -315,6 +321,16 @@ pub fn reverse_transpile(
         }
         list
     };
+    // 预处理：每个 token 的非空白序号（rustfmt 等空白变化不影响序号，
+    // 序号与 [`added_crate_token_indices`] 的计数口径一致）
+    let mut nonspace_idxs = Vec::with_capacity(token_stream.len());
+    let mut nonspace = 0usize;
+    for (kind, _) in &token_stream {
+        nonspace_idxs.push(nonspace);
+        if !is_whitespace(*kind) {
+            nonspace += 1;
+        }
+    }
     let mut output = String::with_capacity(source.len());
     let mut skip_tokens = 0usize; // 删除 crate:: 前缀 / macro_rules! 感叹号时跳过的 token 数
 
@@ -331,9 +347,12 @@ pub fn reverse_transpile(
                 } else {
                     text
                 };
-                // 代理为跨文件引用插入的 `crate::` 前缀：整体删除
+                // 代理为跨文件引用插入的 `crate::` 前缀：仅当序号命中
+                // 正向翻译记录（added_crate_tokens）时才整体删除；
+                // 用户手写的 `crate::` 不在记录中，原样保留
                 // （跳过数含中间空白，兼容 `crate :: 模块` 等带空格写法）
                 if raw_name == "crate"
+                    && added_crate_tokens.contains(&nonspace_idxs[i])
                     && let Some(skip) = crate_prefix_skip_count(&token_stream, i, module_names)
                 {
                     skip_tokens = skip;
@@ -358,6 +377,48 @@ pub fn reverse_transpile(
         }
     }
     output
+}
+
+/// 计算全管线编辑地图中“代理添加的 `crate::` 前缀”在英文输出中的非空白 token 序号
+///
+/// 输入为最终英文输出文本与其全管线编辑地图（replacement 为最终输出文本）。
+/// 净长度增量线性累积后，把 replacement 以 `crate::` 开头的条目（仅来自 LSP
+/// 虚拟项目的跨文件引用前缀重写，用户手写前缀不产生编辑条目）的母语源偏移
+/// 换算为英文输出偏移，再转为非空白 token 序号。
+///
+/// rustfmt 格式化不改变非空白 token 序列（只改变空白），序号在格式化前后
+/// 保持一致，供 [`reverse_transpile`] 对格式化后的文本精确删除前缀。
+pub fn added_crate_token_indices(
+    en_content: &str,
+    pipeline_map: &[SourceMapEntry],
+) -> HashSet<usize> {
+    // 1. 英文输出偏移 = 母语源偏移 + 之前全部条目的净长度增量
+    //（编辑地图以母语源偏移升序记录且条目互不重叠，线性累积即可）
+    let mut en_offsets = HashSet::new();
+    let mut delta = 0i64;
+    for e in pipeline_map {
+        if e.replacement.starts_with("crate::") {
+            en_offsets.insert((e.source_offset as i64 + delta) as usize);
+        }
+        delta += e.replacement.len() as i64 - e.length as i64;
+    }
+    if en_offsets.is_empty() {
+        return HashSet::new();
+    }
+    // 2. 偏移 → 非空白 token 序号（与 [`reverse_transpile`] 计数口径一致）
+    let mut result = HashSet::new();
+    let mut offset = 0usize;
+    let mut nonspace = 0usize;
+    for token in tokenize(en_content) {
+        if !is_whitespace(token.kind) {
+            if en_offsets.contains(&offset) {
+                result.insert(nonspace);
+            }
+            nonspace += 1;
+        }
+        offset += token.len;
+    }
+    result
 }
 
 /// `crate::模块名` 前缀成立时，返回 `crate` 之后需跳过的 token 数（空白 + 两个冒号）；
@@ -878,7 +939,10 @@ mod tests {
         let empty = HashSet::new();
         let source = "fn main() { let mut x: i32 = 5; println!(\"你好\"); }";
         let expected = "函数 主函数() { 让 可变 x: 整数 = 5; 打印行!(\"你好\"); }";
-        assert_eq!(reverse_transpile(source, &reverse, &empty), expected);
+        assert_eq!(
+            reverse_transpile(source, &reverse, &empty, &HashSet::new()),
+            expected
+        );
     }
 
     #[test]
@@ -891,7 +955,10 @@ mod tests {
         let empty = HashSet::new();
         let source = "// fn 是关键字\nlet s = \"let\";\nlet 计数 = fn_value;";
         let expected = "// fn 是关键字\n让 s = \"let\";\n让 计数 = fn_value;";
-        assert_eq!(reverse_transpile(source, &reverse, &empty), expected);
+        assert_eq!(
+            reverse_transpile(source, &reverse, &empty, &HashSet::new()),
+            expected
+        );
     }
 
     #[test]
@@ -905,7 +972,10 @@ mod tests {
         let source = "let a: i32 = 1; let b: i3x = 2; let c = i3;";
         // let 不在反向表中保持原样；i32→整数、i3→三，i3x 是完整 token 不受影响
         let expected = "let a: 整数 = 1; let b: i3x = 2; let c = 三;";
-        assert_eq!(reverse_transpile(source, &reverse, &empty), expected);
+        assert_eq!(
+            reverse_transpile(source, &reverse, &empty, &HashSet::new()),
+            expected
+        );
     }
 
     #[test]
@@ -919,7 +989,10 @@ mod tests {
         let empty = HashSet::new();
         let source = "macro_rules! 创建向量 { () => { } }";
         let expected = "宏规则 创建向量 { () => { } }";
-        assert_eq!(reverse_transpile(source, &reverse, &empty), expected);
+        assert_eq!(
+            reverse_transpile(source, &reverse, &empty, &HashSet::new()),
+            expected
+        );
     }
 
     #[test]
@@ -934,7 +1007,10 @@ mod tests {
         let empty = HashSet::new();
         let source = "macro_rules! 创建向量 { () => { } }\nfn main() { 创建向量!() }";
         let expected = "宏规则 创建向量 { () => { } }\n函数 main() { 创建向量!() }";
-        assert_eq!(reverse_transpile(source, &reverse, &empty), expected);
+        assert_eq!(
+            reverse_transpile(source, &reverse, &empty, &HashSet::new()),
+            expected
+        );
     }
 
     #[test]
@@ -944,15 +1020,36 @@ mod tests {
             ("包".to_string(), "crate".to_string()),
         ]);
         let reverse = create_reverse_map(&forward);
-        // 代理插入的 crate:: 前缀：后跟模块名时整体删除，还原为裸路径
         let set = HashSet::from(["辅助".to_string()]);
+        // 序号命中正向记录（代理添加的 crate::）：整体删除，还原为裸路径
+        let added = HashSet::from([5usize]);
         assert_eq!(
-            reverse_transpile("fn main() { crate::辅助::辅助函数(); }", &reverse, &set),
+            reverse_transpile(
+                "fn main() { crate::辅助::辅助函数(); }",
+                &reverse,
+                &set,
+                &added
+            ),
             "函数 main() { 辅助::辅助函数(); }"
         );
-        // 用户显式书写的 包::：后跟非模块名时还原
+        // 序号未命中（用户手写的 crate::，非代理添加）：前缀保留不误删
         assert_eq!(
-            reverse_transpile("fn main() { crate::外部函数(); }", &reverse, &set),
+            reverse_transpile(
+                "fn main() { crate::辅助::辅助函数(); }",
+                &reverse,
+                &set,
+                &HashSet::new()
+            ),
+            "函数 main() { 包::辅助::辅助函数(); }"
+        );
+        // 后跟非模块名时还原为 包::（不受序号影响）
+        assert_eq!(
+            reverse_transpile(
+                "fn main() { crate::外部函数(); }",
+                &reverse,
+                &set,
+                &added
+            ),
             "函数 main() { 包::外部函数(); }"
         );
     }
@@ -965,7 +1062,7 @@ mod tests {
         ]);
         let empty = HashSet::new();
         assert_eq!(
-            reverse_transpile("let r#match = 1;", &reverse, &empty),
+            reverse_transpile("let r#match = 1;", &reverse, &empty, &HashSet::new()),
             "让 r#匹配 = 1;"
         );
     }
@@ -975,8 +1072,14 @@ mod tests {
         // crate 与 :: 之间存在空白时前缀仍应被完整删除（不能残留孤立冒号）
         let reverse = HashMap::from([("fn".to_string(), "函数".to_string())]);
         let set = HashSet::from(["辅助".to_string()]);
+        let added = HashSet::from([5usize]);
         assert_eq!(
-            reverse_transpile("fn f() { crate :: 辅助::辅助函数(); }", &reverse, &set),
+            reverse_transpile(
+                "fn f() { crate :: 辅助::辅助函数(); }",
+                &reverse,
+                &set,
+                &added
+            ),
             "函数 f() { 辅助::辅助函数(); }"
         );
     }
@@ -987,7 +1090,12 @@ mod tests {
         let reverse = HashMap::from([("macro_rules".to_string(), "宏规则".to_string())]);
         let empty = HashSet::new();
         assert_eq!(
-            reverse_transpile("macro_rules ! 创建向量 { () => { } }", &reverse, &empty),
+            reverse_transpile(
+                "macro_rules ! 创建向量 { () => { } }",
+                &reverse,
+                &empty,
+                &HashSet::new()
+            ),
             "宏规则 创建向量 { () => { } }"
         );
     }

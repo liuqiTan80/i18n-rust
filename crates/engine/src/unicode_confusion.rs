@@ -224,14 +224,19 @@ fn homoglyph_char(ch: char) -> Option<(char, &'static str)> {
 
 /// 字符是否属于当前方言合法使用的文字系统
 ///
-/// ru 方言用西里尔字母书写标识符，形似拉丁字母的西里尔字符是合法字符而非伪装；
+/// 使用西里尔字母的方言（ru/uk/bg/sr 等）中，形似拉丁字母的西里尔字符
+/// （а/е/о/р/с/у/х 等）是合法字符而非伪装；
+/// 覆盖完整西里尔字母 Unicode 块（U+0400–U+04FF 基本块 +
+/// U+0500–U+052F 扩展块），确保乌克兰语（є/і/ї/ґ）、
+/// 白俄罗斯语等扩展字符不被误报为可疑伪装。
 /// 希腊字母等其他同形字符与零宽/双向控制符不受豁免，仍然告警。
 fn is_native_script_char(ch: char) -> bool {
     let code = ch as u32;
-    matches!(
-        (crate::语言::current_language().as_str(), code),
-        ("ru", 0x0400..=0x04FF) // 西里尔字母块
-    )
+    // 任何使用西里尔字母的方言包：整个西里尔字母块均为合法字符
+    if crate::语言::uses_cyrillic_script(&crate::语言::current_language()) {
+        return matches!(code, 0x0400..=0x052F);
+    }
+    false
 }
 
 #[cfg(test)]

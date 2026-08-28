@@ -57,6 +57,9 @@ pub struct ProxyServer {
     builtin_diags: Arc<std::sync::Mutex<HashMap<String, Vec<Value>>>>,
     /// cargo check 是否在运行（didSave 频繁时跳过进行中的 check，避免并发卡锁）
     check_running: Arc<std::sync::atomic::AtomicBool>,
+    /// 运行期间是否收到新的保存请求（check 完成后补跑一次，
+    /// 合并连续保存的中间状态，避免最终诊断停留在旧版本）
+    check_pending: Arc<std::sync::atomic::AtomicBool>,
     /// 虚拟项目工作区是否已加入 rust-analyzer（首次以纯 added 添加，
     /// 避免与 initialized 的初始加载并发触发 rust-analyzer 崩溃）
     workspace_added: std::sync::atomic::AtomicBool,
@@ -132,6 +135,7 @@ impl ProxyServer {
             ra_semantic_tokens_provider: std::sync::Mutex::new(None),
             builtin_diags: Arc::new(std::sync::Mutex::new(HashMap::new())),
             check_running: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            check_pending: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             workspace_added: std::sync::atomic::AtomicBool::new(false),
         };
 
@@ -750,62 +754,88 @@ impl ProxyServer {
         let sender = self.connection.sender.clone();
         let builtin_diags = self.builtin_diags.clone();
         let check_running = self.check_running.clone();
+        let check_pending = self.check_pending.clone();
         let project_dir = cache.virtual_project_dir();
 
-        // 并发保护：上一次 check 未结束（可能卡在锁等待）时跳过本次
+        // 并发保护：上次 check 未结束（可能卡在锁等待）时，标记待重跑
+        // 并立即返回——check 完成后补跑一次合并中间状态，避免连续保存
+        // 时中间 check 被静默丢弃，最终诊断停留在旧版本
         if check_running.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            check_pending.store(true, std::sync::atomic::Ordering::SeqCst);
             return Ok(());
         }
 
         std::thread::spawn(move || {
-            // 超时控制：cargo 在锁竞争等场景可能长时间不退出，
-            // 轮询等待最多 30 秒后强杀，避免每次保存都挂起一个进程
-            let child = match std::process::Command::new("cargo")
-                // --offline：虚拟项目无第三方依赖，跳过 crates.io 索引访问
-                // （无 Cargo.lock 时 cargo 默认联网解析依赖，网络不可达会卡死）
-                .args(["check", "--offline", "--message-format=json"])
-                .current_dir(&project_dir)
-                .stdin(std::process::Stdio::null())
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn()
-            {
-                Ok(c) => c,
-                Err(e) => {
-                    log::warn!("cargo check spawn failed: {e}");
-                    check_running.store(false, std::sync::atomic::Ordering::SeqCst);
-                    return;
-                }
-            };
-            let mut child_opt = Some(child);
-            let mut output = None;
-            let mut timed_out = false;
-            for i in 0..300 {
-                match child_opt.as_mut().map(|c| c.try_wait()) {
-                    Some(Ok(Some(_))) => {
-                        output = child_opt.take().and_then(|c| c.wait_with_output().ok());
-                        break;
-                    }
-                    Some(Ok(None)) => {
-                        if i == 299 {
-                            timed_out = true;
-                        }
-                        std::thread::sleep(std::time::Duration::from_millis(100));
-                    }
-                    _ => break,
-                }
-            }
-            if timed_out {
-                log::warn!("cargo check timeout killed");
-                if let Some(mut c) = child_opt.take() {
-                    let _ = c.kill();
-                    let _ = c.wait();
+            // 循环执行：期间收到新保存请求（pending 置位）则补跑一次；
+            // pending 由首轮消费，最多连跑两次，合并中间全部状态
+            loop {
+                check_pending.store(false, std::sync::atomic::Ordering::SeqCst);
+                Self::run_cargo_check_once(&cache, &mapper, &sender, &builtin_diags, &project_dir);
+                if !check_pending.load(std::sync::atomic::Ordering::SeqCst) {
+                    break;
                 }
             }
             check_running.store(false, std::sync::atomic::Ordering::SeqCst);
-            let Some(output) = output else {
+        });
+        Ok(())
+    }
+
+    /// 执行一次 cargo check 并发布诊断（供 [`trigger_cargo_check`] 的线程循环调用）
+    ///
+    /// 不负责 check_running/check_pending 标记（由调用方线程循环统一管理）。
+    fn run_cargo_check_once(
+        cache: &Arc<TranslationCache>,
+        mapper: &Arc<ResponseMapper>,
+        sender: &crossbeam_channel::Sender<Message>,
+        builtin_diags: &Arc<std::sync::Mutex<HashMap<String, Vec<Value>>>>,
+        project_dir: &Path,
+    ) {
+        // 超时控制：cargo 在锁竞争等场景可能长时间不退出，
+        // 轮询等待最多 30 秒后强杀，避免每次保存都挂起一个进程
+        let child = match std::process::Command::new("cargo")
+            // --offline：虚拟项目无第三方依赖，跳过 crates.io 索引访问
+            // （无 Cargo.lock 时 cargo 默认联网解析依赖，网络不可达会卡死）
+            .args(["check", "--offline", "--message-format=json"])
+            .current_dir(project_dir)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+        {
+            Ok(c) => c,
+            Err(e) => {
+                log::warn!("cargo check spawn failed: {e}");
                 return;
-            };
+            }
+        };
+        let mut child_opt = Some(child);
+        let mut output = None;
+        let mut timed_out = false;
+        for i in 0..300 {
+            match child_opt.as_mut().map(|c| c.try_wait()) {
+                Some(Ok(Some(_))) => {
+                    output = child_opt.take().and_then(|c| c.wait_with_output().ok());
+                    break;
+                }
+                Some(Ok(None)) => {
+                    if i == 299 {
+                        timed_out = true;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+                _ => break,
+            }
+        }
+        if timed_out {
+            log::warn!("cargo check timeout killed");
+            if let Some(mut c) = child_opt.take() {
+                let _ = c.kill();
+                let _ = c.wait();
+            }
+        }
+        let Some(output) = output else {
+            return;
+        };
 
             // 解析 compiler-message 行 → 按虚拟 uri 聚合（值 = (方言 uri, 诊断列表)）
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -891,8 +921,6 @@ impl ProxyServer {
                 };
                 let _ = sender.send(Message::Notification(notification));
             }
-        });
-        Ok(())
     }
 
     /// 通知 rust-analyzer 重新加载虚拟项目工作区
@@ -951,7 +979,9 @@ impl ProxyServer {
                 match run_rustfmt(&entry.en_content, tab_size) {
                     Some(formatted_en) => {
                         // 将格式化后的英文代码反向翻译为母语代码
-                        let formatted_native = self.cache.reverse_transpile(&formatted_en);
+                        // （按文档编辑地图精确删除代理添加的 crate:: 前缀）
+                        let formatted_native =
+                            self.cache.reverse_transpile(Some(uri), &formatted_en);
                         vec![json!({
                             "range": {
                                 "start": { "line": 0, "character": 0 },
@@ -1050,12 +1080,12 @@ impl ProxyServer {
                 | "textDocument/documentHighlight"
                 | "textDocument/signatureHelp" => {
                     if let Some(position) = params.get_mut("position") {
-                        *position = position_to_en(&self.cache, entry, position);
+                        *position = position_to_en(entry, position);
                     }
                 }
                 "textDocument/codeAction" => {
                     if let Some(range) = params.get_mut("range") {
-                        *range = range_to_en(&self.cache, entry, range);
+                        *range = range_to_en(entry, range);
                     }
                     // context.diagnostics 来自我们发布的中文诊断，同样需要转换
                     if let Some(diags_list) = params
@@ -1065,7 +1095,7 @@ impl ProxyServer {
                     {
                         for diag in diags_list.iter_mut() {
                             if let Some(range) = diag.get_mut("range") {
-                                *range = range_to_en(&self.cache, entry, range);
+                                *range = range_to_en(entry, range);
                             }
                         }
                     }
@@ -1195,6 +1225,8 @@ fn cleanup_stale_virtual_dirs(safe_user: &str) {
         let Some(pid_str) = name_str.strip_prefix(&prefix) else {
             continue;
         };
+        // 兼容上轮 rename 后未删除干净的 `.stale` 残留（纯数字 PID 前加后缀）
+        let pid_str = pid_str.strip_suffix(".stale").unwrap_or(pid_str);
         if pid_str == std::process::id().to_string() {
             continue; // 当前进程自己的目录
         }
@@ -1204,7 +1236,9 @@ fn cleanup_stale_virtual_dirs(safe_user: &str) {
         if process_alive(pid) {
             continue;
         }
-        // 进程已死：目录是残留，尽力删除（失败静默）
+        // 进程已死：目录是残留，先原子改名再删除（TOCTOU 防护）：
+        // 检查与删除之间 PID 可能被系统回收并由新进程重建同名目录，
+        // rename 把旧目录移走后再删，新进程创建的是新路径，不受影响
         let path = entry.path();
         if path
             .symlink_metadata()
@@ -1213,7 +1247,10 @@ fn cleanup_stale_virtual_dirs(safe_user: &str) {
         {
             continue; // 符号链接不跟随删除
         }
-        let _ = std::fs::remove_dir_all(&path);
+        let stale_path = entry.path().with_file_name(format!("{name_str}.stale"));
+        if std::fs::rename(&path, &stale_path).is_ok() {
+            let _ = std::fs::remove_dir_all(&stale_path);
+        }
     }
 }
 
@@ -1352,17 +1389,18 @@ fn lsp_position_to_offset(content: &str, position: &Value) -> usize {
 ///
 /// 当前翻译逐行替换关键字、行数保持不变（行映射为 1:1），
 /// 因此仅列号需要按列偏移映射转换。
-fn position_to_en(cache: &TranslationCache, entry: &TranslationEntry, position: &Value) -> Value {
+fn position_to_en(entry: &TranslationEntry, position: &Value) -> Value {
     let line = position["line"].as_u64().unwrap_or(0) as u32;
     let col = position["character"].as_u64().unwrap_or(0) as u32;
-    let en_col = cache.zh_col_to_en_col(&entry.virtual_uri, line, col);
+    // 调用方已持有条目：直接走无锁单函数，避免再按 URI 查缓存（2-4 锁）
+    let en_col = crate::translation_cache::zh_col_to_en_col_single(entry, line, col);
     json!({ "line": line, "character": en_col })
 }
 
 /// 将 LSP 范围（range）从母语坐标转换为英文坐标
-fn range_to_en(cache: &TranslationCache, entry: &TranslationEntry, range: &Value) -> Value {
-    let start = position_to_en(cache, entry, &range["start"]);
-    let end = position_to_en(cache, entry, &range["end"]);
+fn range_to_en(entry: &TranslationEntry, range: &Value) -> Value {
+    let start = position_to_en(entry, &range["start"]);
+    let end = position_to_en(entry, &range["end"]);
     json!({ "start": start, "end": end })
 }
 
@@ -1696,18 +1734,18 @@ mod tests {
 
         // 中文列 0（"让" 起点）→ 英文列 0
         let position = json!({ "line": 0, "character": 0 });
-        let en = position_to_en(&cache, &entry, &position);
+        let en = position_to_en(&entry, &position);
         assert_eq!(en["line"], 0);
         assert_eq!(en["character"], 0);
 
         // 中文列 3（"x" 末尾）→ 英文列 5（"让" 为 1 个 UTF-16 单元，"let" 占 3 列）
         let position = json!({ "line": 0, "character": 3 });
-        let en = position_to_en(&cache, &entry, &position);
+        let en = position_to_en(&entry, &position);
         assert_eq!(en["character"], 5);
 
         // 中文列 2（"x" 起点）→ 英文列 4
         let position = json!({ "line": 0, "character": 2 });
-        let en = position_to_en(&cache, &entry, &position);
+        let en = position_to_en(&entry, &position);
         assert_eq!(en["character"], 4);
     }
 
@@ -1722,7 +1760,7 @@ mod tests {
             "start": { "line": 0, "character": 2 },
             "end": { "line": 0, "character": 3 }
         });
-        let en = range_to_en(&cache, &entry, &range);
+        let en = range_to_en(&entry, &range);
         assert_eq!(en["start"]["character"], 4);
         assert_eq!(en["end"]["character"], 5);
     }
@@ -1748,7 +1786,7 @@ mod tests {
         // 1. URI 替换为虚拟 URI
         params["textDocument"]["uri"] = Value::String(entry.virtual_uri.clone());
         // 2. 位置转换为英文坐标
-        params["position"] = position_to_en(&cache, &entry, &params["position"]);
+        params["position"] = position_to_en(&entry, &params["position"]);
         // 3. newName 中文 → 英文
         let en_name = cache.keyword_map().get("函数").cloned().unwrap();
         params["newName"] = Value::String(en_name);

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.3
+
+### 新增
+- **发布方案调整**：离线发布包不再内置 rustc/cargo 与 VS Code，仅保留 rust-analyzer（官方发布资产下载不稳定，随包附送）；离线包改为本地脚本（release-offline.sh / release-offline.ps1）编译后手动上传，CI 只构建扩展与发布 crates.io；教程并入离线包。
+
+### 优化
+- **输入热路径性能**：全角符号自动转换从「每个符号各取一次全文并各扫一遍词法状态」改为单次取前缀 + 单遍多位置扫描（k×O(n) → O(n)）；无全角符号的输入先行过滤（零分配提前返回）；单字符按键走快速路径；全角转换开关配置缓存。
+- **诊断推送性能**：所有权错误装饰器按需刷新（按诊断事件的 uri 过滤，只刷新受影响文档），无所有权详情的文档在诊断推送时零 setDecorations 开销。
+- **LSP 热路径性能**：position/range 方向映射预取化，map_diagnostics 循环外预取（relatedInformation 同文件复用主条目），提取无锁 restore 变体，清理死代码。
+
+### 修复
+- **`rzc install toolchain --ra-only` 首次运行报 ENOENT**：`~/.rz/toolchain/bin` 不存在时解压后 rename 失败，现先创建目录（完整安装路径已有此处理，仅升级路径遗漏）。
+- **方言文件放在项目根（无 src/ 目录）时 rzc check/run 报裸 ENOENT**：转译写入前先创建父目录，与 LSP 侧处理一致；此场景下 check 可正常输出翻译诊断。
+
+### 文档
+- README 与教程同步离线包新方案（rust-analyzer 接入方式、Rust 环境自装指引）；新增附录内容见对应章节。
+
 ## 0.6.2
 
 ### 新增

@@ -165,6 +165,15 @@ pub fn builtin_language_codes() -> Vec<&'static str> {
     codes
 }
 
+/// 判断语言代码是否使用西里尔字母文字系统
+///
+/// 覆盖俄语 (ru)、乌克兰语 (uk)、白俄罗斯语、保加利亚语 (bg)、
+/// 塞尔维亚语 (sr)、马其顿语等使用西里尔字母的语言。
+/// 供 Unicode 混淆检测判断形似拉丁字母的西里尔字符是否为合法字符。
+pub fn uses_cyrillic_script(lang_code: &str) -> bool {
+    matches!(lang_code, "ru" | "uk" | "bg" | "sr" | "mk" | "be")
+}
+
 /// 判断语言代码是否有对应的内置语言包
 pub fn has_builtin_language(code: &str) -> bool {
     BUILTIN_FILES.iter().any(|(l, _, _)| *l == code)

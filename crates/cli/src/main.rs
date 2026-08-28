@@ -306,12 +306,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 let _ = translate_cargo_diagnostics(
                     &json_lines,
                     "",
-                    &ui,
-                    &lang_pack,
-                    &project_root,
-                    &manager,
-                    &source,
-                    &file,
+                    &DiagContext { ui: &ui, lang_pack: &lang_pack, project_root: &project_root, manager: &manager, source: &source, file: &file },
                     status.success(),
                     true,
                 );
@@ -377,14 +372,9 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let _ = translate_cargo_diagnostics(
                 &rustc_output,
                 &stderr_text,
-                &ui,
-                &lang_pack,
-                &project_root,
-                &manager,
-                &source,
-                &file,
+                &DiagContext { ui: &ui, lang_pack: &lang_pack, project_root: &project_root, manager: &manager, source: &source, file: &file },
                 output.status.success(),
-                false, // check 场景：无诊断且成功时提示“编译成功”
+                false, // check 场景：无诊断且成功时提示"编译成功"
             );
             Ok(exit_code)
         }
@@ -819,12 +809,7 @@ fn run_direct_rustc(
         let _ = translate_cargo_diagnostics(
             &rustc_output,
             &stderr_text,
-            ui,
-            lang_pack,
-            project_root,
-            manager,
-            source,
-            file,
+            &DiagContext { ui, lang_pack, project_root, manager, source, file },
             ok,
             true,
         );
@@ -881,12 +866,7 @@ fn check_direct_rustc(
     let _ = translate_cargo_diagnostics(
         &rustc_output,
         &stderr_text,
-        ui,
-        lang_pack,
-        project_root,
-        manager,
-        source,
-        file,
+        &DiagContext { ui, lang_pack, project_root, manager, source, file },
         output.status.success(),
         false,
     );
@@ -938,28 +918,39 @@ fn translate_cargo_progress(line: &str, ui: &ui::Ui) -> String {
     line.to_string()
 }
 
+/// 诊断翻译上下文：封装 `translate_cargo_diagnostics` 的共享引用参数，
+/// 避免 8+ 位置参数的可读性灾难
+struct DiagContext<'a> {
+    ui: &'a ui::Ui,
+    lang_pack: &'a Option<PathBuf>,
+    project_root: &'a Path,
+    manager: &'a MappingManager,
+    source: &'a str,
+    file: &'a Path,
+}
+
 /// 解析 cargo --message-format=json 输出并翻译为教学化诊断（check 与 run 共用）
 ///
 /// 返回是否成功输出了翻译后的教学诊断；调用方据此决定是否回退原始文本。
-/// `cargo_ok=false` 且无可解析诊断时原样输出 cargo 消息，绝不虚报“编译成功”。
+/// `cargo_ok=false` 且无可解析诊断时原样输出 cargo 消息，绝不虚报"编译成功"。
 /// `silent_success=true`（run 场景）时，无诊断且编译成功保持静默——
-/// 程序已运行，不再提示“编译成功”。
-#[allow(clippy::too_many_arguments)]
+/// 程序已运行，不再提示"编译成功"。
 fn translate_cargo_diagnostics(
     rustc_output: &str,
     stderr_text: &str,
-    ui: &ui::Ui,
-    lang_pack: &Option<PathBuf>,
-    project_root: &Path,
-    manager: &MappingManager,
-    source: &str,
-    file: &Path,
+    ctx: &DiagContext<'_>,
     cargo_ok: bool,
     silent_success: bool,
 ) -> bool {
     use i18n_rust_engine::diagnostic::{
         DiagnosticTranslator, ErrorTranslationManager, parse_diagnostic_output,
     };
+    let ui = ctx.ui;
+    let lang_pack = ctx.lang_pack;
+    let project_root = ctx.project_root;
+    let manager = ctx.manager;
+    let source = ctx.source;
+    let file = ctx.file;
 
     // 未解析导入提取：诊断展示后附带 `rzc add` 加依赖提示（教学化引导）
     let unresolved_crates = extract_unresolved_crates(rustc_output);
@@ -1354,6 +1345,11 @@ fn transpile_project_files(
 ///
 /// 幂等重跑（内容一致）不产生备份；无同名手写文件时行为与直接写入完全一致。
 fn write_transpiled(path: &Path, content: &str, ui: &crate::ui::Ui) -> anyhow::Result<()> {
+    // 方言文件直接放在项目根等场景下 src/ 可能尚不存在，先创建父目录
+    //（否则 fs::write 报裸 ENOENT，LSP 侧 translation_cache 已有同款处理）
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
     if let Ok(existing) = fs::read_to_string(path)
         && existing != content
     {

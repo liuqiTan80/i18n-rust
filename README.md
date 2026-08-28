@@ -42,9 +42,9 @@ $ rzc run src/main.zh
 
 ## 📦 安装
 
-### 方式一：离线发布包（推荐，零环境配置）
+### 方式一：离线发布包（无网络 / 网盘分发）
 
-从 [GitHub Releases](https://github.com/liuqiTan80/i18n-rust/releases)（或[百度网盘](https://pan.baidu.com/s/19EGFN7kTS-ASNXvwbXINJQ?pwd=i18n)）下载对应平台的离线包：
+从 [GitHub Releases](https://github.com/liuqiTan80/i18n-rust/releases)（或[百度网盘](https://pan.baidu.com/s/19EGFN7kTS-ASNXvwbXINJQ?pwd=i18n)）下载对应平台的离线包（由发布者按仓库内 `release-offline.sh` / `release-offline.ps1` 本地编译后手动上传）：
 
 | 平台 | 包名 |
 |---|---|
@@ -52,7 +52,7 @@ $ rzc run src/main.zh
 | Linux | `rzc-<版本>-linux-x86_64.tar.gz` |
 | macOS | `rzc-<版本>-macos-aarch64.tar.gz` |
 
-**离线包已内置完整工具链**（rustc/cargo/rust-analyzer）与 10 种语言包——解压即用，**无需安装 Rust、无需 rustup、无需 PATH 配置**。适合教学机房、无网络环境与网盘分发。
+**离线包已内置 rust-analyzer**（官方发布资产下载不稳定，随包附送）与语言服务器、10 种语言包和教程——解压即用，适合教学机房与无网络环境。注意：离线包**不再内置 rustc/cargo**，编译运行中文代码需自行安装 Rust（见下文「完整功能配置」；或联网后执行 `rzc install toolchain`）。
 
 ### 方式二：crates.io（有网络时）
 
@@ -104,10 +104,10 @@ VS Code 设置 `i18n-rust.serverPath` 可显式指定 LSP 二进制路径（自�
 i18n-rust 扩展（.vsix）兼容所有 VS Code 系编辑器；rzc、语言服务器与工具链均与编辑器无关：
 
 1. 新编辑器 → 扩展 → 「Install from VSIX」→ 选 `i18n-rust-<版本>.vsix`；
-2. 把组件接入系统标准位置（用完整版包内 rzc 执行）：
+2. 把组件接入系统标准位置（用离线包内 rzc 执行）：
    ```bash
    rzc install lsp        # 语言服务器 → ~/.cargo/bin
-   rzc install toolchain  # 内置工具链 → ~/.rz/toolchain（或直接复制完整版包内 toolchain/bin）
+   rzc install toolchain  # 内置工具链 → ~/.rz/toolchain（联网安装；或直接复制离线包内 toolchain/bin 的 rust-analyzer）
    ```
 3. 打开 `.zh` 文件即用（扩展自动定位语言服务器与工具链；也可用环境变量 RUST_ANALYZER_PATH 或设置 i18n-rust.serverPath 显式指定）。
 ## 🚀 快速开始

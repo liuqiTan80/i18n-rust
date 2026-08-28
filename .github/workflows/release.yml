@@ -3,18 +3,16 @@
 #
 # 触发条件：
 #   - 推送 v 开头 tag（如 v0.1.0）：
-#       构建三平台 rzc 离线包 + VS Code 扩展 .vsix，
-#       创建 Release 并上传全部产物；同时发布 crates.io
-#       （需配置 CARGO_REGISTRY_TOKEN 密钥）
+#       构建 VS Code 扩展 .vsix 并创建 Release 上传；
+#       同时发布 crates.io（需配置 CARGO_REGISTRY_TOKEN 密钥）
 #   - 手动触发（workflow_dispatch）：
 #       仅构建并上传 Artifact，不创建 Release；
 #       勾选"发布到 crates.io"可额外执行 crates.io 发布
 #
 # 产物：
-#   rzc-<版本>-linux-x86_64.tar.gz     （rzc + 语言包 + 文档）
-#   rzc-<版本>-windows-x86_64.zip
-#   rzc-<版本>-macos-aarch64.tar.gz
 #   i18n-rust-<版本>.vsix             （VS Code 扩展离线安装包）
+#   （rzc 离线发布包不在 CI 构建：由本地脚本 release-offline.sh/.ps1
+#     编译打包后手动上传到 Release / 网盘）
 #
 # 说明：
 #   - 本文件双平台通用（GitHub Actions / GitCode CI）：
@@ -87,209 +85,6 @@ jobs:
           grep -q "^## $V" tools/vscode-extension/CHANGELOG.md || { echo "❌ CHANGELOG 缺少 $V 条目"; exit 1; }
           echo "✅ 版本一致：$V"
 
-  # ---------- 构建：三个平台各自编译并打包 rzc 离线包 ----------
-  package:
-    name: 构建离线包 ${{ matrix.os_name }}-${{ matrix.arch }}
-    needs: check
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            os_name: linux
-            arch: x86_64
-          - os: windows-latest
-            os_name: windows
-            arch: x86_64
-          # macOS arm64 运行器（Intel 用户可自行添加 macos-13 + x86_64 条目）
-          - os: macos-latest
-            os_name: macos
-            arch: aarch64
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: 安装 Rust 工具链
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: 编译 rzc 与语言服务器（release，锁定依赖）
-        run: cargo build --release -p rzc -p i18n-rust-lsp --locked
-
-      - name: 二进制冒烟测试
-        run: |
-          ./target/release/rzc --version
-          ./target/release/i18n-rust-lsp --version
-
-      - name: 读取锁定工具链版本（单一数据源：代码内常量，与 rzc install toolchain 同源）
-        id: toolchain-version
-        shell: bash
-        run: |
-          echo "rust=$(grep -m1 'LOCKED_TOOLCHAIN_VERSION' crates/engine/src/toolchain.rs | grep -oE '"[0-9.]+"' | tr -d '"')" >> "$GITHUB_OUTPUT"
-          echo "ra_tag=$(grep -m1 'RA_RELEASE_TAG' crates/cli/src/install.rs | grep -oE '"[0-9-]+"' | tr -d '"')" >> "$GITHUB_OUTPUT"
-
-      - name: 缓存工具链下载包（三平台各约 300MB，跨 run 复用）
-        uses: actions/cache@v4
-        with:
-          path: /tmp/rust.tar.gz
-          key: rust-toolchain-${{ matrix.os_name }}-${{ steps.toolchain-version.outputs.rust }}
-      - name: 组装发布目录
-        shell: bash
-        run: |
-          # 注意：bash 变量名必须为 ASCII（中文变量名会被当作命令执行）
-          VERSION="${GITHUB_REF_NAME#v}"
-          # 手动触发（无 tag）时回退到 Cargo.toml 中的版本号
-          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then
-            VERSION=$(grep -m1 '^version = ' crates/cli/Cargo.toml | cut -d'"' -f2)
-          fi
-          PKG_NAME="rzc-$VERSION-${{ matrix.os_name }}-${{ matrix.arch }}"
-          DIR="release/$PKG_NAME"
-          mkdir -p "$DIR/lang-packs"
-
-          # 可执行文件（Windows 下为 rzc.exe）
-          cp target/release/rzc "$DIR/rzc" 2>/dev/null || cp target/release/rzc.exe "$DIR/rzc.exe"
-
-          # 语言服务器（VS Code 扩展后端；与 rzc 同目录，`rzc install lsp` 可免网络直接安装）
-          cp target/release/i18n-rust-lsp "$DIR/i18n-rust-lsp" 2>/dev/null || cp target/release/i18n-rust-lsp.exe "$DIR/i18n-rust-lsp.exe"
-
-          # 语言包目录（可选扩展：远程安装的语言包；中文等已内置到可执行文件）；
-          # 单一数据源为 crates/engine/lang-packs/，包内仍按 lang-packs/ 布局（RZ_LANG_DIR 约定）
-          if [ -d crates/engine/lang-packs ]; then
-            cp -r crates/engine/lang-packs/. "$DIR/lang-packs/"
-          fi
-
-          # 许可证与说明文档
-          [ -f LICENSE ] && cp LICENSE "$DIR/" || true
-          [ -f README.md ] && cp README.md "$DIR/" || true          # 内置工具链（standalone rustc/cargo/rust-analyzer）：离线包即开即用，无需 rustup
-          if [ "${{ matrix.os_name }}" = "windows" ]; then
-            TRIPLE="x86_64-pc-windows-msvc"
-          elif [ "${{ matrix.os_name }}" = "linux" ]; then
-            TRIPLE="x86_64-unknown-linux-gnu"
-          else
-            TRIPLE="aarch64-apple-darwin"
-          fi
-          mkdir -p "$DIR/toolchain/bin"
-          # Rust 工具链版本：单一数据源（toolchain.rs LOCKED_TOOLCHAIN_VERSION），非项目版本号
-          RUST_VERSION="${{ steps.toolchain-version.outputs.rust }}"
-          RA_TAG="${{ steps.toolchain-version.outputs.ra_tag }}"
-          RUST_DIST="https://static.rust-lang.org/dist/rust-$RUST_VERSION-$TRIPLE.tar.gz"
-          echo "下载工具链: $RUST_DIST"
-          if [ ! -f /tmp/rust.tar.gz ]; then
-            curl -sL "$RUST_DIST" -o /tmp/rust.tar.gz
-          fi
-          # 校验工具链包 SHA-256（fail-closed：校验和缺失或不匹配即中止）
-          curl -sL "$RUST_DIST.sha256" -o /tmp/rust.tar.gz.sha256
-          EXPECTED="$(awk '{print $1}' /tmp/rust.tar.gz.sha256 | tr -d '\r')"
-          ACTUAL="$(sha256sum /tmp/rust.tar.gz | awk '{print $1}')"
-          if [ "${#EXPECTED}" != "64" ] || [ "$ACTUAL" != "$EXPECTED" ]; then
-            echo "❌ 工具链包 SHA-256 校验失败（$RUST_DIST）" >&2
-            exit 1
-          fi
-          tar -xzf /tmp/rust.tar.gz -C /tmp
-          cp /tmp/rust-$RUST_VERSION-$TRIPLE/rustc/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true
-          cp /tmp/rust-$RUST_VERSION-$TRIPLE/cargo/bin/* "$DIR/toolchain/bin/" 2>/dev/null || true
-          # rust-analyzer：官方 Release 以压缩资产发布（linux/mac 为 .gz、windows 为 .zip），
-          # 无裸二进制（旧写法 404 会把错误页装进离线包）；下载后解压为可执行文件
-          if [ "${{ matrix.os_name }}" = "windows" ]; then
-            RA_ASSET="rust-analyzer-$TRIPLE.zip"
-          else
-            RA_ASSET="rust-analyzer-$TRIPLE.gz"
-          fi
-          curl -sL "https://github.com/rust-lang/rust-analyzer/releases/download/$RA_TAG/$RA_ASSET" -o /tmp/ra.asset
-          if [ "${{ matrix.os_name }}" = "windows" ]; then
-            tar -xf /tmp/ra.asset -C "$DIR/toolchain/bin/"
-          else
-            gunzip -c /tmp/ra.asset > "$DIR/toolchain/bin/rust-analyzer"
-          fi
-          chmod +x "$DIR/toolchain/bin/"* 2>/dev/null || true
-          echo "工具链已打包：$(ls "$DIR/toolchain/bin")"
-          # VC++ 运行库（新系统可能缺失，随包分发；Windows 运行器自带）
-          if [ "${{ matrix.os_name }}" = "windows" ]; then
-            for dll in vcruntime140.dll vcruntime140_1.dll msvcp140.dll concrt140.dll; do
-              cp "/c/Windows/System32/$dll" "$DIR/" 2>/dev/null || true
-            done
-          fi
-
-          # 使用说明
-          cat > "$DIR/使用说明.md" <<'说明'
-          # rzc 离线发布包使用说明
-
-          ## 快速开始
-
-          - **Linux / macOS**：直接运行 `./rzc`
-          - **Windows**：运行 `rzc.exe`
-
-          中文语言包已内置到可执行文件中，开箱即用，无需任何配置。
-
-          ## 常用命令
-
-          ```bash
-          ./rzc init 我的项目      # 创建新项目（含 src/main.zh）
-          ./rzc run src/main.zh   # 翻译并运行中文代码
-          ./rzc check src/main.zh # 类型检查（中文错误提示）
-          ./rzc lang list         # 查看语言包
-          ./rzc install lsp       # 安装语言服务器（VS Code 扩展后端，包内免网络复制）
-          ```
-
-          ## 内置工具链
-
-          包内 `toolchain/bin/` 已附带官方 standalone rustc/cargo/rust-analyzer，
-          开箱即用，无需安装 rustup 或配置 PATH：
-
-          ```bash
-          ./rzc install toolchain --force  # 就地安装内置工具链（包内免网络复制）
-          ./rzc doctor                     # 查看工具链状态
-          ```
-
-
-          ## 可选：使用包内语言包目录
-
-          包内附带的 `lang-packs/` 目录用于扩展（例如后续远程安装的其他语言包）。
-          如需使用，将环境变量 `RZ_LANG_DIR` 指向该目录：
-
-          ```bash
-          export RZ_LANG_DIR="$(pwd)/lang-packs"
-          ```
-
-          ## 系统要求
-
-          - 包内已含完整工具链（rustc/cargo/rust-analyzer），无需安装 Rust 环境
-          - Linux：glibc 2.31+；macOS：11.0+；Windows：10 1803+
-          说明
-
-          echo "组装完成：$DIR"
-
-      - name: 打包压缩
-        shell: bash
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then
-            VERSION=$(grep -m1 '^version = ' crates/cli/Cargo.toml | cut -d'"' -f2)
-          fi
-          PKG_NAME="rzc-$VERSION-${{ matrix.os_name }}-${{ matrix.arch }}"
-          if [ "${{ matrix.os_name }}" = "windows" ]; then
-            # Windows 运行器的 tar 为 bsdtar，-a 按 .zip 扩展名自动选择 zip 格式
-            (cd release && tar -a -c -f "$PKG_NAME.zip" "$PKG_NAME")
-          else
-            tar -czf "release/$PKG_NAME.tar.gz" -C release "$PKG_NAME"
-          fi
-          echo "打包完成：release/ 下的产物为："
-          ls -lh release/
-
-      - name: 生成校验和（SHA256SUMS，随 Release 发布供用户核验）
-        shell: bash
-        run: |
-          cd release
-          sha256sum *.tar.gz *.zip > SHA256SUMS 2>/dev/null || true
-          cat SHA256SUMS
-
-      - name: 上传构建产物（供发布步骤使用）
-        uses: actions/upload-artifact@v4
-        with:
-          name: 离线包-${{ matrix.os_name }}-${{ matrix.arch }}
-          path: release/
-          if-no-files-found: error
-
   # ---------- VS Code 扩展打包 ----------
   vsix:
     name: 构建 VS Code 扩展
@@ -338,8 +133,10 @@ jobs:
   # ---------- 发布：推送 tag 时创建 Release 并附带全部产物 ----------
   publish:
     name: 创建 Release 并上传产物
-    needs: [package, vsix]
-    # 仅 tag 触发时发布；手动触发只产出 Artifact
+    needs: [vsix]
+    # 仅 tag 触发时发布；手动触发只产出 Artifact。
+    # rzc 离线发布包由发布者按本地脚本（release-offline.sh/.ps1）
+    # 编译后手动上传到本 Release（或网盘）。
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     # 显式声明写权限：创建 Release/上传附件需要 contents: write
@@ -389,7 +186,7 @@ jobs:
           [ -n "$RELEASE_ID" ] || { echo "创建 Release 失败：$RESP"; exit 1; }
           echo "Release ID: $RELEASE_ID"
 
-          # 2) 上传全部附件（离线包 + vsix）
+          # 2) 上传全部附件（当前为 vsix；rzc 离线包由发布者手动上传）
           for f in artifacts/*; do
             [ -f "$f" ] || continue
             echo "上传附件：$f"
@@ -404,7 +201,7 @@ jobs:
   # 故用 job 级 env 注入令牌，发布步骤以 env 非空判断是否执行。
   crates:
     name: 发布 crates.io
-    needs: [check, package]
+    needs: [check]
     # tag 触发时自动发布；手动触发需勾选"发布到 crates.io"
     if: (github.event_name == 'workflow_dispatch' && inputs.publish_crates) || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest

@@ -49,11 +49,7 @@ pub fn transpile_source_with_map(
         crate::语言::f("log_transpile_start", &[&source.len().to_string()])
     );
 
-    let fingerprint = cache::TranslationCache::generate_context_fingerprint(
-        manager.get_keyword_map(),
-        manager.get_module_path_map(),
-        manager.get_alias_map(),
-    );
+    let fingerprint = manager.context_fingerprint();
 
     let output = cache.get_or_transpile(source, fingerprint, || {
         Ok(transpile_pipeline(source, manager))
