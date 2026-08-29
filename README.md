@@ -68,6 +68,19 @@ cd i18n-rust
 cargo build --release --workspace
 ```
 
+#### 打包自己的离线发布版
+
+仓库提供一键打包脚本（本地编译，自动生成**适合当前平台**的发布包，供 Release / 网盘分发）：
+
+| 平台 | 命令 | 产物 |
+|---|---|---|
+| Linux / macOS | `./release-offline.sh` | `release/rzc-<版本>-linux/macos-<架构>.tar.gz` |
+| Windows（PowerShell） | `.\release-offline.ps1` | `release/rzc-<版本>-windows-x86_64.zip` |
+
+前置条件：已安装 Rust 工具链（rustup）；联网执行一次 `rzc install toolchain --ra-only --force` 下载当前平台的 rust-analyzer（打包脚本会把它复制进包内，可在编译后用 `target/release/rzc` 执行）。
+
+脚本自动识别平台（Linux / Darwin / Windows），包内含 rzc、i18n-rust-lsp、rust-analyzer、10 种语言包与教程，解压即用；打包完成后手动上传分发即可（详细步骤见教程附录 D.5）。
+
 ### 完整功能配置（一条命令各就位）
 
 ```bash
