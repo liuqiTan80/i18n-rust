@@ -482,7 +482,7 @@ pub fn create_builtin_keyword_mapping() -> HashMap<String, String> {
     // 错误处理
     map.insert("结果".into(), "Result".into());
     map.insert("选项".into(), "Option".into());
-    map.insert("有些".into(), "Some".into());
+    map.insert("有值".into(), "Some".into());
     map.insert("无".into(), "None".into());
     map.insert("成功".into(), "Ok".into());
     map.insert("错误".into(), "Err".into());

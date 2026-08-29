@@ -116,7 +116,7 @@
         },
         {
           "name": "keyword.declaration.rust-fr",
-          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(implementation|enumeration|principale|constante|structure|fonction|statique|publique|utiliser|laisser|mutable|externe|derive|module|caisse|trait|super|comme|type)(?![\\p{L}\\p{M}\\p{N}_])"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(implementation|enumeration|principale|constante|structure|fonction|statique|publique|utiliser|laisser|mutable|externe|derive|module|caisse|union|trait|super|comme|type)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "keyword.other.rust-fr",

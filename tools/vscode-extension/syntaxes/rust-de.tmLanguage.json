@@ -116,7 +116,7 @@
         },
         {
           "name": "keyword.declaration.rust-de",
-          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(hauptfunktion|aufzaehlung|implement|funktion|statisch|struktur|mutabel|merkmal|derive|extern|konst|modul|offen|paket|ueber|nutze|lass|typ|als)(?![\\p{L}\\p{M}\\p{N}_])"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(hauptfunktion|aufzaehlung|vereinigung|implement|funktion|statisch|struktur|mutabel|merkmal|derive|extern|konst|modul|offen|paket|ueber|nutze|lass|typ|als)(?![\\p{L}\\p{M}\\p{N}_])"
         },
         {
           "name": "keyword.other.rust-de",
