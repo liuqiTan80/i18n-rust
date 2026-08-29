@@ -606,3 +606,17 @@
 "captures" = "Captures the matched groups (regex)."
 "Lazy" = "A lazily initialized global value: computed on first use (once_cell)."
 "OnceCell" = "A write-once container: thread-safe (once_cell)."
+
+
+# ---- mapping coverage (Korpus-Abdeckungsmatrix) ----
+"mc_cov_header" = "🔬 Matrice de couverture du corpus : {}"
+"mc_cov_corpus_intro" = "📖 Corpus : code source réel du backend (crates/engine + cli + lsp src/*.rs)"
+"mc_cov_stats" = "   Couverture : {} / {} ({} %) · Corpus : {} fichiers source"
+"mc_cov_kw_missing" = "   ❌ Mot-clé sans mappage dans la langue : {} ({} fois, ex. {})"
+"mc_cov_std_missing" = "   ⚠️ Module/type std sans mappage : {} ({} fois, ex. {})"
+"mc_cov_crate_missing" = "   ⚠️ Crate tiers sans mappage : {} ({} fois, ex. {})"
+"mc_cov_type_missing" = "   ⚠️ Nom de type sans mappage (souvent interne au compilateur, ignorable) : {} ({} fois, ex. {})"
+"mc_cov_more" = "   … {} autres entrées omises (rzc mapping coverage --lang <code> affiche tout)"
+"mc_cov_kw_ok" = "   ✅ Mots-clés entièrement couverts"
+"mc_cov_all_ok" = "🏁 Couverture des mots-clés réussie pour toutes les langues"
+"mc_cov_no_repo" = "❌ La couverture du corpus nécessite le dépôt source : exécutez à la racine du dépôt zrRust"

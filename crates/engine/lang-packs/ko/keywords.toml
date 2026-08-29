@@ -13,6 +13,7 @@
 "정적" = "static"
 "구조체" = "struct"
 "열거형" = "enum"
+"공용체" = "union"
 "타입" = "type"
 "트레이트" = "trait"
 "구현" = "impl"

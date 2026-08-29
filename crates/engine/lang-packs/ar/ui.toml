@@ -606,3 +606,17 @@
 "captures" = "Captures the matched groups (regex)."
 "Lazy" = "A lazily initialized global value: computed on first use (once_cell)."
 "OnceCell" = "A write-once container: thread-safe (once_cell)."
+
+
+# ---- mapping coverage (Korpus-Abdeckungsmatrix) ----
+"mc_cov_header" = "🔬 مصفوفة تغطية المجموعة: {}"
+"mc_cov_corpus_intro" = "📖 المجموعة: كود المصدر الحقيقي للخلفية (crates/engine + cli + lsp src/*.rs)"
+"mc_cov_stats" = "   التغطية: {} / {} ({}٪) · المجموعة: {} ملفات مصدرية"
+"mc_cov_kw_missing" = "   ❌ كلمة مفتاحية بدون ترجمة: {} ({} مرة، مثال: {})"
+"mc_cov_std_missing" = "   ⚠️ وحدة/نوع std بدون ترجمة: {} ({} مرة، مثال: {})"
+"mc_cov_crate_missing" = "   ⚠️ crate خارجي بدون ترجمة: {} ({} مرة، مثال: {})"
+"mc_cov_type_missing" = "   ⚠️ اسم نوع بدون ترجمة (غالبًا داخلي للمترجم، يمكن تجاهله): {} ({} مرة، مثال: {})"
+"mc_cov_more" = "   … {} إدخالات أخرى محذوفة (rzc mapping coverage --lang <الرمز> يعرض الكل)"
+"mc_cov_kw_ok" = "   ✅ الكلمات المفتاحية مغطاة بالكامل"
+"mc_cov_all_ok" = "🏁 تغطية الكلمات المفتاحية لجميع اللغات ناجحة"
+"mc_cov_no_repo" = "❌ تغطية المجموعة تتطلب مستودع المصدر: نفّذ في جذر مستودع zrRust"

@@ -15,6 +15,7 @@
 | `rzc lang list` | 查看可用语言包 | |
 | `rzc lang install 语言` | 安装语言包 | `rzc lang install ja` |
 | `rzc mapping check` | 校验第三方库映射文件 | |
+| `rzc mapping coverage` | 用后端真实源码检验语言包覆盖度，列出缺失的母语映射（在 zrRust 仓库根运行） | `rzc mapping coverage --lang zh` |
 | `rzc mapping scaffold` | 为新语言生成映射脚手架 | |
 | `rzc cargo add 库名` | 添加依赖（转发给 cargo） | `rzc cargo add rand` |
 | `rzc install lsp` | 安装语言服务器（VS Code 智能提示） | |

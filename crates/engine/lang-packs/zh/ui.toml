@@ -176,6 +176,18 @@
 "mc_scaffold_ai_retry_left" = "⚠️ 改名后仍有冲突残留，请运行 rzc mapping check {} 人工处理"
 "cmd_mapping_scaffold_provider_help" = "翻译方式：rule（默认，生成 TODO 骨架待人工翻译）或 deepseek（AI 自动翻译键名，需 DEEPSEEK_API_KEY）"
 "mapping_explain_too_long" = "警告: AI 解释超过 {} 字（{} 字）：{}"
+# ---- mapping coverage（语料覆盖矩阵） ----
+"mc_cov_header" = "🔬 语料覆盖矩阵: {}"
+"mc_cov_corpus_intro" = "📖 语料：后端真实源码（crates/engine + cli + lsp 的 src/*.rs）"
+"mc_cov_stats" = "   覆盖: {} / {}（{}%）· 语料 {} 个源文件"
+"mc_cov_kw_missing" = "   ❌ 关键字缺母语映射: {}（{} 次，例: {}）"
+"mc_cov_std_missing" = "   ⚠️ std 模块/类型缺母语映射: {}（{} 次，例: {}）"
+"mc_cov_crate_missing" = "   ⚠️ 第三方 crate 缺母语映射: {}（{} 次，例: {}）"
+"mc_cov_type_missing" = "   ⚠️ 类型名缺母语映射（多为编译器内部实现，可按需忽略）: {}（{} 次，例: {}）"
+"mc_cov_more" = "   … 其余 {} 条省略（用 rzc mapping coverage --lang <代码> 查看全部）"
+"mc_cov_kw_ok" = "   ✅ 关键字全覆盖"
+"mc_cov_all_ok" = "🏁 全部语言关键字覆盖通过"
+"mc_cov_no_repo" = "❌ 语料覆盖检测需要源码仓库：请在 zrRust 仓库根目录运行此命令"
 # ---- 引擎/LSP/CLI 消息本地化追加 ----
 "err_line_col" = "第 {} 行第 {} 列"
 "err_input_invalid" = "输入无效：{}"

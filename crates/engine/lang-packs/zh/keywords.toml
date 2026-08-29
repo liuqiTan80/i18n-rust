@@ -13,6 +13,7 @@
 "静态" = "static"
 "结构体" = "struct"
 "枚举" = "enum"
+"联合" = "union"
 "类型" = "type"
 "特征" = "trait"
 "实现" = "impl"

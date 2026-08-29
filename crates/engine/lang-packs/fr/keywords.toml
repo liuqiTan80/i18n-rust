@@ -13,6 +13,7 @@
 "statique" = "static"
 "structure" = "struct"
 "enumeration" = "enum"
+"union" = "union"
 "type" = "type"
 "trait" = "trait"
 "implementation" = "impl"

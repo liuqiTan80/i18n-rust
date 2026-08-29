@@ -606,3 +606,17 @@
 "captures" = "Captures the matched groups (regex)."
 "Lazy" = "A lazily initialized global value: computed on first use (once_cell)."
 "OnceCell" = "A write-once container: thread-safe (once_cell)."
+
+
+# ---- mapping coverage (Korpus-Abdeckungsmatrix) ----
+"mc_cov_header" = "🔬 कॉर्पस कवरेज मैट्रिक्स: {}"
+"mc_cov_corpus_intro" = "📖 कॉर्पस: वास्तविक बैकएंड स्रोत कोड (crates/engine + cli + lsp src/*.rs)"
+"mc_cov_stats" = "   कवरेज: {} / {} ({}%) · कॉर्पस: {} स्रोत फ़ाइलें"
+"mc_cov_kw_missing" = "   ❌ कीवर्ड के लिए मातृभाषा मैपिंग नहीं: {} ({} बार, उदा. {})"
+"mc_cov_std_missing" = "   ⚠️ std मॉड्यूल/प्रकार के लिए मैपिंग नहीं: {} ({} बार, उदा. {})"
+"mc_cov_crate_missing" = "   ⚠️ तृतीय-पक्ष crate के लिए मैपिंग नहीं: {} ({} बार, उदा. {})"
+"mc_cov_type_missing" = "   ⚠️ प्रकार नाम के लिए मैपिंग नहीं (अधिकतर कंपाइलर आंतरिक, अनदेखा कर सकते हैं): {} ({} बार, उदा. {})"
+"mc_cov_more" = "   … {} और प्रविष्टियाँ छोड़ीं (पूर्ण देखने के लिए rzc mapping coverage --lang <कोड>)"
+"mc_cov_kw_ok" = "   ✅ कीवर्ड पूरी तरह कवर"
+"mc_cov_all_ok" = "🏁 सभी भाषाओं में कीवर्ड कवरेज उत्तीर्ण"
+"mc_cov_no_repo" = "❌ कॉर्पस कवरेज के लिए स्रोत रिपॉजिटरी चाहिए: zrRust रिपॉजिटरी रूट में चलाएँ"

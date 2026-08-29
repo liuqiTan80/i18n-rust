@@ -606,3 +606,17 @@
 "captures" = "Captures the matched groups (regex)."
 "Lazy" = "A lazily initialized global value: computed on first use (once_cell)."
 "OnceCell" = "A write-once container: thread-safe (once_cell)."
+
+
+# ---- mapping coverage (Korpus-Abdeckungsmatrix) ----
+"mc_cov_header" = "🔬 코퍼스 커버리지 매트릭스: {}"
+"mc_cov_corpus_intro" = "📖 코퍼스: 백엔드 실제 소스 코드 (crates/engine + cli + lsp의 src/*.rs)"
+"mc_cov_stats" = "   커버리지: {} / {} ({}%) · 코퍼스: {} 소스 파일"
+"mc_cov_kw_missing" = "   ❌ 키워드 모국어 매핑 없음: {} ({}회, 예: {})"
+"mc_cov_std_missing" = "   ⚠️ std 모듈/타입 매핑 없음: {} ({}회, 예: {})"
+"mc_cov_crate_missing" = "   ⚠️ 서드파티 crate 매핑 없음: {} ({}회, 예: {})"
+"mc_cov_type_missing" = "   ⚠️ 타입 이름 매핑 없음 (대부분 컴파일러 내부, 무시 가능): {} ({}회, 예: {})"
+"mc_cov_more" = "   … 나머지 {}건 생략 (전체: rzc mapping coverage --lang <코드>)"
+"mc_cov_kw_ok" = "   ✅ 키워드 완전 커버"
+"mc_cov_all_ok" = "🏁 모든 언어 키워드 커버리지 통과"
+"mc_cov_no_repo" = "❌ 코퍼스 커버리지는 소스 저장소 필요: zrRust 저장소 루트에서 실행"

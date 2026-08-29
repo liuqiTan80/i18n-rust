@@ -606,3 +606,17 @@
 "captures" = "Captures the matched groups (regex)."
 "Lazy" = "A lazily initialized global value: computed on first use (once_cell)."
 "OnceCell" = "A write-once container: thread-safe (once_cell)."
+
+
+# ---- mapping coverage (Korpus-Abdeckungsmatrix) ----
+"mc_cov_header" = "🔬 コーパス網羅マトリクス: {}"
+"mc_cov_corpus_intro" = "📖 コーパス: バックエンドの実ソースコード（crates/engine + cli + lsp の src/*.rs）"
+"mc_cov_stats" = "   網羅率: {} / {}（{}%）・コーパス: {} ソースファイル"
+"mc_cov_kw_missing" = "   ❌ キーワードの母語マッピングなし: {}（{} 回、例: {}）"
+"mc_cov_std_missing" = "   ⚠️ std モジュール/型のマッピングなし: {}（{} 回、例: {}）"
+"mc_cov_crate_missing" = "   ⚠️ サードパーティ crate のマッピングなし: {}（{} 回、例: {}）"
+"mc_cov_type_missing" = "   ⚠️ 型名のマッピングなし（多くはコンパイラ内部、無視可）: {}（{} 回、例: {}）"
+"mc_cov_more" = "   … 他 {} 件省略（全件は rzc mapping coverage --lang <コード>）"
+"mc_cov_kw_ok" = "   ✅ キーワードを完全網羅"
+"mc_cov_all_ok" = "🏁 全言語のキーワード網羅合格"
+"mc_cov_no_repo" = "❌ コーパス網羅にはソースリポジトリが必要: zrRust リポジトリルートで実行してください"

@@ -15,6 +15,7 @@ mod builtin_lang;
 mod install;
 mod lang_manager;
 mod mapping_check;
+mod mapping_coverage;
 mod mapping_gen;
 mod ui;
 
@@ -124,6 +125,12 @@ enum MappingCommand {
     Check {
         /// 内置语言代码（如 zh）或语言包目录路径；省略时校验全部内置语言
         target: Option<String>,
+    },
+    /// 语料覆盖矩阵：用后端真实源码检验语言包关键字/API 覆盖度，自动列出缺失的母语映射
+    Coverage {
+        /// 内置语言代码（如 zh）；省略时检测全部内置语言
+        #[arg(long)]
+        lang: Option<String>,
     },
     /// 从源语言 crates 映射生成目标语言的翻译骨架（键保留待翻译，英文值不变）
     Scaffold {
@@ -451,6 +458,16 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 let lang = mapping_gen::detect_system_language();
                 i18n_rust_engine::语言::set_language(&lang);
                 match mapping_check::run_check(target.as_deref()) {
+                    Ok(true) => Ok(std::process::ExitCode::SUCCESS),
+                    Ok(false) => Ok(std::process::ExitCode::FAILURE),
+                    Err(err) => Err(err),
+                }
+            }
+            MappingCommand::Coverage { lang } => {
+                // coverage 输出的语言默认跟随系统语言
+                let ui_lang = mapping_gen::detect_system_language();
+                i18n_rust_engine::语言::set_language(&ui_lang);
+                match mapping_coverage::run_coverage(lang.as_deref()) {
                     Ok(true) => Ok(std::process::ExitCode::SUCCESS),
                     Ok(false) => Ok(std::process::ExitCode::FAILURE),
                     Err(err) => Err(err),

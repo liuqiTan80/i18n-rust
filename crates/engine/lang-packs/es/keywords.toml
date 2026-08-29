@@ -13,6 +13,7 @@
 "estatico" = "static"
 "estructura" = "struct"
 "enumeracion" = "enum"
+"union" = "union"
 "tipo" = "type"
 "rasgo" = "trait"
 "implementacion" = "impl"
