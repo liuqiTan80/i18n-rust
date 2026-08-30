@@ -313,7 +313,14 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 let _ = translate_cargo_diagnostics(
                     &json_lines,
                     "",
-                    &DiagContext { ui: &ui, lang_pack: &lang_pack, project_root: &project_root, manager: &manager, source: &source, file: &file },
+                    &DiagContext {
+                        ui: &ui,
+                        lang_pack: &lang_pack,
+                        project_root: &project_root,
+                        manager: &manager,
+                        source: &source,
+                        file: &file,
+                    },
                     status.success(),
                     true,
                 );
@@ -379,7 +386,14 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let _ = translate_cargo_diagnostics(
                 &rustc_output,
                 &stderr_text,
-                &DiagContext { ui: &ui, lang_pack: &lang_pack, project_root: &project_root, manager: &manager, source: &source, file: &file },
+                &DiagContext {
+                    ui: &ui,
+                    lang_pack: &lang_pack,
+                    project_root: &project_root,
+                    manager: &manager,
+                    source: &source,
+                    file: &file,
+                },
                 output.status.success(),
                 false, // check 场景：无诊断且成功时提示"编译成功"
             );
@@ -748,11 +762,7 @@ fn can_use_direct_rustc(project_root: &Path, file: &Path) -> bool {
     // 动态方言扩展名（内置 + 用户安装），避免硬编码列表与
     // `rzc lang install` 安装的新语言包脱节（新增语言走不了快速路径）
     let extensions = lang_manager::all_available_extensions();
-    let is_dialect_file = |name: &str| {
-        extensions
-            .iter()
-            .any(|e| name.ends_with(&format!(".{e}")))
-    };
+    let is_dialect_file = |name: &str| extensions.iter().any(|e| name.ends_with(&format!(".{e}")));
     // 方言文件计数：src/ 与项目根都扫（教学项目 src/main.zh 为主，
     // 项目根也可能放 main.zh）；超过 1 个视为多文件项目
     let mut dialect_count = 0usize;
@@ -826,7 +836,14 @@ fn run_direct_rustc(
         let _ = translate_cargo_diagnostics(
             &rustc_output,
             &stderr_text,
-            &DiagContext { ui, lang_pack, project_root, manager, source, file },
+            &DiagContext {
+                ui,
+                lang_pack,
+                project_root,
+                manager,
+                source,
+                file,
+            },
             ok,
             true,
         );
@@ -883,7 +900,14 @@ fn check_direct_rustc(
     let _ = translate_cargo_diagnostics(
         &rustc_output,
         &stderr_text,
-        &DiagContext { ui, lang_pack, project_root, manager, source, file },
+        &DiagContext {
+            ui,
+            lang_pack,
+            project_root,
+            manager,
+            source,
+            file,
+        },
         output.status.success(),
         false,
     );
@@ -1376,10 +1400,7 @@ fn write_transpiled(path: &Path, content: &str, ui: &crate::ui::Ui) -> anyhow::R
             "{}",
             ui.f(
                 "transpile_backup",
-                &[
-                    &path.display().to_string(),
-                    &backup.display().to_string()
-                ]
+                &[&path.display().to_string(), &backup.display().to_string()]
             )
         );
     }
@@ -1490,9 +1511,17 @@ fn load_mapping(
     lang_pack_path: Option<PathBuf>,
     source_file: Option<&Path>,
 ) -> anyhow::Result<MappingManager> {
+    // 映射数据来源日志（语言包开发调试：RZ_LOG=info rzc check 可见）
+    // 注意：load_mapping 先于转译管线执行，logger 需在此提前初始化（幂等）
+    i18n_rust_engine::logger::init();
     let ui = ui_for_file(source_file.unwrap_or(Path::new("")), &lang_pack_path);
     // 1. 如果用户通过 --lang-pack 指定了外部目录，强制使用
     if let Some(path) = lang_pack_path {
+        i18n_rust_engine::log_info!(
+            "映射加载",
+            "{}",
+            ui.f("mapping_source_explicit", &[&path.display().to_string()])
+        );
         return MappingManager::load_from_dir(&path)
             .map_err(|e| anyhow::anyhow!("{}", ui.f("load_lang_pack_failed", &[&e.to_string()])));
     }
@@ -1531,6 +1560,14 @@ fn load_mapping(
     local_candidates.push(lang_pack_root_of(&cwd).join(&lang_code));
     for local_path in &local_candidates {
         if local_path.exists() {
+            i18n_rust_engine::log_info!(
+                "映射加载",
+                "{}",
+                ui.f(
+                    "mapping_source_project",
+                    &[&local_path.display().to_string()]
+                )
+            );
             return MappingManager::load_from_dir(local_path).map_err(|e| {
                 anyhow::anyhow!("{}", ui.f("load_local_lang_pack_failed", &[&e.to_string()]))
             });
@@ -1539,6 +1576,14 @@ fn load_mapping(
     // 4. 全局用户语言包目录
     let global_path = lang_manager::global_lang_dir().join(&lang_code);
     if global_path.exists() {
+        i18n_rust_engine::log_info!(
+            "映射加载",
+            "{}",
+            ui.f(
+                "mapping_source_global",
+                &[&global_path.display().to_string()]
+            )
+        );
         return MappingManager::load_from_dir(&global_path).map_err(|e| {
             anyhow::anyhow!(
                 "{}",
@@ -1554,6 +1599,11 @@ fn load_mapping(
         ));
     }
     let builtin = builtin_lang::get_builtin_data(&lang_code);
+    i18n_rust_engine::log_info!(
+        "映射加载",
+        "{}",
+        ui.f("mapping_source_builtin", &[&lang_code])
+    );
     MappingManager::load_from_builtin(
         builtin.keywords_toml,
         builtin.module_paths_toml,

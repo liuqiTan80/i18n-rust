@@ -115,7 +115,11 @@ impl TranslationCache {
                 crate::ui::global().f("lsp_err_temp_symlink", &[&temp_dir.display().to_string()])
             );
         }
-        log_io_err("创建临时目录", &temp_dir, std::fs::create_dir_all(&temp_dir));
+        log_io_err(
+            "创建临时目录",
+            &temp_dir,
+            std::fs::create_dir_all(&temp_dir),
+        );
         log_io_err(
             "创建 src 目录",
             &temp_dir.join("src"),
@@ -198,9 +202,7 @@ impl TranslationCache {
             let mut existed = false;
             if let Ok(table) = self.entries.read() {
                 for entry in table.values() {
-                    if let Some(name) =
-                        entry.original_path.file_stem().and_then(|s| s.to_str())
-                    {
+                    if let Some(name) = entry.original_path.file_stem().and_then(|s| s.to_str()) {
                         if name == new_name {
                             existed = true;
                         }
@@ -427,7 +429,6 @@ impl TranslationCache {
     ///
     /// 由调用方先经 query_by_virtual_uri/query_original 预取条目后，
     /// 调用无锁纯函数 zh_col_to_en_col_single（请求方向位置转换热路径）。
-
     /// 将英文（虚拟文件）内容反向翻译为母语内容
     ///
     /// 供代码格式化（textDocument/formatting）与补全/代码操作文本还原使用：
@@ -571,11 +572,7 @@ impl TranslationCache {
         // 先确保父目录存在（首次打开时 src/ 可能尚未创建，
         // 直接写会静默失败导致 cargo check 读到不完整的虚拟项目）
         if let Some(parent) = new_entry.virtual_path.parent() {
-            log_io_err(
-                "创建父目录",
-                parent,
-                std::fs::create_dir_all(parent),
-            );
+            log_io_err("创建父目录", parent, std::fs::create_dir_all(parent));
         }
         log_io_err(
             "写入虚拟文件",
@@ -919,8 +916,11 @@ fn replay_column_map(
     let by_offset: HashMap<usize, &SourceMapEntry> =
         pipeline_map.iter().map(|e| (e.source_offset, e)).collect();
 
-    let mut per_line_map: Vec<Vec<ColumnMapPoint>> =
-        vec![vec![ColumnMapPoint { en_col: 0, zh_col: 0, offset_diff: 0 }]];
+    let mut per_line_map: Vec<Vec<ColumnMapPoint>> = vec![vec![ColumnMapPoint {
+        en_col: 0,
+        zh_col: 0,
+        offset_diff: 0,
+    }]];
     let mut zh_col = 0u32;
     let mut en_col = 0u32;
     let mut cumulative_diff = 0i32; // 当前行内 en_col - zh_col
@@ -1059,10 +1059,7 @@ mod tests {
     #[test]
     fn test_update_document() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(
-            test_manager(HashMap::new()),
-            temp.path().to_path_buf(),
-        );
+        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
 
         let (entry, others) = cache
             .update_document("file:///test/main.zh", "让 可变 x = 5;", 1)
@@ -1080,10 +1077,7 @@ mod tests {
             ("字符串".into(), "String".into()),
             ("新建".into(), "new".into()),
         ]);
-        let cache = TranslationCache::new(
-            test_manager(alias_map),
-            temp.path().to_path_buf(),
-        );
+        let cache = TranslationCache::new(test_manager(alias_map), temp.path().to_path_buf());
 
         let (entry, _) = cache
             .update_document(
@@ -1105,10 +1099,7 @@ mod tests {
     fn test_alias_usage_replaced_when_not_declared() {
         let temp = tempfile::tempdir().unwrap();
         let alias_map = HashMap::from([("字符串".into(), "String".into())]);
-        let cache = TranslationCache::new(
-            test_manager(alias_map),
-            temp.path().to_path_buf(),
-        );
+        let cache = TranslationCache::new(test_manager(alias_map), temp.path().to_path_buf());
 
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 s: 字符串 = x;", 1)
@@ -1121,10 +1112,7 @@ mod tests {
     fn test_alias_column_map_alignment() {
         let temp = tempfile::tempdir().unwrap();
         let alias_map = HashMap::from([("字符串".into(), "String".into())]);
-        let cache = TranslationCache::new(
-            test_manager(alias_map),
-            temp.path().to_path_buf(),
-        );
+        let cache = TranslationCache::new(test_manager(alias_map), temp.path().to_path_buf());
         let uri = "file:///test/main.zh";
         let (entry, _) = cache.update_document(uri, "让 s: 字符串 = x;", 1).unwrap();
 
@@ -1139,10 +1127,7 @@ mod tests {
     #[test]
     fn test_close_document() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(
-            test_manager(HashMap::new()),
-            temp.path().to_path_buf(),
-        );
+        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
 
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
@@ -1158,10 +1143,7 @@ mod tests {
     #[test]
     fn test_close_document_missing_is_noop() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(
-            test_manager(HashMap::new()),
-            temp.path().to_path_buf(),
-        );
+        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
         cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
             .unwrap();
@@ -1176,10 +1158,7 @@ mod tests {
     #[test]
     fn test_user_defined_tokens_cache_invalidation() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(
-            test_manager(HashMap::new()),
-            temp.path().to_path_buf(),
-        );
+        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
         cache
             .update_document("file:///test/main.zh", "函数 自定义甲() {}", 1)
             .unwrap();
@@ -1199,10 +1178,7 @@ mod tests {
     #[test]
     fn test_query_by_virtual_uri() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(
-            test_manager(HashMap::new()),
-            temp.path().to_path_buf(),
-        );
+        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
 
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
@@ -1399,10 +1375,7 @@ mod tests {
     #[test]
     fn test_update_document_encoded_chinese_filename() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(
-            test_manager(HashMap::new()),
-            temp.path().to_path_buf(),
-        );
+        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
         let (entry, _) = cache
             .update_document("file:///test/%E6%B5%8B%E8%AF%95.zh", "让 x = 1;", 1)
             .unwrap();

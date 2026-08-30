@@ -115,7 +115,7 @@
 "copiavel" = "Copy"
 "depuracao" = "Debug"
 "exibivel" = "Display"
-"padrao" = "Default"
+"omissao" = "Default"
 "valor_padrao" = "default"
 "igualdade_parcial" = "PartialEq"
 "igualdade" = "Eq"

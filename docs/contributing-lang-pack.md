@@ -60,6 +60,28 @@ rzc lang list                       # 确认出现在列表中
 
 端到端验证：写一段母语方言源码，`rzc eject` 应转出标准 Rust。
 
+### 2.4 调试：“改了不生效”排查
+
+语言包经 `build.rs` **编译期嵌入二进制**（`include_str!`），在项目外（如 /tmp）运行时
+走的是内置数据——修改 `stdlib.toml` 等文件后若不重新编译，验证的仍是旧行为。
+
+排查三步：
+
+```bash
+# 1. 确认数据来源（内置/项目/全局/显式目录，RZ_LOG=info 可见）
+RZ_LOG=info rzc check 你的文件.zh
+#    [信息] [映射加载] 映射数据来源: 内置语言包 zh（编译期嵌入，修改后需重新编译）
+
+# 2. 重新编译使内置数据生效（仓库内修改后必做）
+cargo build -p rzc
+
+# 3. 想免编译验证：在主仓库内运行（走文件系统），或用 --lang-pack 指定目录
+rzc check 你的文件.zh --lang-pack crates/engine/lang-packs/zh
+```
+
+加载优先级：`--lang-pack` 显式目录 > 项目内 `lang-packs/<码>`（主仓库为
+`crates/engine/lang-packs/<码>`）> 全局 `~/.rz/lang-packs/<码>`（`RZ_LANG_DIR` 可改）> 内置。
+
 ## 3. 分享给他人：两条路线
 
 ### 路线 A：合入主仓库（推荐，所有人默认内置）

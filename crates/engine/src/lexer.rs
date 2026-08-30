@@ -1044,12 +1044,7 @@ mod tests {
         );
         // 后跟非模块名时还原为 包::（不受序号影响）
         assert_eq!(
-            reverse_transpile(
-                "fn main() { crate::外部函数(); }",
-                &reverse,
-                &set,
-                &added
-            ),
+            reverse_transpile("fn main() { crate::外部函数(); }", &reverse, &set, &added),
             "函数 main() { 包::外部函数(); }"
         );
     }

@@ -31,10 +31,10 @@ struct Corpus {
 
 /// Rust 稳定关键字全集（方言母语映射应覆盖；rustc_lexer 不区分关键字，需自行匹配）
 const RUST_KEYWORDS: &[&str] = &[
-    "as", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern", "false",
-    "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub",
-    "ref", "return", "self", "Self", "static", "struct", "super", "trait", "true", "type",
-    "unsafe", "use", "where", "while", "async", "await", "union",
+    "as", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern", "false", "fn",
+    "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref",
+    "return", "self", "Self", "static", "struct", "super", "trait", "true", "type", "unsafe",
+    "use", "where", "while", "async", "await", "union",
 ];
 
 impl Corpus {
@@ -275,7 +275,9 @@ fn build_reverse_index(
     let mut reverse: HashMap<String, String> = HashMap::new();
     let insert_rev = |reverse: &mut HashMap<String, String>, value: &str, key: &str| {
         if !value.is_empty() {
-            reverse.entry(value.to_string()).or_insert_with(|| key.to_string());
+            reverse
+                .entry(value.to_string())
+                .or_insert_with(|| key.to_string());
         }
     };
     if let Ok(sections) = i18n_rust_engine::mapping_source::parse_toml_sections(keywords_toml) {
@@ -421,10 +423,7 @@ fn print_report(report: &CoverageReport, source_count: usize) {
         );
     }
     if kw_total > 30 {
-        println!(
-            "{}",
-            ui.f("mc_cov_more", &[&(kw_total - 30).to_string()])
-        );
+        println!("{}", ui.f("mc_cov_more", &[&(kw_total - 30).to_string()]));
     }
     // std 段缺失（warning 级，最多展示 25 条）：用户写代码最常遇到，优先补齐
     let std_total = report.missing_std.len();
@@ -435,10 +434,7 @@ fn print_report(report: &CoverageReport, source_count: usize) {
         );
     }
     if std_total > 25 {
-        println!(
-            "{}",
-            ui.f("mc_cov_more", &[&(std_total - 25).to_string()])
-        );
+        println!("{}", ui.f("mc_cov_more", &[&(std_total - 25).to_string()]));
     }
     // 第三方 crate 缺失（warning 级，最多展示 15 条）
     let crate_total = report.missing_crates.len();
@@ -463,10 +459,7 @@ fn print_report(report: &CoverageReport, source_count: usize) {
         );
     }
     if type_total > 15 {
-        println!(
-            "{}",
-            ui.f("mc_cov_more", &[&(type_total - 15).to_string()])
-        );
+        println!("{}", ui.f("mc_cov_more", &[&(type_total - 15).to_string()]));
     }
     if kw_total == 0 {
         println!("{}", ui.t("mc_cov_kw_ok"));
@@ -548,7 +541,10 @@ pub fn main() -> Result<(), Box<dyn Error>> {
         for kw in ["fn", "let", "pub", "dyn"] {
             assert!(corpus.keywords.contains_key(kw), "缺少关键字 {kw}");
         }
-        assert!(!corpus.keywords.contains_key("use"), "use 不应作为关键字语料");
+        assert!(
+            !corpus.keywords.contains_key("use"),
+            "use 不应作为关键字语料"
+        );
         // std 路径段
         for seg in ["std", "collections", "HashMap", "fs", "read_to_string"] {
             assert!(corpus.std_segments.contains_key(seg), "缺少 std 段 {seg}");
@@ -558,11 +554,17 @@ pub fn main() -> Result<(), Box<dyn Error>> {
             assert!(corpus.external_crates.contains_key(c), "缺少 crate {c}");
         }
         // 内部路径忽略：i18n_rust_engine 是 crate 名（外部），crate:: 内部忽略
-        assert!(!corpus.external_crates.contains_key("crate"), "crate:: 不应计入");
+        assert!(
+            !corpus.external_crates.contains_key("crate"),
+            "crate:: 不应计入"
+        );
         // 类型名：use 段中的大写 + 普通大写标识符
         assert!(corpus.type_names.contains_key("Serialize"));
         assert!(corpus.type_names.contains_key("MyServer"));
-        assert!(corpus.type_names.contains_key("Error"), "Box<dyn Error> 的 Error");
+        assert!(
+            corpus.type_names.contains_key("Error"),
+            "Box<dyn Error> 的 Error"
+        );
         assert!(
             !corpus.external_crates.contains_key("HashMap"),
             "裸 HashMap::new() 是类型引用而非 crate"
@@ -586,12 +588,17 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     /// use as 别名与泛型单字符不进入语料
     #[test]
     fn test_extract_names_alias_and_generics() {
-        let src =
-            "use std::fmt::Result as FmtResult;\nfn foo<T>(x: T) -> Result<T> { Ok(x) }\n";
+        let src = "use std::fmt::Result as FmtResult;\nfn foo<T>(x: T) -> Result<T> { Ok(x) }\n";
         let mut corpus = Corpus::default();
         extract_names_from_source("t.rs", src, &mut corpus);
-        assert!(!corpus.type_names.contains_key("FmtResult"), "as 别名应跳过");
-        assert!(!corpus.type_names.contains_key("T"), "单字符泛型参数不应计入");
+        assert!(
+            !corpus.type_names.contains_key("FmtResult"),
+            "as 别名应跳过"
+        );
+        assert!(
+            !corpus.type_names.contains_key("T"),
+            "单字符泛型参数不应计入"
+        );
         assert!(corpus.std_segments.contains_key("fmt"));
         assert!(corpus.keywords.contains_key("fn"));
         assert!(
@@ -606,7 +613,10 @@ pub fn main() -> Result<(), Box<dyn Error>> {
         let keywords = "[\"声明\"]\n\"函数\" = \"fn\"\n\"让\" = \"let\"\n[\"派生特征\"]\n\"调试\" = \"Debug\"\n";
         let module_paths = "[\"模块路径\"]\n\"标准库\" = \"std\"\n";
         let stdlib = "[\"标识符\"]\n\"字符串\" = \"String\"\n";
-        let crates = [("serde.toml", "[\"模块路径\"]\n\"序列化\" = \"serde\"\n[\"标识符\"]\n\"序列化特征\" = \"Serialize\"\n")];
+        let crates = [(
+            "serde.toml",
+            "[\"模块路径\"]\n\"序列化\" = \"serde\"\n[\"标识符\"]\n\"序列化特征\" = \"Serialize\"\n",
+        )];
         let rev = build_reverse_index(keywords, module_paths, stdlib, &crates);
         assert_eq!(rev.get("fn").map(String::as_str), Some("函数"));
         assert_eq!(rev.get("let").map(String::as_str), Some("让"));
@@ -627,7 +637,9 @@ pub fn main() -> Result<(), Box<dyn Error>> {
         corpus.keywords.insert("fn".into(), (3, "a.rs".into()));
         corpus.keywords.insert("unsafe".into(), (1, "b.rs".into()));
         corpus.std_segments.insert("std".into(), (9, "a.rs".into()));
-        corpus.type_names.insert("NotCovered".into(), (2, "b.rs".into()));
+        corpus
+            .type_names
+            .insert("NotCovered".into(), (2, "b.rs".into()));
         let report = coverage_for(&corpus, &rev, "zh");
         assert!(report.missing_keywords.iter().any(|(n, ..)| n == "unsafe"));
         assert!(!report.missing_keywords.iter().any(|(n, ..)| n == "fn"));

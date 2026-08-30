@@ -172,19 +172,32 @@ fn extract_keyword_map(content: &str) -> HashMap<String, String> {
 ///
 /// 检查项（按严重级别）：
 /// - error：TOML 解析失败（含重复键）
+/// - error：stdlib.toml 解析失败（重复键等——stdlib 整体加载失败，
+///   运行时标准库映射全部丢失，此前静默吞掉导致 de/pt 重复键长期潜伏）
 /// - error：crates 键与 keywords.toml 键相撞（关键字先替换，crates 键永不生效）
-/// - error：crates 文件之间标识符同键不同值（合并非确定）
+/// - error：crates 文件之间模块路径/标识符同键不同值（合并非确定）
 /// - warning：crates 标识符键与 stdlib 标识符同键不同值（stdlib 优先，crates 键失效）
+///
+/// 设计约定（不检查）：同一文件内 `["模块路径"]` 与 `["标识符"]`
+/// 双节同键不同值是合法模式（模块路径=crate 名小写如 `rocket`，
+/// 标识符=类型名 `Rocket`，两表在词法/语义阶段独立查询，互不干扰），
+/// 不视为冲突；同键同值则为安全冗余。
 pub fn check_lang_pack(view: &LangPackView) -> CheckReport {
     let mut report = CheckReport::default();
     let keyword_map = extract_keyword_map(&view.keywords_toml);
 
-    // stdlib 标识符表（用于 warning 级别的覆盖检测）
-    let stdlib_idents = extract_sections(&view.stdlib_toml)
-        .map(|(_, idents)| idents)
-        .unwrap_or_default();
+    // stdlib 解析失败必须报错（重复键等会让 stdlib 整体加载失败）；
+    // 空内容（无 stdlib 文件）解析为空表，不会误报
+    let (_, stdlib_idents) = match extract_sections(&view.stdlib_toml) {
+        Ok(sections) => sections,
+        Err(e) => {
+            report.errors.push(format!("mc_stdlib_parse_failed|{e}"));
+            (HashMap::new(), HashMap::new())
+        }
+    };
 
-    // 跨文件标识符键追踪：键 -> (值, 首次出现的文件)
+    // 跨文件键追踪（模块路径与标识符分别维护）：键 -> (值, 首次出现的文件)
+    let mut seen_module_paths: HashMap<String, (String, String)> = HashMap::new();
     let mut seen_idents: HashMap<String, (String, String)> = HashMap::new();
 
     for (file_name, content) in &view.crates {
@@ -202,12 +215,18 @@ pub fn check_lang_pack(view: &LangPackView) -> CheckReport {
         report.stats.module_path_entries += module_paths.len();
         report.stats.ident_entries += idents.len();
 
-        // 2. 关键字避让 + 3. 跨文件冲突（对模块路径节与标识符节的键都检查）
+        // 2. 关键字避让（对模块路径节与标识符节的键都检查）
+        // 3. 跨文件同键不同值（两节对称：合并结果由文件名排序决定，
+        //    同键不同值意味着覆盖语义取决于排序，属确定性歧义）
         for section_name in ["模块路径", "标识符"] {
-            let entries = if section_name == "模块路径" {
-                &module_paths
+            let (entries, seen, err_code) = if section_name == "模块路径" {
+                (
+                    &module_paths,
+                    &mut seen_module_paths,
+                    "mc_cross_conflict_mp",
+                )
             } else {
-                &idents
+                (&idents, &mut seen_idents, "mc_cross_conflict")
             };
             for (key, value) in entries {
                 // 关键字避让：仅当 crates 键与关键字**值不同**时报错；
@@ -221,27 +240,26 @@ pub fn check_lang_pack(view: &LangPackView) -> CheckReport {
                         keyword_map[key]
                     ));
                 }
-                // 标识符节的跨文件冲突与 stdlib 覆盖检测
-                if section_name == "标识符" {
-                    if let Some((prev_value, prev_file)) = seen_idents.get(key) {
-                        if prev_value != value {
-                            report.errors.push(format!(
-                                "mc_cross_conflict|{key}|{prev_file}|{prev_value}|{file_name}|{value}"
-                            ));
-                        }
-                    } else {
-                        seen_idents.insert(key.clone(), (value.clone(), file_name.clone()));
-                    }
-                    // stdlib 优先覆盖检测
-                    if stdlib_idents
-                        .get(key)
-                        .is_some_and(|stdlib_value| stdlib_value != value)
-                    {
-                        report.warnings.push(format!(
-                            "mc_stdlib_shadow|{file_name}|{key}|{value}|{}",
-                            stdlib_idents[key]
+                // 跨文件同键不同值
+                if let Some((prev_value, prev_file)) = seen.get(key) {
+                    if prev_value != value {
+                        report.errors.push(format!(
+                            "{err_code}|{key}|{prev_file}|{prev_value}|{file_name}|{value}"
                         ));
                     }
+                } else {
+                    seen.insert(key.clone(), (value.clone(), file_name.clone()));
+                }
+                // stdlib 覆盖检测（标识符节；stdlib 后加载优先）
+                if section_name == "标识符"
+                    && stdlib_idents
+                        .get(key)
+                        .is_some_and(|stdlib_value| stdlib_value != value)
+                {
+                    report.warnings.push(format!(
+                        "mc_stdlib_shadow|{file_name}|{key}|{value}|{}",
+                        stdlib_idents[key]
+                    ));
                 }
             }
         }
@@ -723,6 +741,11 @@ fn collect_conflict_items(report: &CheckReport, output_dir: &Path) -> Vec<(Strin
                 items.push((parts[2].to_string(), key.to_string()));
                 items.push((parts[4].to_string(), key.to_string()));
             }
+            Some("mc_cross_conflict_mp") if parts.len() >= 6 => {
+                let key = parts[1];
+                items.push((parts[2].to_string(), key.to_string()));
+                items.push((parts[4].to_string(), key.to_string()));
+            }
             _ => {}
         }
     }
@@ -1022,6 +1045,104 @@ mod tests {
                 .errors
                 .iter()
                 .any(|e| e.starts_with("mc_parse_failed"))
+        );
+    }
+
+    /// stdlib.toml 解析失败（重复键）报 error，不再静默吞掉
+    #[test]
+    fn test_stdlib_parse_failed_detected() {
+        let view = LangPackView {
+            lang: "zh".to_string(),
+            keywords_toml: "[\"声明\"]\n\"函数\" = \"fn\"\n".to_string(),
+            stdlib_toml: "[\"标识符\"]\n\"连接\" = \"link\"\n\"连接\" = \"net\"\n".to_string(),
+            crates: vec![(
+                "a.toml".to_string(),
+                "[\"标识符\"]\n\"服务器\" = \"Server\"\n".to_string(),
+            )],
+        };
+        let report = check_lang_pack(&view);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_stdlib_parse_failed")),
+            "stdlib 解析失败应报 error: {:?}",
+            report.errors
+        );
+    }
+
+    /// 无 stdlib 文件（空内容）不应误报解析失败
+    #[test]
+    fn test_stdlib_parse_failed_empty_ok() {
+        let view = LangPackView {
+            lang: "zh".to_string(),
+            keywords_toml: "[\"声明\"]\n\"函数\" = \"fn\"\n".to_string(),
+            stdlib_toml: String::new(),
+            crates: vec![(
+                "a.toml".to_string(),
+                "[\"标识符\"]\n\"服务器\" = \"Server\"\n".to_string(),
+            )],
+        };
+        let report = check_lang_pack(&view);
+        assert!(
+            !report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_stdlib_parse_failed")),
+            "空 stdlib 不应误报: {:?}",
+            report.errors
+        );
+    }
+
+    /// 模块路径节跨文件同键不同值报 error（与标识符节对称）
+    #[test]
+    fn test_module_path_cross_file_conflict_detected() {
+        let view = view_with_crates(vec![
+            ("a.toml", "[\"模块路径\"]\n\"网络库\" = \"reqwest\"\n"),
+            ("b.toml", "[\"模块路径\"]\n\"网络库\" = \"hyper\"\n"),
+        ]);
+        let report = check_lang_pack(&view);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_cross_conflict_mp")),
+            "模块路径跨文件冲突应报 error: {:?}",
+            report.errors
+        );
+    }
+
+    /// 模块路径节跨文件同键同值不报错
+    #[test]
+    fn test_module_path_cross_file_same_value_ok() {
+        let view = view_with_crates(vec![
+            ("a.toml", "[\"模块路径\"]\n\"网络库\" = \"reqwest\"\n"),
+            ("b.toml", "[\"模块路径\"]\n\"网络库\" = \"reqwest\"\n"),
+        ]);
+        let report = check_lang_pack(&view);
+        assert!(
+            !report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_cross_conflict_mp")),
+            "模块路径同键同值不应报冲突: {:?}",
+            report.errors
+        );
+    }
+
+    /// 同一文件内双节同键不同值（模块路径=crate 名、标识符=类型名）
+    /// 是合法设计，不应报错
+    #[test]
+    fn test_dual_section_same_key_different_value_ok() {
+        let view = view_with_crates(vec![(
+            "a.toml",
+            "[\"模块路径\"]\n\"火箭\" = \"rocket\"\n[\"标识符\"]\n\"火箭\" = \"Rocket\"\n",
+        )]);
+        let report = check_lang_pack(&view);
+        assert!(
+            report.passed(),
+            "双节同键不同值（crate 名/类型名）应通过: {:?}",
+            report.errors
         );
     }
 

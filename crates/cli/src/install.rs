@@ -230,12 +230,9 @@ pub fn install_toolchain(
         .next()
         .unwrap_or("")
         .to_string();
-    let is_valid_sha256 =
-        expected.len() == 64 && expected.chars().all(|c| c.is_ascii_hexdigit());
+    let is_valid_sha256 = expected.len() == 64 && expected.chars().all(|c| c.is_ascii_hexdigit());
     if !is_valid_sha256 {
-        anyhow::bail!(
-            "rustc 包 SHA-256 校验和不可用（{sha_url} 返回异常内容），已中止下载"
-        );
+        anyhow::bail!("rustc 包 SHA-256 校验和不可用（{sha_url} 返回异常内容），已中止下载");
     }
     let actual = sha256_file(&archive)?;
     if actual != expected {
@@ -315,7 +312,9 @@ fn download_rust_analyzer(
             }
         }
         None => {
-            println!("警告：无法获取 rust-analyzer 官方 SHA-256（GitHub API 限流？），未经验证直接安装");
+            println!(
+                "警告：无法获取 rust-analyzer 官方 SHA-256（GitHub API 限流？），未经验证直接安装"
+            );
         }
     }
 
@@ -339,9 +338,7 @@ fn download_rust_analyzer(
 
 /// 从 GitHub API 获取指定发布资产的 SHA-256 digest（官方未发布独立 .sha256 文件）
 fn ra_asset_digest(tag: &str, asset_name: &str) -> Option<String> {
-    let url = format!(
-        "https://api.github.com/repos/rust-lang/rust-analyzer/releases/tags/{tag}"
-    );
+    let url = format!("https://api.github.com/repos/rust-lang/rust-analyzer/releases/tags/{tag}");
     let resp = ureq::get(&url)
         .header("User-Agent", "rzc-install")
         .config()

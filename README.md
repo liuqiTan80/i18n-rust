@@ -192,7 +192,11 @@ Rust 本身以英文书写，因此不提供英语方言（恒等映射无教学
 面向零基础学习者的完整中文教程：**25 章 + 总术语表 + 5 个附录**，见 [tutorials/](tutorials/)。
 从《你好世界》到所有权、闭包、异步、宏，直至综合实战——所有示例全部用中文 Rust 书写。
 
-> 欢迎共同翻译**教程**与**映射表**到其他语言，见下文"参与贡献"。
+> 教程质量由 CI 自动门禁守护（[tools/verify-tutorials.py](tools/verify-tutorials.py)）：
+> 每个代码块须可编译，错误示例须报出标注的预期错误码（`// 预期错误: EXXXX`），
+> 修改教程后可本地验证：`python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json`。
+
+> 欢迎共同翻译**教程**与**映射表**到其他语言，见下文“参与贡献”。
 
 ---
 

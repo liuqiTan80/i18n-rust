@@ -348,8 +348,7 @@ impl TranslationCache {
     ///（压缩后队列长度 ≤ 缓存条目数 ≤ 容量，淘汰逻辑照常工作）
     fn compact_order(&mut self) {
         let mut seen = HashSet::new();
-        let mut compact: VecDeque<(u64, u64)> =
-            VecDeque::with_capacity(self.entries.len());
+        let mut compact: VecDeque<(u64, u64)> = VecDeque::with_capacity(self.entries.len());
         for &(hash, generation) in self.order.iter().rev() {
             if seen.insert(hash) && self.generations.get(&hash) == Some(&generation) {
                 compact.push_front((hash, generation));

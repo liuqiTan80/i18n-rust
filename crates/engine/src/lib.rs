@@ -168,7 +168,12 @@ fn compose_pipeline_map(
             };
             // original/length 以母语源文本为准
             let original = &source[zh_offset..zh_offset + e.length];
-            merged.push(cache::SourceMapEntry::new(zh_offset, e.length, original, &e.replacement));
+            merged.push(cache::SourceMapEntry::new(
+                zh_offset,
+                e.length,
+                original,
+                &e.replacement,
+            ));
         }
     }
     // 稳定排序：同偏移多条编辑时，阶段靠后的保持在后（最终消费取后者）
@@ -459,8 +464,7 @@ mod tests {
             &[],
         )
         .expect("创建管理器失败");
-        let source =
-            "使用 标准集合::哈希映射;\n函数 主函数() {\n    让 s: 字符串 = 哈希映射::新建();\n    打印行(\"你好\");\n}";
+        let source = "使用 标准集合::哈希映射;\n函数 主函数() {\n    让 s: 字符串 = 哈希映射::新建();\n    打印行(\"你好\");\n}";
         let output = transpile_pipeline_with_map(source, &manager, None);
         assert!(
             output.output.contains("use std::collections::HashMap;"),

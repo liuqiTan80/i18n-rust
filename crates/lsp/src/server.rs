@@ -837,90 +837,90 @@ impl ProxyServer {
             return;
         };
 
-            // 解析 compiler-message 行 → 按虚拟 uri 聚合（值 = (方言 uri, 诊断列表)）
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let mut by_uri: HashMap<String, (String, Vec<Value>)> = HashMap::new();
-            for line in stdout.lines() {
-                let Ok(v) = serde_json::from_str::<Value>(line) else {
-                    continue;
-                };
-                if v["reason"].as_str() != Some("compiler-message") {
-                    continue;
-                }
-                let msg = &v["message"];
-                let Some(span) = msg["spans"].as_array().and_then(|a| a.first()) else {
-                    continue;
-                };
-                let Some(file) = span["file_name"].as_str() else {
-                    continue;
-                };
-                // rustc 可能输出相对路径（cwd 为虚拟项目目录），拼上项目目录
-                let file_path = if std::path::Path::new(file).is_absolute() {
-                    std::path::PathBuf::from(file)
-                } else {
-                    project_dir.join(file)
-                };
-                // 仅处理虚拟方言文件（聚合 main.rs、标准库等跳过）
-                let Some(entry) = cache.query_by_virtual_uri(&path_to_uri(&file_path)) else {
-                    continue;
-                };
-                let line = span["line_start"].as_u64().unwrap_or(1).saturating_sub(1);
-                let col = span["column_start"].as_u64().unwrap_or(1).saturating_sub(1);
-                let end_line = span["line_end"]
-                    .as_u64()
-                    .unwrap_or(line + 1)
-                    .saturating_sub(1);
-                let end_col = span["column_end"]
-                    .as_u64()
-                    .unwrap_or(col + 1)
-                    .saturating_sub(1);
-                let code = msg["code"]["code"].as_str().unwrap_or("").to_string();
-                let severity = match msg["level"].as_str() {
-                    Some("error") => 1,
-                    Some("warning") => 2,
-                    _ => 3,
-                };
-                let diag = json!({
-                    "range": {
-                        "start": { "line": line, "character": col },
-                        "end": { "line": end_line, "character": end_col }
-                    },
-                    "severity": severity,
-                    "code": code,
-                    "message": msg["message"].as_str().unwrap_or(""),
-                });
-                by_uri
-                    .entry(entry.virtual_uri.clone())
-                    .or_insert_with(|| (entry.original_uri.clone(), Vec::new()))
-                    .1
-                    .push(diag);
+        // 解析 compiler-message 行 → 按虚拟 uri 聚合（值 = (方言 uri, 诊断列表)）
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut by_uri: HashMap<String, (String, Vec<Value>)> = HashMap::new();
+        for line in stdout.lines() {
+            let Ok(v) = serde_json::from_str::<Value>(line) else {
+                continue;
+            };
+            if v["reason"].as_str() != Some("compiler-message") {
+                continue;
             }
+            let msg = &v["message"];
+            let Some(span) = msg["spans"].as_array().and_then(|a| a.first()) else {
+                continue;
+            };
+            let Some(file) = span["file_name"].as_str() else {
+                continue;
+            };
+            // rustc 可能输出相对路径（cwd 为虚拟项目目录），拼上项目目录
+            let file_path = if std::path::Path::new(file).is_absolute() {
+                std::path::PathBuf::from(file)
+            } else {
+                project_dir.join(file)
+            };
+            // 仅处理虚拟方言文件（聚合 main.rs、标准库等跳过）
+            let Some(entry) = cache.query_by_virtual_uri(&path_to_uri(&file_path)) else {
+                continue;
+            };
+            let line = span["line_start"].as_u64().unwrap_or(1).saturating_sub(1);
+            let col = span["column_start"].as_u64().unwrap_or(1).saturating_sub(1);
+            let end_line = span["line_end"]
+                .as_u64()
+                .unwrap_or(line + 1)
+                .saturating_sub(1);
+            let end_col = span["column_end"]
+                .as_u64()
+                .unwrap_or(col + 1)
+                .saturating_sub(1);
+            let code = msg["code"]["code"].as_str().unwrap_or("").to_string();
+            let severity = match msg["level"].as_str() {
+                Some("error") => 1,
+                Some("warning") => 2,
+                _ => 3,
+            };
+            let diag = json!({
+                "range": {
+                    "start": { "line": line, "character": col },
+                    "end": { "line": end_line, "character": end_col }
+                },
+                "severity": severity,
+                "code": code,
+                "message": msg["message"].as_str().unwrap_or(""),
+            });
+            by_uri
+                .entry(entry.virtual_uri.clone())
+                .or_insert_with(|| (entry.original_uri.clone(), Vec::new()))
+                .1
+                .push(diag);
+        }
 
-            // 合并内置诊断（语法/类型）后发布：同 code 且同起始行视为重复。
-            // 注意：map_diagnostics 期望输入虚拟 uri（内部还原为方言 uri），
-            // 传方言 uri 会导致位置映射查不到条目而丢失全部诊断。
-            for (virtual_uri, (original_uri, mut diags)) in by_uri {
-                if let Ok(guard) = builtin_diags.lock()
-                    && let Some(builtin) = guard.get(&original_uri)
-                {
-                    for e in builtin.clone() {
-                        let dup = diags.iter().any(|d| {
-                            d["code"] == e["code"]
-                                && d["range"]["start"]["line"] == e["range"]["start"]["line"]
-                        });
-                        if !dup {
-                            diags.push(e);
-                        }
+        // 合并内置诊断（语法/类型）后发布：同 code 且同起始行视为重复。
+        // 注意：map_diagnostics 期望输入虚拟 uri（内部还原为方言 uri），
+        // 传方言 uri 会导致位置映射查不到条目而丢失全部诊断。
+        for (virtual_uri, (original_uri, mut diags)) in by_uri {
+            if let Ok(guard) = builtin_diags.lock()
+                && let Some(builtin) = guard.get(&original_uri)
+            {
+                for e in builtin.clone() {
+                    let dup = diags.iter().any(|d| {
+                        d["code"] == e["code"]
+                            && d["range"]["start"]["line"] == e["range"]["start"]["line"]
+                    });
+                    if !dup {
+                        diags.push(e);
                     }
                 }
-                let params = json!({ "uri": virtual_uri, "diagnostics": diags });
-                let mapped = mapper.map_diagnostics(&params);
-                let notification = Notification {
-                    method: "textDocument/publishDiagnostics".to_string(),
-                    params: mapped,
-                };
-                let _ = sender.send(Message::Notification(notification));
             }
+            let params = json!({ "uri": virtual_uri, "diagnostics": diags });
+            let mapped = mapper.map_diagnostics(&params);
+            let notification = Notification {
+                method: "textDocument/publishDiagnostics".to_string(),
+                params: mapped,
+            };
+            let _ = sender.send(Message::Notification(notification));
+        }
     }
 
     /// 通知 rust-analyzer 重新加载虚拟项目工作区
@@ -1556,11 +1556,13 @@ fn load_language_pack(
         match mapping_source::load_keyword_mapping(lang_pack_path) {
             Ok(map) => {
                 // 旧"映射表"目录格式：仅有扁平关键字表，宏/派生/模块路径/别名表为空
-                return Ok(i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
-                    map,
-                    HashMap::new(),
-                    HashMap::new(),
-                ));
+                return Ok(
+                    i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+                        map,
+                        HashMap::new(),
+                        HashMap::new(),
+                    ),
+                );
             }
             Err(e) => log::warn!(
                 "{}",
@@ -1592,11 +1594,13 @@ fn load_language_pack(
         return Ok(manager);
     }
     // 极端兜底：物化失败时退回硬编码旧表（可能残缺，但保证可启动）
-    Ok(i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
-        mapping_source::create_builtin_keyword_mapping(),
-        HashMap::new(),
-        HashMap::new(),
-    ))
+    Ok(
+        i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+            mapping_source::create_builtin_keyword_mapping(),
+            HashMap::new(),
+            HashMap::new(),
+        ),
+    )
 }
 
 /// 从 engine 编译期内嵌的中文语言包物化出完整映射管理器
@@ -1629,8 +1633,7 @@ mod tests {
     /// `让` 不翻译报语法错误（真实事故：扩展未找到语言包目录时触发）
     #[test]
     fn test_load_language_pack_fallback_complete() {
-        let manager =
-            load_language_pack(Path::new("/不存在的目录")).expect("fallback 应成功");
+        let manager = load_language_pack(Path::new("/不存在的目录")).expect("fallback 应成功");
         assert_eq!(
             manager.keyword_map.get("让").map(String::as_str),
             Some("let")
@@ -1654,10 +1657,7 @@ mod tests {
             manager.get_macro_map().len()
         );
         assert!(!manager.alias_map.is_empty(), "别名表不应为空");
-        assert!(
-            !manager.module_path_map.is_empty(),
-            "模块路径表不应为空"
-        );
+        assert!(!manager.module_path_map.is_empty(), "模块路径表不应为空");
     }
 
     /// 默认扩展名列表覆盖全部内置语言包（引擎 lang-packs 单一来源），未知扩展名不匹配

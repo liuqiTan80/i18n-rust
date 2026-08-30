@@ -139,7 +139,12 @@ pub fn qualify_module_paths_with_map(
         };
         if needs_prefix {
             let prefixed = format!("crate::{}", text);
-            edits.push(SourceMapEntry::new(offset - token.len, token.len, text, &prefixed));
+            edits.push(SourceMapEntry::new(
+                offset - token.len,
+                token.len,
+                text,
+                &prefixed,
+            ));
             output.push_str(&prefixed);
         } else {
             output.push_str(text);

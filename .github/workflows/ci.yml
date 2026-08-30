@@ -72,6 +72,15 @@ jobs:
         # 跨文件同键冲突 / 跨语言条目数一致性；发现错误时退出码非零
         run: cargo run --quiet --bin rzc -- mapping check
 
+      - name: 教程代码块验证（单块编译 + 预期错误码断言）
+        # 逐个验证 tutorials/*.md 代码块：完整程序/片段须编译通过，
+        # 错误示例须编译失败且实际错误码与 `// 预期错误: EXXXX` 标记一致；
+        # 非预期失败时退出码非零。白名单（tools/expected-failures.json）
+        # 仅豁免教程结构固有噪音（跨块上下文依赖/环境依赖等）
+        run: |
+          cargo build --quiet --bin rzc
+          python3 tools/verify-tutorials.py --rzc target/debug/rzc --allowlist tools/expected-failures.json
+
   # ---------- 2. 依赖漏洞审计（RustSec 公告库） ----------
   audit:
     name: 依赖漏洞审计

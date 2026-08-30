@@ -117,7 +117,7 @@
 "debugbar" = "Debug"
 "anzeigbar" = "Display"
 "vorgabe" = "Default"
-"standard" = "default"
+"standardwert" = "default"
 "teilGleich" = "PartialEq"
 "gleich" = "Eq"
 "teilOrdnung" = "PartialOrd"
