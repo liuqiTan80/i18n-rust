@@ -38,6 +38,7 @@
 # Standardbibliothek-Identifier (Typen, Traits, Methoden)
 # ============================================
 ["标识符"]
+"standard" = "std"
 
 # --------------------------------------------
 # Zusätzliche numerische Typen

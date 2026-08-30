@@ -36,6 +36,7 @@
 # Identificadores de la biblioteca padrao
 # ============================================
 ["标识符"]
+"padrao" = "std"
 
 # --------------------------------------------
 # Tipos numericos adicionais
