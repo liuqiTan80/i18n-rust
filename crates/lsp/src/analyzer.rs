@@ -6,32 +6,65 @@
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 use serde_json::Value;
 
 /// rust-analyzer 子进程管理器
+///
+/// 支持崩溃自动重启：消息出口（receiver）与崩溃标志不随进程重启而变化，
+/// 转发线程无需重建；重启仅替换进程句柄与写入端，并由代理主循环
+/// 重新执行 initialize/initialized/工作区/文档同步握手。
 pub struct AnalyzerConnection {
-    /// 子进程句柄
-    child: Option<Child>,
-    /// 写入端（向 rust-analyzer 发送消息）
-    writer: Arc<Mutex<std::process::ChildStdin>>,
-    /// 消息接收通道（crossbeam，可克隆）
+    /// 子进程句柄（重启/停止时替换）
+    child: Mutex<Option<Child>>,
+    /// 写入端（向 rust-analyzer 发送消息；锁内发送，重启时替换）
+    writer: Arc<Mutex<Option<std::process::ChildStdin>>>,
+    /// 统一消息出口（不随重启变化，转发线程持续读取）
+    events: crossbeam_channel::Sender<Value>,
+    /// 消息接收通道（events 的接收端，可克隆）
     receiver: crossbeam_channel::Receiver<Value>,
+    /// 读取线程检测到输出结束（进程崩溃/异常退出）置位，
+    /// 供代理主循环检测并触发自动重启
+    crashed: Arc<AtomicBool>,
+    /// 当前进程的主动停止抑制标志：每次 spawn 新建并替换（stop() 置位当前
+    /// 标志，reader 线程持各自标志），避免重启后旧进程 EOF 与新标志竞态
+    stop_flag: Mutex<Arc<AtomicBool>>,
 }
 
 impl AnalyzerConnection {
     /// 启动 rust-analyzer 子进程
     pub fn start() -> anyhow::Result<Self> {
+        let (events, receiver) = crossbeam_channel::unbounded();
+        let conn = Self {
+            child: Mutex::new(None),
+            writer: Arc::new(Mutex::new(None)),
+            events,
+            receiver,
+            crashed: Arc::new(AtomicBool::new(false)),
+            stop_flag: Mutex::new(Arc::new(AtomicBool::new(false))),
+        };
+        conn.spawn_child()?;
+        Ok(conn)
+    }
+
+    /// 启动（或崩溃后重新启动）rust-analyzer 子进程并挂接消息管道
+    fn spawn_child(&self) -> anyhow::Result<()> {
         let ra_path = find_rust_analyzer()?;
         log::info!(
             "{}",
             crate::ui::global().f("lsp_log_ra_starting", &[&ra_path.display().to_string()])
         );
+        let mut command = Command::new(&ra_path);
+        // 新版 rust-analyzer 已移除 --stdio 参数（stdio 为默认模式）
+        self.spawn_command(&mut command)
+    }
 
-        let mut child = Command::new(&ra_path)
-            // 新版 rust-analyzer 已移除 --stdio 参数（stdio 为默认模式）
+    /// 用指定命令启动子进程（#[cfg(test)] 注入假进程用）
+    fn spawn_command(&self, command: &mut Command) -> anyhow::Result<()> {
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
@@ -52,32 +85,50 @@ impl AnalyzerConnection {
             .take()
             .ok_or_else(|| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_ra_stdout")))?;
 
-        let writer = Arc::new(Mutex::new(writer));
-        let (sender, recv) = crossbeam_channel::unbounded();
+        // 新进程的停止抑制标志：reader 线程持各自标志，stop() 只置位当前标志
+        let stop_flag = Arc::new(AtomicBool::new(false));
+        *self
+            .child
+            .lock()
+            .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))? =
+            Some(child);
+        *self
+            .writer
+            .lock()
+            .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))? =
+            Some(writer);
+        *self
+            .stop_flag
+            .lock()
+            .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))? =
+            stop_flag.clone();
 
-        // 后台线程：持续读取 rust-analyzer 的 stdout
+        // 后台线程：持续读取 rust-analyzer 的 stdout，转发到统一消息出口；
+        // 输出结束（进程崩溃/被停止）时退出线程并报告崩溃状态
+        let events = self.events.clone();
+        let crashed = self.crashed.clone();
         thread::spawn(move || {
             let mut buf_reader = BufReader::new(reader);
             loop {
                 match read_one_lsp_message(&mut buf_reader) {
                     Some(msg) => {
-                        if sender.send(msg).is_err() {
+                        if events.send(msg).is_err() {
                             break;
                         }
                     }
                     None => {
                         log::info!("{}", crate::ui::global().t("lsp_log_ra_output_ended"));
+                        // 非主动停止视为异常退出：置崩溃标志供主循环自动重启
+                        if !stop_flag.load(Ordering::SeqCst) {
+                            crashed.store(true, Ordering::SeqCst);
+                        }
                         break;
                     }
                 }
             }
         });
 
-        Ok(Self {
-            child: Some(child),
-            writer,
-            receiver: recv,
-        })
+        Ok(())
     }
 
     /// 向 rust-analyzer 发送一条 JSON-RPC 消息
@@ -89,8 +140,11 @@ impl AnalyzerConnection {
             .writer
             .lock()
             .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))?;
-        writer.write_all(frame.as_bytes())?;
-        writer.flush()?;
+        let stdin = writer.as_mut().ok_or_else(|| {
+            anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_ra_not_running"))
+        })?;
+        stdin.write_all(frame.as_bytes())?;
+        stdin.flush()?;
 
         log::debug!("-> rust-analyzer: {}", truncate(&text, 200));
         Ok(())
@@ -117,9 +171,32 @@ impl AnalyzerConnection {
         self.receiver.try_recv().ok()
     }
 
-    /// 停止 rust-analyzer 子进程
-    pub fn stop(&mut self) {
-        if let Some(mut process) = self.child.take() {
+    /// rust-analyzer 是否已异常退出（读取线程报告，等待自动重启）
+    pub fn is_crashed(&self) -> bool {
+        self.crashed.load(Ordering::SeqCst)
+    }
+
+    /// 清除崩溃标志（自动重启失败时调用，避免主循环忙循环）
+    pub fn clear_crashed(&self) {
+        self.crashed.store(false, Ordering::SeqCst);
+    }
+
+    /// 重启 rust-analyzer 子进程（崩溃后由代理主循环调用）
+    ///
+    /// 消息出口（receiver）不重建：转发线程持续消费；
+    /// 重握手由调用方（代理主循环）完成。
+    pub fn restart(&self) -> anyhow::Result<()> {
+        self.stop();
+        self.crashed.store(false, Ordering::SeqCst);
+        self.spawn_child()
+    }
+
+    /// 停止 rust-analyzer 子进程（置当前进程的停止标志，EOF 不再报告崩溃）
+    pub fn stop(&self) {
+        if let Some(flag) = self.stop_flag.lock().ok().map(|guard| guard.clone()) {
+            flag.store(true, Ordering::SeqCst);
+        }
+        if let Some(mut process) = self.child.lock().ok().and_then(|mut slot| slot.take()) {
             log::info!("{}", crate::ui::global().t("lsp_log_ra_stopping"));
             let _ = process.kill();
             let _ = process.wait();
@@ -129,7 +206,7 @@ impl AnalyzerConnection {
 
 /// 独立的 rust-analyzer 消息发送器（供其他线程使用）
 pub struct Sender {
-    writer: Arc<Mutex<std::process::ChildStdin>>,
+    writer: Arc<Mutex<Option<std::process::ChildStdin>>>,
 }
 
 impl Sender {
@@ -142,8 +219,11 @@ impl Sender {
             .writer
             .lock()
             .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))?;
-        writer.write_all(frame.as_bytes())?;
-        writer.flush()?;
+        let stdin = writer.as_mut().ok_or_else(|| {
+            anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_ra_not_running"))
+        })?;
+        stdin.write_all(frame.as_bytes())?;
+        stdin.flush()?;
 
         log::debug!("-> rust-analyzer: {}", truncate(&text, 200));
         Ok(())
@@ -364,5 +444,71 @@ mod tests {
         // 内置与 PATH 都不存在的二进制名应返回 None（不 panic）
         let name = format!("__ra_nonexistent__{}", std::process::id());
         assert!(i18n_rust_engine::toolchain::find_toolchain_bin(&name).is_none());
+    }
+
+    /// 构造空连接（未启动任何子进程）
+    fn empty_connection() -> AnalyzerConnection {
+        let (events, receiver) = crossbeam_channel::unbounded();
+        AnalyzerConnection {
+            child: Mutex::new(None),
+            writer: Arc::new(Mutex::new(None)),
+            events,
+            receiver,
+            crashed: Arc::new(AtomicBool::new(false)),
+            stop_flag: Mutex::new(Arc::new(AtomicBool::new(false))),
+        }
+    }
+
+    /// 等待崩溃标志置位（最多 2 秒）
+    fn wait_crashed(conn: &AnalyzerConnection) -> bool {
+        for _ in 0..40 {
+            if conn.is_crashed() {
+                return true;
+            }
+            thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    }
+
+    /// 子进程异常退出（EOF 且非主动停止）时置崩溃标志
+    #[cfg(unix)]
+    #[test]
+    fn test_crashed_flag_on_abrupt_exit() {
+        let conn = empty_connection();
+        conn.spawn_command(Command::new("sh").arg("-c").arg("exit 0"))
+            .expect("启动假进程失败");
+        assert!(wait_crashed(&conn), "进程立即退出应触发崩溃标志");
+        // 模拟重启：停止旧进程（其 EOF 不再报崩溃）+ 复位标志 + 启动新进程
+        conn.stop();
+        conn.clear_crashed();
+        conn.spawn_command(Command::new("sh").arg("-c").arg("exit 1"))
+            .expect("二次启动失败");
+        assert!(!conn.is_crashed(), "重启后标志应复位");
+        assert!(wait_crashed(&conn), "新进程退出应再次置位");
+    }
+
+    /// 主动 stop() 后的 EOF 不置崩溃标志
+    #[cfg(unix)]
+    #[test]
+    fn test_no_crash_flag_on_graceful_stop() {
+        let conn = empty_connection();
+        conn.spawn_command(Command::new("sh").arg("-c").arg("sleep 5"))
+            .expect("启动假进程失败");
+        conn.stop();
+        thread::sleep(std::time::Duration::from_millis(200));
+        assert!(!conn.is_crashed(), "主动停止不应报告崩溃");
+    }
+
+    /// 未启动（重启窗口内）发送返回明确错误而非 panic
+    #[test]
+    fn test_send_fails_when_not_running() {
+        let conn = empty_connection();
+        let err = conn
+            .send(&serde_json::json!({ "method": "test" }))
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("不可用")
+                || err.to_string().contains("lsp_err_ra_not_running")
+        );
     }
 }

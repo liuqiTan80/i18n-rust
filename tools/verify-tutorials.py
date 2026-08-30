@@ -12,6 +12,9 @@
   `// 预期错误: EXXXX`）：无主函数时同样包裹（使错误在完整程序语境下复现），
   断言编译失败；若带 `// 预期错误: EXXXX[, EYYYY]` 标记，额外断言实际
   错误码包含预期码；
+- 输出示例（块内 `// 预期输出: 内容` 标记）：断言编译通过且 rzc run 的
+  stdout 与预期一致（多行用 `// 预期输出:` + 后续注释行；每行剥尾部空白、
+  忽略首尾空行后精确比较）；
 - 省略块（含 ... / …… / 省略 且无主函数）：跳过。
 
 Result 的 `错误(...)` 构造、`错误(原因)` 模式匹配、`xxx错误` 类型名等
@@ -45,13 +48,18 @@ OMIT_MARKS = ("...", "……", "省略")
 # 错误示例标记：裸 `错误` 词（Result::Err 构造/错误类型名）不判定
 ERR_MARKS = ("❌", "报错", "编译失败")
 ERR_CODE_RE = re.compile(r"错误\[?(E\d{4})\]?")
-# 预期标记行：代码块内首行注释，支持两类：
+# 预期标记行：代码块内注释，支持三类：
 #   `// 预期错误: E0384[, E0308]`   断言编译失败，且实际错误码包含预期码
 #   `// 预期错误: any`              断言编译失败（任意错误）
 #   `// 预期行为: 通过`             断言编译通过（风格演示/设计警告类）
 #   `// 预期行为: 运行失败`         断言编译通过但运行非零退出（越界/切片 panic 类）
+#   `// 预期输出: 3`                断言编译通过且 stdout 与预期一致（单行）
+#   `// 预期输出:` + 后续注释行    断言多行输出（须放在代码块末尾）
 EXPECT_ERR_RE = re.compile(r"^\s*//\s*预期错误[:：]\s*(E\d{4}(?:\s*[,，]\s*E\d{4})*|any)\s*$")
 EXPECT_BEHAVIOR_RE = re.compile(r"^\s*//\s*预期行为[:：]\s*(通过|运行失败)\s*$")
+EXPECT_OUT_RE = re.compile(r"^\s*//\s*预期输出[:：]\s*(.*?)\s*$")
+# 多行预期输出：`// 预期输出:` 之后的注释行（`// 内容` → 内容）
+EXPECT_OUT_LINE_RE = re.compile(r"^\s*//\s?(.*)$")
 
 # 片段包裹：顶层声明词头（其后允许空格/泛型参数/括号/!；
 # 异步/不安全 为前缀修饰，后跟 函数/结构体/块）
@@ -107,28 +115,63 @@ def classify(content):
     return "片段"
 
 
-def parse_marks(content):
-    """解析块内 `// 预期错误:` / `// 预期行为:` 标记。
+def classify_task(expected, behavior, expected_output, content):
+    """按标记优先级定任务类型：预期错误/行为标记 → 错误示例；
+    预期输出标记 → 输出示例；否则按内容分类。"""
+    if expected is not None or behavior:
+        return "错误示例"
+    if expected_output is not None:
+        return "输出示例"
+    return classify(content)
 
-    返回 (预期错误码集合或 None, 行为标记字符串或 None, 剥离标记后的内容)。
+
+def parse_marks(content):
+    """解析块内 `// 预期错误:` / `// 预期行为:` / `// 预期输出:` 标记。
+
+    返回 (预期错误码集合或 None, 行为标记字符串或 None, 预期输出字符串或 None,
+    剥离标记后的内容)。
     behavior 取值：None（默认按编译失败断言）/ "通过" / "运行失败"。
-    expected 为 None 时（无预期错误标记或 any）只断言编译失败。"""
+    expected 为 None 时（无预期错误标记或 any）只断言编译失败。
+    expected_output 为 None 时不做运行断言；非 None 时断言编译通过且
+    stdout 与预期一致（多行形式：`// 预期输出:` 后连续注释行皆为输出内容）。"""
     lines = content.splitlines(keepends=True)
     expected = None
     behavior = None
+    expected_output = None
     rest = []
-    for ln in lines:
+    i, n = 0, len(lines)
+    while i < n:
+        ln = lines[i]
         m = EXPECT_ERR_RE.match(ln)
         if m:
             text = m.group(1)
             expected = set() if text == "any" else set(re.split(r"[,，]", text))
+            i += 1
             continue
         m = EXPECT_BEHAVIOR_RE.match(ln)
         if m:
             behavior = m.group(1)
+            i += 1
+            continue
+        m = EXPECT_OUT_RE.match(ln)
+        if m:
+            inline = m.group(1)
+            out_lines = [inline] if inline else []
+            i += 1
+            if not inline:
+                # 多行形式：收集后续注释行直至非注释行
+                while i < n:
+                    cm = EXPECT_OUT_LINE_RE.match(lines[i])
+                    if cm:
+                        out_lines.append(cm.group(1))
+                        i += 1
+                    else:
+                        break
+            expected_output = "\n".join(out_lines)
             continue
         rest.append(ln)
-    return expected, behavior, "".join(rest)
+        i += 1
+    return expected, behavior, expected_output, "".join(rest)
 
 
 # ---------- 片段包裹 ----------
@@ -249,18 +292,56 @@ def block_deps(fname, index):
 
 
 # ---------- 验证 ----------
-def check_one(rzc, src_path, cwd, expected, behavior, timeout=120):
+def normalize_output(text):
+    """规范化输出：每行剥尾部空白，去首尾空行（中间空行保留）。"""
+    lines = [ln.rstrip() for ln in text.splitlines()]
+    while lines and not lines[0]:
+        lines.pop(0)
+    while lines and not lines[-1]:
+        lines.pop()
+    return "\n".join(lines)
+
+
+def output_matches(want, actual):
+    """预期行按序匹配实际输出行（宽容编译警告等附加输出）。
+
+    实际输出可能夹杂编译警告（如 警告[dead_code]）与帮助信息，
+    只要预期各行按原顺序出现即为匹配。"""
+    lines = want.splitlines()
+    i = 0
+    for ln in actual.splitlines():
+        if i < len(lines) and ln == lines[i]:
+            i += 1
+    return i == len(lines)
+
+
+def check_one(rzc, src_path, cwd, expected, behavior, expected_output=None, timeout=120):
     """rzc check（需要运行时验证时加 rzc run）。
 
     返回 (ok, returncode, full_output)。ok 语义：
     - behavior 为 "通过"：编译通过
     - behavior 为 "运行失败"：编译通过且运行非零退出
+    - expected_output 非 None：编译通过且 stdout 规范化后与预期一致
     - 其他（错误示例默认）：编译失败"""
     try:
         r = subprocess.run([rzc, "check", src_path], capture_output=True, text=True,
                            timeout=timeout, cwd=cwd)
         out = (r.stdout + r.stderr).strip()
         compiled_ok = r.returncode == 0
+        if expected_output is not None:
+            if not compiled_ok:
+                return False, r.returncode, out
+            rr = subprocess.run([rzc, "run", src_path], capture_output=True, text=True,
+                                timeout=timeout, cwd=cwd)
+            if rr.returncode != 0:
+                return False, rr.returncode, (rr.stdout + rr.stderr).strip()
+            actual = normalize_output(rr.stdout)
+            want = normalize_output(expected_output)
+            if not output_matches(want, actual):
+                return False, rr.returncode, ("输出不匹配\n"
+                                              f"  预期: {want!r}\n"
+                                              f"  实际: {actual!r}")
+            return True, rr.returncode, rr.stdout
         if behavior == "运行失败":
             if not compiled_ok:
                 return False, r.returncode, out
@@ -283,15 +364,13 @@ def actual_error_codes(output):
 
 
 # ---------- 单块任务 ----------
-def build_task(work, index, fname, start, content, expected, behavior, serialize):
+def build_task(work, index, fname, start, content, expected, behavior, expected_output, serialize):
     """构造单个块的验证：完整程序/错误示例（无主函数则包裹）/片段包裹。
 
     带 `// 预期错误:` 或 `// 预期行为:` 标记的块按错误示例断言
-    （教学意图明确的故意报错/风格演示），不因缺少 ❌ 而走片段断言。"""
-    if expected is not None or behavior:
-        kind = "错误示例"
-    else:
-        kind = classify(content)
+    （教学意图明确的故意报错/风格演示），不因缺少 ❌ 而走片段断言；
+    带 `// 预期输出:` 标记的块归为"输出示例"，断言编译通过 + 输出匹配。"""
+    kind = classify_task(expected, behavior, expected_output, content)
     if serialize:
         # 串联模式：由调用方拼接，这里不单独验证
         return None
@@ -305,12 +384,15 @@ def build_task(work, index, fname, start, content, expected, behavior, serialize
             src = wrap_snippet(textwrap.dedent(content))
     elif kind == "完整程序":
         src = content
+    elif kind == "输出示例":
+        # 与完整程序同规则：有主函数原样，无主函数（片段）包裹
+        src = content if "函数 主函数" in content else wrap_snippet(textwrap.dedent(content))
     else:
         src = wrap_snippet(textwrap.dedent(content))
     d = os.path.join(work, f"b{index:03d}")
     os.makedirs(d, exist_ok=True)
     src_path = make_project(d, src, deps)
-    return (index, fname, start, kind, expected, behavior, src_path, d)
+    return (index, fname, start, kind, expected, behavior, expected_output, src_path, d)
 
 
 # ---------- 串联（章节级） ----------
@@ -416,8 +498,8 @@ def build_serialized(work, chapter_blocks, base_name, allowlist, deps=""):
     seen_name = set()
     seen_methods = set()
     top_lines, body_lines, main_lines = [], [], []
-    for index, fname, start, content, expected, behavior in chapter_blocks:
-        if expected is not None or behavior:
+    for index, fname, start, content, expected, behavior, expected_output in chapter_blocks:
+        if expected is not None or behavior or expected_output is not None:
             continue
         item = allowlist.get((fname, start))
         if item and item.get("category") in ("故意报错", "环境依赖", "练习答案"):
@@ -504,28 +586,28 @@ def main():
         return 2
 
     # 1. 提取全部块
-    all_blocks = []  # (index, fname, start, section, content, expected, behavior)
+    all_blocks = []  # (index, fname, start, section, content, expected, behavior, expected_output)
     for path in sorted(glob.glob(os.path.join(tut_dir, "*.md"))):
         for fname, start, section, content in extract_blocks(path):
-            expected, behavior, content = parse_marks(content)
-            all_blocks.append((len(all_blocks), fname, start, section, content, expected, behavior))
+            expected, behavior, expected_output, content = parse_marks(content)
+            all_blocks.append((len(all_blocks), fname, start, section, content, expected, behavior, expected_output))
 
     # 2. 生成并验证单块
     work = tempfile.mkdtemp(prefix="zrverify_")
     tasks = []
-    stats = {"完整程序": 0, "片段": 0, "错误示例": 0, "省略": 0}
-    for index, fname, start, section, content, expected, behavior in all_blocks:
-        kind = classify(content)
+    stats = {"完整程序": 0, "片段": 0, "错误示例": 0, "输出示例": 0, "省略": 0}
+    for index, fname, start, section, content, expected, behavior, expected_output in all_blocks:
+        kind = classify_task(expected, behavior, expected_output, content)
         stats[kind] += 1
-        t = build_task(work, index, fname, start, content, expected, behavior, args.serialize)
+        t = build_task(work, index, fname, start, content, expected, behavior, expected_output, args.serialize)
         if t:
             tasks.append(t)
 
     results = []
 
     def run(t):
-        index, fname, start, kind, expected, behavior, src_path, d = t
-        ok, rc, out = check_one(rzc, src_path, d, expected, behavior)
+        index, fname, start, kind, expected, behavior, expected_output, src_path, d = t
+        ok, rc, out = check_one(rzc, src_path, d, expected, behavior, expected_output)
         codes = actual_error_codes(out)
         verdict = "PASS"
         reason = ""
@@ -541,6 +623,9 @@ def main():
                     verdict, reason = "FAIL", "预期失败却编译通过"
                 elif expected and not expected & codes:
                     verdict, reason = "FAIL", f"错误码不匹配：预期 {sorted(expected)}，实际 {sorted(codes) or '无 E 码'}"
+        elif kind == "输出示例":
+            if not ok:
+                verdict, reason = "FAIL", f"编译失败或输出不匹配：{out[-300:]}"
         else:
             if not ok:
                 verdict, reason = "FAIL", "编译失败"
@@ -559,9 +644,9 @@ def main():
     serial_results = []
     if args.serialize:
         chapters = {}
-        for index, fname, start, section, content, expected, behavior in all_blocks:
+        for index, fname, start, section, content, expected, behavior, expected_output in all_blocks:
             chapters.setdefault(fname, []).append(
-                (index, fname, start, content, expected, behavior))
+                (index, fname, start, content, expected, behavior, expected_output))
         for fname, blocks in sorted(chapters.items()):
             # 目录名只保留字母数字下划线中文：`:` 反引号等会破坏 rustc 路径拼接
             base_name = re.sub(r"[^\w一-鿿-]", "-", os.path.splitext(fname)[0])

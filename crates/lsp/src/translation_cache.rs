@@ -330,6 +330,16 @@ impl TranslationCache {
         table.get(uri).cloned()
     }
 
+    /// 返回所有已打开文档的翻译条目
+    ///
+    /// rust-analyzer 崩溃自动重启后，代理用它重发 didOpen 同步全部文档。
+    pub fn all_entries(&self) -> Vec<Arc<TranslationEntry>> {
+        self.entries
+            .read()
+            .map(|table| table.values().cloned().collect())
+            .unwrap_or_default()
+    }
+
     /// 收集所有已打开方言文件中出现的标识符（用户自定义名词白名单）
     ///
     /// 词法扫描原文中的全部 Ident token（含 r# 原始标识符，

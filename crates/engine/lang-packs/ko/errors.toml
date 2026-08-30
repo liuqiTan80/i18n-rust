@@ -2091,3 +2091,286 @@
 [E0806]
 "消息模板" = "외부 구현 가능 항목이 그 선언와 호환되지 않습니다"
 "教学提示" = "항목의 선언과 실제 정의가 일치하는지 확인하세요."
+
+["消息翻译"."format argument must be a string literal"]
+"消息模板" = "format 인수는 문자열 리터럴이어야 합니다"
+
+["消息翻译"."you might be missing a string literal to format with"]
+"消息模板" = "서식 지정용 문자열 리터럴이 누락되었을 수 있습니다"
+
+["消息翻译"."expected a pattern, found an expression"]
+"消息模板" = "패턴이 필요하지만 표현식이 발견되었습니다"
+
+["消息翻译"."expected identifier"]
+"消息模板" = "식별자가 필요합니다"
+
+["消息翻译"."found keyword "]
+"消息模板" = "키워드 발견: "
+
+["消息翻译"."expected expression"]
+"消息模板" = "표현식이 필요합니다"
+
+["消息翻译"."expected statement"]
+"消息模板" = "문이 필요합니다"
+
+["消息翻译"."expected one of "]
+"消息模板" = "다음 중 하나가 필요합니다: "
+
+["消息翻译"."unexpected token"]
+"消息模板" = "예기치 않은 토큰"
+
+["消息翻译"."unexpected `,` in pattern"]
+"消息模板" = "패턴에 예기치 않은 `,`가 있습니다"
+
+["消息翻译"."try adding parentheses to match on a tuple"]
+"消息模板" = "튜플 매칭을 위해 괄호를 추가해 보세요"
+
+["消息翻译"."unclosed delimiter"]
+"消息模板" = "닫히지 않은 구분 기호"
+
+["消息翻译"."mismatched closing delimiter"]
+"消息模板" = "일치하지 않는 닫는 구분 기호"
+
+["消息翻译"."this file contains an unclosed delimiter"]
+"消息模板" = "이 파일에 닫히지 않은 구분 기호가 있습니다"
+
+["消息翻译"."unexpected end of file"]
+"消息模板" = "예기치 않은 파일 끝"
+
+["消息翻译"."invalid character"]
+"消息模板" = "잘못된 문자"
+
+["消息翻译"."cannot find value "]
+"消息模板" = "값을 찾을 수 없습니다: "
+
+["消息翻译"."unused variable: "]
+"消息模板" = "사용되지 않는 변수: "
+
+["消息翻译"."unused import: "]
+"消息模板" = "사용되지 않는 임포트: "
+
+["消息翻译"."did you mean "]
+"消息模板" = "혹시 "
+
+["消息翻译"."variable does not need to be mutable"]
+"消息模板" = "변수를 가변으로 선언할 필요가 없습니다"
+
+["消息翻译"."remove this "]
+"消息模板" = "이것을 제거하세요: "
+
+["消息翻译"."function `"]
+"消息模板" = "함수 `{q0}`가 사용되지 않았습니다"
+
+["消息翻译"."method `"]
+"消息模板" = "메서드 `{q0}`가 사용되지 않았습니다"
+
+["消息翻译"."field `"]
+"消息模板" = "필드 `{q0}`가 읽히지 않았습니다"
+
+["消息翻译"."associated function `"]
+"消息模板" = "연관 함수 `{q0}`가 사용되지 않았습니다"
+
+["消息翻译"."associated constant `"]
+"消息模板" = "연관 상수 `{q0}`가 사용되지 않았습니다"
+
+["消息翻译"."constant `"]
+"消息模板" = "상수 `{q0}`가 사용되지 않았습니다"
+
+["消息翻译"."static `"]
+"消息模板" = "정적 변수 `{q0}`가 사용되지 않았습니다"
+
+["消息翻译"."variant `"]
+"消息模板" = "열거형 변형 `{q0}`가 생성되지 않았습니다"
+
+["消息翻译"."enum `"]
+"消息模板" = "열거형 `{q0}`가 사용되지 않았습니다"
+
+["消息翻译"."struct `"]
+"消息模板" = "구조체 `{q0}`가 생성되지 않았습니다"
+
+["消息翻译"."trait `"]
+"消息模板" = "특성 `{q0}`가 사용되지 않았습니다"
+
+["消息翻译"."module `"]
+"消息模板" = "모듈 `{q0}`가 사용되지 않았습니다"
+
+["消息翻译"."~ is never used"]
+"消息模板" = "`{q0}`가 사용되지 않았습니다"
+
+["消息翻译"."~ is never read"]
+"消息模板" = "`{q0}`가 읽히지 않았습니다"
+
+["消息翻译"."~ is never constructed"]
+"消息模板" = "`{q0}`가 생성되지 않았습니다"
+
+["消息翻译"."~ are never constructed"]
+"消息模板" = "`{q0}`와 `{q1}`가 생성되지 않았습니다"
+
+["消息翻译"."~ are never used"]
+"消息模板" = "`{q0}`와 `{q1}`가 사용되지 않았습니다"
+
+["消息翻译"."~ are never read"]
+"消息模板" = "`{q0}`와 `{q1}`가 읽히지 않았습니다"
+
+["消息翻译"."~ should have a snake case name"]
+"消息模板" = "`{q0}`는 스네이크 케이스로 명명해야 합니다"
+
+["消息翻译"."~ should have an upper camel case name"]
+"消息模板" = "`{q0}`는 대문자 카멜 케이스로 명명해야 합니다"
+
+["消息翻译"."value assigned to `"]
+"消息模板" = "`{q0}`에 할당된 값이 읽히지 않았습니다"
+
+["消息翻译"."unused return value of `"]
+"消息模板" = "`{q0}`의 반환 값을 사용해야 합니다"
+
+["消息翻译"."unreachable statement"]
+"消息模板" = "도달할 수 없는 문"
+
+["消息翻译"."unreachable pattern"]
+"消息模板" = "도달할 수 없는 패턴"
+
+["消息翻译"."literal out of range for `"]
+"消息模板" = "`{q0}`의 범위를 벗어난 리터럴"
+
+["消息翻译"."unnecessary parentheses around "]
+"消息模板" = "불필요한 괄호: "
+
+["消息翻译"."comparison is useless due to type limits"]
+"消息模板" = "유형 범위로 인해 비교가 항상 참 또는 거짓입니다"
+
+["消息翻译"."use of deprecated item `"]
+"消息模板" = "더 이상 사용되지 않는 항목 `{q0}` 사용"
+
+["消息翻译"."unknown start of token: "]
+"消息模板" = "알 수 없는 토큰 시작: "
+
+["消息翻译"."Unicode character '"]
+"消息模板" = "Unicode 문자 '{q0}'는 '{q1}'와 비슷하지만 같지 않습니다"
+
+["消息翻译"."expected "]
+"消息模板" = "필요: "
+
+["消息翻译"."consider "]
+"消息模板" = "고려하세요: "
+
+["消息翻译"."try "]
+"消息模板" = "시도하세요: "
+
+["消息翻译"."value moved here"]
+"消息模板" = "값이 여기서 이동되었습니다"
+
+["消息翻译"."value borrowed here after move"]
+"消息模板" = "값이 이동 후 여기서 빌려졌습니다"
+
+["消息翻译"."value moved into closure here"]
+"消息模板" = "값이 여기서 클로저로 이동되었습니다"
+
+["消息翻译"."value captured here"]
+"消息模板" = "값이 여기서 포착되었습니다"
+
+["消息翻译"."move occurs because "]
+"消息模板" = "이동이 발생하는 이유: "
+
+["消息翻译"."borrow of moved value: `"]
+"消息模板" = "이동된 값의 대여: `{q0}`"
+
+["消息翻译"."use of moved value: `"]
+"消息模板" = "이동된 값의 사용: `{q0}`"
+
+["消息翻译"."cannot borrow `"]
+"消息模板" = "대여할 수 없습니다: `"
+
+["消息翻译"."cannot move out of `"]
+"消息模板" = "`에서 이동할 수 없습니다"
+
+["消息翻译"."cannot assign to `"]
+"消息模板" = "`에 할당할 수 없습니다"
+
+["消息翻译"."cannot mutate immutable variable `"]
+"消息模板" = "불변 변수 `{q0}`를 수정할 수 없습니다"
+
+["消息翻译"."mismatched types"]
+"消息模板" = "유형 불일치"
+
+["消息翻译"."type annotations needed"]
+"消息模板" = "유형 주석이 필요합니다"
+
+["消息翻译"."cannot infer type for `"]
+"消息模板" = "`{q0}`의 유형을 추론할 수 없습니다"
+
+["消息翻译"."no method named `"]
+"消息模板" = "`{q0}`라는 이름의 메서드가 없습니다"
+
+["消息翻译"."no function named `"]
+"消息模板" = "`{q0}`라는 이름의 함수가 없습니다"
+
+["消息翻译"."no variant named `"]
+"消息模板" = "`{q0}`라는 이름의 변형이 없습니다"
+
+["消息翻译"."no field `"]
+"消息模板" = "`{q0}`라는 이름의 필드가 없습니다"
+
+["消息翻译"."no associated item named `"]
+"消息模板" = "`{q0}`라는 이름의 연관 항목이 없습니다"
+
+["消息翻译"."the trait bound `"]
+"消息模板" = "특성 경계 `"
+
+["消息翻译"."the size for values of type `"]
+"消息模板" = "`{q0}` 유형 값의 크기는 컴파일 시 결정할 수 없습니다"
+
+["消息翻译"."does not live long enough"]
+"消息模板" = "수명이 충분하지 않습니다"
+
+["消息翻译"."cannot return value referencing local variable "]
+"消息模板" = "지역 변수를 참조하는 값을 반환할 수 없습니다: "
+
+["消息翻译"."cannot return reference to local variable `"]
+"消息模板" = "지역 변수 `{q0}`에 대한 참조를 반환할 수 없습니다"
+
+["消息翻译"."this arithmetic operation will overflow"]
+"消息模板" = "이 산술 연산은 오버플로됩니다"
+
+["消息翻译"."the function `main` is defined here"]
+"消息模板" = "함수 `메인`가 여기 정의되어 있습니다"
+
+["消息翻译"."required by "]
+"消息模板" = "필요한 대상: "
+
+["消息翻译"."this error originates in the macro `"]
+"消息模板" = "이 오류는 매크로 `{q0}`에서 발생했습니다"
+
+["消息翻译"."in this macro invocation"]
+"消息模板" = "이 매크로 호출에서"
+
+["消息翻译"."the `main` function is the entry point of the program"]
+"消息模板" = "함수 `메인`는 프로그램의 진입점입니다"
+
+["消息翻译"."`match` arm body without braces"]
+"消息模板" = "`매치` 분기 본문에 중괄호 없음"
+
+["消息翻译"."replace `;` with `,` to end a `match` arm expression"]
+"消息模板" = "`매치` 분기 표현식을 끝내려면 `;`를 `,`로 바꾸세요"
+
+["消息翻译"."`match` arms have incompatible types"]
+"消息模板" = "`매치` 분기들의 유형이 호환되지 않습니다"
+
+["消息翻译"."this `match` arm has code that runs when it is empty"]
+"消息模板" = "이 `매치` 분기에는 비어 있을 때 실행되는 코드가 있습니다"
+
+["消息翻译"."non-exhaustive patterns: "]
+"消息模板" = "불완전한 패턴: "
+
+["消息翻译"."missing match arm: "]
+"消息模板" = "누락된 매치 분기: "
+
+["消息翻译"."the matched value is of type "]
+"消息模板" = "매치된 값의 유형은 "
+
+["消息翻译"."~ defined here"]
+"消息模板" = "`{q0}`가 여기 정의되어 있습니다"
+
+["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown: "]
+"消息模板" = "모든 경우가 처리되도록 하세요: 와일드카드 분기(`_ => ...`)나 명시적 분기를 추가하세요. 예: "
+

@@ -2085,3 +2085,286 @@
 [E0806]
 "消息模板" = "العنصر القابل للتنفيذ الخارجي غير متوافق مع تصريحه"
 "教学提示" = "تحقق من تطابق تصريح العنصر مع تعريفه الفعلي."
+
+["消息翻译"."format argument must be a string literal"]
+"消息模板" = "وسيط التنسيق يجب أن يكون نصًا حرفيًا"
+
+["消息翻译"."you might be missing a string literal to format with"]
+"消息模板" = "ربما ينقص نص حرفي للتنسيق"
+
+["消息翻译"."expected a pattern, found an expression"]
+"消息模板" = "توقع نمطًا لكن وجد تعبيرًا"
+
+["消息翻译"."expected identifier"]
+"消息模板" = "توقع معرفًا"
+
+["消息翻译"."found keyword "]
+"消息模板" = "تم العثور على كلمة مفتاحية: "
+
+["消息翻译"."expected expression"]
+"消息模板" = "توقع تعبيرًا"
+
+["消息翻译"."expected statement"]
+"消息模板" = "توقع عبارة"
+
+["消息翻译"."expected one of "]
+"消息模板" = "توقع أحد: "
+
+["消息翻译"."unexpected token"]
+"消息模板" = "رمز غير متوقع"
+
+["消息翻译"."unexpected `,` in pattern"]
+"消息模板" = "`,` غير متوقع في النمط"
+
+["消息翻译"."try adding parentheses to match on a tuple"]
+"消息模板" = "حاول إضافة أقواس للمطابقة مع مجموعة"
+
+["消息翻译"."unclosed delimiter"]
+"消息模板" = "فاصل غير مغلق"
+
+["消息翻译"."mismatched closing delimiter"]
+"消息模板" = "فاصل إغلاق غير متطابق"
+
+["消息翻译"."this file contains an unclosed delimiter"]
+"消息模板" = "يحتوي هذا الملف على فاصل غير مغلق"
+
+["消息翻译"."unexpected end of file"]
+"消息模板" = "نهاية ملف غير متوقعة"
+
+["消息翻译"."invalid character"]
+"消息模板" = "حرف غير صالح"
+
+["消息翻译"."cannot find value "]
+"消息模板" = "لا يمكن العثور على القيمة: "
+
+["消息翻译"."unused variable: "]
+"消息模板" = "متغير غير مستخدم: "
+
+["消息翻译"."unused import: "]
+"消息模板" = "استيراد غير مستخدم: "
+
+["消息翻译"."did you mean "]
+"消息模板" = "هل تقصد "
+
+["消息翻译"."variable does not need to be mutable"]
+"消息模板" = "المتغير لا يحتاج إلى أن يكون قابلاً للتغيير"
+
+["消息翻译"."remove this "]
+"消息模板" = "أزل هذا: "
+
+["消息翻译"."function `"]
+"消息模板" = "الدالة `{q0}` لا تُستخدم أبدًا"
+
+["消息翻译"."method `"]
+"消息模板" = "الطريقة `{q0}` لا تُستخدم أبدًا"
+
+["消息翻译"."field `"]
+"消息模板" = "الحقل `{q0}` لا يُقرأ أبدًا"
+
+["消息翻译"."associated function `"]
+"消息模板" = "الدالة المرتبطة `{q0}` لا تُستخدم أبدًا"
+
+["消息翻译"."associated constant `"]
+"消息模板" = "الثابت المرتبط `{q0}` لا يُستخدم أبدًا"
+
+["消息翻译"."constant `"]
+"消息模板" = "الثابت `{q0}` لا يُستخدم أبدًا"
+
+["消息翻译"."static `"]
+"消息模板" = "المتغير الثابت `{q0}` لا يُستخدم أبدًا"
+
+["消息翻译"."variant `"]
+"消息模板" = "البديل `{q0}` لا يُنشأ أبدًا"
+
+["消息翻译"."enum `"]
+"消息模板" = "التعداد `{q0}` لا يُستخدم أبدًا"
+
+["消息翻译"."struct `"]
+"消息模板" = "البنية `{q0}` لا تُنشأ أبدًا"
+
+["消息翻译"."trait `"]
+"消息模板" = "السمة `{q0}` لا تُستخدم أبدًا"
+
+["消息翻译"."module `"]
+"消息模板" = "الوحدة `{q0}` لا تُستخدم أبدًا"
+
+["消息翻译"."~ is never used"]
+"消息模板" = "`{q0}` لا يُستخدم أبدًا"
+
+["消息翻译"."~ is never read"]
+"消息模板" = "`{q0}` لا يُقرأ أبدًا"
+
+["消息翻译"."~ is never constructed"]
+"消息模板" = "`{q0}` لا يُنشأ أبدًا"
+
+["消息翻译"."~ are never constructed"]
+"消息模板" = "`{q0}` و`{q1}` لا يُنشآن أبدًا"
+
+["消息翻译"."~ are never used"]
+"消息模板" = "`{q0}` و`{q1}` لا يُستخدمان أبدًا"
+
+["消息翻译"."~ are never read"]
+"消息模板" = "`{q0}` و`{q1}` لا يُقرآن أبدًا"
+
+["消息翻译"."~ should have a snake case name"]
+"消息模板" = "`{q0}` يجب أن يكون اسمه بنمط snake_case"
+
+["消息翻译"."~ should have an upper camel case name"]
+"消息模板" = "`{q0}` يجب أن يكون اسمه بنمط UpperCamelCase"
+
+["消息翻译"."value assigned to `"]
+"消息模板" = "القيمة المعينة إلى `{q0}` لا تُقرأ أبدًا"
+
+["消息翻译"."unused return value of `"]
+"消息模板" = "قيمة إرجاع `{q0}` يجب استخدامها"
+
+["消息翻译"."unreachable statement"]
+"消息模板" = "عبارة لا يمكن الوصول إليها"
+
+["消息翻译"."unreachable pattern"]
+"消息模板" = "نمط لا يمكن الوصول إليه"
+
+["消息翻译"."literal out of range for `"]
+"消息模板" = "نص حرفي خارج نطاق `{q0}`"
+
+["消息翻译"."unnecessary parentheses around "]
+"消息模板" = "أقواس غير ضرورية حول "
+
+["消息翻译"."comparison is useless due to type limits"]
+"消息模板" = "المقارنة عديمة الفائدة بسبب حدود النوع"
+
+["消息翻译"."use of deprecated item `"]
+"消息模板" = "استخدام عنصر مهجور `{q0}`"
+
+["消息翻译"."unknown start of token: "]
+"消息模板" = "بداية رمز غير معروفة: "
+
+["消息翻译"."Unicode character '"]
+"消息模板" = "الحرف يونيكود '{q0}' يشبه '{q1}' لكنه ليس هو"
+
+["消息翻译"."expected "]
+"消息模板" = "متوقع: "
+
+["消息翻译"."consider "]
+"消息模板" = "فكّر في: "
+
+["消息翻译"."try "]
+"消息模板" = "جرّب: "
+
+["消息翻译"."value moved here"]
+"消息模板" = "تم نقل القيمة هنا"
+
+["消息翻译"."value borrowed here after move"]
+"消息模板" = "تم اقتراض القيمة هنا بعد النقل"
+
+["消息翻译"."value moved into closure here"]
+"消息模板" = "تم نقل القيمة إلى الإغلاق هنا"
+
+["消息翻译"."value captured here"]
+"消息模板" = "تم التقاط القيمة هنا"
+
+["消息翻译"."move occurs because "]
+"消息模板" = "يحدث النقل لأن "
+
+["消息翻译"."borrow of moved value: `"]
+"消息模板" = "اقتراض قيمة منقولة: `{q0}`"
+
+["消息翻译"."use of moved value: `"]
+"消息模板" = "استخدام قيمة منقولة: `{q0}`"
+
+["消息翻译"."cannot borrow `"]
+"消息模板" = "لا يمكن الاقتراض `"
+
+["消息翻译"."cannot move out of `"]
+"消息模板" = "لا يمكن النقل خارج `"
+
+["消息翻译"."cannot assign to `"]
+"消息模板" = "لا يمكن الإسناد إلى `"
+
+["消息翻译"."cannot mutate immutable variable `"]
+"消息模板" = "لا يمكن تعديل المتغير غير القابل للتغيير `{q0}`"
+
+["消息翻译"."mismatched types"]
+"消息模板" = "أنواع غير متطابقة"
+
+["消息翻译"."type annotations needed"]
+"消息模板" = "يلزم التعليقات النوعية"
+
+["消息翻译"."cannot infer type for `"]
+"消息模板" = "لا يمكن استنتاج نوع `{q0}`"
+
+["消息翻译"."no method named `"]
+"消息模板" = "لا توجد طريقة باسم `{q0}`"
+
+["消息翻译"."no function named `"]
+"消息模板" = "لا توجد دالة باسم `{q0}`"
+
+["消息翻译"."no variant named `"]
+"消息模板" = "لا يوجد بديل باسم `{q0}`"
+
+["消息翻译"."no field `"]
+"消息模板" = "لا يوجد حقل `{q0}`"
+
+["消息翻译"."no associated item named `"]
+"消息模板" = "لا يوجد عنصر مرتبط باسم `{q0}`"
+
+["消息翻译"."the trait bound `"]
+"消息模板" = "حد السمة `"
+
+["消息翻译"."the size for values of type `"]
+"消息模板" = "لا يمكن تحديد حجم قيم النوع `{q0}` وقت الترجمة"
+
+["消息翻译"."does not live long enough"]
+"消息模板" = "لا يعيش لفترة كافية"
+
+["消息翻译"."cannot return value referencing local variable "]
+"消息模板" = "لا يمكن إرجاع قيمة تشير إلى متغير محلي: "
+
+["消息翻译"."cannot return reference to local variable `"]
+"消息模板" = "لا يمكن إرجاع مرجع إلى المتغير المحلي `{q0}`"
+
+["消息翻译"."this arithmetic operation will overflow"]
+"消息模板" = "ستفيض هذه العملية الحسابية"
+
+["消息翻译"."the function `main` is defined here"]
+"消息模板" = "دالة `رئيسي` معرّفة هنا"
+
+["消息翻译"."required by "]
+"消息模板" = "مطلوب بواسطة "
+
+["消息翻译"."this error originates in the macro `"]
+"消息模板" = "ينشأ هذا الخطأ من الماكرو `{q0}`"
+
+["消息翻译"."in this macro invocation"]
+"消息模板" = "في هذا الاستدعاء للماكرو"
+
+["消息翻译"."the `main` function is the entry point of the program"]
+"消息模板" = "دالة `رئيسي` هي نقطة دخول البرنامج"
+
+["消息翻译"."`match` arm body without braces"]
+"消息模板" = "جسم فرع `مطابقة` بدون أقواس"
+
+["消息翻译"."replace `;` with `,` to end a `match` arm expression"]
+"消息模板" = "استبدل `;` بـ `,` لإنهاء تعبير فرع `مطابقة`"
+
+["消息翻译"."`match` arms have incompatible types"]
+"消息模板" = "فروع `مطابقة` لها أنواع غير متوافقة"
+
+["消息翻译"."this `match` arm has code that runs when it is empty"]
+"消息模板" = "فرع `مطابقة` هذا يحتوي كودًا يعمل عندما يكون فارغًا"
+
+["消息翻译"."non-exhaustive patterns: "]
+"消息模板" = "أنماط غير شاملة: "
+
+["消息翻译"."missing match arm: "]
+"消息模板" = "فرع مطابقة مفقود: "
+
+["消息翻译"."the matched value is of type "]
+"消息模板" = "القيمة المطابقة من نوع "
+
+["消息翻译"."~ defined here"]
+"消息模板" = "`{q0}` معرّف هنا"
+
+["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown: "]
+"消息模板" = "تأكد من تغطية جميع الحالات: أضف فرعًا شاملاً (`_ => ...`) أو فرعًا صريحًا، مثل: "
+

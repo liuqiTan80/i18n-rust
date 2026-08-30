@@ -476,4 +476,90 @@ mod tests {
             output.output
         );
     }
+
+    /// 属性测试：正向转译 → 反向转译应精确还原母语源（回译不变量）
+    ///
+    /// 约束：测试源避开模块路径（反向转译无模块路径表，`网络库::服务器` 之类
+    /// 无法还原）；宏调用写带感叹号形式（正向自动补的 `!` 反向原样保留，
+    /// 源写 `打印行(` 会还原成 `打印行!(` 造成差异）。
+    #[test]
+    fn test_property_roundtrip_preserves_source() {
+        let manager = create_manager();
+        let source = "函数 主函数() {\n    让 数量: 整数 = 5;\n    让 文本: 字符串 = \"世界\";\n    打印行!(\"你好\");\n}";
+        let output = transpile_pipeline(source, &manager);
+        assert!(
+            output.output.contains("fn 主函数()") && output.output.contains("println!"),
+            "正向转译应产出英文：{}",
+            output.output
+        );
+
+        // 合并关键字 + 宏 + 别名三类映射并反转（英文 → 中文），与正向管线互为逆
+        let mut reverse_map = std::collections::HashMap::new();
+        for (zh, en) in manager.get_keyword_map() {
+            reverse_map.insert(en.clone(), zh.clone());
+        }
+        for (zh, en) in manager.get_macro_map() {
+            reverse_map.insert(en.clone(), zh.clone());
+        }
+        for (zh, en) in manager.get_alias_map() {
+            reverse_map.insert(en.clone(), zh.clone());
+        }
+
+        let restored = lexer::reverse_transpile(
+            &output.output,
+            &reverse_map,
+            &HashSet::new(),
+            &HashSet::new(),
+        );
+        assert_eq!(restored, source, "回译应精确还原母语源");
+    }
+
+    /// 属性测试：英文输出再经转译管线应保持不变（幂等不变量）
+    ///
+    /// 若映射表中混入英文键、或宏感叹号自动补逻辑对英文输出不幂等，
+    /// 连续转译会持续改变文本，本测试守护管线的收敛性。
+    #[test]
+    fn test_property_retranspile_idempotent() {
+        let manager = create_manager();
+        let source = "函数 主函数() {\n    让 数量: 整数 = 5;\n    打印行!(\"你好\");\n}";
+        let en = transpile_pipeline(source, &manager).output;
+        let again = transpile_pipeline(&en, &manager).output;
+        assert_eq!(en, again, "对英文输出再转译应保持不变");
+    }
+
+    /// 属性测试：全部内置语言包的映射表不得含循环引用
+    ///
+    /// 循环（A→B 且 B→A）会使正向/反向转译来回抖动，属语言包配置错误；
+    /// 本测试加载全部内置语言包，守护新增条目时不会引入互指。
+    #[test]
+    fn test_all_builtin_lang_packs_no_mapping_cycles() {
+        let codes = 语言::builtin_language_codes();
+        assert!(codes.len() >= 9, "应覆盖全部内置语言：{codes:?}");
+        for code in codes {
+            let files = 语言::builtin_lang_files(code);
+            let get = |name: &str| {
+                files
+                    .iter()
+                    .find(|(n, _)| *n == name)
+                    .map(|(_, c)| *c)
+                    .unwrap_or("")
+            };
+            let keywords = get("keywords.toml");
+            assert!(!keywords.is_empty(), "{code} 语言包缺少 keywords.toml");
+            let third_party: Vec<(&str, &str)> = files
+                .iter()
+                .filter(|(n, _)| n.starts_with("crates/"))
+                .map(|(n, c)| (*n, *c))
+                .collect();
+            let manager = mapping_manager::MappingManager::load_from_builtin(
+                keywords,
+                get("module_paths.toml"),
+                get("stdlib.toml"),
+                &third_party,
+            )
+            .expect("语言包应能解析");
+            let cycles = manager.find_mapping_cycles();
+            assert!(cycles.is_empty(), "{code} 语言包存在循环映射：{cycles:?}");
+        }
+    }
 }

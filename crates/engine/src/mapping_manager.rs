@@ -331,6 +331,33 @@ impl MappingManager {
     pub fn get_derive_map(&self) -> HashMap<String, String> {
         self.derive_map.clone()
     }
+
+    /// 检测映射表中的循环引用（A→B 且 B→A 的互指对）
+    ///
+    /// 覆盖三类：关键字表内部（含宏节）、别名表内部、关键字↔别名跨表。
+    /// 循环引用会使正向转译与反向转译来回抖动（译出又译回），
+    /// 是语言包配置的严重错误；返回人类可读的循环描述列表（空 = 无循环）。
+    /// 自映射（A→A）不视为循环（回译无抖动，但属冗余条目）。
+    pub fn find_mapping_cycles(&self) -> Vec<String> {
+        let mut cycles = Vec::new();
+        let check_self = |map: &HashMap<String, String>, label: &str, cycles: &mut Vec<String>| {
+            for (k, v) in map {
+                if k != v && map.get(v).is_some_and(|back| back == k) {
+                    cycles.push(format!("{label}: {k} ↔ {v}"));
+                }
+            }
+        };
+        check_self(&self.keyword_map, "关键字", &mut cycles);
+        check_self(&self.alias_map, "别名", &mut cycles);
+        // 跨表：关键字阶段替换后的英文值若命中别名表键、且别名替换回原键，
+        // 则管线末尾中文残留（别名阶段把关键字阶段的结果又译了回去）
+        for (k, v) in &self.keyword_map {
+            if k != v && self.alias_map.get(v).is_some_and(|back| back == k) {
+                cycles.push(format!("关键字↔别名: {k} ↔ {v}"));
+            }
+        }
+        cycles
+    }
 }
 
 #[cfg(test)]
@@ -514,5 +541,75 @@ mod tests {
         assert_eq!(declarations.get("函数"), Some(&"fn".to_string()));
         assert_eq!(manager.get_section_mapping("不存在的节"), None);
         assert_eq!(manager.query("不存在的关键字"), None);
+    }
+
+    /// 循环引用检测：关键字表内部互指
+    #[test]
+    fn test_find_mapping_cycles_keyword_self_cycle() {
+        let manager = MappingManager::from_flat_maps(
+            HashMap::from([
+                ("函数".to_string(), "fn".to_string()),
+                ("方法".to_string(), "函数".to_string()),
+                ("函数".to_string(), "方法".to_string()), // 后写覆盖：函数→方法
+            ]),
+            HashMap::new(),
+            HashMap::new(),
+        );
+        let cycles = manager.find_mapping_cycles();
+        assert!(
+            cycles.iter().any(|c| c.contains("方法 ↔ 函数")),
+            "应检测到关键字互指循环：{cycles:?}"
+        );
+    }
+
+    /// 循环引用检测：别名表内部互指
+    #[test]
+    fn test_find_mapping_cycles_alias_self_cycle() {
+        let manager = MappingManager::from_flat_maps(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::from([
+                ("甲".to_string(), "乙".to_string()),
+                ("乙".to_string(), "甲".to_string()),
+            ]),
+        );
+        let cycles = manager.find_mapping_cycles();
+        assert!(
+            cycles
+                .iter()
+                .any(|c| c.contains("别名") && c.contains("甲 ↔ 乙")),
+            "应检测到别名互指循环：{cycles:?}"
+        );
+    }
+
+    /// 循环引用检测：关键字↔别名跨表互指（管线末尾中文残留）
+    #[test]
+    fn test_find_mapping_cycles_cross_table() {
+        let manager = MappingManager::from_flat_maps(
+            HashMap::from([("甲".to_string(), "乙".to_string())]),
+            HashMap::new(),
+            HashMap::from([("乙".to_string(), "甲".to_string())]),
+        );
+        let cycles = manager.find_mapping_cycles();
+        assert!(
+            cycles
+                .iter()
+                .any(|c| c.contains("关键字↔别名") && c.contains("甲 ↔ 乙")),
+            "应检测到跨表互指循环：{cycles:?}"
+        );
+    }
+
+    /// 正常映射表（含同值不同键、自映射豁免）不产生循环报告
+    #[test]
+    fn test_find_mapping_cycles_clean_maps() {
+        let manager = MappingManager::from_flat_maps(
+            HashMap::from([
+                ("函数".to_string(), "fn".to_string()),
+                ("让".to_string(), "let".to_string()),
+            ]),
+            HashMap::new(),
+            HashMap::from([("字符串".to_string(), "String".to_string())]),
+        );
+        assert!(manager.find_mapping_cycles().is_empty());
     }
 }

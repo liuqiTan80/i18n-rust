@@ -551,6 +551,52 @@ pub struct DiagnosticTranslator {
     type_map: HashMap<String, String>, // 来自关键字映射表，用于替换消息中的英文类型
 }
 
+/// 统计类型字符串开头的引用层数（`&` 前缀个数）
+///
+/// 规则：连续 strip `&` 前缀，遇 `mut`（含 `mut ` / `mut` 结尾）即停止
+/// —— `&mut T` 是单层可变引用，不算两层。
+/// 示例：`&String` → 1，`&&String` → 2，`&mut String` → 1，`String` → 0。
+fn count_ref_prefix(ty: &str) -> usize {
+    let mut rest = ty;
+    let mut count = 0;
+    while let Some(after) = rest.strip_prefix('&') {
+        count += 1;
+        if after.starts_with("mut ") || after == "mut" || after.starts_with("mut\t") {
+            break;
+        }
+        rest = after;
+    }
+    count
+}
+
+/// 本地化引用类型：先整体查 type_map（如 `&str` → `字符串引用`），
+/// 未命中时拆开 `&` 前缀，对本体做类型本地化后拼回
+/// （如 `&String` → `&字符串`、`&&i32` → `&&整数`）。
+fn localize_ref_type(ty: &str, map: &HashMap<String, String>) -> String {
+    if let Some(zh) = map.get(ty) {
+        return zh.clone();
+    }
+    let mut prefix = String::new();
+    let mut rest = ty;
+    while let Some(after) = rest.strip_prefix('&') {
+        prefix.push('&');
+        rest = after;
+    }
+    if prefix.is_empty() {
+        return ty.to_string();
+    }
+    let (mutable, base) = match rest.strip_prefix("mut ") {
+        Some(base) => ("mut ", base),
+        None => ("", rest),
+    };
+    let base_zh = map
+        .get(base)
+        .cloned()
+        .or_else(|| localize_type_token(base, map))
+        .unwrap_or_else(|| base.to_string());
+    format!("{prefix}{mutable}{base_zh}")
+}
+
 /// 从 `expected `X`, found `Y`` 形式的文本（rustc label）中提取期望/实际类型
 fn extract_expected_found(text: &str) -> Option<(String, String)> {
     let pos = text.find("expected ")?;
@@ -717,6 +763,23 @@ impl DiagnosticTranslator {
                     })
                     .unwrap_or_else(|| child.message.clone());
                 teaching_hints.push(crate::语言::f("diag_fix_suggestion", &[&hint]));
+            }
+        }
+
+        // E0308 引用层数教学提示：期望/实际类型均为引用或其中之一为引用、
+        // 但引用层数不同（如 `expected `&String`, found `String``）时，
+        // 追加一条检查 `&` 数量的提示，覆盖初学者最常见的借用错误之一。
+        if error_code.as_deref() == Some("E0308") && !expected.is_empty() && !found.is_empty() {
+            let exp_refs = count_ref_prefix(&expected);
+            let fnd_refs = count_ref_prefix(&found);
+            if exp_refs != fnd_refs && (exp_refs > 0 || fnd_refs > 0) {
+                teaching_hints.push(crate::语言::f(
+                    "diag_ref_depth_hint",
+                    &[
+                        &localize_ref_type(&expected, &self.type_map),
+                        &localize_ref_type(&found, &self.type_map),
+                    ],
+                ));
             }
         }
 
@@ -1062,6 +1125,98 @@ mod tests {
             ("&str".into(), "字符串引用".into()),
             ("String".into(), "字符串".into()),
         ])
+    }
+
+    /// 构造指定 label 的 E0308 诊断（基于标准测试诊断修改 label）
+    fn create_e0308_with_label(label: &str) -> CompilerDiagnostic {
+        let mut diagnostic = create_test_diagnostic();
+        diagnostic.spans[0].label = Some(label.to_string());
+        diagnostic
+    }
+
+    #[test]
+    fn test_count_ref_prefix() {
+        assert_eq!(count_ref_prefix("String"), 0);
+        assert_eq!(count_ref_prefix("&String"), 1);
+        assert_eq!(count_ref_prefix("&&String"), 2);
+        // &mut 是单层可变引用，不算两层
+        assert_eq!(count_ref_prefix("&mut String"), 1);
+        assert_eq!(count_ref_prefix("&str"), 1);
+    }
+
+    #[test]
+    fn test_localize_ref_type() {
+        let map = create_test_type_map();
+        // 整体命中 type_map（&str 是特殊整体条目）
+        assert_eq!(localize_ref_type("&str", &map), "字符串引用");
+        // 拆 & 前缀 + 本体映射
+        assert_eq!(localize_ref_type("&String", &map), "&字符串");
+        assert_eq!(localize_ref_type("&&i32", &map), "&&有符号整数32");
+        assert_eq!(localize_ref_type("&mut String", &map), "&mut 字符串");
+        // 无 & 前缀时原样返回
+        assert_eq!(localize_ref_type("String", &map), "字符串");
+    }
+
+    #[test]
+    fn test_e0308_ref_depth_hint_appended() {
+        let _guard = crate::语言::test_language("zh");
+        // expected `&String`, found `String`：引用层数 1 vs 0，应追加提示
+        let diagnostic = create_e0308_with_label("expected `&String`, found `String`");
+        let translator = DiagnosticTranslator::new(
+            ErrorTranslationManager::load_from_string("").unwrap(),
+            create_test_type_map(),
+        );
+        let teaching = translator.translate_diagnostic(&diagnostic);
+        assert!(
+            teaching
+                .teaching_hints
+                .iter()
+                .any(|h| h.contains("引用层数不匹配")
+                    && h.contains("&字符串")
+                    && h.contains("字符串")),
+            "应追加引用层数提示，实际提示：{:?}",
+            teaching.teaching_hints
+        );
+    }
+
+    #[test]
+    fn test_e0308_same_ref_depth_no_hint() {
+        let _guard = crate::语言::test_language("zh");
+        // expected `&String`, found `&str`：层数 1 vs 1，不应追加提示
+        let diagnostic = create_e0308_with_label("expected `&String`, found `&str`");
+        let translator = DiagnosticTranslator::new(
+            ErrorTranslationManager::load_from_string("").unwrap(),
+            create_test_type_map(),
+        );
+        let teaching = translator.translate_diagnostic(&diagnostic);
+        assert!(
+            !teaching
+                .teaching_hints
+                .iter()
+                .any(|h| h.contains("引用层数不匹配")),
+            "层数相同时不应追加提示，实际提示：{:?}",
+            teaching.teaching_hints
+        );
+    }
+
+    #[test]
+    fn test_e0308_no_ref_no_hint() {
+        let _guard = crate::语言::test_language("zh");
+        // expected `String`, found `i32`：均非引用，不应追加提示
+        let diagnostic = create_e0308_with_label("expected `String`, found `i32`");
+        let translator = DiagnosticTranslator::new(
+            ErrorTranslationManager::load_from_string("").unwrap(),
+            create_test_type_map(),
+        );
+        let teaching = translator.translate_diagnostic(&diagnostic);
+        assert!(
+            !teaching
+                .teaching_hints
+                .iter()
+                .any(|h| h.contains("引用层数不匹配")),
+            "无引用时不应追加提示，实际提示：{:?}",
+            teaching.teaching_hints
+        );
     }
 
     #[test]

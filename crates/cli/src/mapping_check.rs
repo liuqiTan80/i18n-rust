@@ -11,7 +11,7 @@
 // 2. crates 文件之间同键不同值：read_dir 顺序未定义，合并非确定 → error
 // 3. crates 键与 stdlib 标识符同键不同值：stdlib 最后加载优先，crates 键被覆盖失效 → warning
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// “母语词 → 英文”映射表
@@ -25,6 +25,8 @@ pub struct LangPackView {
     pub keywords_toml: String,
     /// stdlib.toml 内容
     pub stdlib_toml: String,
+    /// errors.toml 内容（错误码/消息翻译）
+    pub errors_toml: String,
     /// 第三方库映射（文件名, TOML 内容），按文件名排序保证确定性
     pub crates: Vec<(String, String)>,
 }
@@ -43,6 +45,7 @@ impl LangPackView {
             lang: lang.to_string(),
             keywords_toml: data.keywords_toml.to_string(),
             stdlib_toml: data.stdlib_toml.to_string(),
+            errors_toml: data.errors_toml.to_string(),
             crates,
         }
     }
@@ -58,6 +61,8 @@ impl LangPackView {
             .map_err(|e| anyhow::anyhow!("读取 keywords.toml 失败: {e}"))?;
         // stdlib.toml 可选（部分语言包可能未提供）
         let stdlib_toml = std::fs::read_to_string(dir.join("stdlib.toml")).unwrap_or_default();
+        // errors.toml 可选（en 等母语即英文的语言无此文件）
+        let errors_toml = std::fs::read_to_string(dir.join("errors.toml")).unwrap_or_default();
         let mut crates = Vec::new();
         let crates_dir = dir.join("crates");
         if crates_dir.is_dir() {
@@ -83,6 +88,7 @@ impl LangPackView {
             lang,
             keywords_toml,
             stdlib_toml,
+            errors_toml,
             crates,
         })
     }
@@ -391,7 +397,7 @@ fn render_issue(issue: &str) -> String {
 pub fn run_check(target: Option<&str>) -> anyhow::Result<bool> {
     let ui = crate::ui::Ui::global();
     let Some(target) = target else {
-        // 全部内置语言 + 跨语言一致性对比
+        // 全部内置语言 + 跨语言一致性对比 + 跨语言完整性门禁
         let mut all_passed = true;
         for lang in crate::builtin_lang::builtin_lang_codes() {
             let view = LangPackView::from_builtin(lang);
@@ -400,6 +406,7 @@ pub fn run_check(target: Option<&str>) -> anyhow::Result<bool> {
             print_report(lang, &report);
         }
         print_cross_lang_counts();
+        all_passed &= print_cross_lang_integrity();
         return Ok(all_passed);
     };
     let path = Path::new(target);
@@ -420,10 +427,184 @@ pub fn run_check(target: Option<&str>) -> anyhow::Result<bool> {
     }
 }
 
-/// 打印跨内置语言的条目数一致性对比（不一致时输出警告，不阻断）
+/// 跨语言完整性检查报告
+#[derive(Debug, Default)]
+pub struct CrossLangReport {
+    /// 必须修复的错误（方言词缺失，功能缺口）
+    pub errors: Vec<String>,
+    /// 建议补齐的警告（有回退机制，不阻断）
+    pub warnings: Vec<String>,
+}
+
+impl CrossLangReport {
+    /// 是否通过（无错误；警告不阻断）
+    pub fn passed(&self) -> bool {
+        self.errors.is_empty()
+    }
+}
+
+/// 提取 keywords.toml 的扁平化关键字值集合与派生特征值集合
 ///
-/// 无 crates 文件的语言（如 en：母语即英文，无需第三方映射）
-/// 仅展示不参与一致性比较。
+/// 与引擎运行时语义一致（flatten_sections + 派生特征节单独存放），
+/// 按**英文值**对齐而非母语键：各语言母语词不同（ja 用日语、de 用德语），
+/// 只有英文值是跨语言可比的"方言能力"。
+fn keyword_value_sets(content: &str) -> (HashSet<String>, HashSet<String>) {
+    match i18n_rust_engine::mapping_source::parse_toml_sections(content) {
+        Ok(sections) => {
+            let mut keyword = HashSet::new();
+            let mut derive = HashSet::new();
+            for (section, table) in &sections {
+                let target = if section == "派生特征" {
+                    &mut derive
+                } else {
+                    &mut keyword
+                };
+                for value in table.values() {
+                    target.insert(value.clone());
+                }
+            }
+            (keyword, derive)
+        }
+        Err(_) => (HashSet::new(), HashSet::new()),
+    }
+}
+
+/// 提取 errors.toml 的错误码节集合（如 E0425）与消息翻译键集合
+fn error_components(content: &str) -> (HashSet<String>, HashSet<String>) {
+    let Ok(value) = content.parse::<toml::Value>() else {
+        return (HashSet::new(), HashSet::new());
+    };
+    let Some(table) = value.as_table() else {
+        return (HashSet::new(), HashSet::new());
+    };
+    let mut codes = HashSet::new();
+    let mut msg_keys = HashSet::new();
+    for (key, value) in table {
+        if key.starts_with('E') && key.len() == 5 && key[1..].chars().all(|c| c.is_ascii_digit()) {
+            codes.insert(key.clone());
+        } else if key == "消息翻译"
+            && let toml::Value::Table(msgs) = value
+        {
+            for k in msgs.keys() {
+                msg_keys.insert(k.clone());
+            }
+        }
+    }
+    (codes, msg_keys)
+}
+
+/// 单对基准/目标语言包的跨语言完整性检查
+///
+/// 规则（基准 = 语言包维护语言，当前为 zh）：
+/// - error：目标语言缺少基准语言拥有的关键字英文值（方言词不可用，功能缺口）
+/// - error：目标语言缺少派生特征值（`#[派生(...)]` 属性参数不可用）
+/// - error：目标语言缺少基准语言的错误码节（该错误码无母语教学提示）
+/// - warning：目标语言缺少消息翻译键（无错误码时回退英文原文，可工作）
+pub fn check_cross_lang_pair(base: &LangPackView, target: &LangPackView) -> CrossLangReport {
+    let mut report = CrossLangReport::default();
+    let (base_kw, base_derive) = keyword_value_sets(&base.keywords_toml);
+    let (target_kw, target_derive) = keyword_value_sets(&target.keywords_toml);
+    let (base_codes, base_msgs) = error_components(&base.errors_toml);
+    let (target_codes, target_msgs) = error_components(&target.errors_toml);
+
+    // 关键字值缺失：合并输出，避免每个词一条噪音
+    let mut missing_kw: Vec<String> = base_kw.difference(&target_kw).cloned().collect();
+    missing_kw.sort();
+    if !missing_kw.is_empty() {
+        report.errors.push(format!(
+            "mc_cross_kw_missing|{}|{}|{}",
+            target.lang,
+            missing_kw.len(),
+            missing_kw.join("/")
+        ));
+    }
+    // 派生特征值缺失（语法上在 keywords.toml 的 [派生特征] 节）
+    let mut missing_derive: Vec<String> = base_derive.difference(&target_derive).cloned().collect();
+    missing_derive.sort();
+    if !missing_derive.is_empty() {
+        report.errors.push(format!(
+            "mc_cross_derive_missing|{}|{}|{}",
+            target.lang,
+            missing_derive.len(),
+            missing_derive.join("/")
+        ));
+    }
+    // 错误码节缺失
+    let mut missing_codes: Vec<String> = base_codes.difference(&target_codes).cloned().collect();
+    missing_codes.sort();
+    if !missing_codes.is_empty() {
+        report.errors.push(format!(
+            "mc_cross_err_missing|{}|{}|{}",
+            target.lang,
+            missing_codes.len(),
+            missing_codes.join("/")
+        ));
+    }
+    // 消息翻译键缺失（warning：无错误码匹配时回退英文原文）
+    let mut missing_msgs: Vec<String> = base_msgs.difference(&target_msgs).cloned().collect();
+    missing_msgs.sort();
+    if !missing_msgs.is_empty() {
+        report.warnings.push(format!(
+            "mc_cross_msg_missing|{}|{}|{}",
+            target.lang,
+            missing_msgs.len(),
+            missing_msgs
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(" / ")
+        ));
+    }
+    report
+}
+
+/// 打印跨内置语言的完整性检查（以 zh 为基准，错误阻断）
+///
+/// en 等母语即英文的语言包无 keywords/errors 文件，跳过不参与比较。
+/// 返回是否全部通过（供 run_check 汇总退出码）。
+pub fn print_cross_lang_integrity() -> bool {
+    let ui = crate::ui::Ui::global();
+    println!("{}", ui.t("mc_cross_integrity_header"));
+    let base = LangPackView::from_builtin("zh");
+    let mut all_passed = true;
+    let mut any_checked = false;
+    for lang in crate::builtin_lang::builtin_lang_codes() {
+        if lang == "zh" {
+            continue;
+        }
+        let view = LangPackView::from_builtin(lang);
+        // 无 keywords/errors 数据（母语即英文）的语言不参与比较
+        if view.keywords_toml.is_empty() && view.errors_toml.is_empty() {
+            continue;
+        }
+        any_checked = true;
+        let report = check_cross_lang_pair(&base, &view);
+        all_passed &= report.passed();
+        for error in &report.errors {
+            println!("  {}", render_issue(error));
+        }
+        for warning in &report.warnings {
+            println!("  {}", render_issue(warning));
+        }
+        if report.passed() && report.warnings.is_empty() {
+            println!("  {}: {}", lang, ui.t("mc_cross_integrity_ok"));
+        } else if report.passed() {
+            println!(
+                "  {}: {}",
+                lang,
+                ui.f(
+                    "mc_cross_integrity_warn",
+                    &[&report.warnings.len().to_string()]
+                )
+            );
+        }
+    }
+    if !any_checked {
+        println!("  {}", ui.t("mc_cross_integrity_none"));
+    }
+    all_passed
+}
 fn print_cross_lang_counts() {
     let ui = crate::ui::Ui::global();
     let langs = crate::builtin_lang::builtin_lang_codes();
@@ -919,6 +1100,11 @@ fn view_from_crates_dir(crates_dir: &Path, source_view: &LangPackView) -> LangPa
         .map(|d| std::fs::read_to_string(d.join("stdlib.toml")).unwrap_or_default())
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| source_view.stdlib_toml.clone());
+    let errors_toml = lang_dir
+        .as_ref()
+        .map(|d| std::fs::read_to_string(d.join("errors.toml")).unwrap_or_default())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| source_view.errors_toml.clone());
     LangPackView {
         lang: crates_dir
             .parent()
@@ -928,6 +1114,7 @@ fn view_from_crates_dir(crates_dir: &Path, source_view: &LangPackView) -> LangPa
             .to_string(),
         keywords_toml,
         stdlib_toml,
+        errors_toml,
         crates,
     }
 }
@@ -942,6 +1129,7 @@ mod tests {
             lang: "zh".to_string(),
             keywords_toml: "[\"声明\"]\n\"函数\" = \"fn\"\n\"让\" = \"let\"\n".to_string(),
             stdlib_toml: "[\"标识符\"]\n\"字符串\" = \"String\"\n".to_string(),
+            errors_toml: String::new(),
             crates: crates
                 .into_iter()
                 .map(|(n, c)| (n.to_string(), c.to_string()))
@@ -1055,6 +1243,7 @@ mod tests {
             lang: "zh".to_string(),
             keywords_toml: "[\"声明\"]\n\"函数\" = \"fn\"\n".to_string(),
             stdlib_toml: "[\"标识符\"]\n\"连接\" = \"link\"\n\"连接\" = \"net\"\n".to_string(),
+            errors_toml: String::new(),
             crates: vec![(
                 "a.toml".to_string(),
                 "[\"标识符\"]\n\"服务器\" = \"Server\"\n".to_string(),
@@ -1078,6 +1267,7 @@ mod tests {
             lang: "zh".to_string(),
             keywords_toml: "[\"声明\"]\n\"函数\" = \"fn\"\n".to_string(),
             stdlib_toml: String::new(),
+            errors_toml: String::new(),
             crates: vec![(
                 "a.toml".to_string(),
                 "[\"标识符\"]\n\"服务器\" = \"Server\"\n".to_string(),
@@ -1290,5 +1480,140 @@ mod tests {
         let content = std::fs::read_to_string(&file).unwrap();
         assert!(content.contains("\"连接等待\" = \"join\""));
         assert!(content.contains("\"其他\" = \"other\"  # 注释保留"));
+    }
+
+    // ---------- 跨语言完整性检查 ----------
+
+    /// 构造含完整 keywords/errors 的视图（zh 基准样）
+    fn view_with_lang_data(lang: &str, keywords: &str, errors: &str) -> LangPackView {
+        LangPackView {
+            lang: lang.to_string(),
+            keywords_toml: keywords.to_string(),
+            stdlib_toml: String::new(),
+            errors_toml: errors.to_string(),
+            crates: Vec::new(),
+        }
+    }
+
+    const BASE_KEYWORDS: &str =
+        "[\"声明\"]\n\"函数\" = \"fn\"\n\"让\" = \"let\"\n[\"派生特征\"]\n\"克隆\" = \"Clone\"\n";
+    const BASE_ERRORS: &str = "[E0425]\n\"消息模板\" = \"x\"\n\"教学提示\" = \"y\"\n[\"消息翻译\"]\n\"mismatched types\" = { \"消息模板\" = \"t\" }\n";
+
+    /// 语言包完整时跨语言检查通过
+    #[test]
+    fn test_cross_lang_pair_full_ok() {
+        let base = view_with_lang_data("zh", BASE_KEYWORDS, BASE_ERRORS);
+        let target = view_with_lang_data("ja", BASE_KEYWORDS, BASE_ERRORS);
+        let report = check_cross_lang_pair(&base, &target);
+        assert!(report.passed(), "完整包应通过: {:?}", report.errors);
+        assert!(report.warnings.is_empty(), "无警告: {:?}", report.warnings);
+    }
+
+    /// 缺少派生特征节报 error（方言特性不可用）
+    #[test]
+    fn test_cross_lang_derive_missing_detected() {
+        let base = view_with_lang_data("zh", BASE_KEYWORDS, BASE_ERRORS);
+        let target = view_with_lang_data(
+            "ja",
+            "[\"声明\"]\n\"函数\" = \"fn\"\n\"让\" = \"let\"\n",
+            BASE_ERRORS,
+        );
+        let report = check_cross_lang_pair(&base, &target);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_cross_derive_missing")),
+            "缺派生特征应报 error: {:?}",
+            report.errors
+        );
+    }
+
+    /// 缺少关键字值报 error（方言词不可用）
+    #[test]
+    fn test_cross_lang_kw_missing_detected() {
+        let base = view_with_lang_data("zh", BASE_KEYWORDS, BASE_ERRORS);
+        let target = view_with_lang_data(
+            "ja",
+            "[\"声明\"]\n\"函数\" = \"fn\"\n\"让\" = \"let\"\n[\"派生特征\"]\n\"克隆\" = \"Clone\"\n",
+            BASE_ERRORS,
+        );
+        // 与基准语言相同的母语键（值相同），故意改成不同的值
+        let report = check_cross_lang_pair(&base, &target);
+        // 该用例下 target 与 base 值集合一致，应通过
+        assert!(report.passed());
+        // 缺 "let" 值的情况
+        let poor = view_with_lang_data(
+            "ja",
+            "[\"声明\"]\n\"函数\" = \"fn\"\n[\"派生特征\"]\n\"克隆\" = \"Clone\"\n",
+            BASE_ERRORS,
+        );
+        let report = check_cross_lang_pair(&base, &poor);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_cross_kw_missing")),
+            "缺关键字值应报 error: {:?}",
+            report.errors
+        );
+    }
+
+    /// 缺少错误码节报 error，缺消息翻译键报 warning
+    #[test]
+    fn test_cross_lang_errors_missing() {
+        let base = view_with_lang_data("zh", BASE_KEYWORDS, BASE_ERRORS);
+        // 缺错误码节 E0425
+        let target = view_with_lang_data(
+            "ja",
+            BASE_KEYWORDS,
+            "[\"消息翻译\"]\n\"mismatched types\" = { \"消息模板\" = \"t\" }\n",
+        );
+        let report = check_cross_lang_pair(&base, &target);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_cross_err_missing")),
+            "缺错误码节应报 error: {:?}",
+            report.errors
+        );
+        // 缺消息翻译键
+        let target = view_with_lang_data(
+            "ja",
+            BASE_KEYWORDS,
+            "[E0425]\n\"消息模板\" = \"x\"\n\"教学提示\" = \"y\"\n",
+        );
+        let report = check_cross_lang_pair(&base, &target);
+        assert!(report.passed(), "缺消息翻译键不应阻断: {:?}", report.errors);
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|w| w.starts_with("mc_cross_msg_missing")),
+            "缺消息翻译键应报 warning: {:?}",
+            report.warnings
+        );
+    }
+
+    /// 内置全部语言通过跨语言完整性检查（zh 基准）
+    #[test]
+    fn test_all_builtin_cross_lang_integrity() {
+        let base = LangPackView::from_builtin("zh");
+        for lang in crate::builtin_lang::builtin_lang_codes() {
+            if lang == "zh" {
+                continue;
+            }
+            let view = LangPackView::from_builtin(lang);
+            if view.keywords_toml.is_empty() && view.errors_toml.is_empty() {
+                continue;
+            }
+            let report = check_cross_lang_pair(&base, &view);
+            assert!(
+                report.passed(),
+                "内置包 {lang} 跨语言完整性应通过: {:?}",
+                report.errors
+            );
+        }
     }
 }

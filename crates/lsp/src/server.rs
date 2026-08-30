@@ -165,7 +165,7 @@ impl ProxyServer {
         // 的消息通道上；必须先停止 rust-analyzer 子进程让转发线程退出，
         // 再释放服务器（含客户端连接发送端），否则 IO 写入线程
         // 因通道永不关闭而无法结束，进程将无法退出。
-        let mut server = self;
+        let server = self;
         server.analyzer.stop();
         drop(server);
 
@@ -436,10 +436,44 @@ impl ProxyServer {
     }
 
     /// 主消息循环
+    ///
+    /// 用 recv_timeout 轮询代替阻塞 recv：空闲时周期性检查
+    /// rust-analyzer 崩溃标志，触发自动重启（进程崩溃后编辑器内
+    /// 功能会静默失效，必须主动恢复而非空转等待）。
     fn main_loop(&self) -> anyhow::Result<()> {
         loop {
-            let msg = match self.connection.receiver.recv() {
+            let msg = match self
+                .connection
+                .receiver
+                .recv_timeout(std::time::Duration::from_millis(100))
+            {
                 Ok(msg) => msg,
+                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
+                    // rust-analyzer 异常退出：自动重启并重做完整握手
+                    if self.analyzer.is_crashed()
+                        && let Err(e) = self.restart_analyzer()
+                    {
+                        log::error!(
+                            "{}",
+                            crate::ui::global().f("lsp_err_ra_restart", &[&e.to_string()])
+                        );
+                        // 重启失败（如二进制被卸载）：通知客户端并暂停自动重试，
+                        // 避免每 100ms 刷一次错误日志与 showMessage
+                        let params = json!({
+                            "type": 1,
+                            "message": crate::ui::global().f("lsp_err_ra_restart", &[&e.to_string()])
+                        });
+                        let _ = self
+                            .connection
+                            .sender
+                            .send(Message::Notification(Notification {
+                                method: "window/showMessage".to_string(),
+                                params,
+                            }));
+                        self.analyzer.clear_crashed();
+                    }
+                    continue;
+                }
                 Err(_) => {
                     log::info!("{}", crate::ui::global().t("lsp_log_client_disconnected"));
                     break;
@@ -478,6 +512,43 @@ impl ProxyServer {
                 Message::Response(_) => {}
             }
         }
+        Ok(())
+    }
+
+    /// rust-analyzer 崩溃后的自动恢复：重启子进程并重做完整握手，
+    /// 使编辑器会话无感恢复（诊断/补全/悬停等重新可用）。
+    fn restart_analyzer(&self) -> anyhow::Result<()> {
+        log::warn!("{}", crate::ui::global().t("lsp_log_ra_crashed"));
+        self.analyzer.restart()?;
+        // 重握手：initialize（含语义着色能力捕获）
+        self.initialize_analyzer(&Value::Null)?;
+        // initialized 通知：客户端不会重复发送，此处必须手动补发
+        self.analyzer
+            .send(&json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }))?;
+        // 工作区：新进程无任何工作区，重置标志后以纯 added 添加虚拟项目
+        self.workspace_added
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        self.reload_virtual_project()?;
+        // 重新打开所有已打开的文档（虚拟 .rs 文件仍在磁盘，重发 didOpen 即可）
+        for entry in self.cache.all_entries() {
+            let msg = json!({
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {
+                    "textDocument": {
+                        "uri": entry.virtual_uri,
+                        "languageId": "rust",
+                        "version": entry.version,
+                        "text": entry.en_content
+                    }
+                }
+            });
+            self.analyzer.send(&msg)?;
+        }
+        // 旧进程遗留的待映射请求永远不会有响应：统一向客户端应答错误，
+        // 避免客户端永久等待（否则编辑器内对应请求一直转圈）
+        fail_all_pending(&self.pending_requests, &self.connection.sender);
+        log::info!("{}", crate::ui::global().t("lsp_log_ra_restarted"));
         Ok(())
     }
 
@@ -1304,6 +1375,33 @@ fn cleanup_expired_requests(
             error: Some(lsp_server::ResponseError {
                 code: -32603,
                 message: "rust-analyzer did not respond in time".to_string(),
+                data: None,
+            }),
+        };
+        let _ = sender.send(Message::Response(response));
+    }
+}
+
+/// 清空全部待映射请求：向客户端应答错误（rust-analyzer 崩溃重启后调用，
+/// 旧进程的请求永远不会有响应，必须主动应答避免客户端永久等待）
+fn fail_all_pending(
+    pending: &Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
+    sender: &crossbeam_channel::Sender<Message>,
+) {
+    let ids: Vec<lsp_server::RequestId> = {
+        let mut map = match pending.lock() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+        map.drain().map(|(_id, info)| info.original_id).collect()
+    };
+    for id in ids {
+        let response = Response {
+            id,
+            result: None,
+            error: Some(lsp_server::ResponseError {
+                code: -32603,
+                message: "rust-analyzer restarted".to_string(),
                 data: None,
             }),
         };

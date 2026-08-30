@@ -150,3 +150,34 @@
 "entorno" = "env"
 "opcion_entorno" = "option_env"
 "config" = "cfg"
+
+# ============================================
+# 派生属性（#[派生(...)]）内专用的特征名：母语词 → 英文特征名
+# ============================================
+["派生特征"]
+"Clonar" = "Clone"
+"Copiar" = "Copy"
+"Depurar" = "Debug"
+"IgualdadParcial" = "PartialEq"
+"Igualdad" = "Eq"
+"OrdenParcial" = "PartialOrd"
+"Orden" = "Ord"
+"Hash" = "Hash"
+"Predeterminado" = "Default"
+
+# ============================================
+# 标准库成员名（特征方法 / 关联类型 / 属性名）：母语词 → 英文原名
+# ============================================
+["标准库成员"]
+"Siguiente" = "next"
+"Desde" = "from"
+"MétodoFormato" = "fmt"
+"MétodoSuma" = "add"
+"TipoElemento" = "Item"
+"TipoSalida" = "Output"
+"Diseño" = "repr"
+"Expresión" = "expr"
+"Identificador" = "ident"
+"Literal" = "literal"
+"EspecificaciónTipo" = "ty"
+"DeberíaPanico" = "should_panic"

@@ -1626,3 +1626,286 @@
 [E0806]
 "消息模板" = "O item implementavel externamente nao e compativel com sua declaracao"
 "教学提示" = "Confirme que a declaracao do item coincide com sua definicao real."
+
+["消息翻译"."format argument must be a string literal"]
+"消息模板" = "o argumento de formato deve ser um literal de string"
+
+["消息翻译"."you might be missing a string literal to format with"]
+"消息模板" = "pode estar faltando um literal de string para formatar"
+
+["消息翻译"."expected a pattern, found an expression"]
+"消息模板" = "esperava-se um padrão, encontrou-se uma expressão"
+
+["消息翻译"."expected identifier"]
+"消息模板" = "esperava-se um identificador"
+
+["消息翻译"."found keyword "]
+"消息模板" = "palavra-chave encontrada: "
+
+["消息翻译"."expected expression"]
+"消息模板" = "esperava-se uma expressão"
+
+["消息翻译"."expected statement"]
+"消息模板" = "esperava-se uma declaração"
+
+["消息翻译"."expected one of "]
+"消息模板" = "esperava-se um de "
+
+["消息翻译"."unexpected token"]
+"消息模板" = "token inesperado"
+
+["消息翻译"."unexpected `,` in pattern"]
+"消息模板" = "`,` inesperado no padrão"
+
+["消息翻译"."try adding parentheses to match on a tuple"]
+"消息模板" = "tente adicionar parênteses para corresponder a uma tupla"
+
+["消息翻译"."unclosed delimiter"]
+"消息模板" = "delimitador não fechado"
+
+["消息翻译"."mismatched closing delimiter"]
+"消息模板" = "delimitador de fechamento incompatível"
+
+["消息翻译"."this file contains an unclosed delimiter"]
+"消息模板" = "este arquivo contém um delimitador não fechado"
+
+["消息翻译"."unexpected end of file"]
+"消息模板" = "fim de arquivo inesperado"
+
+["消息翻译"."invalid character"]
+"消息模板" = "caractere inválido"
+
+["消息翻译"."cannot find value "]
+"消息模板" = "não é possível encontrar o valor "
+
+["消息翻译"."unused variable: "]
+"消息模板" = "variável não utilizada: "
+
+["消息翻译"."unused import: "]
+"消息模板" = "importação não utilizada: "
+
+["消息翻译"."did you mean "]
+"消息模板" = "você quis dizer "
+
+["消息翻译"."variable does not need to be mutable"]
+"消息模板" = "a variável não precisa ser mutável"
+
+["消息翻译"."remove this "]
+"消息模板" = "remova isto: "
+
+["消息翻译"."function `"]
+"消息模板" = "a função `{q0}` nunca é usada"
+
+["消息翻译"."method `"]
+"消息模板" = "o método `{q0}` nunca é usado"
+
+["消息翻译"."field `"]
+"消息模板" = "o campo `{q0}` nunca é lido"
+
+["消息翻译"."associated function `"]
+"消息模板" = "a função associada `{q0}` nunca é usada"
+
+["消息翻译"."associated constant `"]
+"消息模板" = "a constante associada `{q0}` nunca é usada"
+
+["消息翻译"."constant `"]
+"消息模板" = "a constante `{q0}` nunca é usada"
+
+["消息翻译"."static `"]
+"消息模板" = "a variável estática `{q0}` nunca é usada"
+
+["消息翻译"."variant `"]
+"消息模板" = "a variante `{q0}` nunca é construída"
+
+["消息翻译"."enum `"]
+"消息模板" = "a enumeração `{q0}` nunca é usada"
+
+["消息翻译"."struct `"]
+"消息模板" = "a estrutura `{q0}` nunca é construída"
+
+["消息翻译"."trait `"]
+"消息模板" = "o trait `{q0}` nunca é usado"
+
+["消息翻译"."module `"]
+"消息模板" = "o módulo `{q0}` nunca é usado"
+
+["消息翻译"."~ is never used"]
+"消息模板" = "`{q0}` nunca é usado"
+
+["消息翻译"."~ is never read"]
+"消息模板" = "`{q0}` nunca é lido"
+
+["消息翻译"."~ is never constructed"]
+"消息模板" = "`{q0}` nunca é construído"
+
+["消息翻译"."~ are never constructed"]
+"消息模板" = "`{q0}` e `{q1}` nunca são construídos"
+
+["消息翻译"."~ are never used"]
+"消息模板" = "`{q0}` e `{q1}` nunca são usados"
+
+["消息翻译"."~ are never read"]
+"消息模板" = "`{q0}` e `{q1}` nunca são lidos"
+
+["消息翻译"."~ should have a snake case name"]
+"消息模板" = "`{q0}` deveria ter um nome em snake_case"
+
+["消息翻译"."~ should have an upper camel case name"]
+"消息模板" = "`{q0}` deveria ter um nome em CamelCase"
+
+["消息翻译"."value assigned to `"]
+"消息模板" = "o valor atribuído a `{q0}` nunca é lido"
+
+["消息翻译"."unused return value of `"]
+"消息模板" = "o valor de retorno de `{q0}` deve ser usado"
+
+["消息翻译"."unreachable statement"]
+"消息模板" = "declaração inalcançável"
+
+["消息翻译"."unreachable pattern"]
+"消息模板" = "padrão inalcançável"
+
+["消息翻译"."literal out of range for `"]
+"消息模板" = "literal fora do intervalo para `{q0}`"
+
+["消息翻译"."unnecessary parentheses around "]
+"消息模板" = "parênteses desnecessários ao redor de "
+
+["消息翻译"."comparison is useless due to type limits"]
+"消息模板" = "a comparação é inútil devido aos limites do tipo"
+
+["消息翻译"."use of deprecated item `"]
+"消息模板" = "uso do item obsoleto `{q0}`"
+
+["消息翻译"."unknown start of token: "]
+"消息模板" = "início de token desconhecido: "
+
+["消息翻译"."Unicode character '"]
+"消息模板" = "o caractere Unicode '{q0}' parece com '{q1}', mas não é"
+
+["消息翻译"."expected "]
+"消息模板" = "esperava-se: "
+
+["消息翻译"."consider "]
+"消息模板" = "considere: "
+
+["消息翻译"."try "]
+"消息模板" = "tente: "
+
+["消息翻译"."value moved here"]
+"消息模板" = "o valor foi movido aqui"
+
+["消息翻译"."value borrowed here after move"]
+"消息模板" = "o valor foi emprestado aqui após o movimento"
+
+["消息翻译"."value moved into closure here"]
+"消息模板" = "o valor foi movido para o fechamento aqui"
+
+["消息翻译"."value captured here"]
+"消息模板" = "o valor foi capturado aqui"
+
+["消息翻译"."move occurs because "]
+"消息模板" = "o movimento ocorre porque "
+
+["消息翻译"."borrow of moved value: `"]
+"消息模板" = "empréstimo de valor movido: `{q0}`"
+
+["消息翻译"."use of moved value: `"]
+"消息模板" = "uso de valor movido: `{q0}`"
+
+["消息翻译"."cannot borrow `"]
+"消息模板" = "não é possível emprestar `"
+
+["消息翻译"."cannot move out of `"]
+"消息模板" = "não é possível mover para fora de `"
+
+["消息翻译"."cannot assign to `"]
+"消息模板" = "não é possível atribuir a `"
+
+["消息翻译"."cannot mutate immutable variable `"]
+"消息模板" = "não é possível modificar a variável imutável `{q0}`"
+
+["消息翻译"."mismatched types"]
+"消息模板" = "tipos incompatíveis"
+
+["消息翻译"."type annotations needed"]
+"消息模板" = "anotações de tipo necessárias"
+
+["消息翻译"."cannot infer type for `"]
+"消息模板" = "não é possível inferir o tipo de `{q0}`"
+
+["消息翻译"."no method named `"]
+"消息模板" = "nenhum método chamado `{q0}`"
+
+["消息翻译"."no function named `"]
+"消息模板" = "nenhuma função chamada `{q0}`"
+
+["消息翻译"."no variant named `"]
+"消息模板" = "nenhuma variante chamada `{q0}`"
+
+["消息翻译"."no field `"]
+"消息模板" = "nenhum campo `{q0}`"
+
+["消息翻译"."no associated item named `"]
+"消息模板" = "nenhum item associado chamado `{q0}`"
+
+["消息翻译"."the trait bound `"]
+"消息模板" = "o limite do trait `"
+
+["消息翻译"."the size for values of type `"]
+"消息模板" = "o tamanho dos valores do tipo `{q0}` não pode ser determinado em tempo de compilação"
+
+["消息翻译"."does not live long enough"]
+"消息模板" = "não vive tempo suficiente"
+
+["消息翻译"."cannot return value referencing local variable "]
+"消息模板" = "não é possível retornar valor que referencie variável local "
+
+["消息翻译"."cannot return reference to local variable `"]
+"消息模板" = "não é possível retornar referência à variável local `{q0}`"
+
+["消息翻译"."this arithmetic operation will overflow"]
+"消息模板" = "esta operação aritmética vai estourar"
+
+["消息翻译"."the function `main` is defined here"]
+"消息模板" = "a função `principal` é definida aqui"
+
+["消息翻译"."required by "]
+"消息模板" = "exigido por "
+
+["消息翻译"."this error originates in the macro `"]
+"消息模板" = "este erro origina-se na macro `{q0}`"
+
+["消息翻译"."in this macro invocation"]
+"消息模板" = "nesta invocação de macro"
+
+["消息翻译"."the `main` function is the entry point of the program"]
+"消息模板" = "a função `principal` é o ponto de entrada do programa"
+
+["消息翻译"."`match` arm body without braces"]
+"消息模板" = "corpo do braço `corresponder` sem chaves"
+
+["消息翻译"."replace `;` with `,` to end a `match` arm expression"]
+"消息模板" = "substitua `;` por `,` para terminar uma expressão do braço `corresponder`"
+
+["消息翻译"."`match` arms have incompatible types"]
+"消息模板" = "os braços de `corresponder` têm tipos incompatíveis"
+
+["消息翻译"."this `match` arm has code that runs when it is empty"]
+"消息模板" = "este braço de `corresponder` tem código que roda quando vazio"
+
+["消息翻译"."non-exhaustive patterns: "]
+"消息模板" = "padrões não exaustivos: "
+
+["消息翻译"."missing match arm: "]
+"消息模板" = "braço de correspondência ausente: "
+
+["消息翻译"."the matched value is of type "]
+"消息模板" = "o valor correspondido é do tipo "
+
+["消息翻译"."~ defined here"]
+"消息模板" = "`{q0}` é definido aqui"
+
+["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown: "]
+"消息模板" = "garanta que todos os casos sejam cobertos: adicione um braço curinga (`_ => ...`) ou um braço explícito, por exemplo: "
+

@@ -2090,3 +2090,286 @@
 [E0623]
 "消息模板" = "ライフタイムが一致しません"
 "教学提示" = "二つの借用のライフタイム制約が矛盾しています。ライフタイムを明示的に注釈するか、借用の範囲を調整してください。"
+
+["消息翻译"."format argument must be a string literal"]
+"消息模板" = "format 引数は文字列リテラルでなければなりません"
+
+["消息翻译"."you might be missing a string literal to format with"]
+"消息模板" = "フォーマット対象の文字列リテラルが不足している可能性があります"
+
+["消息翻译"."expected a pattern, found an expression"]
+"消息模板" = "パターンを期待しましたが、式が見つかりました"
+
+["消息翻译"."expected identifier"]
+"消息模板" = "識別子を期待しました"
+
+["消息翻译"."found keyword "]
+"消息模板" = "キーワードが見つかりました "
+
+["消息翻译"."expected expression"]
+"消息模板" = "式を期待しました"
+
+["消息翻译"."expected statement"]
+"消息模板" = "文を期待しました"
+
+["消息翻译"."expected one of "]
+"消息模板" = "次のいずれかを期待しました "
+
+["消息翻译"."unexpected token"]
+"消息模板" = "予期しないトークン"
+
+["消息翻译"."unexpected `,` in pattern"]
+"消息模板" = "パターン内に予期しない `,` があります"
+
+["消息翻译"."try adding parentheses to match on a tuple"]
+"消息模板" = "タプルにマッチさせるには括弧を追加してみてください"
+
+["消息翻译"."unclosed delimiter"]
+"消息模板" = "閉じられていない区切り文字"
+
+["消息翻译"."mismatched closing delimiter"]
+"消息模板" = "対応しない閉じ区切り文字"
+
+["消息翻译"."this file contains an unclosed delimiter"]
+"消息模板" = "このファイルには閉じられていない区切り文字があります"
+
+["消息翻译"."unexpected end of file"]
+"消息模板" = "予期しないファイルの終わり"
+
+["消息翻译"."invalid character"]
+"消息模板" = "無効な文字"
+
+["消息翻译"."cannot find value "]
+"消息模板" = "このスコープ内に値が見つかりません "
+
+["消息翻译"."unused variable: "]
+"消息模板" = "未使用の変数： "
+
+["消息翻译"."unused import: "]
+"消息模板" = "未使用のインポート： "
+
+["消息翻译"."did you mean "]
+"消息模板" = "もしかして "
+
+["消息翻译"."variable does not need to be mutable"]
+"消息模板" = "変数を可変にする必要はありません"
+
+["消息翻译"."remove this "]
+"消息模板" = "これを削除してください "
+
+["消息翻译"."function `"]
+"消息模板" = "関数 `{q0}` は未使用です"
+
+["消息翻译"."method `"]
+"消息模板" = "メソッド `{q0}` は未使用です"
+
+["消息翻译"."field `"]
+"消息模板" = "フィールド `{q0}` は読み取られていません"
+
+["消息翻译"."associated function `"]
+"消息模板" = "関連関数 `{q0}` は未使用です"
+
+["消息翻译"."associated constant `"]
+"消息模板" = "関連定数 `{q0}` は未使用です"
+
+["消息翻译"."constant `"]
+"消息模板" = "定数 `{q0}` は未使用です"
+
+["消息翻译"."static `"]
+"消息模板" = "静的変数 `{q0}` は未使用です"
+
+["消息翻译"."variant `"]
+"消息模板" = "列挙バリアント `{q0}` は構築されていません"
+
+["消息翻译"."enum `"]
+"消息模板" = "列挙型 `{q0}` は未使用です"
+
+["消息翻译"."struct `"]
+"消息模板" = "構造体 `{q0}` は構築されていません"
+
+["消息翻译"."trait `"]
+"消息模板" = "トレイト `{q0}` は未使用です"
+
+["消息翻译"."module `"]
+"消息模板" = "モジュール `{q0}` は未使用です"
+
+["消息翻译"."~ is never used"]
+"消息模板" = "`{q0}` は未使用です"
+
+["消息翻译"."~ is never read"]
+"消息模板" = "`{q0}` は読み取られていません"
+
+["消息翻译"."~ is never constructed"]
+"消息模板" = "`{q0}` は構築されていません"
+
+["消息翻译"."~ are never constructed"]
+"消息模板" = "`{q0}` と `{q1}` は構築されていません"
+
+["消息翻译"."~ are never used"]
+"消息模板" = "`{q0}` と `{q1}` は未使用です"
+
+["消息翻译"."~ are never read"]
+"消息模板" = "`{q0}` と `{q1}` は読み取られていません"
+
+["消息翻译"."~ should have a snake case name"]
+"消息模板" = "`{q0}` はスネークケースで命名すべきです"
+
+["消息翻译"."~ should have an upper camel case name"]
+"消息模板" = "`{q0}` はアッパーキャメルケースで命名すべきです"
+
+["消息翻译"."value assigned to `"]
+"消息模板" = "`{q0}` に代入された値は読み取られていません"
+
+["消息翻译"."unused return value of `"]
+"消息模板" = "`{q0}` の戻り値は使用しなければなりません"
+
+["消息翻译"."unreachable statement"]
+"消息模板" = "到達不能な文"
+
+["消息翻译"."unreachable pattern"]
+"消息模板" = "到達不能なパターン"
+
+["消息翻译"."literal out of range for `"]
+"消息模板" = "`{q0}` の範囲外のリテラル"
+
+["消息翻译"."unnecessary parentheses around "]
+"消息模板" = "不必要な括弧: "
+
+["消息翻译"."comparison is useless due to type limits"]
+"消息模板" = "型の範囲により、この比較は常に真または常に偽です"
+
+["消息翻译"."use of deprecated item `"]
+"消息模板" = "非推奨の項目 `{q0}` の使用"
+
+["消息翻译"."unknown start of token: "]
+"消息模板" = "認識できないトークンの開始: "
+
+["消息翻译"."Unicode character '"]
+"消息模板" = "Unicode 文字 '{q0}' は '{q1}' に似ていますが、それではありません"
+
+["消息翻译"."expected "]
+"消息模板" = "期待: "
+
+["消息翻译"."consider "]
+"消息模板" = "検討してください: "
+
+["消息翻译"."try "]
+"消息模板" = "試してください: "
+
+["消息翻译"."value moved here"]
+"消息模板" = "値はここで移動されました"
+
+["消息翻译"."value borrowed here after move"]
+"消息模板" = "値は移動後にここで借用されました"
+
+["消息翻译"."value moved into closure here"]
+"消息模板" = "値はここでクロージャに移入されました"
+
+["消息翻译"."value captured here"]
+"消息模板" = "値はここで捕捉されました"
+
+["消息翻译"."move occurs because "]
+"消息模板" = "移動が発生する理由: "
+
+["消息翻译"."borrow of moved value: `"]
+"消息模板" = "移動した値の借用: `{q0}`"
+
+["消息翻译"."use of moved value: `"]
+"消息模板" = "移動した値の使用: `{q0}`"
+
+["消息翻译"."cannot borrow `"]
+"消息模板" = "借用できません: `"
+
+["消息翻译"."cannot move out of `"]
+"消息模板" = "移出できません: `"
+
+["消息翻译"."cannot assign to `"]
+"消息模板" = "代入できません: `"
+
+["消息翻译"."cannot mutate immutable variable `"]
+"消息模板" = "不変変数 `{q0}` を変更できません"
+
+["消息翻译"."mismatched types"]
+"消息模板" = "型の不一致"
+
+["消息翻译"."type annotations needed"]
+"消息模板" = "型注釈が必要です"
+
+["消息翻译"."cannot infer type for `"]
+"消息模板" = "`{q0}` の型を推論できません"
+
+["消息翻译"."no method named `"]
+"消息模板" = "`{q0}` というメソッドはありません"
+
+["消息翻译"."no function named `"]
+"消息模板" = "`{q0}` という関数はありません"
+
+["消息翻译"."no variant named `"]
+"消息模板" = "`{q0}` という列挙バリアントはありません"
+
+["消息翻译"."no field `"]
+"消息模板" = "フィールド `{q0}` はありません"
+
+["消息翻译"."no associated item named `"]
+"消息模板" = "`{q0}` という関連項目はありません"
+
+["消息翻译"."the trait bound `"]
+"消息模板" = "トレイト境界 `"
+
+["消息翻译"."the size for values of type `"]
+"消息模板" = "型 `{q0}` の値のサイズはコンパイル時に確定できません"
+
+["消息翻译"."does not live long enough"]
+"消息模板" = "ライフタイムが不足しています"
+
+["消息翻译"."cannot return value referencing local variable "]
+"消息模板" = "ローカル変数を参照する値を返せません: "
+
+["消息翻译"."cannot return reference to local variable `"]
+"消息模板" = "ローカル変数 `{q0}` への参照を返せません"
+
+["消息翻译"."this arithmetic operation will overflow"]
+"消息模板" = "この算術演算はオーバーフローします"
+
+["消息翻译"."the function `main` is defined here"]
+"消息模板" = "`主関数` はここで定義されています"
+
+["消息翻译"."required by "]
+"消息模板" = "必要とするもの: "
+
+["消息翻译"."this error originates in the macro `"]
+"消息模板" = "このエラーはマクロ `{q0}` に由来します"
+
+["消息翻译"."in this macro invocation"]
+"消息模板" = "このマクロ呼び出し内で"
+
+["消息翻译"."the `main` function is the entry point of the program"]
+"消息模板" = "`主関数` はプログラムの入口です"
+
+["消息翻译"."`match` arm body without braces"]
+"消息模板" = "`マッチ` 分岐本体に波括弧がありません"
+
+["消息翻译"."replace `;` with `,` to end a `match` arm expression"]
+"消息模板" = "`マッチ` 分岐式を終わらせるには `;` を `,` に置き換えてください"
+
+["消息翻译"."`match` arms have incompatible types"]
+"消息模板" = "`マッチ` の各分岐の型が一致しません"
+
+["消息翻译"."this `match` arm has code that runs when it is empty"]
+"消息模板" = "この `マッチ` 分岐には空のときに実行されるコードがあります"
+
+["消息翻译"."non-exhaustive patterns: "]
+"消息模板" = "網羅的でないパターン: "
+
+["消息翻译"."missing match arm: "]
+"消息模板" = "不足しているマッチ分支: "
+
+["消息翻译"."the matched value is of type "]
+"消息模板" = "マッチ対象の値の型は "
+
+["消息翻译"."~ defined here"]
+"消息模板" = "`{q0}` はここで定義されています"
+
+["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown: "]
+"消息模板" = "すべてのケースを処理してください：ワイルドカード分支（`_ => ...`）か明示的分支を追加してください。例: "
+

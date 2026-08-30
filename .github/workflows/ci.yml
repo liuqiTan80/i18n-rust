@@ -172,6 +172,19 @@ jobs:
           npm run lint
           npm test
 
+      - name: 语法文件与语言包同步检查
+        # 重新生成全部 10 份 tmLanguage 后检查 diff：keywords.toml / lang_info.toml
+        # 的改动必须同步反映到 syntaxes/（语法高亮漂移拦截门禁）
+        working-directory: tools/vscode-extension
+        run: |
+          npm run gen:grammars
+          if ! git diff --exit-code --quiet -- syntaxes/; then
+            echo "❌ 语法文件与语言包不同步：请运行 npm run gen:grammars 并提交生成的语法文件"
+            git diff --stat -- syntaxes/
+            exit 1
+          fi
+          echo "✅ 语法文件与语言包同步"
+
       - name: 编译 TypeScript
         working-directory: tools/vscode-extension
         run: npm run compile

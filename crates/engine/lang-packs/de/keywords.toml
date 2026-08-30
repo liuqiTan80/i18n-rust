@@ -151,3 +151,34 @@
 "umgebung" = "env"
 "optionUmgebung" = "option_env"
 "konfig" = "cfg"
+
+# ============================================
+# 派生属性（#[派生(...)]）内专用的特征名：母语词 → 英文特征名
+# ============================================
+["派生特征"]
+"Klonen" = "Clone"
+"Kopieren" = "Copy"
+"Debuggen" = "Debug"
+"Teilgleich" = "PartialEq"
+"Gleich" = "Eq"
+"Teilordnung" = "PartialOrd"
+"Ordnung" = "Ord"
+"Hash" = "Hash"
+"Standard" = "Default"
+
+# ============================================
+# 标准库成员名（特征方法 / 关联类型 / 属性名）：母语词 → 英文原名
+# ============================================
+["标准库成员"]
+"Nächstes" = "next"
+"Von" = "from"
+"Formatmethode" = "fmt"
+"Addmethode" = "add"
+"Elementtyp" = "Item"
+"Ausgabetyp" = "Output"
+"Layout" = "repr"
+"Ausdruck" = "expr"
+"Bezeichner" = "ident"
+"Literal" = "literal"
+"Typspezifikation" = "ty"
+"SolltePaniken" = "should_panic"
