@@ -1,11 +1,25 @@
 # Changelog
 
+## 0.7.0
+
+### 新增
+- **教学 lint 集成**：LSP 诊断合并教学检查——所有权移动错误、未使用变量、可变量遮蔽等教学提示与 rust-analyzer 诊断同源推送（方言文件可见中文提示），可用 `i18n-rust.teachingLint` 开关控制；e2e 覆盖真实诊断翻译链路。
+- **教学 code actions**：全角标点一键修复（逗号/分号/括号等，可对单文件或选区批量执行）与「忽略此教学提示」标记（忽略标记跨会话持久，LSP 不再重复提示）。
+- **转译预览并排视图**：新增「转译预览」命令（编辑器标题栏与右键菜单），调用 `rzc transpile` 将方言源码转译为标准 Rust 并排展示（左右两栏同步滚动，方言侧母语关键字着色）；文件保存时自动刷新，每个文件复用独立面板。
+- **AI 提供商扩展**：新增 Anthropic Claude 与 Google Gemini 预设（`i18n-rust.ai.provider` 枚举与快速选择均支持），自动适配专有协议——Claude Messages API（x-api-key / anthropic-version 头、system 顶层提升、content_block_delta 流式）与 Gemini generateContent API（x-goog-api-key 头、systemInstruction 映射、candidates 流式、模型列表去前缀）。
+- **语言包在线市场**：`rzc lang search [关键词]` 浏览远程语言包市场（下载仓库 ZIP 扫描语言包，支持语言代码/显示名过滤），与 `rzc lang install` 双源回退配合完成发现→安装闭环。
+
+### 优化
+- **多文件并行转译**：`rzc run/check` 项目转译并行化（thread::scope + 锁外转译），共享会话缓存跨文件复用转译产物，大项目显著提速。
+
+### 工程
+- **基准回归门禁**：转译管线基准基线入库（crates/engine/benches/baseline.json），CI 自动对比回归（`tools/bench-check.sh` 本地可刷新基线，默认 30% 阈值）。
+- **LSP e2e 三平台矩阵**：真实 rust-analyzer 诊断翻译链路在 Linux / Windows / macOS 全覆盖。
+
 ## 0.6.3
 
 ### 新增
 - **发布方案调整**：离线发布包不再内置 rustc/cargo 与 VS Code，仅保留 rust-analyzer（官方发布资产下载不稳定，随包附送）；离线包改为本地脚本（release-offline.sh / release-offline.ps1）编译后手动上传，CI 只构建扩展与发布 crates.io；教程并入离线包。
-- **转译预览并排视图**：新增「转译预览」命令（编辑器标题栏与右键菜单），调用 `rzc transpile` 将方言源码转译为标准 Rust 并排展示（左右两栏同步滚动，方言侧母语关键字着色）；文件保存时自动刷新，每个文件复用独立面板。
-- **AI 提供商扩展**：新增 Anthropic Claude 与 Google Gemini 预设（`i18n-rust.ai.provider` 枚举与快速选择均支持），自动适配专有协议——Claude Messages API（x-api-key / anthropic-version 头、system 顶层提升、content_block_delta 流式）与 Gemini generateContent API（x-goog-api-key 头、systemInstruction 映射、candidates 流式、模型列表去前缀）。
 
 ### 优化
 - **输入热路径性能**：全角符号自动转换从「每个符号各取一次全文并各扫一遍词法状态」改为单次取前缀 + 单遍多位置扫描（k×O(n) → O(n)）；无全角符号的输入先行过滤（零分配提前返回）；单字符按键走快速路径；全角转换开关配置缓存。
