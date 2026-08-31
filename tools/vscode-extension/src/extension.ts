@@ -32,8 +32,9 @@ import {
     currentLanguageName,
     initAISecrets
 } from './ai/config-manager';
-import { AIError } from './ai/types';
+import { AIError, AIConfig, ChatMessage } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
+import { 选择光标诊断 } from './diagnostic-pick';
 import { 全角符号映射, 全角符号检测正则, 扫描词法状态, 扫描词法状态们, 计算插入字符位置们, 应转换全角 } from './fullwidth-convert';
 import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
 import { quoteCommandArg, quoteShellArg } from './shell';
@@ -702,50 +703,16 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
                 return;
             }
 
-            // 新会话中止上一个会话，避免输出交错
-            当前AI中止器?.abort();
-            const 中止器 = new AbortController();
-            当前AI中止器 = 中止器;
-
-            AI输出.show(true);
-            AI输出.appendLine(`── AI 对话（${配置.provider} / ${配置.model || '默认模型'}，语言包：${currentLanguageName()}）──`);
-            AI输出.appendLine(`问：${问题}\n`);
-
-            await vscode.window.withProgress(
-                {
-                    location: vscode.ProgressLocation.Notification,
-                    title: `i18n-rust AI 对话中（${配置.provider}）`,
-                    cancellable: true
-                },
-                async (_进度, 取消令牌) => {
-                    取消令牌.onCancellationRequested(() => 中止器.abort());
-                    try {
-                        await 提供商.streamChat(
-                            [
-                                { role: 'system', content: getSystemPrompt() },
-                                { role: 'user', content: 上下文 + 问题 }
-                            ],
-                            chunk => AI输出.append(chunk),
-                            中止器.signal
-                        );
-                        AI输出.appendLine('\n── 对话结束 ──');
-                    } catch (错误) {
-                        if (错误 instanceof AIError) {
-                            if (错误.category === '已取消') {
-                                AI输出.appendLine('\n── 已取消 ──');
-                            } else {
-                                AI输出.appendLine(`\n[${错误.category}] ${错误.message}`);
-                                vscode.window.showErrorMessage(`${错误.category}：${错误.message}`);
-                            }
-                        } else {
-                            AI输出.appendLine(`\n[未知错误] ${(错误 as Error).message}`);
-                        }
-                    } finally {
-                        if (当前AI中止器 === 中止器) {
-                            当前AI中止器 = undefined;
-                        }
-                    }
-                }
+            await 执行AI流式输出(
+                提供商,
+                [
+                    { role: 'system', content: getSystemPrompt() },
+                    { role: 'user', content: 上下文 + 问题 }
+                ],
+                AI输出,
+                配置,
+                'AI 对话',
+                `问：${问题}\n`
             );
         })
     );
@@ -799,6 +766,133 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
                 }
             }
         })
+    );
+
+    // AI 诊断讲解：讲解光标位置诊断的成因与修复方法。教学核心场景——
+    // 学习者看到母语错误信息后，希望进一步理解为什么错、怎么修。
+    context.subscriptions.push(
+        vscode.commands.registerCommand('i18n-rust.explainDiagnostic', async () => {
+            const 编辑器 = vscode.window.activeTextEditor;
+            if (!编辑器) {
+                vscode.window.showWarningMessage('请先打开一个文件，再使用诊断讲解');
+                return;
+            }
+            const 诊断们 = vscode.languages.getDiagnostics(编辑器.document.uri);
+            if (诊断们.length === 0) {
+                vscode.window.showInformationMessage('当前文件没有错误或警告，无需讲解');
+                return;
+            }
+            const 光标 = 编辑器.selection.active;
+            const 诊断 = 选择光标诊断(诊断们, { line: 光标.line, character: 光标.character });
+            if (!诊断) {
+                vscode.window.showWarningMessage('未找到光标附近的诊断');
+                return;
+            }
+
+            const 配置 = await loadAIConfig();
+            // 云端服务需要密钥；Ollama / 自定义地址可无密钥
+            if (!配置.apiKey && 配置.provider !== 'ollama' && 配置.provider !== 'custom') {
+                const 操作 = await vscode.window.showWarningMessage(
+                    `尚未配置 API 密钥（提供商：${配置.provider}）。请在设置中填写 i18n-rust.ai.apiKey（将安全存入 SecretStorage）。`,
+                    '打开设置'
+                );
+                if (操作 === '打开设置') {
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'i18n-rust.ai');
+                }
+                return;
+            }
+
+            let 提供商: ProviderInterface;
+            try {
+                提供商 = createProvider(配置);
+            } catch (错误) {
+                vscode.window.showErrorMessage((错误 as Error).message);
+                return;
+            }
+
+            // 代码上下文：诊断所在行前后各 3 行（多行诊断取起始行）
+            const 行号 = 诊断.range.start.line;
+            const 起始行 = Math.max(行号 - 3, 0);
+            const 结束行 = Math.min(行号 + 3, 编辑器.document.lineCount - 1);
+            const 代码上下文 = 编辑器.document.getText(
+                new vscode.Range(起始行, 0, 结束行, 编辑器.document.lineAt(结束行).text.length)
+            );
+            const 严重程度 = 诊断.severity === vscode.DiagnosticSeverity.Error ? '错误'
+                : 诊断.severity === vscode.DiagnosticSeverity.Warning ? '警告'
+                : 诊断.severity === vscode.DiagnosticSeverity.Information ? '信息' : '提示';
+            const 问题 = `请讲解当前文件中的这条${严重程度}诊断：\n`
+                + `诊断消息：${诊断.message}\n`
+                + `位置：第 ${行号 + 1} 行 第 ${诊断.range.start.character + 1} 列\n`
+                + `相关代码：\n\`\`\`rust\n${代码上下文}\n\`\`\`\n\n`
+                + '请用通俗易懂的方式讲解：1) 这条诊断是什么意思；2) 为什么会发生；3) 如何修复（给出方言代码示例，并附等价的标准 Rust 对照）。';
+
+            await 执行AI流式输出(
+                提供商,
+                [
+                    { role: 'system', content: getSystemPrompt() },
+                    { role: 'user', content: 问题 }
+                ],
+                AI输出,
+                配置,
+                '诊断讲解',
+                `诊断：${诊断.message}\n`
+            );
+        })
+    );
+}
+
+/**
+ * 执行一次 AI 流式对话并输出到指定通道：
+ * 自动中止上一会话（避免输出交错）、显示可取消进度、按错误类别输出诊断信息。
+ * 供 AI 对话与诊断讲解等命令共用。
+ */
+async function 执行AI流式输出(
+    提供商: ProviderInterface,
+    消息们: ChatMessage[],
+    输出: vscode.OutputChannel,
+    配置: AIConfig,
+    标题: string,
+    前置文本?: string
+): Promise<void> {
+    // 新会话中止上一个会话，避免输出交错
+    当前AI中止器?.abort();
+    const 中止器 = new AbortController();
+    当前AI中止器 = 中止器;
+
+    输出.show(true);
+    输出.appendLine(`── ${标题}（${配置.provider} / ${配置.model || '默认模型'}，语言包：${currentLanguageName()}）──`);
+    if (前置文本) {
+        输出.appendLine(前置文本);
+    }
+
+    await vscode.window.withProgress(
+        {
+            location: vscode.ProgressLocation.Notification,
+            title: `i18n-rust AI 对话中（${配置.provider}）`,
+            cancellable: true
+        },
+        async (_进度, 取消令牌) => {
+            取消令牌.onCancellationRequested(() => 中止器.abort());
+            try {
+                await 提供商.streamChat(消息们, chunk => 输出.append(chunk), 中止器.signal);
+                输出.appendLine('\n── 结束 ──');
+            } catch (错误) {
+                if (错误 instanceof AIError) {
+                    if (错误.category === '已取消') {
+                        输出.appendLine('\n── 已取消 ──');
+                    } else {
+                        输出.appendLine(`\n[${错误.category}] ${错误.message}`);
+                        vscode.window.showErrorMessage(`${错误.category}：${错误.message}`);
+                    }
+                } else {
+                    输出.appendLine(`\n[未知错误] ${(错误 as Error).message}`);
+                }
+            } finally {
+                if (当前AI中止器 === 中止器) {
+                    当前AI中止器 = undefined;
+                }
+            }
+        }
     );
 }
 

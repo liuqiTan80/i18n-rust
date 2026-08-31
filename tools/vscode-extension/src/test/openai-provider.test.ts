@@ -72,7 +72,7 @@ test('sendChat：成功返回助手回复，并携带密钥与请求体', async 
 });
 
 test('sendChat：baseUrl 尾部斜杠会被去除', async () => {
-    const original = stubFetch(async (url) => jsonResponse({ choices: [{ message: { content: 'ok' } }] }));
+    const original = stubFetch(async (_url) => jsonResponse({ choices: [{ message: { content: 'ok' } }] }));
     try {
         const provider = new OpenAICompatibleProvider(makeConfig({ baseUrl: 'https://x/v1/' }));
         await provider.sendChat(messages);

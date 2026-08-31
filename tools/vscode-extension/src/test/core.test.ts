@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import { quoteCommandArg, quotePosixArg, quoteWindowsArg } from '../shell';
 import { 应转换全角, 计算插入字符位置们, 扫描词法状态, 扫描词法状态们, 词法状态, 全角符号映射, 全角符号检测正则 } from '../fullwidth-convert';
 import { 语言代码, 按代码查找, 方言语言表, 方言语言Id } from '../languages';
+import { 选择光标诊断, 位置形状 } from '../diagnostic-pick';
 
 // ============================================================
 // shell 引用
@@ -184,4 +185,56 @@ test('按代码查找：覆盖全部语言包目录名', () => {
     for (const code of ['zh', 'ja', 'de', 'es', 'fr', 'pt', 'ru', 'ko', 'hi', 'ar']) {
         assert.ok(按代码查找(code), `缺少语言 ${code}`);
     }
+});
+
+// ============================================================
+// 诊断选择（AI 讲解当前诊断）
+// ============================================================
+
+// 构造假诊断（range.contains 可选：测试未提供时退化为距离策略）
+function 假诊断(行: number, 列: number, 严重程度 = 1): any {
+    return {
+        range: { start: { line: 行, character: 列 } },
+        message: `诊断@${行}:${列}`,
+        severity: 严重程度
+    };
+}
+
+test('诊断选择：空列表返回 undefined', () => {
+    assert.equal(选择光标诊断([], { line: 0, character: 0 }), undefined);
+});
+
+test('诊断选择：无 contains 时取同行起点最近者', () => {
+    const 诊断们 = [假诊断(0, 10), 假诊断(0, 3), 假诊断(1, 1)];
+    const 选中 = 选择光标诊断(诊断们, { line: 0, character: 5 });
+    assert.equal(选中, 诊断们[1]); // 列 3 距光标 5 最近
+});
+
+test('诊断选择：同距离时错误（severity 小）优先于警告', () => {
+    const 警告 = 假诊断(0, 5, 1);
+    const 错误 = 假诊断(0, 5, 0);
+    const 选中 = 选择光标诊断([警告, 错误], { line: 0, character: 6 });
+    assert.equal(选中, 错误);
+});
+
+test('诊断选择：光标行无诊断时取全文行差最近者', () => {
+    const 诊断们 = [假诊断(1, 0), 假诊断(5, 0)];
+    const 选中 = 选择光标诊断(诊断们, { line: 3, character: 0 });
+    assert.equal(选中, 诊断们[0]); // 行 1 距光标 3 行最近
+});
+
+test('诊断选择：range.contains 覆盖光标时优先返回', () => {
+    const 覆盖诊断 = {
+        range: {
+            start: { line: 0, character: 0 },
+            contains(位置: 位置形状): boolean {
+                return 位置.line === 0 && 位置.character >= 0 && 位置.character <= 20;
+            }
+        },
+        message: '整行错误',
+        severity: 0
+    };
+    const 近旁 = 假诊断(0, 18);
+    const 选中 = 选择光标诊断([近旁, 覆盖诊断], { line: 0, character: 10 });
+    assert.equal(选中, 覆盖诊断);
 });
