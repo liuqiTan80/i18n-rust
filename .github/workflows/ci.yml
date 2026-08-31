@@ -7,9 +7,11 @@
 #
 # 任务：
 #   1. 测试与质量：cargo test（全部 crate）+ cargo clippy 代码质量检查
-#   2. 三平台构建：Linux / macOS / Windows 的 release 二进制
+#   2. MSRV 门禁：声明的最低 Rust 版本（1.88）下工作区可编译
+#   3. LSP 端到端测试：安装 rust-analyzer 后验证真实诊断的中文翻译链路
+#   4. 三平台构建：Linux / macOS / Windows 的 release 二进制
 #      （rzc 命令行工具 + i18n-rust-lsp 语言服务器）
-#   3. VS Code 扩展打包：编译 TypeScript 并生成 .vsix 离线安装包
+#   5. VS Code 扩展打包：编译 TypeScript 并生成 .vsix 离线安装包
 #
 # 全部产物上传为 Artifact，供手动下载或发布工作流复用。
 #
@@ -81,7 +83,26 @@ jobs:
           cargo build --quiet --bin rzc
           python3 tools/verify-tutorials.py --rzc target/debug/rzc --allowlist tools/expected-failures.json
 
-  # ---------- 2. 依赖漏洞审计（RustSec 公告库） ----------
+  # ---------- 2. MSRV 门禁（声明的最低 Rust 版本可编译） ----------
+  msrv:
+    name: MSRV 1.88 构建
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装最低支持版本工具链
+        uses: dtolnay/rust-toolchain@1.88
+
+      - name: 启用 Rust 构建缓存
+        uses: Swatinem/rust-cache@v2
+
+      - name: 编译全部 crate（debug，锁定依赖）
+        # 与 Cargo.toml 的 [workspace.package] rust-version 对齐：
+        # 代码使用的 let-chains（1.88）/ is_none_or（1.82）等特性不被破坏
+        run: cargo build --workspace --locked
+
+  # ---------- 3. 依赖漏洞审计（RustSec 公告库） ----------
   audit:
     name: 依赖漏洞审计
     runs-on: ubuntu-latest
@@ -97,7 +118,33 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  # ---------- 3. 三平台 release 二进制构建 ----------
+  # ---------- 4. LSP 端到端测试（真实 rust-analyzer + 中文诊断翻译） ----------
+  lsp-e2e:
+    name: LSP 端到端测试
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 启用 Rust 构建缓存
+        uses: Swatinem/rust-cache@v2
+
+      - name: 构建 rzc（用于安装 rust-analyzer）
+        run: cargo build --quiet --bin rzc --locked
+
+      - name: 安装 rust-analyzer（--ra-only 仅下载分析器，跳过 300MB rustc）
+        # 安装在 ~/.rz/toolchain/bin，与 engine::toolchain 的查找顺序一致
+        run: ./target/debug/rzc install toolchain --ra-only --force
+
+      - name: 运行 LSP 端到端测试（显式启用 ignored 测试）
+        # e2e 测试需要 rust-analyzer 可执行文件，默认 #[ignore] 跳过；
+        # 此处先安装工具链再显式运行，验证 E0425 诊断的中文翻译全链路
+        run: cargo test -p i18n-rust-lsp --test e2e -- --ignored
+
+  # ---------- 5. 三平台 release 二进制构建 ----------
   build:
     name: 构建并测试 ${{ matrix.os_name }}-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
@@ -147,7 +194,7 @@ jobs:
             target/release/i18n-rust-lsp*
           if-no-files-found: error
 
-  # ---------- 4. VS Code 扩展打包 ----------
+  # ---------- 6. VS Code 扩展打包 ----------
   vsix:
     name: 构建 VS Code 扩展
     runs-on: ubuntu-latest

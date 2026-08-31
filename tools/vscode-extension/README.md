@@ -12,27 +12,29 @@
 - **一键命令**：运行（`Ctrl+Shift+R`）、类型检查（`Ctrl+Shift+C`）、导出标准 Rust
 - **语言包工具**（需 rzc ≥ 0.3.3）：命令面板提供映射质量校验（`mapping check`）、新语言翻译脚手架（`mapping scaffold`，支持 DeepSeek AI 自动翻译键名）、语言包安装（`lang install`）
 
-## 离线安装
+## 安装
 
-本扩展尚未发布到 VS Code 扩展市场（Marketplace）。推荐通过 `.vsix` 文件离线安装：
+本扩展尚未发布到 VS Code 扩展市场（Marketplace）。请从源码自行打包，通过 `.vsix` 文件安装：
 
-### 1. 下载 .vsix 文件
+### 1. 打包 .vsix 文件
 
-从项目 Release 页面下载已编译好的 `.vsix` 文件（无需安装任何开发环境）：
+在 `tools/vscode-extension/` 目录下运行：
 
-- **GitCode**（国内推荐）：https://gitcode.com/tan80/zrRust/releases
-- **GitHub**：https://github.com/liuqiTan80/i18n-rust/releases
+```bash
+npm ci
+npm run package
+```
 
-下载最新版本中的 `i18n-rust-<版本>.vsix` 文件即可。
+产物为 `i18n-rust-<版本>.vsix`。需要先决条件：**Node.js 18+ 与 npm**（[nodejs.org](https://nodejs.org) 下载安装）。
 
-> 备选：如需从源码打包，在 `tools/vscode-extension/` 目录下运行 `./package-vsix.sh`（Linux/macOS）或 `powershell -ExecutionPolicy Bypass -File .\package-vsix.ps1`（Windows），需要 Node.js 18+。
+> 备选：教学机房等离线场景，可使用发布者分发的离线包（内含预打包 .vsix），解压后直接进入第 2 步安装；Linux/macOS 也可用 `./package-vsix.sh`、Windows 用 `powershell -ExecutionPolicy Bypass -File .\package-vsix.ps1` 打包。
 
 ### 2. 安装 .vsix
 
 1. 打开 VS Code，点击左侧活动栏的 **扩展** 图标（或按 `Ctrl+Shift+X`）打开扩展侧边栏
 2. 点击侧边栏右上角的 **“...”** 菜单
 3. 选择 **“从 VSIX 安装...”**（Install from VSIX...）
-4. 在文件选择对话框中，选中下载的 `i18n-rust-<版本>.vsix` 文件
+4. 在文件选择对话框中，选中打包好的 `i18n-rust-<版本>.vsix` 文件
 5. 点击 **安装**，安装完成后按提示 **重新加载** 窗口
 
 > 命令行方式：`code --install-extension i18n-rust-<版本>.vsix`

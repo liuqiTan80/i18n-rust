@@ -5,3 +5,7 @@ members = [
     "crates/lsp",
 ]
 resolver = "2"
+
+# 支持的最低 Rust 版本（对齐代码使用的 let-chains / is_none_or 等特性）
+[workspace.package]
+rust-version = "1.88"

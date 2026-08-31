@@ -2,6 +2,7 @@
 name = "rzc"
 version = "0.6.3"
 edition = "2024"
+rust-version.workspace = true
 description = "多语言 Rust 教学方言编译器，支持用母语编写 Rust 程序"
 license = "MIT"
 repository = "https://gitcode.com/tan80/zrRust"

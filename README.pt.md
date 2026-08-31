@@ -22,23 +22,78 @@ $ rzc run src/main.pt
 Número: 11
 ```
 
-## 📦 Instalação
+## 📦 Instalação (compilar a partir do código-fonte)
 
-Um único comando — disponível globalmente logo após a instalação:
+O rzc não oferece instalador pré-compilado online — compile-o na sua própria máquina (1–3 minutos).
+
+### Pré-requisitos
+
+| Ferramenta | Finalidade | Necessária? |
+|---|---|---|
+| **Toolchain Rust** (rustc + cargo) | Compilar o próprio rzc | ✅ Sim |
+| **git** | Obter o código-fonte | ✅ Sim (ou baixar o ZIP) |
+| **Internet** | Baixar dependências na primeira compilação | ✅ Sim (primeira vez) |
+| **Node.js 18+ e npm** | Compilar a extensão do VS Code | Opcional (apenas IDE) |
+| **rust-analyzer** | Backend de autocompletar/diagnóstico do IDE | Opcional (apenas IDE) |
+
+### 1. Instalar a toolchain Rust
+
+A forma recomendada é o [rustup](https://rustup.rs) (instala rustc, cargo e rustup de uma vez).
+
+- **Linux / macOS** (em um terminal):
+
+  ```bash
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  ```
+
+  Depois execute `source "$HOME/.cargo/env"` (ou reabra o terminal).
+
+- **Windows**: baixe o [rustup-init.exe](https://rustup.rs) e siga o assistente (ou execute `winget install --id Rustlang.Rustup` no PowerShell).
+
+Verifique (após reabrir o terminal):
 
 ```bash
-cargo install rzc
+rustc --version   # ex.: rustc 1.98.0
+cargo --version
 ```
 
-> Requer o [toolchain Rust](https://www.rust-lang.org/tools/install) (stable via rustup). Os pacotes de idioma já estão integrados — nenhuma configuração adicional é necessária.
-
-Você também pode compilar a partir do código-fonte:
+### 2. Obter o código e compilar
 
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
-cargo build --release --workspace                # binário em target/release/rzc
+cargo build --release --workspace
+./target/release/rzc --version
 ```
+
+A primeira compilação baixa dependências e compila todos os componentes (1–3 minutos). Binários:
+
+- `target/release/rzc` — a ferramenta CLI
+- `target/release/i18n-rust-lsp` — o servidor de linguagem (backend da extensão do VS Code)
+
+### 3. (Opcional) Deixar o rzc disponível globalmente
+
+```bash
+cargo install --path crates/cli   # compila localmente e instala em ~/.cargo/bin
+```
+
+### 4. (Opcional) Instalar rust-analyzer para recursos do IDE
+
+```bash
+rzc install toolchain --ra-only --force
+```
+
+### 5. (Opcional) Compilar a extensão do VS Code
+
+Requer Node.js 18+ e npm (do [nodejs.org](https://nodejs.org)):
+
+```bash
+cd tools/vscode-extension
+npm ci
+npm run package    # gera i18n-rust-<versão>.vsix
+```
+
+Instale o `.vsix` via «Install from VSIX...» no VS Code; o servidor de linguagem é fornecido pelo `rzc install lsp`.
 
 ## 🚀 Início rápido
 

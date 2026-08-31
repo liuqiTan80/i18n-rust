@@ -2,6 +2,7 @@
 name = "i18n-rust-lsp"
 version = "0.6.3"
 edition = "2024"
+rust-version.workspace = true
 description = "LSP 代理服务器：将方言 Rust 代码翻译为标准 Rust 后交给 rust-analyzer"
 license = "MIT"
 repository = "https://gitcode.com/tan80/zrRust"

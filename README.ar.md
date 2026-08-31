@@ -22,23 +22,78 @@ $ rzc run src/main.ar
 العدد: 11
 ```
 
-## 📦 التثبيت
+## 📦 التثبيت (البناء من المصدر)
 
-أمر واحد — متاح عالميًا فور التثبيت:
+لا يوفر rzc مثبّتًا جاهزًا عبر الإنترنت — قم ببنائه على جهازك (1–3 دقائق).
+
+### المتطلبات الأساسية
+
+| الأداة | الغرض | مطلوبة؟ |
+|---|---|---|
+| **أدوات رست** (rustc + cargo) | بناء rzc نفسه | ✅ نعم |
+| **git** | الحصول على الكود المصدري | ✅ نعم (أو تحميل ZIP) |
+| **الإنترنت** | تنزيل التبعيات عند البناء الأول | ✅ نعم (المرة الأولى) |
+| **Node.js 18+ و npm** | بناء إضافة VS Code | اختياري (لبيئة IDE فقط) |
+| **rust-analyzer** | خلفية الإكمال/التشخيص في IDE | اختياري (لبيئة IDE فقط) |
+
+### 1. تثبيت أدوات رست
+
+الطريقة الموصى بها هي [rustup](https://rustup.rs) (يثبّت rustc و cargo و rustup دفعة واحدة).
+
+- **Linux / macOS** (في الطرفية):
+
+  ```bash
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  ```
+
+  ثم نفّذ `source "$HOME/.cargo/env"` (أو أعد فتح الطرفية).
+
+- **Windows**: حمّل [rustup-init.exe](https://rustup.rs) واتبع المعالج (أو نفّذ `winget install --id Rustlang.Rustup` في PowerShell).
+
+تحقق (بعد إعادة فتح الطرفية):
 
 ```bash
-cargo install rzc
+rustc --version   # مثل: rustc 1.98.0
+cargo --version
 ```
 
-> يتطلب [أدوات رست](https://www.rust-lang.org/tools/install) (stable عبر rustup). حزم اللغات مدمجة — لا حاجة لأي إعداد إضافي.
-
-يمكنك أيضًا البناء من المصدر:
+### 2. الحصول على المصدر والبناء
 
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
-cargo build --release --workspace                # الملف التنفيذي: target/release/rzc
+cargo build --release --workspace
+./target/release/rzc --version
 ```
+
+البناء الأول ينزّل التبعيات ويجمّع كل المكونات (1–3 دقائق). النواتج:
+
+- `target/release/rzc` — أداة سطر الأوامر
+- `target/release/i18n-rust-lsp` — خادم اللغة (خلفية إضافة VS Code)
+
+### 3. (اختياري) جعل rzc متاحًا عالميًا
+
+```bash
+cargo install --path crates/cli   # بناء محلي وتثبيت إلى ~/.cargo/bin
+```
+
+### 4. (اختياري) تثبيت rust-analyzer لميزات IDE
+
+```bash
+rzc install toolchain --ra-only --force
+```
+
+### 5. (اختياري) بناء إضافة VS Code
+
+يتطلب Node.js 18+ و npm (من [nodejs.org](https://nodejs.org)):
+
+```bash
+cd tools/vscode-extension
+npm ci
+npm run package    # ينتج i18n-rust-<الإصدار>.vsix
+```
+
+ثبّت ملف `.vsix` عبر «Install from VSIX...» في VS Code؛ خادم اللغة يوفره `rzc install lsp`.
 
 ## 🚀 بدء سريع
 

@@ -22,23 +22,78 @@ $ rzc run src/main.ja
 数は：11
 ```
 
-## 📦 インストール
+## 📦 インストール（ソースからビルド）
 
-1 コマンドでインストール完了、すぐにグローバルで使用可能：
+rzc はオンラインのプリビルド版を提供していません。ご自身のマシンでビルドしてください（初回 1〜3 分）。
+
+### 前提条件
+
+| ツール | 用途 | 必須？ |
+|---|---|---|
+| **Rust ツールチェーン**（rustc + cargo） | rzc 本体のビルド | ✅ 必須 |
+| **git** | ソースの取得 | ✅ 必須（ソース ZIP でも可） |
+| **ネットワーク** | 初回ビルド時の依存取得 | ✅ 必須（初回のみ） |
+| **Node.js 18+ と npm** | VS Code 拡張のビルド | 任意（IDE のみ） |
+| **rust-analyzer** | IDE の補完・診断バックエンド | 任意（IDE のみ） |
+
+### 1. Rust ツールチェーンのインストール
+
+公式推奨の [rustup](https://rustup.rs) でインストールします（rustc / cargo / rustup がまとめて入ります）。
+
+- **Linux / macOS**（ターミナルで実行）:
+
+  ```bash
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  ```
+
+  インストール後、`source "$HOME/.cargo/env"` を実行するか、ターミナルを開き直して有効化します。
+
+- **Windows**: [rustup-init.exe](https://rustup.rs) をダウンロードしてウィザードに従います（PowerShell で `winget install --id Rustlang.Rustup` でも可）。
+
+確認（ターミナルを開き直して）:
 
 ```bash
-cargo install rzc
+rustc --version   # 例: rustc 1.98.0
+cargo --version
 ```
 
-> [Rust ツールチェーン](https://www.rust-lang.org/tools/install)（rustup の stable）が必要です。言語パックは内蔵済みで、追加設定は不要です。
-
-ソースからビルドすることもできます：
+### 2. ソースを取得してビルド
 
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
-cargo build --release --workspace                # バイナリ: target/release/rzc
+cargo build --release --workspace
+./target/release/rzc --version
 ```
+
+初回ビルドは依存の取得と全コンポーネントのコンパイルで 1〜3 分かかります。生成物:
+
+- `target/release/rzc` — コマンドラインツール
+- `target/release/i18n-rust-lsp` — 言語サーバー（VS Code 拡張のバックエンド）
+
+### 3.（任意）rzc をグローバルで使えるようにする
+
+```bash
+cargo install --path crates/cli   # ローカルビルドして ~/.cargo/bin にインストール
+```
+
+### 4.（任意）IDE 機能用に rust-analyzer をインストール
+
+```bash
+rzc install toolchain --ra-only --force
+```
+
+### 5.（任意）VS Code 拡張のビルド
+
+Node.js 18+ と npm が必要です（[nodejs.org](https://nodejs.org)）:
+
+```bash
+cd tools/vscode-extension
+npm ci
+npm run package    # i18n-rust-<バージョン>.vsix を生成
+```
+
+生成された `.vsix` を VS Code の「Install from VSIX...」でインストールします。言語サーバーは `rzc install lsp` が提供します。
 
 ## 🚀 クイックスタート
 

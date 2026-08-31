@@ -46,6 +46,9 @@ enum CliCommand {
         file: PathBuf,
         #[arg(short, long)]
         lang_pack: Option<PathBuf>,
+        /// 自动修复全角标点（写入源文件，仅转换有半角对应的字符）
+        #[arg(long)]
+        fix: bool,
     },
     Eject {
         file: PathBuf,
@@ -203,6 +206,16 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
         Err(err) => err.exit(),
     };
 
+    // 首次运行引导：终端交互场景下，首次执行教学核心命令时打印
+    // 欢迎语与环境检查（rustc 缺失提示 + 下一步建议），仅一次
+    // （~/.rz/first-run 标记文件）；CI/管道等非终端场景自动跳过。
+    match &args.command {
+        CliCommand::Run { .. } | CliCommand::Check { .. } | CliCommand::Init { .. } => {
+            maybe_show_first_run(&ui);
+        }
+        _ => {}
+    }
+
     match args.command {
         CliCommand::Init { project_name, lang } => {
             i18n_rust_engine::语言::set_language(&lang);
@@ -332,9 +345,38 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 .map(|c| std::process::ExitCode::from(c as u8))
                 .unwrap_or(std::process::ExitCode::FAILURE))
         }
-        CliCommand::Check { file, lang_pack } => {
+        CliCommand::Check {
+            file,
+            lang_pack,
+            fix,
+        } => {
             let ui = ui_for_file(&file, &lang_pack);
-            let source = fs::read_to_string(&file)?;
+            let mut source = fs::read_to_string(&file)?;
+            // 全角标点教学修复：中文输入法下最常见的编译错误来源之一。
+            // --fix 时自动将代码位置（字符串/注释内除外）的全角标点改写为半角，
+            // 并提示剩余需人工修改的字符（顿号/全角空格等）；
+            // 不带 --fix 时警告由转译管线（log_warn）自动输出。
+            if fix {
+                let (fixed, count) = i18n_rust_engine::fullwidth::fix_fullwidth_punct(&source);
+                if count > 0 {
+                    fs::write(&file, &fixed)?;
+                    source = fixed;
+                    println!(
+                        "{}",
+                        ui.f(
+                            "fullwidth_fix_done",
+                            &[&count.to_string(), &file.display().to_string()]
+                        )
+                    );
+                }
+                let remaining = i18n_rust_engine::fullwidth::find_fullwidth_punct(&source).len();
+                if remaining > 0 {
+                    println!(
+                        "{}",
+                        ui.f("fullwidth_fix_remaining", &[&remaining.to_string()])
+                    );
+                }
+            }
             let manager = load_mapping(lang_pack.clone(), Some(&file))?;
             let project_root = find_project_root(&file)?;
             let source_path = project_root.join("src/main.rs");
@@ -499,6 +541,48 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     .map(|()| std::process::ExitCode::SUCCESS)
             }
         },
+    }
+}
+
+/// 首次运行引导：欢迎 + rustc 缺失提示 + 下一步建议
+///
+/// 仅交互终端（stdout 是终端）且标记文件不存在时显示；
+/// 显示后写入标记文件，保证每个用户只看到一次。
+fn maybe_show_first_run(ui: &ui::Ui) {
+    use std::io::IsTerminal;
+    if !std::io::stdout().is_terminal() {
+        return;
+    }
+    // 与 lang_manager::global_lang_dir 相同的跨平台主目录解析
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .ok();
+    let marker = home.map(|h| PathBuf::from(h).join(".rz").join("first-run"));
+    if let Some(marker) = &marker
+        && marker.exists()
+    {
+        return;
+    }
+    println!();
+    println!("{}", ui.t("first_run_hello"));
+    // rustc 检测：内置工具链目录或 PATH（含 rustc.exe/rustc）任一命中
+    let rustc_ok = i18n_rust_engine::toolchain::find_toolchain_bin("rustc").is_some()
+        || std::env::var_os("PATH").is_some_and(|path| {
+            std::env::split_paths(&path).any(|dir| {
+                let exe = if cfg!(windows) { "rustc.exe" } else { "rustc" };
+                dir.join(exe).exists()
+            })
+        });
+    if !rustc_ok {
+        println!("{}", ui.t("first_run_rustc_missing"));
+    }
+    println!("{}", ui.t("first_run_next_steps"));
+    println!();
+    if let Some(marker) = marker {
+        if let Some(parent) = marker.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::write(marker, "");
     }
 }
 

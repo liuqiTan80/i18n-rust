@@ -22,23 +22,78 @@ $ rzc run src/main.de
 Zahl: 11
 ```
 
-## 📦 Installation
+## 📦 Installation (aus dem Quellcode bauen)
 
-Ein Befehl — danach sofort global verfügbar:
+rzc bietet kein fertiges Online-Installationspaket — bauen Sie es auf Ihrem eigenen Rechner (1–3 Minuten).
+
+### Voraussetzungen
+
+| Werkzeug | Zweck | Erforderlich? |
+|---|---|---|
+| **Rust-Werkzeugkette** (rustc + cargo) | rzc selbst bauen | ✅ Ja |
+| **git** | Quellcode holen | ✅ Ja (oder Quellcode-ZIP) |
+| **Netzwerk** | Abhängigkeiten beim ersten Bau laden | ✅ Ja (beim ersten Mal) |
+| **Node.js 18+ und npm** | VS-Code-Erweiterung bauen | Optional (nur IDE) |
+| **rust-analyzer** | IDE-Backend für Vervollständigung/Diagnose | Optional (nur IDE) |
+
+### 1. Rust-Werkzeugkette installieren
+
+Empfohlen wird [rustup](https://rustup.rs) (installiert rustc, cargo und rustup auf einmal).
+
+- **Linux / macOS** (im Terminal):
+
+  ```bash
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  ```
+
+  Danach `source "$HOME/.cargo/env"` ausführen (oder Terminal neu öffnen).
+
+- **Windows**: [rustup-init.exe](https://rustup.rs) herunterladen und dem Assistenten folgen (oder in PowerShell `winget install --id Rustlang.Rustup`).
+
+Prüfen (nach dem Neuöffnen des Terminals):
 
 ```bash
-cargo install rzc
+rustc --version   # z. B. rustc 1.98.0
+cargo --version
 ```
 
-> Erfordert die [Rust-Werkzeugkette](https://www.rust-lang.org/tools/install) (stable via rustup). Sprachpakete sind eingebaut — keine zusätzliche Konfiguration nötig.
-
-Alternativ aus dem Quellcode bauen:
+### 2. Quellcode holen und bauen
 
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
-cargo build --release --workspace                # Binärdatei: target/release/rzc
+cargo build --release --workspace
+./target/release/rzc --version
 ```
+
+Der erste Bau lädt Abhängigkeiten und kompiliert alle Komponenten (1–3 Minuten). Binärdateien:
+
+- `target/release/rzc` — das Befehlszeilenwerkzeug
+- `target/release/i18n-rust-lsp` — der Sprachserver (Backend der VS-Code-Erweiterung)
+
+### 3. (Optional) rzc global verfügbar machen
+
+```bash
+cargo install --path crates/cli   # lokal bauen und in ~/.cargo/bin installieren
+```
+
+### 4. (Optional) rust-analyzer für IDE-Funktionen installieren
+
+```bash
+rzc install toolchain --ra-only --force
+```
+
+### 5. (Optional) VS-Code-Erweiterung bauen
+
+Erfordert Node.js 18+ und npm (von [nodejs.org](https://nodejs.org)):
+
+```bash
+cd tools/vscode-extension
+npm ci
+npm run package    # erzeugt i18n-rust-<Version>.vsix
+```
+
+Installieren Sie die `.vsix` über „Install from VSIX..." in VS Code; den Sprachserver stellt `rzc install lsp` bereit.
 
 ## 🚀 Schnellstart
 

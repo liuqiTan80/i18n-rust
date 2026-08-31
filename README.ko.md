@@ -22,23 +22,78 @@ $ rzc run src/main.ko
 수: 11
 ```
 
-## 📦 설치
+## 📦 설치 (소스에서 빌드)
 
-한 줄이면 설치 완료, 바로 전역에서 사용 가능:
+rzc는 온라인 프리빌드 설치를 제공하지 않습니다. 직접 빌드하세요 (첫 빌드 약 1~3분).
+
+### 사전 요구 사항
+
+| 도구 | 용도 | 필수? |
+|---|---|---|
+| **Rust 툴체인** (rustc + cargo) | rzc 자체 빌드 | ✅ 필수 |
+| **git** | 소스 코드 받기 | ✅ 필수 (소스 ZIP도 가능) |
+| **네트워크** | 첫 빌드 시 의존성 다운로드 | ✅ 필수 (첫 번째만) |
+| **Node.js 18+ 및 npm** | VS Code 확장 빌드 | 선택 (IDE만) |
+| **rust-analyzer** | IDE 자동 완성/진단 백엔드 | 선택 (IDE만) |
+
+### 1. Rust 툴체인 설치
+
+공식 권장 방법은 [rustup](https://rustup.rs)입니다 (rustc, cargo, rustup을 한 번에 설치).
+
+- **Linux / macOS** (터미널에서):
+
+  ```bash
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  ```
+
+  설치 후 `source "$HOME/.cargo/env"`를 실행하거나 터미널을 다시 엽니다.
+
+- **Windows**: [rustup-init.exe](https://rustup.rs)를 다운로드해 마법사를 따릅니다 (PowerShell에서 `winget install --id Rustlang.Rustup`도 가능).
+
+확인 (터미널을 다시 연 후):
 
 ```bash
-cargo install rzc
+rustc --version   # 예: rustc 1.98.0
+cargo --version
 ```
 
-> [Rust 툴체인](https://www.rust-lang.org/tools/install) (rustup의 stable)이 필요합니다. 언어팩은 내장되어 있어 추가 설정이 필요 없습니다.
-
-소스에서 직접 빌드할 수도 있습니다:
+### 2. 소스 코드 받기 및 빌드
 
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
-cargo build --release --workspace                # 바이너리: target/release/rzc
+cargo build --release --workspace
+./target/release/rzc --version
 ```
+
+첫 빌드는 의존성 다운로드와 전체 컴포넌트 컴파일로 1~3분이 걸립니다. 산출물:
+
+- `target/release/rzc` — CLI 도구
+- `target/release/i18n-rust-lsp` — 언어 서버 (VS Code 확장 백엔드)
+
+### 3. (선택) rzc를 전역으로 사용
+
+```bash
+cargo install --path crates/cli   # 로컬 빌드 후 ~/.cargo/bin에 설치
+```
+
+### 4. (선택) IDE 기능용 rust-analyzer 설치
+
+```bash
+rzc install toolchain --ra-only --force
+```
+
+### 5. (선택) VS Code 확장 빌드
+
+Node.js 18+와 npm이 필요합니다 ([nodejs.org](https://nodejs.org)):
+
+```bash
+cd tools/vscode-extension
+npm ci
+npm run package    # i18n-rust-<버전>.vsix 생성
+```
+
+생성된 `.vsix`를 VS Code의 「Install from VSIX...」로 설치합니다. 언어 서버는 `rzc install lsp`가 제공합니다.
 
 ## 🚀 빠른 시작
 

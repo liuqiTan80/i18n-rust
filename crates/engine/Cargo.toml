@@ -2,6 +2,7 @@
 name = "i18n-rust-engine"
 version = "0.6.3"
 edition = "2024"
+rust-version.workspace = true
 description = "多语言 Rust 教学方言核心引擎：词法转译、映射管理、诊断翻译、增量缓存"
 license = "MIT"
 repository = "https://gitcode.com/tan80/zrRust"

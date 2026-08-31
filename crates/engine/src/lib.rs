@@ -5,6 +5,7 @@ pub mod alias;
 pub mod cache;
 pub mod diagnostic;
 pub mod error;
+pub mod fullwidth;
 pub mod lexer;
 pub mod logger;
 pub mod mapping_manager;
@@ -99,6 +100,11 @@ pub fn transpile_pipeline_with_map(
     // 词法处理前的 Unicode 混淆安全检查（零宽/双向/同形字符，仅告警）
     for warning in unicode_confusion::check_unicode_confusion(source) {
         crate::log_warn!("unicode_confusion", "{}", warning.format());
+    }
+    // 全角标点教学检查（中文输入法常见错误：代码位置的全角标点，仅告警不阻断）；
+    // 字符串/注释内的全角标点合法，由扫描器自动跳过
+    for warning in fullwidth::find_fullwidth_punct(source) {
+        crate::log_warn!("fullwidth", "{}", warning.format());
     }
 
     let macro_map = manager.get_macro_map();
@@ -560,6 +566,46 @@ mod tests {
             .expect("语言包应能解析");
             let cycles = manager.find_mapping_cycles();
             assert!(cycles.is_empty(), "{code} 语言包存在循环映射：{cycles:?}");
+        }
+    }
+
+    /// 门禁：附录C《常见错误信息字典》收录的错误码，在全部内置语言包中
+    /// 都必须有教学提示（errors.toml 的 "教学提示" 字段）
+    ///
+    /// 附录C 是教程侧的高频错误清单，与教程章节同步维护；
+    /// 教学提示缺失会让新手在常见错误上得不到母语指引，
+    /// 因此该清单与语言包的覆盖关系由测试守护（附录C 新增错误码时同步更新本清单）。
+    #[test]
+    fn test_appendix_c_error_codes_have_teaching_hints_in_all_packs() {
+        // 与 tutorials/附录C：常见错误信息字典.md 的 `### E0xxx` 标题同步维护
+        let appendix_c_codes: &[&str] = &[
+            "E0004", "E0063", "E0072", "E0106", "E0204", "E0261", "E0277", "E0308", "E0382",
+            "E0405", "E0425", "E0432", "E0502", "E0507", "E0508", "E0531", "E0573", "E0596",
+            "E0597", "E0599", "E0603",
+        ];
+        let codes = 语言::builtin_language_codes();
+        assert!(codes.len() >= 9, "应覆盖全部内置语言：{codes:?}");
+        for code in codes {
+            let files = 语言::builtin_lang_files(code);
+            let errors_toml = files
+                .iter()
+                .find(|(n, _)| *n == "errors.toml")
+                .map(|(_, c)| *c)
+                .expect("{code} 语言包缺少 errors.toml");
+            let manager = diagnostic::ErrorTranslationManager::load_from_string(errors_toml)
+                .expect("errors.toml 应能解析");
+            for error_code in appendix_c_codes {
+                let entry = manager
+                    .translation_table
+                    .get(*error_code)
+                    .unwrap_or_else(|| {
+                        panic!("{code} 语言包缺少附录C 错误码 [{error_code}] 的教学提示")
+                    });
+                assert!(
+                    entry.teaching_hint.is_some(),
+                    "{code} 语言包的 [{error_code}] 缺少教学提示（附录C 已收录）"
+                );
+            }
         }
     }
 }
