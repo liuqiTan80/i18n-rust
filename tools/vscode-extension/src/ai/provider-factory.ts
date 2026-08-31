@@ -3,15 +3,20 @@
  *
  * Creates the provider instance matching the configured provider id,
  * filling in the provider's defaults when baseUrl / model are unset.
+ * OpenAI 系服务商返回 OpenAICompatibleProvider；Anthropic / Gemini 返回各自
+ * 的专有协议实现（Messages API / generateContent API）。
  */
 
+import { AnthropicProvider } from './anthropic-provider';
+import { GeminiProvider } from './gemini-provider';
 import { OpenAICompatibleProvider } from './openai-provider';
 import { ProviderInterface } from './provider-interface';
 import { AIConfig, AIError, ProviderPreset, ProviderId } from './types';
 
 /**
  * Presets for each provider (default address / default model / key requirement).
- * All providers use the OpenAI-compatible protocol; only defaults differ.
+ * OpenAI 系服务商使用 OpenAI 兼容协议；Anthropic / Gemini 为专有协议，
+ * 由工厂分派到对应实现类。
  */
 const PRESETS: Record<ProviderId, ProviderPreset> = {
     openai: {
@@ -48,6 +53,20 @@ const PRESETS: Record<ProviderId, ProviderPreset> = {
         defaultBaseUrl: 'http://localhost:11434/v1',
         defaultModel: 'qwen2.5',
         requiresApiKey: false
+    },
+    anthropic: {
+        id: 'anthropic',
+        displayName: 'Anthropic Claude',
+        defaultBaseUrl: 'https://api.anthropic.com',
+        defaultModel: 'claude-sonnet-4-5',
+        requiresApiKey: true
+    },
+    gemini: {
+        id: 'gemini',
+        displayName: 'Google Gemini',
+        defaultBaseUrl: 'https://generativelanguage.googleapis.com',
+        defaultModel: 'gemini-2.5-pro',
+        requiresApiKey: true
     },
     custom: {
         id: 'custom',
@@ -102,5 +121,13 @@ export function createProvider(config: AIConfig): ProviderInterface {
             `提供商「${preset.displayName}」未配置模型名称，请在设置中填写 i18n-rust.ai.model。`
         );
     }
-    return new OpenAICompatibleProvider(fullConfig);
+    // 按协议分派：Anthropic / Gemini 为专有协议，其余为 OpenAI 兼容协议
+    switch (config.provider) {
+        case 'anthropic':
+            return new AnthropicProvider(fullConfig);
+        case 'gemini':
+            return new GeminiProvider(fullConfig);
+        default:
+            return new OpenAICompatibleProvider(fullConfig);
+    }
 }

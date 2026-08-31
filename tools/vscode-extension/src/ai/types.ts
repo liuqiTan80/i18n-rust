@@ -2,7 +2,8 @@
  * AI provider abstraction layer - shared type definitions
  *
  * Defines the common data types and unified error type for all AI providers.
- * Currently all providers use the OpenAI-compatible protocol.
+ * OpenAI 系服务商使用 OpenAI 兼容协议；Anthropic / Gemini 由各自的
+ * provider 实现专有协议（Messages API / generateContent API）。
  */
 
 /**
@@ -19,9 +20,11 @@ export interface ChatMessage {
  * Supported provider identifiers
  * - openai / deepseek / qwen / glm: cloud services using the OpenAI-compatible protocol
  * - ollama: local model service (also OpenAI-compatible, no API key required)
+ * - anthropic: Claude（Anthropic Messages API，x-api-key + anthropic-version 头）
+ * - gemini: Google Gemini（generateContent API，x-goog-api-key 头）
  * - custom: user-defined arbitrary baseUrl
  */
-export type ProviderId = 'openai' | 'deepseek' | 'qwen' | 'glm' | 'ollama' | 'custom';
+export type ProviderId = 'openai' | 'deepseek' | 'qwen' | 'glm' | 'ollama' | 'anthropic' | 'gemini' | 'custom';
 
 /**
  * AI-related configuration (corresponds to i18n-rust.ai.* settings)

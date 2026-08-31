@@ -23,13 +23,14 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-/// 每个语言测试的期望关键词（取自该语言 errors.toml 的 [消息翻译] 节，
-/// E0425 实际匹配的模板前缀）
+/// 各语言 E0425 翻译的特征词：取自 errors.toml [消息翻译] 节（LSP 走短语替换路径，
+/// 非 E0425 模板）：ru 的 cannot find value 翻译为「невозможно найти значение」、
+/// ar 为「لا يمكن العثور على القيمة」
 const LANG_KEYWORDS: &[(&str, &str)] = &[
     ("zh", "找不到"),
     ("ja", "見つかりません"),
-    ("ru", "не найдено"),
-    ("ar", "غير موجود"),
+    ("ru", "найти значение"),
+    ("ar", "العثور"),
 ];
 
 /// 各语言方言源码：关键字取自该语言包（ja/ru/ar 与 zh 不同），
@@ -472,6 +473,81 @@ fn e2e_fullwidth_diagnostic_injected() {
 
     shutdown(&mut child, &mut stdin, &rx);
     eprintln!("✅ LSP 端到端测试通过：全角标点教学诊断已注入");
+}
+
+/// 教学 lint 诊断注入：未标注类型/魔法数字以 Hint 级诊断在 IDE 内联提示，
+/// 「教学忽略」标记行不产生诊断
+#[test]
+#[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
+fn e2e_teaching_lint_diagnostic_injected() {
+    let Some(ra_path) = find_rust_analyzer() else {
+        eprintln!("跳过 LSP 端到端测试：未找到 rust-analyzer（可设置 RUST_ANALYZER_PATH）");
+        return;
+    };
+
+    let manifest_dir =
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
+
+    let temp = tempfile::tempdir().expect("创建临时项目失败");
+    std::fs::create_dir_all(temp.path().join("src")).expect("创建 src 目录失败");
+    std::fs::write(
+        temp.path().join("Cargo.toml"),
+        "[package]\nname = \"e2e-project\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+    )
+    .expect("写入 Cargo.toml 失败");
+    // 第 2 行未标注类型（触发 lint-untyped-let），第 3 行带忽略标记（不触发）
+    let source = "函数 主函数() {\n    让 数量 = 5;\n    让 已忽略 = 1;  // 教学忽略\n}\n";
+    let uri = format!("file://{}", temp.path().join("src/main.zh").display());
+    std::fs::write(temp.path().join("src/main.zh"), source).expect("写入 main.zh 失败");
+
+    let (mut child, mut stdin, rx) = spawn_lsp(&ra_path, &lang_pack);
+    let root_uri = format!("file://{}", temp.path().display());
+    initialize(&mut stdin, &rx, &root_uri);
+    send_notification(&mut stdin, "initialized", json!({}));
+    send_notification(
+        &mut stdin,
+        "textDocument/didOpen",
+        json!({
+            "textDocument": {
+                "uri": uri,
+                "languageId": "rust-zh",
+                "version": 1,
+                "text": source
+            }
+        }),
+    );
+
+    // 等待代理注入的教学 lint 诊断（消息模板含「未标注类型」）
+    let diag = wait_diagnostics_containing(&rx, &uri, "未标注类型", Duration::from_secs(120))
+        .expect("120s 内未收到教学 lint 诊断（注入链路异常）");
+    let diagnostics = diag
+        .pointer("/params/diagnostics")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let lint_diags: Vec<&Value> = diagnostics
+        .iter()
+        .filter(|d| {
+            d.get("code")
+                .and_then(Value::as_str)
+                .is_some_and(|c| c.starts_with("lint-"))
+        })
+        .collect();
+    assert!(!lint_diags.is_empty(), "应有教学 lint 诊断：\n{diag}");
+    assert_eq!(lint_diags[0]["severity"], 3, "教学诊断应为 Hint 级");
+    let line = lint_diags[0]["range"]["start"]["line"].as_u64().unwrap();
+    assert_eq!(line, 1, "lint 应定位到第 2 行（0 起行号 1）");
+    // 忽略标记行（第 3 行，0 起行号 2）不应出现 lint 诊断
+    assert!(
+        !lint_diags
+            .iter()
+            .any(|d| d["range"]["start"]["line"].as_u64() == Some(2)),
+        "「教学忽略」标记行不应有 lint 诊断：{diagnostics:?}"
+    );
+
+    shutdown(&mut child, &mut stdin, &rx);
+    eprintln!("✅ LSP 端到端测试通过：教学 lint 诊断已注入（含忽略标记）");
 }
 
 /// 语言矩阵完整性：LANG_KEYWORDS 与语言包目录一一对应，防止漏配语言

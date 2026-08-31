@@ -417,6 +417,151 @@ fn install_remote_lang(lang_code: &str, force: bool) -> anyhow::Result<()> {
     try_all_sources(lang_code, &sources, &temp, force)
 }
 
+/// 远程语言包市场条目（`rzc lang search` 的浏览结果）
+#[derive(Debug, Clone)]
+pub struct RemoteLangInfo {
+    /// 语言代码（目录名）
+    pub lang_code: String,
+    /// 显示名称（来自 lang_info.toml；旧语言包为 None）
+    pub display_name: Option<String>,
+    /// 版本号（来自 lang_info.toml；旧语言包为 None）
+    pub version: Option<String>,
+}
+
+/// 浏览远程语言包市场：下载仓库 ZIP 后扫描可用语言包
+///
+/// 依次尝试 [`collect_sources`] 中的源，首个成功下载并解析的源即返回其
+/// 语言包列表（与 install 的源回退策略一致）；`keyword` 为 Some 时按
+/// 语言代码或显示名称模糊过滤（不区分大小写）。全部失败时聚合错误。
+pub fn search_remote_langs(keyword: Option<&str>) -> anyhow::Result<Vec<RemoteLangInfo>> {
+    let sources = collect_sources();
+    let temp = TempDir::new()?;
+    let mut error_details = Vec::new();
+    for (index, source) in sources.iter().enumerate() {
+        match fetch_repo_zip(source, &temp) {
+            Ok(repo_dir) => {
+                let mut found = scan_repo_langs(&repo_dir);
+                found.sort_by(|a, b| a.lang_code.cmp(&b.lang_code));
+                return Ok(filter_remote_langs(found, keyword.unwrap_or("")));
+            }
+            Err(err) => error_details.push(crate::ui::Ui::global().f(
+                "lc_err_source_detail",
+                &[&(index + 1).to_string(), &source.git_url, &err.to_string()],
+            )),
+        }
+    }
+    let ui = crate::ui::Ui::global();
+    anyhow::bail!(
+        "{}",
+        ui.f(
+            "lang_search_failed",
+            &[
+                keyword.unwrap_or(""),
+                &sources.len().to_string(),
+                &error_details.join("\n"),
+            ]
+        )
+    )
+}
+
+/// 按关键词过滤远程语言包（匹配语言代码或显示名称，不区分大小写）
+fn filter_remote_langs(found: Vec<RemoteLangInfo>, keyword: &str) -> Vec<RemoteLangInfo> {
+    let kw = keyword.trim().to_lowercase();
+    if kw.is_empty() {
+        return found;
+    }
+    found
+        .into_iter()
+        .filter(|info| {
+            info.lang_code.to_lowercase().contains(&kw)
+                || info
+                    .display_name
+                    .as_deref()
+                    .is_some_and(|n| n.to_lowercase().contains(&kw))
+        })
+        .collect()
+}
+
+/// 下载仓库 ZIP 并解压，返回仓库根目录（自动下沉单层根目录）
+///
+/// 复用 curl 下载（与安装回退路径一致）；GitHub/GitCode 的 ZIP 顶层均为
+/// `<仓库>-<分支>/` 目录，解压后若仅含一个目录则以其为仓库根。
+fn fetch_repo_zip(source: &RepoSource, temp: &TempDir) -> anyhow::Result<PathBuf> {
+    let download_path = temp.path().join("lang_market.zip");
+    let output = Command::new("curl")
+        .arg("-L")
+        .arg("--fail")
+        .arg("-o")
+        .arg(&download_path)
+        .arg(&source.zip_url)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "{}",
+                crate::ui::Ui::global().f("lc_err_curl_run", &[&e.to_string()])
+            )
+        })?;
+    if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!(
+            "{}",
+            crate::ui::Ui::global().f("lc_err_curl_download", &[&source.zip_url, detail.trim()])
+        );
+    }
+    let extract_dir = temp.path().join("market_extracted");
+    extract_zip(&download_path, &extract_dir)?;
+    let mut entries: Vec<PathBuf> = fs::read_dir(&extract_dir)
+        .ok()
+        .map(|rd| rd.flatten().map(|e| e.path()).collect())
+        .unwrap_or_default();
+    if entries.len() == 1 && entries[0].is_dir() {
+        Ok(entries.remove(0))
+    } else {
+        Ok(extract_dir)
+    }
+}
+
+/// 扫描仓库目录中的语言包（三种布局全部覆盖）
+///
+/// 1. 仓库根 `<语言码>/`（自建语言包仓库的约定结构）；
+/// 2. `lang-packs/<语言码>/`（兼容旧版双副本结构与第三方仓库）；
+/// 3. `crates/engine/lang-packs/<语言码>/`（主仓库 zrRust 单副本结构）。
+fn scan_repo_langs(repo_dir: &Path) -> Vec<RemoteLangInfo> {
+    let mut found: Vec<RemoteLangInfo> = Vec::new();
+    scan_dir_langs(repo_dir, &mut found);
+    scan_dir_langs(&repo_dir.join("lang-packs"), &mut found);
+    scan_dir_langs(&repo_dir.join("crates/engine/lang-packs"), &mut found);
+    found
+}
+
+/// 扫描单个目录下的语言包子目录（含 keywords.toml 即视为语言包）
+fn scan_dir_langs(dir: &Path, found: &mut Vec<RemoteLangInfo>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() || !path.join("keywords.toml").is_file() {
+            continue;
+        }
+        let Some(code) = path.file_name().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        // 布局间同名去重（保留先发现的；自建仓库根与 lang-packs 并存时）
+        if found.iter().any(|info| info.lang_code == code) {
+            continue;
+        }
+        let metadata = read_lang_info(&path);
+        found.push(RemoteLangInfo {
+            lang_code: code.to_string(),
+            display_name: metadata.as_ref().map(|m| m.name.clone()),
+            version: metadata.as_ref().map(|m| m.version.clone()),
+        });
+    }
+}
+
 /// 依次尝试多个源，全部失败时聚合错误并建议 `RZ_LANG_REPO`
 fn try_all_sources(
     lang_code: &str,
@@ -1108,5 +1253,65 @@ pub(crate) mod tests {
             std::env::remove_var("RZ_LANG_DIR");
             std::env::remove_var("RZ_LANG");
         }
+    }
+
+    /// 市场扫描：三种仓库布局全部覆盖，无 keywords.toml 的目录不误报
+    #[test]
+    fn test_scan_repo_langs_three_layouts() {
+        let temp_root = tempfile::tempdir().unwrap();
+        // 1. 仓库根直接是语言包（自建语言包仓库约定）
+        make_temp_lang_pack(temp_root.path(), "中文");
+        // 2. lang-packs/ 布局
+        make_temp_lang_pack(&temp_root.path().join("lang-packs"), "日语");
+        // 3. crates/engine/lang-packs/ 布局（主仓库单副本）
+        make_temp_lang_pack(&temp_root.path().join("crates/engine/lang-packs"), "俄语");
+        // 非语言包目录（无 keywords.toml）不应列出
+        fs::create_dir_all(temp_root.path().join("docs")).unwrap();
+
+        let found = scan_repo_langs(temp_root.path());
+        // 扫描顺序：根 → lang-packs → crates/engine（排序在 search 入口完成）
+        let codes: Vec<&str> = found.iter().map(|i| i.lang_code.as_str()).collect();
+        assert_eq!(codes, ["中文", "日语", "俄语"]);
+        assert!(found.iter().all(|i| i.display_name.is_none()));
+    }
+
+    /// 市场扫描：布局间同名去重（保留先发现的根目录版本）
+    #[test]
+    fn test_scan_repo_langs_dedup() {
+        let temp_root = tempfile::tempdir().unwrap();
+        make_temp_lang_pack(temp_root.path(), "中文");
+        make_temp_lang_pack(&temp_root.path().join("lang-packs"), "中文");
+
+        let found = scan_repo_langs(temp_root.path());
+        assert_eq!(found.len(), 1, "同名语言包应去重：{:?}", found);
+    }
+
+    /// 关键词过滤：匹配语言代码或显示名称，不区分大小写
+    #[test]
+    fn test_filter_remote_langs() {
+        let found = vec![
+            RemoteLangInfo {
+                lang_code: "vi".to_string(),
+                display_name: Some("越南语".to_string()),
+                version: Some("1.0".to_string()),
+            },
+            RemoteLangInfo {
+                lang_code: "zh".to_string(),
+                display_name: Some("中文".to_string()),
+                version: None,
+            },
+        ];
+
+        // 匹配代码（小写关键词）
+        let by_code = filter_remote_langs(found.clone(), "VI");
+        assert_eq!(by_code.len(), 1);
+        assert_eq!(by_code[0].lang_code, "vi");
+        // 匹配显示名称
+        let by_name = filter_remote_langs(found.clone(), "越南");
+        assert_eq!(by_name.len(), 1);
+        // 空关键词返回全部
+        assert_eq!(filter_remote_langs(found.clone(), "  ").len(), 2);
+        // 无匹配返回空
+        assert!(filter_remote_langs(found, "英语").is_empty());
     }
 }

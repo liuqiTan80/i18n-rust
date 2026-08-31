@@ -4,6 +4,8 @@
 
 ### 新增
 - **发布方案调整**：离线发布包不再内置 rustc/cargo 与 VS Code，仅保留 rust-analyzer（官方发布资产下载不稳定，随包附送）；离线包改为本地脚本（release-offline.sh / release-offline.ps1）编译后手动上传，CI 只构建扩展与发布 crates.io；教程并入离线包。
+- **转译预览并排视图**：新增「转译预览」命令（编辑器标题栏与右键菜单），调用 `rzc transpile` 将方言源码转译为标准 Rust 并排展示（左右两栏同步滚动，方言侧母语关键字着色）；文件保存时自动刷新，每个文件复用独立面板。
+- **AI 提供商扩展**：新增 Anthropic Claude 与 Google Gemini 预设（`i18n-rust.ai.provider` 枚举与快速选择均支持），自动适配专有协议——Claude Messages API（x-api-key / anthropic-version 头、system 顶层提升、content_block_delta 流式）与 Gemini generateContent API（x-goog-api-key 头、systemInstruction 映射、candidates 流式、模型列表去前缀）。
 
 ### 优化
 - **输入热路径性能**：全角符号自动转换从「每个符号各取一次全文并各扫一遍词法状态」改为单次取前缀 + 单遍多位置扫描（k×O(n) → O(n)）；无全角符号的输入先行过滤（零分配提前返回）；单字符按键走快速路径；全角转换开关配置缓存。

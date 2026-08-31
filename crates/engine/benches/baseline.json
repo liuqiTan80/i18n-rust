@@ -1,0 +1,12 @@
+{
+  "benchmark": "i18n-rust-engine/transpile",
+  "created": "2026-08-31",
+  "unit": "ns（mean point_estimate）",
+  "threshold_pct": 30,
+  "results": {
+    "teaching_checks/fullwidth_scan": 16145.869341899093,
+    "teaching_checks/lint_scan": 23870.731441513286,
+    "transpile/pipeline_cache_hit": 66915.43924063514,
+    "transpile/pipeline_no_cache": 505173.67324604356
+  }
+}

@@ -846,6 +846,90 @@ impl ResponseMapper {
         Value::Array(actions)
     }
 
+    /// 注入教学诊断的快捷修复：全角标点一键替换半角、教学 lint 忽略此行
+    ///
+    /// 教学诊断由代理自身发布（方言坐标），rust-analyzer 不会为其生成
+    /// 修复动作，故在响应时按上下文诊断注入。编辑坐标直接使用诊断携带的
+    /// 方言坐标（客户端应用编辑的文件即方言源文件）。
+    pub fn inject_teaching_actions(
+        &self,
+        response: &Value,
+        teaching_diags: &[Value],
+        original_uri: &str,
+    ) -> Value {
+        if teaching_diags.is_empty() {
+            return response.clone();
+        }
+        let mut actions = match response {
+            Value::Array(list) => list.clone(),
+            _ => Vec::new(),
+        };
+        let ui = crate::ui::global();
+        for diag in teaching_diags {
+            let code = diag["code"].as_str().unwrap_or("");
+            if code == "fullwidth" {
+                // 全角标点：可修复时提供替换动作；仅提示字符（顿号等）无动作
+                let Some(replacement) = diag["data"]["replacement"].as_str().map(|s| s.to_string())
+                else {
+                    continue;
+                };
+                let character = diag["data"]["character"].as_str().unwrap_or("").to_string();
+                let range = diag["range"].clone();
+                let title = ui.f("lsp_action_fix_fullwidth", &[&character, &replacement]);
+                actions.push(json!({
+                    "title": title,
+                    "kind": "quickfix",
+                    "diagnostics": [diag],
+                    "edit": {
+                        "changes": {
+                            original_uri: [{
+                                "range": range,
+                                "newText": replacement
+                            }]
+                        }
+                    }
+                }));
+            } else if code.starts_with("lint-") {
+                // 教学 lint：行尾插入忽略标记（教师标注故意不修的示例）
+                let Some(line) = diag["range"]["start"]["line"].as_u64() else {
+                    continue;
+                };
+                let Some(entry) = self.entry_for_original(original_uri) else {
+                    continue;
+                };
+                let line_end = Self::line_end_utf16(&entry.zh_content, line as usize);
+                let range = json!({
+                    "start": { "line": line, "character": line_end },
+                    "end": { "line": line, "character": line_end }
+                });
+                let title = ui.t("lsp_action_ignore_lint");
+                actions.push(json!({
+                    "title": title,
+                    "kind": "quickfix",
+                    "diagnostics": [diag],
+                    "edit": {
+                        "changes": {
+                            original_uri: [{
+                                "range": range,
+                                "newText": format!("  // {}", i18n_rust_engine::lint::IGNORE_MARK)
+                            }]
+                        }
+                    }
+                }));
+            }
+        }
+        Value::Array(actions)
+    }
+
+    /// 计算指定行（0 起）行尾的 UTF-16 字符偏移；行不存在时回退 0
+    fn line_end_utf16(content: &str, line: usize) -> u32 {
+        content
+            .lines()
+            .nth(line)
+            .map(|l| l.encode_utf16().count() as u32)
+            .unwrap_or(0)
+    }
+
     /// 映射文档符号响应
     ///
     /// 将每个符号的 range 和 selectionRange 映射回原始文件，
@@ -2265,6 +2349,80 @@ mod tests {
         // 非数组响应（如 null）也能注入
         let injected = mapper.inject_add_dependency_actions(&Value::Null, &["tokio".to_string()]);
         assert_eq!(injected.as_array().unwrap().len(), 1);
+    }
+
+    /// 教学诊断注入：全角标点替换动作 + 教学 lint 忽略动作（方言坐标直用）
+    #[test]
+    fn test_inject_teaching_actions() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let uri = "file:///test/main.zh";
+        cache
+            .update_document(uri, "函数 主函数() {\n    让 x = 1;\n}", 1)
+            .unwrap();
+
+        let original = json!([{"title": "既有动作", "kind": "quickfix"}]);
+        // 无教学诊断：原样返回
+        assert_eq!(
+            mapper.inject_teaching_actions(&original, &[], uri),
+            original
+        );
+
+        let fullwidth_diag = json!({
+            "range": {
+                "start": { "line": 0, "character": 8 },
+                "end": { "line": 0, "character": 9 }
+            },
+            "code": "fullwidth",
+            "source": "i18n-rust",
+            "message": "第 1 行第 9 列：检测到全角标点「，」，应改为半角「,」",
+            "data": { "character": "，", "replacement": "," }
+        });
+        let lint_diag = json!({
+            "range": {
+                "start": { "line": 1, "character": 4 },
+                "end": { "line": 1, "character": 5 }
+            },
+            "code": "lint-untyped-let",
+            "source": "i18n-rust",
+            "message": "第 2 行第 5 列：`让` 未标注类型"
+        });
+        let injected = mapper.inject_teaching_actions(&original, &[fullwidth_diag, lint_diag], uri);
+        let actions = injected.as_array().unwrap();
+        assert_eq!(actions.len(), 3, "既有 1 + 教学 2");
+
+        // 全角标点：同坐标替换为半角
+        let fix = &actions[1];
+        assert_eq!(fix["kind"], "quickfix");
+        assert_eq!(fix["edit"]["changes"][uri][0]["newText"], ",");
+        assert_eq!(fix["edit"]["changes"][uri][0]["range"]["start"]["line"], 0);
+
+        // 教学 lint：行尾插入忽略标记（第 2 行 0 起行号 1，行尾插入注释）
+        let ignore = &actions[2];
+        assert_eq!(ignore["kind"], "quickfix");
+        let edit = &ignore["edit"]["changes"][uri][0];
+        assert_eq!(edit["range"]["start"]["line"], 1);
+        assert_eq!(
+            edit["range"]["start"]["character"],
+            edit["range"]["end"]["character"]
+        );
+        assert!(
+            edit["newText"]
+                .as_str()
+                .unwrap()
+                .contains(i18n_rust_engine::lint::IGNORE_MARK)
+        );
+
+        // 无可修复字符的全角标点（顿号等）：不产生动作
+        let hint_only = json!({
+            "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 1 } },
+            "code": "fullwidth",
+            "source": "i18n-rust",
+            "message": "仅提示",
+            "data": { "character": "、", "replacement": null }
+        });
+        let injected = mapper.inject_teaching_actions(&Value::Null, &[hint_only], uri);
+        assert_eq!(injected.as_array().unwrap().len(), 0);
     }
 
     /// 未解析导入诊断追加依赖提示（内置 zh 回退含 lsp_hint_add_dependency 键）

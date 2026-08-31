@@ -39,6 +39,7 @@ import { 全角符号映射, 全角符号检测正则, 扫描词法状态, 扫�
 import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
 import { quoteCommandArg, quoteShellArg } from './shell';
 import { findInPath, 解析可执行文件 } from './executable';
+import { 注册转译预览 } from './transpile-preview';
 
 const execFileAsync = promisify(cp.execFile);
 
@@ -649,6 +650,9 @@ function 注册命令(context: vscode.ExtensionContext): void {
 
     // 映射工具命令（校验 / 翻译脚手架 / 安装语言包，依赖 rzc ≥ 0.3.3）
     注册映射工具命令(context);
+
+    // 转译预览并排视图（rzc transpile + Webview，保存时自动刷新）
+    注册转译预览(context);
 
     // AI 相关命令（对话 / 选择提供商 / 模型列表）
     注册AI命令(context);

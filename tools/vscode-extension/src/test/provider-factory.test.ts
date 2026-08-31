@@ -8,6 +8,8 @@
 import * as assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createProvider, listProviders, getProviderPreset } from '../ai/provider-factory';
+import { AnthropicProvider } from '../ai/anthropic-provider';
+import { GeminiProvider } from '../ai/gemini-provider';
 import { OpenAICompatibleProvider } from '../ai/openai-provider';
 import { AIError, ProviderId } from '../ai/types';
 
@@ -30,11 +32,11 @@ function baseConfig(overrides: Record<string, unknown> = {}): any {
 // 预设列表
 // ============================================================
 
-test('listProviders：返回全部 6 个提供商预设', () => {
+test('listProviders：返回全部 8 个提供商预设', () => {
     const presets = listProviders();
-    assert.equal(presets.length, 6);
+    assert.equal(presets.length, 8);
     const ids = presets.map(p => p.id).sort();
-    assert.deepEqual(ids, ['custom', 'deepseek', 'glm', 'ollama', 'openai', 'qwen']);
+    assert.deepEqual(ids, ['anthropic', 'custom', 'deepseek', 'gemini', 'glm', 'ollama', 'openai', 'qwen']);
 });
 
 test('listProviders：每项预设字段完整（地址/模型/密钥要求）', () => {
@@ -53,10 +55,22 @@ test('getProviderPreset：ollama 本地模型不需要 API 密钥', () => {
 });
 
 test('getProviderPreset：云端提供商均要求 API 密钥', () => {
-    const cloudIds: ProviderId[] = ['openai', 'deepseek', 'qwen', 'glm'];
+    const cloudIds: ProviderId[] = ['openai', 'deepseek', 'qwen', 'glm', 'anthropic', 'gemini'];
     for (const id of cloudIds) {
         assert.equal(getProviderPreset(id).requiresApiKey, true, `${id} 应要求密钥`);
     }
+});
+
+test('getProviderPreset：Anthropic 默认地址与模型', () => {
+    const preset = getProviderPreset('anthropic');
+    assert.equal(preset.defaultBaseUrl, 'https://api.anthropic.com');
+    assert.equal(preset.defaultModel, 'claude-sonnet-4-5');
+});
+
+test('getProviderPreset：Gemini 默认地址与模型', () => {
+    const preset = getProviderPreset('gemini');
+    assert.equal(preset.defaultBaseUrl, 'https://generativelanguage.googleapis.com');
+    assert.equal(preset.defaultModel, 'gemini-2.5-pro');
 });
 
 // ============================================================
@@ -124,12 +138,57 @@ test('createProvider：custom 完整配置可创建 provider', () => {
 
 test('createProvider：不支持的提供商抛「不支持」错误', () => {
     assert.throws(
-        () => createProvider(baseConfig({ provider: 'anthropic' })),
+        () => createProvider(baseConfig({ provider: 'unknown-vendor' })),
         (e: AIError) => e.category === '不支持'
     );
 });
 
-test('createProvider：云端提供商未配置地址时也会填充默认值（openai）', () => {
+test('createProvider：Anthropic 未配置地址/模型时填充默认值并分派专有实现', async () => {
+    const calls: string[] = [];
+    const originalFetch = globalThis.fetch;
+    (globalThis as any).fetch = async (url: string) => {
+        calls.push(String(url));
+        return new Response(JSON.stringify({ data: [{ id: 'claude-sonnet-4-5' }] }), { status: 200 });
+    };
+    try {
+        const provider = createProvider(baseConfig({ provider: 'anthropic', apiKey: 'sk-ant-x' }));
+        assert.ok(provider instanceof AnthropicProvider);
+        await provider.listModels();
+        assert.ok(
+            calls[0].startsWith('https://api.anthropic.com/v1/models'),
+            `应使用 anthropic 默认地址，实际请求：${calls[0]}`
+        );
+    } finally {
+        (globalThis as any).fetch = originalFetch;
+    }
+});
+
+test('createProvider：Gemini 未配置地址/模型时填充默认值并分派专有实现', async () => {
+    const calls: string[] = [];
+    const originalFetch = globalThis.fetch;
+    (globalThis as any).fetch = async (url: string) => {
+        calls.push(String(url));
+        return new Response(JSON.stringify({ models: [{ name: 'models/gemini-2.5-pro' }] }), { status: 200 });
+    };
+    try {
+        const provider = createProvider(baseConfig({ provider: 'gemini', apiKey: 'AIza-x' }));
+        assert.ok(provider instanceof GeminiProvider);
+        await provider.listModels();
+        assert.ok(
+            calls[0].startsWith('https://generativelanguage.googleapis.com/v1beta/models'),
+            `应使用 gemini 默认地址，实际请求：${calls[0]}`
+        );
+    } finally {
+        (globalThis as any).fetch = originalFetch;
+    }
+});
+
+test('createProvider：Anthropic/Gemini 未配置地址时也填充默认值', () => {
+    assert.ok(createProvider(baseConfig({ provider: 'anthropic', apiKey: 'k' })) instanceof AnthropicProvider);
+    assert.ok(createProvider(baseConfig({ provider: 'gemini', apiKey: 'k' })) instanceof GeminiProvider);
+});
+
+test('createProvider：云端提供商未配置地址时也会填充默认值并走 OpenAI 兼容实现（openai）', () => {
     const provider = createProvider(baseConfig({ provider: 'openai', apiKey: 'k' }));
     assert.ok(provider instanceof OpenAICompatibleProvider);
 });

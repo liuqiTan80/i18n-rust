@@ -7,8 +7,13 @@
 // - 魔法数字：非平凡数字字面量（命名常量教学）
 // - 嵌套过深：代码行缩进过深（重构教学，每文件仅首个）
 //
+// 行注释含「教学忽略」时整行跳过（教师可标注故意不修的示例）：
+// `让 x = 5;  // 教学忽略` 不产生任何教学警告。
+//
 // 扫描器与 fullwidth 模块同构：状态机跳过字符串/字符/原始字符串与
 // 注释，仅在代码位置判定，避免把字符串内容误判为代码问题。
+
+use std::collections::HashSet;
 
 /// 教学 lint 规则种类
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,6 +87,8 @@ pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
     let mut deep_indent_reported = false;
     // 未标注类型扫描状态
     let mut let_scan: Option<LetScan> = None;
+    // 行注释含「教学忽略」的行号：整行跳过教学警告（教师标注故意不修的示例）
+    let mut ignored_lines: HashSet<usize> = HashSet::new();
 
     let mut i = 0usize;
     while i < chars.len() {
@@ -173,10 +180,16 @@ pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
                 '\'' => literal = 2,
                 // 行注释：吞到行尾（\n 留给主循环统一处理）
                 '/' if prev_plain == '/' => {
+                    let comment_start = i;
                     col -= 1;
                     while i < chars.len() && chars[i] != '\n' {
                         i += 1;
                         col += 1;
+                    }
+                    // 注释含「教学忽略」：整行跳过教学警告
+                    let comment: String = chars[comment_start..i].iter().collect();
+                    if comment.contains(IGNORE_MARK) {
+                        ignored_lines.insert(line);
                     }
                     prev_plain = '\0';
                     continue;
@@ -254,8 +267,13 @@ pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
         }
     }
     finish_let_scan(&mut let_scan, &mut warnings);
+    // 过滤被「教学忽略」标记的行（三种规则统一按行过滤）
+    warnings.retain(|w| !ignored_lines.contains(&w.line));
     warnings
 }
+
+/// 教学忽略标记：行注释含此文本时该行跳过全部教学警告
+pub const IGNORE_MARK: &str = "教学忽略";
 
 /// 嵌套深度阈值：前导缩进 ≥ 此空格数时提示（24 = 6 层，4 空格一层）
 const DEEP_INDENT_THRESHOLD: usize = 24;
@@ -411,6 +429,33 @@ mod tests {
         assert_eq!(warnings[0].kind, LintKind::MagicNumber);
         assert_eq!(warnings[0].text, "42");
         assert_eq!(warnings[0].line, 2);
+    }
+
+    /// 「教学忽略」标记行：三种规则均不报告（教师标注故意不修的示例）
+    #[test]
+    fn test_ignore_mark_skips_line() {
+        let source = concat!(
+            "函数 主函数() {\n",
+            "    让 x = 1;  // 教学忽略\n",
+            "    让 数量: 整数 = 42;  // 教学忽略：这行也跳过\n",
+            "    让 y = 2;\n",
+            "}"
+        );
+        let warnings = lint_teaching(source);
+        assert!(
+            !warnings.iter().any(|w| w.line == 2 || w.line == 3),
+            "标记行不应有警告: {warnings:?}"
+        );
+        // 未标记行照常报告
+        assert!(warnings.iter().any(|w| w.line == 4), "{warnings:?}");
+    }
+
+    /// 字符串/注释里的「教学忽略」文本不生效（仅在代码行注释中识别）
+    #[test]
+    fn test_ignore_mark_in_string_not_effective() {
+        let source = "函数 主函数() {\n    让 s = \"教学忽略\";\n}";
+        let warnings = lint_teaching(source);
+        assert!(warnings.iter().any(|w| w.line == 2), "{warnings:?}");
     }
 
     #[test]

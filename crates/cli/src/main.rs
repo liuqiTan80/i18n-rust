@@ -4,6 +4,7 @@
 // 将母语 Rust 源码实时转译为标准 Rust 并调用 cargo 编译/运行。
 
 use clap::{FromArgMatches, Parser, Subcommand};
+use i18n_rust_engine::cache::TranslationCache;
 use i18n_rust_engine::mapping_manager::MappingManager;
 use std::collections::HashMap;
 use std::fs;
@@ -51,6 +52,12 @@ enum CliCommand {
         fix: bool,
     },
     Eject {
+        file: PathBuf,
+        #[arg(short, long)]
+        lang_pack: Option<PathBuf>,
+    },
+    /// 转译预览：将方言源码转译为标准 Rust 并输出到 stdout（不写文件）
+    Transpile {
         file: PathBuf,
         #[arg(short, long)]
         lang_pack: Option<PathBuf>,
@@ -167,6 +174,11 @@ enum LangCommand {
         /// 语言代码（语言包目录名）
         lang_code: String,
     },
+    /// 浏览远程语言包市场（下载远程仓库扫描可用语言包，可选关键词过滤）
+    Search {
+        /// 关键词（匹配语言代码或显示名称）；省略时列出全部远程语言包
+        keyword: Option<String>,
+    },
 }
 
 fn main() -> std::process::ExitCode {
@@ -227,11 +239,19 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack.clone(), Some(&file))?;
             let project_root = find_project_root(&file)?;
-            // 入口文件写入 src/main.rs 作为编译目标
+            // 入口文件写入 src/main.rs 作为编译目标；会话缓存贯穿入口文件与
+            // 项目内其他文件（并行转译共享命中，见 transpile_project_files）
             let source_path = project_root.join("src/main.rs");
-            write_transpiled(&source_path, &transpile_to_english(&source, &manager), &ui)?;
+            let cache = std::sync::Mutex::new(
+                i18n_rust_engine::cache::TranslationCache::persistent_default(),
+            );
+            write_transpiled(
+                &source_path,
+                &transpile_to_english_cached(&source, &manager, &mut cache.lock().unwrap()),
+                &ui,
+            )?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
-            transpile_project_files(&project_root, &file, &manager)?;
+            transpile_project_files(&project_root, &file, &manager, &cache)?;
 
             // 单文件项目直调 rustc：绕开 cargo 的索引/项目结构（教学单文件
             // 场景编译更快、无网络索引问题）；多文件/有依赖项目回退 cargo
@@ -380,9 +400,16 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let manager = load_mapping(lang_pack.clone(), Some(&file))?;
             let project_root = find_project_root(&file)?;
             let source_path = project_root.join("src/main.rs");
-            write_transpiled(&source_path, &transpile_to_english(&source, &manager), &ui)?;
+            let cache = std::sync::Mutex::new(
+                i18n_rust_engine::cache::TranslationCache::persistent_default(),
+            );
+            write_transpiled(
+                &source_path,
+                &transpile_to_english_cached(&source, &manager, &mut cache.lock().unwrap()),
+                &ui,
+            )?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
-            transpile_project_files(&project_root, &file, &manager)?;
+            transpile_project_files(&project_root, &file, &manager, &cache)?;
 
             // 单文件项目直调 rustc（绕开 cargo）；多文件/有依赖项目回退 cargo
             if can_use_direct_rustc(&project_root, &file) {
@@ -452,6 +479,16 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 "{}",
                 ui.f("exported_to", &[&output_path.display().to_string()])
             );
+            Ok(std::process::ExitCode::SUCCESS)
+        }
+        CliCommand::Transpile { file, lang_pack } => {
+            // 转译预览：仅输出到 stdout，不产生任何文件（与 eject 互补）
+            let ui = ui_for_file(&file, &lang_pack);
+            let source = fs::read_to_string(&file)?;
+            let manager = load_mapping(lang_pack, Some(&file))?;
+            let english_code = transpile_to_english(&source, &manager);
+            print!("{english_code}");
+            let _ = ui; // stdout 模式无需额外提示
             Ok(std::process::ExitCode::SUCCESS)
         }
         CliCommand::Install { subcommand } => {
@@ -642,6 +679,32 @@ fn handle_lang_command(subcommand: LangCommand) -> anyhow::Result<()> {
             Ok(())
         }
         LangCommand::Install { source, force } => lang_manager::install_lang(&source, force),
+        LangCommand::Search { keyword } => {
+            // 市场浏览：下载仓库 ZIP 扫描语言包（含显示名/版本），
+            // 可选关键词过滤；与 install 共用同一远程源回退策略
+            println!(
+                "{}",
+                ui.f("lang_search_header", &[&ui.t("lang_search_source")])
+            );
+            let found = lang_manager::search_remote_langs(keyword.as_deref())?;
+            if found.is_empty() {
+                match keyword.as_deref() {
+                    Some(kw) if !kw.trim().is_empty() => {
+                        println!("{}", ui.f("lang_search_empty", &[kw]));
+                    }
+                    _ => println!("{}", ui.t("lang_search_empty_all")),
+                }
+                return Ok(());
+            }
+            for info in &found {
+                let name = info.display_name.as_deref().unwrap_or("—");
+                let version = info.version.as_deref().unwrap_or("—");
+                println!("  {:<12} {:<16} {}", info.lang_code, name, version);
+            }
+            println!();
+            println!("{}", ui.t("lang_search_hint"));
+            Ok(())
+        }
         LangCommand::Remove { lang_code } => lang_manager::remove_lang(&lang_code),
     }
 }
@@ -824,16 +887,27 @@ pub(crate) fn lang_pack_root_of(base: &Path) -> PathBuf {
 /// 且内容未变的文件直接命中，省去整条转译管线；语言包变化时语境指纹失效。
 fn transpile_to_english(source: &str, manager: &MappingManager) -> String {
     let mut cache = i18n_rust_engine::cache::TranslationCache::persistent_default();
-    let code =
-        i18n_rust_engine::transpile_source(source, manager, &mut cache).unwrap_or_else(|_e| {
-            // 缓存失败不阻断转译：回退无缓存管线（与旧行为一致）
-            i18n_rust_engine::log_warn!(
-                "cli",
-                "{}",
-                i18n_rust_engine::语言::t("log_transpile_cache_fallback")
-            );
-            i18n_rust_engine::transpile_pipeline(source, manager).output
-        });
+    transpile_to_english_cached(source, manager, &mut cache)
+}
+
+/// 同 [`transpile_to_english`]，复用调用方提供的缓存实例
+///
+/// 多文件场景（run/check 命令）共享同一会话缓存：入口文件与项目内其他
+/// 方言文件内容指纹一致时直接命中，避免每次调用重建缓存、反复读写磁盘。
+fn transpile_to_english_cached(
+    source: &str,
+    manager: &MappingManager,
+    cache: &mut i18n_rust_engine::cache::TranslationCache,
+) -> String {
+    let code = i18n_rust_engine::transpile_source(source, manager, cache).unwrap_or_else(|_e| {
+        // 缓存失败不阻断转译：回退无缓存管线（与旧行为一致）
+        i18n_rust_engine::log_warn!(
+            "cli",
+            "{}",
+            i18n_rust_engine::语言::t("log_transpile_cache_fallback")
+        );
+        i18n_rust_engine::transpile_pipeline(source, manager).output
+    });
     annotate_non_ascii_mods(&code)
 }
 
@@ -1430,10 +1504,16 @@ fn annotate_non_ascii_mods(code: &str) -> String {
 
 /// 同步转译项目 src/ 下的全部方言源文件（入口文件除外）为对应 .rs 文件，
 /// 使多文件项目的 mod 引用链可用；非已注册方言扩展名的文件（如手写 .rs）跳过。
+/// 并行转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
+///
+/// 转译在 `thread::scope` 中并行执行（教学项目文件相互独立，无共享可变
+/// 状态）；共享缓存用 `Mutex` 保护——查询/插入为短临界区，转译本身在锁外
+/// 并行，文件多时与串行相比显著提速（缓存命中时仅查表，开销可忽略）。
 fn transpile_project_files(
     project_root: &Path,
     entry_file: &Path,
     manager: &MappingManager,
+    cache: &std::sync::Mutex<TranslationCache>,
 ) -> anyhow::Result<()> {
     let ui = ui::Ui::global();
     let src_dir = project_root.join("src");
@@ -1444,6 +1524,7 @@ fn transpile_project_files(
     // 入口产物固定写入 src/main.rs：src/ 下任何词干为 main 的方言文件
     // （如 init 生成的 main.zh）转译后会覆盖入口产物，必须跳过
     let entry_abs = entry_file.canonicalize().ok();
+    let mut files = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
         if !path.is_file() {
@@ -1461,22 +1542,63 @@ fn transpile_project_files(
         if get_lang_code_from_extension(extension).is_none() {
             continue;
         }
-        let source = fs::read_to_string(&path).map_err(|e| {
-            anyhow::anyhow!(
-                "{}",
-                ui.f(
-                    "transpile_file_failed",
-                    &[&path.display().to_string(), &e.to_string()]
-                )
-            )
-        })?;
-        write_transpiled(
-            &path.with_extension("rs"),
-            &transpile_to_english(&source, manager),
-            &ui,
-        )?;
+        files.push(path);
     }
-    Ok(())
+
+    // 语境指纹只算一次（全部文件共享同一语言包）；线程内并行转译
+    let fingerprint = manager.context_fingerprint();
+    let first_error: std::sync::Mutex<Option<anyhow::Error>> = std::sync::Mutex::new(None);
+    std::thread::scope(|scope| {
+        let mut handles = Vec::with_capacity(files.len());
+        for path in files {
+            // ui/first_error 遮蔽为引用：move 闭包捕获的是 Copy 的共享引用
+            let ui = &ui;
+            let first_error = &first_error;
+            let handle = scope.spawn(move || {
+                if first_error.lock().unwrap().is_some() {
+                    return; // 已有失败文件：跳过剩余工作
+                }
+                let source = match fs::read_to_string(&path) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        *first_error.lock().unwrap() = Some(anyhow::anyhow!(
+                            "{}",
+                            ui.f(
+                                "transpile_file_failed",
+                                &[&path.display().to_string(), &e.to_string()]
+                            )
+                        ));
+                        return;
+                    }
+                };
+                // 短临界区：查询缓存（命中直接复用产物）
+                let cached = cache.lock().unwrap().query(&source, fingerprint).cloned();
+                let output = match cached {
+                    Some(output) => output,
+                    None => {
+                        // 锁外并行转译，完成后短临界区写回缓存
+                        let output = i18n_rust_engine::transpile_pipeline(&source, manager);
+                        cache
+                            .lock()
+                            .unwrap()
+                            .insert(&source, fingerprint, output.clone());
+                        output
+                    }
+                };
+                if let Err(e) = write_transpiled(&path.with_extension("rs"), &output.output, ui) {
+                    *first_error.lock().unwrap() = Some(e);
+                }
+            });
+            handles.push(handle);
+        }
+        for handle in handles {
+            let _ = handle.join();
+        }
+    });
+    match first_error.into_inner().unwrap_or(None) {
+        Some(err) => Err(err),
+        None => Ok(()),
+    }
 }
 
 /// 写转译产物：目标已存在且内容不同时先备份为 `.rs.bak`，绝不静默覆盖用户文件。
@@ -1755,6 +1877,7 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
         .mut_subcommand("run", |cmd| cmd.about(ui.t("cmd_run_about")))
         .mut_subcommand("check", |cmd| cmd.about(ui.t("cmd_check_about")))
         .mut_subcommand("eject", |cmd| cmd.about(ui.t("cmd_eject_about")))
+        .mut_subcommand("transpile", |cmd| cmd.about(ui.t("cmd_transpile_about")))
         .mut_subcommand("add", |cmd| {
             cmd.about(ui.t("cmd_add_about"))
                 .mut_arg("crates", |arg| arg.help(ui.t("arg_add_crates_help")))
@@ -1767,6 +1890,7 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
             cmd.about(ui.t("cmd_lang_about"))
                 .mut_subcommand("list", |sub| sub.about(ui.t("cmd_lang_list_about")))
                 .mut_subcommand("install", |sub| sub.about(ui.t("cmd_lang_install_about")))
+                .mut_subcommand("search", |sub| sub.about(ui.t("cmd_lang_search_about")))
                 .mut_subcommand("remove", |sub| sub.about(ui.t("cmd_lang_remove_about")))
         })
         .mut_subcommand("mapping", |cmd| {
@@ -1884,7 +2008,8 @@ mod tests {
         std::fs::write(root.join("src/manual.rs"), "// 手写文件不覆盖\n").unwrap();
 
         let manager = zh_manager();
-        transpile_project_files(root, &entry, &manager).unwrap();
+        let cache = std::sync::Mutex::new(i18n_rust_engine::cache::TranslationCache::new(8));
+        transpile_project_files(root, &entry, &manager, &cache).unwrap();
 
         // 其他方言文件已转译为同名 .rs
         let helper_rs = std::fs::read_to_string(root.join("src/helper.rs")).unwrap();

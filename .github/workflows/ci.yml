@@ -9,10 +9,11 @@
 #   1. 测试与质量：cargo test（全部 crate）+ cargo clippy 代码质量检查
 #   2. MSRV 门禁：声明的最低 Rust 版本（1.88）下工作区可编译
 #   3. LSP 端到端测试：安装 rust-analyzer 后验证真实诊断的中文翻译链路
-#   4. 三平台构建：Linux / macOS / Windows 的 release 二进制
+#   4. 基准回归对比：转译管线基准与入库基线对比，超阈值时失败
+#   5. 三平台构建：Linux / macOS / Windows 的 release 二进制
 #      （rzc 命令行工具 + i18n-rust-lsp 语言服务器）
-#   5. VS Code 扩展打包：编译 TypeScript 并生成 .vsix 离线安装包
-#   6. 测试覆盖率门禁：llvm-cov 行覆盖率低于 70% 时失败
+#   6. VS Code 扩展打包：编译 TypeScript 并生成 .vsix 离线安装包
+#   7. 测试覆盖率门禁：llvm-cov 行覆盖率低于 70% 时失败
 #
 # 全部产物上传为 Artifact，供手动下载或发布工作流复用。
 #
@@ -108,32 +109,6 @@ jobs:
         # 代码使用的 let-chains（1.88）/ is_none_or（1.82）等特性不被破坏
         run: cargo build --workspace --locked
 
-  # ---------- 2.5 性能基准（criterion 快速模式，防转译回归） ----------
-  bench:
-    name: 转译性能基准
-    runs-on: ubuntu-latest
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: 安装 Rust 工具链
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: 启用 Rust 构建缓存
-        uses: Swatinem/rust-cache@v2
-
-      - name: 运行转译管线基准（--quick 单轮采样）
-        # 基准本身不设数值门禁（机器间波动大），但确保基准可编译可运行，
-        # 并留下 criterion 基线数据供人工对比（target/criterion 上传为 Artifact）
-        run: cargo bench -p i18n-rust-engine --bench transpile -- --quick
-
-      - name: 上传基准报告
-        uses: actions/upload-artifact@v4
-        with:
-          name: 基准报告
-          path: target/criterion
-          if-no-files-found: warn
-
   # ---------- 2.6 测试覆盖率门禁（llvm-cov 行覆盖率下限） ----------
   coverage:
     name: 测试覆盖率门禁
@@ -182,9 +157,21 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # ---------- 4. LSP 端到端测试（真实 rust-analyzer + 中文诊断翻译） ----------
+  # 三平台矩阵：真实诊断翻译链路在 Linux / Windows / macOS 上均有覆盖
+  # （工具链安装与 e2e 测试均已跨平台：Windows 用 zip 资产与 .exe 后缀）
   lsp-e2e:
-    name: LSP 端到端测试
-    runs-on: ubuntu-latest
+    name: LSP 端到端测试 ${{ matrix.os_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            os_name: linux
+          - os: windows-latest
+            os_name: windows
+          - os: macos-latest
+            os_name: macos
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -199,15 +186,45 @@ jobs:
         run: cargo build --quiet --bin rzc --locked
 
       - name: 安装 rust-analyzer（--ra-only 仅下载分析器，跳过 300MB rustc）
-        # 安装在 ~/.rz/toolchain/bin，与 engine::toolchain 的查找顺序一致
+        # 安装在 ~/.rz/toolchain/bin，与 engine::toolchain 的查找顺序一致；
+        # shell: bash 保证三平台命令一致（Windows 上 Git Bash 自动补 .exe）
+        shell: bash
         run: ./target/debug/rzc install toolchain --ra-only --force
 
       - name: 运行 LSP 端到端测试（显式启用 ignored 测试）
         # e2e 测试需要 rust-analyzer 可执行文件，默认 #[ignore] 跳过；
-        # 此处先安装工具链再显式运行，验证 E0425 诊断的中文翻译全链路
+        # 此处先安装工具链再显式运行，验证 E0425 诊断的翻译全链路
+        shell: bash
         run: cargo test -p i18n-rust-lsp --test e2e -- --ignored
 
-  # ---------- 5. 三平台 release 二进制构建 ----------
+  # ---------- 5. 基准回归对比 ----------
+  bench:
+    name: 基准回归对比
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 启用 Rust 构建缓存
+        uses: Swatinem/rust-cache@v2
+
+      - name: 运行基准并对比入库基线（超阈值时失败）
+        # 基线：crates/engine/benches/baseline.json（开发者用
+        # tools/bench-check.sh --update 刷新后随仓库提交）；
+        # 回归阈值默认 30%，可用 BENCH_REGRESSION_PCT 覆盖。
+        run: tools/bench-check.sh
+
+      - name: 上传基准报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: 基准报告
+          path: target/criterion
+          if-no-files-found: warn
+
+  # ---------- 6. 三平台 release 二进制构建 ----------
   build:
     name: 构建并测试 ${{ matrix.os_name }}-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
@@ -257,7 +274,7 @@ jobs:
             target/release/i18n-rust-lsp*
           if-no-files-found: error
 
-  # ---------- 6. VS Code 扩展打包 ----------
+  # ---------- 7. VS Code 扩展打包 ----------
   vsix:
     name: 构建 VS Code 扩展
     runs-on: ubuntu-latest

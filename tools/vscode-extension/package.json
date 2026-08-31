@@ -149,6 +149,11 @@
         "icon": "$(export)"
       },
       {
+        "command": "i18n-rust.transpilePreview",
+        "title": "i18n: 转译预览（并排对比）",
+        "icon": "$(diff)"
+      },
+      {
         "command": "i18n-rust.selectLanguagePack",
         "title": "i18n: 选择语言包",
         "icon": "$(globe)"
@@ -207,6 +212,11 @@
           "when": "resourceLangId == rust-zh || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
           "command": "i18n-rust.check",
           "group": "navigation@2"
+        },
+        {
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
+          "command": "i18n-rust.transpilePreview",
+          "group": "navigation@3"
         }
       ],
       "editor/context": [
@@ -224,6 +234,11 @@
           "when": "resourceLangId == rust-zh || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
           "command": "i18n-rust.eject",
           "group": "i18n@3"
+        },
+        {
+          "when": "resourceLangId == rust-zh || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
+          "command": "i18n-rust.transpilePreview",
+          "group": "i18n@3.5"
         },
         {
           "when": "resourceLangId == rust-zh || resourceLangId == rust-ja || resourceLangId == rust-de || resourceLangId == rust-es || resourceLangId == rust-fr || resourceLangId == rust-pt || resourceLangId == rust-ru || resourceLangId == rust-ko || resourceLangId == rust-hi || resourceLangId == rust-ar",
@@ -309,10 +324,12 @@
             "qwen",
             "glm",
             "ollama",
+            "anthropic",
+            "gemini",
             "custom"
           ],
           "default": "openai",
-          "description": "AI 提供商标识：openai / deepseek / qwen / glm / ollama / custom"
+          "description": "AI 提供商标识：openai / deepseek / qwen / glm / ollama / anthropic / gemini / custom"
         },
         "i18n-rust.ai.apiKey": {
           "type": "string",

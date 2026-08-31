@@ -78,6 +78,9 @@ struct PendingRequestInfo {
     /// codeAction 请求上下文诊断中提取的未声明 crate 名
     ///（响应时注入“添加依赖”快捷修复；非 codeAction 请求为空）
     unresolved_crates: Vec<String>,
+    /// codeAction 请求上下文中的教学诊断（全角标点/教学 lint，方言坐标）：
+    /// 响应时注入对应快捷修复（一键替换半角/忽略此行）；非 codeAction 请求为空
+    teaching_diags: Vec<Value>,
 }
 
 /// 转发请求的等待超时：超过后向客户端应答错误并丢弃条目
@@ -1122,6 +1125,14 @@ impl ProxyServer {
                     } else {
                         Vec::new()
                     },
+                    teaching_diags: if req.method == "textDocument/codeAction" {
+                        req.params["context"]["diagnostics"]
+                            .as_array()
+                            .map(|a| a.iter().filter(|d| is_teaching_diag(d)).cloned().collect())
+                            .unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    },
                 },
             );
         }
@@ -1558,7 +1569,14 @@ fn handle_analyzer_message(
                 "textDocument/codeAction" => {
                     let mapped = mapper.map_code_action_response(&result, &info.original_uri);
                     // 未解析导入错误时注入“添加依赖”快捷修复（cargo add）
-                    mapper.inject_add_dependency_actions(&mapped, &info.unresolved_crates)
+                    let mapped =
+                        mapper.inject_add_dependency_actions(&mapped, &info.unresolved_crates);
+                    // 教学诊断（全角标点/教学 lint）注入一键修复动作
+                    mapper.inject_teaching_actions(
+                        &mapped,
+                        &info.teaching_diags,
+                        &info.original_uri,
+                    )
                 }
                 "codeAction/resolve" => mapper.map_code_action_resolve_response(&result),
                 "textDocument/rename" => mapper.map_rename_response(&result),
@@ -1626,12 +1644,14 @@ fn handle_analyzer_message(
                         .unwrap_or_default();
                     let merged_uri = mapped["uri"].as_str().unwrap_or("").to_string();
                     if let Some(entry) = mapper.entry_for_original(&merged_uri) {
-                        // 移除旧的全角标点诊断（按 code+source 识别），追加新的
+                        // 移除旧的教学诊断（按 code+source 识别），追加新的
                         merged_diags.retain(|d| {
-                            !(d["code"].as_str() == Some("fullwidth")
-                                && d["source"].as_str() == Some("i18n-rust"))
+                            !(is_teaching_diag(d) && d["source"].as_str() == Some("i18n-rust"))
                         });
                         merged_diags.extend(fullwidth_diagnostics(&entry));
+                        if teaching_lint_enabled() {
+                            merged_diags.extend(lint_teaching_diagnostics(&entry));
+                        }
                         mapped["diagnostics"] = Value::Array(merged_diags.clone());
                     }
                     // 缓存映射后的内置诊断（方言坐标），供 cargo check 结果合并发布
@@ -1676,10 +1696,63 @@ fn handle_analyzer_message(
                     "severity": 3,
                     "code": "fullwidth",
                     "source": "i18n-rust",
+                    "message": w.format(),
+                    // 修复动作数据：全角字符与建议的半角字符（供 codeAction 注入）
+                    "data": {
+                        "character": w.character.to_string(),
+                        "replacement": w.replacement.map(|c| c.to_string())
+                    }
+                })
+            })
+            .collect()
+    }
+
+    /// 计算文档的教学 lint 诊断（方言坐标，severity 为 Hint）
+    ///
+    /// 直接在母语原文上扫描（`让` 等关键字在转译后已不存在）：行列均为
+    /// 字符计数，中文代码在 BMP 内 char 列即 UTF-16 列，直接转换即可。
+    fn lint_teaching_diagnostics(entry: &TranslationEntry) -> Vec<Value> {
+        i18n_rust_engine::lint::lint_teaching(&entry.zh_content)
+            .iter()
+            .map(|w| {
+                let line = (w.line - 1) as u32;
+                let col = (w.column - 1) as u32;
+                json!({
+                    "range": {
+                        "start": { "line": line, "character": col },
+                        "end": { "line": line, "character": col + 1 }
+                    },
+                    "severity": 3,
+                    "code": lint_code(w.kind),
+                    "source": "i18n-rust",
                     "message": w.format()
                 })
             })
             .collect()
+    }
+}
+
+/// 教学诊断开关：默认开启；`RZ_LSP_TEACHING_LINT=off` 关闭
+///（重度开发者不需要教学提示时避免诊断噪音）
+fn teaching_lint_enabled() -> bool {
+    std::env::var("RZ_LSP_TEACHING_LINT")
+        .map(|v| v != "off" && v != "0")
+        .unwrap_or(true)
+}
+
+/// 判断诊断是否为我方注入的教学诊断（全角标点/教学 lint）
+fn is_teaching_diag(d: &Value) -> bool {
+    d["code"]
+        .as_str()
+        .is_some_and(|c| c == "fullwidth" || c.starts_with("lint-"))
+}
+
+/// 教学 lint 规则 → LSP 诊断 code
+fn lint_code(kind: i18n_rust_engine::lint::LintKind) -> &'static str {
+    match kind {
+        i18n_rust_engine::lint::LintKind::UntypedLet => "lint-untyped-let",
+        i18n_rust_engine::lint::LintKind::MagicNumber => "lint-magic-number",
+        i18n_rust_engine::lint::LintKind::DeepIndent => "lint-deep-indent",
     }
 }
 
