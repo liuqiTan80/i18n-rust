@@ -19,7 +19,9 @@ use i18n_rust_engine::mapping_source;
 
 use crate::analyzer::AnalyzerConnection;
 use crate::response_map::ResponseMapper;
-use crate::translation_cache::{TranslationCache, TranslationEntry, path_to_uri};
+use crate::translation_cache::{
+    TranslationCache, TranslationEntry, en_col_to_zh_col_single, path_to_uri,
+};
 
 /// 默认支持的方言文件扩展名（与内置语言包 lang_info.toml 的扩展名一致，
 /// 单一来源：引擎 lang-packs 目录，避免清单与语言包漂移）；
@@ -1547,6 +1549,7 @@ fn handle_analyzer_message(
                     mapper.map_completion_response(&result, &info.original_uri)
                 }
                 "textDocument/hover" => mapper.map_hover_response(&result, &info.original_uri),
+                "textDocument/signatureHelp" => mapper.map_signature_help_response(&result),
                 "textDocument/definition" => mapper.map_definition_response(&result),
                 "textDocument/references" => mapper.map_references_response(&result),
                 "textDocument/documentSymbol" => {
@@ -1612,15 +1615,28 @@ fn handle_analyzer_message(
                     if !mapper.is_virtual_uri(diag_uri) {
                         return;
                     }
-                    let mapped = mapper.map_diagnostics(params);
+                    let mut mapped = mapper.map_diagnostics(params);
+                    // 合并全角标点教学诊断（方言坐标，与内置诊断同格式）：
+                    // 全角标点在转译后的虚拟文本中保留，扫描结果经列映射
+                    // 还原为方言坐标，随 RA 发布链路同步下发——教学提示
+                    // 与语法诊断共存，不因 publishDiagnostics 全量替换而闪烁
+                    let mut merged_diags = mapped["diagnostics"]
+                        .as_array()
+                        .map(|a| a.to_vec())
+                        .unwrap_or_default();
+                    let merged_uri = mapped["uri"].as_str().unwrap_or("").to_string();
+                    if let Some(entry) = mapper.entry_for_original(&merged_uri) {
+                        // 移除旧的全角标点诊断（按 code+source 识别），追加新的
+                        merged_diags.retain(|d| {
+                            !(d["code"].as_str() == Some("fullwidth")
+                                && d["source"].as_str() == Some("i18n-rust"))
+                        });
+                        merged_diags.extend(fullwidth_diagnostics(&entry));
+                        mapped["diagnostics"] = Value::Array(merged_diags.clone());
+                    }
                     // 缓存映射后的内置诊断（方言坐标），供 cargo check 结果合并发布
                     if let Ok(mut guard) = builtin_diags.lock() {
-                        let uri = mapped["uri"].as_str().unwrap_or("").to_string();
-                        let list = mapped["diagnostics"]
-                            .as_array()
-                            .map(|a| a.to_vec())
-                            .unwrap_or_default();
-                        guard.insert(uri, list);
+                        guard.insert(merged_uri, merged_diags);
                     }
                     let notification = Notification {
                         method: method.to_string(),
@@ -1637,6 +1653,33 @@ fn handle_analyzer_message(
                 let _ = sender.send(Message::Notification(notification));
             }
         }
+    }
+
+    /// 计算文档的全角标点教学诊断（方言坐标，severity 为 Hint）
+    ///
+    /// 在转译后的虚拟文本上扫描：代码位置的全角标点在转译中保留（映射表
+    /// 不含全角字符），字符串/注释内的全角标点是合法内容且被扫描器跳过；
+    /// 扫描得到虚拟坐标（转译不改变行结构，代码位置为 ASCII，char 列即
+    /// UTF-16 列），再经列映射还原为方言坐标，与 RA/内置诊断坐标系一致。
+    fn fullwidth_diagnostics(entry: &TranslationEntry) -> Vec<Value> {
+        i18n_rust_engine::fullwidth::find_fullwidth_punct(&entry.en_content)
+            .iter()
+            .map(|w| {
+                let line = (w.line - 1) as u32;
+                let en_col = (w.column - 1) as u32;
+                let zh_col = en_col_to_zh_col_single(entry, line, en_col);
+                json!({
+                    "range": {
+                        "start": { "line": line, "character": zh_col },
+                        "end": { "line": line, "character": zh_col + 1 }
+                    },
+                    "severity": 3,
+                    "code": "fullwidth",
+                    "source": "i18n-rust",
+                    "message": w.format()
+                })
+            })
+            .collect()
     }
 }
 

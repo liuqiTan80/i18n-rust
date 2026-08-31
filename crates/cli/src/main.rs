@@ -819,8 +819,21 @@ pub(crate) fn lang_pack_root_of(base: &Path) -> PathBuf {
 }
 
 /// 统一转译管线（复用 engine）：Unicode 检查 → 关键字/宏转译 → 模块路径替换 → 别名替换 → 非 ASCII 模块注解
+///
+/// 使用磁盘持久化增量缓存（~/.rz/cache/transpile-v1.json）：上次运行转译过
+/// 且内容未变的文件直接命中，省去整条转译管线；语言包变化时语境指纹失效。
 fn transpile_to_english(source: &str, manager: &MappingManager) -> String {
-    let code = i18n_rust_engine::transpile_pipeline(source, manager).output;
+    let mut cache = i18n_rust_engine::cache::TranslationCache::persistent_default();
+    let code =
+        i18n_rust_engine::transpile_source(source, manager, &mut cache).unwrap_or_else(|_e| {
+            // 缓存失败不阻断转译：回退无缓存管线（与旧行为一致）
+            i18n_rust_engine::log_warn!(
+                "cli",
+                "{}",
+                i18n_rust_engine::语言::t("log_transpile_cache_fallback")
+            );
+            i18n_rust_engine::transpile_pipeline(source, manager).output
+        });
     annotate_non_ascii_mods(&code)
 }
 

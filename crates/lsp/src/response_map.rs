@@ -49,6 +49,11 @@ impl ResponseMapper {
         self.cache.query_by_virtual_uri(uri).is_some()
     }
 
+    /// 按方言 URI 查询翻译条目（全角标点教学诊断合并等场景）
+    pub fn entry_for_original(&self, uri: &str) -> Option<std::sync::Arc<TranslationEntry>> {
+        self.cache.query_original(uri)
+    }
+
     /// 将虚拟 URI 替换为原始 URI
     pub fn restore_uri(&self, uri: &str) -> String {
         if let Some(entry) = self.cache.query_by_virtual_uri(uri) {
@@ -572,23 +577,85 @@ impl ResponseMapper {
         result
     }
 
-    /// 给 hover contents 前置大白话提示（MarkupContent / MarkedString / 数组）
+    /// 映射签名帮助响应
+    ///
+    /// 签名 label（如 `fn push(&mut self, value: T)`）与参数 label 做词法级
+    /// 中文化（`fn` → `函数` 等）；参数 label 为 [start, end] 索引形式时按
+    /// 原 label 提取文本翻译后转为字符串形式（VS Code 不再高亮参数，但
+    /// 母语用户可读性优先——翻译前后长度变化无法保持索引）。
+    pub fn map_signature_help_response(&self, response: &Value) -> Value {
+        let mut result = response.clone();
+        let Some(signatures) = result.get("signatures").and_then(|v| v.as_array()) else {
+            return result;
+        };
+        let mapped: Vec<Value> = signatures
+            .iter()
+            .map(|sig| {
+                let mut mapped_sig = sig.clone();
+                let Some(label) = sig.get("label").and_then(|v| v.as_str()) else {
+                    return mapped_sig;
+                };
+                let translated_label = self.translate_code(label);
+                if let Some(params) = sig.get("parameters").and_then(|v| v.as_array()) {
+                    let translated_params: Vec<Value> = params
+                        .iter()
+                        .map(|p| {
+                            let mut mapped_param = p.clone();
+                            if let Some(range) = p.get("label").and_then(|v| v.as_array()) {
+                                // [start, end] 索引：原 label 为英文（ASCII），
+                                // UTF-16 索引 == 字节索引，可直接切片
+                                if let (Some(s), Some(e)) = (range[0].as_i64(), range[1].as_i64())
+                                    && let Some(param_text) = label.get(s as usize..e as usize)
+                                {
+                                    mapped_param["label"] =
+                                        Value::String(self.translate_code(param_text));
+                                }
+                            } else if let Some(param_label) =
+                                p.get("label").and_then(|v| v.as_str())
+                            {
+                                mapped_param["label"] =
+                                    Value::String(self.translate_code(param_label));
+                            }
+                            mapped_param
+                        })
+                        .collect();
+                    mapped_sig["parameters"] = Value::Array(translated_params);
+                }
+                mapped_sig["label"] = Value::String(translated_label);
+                mapped_sig
+            })
+            .collect();
+        result["signatures"] = Value::Array(mapped);
+        result
+    }
+
+    /// 给 hover contents 前置大白话提示（MarkupContent / MarkedString / 数 组）
+    ///
+    /// MarkedString（language 字段存在）是纯代码签名行：先按英文原文查
+    /// 解释表加“大白话”前缀，再对整个文本做词法级中文化（`fn` → `函数`）；
+    /// markdown 文本只查解释表，不翻译正文（正文可能含教学性中文说明）。
     fn enrich_hover_contents(&self, contents: &Value) -> Value {
         match contents {
             // MarkupContent：{"kind": "markdown", "value": ...}
-            // MarkedString：{"language": "rust", "value": ...}
             Value::Object(obj)
                 if obj.get("kind").and_then(|k| k.as_str()) == Some("markdown")
-                    || (obj.get("language").is_some()
-                        && obj.get("value").and_then(|v| v.as_str()).is_some()) =>
+                    && obj.get("value").and_then(|v| v.as_str()).is_some() =>
             {
-                if let Some(value) = obj.get("value").and_then(|v| v.as_str()) {
-                    let mut mapped = obj.clone();
-                    mapped["value"] = Value::String(self.prepend_if_hit(value));
-                    Value::Object(mapped)
-                } else {
-                    contents.clone()
-                }
+                let mut mapped = obj.clone();
+                let value = obj["value"].as_str().unwrap();
+                mapped["value"] = Value::String(self.prepend_if_hit(value));
+                Value::Object(mapped)
+            }
+            // MarkedString：{"language": "rust", "value": 代码签名}
+            Value::Object(obj)
+                if obj.get("language").is_some()
+                    && obj.get("value").and_then(|v| v.as_str()).is_some() =>
+            {
+                let mut mapped = obj.clone();
+                let value = obj["value"].as_str().unwrap();
+                let hinted = self.prepend_if_hit(value);
+                mapped["value"] = Value::String(self.translate_code(&hinted));
+                Value::Object(mapped)
             }
             Value::String(text) => Value::String(self.prepend_if_hit(text)),
             Value::Array(items) => Value::Array(
@@ -1918,6 +1985,69 @@ mod tests {
         let response = json!({"contents": {"kind": "markdown", "value": doc}});
         let mapped = mapper.map_hover_response(&response, "file:///test/main.zh");
         assert_eq!(mapped["contents"]["value"].as_str().unwrap(), doc);
+    }
+
+    /// signatureHelp：label 与参数 label 词法级中文化
+    #[test]
+    fn test_map_signature_help_response_translated() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let response = json!({
+            "signatures": [{
+                "label": "fn push(&mut self, value: T)",
+                "parameters": [
+                    {"label": [0, 2]},
+                    {"label": "value: T"}
+                ]
+            }],
+            "activeSignature": 0,
+            "activeParameter": 1
+        });
+        let mapped = mapper.map_signature_help_response(&response);
+        let label = mapped["signatures"][0]["label"].as_str().unwrap();
+        assert!(label.starts_with("函数 push"), "fn 应译为函数：{label}");
+        assert!(label.contains("&mut self"), "self 无映射应保留：{label}");
+        // 参数 [start,end] 索引按原 label 切片（[0,2] = "fn"）翻译后转为字符串
+        let param0 = mapped["signatures"][0]["parameters"][0]["label"]
+            .as_str()
+            .unwrap();
+        assert_eq!(param0, "函数", "索引形式参数应翻译：{param0}");
+        // 字符串形式参数同样翻译
+        let param1 = mapped["signatures"][0]["parameters"][1]["label"]
+            .as_str()
+            .unwrap();
+        assert!(param1.contains("value: T"), "泛型参数保留：{param1}");
+        assert_eq!(mapped["activeParameter"], 1);
+    }
+
+    /// signatureHelp 无 signatures（null/空）：原样返回不报错
+    #[test]
+    fn test_map_signature_help_response_empty() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let response = json!(null);
+        assert_eq!(mapper.map_signature_help_response(&response), Value::Null);
+        let response = json!({"signatures": []});
+        assert_eq!(
+            mapper.map_signature_help_response(&response)["signatures"],
+            json!([])
+        );
+    }
+
+    /// hover MarkedString：先查解释表加大白话前缀，再对代码做词法级中文化
+    #[test]
+    fn test_map_hover_response_marked_string_translated() {
+        let (cache, _temp) = create_test_cache();
+        let mapper = ResponseMapper::new(cache.clone());
+        let response = json!({
+            "contents": {"language": "rust", "value": "pub fn push(&mut self, value: T)"}
+        });
+        let mapped = mapper.map_hover_response(&response, "file:///test/main.zh");
+        let value = mapped["contents"]["value"].as_str().unwrap();
+        assert!(
+            value.contains("函数 push"),
+            "代码签名应中文化（fn→函数）：{value}"
+        );
     }
 
     /// hover MarkedString 数组形式：简单键命中（clone），其余元素原样

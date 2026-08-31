@@ -4,7 +4,9 @@
 // 同时缓存源映射（被替换标识符的源偏移与替换文本），供 LSP/调试使用。
 
 use crate::error::TranspileError;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// 源映射条目：输入文本中一个被替换的标识符 token
@@ -16,7 +18,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 /// - 词法阶段 `source_map`：偏移为母语源坐标，replacement 为词法阶段文本；
 /// - 全管线 `pipeline_map`：偏移为母语源坐标，replacement 为**最终输出文本**；
 /// - 各中间阶段 `_with_map` 的 edits：偏移为该阶段输入文本坐标。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceMapEntry {
     /// 源文件中的字节偏移（token 起点）
     pub source_offset: usize,
@@ -40,7 +42,7 @@ impl SourceMapEntry {
 }
 
 /// 翻译产物：翻译后的代码、词法阶段源映射与全管线编辑地图
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TranspileOutput {
     /// 翻译后的代码文本
     pub output: String,
@@ -116,7 +118,34 @@ pub struct TranslationCache {
     capacity: usize,
     hits: AtomicU64,
     misses: AtomicU64,
+    /// 磁盘持久化路径：Some 时每次插入/清空后自动原子写盘
+    ///（跨进程复用：CLI 短命进程把上次运行的翻译结果留给下次）
+    persistence: Option<PathBuf>,
 }
+
+/// 磁盘持久化文件格式（版本不匹配/解析失败时静默丢弃，回退内存缓存）
+#[derive(Serialize, Deserialize)]
+struct PersistentCacheFile {
+    /// 格式版本：结构变更时递增，旧版本文件直接丢弃
+    version: u32,
+    /// LRU 顺序（旧→新）；加载时按序重建代际队列
+    entries: Vec<PersistentEntry>,
+}
+
+/// 磁盘上的单个缓存条目（结构与内存条目对应）
+#[derive(Serialize, Deserialize)]
+struct PersistentEntry {
+    hash: u64,
+    content_length: usize,
+    context_fingerprint: u64,
+    output: TranspileOutput,
+}
+
+/// 当前持久化格式版本
+const PERSISTENT_FORMAT_VERSION: u32 = 1;
+
+/// 持久化缓存的默认容量（磁盘缓存面向多项目，比内存默认稍大）
+const PERSISTENT_CAPACITY: usize = 512;
 
 impl TranslationCache {
     /// 新建缓存（容量至少为 1）
@@ -128,12 +157,123 @@ impl TranslationCache {
             capacity: capacity.max(1),
             hits: AtomicU64::new(0),
             misses: AtomicU64::new(0),
+            persistence: None,
         }
     }
 
     /// 默认容量：256 个文件条目
     pub fn with_default_capacity() -> Self {
         Self::new(256)
+    }
+
+    /// 带磁盘持久化的缓存：从 `path` 加载既有条目（尽力而为：文件不存在、
+    /// 版本不匹配、JSON 损坏时静默回退为空缓存），此后每次插入/清空自动写盘。
+    ///
+    /// 跨进程增量复用场景（如 CLI 每次运行都是新进程）：上次运行转译过的
+    /// 文件内容未变时直接命中，省去整条转译管线（Unicode/全角/lint 检查 + 词法）。
+    pub fn persistent(path: &Path) -> Self {
+        let mut cache = Self::new(PERSISTENT_CAPACITY);
+        if let Ok(bytes) = std::fs::read(path)
+            && let Ok(file) = serde_json::from_slice::<PersistentCacheFile>(&bytes)
+        {
+            if file.version == PERSISTENT_FORMAT_VERSION {
+                cache.restore(file.entries);
+            } else {
+                // 版本不匹配或结构损坏：丢弃旧文件（下次插入时重建）
+                crate::log_warn!(
+                    "translation_cache",
+                    "{}（{}）",
+                    crate::语言::t("log_cache_disk_discard"),
+                    path.display()
+                );
+            }
+        }
+        // 文件不存在：首次使用，属正常路径，保持空缓存
+        cache.persistence = Some(path.to_path_buf());
+        cache
+    }
+
+    /// 默认位置的持久化缓存：`~/.rz/cache/transpile-v1.json`
+    ///（与工具链/语言包同根，见 [`crate::toolchain::rz_home`]）
+    pub fn persistent_default() -> Self {
+        let path = crate::toolchain::rz_home()
+            .join("cache")
+            .join("transpile-v1.json");
+        Self::persistent(&path)
+    }
+
+    /// 显式写盘（幂等；无持久化路径时为空操作）
+    pub fn save(&self, path: &Path) -> std::io::Result<()> {
+        let file = PersistentCacheFile {
+            version: PERSISTENT_FORMAT_VERSION,
+            entries: self.export_entries(),
+        };
+        let bytes = serde_json::to_vec(&file)?;
+        // 父目录可能不存在（首次运行 ~/.rz/cache/ 未创建）：先建目录再写
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        // 原子写：临时文件 + rename，避免进程中断留下半截 JSON
+        let tmp = path.with_extension("json.tmp");
+        std::fs::write(&tmp, &bytes)?;
+        std::fs::rename(&tmp, path)?;
+        Ok(())
+    }
+
+    /// 自动持久化：绑定路径存在时写盘；失败仅告警（缓存丢失可接受，不阻断转译）
+    fn persist(&self) {
+        let Some(path) = &self.persistence else {
+            return;
+        };
+        if let Err(e) = self.save(path) {
+            crate::log_warn!(
+                "translation_cache",
+                "{}（{}）",
+                crate::语言::t("log_cache_disk_save_failed"),
+                e
+            );
+        }
+    }
+
+    /// 从磁盘条目重建内存 LRU 结构（条目按旧→新顺序导入，代际队列保持一致）
+    fn restore(&mut self, entries: Vec<PersistentEntry>) {
+        for entry in entries {
+            let hash = entry.hash;
+            let generation = self.generations.entry(hash).or_insert(0);
+            self.order.push_back((hash, *generation));
+            self.entries.insert(
+                hash,
+                CacheEntry {
+                    content_length: entry.content_length,
+                    context_fingerprint: entry.context_fingerprint,
+                    output: entry.output,
+                },
+            );
+        }
+        crate::log_info!(
+            "translation_cache",
+            "{}",
+            crate::语言::f("log_cache_disk_loaded", &[&self.entries.len().to_string()])
+        );
+    }
+
+    /// 按 LRU 顺序（旧→新）导出全部有效条目
+    fn export_entries(&self) -> Vec<PersistentEntry> {
+        let mut out = Vec::with_capacity(self.entries.len());
+        for (hash, generation) in &self.order {
+            if self.generations.get(hash) != Some(generation) {
+                continue; // 过时代际条目：惰性跳过
+            }
+            if let Some(entry) = self.entries.get(hash) {
+                out.push(PersistentEntry {
+                    hash: *hash,
+                    content_length: entry.content_length,
+                    context_fingerprint: entry.context_fingerprint,
+                    output: entry.output.clone(),
+                });
+            }
+        }
+        out
     }
 
     /// FNV-1a 64 位哈希（无第三方依赖，速度快，适合缓存键）
@@ -246,11 +386,12 @@ impl TranslationCache {
         Ok(output)
     }
 
-    /// 清空全部条目（统计计数保留）
+    /// 清空全部条目（统计计数保留；绑定持久化路径时同步清空磁盘文件）
     pub fn clear(&mut self) {
         self.entries.clear();
         self.order.clear();
         self.generations.clear();
+        self.persist();
     }
 
     /// 当前缓存条目数
@@ -328,6 +469,8 @@ impl TranslationCache {
                 // 代际不匹配：过时条目，惰性跳过
             }
         }
+        // 绑定持久化路径时同步写盘（新条目/淘汰后状态落盘）
+        self.persist();
     }
 
     /// O(1) LRU 命中更新：递增代际并在队尾添加新条目，
@@ -580,5 +723,105 @@ mod tests {
     fn test_capacity_at_least_one() {
         let cache = TranslationCache::new(0);
         assert_eq!(cache.capacity_value(), 1);
+    }
+
+    // ===== 磁盘持久化 =====
+
+    #[test]
+    fn test_persistent_roundtrip() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let path = dir.path().join("transpile.json");
+        let fp = sample_fingerprint();
+
+        // 第一次：插入后自动写盘
+        {
+            let mut cache = TranslationCache::persistent(&path);
+            cache.insert("函数 主函数() {}", fp, sample_output("甲"));
+            assert!(path.exists(), "插入后应自动写盘");
+        }
+        // 第二次（模拟新进程）：从磁盘加载，可直接命中
+        {
+            let cache = TranslationCache::persistent(&path);
+            let hit = cache.query("函数 主函数() {}", fp);
+            assert_eq!(hit.map(|o| o.output.as_str()), Some("翻译输出甲"));
+            assert_eq!(cache.current_count(), 1);
+        }
+    }
+
+    #[test]
+    fn test_persistent_with_full_map() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let path = dir.path().join("transpile.json");
+        let fp = sample_fingerprint();
+        let output = TranspileOutput::with_full_map(
+            "fn 主函数() {}".to_string(),
+            vec![SourceMapEntry::new(0, 6, "函数", "fn")],
+            vec![SourceMapEntry::new(0, 6, "函数", "fn")],
+        );
+        {
+            let mut cache = TranslationCache::persistent(&path);
+            cache.insert("函数 主函数() {}", fp, output);
+        }
+        let cache = TranslationCache::persistent(&path);
+        let hit = cache.query("函数 主函数() {}", fp).expect("应命中");
+        assert_eq!(hit.output, "fn 主函数() {}");
+        assert_eq!(
+            hit.source_map,
+            vec![SourceMapEntry::new(0, 6, "函数", "fn")]
+        );
+        assert_eq!(hit.pipeline_map.len(), 1);
+    }
+
+    #[test]
+    fn test_persistent_version_mismatch_discarded() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let path = dir.path().join("transpile.json");
+        std::fs::write(&path, r#"{"version": 999, "entries": []}"#).expect("写入旧版本文件");
+        let cache = TranslationCache::persistent(&path);
+        assert_eq!(cache.current_count(), 0, "版本不匹配应丢弃");
+    }
+
+    #[test]
+    fn test_persistent_corrupted_file_discarded() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let path = dir.path().join("transpile.json");
+        std::fs::write(&path, "这不是 JSON{{{ 内容").expect("写入损坏文件");
+        let cache = TranslationCache::persistent(&path);
+        assert_eq!(cache.current_count(), 0, "损坏文件应丢弃");
+    }
+
+    #[test]
+    fn test_persistent_clear_writes_empty_file() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let path = dir.path().join("transpile.json");
+        let fp = sample_fingerprint();
+        {
+            let mut cache = TranslationCache::persistent(&path);
+            cache.insert("内容甲", fp, sample_output("甲"));
+            cache.clear();
+        }
+        let cache = TranslationCache::persistent(&path);
+        assert_eq!(cache.current_count(), 0, "清空后磁盘文件应同步为空");
+    }
+
+    #[test]
+    fn test_persistent_lru_export_keeps_valid_entries() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let path = dir.path().join("transpile.json");
+        let fp = sample_fingerprint();
+        {
+            // 容量 2：插入 3 条，最旧一条被淘汰
+            let mut cache = TranslationCache::persistent(&path);
+            cache.capacity = 2;
+            cache.insert("内容甲", fp, sample_output("甲"));
+            cache.insert("内容乙", fp, sample_output("乙"));
+            cache.insert("内容丙", fp, sample_output("丙"));
+            assert_eq!(cache.current_count(), 2);
+        }
+        let cache = TranslationCache::persistent(&path);
+        assert_eq!(cache.current_count(), 2, "淘汰后的有效条目应完整持久化");
+        assert!(cache.query("内容乙", fp).is_some());
+        assert!(cache.query("内容丙", fp).is_some());
+        assert!(cache.query("内容甲", fp).is_none(), "被淘汰条目不应复活");
     }
 }

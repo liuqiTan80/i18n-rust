@@ -7,6 +7,7 @@ pub mod diagnostic;
 pub mod error;
 pub mod fullwidth;
 pub mod lexer;
+pub mod lint;
 pub mod logger;
 pub mod mapping_manager;
 pub mod mapping_source;
@@ -105,6 +106,10 @@ pub fn transpile_pipeline_with_map(
     // 字符串/注释内的全角标点合法，由扫描器自动跳过
     for warning in fullwidth::find_fullwidth_punct(source) {
         crate::log_warn!("fullwidth", "{}", warning.format());
+    }
+    // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深
+    for warning in lint::lint_teaching(source) {
+        crate::log_warn!("lint", "{}", warning.format());
     }
 
     let macro_map = manager.get_macro_map();

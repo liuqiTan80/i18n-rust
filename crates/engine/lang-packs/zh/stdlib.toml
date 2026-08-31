@@ -217,6 +217,7 @@
 "排序_by_key" = "sort_by_key"
 "排序_unstable" = "sort_unstable"
 "反转" = "reverse"
+"逆序" = "rev"  # 迭代器方法 rev()（第 22 章）
 "去重" = "dedup"
 "去重_by" = "dedup_by"
 "保留" = "retain"

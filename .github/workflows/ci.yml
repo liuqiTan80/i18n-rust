@@ -12,6 +12,7 @@
 #   4. 三平台构建：Linux / macOS / Windows 的 release 二进制
 #      （rzc 命令行工具 + i18n-rust-lsp 语言服务器）
 #   5. VS Code 扩展打包：编译 TypeScript 并生成 .vsix 离线安装包
+#   6. 测试覆盖率门禁：llvm-cov 行覆盖率低于 70% 时失败
 #
 # 全部产物上传为 Artifact，供手动下载或发布工作流复用。
 #
@@ -83,6 +84,11 @@ jobs:
           cargo build --quiet --bin rzc
           python3 tools/verify-tutorials.py --rzc target/debug/rzc --allowlist tools/expected-failures.json
 
+      - name: 术语表与语言包一致性检查
+        # 术语表「对应关键字/宏/方法/…」引用必须能在 zh 语言包找到对应键，
+        # 防止教程索引与转译事实来源漂移（学习者按术语表写代码却无法转译）
+        run: python3 tools/verify-glossary.py
+
   # ---------- 2. MSRV 门禁（声明的最低 Rust 版本可编译） ----------
   msrv:
     name: MSRV 1.88 构建
@@ -101,6 +107,63 @@ jobs:
         # 与 Cargo.toml 的 [workspace.package] rust-version 对齐：
         # 代码使用的 let-chains（1.88）/ is_none_or（1.82）等特性不被破坏
         run: cargo build --workspace --locked
+
+  # ---------- 2.5 性能基准（criterion 快速模式，防转译回归） ----------
+  bench:
+    name: 转译性能基准
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 启用 Rust 构建缓存
+        uses: Swatinem/rust-cache@v2
+
+      - name: 运行转译管线基准（--quick 单轮采样）
+        # 基准本身不设数值门禁（机器间波动大），但确保基准可编译可运行，
+        # 并留下 criterion 基线数据供人工对比（target/criterion 上传为 Artifact）
+        run: cargo bench -p i18n-rust-engine --bench transpile -- --quick
+
+      - name: 上传基准报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: 基准报告
+          path: target/criterion
+          if-no-files-found: warn
+
+  # ---------- 2.6 测试覆盖率门禁（llvm-cov 行覆盖率下限） ----------
+  coverage:
+    name: 测试覆盖率门禁
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链（含 LLVM 工具）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: 安装 cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: 启用 Rust 构建缓存
+        uses: Swatinem/rust-cache@v2
+
+      - name: 覆盖率门禁（行覆盖率低于 70% 时失败）
+        # 当前基线 72.3%（引擎各模块 90%+，CLI/LSP 命令入口等协议胶水层
+        # 难以单测属预期）；阈值留余量防止小改动偶发触发，但能拦截大段未测代码
+        run: cargo llvm-cov --workspace --fail-under-lines 70 --html
+
+      - name: 上传覆盖率报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: 覆盖率报告
+          path: target/llvm-cov/html
+          if-no-files-found: warn
 
   # ---------- 3. 依赖漏洞审计（RustSec 公告库） ----------
   audit:
