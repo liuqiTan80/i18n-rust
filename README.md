@@ -212,6 +212,12 @@ rzc run src/main.zh      # 翻译 → 编译 → 运行
 | `rzc mapping auto <crate名>`       | 自动生成第三方库的母语映射（AI/规则） |
 | `rzc mapping check [目标]`         | 校验映射质量（重复键/关键字碰撞/跨文件冲突） |
 | `rzc mapping scaffold <源> <目标>` | 生成新语言的翻译骨架，`--provider deepseek` 可 AI 自动翻译 |
+| `rzc crate search [关键词]` | 检索社区共享的第三方库母语映射（注册中心） |
+| `rzc crate install <库> --lang <语言>` | 从注册中心安装单个第三方库映射到全局语言包 |
+| `rzc crate list` | 列出已安装的社区映射 |
+| `rzc crate remove <库> --lang <语言>` | 移除已安装的社区映射 |
+| `rzc crate update` | 按清单重新拉取所有已安装映射（获取更新） |
+| `rzc crate publish <库> --lang <语言>` | 把本地自译映射发布到注册中心（先经质量门禁） |
 | `rzc install [lsp]` | 安装配套组件（语言服务器） |
 
 完整参考见 [附录D：rzc命令速查](tutorials/附录D：rzc命令速查.md)。
@@ -292,6 +298,7 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 
 - **新增语言包**：[docs/contributing-lang-pack.md](docs/contributing-lang-pack.md)（含 `rzc mapping scaffold` AI 翻译流程）
 - **第三方库映射**：[docs/third-party-mapping.md](docs/third-party-mapping.md)
+- **第三方库共享注册中心**：[docs/third-party-registry.md](docs/third-party-registry.md)（社区上传/下载自译映射）
 - **翻译教程**：以 `tutorials/` 为源，保持章节结构一致
 - 提交前请确保 `cargo test --workspace` 全部通过
 

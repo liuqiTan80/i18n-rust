@@ -17,6 +17,7 @@ i18n-rust-engine = { path = "../engine", version = "0.7.0" }
 clap = { version = "4", features = ["derive"] }
 anyhow.workspace = true
 serde_json.workspace = true
+serde.workspace = true
 toml.workspace = true
 # 非 ASCII 模块声明 #[path] 注解（与引擎同版本，避免 E0754）
 rustc_lexer.workspace = true

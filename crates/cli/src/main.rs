@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 mod builtin_lang;
+mod crate_registry;
 mod install;
 mod lang_manager;
 mod mapping_check;
@@ -77,6 +78,11 @@ enum CliCommand {
     Mapping {
         #[command(subcommand)]
         subcommand: MappingCommand,
+    },
+    /// 第三方库共享注册中心（search / install / list / remove / update / publish）
+    Crate {
+        #[command(subcommand)]
+        subcommand: CrateCommand,
     },
     /// 安装配套组件（语言服务器 i18n-rust-lsp 等）
     Install {
@@ -154,6 +160,52 @@ enum MappingCommand {
         /// 翻译方式：rule（默认，生成 TODO 骨架待人工翻译）或 deepseek（AI 自动翻译键名，需 DEEPSEEK_API_KEY）
         #[arg(long, default_value = "rule")]
         provider: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum CrateCommand {
+    /// 检索注册中心已发布的第三方库映射（可选关键词过滤）
+    Search {
+        /// 关键词（匹配 crate 名 / 语言 / 作者）；省略时列出全部（按下载量排序）
+        keyword: Option<String>,
+    },
+    /// 安装单个第三方库映射：从注册中心复制到全局语言包
+    Install {
+        /// crate 名（连字符归一为下划线）
+        crate_name: String,
+        /// 目标语言代码（如 zh）
+        #[arg(long)]
+        lang: String,
+        /// 已存在时强制覆盖安装
+        #[arg(short = 'f', long = "force")]
+        force: bool,
+    },
+    /// 列出已安装的社区映射
+    List,
+    /// 删除已安装的社区映射（从全局语言包与清单移除）
+    Remove {
+        /// crate 名
+        crate_name: String,
+        /// 语言代码
+        #[arg(long)]
+        lang: String,
+    },
+    /// 按已安装清单重新拉取所有映射（获取他人更新）
+    Update,
+    /// 发布本地映射到注册中心（先经质量门禁）
+    Publish {
+        /// crate 名
+        crate_name: String,
+        /// 语言代码
+        #[arg(long)]
+        lang: String,
+        /// 映射文件路径（缺省按常见位置查找：全局/项目语言包或当前目录）
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// 译者署名（缺省取 git user.name）
+        #[arg(long)]
+        author: Option<String>,
     },
 }
 
@@ -591,6 +643,30 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 mapping_check::run_scaffold(&source, &target, output.as_deref(), &provider)
                     .map(|()| std::process::ExitCode::SUCCESS)
             }
+        },
+        CliCommand::Crate { subcommand } => match subcommand {
+            CrateCommand::Search { keyword } => crate_registry::search(keyword.as_deref())
+                .map(|()| std::process::ExitCode::SUCCESS),
+            CrateCommand::Install { crate_name, lang, force } => {
+                crate_registry::install(&crate_name, &lang, force)
+                    .map(|()| std::process::ExitCode::SUCCESS)
+            }
+            CrateCommand::List => {
+                crate_registry::list().map(|()| std::process::ExitCode::SUCCESS)
+            }
+            CrateCommand::Remove { crate_name, lang } => {
+                crate_registry::remove(&crate_name, &lang).map(|()| std::process::ExitCode::SUCCESS)
+            }
+            CrateCommand::Update => {
+                crate_registry::update().map(|()| std::process::ExitCode::SUCCESS)
+            }
+            CrateCommand::Publish {
+                crate_name,
+                lang,
+                file,
+                author,
+            } => crate_registry::publish(&crate_name, &lang, file, author.as_deref())
+                .map(|()| std::process::ExitCode::SUCCESS),
         },
     }
 }
@@ -1964,6 +2040,30 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
                         .mut_arg("provider", |arg| {
                             arg.help(ui.t("cmd_mapping_scaffold_provider_help"))
                         })
+                })
+        })
+        .mut_subcommand("crate", |cmd| {
+            cmd.about(ui.t("cmd_crate_about"))
+                .mut_subcommand("search", |sub| {
+                    sub.about(ui.t("cmd_crate_search_about"))
+                        .mut_arg("keyword", |arg| arg.help(ui.t("arg_crate_keyword_help")))
+                })
+                .mut_subcommand("install", |sub| {
+                    sub.about(ui.t("cmd_crate_install_about"))
+                        .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
+                        .mut_arg("force", |arg| arg.help(ui.t("arg_force_help")))
+                })
+                .mut_subcommand("list", |sub| sub.about(ui.t("cmd_crate_list_about")))
+                .mut_subcommand("remove", |sub| {
+                    sub.about(ui.t("cmd_crate_remove_about"))
+                        .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
+                })
+                .mut_subcommand("update", |sub| sub.about(ui.t("cmd_crate_update_about")))
+                .mut_subcommand("publish", |sub| {
+                    sub.about(ui.t("cmd_crate_publish_about"))
+                        .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
+                        .mut_arg("file", |arg| arg.help(ui.t("arg_crate_file_help")))
+                        .mut_arg("author", |arg| arg.help(ui.t("arg_crate_author_help")))
                 })
         })
 }
