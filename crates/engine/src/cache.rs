@@ -289,13 +289,19 @@ impl TranslationCache {
     /// 生成翻译语境指纹：任一映射表内容变化时指纹变化
     ///
     /// 基于排序后的键值对拼接哈希，与映射表的插入顺序无关。
+    ///
+    /// 四张表全部参与：关键字、模块路径、别名、派生特征。
+    /// 派生特征表由 `MappingManager` 从「派生特征」节单独存放（不并入
+    /// keyword_map，避免与方法名别名冲突），若漏算会导致只改派生表时
+    /// 指纹不变、缓存返回旧转译产物。
     pub fn generate_context_fingerprint(
         keyword_map: &HashMap<String, String>,
         module_path_map: &HashMap<String, String>,
         alias_map: &HashMap<String, String>,
+        derive_map: &HashMap<String, String>,
     ) -> u64 {
         let mut pairs: Vec<String> = Vec::new();
-        for map in [keyword_map, module_path_map, alias_map] {
+        for map in [keyword_map, module_path_map, alias_map, derive_map] {
             for (key, value) in map {
                 // 长度前缀 + NUL 定界：键/值中出现任意字符（含 `=`、`\0`）
                 // 都不会产生歧义（`"a=b"/"c"` 与 `"a"/"b=c"` 若用 `=`
@@ -537,8 +543,8 @@ mod tests {
         ]);
         let empty = HashMap::new();
         assert_eq!(
-            TranslationCache::generate_context_fingerprint(&a, &empty, &empty),
-            TranslationCache::generate_context_fingerprint(&b, &empty, &empty)
+            TranslationCache::generate_context_fingerprint(&a, &empty, &empty, &empty),
+            TranslationCache::generate_context_fingerprint(&b, &empty, &empty, &empty)
         );
         let c = HashMap::from([
             ("函数".to_string(), "fn".to_string()),
@@ -546,8 +552,33 @@ mod tests {
             ("可变".to_string(), "mut".to_string()),
         ]);
         assert_ne!(
-            TranslationCache::generate_context_fingerprint(&a, &empty, &empty),
-            TranslationCache::generate_context_fingerprint(&c, &empty, &empty)
+            TranslationCache::generate_context_fingerprint(&a, &empty, &empty, &empty),
+            TranslationCache::generate_context_fingerprint(&c, &empty, &empty, &empty)
+        );
+    }
+
+    /// 语境指纹须覆盖派生特征表
+    ///
+    /// 回归：指纹曾只算关键字 / 模块路径 / 别名三表，而「派生特征」节由
+    /// `MappingManager` 单独存放（不并入 keyword_map，避免与方法名别名冲突）。
+    /// 只改派生表时指纹不变，缓存会返回旧转译产物。
+    #[test]
+    fn test_context_fingerprint_covers_derive_map() {
+        let keywords = HashMap::from([("函数".to_string(), "fn".to_string())]);
+        let empty = HashMap::new();
+        let derive_a = HashMap::from([("克隆".to_string(), "Clone".to_string())]);
+        let derive_b = HashMap::from([("克隆".to_string(), "Debug".to_string())]);
+
+        // 仅派生表内容不同 → 指纹必须不同，否则缓存不会失效
+        assert_ne!(
+            TranslationCache::generate_context_fingerprint(&keywords, &empty, &empty, &derive_a),
+            TranslationCache::generate_context_fingerprint(&keywords, &empty, &empty, &derive_b)
+        );
+        // 派生表内容相同（与插入顺序无关）→ 指纹一致
+        let derive_c = HashMap::from([("克隆".to_string(), "Clone".to_string())]);
+        assert_eq!(
+            TranslationCache::generate_context_fingerprint(&keywords, &empty, &empty, &derive_a),
+            TranslationCache::generate_context_fingerprint(&keywords, &empty, &empty, &derive_c)
         );
     }
 
@@ -633,8 +664,8 @@ mod tests {
         let a = HashMap::from([("a=b".to_string(), "c".to_string())]);
         let b = HashMap::from([("a".to_string(), "b=c".to_string())]);
         assert_ne!(
-            TranslationCache::generate_context_fingerprint(&a, &empty, &empty),
-            TranslationCache::generate_context_fingerprint(&b, &empty, &empty)
+            TranslationCache::generate_context_fingerprint(&a, &empty, &empty, &empty),
+            TranslationCache::generate_context_fingerprint(&b, &empty, &empty, &empty)
         );
     }
 

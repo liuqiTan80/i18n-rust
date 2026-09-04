@@ -245,9 +245,14 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let cache = std::sync::Mutex::new(
                 i18n_rust_engine::cache::TranslationCache::persistent_default(),
             );
+            let transpiled =
+                transpile_with_map_cached(&source, &manager, &mut cache.lock().unwrap());
+            // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
+            let column_map =
+                i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
             write_transpiled(
                 &source_path,
-                &transpile_to_english_cached(&source, &manager, &mut cache.lock().unwrap()),
+                &annotate_non_ascii_mods(&transpiled.output),
                 &ui,
             )?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
@@ -264,6 +269,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     &manager,
                     &source,
                     &file,
+                    &column_map,
                 );
             }
 
@@ -353,6 +359,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                         manager: &manager,
                         source: &source,
                         file: &file,
+                        column_map: Some(&column_map),
                     },
                     status.success(),
                     true,
@@ -403,9 +410,14 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let cache = std::sync::Mutex::new(
                 i18n_rust_engine::cache::TranslationCache::persistent_default(),
             );
+            let transpiled =
+                transpile_with_map_cached(&source, &manager, &mut cache.lock().unwrap());
+            // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
+            let column_map =
+                i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
             write_transpiled(
                 &source_path,
-                &transpile_to_english_cached(&source, &manager, &mut cache.lock().unwrap()),
+                &annotate_non_ascii_mods(&transpiled.output),
                 &ui,
             )?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
@@ -421,6 +433,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     &manager,
                     &source,
                     &file,
+                    &column_map,
                 );
             }
 
@@ -462,6 +475,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     manager: &manager,
                     source: &source,
                     file: &file,
+                    column_map: Some(&column_map),
                 },
                 output.status.success(),
                 false, // check 场景：无诊断且成功时提示"编译成功"
@@ -899,16 +913,28 @@ fn transpile_to_english_cached(
     manager: &MappingManager,
     cache: &mut i18n_rust_engine::cache::TranslationCache,
 ) -> String {
-    let code = i18n_rust_engine::transpile_source(source, manager, cache).unwrap_or_else(|_e| {
+    annotate_non_ascii_mods(&transpile_with_map_cached(source, manager, cache).output)
+}
+
+/// 同 [`transpile_to_english_cached`]，但保留转译产物的源映射
+///
+/// 源映射（`pipeline_map`）是诊断列号回译的唯一依据：rustc 报的是英文产物
+/// 的列号，须据此回放替换过程才能还原母语源码列号。
+/// 缓存命中时映射表随产物一并复用，无需重算。
+fn transpile_with_map_cached(
+    source: &str,
+    manager: &MappingManager,
+    cache: &mut i18n_rust_engine::cache::TranslationCache,
+) -> i18n_rust_engine::cache::TranspileOutput {
+    i18n_rust_engine::transpile_source_with_map(source, manager, cache).unwrap_or_else(|_e| {
         // 缓存失败不阻断转译：回退无缓存管线（与旧行为一致）
         i18n_rust_engine::log_warn!(
             "cli",
             "{}",
             i18n_rust_engine::语言::t("log_transpile_cache_fallback")
         );
-        i18n_rust_engine::transpile_pipeline(source, manager).output
-    });
-    annotate_non_ascii_mods(&code)
+        i18n_rust_engine::transpile_pipeline(source, manager)
+    })
 }
 
 /// 解析 cargo 可执行文件：内置工具链（~/.rz/toolchain）优先，PATH 回退；
@@ -979,6 +1005,7 @@ fn can_use_direct_rustc(project_root: &Path, file: &Path) -> bool {
 }
 
 /// 单文件直调 rustc 运行：编译（--error-format=json）→ 翻译诊断 → 运行 exe
+#[allow(clippy::too_many_arguments)]
 fn run_direct_rustc(
     ui: &ui::Ui,
     project_root: &Path,
@@ -987,6 +1014,7 @@ fn run_direct_rustc(
     manager: &MappingManager,
     source: &str,
     file: &Path,
+    column_map: &i18n_rust_engine::column_map::ColumnMap,
 ) -> anyhow::Result<std::process::ExitCode> {
     let exe = std::env::temp_dir().join(format!("rzc-run-{}.exe", std::process::id()));
     let output = Command::new(resolve_rustc())
@@ -1014,6 +1042,7 @@ fn run_direct_rustc(
                 manager,
                 source,
                 file,
+                column_map: Some(column_map),
             },
             ok,
             true,
@@ -1038,6 +1067,7 @@ fn run_direct_rustc(
 }
 
 /// 单文件直调 rustc 检查：编译（--emit=metadata，不生成可执行文件）
+#[allow(clippy::too_many_arguments)]
 fn check_direct_rustc(
     ui: &ui::Ui,
     project_root: &Path,
@@ -1046,6 +1076,7 @@ fn check_direct_rustc(
     manager: &MappingManager,
     source: &str,
     file: &Path,
+    column_map: &i18n_rust_engine::column_map::ColumnMap,
 ) -> anyhow::Result<std::process::ExitCode> {
     let output = Command::new(resolve_rustc())
         .args([
@@ -1078,6 +1109,7 @@ fn check_direct_rustc(
             manager,
             source,
             file,
+            column_map: Some(column_map),
         },
         output.status.success(),
         false,
@@ -1139,6 +1171,11 @@ struct DiagContext<'a> {
     manager: &'a MappingManager,
     source: &'a str,
     file: &'a Path,
+    /// 转译产物的列映射：把 rustc 诊断的（英文产物）列号回译到母语源码列号。
+    ///
+    /// rustc 看到的是转译后的英文源码，其列号对母语源码无效
+    ///（如 `让` → `let` 后整行右移）。`None` 表示不做映射，保持旧行为。
+    column_map: Option<&'a i18n_rust_engine::column_map::ColumnMap>,
 }
 
 /// 解析 cargo --message-format=json 输出并翻译为教学化诊断（check 与 run 共用）
@@ -1294,6 +1331,13 @@ fn translate_cargo_diagnostics(
         for teaching in &mut teaching_list {
             teaching.locations.iter_mut().for_each(|loc| {
                 loc.file_name = original_filename.clone();
+                // 先把 rustc 的（英文产物）行列回译到母语源码坐标，
+                // 再用回译后的行号取源码行——顺序不可颠倒，否则源码行与列号错位。
+                if let Some(cm) = ctx.column_map {
+                    let (line, column) = cm.map_position(loc.line_start, loc.column_start);
+                    loc.line_start = line;
+                    loc.column_start = column;
+                }
                 loc.source_text = get_chinese_source_line(source, loc.line_start);
             });
         }

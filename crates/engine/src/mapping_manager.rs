@@ -297,6 +297,7 @@ impl MappingManager {
                 &self.keyword_map,
                 &self.module_path_map,
                 &self.alias_map,
+                &self.derive_map,
             )
         })
     }

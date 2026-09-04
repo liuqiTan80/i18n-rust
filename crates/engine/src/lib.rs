@@ -3,6 +3,7 @@
 
 pub mod alias;
 pub mod cache;
+pub mod column_map;
 pub mod diagnostic;
 pub mod error;
 pub mod fullwidth;

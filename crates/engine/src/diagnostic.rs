@@ -983,8 +983,8 @@ impl TeachingDiagnostic {
             output.push_str(&format!("📌 {}\n", details.narrative_text()));
         }
 
-        // 第一条教学提示
-        if let Some(hint) = self.teaching_hints.first() {
+        // 教学提示（全部输出；此前仅取首条，其余被静默丢弃）
+        for hint in &self.teaching_hints {
             output.push_str(&format!("💡 {}\n", hint));
         }
 
@@ -1577,6 +1577,47 @@ mod tests {
             is_primary,
             label: Some(label.to_string()),
             suggested_replacement: None,
+        }
+    }
+
+    /// 教学提示须全部输出
+    ///
+    /// 回归：`format_as_text` 曾只用 `teaching_hints.first()`，第二条及以后的
+    /// 教学提示被静默丢弃，而多处诊断（修复建议 + 所有权说明等）会产出多条。
+    #[test]
+    fn test_format_as_text_outputs_all_teaching_hints() {
+        let diag = TeachingDiagnostic {
+            level: DiagnosticLevel::Error,
+            error_code: Some("E0308".to_string()),
+            translated_message: "类型不匹配".to_string(),
+            original_message: "mismatched types".to_string(),
+            teaching_hints: vec![
+                "第一条提示".to_string(),
+                "第二条提示".to_string(),
+                "第三条提示".to_string(),
+            ],
+            locations: vec![DiagnosticLocation {
+                file_name: "src/main.zh".to_string(),
+                line_start: 3,
+                column_start: 5,
+                line_end: 3,
+                column_end: 10,
+                source_text: Some("    让 x = 1;".to_string()),
+                label: None,
+                is_primary: true,
+            }],
+            children: Vec::new(),
+            ownership_details: None,
+        };
+
+        let text = diag.format_as_text();
+        assert_eq!(
+            text.matches("💡").count(),
+            3,
+            "教学提示应全部输出，实际输出：{text}"
+        );
+        for hint in ["第一条提示", "第二条提示", "第三条提示"] {
+            assert!(text.contains(hint), "教学提示 `{hint}` 丢失：{text}");
         }
     }
 
