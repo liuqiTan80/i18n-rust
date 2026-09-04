@@ -16,8 +16,14 @@ struct TempProject(PathBuf);
 impl TempProject {
     /// 创建临时项目目录
     fn new(crate_name: &str) -> anyhow::Result<Self> {
-        let path =
-            std::env::temp_dir().join(format!("rzc-mapping-{}-{}", crate_name, std::process::id()));
+        // 用户隔离 + 符号链接校验（crate 名已由 run_auto_generate 校验为
+        // ASCII 标识符字符；仍拼接用户/PID 段保证路径不可预测）
+        let path = crate::temp_guard::secure_temp_path(&format!(
+            "rzc-mapping-{}-{}-{}",
+            crate_name,
+            crate::temp_guard::safe_user_segment(),
+            std::process::id()
+        ))?;
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(path.join("src")).map_err(|e| {
             anyhow::anyhow!(

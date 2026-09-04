@@ -18,6 +18,7 @@ mod lang_manager;
 mod mapping_check;
 mod mapping_coverage;
 mod mapping_gen;
+mod temp_guard;
 mod ui;
 
 use lang_manager::Source;
@@ -245,8 +246,13 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let cache = std::sync::Mutex::new(
                 i18n_rust_engine::cache::TranslationCache::persistent_default(),
             );
-            let transpiled =
-                transpile_with_map_cached(&source, &manager, &mut cache.lock().unwrap());
+            let transpiled = transpile_with_map_cached(
+                &source,
+                &manager,
+                &mut cache
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
+            );
             // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
             let column_map =
                 i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
@@ -410,8 +416,13 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let cache = std::sync::Mutex::new(
                 i18n_rust_engine::cache::TranslationCache::persistent_default(),
             );
-            let transpiled =
-                transpile_with_map_cached(&source, &manager, &mut cache.lock().unwrap());
+            let transpiled = transpile_with_map_cached(
+                &source,
+                &manager,
+                &mut cache
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
+            );
             // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
             let column_map =
                 i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
@@ -1016,7 +1027,11 @@ fn run_direct_rustc(
     file: &Path,
     column_map: &i18n_rust_engine::column_map::ColumnMap,
 ) -> anyhow::Result<std::process::ExitCode> {
-    let exe = std::env::temp_dir().join(format!("rzc-run-{}.exe", std::process::id()));
+    let exe = temp_guard::secure_temp_path(&format!(
+        "rzc-run-{}-{}.exe",
+        temp_guard::safe_user_segment(),
+        std::process::id()
+    ))?;
     let output = Command::new(resolve_rustc())
         .args(["--edition", "2024", "--error-format=json"])
         .arg(source_path)
@@ -1599,24 +1614,35 @@ fn transpile_project_files(
             let ui = &ui;
             let first_error = &first_error;
             let handle = scope.spawn(move || {
-                if first_error.lock().unwrap().is_some() {
+                if first_error
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .is_some()
+                {
                     return; // 已有失败文件：跳过剩余工作
                 }
                 let source = match fs::read_to_string(&path) {
                     Ok(s) => s,
                     Err(e) => {
-                        *first_error.lock().unwrap() = Some(anyhow::anyhow!(
-                            "{}",
-                            ui.f(
-                                "transpile_file_failed",
-                                &[&path.display().to_string(), &e.to_string()]
-                            )
-                        ));
+                        *first_error
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                            Some(anyhow::anyhow!(
+                                "{}",
+                                ui.f(
+                                    "transpile_file_failed",
+                                    &[&path.display().to_string(), &e.to_string()]
+                                )
+                            ));
                         return;
                     }
                 };
                 // 短临界区：查询缓存（命中直接复用产物）
-                let cached = cache.lock().unwrap().query(&source, fingerprint).cloned();
+                let cached = cache
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .query(&source, fingerprint)
+                    .cloned();
                 let output = match cached {
                     Some(output) => output,
                     None => {
@@ -1624,13 +1650,15 @@ fn transpile_project_files(
                         let output = i18n_rust_engine::transpile_pipeline(&source, manager);
                         cache
                             .lock()
-                            .unwrap()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner)
                             .insert(&source, fingerprint, output.clone());
                         output
                     }
                 };
                 if let Err(e) = write_transpiled(&path.with_extension("rs"), &output.output, ui) {
-                    *first_error.lock().unwrap() = Some(e);
+                    *first_error
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(e);
                 }
             });
             handles.push(handle);

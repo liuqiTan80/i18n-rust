@@ -852,8 +852,13 @@ impl TempDir {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
-        let path =
-            std::env::temp_dir().join(format!("rzc-lang-{}-{}", std::process::id(), timestamp));
+        // 用户隔离 + 符号链接校验（与 temp_guard/LSP 虚拟目录同一威胁模型）
+        let path = crate::temp_guard::secure_temp_path(&format!(
+            "rzc-lang-{}-{}-{}",
+            crate::temp_guard::safe_user_segment(),
+            std::process::id(),
+            timestamp
+        ))?;
         fs::create_dir_all(&path)?;
         Ok(Self(path))
     }
