@@ -1,5 +1,6 @@
 //! 错误消息翻译结构：从语言包 errors.toml 加载错误码表与消息表。
 
+use crate::error::{LoadError, LoadTarget};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
@@ -28,12 +29,11 @@ pub struct ErrorTranslationManager {
 
 impl ErrorTranslationManager {
     /// 从文件加载错误翻译表
-    pub fn load_from_file(path: &Path) -> Result<Self, String> {
-        let content = fs::read_to_string(path).map_err(|e| {
-            crate::语言::f(
-                "err_read_error_messages",
-                &[&path.display().to_string(), &e.to_string()],
-            )
+    pub fn load_from_file(path: &Path) -> Result<Self, LoadError> {
+        let content = fs::read_to_string(path).map_err(|e| LoadError::ReadFailed {
+            target: LoadTarget::ErrorMessages,
+            path: Some(path.display().to_string()),
+            detail: e.to_string(),
         })?;
         Self::load_from_string(&content)
     }
@@ -42,9 +42,12 @@ impl ErrorTranslationManager {
     ///
     /// 顶层表分为两类：`[E0xxx]` 等错误码表（含 "消息模板"/"教学提示"）
     /// 与 `[消息翻译]` 消息表（键为英文消息原文，同样含模板与提示）。
-    pub fn load_from_string(content: &str) -> Result<Self, String> {
-        let value: toml::Value = toml::from_str(content)
-            .map_err(|e| crate::语言::f("err_parse_error_messages", &[&e.to_string()]))?;
+    pub fn load_from_string(content: &str) -> Result<Self, LoadError> {
+        let value: toml::Value = toml::from_str(content).map_err(|e| LoadError::ParseFailed {
+            target: LoadTarget::ErrorMessages,
+            path: None,
+            detail: e.to_string(),
+        })?;
         let mut translation_table = HashMap::new();
         let mut message_map = HashMap::new();
         if let Some(table) = value.as_table() {

@@ -146,6 +146,8 @@ pub enum LoadTarget {
     BuiltinModulePaths,
     /// 内置标准库数据（编译期嵌入）
     BuiltinStdlib,
+    /// errors.toml 错误消息翻译表（诊断翻译层）
+    ErrorMessages,
 }
 
 /// 语言包/映射表加载层的统一错误类型
@@ -199,6 +201,15 @@ impl fmt::Display for LoadError {
                 LoadTarget::Mapping => {
                     write!(f, "{}", msg("load_read_map_failed", &[detail]))
                 }
+                // errors.toml：沿用诊断层原有的消息键（含路径 + 原因两个占位符）
+                LoadTarget::ErrorMessages => {
+                    let path_str = path.clone().unwrap_or_default();
+                    write!(
+                        f,
+                        "{}",
+                        msg("err_read_error_messages", &[&path_str, detail])
+                    )
+                }
                 // 第三方库文件：消息模板含路径占位符
                 _ => {
                     let path_str = path.clone().unwrap_or_default();
@@ -225,6 +236,8 @@ impl fmt::Display for LoadError {
                         msg("load_parse_builtin_paths_failed", &[detail])
                     }
                     LoadTarget::BuiltinStdlib => msg("load_parse_builtin_stdlib_failed", &[detail]),
+                    // errors.toml：沿用诊断层原有的消息键
+                    LoadTarget::ErrorMessages => msg("err_parse_error_messages", &[detail]),
                     // stdlib/第三方库文件：消息模板含路径占位符
                     LoadTarget::Stdlib | LoadTarget::ThirdParty => {
                         let path_str = path.clone().unwrap_or_default();
