@@ -4,6 +4,8 @@
 # IDE 配置
 .vscode/
 .idea/
+.qoder/
+.workbuddy/
 *.swp
 *.swo
 *~
