@@ -4,6 +4,7 @@ version = "0.7.0"
 edition = "2024"
 rust-version.workspace = true
 description = "多语言 Rust 教学方言核心引擎：词法转译、映射管理、诊断翻译、增量缓存"
+readme = "README.md"
 license = "MIT"
 repository = "https://gitcode.com/tan80/zrRust"
 keywords = ["rust", "i18n", "chinese", "teaching", "transpiler"]
@@ -11,7 +12,7 @@ categories = ["development-tools", "compilers"]
 
 # 内置语言包目录：编译期经 include_str! 嵌入，发布时随 crate 打包
 # 注意：include 是白名单，必须显式包含 src/** 与 build.rs
-include = ["lang-packs/**", "src/**", "build.rs", "Cargo.toml"]
+include = ["lang-packs/**", "src/**", "build.rs", "Cargo.toml", "README.md"]
 build = "build.rs"
 
 [dependencies]
@@ -30,3 +31,6 @@ proptest = "1"
 name = "transpile"
 harness = false
 
+
+[lints]
+workspace = true

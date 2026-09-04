@@ -4,6 +4,7 @@ version = "0.7.0"
 edition = "2024"
 rust-version.workspace = true
 description = "LSP 代理服务器：将方言 Rust 代码翻译为标准 Rust 后交给 rust-analyzer"
+readme = "README.md"
 license = "MIT"
 repository = "https://gitcode.com/tan80/zrRust"
 
@@ -35,3 +36,6 @@ rustc_lexer.workspace = true
 # 工具
 anyhow.workspace = true
 tempfile.workspace = true
+
+[lints]
+workspace = true

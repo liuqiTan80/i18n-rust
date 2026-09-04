@@ -106,8 +106,9 @@ jobs:
 
       - name: 编译全部 crate（debug，锁定依赖）
         # 与 Cargo.toml 的 [workspace.package] rust-version 对齐：
-        # 代码使用的 let-chains（1.88）/ is_none_or（1.82）等特性不被破坏
-        run: cargo build --workspace --locked
+        # 代码使用的 let-chains（1.88）/ is_none_or（1.82）等特性不被破坏。
+        # 显式 +1.88：覆盖 rust-toolchain.toml（stable），防止 MSRV 门禁被静默绕过
+        run: cargo +1.88 build --workspace --locked
 
   # ---------- 2.6 测试覆盖率门禁（llvm-cov 行覆盖率下限） ----------
   coverage:

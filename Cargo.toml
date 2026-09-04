@@ -26,3 +26,8 @@ tempfile = "3"
 lto = "thin"
 strip = true
 codegen-units = 1
+
+# clippy 规则落库：本地 `cargo clippy` 与 CI 的 `-D warnings` 门禁行为一致，
+# 贡献者提交前即可发现告警（CI 仍显式传 -D warnings 作为双保险）
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
