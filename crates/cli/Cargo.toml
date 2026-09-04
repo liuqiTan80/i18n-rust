@@ -15,18 +15,18 @@ categories = ["command-line-utilities", "development-tools"]
 # 内部引擎（发布时 path 自动转为 crates.io 版本依赖，故必须显式声明版本）
 i18n-rust-engine = { path = "../engine", version = "0.7.0" }
 clap = { version = "4", features = ["derive"] }
-anyhow = "1"
-serde_json = "1"
-toml = "0.8"
+anyhow.workspace = true
+serde_json.workspace = true
+toml.workspace = true
 # 非 ASCII 模块声明 #[path] 注解（与引擎同版本，避免 E0754）
-rustc_lexer = "0.1"
+rustc_lexer.workspace = true
 # 远程语言包安装：curl 下载 ZIP 压缩包后的解压
 zip = "2"
 # mapping auto 的 AI 调用：轻量同步 HTTP 客户端（rustls 0.23 特性避免系统 OpenSSL 依赖；
 # 升级 3.x 同步修复 rustls-webpki 0.101 的 RUSTSEC-2026-0098/0099/0104）
 ureq = { version = "3", features = ["rustls"] }
 # 内置工具链安装：临时目录 + tar.gz 解压（standalone rustc/cargo）+ 下载哈希校验
-tempfile = "3"
+tempfile.workspace = true
 flate2 = "1"
 tar = "0.4"
 sha2 = "0.10"

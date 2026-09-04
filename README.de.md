@@ -4,6 +4,8 @@
 
 </div>
 
+> ⚠️ Diese Übersetzung kann veraltet sein. Aktuelle Informationen finden Sie in der [chinesischen](README.md) bzw. [englischen](README.en.md) Version.
+
 # rzc: Mehrsprachiger Compiler für den Rust-Lehrdialekt
 
 Schreibe Rust-Programme in deiner Muttersprache — rzc übersetzt sie automatisch in Standard-Rust und kompiliert sie. Lerne Programmieren, nicht Englisch.

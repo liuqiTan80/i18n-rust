@@ -9,3 +9,20 @@ resolver = "2"
 # 支持的最低 Rust 版本（对齐代码使用的 let-chains / is_none_or 等特性）
 [workspace.package]
 rust-version = "1.88"
+
+# 跨 crate 共享依赖统一在此声明版本，各 crate 用 `dep.workspace = true` 引用，
+# 避免多 crate 重复声明导致版本漂移
+[workspace.dependencies]
+rustc_lexer = "0.1"
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+encoding_rs = "0.8"
+anyhow = "1"
+tempfile = "3"
+
+# 发布优化：离线分发包体积与运行性能
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1

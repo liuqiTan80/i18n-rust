@@ -13,11 +13,11 @@ lsp-server = "0.7"
 lsp-types = "0.95"
 
 # 序列化
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde.workspace = true
+serde_json.workspace = true
 
 # 界面消息解析
-toml = "0.8"
+toml.workspace = true
 
 # 日志
 log = "0.4"
@@ -30,8 +30,8 @@ crossbeam-channel = "0.5"
 i18n-rust-engine = { path = "../engine", version = "0.7.0" }
 
 # 词法分析（列映射用）
-rustc_lexer = "0.1"
+rustc_lexer.workspace = true
 
 # 工具
-anyhow = "1"
-tempfile = "3"
+anyhow.workspace = true
+tempfile.workspace = true

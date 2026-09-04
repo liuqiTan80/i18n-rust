@@ -7,6 +7,8 @@
 
 </div>
 
+> 🪞 **仓库镜像**：本项目在 GitHub（[liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)）与 GitCode（[tan80/zrRust](https://gitcode.com/tan80/zrRust)）双平台同步维护。`rzc lang install` 默认优先使用 GitCode 源（国内访问更快），失败自动回退 GitHub。
+
 # rzc —— 用母语编写真正的 Rust
 
 **rzc 是多语言 Rust 方言编译器**：你用母语写代码，rzc 实时翻译为标准 Rust 交给官方工具链编译运行，再把所有报错翻译成母语并附上教学提示。
