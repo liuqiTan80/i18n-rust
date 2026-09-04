@@ -642,7 +642,8 @@ impl ResponseMapper {
                     && obj.get("value").and_then(|v| v.as_str()).is_some() =>
             {
                 let mut mapped = obj.clone();
-                let value = obj["value"].as_str().unwrap();
+                // 守卫已确认 value 为字符串，get 回退空串仅为满足类型
+                let value = obj.get("value").and_then(|v| v.as_str()).unwrap_or("");
                 mapped["value"] = Value::String(self.prepend_if_hit(value));
                 Value::Object(mapped)
             }
@@ -652,7 +653,8 @@ impl ResponseMapper {
                     && obj.get("value").and_then(|v| v.as_str()).is_some() =>
             {
                 let mut mapped = obj.clone();
-                let value = obj["value"].as_str().unwrap();
+                // 守卫已确认 value 为字符串，get 回退空串仅为满足类型
+                let value = obj.get("value").and_then(|v| v.as_str()).unwrap_or("");
                 let hinted = self.prepend_if_hit(value);
                 mapped["value"] = Value::String(self.translate_code(&hinted));
                 Value::Object(mapped)

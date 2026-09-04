@@ -334,16 +334,16 @@ pub fn fix_fullwidth_punct(source: &str) -> (String, usize) {
                     }
                     result.push(ch);
                 }
-                c if FIXABLE_PAIRS.iter().any(|(f, _)| *f == c) => {
-                    let replacement = FIXABLE_PAIRS
-                        .iter()
-                        .find(|(f, _)| *f == c)
-                        .map(|(_, half)| *half)
-                        .unwrap();
-                    result.push(replacement);
-                    count += 1;
+                c => {
+                    // FIXABLE_PAIRS 命中则改写为半角；未命中原样输出
+                    // （单次查找，无需 any() 守卫 + unwrap 的双重遍历）
+                    if let Some((_, half)) = FIXABLE_PAIRS.iter().find(|(f, _)| *f == c) {
+                        result.push(*half);
+                        count += 1;
+                    } else {
+                        result.push(ch);
+                    }
                 }
-                _ => result.push(ch),
             },
         }
         i += 1;
