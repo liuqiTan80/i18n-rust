@@ -32,3 +32,7 @@ tar = "0.4"
 sha2 = "0.10"
 
 [dev-dependencies]
+# 子命令冒烟测试：进程级断言（版本号 / 内置语言包 / 转译端到端）
+assert_cmd = "2"
+predicates = "3"
+tempfile.workspace = true
