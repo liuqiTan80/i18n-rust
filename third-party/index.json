@@ -70,6 +70,17 @@
     },
     {
       "crate_name": "tokio",
+      "lang": "ko",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1.0,
+      "downloads": 0,
+      "file": "ko/crates/tokio.toml",
+      "updated": "2026-09-04"
+    },
+    {
+      "crate_name": "tokio",
       "lang": "ru",
       "version": "1.0",
       "author": "tan80",
