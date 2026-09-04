@@ -15,6 +15,17 @@
     },
     {
       "crate_name": "serde",
+      "lang": "ru",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1.0,
+      "downloads": 0,
+      "file": "ru/crates/serde.toml",
+      "updated": "2026-09-04"
+    },
+    {
+      "crate_name": "serde",
       "lang": "zh",
       "version": "1.0",
       "author": "tan80",
