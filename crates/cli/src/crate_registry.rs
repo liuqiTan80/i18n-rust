@@ -89,6 +89,7 @@ fn registry_subdir(repo_root: &Path) -> PathBuf {
 ///
 /// - 本地路径注册中心：直接复用，无需下载；
 /// - 远程地址：优先 `git clone --depth 1`，失败回退 `curl` 下载 ZIP。
+///
 /// 返回临时句柄（持有生命周期）与仓库根路径。
 fn fetch_registry_repo() -> anyhow::Result<(TempDir, PathBuf)> {
     let url = registry_repo_url();
@@ -131,8 +132,12 @@ fn read_index(path: &Path) -> anyhow::Result<RegistryIndex> {
         return Ok(RegistryIndex::default());
     }
     let content = fs::read_to_string(path)?;
-    let index: RegistryIndex = serde_json::from_str(&content)
-        .map_err(|e| anyhow::anyhow!("{}", crate::ui::Ui::global().f("crate_index_parse_failed", &[&e.to_string()])))?;
+    let index: RegistryIndex = serde_json::from_str(&content).map_err(|e| {
+        anyhow::anyhow!(
+            "{}",
+            crate::ui::Ui::global().f("crate_index_parse_failed", &[&e.to_string()])
+        )
+    })?;
     Ok(index)
 }
 
@@ -156,13 +161,13 @@ fn installed_manifest_path() -> PathBuf {
 /// 读取已安装清单（(crate, lang) → 条目）
 fn read_installed() -> BTreeMap<(String, String), MappingEntry> {
     let path = installed_manifest_path();
-    if let Ok(content) = fs::read_to_string(&path) {
-        if let Ok(list) = serde_json::from_str::<Vec<MappingEntry>>(&content) {
-            return list
-                .into_iter()
-                .map(|e| ((e.crate_name.clone(), e.lang.clone()), e))
-                .collect();
-        }
+    if let Ok(content) = fs::read_to_string(&path)
+        && let Ok(list) = serde_json::from_str::<Vec<MappingEntry>>(&content)
+    {
+        return list
+            .into_iter()
+            .map(|e| ((e.crate_name.clone(), e.lang.clone()), e))
+            .collect();
     }
     BTreeMap::new()
 }
@@ -230,7 +235,9 @@ pub fn install(crate_name: &str, lang: &str, force: bool) -> anyhow::Result<()> 
     if !src.is_file() {
         anyhow::bail!("{}", ui.f("crate_file_missing", &[&entry.file]));
     }
-    let dest_dir = crate::lang_manager::global_lang_dir().join(lang).join("crates");
+    let dest_dir = crate::lang_manager::global_lang_dir()
+        .join(lang)
+        .join("crates");
     fs::create_dir_all(&dest_dir)?;
     let dest = dest_dir.join(format!("{}.toml", crate_name));
     if dest.exists() && !force {
@@ -242,7 +249,10 @@ pub fn install(crate_name: &str, lang: &str, force: bool) -> anyhow::Result<()> 
     write_installed(&installed)?;
     println!(
         "{}",
-        ui.f("crate_installed", &[crate_name, lang, &dest.display().to_string()])
+        ui.f(
+            "crate_installed",
+            &[crate_name, lang, &dest.display().to_string()]
+        )
     );
     Ok(())
 }
@@ -255,9 +265,15 @@ pub fn list() -> anyhow::Result<()> {
         println!("{}", ui.t("crate_list_empty"));
         return Ok(());
     }
-    println!("{}", ui.f("crate_list_header", &[&installed.len().to_string()]));
+    println!(
+        "{}",
+        ui.f("crate_list_header", &[&installed.len().to_string()])
+    );
     for ((crate_name, lang), entry) in &installed {
-        println!("  {:<18} {:<6} v{}  {}", crate_name, lang, entry.version, entry.author);
+        println!(
+            "  {:<18} {:<6} v{}  {}",
+            crate_name, lang, entry.version, entry.author
+        );
     }
     Ok(())
 }
@@ -295,7 +311,7 @@ pub fn update() -> anyhow::Result<()> {
     let reg = registry_subdir(&root);
     let index = read_index(&reg.join("index.json"))?;
     let mut count = 0usize;
-    for ((crate_name, lang), _) in &installed {
+    for (crate_name, lang) in installed.keys() {
         if let Some(entry) = index
             .mappings
             .iter()
@@ -303,7 +319,9 @@ pub fn update() -> anyhow::Result<()> {
         {
             let src = reg.join(&entry.file);
             if src.is_file() {
-                let dest_dir = crate::lang_manager::global_lang_dir().join(lang).join("crates");
+                let dest_dir = crate::lang_manager::global_lang_dir()
+                    .join(lang)
+                    .join("crates");
                 fs::create_dir_all(&dest_dir)?;
                 fs::copy(&src, dest_dir.join(format!("{}.toml", crate_name)))?;
                 count += 1;
@@ -312,7 +330,10 @@ pub fn update() -> anyhow::Result<()> {
     }
     println!(
         "{}",
-        ui.f("crate_updated", &[&count.to_string(), &installed.len().to_string()])
+        ui.f(
+            "crate_updated",
+            &[&count.to_string(), &installed.len().to_string()]
+        )
     );
     Ok(())
 }
@@ -356,7 +377,10 @@ fn resolve_publish_file(
         if f.is_file() {
             return Ok(f);
         }
-        anyhow::bail!("{}", ui.f("crate_publish_file_missing", &[&f.display().to_string()]));
+        anyhow::bail!(
+            "{}",
+            ui.f("crate_publish_file_missing", &[&f.display().to_string()])
+        );
     }
     let candidates = [
         crate::lang_manager::global_lang_dir()
@@ -383,8 +407,9 @@ fn resolve_publish_file(
 /// 质量门禁：映射文件必须是合法 TOML 表，且仅含允许的节
 fn validate_mapping_toml(content: &str) -> anyhow::Result<()> {
     let ui = crate::ui::Ui::global();
-    let value: toml::Value = toml::from_str(content)
-        .map_err(|e| anyhow::anyhow!("{}", ui.f("crate_publish_invalid_toml", &[&e.to_string()])))?;
+    let value: toml::Value = toml::from_str(content).map_err(|e| {
+        anyhow::anyhow!("{}", ui.f("crate_publish_invalid_toml", &[&e.to_string()]))
+    })?;
     let table = value
         .as_table()
         .ok_or_else(|| anyhow::anyhow!("{}", ui.t("crate_publish_not_table")))?;
@@ -521,17 +546,19 @@ fn upsert_entry(index: &mut RegistryIndex, crate_name: &str, lang: &str, author:
         });
     }
     index.updated = today.clone();
-    index
-        .mappings
-        .sort_by(|a, b| a.crate_name.cmp(&b.crate_name).then_with(|| a.lang.cmp(&b.lang)));
+    index.mappings.sort_by(|a, b| {
+        a.crate_name
+            .cmp(&b.crate_name)
+            .then_with(|| a.lang.cmp(&b.lang))
+    });
 }
 
 /// 版本号末段 +1（1.0 → 1.1；无法解析则回退 1.0）
 fn bump_version(v: &str) -> String {
-    if let Some((major, minor)) = v.split_once('.') {
-        if let Ok(m) = minor.parse::<u32>() {
-            return format!("{}.{}", major, m + 1);
-        }
+    if let Some((major, minor)) = v.split_once('.')
+        && let Ok(m) = minor.parse::<u32>()
+    {
+        return format!("{}.{}", major, m + 1);
     }
     "1.0".to_string()
 }

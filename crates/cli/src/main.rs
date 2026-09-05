@@ -656,15 +656,16 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             }
         },
         CliCommand::Crate { subcommand } => match subcommand {
-            CrateCommand::Search { keyword } => crate_registry::search(keyword.as_deref())
+            CrateCommand::Search { keyword } => {
+                crate_registry::search(keyword.as_deref()).map(|()| std::process::ExitCode::SUCCESS)
+            }
+            CrateCommand::Install {
+                crate_name,
+                lang,
+                force,
+            } => crate_registry::install(&crate_name, &lang, force)
                 .map(|()| std::process::ExitCode::SUCCESS),
-            CrateCommand::Install { crate_name, lang, force } => {
-                crate_registry::install(&crate_name, &lang, force)
-                    .map(|()| std::process::ExitCode::SUCCESS)
-            }
-            CrateCommand::List => {
-                crate_registry::list().map(|()| std::process::ExitCode::SUCCESS)
-            }
+            CrateCommand::List => crate_registry::list().map(|()| std::process::ExitCode::SUCCESS),
             CrateCommand::Remove { crate_name, lang } => {
                 crate_registry::remove(&crate_name, &lang).map(|()| std::process::ExitCode::SUCCESS)
             }
