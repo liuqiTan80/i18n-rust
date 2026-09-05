@@ -6,7 +6,7 @@ rust-version.workspace = true
 description = "LSP 代理服务器：将方言 Rust 代码翻译为标准 Rust 后交给 rust-analyzer"
 readme = "README.md"
 license = "MIT"
-repository = "https://gitcode.com/tan80/zrRust"
+repository = "https://github.com/liuqiTan80/i18n-rust"
 
 [dependencies]
 # LSP 协议

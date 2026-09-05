@@ -11,6 +11,8 @@
 
 # rzc —— 用母语编写真正的 Rust
 
+> 🌍 **Write Rust in your native language.** · 10 languages · real Rust, real toolchain · graduate anytime with `rzc eject`
+
 **rzc 是多语言 Rust 方言编译器**：你用母语写代码，rzc 实时翻译为标准 Rust 交给官方工具链编译运行，再把所有报错翻译成母语并附上教学提示。
 
 - 🌍 **不是伪代码**：母语代码与标准 Rust 完全同构，编译、运行、依赖、生态 100% 真实

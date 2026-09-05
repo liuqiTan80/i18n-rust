@@ -6,6 +6,8 @@
 
 # rzc: Multilingual Rust Teaching Dialect Compiler
 
+> 🌍 **Write Rust in your native language.** · 10 languages · real Rust, real toolchain · graduate anytime with `rzc eject`
+
 Write Rust programs in your native language. rzc automatically translates them to standard Rust, compiles and runs — learn programming, not English.
 
 ```rust

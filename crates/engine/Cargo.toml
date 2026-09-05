@@ -6,7 +6,7 @@ rust-version.workspace = true
 description = "多语言 Rust 教学方言核心引擎：词法转译、映射管理、诊断翻译、增量缓存"
 readme = "README.md"
 license = "MIT"
-repository = "https://gitcode.com/tan80/zrRust"
+repository = "https://github.com/liuqiTan80/i18n-rust"
 keywords = ["rust", "i18n", "chinese", "teaching", "transpiler"]
 categories = ["development-tools", "compilers"]
 

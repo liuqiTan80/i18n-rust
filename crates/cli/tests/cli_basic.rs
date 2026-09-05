@@ -49,3 +49,38 @@ fn test_transpile_outputs_standard_rust() {
         .stdout(predicates::str::contains("fn main()"))
         .stdout(predicates::str::contains("println!"));
 }
+
+/// `rzc cheat --lang zh`：输出母语↔Rust 速查表（关键字节含 函数→fn）
+#[test]
+fn test_cheat_zh_outputs_mapping_table() {
+    rzc()
+        .args(["cheat", "zh"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("zh ↔ Rust"))
+        .stdout(predicates::str::contains("函数"))
+        .stdout(predicates::str::contains("fn"))
+        .stdout(predicates::str::contains("Keywords"));
+}
+
+/// `rzc cheat --markdown`：输出可嵌入文档的 Markdown 表格
+#[test]
+fn test_cheat_markdown_table() {
+    rzc()
+        .args(["cheat", "zh", "--markdown"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("| zh | Rust |"))
+        .stdout(predicates::str::contains("| 函数 | `fn` |"));
+}
+
+/// `rzc cheat ja`：非中文语言包同样可输出速查表（全球用户路径）
+#[test]
+fn test_cheat_ja_outputs_mapping_table() {
+    rzc()
+        .args(["cheat", "ja"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("ja ↔ Rust"))
+        .stdout(predicates::str::contains("Keywords"));
+}
