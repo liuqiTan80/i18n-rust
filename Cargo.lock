@@ -1494,6 +1494,7 @@ dependencies = [
  "i18n-rust-engine",
  "predicates",
  "rustc_lexer",
+ "serde",
  "serde_json",
  "sha2",
  "tar",

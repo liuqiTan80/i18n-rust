@@ -30,11 +30,11 @@ pub const DEFAULT_REPO_SOURCES: [&str; 2] = [
 
 /// 远程仓库源：git clone 地址与 curl 下载 ZIP 的地址
 #[derive(Debug, Clone)]
-struct RepoSource {
+pub(crate) struct RepoSource {
     /// git clone 使用的仓库地址
-    git_url: String,
+    pub(crate) git_url: String,
     /// curl 下载 ZIP 压缩包的地址
-    zip_url: String,
+    pub(crate) zip_url: String,
 }
 
 impl RepoSource {
@@ -43,7 +43,7 @@ impl RepoSource {
     /// - GitCode：`<仓库>/repository/archive/master.zip`（默认分支 master）
     /// - GitHub：`<仓库>/archive/refs/heads/main.zip`（默认分支 main）
     /// - 其他平台（含本地 HTTP 服务器测试）：按 GitHub 风格生成
-    fn from_url(url: &str) -> Self {
+    pub(crate) fn from_url(url: &str) -> Self {
         let url = url.trim_end_matches('/');
         let zip_url = if url.contains("gitcode.com") {
             format!("{}/repository/archive/master.zip", url)
@@ -484,9 +484,10 @@ fn filter_remote_langs(found: Vec<RemoteLangInfo>, keyword: &str) -> Vec<RemoteL
 
 /// 下载仓库 ZIP 并解压，返回仓库根目录（自动下沉单层根目录）
 ///
-/// 复用 curl 下载（与安装回退路径一致）；GitHub/GitCode 的 ZIP 顶层均为
-/// `<仓库>-<分支>/` 目录，解压后若仅含一个目录则以其为仓库根。
-fn fetch_repo_zip(source: &RepoSource, temp: &TempDir) -> anyhow::Result<PathBuf> {
+/// 设为 `pub(crate)` 以便 `crate_registry` 模块复用同一套 curl 下载/解压逻辑。
+pub(crate) fn fetch_repo_zip(source: &RepoSource, temp: &TempDir) -> anyhow::Result<PathBuf> {
+    // 复用 curl 下载（与安装回退路径一致）；GitHub/GitCode 的 ZIP 顶层均为
+    // `<仓库>-<分支>/` 目录，解压后若仅含一个目录则以其为仓库根。
     let download_path = temp.path().join("lang_market.zip");
     let output = Command::new("curl")
         .arg("-L")
@@ -844,10 +845,12 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> anyhow::Result<()> {
 }
 
 /// 临时目录句柄：Drop 时递归清理
-struct TempDir(PathBuf);
+///
+/// 设为 `pub(crate)` 以便 `crate_registry` 模块持有临时仓库目录的生命周期。
+pub(crate) struct TempDir(PathBuf);
 
 impl TempDir {
-    fn new() -> anyhow::Result<Self> {
+    pub(crate) fn new() -> anyhow::Result<Self> {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
@@ -863,7 +866,7 @@ impl TempDir {
         Ok(Self(path))
     }
 
-    fn path(&self) -> &Path {
+    pub(crate) fn path(&self) -> &Path {
         &self.0
     }
 }
