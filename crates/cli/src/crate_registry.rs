@@ -19,7 +19,7 @@ use crate::lang_manager::{RepoSource, TempDir};
 /// 默认注册中心地址（可用 RZ_CRATE_REPO 环境变量覆盖）。
 /// 注册中心已合并进 zrRust 仓库，位于 `third-party/` 子目录；
 /// 故默认即指向主仓库，克隆后从 `third-party/index.json` 读取。
-const DEFAULT_CRATE_REPO: &str = "https://gitcode.com/tan80/zrRust";
+const DEFAULT_CRATE_REPO: &str = "https://gitcode.com/tan80/i18n-rust";
 
 /// 单条映射在注册中心的索引条目
 #[derive(Serialize, Deserialize, Clone, Debug)]

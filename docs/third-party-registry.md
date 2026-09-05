@@ -89,7 +89,7 @@ zrRust 仓库（合并后）/
 
 ## 4. 注册中心地址
 
-- 默认地址：`https://gitcode.com/tan80/zrRust`（即 zrRust 主仓库，注册中心位于其
+- 默认地址：`https://gitcode.com/tan80/i18n-rust`（即主仓库，注册中心位于其
   `third-party/` 子目录；可用环境变量覆盖）。在 zrRust 源码树内直接运行 `rzc crate`
   会优先使用本地 `./third-party/`，无需网络即可 search/install。
 - 覆盖方式：设置 `RZ_CRATE_REPO` 指向你的注册中心仓库（Git URL 或本地路径）。

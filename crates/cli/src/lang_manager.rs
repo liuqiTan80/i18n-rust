@@ -24,7 +24,7 @@ use std::process::Command;
 /// 注意：占位符使用前请替换为实际的 GitCode/GitHub 用户名。
 /// 设置 `RZ_LANG_REPO` 环境变量后完全使用用户指定地址，不再尝试默认源。
 pub const DEFAULT_REPO_SOURCES: [&str; 2] = [
-    "https://gitcode.com/tan80/zrRust",
+    "https://gitcode.com/tan80/i18n-rust",
     "https://github.com/liuqiTan80/i18n-rust",
 ];
 

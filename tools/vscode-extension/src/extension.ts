@@ -555,7 +555,7 @@ export function activate(context: vscode.ExtensionContext): void {
         ).then(selection => {
             if (selection === '了解更多') {
                 vscode.env.openExternal(
-                    vscode.Uri.parse('https://gitcode.com/tan80/zrRust')
+                    vscode.Uri.parse('https://gitcode.com/tan80/i18n-rust')
                 );
             }
         });

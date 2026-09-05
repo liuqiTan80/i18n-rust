@@ -18,8 +18,8 @@
 #   - 本文件双平台通用（GitHub Actions / GitCode CI）：
 #     · GitHub 镜像仓库（liuqiTan80/i18n-rust）：用官方 action 创建
 #       GitHub Release（GITHUB_TOKEN 自动注入，无需额外配置）；
-#     · GitCode 主仓库（tan80/zrRust）：用 GitCode 开放 API（OpenAPI v5）
-#       创建 Release，产物落在 https://gitcode.com/tan80/zrRust/releases
+#     · GitCode 主仓库（tan80/i18n-rust）：用 GitCode 开放 API（OpenAPI v5）
+#       创建 Release，产物落在 https://gitcode.com/tan80/i18n-rust/releases
 #       ——与 README 中"从 Releases 下载"的引导一致；
 #   - GitCode 侧需在仓库 Secrets 配置 GITCODE_TOKEN（头像 → 设置 → 私人令牌，
 #     需 releases 权限）；crates.io 需配置 CARGO_REGISTRY_TOKEN（发布步骤
@@ -121,7 +121,7 @@ jobs:
         # --no-install 使用 npm ci 安装的锁定版本 @vscode/vsce，避免浮动最新版打出的包不一致
         run: |
           mkdir -p ../../release/
-          npx --no-install @vscode/vsce package --out ../../release/ --baseContentUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/ --baseImagesUrl https://gitcode.com/tan80/zrRust/raw/main/tools/vscode-extension/
+          npx --no-install @vscode/vsce package --out ../../release/ --baseContentUrl https://gitcode.com/tan80/i18n-rust/raw/main/tools/vscode-extension/ --baseImagesUrl https://gitcode.com/tan80/i18n-rust/raw/main/tools/vscode-extension/
 
       - name: 上传扩展包产物（供发布步骤使用）
         uses: actions/upload-artifact@v4
@@ -169,7 +169,7 @@ jobs:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
         run: |
           set -e
-          API="https://api.gitcode.com/api/v5/repos/tan80/zrRust"
+          API="https://api.gitcode.com/api/v5/repos/tan80/i18n-rust"
           AUTH="Authorization: token ${GITCODE_TOKEN}"
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
