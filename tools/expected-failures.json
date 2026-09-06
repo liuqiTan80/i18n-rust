@@ -424,5 +424,11 @@
   "line": 312,
   "category": "上下文依赖",
   "note": "en 译版：定义在前后代码块，单块提取无法解析"
+ },
+ {
+  "file": "Chapter-7-Ownership.md",
+  "line": 395,
+  "category": "上下文依赖",
+  "note": "en 译版：定义在前后代码块，单块提取无法解析"
  }
 ]
