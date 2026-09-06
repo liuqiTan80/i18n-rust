@@ -22,11 +22,18 @@ same way.
 | [Chapter 11: Enums and Pattern Matching](Chapter-11-Enums-and-Pattern-Matching.md) | 第十一章：枚举与模式匹配 | ✅ done (4 known cross-block deps allowlisted, same lines as zh) |
 | Chapter 12–26, Appendices A–C & E | 第十二章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
-Translation principles:
+Translation principles (revised 2026-09-06):
 
-- **Transcreation, not word-for-word**: rewritten the way a native English
-  programming author would write it, keeping the metaphor-driven teaching style.
-- **Code is never translated** — every example stays byte-identical to the
-  verified Chinese original.
-- Chapter glossaries are adapted to English readers (the pinyin-lookup sections
-  of the zh originals don't apply; English readers get the master glossary).
+- **The code speaks the reader's mother tongue.** This is the project's core
+  idea — so the English tutorial's code blocks are **standard Rust**
+  (`fn main()`, `println!`, …): for an English speaker, standard Rust IS their
+  native dialect. (A Russian tutorial would use the ru pack's Russian keywords;
+  a Japanese tutorial the ja pack's — and so on for all 10 languages.)
+- **Transcreation, not word-for-word**: prose rewritten the way a native
+  English programming author would write it; program strings and outputs are
+  English too (`println!("Hello, world!")`).
+- **Every code block is still compile-verified** with
+  `tools/verify-tutorials.py --dir tutorials/en` — standard Rust passes
+  through rzc unchanged, and the gate still catches broken examples.
+- Conversion status: Chapter 2 is the corrected template; Chapters 1 and 3–11
+  are being converted batch by batch (see translation-status.md).
