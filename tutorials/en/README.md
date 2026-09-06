@@ -16,7 +16,8 @@ same way.
 | [Chapter 5: Control Flow](Chapter-5-Control-Flow.md) | 第五章：控制流 | ✅ done (all Ch5 blocks verified, incl. 5 output examples) |
 | [Chapter 6: Functions and Methods](Chapter-6-Functions-and-Methods.md) | 第六章：函数与方法 | ✅ done (2 known cross-block deps allowlisted) |
 | [Chapter 7: Ownership](Chapter-7-Ownership.md) | 第七章：所有权 | ✅ done (1 known cross-block dep allowlisted) |
-| Chapter 8–26, Appendices A–C & E | 第八章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
+| [Chapter 8: References and Borrowing](Chapter-8-References-and-Borrowing.md) | 第八章：引用与借用 | ✅ done (1 known cross-block dep allowlisted) |
+| Chapter 9–26, Appendices A–C & E | 第九章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
 Translation principles:
 

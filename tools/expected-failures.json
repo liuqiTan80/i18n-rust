@@ -430,5 +430,11 @@
   "line": 395,
   "category": "上下文依赖",
   "note": "en 译版：定义在前后代码块，单块提取无法解析"
+ },
+ {
+  "file": "Chapter-8-References-and-Borrowing.md",
+  "line": 132,
+  "category": "上下文依赖",
+  "note": "en 译版：定义在前后代码块，单块提取无法解析"
  }
 ]
