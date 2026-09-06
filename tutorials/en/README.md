@@ -13,7 +13,8 @@ same way.
 | [Chapter 2: Hello, World](Chapter-2-Hello-World.md) | 第二章：你好世界 | ✅ done (16/16 code blocks verified) |
 | [Chapter 3: Variables and Types](Chapter-3-Variables-and-Types.md) | 第三章：变量与类型 | ✅ done (44 blocks: 41 pass + 3 expected cross-block deps) |
 | [Chapter 4: Compound Types](Chapter-4-Compound-Types.md) | 第四章：复合类型 | ✅ done (78 blocks total in en dir: 70 pass + 8 expected deps) |
-| Chapter 5–26, Appendices A–C & E | 第五章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
+| [Chapter 5: Control Flow](Chapter-5-Control-Flow.md) | 第五章：控制流 | ✅ done (all Ch5 blocks verified, incl. 5 output examples) |
+| Chapter 6–26, Appendices A–C & E | 第六章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
 Translation principles:
 
