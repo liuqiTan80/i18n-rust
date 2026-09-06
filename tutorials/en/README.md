@@ -9,7 +9,8 @@ same way.
 |---|---|---|
 | [Preface: How to Use This Book](Preface-How-to-Use-This-Book.md) | 开篇：这本书怎么用 | ✅ done |
 | [Appendix D: Command Cheat Sheet](Appendix-D-Command-Cheatsheet.md) | 附录D：rzc命令速查 | ✅ done |
-| Chapter 1–26, Appendices A–C & E | 第一章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
+| [Chapter 2: Hello, World](Chapter-2-Hello-World.md) | 第二章：你好世界 | ✅ done (16/16 code blocks verified) |
+| Chapter 1, 3–26, Appendices A–C & E | 第一章、第三章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
 Translation principles:
 
