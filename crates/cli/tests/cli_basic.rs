@@ -84,3 +84,15 @@ fn test_cheat_ja_outputs_mapping_table() {
         .stdout(predicates::str::contains("ja ↔ Rust"))
         .stdout(predicates::str::contains("Keywords"));
 }
+
+/// `rzc init --lang` 缺省跟随系统 locale：de_DE 环境下缺省 de（全球用户第一个项目是母语）
+#[test]
+fn test_init_default_lang_follows_locale() {
+    rzc()
+        .args(["init", "--help"])
+        .env("LC_ALL", "de_DE.UTF-8")
+        .env("LANG", "de_DE.UTF-8")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("[default: de]"));
+}

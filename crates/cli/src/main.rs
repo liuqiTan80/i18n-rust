@@ -37,7 +37,8 @@ struct CliArgs {
 enum CliCommand {
     Init {
         project_name: String,
-        #[arg(short, long, default_value = "zh")]
+        // 缺省跟随系统 locale（LC_ALL/LANG）：全球用户的第一个项目应是自己的母语
+        #[arg(short, long, default_value_t = mapping_gen::detect_system_language())]
         lang: String,
     },
     Run {
