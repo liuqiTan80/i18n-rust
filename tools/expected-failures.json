@@ -436,5 +436,41 @@
   "line": 132,
   "category": "上下文依赖",
   "note": "en 译版：定义在前后代码块，单块提取无法解析"
+ },
+ {
+  "file": "Chapter-10-Structs.md",
+  "line": 57,
+  "category": "上下文依赖",
+  "note": "en 译版：与中文版同位（zh L59/73/103/150/186/358）"
+ },
+ {
+  "file": "Chapter-10-Structs.md",
+  "line": 71,
+  "category": "上下文依赖",
+  "note": "en 译版：与中文版同位（zh L59/73/103/150/186/358）"
+ },
+ {
+  "file": "Chapter-10-Structs.md",
+  "line": 101,
+  "category": "上下文依赖",
+  "note": "en 译版：与中文版同位（zh L59/73/103/150/186/358）"
+ },
+ {
+  "file": "Chapter-10-Structs.md",
+  "line": 148,
+  "category": "上下文依赖",
+  "note": "en 译版：与中文版同位（zh L59/73/103/150/186/358）"
+ },
+ {
+  "file": "Chapter-10-Structs.md",
+  "line": 184,
+  "category": "上下文依赖",
+  "note": "en 译版：与中文版同位（zh L59/73/103/150/186/358）"
+ },
+ {
+  "file": "Chapter-10-Structs.md",
+  "line": 356,
+  "category": "上下文依赖",
+  "note": "en 译版：与中文版同位（zh L59/73/103/150/186/358）"
  }
 ]
