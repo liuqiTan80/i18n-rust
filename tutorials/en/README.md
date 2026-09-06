@@ -19,7 +19,8 @@ same way.
 | [Chapter 8: References and Borrowing](Chapter-8-References-and-Borrowing.md) | 第八章：引用与借用 | ✅ done (1 known cross-block dep allowlisted) |
 | [Chapter 9: Strings and Text](Chapter-9-Strings-and-Text.md) | 第九章：字符串与文本 | ✅ done (15/15 blocks verified, no allowlist needed) |
 | [Chapter 10: Structs](Chapter-10-Structs.md) | 第十章：结构体 | ✅ done (6 known deps allowlisted, incl. 1 教学演示) |
-| Chapter 11–26, Appendices A–C & E | 第十一章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
+| [Chapter 11: Enums and Pattern Matching](Chapter-11-Enums-and-Pattern-Matching.md) | 第十一章：枚举与模式匹配 | ✅ done (4 known cross-block deps allowlisted, same lines as zh) |
+| Chapter 12–26, Appendices A–C & E | 第十二章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
 Translation principles:
 
