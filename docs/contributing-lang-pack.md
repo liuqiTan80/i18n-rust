@@ -1,6 +1,6 @@
 # 新语言包贡献指南
 
-本文介绍如何为 zrRust 新增一门语言包，并把它分享给其他用户使用。
+本文介绍如何为 i18n-rust 新增一门语言包，并把它分享给其他用户使用。
 第三方库映射（crates/）的工具链细节见 [third-party-mapping.md](./third-party-mapping.md)。
 
 ## 1. 语言包的组成

@@ -12,12 +12,18 @@
 | `rzc run 文件.zh` | 转译 + 编译 + 运行 | `rzc run src/主函数.zh` |
 | `rzc check 文件.zh` | 只检查，不生成可执行文件（更快） | `rzc check src/主函数.zh` |
 | `rzc eject 文件.zh` | 导出为标准 Rust（生成 .rs） | `rzc eject src/主函数.zh` |
+| `rzc transpile 文件.zh` | 只转译不编译，标准 Rust 输出到屏幕 | `rzc transpile src/主函数.zh` |
+| `rzc cheat 语言` | 母语 ↔ Rust 映射速查表（--markdown 可嵌入文档） | `rzc cheat zh --markdown` |
 | `rzc lang list` | 查看可用语言包 | |
 | `rzc lang install 语言` | 安装语言包 | `rzc lang install ja` |
+| `rzc mapping auto 库名` | 用 AI 或规则自动生成第三方库映射 | `rzc mapping auto rand --provider rule` |
 | `rzc mapping check` | 校验第三方库映射文件 | |
-| `rzc mapping coverage` | 用后端真实源码检验语言包覆盖度，列出缺失的母语映射（在 zrRust 仓库根运行） | `rzc mapping coverage --lang zh` |
+| `rzc crate search 关键词` | 检索社区共享的第三方库映射 | `rzc crate search serde` |
+| `rzc crate install serde@zh` | 安装社区映射到全局语言包 | |
+| `rzc crate publish` | 把本地映射发布到注册中心（先过质量门禁） | |
+| `rzc mapping coverage` | 用后端真实源码检验语言包覆盖度，列出缺失的母语映射（在 i18n-rust 仓库根运行） | `rzc mapping coverage --lang zh` |
 | `rzc mapping scaffold` | 为新语言生成映射脚手架 | |
-| `rzc cargo add 库名` | 添加依赖（转发给 cargo） | `rzc cargo add rand` |
+| `rzc add 库名` | 添加第三方依赖（封装 cargo add，带母语映射提示） | `rzc add rand` |
 | `rzc install lsp` | 安装语言服务器（VS Code 智能提示） | |
 | `rzc install toolchain` | 一键安装内置官方工具链（独立版 rustc/cargo/rust-analyzer，脱离 rustup） | |
 | `rzc doctor` | 诊断工具链环境（内置 / PATH / 版本对比） | |

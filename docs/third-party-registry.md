@@ -1,6 +1,6 @@
 # 第三方库共享平台（社区映射注册中心）规范
 
-本文档定义 zrRust 第三方库母语映射的**共享注册中心**规范，与
+本文档定义 i18n-rust 第三方库母语映射的**共享注册中心**规范，与
 [third-party-mapping.md](./third-party-mapping.md) 的单机映射格式互补：
 后者描述「一个 crate 的映射文件长什么样」，本文描述「这些文件如何在社区间
 下载与上传、如何被发现与版本化」。
@@ -15,7 +15,7 @@
 
 - **复用现有远程获取机制**：注册中心即一个 Git 仓库（GitCode/GitHub 或任意
   git 可达地址），复用 `rzc lang install` 已有的 `git clone` / `curl` 下载回退能力，
-  零额外后端依赖。注册中心已合并进 zrRust 仓库，位于 `third-party/` 子目录；
+  零额外后端依赖。注册中心已合并进 i18n-rust 仓库，位于 `third-party/` 子目录；
   也可通过 `RZ_CRATE_REPO` 指向任意独立 Git 仓库或本地路径。
 - **单 crate 粒度**：共享的最小单元是 `(语言, crate)` 映射文件，而非整包语言。
 - **索引与数据分离**：注册中心根放一个 `index.json` 作为可发现性索引，映射文件按
@@ -26,7 +26,7 @@
 ## 2. 仓库布局
 
 ```
-zrRust 仓库（合并后）/
+i18n-rust 仓库（合并后）/
 └── third-party/               # 注册中心根
     ├── index.json            # 可发现性索引（必选）
     └── <语言>/               # 与语言包目录同名，如 zh / ru / ja
@@ -37,14 +37,14 @@ zrRust 仓库（合并后）/
 ```
 
 > 注册中心作为**独立仓库**时，上述结构直接位于该仓库根（`index.json` 与 `<语言>/`
-> 同级）；作为 zrRust 子目录时则统一嵌套在 `third-party/` 下。两种布局 `rzc crate`
+> 同级）；作为 i18n-rust 子目录时则统一嵌套在 `third-party/` 下。两种布局 `rzc crate`
 > 均自动识别。
 
 `index.json` 格式：
 
 ```json
 {
-  "registry": "zrRust-crate-mappings",
+  "registry": "i18n-rust-crate-mappings",
   "updated": "2026-09-04",
   "mappings": [
     {
@@ -90,7 +90,7 @@ zrRust 仓库（合并后）/
 ## 4. 注册中心地址
 
 - 默认地址：`https://gitcode.com/tan80/i18n-rust`（即主仓库，注册中心位于其
-  `third-party/` 子目录；可用环境变量覆盖）。在 zrRust 源码树内直接运行 `rzc crate`
+  `third-party/` 子目录；可用环境变量覆盖）。在 i18n-rust 源码树内直接运行 `rzc crate`
   会优先使用本地 `./third-party/`，无需网络即可 search/install。
 - 覆盖方式：设置 `RZ_CRATE_REPO` 指向你的注册中心仓库（Git URL 或本地路径）。
   本地路径模式便于离线测试与自建私有注册中心：`RZ_CRATE_REPO=/path/to/my-registry rzc crate publish ...`。
