@@ -412,5 +412,17 @@
   "line": 301,
   "category": "上下文依赖",
   "note": "en 译版：定义在前后代码块（省略写法引用先前定义的 分数），单块提取无法解析"
+ },
+ {
+  "file": "Chapter-6-Functions-and-Methods.md",
+  "line": 271,
+  "category": "上下文依赖",
+  "note": "en 译版：定义在前后代码块，单块提取无法解析"
+ },
+ {
+  "file": "Chapter-6-Functions-and-Methods.md",
+  "line": 312,
+  "category": "上下文依赖",
+  "note": "en 译版：定义在前后代码块，单块提取无法解析"
  }
 ]
