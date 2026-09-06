@@ -366,24 +366,6 @@
   "note": "定义在前后代码块，单块提取无法解析"
  },
  {
-  "file": "Chapter-3-Variables-and-Types.md",
-  "line": 349,
-  "category": "上下文依赖",
-  "note": "en 译版：定义在前后代码块，单块提取无法解析"
- },
- {
-  "file": "Chapter-3-Variables-and-Types.md",
-  "line": 515,
-  "category": "上下文依赖",
-  "note": "en 译版：定义在前后代码块，单块提取无法解析"
- },
- {
-  "file": "Chapter-3-Variables-and-Types.md",
-  "line": 638,
-  "category": "上下文依赖",
-  "note": "en 译版：定义在前后代码块，单块提取无法解析"
- },
- {
   "file": "Chapter-4-Compound-Types.md",
   "line": 166,
   "category": "上下文依赖",
@@ -496,5 +478,23 @@
   "line": 149,
   "category": "上下文依赖",
   "note": "en 译版：定义在前后代码块，单块提取无法解析（与中文版同位）"
+ },
+ {
+  "file": "Chapter-3-Variables-and-Types.md",
+  "line": 348,
+  "category": "上下文依赖",
+  "note": "en 标准Rust版：定义在前后代码块，单块提取无法解析"
+ },
+ {
+  "file": "Chapter-3-Variables-and-Types.md",
+  "line": 519,
+  "category": "上下文依赖",
+  "note": "en 标准Rust版：定义在前后代码块，单块提取无法解析"
+ },
+ {
+  "file": "Chapter-3-Variables-and-Types.md",
+  "line": 644,
+  "category": "上下文依赖",
+  "note": "en 标准Rust版：定义在前后代码块，单块提取无法解析"
  }
 ]
