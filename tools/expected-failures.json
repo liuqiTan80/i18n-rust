@@ -364,5 +364,23 @@
   "line": 307,
   "category": "上下文依赖",
   "note": "定义在前后代码块，单块提取无法解析"
+ },
+ {
+  "file": "Chapter-3-Variables-and-Types.md",
+  "line": 349,
+  "category": "上下文依赖",
+  "note": "en 译版：定义在前后代码块，单块提取无法解析"
+ },
+ {
+  "file": "Chapter-3-Variables-and-Types.md",
+  "line": 515,
+  "category": "上下文依赖",
+  "note": "en 译版：定义在前后代码块，单块提取无法解析"
+ },
+ {
+  "file": "Chapter-3-Variables-and-Types.md",
+  "line": 638,
+  "category": "上下文依赖",
+  "note": "en 译版：定义在前后代码块，单块提取无法解析"
  }
 ]
