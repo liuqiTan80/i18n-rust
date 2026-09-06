@@ -63,7 +63,8 @@ EXPECT_OUT_LINE_RE = re.compile(r"^\s*//\s?(.*)$")
 
 # 片段包裹：顶层声明词头（其后允许空格/泛型参数/括号/!；
 # 异步/不安全 为前缀修饰，后跟 函数/结构体/块）
-DECL_WORDS = ("使用", "结构体", "实现", "特征", "枚举", "常量",
+DECL_WORDS = ("fn ", "struct ", "impl ", "enum ", "use ", "mod ", "pub ", "const ", "static ", "type ",
+              "使用", "结构体", "实现", "特征", "枚举", "常量",
               "类型", "函数", "外部", "宏规则", "宏", "模块", "异步", "不安全")
 
 CARGO_TMPL = """[package]
@@ -105,12 +106,23 @@ def extract_blocks(md_path):
 
 
 # ---------- 分类 ----------
+
+def is_complete_program(content):
+    """完整程序识别：方言（含 `函数 主函数`）或标准 Rust（含 `fn main`）。"""
+    return "函数 主函数" in content or "fn main" in content
+
+
+def has_native_keywords(content):
+    """片段是否使用方言关键词（决定包裹主函数用哪种头）。"""
+    return any(k in content for k in ("函数", "让 ", "打印行", "如果", "匹配", "循环", "对于"))
+
+
 def classify(content):
-    if any(k in content for k in OMIT_MARKS) and "函数 主函数" not in content:
+    if any(k in content for k in OMIT_MARKS) and not is_complete_program(content):
         return "省略"
     if any(m in content for m in ERR_MARKS) or ERR_CODE_RE.search(content):
         return "错误示例"
-    if "函数 主函数" in content:
+    if is_complete_program(content):
         return "完整程序"
     return "片段"
 
@@ -266,7 +278,9 @@ def wrap_snippet(content):
             i += 1
     if not body:
         body = ["    // （无语句）\n"]
-    return "".join(top) + "\n函数 主函数() {\n" + "".join(body) + "}\n"
+    header = ("\n函数 主函数() {\n" if has_native_keywords(content)
+              else "\nfn main() {\n")
+    return "".join(top) + header + "".join(body) + "}\n"
 
 
 # ---------- 项目生成 ----------
@@ -378,7 +392,7 @@ def build_task(work, index, fname, start, content, expected, behavior, expected_
         return None
     deps = block_deps(fname, index)
     if kind == "错误示例":
-        if "函数 主函数" in content:
+        if is_complete_program(content):
             src = content
         else:
             src = wrap_snippet(textwrap.dedent(content))
@@ -386,7 +400,7 @@ def build_task(work, index, fname, start, content, expected, behavior, expected_
         src = content
     elif kind == "输出示例":
         # 与完整程序同规则：有主函数原样，无主函数（片段）包裹
-        src = content if "函数 主函数" in content else wrap_snippet(textwrap.dedent(content))
+        src = content if is_complete_program(content) else wrap_snippet(textwrap.dedent(content))
     else:
         src = wrap_snippet(textwrap.dedent(content))
     d = os.path.join(work, f"b{index:03d}")

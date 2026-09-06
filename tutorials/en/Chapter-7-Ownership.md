@@ -8,7 +8,7 @@ By the end of this chapter, you will be able to:
 2. Explain what happens to a value when its **scope** ends;
 3. Tell **copying** (small data like integers) from **moving** (heap data like strings);
 4. Read and fix an **E0382** ("value used after move") error;
-5. Use **`克隆()`** (clone) to make an independent duplicate;
+5. Use **`.clone()`** to make an independent duplicate;
 6. Say where ownership goes when a value **enters a function** or **returns from one**.
 
 > ✨ This is Rust's most distinctive chapter — most other languages have nothing like it. Not understanding it on the first read is normal. Read it twice, run every example, and it will click.
@@ -49,24 +49,24 @@ Memorize these three and half the chapter is won:
 Look at this code:
 
 ```rust
-函数 主函数() {
+fn main() {
     {
-        让 临时 = 字符串::从("只活在块里");
-        打印行!("块内：{}", 临时);
+        let temporary = String::from("only alive inside this block");
+        println!("inside the block: {}", temporary);
     }
-    // 临时 在这里已经不存在了
-    打印行!("块外继续");
+    // temporary no longer exists here
+    println!("continuing outside the block");
 }
 ```
 
 Output:
 
 ```
-块内：只活在块里
-块外继续
+inside the block: only alive inside this block
+continuing outside the block
 ```
 
-`临时` is born inside the inner braces — and the moment those braces end, it **ceases to exist**. Its memory is returned automatically. Use `临时` outside the block and the compiler reports "can't find this variable".
+`temporary` is born inside the inner braces — and the moment those braces end, it **ceases to exist**. Its memory is returned automatically. Use `temporary` outside the block and the compiler reports "can't find this variable".
 
 > 💡 **Metaphor**: a value's life is a hotel stay: **check in** (declaration) → use → **check out** (leaving the scope). At check-out the room is cleaned automatically (memory released) — nothing to worry about, and nobody can overstay.
 
@@ -86,7 +86,7 @@ Why does some data "copy" while other data "moves"? First, meet the two places d
 | Stack (pocket) | Integers, floats, booleans, characters — small fixed-size things | Keys, an eraser |
 | Heap (warehouse) | Strings, vectors — big things of varying size | A whole crate of books |
 
-A `字符串` (string)'s contents live on the **heap**: the row of letters sits in the warehouse, and the variable itself (in your pocket) holds only a **claim ticket** (recording the warehouse location and length).
+A `String`'s contents live on the **heap**: the row of letters sits in the warehouse, and the variable itself (in your pocket) holds only a **claim ticket** (recording the warehouse location and length).
 
 With that picture, copy and move below make perfect sense.
 
@@ -95,19 +95,20 @@ With that picture, copy and move below make perfect sense.
 ## 7.5 Copy: pocket things duplicate for free
 
 ```rust
-让 甲 = 5;
-让 乙 = 甲;
-打印行!("甲：{}，乙：{}", 甲, 乙);
-// 预期输出: 甲：5，乙：5
+fn main() {
+    let a = 5;
+    let b = a;
+    println!("a: {}, b: {}", a, b);
+}
 ```
 
-Output: `甲：5，乙：5`
+Output: `a: 5, b: 5`
 
-Integers live in the **pocket**; duplicating one costs nothing. So `让 乙 = 甲` is a **copy**: 甲 still exists, and 乙 is an independent duplicate. Both variables are free to use.
+Integers live in the **pocket**; duplicating one costs nothing. So `let b = a` is a **copy**: `a` still exists, and `b` is an independent duplicate. Both variables are free to use.
 
 📖 **Copy**: the property of being automatically duplicated bit by bit when a value leaves its scope. Integers, floats, booleans and characters all have it.
 
-**Which types copy?** Remember the mantra: **"numbers, booleans, single characters"** — integers (`整数`, `长整数`…), floats (`浮点数`), booleans (`真`/`假`), characters. All pocket-dwellers; assignment duplicates them.
+**Which types copy?** Remember the mantra: **"numbers, booleans, single characters"** — integers (`i32`, `i64`…), floats (`f64`), booleans (`true`/`false`), characters. All pocket-dwellers; assignment duplicates them.
 
 ---
 
@@ -116,34 +117,45 @@ Integers live in the **pocket**; duplicating one costs nothing. So `让 乙 = �
 A string lives in the **warehouse**; the variable holds only the claim ticket. Now:
 
 ```rust
-让 句子甲 = 字符串::从("你好");
-让 句子乙 = 句子甲;
-打印行!("句子乙：{}", 句子乙);
+fn main() {
+    let sentence_a = String::from("Hello");
+    let sentence_b = sentence_a;
+    println!("sentence_b: {}", sentence_b);
+}
 ```
 
-`让 句子乙 = 句子甲` is not a copy — it's a **move**: the claim ticket passed from 句子甲's hand to 句子乙's. There's only one ticket — the new owner is 句子乙.
+`let sentence_b = sentence_a` is not a copy — it's a **move**: the claim ticket passed from `sentence_a`'s hand to `sentence_b`'s. There's only one ticket — the new owner is `sentence_b`.
 
 💡 **Metaphor**: a movie ticket handed to a friend leaves your hand empty. Want in? Either your friend gives it back, or you buy another (the clone in 7.7).
 
 If you try the old variable name after the move:
 
 ```rust
-让 句子甲 = 字符串::从("你好");
-让 句子乙 = 句子甲;
-打印行!("句子甲：{}", 句子甲);   // ❌
+// 预期错误: E0382
+fn main() {
+    let sentence_a = String::from("Hello");
+    let sentence_b = sentence_a;
+    println!("sentence_a: {}", sentence_a);   // ❌
+}
 ```
 
 The compiler reports, mercilessly:
 
 ```
-错误[E0382]: 值在移动后被使用：`句子甲`
-📌 变量 `句子甲` 在第 3 行被移动，第 4 行尝试再次使用。
-💡 Rust 中值被移动后不能再使用。考虑使用 `引用`（&）或 `克隆()` 来避免移动。
+error[E0382]: borrow of moved value: `sentence_a`
+ --> src/main.rs:4:27
+ |
+2 |     let sentence_a = String::from("Hello");
+ |         ---------- move occurs because `sentence_a` has type `String`...
+3 |     let sentence_b = sentence_a;
+ |                      ---------- value moved here
+4 |     println!("sentence_a: {}", sentence_a);
+ |                                ^^^^^^^^^^ value borrowed here after move
 ```
 
 📖 **Move**: handing a heap value's ownership from one variable to another; the original variable dies instantly.
 
-> 📖 **E0382**: the error code for "value used after move". Seeing it means: some value changed owners, and you're still asking the old owner for it.
+> 📖 **E0382**: the error code for "value used after move". Seeing it means: some value changed owners, and you're still asking the old owner for it. (Notice how the error even draws the journey — where the value was created, where it moved, where you misused it.)
 
 **Why is Rust so stingy?** Copying a whole crate of books (possibly hundreds of megabytes) slows the program; two people sharing one claim ticket means double-cleaning the same hotel room at check-out — an instant crash. Rust picks the cleanest scheme: **one thing, one owner; give it away and it's gone**.
 
@@ -151,16 +163,17 @@ The compiler reports, mercilessly:
 
 ## 7.7 Clone: buy another ticket
 
-Want two independent copies? Use **`克隆()`** ("clone, duplicate"):
+Want two independent copies? Use **`.clone()`** ("clone, duplicate"):
 
 ```rust
-让 原件 = 字符串::从("藏宝图");
-让 复制件 = 原件.克隆();
-打印行!("原件：{}，复制件：{}", 原件, 复制件);
-// 预期输出: 原件：藏宝图，复制件：藏宝图
+fn main() {
+    let original = String::from("treasure map");
+    let duplicate = original.clone();
+    println!("original: {}, duplicate: {}", original, duplicate);
+}
 ```
 
-Output: `原件：藏宝图，复制件：藏宝图`
+Output: `original: treasure map, duplicate: treasure map`
 
 Clone **truly duplicates what's in the warehouse** — two claim tickets, each pointing at its own warehouse. Change one, the other is untouched.
 
@@ -170,8 +183,8 @@ Clone **truly duplicates what's in the warehouse** — two claim tickets, each p
 
 | Operation | Pocket data (integers etc.) | Warehouse data (strings etc.) |
 |---|---|---|
-| `让 乙 = 甲` | Copy — both usable | Move — 甲 dies |
-| `让 乙 = 甲.克隆()` | Also clones (unnecessary) | Copy — both usable |
+| `let b = a` | Copy — both usable | Move — a dies |
+| `let b = a.clone()` | Also clones (unnecessary) | Copy — both usable |
 
 ---
 
@@ -182,36 +195,35 @@ Values **entering a function** and **returning from one** transfer ownership the
 ### Passing in: the value moves into the function
 
 ```rust
-函数 收下(句子: 字符串) {
-    打印行!("函数里收到：{}", 句子);
+fn receive(sentence: String) {
+    println!("received inside the function: {}", sentence);
 }
 
-函数 主函数() {
-    让 祝福 = 字符串::从("生日快乐");
-    收下(祝福);
-    // 祝福 已经搬进函数，这里不能再用
+fn main() {
+    let blessing = String::from("Happy birthday");
+    receive(blessing);
+    // blessing has moved into the function — it can't be used here anymore
 }
 ```
 
-`收下(祝福)` transfers the whole blessing to the function's parameter `句子`. When the call ends, `句子` leaves its scope and the value is released. `祝福` in the main function is dead from then on.
+`receive(blessing)` transfers the whole blessing to the function's parameter `sentence`. When the call ends, `sentence` leaves its scope and the value is released. `blessing` in the main function is dead from then on.
 
 ### Returning: the value moves back to the caller
 
 ```rust
-函数 制作问候(名字: 字符串引用) -> 字符串 {
-    字符串::从(名字)
+fn make_greeting(name: &str) -> String {
+    String::from(name)
 }
 
-函数 主函数() {
-    让 问候 = 制作问候("小明");
-    打印行!("拿到：{}", 问候);
+fn main() {
+    let greeting = make_greeting("Xiaoming");
+    println!("got: {}", greeting);
 }
-// 预期输出: 拿到：小明
 ```
 
-Output: `拿到：小明`
+Output: `got: Xiaoming`
 
-The string built inside the function is transferred via `返回` to `问候` — its new owner.
+The string built inside the function is transferred via the trailing expression to `greeting` — its new owner.
 
 > 💡 **Metaphor**: a function is a parcel station. Passing in = you **mail the parcel in** (it leaves your hands); returning = the station **mails a new parcel out to you** (it's yours from then on).
 
@@ -224,45 +236,45 @@ The string built inside the function is transferred via `返回` to `问候` —
 All the ownership knowledge, strung into a "mailing a parcel" story:
 
 ```rust
-// 派生(克隆)：让结构体自动获得 克隆 能力
-// 派生括号里的特征名可以用中文（克隆）
-#[派生(克隆)]
-结构体 包裹 {
-    内容: 字符串,
-    重量: 整数,
+// derive(Clone): the compiler generates the clone ability automatically
+// (the trait names in derive are English: Clone, Debug, …)
+#[derive(Clone)]
+struct Parcel {
+    contents: String,
+    weight: i32,
 }
 
-实现 包裹 {
-    函数 创建(内容: 字符串, 重量: 整数) -> 包裹 {
-        包裹 { 内容: 内容, 重量: 重量 }
+impl Parcel {
+    fn new(contents: String, weight: i32) -> Parcel {
+        Parcel { contents: contents, weight: weight }
     }
 
-    函数 介绍(&自我) {
-        打印行!("包裹：{}，{}克", 自我.内容, 自我.重量);
+    fn introduce(&self) {
+        println!("parcel: {}, {} grams", self.contents, self.weight);
     }
 }
 
-// 签收 = 把包裹的所有权收进来，签收完包裹就"用掉"了
-函数 签收(件: 包裹) {
-    件.介绍();
-    打印行!("已签收！");
+// sign_for = taking the parcel's ownership in; after signing, the parcel is "used up"
+fn sign_for(parcel: Parcel) {
+    parcel.introduce();
+    println!("signed for!");
 }
 
-函数 主函数() {
-    // 造一个包裹
-    让 甲 = 包裹::创建(字符串::从("玩具"), 500);
-    甲.介绍();
+fn main() {
+    // Build a parcel
+    let a = Parcel::new(String::from("toys"), 500);
+    a.introduce();
 
-    // 克隆一份寄出，原件自己留着
-    让 副本 = 甲.克隆();
-    签收(副本);
+    // Clone one to mail out, keep the original
+    let copy = a.clone();
+    sign_for(copy);
 
-    // 原件还在，继续用
-    甲.介绍();
+    // The original is still here, still usable
+    a.introduce();
 
-    // 最后把原件也寄出去
-    签收(甲);
-    // 从此 甲 失效
+    // Finally mail out the original too
+    sign_for(a);
+    // From now on, `a` is dead
 }
 ```
 
@@ -270,28 +282,28 @@ All the ownership knowledge, strung into a "mailing a parcel" story:
 
 ## 7.10 Line by line
 
-- **Line 3**: `#[派生(克隆)]` is a "sticker" (formally an **attribute**) telling the compiler to generate a `克隆()` method for `包裹` automatically. The parentheses accept native trait names (`克隆`, `调试`) or the English originals.
-- **Lines 4–7**: the struct `包裹` has two fields. `内容` is a `字符串` (lives in the warehouse); `重量` is an integer (lives in the pocket).
-- **Lines 10–13**: the associated function `创建`, returning a new parcel (ownership handed to the caller).
-- **Lines 15–17**: `介绍` takes `&自我` — **only borrows**, a look but no take, so the parcel survives the call (borrowing details in Chapter 8).
-- **Lines 21–24**: `签收`'s parameter type is `包裹` (no `&`) — the incoming parcel's ownership belongs to `件`, and when the function ends, `件` is released. The sender has lost this parcel.
-- **Line 28**: `字符串::从("玩具")` builds a string, owned by `甲` along with the parcel.
-- **Line 32**: `甲.克隆()` duplicates a fully independent `副本` (the inner string included).
-- **Line 33**: `签收(副本)` — the copy is collected and released.
-- **Line 36**: `甲` is intact and can still introduce itself.
-- **Line 39**: `签收(甲)` — the original is collected too. Writing `甲.介绍()` after this line would be an E0382.
+- **Line 3**: `#[derive(Clone)]` is a "sticker" (formally an **attribute**) telling the compiler to generate a `.clone()` method for `Parcel` automatically.
+- **Lines 4–7**: the struct `Parcel` has two fields. `contents` is a `String` (lives in the warehouse); `weight` is an integer (lives in the pocket).
+- **Lines 10–13**: the associated function `new`, returning a new parcel (ownership handed to the caller).
+- **Lines 15–17**: `introduce` takes `&self` — **only borrows**, a look but no take, so the parcel survives the call (borrowing details in Chapter 8).
+- **Lines 21–24**: `sign_for`'s parameter type is `Parcel` (no `&`) — the incoming parcel's ownership belongs to `parcel`, and when the function ends, it is released. The sender has lost this parcel.
+- **Line 28**: `String::from("toys")` builds a string, owned by `a` along with the parcel.
+- **Line 32**: `a.clone()` duplicates a fully independent `copy` (the inner string included).
+- **Line 33**: `sign_for(copy)` — the copy is collected and released.
+- **Line 36**: `a` is intact and can still introduce itself.
+- **Line 39**: `sign_for(a)` — the original is collected too. Writing `a.introduce()` after this line would be an E0382.
 
 ---
 
 ## 7.11 What you should see
 
 ```
-包裹：玩具，500克
-包裹：玩具，500克
-已签收！
-包裹：玩具，500克
-包裹：玩具，500克
-已签收！
+parcel: toys, 500 grams
+parcel: toys, 500 grams
+signed for!
+parcel: toys, 500 grams
+parcel: toys, 500 grams
+signed for!
 ```
 
 Mapping it: line 1 is the self-introduction after creation; lines 2–3 are the cloned copy being signed for; lines 4–6 are the original introducing itself and then being signed for too. The two parcels hold identical contents — but they are **two independent values**.
@@ -303,27 +315,26 @@ Mapping it: line 1 is the self-introduction after creation; lines 2–3 are the 
 ### Mistake one: E0382, used after move
 
 ```
-错误[E0382]: 值在移动后被使用：`句子甲`
-💡 Rust 中值被移动后不能再使用。考虑使用 `引用`（&）或 `克隆()` 来避免移动。
+error[E0382]: borrow of moved value: `sentence_a`
 ```
 
 **Three repair routes**:
 
-1. **Just want to look** → pass a reference, `&句子甲` (Chapter 8);
-2. **Both sides need a copy** → `句子甲.克隆()`;
+1. **Just want to look** → pass a reference, `&sentence_a` (Chapter 8);
+2. **Both sides need a copy** → `sentence_a.clone()`;
 3. **Truly giving it to one person** → reorder the code so the last use comes before the move.
 
 ### Mistake two: applying integer behavior to strings
 
-"Why can't I use `甲` anymore? `乙 = 甲` worked fine with integers!" — because integers **copy**, strings **move**. Revisit 7.4's mantra: only "numbers, booleans, single characters" copy.
+"Why can't I use `a` anymore? `let b = a` worked fine with integers!" — because integers **copy**, strings **move**. Revisit 7.4's mantra: only "numbers, booleans, single characters" copy.
 
 ### Mistake three: cloned, but "method not found"
 
-Calling `.克隆()` on your own struct errors because structs **don't** clone by default. Add the sticker `#[派生(克隆)]` before the struct definition.
+Calling `.clone()` on your own struct errors because structs **don't** clone by default. Add the sticker `#[derive(Clone)]` before the struct definition.
 
-### Mistake four: a misspelled derived trait
+### Mistake four: a misspelled derived trait name
 
-`#[派生(克降)]` reports "derive macro not found" — careful not to typo `克隆` into look-alike characters. Supported native trait names: `克隆`, `调试`, `复制`, `哈希` and more.
+`#[derive(Clonee)]` reports "can't find derive macro" — a typo in the trait name. Supported names: `Clone`, `Debug`, `Copy`, `Hash` and more.
 
 ---
 
@@ -341,7 +352,7 @@ Calling `.克隆()` on your own struct errors because structs **don't** clone by
 | Clone | Manually duplicating the full heap copy |
 | E0382 | The error code for "value used after move" |
 | Attribute | A "sticker" on code, written `#[...]`, giving the compiler extra instructions |
-| Derive | Having the compiler generate trait implementations automatically, like `#[派生(克隆)]` |
+| Derive | Having the compiler generate trait implementations automatically, like `#[derive(Clone)]` |
 
 > 📖 **Reminder**: any unfamiliar word — look it up in the master glossary at the front of the book.
 
@@ -356,21 +367,21 @@ Calling `.克隆()` on your own struct errors because structs **don't** clone by
 Decide which variables are still usable after each line (write your answers on paper first):
 
 ```rust
-让 甲 = 10;
-让 乙 = 甲;
-让 丙 = 字符串::从("你好");
-让 丁 = 丙;
-让 戊 = 丁.克隆();
+let a = 10;
+let b = a;
+let c = String::from("Hello");
+let d = c;
+let e = d.clone();
 ```
 
 <details>
 <summary>🔍 View answer</summary>
 
-- `甲`: usable (integers copy);
-- `乙`: usable;
-- `丙`: **not usable** (moved to 丁);
-- `丁`: usable;
-- `戊`: usable (an independent clone).
+- `a`: usable (integers copy);
+- `b`: usable;
+- `c`: **not usable** (moved to d);
+- `d`: usable;
+- `e`: usable (an independent clone).
 
 </details>
 
@@ -380,10 +391,10 @@ This code errors — fix it **two different ways** (hint: one uses clone, one re
 
 ```rust
 // 预期错误: E0382
-函数 主函数() {
-    让 祝福 = 字符串::从("新年好");
-    让 备份 = 祝福;
-    打印行!("{}", 祝福);
+fn main() {
+    let blessing = String::from("Happy new year");
+    let backup = blessing;
+    println!("{}", blessing);
 }
 ```
 
@@ -393,50 +404,50 @@ This code errors — fix it **two different ways** (hint: one uses clone, one re
 Way one: clone.
 
 ```rust
-让 备份 = 祝福.克隆();
+let backup = blessing.clone();
 ```
 
 Way two: print before moving.
 
 ```rust
-让 祝福 = 字符串::从("新年好");
-打印行!("{}", 祝福);
-让 备份 = 祝福;
+let blessing = String::from("Happy new year");
+println!("{}", blessing);
+let backup = blessing;
 ```
 
 </details>
 
 ### Exercise three: a parcel between functions
 
-Write a function `打包` (takes an integer weight, returns a parcel) and a function `拆开` (takes a parcel, prints its contents). In the main function, pack a "积木" (building block), unpack it, then try to use the original variable — and watch the compiler remind you.
+Write a function `pack` (takes an integer weight, returns a parcel) and a function `unpack` (takes a parcel, prints its contents). In the main function, pack a "building block", unpack it, then try to use the original variable — and watch the compiler remind you.
 
 <details>
 <summary>🔍 View answer</summary>
 
 ```rust
-结构体 包裹 {
-    内容: 字符串,
-    重量: 整数,
+struct Parcel {
+    contents: String,
+    weight: i32,
 }
 
-函数 打包(重量: 整数) -> 包裹 {
-    包裹 { 内容: 字符串::从("积木"), 重量: 重量 }
+fn pack(weight: i32) -> Parcel {
+    Parcel { contents: String::from("building blocks"), weight: weight }
 }
 
-函数 拆开(件: 包裹) {
-    打印行!("拆出了：{}", 件.内容);
+fn unpack(parcel: Parcel) {
+    println!("unpacked: {}", parcel.contents);
 }
 
-函数 主函数() {
-    让 礼物 = 打包(800);
-    拆开(礼物);
-    // 下一行会报 E0382：礼物已经过户给 拆开 的参数了
-    // 打印行!("{}", 礼物.重量);
+fn main() {
+    let gift = pack(800);
+    unpack(gift);
+    // The next line would error with E0382: the gift's ownership
+    // has already been transferred to unpack's parameter
+    // println!("{}", gift.weight);
 }
-// 预期输出: 拆出了：积木
 ```
 
-Output: `拆出了：积木`
+Output: `unpacked: building blocks`
 
 </details>
 
@@ -450,11 +461,11 @@ Output: `拆出了：积木`
 
 **Q: Do integers really never move?**
 
-Correct. Integers, floats, booleans and characters — "pocket data" — always copy on assignment. Later you'll learn the precise rule: types implementing the `复制` (Copy) trait all copy.
+Correct. Integers, floats, booleans and characters — "pocket data" — always copy on assignment. Later you'll learn the precise rule: types implementing the `Copy` trait all copy.
 
-**Q: Is the string literal `"你好"` a move too?**
+**Q: Is the string literal `"Hello"` a move too?**
 
-A literal is a **string reference** (`&文本`) — a "borrow". Borrowed things only copy the borrow slip on assignment; both sides stay usable. What truly moves is the `字符串` type, like what `字符串::从("你好")` builds. Chapter 9 draws the line precisely.
+A literal is a **string slice** (`&str`) — a "borrow". Borrowed things only copy the borrow slip on assignment; both sides stay usable. What truly moves is the `String` type, like what `String::from("Hello")` builds. Chapter 9 draws the line precisely.
 
 **Q: What's the real difference between clone and copy?**
 
@@ -477,7 +488,7 @@ Ownership is safe, but "give it away and it's gone" is inconvenient — must you
 **Chapter 8, "References and Borrowing"**, teaches Rust's lending rules:
 
 - A **reference** `&`: borrow to look; the owner is untouched;
-- A **mutable reference** `可变引用`: borrow to modify — with strict limits;
+- A **mutable reference** `&mut`: borrow to modify — with strict limits;
 - **One iron rule**: at any moment, either one mutable borrow or any number of read-only borrows;
 - Why that rule prevents data from fighting.
 

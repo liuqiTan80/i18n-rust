@@ -46,12 +46,12 @@ Three packing methods in this chapter:
 Wrap several things in parentheses, separated by commas — that's a tuple:
 
 ```rust
-让 学生 = ("小华", 12, 真);
+let student = ("Xiaohua", 12, true);
 ```
 
 Piece by piece:
 
-- `("小华", 12, 真)`: a gift box holding **three things** — a piece of text, a number, a boolean. Different kinds mixed together is perfectly fine; that's what tuples are for.
+- `("Xiaohua", 12, true)`: a gift box holding **three things** — a piece of text, a number, a boolean. Different kinds mixed together is perfectly fine; that's what tuples are for.
 - The three things are the tuple's **elements** (its "members"). This tuple has 3 elements.
 
 > 📖 **Tuple**: a compound type that packs several values into one group (pronounced like "toople"). Elements may be of different kinds.
@@ -61,20 +61,20 @@ Piece by piece:
 To take one item out, write `.number` after the tuple's name:
 
 ```rust
-函数 主函数() {
-    让 学生 = ("小华", 12, 真);
-    打印行!("第一项：{}", 学生.0);
-    打印行!("第二项：{}", 学生.1);
-    打印行!("第三项：{}", 学生.2);
+fn main() {
+    let student = ("Xiaohua", 12, true);
+    println!("Item one: {}", student.0);
+    println!("Item two: {}", student.1);
+    println!("Item three: {}", student.2);
 }
 ```
 
 What you should see:
 
 ```
-第一项：小华
-第二项：12
-第三项：真
+Item one: Xiaohua
+Item two: 12
+Item three: true
 ```
 
 > ⚠️ **Careful**: **counting starts at 0, not 1!** The first element's number is 0, the second is 1, the third is 2.
@@ -88,28 +88,28 @@ This is a rule across the entire programming world. Why? We'll explain with arra
 Want all three? Unpack in one go:
 
 ```rust
-函数 主函数() {
-    让 学生 = ("小华", 12, 真);
-    让 (姓名, 岁数, 是否住宿) = 学生;
-    打印行!("{}今年{}岁", 姓名, 岁数);
-    打印行!("住宿吗？{}", 是否住宿);
+fn main() {
+    let student = ("Xiaohua", 12, true);
+    let (name, age, lives_in_dorm) = student;
+    println!("{} is {} years old", name, age);
+    println!("In the dorm? {}", lives_in_dorm);
 }
 ```
 
 Line by line:
 
-- Line 3: `让 (姓名, 岁数, 是否住宿) = 学生;` — the left side of the `=` also has a bracket shape, meaning "split the package into three". The computer matches by position: item 1 goes to `姓名`, item 2 to `岁数`, item 3 to `是否住宿`.
+- Line 3: `let (name, age, lives_in_dorm) = student;` — the left side of the `=` also has a bracket shape, meaning "split the package into three". The computer matches by position: item 1 goes to `name`, item 2 to `age`, item 3 to `lives_in_dorm`.
 - After unpacking, the three names are independent boxes of their own.
 
-> 📖 **Destructuring**: writing that splits packed data apart by shape and takes each piece. "解" is untie, "构" is structure.
+> 📖 **Destructuring**: writing that splits packed data apart by shape and takes each piece out. Like untying a knot and laying the parts out.
 
 > 💡 **Metaphor**: destructuring is like opening a delivery — three things in the parcel, three baskets ready, everything sorted in one pass.
 
 What you should see:
 
 ```
-小华今年12岁
-住宿吗？真
+Xiaohua is 12 years old
+In the dorm? true
 ```
 
 ### Printing the whole tuple: `{:?}`
@@ -117,16 +117,16 @@ What you should see:
 To print the entire tuple at once, the placeholder is `{:?}` (a colon and a question mark inside the braces):
 
 ```rust
-函数 主函数() {
-    让 学生 = ("小华", 12, 真);
-    打印行!("整个元组：{:?}", 学生);
+fn main() {
+    let student = ("Xiaohua", 12, true);
+    println!("the whole tuple: {:?}", student);
 }
 ```
 
 What you should see:
 
 ```
-整个元组：("小华", 12, 真)
+the whole tuple: ("Xiaohua", 12, true)
 ```
 
 > 📖 **Debug printing**: `{:?}` is the "for debugging" print — it shows the thing's internal structure exactly (quotes, brackets and all). The plain `{}` prints the clean, human-facing version. The full story of debug printing is in Chapter 10.
@@ -144,7 +144,7 @@ Picture a corridor of school lockers — each locker the same size, all for the 
 Create arrays with **square brackets**, elements separated by commas:
 
 ```rust
-让 分数 = [88, 95, 76, 90, 82];
+let scores = [88, 95, 76, 90, 82];
 ```
 
 This array holds a school week's scores — 5 elements in total.
@@ -158,39 +158,39 @@ This array holds a school week's scores — 5 elements in total.
 If every locker holds the same thing, there's a shorthand:
 
 ```rust
-让 五个零 = [0; 5];
+let five_zeros = [0; 5];
 ```
 
 > 📖 Read this as "0, repeated 5 times": before the semicolon is the content, after it the count. Same as `[0, 0, 0, 0, 0]`.
 
 ```rust
-打印行!("{:?}", 五个零);   // [0, 0, 0, 0, 0]
+println!("{:?}", five_zeros);   // [0, 0, 0, 0, 0]
 ```
 
 ### Fetching lockers by index: counting starts at 0
 
 ```rust
-函数 主函数() {
-    让 分数 = [88, 95, 76, 90, 82];
-    打印行!("第一天：{}", 分数[0]);
-    打印行!("第三天：{}", 分数[2]);
-    打印行!("最后一天：{}", 分数[4]);
+fn main() {
+    let scores = [88, 95, 76, 90, 82];
+    println!("Day one: {}", scores[0]);
+    println!("Day three: {}", scores[2]);
+    println!("The last day: {}", scores[4]);
 }
 ```
 
 What you should see:
 
 ```
-第一天：88
-第三天：76
-最后一天：82
+Day one: 88
+Day three: 76
+The last day: 82
 ```
 
 A picture makes it clearest:
 
 ```
-柜子:  [ 88 ]  [ 95 ]  [ 76 ]  [ 90 ]  [ 82 ]
-索引:     0       1       2       3       4
+locker:  [ 88 ]  [ 95 ]  [ 76 ]  [ 90 ]  [ 82 ]
+index:      0       1       2       3       4
 ```
 
 5 lockers, but the indices run 0 to 4. For the Nth one, the index is N-1.
@@ -209,21 +209,21 @@ an index means "**how many steps from the start**".
 
 ### Two everyday array skills
 
-**Skill one: `长度()` — count the lockers**
+**Skill one: `.len()` — count the lockers**
 
 ```rust
-打印行!("共{}天", 分数.长度());   // 共5天
+println!("{} days in total", scores.len());   // 5 days in total
 ```
 
-> 📖 **`长度()`**: a method that returns the element count. The dot is followed by a method; the parentheses stay empty. What's a "method"? Chapter 6 explains — for now, treat `.长度()` as a fixed incantation.
+> 📖 **`.len()`**: a method that returns the element count. The dot is followed by a method; the parentheses stay empty. What's a "method"? Chapter 6 explains — for now, treat `.len()` as a fixed incantation.
 
-**Skill two: `包含()` — is this value in there?**
+**Skill two: `.contains()` — is this value in there?**
 
 ```rust
-打印行!("有95分吗？{}", 分数.包含(&95));   // 有95分吗？真
+println!("Is there a 95? {}", scores.contains(&95));   // Is there a 95? true
 ```
 
-> 📖 **`包含()`**: a method that checks whether the array contains a value, returning a boolean. Copy the `&95` for now — `&` is the "borrow" mark, explained fully in Chapter 8. For now: "contains needs a &".
+> 📖 **`.contains()`**: a method that checks whether the array contains a value, returning a boolean. Copy the `&95` for now — `&` is the "borrow" mark, explained fully in Chapter 8. For now: "contains needs a &".
 
 ### Out of bounds: reaching for a locker that isn't there ends badly
 
@@ -231,9 +231,9 @@ The array has 5 lockers (indices 0–4). Insist on number 6:
 
 ```rust
 // 预期行为: 运行失败
-函数 主函数() {
-    让 分数 = [88, 95, 76, 90, 82];
-    打印行!("{}", 分数[5]);   // ❌ out of bounds!
+fn main() {
+    let scores = [88, 95, 76, 90, 82];
+    println!("{}", scores[5]);   // ❌ out of bounds!
 }
 ```
 
@@ -244,15 +244,15 @@ Rust immediately **panics** — the program stops on the spot.
 The panic message looks like this:
 
 ```
-线程 '主函数' 恐慌于 ...:
+thread 'main' panicked at ...:
 index out of bounds: the len is 5 but the index is 5
 ```
 
 Translated: "index out of bounds: the length is 5, but you asked for number 5." (The biggest legal number is 4!)
 
-> ✨ **Tip**: if you write a **constant** out-of-bounds number (like `分数[5]` directly), the compiler stops you at compile time with "this operation will panic at runtime" — the program never even runs. Only when the number comes from outside, unknowable at compile time, does the panic truly happen at runtime. Either way, Rust never lets you quietly read wrong data.
+> ✨ **Tip**: if you write a **constant** out-of-bounds number (like `scores[5]` directly), the compiler stops you at compile time with "this operation will panic at runtime" — the program never even runs. Only when the number comes from outside, unknowable at compile time, does the panic truly happen at runtime. Either way, Rust never lets you quietly read wrong data.
 >
-> ⚠️ **Careful**: `rzc check` only translates and checks — it can't catch this. To see it, actually run `rzc run`.
+> ⚠️ **Careful**: `rzc check` only translates and checks — it can't catch this. To see it, actually run the program.
 
 > 📖 **Index out of bounds**: accessing a number beyond the range. The original message is "index out of bounds" — literally "beyond the boundary".
 
@@ -269,27 +269,27 @@ Say you only want the first three days' scores. Copying them into a new array is
 Write `[start..end]` after the array, with a `&` in front:
 
 ```rust
-函数 主函数() {
-    让 分数 = [88, 95, 76, 90, 82];
-    让 前三天 = &分数[0..3];
-    打印行!("前三天：{:?}", 前三天);
-    打印行!("切片长度：{}", 前三天.长度());
+fn main() {
+    let scores = [88, 95, 76, 90, 82];
+    let first_three = &scores[0..3];
+    println!("First three days: {:?}", first_three);
+    println!("Slice length: {}", first_three.len());
 }
 ```
 
 What you should see:
 
 ```
-前三天：[88, 95, 76]
-切片长度：3
+First three days: [88, 95, 76]
+Slice length: 3
 ```
 
-`&分数[0..3]` piece by piece:
+`&scores[0..3]` piece by piece:
 
 | Part | Meaning |
 |---|---|
 | `&` | Borrow (don't take the original — Chapter 8) |
-| `分数` | The array being sliced |
+| `scores` | The array being sliced |
 | `[0..3]` | From index 0 up to **before** index 3 — i.e. 0, 1 and 2 |
 
 > ⚠️ **Careful**: `0..3` is "**include the head, exclude the tail**" — includes 0, excludes 3. Count them: exactly 3 elements. This rule holds across the whole book.
@@ -299,13 +299,13 @@ What you should see:
 ### Shorter forms
 
 ```rust
-让 从头到第三 = &分数[..3];    // omitted start = from 0
-让 从第三到底 = &分数[2..];    // omitted end = to the last one
-让 全部 = &分数[..];           // both omitted = the whole stretch
+let from_start_to_third = &scores[..3];    // omitted start = from 0
+let from_third_to_end = &scores[2..];      // omitted end = to the last one
+let everything = &scores[..];              // both omitted = the whole stretch
 ```
 
 ```rust
-打印行!("{:?} {:?} {:?}", 从头到第三, 从第三到底, 全部);
+println!("{:?} {:?} {:?}", from_start_to_third, from_third_to_end, everything);
 // [88, 95, 76] [76, 90, 82] [88, 95, 76, 90, 82]
 ```
 
@@ -314,8 +314,8 @@ What you should see:
 Strings can be sliced as well (details in Chapter 9 — just a first meeting here):
 
 ```rust
-让 问候 = &"你好世界"[0..6];
-打印行!("{}", 问候);   // 你好
+let greeting = &"你好世界"[0..6];
+println!("{}", greeting);   // 你好
 ```
 
 > ⚠️ **Careful**: it's 0..6, not 0..2 — each Chinese character occupies 3 "bytes" (little storage cells) in the computer, so "你好" is 6 cells. What's a byte? Chapter 9 explains. For now, copy the 0..6.
@@ -327,30 +327,30 @@ Strings can be sliced as well (details in Chapter 9 — just a first meeting her
 ### The complete code
 
 ```rust
-函数 主函数() {
-    // 一周的分数（周一到周五）
-    让 一周分数 = [88, 95, 76, 90, 82];
+fn main() {
+    // The week's scores (Monday to Friday)
+    let week_scores = [88, 95, 76, 90, 82];
 
-    // 把一周切成两半看
-    让 前两天 = &一周分数[0..2];
-    让 后三天 = &一周分数[2..5];
+    // Cut the week into two halves
+    let first_two = &week_scores[0..2];
+    let last_three = &week_scores[2..5];
 
-    打印行!("一周分数：{:?}", 一周分数);
-    打印行!("共{}天", 一周分数.长度());
-    打印行!("前两天：{:?}", 前两天);
-    打印行!("后三天：{:?}", 后三天);
+    println!("The week's scores: {:?}", week_scores);
+    println!("{} days in total", week_scores.len());
+    println!("First two days: {:?}", first_two);
+    println!("Last three days: {:?}", last_three);
 
-    // 手动求总分和平均分
-    让 总分 = 一周分数[0] + 一周分数[1] + 一周分数[2] + 一周分数[3] + 一周分数[4];
-    让 总分为小数 = 总分 作为 浮点数;
-    让 平均分 = 总分为小数 / 5.0;
-    打印行!("总分：{} 平均分：{}", 总分, 平均分);
+    // Add the total by hand
+    let total = week_scores[0] + week_scores[1] + week_scores[2] + week_scores[3] + week_scores[4];
+    let total_as_float = total as f64;
+    let average = total_as_float / 5.0;
+    println!("total: {}, average: {}", total, average);
 
-    // 学生信息用元组打包
-    让 学生 = ("小华", 12, 真);
-    让 (姓名, 岁数, 是否住宿) = 学生;
-    打印行!("{}今年{}岁，住宿：{}", 姓名, 岁数, 是否住宿);
-    打印行!("元组第二项：{}", 学生.1);
+    // Student information packed in a tuple
+    let student = ("Xiaohua", 12, true);
+    let (name, age, lives_in_dorm) = student;
+    println!("{} is {} years old, dorm: {}", name, age, lives_in_dorm);
+    println!("The tuple's second item: {}", student.1);
 }
 ```
 
@@ -360,10 +360,10 @@ Strings can be sliced as well (details in Chapter 9 — just a first meeting her
 - Line 6: slice out indices 0 and 1 (head in, tail out).
 - Line 7: slice indices 2, 3, 4 — exactly the remaining three days.
 - Line 9: `{:?}` debug-prints the whole array, brackets included.
-- Line 10: `.长度()` returns 5.
+- Line 10: `.len()` returns 5.
 - Lines 11–12: print the two slices.
 - Line 15: add all five elements by hand = 431. (After Chapter 5's loops, this becomes one line — no more writing five.)
-- Line 16: convert to a float (two lines, dodging the `作为` precedence trap from Chapter 3).
+- Line 16: convert to a float (two lines, dodging the `as` precedence trap from Chapter 3).
 - Line 17: 431.0 ÷ 5.0 = 86.2.
 - Line 20: create a three-item tuple: text, number, boolean, mixed.
 - Line 21: destructure — three names, one item each, by position.
@@ -373,13 +373,13 @@ Strings can be sliced as well (details in Chapter 9 — just a first meeting her
 ### What you should see
 
 ```
-一周分数：[88, 95, 76, 90, 82]
-共5天
-前两天：[88, 95]
-后三天：[76, 90, 82]
-总分：431 平均分：86.2
-小华今年12岁，住宿：真
-元组第二项：12
+The week's scores: [88, 95, 76, 90, 82]
+5 days in total
+First two days: [88, 95]
+Last three days: [76, 90, 82]
+total: 431 average: 86.2
+Xiaohua is 12 years old, dorm: true
+The tuple's second item: 12
 ```
 
 ---
@@ -388,85 +388,86 @@ Strings can be sliced as well (details in Chapter 9 — just a first meeting her
 
 ### Mistake 1: index out of bounds
 
-5 elements, biggest index 4. Writing `分数[5]` is out of bounds.
+5 elements, biggest index 4. Writing `scores[5]` is out of bounds.
 
-**The fix**: the biggest legal index is always `长度() - 1`. Unsure? Print `.长度()` first.
+**Fix**: the biggest legal index is always `.len() - 1`. Unsure? Print `.len()` first.
 
 ### Mistake 2: counting from 1
 
-Wanting the first but writing `分数[1]` gets you the second.
+Wanting the first but writing `scores[1]` gets you the second.
 
-**The fix**: chant the mantra — "**the first one is 0**".
+**Fix**: chant the mantra — "**the first one is 0**".
 
 ### Mistake 3: square brackets on a tuple
 
 ```rust
 // 预期错误: E0608
-让 学生 = ("小华", 12, 真);
-打印行!("{}", 学生[0]);   // ❌ tuples don't use square brackets
+let student = ("Xiaohua", 12, true);
+println!("{}", student[0]);   // ❌ tuples don't use square brackets
 ```
 
-**The fix**: tuples use a **dot**: `学生.0`. Square brackets are for arrays. Mantra: **tuple dot, array square**.
+**Fix**: tuples use a **dot**: `student.0`. Square brackets are for arrays. Mantra: **tuple dot, array square**.
 
-### Mistake 4: `包含` without the `&`
+### Mistake 4: `.contains()` without the `&`
 
 ```rust
-分数.包含(95)    // ❌ error
-分数.包含(&95)   // ✅ correct
+scores.contains(95)    // ❌ error
+scores.contains(&95)   // ✅ correct
 ```
 
-**The fix**: copy the `&` — Chapter 8 explains why.
+**Fix**: copy the `&` — Chapter 8 explains why.
 
 ### Mistake 5: mixed kinds in an array
 
 ```rust
 // 预期错误: E0308
-让 混合 = [1, "二", 3];   // ❌ arrays must be one kind
+let mixed = [1, "two", 3];   // ❌ arrays must be one kind
 ```
 
-**The fix**: for mixing, use a tuple `(1, "二", 3)`; arrays hold one kind only.
+**Fix**: for mixing, use a tuple `(1, "two", 3)`; arrays hold one kind only.
 
 ### A bonus experiment: watch a real panic with your own eyes (optional)
 
 This example uses "environment variables" and other later concepts — every line is commented, so you can follow it and see a real panic message:
 
 ```rust
-使用 标准库::环境::环境变量;
+use std::env;
 
-函数 主函数() {
-    让 分数 = [88, 95, 76];
-    // 从电脑的环境变量里读一个叫 序号 的值（相当于程序外的"传话"）
-    让 文字 = 环境变量("序号").期望("请设置环境变量");
-    // 裁剪掉首尾的空白
-    让 干净文字 = 文字.裁剪();
-    // 把文字变成数字。: 无符号机器整数 表示"专门用来数数的整数"
-    让 下标: 无符号机器整数 = 干净文字.解析().期望("要数字");
-    打印行!("分数是：{}", 分数[下标]);
+fn main() {
+    let scores = [88, 95, 76];
+    // Read a value called INDEX from the computer's environment variables
+    // (a message passed in from outside the program)
+    let text = env::var("INDEX").expect("please set the INDEX variable");
+    // Trim the whitespace off both ends
+    let clean = text.trim();
+    // Turn the text into a number. usize means "an integer for counting"
+    let index: usize = clean.parse().expect("a number is needed");
+    println!("the score is: {}", scores[index]);
 }
 ```
 
-On Linux / macOS (type 5 first, on purpose out of bounds):
+On Linux / macOS (set INDEX to 5 first, on purpose out of bounds):
 
 ```bash
-序号=5 rzc run src/主函数.zh
+INDEX=5 cargo run
 ```
 
 You'll see a real panic message:
 
 ```
-thread '主函数' panicked at ...:
-下标越界：长度是 3，但下标是 5
+thread 'main' panicked at ...:
+index out of bounds: the len is 3 but the index is 5
 ```
 
 Now a legal number:
 
 ```bash
-序号=1 rzc run src/主函数.zh
+INDEX=1 cargo run
 ```
 
-Output: `分数是：95`.
+Output: `the score is: 95`.
 
-> ✨ **Tip**: in Windows PowerShell, set the variable as `$env:序号="5"` before running. The `环境变量`, `裁剪`, `解析` and `期望` used here all get proper introductions in later chapters — this experiment is just an early look at what a panic looks like.
+> ✨ **Tip**: in Windows PowerShell, set the variable as `$env:INDEX="5"` before running. The `env::var`, `.trim()`, `.parse()` and `.expect()` used here all get proper introductions in later chapters — this experiment is just an early look at what a panic looks like.
 
 ---
 
@@ -474,8 +475,8 @@ Output: `分数是：95`.
 
 | Term | Meaning |
 |---|---|
-| 包含 | The `包含()` method — does the array contain a value |
-| 长度 | The `长度()` method — returns the element count |
+| contains | The `.contains()` method — does the array contain a value |
+| len | The `.len()` method — returns the element count |
 | Debug printing | Showing data's internal structure with `{:?}` |
 | Range | The `start..end` form — head in, tail out |
 | Panic | The program stopping immediately on an unrecoverable error |
@@ -493,19 +494,21 @@ Output: `分数是：95`.
 
 ## 4.8 Exercises
 
+> 💪 Try first, then peek.
+
 ### Exercise 1: meet the tuple
 
-Create a tuple `城市` (city) with three elements: name "北京", population 2189, capital `真`. Print each with `.0`, `.1`, `.2`.
+Create a tuple `city` with three elements: name "Beijing", population 2189, capital `true`. Print each with `.0`, `.1`, `.2`.
 
 <details>
 <summary>Reference answer</summary>
 
 ```rust
-函数 主函数() {
-    让 城市 = ("北京", 2189, 真);
-    打印行!("{}", 城市.0);
-    打印行!("{}", 城市.1);
-    打印行!("{}", 城市.2);
+fn main() {
+    let city = ("Beijing", 2189, true);
+    println!("{}", city.0);
+    println!("{}", city.1);
+    println!("{}", city.2);
 }
 ```
 
@@ -513,16 +516,16 @@ Create a tuple `城市` (city) with three elements: name "北京", population 21
 
 ### Exercise 2: unpack
 
-Destructure Exercise 1's tuple into three variables, then print one sentence: `北京有2189万人，是首都`.
+Destructure Exercise 1's tuple into three variables, then print one sentence: `Beijing has a population of 21.89 million; capital: true`.
 
 <details>
 <summary>Reference answer</summary>
 
 ```rust
-函数 主函数() {
-    让 城市 = ("北京", 2189, 真);
-    让 (名字, 人口, 是首都) = 城市;
-    打印行!("{}有{}万人，是首都：{}", 名字, 人口, 是首都);
+fn main() {
+    let city = ("Beijing", 2189, true);
+    let (name, population, is_capital) = city;
+    println!("{} has {}0,000 people; capital: {}", name, population, is_capital);
 }
 ```
 
@@ -530,18 +533,18 @@ Destructure Exercise 1's tuple into three variables, then print one sentence: `�
 
 ### Exercise 3: fetch from an array
 
-Create an array `气温` (temperatures) with seven days: `[22, 25, 27, 24, 23, 26, 28]`. Print day 1, day 4 and the last day, plus the array's length.
+Create an array `temperatures` with seven days: `[22, 25, 27, 24, 23, 26, 28]`. Print day 1, day 4 and the last day, plus the array's length.
 
 <details>
 <summary>Reference answer</summary>
 
 ```rust
-函数 主函数() {
-    让 气温 = [22, 25, 27, 24, 23, 26, 28];
-    打印行!("第一天：{}", 气温[0]);
-    打印行!("第四天：{}", 气温[3]);
-    打印行!("最后一天：{}", 气温[6]);
-    打印行!("共{}天", 气温.长度());
+fn main() {
+    let temperatures = [22, 25, 27, 24, 23, 26, 28];
+    println!("Day one: {}", temperatures[0]);
+    println!("Day four: {}", temperatures[3]);
+    println!("The last day: {}", temperatures[6]);
+    println!("{} days in total", temperatures.len());
 }
 ```
 
@@ -557,16 +560,16 @@ Using Exercise 3's array, slice out the "weekend" (the last two days) and the "w
 <summary>Reference answer</summary>
 
 ```rust
-函数 主函数() {
-    让 气温 = [22, 25, 27, 24, 23, 26, 28];
-    让 工作日 = &气温[0..5];
-    让 周末 = &气温[5..7];
-    打印行!("工作日：{:?}", 工作日);
-    打印行!("周末：{:?}", 周末);
+fn main() {
+    let temperatures = [22, 25, 27, 24, 23, 26, 28];
+    let weekdays = &temperatures[0..5];
+    let weekend = &temperatures[5..7];
+    println!("weekdays: {:?}", weekdays);
+    println!("weekend: {:?}", weekend);
 }
 ```
 
-The weekend can also be written `&气温[5..]` (omitted end = to the last).
+The weekend can also be written `&temperatures[5..]` (omitted end = to the last).
 
 </details>
 
@@ -575,16 +578,16 @@ The weekend can also be written `&气温[5..]` (omitted end = to the last).
 What happens when this code runs? How do you fix it?
 
 ```rust
-函数 主函数() {
-    让 三个数 = [1, 2, 3];
-    打印行!("{}", 三个数[3]);
+fn main() {
+    let three_numbers = [1, 2, 3];
+    println!("{}", three_numbers[3]);
 }
 ```
 
 <details>
 <summary>Reference answer</summary>
 
-The array has 3 elements; the biggest index is 2. `三个数[3]` is out of bounds. Because it's a fixed number, the compiler intercepts it at build time with "this operation will panic at runtime". Change it to `三个数[2]` to get the 3.
+The array has 3 elements; the biggest index is 2. `three_numbers[3]` is out of bounds. Because it's a fixed number, the compiler intercepts it at build time with "this operation will panic at runtime". Change it to `three_numbers[2]` to get the 3.
 
 </details>
 
@@ -623,7 +626,7 @@ No. Head in, tail out: it includes 0, 1 and 2. Want 3 included? Write `[0..4]`. 
 1. **Tuples**: parentheses, kinds may differ, fetched with `.0`/`.1`, unpacked by destructuring.
 2. **Arrays**: square brackets, one kind, fixed length, indices from 0.
 3. **Slices**: `&array[start..end]`, head in tail out, borrow without moving.
-4. `.长度()` counts, `{:?}` debug-prints, out-of-bounds always ends badly — and Rust always catches it.
+4. `.len()` counts, `{:?}` debug-prints, out-of-bounds always ends badly — and Rust always catches it.
 
 > 📖 If anything in this chapter confused you, check the chapter glossary above or the master glossary at the front of the book.
 
@@ -631,7 +634,7 @@ No. Head in, tail out: it includes 0, 1 and 2. Want 3 included? Write `[0..4]`. 
 
 In **Chapter 5, "Control Flow"**, the program learns to "make choices" and "do repetitive work":
 
-- **`如果 / 否则`**: umbrella if it rains, hat if it doesn't.
-- **`匹配`**: like a vending machine — press a button, get that snack.
-- **`循环`, `当`, `对于`**: hand the repetition to the computer.
+- **`if / else`**: umbrella if it rains, hat if it doesn't.
+- **`match`**: like a vending machine — press a button, get that snack.
+- **`loop`, `while`, `for`**: hand the repetition to the computer.
 - And you'll discover that a code block `{ }` is itself a "value" you can use.
