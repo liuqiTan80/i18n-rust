@@ -9,9 +9,10 @@ same way.
 |---|---|---|
 | [Preface: How to Use This Book](Preface-How-to-Use-This-Book.md) | 开篇：这本书怎么用 | ✅ done |
 | [Appendix D: Command Cheat Sheet](Appendix-D-Command-Cheatsheet.md) | 附录D：rzc命令速查 | ✅ done |
+| [Chapter 1: Making the Most of the VS Code Extension](Chapter-1-Making-the-Most-of-the-VS-Code-Extension.md) | 第一章：用好VS Code扩展 | ✅ done (all code blocks verified) |
 | [Chapter 2: Hello, World](Chapter-2-Hello-World.md) | 第二章：你好世界 | ✅ done (16/16 code blocks verified) |
 | [Chapter 3: Variables and Types](Chapter-3-Variables-and-Types.md) | 第三章：变量与类型 | ✅ done (44 blocks: 41 pass + 3 expected cross-block deps) |
-| Chapter 1, 3–26, Appendices A–C & E | 第一章、第三章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
+| Chapter 4–26, Appendices A–C & E | 第四章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
 Translation principles:
 
