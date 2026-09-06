@@ -8,6 +8,8 @@
 
 # rzc: Mehrsprachiger Compiler für den Rust-Lehrdialekt
 
+> 🌍 **Schreibe Rust in deiner Muttersprache.** · 10 Sprachen · echtes Rust, echte Toolchain · jederzeit mit `rzc eject` abschließen
+
 Schreibe Rust-Programme in deiner Muttersprache — rzc übersetzt sie automatisch in Standard-Rust und kompiliert sie. Lerne Programmieren, nicht Englisch.
 
 ```rust
