@@ -1,0 +1,33 @@
+# crate name mapping (for use paths)
+["模块路径"]
+"sqlx" = "sqlx"
+"diesel" = "diesel"
+"rusqlite" = "rusqlite"
+
+# internal identifier mapping (types, functions, etc.)
+["标识符"]
+# sqlx
+"Pool" = "Pool"
+"Connection" = "Connection"
+"query" = "query"
+"execute" = "execute"
+"fetch" = "fetch"
+"fetch_all" = "fetch_all"
+"fetch_one" = "fetch_one"
+"fetch_optional" = "fetch_optional"
+"Transaction" = "Transaction"
+"migrate" = "migrate"
+
+# diesel
+"QueryDsl" = "QueryDsl"
+"Insertable" = "Insertable"
+"Queryable" = "Queryable"
+"Table" = "Table"
+"select" = "select"
+"filter" = "filter"
+"order" = "order"
+"limit" = "limit"
+
+# rusqlite
+"Statement" = "Statement"
+"prepare" = "prepare"

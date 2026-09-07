@@ -61,6 +61,24 @@ fn builtin_file_or_panic(lang: &str, file: &str) -> &'static str {
     i18n_rust_engine::语言::builtin_file(lang, file).expect("内置语言包文件缺失：引擎未嵌入该文件")
 }
 
+// 英文内置语言包（恒等映射：Rust 本以英文书写；教程验证管线依赖 .en 扩展名）
+define_builtin_lang!(
+    EN_DATA,
+    "en",
+    [
+        "Serialization.toml",
+        "Async.toml",
+        "CommandLine.toml",
+        "Database.toml",
+        "Tools.toml",
+        "Logging.toml",
+        "Network.toml",
+        "ErrorHandling.toml",
+        "WebFramework.toml",
+        "salvo.toml",
+    ]
+);
+
 // 中文内置语言包（完整翻译映射 + 10 个第三方库映射）
 define_builtin_lang!(
     ZH_DATA,
@@ -268,6 +286,7 @@ define_builtin_lang!(
 pub fn get_builtin_data(lang_code: &str) -> &BuiltinLangData {
     match lang_code {
         "zh" => &ZH_DATA,
+        "en" => &EN_DATA,
         "de" => &DE_DATA,
         "ja" => &JA_DATA,
         "ru" => &RU_DATA,

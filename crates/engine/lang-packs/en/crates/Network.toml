@@ -1,0 +1,39 @@
+# crate name mapping (for use paths)
+["模块路径"]
+"reqwest" = "reqwest"
+"hyper" = "hyper"
+"tonic" = "tonic"
+"websocket" = "websocket"
+
+# internal identifier mapping (types, functions, etc.)
+["标识符"]
+# reqwest
+"Client" = "Client"
+"Request" = "Request"
+"Response" = "Response"
+"get" = "get"
+"post" = "post"
+"body" = "body"
+"header" = "header"
+"query" = "query"
+"json" = "json"
+"text" = "text"
+"bytes" = "bytes"
+
+# hyper
+"Server" = "Server"
+"Service" = "Service"
+"Method" = "Method"
+"Uri" = "Uri"
+"StatusCode" = "StatusCode"
+
+# tonic
+"Channel" = "Channel"
+"Status" = "Status"
+
+# websocket
+"WebSocket" = "WebSocket"
+"Message" = "Message"
+"Binary" = "Binary"
+"Close" = "Close"
+"recv" = "recv"
