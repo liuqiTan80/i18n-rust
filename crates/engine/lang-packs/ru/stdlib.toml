@@ -247,6 +247,10 @@
 "двоичная_куча" = "BinaryHeap"
 "хэш_множество" = "HashSet"
 "двусторонняя_очередь" = "VecDeque"
+"добавь_в_конец" = "push_back"
+"добавь_в_начало" = "push_front"
+"извлеки_спереди" = "pop_front"
+"извлеки_с_конца" = "pop_back"
 "связный_список" = "LinkedList"
 "ключи" = "keys"
 "значения" = "values"
@@ -656,7 +660,7 @@
 
 # zh 基准补齐（英语原名恒等映射）
 "set" = "set"
-"contains_key" = "contains_key"
+"содержит_ключ" = "contains_key"
 "contains_value" = "contains_value"
 "Weak" = "Weak"
 "strong_count" = "strong_count"
