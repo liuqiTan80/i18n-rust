@@ -178,8 +178,25 @@ fn compose_pipeline_map(
                 }
                 off
             };
-            // original/length 以母语源文本为准
-            let original = &source[zh_offset..zh_offset + e.length];
+            // original/length 以母语源文本为准。
+            // 注意：非第 0 阶段的 e.length 处于该阶段输入坐标，未必等于母语源坐标长度；
+            // 这里把起止偏移都夹到母语源文本的合法字符边界，避免多字节字符（如日本語の
+            // メソッド名 `から`）切片越界引发 panic。transpile 输出本身不受影响。
+            let src_len = source.len();
+            let start = zh_offset.min(src_len);
+            let end_raw = (zh_offset + e.length).min(src_len);
+            let start = {
+                let mut s = start;
+                while s < src_len && !source.is_char_boundary(s) {
+                    s += 1;
+                }
+                s
+            };
+            let mut end = end_raw;
+            while end > start && !source.is_char_boundary(end) {
+                end -= 1;
+            }
+            let original = &source[start..end];
             merged.push(cache::SourceMapEntry::new(
                 zh_offset,
                 e.length,

@@ -47,7 +47,8 @@ from concurrent.futures import ThreadPoolExecutor
 OMIT_MARKS = ("...", "……", "省略")
 # 错误示例标记：裸 `错误` 词（Result::Err 构造/错误类型名）不判定
 ERR_MARKS = ("❌", "报错", "编译失败")
-ERR_CODE_RE = re.compile(r"错误\[?(E\d{4})\]?")
+# 错误码提取：兼容各语言诊断前缀（中文 错误 / 日文 エラー / 英文 error）
+ERR_CODE_RE = re.compile(r"(?:错误|エラー|error)\[?\s*(E\d{4})\]?")
 # 预期标记行：代码块内注释，支持三类：
 #   `// 预期错误: E0384[, E0308]`   断言编译失败，且实际错误码包含预期码
 #   `// 预期错误: any`              断言编译失败（任意错误）
@@ -65,7 +66,10 @@ EXPECT_OUT_LINE_RE = re.compile(r"^\s*//\s?(.*)$")
 # 异步/不安全 为前缀修饰，后跟 函数/结构体/块）
 DECL_WORDS = ("fn ", "struct ", "impl ", "enum ", "use ", "mod ", "pub ", "const ", "static ", "type ",
               "使用", "结构体", "实现", "特征", "枚举", "常量",
-              "类型", "函数", "外部", "宏规则", "宏", "模块", "异步", "不安全")
+              "类型", "函数", "外部", "宏规则", "宏", "模块", "异步", "不安全",
+              # 日本語 (ja)
+              "関数 ", "構造体 ", "実装 ", "列挙型 ", "使用 ", "定数 ", "型 ",
+              "モジュール ", "公開 ", "外部 ", "トレイト ", "非同期 ", "安全でない ")
 
 CARGO_TMPL = """[package]
 name = "verify"
@@ -107,34 +111,61 @@ def extract_blocks(md_path):
 
 # ---------- 分类 ----------
 
-def is_complete_program(content):
-    """完整程序识别：方言（含 `函数 主函数`）或标准 Rust（含 `fn main`）。"""
-    return "函数 主函数" in content or "fn main" in content
+# 各语言的主函数签名片段（用于"完整程序"识别与包裹头）。
+MAIN_FUNCS = {
+    "zh": "函数 主函数",
+    "ja": "関数 主関数",
+}
+# 未登记方言的语言（en 等）按标准 Rust 处理。
+STD_MAIN = "fn main"
 
 
-def has_native_keywords(content):
-    """片段是否使用方言关键词（决定包裹主函数用哪种头）。"""
-    return any(k in content for k in ("函数", "让 ", "打印行", "如果", "匹配", "循环", "对于"))
+def is_complete_program(content, lang="zh"):
+    """完整程序识别：语言对应的方言主函数，或标准 Rust（fn main）。"""
+    if lang in MAIN_FUNCS:
+        return MAIN_FUNCS[lang] in content
+    return STD_MAIN in content
 
 
-def classify(content):
-    if any(k in content for k in OMIT_MARKS) and not is_complete_program(content):
+NATIVE_KEYWORDS = {
+    "zh": ("函数", "让 ", "打印行", "如果", "匹配", "循环", "对于"),
+    "ja": ("関数", "宣言 ", "表示行", "もし", "マッチ", "ループ", "各"),
+}
+
+
+def has_native_keywords(content, lang):
+    """片段是否使用对应语言方言关键词（决定包裹主函数用哪种头）。"""
+    if lang in NATIVE_KEYWORDS:
+        return any(k in content for k in NATIVE_KEYWORDS[lang])
+    # 标准 Rust：用 fn/let/struct... 等英文关键词探测
+    return any(k in content for k in ("fn ", "let ", "struct ", "impl ", "match ", "println!"))
+
+
+def main_header(lang):
+    """各语言方言的主函数头。"""
+    if lang in MAIN_FUNCS:
+        return MAIN_FUNCS[lang] + "() {"
+    return STD_MAIN + "() {"
+
+
+def classify(content, lang="zh"):
+    if any(k in content for k in OMIT_MARKS) and not is_complete_program(content, lang):
         return "省略"
     if any(m in content for m in ERR_MARKS) or ERR_CODE_RE.search(content):
         return "错误示例"
-    if is_complete_program(content):
+    if is_complete_program(content, lang):
         return "完整程序"
     return "片段"
 
 
-def classify_task(expected, behavior, expected_output, content):
+def classify_task(expected, behavior, expected_output, content, lang="zh"):
     """按标记优先级定任务类型：预期错误/行为标记 → 错误示例；
     预期输出标记 → 输出示例；否则按内容分类。"""
     if expected is not None or behavior:
         return "错误示例"
     if expected_output is not None:
         return "输出示例"
-    return classify(content)
+    return classify(content, lang)
 
 
 def parse_marks(content):
@@ -252,7 +283,7 @@ def collect_decl(lines, i):
     return j
 
 
-def wrap_snippet(content):
+def wrap_snippet(content, lang="zh"):
     """片段包裹：按花括号配对识别完整顶层声明（含 结构体/枚举/函数/宏规则 块），
     声明放外面，其余语句进主函数"""
     lines = content.splitlines(keepends=True)
@@ -278,18 +309,18 @@ def wrap_snippet(content):
             i += 1
     if not body:
         body = ["    // （无语句）\n"]
-    header = ("\n函数 主函数() {\n" if has_native_keywords(content)
-              else "\nfn main() {\n")
+    header = "\n" + main_header(lang) + "\n" if has_native_keywords(content, lang) else "\n" + main_header(lang) + "\n"
     return "".join(top) + header + "".join(body) + "}\n"
 
 
 # ---------- 项目生成 ----------
-def make_project(work_dir, src_text, deps=""):
+def make_project(work_dir, src_text, deps="", lang="zh"):
     """在 work_dir 下生成 Cargo.toml + src/主函数.zh，返回 src 路径"""
     os.makedirs(os.path.join(work_dir, "src"), exist_ok=True)
     with open(os.path.join(work_dir, "Cargo.toml"), "w", encoding="utf-8") as f:
         f.write(CARGO_TMPL.replace("[dependencies]\n", "[dependencies]\n" + deps))
-    src_path = os.path.join(work_dir, "src", "主函数.zh")
+    ext = {"zh": "主函数.zh"}.get(lang, f"main.{lang}")
+    src_path = os.path.join(work_dir, "src", ext)
     with open(src_path, "w", encoding="utf-8") as f:
         f.write(src_text)
     return src_path
@@ -378,13 +409,13 @@ def actual_error_codes(output):
 
 
 # ---------- 单块任务 ----------
-def build_task(work, index, fname, start, content, expected, behavior, expected_output, serialize):
+def build_task(work, index, fname, start, content, expected, behavior, expected_output, serialize, lang="zh"):
     """构造单个块的验证：完整程序/错误示例（无主函数则包裹）/片段包裹。
 
     带 `// 预期错误:` 或 `// 预期行为:` 标记的块按错误示例断言
     （教学意图明确的故意报错/风格演示），不因缺少 ❌ 而走片段断言；
     带 `// 预期输出:` 标记的块归为"输出示例"，断言编译通过 + 输出匹配。"""
-    kind = classify_task(expected, behavior, expected_output, content)
+    kind = classify_task(expected, behavior, expected_output, content, lang)
     if serialize:
         # 串联模式：由调用方拼接，这里不单独验证
         return None
@@ -392,30 +423,33 @@ def build_task(work, index, fname, start, content, expected, behavior, expected_
         return None
     deps = block_deps(fname, index)
     if kind == "错误示例":
-        if is_complete_program(content):
+        if is_complete_program(content, lang):
             src = content
         else:
-            src = wrap_snippet(textwrap.dedent(content))
+            src = wrap_snippet(textwrap.dedent(content), lang)
     elif kind == "完整程序":
         src = content
     elif kind == "输出示例":
         # 与完整程序同规则：有主函数原样，无主函数（片段）包裹
-        src = content if is_complete_program(content) else wrap_snippet(textwrap.dedent(content))
+        src = content if is_complete_program(content, lang) else wrap_snippet(textwrap.dedent(content), lang)
     else:
-        src = wrap_snippet(textwrap.dedent(content))
+        src = wrap_snippet(textwrap.dedent(content), lang)
     d = os.path.join(work, f"b{index:03d}")
     os.makedirs(d, exist_ok=True)
-    src_path = make_project(d, src, deps)
+    src_path = make_project(d, src, deps, lang)
     return (index, fname, start, kind, expected, behavior, expected_output, src_path, d)
 
 
 # ---------- 串联（章节级） ----------
-def extract_main_body(content):
-    """括号配对提取 `函数 主函数() { ... }`，返回 (函数体, 其余部分)。
+def extract_main_body(content, lang="zh"):
+    """括号配对提取 `函数 主函数() { ... }` 或对应语言的等价主函数，返回 (函数体, 其余部分)。
     主函数签名行整体从其余部分移除（残留签名会让后续 collect_decl 配对错乱）。
-    注释行里的 `函数 主函数()` 不匹配（先跳过以 `//` 开头的行）。
+    注释行里的主函数签名不匹配（先跳过以 `//` 开头的行）。
     找不到时返回 (None, content)。"""
-    for m in re.finditer(r"函数\s+主函数\s*\(\s*\)", content):
+    main_re = re.compile(r"函数\s+主函数\s*\(\s*\)" if lang == "zh"
+                         else (r"関数\s+主関数\s*\(\s*\)" if lang == "ja"
+                               else r"fn\s+main\s*\(\s*\)"))
+    for m in main_re.finditer(content):
         line_start = content.rfind("\n", 0, m.start()) + 1
         if content[line_start:m.start()].strip().startswith("//"):
             continue
@@ -498,7 +532,7 @@ def append_decl(decl, raw_lines, top_lines, seen_decl, seen_name, seen_methods):
     return True
 
 
-def build_serialized(work, chapter_blocks, base_name, allowlist, deps=""):
+def build_serialized(work, chapter_blocks, base_name, allowlist, deps="", lang="zh"):
     """把一章的非错误示例块按顺序拼接：顶层声明去重，语句合并进主函数。
 
     跳过带教学标记的块（故意报错/风格演示）与白名单中 category 为
@@ -518,20 +552,20 @@ def build_serialized(work, chapter_blocks, base_name, allowlist, deps=""):
         item = allowlist.get((fname, start))
         if item and item.get("category") in ("故意报错", "环境依赖", "练习答案"):
             continue
-        if classify(content) in ("错误示例", "省略"):
+        if classify(content, lang) in ("错误示例", "省略"):
             continue
         content = textwrap.dedent(content)
-        if "函数 主函数" in content:
+        if (MAIN_FUNCS.get(lang, STD_MAIN)) in content:
             # 完整程序块：主函数体提取为语句（作用域隔离，避免块内 item 重复定义），
             # 其余顶层声明并入（按定义名去重）
-            body, rest = extract_main_body(content)
+            body, rest = extract_main_body(content, lang)
             if body is not None:
                 main_lines.append("{\n" + body + "}\n")
             rest_lines = (rest or "").splitlines(keepends=True)
             k, n2 = 0, len(rest_lines)
             while k < n2:
                 st = rest_lines[k].strip()
-                if not st or st.startswith("//") or "函数 主函数" in st:
+                if not st or st.startswith("//") or (MAIN_FUNCS.get(lang, STD_MAIN) in st):
                     k += 1
                     continue
                 if is_decl_head(st) or st.startswith("#["):
@@ -559,17 +593,18 @@ def build_serialized(work, chapter_blocks, base_name, allowlist, deps=""):
             else:
                 body_lines.append(lines[i])
                 i += 1
-    src = "".join(top_lines) + "\n函数 主函数() {\n" \
+    src = "".join(top_lines) + "\n" + main_header(lang) + "\n" \
         + "".join(main_lines) + "".join(body_lines) + "}\n"
     d = os.path.join(work, f"serial_{base_name}")
     os.makedirs(d, exist_ok=True)
-    src_path = make_project(d, src, deps)
+    src_path = make_project(d, src, deps, lang)
     return src_path, d
 
 
 # ---------- 主流程 ----------
 def main():
     ap = argparse.ArgumentParser(description="教程代码块可编译性验证（CI 硬门禁）")
+    ap.add_argument("--lang", default="zh", help="教程语言（决定临时项目扩展名与包裹头）")
     ap.add_argument("--dir", default=None, help="教程目录（默认仓库根 tutorials/）")
     ap.add_argument("--rzc", default=None, help="rzc 可执行文件（默认仓库内 target/debug/rzc）")
     ap.add_argument("--json", default=None, help="输出机器可读报告到文件")
@@ -613,7 +648,7 @@ def main():
     for index, fname, start, section, content, expected, behavior, expected_output in all_blocks:
         kind = classify_task(expected, behavior, expected_output, content)
         stats[kind] += 1
-        t = build_task(work, index, fname, start, content, expected, behavior, expected_output, args.serialize)
+        t = build_task(work, index, fname, start, content, expected, behavior, expected_output, args.serialize, args.lang)
         if t:
             tasks.append(t)
 
@@ -667,7 +702,7 @@ def main():
             deps = block_deps(fname, -1)
             if "第二十五章" in fname:
                 deps += 'rustc_lexer = "0.1"\n'
-            src_path, d = build_serialized(work, blocks, base_name, allowlist, deps)
+            src_path, d = build_serialized(work, blocks, base_name, allowlist, deps, args.lang)
             ok, rc, out = check_one(rzc, src_path, d, set(), None, timeout=180)
             codes = actual_error_codes(out)
             serial_results.append({
