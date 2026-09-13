@@ -217,7 +217,11 @@ jobs:
       - name: 运行基准并对比入库基线（超阈值时失败）
         # 基线：crates/engine/benches/baseline.json（开发者用
         # tools/bench-check.sh --update 刷新后随仓库提交）；
-        # 回归阈值默认 30%，可用 BENCH_REGRESSION_PCT 覆盖。
+        # 阈值：本地默认 30%；CI 复用共享 runner（邻租户负载干扰大），
+        # 同一提交实测波动可超 60%，故 CI 放宽到 100% 只拦灾难性回归，
+        # 精细对比留给开发者本地（BENCH_REGRESSION_PCT 默认 30）。
+        env:
+          BENCH_REGRESSION_PCT: "100"
         run: tools/bench-check.sh
 
       - name: 上传基准报告
@@ -264,8 +268,31 @@ jobs:
           ./target/release/rzc --version
           ./target/release/i18n-rust-lsp --version
 
-      - name: 平台相关单测（Windows/macOS 的 PATH 扫描、进程管理路径）
+      - name: 平台相关单测（Linux/Windows）
+        if: matrix.os_name != 'macos'
         run: cargo test --release -p rzc -p i18n-rust-lsp --locked
+
+      # macOS 侧曾出现测试失败但无日志权限定位难；拆成模块级探针，
+      # 失败时从步级结论即可定位到具体模块（探针间无状态依赖）。
+      - name: 平台单测·探针0 编译测试二进制（macos）
+        if: matrix.os_name == 'macos'
+        run: cargo test --release --locked -p rzc -p i18n-rust-lsp --no-run
+
+      - name: 平台单测·探针1 lsp analyzer 模块（macos）
+        if: matrix.os_name == 'macos'
+        run: cargo test --release --locked -p i18n-rust-lsp -- analyzer
+
+      - name: 平台单测·探针2 lsp 其余模块（macos）
+        if: matrix.os_name == 'macos'
+        run: cargo test --release --locked -p i18n-rust-lsp -- --skip analyzer
+
+      - name: 平台单测·探针3 rzc lang_manager 模块（macos）
+        if: matrix.os_name == 'macos'
+        run: cargo test --release --locked -p rzc -- lang_manager
+
+      - name: 平台单测·探针4 rzc 其余模块（macos）
+        if: matrix.os_name == 'macos'
+        run: cargo test --release --locked -p rzc -- --skip lang_manager
 
       - name: 上传二进制产物
         uses: actions/upload-artifact@v4
