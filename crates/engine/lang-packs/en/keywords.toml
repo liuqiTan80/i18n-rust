@@ -14,6 +14,7 @@
 "static" = "static"
 "struct" = "struct"
 "enum" = "enum"
+"union" = "union"
 "type" = "type"
 "trait" = "trait"
 "impl" = "impl"
@@ -150,3 +151,34 @@
 "env" = "env"
 "option_env" = "option_env"
 "cfg" = "cfg"
+
+# ============================================
+# Derived trait names
+# ============================================
+["派生特征"]
+"Clone" = "Clone"
+"Copy" = "Copy"
+"Debug" = "Debug"
+"PartialEq" = "PartialEq"
+"Eq" = "Eq"
+"PartialOrd" = "PartialOrd"
+"Ord" = "Ord"
+"Hash" = "Hash"
+"Default" = "Default"
+
+# ============================================
+# Standard library member names (trait methods / associated types / attributes)
+# ============================================
+["标准库成员"]
+"next" = "next"
+"from" = "from"
+"fmt" = "fmt"
+"add" = "add"
+"Item" = "Item"
+"Output" = "Output"
+"repr" = "repr"
+"expr" = "expr"
+"ident" = "ident"
+"literal" = "literal"
+"ty" = "ty"
+"should_panic" = "should_panic"

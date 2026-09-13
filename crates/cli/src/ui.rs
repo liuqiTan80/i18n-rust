@@ -219,8 +219,8 @@ mod tests {
         let _lock = crate::lang_manager::tests::env_lock();
         for (locale, expected) in [
             ("zh_CN.UTF-8", "zh"),
-            // en 语言包已移除（0.5.6），en 区域设置有效回退到默认 zh
-            ("en_US.UTF-8", "zh"),
+            // en 语言包已恢复（恒等映射），en 区域设置直接命中 en
+            ("en_US.UTF-8", "en"),
             ("de_DE.UTF-8", "de"),
             ("ja_JP.UTF-8", "ja"),
             ("ru_RU.UTF-8", "ru"),

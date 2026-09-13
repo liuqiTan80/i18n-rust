@@ -862,5 +862,17 @@
     "line": 153,
     "category": "上下文依赖",
     "note": "教学片段：变量定义在前后块（zh 同模式）"
+  },
+  {
+    "file": "Chapter-12-Generics.md",
+    "line": 110,
+    "category": "上下文依赖",
+    "note": "定义在前后代码块，单块提取无法解析"
+  },
+  {
+    "file": "Chapter-12-Generics.md",
+    "line": 408,
+    "category": "上下文依赖",
+    "note": "定义在前后代码块，单块提取无法解析"
   }
 ]

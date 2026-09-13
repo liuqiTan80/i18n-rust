@@ -22,14 +22,14 @@ fn test_version_outputs_name_and_version() {
         .stdout(predicates::str::contains(env!("CARGO_PKG_VERSION")));
 }
 
-/// `lang list` 无需 RZ_LANG_DIR 与网络：内置 10 语言包编译期嵌入
+/// `lang list` 无需 RZ_LANG_DIR 与网络：内置 11 语言包编译期嵌入
 #[test]
 fn test_lang_list_lists_builtin_packs() {
     rzc()
         .args(["lang", "list"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("10"))
+        .stdout(predicates::str::contains("11"))
         .stdout(predicates::str::contains("zh"));
 }
 
