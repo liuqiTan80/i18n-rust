@@ -216,11 +216,22 @@ mod tests {
 
     #[test]
     fn test_detect_system_language() {
-        let lang = detect_system_language();
-        assert!(
-            lang == "zh" || lang == "ru",
-            "应返回 zh 或 ru，实际: {}",
-            lang
-        );
+        // 系统语言完全由环境变量决定：临时接管清除 LC_ALL / LC_MESSAGES / LANG
+        // 后逐个设定确定性断言。直接读真实环境断言会因 CI 平台 locale 差异
+        // 假失败（macos runner 预设 en，此前断言 zh/ru 即因此挂掉）
+        let _lock = crate::lang_manager::tests::env_lock();
+        let _env = crate::lang_manager::tests::EnvRestore::take(&["LC_ALL", "LC_MESSAGES", "LANG"]);
+        unsafe {
+            std::env::set_var("LANG", "zh_CN.UTF-8");
+        }
+        assert_eq!(detect_system_language(), "zh", "zh_CN 应识别为 zh");
+        unsafe {
+            std::env::set_var("LANG", "ru_RU.UTF-8");
+        }
+        assert_eq!(detect_system_language(), "ru", "ru_RU 应识别为 ru");
+        unsafe {
+            std::env::remove_var("LANG");
+        }
+        assert_eq!(detect_system_language(), "zh", "无区域设置应回退默认 zh");
     }
 }

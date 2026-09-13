@@ -527,11 +527,30 @@ mod tests {
     /// 不存在的 crate 应报错（含"未找到"提示）
     #[test]
     fn test_nonexistent_crate_error() {
+        // 错误文案按界面语言渲染，语言又取自环境变量：临时接管清除
+        // 区域设置 / RZ_LANG，保证命中中文模板（macos runner 预设 en
+        // 会渲染出英文文案，导致此前断言假失败）
+        let _lock = crate::lang_manager::tests::env_lock();
+        let _env = crate::lang_manager::tests::EnvRestore::take(&[
+            "RZ_LANG",
+            "LC_ALL",
+            "LC_MESSAGES",
+            "LANG",
+        ]);
         let temp = TempProject::new("rzc-不存在的crate-xyz-123").expect("创建临时项目失败");
+        // 写入不含目标 crate 的有效最小项目：让 `cargo metadata` 成功，
+        // 从而命中产品逻辑的 "crate 未找到" 映射（否则 cargo 先因缺
+        // Cargo.toml 报通用错误，根本走不到该分支）
+        fs::write(
+            temp.path().join("Cargo.toml"),
+            "[package]\nname = \"rzc-mapping-temp\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n",
+        )
+        .unwrap();
+        fs::write(temp.path().join("src/lib.rs"), "// 空库\n").unwrap();
         let result = extract_doc_json_internal(&temp, "rzc-不存在的crate-xyz-123");
         let err = result.expect_err("应报错");
         assert!(
-            err.to_string().contains("未找到") || err.to_string().contains("失败"),
+            err.to_string().contains("未找到"),
             "错误应提示未找到: {}",
             err
         );

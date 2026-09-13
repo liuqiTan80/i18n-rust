@@ -198,7 +198,30 @@ mod tests {
 
     #[test]
     fn test_load_default_falls_back_zh() {
-        let ui = Ui::load(Path::new("/不存在的目录"));
-        assert_eq!(ui.t("lsp_about"), "i18n-rust LSP 代理服务器");
+        // 加载优先级中环境变量（RZ_LANG / LC_ALL / LC_MESSAGES / LANG）先于
+        // 默认中文：CI 的 macos runner 预设 en 区域设置，会先命中 en 语言包。
+        // 此处临时接管清除全部语言来源，验证“无任何来源时回退 zh”。
+        // 本 crate 仅此测试触碰这些变量，无需跨测试锁。
+        let keys = ["RZ_LANG", "LC_ALL", "LC_MESSAGES", "LANG"];
+        let saved: Vec<(&str, Option<String>)> =
+            keys.iter().map(|k| (*k, std::env::var(k).ok())).collect();
+        for k in keys {
+            unsafe {
+                std::env::remove_var(k);
+            }
+        }
+        let about = Ui::load(Path::new("/不存在的目录")).t("lsp_about");
+        // 先恢复环境变量再断言：断言失败 panic 也不污染并行测试
+        for (k, v) in saved {
+            match v {
+                Some(val) => unsafe {
+                    std::env::set_var(k, val);
+                },
+                None => unsafe {
+                    std::env::remove_var(k);
+                },
+            }
+        }
+        assert_eq!(about, "i18n-rust LSP 代理服务器");
     }
 }

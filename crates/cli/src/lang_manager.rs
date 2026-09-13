@@ -886,9 +886,45 @@ pub(crate) mod tests {
     /// 或修改环境变量的测试同样必须持有本锁，否则并发执行时互相污染。
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-    /// 获取环境变量互斥锁（供其他测试模块复用）
+    /// 获取环境变量互斥锁（供其他测试模块复用）。
+    ///
+    /// 锁被毒化时（持锁测试断言失败 panic）取回内部数据继续运行，
+    /// 避免一次失败级联成后续所有持锁测试的 PoisonError 假故障。
     pub(crate) fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-        ENV_LOCK.lock().unwrap()
+        ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// 环境变量临时接管守卫（供其他测试模块复用）：保存指定变量原值并从
+    /// 环境移除，Drop 时恢复——断言失败 panic 时也不污染后续测试。
+    pub(crate) struct EnvRestore(Vec<(&'static str, Option<String>)>);
+
+    impl EnvRestore {
+        /// 接管（保存并移除）指定环境变量；调用方须持有 env_lock
+        pub(crate) fn take(keys: &[&'static str]) -> Self {
+            let saved = keys.iter().map(|k| (*k, std::env::var(k).ok())).collect();
+            for k in keys {
+                // Rust 2024：读写进程级环境变量为 unsafe，须由 env_lock 串行化
+                unsafe {
+                    std::env::remove_var(k);
+                }
+            }
+            Self(saved)
+        }
+    }
+
+    impl Drop for EnvRestore {
+        fn drop(&mut self) {
+            for (k, v) in &self.0 {
+                match v {
+                    Some(val) => unsafe {
+                        std::env::set_var(k, val);
+                    },
+                    None => unsafe {
+                        std::env::remove_var(k);
+                    },
+                }
+            }
+        }
     }
 
     /// 在临时根下制作一个最小语言包目录（含 crates/ 子目录）

@@ -215,8 +215,11 @@ mod tests {
 
     #[test]
     fn test_detect_system_language_tags() {
-        // 修改全局环境变量（LANG），需持环境变量锁避免污染并发测试
+        // 修改全局环境变量（LANG），需持环境变量锁避免污染并发测试；
+        // 同时临时接管清除 LC_ALL / LC_MESSAGES——其检测优先级高于 LANG，
+        // CI 的 macos runner 预设 en 区域设置，不清除会覆盖本测试设置的 LANG
         let _lock = crate::lang_manager::tests::env_lock();
+        let _env = crate::lang_manager::tests::EnvRestore::take(&["LC_ALL", "LC_MESSAGES", "LANG"]);
         for (locale, expected) in [
             ("zh_CN.UTF-8", "zh"),
             // en 语言包已恢复（恒等映射），en 区域设置直接命中 en

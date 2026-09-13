@@ -282,143 +282,19 @@ jobs:
         if: matrix.os_name == 'macos'
         run: cargo test --release --locked -p i18n-rust-lsp -- analyzer
 
-      # 【临时诊断（定位后收敛）】探针2 曾 0 秒退出（exit 101、测试未运行）。
-      # 用细分步骤把各假说编码为步级结论 + annotation（无日志权限时的可读通道）：
-      # 磁盘空间 / 原命令复现 / 单 target 定位 / rzc 覆盖 / 模块细分。
-      - name: 平台单测·诊断0 磁盘剩余（macos）
-        id: diag0
-        if: matrix.os_name == 'macos' && always()
-        run: |
-          set +e
-          FREE_KB=$(df -k . | tail -1 | awk '{print $4}')
-          DU_OUT=$(du -sh target 2>/dev/null | cut -f1)
-          printf 'free_kb=%s target=%s\n' "$FREE_KB" "$DU_OUT"
-          echo "::warning title=诊断0 磁盘::剩余 ${FREE_KB} KB；target ${DU_OUT}"
-          test "$FREE_KB" -gt 2000000
+      - name: 平台单测·探针2 lsp 其余模块（macos）
+        # lsp 为 bin-only crate（无 lib target）：不可加 --lib，否则报
+        # “no library targets found” 假失败（此前诊断组即因此误报）
+        if: matrix.os_name == 'macos'
+        run: cargo test --release --locked -p i18n-rust-lsp -- --skip analyzer
 
-      - name: 平台单测·诊断A 原命令复现 lsp 全部（macos）
-        id: diagA
-        if: matrix.os_name == 'macos' && always()
-        run: |
-          set +e
-          cargo test --release --locked -p i18n-rust-lsp -- --skip analyzer > /tmp/diag_a.log 2>&1
-          RC=$?
-          TAIL=$(tail -n 80 /tmp/diag_a.log | tail -c 1600 | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=诊断A lsp全部 exit=${RC}::${TAIL}"
-          exit $RC
+      - name: 平台单测·探针3 rzc lang_manager 模块（macos）
+        if: matrix.os_name == 'macos'
+        run: cargo test --release --locked -p rzc -- lang_manager
 
-      - name: 平台单测·诊断B 仅 lsp lib（macos）
-        id: diagB
-        if: matrix.os_name == 'macos' && always()
-        run: |
-          set +e
-          cargo test --release --locked -p i18n-rust-lsp --lib -- --skip analyzer > /tmp/diag_b.log 2>&1
-          RC=$?
-          TAIL=$(tail -n 80 /tmp/diag_b.log | tail -c 1600 | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=诊断B lsp-lib exit=${RC}::${TAIL}"
-          exit $RC
-
-      - name: 平台单测·诊断C 仅 lsp bin（macos）
-        id: diagC
-        if: matrix.os_name == 'macos' && always()
-        run: |
-          set +e
-          cargo test --release --locked -p i18n-rust-lsp --bin i18n-rust-lsp > /tmp/diag_c.log 2>&1
-          RC=$?
-          TAIL=$(tail -n 80 /tmp/diag_c.log | tail -c 1600 | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=诊断C lsp-bin exit=${RC}::${TAIL}"
-          exit $RC
-
-      - name: 平台单测·诊断D 仅 lsp e2e（macos）
-        id: diagD
-        if: matrix.os_name == 'macos' && always()
-        run: |
-          set +e
-          cargo test --release --locked -p i18n-rust-lsp --test e2e > /tmp/diag_d.log 2>&1
-          RC=$?
-          TAIL=$(tail -n 80 /tmp/diag_d.log | tail -c 1600 | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=诊断D lsp-e2e exit=${RC}::${TAIL}"
-          exit $RC
-
-      - name: 平台单测·诊断E rzc 全部（macos）
-        id: diagE
-        if: matrix.os_name == 'macos' && always()
-        run: |
-          set +e
-          cargo test --release --locked -p rzc > /tmp/diag_e.log 2>&1
-          RC=$?
-          TAIL=$(tail -n 80 /tmp/diag_e.log | tail -c 1600 | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=诊断E rzc全部 exit=${RC}::${TAIL}"
-          exit $RC
-
-      - name: 平台单测·诊断F rzc lang_manager（macos）
-        id: diagF
-        if: matrix.os_name == 'macos' && always() && steps.diagE.outcome == 'failure'
-        run: |
-          set +e
-          cargo test --release --locked -p rzc -- lang_manager > /tmp/diag_f.log 2>&1
-          RC=$?
-          TAIL=$(tail -n 80 /tmp/diag_f.log | tail -c 1600 | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=诊断F rzc-lang_manager exit=${RC}::${TAIL}"
-          exit $RC
-
-      - name: 平台单测·诊断G rzc 其余（macos）
-        id: diagG
-        if: matrix.os_name == 'macos' && always() && steps.diagE.outcome == 'failure'
-        run: |
-          set +e
-          cargo test --release --locked -p rzc -- --skip lang_manager > /tmp/diag_g.log 2>&1
-          RC=$?
-          TAIL=$(tail -n 80 /tmp/diag_g.log | tail -c 1600 | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=诊断G rzc-其余 exit=${RC}::${TAIL}"
-          exit $RC
-
-      - name: 平台单测·诊断H lsp translation_cache（macos）
-        id: diagH
-        if: matrix.os_name == 'macos' && always() && steps.diagB.outcome == 'failure'
-        run: |
-          set +e
-          cargo test --release --locked -p i18n-rust-lsp --lib -- translation_cache > /tmp/diag_h.log 2>&1
-          RC=$?
-          TAIL=$(tail -n 80 /tmp/diag_h.log | tail -c 1600 | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=诊断H translation_cache exit=${RC}::${TAIL}"
-          exit $RC
-
-      - name: 平台单测·诊断I lsp response_map（macos）
-        id: diagI
-        if: matrix.os_name == 'macos' && always() && steps.diagB.outcome == 'failure'
-        run: |
-          set +e
-          cargo test --release --locked -p i18n-rust-lsp --lib -- response_map > /tmp/diag_i.log 2>&1
-          RC=$?
-          TAIL=$(tail -n 80 /tmp/diag_i.log | tail -c 1600 | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=诊断I response_map exit=${RC}::${TAIL}"
-          exit $RC
-
-      - name: 平台单测·诊断J lsp server+ui（macos）
-        id: diagJ
-        if: matrix.os_name == 'macos' && always() && steps.diagB.outcome == 'failure'
-        run: |
-          set +e
-          cargo test --release --locked -p i18n-rust-lsp --lib -- server > /tmp/diag_j1.log 2>&1; R1=$?
-          cargo test --release --locked -p i18n-rust-lsp --lib -- ui > /tmp/diag_j2.log 2>&1; R2=$?
-          T1=$(tail -n 40 /tmp/diag_j1.log | tail -c 800 | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-          T2=$(tail -n 40 /tmp/diag_j2.log | tail -c 800 | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=诊断J server exit=${R1} ui exit=${R2}::server:${T1} ui:${T2}"
-          test $R1 -eq 0 -a $R2 -eq 0
-
-      - name: 平台单测·诊断汇总（macos）
-        id: diagZ
-        if: matrix.os_name == 'macos' && always()
-        run: |
-          echo "diagnostics: disk=${{ steps.diag0.outcome }} A=${{ steps.diagA.outcome }} B=${{ steps.diagB.outcome }} C=${{ steps.diagC.outcome }} D=${{ steps.diagD.outcome }} E=${{ steps.diagE.outcome }}"
-          echo "diagnostics: F=${{ steps.diagF.outcome }} G=${{ steps.diagG.outcome }} H=${{ steps.diagH.outcome }} I=${{ steps.diagI.outcome }} J=${{ steps.diagJ.outcome }}"
-          for o in "${{ steps.diag0.outcome }}" "${{ steps.diagA.outcome }}" "${{ steps.diagB.outcome }}" "${{ steps.diagC.outcome }}" "${{ steps.diagD.outcome }}" "${{ steps.diagE.outcome }}" "${{ steps.diagF.outcome }}" "${{ steps.diagG.outcome }}" "${{ steps.diagH.outcome }}" "${{ steps.diagI.outcome }}" "${{ steps.diagJ.outcome }}"; do
-            if [ "$o" = "failure" ]; then
-              echo "::error title=诊断汇总::存在失败探针，详见各诊断步骤 annotation"
-              exit 1
-            fi
-          done
+      - name: 平台单测·探针4 rzc 其余模块（macos）
+        if: matrix.os_name == 'macos'
+        run: cargo test --release --locked -p rzc -- --skip lang_manager
 
       - name: 上传二进制产物
         uses: actions/upload-artifact@v4
