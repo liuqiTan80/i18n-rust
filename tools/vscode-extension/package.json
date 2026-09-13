@@ -2,7 +2,7 @@
   "name": "i18n-rust",
   "displayName": "i18n-rust - Write Rust in Any Language",
   "description": "Write Rust code in your native language, with support for syntax highlighting, intelligent code completion, and error hints.",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "publisher": "i18n-rust",
   "license": "MIT",
   "repository": {
@@ -305,6 +305,11 @@
           "type": "boolean",
           "default": true,
           "description": "在代码区（非字符串、非注释）输入全角符号时，自动转换为半角符号"
+        },
+        "i18n-rust.checkUpdates": {
+          "type": "boolean",
+          "default": true,
+          "description": "启动后检查 GitHub Releases 上的新版本（每天最多一次），发现新版本时弹出提示"
         },
         "i18n-rust.trace.server": {
           "type": "string",

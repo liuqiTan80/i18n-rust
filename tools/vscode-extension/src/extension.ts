@@ -40,6 +40,7 @@ import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
 import { quoteCommandArg, quoteShellArg } from './shell';
 import { findInPath, 解析可执行文件 } from './executable';
 import { 注册转译预览 } from './transpile-preview';
+import { 注册更新检查 } from './update-checker';
 
 const execFileAsync = promisify(cp.execFile);
 
@@ -561,6 +562,9 @@ export function activate(context: vscode.ExtensionContext): void {
         });
         void context.globalState.update('welcomeShown', true);
     }
+
+    // 检查扩展更新（GitHub Releases，每天最多一次；可在设置中关闭）
+    注册更新检查(context);
 }
 
 /**
