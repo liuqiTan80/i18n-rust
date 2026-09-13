@@ -22,8 +22,9 @@
 #       创建 Release，产物落在 https://gitcode.com/tan80/i18n-rust/releases
 #       ——与 README 中"从 Releases 下载"的引导一致；
 #   - GitCode 侧需在仓库 Secrets 配置 GITCODE_TOKEN（头像 → 设置 → 私人令牌，
-#     需 releases 权限）；crates.io 需配置 CARGO_REGISTRY_TOKEN（发布步骤
-#     未配置时自动跳过，不阻塞其他 job）；
+#     需 releases 权限）；crates.io 需配置 CARGO_REGISTRY_TOKEN（未配置时发布
+#     步骤自动跳过，不阻塞其他 job）；当目标版本三个 crate 均已存在于 crates.io
+#     时，令牌校验与发布整体跳过（避免本地先行发布后 CI 校验假失败）。
 #   - crates.io 发布顺序固定为 i18n-rust-engine → i18n-rust-lsp → rzc：
 #     rzc 与 i18n-rust-lsp 依赖核心引擎，必须先发布依赖。
 # =============================================================
@@ -220,8 +221,34 @@ jobs:
       - name: 安装 Rust 工具链
         uses: dtolnay/rust-toolchain@stable
 
-      - name: 校验 crates.io 令牌（未配置令牌时跳过）
-        if: env.CARGO_REGISTRY_TOKEN != ''
+      - name: 盘点三个 crate 的版本可达性（全部已发布则跳过令牌与发布）
+        id: inventory
+        run: |
+          # 已发布的版本无需令牌：三个 crate 的 $VERSION 均已存在于 crates.io 时
+          # 直接跳过令牌校验与发布，避免“本地已发布 + CI 重复校验”产生假失败
+          VERSION="$(grep -m1 '^version = ' crates/engine/Cargo.toml | cut -d'"' -f2)"
+          PENDING=false
+          for CRATE in i18n-rust-engine i18n-rust-lsp rzc; do
+            CODE="$(curl -sS -A "rzc-ci" -o /dev/null -w '%{http_code}' --retry 2 --max-time 30 \
+              "https://crates.io/api/v1/crates/$CRATE/$VERSION" || echo 000)"
+            if [ "$CODE" = "200" ]; then
+              echo "✅ $CRATE $VERSION 已存在于 crates.io"
+            else
+              echo "⬜ $CRATE $VERSION 尚未发布（HTTP $CODE）"
+              PENDING=true
+            fi
+          done
+          echo "pending=$PENDING" >> "$GITHUB_OUTPUT"
+          if [ "$PENDING" = "false" ]; then
+            echo "::notice::$VERSION 三个 crate 均已在 crates.io，跳过令牌校验与发布"
+          fi
+
+      - name: 令牌未配置提示（有未发布版本时，仅警告不失败）
+        if: env.CARGO_REGISTRY_TOKEN == '' && steps.inventory.outputs.pending == 'true'
+        run: echo "::warning::存在未发布 crate 但未配置 CARGO_REGISTRY_TOKEN，跳过 crates.io 发布（离线版 VSIX 与 GitHub Release 不受影响）"
+
+      - name: 校验 crates.io 令牌（仅在有未发布 crate 时）
+        if: env.CARGO_REGISTRY_TOKEN != '' && steps.inventory.outputs.pending == 'true'
         run: |
           # 先自检令牌有效性，避免发布循环里才暴露（裸 token 与 Bearer
           # 两种鉴权头 crates.io 均接受，依次尝试；缺 User-Agent 会被拒）
@@ -238,15 +265,15 @@ jobs:
           fi
           echo "✅ crates.io 令牌有效"
 
-      - name: 登录 crates.io（未配置令牌时跳过）
-        if: env.CARGO_REGISTRY_TOKEN != ''
+      - name: 登录 crates.io（仅在有未发布 crate 时）
+        if: env.CARGO_REGISTRY_TOKEN != '' && steps.inventory.outputs.pending == 'true'
         run: cargo login "$CARGO_REGISTRY_TOKEN"
 
       # 发布顺序依赖：引擎库 → LSP 代理 → 命令行工具；
       # 双平台（GitCode/GitHub）CI 并行发布同一版本时先到先得，
       # 已存在（另一平台已发布）则跳过，避免重复发布报错。
       - name: 发布三个 crate 到 crates.io（已存在则跳过）
-        if: env.CARGO_REGISTRY_TOKEN != ''
+        if: env.CARGO_REGISTRY_TOKEN != '' && steps.inventory.outputs.pending == 'true'
         run: |
           set -e
           VERSION="$(grep -m1 '^version = ' crates/engine/Cargo.toml | cut -d'"' -f2)"
