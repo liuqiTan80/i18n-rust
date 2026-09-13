@@ -163,8 +163,14 @@ jobs:
 
       # GitCode 主仓库：GitCode 开放 API 创建 GitCode Release（与 README 下载引导一致）：
       # 与 Gitee OpenAPI v5 兼容，创建 Release 后逐个上传附件（三平台离线包 + vsix）。
+      - name: GITCODE_TOKEN 未配置提示（仅警告不失败）
+        if: github.repository != 'liuqiTan80/i18n-rust' && env.GITCODE_TOKEN == ''
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: echo "::warning::未配置 GITCODE_TOKEN，跳过 GitCode Release 创建（配置方法：GitCode 头像→设置→私人令牌，需 releases 权限）"
+
       - name: 创建 GitCode Release 并上传附件
-        if: github.repository != 'liuqiTan80/i18n-rust'
+        if: github.repository != 'liuqiTan80/i18n-rust' && env.GITCODE_TOKEN != ''
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
         run: |
@@ -214,6 +220,24 @@ jobs:
       - name: 安装 Rust 工具链
         uses: dtolnay/rust-toolchain@stable
 
+      - name: 校验 crates.io 令牌（未配置令牌时跳过）
+        if: env.CARGO_REGISTRY_TOKEN != ''
+        run: |
+          # 先自检令牌有效性，避免发布循环里才暴露（裸 token 与 Bearer
+          # 两种鉴权头 crates.io 均接受，依次尝试；缺 User-Agent 会被拒）
+          CODE="$(curl -sS -A "rzc-ci" -o /dev/null -w '%{http_code}' --retry 2 --max-time 30 \
+            -H "Authorization: $CARGO_REGISTRY_TOKEN" https://crates.io/api/v1/me || echo 000)"
+          if [ "$CODE" != "200" ]; then
+            CODE="$(curl -sS -A "rzc-ci" -o /dev/null -w '%{http_code}' --retry 2 --max-time 30 \
+              -H "Authorization: Bearer $CARGO_REGISTRY_TOKEN" https://crates.io/api/v1/me || echo 000)"
+          fi
+          if [ "$CODE" != "200" ]; then
+            echo "❌ crates.io 令牌无效（/api/v1/me → HTTP $CODE）"
+            echo "   请在仓库 Secrets 更新 CARGO_REGISTRY_TOKEN（需 publish-new 与 publish-update 权限）"
+            exit 1
+          fi
+          echo "✅ crates.io 令牌有效"
+
       - name: 登录 crates.io（未配置令牌时跳过）
         if: env.CARGO_REGISTRY_TOKEN != ''
         run: cargo login "$CARGO_REGISTRY_TOKEN"
@@ -224,15 +248,46 @@ jobs:
       - name: 发布三个 crate 到 crates.io（已存在则跳过）
         if: env.CARGO_REGISTRY_TOKEN != ''
         run: |
+          set -e
           VERSION="$(grep -m1 '^version = ' crates/engine/Cargo.toml | cut -d'"' -f2)"
+          # 等待指定 crate 的 $VERSION 在 crates.io 索引可见（发布后存在
+          # 可见性窗口，下游 crate 的依赖解析需要其先可见）
+          wait_visible() {
+            for _ in $(seq 1 30); do
+              if curl -s -A "rzc-ci" "https://crates.io/api/v1/crates/$1" | grep -q "\"max_stable_version\":\"$VERSION\""; then
+                return 0
+              fi
+              sleep 10
+            done
+            return 1
+          }
           for CRATE in i18n-rust-engine i18n-rust-lsp rzc; do
-            EXIST="$(curl -s -A "rzc-ci" "https://crates.io/api/v1/crates/$CRATE" | grep -o "\"max_stable_version\":\"$VERSION\"" || true)"
-            if [ -n "$EXIST" ]; then
+            if curl -s -A "rzc-ci" "https://crates.io/api/v1/crates/$CRATE" | grep -q "\"max_stable_version\":\"$VERSION\""; then
               echo "跳过 $CRATE：$VERSION 已存在于 crates.io"
-            else
-              echo "发布 $CRATE $VERSION ..."
-              # 发布前 dry-run 校验（含 --locked：锁文件必须与清单一致）
-              cargo publish -p "$CRATE" --dry-run --locked
-              cargo publish -p "$CRATE" --locked
+              continue
             fi
+            echo "发布 $CRATE $VERSION ..."
+            # dry-run 预检（--locked：锁文件必须与清单一致）；
+            # 若与另一平台竞态出现"已存在/已上传"报错，视为跳过而非失败
+            if OUT="$(cargo publish -p "$CRATE" --dry-run --locked 2>&1)"; then
+              echo "$OUT"
+            else
+              echo "$OUT"
+              if echo "$OUT" | grep -qiE "already uploaded|already exists|previously uploaded"; then
+                echo "跳过 $CRATE：$VERSION 已存在（竞态无害）"
+                continue
+              fi
+              exit 1
+            fi
+            if OUT="$(cargo publish -p "$CRATE" --locked 2>&1)"; then
+              echo "$OUT"
+            else
+              echo "$OUT"
+              if echo "$OUT" | grep -qiE "already uploaded|already exists|previously uploaded"; then
+                echo "跳过 $CRATE：另一平台已先行发布 $VERSION（竞态无害）"
+                continue
+              fi
+              exit 1
+            fi
+            wait_visible "$CRATE" || { echo "❌ $CRATE $VERSION 发布后 5 分钟内索引仍不可见，请稍后重试"; exit 1; }
           done
