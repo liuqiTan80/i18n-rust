@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-13
+
 ### 新增
 - `rzc cheat [lang] [--markdown]`：母语 ↔ Rust 映射速查表（关键字/模块路径/别名/派生特征），
   支持 Markdown 输出便于嵌入教程与 README；恒等映射语言（如英文包）提示无需速查
