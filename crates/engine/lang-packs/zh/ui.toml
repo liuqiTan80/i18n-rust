@@ -185,7 +185,7 @@
 "mapping_no_macro" = "提示: rustdoc JSON 格式暂不包含 macro_rules! 宏定义，宏映射需手动补充。"
 "mapping_name_conflict" = "警告: 母语名 '{}' 与 '{}' 冲突，已跳过（可手动补充）。"
 "mapping_ai_success" = "✅ AI（{}）生成母语名与解释成功。"
-"mapping_ai_fallback" = "未配置 AI（环境变量 {}），无法生成 API 解释（{}），已回退规则模式。"
+"mapping_ai_fallback" = "AI 调用失败（请检查环境变量 {} 与网络）：{}；已回退规则模式。"
 "mapping_rule_mode" = "未配置 AI，无法生成 API 解释（规则模式，解释留空）。"
 "mapping_unknown_provider" = "未知 AI 服务商 '{}'，可选：deepseek / rule"
 "mapping_keyword_conflict" = "警告: 母语名 '{}' 与关键字映射冲突（keywords.toml: {} → {}，本映射: → {}），\\n       该条目生成后不会生效，请手动改名或补充。"

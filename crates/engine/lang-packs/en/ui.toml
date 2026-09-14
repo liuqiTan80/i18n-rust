@@ -189,7 +189,7 @@
 "mapping_no_macro" = "Note: rustdoc JSON does not currently include macro_rules! definitions; add macro mappings manually."
 "mapping_name_conflict" = "Warning: native name '{}' conflicts with '{}', skipped (can be added manually)."
 "mapping_ai_success" = "✅ AI ({}) generated native names and explanations successfully."
-"mapping_ai_fallback" = "AI not configured (env var {}), cannot generate API explanations ({}); fell back to rule mode."
+"mapping_ai_fallback" = "AI call failed (check env var {} and network): {}; fell back to rule mode."
 "mapping_rule_mode" = "AI not configured, cannot generate API explanations (rule mode, explanations left empty)."
 "mapping_unknown_provider" = "Unknown AI provider '{}', options: deepseek / rule"
 "mapping_keyword_conflict" = "Warning: native name '{}' conflicts with a keyword mapping (keywords.toml: {} → {}, this mapping: → {}),\\n       this entry will not take effect; rename or add it manually."

@@ -155,6 +155,9 @@ pub fn call_ai_generate_mapping(
 
 /// 解析 AI 返回的 TOML 文本为 (中文名→英文名, 中文名→解释)；
 /// 英文名不在合法集合中的条目丢弃（防止 AI 幻觉改名）
+///
+/// 严格 TOML 解析失败时（AI 偶发输出重复节头等不规范内容）回退逐行宽松
+/// 扫描抢救可辨识条目；抢救不到任何内容时仍返回原始解析错误。
 pub fn parse_ai_result(
     text: &str,
     valid_english_names: &HashSet<String>,
@@ -168,12 +171,28 @@ pub fn parse_ai_result(
         .map(|pos| start + pos)
         .unwrap_or(text.len());
     let toml_part = &text[start..end];
-    let table: toml::Value = toml::from_str(toml_part).map_err(|e| {
-        anyhow!(
-            "{}",
-            crate::ui::Ui::global().f("mg_err_ai_toml_parse", &[&e.to_string()])
-        )
-    })?;
+    let table = match toml::from_str::<toml::Value>(toml_part) {
+        Ok(table) => table,
+        Err(strict_err) => {
+            let rescued = lenient_parse_sections(toml_part);
+            if rescued.is_empty() {
+                return Err(anyhow!(
+                    "{}",
+                    crate::ui::Ui::global().f("mg_err_ai_toml_parse", &[&strict_err.to_string()])
+                ));
+            }
+            toml::Value::Table(rescued)
+        }
+    };
+    Ok(sections_from_table(&table, valid_english_names))
+}
+
+/// 从 {标识符, 解释} 表过滤合法条目：标识符需英文名在合法集合内，
+/// 解释逐条校验长度（超 40 字打印警告）；严格与宽松两条解析路径共用
+fn sections_from_table(
+    table: &toml::Value,
+    valid_english_names: &HashSet<String>,
+) -> (HashMap<String, String>, HashMap<String, String>) {
     let mut identifier_map = HashMap::new();
     let mut explanation_map = HashMap::new();
     if let Some(section) = table.get("标识符").and_then(toml::Value::as_table) {
@@ -204,7 +223,72 @@ pub fn parse_ai_result(
             }
         }
     }
-    Ok((identifier_map, explanation_map))
+    (identifier_map, explanation_map)
+}
+
+/// 宽松逐行扫描 AI 输出：识别含"标识符"/"解释"的节头（容忍重复出现，
+/// 同名节内容合并），节内解析 `"键" = "值"` 行；返回重新组装的表值
+/// （仅含实际出现的节），供与严格解析相同的过滤路径复用
+fn lenient_parse_sections(toml_part: &str) -> toml::value::Table {
+    let mut section: Option<&str> = None;
+    let mut identifiers = toml::value::Table::new();
+    let mut explanations = toml::value::Table::new();
+    for line in toml_part.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') {
+            // 节头判定放宽到"包含"：容忍多余空格/引号/围栏残缺
+            section = if trimmed.contains("标识符") {
+                Some("标识符")
+            } else if trimmed.contains("解释") {
+                Some("解释")
+            } else {
+                None
+            };
+            continue;
+        }
+        let Some(current) = section else {
+            continue;
+        };
+        let Some((key, value)) = split_key_value(trimmed) else {
+            continue;
+        };
+        if current == "标识符" {
+            identifiers.insert(key, toml::Value::String(value));
+        } else {
+            explanations.insert(key, toml::Value::String(value));
+        }
+    }
+    let mut table = toml::value::Table::new();
+    if !identifiers.is_empty() {
+        table.insert("标识符".to_string(), toml::Value::Table(identifiers));
+    }
+    if !explanations.is_empty() {
+        table.insert("解释".to_string(), toml::Value::Table(explanations));
+    }
+    table
+}
+
+/// 解析 `"键" = "值"` 行；无 `=` 或键/值为空时返回 None
+fn split_key_value(line: &str) -> Option<(String, String)> {
+    let (raw_key, raw_value) = line.split_once('=')?;
+    Some((extract_fragment(raw_key)?, extract_fragment(raw_value)?))
+}
+
+/// 提取片段内容：优先取引号（半/全角）内文本，未加引号时取 `#` 前文本；
+/// 内容为空返回 None
+fn extract_fragment(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    for (open, close) in [('"', '"'), ('\'', '\''), ('“', '”'), ('「', '」')] {
+        if let Some(stripped) = trimmed.strip_prefix(open) {
+            let inner = stripped
+                .split_once(close)
+                .map_or(stripped, |(before, _)| before)
+                .trim();
+            return (!inner.is_empty()).then(|| inner.to_string());
+        }
+    }
+    let plain = trimmed.split('#').next().unwrap_or(trimmed).trim();
+    (!plain.is_empty()).then(|| plain.to_string())
 }
 
 /// 检测系统语言（用于 --lang 缺省值）：完整支持全部内置语言，默认 "zh"
@@ -267,6 +351,34 @@ mod tests {
     fn test_ai_result_non_toml_error() {
         let valid = HashSet::new();
         assert!(parse_ai_result("抱歉，我无法完成。", &valid).is_err());
+    }
+
+    /// AI 偶发重复节头（两次 ["解释"] 等）：严格 TOML 解析必然失败，
+    /// 宽松扫描应合并重复节并抢救出全部条目
+    #[test]
+    fn test_parse_ai_result_duplicate_sections() {
+        let valid: HashSet<String> = ["new", "Error"].iter().map(|s| s.to_string()).collect();
+        let text = "```toml\n[\"标识符\"]\n\"新建\" = \"new\"\n[\"标识符\"]\n\"错误\" = \"Error\"\n[\"解释\"]\n\"新建\" = \"创建实例\"\n[\"解释\"]\n\"错误\" = \"错误类型\"\n```\n";
+        let (identifiers, explanations) = parse_ai_result(text, &valid).expect("宽松解析应能抢救");
+        assert_eq!(identifiers.len(), 2, "重复标识符节应合并");
+        assert_eq!(
+            explanations.get("错误").map(String::as_str),
+            Some("错误类型"),
+            "重复解释节应合并"
+        );
+    }
+
+    /// 完全无法抢救（无可用节与键值对）时保留严格解析的原始错误
+    #[test]
+    fn test_parse_ai_result_unparseable_keeps_error() {
+        let valid = HashSet::new();
+        let text = "[标题]\n- 列表项，没有任何键值对\n";
+        let err = parse_ai_result(text, &valid).expect_err("应保留解析错误");
+        assert!(
+            err.to_string().contains("TOML parse error"),
+            "应含 toml crate 原始错误: {}",
+            err
+        );
     }
 
     #[test]

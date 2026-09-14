@@ -204,7 +204,7 @@
 "mapping_no_macro" = "Nota: el formato rustdoc JSON no incluye definiciones macro_rules!; añade las asignaciones de macros manualmente."
 "mapping_name_conflict" = "Advertencia: el nombre nativo '{}' entra en conflicto con '{}', omitido (se puede añadir manualmente)."
 "mapping_ai_success" = "✅ La IA ({}) generó nombres nativos y explicaciones con éxito."
-"mapping_ai_fallback" = "IA no configurada (variable de entorno {}), no se pueden generar explicaciones de API ({}); se usó el modo de reglas."
+"mapping_ai_fallback" = "Fallo en la llamada a la IA (verifique la variable de entorno {} y la red): {}; se usó el modo de reglas."
 "mapping_rule_mode" = "IA no configurada, no se pueden generar explicaciones de API (modo de reglas, explicaciones vacías)."
 "mapping_unknown_provider" = "Proveedor de IA desconocido '{}', opciones: deepseek / rule"
 "mapping_keyword_conflict" = "Advertencia: el nombre nativo '{}' entra en conflicto con una asignación de palabras clave (keywords.toml: {} → {}, esta asignación: → {}),\\n       esta entrada no tendrá efecto; renómbrala o añádela manualmente."
