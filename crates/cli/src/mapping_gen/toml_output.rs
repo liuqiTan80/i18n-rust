@@ -59,11 +59,13 @@ fn decompose_date(days: i64) -> (i64, u32, u32) {
 
 /// 构建语言包映射 TOML（与现有 crates/*.toml 格式一致：
 /// `["模块路径"]` / `["标识符"]` 两节为映射管理器识别的 String 值格式，
-/// `["解释"]` 节为扩展，映射管理器加载时自动忽略，保持兼容）
+/// `["解释"]` 节为扩展，映射管理器加载时自动忽略，保持兼容）。
+/// `target_version` 为提取时实际解析到的基准版本（写入文件头，供复现与比对）。
 pub fn build_mapping_toml(
     lang: &str,
     crate_name: &str,
     crate_chinese_name: &str,
+    target_version: Option<&str>,
     entries: &[ApiEntry],
     chinese_name_table: &[(String, String)],
     explanation_table: &HashMap<String, String>,
@@ -72,6 +74,13 @@ pub fn build_mapping_toml(
     let mut output = String::new();
     output.push_str(&format!("{}\n", ui.t("mg_header_title")));
     output.push_str(&format!("{}\n", ui.f("mg_header_crate", &[crate_name])));
+    // 生成基准版本（--target-version 锁定依据；解析不到版本时省略整行）
+    if let Some(version) = target_version {
+        output.push_str(&format!(
+            "{}\n",
+            ui.f("mg_header_target_version", &[version])
+        ));
+    }
     output.push_str(&format!(
         "{}\n",
         ui.f("mg_header_generated_at", &[&current_timestamp()])
@@ -141,6 +150,7 @@ mod tests {
             "zh",
             "示例",
             "示例库",
+            Some("1.2.3"),
             &entries,
             &chinese_name_table,
             &explanation_table,
@@ -148,6 +158,8 @@ mod tests {
         // 免责声明必须存在
         assert!(toml.contains(&disclaimer_text("zh")), "缺少免责声明");
         assert!(toml.contains("# crate: 示例"));
+        // 生成基准版本写入文件头（--target-version 锁定依据）
+        assert!(toml.contains("# 基准版本: 1.2.3"));
         // 可被标准 TOML 解析
         let value: toml::Value = toml::from_str(&toml).expect("TOML 应可解析");
         assert!(value.get("模块路径").is_some());
@@ -175,6 +187,7 @@ mod tests {
             "zh",
             "示例",
             "示例库",
+            None,
             &entries,
             &chinese_name_table,
             &HashMap::new(),

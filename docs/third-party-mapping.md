@@ -55,6 +55,21 @@ rzc mapping auto salvo --lang zh                    # AI 模式（需 DEEPSEEK_A
 生成完成后**自动对所在语言包运行一次冲突检测**，便于立即发现新文件
 引入的键冲突。
 
+**版本锁定（生产映射必选）**：
+
+```bash
+rzc mapping auto tauri --target-version 2.11.5    # 精确锁定 =2.11.5
+rzc mapping auto tauri --target-version 2.11      # 该线最新（2.11.*）
+rzc mapping auto tauri --target-version v2.11.5   # 兼容前导 v / =
+```
+
+不带 `--target-version` 时依赖解析为**当时最新版**（结果不可复现，命令会打印
+提示）：上游发布破坏性大版本后重跑会静默改变生成基准。生产映射务必锁定——
+锁定的版本写入临时项目依赖（`=x.y.z` 精确 / `x.y.*` 前缀），提取时实际解析到
+的版本记录在映射文件头（`# 基准版本: x.y.z`），配合 git 历史即可追溯每版映射
+的生成依据；`--install` 也按同一版本需求添加项目依赖（`crate@=x.y.z`），保证
+应用依赖与映射基准一致。
+
 ### 3.2 质量校验：`rzc mapping check`
 
 ```bash

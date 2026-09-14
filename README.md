@@ -211,7 +211,7 @@ rzc run src/main.zh      # 翻译 → 编译 → 运行
 | `rzc lang list`                    | 列出已安装语言包 |
 | `rzc lang install <码/目录>`       | 安装语言包（远程仓库或本地目录） |
 | `rzc lang remove <码>`             | 删除用户安装的语言包 |
-| `rzc mapping auto <crate名>`       | 自动生成第三方库的母语映射（AI/规则） |
+| `rzc mapping auto <crate名> [--target-version 版本]` | 自动生成第三方库的母语映射（AI/规则），可锁定生成基准版本 |
 | `rzc mapping check [目标]`         | 校验映射质量（重复键/关键字碰撞/跨文件冲突） |
 | `rzc mapping scaffold <源> <目标>` | 生成新语言的翻译骨架，`--provider deepseek` 可 AI 自动翻译 |
 | `rzc crate search [关键词]` | 检索社区共享的第三方库母语映射（注册中心） |
@@ -253,7 +253,7 @@ Rust 本身以英文书写，因此不提供英语方言（恒等映射无教学
 语法高亮、智能补全、悬停文档、定义跳转、引用查找、重命名、代码格式化、一键运行/检查、全角标点自动转半角、AI 辅助翻译。
 
 ### 第三方库母语化
-`rzc mapping auto` 从已安装 crate 提取公开 API，AI 生成母语名；社区共建映射经 `rzc mapping check` 质量门禁。
+`rzc mapping auto` 从已安装 crate 提取公开 API，AI 生成母语名；生产映射用 `--target-version` 锁定生成基准版本（写入文件头）；社区共建映射经 `rzc mapping check` 质量门禁。
 
 ---
 

@@ -142,6 +142,9 @@ enum MappingCommand {
         /// AI 服务商：deepseek（默认，需 DEEPSEEK_API_KEY 环境变量）或 rule（离线规则模式）
         #[arg(long, default_value = "deepseek")]
         provider: String,
+        /// 锁定目标 crate 版本（如 2.11.5 精确锁定；2.11 / 2 为该线最新）；省略时用最新版（不可复现）
+        #[arg(long)]
+        target_version: Option<String>,
         /// 输出文件路径（默认项目语言包根：<lang>/crates/<crate_name>.toml）
         #[arg(long)]
         output: Option<PathBuf>,
@@ -614,6 +617,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 crate_name,
                 lang,
                 provider,
+                target_version,
                 output,
                 install,
             } => {
@@ -629,22 +633,28 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                         .unwrap_or_else(|| PathBuf::from("."));
                     lang_pack_root_of(&base).join(format!("{}/crates/{}.toml", lang, crate_name))
                 });
-                mapping_gen::run_auto_generate(&crate_name, &lang, &provider, &output_path)
-                    .map(|()| std::process::ExitCode::SUCCESS)
-                    .inspect(|_| {
-                        // --install：生成成功后把 crate 加入当前项目依赖（用户项目内执行时）
-                        if install {
-                            install_crate_to_current_project(&crate_name);
-                        }
-                        // 生成后自动对所在语言包跑一次冲突检测（仅提示，不改变退出码：
-                        // 语言包可能存在历史遗留问题，生成成功与否以写入结果为准）
-                        if let Some(lang_dir) = output_path.parent().and_then(|p| p.parent())
-                            && lang_dir.join("keywords.toml").exists()
-                            && let Some(dir_str) = lang_dir.to_str()
-                        {
-                            let _ = mapping_check::run_check(Some(dir_str));
-                        }
-                    })
+                mapping_gen::run_auto_generate(
+                    &crate_name,
+                    &lang,
+                    &provider,
+                    &output_path,
+                    target_version.as_deref(),
+                )
+                .map(|()| std::process::ExitCode::SUCCESS)
+                .inspect(|_| {
+                    // --install：生成成功后把 crate 加入当前项目依赖（用户项目内执行时）
+                    if install {
+                        install_crate_to_current_project(&crate_name, target_version.as_deref());
+                    }
+                    // 生成后自动对所在语言包跑一次冲突检测（仅提示，不改变退出码：
+                    // 语言包可能存在历史遗留问题，生成成功与否以写入结果为准）
+                    if let Some(lang_dir) = output_path.parent().and_then(|p| p.parent())
+                        && lang_dir.join("keywords.toml").exists()
+                        && let Some(dir_str) = lang_dir.to_str()
+                    {
+                        let _ = mapping_check::run_check(Some(dir_str));
+                    }
+                })
             }
             MappingCommand::Check { target } => {
                 // check 输出的语言默认跟随系统语言
@@ -927,7 +937,10 @@ fn find_alias_in_toml(content: &str, crate_name: &str) -> Option<String> {
 }
 
 /// mapping auto --install：把 crate 加入当前项目依赖（找不到项目时仅告警）
-fn install_crate_to_current_project(crate_name: &str) {
+///
+/// 指定 --target-version 时按同一版本需求添加（`crate@=x.y.z` 精确锁定 /
+/// `crate@x.y.*` 前缀），保证应用依赖与映射生成基准一致。
+fn install_crate_to_current_project(crate_name: &str, target_version: Option<&str>) {
     let ui = ui::Ui::global();
     let Some(root) = std::env::current_dir()
         .ok()
@@ -936,9 +949,13 @@ fn install_crate_to_current_project(crate_name: &str) {
         println!("{}", ui.t("mapping_auto_install_no_project"));
         return;
     };
+    let spec = match target_version.and_then(mapping_gen::version_requirement) {
+        Some(requirement) => format!("{}@{}", crate_name, requirement),
+        None => crate_name.to_string(),
+    };
     match Command::new(resolve_cargo())
         .arg("add")
-        .arg(crate_name)
+        .arg(&spec)
         .current_dir(&root)
         .status()
     {

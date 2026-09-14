@@ -10,6 +10,12 @@ use std::process::Command;
 
 use super::rustdoc_extract::extract_public_api_with_glob_sources;
 
+/// rustdoc JSON 文本列表：(crate 名, JSON 文档文本)
+type DocJsonList = Vec<(String, String)>;
+
+/// 提取结果：(JSON 文本列表, 目标 crate 实际解析版本)
+type CrateDocExtract = (DocJsonList, Option<String>);
+
 /// 临时项目目录守卫（Drop 时自动清理）
 struct TempProject(PathBuf);
 
@@ -50,14 +56,24 @@ impl Drop for TempProject {
 ///
 /// 首个元素为目标 crate 本身；后续元素为被 glob 重导出（`pub use 依赖::*`）
 /// 的依赖 crate——薄壳 crate（如 salvo）的公开 API 全部来自这些 crate。
-pub fn extract_crate_doc(crate_name: &str) -> anyhow::Result<Vec<(String, String)>> {
+/// 第二个返回值为目标 crate 的实际解析版本（来自 cargo metadata），
+/// 供映射文件头记录生成基准。
+///
+/// - `version_requirement`：Cargo 版本需求（`=x.y.z` 精确锁定 / `x.y.*` 前缀）；
+///   `None` 时用 `*`（解析到当时最新版，结果不可复现，调用方已提示）
+pub fn extract_crate_doc(
+    crate_name: &str,
+    version_requirement: Option<&str>,
+) -> anyhow::Result<CrateDocExtract> {
     let temp = TempProject::new(crate_name)?;
-    // 1. 临时项目：把目标 crate 作为唯一依赖（* 允许任意已发布版本）
+    // 1. 临时项目：把目标 crate 作为唯一依赖；版本需求由 --target-version 转换
+    //    （未指定时 * 允许任意已发布版本，生成基准不可复现）
     fs::write(
         temp.path().join("Cargo.toml"),
         format!(
-            "[package]\nname = \"rzc-mapping-temp\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n\"{}\" = \"*\"\n\n[workspace]\n",
-            crate_name
+            "[package]\nname = \"rzc-mapping-temp\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n\"{}\" = \"{}\"\n\n[workspace]\n",
+            crate_name,
+            version_requirement.unwrap_or("*")
         ),
     )?;
     fs::write(
@@ -75,11 +91,11 @@ pub fn extract_crate_doc(crate_name: &str) -> anyhow::Result<Vec<(String, String
 /// 4. 薄壳 crate（meta crate，如 salvo 仅 `pub use salvo_core::*`）的公开 API
 ///    来自 glob 重导出：解析每个 crate 的 glob 重导出（inner.use.is_glob）的
 ///    source 路径，对被重导出的依赖 crate 也生成文档并继续追踪，直至闭环。
-///    返回 (crate 名, JSON 文本) 列表，首个为目标 crate 本身。
+///    返回 ((crate 名, JSON 文本) 列表（首个为目标 crate 本身）, 实际解析版本)。
 fn extract_doc_json_internal(
     temp: &TempProject,
     crate_name: &str,
-) -> anyhow::Result<Vec<(String, String)>> {
+) -> anyhow::Result<CrateDocExtract> {
     let project_root = temp.path();
     let ui = crate::ui::Ui::global();
 
@@ -123,6 +139,13 @@ fn extract_doc_json_internal(
     if !pkg_index.contains_key(crate_name) {
         bail!("{}", ui.f("mg_err_crate_not_found", &[crate_name]));
     }
+    // 目标 crate 的实际解析版本（映射文件头「基准版本」来源；本地 path 依赖
+    // 取 path 包声明版本，registry 依赖取本次解析命中版本）
+    let resolved_version = pkg_index
+        .get(crate_name)
+        .and_then(|p| p.get("version"))
+        .and_then(Value::as_str)
+        .map(String::from);
 
     // resolve.nodes：完整依赖解析图（含多版本共存时的精确解析），按
     // package_id 索引每个 crate 的直接依赖（别名, 依赖 package_id）。
@@ -308,7 +331,7 @@ fn extract_doc_json_internal(
         }
         results.push((name, json_text));
     }
-    Ok(results)
+    Ok((results, resolved_version))
 }
 
 /// 构建脚本产物：OUT_DIR（include! 生成代码）、cfg（条件编译）、rustc-env 列表。
@@ -500,8 +523,11 @@ mod tests {
         // 覆盖临时项目路径为外壳项目
         let _ = fs::remove_dir_all(temp_guard.path());
         fs::create_dir_all(shell.join("src")).unwrap();
-        let doc_jsons = extract_doc_json_internal(&TempProject(shell.clone()), "mini-crate")
-            .expect("工具链应能提取文档");
+        let (doc_jsons, resolved_version) =
+            extract_doc_json_internal(&TempProject(shell.clone()), "mini-crate")
+                .expect("工具链应能提取文档");
+        // 本地 path 依赖 0.1.0：解析版本应被捕获（映射文件头基准来源）
+        assert_eq!(resolved_version.as_deref(), Some("0.1.0"));
         let entries = extract_public_api(&doc_jsons[0].1).unwrap();
         let name_list: Vec<&str> = entries.iter().map(|e| e.english_name.as_str()).collect();
         assert!(
@@ -587,7 +613,7 @@ mod tests {
         .unwrap();
         fs::write(shell.join("src/lib.rs"), "// 空库\n").unwrap();
 
-        let doc_jsons = extract_doc_json_internal(&TempProject(shell.clone()), "mini-gen")
+        let (doc_jsons, _) = extract_doc_json_internal(&TempProject(shell.clone()), "mini-gen")
             .expect("OUT_DIR 注入后应能生成文档");
         let entries = extract_public_api(&doc_jsons[0].1).unwrap();
         let name_list: Vec<&str> = entries.iter().map(|e| e.english_name.as_str()).collect();
@@ -623,7 +649,7 @@ mod tests {
         .unwrap();
         fs::write(shell.join("src/lib.rs"), "// 空库\n").unwrap();
 
-        let doc_jsons = extract_doc_json_internal(&TempProject(shell.clone()), "mini-feat")
+        let (doc_jsons, _) = extract_doc_json_internal(&TempProject(shell.clone()), "mini-feat")
             .expect("应能生成文档");
         let entries = extract_public_api(&doc_jsons[0].1).unwrap();
         let name_list: Vec<&str> = entries.iter().map(|e| e.english_name.as_str()).collect();
@@ -675,7 +701,7 @@ mod tests {
         .unwrap();
         fs::write(shell.join("src/lib.rs"), "// 空库\n").unwrap();
 
-        let doc_jsons = extract_doc_json_internal(&TempProject(shell.clone()), "mini-facade")
+        let (doc_jsons, _) = extract_doc_json_internal(&TempProject(shell.clone()), "mini-facade")
             .expect("工具链应能提取文档");
         // 目标 crate + 被 glob 重导出的依赖 crate（mini-core）
         let crate_names: Vec<&str> = doc_jsons.iter().map(|(n, _)| n.as_str()).collect();

@@ -87,17 +87,66 @@ pub struct ApiEntry {
     pub signature: String,
 }
 
+/// `--target-version` 校验并转换为 Cargo 版本需求（生成基准锁定）：
+///
+/// - `x.y.z`（可带 `-预发布` / `+构建` 后缀）→ `=x.y.z` 精确锁定；
+/// - `x.y` → `x.y.*`、`x` → `x.*`（该线最新，生产映射建议完整版本号）；
+/// - 兼容前导 `=` 与 `v` 写法（如 `=2.11.5`、`v2.11.5`）；
+/// - 非法输入返回 `None`（调用方以 `mapping_version_invalid` 提示）。
+pub(crate) fn version_requirement(version: &str) -> Option<String> {
+    let version = version.strip_prefix('=').unwrap_or(version);
+    let version = version
+        .strip_prefix('v')
+        .or_else(|| version.strip_prefix('V'))
+        .unwrap_or(version);
+    // 拆出构建(+)与预发布(-)后缀（仅完整 x.y.z 才允许带后缀）
+    let (rest, build) = match version.split_once('+') {
+        Some((a, b)) => (a, Some(b)),
+        None => (version, None),
+    };
+    let (core, pre_release) = match rest.split_once('-') {
+        Some((a, b)) => (a, Some(b)),
+        None => (rest, None),
+    };
+    let parts: Vec<&str> = core.split('.').collect();
+    let numeric = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit());
+    if parts.is_empty() || parts.len() > 3 || parts.iter().any(|p| !numeric(p)) {
+        return None;
+    }
+    // 后缀字符集：字母、数字、点、连字符，且点分段非空（语义版本规范）
+    let suffix_valid = |suffix: &str| {
+        !suffix.is_empty()
+            && suffix.split('.').all(|seg| {
+                !seg.is_empty() && seg.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+            })
+    };
+    if (pre_release.is_some() || build.is_some()) && parts.len() != 3 {
+        return None;
+    }
+    if pre_release.is_some_and(|p| !suffix_valid(p)) || build.is_some_and(|b| !suffix_valid(b)) {
+        return None;
+    }
+    match parts.len() {
+        3 => Some(format!("={}", version)),
+        2 => Some(format!("{}.{}.*", parts[0], parts[1])),
+        _ => Some(format!("{}.*", parts[0])),
+    }
+}
+
 /// 主入口：`rzc mapping auto`
 ///
 /// - `crate_name`：目标 crate（已安装或可从 crates.io 拉取）
 /// - `lang`：语言包目录名（如 zh、ru），用于冲突检测与默认输出位置
 /// - `provider`：`deepseek`（调用 AI）或 `rule`（离线规则模式）
 /// - `output_path`：输出文件路径
+/// - `target_version`：锁定提取基准版本（`2.11.5` → `=2.11.5` 精确锁定；
+///   `2.11` / `2` → 该线最新）；`None` 时解析最新版（结果不可复现，打印提示）
 pub fn run_auto_generate(
     crate_name: &str,
     lang: &str,
     provider: &str,
     output_path: &Path,
+    target_version: Option<&str>,
 ) -> anyhow::Result<()> {
     let ui = crate::ui::Ui::for_lang(lang);
     if crate_name.is_empty() {
@@ -109,9 +158,21 @@ pub fn run_auto_generate(
     {
         bail!("{}", ui.f("mapping_crate_invalid", &[crate_name]));
     }
+    // 版本锁定参数校验：非法输入直接报错，避免生成基准被静默放宽
+    let version_requirement = match target_version {
+        Some(version) => match version_requirement(version) {
+            Some(requirement) => Some(requirement),
+            None => bail!("{}", ui.f("mapping_version_invalid", &[version])),
+        },
+        None => {
+            eprintln!("{}", ui.t("mapping_version_unlocked"));
+            None
+        }
+    };
 
     println!("{}", ui.f("mapping_extracting", &[crate_name]));
-    let doc_jsons = doc_json::extract_crate_doc(crate_name)?;
+    let (doc_jsons, resolved_version) =
+        doc_json::extract_crate_doc(crate_name, version_requirement.as_deref())?;
     // 薄壳 crate（meta crate，如 salvo 仅 `pub use salvo_core::*`）的公开 API
     // 来自 glob 重导出链上的依赖 crate（如 salvo_core），逐个 JSON 合并提取；
     // 同名 API 只保留首个条目（链上 crate 可能导出同名类型）
@@ -234,6 +295,7 @@ pub fn run_auto_generate(
         lang,
         crate_name,
         &crate_chinese_name,
+        resolved_version.as_deref(),
         &entries,
         &chinese_name_table,
         &explanation_table,
@@ -293,4 +355,53 @@ pub fn run_auto_generate(
     );
     println!("{}", ui.f("mapping_usage_hint", &[lang]));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::version_requirement;
+
+    /// 完整三段版本 → `=x.y.z` 精确锁定；兼容 =/v 前导与预发布/构建后缀
+    #[test]
+    fn test_version_requirement_exact() {
+        assert_eq!(version_requirement("2.11.5").as_deref(), Some("=2.11.5"));
+        assert_eq!(version_requirement("=2.11.5").as_deref(), Some("=2.11.5"));
+        assert_eq!(version_requirement("v2.11.5").as_deref(), Some("=2.11.5"));
+        assert_eq!(
+            version_requirement("3.0.0-alpha.0").as_deref(),
+            Some("=3.0.0-alpha.0")
+        );
+        assert_eq!(
+            version_requirement("1.0.0+build.7").as_deref(),
+            Some("=1.0.0+build.7")
+        );
+    }
+
+    /// 一段/两段版本 → 该线最新（前缀锁定）
+    #[test]
+    fn test_version_requirement_prefix_lines() {
+        assert_eq!(version_requirement("2.11").as_deref(), Some("2.11.*"));
+        assert_eq!(version_requirement("2").as_deref(), Some("2.*"));
+    }
+
+    /// 非法输入一律 None（由调用方报 mapping_version_invalid）
+    #[test]
+    fn test_version_requirement_invalid() {
+        for bad in [
+            "",
+            " ",
+            "abc",
+            "2.11.*",
+            "2.11.5.6",
+            "2..5",
+            "2.11.5 x",
+            "-1.0.0",
+            "2.11.5-",
+            "2.11.5-alpha..1",
+            "v",
+            "=",
+        ] {
+            assert_eq!(version_requirement(bad), None, "应判非法: {bad:?}");
+        }
+    }
 }
