@@ -1,0 +1,345 @@
+# 自动生成的第三方库映射
+# crate: tauri
+# 基准版本: 2.11.5
+# 生成时间: 2026-09-14 05:47:32
+# 本文件中的解释由 AI 根据 API 名称和签名自动生成，不是原 crate 的官方文档翻译，仅供学习参考。原 crate 的版权归其作者所有。
+# 已人工调整：跨文件消歧（事件→应用事件，Cookie→Cookie对象）并补齐全部解释。
+
+["模块路径"]
+"tauri" = "tauri"
+
+["标识符"]
+"TokioHandle" = "TokioHandle"  # type TokioHandle = tokio::runtime::Handle
+"TokioRuntime" = "TokioRuntime"  # type TokioRuntime = tokio::runtime::Runtime
+"channel" = "channel"  # type channel = tokio::sync::mpsc::channel
+"Receiver" = "Receiver"  # type Receiver = tokio::sync::mpsc::Receiver
+"Sender" = "Sender"  # type Sender = tokio::sync::mpsc::Sender
+"Mutex" = "Mutex"  # type Mutex = tokio::sync::Mutex
+"RwLock" = "RwLock"  # type RwLock = tokio::sync::RwLock
+"TokioJoinHandle" = "TokioJoinHandle"  # type TokioJoinHandle = tokio::task::JoinHandle
+"JoinHandle" = "JoinHandle"  # enum JoinHandle<T>
+"RuntimeHandle" = "RuntimeHandle"  # enum RuntimeHandle
+"handle" = "handle"  # fn handle() -> RuntimeHandle
+"block_on" = "block_on"  # fn block_on<F>(task: F) -> F::Output
+"spawn" = "spawn"  # fn spawn<F>(task: F) -> JoinHandle<F::Output>
+"spawn_blocking" = "spawn_blocking"  # fn spawn_blocking<F, R>(func: F) -> JoinHandle<R>
+"CommandScope" = "CommandScope"  # type CommandScope = authority::CommandScope
+"GlobalScope" = "GlobalScope"  # type GlobalScope = authority::GlobalScope
+"Origin" = "Origin"  # type Origin = authority::Origin
+"RuntimeAuthority" = "RuntimeAuthority"  # type RuntimeAuthority = authority::RuntimeAuthority
+"ScopeObject" = "ScopeObject"  # type ScopeObject = authority::ScopeObject
+"ScopeObjectMatch" = "ScopeObjectMatch"  # type ScopeObjectMatch = authority::ScopeObjectMatch
+"ScopeValue" = "ScopeValue"  # type ScopeValue = authority::ScopeValue
+"CapabilityBuilder" = "CapabilityBuilder"  # type CapabilityBuilder = capability_builder::CapabilityBuilder
+"RuntimeCapability" = "RuntimeCapability"  # type RuntimeCapability = capability_builder::RuntimeCapability
+"Channel" = "Channel"  # type Channel = channel::Channel
+"JavaScriptChannelId" = "JavaScriptChannelId"  # type JavaScriptChannelId = channel::JavaScriptChannelId
+"CommandArg" = "CommandArg"  # type CommandArg = command::CommandArg
+"CommandItem" = "CommandItem"  # type CommandItem = command::CommandItem
+"InvokeHandler" = "InvokeHandler"  # type InvokeHandler = dyn ?
+"InvokeResponder" = "InvokeResponder"  # type InvokeResponder = dyn ?
+"OwnedInvokeResponder" = "OwnedInvokeResponder"  # type OwnedInvokeResponder = dyn ?
+"InvokeBody" = "InvokeBody"  # enum InvokeBody
+"InvokeResponseBody" = "InvokeResponseBody"  # enum InvokeResponseBody
+"IpcResponse" = "IpcResponse"  # trait IpcResponse
+"Invoke" = "Invoke"  # struct Invoke<R>
+"InvokeError" = "InvokeError"  # struct InvokeError
+"InvokeResponse" = "InvokeResponse"  # enum InvokeResponse
+"InvokeResolver" = "InvokeResolver"  # struct InvokeResolver<R>
+"InvokeMessage" = "InvokeMessage"  # struct InvokeMessage<R>
+"CallbackFn" = "CallbackFn"  # struct CallbackFn
+"Plugin" = "Plugin"  # trait Plugin<R>
+"PluginHandle" = "PluginHandle"  # struct PluginHandle<R>
+"PluginApi" = "PluginApi"  # struct PluginApi<R, C>
+"TauriPlugin" = "TauriPlugin"  # struct TauriPlugin<R, C>
+"PermissionState" = "PermissionState"  # enum PermissionState
+"WebviewWindow" = "WebviewWindow"  # type WebviewWindow = webview_window::WebviewWindow
+"WebviewWindowBuilder" = "WebviewWindowBuilder"  # type WebviewWindowBuilder = webview_window::WebviewWindowBuilder
+"cookie" = "cookie"  # type cookie = cookie
+"NewWindowFeatures" = "NewWindowFeatures"  # type NewWindowFeatures = tauri_runtime::webview::NewWindowFeatures
+"PageLoadEvent" = "PageLoadEvent"  # type PageLoadEvent = tauri_runtime::webview::PageLoadEvent
+"ScrollBarStyle" = "ScrollBarStyle"  # type ScrollBarStyle = tauri_runtime::webview::ScrollBarStyle
+"Cookie对象" = "Cookie"  # type Cookie = tauri_runtime::Cookie
+"Color" = "Color"  # type Color = tauri_utils::config::Color
+"网址" = "Url"  # type Url = url::Url
+"DownloadEvent" = "DownloadEvent"  # enum DownloadEvent<'a>
+"PageLoadPayload" = "PageLoadPayload"  # struct PageLoadPayload<'a>
+"InvokeRequest" = "InvokeRequest"  # struct InvokeRequest
+"PlatformWebview" = "PlatformWebview"  # struct PlatformWebview
+"NewWindowResponse" = "NewWindowResponse"  # enum NewWindowResponse<R>
+"Webview" = "Webview"  # struct Webview<R>
+"ResolvedScope" = "ResolvedScope"  # struct ResolvedScope<T>
+"Effect" = "Effect"  # type Effect = tauri_utils::WindowEffect
+"EffectState" = "EffectState"  # type EffectState = tauri_utils::WindowEffectState
+"ProgressBarStatus" = "ProgressBarStatus"  # type ProgressBarStatus = crate::runtime::ProgressBarStatus
+"Monitor" = "Monitor"  # struct Monitor
+"Window" = "Window"  # struct Window<R>
+"ProgressBarState" = "ProgressBarState"  # struct ProgressBarState
+"EffectsBuilder" = "EffectsBuilder"  # struct EffectsBuilder
+"Image" = "Image"  # struct Image<'a>
+"JsImage" = "JsImage"  # enum JsImage
+"HELP_SUBMENU_ID" = "HELP_SUBMENU_ID"  # type HELP_SUBMENU_ID = menu::HELP_SUBMENU_ID
+"WINDOW_SUBMENU_ID" = "WINDOW_SUBMENU_ID"  # type WINDOW_SUBMENU_ID = menu::WINDOW_SUBMENU_ID
+"MenuId" = "MenuId"  # type MenuId = muda::MenuId
+"MenuEvent" = "MenuEvent"  # struct MenuEvent
+"Menu" = "Menu"  # struct Menu<R>
+"MenuItem" = "MenuItem"  # struct MenuItem<R>
+"Submenu" = "Submenu"  # struct Submenu<R>
+"PredefinedMenuItem" = "PredefinedMenuItem"  # struct PredefinedMenuItem<R>
+"CheckMenuItem" = "CheckMenuItem"  # struct CheckMenuItem<R>
+"IconMenuItem" = "IconMenuItem"  # struct IconMenuItem<R>
+"AboutMetadata" = "AboutMetadata"  # struct AboutMetadata<'a>
+"AboutMetadataBuilder" = "AboutMetadataBuilder"  # struct AboutMetadataBuilder<'a>
+"NativeIcon" = "NativeIcon"  # enum NativeIcon
+"MenuItemKind" = "MenuItemKind"  # enum MenuItemKind<R>
+"IsMenuItem" = "IsMenuItem"  # trait IsMenuItem<R>
+"ContextMenu" = "ContextMenu"  # trait ContextMenu
+"PathResolver" = "PathResolver"  # type PathResolver = desktop::PathResolver
+"SafePathBuf" = "SafePathBuf"  # struct SafePathBuf
+"BaseDirectory" = "BaseDirectory"  # enum BaseDirectory
+"current_binary" = "current_binary"  # fn current_binary(_env: &crate::Env) -> std::io::Result<std::path::PathBuf>
+"restart" = "restart"  # fn restart(env: &crate::Env) -> never
+"Pattern" = "Pattern"  # type Pattern = glob::Pattern
+"应用事件" = "Event"  # enum Event
+"Scope" = "Scope"  # struct Scope
+"ScopeEventId" = "ScopeEventId"  # type ScopeEventId = u32
+"Scopes" = "Scopes"  # struct Scopes
+"Resource" = "Resource"  # type Resource = resources::Resource
+"ResourceId" = "ResourceId"  # type ResourceId = resources::ResourceId
+"ResourceTable" = "ResourceTable"  # type ResourceTable = resources::ResourceTable
+"include_image" = "include_image"  # type include_image = tauri_macros::include_image
+"command" = "command"  # type command = tauri_macros::command
+"generate_handler" = "generate_handler"  # type generate_handler = tauri_macros::generate_handler
+"utils" = "utils"  # type utils = tauri_utils
+"Wry" = "Wry"  # type Wry = tauri_runtime_wry::Wry<EventLoopMessage>
+"WryHandle" = "WryHandle"  # type WryHandle = tauri_runtime_wry::WryHandle<EventLoopMessage>
+"SyncTask" = "SyncTask"  # type SyncTask = Box<dyn ?>
+"webview_version" = "webview_version"  # type webview_version = tauri_runtime_wry::webview_version
+"TitleBarStyle" = "TitleBarStyle"  # type TitleBarStyle = self::utils::TitleBarStyle
+"App" = "App"  # type App = self::app::App
+"AppHandle" = "AppHandle"  # type AppHandle = self::app::AppHandle
+"AssetResolver" = "AssetResolver"  # type AssetResolver = self::app::AssetResolver
+"CloseRequestApi" = "CloseRequestApi"  # type CloseRequestApi = self::app::CloseRequestApi
+"ExitRequestApi" = "ExitRequestApi"  # type ExitRequestApi = self::app::ExitRequestApi
+"UriSchemeContext" = "UriSchemeContext"  # type UriSchemeContext = self::app::UriSchemeContext
+"UriSchemeResponder" = "UriSchemeResponder"  # type UriSchemeResponder = self::app::UriSchemeResponder
+"WebviewEvent" = "WebviewEvent"  # type WebviewEvent = self::app::WebviewEvent
+"WindowEvent" = "WindowEvent"  # type WindowEvent = self::app::WindowEvent
+"RESTART_EXIT_CODE" = "RESTART_EXIT_CODE"  # type RESTART_EXIT_CODE = self::app::RESTART_EXIT_CODE
+"Asset" = "Asset"  # type Asset = self::manager::Asset
+"LogicalPosition" = "LogicalPosition"  # type LogicalPosition = self::runtime::dpi::LogicalPosition
+"LogicalRect" = "LogicalRect"  # type LogicalRect = self::runtime::dpi::LogicalRect
+"LogicalSize" = "LogicalSize"  # type LogicalSize = self::runtime::dpi::LogicalSize
+"LogicalUnit" = "LogicalUnit"  # type LogicalUnit = self::runtime::dpi::LogicalUnit
+"PhysicalPosition" = "PhysicalPosition"  # type PhysicalPosition = self::runtime::dpi::PhysicalPosition
+"PhysicalRect" = "PhysicalRect"  # type PhysicalRect = self::runtime::dpi::PhysicalRect
+"PhysicalSize" = "PhysicalSize"  # type PhysicalSize = self::runtime::dpi::PhysicalSize
+"PhysicalUnit" = "PhysicalUnit"  # type PhysicalUnit = self::runtime::dpi::PhysicalUnit
+"Pixel" = "Pixel"  # type Pixel = self::runtime::dpi::Pixel
+"PixelUnit" = "PixelUnit"  # type PixelUnit = self::runtime::dpi::PixelUnit
+"Rect" = "Rect"  # type Rect = self::runtime::dpi::Rect
+"CursorIcon" = "CursorIcon"  # type CursorIcon = self::runtime::window::CursorIcon
+"DragDropEvent" = "DragDropEvent"  # type DragDropEvent = self::runtime::window::DragDropEvent
+"WindowSizeConstraints" = "WindowSizeConstraints"  # type WindowSizeConstraints = self::runtime::window::WindowSizeConstraints
+"DeviceEventFilter" = "DeviceEventFilter"  # type DeviceEventFilter = self::runtime::DeviceEventFilter
+"UserAttentionType" = "UserAttentionType"  # type UserAttentionType = self::runtime::UserAttentionType
+"WebviewUrl" = "WebviewUrl"  # type WebviewUrl = self::utils::config::WebviewUrl
+"Env" = "Env"  # type Env = self::utils::Env
+"PackageInfo" = "PackageInfo"  # type PackageInfo = self::utils::PackageInfo
+"Theme" = "Theme"  # type Theme = self::utils::Theme
+"EventLoopMessage" = "EventLoopMessage"  # enum EventLoopMessage
+"generate_context" = "generate_context"  # type generate_context = tauri_macros::generate_context
+"Assets" = "Assets"  # trait Assets<R>
+"Listener" = "Listener"  # trait Listener<R>
+"Emitter" = "Emitter"  # trait Emitter<R>
+"tauri_build_context" = "tauri_build_context"  # tauri_build_context!
+"SerializeOptions" = "SerializeOptions"  # type SerializeOptions = serialize_to_javascript::Options
+"EventTarget" = "EventTarget"  # type EventTarget = self::event::EventTarget
+"Size" = "Size"  # type Size = self::runtime::dpi::Size
+"Response" = "Response"  # struct Response
+"Request" = "Request"  # struct Request<'a>
+"VERSION" = "VERSION"  # const VERSION: &str
+"Config" = "Config"  # type Config = self::utils::config::Config
+"Context" = "Context"  # struct Context<R>
+"BuilderError" = "BuilderError"  # enum BuilderError
+"StateManager" = "StateManager"  # type StateManager = self::state::StateManager
+"Error" = "Error"  # type Error = error::Error
+"Position" = "Position"  # type Position = self::runtime::dpi::Position
+"set" = "set"  # fn set(handle: TokioHandle) -> ?
+"EventId" = "EventId"  # type EventId = self::event::EventId
+"RunEvent" = "RunEvent"  # type RunEvent = self::app::RunEvent
+"http" = "http"  # type http = http
+"is_dev" = "is_dev"  # const fn is_dev() -> bool
+"State" = "State"  # type State = self::state::State
+"Result" = "Result"  # type Result = error::Result
+"Runtime" = "Runtime"  # enum Runtime
+"Builder" = "Builder"  # struct Builder<R, C>
+"Manager" = "Manager"  # trait Manager<R>
+
+["解释"]
+"TokioHandle" = "异步运行时的把手，用来往运行时里派发任务。"
+"TokioRuntime" = "异步运行时本体，负责调度所有异步任务。"
+"channel" = "创建一对收发端，用来在任务之间传消息。"
+"Receiver" = "消息通道的接收端，用 recv 拿别人发来的数据。"
+"Sender" = "消息通道的发送端，用 send 把数据发给接收端。"
+"Mutex" = "异步版互斥锁，同一时刻只让一个任务访问数据。"
+"RwLock" = "异步版读写锁，允许多个读或一个写同时进行。"
+"TokioJoinHandle" = "异步任务的句柄，可以等待任务结束并取回结果。"
+"JoinHandle" = "任务句柄，用来等待某个异步任务完成并拿返回值。"
+"RuntimeHandle" = "运行时的轻量引用，可在别处派发新任务。"
+"handle" = "获取当前全局运行时的句柄，用来派发任务。"
+"block_on" = "阻塞当前线程，一直等到这个异步任务跑完。"
+"spawn" = "把一个异步任务丢进运行时后台执行，立刻返回句柄。"
+"spawn_blocking" = "把耗时的同步函数放到专用线程池里执行。"
+"CommandScope" = "命令的权限范围，限定某条命令能操作哪些资源。"
+"GlobalScope" = "全局权限范围，对所有窗口和命令都生效。"
+"Origin" = "来源标识，表示请求是从哪里发起的。"
+"RuntimeAuthority" = "运行时权限管理器，统一校验命令和资源的访问权限。"
+"ScopeObject" = "权限范围里的一个对象，描述允许访问的目标。"
+"ScopeObjectMatch" = "范围对象的匹配规则，决定哪些对象算命中。"
+"ScopeValue" = "权限范围里的一个值，用于匹配或比较。"
+"CapabilityBuilder" = "能力构建器，用来一步步拼装权限能力配置。"
+"RuntimeCapability" = "运行时能力，表示某个窗口或命令被授予的权限集合。"
+"Channel" = "前后端之间的通道，用来双向传递消息。"
+"JavaScriptChannelId" = "JavaScript 通道的编号，前端用它找到对应通道。"
+"CommandArg" = "命令参数的抽象，表示从请求里取出一个参数。"
+"CommandItem" = "一条命令的条目，包含命令名和处理逻辑。"
+"InvokeHandler" = "处理前端 invoke 调用的函数类型。"
+"InvokeResponder" = "负责把命令结果回传给前端的响应器。"
+"OwnedInvokeResponder" = "拥有所有权的响应器，可跨线程回传结果。"
+"InvokeBody" = "前端 invoke 请求携带的请求体数据。"
+"InvokeResponseBody" = "回传给前端的响应体数据。"
+"IpcResponse" = "IPC 响应的统一接口，定义如何把结果写回去。"
+"Invoke" = "一次命令调用的上下文，含参数和响应通道。"
+"InvokeError" = "命令调用出错时的错误类型。"
+"InvokeResponse" = "命令调用的响应，成功或失败都走它。"
+"InvokeResolver" = "用来解析并返回命令结果的工具。"
+"InvokeMessage" = "命令调用过程中传递的消息载体。"
+"CallbackFn" = "回调函数类型，事件触发时被调用。"
+"Plugin" = "插件接口，实现它就能给 Tauri 加功能。"
+"PluginHandle" = "插件句柄，用来在运行时访问已注册的插件。"
+"PluginApi" = "插件对外暴露的 API，供应用调用插件功能。"
+"TauriPlugin" = "Tauri 插件对象，注册后即可扩展应用能力。"
+"PermissionState" = "权限状态，表示允许、拒绝或询问。"
+"WebviewWindow" = "网页窗口对象，可操作窗口和页面。"
+"WebviewWindowBuilder" = "网页窗口构建器，配置并创建窗口。"
+"cookie" = "处理网页 cookie 的模块。"
+"NewWindowFeatures" = "新开窗口时的特性配置，如大小位置。"
+"PageLoadEvent" = "页面加载事件，表示加载开始或完成。"
+"ScrollBarStyle" = "滚动条样式设置，控制外观。"
+"Cookie对象" = "网页存储的小段数据，用来记住登录状态等信息。"
+"Color" = "表示一种颜色，常用于窗口或界面配置。"
+"网址" = "表示一个网址，用来定位网络资源。"
+"DownloadEvent" = "下载过程中触发的事件，比如开始或完成。"
+"PageLoadPayload" = "网页加载时携带的信息，比如加载的地址。"
+"InvokeRequest" = "前端调用后端命令时发来的请求数据。"
+"PlatformWebview" = "某个平台上的网页视图对象，用来显示网页。"
+"NewWindowResponse" = "打开新窗口请求的回应，决定是否允许。"
+"Webview" = "应用里显示网页的视图组件，是界面核心。"
+"ResolvedScope" = "已经解析好的权限范围，决定能访问什么。"
+"Effect" = "窗口的视觉效果，比如毛玻璃或阴影。"
+"EffectState" = "窗口效果的状态，比如开启或关闭。"
+"ProgressBarStatus" = "任务栏进度条的显示状态，比如进度或暂停。"
+"Monitor" = "显示器信息，比如分辨率和位置。"
+"Window" = "应用窗口对象，用来创建和控制窗口。"
+"ProgressBarState" = "任务栏进度条的状态数据，比如当前进度值。"
+"EffectsBuilder" = "用来一步步配置窗口效果的构建器。"
+"Image" = "一张图片数据，可以显示在窗口或图标上。"
+"JsImage" = "能传给 JavaScript 使用的图片数据。"
+"HELP_SUBMENU_ID" = "帮助子菜单的固定标识符。"
+"WINDOW_SUBMENU_ID" = "窗口子菜单的固定标识符。"
+"MenuId" = "菜单项的唯一标识，用来区分不同菜单。"
+"MenuEvent" = "菜单被点击时触发的事件。"
+"Menu" = "应用的菜单栏，包含各种菜单项。"
+"MenuItem" = "菜单里的一个可点击条目。"
+"Submenu" = "菜单里可以展开的子菜单。"
+"PredefinedMenuItem" = "系统预定义好的菜单项，比如复制粘贴。"
+"CheckMenuItem" = "带勾选框的菜单项，可切换选中状态。"
+"IconMenuItem" = "带图标的菜单项，点击可触发操作。"
+"AboutMetadata" = "关于对话框里显示的信息，比如版本和作者。"
+"AboutMetadataBuilder" = "用来一步步配置关于对话框信息的构建器。"
+"NativeIcon" = "系统自带的图标，可直接用在菜单上。"
+"MenuItemKind" = "表示菜单项属于哪种类型，比如普通或子菜单。"
+"IsMenuItem" = "标记某个类型可以作为菜单项使用。"
+"ContextMenu" = "右键弹出的上下文菜单。"
+"PathResolver" = "用来解析应用各种路径的工具，比如配置目录。"
+"SafePathBuf" = "经过安全检查的路径，防止越权访问文件。"
+"BaseDirectory" = "应用的标准目录，比如文档或下载目录。"
+"current_binary" = "获取当前运行程序的路径。"
+"restart" = "重启当前应用，常用于更新后生效。"
+"Pattern" = "通配符匹配模式，用来匹配文件路径。"
+"应用事件" = "应用内的事件，用来在前后端之间传递消息。"
+"Scope" = "权限范围，规定哪些操作被允许。"
+"ScopeEventId" = "一个数字编号，用来区分不同的权限范围事件。"
+"Scopes" = "存放应用各项权限范围设置的结构体。"
+"Resource" = "可以被应用管理的资源对象，比如文件或句柄。"
+"ResourceId" = "资源的编号，用来在资源表里找到对应资源。"
+"ResourceTable" = "存放所有资源的表格，按编号管理它们。"
+"include_image" = "编译时把图片打包进程序的宏，方便直接用。"
+"command" = "把普通函数标记成前端可调用的命令的宏。"
+"generate_handler" = "把多个命令收集起来，生成统一处理入口的宏。"
+"utils" = "Tauri 提供的一些通用小工具集合。"
+"Wry" = "底层网页渲染引擎的封装类型，负责显示网页。"
+"WryHandle" = "操作 Wry 渲染引擎的句柄，用来控制它。"
+"SyncTask" = "一个可以在线程间传递的异步任务盒子。"
+"webview_version" = "获取当前系统网页渲染引擎的版本号。"
+"TitleBarStyle" = "设置窗口标题栏样式的选项，比如隐藏或透明。"
+"App" = "整个 Tauri 应用的主体对象，管理窗口和生命周期。"
+"AppHandle" = "应用主体的可克隆句柄，方便在别处操作应用。"
+"AssetResolver" = "负责把请求的静态资源找出来并返回。"
+"CloseRequestApi" = "窗口收到关闭请求时，用来决定是否真的关闭。"
+"ExitRequestApi" = "应用收到退出请求时，用来决定是否真的退出。"
+"UriSchemeContext" = "处理自定义协议请求时携带的上下文信息。"
+"UriSchemeResponder" = "用来回应自定义协议请求的响应器。"
+"WebviewEvent" = "网页视图产生的事件，比如加载完成。"
+"WindowEvent" = "窗口产生的事件，比如移动、缩放或关闭。"
+"RESTART_EXIT_CODE" = "表示应用要重启时使用的退出码。"
+"Asset" = "一个静态资源，包含内容和类型信息。"
+"LogicalPosition" = "用逻辑单位表示的位置，不随屏幕缩放变化。"
+"LogicalRect" = "用逻辑单位表示的矩形区域。"
+"LogicalSize" = "用逻辑单位表示的尺寸，不随屏幕缩放变化。"
+"LogicalUnit" = "逻辑单位，一种与屏幕缩放无关的长度单位。"
+"PhysicalPosition" = "用物理像素表示的位置，受屏幕缩放影响。"
+"PhysicalRect" = "用物理像素表示的矩形区域。"
+"PhysicalSize" = "用物理像素表示的尺寸，受屏幕缩放影响。"
+"PhysicalUnit" = "物理单位，以实际像素为基准的长度单位。"
+"Pixel" = "表示一个像素值的类型。"
+"PixelUnit" = "以像素为单位的长度类型。"
+"Rect" = "矩形区域类型，可以是逻辑或物理单位。"
+"CursorIcon" = "鼠标指针的图标样式，比如箭头或手型。"
+"DragDropEvent" = "拖放文件到窗口时产生的事件。"
+"WindowSizeConstraints" = "限制窗口大小范围的约束条件。"
+"DeviceEventFilter" = "过滤设备输入事件的选项，决定哪些事件被接收。"
+"UserAttentionType" = "请求用户注意的方式，比如让任务栏闪烁。"
+"WebviewUrl" = "指定网页视图加载的地址，可以是本地文件或网址。"
+"Env" = "运行环境信息，比如系统类型和架构。"
+"PackageInfo" = "应用包的信息，如名称、版本和作者。"
+"Theme" = "界面主题，控制应用是浅色还是深色外观。"
+"EventLoopMessage" = "事件循环中传递的消息类型，用于窗口间通信。"
+"generate_context" = "宏，自动生成应用运行所需的上下文代码。"
+"Assets" = "定义如何加载前端静态资源，如 HTML 和 JS 文件。"
+"Listener" = "监听事件的接口，用来接收并处理自定义事件。"
+"Emitter" = "发送事件的接口，可以向其他部分广播消息。"
+"tauri_build_context" = "宏，在构建脚本中生成 Tauri 所需的上下文信息。"
+"SerializeOptions" = "把数据序列化给前端 JavaScript 时的选项。"
+"EventTarget" = "事件要发送到的目标，比如某个窗口。"
+"Size" = "尺寸类型，可以是逻辑或物理单位。"
+"Response" = "一次 IPC 响应的具体实现，装着返回数据。"
+"Request" = "一次 IPC 请求，包含命令名和参数。"
+"VERSION" = "当前 Tauri 框架的版本号字符串。"
+"Config" = "应用的配置信息，比如窗口大小、标题等设置。"
+"Context" = "应用的核心上下文，保存运行时的全局信息。"
+"BuilderError" = "构建插件或应用时出错返回的错误类型。"
+"StateManager" = "管理应用全局状态的工具，让不同窗口共享数据。"
+"Error" = "Tauri 里统一的错误类型，出错时用它表示。"
+"Position" = "位置类型，可以是逻辑或物理单位。"
+"set" = "设置全局异步运行时，让 Tauri 使用你提供的运行时。"
+"EventId" = "事件的编号，用来区分不同的事件。"
+"RunEvent" = "应用运行过程中产生的各种事件，比如启动或退出。"
+"http" = "Tauri 里用于发起和处理网络请求的模块。"
+"is_dev" = "判断当前是否处于开发模式，返回布尔值。"
+"State" = "在应用里共享的全局状态，可被命令读取。"
+"Result" = "Tauri 的返回结果类型，成功或失败都靠它。"
+"Runtime" = "Tauri 的异步运行时，管理任务调度和线程池。"
+"Builder" = "构建器，用链式调用一步步配置出插件或应用。"
+"Manager" = "管理窗口、菜单等资源的接口，方便统一操作。"
