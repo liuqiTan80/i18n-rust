@@ -133,6 +133,25 @@ pub(crate) fn version_requirement(version: &str) -> Option<String> {
     }
 }
 
+/// AI 解释覆盖率（生成后自检）：按最终母语名表统计非空解释。
+///
+/// AI 偶发省略部分条目的解释（同批不同调用间有随机波动），生成后
+/// 显式输出覆盖率，便于及时发现缺失并重跑补齐。
+fn explanation_coverage(
+    chinese_name_table: &[(String, String)],
+    explanation_table: &HashMap<String, String>,
+) -> (usize, usize) {
+    let covered = chinese_name_table
+        .iter()
+        .filter(|(name, _)| {
+            explanation_table
+                .get(name)
+                .is_some_and(|text| !text.is_empty())
+        })
+        .count();
+    (covered, chinese_name_table.len())
+}
+
 /// 主入口：`rzc mapping auto`
 ///
 /// - `crate_name`：目标 crate（已安装或可从 crates.io 拉取）
@@ -274,6 +293,30 @@ pub fn run_auto_generate(
                         }
                     }
                     println!("{}", ui.f("mapping_ai_success", &[provider]));
+                    // 解释覆盖率自检：缺失时显式警告（AI 偶发省略条目）
+                    let (covered, total) =
+                        explanation_coverage(&chinese_name_table, &explanation_table);
+                    if covered < total {
+                        eprintln!(
+                            "{}",
+                            ui.f(
+                                "mapping_ai_coverage_missing",
+                                &[
+                                    &covered.to_string(),
+                                    &total.to_string(),
+                                    &(total - covered).to_string()
+                                ]
+                            )
+                        );
+                    } else {
+                        println!(
+                            "{}",
+                            ui.f(
+                                "mapping_ai_coverage",
+                                &[&covered.to_string(), &total.to_string()]
+                            )
+                        );
+                    }
                 }
                 Err(e) => {
                     eprintln!(
@@ -359,7 +402,8 @@ pub fn run_auto_generate(
 
 #[cfg(test)]
 mod tests {
-    use super::version_requirement;
+    use super::{explanation_coverage, version_requirement};
+    use std::collections::HashMap;
 
     /// 完整三段版本 → `=x.y.z` 精确锁定；兼容 =/v 前导与预发布/构建后缀
     #[test]
@@ -403,5 +447,23 @@ mod tests {
         ] {
             assert_eq!(version_requirement(bad), None, "应判非法: {bad:?}");
         }
+    }
+
+    /// 解释覆盖率：空串解释不计入；空表安全返回 (0, 0)
+    #[test]
+    fn test_explanation_coverage() {
+        let table = vec![
+            ("新建".to_string(), "new".to_string()),
+            ("错误".to_string(), "Error".to_string()),
+            ("状态".to_string(), "State".to_string()),
+        ];
+        let mut explanations = HashMap::new();
+        explanations.insert("新建".to_string(), "创建新对象。".to_string());
+        explanations.insert("错误".to_string(), String::new());
+        assert_eq!(explanation_coverage(&table, &explanations), (1, 3));
+        explanations.insert("错误".to_string(), "错误类型。".to_string());
+        explanations.insert("状态".to_string(), "状态值。".to_string());
+        assert_eq!(explanation_coverage(&table, &explanations), (3, 3));
+        assert_eq!(explanation_coverage(&[], &explanations), (0, 0));
     }
 }

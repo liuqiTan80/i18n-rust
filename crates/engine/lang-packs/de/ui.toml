@@ -204,6 +204,8 @@
 "mapping_no_macro" = "Hinweis: Das rustdoc-JSON-Format enthält derzeit keine macro_rules!-Definitionen; Makro-Zuordnungen bitte manuell ergänzen."
 "mapping_name_conflict" = "Warnung: Muttersprachlicher Name '{}' kollidiert mit '{}', übersprungen (manuell ergänzbar)."
 "mapping_ai_success" = "✅ KI ({}) hat Muttersprachennamen und Erklärungen erfolgreich erzeugt."
+"mapping_ai_coverage" = "Erklärungsabdeckung: {}/{} Einträge"
+"mapping_ai_coverage_missing" = "⚠️ Erklärungsabdeckung: {}/{} Einträge ({} fehlen; Neugenerierung oder manuelle Ergänzung empfohlen)"
 "mapping_ai_fallback" = "KI-Aufruf fehlgeschlagen (Umgebungsvariable {} und Netzwerk prüfen): {}; zurückgefallen auf Regelmodus."
 "mapping_rule_mode" = "Keine KI konfiguriert, API-Erklärungen nicht möglich (Regelmodus, Erklärungen leer)."
 "mapping_unknown_provider" = "Unbekannter KI-Anbieter '{}', Optionen: deepseek / rule"

@@ -204,6 +204,8 @@
 "mapping_no_macro" = "참고: rustdoc JSON 형식에는 현재 macro_rules! 정의가 포함되지 않습니다. 매크로 매핑은 수동으로 추가하세요."
 "mapping_name_conflict" = "경고: 모국어 이름 '{}' 이(가) '{}' 와(과) 충돌하여 건너뜀 (수동 추가 가능)."
 "mapping_ai_success" = "✅ AI({})가 모국어 이름과 설명을 생성했습니다."
+"mapping_ai_coverage" = "설명 커버리지: {}/{}개"
+"mapping_ai_coverage_missing" = "⚠️ 설명 커버리지: {}/{}개 ({}개 누락, 재생성 또는 수동 보완 권장)"
 "mapping_ai_fallback" = "AI 호출 실패 (환경 변수 {} 및 네트워크 확인): {}; 규칙 모드로 대체됨."
 "mapping_rule_mode" = "AI가 구성되지 않아 API 설명을 생성할 수 없음 (규칙 모드, 설명은 비어 있음)."
 "mapping_unknown_provider" = "알 수 없는 AI 제공자 '{}', 옵션: deepseek / rule"
