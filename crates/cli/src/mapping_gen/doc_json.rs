@@ -1,5 +1,6 @@
 //! 工具链集成：在临时项目中把目标 crate 作为依赖编译，手动调用 rustdoc
-//! 生成 JSON 文档（含薄壳 crate 的 glob 重导出追踪与构建脚本产物注入）。
+//! 生成 JSON 文档（含薄壳 crate 的 glob 重导出追踪、构建脚本产物与
+//! CARGO_PKG_* 标准环境变量注入）。
 
 use anyhow::{Context, anyhow, bail};
 use serde_json::Value;
@@ -339,11 +340,122 @@ fn extract_doc_json_internal(
 /// 手动 rustdoc 时必须注入，否则编译失败（如 OUT_DIR 未定义）。
 type BuildScriptInfo = (Option<String>, Vec<String>, Vec<String>);
 
+/// cargo 编译 crate 时注入的标准 CARGO_* 环境变量：(键, 值) 列表
+///
+/// 手动 rustdoc 不经过 cargo，proc macro 在展开期读取这些变量（如 tauri 的
+/// `#[command(root = "crate")]` 读 CARGO_PKG_NAME）会因缺失直接 panic；
+/// 未声明的包字段与 cargo 一致地给出空字符串（rust-version / readme
+/// 仅在清单中声明时才提供）。
+fn cargo_env_vars(
+    pkg: &Value,
+    manifest: &toml::Value,
+    crate_name: &str,
+    crate_name_underscore: &str,
+    source_dir: &Path,
+    manifest_path: &Path,
+) -> Vec<(String, String)> {
+    let package = manifest.get("package");
+    let meta_str = |key: &str| -> String {
+        pkg.get(key)
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string()
+    };
+    let manifest_str = |key: &str| -> String {
+        package
+            .and_then(|p| p.get(key))
+            .and_then(toml::Value::as_str)
+            .unwrap_or("")
+            .to_string()
+    };
+    let name = {
+        let meta_name = meta_str("name");
+        if meta_name.is_empty() {
+            crate_name.to_string()
+        } else {
+            meta_name
+        }
+    };
+    let version = meta_str("version");
+    // 版本分段（先剥离 +构建 元数据，再拆 -预发布；缺失段为空串）
+    let without_build = version.split_once('+').map_or(version.as_str(), |(v, _)| v);
+    let (core, pre) = without_build
+        .split_once('-')
+        .map_or((without_build, ""), |(c, p)| (c, p));
+    let mut segments = core.split('.');
+    let major = segments.next().unwrap_or("").to_string();
+    let minor = segments.next().unwrap_or("").to_string();
+    let patch = segments.next().unwrap_or("").to_string();
+    let pre_release = pre.to_string();
+    // authors：cargo 以冒号连接多作者
+    let authors = match package.and_then(|p| p.get("authors")) {
+        Some(toml::Value::Array(list)) => list
+            .iter()
+            .filter_map(toml::Value::as_str)
+            .collect::<Vec<_>>()
+            .join(":"),
+        Some(toml::Value::String(s)) => s.clone(),
+        _ => String::new(),
+    };
+    let mut vars = vec![
+        ("CARGO_PKG_NAME".to_string(), name),
+        ("CARGO_PKG_VERSION".to_string(), version),
+        ("CARGO_PKG_VERSION_MAJOR".to_string(), major),
+        ("CARGO_PKG_VERSION_MINOR".to_string(), minor),
+        ("CARGO_PKG_VERSION_PATCH".to_string(), patch),
+        ("CARGO_PKG_VERSION_PRE".to_string(), pre_release),
+        (
+            "CARGO_CRATE_NAME".to_string(),
+            crate_name_underscore.to_string(),
+        ),
+        (
+            "CARGO_MANIFEST_DIR".to_string(),
+            source_dir.display().to_string(),
+        ),
+        (
+            "CARGO_MANIFEST_PATH".to_string(),
+            manifest_path.display().to_string(),
+        ),
+        ("CARGO_PKG_AUTHORS".to_string(), authors),
+        (
+            "CARGO_PKG_DESCRIPTION".to_string(),
+            manifest_str("description"),
+        ),
+        ("CARGO_PKG_HOMEPAGE".to_string(), manifest_str("homepage")),
+        (
+            "CARGO_PKG_REPOSITORY".to_string(),
+            manifest_str("repository"),
+        ),
+        ("CARGO_PKG_LICENSE".to_string(), manifest_str("license")),
+        (
+            "CARGO_PKG_LICENSE_FILE".to_string(),
+            manifest_str("license-file"),
+        ),
+    ];
+    if let Some(rust_version) = package
+        .and_then(|p| p.get("rust-version"))
+        .and_then(toml::Value::as_str)
+    {
+        vars.push((
+            "CARGO_PKG_RUST_VERSION".to_string(),
+            rust_version.to_string(),
+        ));
+    }
+    if let Some(readme) = package
+        .and_then(|p| p.get("readme"))
+        .and_then(toml::Value::as_str)
+    {
+        vars.push(("CARGO_PKG_README".to_string(), readme.to_string()));
+    }
+    vars
+}
+
 /// 对单个 crate 手动调用 rustdoc 生成 JSON 文档
 ///
 /// 注入目标 crate 实际启用的 features（cfg）、构建脚本产物（OUT_DIR / cfg /
-/// rustc-env）与直接依赖的 .rlib/.so 路径（--extern，按 package_id 精确版本），
-/// 保证 cfg(feature) 与 include! 生成的 API 不缺失。
+/// rustc-env）、标准 CARGO_PKG_* 环境变量与直接依赖的 .rlib/.so 路径
+/// （--extern，按 package_id 精确版本），保证 cfg(feature) 与 include!
+/// 生成的 API 不缺失。
 fn rustdoc_single(
     project_root: &Path,
     pkg: &Value,
@@ -424,6 +536,18 @@ fn rustdoc_single(
             project_root.join("target/debug/deps").display()
         ))
         .env("RUSTC_BOOTSTRAP", "1");
+    // 补全 cargo 编译时注入的标准环境变量：proc macro（如 tauri 的
+    // `#[command]`）在展开期读取 CARGO_PKG_NAME，缺失会直接 panic
+    for (key, value) in cargo_env_vars(
+        pkg,
+        &manifest,
+        crate_name,
+        &crate_name_underscore,
+        source_dir,
+        &manifest_path,
+    ) {
+        cmd.env(key, value);
+    }
     // --extern 只传直接依赖的精确版本：同名多版本 crate（如 rand 0.8.7 与
     // 0.10.2 共存）无法从 -L 目录自动解析，rustc 可能链接错误版本；传递依赖
     // 由 rustc 按 rlib 元数据 hash 在 -L 中自动解析
@@ -730,6 +854,119 @@ mod tests {
         assert!(name_list.contains(&"Response"));
         assert!(name_list.contains(&"Error"));
         assert!(name_list.contains(&"Handler"));
+    }
+
+    /// cargo_env_vars：名称/版本分段/作者拼接与空值兜底（cargo 语义）
+    #[test]
+    fn test_cargo_env_vars_values() {
+        let pkg = serde_json::json!({ "name": "tauri", "version": "2.11.5" });
+        let manifest: toml::Value = toml::from_str(
+            "[package]\nname = \"tauri\"\nversion = \"2.11.5\"\nauthors = [\"A\", \"B\"]\nlicense = \"MIT\"\nrust-version = \"1.77\"\n",
+        )
+        .unwrap();
+        let vars = cargo_env_vars(
+            &pkg,
+            &manifest,
+            "tauri",
+            "tauri",
+            Path::new("/src/tauri-2.11.5"),
+            Path::new("/src/tauri-2.11.5/Cargo.toml"),
+        );
+        let get = |k: &str| {
+            vars.iter()
+                .find(|(key, _)| key == k)
+                .map(|(_, v)| v.as_str())
+        };
+        assert_eq!(get("CARGO_PKG_NAME"), Some("tauri"));
+        assert_eq!(get("CARGO_PKG_VERSION"), Some("2.11.5"));
+        assert_eq!(get("CARGO_PKG_VERSION_MAJOR"), Some("2"));
+        assert_eq!(get("CARGO_PKG_VERSION_MINOR"), Some("11"));
+        assert_eq!(get("CARGO_PKG_VERSION_PATCH"), Some("5"));
+        assert_eq!(get("CARGO_PKG_VERSION_PRE"), Some(""));
+        assert_eq!(get("CARGO_CRATE_NAME"), Some("tauri"));
+        assert_eq!(get("CARGO_MANIFEST_DIR"), Some("/src/tauri-2.11.5"));
+        assert_eq!(get("CARGO_PKG_AUTHORS"), Some("A:B"));
+        assert_eq!(get("CARGO_PKG_LICENSE"), Some("MIT"));
+        assert_eq!(get("CARGO_PKG_RUST_VERSION"), Some("1.77"));
+        // 未声明的字段与 cargo 一致给空串；未声明 rust-version 不提供该变量
+        assert_eq!(get("CARGO_PKG_DESCRIPTION"), Some(""));
+        let pkg2 = serde_json::json!({ "name": "x", "version": "1.0.0-alpha.1+build.5" });
+        let manifest2: toml::Value =
+            toml::from_str("[package]\nname = \"x\"\nversion = \"1.0.0-alpha.1+build.5\"\n")
+                .unwrap();
+        let vars2 = cargo_env_vars(
+            &pkg2,
+            &manifest2,
+            "x",
+            "x",
+            Path::new("/s"),
+            Path::new("/s/Cargo.toml"),
+        );
+        let get2 = |k: &str| {
+            vars2
+                .iter()
+                .find(|(key, _)| key == k)
+                .map(|(_, v)| v.as_str())
+        };
+        assert_eq!(get2("CARGO_PKG_VERSION_PRE"), Some("alpha.1"));
+        assert_eq!(get2("CARGO_PKG_VERSION_PATCH"), Some("0"));
+        assert_eq!(get2("CARGO_PKG_RUST_VERSION"), None);
+        assert_eq!(get2("CARGO_PKG_README"), None);
+    }
+
+    /// 真实工具链：rustdoc 编译期读取 CARGO_PKG_*（tauri 的 command 宏同款行为），
+    /// 注入缺失或值错误时 const 断言编译失败——保障提取管线补全这些变量
+    #[test]
+    fn test_cargo_env_injection() {
+        let temp = tempfile::tempdir().unwrap();
+        let mini = temp.path().join("mini-env");
+        fs::create_dir_all(mini.join("src")).unwrap();
+        fs::write(
+            mini.join("Cargo.toml"),
+            "[package]\nname = \"mini-env\"\nversion = \"0.2.3\"\nedition = \"2024\"\ndescription = \"迷你环境测试包\"\n\n[workspace]\n",
+        )
+        .unwrap();
+        fs::write(
+            mini.join("src/lib.rs"),
+            "const fn eq(a: &str, b: &str) -> bool {\n\
+             let (a, b) = (a.as_bytes(), b.as_bytes());\n\
+             if a.len() != b.len() {\n\
+             return false;\n\
+             }\n\
+             let mut i = 0;\n\
+             while i < a.len() {\n\
+             if a[i] != b[i] {\n\
+             return false;\n\
+             }\n\
+             i += 1;\n\
+             }\n\
+             true\n\
+             }\n\
+             const _: () = assert!(eq(env!(\"CARGO_PKG_NAME\"), \"mini-env\"));\n\
+             const _: () = assert!(eq(env!(\"CARGO_PKG_VERSION\"), \"0.2.3\"));\n\
+             const _: () = assert!(eq(env!(\"CARGO_PKG_VERSION_MINOR\"), \"2\"));\n\
+             const _: () = assert!(eq(env!(\"CARGO_CRATE_NAME\"), \"mini_env\"));\n\
+             pub fn env_check() -> u8 { 1 }\n",
+        )
+        .unwrap();
+        let shell = temp.path().join("外壳5");
+        fs::create_dir_all(shell.join("src")).unwrap();
+        fs::write(
+            shell.join("Cargo.toml"),
+            "[package]\nname = \"外壳5\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nmini-env = { path = \"../mini-env\" }\n\n[workspace]\n",
+        )
+        .unwrap();
+        fs::write(shell.join("src/lib.rs"), "// 空库\n").unwrap();
+
+        let (doc_jsons, _) = extract_doc_json_internal(&TempProject(shell.clone()), "mini-env")
+            .expect("CARGO_PKG_* 注入后应能生成文档");
+        let entries = extract_public_api(&doc_jsons[0].1).unwrap();
+        let name_list: Vec<&str> = entries.iter().map(|e| e.english_name.as_str()).collect();
+        assert!(
+            name_list.contains(&"env_check"),
+            "应提取到 env_check: {:?}",
+            name_list
+        );
     }
 
     /// 样本 JSON 可解析（样本与提取器在同一 crate，防漂移）
