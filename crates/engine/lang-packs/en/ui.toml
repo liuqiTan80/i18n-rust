@@ -196,6 +196,7 @@
 "mapping_overwrite_warn" = "⚠️ Warning: file already exists, will overwrite: {}"
 "mapping_version_invalid" = "Invalid version: {} (expected x, x.y or x.y.z, optional -pre-release/+build suffix, e.g. 3.0.0-alpha.0)"
 "mapping_version_unlocked" = "Note: --target-version not specified; the dependency resolves to the latest version (not reproducible). For production mappings, pin it, e.g. --target-version 2.11.5"
+"mg_ai_batch_progress" = "Generating mapping with AI... (batch {} of {})"
 "mapping_generated" = "✅ Mapping generated: {}"
 "mapping_crate_name_line" = "   Crate native name: {} (module path mapping {} → {})"
 "mapping_usage_hint" = "   Usage: create lang-packs/{}/ in your project and place this file there, or use --lang-pack."

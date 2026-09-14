@@ -9,6 +9,9 @@ use super::ApiEntry;
 
 /// AI 请求超时配置（秒）
 const AI_CONNECT_TIMEOUT: u64 = 30;
+/// 单次 AI 调用最多处理的 API 条目数：长映射（数百条目）单次调用会超
+/// 模型输出上限，按批调用后合并结果
+const AI_BATCH_SIZE: usize = 50;
 /// AI system 提示语（中文）：面向 zh 语言包，生成中文名 + 中文解释
 const AI_PROMPT_ZH: &str = "你是面向 Rust 新手的教学翻译专家。任务：把第三方 crate 的公开 API 翻译成中文教学映射。\n\
     输入：API 英文名 + 类型签名列表。你只能依据名称和类型签名推测含义，\n\
@@ -52,6 +55,8 @@ pub fn deepseek_chat(system_prompt: &str, user_prompt: &str) -> anyhow::Result<S
             { "role": "user", "content": user_prompt }
         ],
         "temperature": 0.2,
+        // 输出上限 8K：分批后单批输出仍可能接近默认 4K 上限
+        "max_tokens": 8000,
         "stream": false
     });
     let agent = ureq::Agent::config_builder()
@@ -89,25 +94,14 @@ pub fn deepseek_chat(system_prompt: &str, user_prompt: &str) -> anyhow::Result<S
         .ok_or_else(|| anyhow!("{}", ui.t("mg_err_ai_no_content")))
 }
 
-/// 调用 DeepSeek 生成中文名与解释，返回 (中文名→英文名, 中文名→解释)
-///
-/// 只发送 API 英文名与类型签名；失败时上层回退规则模式。
-pub fn call_ai_generate_mapping(
-    crate_name: &str,
-    lang: &str,
-    entries: &[ApiEntry],
-) -> anyhow::Result<(HashMap<String, String>, HashMap<String, String>)> {
-    let api_list = entries
+/// 构建单批请求的 user 提示词（crate 名 + 该批 API 列表）
+fn build_user_prompt(crate_name: &str, lang: &str, batch: &[ApiEntry]) -> String {
+    let api_list = batch
         .iter()
         .map(|e| format!("- {} {}", e.kind.display(), e.signature))
         .collect::<Vec<_>>()
         .join("\n");
-    let system_prompt = if lang == "zh" {
-        AI_PROMPT_ZH
-    } else {
-        AI_PROMPT_EN
-    };
-    let user_prompt = if lang == "zh" {
+    if lang == "zh" {
         format!(
             "crate: {}\n公开 API 列表（名称 + 类型签名）：\n{}",
             crate_name, api_list
@@ -117,12 +111,46 @@ pub fn call_ai_generate_mapping(
             "crate: {}\nPublic API list (name + type signature):\n{}",
             crate_name, api_list
         )
-    };
-    let content = deepseek_chat(system_prompt, &user_prompt)?;
+    }
+}
 
-    let valid_english_names: HashSet<String> =
-        entries.iter().map(|e| e.english_name.clone()).collect();
-    parse_ai_result(&content, &valid_english_names)
+/// 调用 DeepSeek 生成中文名与解释，返回 (中文名→英文名, 中文名→解释)
+///
+/// 只发送 API 英文名与类型签名；长映射按 [`AI_BATCH_SIZE`] 分批调用后合并
+/// （单次调用的输出会超模型上限）；任一批失败整体返回 Err，由上层回退规则模式。
+pub fn call_ai_generate_mapping(
+    crate_name: &str,
+    lang: &str,
+    entries: &[ApiEntry],
+) -> anyhow::Result<(HashMap<String, String>, HashMap<String, String>)> {
+    let system_prompt = if lang == "zh" {
+        AI_PROMPT_ZH
+    } else {
+        AI_PROMPT_EN
+    };
+    let ui = crate::ui::Ui::global();
+    let batches: Vec<&[ApiEntry]> = entries.chunks(AI_BATCH_SIZE).collect();
+    let mut identifier_map = HashMap::new();
+    let mut explanation_map = HashMap::new();
+    for (index, batch) in batches.iter().enumerate() {
+        println!(
+            "{}",
+            ui.f(
+                "mg_ai_batch_progress",
+                &[&(index + 1).to_string(), &batches.len().to_string()]
+            )
+        );
+        let user_prompt = build_user_prompt(crate_name, lang, batch);
+        let content = deepseek_chat(system_prompt, &user_prompt)?;
+        // 只接受本批条目中的英文名（防止 AI 幻觉改名）
+        let valid_english_names: HashSet<String> =
+            batch.iter().map(|e| e.english_name.clone()).collect();
+        let (batch_identifiers, batch_explanations) =
+            parse_ai_result(&content, &valid_english_names)?;
+        identifier_map.extend(batch_identifiers);
+        explanation_map.extend(batch_explanations);
+    }
+    Ok((identifier_map, explanation_map))
 }
 
 /// 解析 AI 返回的 TOML 文本为 (中文名→英文名, 中文名→解释)；
@@ -189,6 +217,7 @@ pub fn detect_system_language() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mapping_gen::ApiKind;
 
     #[test]
     fn test_parse_ai_result() {
@@ -206,6 +235,32 @@ mod tests {
             explanations.get("新建").map(String::as_str),
             Some("创建一个新的实例，非常简单")
         );
+    }
+
+    /// 分批请求的提示词只包含本批条目，语言开关选择正确模板
+    #[test]
+    fn test_build_user_prompt_per_batch() {
+        let entries = vec![
+            ApiEntry {
+                kind: ApiKind::Function,
+                english_name: "new".to_string(),
+                signature: "fn new() -> Self".to_string(),
+            },
+            ApiEntry {
+                kind: ApiKind::Struct,
+                english_name: "Window".to_string(),
+                signature: "struct Window".to_string(),
+            },
+        ];
+        let zh = build_user_prompt("tauri", "zh", &entries);
+        assert!(zh.contains("crate: tauri"));
+        assert!(zh.contains("fn new() -> Self"));
+        assert!(zh.contains("struct Window"));
+        let single = build_user_prompt("tauri", "zh", &entries[..1]);
+        assert!(single.contains("fn new() -> Self"));
+        assert!(!single.contains("struct Window"), "不应包含其他批的条目");
+        let en = build_user_prompt("tauri", "ru", &entries[..1]);
+        assert!(en.contains("Public API list"));
     }
 
     #[test]

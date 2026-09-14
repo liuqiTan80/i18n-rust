@@ -211,6 +211,7 @@
 "mapping_overwrite_warn" = "⚠️ 警告：ファイルが既に存在します。上書きします: {}"
 "mapping_version_invalid" = "バージョンが無効です: {}（x、x.y、x.y.z のいずれかで、-プレリリース/+ビルド 接尾辞を付けられます。例: 3.0.0-alpha.0）"
 "mapping_version_unlocked" = "ヒント: --target-version が未指定のため、依存は最新バージョンに解決されます（生成結果は再現不可）。本番用マッピングでは --target-version 2.11.5 のように固定を推奨します"
+"mg_ai_batch_progress" = "AI でマッピングを生成中...（{}/{} バッチ）"
 "mapping_generated" = "✅ 対応付けファイルを生成しました: {}"
 "mapping_crate_name_line" = "   crate の母語名: {}（モジュールパス対応 {} → {}）"
 "mapping_usage_hint" = "   使用方法: プロジェクトに lang-packs/{}/ ディレクトリを作成してこのファイルを置くか、--lang-pack を指定してください。"

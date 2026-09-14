@@ -211,6 +211,7 @@
 "mapping_overwrite_warn" = "⚠️ 경고: 파일이 이미 존재합니다. 덮어씁니다: {}"
 "mapping_version_invalid" = "잘못된 버전입니다: {} (x, x.y 또는 x.y.z 형식이며 -프리릴리스/+빌드 접미사를 붙일 수 있습니다. 예: 3.0.0-alpha.0)"
 "mapping_version_unlocked" = "알림: --target-version 미지정으로 의존성이 최신 버전으로 해석됩니다(재현 불가). 프로덕션 매핑은 --target-version 2.11.5처럼 버전 고정을 권장합니다"
+"mg_ai_batch_progress" = "AI로 매핑 생성 중... ({}/{} 배치)"
 "mapping_generated" = "✅ 매핑 생성됨: {}"
 "mapping_crate_name_line" = "    crate 모국어 이름: {} (모듈 경로 매핑 {} → {})"
 "mapping_usage_hint" = "    사용 방법: 프로젝트에 lang-packs/{}/ 디렉터리를 만들고 이 파일을 넣거나 --lang-pack 을 지정하세요."

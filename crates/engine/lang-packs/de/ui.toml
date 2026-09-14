@@ -211,6 +211,7 @@
 "mapping_overwrite_warn" = "⚠️ Warnung: Datei existiert bereits, wird überschrieben: {}"
 "mapping_version_invalid" = "Ungültige Version: {} (erwartet x, x.y oder x.y.z, optional mit -Vorabversion/+Build-Suffix, z. B. 3.0.0-alpha.0)"
 "mapping_version_unlocked" = "Hinweis: --target-version nicht angegeben; die Abhängigkeit wird zur aktuell neuesten Version aufgelöst (nicht reproduzierbar). Für Produktions-Mappings Version festlegen, z. B. --target-version 2.11.5"
+"mg_ai_batch_progress" = "KI generiert Mapping... (Stapel {} von {})"
 "mapping_generated" = "✅ Zuordnung erzeugt: {}"
 "mapping_crate_name_line" = "   Muttersprachlicher Name des Crates: {} (Modulpfad-Zuordnung {} → {})"
 "mapping_usage_hint" = "   Verwendung: lege lang-packs/{}/ in deinem Projekt an und lege diese Datei hinein, oder verwende --lang-pack."

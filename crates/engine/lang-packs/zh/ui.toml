@@ -192,6 +192,7 @@
 "mapping_overwrite_warn" = "⚠️ 警告：文件已存在，将覆盖: {}"
 "mapping_version_invalid" = "版本号无效: {}（需为 x、x.y 或 x.y.z，可带预发布/构建后缀，如 3.0.0-alpha.0）"
 "mapping_version_unlocked" = "提示: 未指定 --target-version，依赖将解析为当前最新版本（生成结果不可复现）；生产映射建议锁定，如 --target-version 2.11.5"
+"mg_ai_batch_progress" = "AI 生成映射中...（第 {}/{} 批）"
 "mapping_generated" = "✅ 已生成映射: {}"
 "mapping_crate_name_line" = "   crate 母语名: {}（模块路径映射 {} → {}）"
 "mapping_usage_hint" = "   使用方式: 在项目中创建 lang-packs/{}/ 目录后放入此文件，或用 --lang-pack 指定。"
