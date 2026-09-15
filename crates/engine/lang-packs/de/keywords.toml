@@ -151,6 +151,7 @@
 "umgebung" = "env"
 "optionUmgebung" = "option_env"
 "konfig" = "cfg"
+"Test" = "test"
 
 # ============================================
 # 派生属性（#[派生(...)]）内专用的特征名：母语词 → 英文特征名

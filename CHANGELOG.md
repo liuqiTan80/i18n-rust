@@ -24,6 +24,10 @@ CORS 中间件；均来自 xiaozs 实战验证
 异步.toml 补「异步任务」→`spawn`（同义）
 - 文档 `docs/missing-mapping-guide.md`：应用开发者缺词条指引（四级来源、项目语言包定制、
 常见坑）；contributing-lang-pack.md / third-party-mapping.md / README 增加指路链接
+- zh 语言包：keywords.toml 宏节补「测试」→`test`（原仅 stdlib 节有、属性位不生效），
+支撑 `#[配置(测试)]` 模块与 `#[测试]` 函数写法；来自 xiaozs 更新检测单元测试实战验证
+- 全部内置语言包 keywords.toml 宏节同步补齐「测试」母语词（テスト / 테스트 / тест /
+Test / prueba / test / teste / اختبار / परीक्षण），跨语言完整性检查保持通过
 
 ## [0.7.2] - 2026-09-13
 

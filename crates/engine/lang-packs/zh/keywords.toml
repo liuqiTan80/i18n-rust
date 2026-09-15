@@ -149,6 +149,7 @@
 "编译环境" = "env"
 "选项环境" = "option_env"
 "配置" = "cfg"
+"测试" = "test"
 "宏" = "macro"
 "宏规则" = "macro_rules"
 ["派生特征"]
