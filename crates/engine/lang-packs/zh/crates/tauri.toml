@@ -7,6 +7,8 @@
 
 ["模块路径"]
 "tauri" = "tauri"
+"托盘" = "tray"
+"菜单" = "menu"
 
 ["标识符"]
 "TokioHandle" = "TokioHandle"  # type TokioHandle = tokio::runtime::Handle
@@ -190,6 +192,24 @@
 "聚焦" = "focused"  # WebviewWindowBuilder::focused 抢焦点
 "构建" = "build"  # WebviewWindowBuilder::build
 
+# ---- 实践补充：系统托盘、菜单与窗口事件 ----
+"托盘图标构建器" = "TrayIconBuilder"  # TrayIconBuilder::new 创建托盘图标
+"菜单构建器" = "MenuBuilder"  # MenuBuilder::new 链式构建菜单
+"文本项" = "text"  # MenuBuilder::text 追加文本菜单项（标识, 文字）
+"分隔" = "separator"  # MenuBuilder::separator 追加分隔线
+"菜单事件" = "on_menu_event"  # TrayIconBuilder::on_menu_event 菜单项点击
+"窗口事件" = "on_window_event"  # WebviewWindow::on_window_event 窗口事件监听
+"关闭请求" = "CloseRequested"  # WindowEvent::CloseRequested 收到关闭请求
+"阻止关闭" = "prevent_close"  # CloseRequestApi::prevent_close 拦截关闭
+"隐藏" = "hide"  # WebviewWindow::hide 隐藏窗口
+"显现" = "show"  # WebviewWindow::show 重新显示（「显示」已被 Display 占用）
+"设为焦点" = "set_focus"  # WebviewWindow::set_focus 抢到前台
+"取网页窗口" = "get_webview_window"  # Manager::get_webview_window 按标签取窗口
+"默认窗口图标" = "default_window_icon"  # AppHandle::default_window_icon 取打包图标
+"设图标" = "icon"  # TrayIconBuilder::icon 设置托盘图标
+"悬停提示" = "tooltip"  # TrayIconBuilder::tooltip 鼠标悬停提示
+"设菜单" = "menu"  # TrayIconBuilder::menu 挂接菜单
+
 ["解释"]
 "TokioHandle" = "异步运行时的把手，用来往运行时里派发任务。"
 "TokioRuntime" = "异步运行时本体，负责调度所有异步任务。"
@@ -357,3 +377,19 @@
 "Runtime" = "Tauri 的异步运行时，管理任务调度和线程池。"
 "Builder" = "构建器，用链式调用一步步配置出插件或应用。"
 "管理器" = "管理窗口、菜单等资源的接口，方便统一操作。"
+"托盘图标构建器" = "在系统托盘角落创建一个图标的构建器，可配菜单与点击行为。"
+"菜单构建器" = "链式构建菜单的构建器，可追加文本项、分隔线等条目。"
+"文本项" = "往菜单里追加一个纯文字条目，点击后触发对应标识。"
+"分隔" = "往菜单里追加一条分隔线，用来分组。"
+"菜单事件" = "菜单条目被点击时触发回调。"
+"窗口事件" = "监听窗口大小、移动、关闭等事件。"
+"关闭请求" = "用户点了窗口关闭按钮，可在处理前拦截。"
+"阻止关闭" = "阻止窗口真正关闭，常用于改为隐藏到托盘。"
+"隐藏" = "把窗口藏起来，程序继续在后台运行。"
+"显现" = "把隐藏的窗口重新显示出来。"
+"设为焦点" = "把窗口带到最前面并抢到键盘焦点。"
+"取网页窗口" = "按标签查找已创建的窗口对象。"
+"默认窗口图标" = "取应用打包时配置的默认图标，常复用给托盘。"
+"设图标" = "给托盘设置图标图案。"
+"悬停提示" = "鼠标悬停在托盘图标上时显示的文字。"
+"设菜单" = "给托盘图标挂接右键菜单。"
