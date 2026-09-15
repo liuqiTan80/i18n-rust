@@ -110,7 +110,15 @@ pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
                     continue;
                 }
                 '\n' => {
+                    // 空行/纯空白行的换行：须与主循环的换行处理一致（行号 +1、列复位），
+                    // 否则空行不计行，其后所有警告位置整体前移（回归：第 5 行的 `让`
+                    // 因上方两个空行被报成第 3 行）
+                    line += 1;
+                    col = 1;
                     line_indent = 0;
+                    at_line_start = true;
+                    first_nonspace_is_comment = false;
+                    prev_plain = '\0';
                     i += 1;
                     continue;
                 }
@@ -388,6 +396,17 @@ mod tests {
         assert_eq!(warnings[0].kind, LintKind::UntypedLet);
         assert_eq!(warnings[0].line, 2);
         assert_eq!(warnings[0].column, 5);
+    }
+
+    /// 空行/纯空白行计入行号：警告位置不得因空行而前移
+    ///（回归：第 5 行的 `让` 因两个空行被报成第 3 行）
+    #[test]
+    fn test_blank_lines_counted_in_line_numbers() {
+        let warnings = lint_teaching("// 注释\n\n// 注释\n   \n让 x = 1;");
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(warnings[0].kind, LintKind::UntypedLet);
+        assert_eq!(warnings[0].line, 5);
+        assert_eq!(warnings[0].column, 1);
     }
 
     #[test]

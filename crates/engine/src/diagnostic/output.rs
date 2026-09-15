@@ -157,6 +157,9 @@ pub fn extract_backtick_first_segments(text: &str) -> Vec<String> {
 ///
 /// 非未解析导入消息返回空列表。供 CLI 编译诊断提示与 LSP
 /// 快捷修复代码动作共用：提示用户通过 `rzc add <crate>` 添加依赖。
+/// crate 名必须是 ASCII（字母/数字/下划线/连字符）；母语标识符
+/// （如漏写 `包::` 前缀的中文模块名 "数据模型"）不是 crate，
+/// 提示 `rzc add 数据模型` 只会误导用户。
 pub fn unresolved_crate_candidates(message: &str) -> Vec<String> {
     if !is_unresolved_import_message(message) {
         return Vec::new();
@@ -167,6 +170,7 @@ pub fn unresolved_crate_candidates(message: &str) -> Vec<String> {
             seg.as_str(),
             "std" | "core" | "alloc" | "self" | "super" | "crate" | "proc_macro"
         ) || seg.chars().next().is_some_and(|c| c.is_ascii_digit())
+            || !seg.is_ascii()
         {
             continue;
         }

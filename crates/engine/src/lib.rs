@@ -86,6 +86,21 @@ pub fn transpile_pipeline(
     transpile_pipeline_with_map(source, manager, None)
 }
 
+/// 静默转译管线：不输出教学告警（Unicode 混淆/全角标点/lint）
+///
+/// 供调用方自行负责教学告警输出的场景使用：
+/// - “事后重放”（如诊断列映射重建）：此前已对同一源码执行过完整管线
+///   （写盘转译）并输出过教学告警，重放只为取 `pipeline_map`；
+/// - 调用方需要带文件归属输出告警（如 CLI 多文件项目按文件名前缀输出）。
+///
+/// 除教学告警外，输出与 [`transpile_pipeline`] 完全一致。
+pub fn transpile_pipeline_quiet(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+) -> cache::TranspileOutput {
+    transpile_pipeline_inner(source, manager, None, false)
+}
+
 /// 同 [`transpile_pipeline`]，支持 LSP 虚拟项目的 `crate::` 前缀重写
 ///
 /// `module_names` 为 Some 时，在模块路径替换后、别名替换前，为已知模块路径段
@@ -99,18 +114,30 @@ pub fn transpile_pipeline_with_map(
     manager: &mapping_manager::MappingManager,
     module_names: Option<&HashSet<String>>,
 ) -> cache::TranspileOutput {
-    // 词法处理前的 Unicode 混淆安全检查（零宽/双向/同形字符，仅告警）
-    for warning in unicode_confusion::check_unicode_confusion(source) {
-        crate::log_warn!("unicode_confusion", "{}", warning.format());
-    }
-    // 全角标点教学检查（中文输入法常见错误：代码位置的全角标点，仅告警不阻断）；
-    // 字符串/注释内的全角标点合法，由扫描器自动跳过
-    for warning in fullwidth::find_fullwidth_punct(source) {
-        crate::log_warn!("fullwidth", "{}", warning.format());
-    }
-    // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深
-    for warning in lint::lint_teaching(source) {
-        crate::log_warn!("lint", "{}", warning.format());
+    transpile_pipeline_inner(source, manager, module_names, true)
+}
+
+/// 转译管线的唯一实现：`emit_teaching_warnings` 控制教学告警日志的开关
+fn transpile_pipeline_inner(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    module_names: Option<&HashSet<String>>,
+    emit_teaching_warnings: bool,
+) -> cache::TranspileOutput {
+    if emit_teaching_warnings {
+        // 词法处理前的 Unicode 混淆安全检查（零宽/双向/同形字符，仅告警）
+        for warning in unicode_confusion::check_unicode_confusion(source) {
+            crate::log_warn!("unicode_confusion", "{}", warning.format());
+        }
+        // 全角标点教学检查（中文输入法常见错误：代码位置的全角标点，仅告警不阻断）；
+        // 字符串/注释内的全角标点合法，由扫描器自动跳过
+        for warning in fullwidth::find_fullwidth_punct(source) {
+            crate::log_warn!("fullwidth", "{}", warning.format());
+        }
+        // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深
+        for warning in lint::lint_teaching(source) {
+            crate::log_warn!("lint", "{}", warning.format());
+        }
     }
 
     let macro_map = manager.get_macro_map();
@@ -445,6 +472,23 @@ mod tests {
         let output = transpile_pipeline_with_map(source, &manager, None);
         let rebuilt = apply_pipeline_map(source, &output.pipeline_map);
         assert_eq!(rebuilt, output.output);
+    }
+
+    /// 静默重放与常规管线输出逐项一致：仅跳过教学告警，不得改变任何转译结果
+    ///
+    /// 诊断列映射重建走 `transpile_pipeline_quiet` 重放，若重放规则与写盘
+    /// 转译（`transpile_pipeline`）有任何差异，列号回译就会错位。
+    #[test]
+    fn test_pipeline_quiet_matches_normal() {
+        let manager = create_manager();
+        let source = "函数 主函数() {\n    让 数量: 整数 = 42;\n    打印行(\"你好\");\n}";
+        let normal = transpile_pipeline(source, &manager);
+        let quiet = transpile_pipeline_quiet(source, &manager);
+        assert_eq!(normal.output, quiet.output, "静默重放的转译输出必须一致");
+        assert_eq!(
+            normal.pipeline_map, quiet.pipeline_map,
+            "静默重放的管线地图必须一致"
+        );
     }
 
     /// 宏自动补的 `!` 计入 replacement；模块路径段条目为 `crate::辅助`

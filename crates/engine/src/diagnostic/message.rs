@@ -15,6 +15,30 @@ pub struct ErrorMessageEntry {
     pub teaching_hint: Option<String>,
 }
 
+/// 消息表匹配的动态部分来源
+///
+/// 前缀键与后缀键命中的 rest 形态不同，占位符提取方式也不同：
+/// - 前缀键（如 "trait `"）：rest 是键之后的**尾段**，开引号已被键
+///   剥离（"Datelike` which provides `year` is never used"）；
+/// - 后缀键（键以 `~` 开头，如 "~ is never used"）：rest 是键之前的
+///   **头段**，引号对完整（"variants `黄灯` and `绿灯` "）。
+#[derive(Debug, Clone, Copy)]
+pub enum MessageRest<'b> {
+    /// 前缀键命中的尾段
+    Tail(&'b str),
+    /// 后缀键命中的头段
+    Head(&'b str),
+}
+
+impl<'b> MessageRest<'b> {
+    /// 未翻译原文残段（模板无占位符命中时按原文拼接到模板后）
+    pub fn text(&self) -> &'b str {
+        match self {
+            Self::Tail(s) | Self::Head(s) => s,
+        }
+    }
+}
+
 /// 错误消息翻译管理器：按错误码或消息文本查询翻译条目
 #[derive(Debug, Clone)]
 pub struct ErrorTranslationManager {
@@ -77,21 +101,22 @@ impl ErrorTranslationManager {
     /// 按消息原文查询翻译条目
     ///
     /// 匹配顺序：精确匹配 → 最长前缀匹配 → 最长后缀匹配。
-    /// 返回未匹配的动态部分（前缀匹配为后缀原文，后缀匹配为前缀原文），
-    /// 供调用方拼接到模板后，保留 `did you mean \`x\``、`function \`foo\` is never used` 等动态内容。
+    /// 返回未匹配的动态部分（前缀匹配为尾段原文，后缀匹配为头段原文，
+    /// 见 [`MessageRest`]），供调用方填充模板占位符或拼接到模板后，
+    /// 保留 `did you mean \`x\``、`function \`foo\` is never used` 等动态内容。
     /// 后缀键以 `~` 开头（如 `~ is never used`），解决动态名位于消息中间的
     /// lint 警告（dead_code/non_snake_case 族）无法用前缀键覆盖的问题。
     pub fn query_by_message<'a, 'b>(
         &'a self,
         message: &'b str,
-    ) -> Option<(&'a ErrorMessageEntry, Option<&'b str>)> {
+    ) -> Option<(&'a ErrorMessageEntry, Option<MessageRest<'b>>)> {
         // 1. 精确匹配
         if let Some(entry) = self.message_map.get(message) {
             return Some((entry, None));
         }
         // 2. 最长前缀 / 最长后缀候选（前缀优先，其模板通常更完整、含类型词）
-        let mut best_prefix: Option<(usize, &str, &ErrorMessageEntry)> = None;
-        let mut best_suffix: Option<(usize, &str, &ErrorMessageEntry)> = None;
+        let mut best_prefix: Option<(usize, &'b str, &'a ErrorMessageEntry)> = None;
+        let mut best_suffix: Option<(usize, &'b str, &'a ErrorMessageEntry)> = None;
         for (key, entry) in &self.message_map {
             if let Some(suffix_key) = key.strip_prefix('~') {
                 if let Some(prefix) = message.strip_suffix(suffix_key)
@@ -106,15 +131,76 @@ impl ErrorTranslationManager {
             }
         }
         if let Some((_, rest, entry)) = best_prefix {
-            return Some((entry, Some(rest)));
+            return Some((entry, Some(MessageRest::Tail(rest))));
         }
-        best_suffix.map(|(_, prefix, entry)| (entry, Some(prefix)))
+        best_suffix.map(|(_, prefix, entry)| (entry, Some(MessageRest::Head(prefix))))
     }
 
     /// 已覆盖的错误码数量
     pub fn coverage_count(&self) -> usize {
         self.translation_table.len()
     }
+}
+
+/// 用动态部分（前缀/后缀键命中的原文残段）填充模板的 {q0}/{q1} 捕获占位符
+///
+/// 反引号场景（dead_code 等）：
+/// - 头段（后缀键，引号对完整）：{q0} 取第一个引号对内容
+///   （"variants `黄灯` and `绿灯` " → "黄灯"），{q1} 取最后一个引号对内容
+///   （rsplit）；引号数不足时回退 rsplit（兼容奇数引号的残段）；
+/// - 尾段（前缀键，开引号已被键剥离）：{q0} 取第一个反引号前的内容
+///   （"foo` is never used" → "foo"、"Datelike` which provides `year` is
+///   never used" → "Datelike"）；残段以反引号开头时（键未含开引号）
+///   退化取引号对内容；{q1} 取最后一个引号对内容（rsplit）。
+///
+/// 单引号场景（Unicode 混淆 help）按段隔取：头段取第 1/3 段，
+/// 尾段取第 0/2 段（开引号已剥离，段 0 即第一个字符）。
+///
+/// 返回 (填充后的模板, 是否发生了填充)；捕获不足时原样返回模板，
+/// 由调用方决定是否拼接动态原文，避免中英文混排或信息凭空丢失。
+pub fn fill_dynamic_placeholders(template: &str, rest: &MessageRest<'_>) -> (String, bool) {
+    let mut result = template.to_string();
+    let mut consumed_any = false;
+    for (i, placeholder) in ["{q0}", "{q1}"].iter().enumerate() {
+        if result.contains(placeholder) {
+            let content = match rest {
+                MessageRest::Head(dynamic) => {
+                    if dynamic.contains('`') {
+                        if i == 1 || dynamic.matches('`').count() == 1 {
+                            dynamic.rsplit('`').nth(1)
+                        } else {
+                            dynamic.split('`').nth(1)
+                        }
+                    } else {
+                        dynamic.split('\'').nth(i * 2 + 1)
+                    }
+                }
+                MessageRest::Tail(dynamic) => {
+                    if dynamic.contains('`') {
+                        if i == 1 {
+                            dynamic.rsplit('`').nth(1)
+                        } else if let Some(after) = dynamic.strip_prefix('`') {
+                            // 键未含开引号：残段以引号对开始，取引号对内容
+                            after.split('`').next()
+                        } else {
+                            dynamic.split('`').next()
+                        }
+                    } else {
+                        dynamic.split('\'').nth(i * 2)
+                    }
+                }
+            };
+            match content {
+                Some(content) if !content.is_empty() => {
+                    result = result.replace(placeholder, content);
+                    consumed_any = true;
+                }
+                // 捕获为空或失败：原样回退，交由调用方拼接原文
+                _ => return (template.to_string(), false),
+            }
+        }
+    }
+    (result, consumed_any)
 }
 
 /// 从 TOML 值构建翻译条目（消息模板缺失时回退空串，避免解析失败丢失整表）

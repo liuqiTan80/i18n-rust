@@ -29,20 +29,23 @@ pub struct BuiltinLangData {
 /// 参数：
 /// - `$name`：生成的 `static` 变量名
 /// - `$lang_dir`：语言包目录名（如 `"zh"`、`"de"`）
-/// - `$($crate_file),*`：第三方库映射文件名列表，
-///   文件名随语言包本地化（中文为 `序列化.toml`、俄语为 `Сериализация.toml`、
-///   日语为 `直列化.toml` 等，salvo.toml 为 crate 专有名词保持不变），
-///   需与对应语言包 `crates/` 目录下的文件一致
+///
+/// 第三方库映射清单不再手工维护：从引擎编译期扫描结果
+/// （[`i18n_rust_engine::语言::builtin_lang_files`]，build.rs 生成）动态过滤
+/// `crates/` 前缀条目，与语言包目录（单一数据源）天然一致，
+/// 新增/删除 crates 文件后无需修改本文件。
 macro_rules! define_builtin_lang {
-    ($name:ident, $lang_dir:literal, [$($crate_file:literal),* $(,)?]) => {
+    ($name:ident, $lang_dir:literal) => {
         static $name: std::sync::LazyLock<BuiltinLangData> = std::sync::LazyLock::new(|| {
             // 第三方库映射数组需 'static 引用，用 Box::leak 提升（仅初始化一次）
-            let crates_data: &'static [(&'static str, &'static str)] = Box::leak(Box::new([
-                $((
-                    $crate_file,
-                    builtin_file_or_panic($lang_dir, concat!("crates/", $crate_file)),
-                ),)*
-            ]));
+            let crates_data: &'static [(&'static str, &'static str)] = Box::leak(Box::new(
+                i18n_rust_engine::语言::builtin_lang_files($lang_dir)
+                    .into_iter()
+                    .filter_map(|(path, content)| {
+                        path.strip_prefix("crates/").map(|name| (name, content))
+                    })
+                    .collect::<Vec<(&'static str, &'static str)>>(),
+            ));
             BuiltinLangData {
                 keywords_toml: builtin_file_or_panic($lang_dir, "keywords.toml"),
                 module_paths_toml: builtin_file_or_panic($lang_dir, "module_paths.toml"),
@@ -62,202 +65,37 @@ fn builtin_file_or_panic(lang: &str, file: &str) -> &'static str {
 }
 
 // 英文内置语言包（恒等映射：Rust 本以英文书写；教程验证管线依赖 .en 扩展名）
-define_builtin_lang!(
-    EN_DATA,
-    "en",
-    [
-        "Serialization.toml",
-        "Async.toml",
-        "CommandLine.toml",
-        "Database.toml",
-        "Tools.toml",
-        "Logging.toml",
-        "Network.toml",
-        "ErrorHandling.toml",
-        "WebFramework.toml",
-        "salvo.toml",
-    ]
-);
+define_builtin_lang!(EN_DATA, "en");
 
-// 中文内置语言包（完整翻译映射 + 10 个第三方库映射）
-define_builtin_lang!(
-    ZH_DATA,
-    "zh",
-    [
-        "序列化.toml",
-        "异步.toml",
-        "命令行.toml",
-        "数据库.toml",
-        "工具.toml",
-        "日志.toml",
-        "网络.toml",
-        "错误处理.toml",
-        "Web框架.toml",
-        "salvo.toml",
-    ]
-);
+// 中文内置语言包（完整翻译映射；第三方库映射清单自动纳入）
+define_builtin_lang!(ZH_DATA, "zh");
 
-// 德语内置语言包（德语错误教学提示 + 10 个第三方库映射）
-define_builtin_lang!(
-    DE_DATA,
-    "de",
-    [
-        "Serialisierung.toml",
-        "Asynchron.toml",
-        "Kommandozeile.toml",
-        "Datenbank.toml",
-        "Werkzeuge.toml",
-        "Protokollierung.toml",
-        "Netzwerk.toml",
-        "Fehlerbehandlung.toml",
-        "Web_Framework.toml",
-        "salvo.toml",
-    ]
-);
+// 德语内置语言包（德语错误教学提示；第三方库映射清单自动纳入）
+define_builtin_lang!(DE_DATA, "de");
 
 // 日语内置语言包
-define_builtin_lang!(
-    JA_DATA,
-    "ja",
-    [
-        "直列化.toml",
-        "非同期.toml",
-        "コマンドライン.toml",
-        "データベース.toml",
-        "ユーティリティ.toml",
-        "ロギング.toml",
-        "ネットワーク.toml",
-        "エラー処理.toml",
-        "Webフレームワーク.toml",
-        "salvo.toml",
-    ]
-);
+define_builtin_lang!(JA_DATA, "ja");
 
 // 俄语内置语言包
-define_builtin_lang!(
-    RU_DATA,
-    "ru",
-    [
-        "Сериализация.toml",
-        "Асинхронность.toml",
-        "Командная_строка.toml",
-        "База_данных.toml",
-        "Утилиты.toml",
-        "Логирование.toml",
-        "Сеть.toml",
-        "Обработка_ошибок.toml",
-        "Веб_фреймворк.toml",
-        "salvo.toml",
-    ]
-);
+define_builtin_lang!(RU_DATA, "ru");
 
 // 西班牙语内置语言包
-define_builtin_lang!(
-    ES_DATA,
-    "es",
-    [
-        "Serialización.toml",
-        "Asíncrono.toml",
-        "Línea_de_comandos.toml",
-        "Base_de_datos.toml",
-        "Utilidades.toml",
-        "Registro.toml",
-        "Red.toml",
-        "Manejo_de_errores.toml",
-        "Marco_Web.toml",
-        "salvo.toml",
-    ]
-);
+define_builtin_lang!(ES_DATA, "es");
 
 // 法语内置语言包
-define_builtin_lang!(
-    FR_DATA,
-    "fr",
-    [
-        "Sérialisation.toml",
-        "Asynchrone.toml",
-        "Ligne_de_commande.toml",
-        "Base_de_données.toml",
-        "Utilitaires.toml",
-        "Journalisation.toml",
-        "Réseau.toml",
-        "Gestion_des_erreurs.toml",
-        "Framework_Web.toml",
-        "salvo.toml",
-    ]
-);
+define_builtin_lang!(FR_DATA, "fr");
 
 // 葡萄牙语内置语言包
-define_builtin_lang!(
-    PT_DATA,
-    "pt",
-    [
-        "Serialização.toml",
-        "Assíncrono.toml",
-        "Linha_de_comando.toml",
-        "Banco_de_dados.toml",
-        "Utilitários.toml",
-        "Registro.toml",
-        "Rede.toml",
-        "Tratamento_de_erros.toml",
-        "Framework_Web.toml",
-        "salvo.toml",
-    ]
-);
+define_builtin_lang!(PT_DATA, "pt");
 
 // 韩语内置语言包
-define_builtin_lang!(
-    KO_DATA,
-    "ko",
-    [
-        "직렬화.toml",
-        "비동기.toml",
-        "명령줄.toml",
-        "데이터베이스.toml",
-        "유틸리티.toml",
-        "로깅.toml",
-        "네트워크.toml",
-        "오류_처리.toml",
-        "웹_프레임워크.toml",
-        "salvo.toml",
-    ]
-);
+define_builtin_lang!(KO_DATA, "ko");
 
 // 阿拉伯语内置语言包
-define_builtin_lang!(
-    AR_DATA,
-    "ar",
-    [
-        "تسلسل.toml",
-        "غير_متزامن.toml",
-        "سطر_الأوامر.toml",
-        "قاعدة_البيانات.toml",
-        "أدوات.toml",
-        "تتبع.toml",
-        "شبكة.toml",
-        "معالجة_الأخطاء.toml",
-        "إطار_الويب.toml",
-        "salvo.toml",
-    ]
-);
+define_builtin_lang!(AR_DATA, "ar");
 
 // 印地语内置语言包
-define_builtin_lang!(
-    HI_DATA,
-    "hi",
-    [
-        "क्रमबद्धन.toml",
-        "अतुल्यकालिक.toml",
-        "आदेश_पंक्ति.toml",
-        "डेटाबेस.toml",
-        "उपयोगिता.toml",
-        "अनुरेखण.toml",
-        "नेटवर्क.toml",
-        "त्रुटि_प्रबंधन.toml",
-        "वेब_फ्रेमवर्क.toml",
-        "salvo.toml",
-    ]
-);
+define_builtin_lang!(HI_DATA, "hi");
 
 /// 根据语言代码获取内置语言包数据
 ///
@@ -356,17 +194,31 @@ mod tests {
         assert!(std::ptr::eq(data, zh), "未知语言应回退到中文包");
     }
 
-    /// 全部内置语言均含 10 个第三方库映射；
+    /// crates 清单与引擎编译期扫描结果逐项一致（单一数据源，杜绝手工清单漂移）；
     /// stdlib.toml 两节齐全（模块路径 + 标识符）
     #[test]
     fn test_crates_data_per_lang() {
         for code in ["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
-            assert_eq!(
-                get_builtin_data(code).crates_data.len(),
-                10,
-                "{code} 应含 10 个第三方库映射"
-            );
+            let scanned: Vec<&str> = i18n_rust_engine::语言::builtin_lang_files(code)
+                .into_iter()
+                .filter_map(|(path, _)| path.strip_prefix("crates/"))
+                .collect();
+            let cli_list: Vec<&str> = get_builtin_data(code)
+                .crates_data
+                .iter()
+                .map(|(name, _)| *name)
+                .collect();
+            assert_eq!(cli_list, scanned, "{code} crates 清单应与引擎扫描一致");
+            assert!(!cli_list.is_empty(), "{code} 应含第三方库映射");
         }
+        // zh 已内置 tauri 映射（桌面应用常用），防止清单再次遗漏
+        assert!(
+            get_builtin_data("zh")
+                .crates_data
+                .iter()
+                .any(|(name, _)| *name == "tauri.toml"),
+            "zh 内置清单应包含 tauri.toml"
+        );
         // stdlib.toml 中模块路径与标识符两节均存在
         for data in [get_builtin_data("zh"), get_builtin_data("de")] {
             assert!(data.stdlib_toml.contains("[\"模块路径\"]"));

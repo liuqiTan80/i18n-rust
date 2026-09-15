@@ -53,12 +53,58 @@ fn collect_lang_files(lang_dir: &Path) -> LangFiles {
     LangFiles { files }
 }
 
+/// FNV-1a 64 位增量哈希（与 cache.rs 的 compute_content_hash 同算法）
+fn fnv1a(hash: &mut u64, bytes: &[u8]) {
+    for byte in bytes {
+        *hash ^= *byte as u64;
+        *hash = hash.wrapping_mul(0x100000001b3);
+    }
+}
+
+/// 引擎源码指纹：对 src/ 下全部 .rs 文件（按路径排序，逐个混入相对路径
+/// 与内容）计算 FNV-1a 哈希。转译算法任何变化都会改变指纹，使磁盘缓存
+/// 自动失效（仅靠内容哈希与映射指纹无法感知引擎升级）。
+fn engine_source_fingerprint(crate_root: &Path) -> u64 {
+    fn collect(dir: &Path, files: &mut Vec<PathBuf>) {
+        let Ok(entries) = fs::read_dir(dir) else {
+            return;
+        };
+        let mut list: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+        list.sort();
+        for path in list {
+            if path.is_dir() {
+                collect(&path, files);
+            } else if path.extension().and_then(|s| s.to_str()) == Some("rs") {
+                files.push(path);
+            }
+        }
+    }
+
+    let mut files = Vec::new();
+    collect(&crate_root.join("src"), &mut files);
+    let mut hash = 0xcbf29ce484222325u64;
+    for path in files {
+        let rel = path
+            .strip_prefix(crate_root)
+            .unwrap_or(&path)
+            .to_string_lossy();
+        fnv1a(&mut hash, rel.as_bytes());
+        if let Ok(content) = fs::read(&path) {
+            fnv1a(&mut hash, &content);
+        }
+    }
+    hash
+}
+
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let lang_root = Path::new(&manifest_dir).join("lang-packs");
     let out_dir = env::var("OUT_DIR").unwrap();
 
     println!("cargo:rerun-if-changed=lang-packs");
+    // 引擎源码变化时重跑本脚本：源码指纹（见下）必须随算法代码更新，
+    // 否则磁盘缓存的失效依据会停在旧值
+    println!("cargo:rerun-if-changed=src");
 
     // 语言目录按名称排序，保证生成代码与嵌入顺序确定
     let mut lang_dirs: Vec<PathBuf> = fs::read_dir(&lang_root)
@@ -86,6 +132,19 @@ fn main() {
         }
     }
     code.push_str("];\n\n");
+
+    // ===== 引擎源码指纹（转译缓存失效依据，见 cache.rs 语境指纹） =====
+    // 缓存条目除内容哈希与语言包映射指纹外，还须绑定转译算法自身的身份：
+    // 算法变更（如别名替换细则修复）后旧缓存必须失效，否则源文件未变时
+    // 旧转译产物继续命中、修复不生效（真实事故：`实现 库特征` 块内方法名
+    // 替换修复后，旧产物仍被复用）。
+    writeln!(
+        code,
+        "pub(crate) static ENGINE_SOURCE_FINGERPRINT: u64 = {:#x};",
+        engine_source_fingerprint(Path::new(&manifest_dir))
+    )
+    .unwrap();
+    code.push('\n');
 
     // ===== UI 消息表静态实例（每语言一个，惰性解析一次） =====
     for (i, (_, abs)) in ui_tables.iter().enumerate() {

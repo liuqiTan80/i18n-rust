@@ -131,31 +131,15 @@ fn translate_diagnostic_message_single(message: &str, with_hint: bool) -> String
     {
         let mut text = entry.message_template.clone();
         if let Some(rest) = rest {
-            // {q0}/{q1} 占位符：从动态部分提取引号内容（如 `红绿灯::黄灯`）。
-            // {q0} 取第一个引号对（后缀键场景）；引号数为 1 时（前缀键
-            // 场景，rest 以 "foo`" 开头）用 rsplit 取唯一内容；{q1} 取最后一个。
-            let mut filled = false;
-            for (i, placeholder) in ["{q0}", "{q1}"].iter().enumerate() {
-                if text.contains(placeholder) {
-                    let content = if rest.contains('`') {
-                        if i == 1 || rest.matches('`').count() == 1 {
-                            rest.rsplit('`').nth(1)
-                        } else {
-                            rest.split('`').nth(1)
-                        }
-                    } else {
-                        rest.split('\'').nth(i * 2 + 1)
-                    };
-                    if let Some(content) = content {
-                        text = text.replace(placeholder, content);
-                        filled = true;
-                    }
-                    break;
-                }
-            }
-            if !filled {
-                // 无占位符：模板后拼接动态部分（保留 did you mean `x` 等）
-                text.push_str(rest);
+            // {q0}/{q1} 占位符：从动态部分提取引号内容填充（如
+            // "trait `Datelike` which provides `year` is never used" →
+            //  "特征 `Datelike` 从未被使用"）；填充不足时拼接动态原文
+            //（保留 did you mean `x` 等）。
+            let (filled, consumed) =
+                i18n_rust_engine::diagnostic::fill_dynamic_placeholders(&text, &rest);
+            text = filled;
+            if !consumed {
+                text.push_str(rest.text());
             }
         }
         if with_hint && let Some(hint) = &entry.teaching_hint {

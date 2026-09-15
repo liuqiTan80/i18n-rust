@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use super::message::ErrorTranslationManager;
+use super::message::{ErrorTranslationManager, fill_dynamic_placeholders};
 use super::model::CompilerDiagnostic;
 use super::teaching::{
     DiagnosticLevel, DiagnosticLocation, TeachingDiagnostic, extract_ownership_details,
@@ -75,44 +75,6 @@ pub(crate) fn localize_type_token(token: &str, map: &HashMap<String, String>) ->
     (result != original).then_some(result)
 }
 
-/// 用消息的动态部分（前缀匹配的后缀原文 / 后缀匹配的前缀原文）中的
-/// 单引号内容填充模板的 {q0}/{q1} 捕获占位符
-///
-/// 用于 "function `foo` is never used" 这类动态名在中间的消息：
-/// 模板写完整语义（"函数 `{q0}` 从未被使用"），捕获不足时回退原模板
-///（调用方追加动态原文），完整覆盖时不追加，避免中英文混排。
-fn fill_quote_captures(template: &str, dynamic: &str) -> (String, bool) {
-    let mut result = template.to_string();
-    let mut consumed_any = false;
-    for (i, placeholder) in ["{q0}", "{q1}"].iter().enumerate() {
-        if result.contains(placeholder) {
-            // 反引号场景（dead_code 等）：
-            // - {q0} 取第一个引号对内容（后缀键："variants `黄灯` and `绿灯` "）；
-            //   但前缀键（"function `foo` is never used" 的 rest="foo` is never used"）
-            //   只有一个引号，rsplit 才能取到引号内内容，故引号数为 1 时用 rsplit；
-            // - {q1} 取最后一个引号对内容（rsplit）。
-            // 单引号场景（Unicode 混淆 help）按段隔取（第 0/2 段为两个被比较的字符）。
-            let content = if dynamic.contains('`') {
-                if i == 1 || dynamic.matches('`').count() == 1 {
-                    dynamic.rsplit('`').nth(1)
-                } else {
-                    dynamic.split('`').nth(1)
-                }
-            } else {
-                dynamic.split('\'').nth(i * 2)
-            };
-            match content {
-                Some(content) => {
-                    result = result.replace(placeholder, content);
-                    consumed_any = true;
-                }
-                None => return (template.to_string(), false),
-            }
-        }
-    }
-    (result, consumed_any)
-}
-
 /// 统计类型字符串开头的引用层数（`&` 前缀个数）
 ///
 /// 规则：连续 strip `&` 前缀，遇 `mut`（含 `mut ` / `mut` 结尾）即停止
@@ -157,6 +119,14 @@ pub(crate) fn localize_ref_type(ty: &str, map: &HashMap<String, String>) -> Stri
         .or_else(|| localize_type_token(base, map))
         .unwrap_or_else(|| base.to_string());
     format!("{prefix}{mutable}{base_zh}")
+}
+
+/// 提取 rustc "if you wanted to use a crate named `X`" 建议中的 crate 名
+fn suggested_crate_name(message: &str) -> Option<&str> {
+    message
+        .strip_prefix("if you wanted to use a crate named `")
+        .and_then(|rest| rest.split('`').next())
+        .filter(|name| !name.is_empty())
 }
 
 /// 从 `expected `X`, found `Y`` 形式的文本（rustc label）中提取期望/实际类型
@@ -239,15 +209,15 @@ impl DiagnosticTranslator {
     pub fn translate_diagnostic(&self, diagnostic: &CompilerDiagnostic) -> TeachingDiagnostic {
         let error_code = diagnostic.code.as_ref().map(|c| c.code.clone());
 
-        let matched_entry = error_code
+        let code_entry = error_code
             .as_deref()
-            .and_then(|code| self.translation_manager.query(code))
-            // 无错误码或错误码未收录时，按消息原文匹配（[消息翻译] 节）
-            .or_else(|| {
-                self.translation_manager
-                    .query_by_message(&diagnostic.message)
-                    .map(|(entry, _)| entry)
-            });
+            .and_then(|code| self.translation_manager.query(code));
+        // 无错误码或错误码未收录时，按消息原文匹配（[消息翻译] 节）；
+        // 消息表查询结果保留匹配来源（前缀/后缀键），供动态部分回填
+        let message_query = self
+            .translation_manager
+            .query_by_message(&diagnostic.message);
+        let matched_entry = code_entry.or_else(|| message_query.map(|(entry, _)| entry));
 
         // 从主要 span 的 label 中提取 expected 和 found；
         // rustc 1.97+ 的算术错误（E0369 等）不再输出 label，类型信息
@@ -275,19 +245,18 @@ impl DiagnosticTranslator {
                 // 无法提取期望/实际类型时回退 rustc 原文，避免输出裸占位符
                 template = diagnostic.message.clone();
             }
-            // 消息表前缀/后缀匹配时，把未翻译的动态部分拼回模板
-            //（如 "did you mean " → "你是否想用 `foo`?"），
-            // 或经 {q0}/{q1} 捕获完整化（如 "function `foo` is never used" →
-            //  "函数 `foo` 从未被使用"）；错误码条目（无动态部分）不受影响。
-            if let Some((_, rest)) = self
-                .translation_manager
-                .query_by_message(&diagnostic.message)
-                && let Some(rest) = rest
+            // 动态部分回填仅对消息表条目生效（前缀/后缀键匹配时保留动态名，
+            // 如 "did you mean " → "你是否想用 `foo`?"）；错误码条目是完整桩，
+            // 回拼会在中文模板后粘上英文残段（如 E0624 的
+            // "字段或方法是私有的year` is private"）。错误码条目需要展示动态
+            // 名称时用 {名称} 等占位符（从消息反引号内容回退填充，见下方）。
+            if code_entry.is_none()
+                && let Some((_, Some(rest))) = message_query
             {
-                let (filled, consumed) = fill_quote_captures(&template, rest);
+                let (filled, consumed) = fill_dynamic_placeholders(&template, &rest);
                 template = filled;
                 if !consumed {
-                    template.push_str(rest);
+                    template.push_str(rest.text());
                 }
             }
             // 对模板中的类型名进行中文化替换
@@ -304,6 +273,12 @@ impl DiagnosticTranslator {
         }
         for child in &diagnostic.children {
             if child.level == "help" {
+                // "if you wanted to use a crate named `X`" 建议：crate 名规则不允许
+                // 非 ASCII，中文名实为拼写错误的母语模块，建议 `cargo add 中文名`
+                // 必然无效（如 `add 规则类型`）；静默丢弃，避免误导初学者。
+                if suggested_crate_name(&child.message).is_some_and(|name| !name.is_ascii()) {
+                    continue;
+                }
                 // help 短语优先查消息表翻译（前缀匹配保留动态后缀），未命中保留原文
                 let hint = self
                     .translation_manager
@@ -311,14 +286,14 @@ impl DiagnosticTranslator {
                     .map(|(entry, rest)| {
                         let mut text = entry.message_template.clone();
                         if let Some(rest) = rest {
-                            // 模板含 {q0}/{q1} 捕获占位符时，从后缀原文提取单引号内容填充
-                            //（如 "Unicode character '，' (…) looks like ',' (…)" →
-                            //  "Unicode 字符 '，' 形似 ','，但它并不是它"）；
-                            // 捕获完整覆盖时不再追加英文后缀。
-                            let (filled, consumed) = fill_quote_captures(&text, rest);
+                            // 模板含 {q0}/{q1} 捕获占位符时，从动态部分提取引号内容填充
+                            //（如 "trait `Datelike` which provides `year` is never used" →
+                            //  "特征 `Datelike` 从未被使用"）；
+                            // 捕获完整覆盖时不再追加英文残段。
+                            let (filled, consumed) = fill_dynamic_placeholders(&text, &rest);
                             text = filled;
                             if !consumed {
-                                text.push_str(rest);
+                                text.push_str(rest.text());
                             }
                         }
                         text

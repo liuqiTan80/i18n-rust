@@ -286,7 +286,7 @@ impl TranslationCache {
         hash
     }
 
-    /// 生成翻译语境指纹：任一映射表内容变化时指纹变化
+    /// 生成翻译语境指纹：任一映射表内容变化或引擎源码变化时指纹变化
     ///
     /// 基于排序后的键值对拼接哈希，与映射表的插入顺序无关。
     ///
@@ -294,6 +294,10 @@ impl TranslationCache {
     /// 派生特征表由 `MappingManager` 从「派生特征」节单独存放（不并入
     /// keyword_map，避免与方法名别名冲突），若漏算会导致只改派生表时
     /// 指纹不变、缓存返回旧转译产物。
+    /// 另混入引擎源码指纹（build.rs 对 src/ 全量生成）：缓存不仅须跟随
+    /// 语言包映射变化，也须跟随转译算法变化——否则升级 rzc 后（算法修复/
+    /// 调整），源文件未变时旧缓存仍命中、修复不生效（真实事故：别名替换
+    /// 细则修复后，旧转译产物继续被复用）。
     pub fn generate_context_fingerprint(
         keyword_map: &HashMap<String, String>,
         module_path_map: &HashMap<String, String>,
@@ -301,6 +305,11 @@ impl TranslationCache {
         derive_map: &HashMap<String, String>,
     ) -> u64 {
         let mut pairs: Vec<String> = Vec::new();
+        // 引擎源码指纹：转译算法自身的身份，算法代码变化即失效全部缓存
+        pairs.push(format!(
+            "engine-source:{:#x}",
+            crate::语言::ENGINE_SOURCE_FINGERPRINT
+        ));
         for map in [keyword_map, module_path_map, alias_map, derive_map] {
             for (key, value) in map {
                 // 长度前缀 + NUL 定界：键/值中出现任意字符（含 `=`、`\0`）

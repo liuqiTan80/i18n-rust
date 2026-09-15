@@ -322,11 +322,10 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
             let column_map =
                 i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
-            write_transpiled(
-                &source_path,
-                &annotate_non_ascii_mods(&transpiled.output),
-                &ui,
-            )?;
+            // 写盘产物含 `#[path]` 注解插入行：保留行映射供诊断回译先行换算
+            let (annotated, entry_line_map) =
+                annotate_non_ascii_mods_with_lines(&transpiled.output);
+            write_transpiled(&source_path, &annotated, &ui)?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
             transpile_project_files(&project_root, &file, &manager, &cache)?;
 
@@ -342,6 +341,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     &source,
                     &file,
                     &column_map,
+                    &entry_line_map,
                 );
             }
 
@@ -432,8 +432,12 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                         source: &source,
                         file: &file,
                         column_map: Some(&column_map),
+                        entry_line_map: Some(&entry_line_map),
                     },
                     status.success(),
+                    true,
+                    // 输出已实时透传：构建成功而程序运行失败（如 panic）时
+                    // 不补打“编译错误”标签
                     true,
                 );
             }
@@ -492,11 +496,10 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
             let column_map =
                 i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
-            write_transpiled(
-                &source_path,
-                &annotate_non_ascii_mods(&transpiled.output),
-                &ui,
-            )?;
+            // 写盘产物含 `#[path]` 注解插入行：保留行映射供诊断回译先行换算
+            let (annotated, entry_line_map) =
+                annotate_non_ascii_mods_with_lines(&transpiled.output);
+            write_transpiled(&source_path, &annotated, &ui)?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
             transpile_project_files(&project_root, &file, &manager, &cache)?;
 
@@ -511,6 +514,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     &source,
                     &file,
                     &column_map,
+                    &entry_line_map,
                 );
             }
 
@@ -553,9 +557,11 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     source: &source,
                     file: &file,
                     column_map: Some(&column_map),
+                    entry_line_map: Some(&entry_line_map),
                 },
                 output.status.success(),
                 false, // check 场景：无诊断且成功时提示"编译成功"
+                false, // check：诊断输出由本函数负责（非流式透传）
             );
             Ok(exit_code)
         }
@@ -1143,6 +1149,7 @@ fn run_direct_rustc(
     source: &str,
     file: &Path,
     column_map: &i18n_rust_engine::column_map::ColumnMap,
+    entry_line_map: &[usize],
 ) -> anyhow::Result<std::process::ExitCode> {
     let exe = temp_guard::secure_temp_path(&format!(
         "rzc-run-{}-{}.exe",
@@ -1175,9 +1182,12 @@ fn run_direct_rustc(
                 source,
                 file,
                 column_map: Some(column_map),
+                entry_line_map: Some(entry_line_map),
             },
             ok,
             true,
+            // 直调 rustc：编译失败文本由本函数输出（非流式透传）
+            false,
         );
     }
     if !ok {
@@ -1209,6 +1219,7 @@ fn check_direct_rustc(
     source: &str,
     file: &Path,
     column_map: &i18n_rust_engine::column_map::ColumnMap,
+    entry_line_map: &[usize],
 ) -> anyhow::Result<std::process::ExitCode> {
     let output = Command::new(resolve_rustc())
         .args([
@@ -1242,8 +1253,11 @@ fn check_direct_rustc(
             source,
             file,
             column_map: Some(column_map),
+            entry_line_map: Some(entry_line_map),
         },
         output.status.success(),
+        false,
+        // 直调 rustc 检查：诊断输出由本函数负责（非流式透传）
         false,
     );
     Ok(exit_code)
@@ -1308,20 +1322,31 @@ struct DiagContext<'a> {
     /// rustc 看到的是转译后的英文源码，其列号对母语源码无效
     ///（如 `让` → `let` 后整行右移）。`None` 表示不做映射，保持旧行为。
     column_map: Option<&'a i18n_rust_engine::column_map::ColumnMap>,
+    /// 入口磁盘产物行 → 引擎直出行映射（见 [`annotate_non_ascii_mods_with_lines`]）。
+    ///
+    /// 入口产物写盘前经 `#[path]` 注解插入整行（每个非 ASCII `模块 xxx;`
+    /// 一行），而 `column_map` 以未注解的引擎直出产物为基准；
+    /// 回译前须先用本映射把 rustc 的磁盘行号换算回引擎直出行号。
+    /// `None` 表示无注解（磁盘产物与引擎直出逐行一致）。
+    entry_line_map: Option<&'a [usize]>,
 }
 
 /// 解析 cargo --message-format=json 输出并翻译为教学化诊断（check 与 run 共用）
 ///
 /// 返回是否成功输出了翻译后的教学诊断；调用方据此决定是否回退原始文本。
-/// `cargo_ok=false` 且无可解析诊断时原样输出 cargo 消息，绝不虚报"编译成功"。
+/// `cargo_ok=false` 且无可解析诊断时原样输出 cargo 消息，绝不虚报“编译成功”。
 /// `silent_success=true`（run 场景）时，无诊断且编译成功保持静默——
-/// 程序已运行，不再提示"编译成功"。
+/// 程序已运行，不再提示“编译成功”。
+/// `streamed_output=true`（cargo run 场景）时，cargo 消息与程序输出均已实时
+/// 透传：「失败且无可解析诊断」不再补打“编译错误”标签——构建可能已成功，
+/// 失败发生在程序运行阶段（如 panic 退出），补打空标签会误导。
 fn translate_cargo_diagnostics(
     rustc_output: &str,
     stderr_text: &str,
     ctx: &DiagContext<'_>,
     cargo_ok: bool,
     silent_success: bool,
+    streamed_output: bool,
 ) -> bool {
     use i18n_rust_engine::diagnostic::{
         DiagnosticTranslator, ErrorTranslationManager, parse_diagnostic_output,
@@ -1330,7 +1355,6 @@ fn translate_cargo_diagnostics(
     let lang_pack = ctx.lang_pack;
     let project_root = ctx.project_root;
     let manager = ctx.manager;
-    let source = ctx.source;
     let file = ctx.file;
 
     // 未解析导入提取：诊断展示后附带 `rzc add` 加依赖提示（教学化引导）
@@ -1429,6 +1453,10 @@ fn translate_cargo_diagnostics(
     // 保留 error/warning；不要求有错误码——无码的解析错误（如缺括号）
     // 也必须显示，否则会被静默吞掉导致假“编译成功”
     diagnostics.retain(|d| d.level == "error" || d.level == "warning");
+    // rustc 的汇总元消息（"aborting due to N previous error(s)"）：无代码位置、
+    // 无教学内容，具体错误已逐条列出；省略它可以避免英文残句与伪“错误”行
+    // 混入诊断列表（数字无法用消息表占位符捕获，故不在翻译层处理）
+    diagnostics.retain(|d| !d.message.starts_with("aborting due to "));
     let mut seen_codes = std::collections::HashSet::new();
     diagnostics.retain(|d| {
         if let Some(ref code) = d.code {
@@ -1443,9 +1471,10 @@ fn translate_cargo_diagnostics(
             if !silent_success {
                 println!("{}", ui.t("success_compile"));
             }
-        } else {
+        } else if !streamed_output {
             // cargo 失败但无可解析的 JSON 诊断（Cargo.toml 语法错误、
-            // 链接错误等）：原样输出 cargo 消息，绝不虚报“编译成功”
+            // 链接错误等）：原样输出 cargo 消息，绝不虚报“编译成功”；
+            // streamed_output 场景跳过（见函数文档，避免运行时失败被误标）
             eprintln!("{}", ui.f("compile_error", &[stderr_text.trim()]));
         }
         print_dependency_hints(&unresolved_crates, ui);
@@ -1460,25 +1489,21 @@ fn translate_cargo_diagnostics(
                 .as_ref()
                 .is_none_or(|code| seen_teaching_codes.insert(code.clone()))
         });
+        // 诊断定位回译：入口产物（src/main.rs）用调用方传入的源码与列映射；
+        // 多文件项目的子模块产物（如 src/接口.rs）解析回母语源文件
+        // （src/接口.zh）后用其源码与列映射单独回译——修复子模块错误被统一
+        // 误标为入口文件且源码行/列号错位的问题。
+        let dialect_ext = file.extension().and_then(|e| e.to_str()).unwrap_or("zh");
+        let mut fixer = DiagLocationFixer::new(ctx, &original_filename, dialect_ext);
         for teaching in &mut teaching_list {
-            teaching.locations.iter_mut().for_each(|loc| {
-                loc.file_name = original_filename.clone();
-                // 先把 rustc 的（英文产物）行列回译到母语源码坐标，
-                // 再用回译后的行号取源码行——顺序不可颠倒，否则源码行与列号错位。
-                if let Some(cm) = ctx.column_map {
-                    let (line, column) = cm.map_position(loc.line_start, loc.column_start);
-                    loc.line_start = line;
-                    loc.column_start = column;
-                }
-                loc.source_text = get_chinese_source_line(source, loc.line_start);
-            });
+            fixer.fix(teaching);
         }
         if teaching_list.is_empty() {
             if cargo_ok {
                 if !silent_success {
                     println!("{}", ui.t("success_compile"));
                 }
-            } else {
+            } else if !streamed_output {
                 eprintln!("{}", ui.f("compile_error", &[stderr_text.trim()]));
             }
             print_dependency_hints(&unresolved_crates, ui);
@@ -1503,6 +1528,170 @@ fn translate_cargo_diagnostics(
         }
         print_dependency_hints(&unresolved_crates, ui);
         false
+    }
+}
+
+/// 诊断文件上下文：rustc 报告的（英文产物）文件解析回母语源文件后
+/// 得到的显示名、源码与列映射，供行号/列号/源行统一回译
+struct DiagFileContext {
+    display_name: String,
+    source: String,
+    column_map: i18n_rust_engine::column_map::ColumnMap,
+}
+
+/// 解析 rustc 报告的诊断文件路径为实际路径：
+/// 绝对路径原样；相对路径先相对项目根（cargo 的 cwd），再相对当前目录。
+/// 无法定位时返回 None。
+fn resolve_product_path(project_root: &Path, name: &str) -> Option<PathBuf> {
+    let p = Path::new(name);
+    if p.is_absolute() {
+        return Some(p.to_path_buf());
+    }
+    let from_root = project_root.join(p);
+    if from_root.exists() {
+        return Some(from_root);
+    }
+    std::env::current_dir().ok().map(|dir| dir.join(p))
+}
+
+/// 把 rustc 报告的诊断文件（转译产物路径）解析为母语源文件上下文。
+///
+/// 多文件项目中 rustc 报告的是子模块转译产物（如 src/接口.rs），其行列是
+/// 英文产物的坐标、源码行也是英文；须找到同名方言源文件（src/接口.zh）并用
+/// 其源码重建列映射。对应方言文件不存在（手写 .rs、第三方库源码等）时
+/// 返回 None，调用方保持 rustc 原始定位，绝不误标成入口文件。
+fn resolve_dialect_context(
+    project_root: &Path,
+    dialect_ext: &str,
+    product_file: &str,
+    manager: &MappingManager,
+) -> Option<DiagFileContext> {
+    let abs = resolve_product_path(project_root, product_file)?;
+    // 产物名以 .rs 结尾时换成方言扩展名（src/接口.rs → src/接口.zh）
+    let source_path = if abs.extension().is_some_and(|e| e == "rs") {
+        abs.with_extension(dialect_ext)
+    } else {
+        abs
+    };
+    let source = fs::read_to_string(&source_path).ok()?;
+    // 现场重放转译管线取列映射：与写盘时同一管线（确定性输出），
+    // 保证列号回译与磁盘上的转译产物一致；静默重放：教学告警（lint/
+    // 全角/Unicode）已在写盘转译时输出过，此处重放不得重复告警
+    let transpiled = i18n_rust_engine::transpile_pipeline_quiet(&source, manager);
+    let column_map =
+        i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
+    Some(DiagFileContext {
+        display_name: source_path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string(),
+        source,
+        column_map,
+    })
+}
+
+/// 诊断定位回译器：把教学诊断的位置从英文产物坐标回译到母语源码坐标
+///
+/// 入口产物用调用方传入的源码/列映射；项目内其他方言文件的转译产物按
+/// 文件名解析回母语源文件，用其源码与列映射单独回译；非方言文件保持
+/// rustc 原始定位。
+struct DiagLocationFixer<'a> {
+    /// 入口文件的母语源码
+    source: &'a str,
+    /// 入口产物的列映射（rustc 列号 → 母语列号）
+    column_map: Option<&'a i18n_rust_engine::column_map::ColumnMap>,
+    /// 入口磁盘产物行 → 引擎直出行映射（含 `#[path]` 注解插入行时非恒等）
+    entry_line_map: Option<&'a [usize]>,
+    project_root: &'a Path,
+    manager: &'a MappingManager,
+    /// 入口文件名（如 main.zh）
+    original_filename: &'a str,
+    /// 入口产物的规范路径（src/main.rs），用于识别入口产物的诊断
+    entry_canon: Option<PathBuf>,
+    /// 入口文件的方言扩展名（如 zh），用于把产物 .rs 还原为源文件
+    dialect_ext: &'a str,
+    /// 诊断文件 → 母语源文件上下文缓存（None 表示非方言文件）
+    file_contexts: HashMap<String, Option<DiagFileContext>>,
+}
+
+impl<'a> DiagLocationFixer<'a> {
+    fn new(ctx: &'a DiagContext<'a>, original_filename: &'a str, dialect_ext: &'a str) -> Self {
+        Self {
+            source: ctx.source,
+            column_map: ctx.column_map,
+            entry_line_map: ctx.entry_line_map,
+            project_root: ctx.project_root,
+            manager: ctx.manager,
+            original_filename,
+            entry_canon: ctx.project_root.join("src/main.rs").canonicalize().ok(),
+            dialect_ext,
+            file_contexts: HashMap::new(),
+        }
+    }
+
+    /// 回译一条教学诊断的全部位置（含子诊断）
+    fn fix(&mut self, teaching: &mut i18n_rust_engine::diagnostic::TeachingDiagnostic) {
+        for loc in &mut teaching.locations {
+            self.fix_location(loc);
+        }
+        for child in &mut teaching.children {
+            self.fix(child);
+        }
+    }
+
+    fn fix_location(&mut self, loc: &mut i18n_rust_engine::diagnostic::DiagnosticLocation) {
+        if self.is_entry_product(&loc.file_name) {
+            loc.file_name = self.original_filename.to_string();
+            // 先把 rustc 的（英文产物）行列回译到母语源码坐标，
+            // 再用回译后的行号取源码行——顺序不可颠倒，否则源码行与列号错位。
+            if let Some(cm) = self.column_map {
+                // 磁盘产物含 `#[path]` 注解插入行时，行号先换算回引擎直出行
+                //（列映射以引擎直出产物为基准，1-based 换算后传入）
+                let engine_line = self
+                    .entry_line_map
+                    .and_then(|map| map.get(loc.line_start.saturating_sub(1) as usize).copied())
+                    .map(|engine| engine as u32 + 1)
+                    .unwrap_or(loc.line_start);
+                let (line, column) = cm.map_position(engine_line, loc.column_start);
+                loc.line_start = line;
+                loc.column_start = column;
+            }
+            loc.source_text = get_chinese_source_line(self.source, loc.line_start);
+            return;
+        }
+        let context = self
+            .file_contexts
+            .entry(loc.file_name.clone())
+            .or_insert_with(|| {
+                resolve_dialect_context(
+                    self.project_root,
+                    self.dialect_ext,
+                    &loc.file_name,
+                    self.manager,
+                )
+            });
+        let Some(context) = context else {
+            // 非方言文件（手写 .rs、第三方源码等）：保持 rustc 原始定位
+            return;
+        };
+        loc.file_name = context.display_name.clone();
+        let (line, column) = context
+            .column_map
+            .map_position(loc.line_start, loc.column_start);
+        loc.line_start = line;
+        loc.column_start = column;
+        loc.source_text = get_chinese_source_line(&context.source, loc.line_start);
+    }
+
+    /// 判断诊断文件是否为入口文件的转译产物（src/main.rs）
+    fn is_entry_product(&self, name: &str) -> bool {
+        let Some(entry_canon) = self.entry_canon.as_ref() else {
+            return false;
+        };
+        resolve_product_path(self.project_root, name)
+            .and_then(|abs| abs.canonicalize().ok())
+            .is_some_and(|abs| &abs == entry_canon)
     }
 }
 
@@ -1547,10 +1736,13 @@ fn extract_unresolved_crates(rustc_output: &str) -> Vec<String> {
         if matches!(code, "E0432" | "E0433") && unresolved_crate_candidates(text).is_empty() {
             use i18n_rust_engine::diagnostic::extract_backtick_first_segments;
             for seg in extract_backtick_first_segments(text) {
+                // 非 ASCII 段不是 crate 名（母语标识符误提取），
+                // 与 unresolved_crate_candidates 的过滤保持一致
                 if !matches!(
                     seg.as_str(),
                     "std" | "core" | "alloc" | "self" | "super" | "crate" | "proc_macro"
                 ) && !seg.chars().next().is_some_and(|c| c.is_ascii_digit())
+                    && seg.is_ascii()
                     && !result.contains(&seg)
                 {
                     result.push(seg);
@@ -1575,6 +1767,18 @@ fn print_dependency_hints(crates: &[String], ui: &ui::Ui) {
 /// 显式指定 path 后 rustc 可正常加载。仅处理以分号结尾的文件式声明，
 /// 内联模块块（`mod 名称 { ... }`）与 ASCII 名不受影响。
 fn annotate_non_ascii_mods(code: &str) -> String {
+    annotate_non_ascii_mods_with_lines(code).0
+}
+
+/// 同 [`annotate_non_ascii_mods`]，并额外返回磁盘产物行 → 引擎直出行映射
+///
+/// 每处注解在 `mod` 声明所在行前插入一整行 `#[path = ...]`，其后所有磁盘
+/// 行号相对引擎直出产物整体偏移（偏移量 = 该行之前的注解数）。诊断回译时
+/// 必须先用本映射把 rustc 报告的磁盘行号换算回引擎直出行号，再走以引擎
+/// 直出产物为基准的列映射；否则多模块入口文件（如 `main.zh` 声明 3 个
+/// `模块 xxx;`）的诊断行号会系统性偏移 3 行。映射为 0-based：
+/// `line_map[磁盘行] = 引擎直出行`，插入的 `#[path]` 行归属其 `mod` 声明行。
+fn annotate_non_ascii_mods_with_lines(code: &str) -> (String, Vec<usize>) {
     use rustc_lexer::{TokenKind, tokenize};
     let tokens: Vec<_> = tokenize(code).collect();
     // 逐 token 的字节偏移（rustc_lexer 词法流覆盖全源，偏移连续）
@@ -1671,11 +1875,52 @@ fn annotate_non_ascii_mods(code: &str) -> String {
         let indent = &code[line_start..insert_at];
         insertions.push((insert_at, format!("#[path = \"{name}.rs\"]\n{indent}")));
     }
-    let mut result = code.to_string();
-    for (pos, text) in insertions.into_iter().rev() {
-        result.insert_str(pos, &text);
+    // 按插入点升序回放：引擎直出文本的换行推进引擎行号；注解插入文本
+    // 的换行不推进（插入行仍归属其所在 `mod` 声明行）
+    let mut result =
+        String::with_capacity(code.len() + insertions.iter().map(|(_, t)| t.len()).sum::<usize>());
+    let mut line_map: Vec<usize> = vec![0];
+    let mut engine_line = 0usize;
+    let mut last = 0usize;
+    for (pos, text) in &insertions {
+        append_with_line_map(
+            &mut result,
+            &mut line_map,
+            &mut engine_line,
+            &code[last..*pos],
+            true,
+        );
+        append_with_line_map(&mut result, &mut line_map, &mut engine_line, text, false);
+        last = *pos;
     }
-    result
+    append_with_line_map(
+        &mut result,
+        &mut line_map,
+        &mut engine_line,
+        &code[last..],
+        true,
+    );
+    (result, line_map)
+}
+
+/// 追加文本并同步维护行映射：`from_engine=false`（注解插入文本）的换行
+/// 不推进引擎行号，其余同普通文本
+fn append_with_line_map(
+    out: &mut String,
+    line_map: &mut Vec<usize>,
+    engine_line: &mut usize,
+    text: &str,
+    from_engine: bool,
+) {
+    for c in text.chars() {
+        out.push(c);
+        if c == '\n' {
+            if from_engine {
+                *engine_line += 1;
+            }
+            line_map.push(*engine_line);
+        }
+    }
 }
 
 /// 同步转译项目 src/ 下的全部方言源文件（入口文件除外）为对应 .rs 文件，
@@ -1763,8 +2008,16 @@ fn transpile_project_files(
                 let output = match cached {
                     Some(output) => output,
                     None => {
-                        // 锁外并行转译，完成后短临界区写回缓存
-                        let output = i18n_rust_engine::transpile_pipeline(&source, manager);
+                        // 锁外并行转译，完成后短临界区写回缓存；
+                        // 静默管线：教学告警改由下方带文件名输出（多文件项目
+                        // 中裸行列无法定位到具体文件）
+                        let output = i18n_rust_engine::transpile_pipeline_quiet(&source, manager);
+                        let display_name = path
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_string();
+                        emit_teaching_warnings_for_file(&source, &display_name);
                         cache
                             .lock()
                             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -1787,6 +2040,28 @@ fn transpile_project_files(
     match first_error.into_inner().unwrap_or(None) {
         Some(err) => Err(err),
         None => Ok(()),
+    }
+}
+
+/// 输出单个方言文件的教学告警（Unicode 混淆/全角标点/lint），带文件名归属
+///
+/// 多文件项目中项目内文件分散在多个方言文件，裸行列无法定位具体文件；
+/// 入口文件的告警仍由转译管线直接输出（裸行列即命令传入的入口文件）。
+/// 时机与转译一致（仅缓存未命中时输出），静默管线保证不重复输出。
+fn emit_teaching_warnings_for_file(source: &str, display_name: &str) {
+    for warning in i18n_rust_engine::unicode_confusion::check_unicode_confusion(source) {
+        i18n_rust_engine::log_warn!(
+            "unicode_confusion",
+            "{}：{}",
+            display_name,
+            warning.format()
+        );
+    }
+    for warning in i18n_rust_engine::fullwidth::find_fullwidth_punct(source) {
+        i18n_rust_engine::log_warn!("fullwidth", "{}：{}", display_name, warning.format());
+    }
+    for warning in i18n_rust_engine::lint::lint_teaching(source) {
+        i18n_rust_engine::log_warn!("lint", "{}：{}", display_name, warning.format());
     }
 }
 
@@ -2224,9 +2499,10 @@ fn get_lang_code_from_extension(extension: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        annotate_non_ascii_mods, can_use_direct_rustc, detect_toolchain_channel,
-        extract_unresolved_crates, find_alias_in_toml, get_lang_code_from_extension,
-        transpile_project_files, transpile_to_english, write_transpiled,
+        annotate_non_ascii_mods, annotate_non_ascii_mods_with_lines, can_use_direct_rustc,
+        detect_toolchain_channel, extract_unresolved_crates, find_alias_in_toml,
+        get_lang_code_from_extension, transpile_project_files, transpile_to_english,
+        write_transpiled,
     };
 
     /// 加载内置中文映射管理器（测试转译管线用）
@@ -2415,6 +2691,80 @@ mod tests {
             out,
             "函数 main() {\n    #[path = \"数学.rs\"]\n    mod 数学;\n}"
         );
+    }
+
+    /// 注解行映射：磁盘行 → 引擎直出行（0-based），注解行归属其 mod 声明行，
+    /// 多处注解时偏移逐处累积（对应多模块入口 main.zh 的诊断行号换算）
+    #[test]
+    fn test_annotate_non_ascii_mod_line_map() {
+        // 单处注解：磁盘 0/1 行（#[path] 与 mod）均归属引擎第 0 行
+        let (out, line_map) = annotate_non_ascii_mods_with_lines("mod 数学;\nfn main() {}");
+        assert_eq!(out, "#[path = \"数学.rs\"]\nmod 数学;\nfn main() {}");
+        assert_eq!(line_map, vec![0, 0, 1]);
+
+        // 无注解时映射恒等
+        let (_, line_map) = annotate_non_ascii_mods_with_lines("fn main() {}\nfn f() {}");
+        assert_eq!(line_map, vec![0, 1]);
+
+        // 两处注解：后续行偏移为 2
+        let two = "mod 数学;\nmod 物理;\nfn main() {}";
+        let (out, line_map) = annotate_non_ascii_mods_with_lines(two);
+        assert_eq!(
+            out,
+            "#[path = \"数学.rs\"]\nmod 数学;\n#[path = \"物理.rs\"]\nmod 物理;\nfn main() {}"
+        );
+        assert_eq!(line_map, vec![0, 0, 1, 1, 2]);
+    }
+
+    /// 入口产物含 #[path] 注解时，诊断回译先换算行号再列映射
+    ///（回归：多模块 main.zh 中所有诊断行号被注解行整体顶偏移）
+    #[test]
+    fn test_diag_location_fixer_entry_line_map() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        let source = "// 头\n模块 数学;\n\n函数 主函数() {\n    让 _ = 未定义的名字;\n}\n";
+        let entry = root.join("src/main.zh");
+        std::fs::write(&entry, source).unwrap();
+
+        let manager = zh_manager();
+        let transpiled = i18n_rust_engine::transpile_pipeline(source, &manager);
+        let column_map =
+            i18n_rust_engine::column_map::ColumnMap::build(source, &transpiled.pipeline_map);
+        let (annotated, line_map) = annotate_non_ascii_mods_with_lines(&transpiled.output);
+        // 磁盘产物（rustc 看到的就是它）：注解插在第 2 行，其后行号 +1
+        std::fs::write(root.join("src/main.rs"), &annotated).unwrap();
+
+        let ui = crate::ui::Ui::for_lang("zh");
+        let ctx = super::DiagContext {
+            ui: &ui,
+            lang_pack: &None,
+            project_root: root,
+            manager: &manager,
+            source,
+            file: &entry,
+            column_map: Some(&column_map),
+            entry_line_map: Some(&line_map),
+        };
+        let mut fixer = super::DiagLocationFixer::new(&ctx, "main.zh", "zh");
+        // rustc 报磁盘第 6 行第 13 列（`未定义的名字` 首字符）
+        let mut loc = i18n_rust_engine::diagnostic::DiagnosticLocation {
+            file_name: "src/main.rs".to_string(),
+            line_start: 6,
+            column_start: 13,
+            line_end: 6,
+            column_end: 18,
+            source_text: None,
+            label: None,
+            is_primary: true,
+        };
+        fixer.fix_location(&mut loc);
+
+        // 回译到母语源码：第 5 行第 11 列（`让` → `let` 的列差已补回）
+        assert_eq!(loc.file_name, "main.zh");
+        assert_eq!(loc.line_start, 5);
+        assert_eq!(loc.column_start, 11);
+        assert_eq!(loc.source_text.as_deref(), Some("    让 _ = 未定义的名字;"));
     }
 
     /// cargo JSON 流中提取未声明 crate：E0432/E0433 命中，标准库与重复项排除

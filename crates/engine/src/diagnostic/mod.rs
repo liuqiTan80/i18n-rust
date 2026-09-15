@@ -17,7 +17,7 @@ mod output;
 mod teaching;
 mod translator;
 
-pub use message::ErrorTranslationManager;
+pub use message::{ErrorTranslationManager, MessageRest, fill_dynamic_placeholders};
 pub use model::{CompilerDiagnostic, DiagnosticCode, DiagnosticSpan};
 pub use output::{
     FormattedDiagnostic, extract_backtick_first_segments, is_unresolved_import_message,
@@ -320,6 +320,130 @@ mod tests {
         assert_eq!(
             teaching.teaching_hints,
             vec!["修复建议：Unicode 字符 '，' 形似 ','，但它并不是它"]
+        );
+    }
+
+    /// "if you wanted to use a crate named" 建议：中文/非 ASCII 名静默丢弃
+    ///（回归：中文模块名误触发 `add 规则类型` 建议，且英文原文直接透出）
+    #[test]
+    fn test_translate_help_crate_add_suggestion_non_ascii_dropped() {
+        let _guard = crate::语言::test_language("zh");
+        let file = create_error_message_file("");
+        let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+
+        let diagnostic = CompilerDiagnostic {
+            message: "unresolved import `不存在的中文模块`".to_string(),
+            code: Some(DiagnosticCode {
+                code: "E0432".to_string(),
+                explanation: None,
+            }),
+            level: "error".to_string(),
+            spans: vec![],
+            children: vec![CompilerDiagnostic {
+                message: "if you wanted to use a crate named `不存在的中文模块`, use \
+                          `cargo add 不存在的中文模块` to add it to your `Cargo.toml`"
+                    .to_string(),
+                code: None,
+                level: "help".to_string(),
+                spans: vec![],
+                children: vec![],
+                rendered: None,
+            }],
+            rendered: None,
+        };
+        let teaching = translator.translate_diagnostic(&diagnostic);
+
+        // 非 ASCII “crate 名”的建议必然无效，应整体丢弃而非英文透出
+        assert!(teaching.teaching_hints.is_empty());
+    }
+
+    /// "if you wanted to use a crate named" 建议：ASCII crate 名翻译为中文
+    /// 且重写为 `rzc add`（教学引导走方言工具链）
+    #[test]
+    fn test_translate_help_crate_add_suggestion_ascii() {
+        let _guard = crate::语言::test_language("zh");
+        let toml_content = r#"
+["消息翻译"."if you wanted to use a crate named "]
+"消息模板" = "若要使用名为 {q0} 的第三方库，请运行 `rzc add {q0}` 添加依赖"
+"#;
+        let file = create_error_message_file(toml_content);
+        let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+
+        let diagnostic = CompilerDiagnostic {
+            message: "unresolved import `serde_json`".to_string(),
+            code: Some(DiagnosticCode {
+                code: "E0432".to_string(),
+                explanation: None,
+            }),
+            level: "error".to_string(),
+            spans: vec![],
+            children: vec![CompilerDiagnostic {
+                message: "if you wanted to use a crate named `serde_json`, use `cargo add \
+                          serde_json` to add it to your `Cargo.toml`"
+                    .to_string(),
+                code: None,
+                level: "help".to_string(),
+                spans: vec![],
+                children: vec![],
+                rendered: None,
+            }],
+            rendered: None,
+        };
+        let teaching = translator.translate_diagnostic(&diagnostic);
+
+        assert_eq!(
+            teaching.teaching_hints,
+            vec![
+                "修复建议：若要使用名为 serde_json 的第三方库，请运行 `rzc add serde_json` 添加依赖"
+            ]
+        );
+    }
+
+    /// 内置中文包：顶层 `让` 的解析错误应完整中文化（消息 + 建议 + 教学提示）
+    ///
+    /// 回归：'expected item, found keyword `let`' 只译出 '期望 ' 前缀、
+    /// 'consider using `static`...' 只译出 '考虑 ' 前缀，中英混杂。
+    #[test]
+    fn test_builtin_zh_top_level_let_fully_translated() {
+        let _guard = crate::语言::test_language("zh");
+        let zh = crate::语言::builtin_file("zh", "errors.toml").expect("内置中文错误表应存在");
+        let manager = ErrorTranslationManager::load_from_string(zh).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+
+        let diagnostic = CompilerDiagnostic {
+            message: "expected item, found keyword `let`".to_string(),
+            code: None,
+            level: "error".to_string(),
+            spans: vec![],
+            children: vec![CompilerDiagnostic {
+                message: "consider using `static` or `const` instead of `let`".to_string(),
+                code: None,
+                level: "help".to_string(),
+                spans: vec![],
+                children: vec![],
+                rendered: None,
+            }],
+            rendered: None,
+        };
+        let teaching = translator.translate_diagnostic(&diagnostic);
+
+        assert_eq!(
+            teaching.translated_message,
+            "此处应是一项声明，但遇到了 `让`"
+        );
+        assert!(
+            !teaching.translated_message.contains("expected"),
+            "消息不得残留英文：{}",
+            teaching.translated_message
+        );
+        assert_eq!(
+            teaching.teaching_hints,
+            vec![
+                "模块（顶层）作用域不能直接写 `让`：全局变量请改用 `静态` 或 `常量`，代码逻辑请放进函数（如 `函数 主函数()`）。",
+                "修复建议：考虑改用 `静态` 或 `常量` 代替 `让`"
+            ]
         );
     }
 
@@ -785,5 +909,101 @@ mod tests {
         );
         assert!(unresolved_crate_candidates("unresolved import `self::inner`").is_empty());
         assert!(unresolved_crate_candidates("mismatched types").is_empty());
+    }
+
+    /// 母语标识符不是 crate 名：非 ASCII 段被过滤，不再误提示 `rzc add 数据模型`
+    #[test]
+    fn test_unresolved_crate_candidates_filters_non_ascii() {
+        assert!(unresolved_crate_candidates("unresolved import `数据模型::规则类型`").is_empty());
+        assert!(
+            unresolved_crate_candidates("unresolved imports `数据模型`, `serde`")
+                .iter()
+                .all(|s| s == "serde")
+        );
+    }
+
+    /// 错误码条目是完整桩：消息表命中也不能回拼英文残段
+    ///（回归：E0624 输出 "字段或方法是私有的year` is private"）
+    #[test]
+    fn test_translate_code_entry_no_message_rest_concat() {
+        let _guard = crate::语言::test_language("zh");
+        let toml_content = r#"
+[E0624]
+"消息模板" = "字段或方法 `{名称}` 是私有的"
+"教学提示" = "结构体字段默认私有。"
+
+["消息翻译"."method `"]
+"消息模板" = "方法 `{q0}` 从未被使用"
+"#;
+        let file = create_error_message_file(toml_content);
+        let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+
+        let diagnostic = CompilerDiagnostic {
+            message: "method `year` is private".to_string(),
+            code: Some(DiagnosticCode {
+                code: "E0624".to_string(),
+                explanation: None,
+            }),
+            level: "error".to_string(),
+            spans: vec![],
+            children: vec![],
+            rendered: None,
+        };
+        let teaching = translator.translate_diagnostic(&diagnostic);
+
+        // {名称} 由消息反引号内容回填；不得粘上 "year` is private" 英文残段
+        assert_eq!(teaching.translated_message, "字段或方法 `year` 是私有的");
+    }
+
+    /// 前缀键 + 动态名后的附加短语：{q0} 取首个反引号前内容而非第二个引号对
+    ///（回归：输出 "特征 ` which provides ` 从未被使用"）
+    #[test]
+    fn test_translate_trait_which_provides_capture() {
+        let _guard = crate::语言::test_language("zh");
+        let toml_content = r#"
+["消息翻译"."trait `"]
+"消息模板" = "特征 `{q0}` 从未被使用"
+"#;
+        let file = create_error_message_file(toml_content);
+        let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+
+        let diagnostic = CompilerDiagnostic {
+            message: "trait `Datelike` which provides `year` is never used".to_string(),
+            code: None,
+            level: "warning".to_string(),
+            spans: vec![],
+            children: vec![],
+            rendered: None,
+        };
+        let teaching = translator.translate_diagnostic(&diagnostic);
+
+        assert_eq!(teaching.translated_message, "特征 `Datelike` 从未被使用");
+    }
+
+    /// 后缀链 + 双占位符（复数变体）：头段引号对完整，{q0}/{q1} 分别取首个/末个
+    #[test]
+    fn test_translate_variants_suffix_captures() {
+        let _guard = crate::语言::test_language("zh");
+        let toml_content = r#"
+["消息翻译"."~ are never constructed"]
+"消息模板" = "`{q0}` 和 `{q1}` 从未被构造"
+"#;
+        let file = create_error_message_file(toml_content);
+        let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+
+        let diagnostic = CompilerDiagnostic {
+            message: "variants `黄灯` and `绿灯` are never constructed".to_string(),
+            code: None,
+            level: "warning".to_string(),
+            spans: vec![],
+            children: vec![],
+            rendered: None,
+        };
+        let teaching = translator.translate_diagnostic(&diagnostic);
+
+        assert_eq!(teaching.translated_message, "`黄灯` 和 `绿灯` 从未被构造");
     }
 }

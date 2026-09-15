@@ -1351,8 +1351,13 @@ mod tests {
     fn test_builtin_zh_passes_clean() {
         let view = LangPackView::from_builtin("zh");
         let report = check_lang_pack(&view);
-        // 工具正常运行，统计数据合理
-        assert_eq!(report.stats.crate_files, 10);
+        // 工具正常运行，统计数据合理（crate 数动态取内置清单，随语言包目录自动纳入）
+        assert_eq!(
+            report.stats.crate_files,
+            crate::builtin_lang::get_builtin_data("zh")
+                .crates_data
+                .len()
+        );
         assert!(report.stats.ident_entries > 0);
         // 历史冲突（关键字避让/跨文件同键不同值）已清理完毕
         assert!(report.passed(), "内置 zh 包应无错误: {:?}", report.errors);
