@@ -18,6 +18,10 @@ tauri 及新建 mysql），均来自 xiaozs 实战项目验证；含「阻塞」
 - zh 语言包：salvo 补充跨域装配词条（「跨域」子模块、「跨域策略」Cors、「宽松」
 permissive、「转为处理器」into_handler、「装配」hoop），支撑浏览器直连模式的
 CORS 中间件；均来自 xiaozs 实战验证
+- zh 语言包补齐 rand / serde / tokio 词条（xiaozs 词表回馈收尾）：
+工具.toml 补「线程随机」→`thread_rng`（同义）、「随机生成」→`gen`；
+序列化.toml 补「序列化器」→`Serializer`、「反序列化器」→`Deserializer`；
+异步.toml 补「异步任务」→`spawn`（同义）
 - 文档 `docs/missing-mapping-guide.md`：应用开发者缺词条指引（四级来源、项目语言包定制、
 常见坑）；contributing-lang-pack.md / third-party-mapping.md / README 增加指路链接
 

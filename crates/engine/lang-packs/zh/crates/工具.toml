@@ -11,6 +11,8 @@
 ["标识符"]
 # rand
 "随机数生成器" = "thread_rng"
+"线程随机" = "thread_rng"  # 同义词（来自 xiaozs 回馈）
+"随机生成" = "gen"  # Rng::gen 生成随机值
 "随机特征" = "Rng"
 "随机范围" = "gen_range"
 "随机" = "random"

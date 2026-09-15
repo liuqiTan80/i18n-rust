@@ -11,6 +11,7 @@
 # tokio
 "主函数" = "main"
 "生成任务" = "spawn"
+"异步任务" = "spawn"  # 同义词（来自 xiaozs 回馈）
 "等待" = "await"
 "选择" = "select"
 "延迟" = "delay_for"

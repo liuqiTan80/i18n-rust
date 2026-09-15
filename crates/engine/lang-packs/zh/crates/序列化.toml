@@ -10,6 +10,8 @@
 # serde
 "可序列化" = "Serialize"
 "可反序列化" = "Deserialize"
+"序列化器" = "Serializer"
+"反序列化器" = "Deserializer"
 "序列化" = "serialize"
 "反序列化" = "deserialize"
 
