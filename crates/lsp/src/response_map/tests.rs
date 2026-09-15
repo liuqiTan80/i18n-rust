@@ -449,6 +449,47 @@ fn test_map_diagnostics_filters_process_macro_noise() {
     );
 }
 
+/// 虚拟项目“引用未打开模块文件”的 E0433 误报被过滤：
+/// 同名方言文件存在于条目同目录时过滤（打开后即可解析）；
+/// 文件不存在（拼写错误）时诊断保留供用户修正
+#[test]
+fn test_map_diagnostics_filters_unopened_module_reference() {
+    let (cache, temp) = create_test_cache();
+    let mapper = ResponseMapper::new(cache.clone());
+    // 同目录存在被引用但未打开的模块文件
+    std::fs::write(temp.path().join("日志设置.zh"), "公开 函数 初始化() {}").unwrap();
+    let main_uri = format!("file://{}", temp.path().join("main.zh").display());
+    let (entry, _) = cache.update_document(&main_uri, "让 x = 1;", 1).unwrap();
+
+    let mk = |message: &str| {
+        json!({
+            "range": {
+                "start": { "line": 0, "character": 0 },
+                "end": { "line": 0, "character": 1 }
+            },
+            "severity": 1,
+            "code": "E0433",
+            "message": message
+        })
+    };
+    let unopened = mk("cannot find module or crate `日志设置` in this scope");
+    let typo = mk("cannot find module or crate `日志设值` in this scope");
+    let params = json!({
+        "uri": entry.virtual_uri,
+        "version": 1,
+        "diagnostics": [unopened, typo]
+    });
+
+    let mapped = mapper.map_diagnostics(&params);
+    let diags = mapped["diagnostics"].as_array().unwrap();
+    // 未打开模块（文件存在）的误报被过滤，拼写错误保留
+    assert_eq!(diags.len(), 1, "仅保留拼写错误诊断：{mapped}");
+    assert!(
+        diags[0]["message"].as_str().unwrap().contains("日志设值"),
+        "保留的诊断应为拼写错误：{mapped}"
+    );
+}
+
 /// documentHighlight 响应的 range 必须还原为母语坐标
 #[test]
 fn test_map_document_highlight_response() {

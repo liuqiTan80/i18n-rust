@@ -33,6 +33,14 @@ Test / prueba / test / teste / اختبار / परीक्षण），跨语�
   附录E 增「`引用自我` 连写不被翻译」（中文键词须独立成词）与「clap 旗标名
   怎么控制」（裸 `长参数` 取字段名、英文旗标须显式赋值）两条 FAQ；
   均来自 weix-1 项目实测（问题记录 #6/#10/#11）
+- zh 语言包：新增 tauri 2.11.5 中文映射（第一版 166 条 API + 系统托盘/菜单
+  36 条补充，AI 生成 + 跨文件消歧 + 解释补齐；xiaozs 实战回馈）
+- rzc mapping auto：`--target-version` 版本锁定（x.y.z 精确 / x.y / x 前缀锁定，
+  映射文件头记录「基准版本」行；未锁定时提示结果不可复现）
+- rzc mapping auto：AI 生成长映射自动分批调用（每批 50 条 + 进度提示），
+  突破模型单次输出上限（tauri 等数百条 API 场景）
+- rzc mapping auto：AI 生成后输出解释覆盖率提示（缺失条数可见，可重跑补齐）
+- engine：内置映射清单改为编译期扫描动态生成（单一数据源，语言包增删免改代码）
 
 ### 修复
 - engine：use 路径中 crate 名连字符规范化——Cargo 包名 `tracing-subscriber`
@@ -55,6 +63,28 @@ Test / prueba / test / teste / اختبار / परीक्षण），跨语�
   快速修复输入）（weix-1 #3）
 - CLI：新增 `--no-lint` 关闭教学 lint 提示（项目开发场景；Unicode 混淆/全角标点
   告警不受影响），11 语言帮助文案同步（weix-1 #7）
+- LSP：虚拟项目内容抹除文件式 `mod 名字;` 声明（连带属性/可见性/文档注释，
+  1:1 空格替换保持行号列号）——方言 `模块 日志设置;` 不再触发 rust-analyzer
+  的 E0583（找不到模块文件）与 E0754（非 ASCII 标识符）满屏红波浪线；
+  转译/格式化仍基于未净化原文（新增 ra_content 双内容字段）
+- LSP：聚合 main.rs 变更改用 `workspace/didChangeWatchedFiles` 通知
+  rust-analyzer 重读（替代工作区移除+重加的重载机制），修复文件监听
+  失效时模块文件被判 unlinked-file（“未包含在模块树中”）的误报
+- LSP：诊断消息翻译补齐 10 个键（file not found for module / unlinked-file /
+  E0754 / cannot find module 等）并修复短语表顺序（长键优先，避免 "found"
+  先替换打碎 "file not found"）；过滤“引用未打开模块文件”的 E0433 误报
+  （同目录存在同名方言文件时），拼写错误照常提示
+- engine/cli/lsp：别名声明位保护——豁免集合补全（用户声明项/变量、函数与闭包
+  参数）；「库特征实现块」内方法名照常替换（修复块内方法名不替换、参数名被
+  误替换）
+- engine/lsp：多文件诊断回译——子模块产物（如 `src/接口.rs`）解析回方言源文件
+  （`接口.zh`），按各自列映射回译行列（修复误标入口文件与行列错位）
+- engine：磁盘缓存新增引擎源码指纹——转译算法变更自动使缓存失效
+- engine：诊断语义修正——构建实败不虚报「编译成功」，运行时失败不补打
+  「编译错误」，lint 空行计入行号
+- mapping：手动 rustdoc 注入 CARGO_PKG_* 环境变量（修复 tauri 等 proc macro
+  展开期读取 CARGO_PKG_NAME 的提取 panic）
+- mapping：AI 输出重复节头等不规范 TOML 时宽松解析抢救条目
 
 ## [0.7.2] - 2026-09-13
 

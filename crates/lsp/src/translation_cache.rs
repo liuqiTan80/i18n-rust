@@ -30,6 +30,14 @@ pub struct TranslationEntry {
     pub zh_content: String,
     /// 翻译后的英文源码
     pub en_content: String,
+    /// 净化后的英文源码：抹除文件式 `mod 名字;` 声明（含前置属性/可见性）
+    ///
+    /// LSP 虚拟项目按哈希名托管文件并以 `#[path]` 聚合，用户原文的文件式
+    /// 声明指向不存在的文件，会触发 cargo check E0583/E0754 误报。净化以
+    /// 1:1 字符替换实现，行号/列号与 `en_content` 严格一致（列映射继续有效）；
+    /// 发送给 rust-analyzer 的内存文档使用本字段，格式化与反向转译仍用
+    /// `en_content`（用户原文的 `模块 名字;` 行不能丢失）。
+    pub ra_content: String,
     /// 虚拟 .rs 文件的 URI（通知 rust-analyzer 用）
     pub virtual_uri: String,
     /// 虚拟 .rs 文件的磁盘路径
@@ -233,6 +241,7 @@ impl TranslationCache {
                 original_path: original_path.clone(),
                 zh_content: content.to_string(),
                 en_content: String::new(),
+                ra_content: String::new(),
                 virtual_uri: virtual_uri.clone(),
                 virtual_path: virtual_path.clone(),
                 line_map,
@@ -580,17 +589,25 @@ impl TranslationCache {
             Some(project),
         );
         let en_content = output.output;
+        // 净化：抹除文件式 `mod 名字;` 声明（含前置属性/可见性）——
+        // LSP 虚拟项目按哈希名托管文件并以 `#[path]` 聚合，用户原文的
+        // 文件式声明指向不存在的文件，cargo check / rust-analyzer 会报
+        // E0583/E0754 误报。净化以 1:1 字符替换实现，行列号与 en_content
+        // 严格一致（column_map 无需调整）；发送给 rust-analyzer 的内存
+        // 文档使用净化版，格式化与反向转译仍用 en_content
+        //（用户原文的 `模块 名字;` 行不能丢失）。
+        let ra_content = i18n_rust_engine::module_path::strip_file_module_decls(&en_content);
         // 虚拟项目的 crate 入口在聚合 main.rs 中转发调用 `main::main()`，
         // 模块内 fn 默认私有会触发 cargo check E0603。但发送给 rust-analyzer
-        // 的内存文档必须保持用户原文（无 pub）——否则语义 token 多出 pub、
+        // 的内存文档必须保持无 pub——否则语义 token 多出 pub、
         // fn/main 位置偏移，变量等颜色错乱。
         //（column_map 基于无 pub 内容构建，与内存文档一致）
         let is_main = old_entry.original_path.file_stem().and_then(|s| s.to_str()) == Some("main");
         let disk_content = if is_main {
             // 逐行查找函数声明（行首空白后紧跟 `fn main(`），
             // 避免朴素子串替换误命中注释或字符串字面量中的 `fn main(`
-            let mut result = String::with_capacity(en_content.len() + 8);
-            for line in en_content.lines() {
+            let mut result = String::with_capacity(ra_content.len() + 8);
+            for line in ra_content.lines() {
                 let trimmed = line.trim_start();
                 let indent_len = line.len() - trimmed.len();
                 if trimmed.starts_with("fn main(") {
@@ -603,12 +620,12 @@ impl TranslationCache {
                 result.push('\n');
             }
             // 保留原文末尾是否有换行的精确性
-            if !en_content.ends_with('\n') && result.ends_with('\n') {
+            if !ra_content.ends_with('\n') && result.ends_with('\n') {
                 result.pop();
             }
             result
         } else {
-            en_content.clone()
+            ra_content.clone()
         };
         let column_map = replay_column_map(&old_entry.zh_content, &output.pipeline_map);
         // 代理添加的 crate:: 前缀记录（token 序号）：反向转译时只删这些前缀
@@ -618,6 +635,7 @@ impl TranslationCache {
         // 构造新版本需要克隆旧条目一次；此后查询均为 Arc 廉价克隆
         let new_entry = Arc::new(TranslationEntry {
             en_content: en_content.clone(),
+            ra_content: ra_content.clone(),
             column_map,
             added_crate_tokens,
             ..(*old_entry).clone()
@@ -650,7 +668,9 @@ impl TranslationCache {
             }
         }
 
-        if new_entry.en_content != old_entry.en_content {
+        // 内容是否变化以净化版（rust-analyzer 实际感知的内容）为准：
+        // 仅在模块声明区域内改动（净化后为等宽空格）不需要重新通知
+        if new_entry.ra_content != old_entry.ra_content {
             Some(new_entry)
         } else {
             None

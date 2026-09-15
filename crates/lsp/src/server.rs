@@ -62,9 +62,6 @@ pub struct ProxyServer {
     /// 运行期间是否收到新的保存请求（check 完成后补跑一次，
     /// 合并连续保存的中间状态，避免最终诊断停留在旧版本）
     check_pending: Arc<std::sync::atomic::AtomicBool>,
-    /// 虚拟项目工作区是否已加入 rust-analyzer（首次以纯 added 添加，
-    /// 避免与 initialized 的初始加载并发触发 rust-analyzer 崩溃）
-    workspace_added: std::sync::atomic::AtomicBool,
 }
 
 /// 记录一个转发给 rust-analyzer 的请求的原始信息
@@ -141,7 +138,6 @@ impl ProxyServer {
             builtin_diags: Arc::new(std::sync::Mutex::new(HashMap::new())),
             check_running: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             check_pending: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            workspace_added: std::sync::atomic::AtomicBool::new(false),
         };
 
         Ok((server, io_threads))
@@ -530,10 +526,9 @@ impl ProxyServer {
         // initialized 通知：客户端不会重复发送，此处必须手动补发
         self.analyzer
             .send(&json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }))?;
-        // 工作区：新进程无任何工作区，重置标志后以纯 added 添加虚拟项目
-        self.workspace_added
-            .store(false, std::sync::atomic::Ordering::SeqCst);
-        self.reload_virtual_project()?;
+        // 工作区：initialize 请求已携带虚拟项目 workspaceFolders，
+        // 新进程按磁盘现状直接加载（main.rs 已由模块集合变化写盘），
+        // 无需再发工作区变更通知
         // 重新打开所有已打开的文档（虚拟 .rs 文件仍在磁盘，重发 didOpen 即可）
         for entry in self.cache.all_entries() {
             let msg = json!({
@@ -544,7 +539,7 @@ impl ProxyServer {
                         "uri": entry.virtual_uri,
                         "languageId": "rust",
                         "version": entry.version,
-                        "text": entry.en_content
+                        "text": entry.ra_content
                     }
                 }
             });
@@ -598,12 +593,10 @@ impl ProxyServer {
             "textDocument/didSave" => self.handle_did_save(&notif.params),
             "initialized" => {
                 // 转发 initialized 给 rust-analyzer。
-                // 注意：虚拟项目工作区不在此时添加——若此时加入，rust-analyzer
-                // 立即异步加载项目（sysroot 线程），而紧接着的首次 didOpen 会
-                // 触发 removed+added 重载，两次加载并发导致 rust-analyzer 内部
-                // channel 竞态 panic（reload.rs SendError unwrap，进程崩溃）。
-                // 改为首次 didOpen 时以纯 added 添加（见 reload_virtual_project），
-                // 此时虚拟文件已完整写入，一次加载即可。
+                // 虚拟项目工作区已在 initialize 请求中作为 workspaceFolders
+                // 声明：rust-analyzer 收到 initialized 后统一加载，
+                // 避免二次加载与工作区重载的并发竞态
+                //（历史上 reload.rs SendError panic 即源于此）。
                 let msg = json!({
                     "jsonrpc": "2.0",
                     "method": "initialized",
@@ -627,8 +620,16 @@ impl ProxyServer {
         is_supported_file(uri, &self.supported_extensions)
     }
 
-    /// 模块集合发生变化时重载虚拟项目工作区（否则跳过，避免频繁全量重扫）
-    fn reload_if_modules_changed(&self) -> anyhow::Result<()> {
+    /// 模块集合变化时通知 rust-analyzer 重读聚合 main.rs
+    ///
+    /// 打开/关闭方言文件会重写虚拟项目的聚合 main.rs；rust-analyzer 的
+    /// 文件系统监听对虚拟项目（/tmp 下的临时目录）不可靠，其 VFS 中的
+    /// main.rs 内容会停留在旧版本，导致模块文件被判定为“not included
+    /// anywhere in the module tree”（unlinked-file 误报）。此处显式以
+    /// didChangeWatchedFiles（Changed）告知 main.rs 已更新，让
+    /// rust-analyzer 重读该文件（实测比工作区 removed+added 重载更快，
+    /// 且不触发 reload 竞态崩溃）。
+    fn notify_main_updated_if_modules_changed(&self) -> anyhow::Result<()> {
         let new_version = self.cache.module_version() as i64;
         let prev = self
             .last_module_version
@@ -636,9 +637,15 @@ impl ProxyServer {
         if prev == new_version {
             return Ok(());
         }
-        // 模块集合变化：main.rs 的聚合已更新，显式重载让 rust-analyzer
-        // 重新扫描并识别新模块（文件系统监听可能失败）
-        self.reload_virtual_project()
+        let main_uri = path_to_uri(&self.cache.virtual_project_dir().join("src").join("main.rs"));
+        let notification = json!({
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeWatchedFiles",
+            "params": {
+                "changes": [{ "uri": main_uri, "type": 2 }]
+            }
+        });
+        self.analyzer.send(&notification)
     }
 
     /// 处理文档打开
@@ -654,9 +661,9 @@ impl ProxyServer {
 
         let (entry, other_changes) = self.cache.update_document(uri, content, version)?;
 
-        // 模块集合变化时重载虚拟项目工作区，确保 rust-analyzer
-        // 重新扫描并识别 main.rs 中的新模块聚合。
-        self.reload_if_modules_changed()?;
+        // 模块集合变化时通知 rust-analyzer 重读聚合 main.rs，
+        // 确保其识别新模块（虚拟项目的文件系统监听不可靠）。
+        self.notify_main_updated_if_modules_changed()?;
 
         // 模块集合变化可能导致其他已打开文件被重写
         // （其虚拟内容新增/移除了 crate:: 前缀），重新通知 rust-analyzer。
@@ -671,7 +678,7 @@ impl ProxyServer {
                         "uri": change_entry.virtual_uri,
                         "version": change_entry.version
                     },
-                    "contentChanges": [{ "text": change_entry.en_content }]
+                    "contentChanges": [{ "text": change_entry.ra_content }]
                 }
             });
             self.analyzer.send(&ra_msg)?;
@@ -685,7 +692,7 @@ impl ProxyServer {
                     "uri": entry.virtual_uri,
                     "languageId": "rust",
                     "version": version,
-                    "text": entry.en_content
+                    "text": entry.ra_content
                 }
             }
         });
@@ -742,7 +749,7 @@ impl ProxyServer {
                     "uri": entry.virtual_uri,
                     "version": version
                 },
-                "contentChanges": [{ "text": entry.en_content }]
+                "contentChanges": [{ "text": entry.ra_content }]
             }
         });
         self.analyzer.send(&ra_msg)?;
@@ -770,8 +777,8 @@ impl ProxyServer {
         // 关闭文档会缩小模块集合，其余条目的虚拟内容可能被重写
         let other_changes = self.cache.close_document(uri)?;
 
-        // 模块集合变化时重载虚拟项目工作区（main.rs 的模块聚合已变化）
-        self.reload_if_modules_changed()?;
+        // 模块集合变化时通知 rust-analyzer 重读聚合 main.rs（模块已移除）
+        self.notify_main_updated_if_modules_changed()?;
 
         // 模块集合缩小：其余条目仍在 rust-analyzer 中打开，
         // 用 didChange 全量同步（重复 didOpen 违反 LSP 协议）
@@ -784,7 +791,7 @@ impl ProxyServer {
                         "uri": change_entry.virtual_uri,
                         "version": change_entry.version
                     },
-                    "contentChanges": [{ "text": change_entry.en_content }]
+                    "contentChanges": [{ "text": change_entry.ra_content }]
                 }
             });
             self.analyzer.send(&ra_msg)?;
@@ -805,7 +812,7 @@ impl ProxyServer {
                 "method": "textDocument/didSave",
                 "params": {
                     "textDocument": { "uri": entry.virtual_uri },
-                    "text": entry.en_content
+                    "text": entry.ra_content
                 }
             });
             self.analyzer.send(&ra_msg)?;
@@ -997,47 +1004,6 @@ impl ProxyServer {
             };
             let _ = sender.send(Message::Notification(notification));
         }
-    }
-
-    /// 通知 rust-analyzer 重新加载虚拟项目工作区
-    ///
-    /// 虚拟项目的 main.rs 聚合了新打开的 .zh 文件的模块，
-    /// 但文件系统监听可能失败（notify error），
-    /// 因此打开文档后显式触发重载，让 rust-analyzer 重新扫描并识别新模块。
-    ///
-    /// 首次以纯 added 添加工作区（此时虚拟文件已完整写入，一次加载即可）；
-    /// 后续模块变化用 removed+added 强制重扫。
-    /// 绝不能在 initialized 时就添加工作区：那会与随后的首次重载并发，
-    /// 触发 rust-analyzer 的 sysroot 加载竞态崩溃（loaded_sysroot SendError panic）。
-    fn reload_virtual_project(&self) -> anyhow::Result<()> {
-        let uri = self.cache.virtual_project_uri();
-        let first_add = !self
-            .workspace_added
-            .swap(true, std::sync::atomic::Ordering::SeqCst);
-        let notification = if first_add {
-            json!({
-                "jsonrpc": "2.0",
-                "method": "workspace/didChangeWorkspaceFolders",
-                "params": {
-                    "event": {
-                        "added": [{ "uri": uri, "name": "i18n-virtual" }],
-                        "removed": []
-                    }
-                }
-            })
-        } else {
-            json!({
-                "jsonrpc": "2.0",
-                "method": "workspace/didChangeWorkspaceFolders",
-                "params": {
-                    "event": {
-                        "removed": [{ "uri": uri, "name": "i18n-virtual" }],
-                        "added": [{ "uri": uri, "name": "i18n-virtual" }]
-                    }
-                }
-            })
-        };
-        self.analyzer.send(&notification)
     }
 
     /// 处理代码格式化请求（textDocument/formatting）

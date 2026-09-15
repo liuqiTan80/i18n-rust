@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use super::ResponseMapper;
 use super::diag_text::{
     extract_ownership_details, is_main_fn_hint, is_missing_dependency_noise,
-    translate_diagnostic_message,
+    is_unopened_module_reference, translate_diagnostic_message,
 };
 use super::restore_line_single;
 use crate::translation_cache::en_col_to_zh_col_single;
@@ -46,6 +46,12 @@ impl ResponseMapper {
                 // （`#[arg(...)]`）与派生宏名字解析必然失败——用户在项目中
                 // 构建正常（rzc check 通过），此类诊断恒为误报
                 if is_missing_dependency_noise(diag) {
+                    continue;
+                }
+                // 过滤“引用未打开模块文件”的 E0433 误报：虚拟项目只聚合
+                // 已打开文件，被引用模块未打开时无法解析（打开后即恢复）；
+                // 同名方言文件存在于同目录时判定为误报
+                if is_unopened_module_reference(diag, entry.as_deref()) {
                     continue;
                 }
 

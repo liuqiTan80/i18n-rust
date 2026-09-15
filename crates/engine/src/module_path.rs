@@ -172,6 +172,203 @@ pub fn qualify_module_paths_with_map(
     ReplaceResult { output, edits }
 }
 
+/// 抹除文件式模块声明（`mod 名字;`），供 LSP 虚拟项目内容净化使用
+///
+/// LSP 虚拟项目将每个方言文件以哈希名托管，并在聚合 `main.rs` 中通过
+/// `#[path]` 声明为兄弟模块；用户原文中的文件式 `模块 名字;`（转译后为
+/// `mod 名字;`）指向的模块文件在虚拟项目中不存在，会被 cargo check 报
+/// E0583（找不到模块文件）与 E0754（非 ASCII 标识符名）。因此发送给
+/// rust-analyzer 与写入磁盘前须抹除这类声明。
+///
+/// 抹除范围连带声明紧邻的修饰：属性（`#[cfg(...)]`、`#[path = ...]`）、
+/// 文档注释与可见性（`pub`、`pub(crate)`）——修饰必须附着于某个项，
+/// 声明被抹除后会变成悬空修饰触发新错误；修饰与声明之间允许空白与注释。
+///
+/// 抹除采用 1:1 字符替换（换行符保留、其余字符替换为等数 UTF-16 单位的
+/// 空格），行号与列号同原文严格一致，列映射无需调整；内联模块
+/// （`mod 名字 { ... }`）照常参与编译，不被处理。
+pub fn strip_file_module_decls(content: &str) -> String {
+    // 收集 token 的字节区间：rustc_lexer 的 token 流连续覆盖整个输入
+    let mut spans: Vec<(TokenKind, usize, usize)> = Vec::new();
+    let mut offset = 0usize;
+    for token in tokenize(content) {
+        let start = offset;
+        offset += token.len;
+        spans.push((token.kind, start, offset));
+    }
+
+    // 定位所有文件式模块声明：`mod` + 名字（隔空白/注释）+ `;`
+    let mut ranges: Vec<(usize, usize)> = Vec::new();
+    let mut i = 0usize;
+    while i < spans.len() {
+        let (kind, start, end) = spans[i];
+        if is_ident(kind)
+            && &content[start..end] == "mod"
+            && let Some(semi_idx) = file_module_semi(&spans, i)
+        {
+            // 回溯扩展起点：连带声明前的属性/文档注释/可见性修饰
+            let begin = file_module_decl_start(&spans, content, i);
+            ranges.push((spans[begin].1, spans[semi_idx].2));
+            i = semi_idx + 1;
+            continue;
+        }
+        i += 1;
+    }
+    if ranges.is_empty() {
+        return content.to_string();
+    }
+
+    // 1:1 字符替换：换行保留（行号不变），其余字符按等数 UTF-16 单位
+    // 替换为空格（列号不变）
+    let mut output = String::with_capacity(content.len());
+    let mut copied = 0usize;
+    for (start, end) in ranges {
+        output.push_str(&content[copied..start]);
+        for c in content[start..end].chars() {
+            if c == '\n' || c == '\r' {
+                output.push(c);
+            } else {
+                for _ in 0..c.len_utf16() {
+                    output.push(' ');
+                }
+            }
+        }
+        copied = end;
+    }
+    output.push_str(&content[copied..]);
+    output
+}
+
+/// 检查 `mod` token 是否为文件式声明，是则返回其结束分号的 token 索引
+///
+/// 文件式：`mod` 后（允许空白/注释）为单个标识符，再后（允许空白/注释）
+/// 为 `;`；内联模块（`mod X { ... }`）返回 None。
+fn file_module_semi(spans: &[(TokenKind, usize, usize)], mod_idx: usize) -> Option<usize> {
+    let mut name_seen = false;
+    for (idx, &(kind, _, _)) in spans.iter().enumerate().skip(mod_idx + 1) {
+        if is_ws(kind) {
+            continue;
+        }
+        if !name_seen {
+            // `mod` 后必须紧跟名字（含原始标识符 r#名字）
+            if !is_ident(kind) {
+                return None;
+            }
+            name_seen = true;
+            continue;
+        }
+        return matches!(kind, TokenKind::Semi).then_some(idx);
+    }
+    None
+}
+
+/// 回溯文件式模块声明的起点：连带声明紧邻的注释、属性与可见性修饰
+///
+/// 从 `mod` token 向前回溯：跳过空白（注释与声明之间的空行允许跨越）；
+/// 遇到紧邻的注释（如文档注释 `///`）直接纳入——悬空文档注释会触发
+/// E0585（缺少文档注释目标）；遇到属性结尾（`]`）时纳入配对的 `#[`；
+/// 遇到可见性括号（`)`）时纳入配对的 `(` 并确认前置 `pub`；遇到裸
+/// `pub` 直接纳入。任何其他 token（上一项的结尾等）终止回溯。
+/// 返回最前的修饰 token 索引；无修饰时返回 `mod` 自身索引。
+fn file_module_decl_start(
+    spans: &[(TokenKind, usize, usize)],
+    content: &str,
+    mod_idx: usize,
+) -> usize {
+    let mut earliest = mod_idx;
+    let mut cursor = mod_idx; // 回溯游标：当前已纳入块的第一个 token 索引
+    loop {
+        // 向前跳过空白（仅空白；注释本身会被纳入或终止回溯）
+        let mut prev = cursor;
+        while prev > 0 && spans[prev - 1].0 == TokenKind::Whitespace {
+            prev -= 1;
+        }
+        if prev == 0 {
+            return earliest;
+        }
+        let (kind, start, end) = spans[prev - 1];
+        match kind {
+            // 紧邻注释（含文档注释）随声明一并抹除
+            TokenKind::LineComment | TokenKind::BlockComment { .. } => {
+                earliest = prev - 1;
+                cursor = prev - 1;
+            }
+            // 裸可见性 `pub`
+            TokenKind::Ident if &content[start..end] == "pub" => {
+                earliest = prev - 1;
+                cursor = prev - 1;
+            }
+            // 可见性括号 `pub(crate)` 的 `)`
+            TokenKind::CloseParen => {
+                let Some(open) =
+                    matching_open(spans, prev - 1, TokenKind::OpenParen, TokenKind::CloseParen)
+                else {
+                    return earliest;
+                };
+                // `(` 前须为非空白 `pub`
+                let mut j = open;
+                while j > 0 && is_ws(spans[j - 1].0) {
+                    j -= 1;
+                }
+                if j > 0
+                    && is_ident(spans[j - 1].0)
+                    && &content[spans[j - 1].1..spans[j - 1].2] == "pub"
+                {
+                    earliest = j - 1;
+                    cursor = j - 1;
+                } else {
+                    return earliest;
+                }
+            }
+            // 属性结尾 `]`
+            TokenKind::CloseBracket => {
+                let Some(open) = matching_open(
+                    spans,
+                    prev - 1,
+                    TokenKind::OpenBracket,
+                    TokenKind::CloseBracket,
+                ) else {
+                    return earliest;
+                };
+                // `[` 前须为非空白 `#`
+                let mut j = open;
+                while j > 0 && is_ws(spans[j - 1].0) {
+                    j -= 1;
+                }
+                if j > 0 && spans[j - 1].0 == TokenKind::Pound {
+                    earliest = j - 1;
+                    cursor = j - 1;
+                } else {
+                    return earliest;
+                }
+            }
+            _ => return earliest,
+        }
+    }
+}
+
+/// 向前查找与 `close_idx` 处闭合 token 配对的开启 token 索引
+fn matching_open(
+    spans: &[(TokenKind, usize, usize)],
+    close_idx: usize,
+    open_kind: TokenKind,
+    close_kind: TokenKind,
+) -> Option<usize> {
+    let mut depth = 0usize;
+    for idx in (0..=close_idx).rev() {
+        let kind = spans[idx].0;
+        if kind == close_kind {
+            depth += 1;
+        } else if kind == open_kind {
+            depth -= 1;
+            if depth == 0 {
+                return Some(idx);
+            }
+        }
+    }
+    None
+}
+
 /// 是否为空白/注释 token
 fn is_ws(kind: TokenKind) -> bool {
     matches!(
@@ -397,5 +594,100 @@ mod tests {
         let e = &result.edits[0];
         assert_eq!(e.original, "辅助");
         assert_eq!(e.replacement, "crate::辅助");
+    }
+
+    // ===== strip（文件式模块声明抹除）测试 =====
+
+    /// 文件式模块声明被整体抹除为空格，且行号不变
+    #[test]
+    fn test_strip_file_mod_decl() {
+        let input = "mod 日志设置;\nfn main() {}";
+        let output = strip_file_module_decls(input);
+        assert_eq!(output, "         \nfn main() {}");
+        assert_eq!(output.lines().count(), input.lines().count());
+    }
+
+    /// 可见性修饰 `pub` 随声明一并抹除
+    #[test]
+    fn test_strip_pub_mod_decl() {
+        let input = "pub mod 工具;\nfn f() {}";
+        let output = strip_file_module_decls(input);
+        assert_eq!(output, "           \nfn f() {}");
+    }
+
+    /// 可见性括号形式 `pub(crate)` 随声明一并抹除
+    #[test]
+    fn test_strip_pub_crate_mod_decl() {
+        let input = "pub(crate) mod 工具;\nfn f() {}";
+        let output = strip_file_module_decls(input);
+        assert_eq!(output, "                  \nfn f() {}");
+    }
+
+    /// 属性与文档注释随声明一并抹除（避免悬空修饰）
+    #[test]
+    fn test_strip_attributed_mod_decl() {
+        // `#[cfg(test)]`（12 字符）与 `mod 测试;`（7 字符）分别变为等宽空格
+        let input = "#[cfg(test)]\nmod 测试;\nfn f() {}";
+        let output = strip_file_module_decls(input);
+        assert_eq!(
+            output,
+            format!("{}\n{}\nfn f() {{}}", " ".repeat(12), " ".repeat(7))
+        );
+
+        // `/// 工具模块`（8 字符）与 `mod 工具;`（7 字符）分别变为等宽空格
+        let input = "/// 工具模块\nmod 工具;";
+        let output = strip_file_module_decls(input);
+        assert_eq!(output, format!("{}\n{}", " ".repeat(8), " ".repeat(7)));
+    }
+
+    /// 多行属性随声明一并抹除，且每行 UTF-16 列宽严格不变
+    #[test]
+    fn test_strip_multiline_attr_keeps_position() {
+        let input = "#[cfg(\n    all(test, unix)\n)]\nmod 工具;\nfn f() {}";
+        let output = strip_file_module_decls(input);
+        let input_lines: Vec<&str> = input.lines().collect();
+        let output_lines: Vec<&str> = output.lines().collect();
+        assert_eq!(input_lines.len(), output_lines.len());
+        for (a, b) in input_lines.iter().zip(&output_lines) {
+            assert_eq!(a.encode_utf16().count(), b.encode_utf16().count());
+        }
+        assert!(output.ends_with("fn f() {}"));
+    }
+
+    /// 内联模块（含其内容）不被处理
+    #[test]
+    fn test_inline_mod_kept() {
+        let input = "mod 工具 {\n    fn f() {}\n}\nfn main() {}";
+        assert_eq!(strip_file_module_decls(input), input);
+    }
+
+    /// 内联模块内的文件式声明同样被抹除
+    #[test]
+    fn test_strip_nested_file_mod_inside_inline() {
+        let input = "mod 外层 {\n    mod 内层;\n}";
+        let output = strip_file_module_decls(input);
+        assert_eq!(output, "mod 外层 {\n           \n}");
+    }
+
+    /// 属性属于上一个项时不随声明抹除
+    #[test]
+    fn test_attr_belonging_to_prev_item_kept() {
+        let input = "#[cfg(test)]\nfn f() {}\nmod 工具;";
+        let output = strip_file_module_decls(input);
+        assert_eq!(output, "#[cfg(test)]\nfn f() {}\n       ");
+    }
+
+    /// 含 mod 子串的标识符不被误判
+    #[test]
+    fn test_mod_substring_ident_not_stripped() {
+        let input = "fn commode() {}\nfn mode() {}";
+        assert_eq!(strip_file_module_decls(input), input);
+    }
+
+    /// 无文件式声明时原样返回
+    #[test]
+    fn test_strip_no_decl_unchanged() {
+        let input = "fn main() {}\nfn f() { let mode = 1; }";
+        assert_eq!(strip_file_module_decls(input), input);
     }
 }

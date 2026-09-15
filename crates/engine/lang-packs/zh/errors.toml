@@ -2422,3 +2422,37 @@
 ["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown: "]
 "消息模板" = "请确保所有情况都被处理：添加一个通配分支（`_ => ...`）或显式分支，例如："
 
+# ---- 模块文件缺失（E0583 的 rustc/rust-analyzer 三行消息与 E0754，LSP 常见） ----
+["消息翻译"."file not found for module `"]
+"消息模板" = "找不到模块 `{q0}` 对应的文件"
+"教学提示" = "模块声明（`模块 名字;`）要求同级目录存在 `名字.zh` 或 `名字/模.rs` 文件。请创建该文件或检查文件名拼写。"
+
+["消息翻译"."to create the module `"]
+"消息模板" = "要创建模块 `{q0}`，请新建文件 `{q0}.zh`（或 `{q0}/模.rs`）"
+
+["消息翻译"."if there is a `mod "]
+"消息模板" = "如果 crate 中别处已有 `模块 {q0}` 声明，可改用 `使用 crate::...` 导入"
+
+# rust-analyzer 原生变体（无引号，动态部分为整段文本）
+["消息翻译"."unresolved module, can't find module file: "]
+"消息模板" = "无法解析模块，找不到模块文件：{q0}"
+
+# rust-analyzer 未解析模块/库（引用未打开文件时由翻译层过滤；拼写错误时保留）
+["消息翻译"."cannot find module or crate `"]
+"消息模板" = "在当前作用域找不到模块或库 `{q0}`"
+"教学提示" = "若这是本项目的模块，请检查同级目录是否存在同名文件（模块声明要求文件与模块同名）；若是第三方库，请参考下方的依赖添加提示。"
+
+["消息翻译"."trying to load file for module `"]
+"消息模板" = "尝试加载模块 `{q0}` 的文件时遇到非 ASCII 标识符名（E0754）"
+"教学提示" = "模块声明（`模块 名字;`）要求同级目录存在 `名字.zh` 或 `名字/模.rs` 文件。请创建该文件或检查文件名拼写。"
+
+["消息翻译"."consider using the `#[path]` attribute to specify filesystem path"]
+"消息模板" = "考虑使用 `#[path]` 属性指定文件路径"
+
+# ---- unlinked-file（虚拟项目正常时不应出现；兜底翻译防英文残留） ----
+["消息翻译"."This file is not included anywhere in the module tree, so rust-analyzer can't offer IDE services."]
+"消息模板" = "此文件未包含在模块树中，rust-analyzer 无法提供 IDE 功能（补全、跳转等）。"
+
+["消息翻译"."If you're intentionally working on unowned files, you can silence this warning by adding \"unlinked-file\" to your rust-analyzer.diagnostics.disabled configuration."]
+"消息模板" = "若确实要在本项目中处理未关联模块的文件，可在 rust-analyzer.diagnostics.disabled 配置中添加 \"unlinked-file\" 关闭此警告。"
+

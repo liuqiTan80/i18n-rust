@@ -117,6 +117,9 @@ fn diag_phrase_replacements() -> &'static Vec<(String, String)> {
         for (en, localized) in replace_table {
             replacements.push((en.to_string(), localized));
         }
+        // 长键优先：按键长降序应用，避免短串先替换打碎长短语
+        //（如 "found" 先于 "file not found" 会把后者拆成 "file not 实际为"）
+        replacements.sort_by_key(|a| std::cmp::Reverse(a.0.len()));
         replacements
     })
 }
@@ -267,6 +270,49 @@ pub(super) fn is_main_fn_hint(diag: &Value, _virtual_uri: &str) -> bool {
 pub(super) fn is_missing_dependency_noise(diag: &Value) -> bool {
     let message = diag.get("message").and_then(|v| v.as_str()).unwrap_or("");
     message.contains("cannot find attribute") || message.contains("cannot find derive macro")
+}
+
+/// 过滤“引用未打开模块文件”的 E0433 误报
+///
+/// LSP 虚拟项目只聚合当前打开的文件：`模块 日志设置;` 引用的
+/// `日志设置.zh` 未打开时，聚合 main.rs 中没有对应模块声明，
+/// `crate::日志设置` 无法解析，rust-analyzer 会报
+/// "cannot find module or crate `日志设置` in this scope"（E0433）。
+/// 该引用在本项目中实际有效（同名文件存在于同目录，打开后即可解析），
+/// 属于虚拟项目固有误报；条目同目录存在同名方言文件时过滤。
+/// 文件确实不存在（如拼写错误）时诊断保留，供用户修正。
+pub(super) fn is_unopened_module_reference(
+    diag: &Value,
+    entry: Option<&crate::translation_cache::TranslationEntry>,
+) -> bool {
+    let Some(entry) = entry else {
+        return false;
+    };
+    let message = diag.get("message").and_then(|v| v.as_str()).unwrap_or("");
+    // 仅匹配 rust-analyzer 的未解析模块/库告警（E0433 主消息）
+    let Some(rest) = message.strip_prefix("cannot find module or crate `") else {
+        return false;
+    };
+    let Some((name, _)) = rest.split_once('`') else {
+        return false;
+    };
+    // 模块名必须是单个安全路径段（防御恶意构造的路径穿越，如 `..`/`/`）
+    if name.is_empty()
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains("..")
+        || name.starts_with('.')
+    {
+        return false;
+    }
+    // 同目录存在 `名字.<原扩展名>` 时视为“模块文件未打开”的误报
+    let (Some(dir), Some(ext)) = (
+        entry.original_path.parent(),
+        entry.original_path.extension().and_then(|s| s.to_str()),
+    ) else {
+        return false;
+    };
+    dir.join(format!("{name}.{ext}")).is_file()
 }
 
 /// 从 LSP 诊断（rust-analyzer 格式）中提取所有权错误详情
