@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-ko",
-          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(debug_assert_matches|debug_assert_eq|assert_matches|compile_error|debug_assert|macro_rules|cfg_select|오류_출력_줄|포함_문자열|포함_바이트|macro|오류_출력|단언_동일|단언_다름|도달_불가|환경_옵션|출력_줄|작성_줄|문자열화|미구현|포맷|출력|단언|예정|패닉|벡터|작성|포함|파일|환경|설정|열|줄)!"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(debug_assert_matches|debug_assert_eq|assert_matches|compile_error|debug_assert|macro_rules|cfg_select|오류_출력_줄|포함_문자열|포함_바이트|macro|오류_출력|단언_동일|단언_다름|도달_불가|환경_옵션|출력_줄|작성_줄|문자열화|미구현|테스트|포맷|출력|단언|예정|패닉|벡터|작성|포함|파일|환경|설정|열|줄)!"
         }
       ]
     },

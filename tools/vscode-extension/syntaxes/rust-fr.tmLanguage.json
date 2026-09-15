@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-fr",
-          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(afficher_erreur_ligne|debug_assert_matches|option_environnement|affirmer_different|debug_assert_eq|afficher_erreur|assert_matches|afficher_ligne|non_implemente|inclure_chaine|inclure_octets|compile_error|affirmer_egal|environnement|debug_assert|inaccessible|ecrire_ligne|macro_rules|textualiser|cfg_select|plus_tard|afficher|affirmer|panique|vecteur|inclure|colonne|fichier|format|ecrire|config|macro|ligne)!"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(afficher_erreur_ligne|debug_assert_matches|option_environnement|affirmer_different|debug_assert_eq|afficher_erreur|assert_matches|afficher_ligne|non_implemente|inclure_chaine|inclure_octets|compile_error|affirmer_egal|environnement|debug_assert|inaccessible|ecrire_ligne|macro_rules|textualiser|cfg_select|plus_tard|afficher|affirmer|panique|vecteur|inclure|colonne|fichier|format|ecrire|config|macro|ligne|test)!"
         }
       ]
     },

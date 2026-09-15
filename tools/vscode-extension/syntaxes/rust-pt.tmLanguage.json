@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-pt",
-          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(debug_assert_matches|imprimir_erro_linha|afirmar_diferente|nao_implementado|debug_assert_eq|assert_matches|imprimir_linha|escrever_linha|incluir_cadeia|opcao_ambiente|compile_error|imprimir_erro|afirmar_igual|incluir_bytes|debug_assert|inalcancavel|macro_rules|textualizar|cfg_select|imprimir|pendente|escrever|ambiente|formato|afirmar|incluir|arquivo|panico|coluna|config|macro|vetor|linha)!"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(debug_assert_matches|imprimir_erro_linha|afirmar_diferente|nao_implementado|debug_assert_eq|assert_matches|imprimir_linha|escrever_linha|incluir_cadeia|opcao_ambiente|compile_error|imprimir_erro|afirmar_igual|incluir_bytes|debug_assert|inalcancavel|macro_rules|textualizar|cfg_select|imprimir|pendente|escrever|ambiente|formato|afirmar|incluir|arquivo|panico|coluna|config|macro|vetor|linha|teste)!"
         }
       ]
     },

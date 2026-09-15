@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "entity.name.function.macro.rust-ar",
-          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(debug_assert_matches|debug_assert_eq|assert_matches|لا_يمكن_الوصول|compile_error|اطبع_خطأ_سطرا|debug_assert|macro_rules|أدرج_بايتات|cfg_select|أكد_اختلاف|اطبع_سطرا|أكد_تساوي|اكتب_سطرا|خيار_بيئة|اطبع_خطأ|غير_منفذ|أدرج_نصا|مصفوفة|macro|لاحقا|إعداد|صيغة|اطبع|اكتب|أدرج|عمود|بيئة|أكد|ذعر|نصي|ملف|سطر)!"
+          "match": "(?<![\\p{L}\\p{M}\\p{N}_])(debug_assert_matches|debug_assert_eq|assert_matches|لا_يمكن_الوصول|compile_error|اطبع_خطأ_سطرا|debug_assert|macro_rules|أدرج_بايتات|cfg_select|أكد_اختلاف|اطبع_سطرا|أكد_تساوي|اكتب_سطرا|خيار_بيئة|اطبع_خطأ|غير_منفذ|أدرج_نصا|مصفوفة|اختبار|macro|لاحقا|إعداد|صيغة|اطبع|اكتب|أدرج|عمود|بيئة|أكد|ذعر|نصي|ملف|سطر)!"
         }
       ]
     },
