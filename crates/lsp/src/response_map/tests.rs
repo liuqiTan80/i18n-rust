@@ -397,6 +397,58 @@ fn test_map_diagnostics_non_ownership_no_ownership_details() {
     assert!(mapped["diagnostics"][0].get("data").is_none());
 }
 
+/// 虚拟项目固有的过程宏误报被过滤（#3 症状二）：clap 辅助属性
+/// `cannot find attribute` 与 `cannot find derive macro` 不发布；
+/// 普通诊断（类型错误、unresolved import）照常保留
+#[test]
+fn test_map_diagnostics_filters_process_macro_noise() {
+    let (cache, _temp) = create_test_cache();
+    let mapper = ResponseMapper::new(cache.clone());
+    let (entry, _) = cache
+        .update_document("file:///test/main.zh", "让 x = 1;", 1)
+        .unwrap();
+
+    let attr_noise = json!({
+        "range": {
+            "start": { "line": 0, "character": 0 },
+            "end": { "line": 0, "character": 4 }
+        },
+        "severity": 1,
+        "message": "cannot find attribute `arg` in this scope"
+    });
+    let derive_noise = json!({
+        "range": {
+            "start": { "line": 0, "character": 0 },
+            "end": { "line": 0, "character": 4 }
+        },
+        "severity": 1,
+        "message": "cannot find derive macro `Parser` in this scope"
+    });
+    let unresolved = json!({
+        "range": {
+            "start": { "line": 0, "character": 0 },
+            "end": { "line": 0, "character": 4 }
+        },
+        "severity": 1,
+        "message": "unresolved import `clap`"
+    });
+    let params = json!({
+        "uri": entry.virtual_uri,
+        "version": 1,
+        "diagnostics": [attr_noise, derive_noise, unresolved]
+    });
+
+    let mapped = mapper.map_diagnostics(&params);
+    let diags = mapped["diagnostics"].as_array().unwrap();
+    // 两类过程宏误报被过滤，unresolved import 保留（快速修复输入；
+    // 消息可能已被汉化，按反引号内的 crate 名断言）
+    assert_eq!(diags.len(), 1, "仅保留 unresolved import：{mapped}");
+    assert!(
+        diags[0]["message"].as_str().unwrap().contains("clap"),
+        "保留的诊断应为 unresolved import：{mapped}"
+    );
+}
+
 /// documentHighlight 响应的 range 必须还原为母语坐标
 #[test]
 fn test_map_document_highlight_response() {

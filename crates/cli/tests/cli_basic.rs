@@ -96,3 +96,48 @@ fn test_init_default_lang_follows_locale() {
         .success()
         .stdout(predicates::str::contains("[default: de]"));
 }
+
+/// 回归（#7）：`--no-lint` 静默教学 lint 提示
+///
+/// 项目开发（非教学）场景中，未标注类型等初学者提示每次转译刷屏；
+/// 默认输出（stderr 含 `[lint]` 标签）与关闭后输出（stderr 空）对比验证。
+/// HOME 隔离到临时目录：缓存（~/.rz）不跨测试/机器残留，内容各自
+/// 不同强制缓存未命中（命中会跳过管线而不产生任何告警，断言失真）。
+#[test]
+fn test_no_lint_silences_teaching_hints() {
+    let dir = tempfile::tempdir().expect("创建临时目录失败");
+    let official = dir.path().join("official.zh");
+    let silenced = dir.path().join("silenced.zh");
+    // 两个文件内容不同（不同变量名）→ 两次都是缓存未命中，管线真实执行
+    std::fs::write(
+        &official,
+        "函数 主函数() {\n    让 数量甲 = 5;\n    打印行!(\"{}\", 数量甲);\n}\n",
+    )
+    .expect("写入测试源码失败");
+    std::fs::write(
+        &silenced,
+        "函数 主函数() {\n    让 数量乙 = 6;\n    打印行!(\"{}\", 数量乙);\n}\n",
+    )
+    .expect("写入测试源码失败");
+
+    // 默认：教学 lint 告警输出到 stderr（含 [lint] 标签）
+    rzc()
+        .env("HOME", dir.path())
+        .env_remove("RZ_LOG")
+        .arg("transpile")
+        .arg(&official)
+        .assert()
+        .success()
+        .stderr(predicates::str::contains("[lint]"));
+
+    // --no-lint：转译输出不变，教学 lint 告警静默（stderr 无输出）
+    rzc()
+        .env("HOME", dir.path())
+        .env_remove("RZ_LOG")
+        .args(["--no-lint", "transpile"])
+        .arg(&silenced)
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("let 数量乙 = 6;"))
+        .stderr(predicates::str::is_empty());
+}

@@ -14,6 +14,25 @@
 // 注释，仅在代码位置判定，避免把字符串内容误判为代码问题。
 
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// 教学 lint 全局开关（默认开启，进程级）
+///
+/// 项目开发（非教学）场景下，初学者代码风格提示会在每次转译时刷屏；
+/// CLI `--no-lint` 置为关闭（见 [`set_teaching_lint_enabled`]）。
+/// 仅影响教学 lint 输出，Unicode 混杂/全角标点告警不受影响；
+/// 与日志级别（logger）同为进程级配置。
+static TEACHING_LINT_ENABLED: AtomicBool = AtomicBool::new(true);
+
+/// 设置教学 lint 开关（进程级；测试与嵌入场景使用）
+pub fn set_teaching_lint_enabled(enabled: bool) {
+    TEACHING_LINT_ENABLED.store(enabled, Ordering::Relaxed);
+}
+
+/// 查询教学 lint 开关（输出方：转译管线/CLI 逐文件告警均据此静默）
+pub fn teaching_lint_enabled() -> bool {
+    TEACHING_LINT_ENABLED.load(Ordering::Relaxed)
+}
 
 /// 教学 lint 规则种类
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

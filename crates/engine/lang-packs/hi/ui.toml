@@ -86,6 +86,7 @@
 "cmd_lang_remove_about" = "उपयोगकर्ता-स्थापित भाषा पैक हटाएँ (अंतर्निहित पैक हटाए नहीं जा सकते)"
 "cmd_lang_search_about" = "दूरस्थ भाषा पैक बाज़ार ब्राउज़ करें (वैकल्पिक कीवर्ड फ़िल्टर)"
 "arg_lang_help" = "भाषा कोड (भाषा पैक निर्देशिका नाम, जैसे zh, ru; डिफ़ॉल्ट: सिस्टम भाषा)"
+"arg_no_lint_help" = "शिक्षण lint संकेत न दिखाएँ (शुरुआती कोड-शैली चेतावनियाँ; Unicode भ्रम और full-width विराम चिह्न चेतावनियाँ अप्रभावित रहती हैं)"
 "arg_provider_help" = "AI प्रदाता: deepseek (डिफ़ॉल्ट, DEEPSEEK_API_KEY पर्यावरण चर आवश्यक) या rule (ऑफ़लाइन नियम मोड)"
 "arg_output_help" = "आउटपुट फ़ाइल पथ (डिफ़ॉल्ट: lang-packs/<भाषा>/crates/<क्रेट>.toml)"
 "arg_add_crates_help" = "जोड़ने के लिए crate; @version से संस्करण निर्धारित करें (जैसे serde_json, tokio@1)"

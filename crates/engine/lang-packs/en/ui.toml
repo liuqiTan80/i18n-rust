@@ -84,6 +84,7 @@
 "cmd_lang_install_about" = "Install a language pack: copy a local directory path, or download a language code from a remote repository"
 "cmd_lang_remove_about" = "Remove a user-installed language pack (built-in packs cannot be removed)"
 "arg_lang_help" = "Language code (language pack directory name, e.g. zh, ru; defaults to the system language)"
+"arg_no_lint_help" = "Suppress teaching lint hints (beginner code-style warnings; Unicode confusion and full-width punctuation warnings are unaffected)"
 "arg_provider_help" = "AI provider: deepseek (default, requires the DEEPSEEK_API_KEY environment variable) or rule (offline rule mode)"
 "arg_output_help" = "Output file path (defaults to lang-packs/<lang>/crates/<crate>.toml)"
 "arg_add_crates_help" = "Crates to add; pin versions with @version (e.g. serde_json, tokio@1)"

@@ -86,6 +86,7 @@
 "cmd_lang_remove_about" = "사용자 설치 언어팩 삭제 (내장 언어팩은 삭제 불가)"
 "cmd_lang_search_about" = "원격 언어 팩 마켓 탐색(선택적 키워드 필터)"
 "arg_lang_help" = "언어 코드 (언어팩 디렉터리 이름, 예: zh, ru; 기본값은 시스템 언어)"
+"arg_no_lint_help" = "교육용 lint 힌트를 출력하지 않음 (초보자 코드 스타일 경고; 유니코드 혼동 및 전각 문장부호 경고는 영향 없음)"
 "arg_provider_help" = "AI 제공자: deepseek (기본값, DEEPSEEK_API_KEY 환경 변수 필요) 또는 rule (오프라인 규칙 모드)"
 "arg_output_help" = "출력 파일 경로 (기본값: lang-packs/<언어>/crates/<crate>.toml)"
 "arg_add_crates_help" = "추가할 crate 이름. @version으로 버전 지정 가능 (예: serde_json, tokio@1)"

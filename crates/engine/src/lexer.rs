@@ -116,10 +116,13 @@ pub fn transpile_with_map(
 
                 // 宏调用上下文优先：宏名后跟 `!` 或 `(/[/{`（且前面不是 `::`）时，
                 // 使用宏映射替换为英文宏名并确保感叹号，避免宏名在类型节与宏节
-                // 重复时被类型值覆盖（如 `向量` 类型节为 `Vec`、宏节为 `vec`）
+                // 重复时被类型值覆盖（如 `向量` 类型节为 `Vec`、宏节为 `vec`）。
+                // 方法调用位（前面是 `.`）不适用：宏不经 `.` 访问，
+                // `.格式化(` 是方法调用，不补 `!`（后续走关键字映射 → `.format(`）
                 let mut handled = false;
                 if macro_map.contains_key(raw_name)
                     && !is_preceded_by_double_colon(&token_stream, i)
+                    && !is_preceded_by_dot(&token_stream, i)
                     && !is_attribute_name(&token_stream, i)
                     && let Some(next_kind) = find_next_non_ws_kind(&token_stream, i + 1)
                 {
@@ -509,6 +512,22 @@ fn is_preceded_by_double_colon(token_stream: &[rustc_lexer::Token], current_pos:
     matches!(prev_one, Some(TokenKind::Colon)) && matches!(prev_two, Some(TokenKind::Colon))
 }
 
+/// 判断指定位置的标识符前是否为 `.`（方法调用/字段访问位）
+///
+/// 宏不能经 `.` 访问，`标识符(...)` 前是 `.` 时必为方法调用：
+/// `.格式化(...)` 不应按宏补 `!`（否则生成 `.format!(...)`，方法调用
+/// 语法非法）。修复「宏映射词在方法调用位被追补感叹号」的行为。
+fn is_preceded_by_dot(token_stream: &[rustc_lexer::Token], current_pos: usize) -> bool {
+    let mut j = current_pos;
+    while j > 0 {
+        j -= 1;
+        if !is_whitespace(token_stream[j].kind) {
+            return matches!(token_stream[j].kind, TokenKind::Dot);
+        }
+    }
+    false
+}
+
 /// 判断指定位置的标识符是否为属性名（紧跟在 `#[` 或 `#![` 之后的标识符）
 ///
 /// 属性名不应触发宏感叹号自动补充：`#[配置(测试)]` 中的 `配置` 是属性
@@ -683,6 +702,32 @@ mod tests {
         // 内部属性 #![...] 同样不应补 !
         let source = "#![配置(测试)]";
         let expected = "#![cfg(测试)]";
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_macro_word_at_method_position_not_exclamation() {
+        // 方法调用位的宏词不补 `!`：`.格式化(` → `.format(`（方法调用）
+        let map = create_test_map();
+        let macros = create_macro_map();
+        let source = "记录器.格式化(\"{}\", 值);";
+        let expected = "记录器.format(\"{}\", 值);";
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_macro_word_after_dot_with_bang_kept() {
+        // 方法位显式写了 `!`：保持用户书写形式（不按宏补逻辑处理）
+        let map = create_test_map();
+        let macros = create_macro_map();
+        let source = "记录器.打印行!(\"你好\");";
+        let expected = "记录器.println!(\"你好\");";
         assert_eq!(
             transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected

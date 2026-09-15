@@ -86,6 +86,7 @@
 "cmd_lang_remove_about" = "Remover um pacote de idioma instalado pelo usuario (pacotes integrados nao podem ser removidos)"
 "cmd_lang_search_about" = "Explorar o mercado remoto de pacotes de idiomas (filtro por palavra-chave opcional)"
 "arg_lang_help" = "Codigo de idioma (nome do diretorio do pacote, ex. zh, ru; padrao: idioma do sistema)"
+"arg_no_lint_help" = "Suprime as dicas de lint didático (avisos de estilo para iniciantes; os avisos de confusão Unicode e pontuação de largura total não são afetados)"
 "arg_provider_help" = "Provedor de IA: deepseek (padrao, requer a variavel de ambiente DEEPSEEK_API_KEY) ou rule (modo de regras offline)"
 "arg_output_help" = "Caminho do arquivo de saida (padrao: lang-packs/<idioma>/crates/<crate>.toml)"
 "arg_add_crates_help" = "Crates a adicionar; fixe versões com @version (ex.: serde_json, tokio@1)"

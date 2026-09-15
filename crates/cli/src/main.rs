@@ -29,6 +29,9 @@ use lang_manager::Source;
 // 兜底文案（localize_clap 会按界面语言覆盖）；用英文避免硬编码中文
 #[command(about = "Multi-language Rust teaching dialect compiler")]
 struct CliArgs {
+    /// 不输出教学 lint 提示（初学者代码风格警告；Unicode 混淆/全角标点告警不受影响）
+    #[arg(long, global = true)]
+    no_lint: bool,
     #[command(subcommand)]
     command: CliCommand,
 }
@@ -285,6 +288,12 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
         Err(err) => err.exit(),
     };
 
+    // `--no-lint`：项目开发（非教学）场景静默教学 lint（初学者代码风格提示，
+    // 每次转译刷屏）；Unicode 混淆/全角标点告警不受影响
+    if args.no_lint {
+        i18n_rust_engine::lint::set_teaching_lint_enabled(false);
+    }
+
     // 首次运行引导：终端交互场景下，首次执行教学核心命令时打印
     // 欢迎语与环境检查（rustc 缺失提示 + 下一步建议），仅一次
     // （~/.rz/first-run 标记文件）；CI/管道等非终端场景自动跳过。
@@ -306,18 +315,23 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack.clone(), Some(&file))?;
             let project_root = find_project_root(&file)?;
+            // 项目级声明上下文（跨文件声明豁免）：扫描 src/ 全部方言文件 +
+            // 入口，收集模块名与声明名；入口文件、项目内文件与诊断重放
+            // 共享同一上下文（否则跨文件调用的成员名被当库别名替换，E0599）
+            let project_ctx = collect_project_context(&project_root, &file, &manager);
             // 入口文件写入 src/main.rs 作为编译目标；会话缓存贯穿入口文件与
             // 项目内其他文件（并行转译共享命中，见 transpile_project_files）
             let source_path = project_root.join("src/main.rs");
             let cache = std::sync::Mutex::new(
                 i18n_rust_engine::cache::TranslationCache::persistent_default(),
             );
-            let transpiled = transpile_with_map_cached(
+            let transpiled = transpile_with_map_cached_in_project(
                 &source,
                 &manager,
                 &mut cache
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner),
+                Some(&project_ctx),
             );
             // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
             let column_map =
@@ -327,7 +341,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 annotate_non_ascii_mods_with_lines(&transpiled.output);
             write_transpiled(&source_path, &annotated, &ui)?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
-            transpile_project_files(&project_root, &file, &manager, &cache)?;
+            transpile_project_files(&project_root, &file, &manager, &cache, &project_ctx)?;
 
             // 单文件项目直调 rustc：绕开 cargo 的索引/项目结构（教学单文件
             // 场景编译更快、无网络索引问题）；多文件/有依赖项目回退 cargo
@@ -342,6 +356,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     &file,
                     &column_map,
                     &entry_line_map,
+                    &project_ctx,
                 );
             }
 
@@ -433,6 +448,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                         file: &file,
                         column_map: Some(&column_map),
                         entry_line_map: Some(&entry_line_map),
+                        project: Some(&project_ctx),
                     },
                     status.success(),
                     true,
@@ -482,16 +498,19 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             }
             let manager = load_mapping(lang_pack.clone(), Some(&file))?;
             let project_root = find_project_root(&file)?;
+            // 项目级声明上下文（跨文件声明豁免，同 run）
+            let project_ctx = collect_project_context(&project_root, &file, &manager);
             let source_path = project_root.join("src/main.rs");
             let cache = std::sync::Mutex::new(
                 i18n_rust_engine::cache::TranslationCache::persistent_default(),
             );
-            let transpiled = transpile_with_map_cached(
+            let transpiled = transpile_with_map_cached_in_project(
                 &source,
                 &manager,
                 &mut cache
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner),
+                Some(&project_ctx),
             );
             // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
             let column_map =
@@ -501,7 +520,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 annotate_non_ascii_mods_with_lines(&transpiled.output);
             write_transpiled(&source_path, &annotated, &ui)?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
-            transpile_project_files(&project_root, &file, &manager, &cache)?;
+            transpile_project_files(&project_root, &file, &manager, &cache, &project_ctx)?;
 
             // 单文件项目直调 rustc（绕开 cargo）；多文件/有依赖项目回退 cargo
             if can_use_direct_rustc(&project_root, &file) {
@@ -515,6 +534,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     &file,
                     &column_map,
                     &entry_line_map,
+                    &project_ctx,
                 );
             }
 
@@ -558,6 +578,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     file: &file,
                     column_map: Some(&column_map),
                     entry_line_map: Some(&entry_line_map),
+                    project: Some(&project_ctx),
                 },
                 output.status.success(),
                 false, // check 场景：无诊断且成功时提示"编译成功"
@@ -1071,6 +1092,29 @@ fn transpile_with_map_cached(
     })
 }
 
+/// 同 [`transpile_with_map_cached`]，附项目级声明上下文（跨文件声明豁免）
+///
+/// 缓存语境指纹由引擎并入项目上下文指纹（[`transpile_source_with_project`]）：
+/// 项目声明集合变化时相关缓存自动失效。
+fn transpile_with_map_cached_in_project(
+    source: &str,
+    manager: &MappingManager,
+    cache: &mut i18n_rust_engine::cache::TranslationCache,
+    project: Option<&i18n_rust_engine::alias::ProjectContext>,
+) -> i18n_rust_engine::cache::TranspileOutput {
+    i18n_rust_engine::transpile_source_with_project(source, manager, cache, project).unwrap_or_else(
+        |_e| {
+            // 缓存失败不阻断转译：回退无缓存管线（与旧行为一致）
+            i18n_rust_engine::log_warn!(
+                "cli",
+                "{}",
+                i18n_rust_engine::语言::t("log_transpile_cache_fallback")
+            );
+            i18n_rust_engine::transpile_pipeline_with_project(source, manager, project)
+        },
+    )
+}
+
 /// 解析 cargo 可执行文件：内置工具链（~/.rz/toolchain）优先，PATH 回退；
 /// 找不到时返回 "cargo" 由系统报错（保持与旧行为一致的报错信息）
 pub fn resolve_cargo() -> PathBuf {
@@ -1150,6 +1194,7 @@ fn run_direct_rustc(
     file: &Path,
     column_map: &i18n_rust_engine::column_map::ColumnMap,
     entry_line_map: &[usize],
+    project_ctx: &i18n_rust_engine::alias::ProjectContext,
 ) -> anyhow::Result<std::process::ExitCode> {
     let exe = temp_guard::secure_temp_path(&format!(
         "rzc-run-{}-{}.exe",
@@ -1183,6 +1228,7 @@ fn run_direct_rustc(
                 file,
                 column_map: Some(column_map),
                 entry_line_map: Some(entry_line_map),
+                project: Some(project_ctx),
             },
             ok,
             true,
@@ -1220,6 +1266,7 @@ fn check_direct_rustc(
     file: &Path,
     column_map: &i18n_rust_engine::column_map::ColumnMap,
     entry_line_map: &[usize],
+    project_ctx: &i18n_rust_engine::alias::ProjectContext,
 ) -> anyhow::Result<std::process::ExitCode> {
     let output = Command::new(resolve_rustc())
         .args([
@@ -1254,6 +1301,7 @@ fn check_direct_rustc(
             file,
             column_map: Some(column_map),
             entry_line_map: Some(entry_line_map),
+            project: Some(project_ctx),
         },
         output.status.success(),
         false,
@@ -1329,6 +1377,9 @@ struct DiagContext<'a> {
     /// 回译前须先用本映射把 rustc 的磁盘行号换算回引擎直出行号。
     /// `None` 表示无注解（磁盘产物与引擎直出逐行一致）。
     entry_line_map: Option<&'a [usize]>,
+    /// 项目级声明上下文：诊断重放（[`resolve_dialect_context`]）须与
+    /// 写盘转译共享同一上下文，否则列映射与磁盘产物不一致（#8）
+    project: Option<&'a i18n_rust_engine::alias::ProjectContext>,
 }
 
 /// 解析 cargo --message-format=json 输出并翻译为教学化诊断（check 与 run 共用）
@@ -1565,6 +1616,7 @@ fn resolve_dialect_context(
     dialect_ext: &str,
     product_file: &str,
     manager: &MappingManager,
+    project: Option<&i18n_rust_engine::alias::ProjectContext>,
 ) -> Option<DiagFileContext> {
     let abs = resolve_product_path(project_root, product_file)?;
     // 产物名以 .rs 结尾时换成方言扩展名（src/接口.rs → src/接口.zh）
@@ -1574,10 +1626,11 @@ fn resolve_dialect_context(
         abs
     };
     let source = fs::read_to_string(&source_path).ok()?;
-    // 现场重放转译管线取列映射：与写盘时同一管线（确定性输出），
-    // 保证列号回译与磁盘上的转译产物一致；静默重放：教学告警（lint/
-    // 全角/Unicode）已在写盘转译时输出过，此处重放不得重复告警
-    let transpiled = i18n_rust_engine::transpile_pipeline_quiet(&source, manager);
+    // 现场重放转译管线取列映射：与写盘时同一管线（同一项目上下文，
+    // 确定性输出），保证列号回译与磁盘上的转译产物一致；静默重放：
+    // 教学告警（lint/全角/Unicode）已在写盘转译时输出过，此处重放不得重复告警
+    let transpiled =
+        i18n_rust_engine::transpile_pipeline_quiet_with_project(&source, manager, project);
     let column_map =
         i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
     Some(DiagFileContext {
@@ -1611,6 +1664,8 @@ struct DiagLocationFixer<'a> {
     entry_canon: Option<PathBuf>,
     /// 入口文件的方言扩展名（如 zh），用于把产物 .rs 还原为源文件
     dialect_ext: &'a str,
+    /// 项目级声明上下文（诊断重放与写盘转译一致，见 [`DiagContext::project`]）
+    project: Option<&'a i18n_rust_engine::alias::ProjectContext>,
     /// 诊断文件 → 母语源文件上下文缓存（None 表示非方言文件）
     file_contexts: HashMap<String, Option<DiagFileContext>>,
 }
@@ -1626,6 +1681,7 @@ impl<'a> DiagLocationFixer<'a> {
             original_filename,
             entry_canon: ctx.project_root.join("src/main.rs").canonicalize().ok(),
             dialect_ext,
+            project: ctx.project,
             file_contexts: HashMap::new(),
         }
     }
@@ -1669,6 +1725,7 @@ impl<'a> DiagLocationFixer<'a> {
                     self.dialect_ext,
                     &loc.file_name,
                     self.manager,
+                    self.project,
                 )
             });
         let Some(context) = context else {
@@ -1923,6 +1980,64 @@ fn append_with_line_map(
     }
 }
 
+/// 收集项目级声明上下文（跨文件声明豁免）
+///
+/// 扫描 src/ 下全部方言文件与入口文件（可能在项目根），收集：
+/// - 模块名：方言文件名词干（`模块::成员` 路径链根）；
+/// - 声明名：各文件的项名与结构体字段（裸使用处豁免）。
+///
+/// 与 [`transpile_project_files`] 扫描范围保持一致（src/ 顶层），
+/// 入口文件不在 src/ 时单独补扫；读取失败的文件跳过（转译阶段会报错）。
+fn collect_project_context(
+    project_root: &Path,
+    entry_file: &Path,
+    manager: &MappingManager,
+) -> i18n_rust_engine::alias::ProjectContext {
+    use std::collections::HashSet;
+    let extensions = lang_manager::all_available_extensions();
+    let is_dialect = |name: &str| extensions.iter().any(|e| name.ends_with(&format!(".{e}")));
+    let entry_canon = entry_file.canonicalize().ok();
+    let mut modules = HashSet::new();
+    let mut sources: Vec<String> = Vec::new();
+    let mut entry_seen = false;
+
+    if let Ok(entries) = fs::read_dir(project_root.join("src")) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            if !path.is_file() || !is_dialect(name) {
+                continue;
+            }
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                modules.insert(stem.to_string());
+            }
+            if entry_canon.is_some() && path.canonicalize().ok() == entry_canon {
+                entry_seen = true;
+            }
+            if let Ok(source) = fs::read_to_string(&path) {
+                sources.push(source);
+            }
+        }
+    }
+    // 入口文件不在 src/（如项目根的自定义路径）时单独补扫
+    if !entry_seen && entry_file.is_file() {
+        if let Some(stem) = entry_file.file_stem().and_then(|s| s.to_str()) {
+            modules.insert(stem.to_string());
+        }
+        if let Ok(source) = fs::read_to_string(entry_file) {
+            sources.push(source);
+        }
+    }
+
+    i18n_rust_engine::alias::ProjectContext::from_sources(
+        modules,
+        sources.iter().map(String::as_str),
+        manager,
+    )
+}
+
 /// 同步转译项目 src/ 下的全部方言源文件（入口文件除外）为对应 .rs 文件，
 /// 使多文件项目的 mod 引用链可用；非已注册方言扩展名的文件（如手写 .rs）跳过。
 /// 并行转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
@@ -1935,6 +2050,7 @@ fn transpile_project_files(
     entry_file: &Path,
     manager: &MappingManager,
     cache: &std::sync::Mutex<TranslationCache>,
+    project: &i18n_rust_engine::alias::ProjectContext,
 ) -> anyhow::Result<()> {
     let ui = ui::Ui::global();
     let src_dir = project_root.join("src");
@@ -1966,8 +2082,9 @@ fn transpile_project_files(
         files.push(path);
     }
 
-    // 语境指纹只算一次（全部文件共享同一语言包）；线程内并行转译
-    let fingerprint = manager.context_fingerprint();
+    // 语境指纹只算一次（全部文件共享同一语言包与项目上下文）；
+    // 项目上下文指纹并入后，跨文件声明变化时旧缓存自动失效
+    let fingerprint = manager.context_fingerprint() ^ project.fingerprint();
     let first_error: std::sync::Mutex<Option<anyhow::Error>> = std::sync::Mutex::new(None);
     std::thread::scope(|scope| {
         let mut handles = Vec::with_capacity(files.len());
@@ -2010,8 +2127,13 @@ fn transpile_project_files(
                     None => {
                         // 锁外并行转译，完成后短临界区写回缓存；
                         // 静默管线：教学告警改由下方带文件名输出（多文件项目
-                        // 中裸行列无法定位到具体文件）
-                        let output = i18n_rust_engine::transpile_pipeline_quiet(&source, manager);
+                        // 中裸行列无法定位到具体文件）；项目上下文保证
+                        // 跨文件调用的成员名与声明侧一致（#8）
+                        let output = i18n_rust_engine::transpile_pipeline_quiet_with_project(
+                            &source,
+                            manager,
+                            Some(project),
+                        );
                         let display_name = path
                             .file_name()
                             .unwrap_or_default()
@@ -2060,8 +2182,10 @@ fn emit_teaching_warnings_for_file(source: &str, display_name: &str) {
     for warning in i18n_rust_engine::fullwidth::find_fullwidth_punct(source) {
         i18n_rust_engine::log_warn!("fullwidth", "{}：{}", display_name, warning.format());
     }
-    for warning in i18n_rust_engine::lint::lint_teaching(source) {
-        i18n_rust_engine::log_warn!("lint", "{}：{}", display_name, warning.format());
+    if i18n_rust_engine::lint::teaching_lint_enabled() {
+        for warning in i18n_rust_engine::lint::lint_teaching(source) {
+            i18n_rust_engine::log_warn!("lint", "{}：{}", display_name, warning.format());
+        }
     }
 }
 
@@ -2408,6 +2532,7 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
     use clap::CommandFactory;
     CliArgs::command()
         .about(ui.t("cli_about"))
+        .mut_arg("no_lint", |arg| arg.help(ui.t("arg_no_lint_help")))
         .mut_subcommand("init", |cmd| {
             cmd.about(ui.t("cmd_init_about"))
                 .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
@@ -2500,9 +2625,9 @@ fn get_lang_code_from_extension(extension: &str) -> Option<String> {
 mod tests {
     use super::{
         annotate_non_ascii_mods, annotate_non_ascii_mods_with_lines, can_use_direct_rustc,
-        detect_toolchain_channel, extract_unresolved_crates, find_alias_in_toml,
-        get_lang_code_from_extension, transpile_project_files, transpile_to_english,
-        write_transpiled,
+        collect_project_context, detect_toolchain_channel, extract_unresolved_crates,
+        find_alias_in_toml, get_lang_code_from_extension, transpile_project_files,
+        transpile_to_english, transpile_with_map_cached_in_project, write_transpiled,
     };
 
     /// 加载内置中文映射管理器（测试转译管线用）
@@ -2559,29 +2684,53 @@ mod tests {
         assert!(out.contains("pub fn help()"), "实际输出：{out}");
     }
 
-    /// 多文件转译：src/ 下的其他方言文件生成同名 .rs，入口与手写 .rs 不受影响
+    /// 多文件转译：src/ 下的其他方言文件生成同名 .rs，入口与手写 .rs 不受影响；
+    /// 跨文件声明豁免（#8）：其他文件声明的与映射词同名的成员不被替换
     #[test]
     fn test_transpile_project_files() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path();
         std::fs::create_dir_all(root.join("src")).unwrap();
         let entry = root.join("src/main.zh");
-        std::fs::write(&entry, "函数 main() {}\n").unwrap();
-        std::fs::write(root.join("src/helper.zh"), "公开 函数 help() {}\n").unwrap();
+        // 跨文件调用本项目的 `函数 新建()`（撞 `新建`=new 映射）：
+        // 项目上下文让调用位与声明侧一致（不被替换出 `new`）
+        std::fs::write(
+            &entry,
+            "模组 辅助;\n\n函数 main() {\n    让 x = 辅助::新建();\n}\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/辅助.zh"), "公开 函数 新建() {}\n").unwrap();
         std::fs::write(root.join("src/manual.rs"), "// 手写文件不覆盖\n").unwrap();
 
         let manager = zh_manager();
         let cache = std::sync::Mutex::new(i18n_rust_engine::cache::TranslationCache::new(8));
-        transpile_project_files(root, &entry, &manager, &cache).unwrap();
+        // 项目级声明上下文：模块名（文件词干）+ 声明名（入口+src/ 全扫）
+        let ctx = collect_project_context(root, &entry, &manager);
+        assert!(ctx.modules.contains("辅助"), "模块名应含文件名词干");
+        assert!(ctx.names.contains("新建"), "声明名应含其他文件的函数名");
+        transpile_project_files(root, &entry, &manager, &cache, &ctx).unwrap();
 
         // 其他方言文件已转译为同名 .rs
-        let helper_rs = std::fs::read_to_string(root.join("src/helper.rs")).unwrap();
-        assert!(helper_rs.contains("pub fn help()"), "实际输出：{helper_rs}");
+        let helper_rs = std::fs::read_to_string(root.join("src/辅助.rs")).unwrap();
+        assert!(helper_rs.contains("pub fn 新建()"), "实际输出：{helper_rs}");
         // 手写 .rs 不被触碰
         let manual_rs = std::fs::read_to_string(root.join("src/manual.rs")).unwrap();
         assert!(manual_rs.contains("手写文件不覆盖"));
         // 入口文件未被重复转译（无 main.rs 产生，由调用方单独写入）
         assert!(!root.join("src/main.rs").exists());
+
+        // 入口转译（带项目上下文）：跨文件调用位 `新建` 不被替换（#8）
+        let entry_out = transpile_with_map_cached_in_project(
+            &std::fs::read_to_string(&entry).unwrap(),
+            &manager,
+            &mut cache.lock().unwrap(),
+            Some(&ctx),
+        )
+        .output;
+        assert!(
+            entry_out.contains("辅助::新建()"),
+            "跨文件调用位应与声明侧一致：{entry_out}"
+        );
     }
 
     /// write_transpiled 备份语义（let-chain 守卫）：目标存在且内容不同才备份为 .rs.bak；
@@ -2745,6 +2894,7 @@ mod tests {
             file: &entry,
             column_map: Some(&column_map),
             entry_line_map: Some(&line_map),
+            project: None,
         };
         let mut fixer = super::DiagLocationFixer::new(&ctx, "main.zh", "zh");
         // rustc 报磁盘第 6 行第 13 列（`未定义的名字` 首字符）

@@ -117,3 +117,69 @@ proptest! {
         let _ = i18n_rust_engine::lint::lint_teaching(&src);
     }
 }
+
+/// 回归（#2）：模块路径词在表达式位生效
+///
+/// stdlib.toml【标识符】节的安全子集副本让表达式内的完整限定路径
+/// （`标准库::输入输出::标准错误`）逐段转译；重名冲突词（路径/时间/
+/// 同步/切片/格式化）不在此列，仍走 use 别名导入。
+#[test]
+fn test_module_path_words_in_expression_paths() {
+    let manager = zh_manager();
+    let src = "函数 主函数() {\n    让 e = 标准库::输入输出::标准错误();\n    让 a = 标准库::进程::参数();\n    让 m = 标准库::集合::哈希映射::新建();\n}";
+    let out = transpile_pipeline(src, &manager).output;
+    assert!(
+        out.contains("std::io::stderr()"),
+        "表达式路径段应逐段转译：{out}"
+    );
+    assert!(out.contains("std::process::args()"), "进程段应转译：{out}");
+    assert!(
+        out.contains("std::collections::HashMap::new()"),
+        "集合段应转译：{out}"
+    );
+}
+
+/// 回归（#8）：跨文件声明豁免（项目级声明上下文）
+///
+/// weix-1 实测场景：`平台Linux.zh` 声明 `pub 函数 新建()`，`平台接口.zh`
+/// 调用 `包::平台Linux::Linux内存源::新建()`——单文件声明豁免看不到其他
+/// 文件的声明，`新建` 被替换出 `new`（E0599，与声明侧 `fn 新建` 不一致）。
+/// 项目上下文（同名模块 + 声明名）让调用位与声明位保持一致；
+/// 库 API 路径段（`盒子::新建` → `Box::new`）不受影响。
+#[test]
+fn test_project_context_cross_file_declarations() {
+    let manager = zh_manager();
+    // 定义侧：平台Linux.zh 声明与映射词同名的项目函数
+    let def_source = "pub 函数 新建() -> 自我 { 自我 { 状态: 0 } }";
+    // 调用侧：其他文件走完整限定路径 + 库 API 路径
+    let call_source = "函数 初始化() {\n    让 e = 包::平台Linux::Linux内存源::新建();\n    让 b = 盒子::新建();\n}";
+
+    // 项目扫描：模块名=文件词干，声明名=全部文件汇总；
+    // 定义侧声明的 `新建` 须入上下文（否则调用位无豁免）
+    let ctx = i18n_rust_engine::alias::ProjectContext::from_sources(
+        std::collections::HashSet::from(["平台Linux".to_string(), "平台接口".to_string()]),
+        [def_source, call_source],
+        &manager,
+    );
+    assert!(
+        ctx.names.contains("新建"),
+        "项目扫描应收集定义侧声明：{ctx:?}"
+    );
+    let out =
+        i18n_rust_engine::transpile_pipeline_quiet_with_project(call_source, &manager, Some(&ctx))
+            .output;
+    assert!(
+        out.contains("crate::平台Linux::Linux内存源::新建()"),
+        "跨文件调用位应与声明位一致（新建 不被替换）：{out}"
+    );
+    assert!(
+        out.contains("Box::new()"),
+        "库 API 路径段照常替换（盒子::新建 → Box::new）：{out}"
+    );
+    // 反例：无项目上下文（旧行为）时跨文件调用被替换出 `new`
+    let out_no_ctx = transpile_pipeline(call_source, &manager).output;
+    assert!(
+        out_no_ctx.contains("crate::平台Linux::Linux内存源::new()"),
+        "无上下文时保持旧行为：{out_no_ctx}"
+    );
+}

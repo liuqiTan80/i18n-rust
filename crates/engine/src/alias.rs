@@ -6,18 +6,28 @@
 // 裸使用处都豁免（两遍扫描：先收集声明名，再逐 token 替换），
 // 避免 `let 新建 = 5` 声明位受保护而后续使用处被误替换成 new。
 // 三条精细规则：
-// 1. `::` 限定后的路径段仅对「变量名」不豁免——变量不可能经 `::` 访问
-//    （`字符串::新建` 里的 `新建` 是库 API，照常替换），而用户声明的项
-//    （fn/struct/enum/trait/type/mod）可以经 `::` 访问
-//    （`接口错误::错误请求`），仍受豁免，否则定义与调用两侧不一致
-//    （定义保留中文、调用被替换，报 E0599）；
+// 1. `::` 限定后的路径段按「链根」分级处理：根是项目符号
+//    （crate/self/super/项目模块名/项目项名）时链内**与项目声明名
+//    同名**的段豁免——`平台Linux::新建` 的定义侧与调用侧一致
+//    （避免 E0599）；链内非项目名与根非项目符号的段都照常替换
+//    （`源码映射项::新建` 的 `新建` 未定义于项目、`盒子::新建`
+//    的 `新建` 是库 API）；无项目上下文时退化为「本文件项名豁免」
+//    （`接口错误::错误请求`）；
 // 2. 库特征实现块（`impl <映射词特征> for 类型 {}`）内的方法名是库 API
 //    规定的名称（用户从映射表抄写而来），不是用户自定义名字，不受声明位
 //    保护——`实现 抄写器 对于 类型 { 函数 渲染（...） }` 中的 `渲染`
 //    必须转译为 `render`，否则无法匹配 `Scribe::render`（E0407/E0046）；
 // 3. 函数参数与闭包参数是「值绑定」（用户命名）：`fn 完整网址(路径: &str)`
 //    的 `路径` 在声明与使用处都豁免替换（参数「类型」位置的字照常替换），
-//    与格式化串中的 `{路径}` 保持一致，避免 E0425（找不到名称 `路径`）。
+//    与格式化串中的 `{路径}` 保持一致，避免 E0425（找不到名称 `路径`）；
+// 4. 结构体字段名与枚举变体名同样是用户命名，纳入声明收集：
+//    字段 `struct 容器 { 值: i32 }` 的 `值`（撞 `值`=values 映射键）
+//    在定义/构造/访问处（`实例.值`）全豁免；枚举变体
+//    `enum 判定结果 { 保留, 丢弃 }` 的 `保留`/`丢弃`（撞
+//    retain/drop 映射键）同理；变体可经 `::` 访问
+//    （`判定结果::保留`）故收集为项，字段收集为值绑定。
+//    方法调用位（`实例.方法()`）不查字段名：`编辑表.长度()` 的
+//    `长度` 是 `Vec::len` 调用，只查「项目方法名集合」（项）。
 
 use rustc_lexer::{TokenKind, tokenize};
 use std::collections::{HashMap, HashSet};
@@ -54,12 +64,122 @@ const VAR_DECL_KEYWORDS: &[&str] = &["let", "const", "static"];
 /// 用户声明名与库特征方法名的收集结果（第一遍扫描）
 #[derive(Debug, Default)]
 pub struct DeclaredNames {
-    /// 项声明名（fn/struct/enum/trait/type/mod）：`::` 后的同名标识符仍豁免
+    /// 项声明名（fn/struct/enum/trait/type/mod）+ 枚举变体名：
+    /// `::` 后的同名标识符仍豁免
     pub items: HashSet<String>,
-    /// 变量声明名（let/const/static）：`::` 后的同名标识符照常替换
+    /// 变量声明名（let/const/static）+ 函数/闭包参数：
+    /// `::` 后的同名标识符照常替换
     pub variables: HashSet<String>,
+    /// 结构体命名字段：裸使用处豁免（`实例.字段`/结构体字面量）；
+    /// `::` 后照常替换（字段不能经 `::` 访问）。
+    /// 与 variables 分开收集，供项目级合并（绑定名是文件局部的）
+    pub members: HashSet<String>,
     /// 库特征实现块内的方法名：声明位保护对这些名字失效（库 API 名称）
     pub library_fns: HashSet<String>,
+}
+
+/// 项目级声明上下文（跨文件声明豁免）
+///
+/// 单文件的声明豁免无法覆盖跨文件调用：A 文件声明 `pub 函数 新建()`，
+/// B 文件调用 `包::A::新建()` 时 B 的转译单元看不到 A 的声明，
+/// `新建` 被当作库别名替换出 `new`（E0599）。转译前扫描同 crate
+/// 全部方言源文件汇总本结构，把使用处豁免升级到项目级。
+///
+/// 保守近似与单文件声明豁免一致：不做作用域/可见性分析，同名即豁免。
+#[derive(Debug, Default, Clone)]
+pub struct ProjectContext {
+    /// 项目模块名（方言文件名词干）：`::` 路径链根
+    pub modules: HashSet<String>,
+    /// 项目声明名（项 + 结构体字段）：裸使用处豁免
+    ///（let/参数等文件内绑定不参与合并——绑定名是文件局部的）
+    pub names: HashSet<String>,
+    /// 项目项名（fn/struct/enum/trait/type/mod + 枚举变体）：
+    /// `::` 路径段豁免与路径链根判定（字段不参与：不可经 `::` 访问）
+    pub items: HashSet<String>,
+}
+
+impl ProjectContext {
+    /// 从项目源文件集合构建：`modules` 为项目模块名词干，
+    /// `sources` 为全部方言源文件内容（母语原文）
+    ///
+    /// 声明收集工作在关键字转译后的文本上进行（声明关键字需英文形式），
+    /// 内部对每个源文件先跑词法转译阶段再收集。
+    pub fn from_sources<'a>(
+        modules: HashSet<String>,
+        sources: impl IntoIterator<Item = &'a str>,
+        manager: &crate::mapping_manager::MappingManager,
+    ) -> Self {
+        let alias_map = manager.get_alias_map();
+        let macro_map = manager.get_macro_map();
+        let derive_map = manager.get_derive_map();
+        let mut names = HashSet::new();
+        let mut items = HashSet::new();
+        for source in sources {
+            let lex = crate::lexer::transpile_with_map(
+                source,
+                manager.get_keyword_map(),
+                &macro_map,
+                &derive_map,
+            );
+            let declared = collect_declared_names(&lex.output, alias_map);
+            for name in declared.items {
+                names.insert(name.clone());
+                items.insert(name);
+            }
+            names.extend(declared.members);
+        }
+        Self {
+            modules,
+            names,
+            items,
+        }
+    }
+
+    /// 是否为空（无模块且无声明名）：空上下文不产生任何豁免
+    pub fn is_empty(&self) -> bool {
+        self.modules.is_empty() && self.names.is_empty()
+    }
+
+    /// 项目上下文指纹（排序后哈希，跨进程确定）：并入转译缓存指纹，
+    /// 项目声明集合变化时相关缓存自动失效
+    pub fn fingerprint(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut modules: Vec<&String> = self.modules.iter().collect();
+        modules.sort_unstable();
+        let mut names: Vec<&String> = self.names.iter().collect();
+        names.sort_unstable();
+        let mut items: Vec<&String> = self.items.iter().collect();
+        items.sort_unstable();
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        ("i18n-rust-project", modules, names, items).hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// 裸使用处豁免：项目声明名（项 + 结构体字段，含其他文件声明）
+    fn naked_exempt(&self, text: &str) -> bool {
+        self.names.contains(text)
+    }
+
+    /// 路径链根判定：crate/super/self/项目模块名/项目项名。
+    /// 根段后跟 `::` 时整条路径视为项目路径（链内全部段豁免）
+    fn is_path_root(&self, text: &str) -> bool {
+        matches!(text, "crate" | "super" | "self")
+            || self.modules.contains(text)
+            || self.items.contains(text)
+    }
+}
+
+/// 类型体（结构体/枚举）扫描状态：收集命名字段与枚举变体
+#[derive(Debug)]
+struct TypeBodyScan {
+    /// 是否为枚举体（枚举顶层成员是变体，收集为项）
+    is_enum: bool,
+    /// 花括号深度（1 = 类型体顶层）
+    depth: u32,
+    /// 处于成员开始位置（`{`/`,` 之后）：下一个标识符是字段名/变体名
+    at_start: bool,
+    /// 已见的名字（等 `:` 确认后收集为字段）
+    pending_member: Option<String>,
 }
 
 /// 收集用户在声明位定义的标识符名（第一遍扫描）
@@ -69,12 +189,24 @@ pub struct DeclaredNames {
 /// 另收集「值绑定」：函数参数名（`fn 名(参数: 类型)` 中的参数开始位
 /// 且后跟 `:`）与闭包参数名（`|甲, 乙|`，可无类型标注直接收集）——
 /// 绑定名是用户命名，不是库 API 引用。
+/// 结构体/枚举体扫描（[`TypeBodyScan`]）：命名字段（`字段: 类型`）
+/// 收集为值绑定，枚举顶层变体名收集为项（变体可经 `::` 访问）。
 /// 集合内的名字在文件内的使用处豁免别名替换（保守近似：不做作用域
 /// 分析，同名遮蔽场景同样豁免，与声明位保护的设计意图一致）。
 /// 库特征实现块内的方法名（见 [`collect_library_impl_fns`]）从保护集合剔除。
 pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>) -> DeclaredNames {
     let mut result = DeclaredNames::default();
     let mut prev_decl: Option<&'static str> = None;
+    // —— 类型体（struct/enum）扫描状态 ——
+    // pending_type：已见 `struct`/`enum` 关键字，值为（是否枚举，是否已见名字）；
+    // 名字后遇 `{` 进入体扫描，遇 `;` 放弃（unit/tuple 结构体无可收集成员）
+    let mut pending_type: Option<(bool, bool)> = None;
+    let mut type_body: Option<TypeBodyScan> = None;
+    // 类型体内的括号/方括号深度：>0 时内部标识符不参与成员收集
+    //（`pub(crate) 字段` 可见性、`[T; N]` 数组类型、`#[属性]` 属性）
+    let mut body_paren = 0u32;
+    let mut body_angle = 0u32;
+    let mut body_bracket = 0u32;
     // —— 函数参数绑定跟踪 ——
     // fn_head：0=不在 fn 头部；1=已见 fn 等待参数括号；2=在参数括号内。
     // 括号内处于参数开始位置（`(` 或 `,` 之后）且后跟 `:` 的标识符是
@@ -100,6 +232,38 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
         let text = &source[offset..offset + token.len];
         match token.kind {
             TokenKind::Ident => {
+                // —— 类型头推进（struct/enum 后第一个标识符是类型名）——
+                // 名字已由下方声明关键字逻辑收集为项；此处仅推进状态，
+                // `pub` 修饰不消耗「等名字」态
+                if text == "struct" {
+                    pending_type = Some((false, false));
+                } else if text == "enum" {
+                    pending_type = Some((true, false));
+                } else if let Some((_, seen)) = &mut pending_type
+                    && !*seen
+                    && text != "pub"
+                {
+                    *seen = true;
+                }
+                // —— 类型体成员收集 ——
+                // 成员开始位置的标识符：枚举顶层是变体名（收集为项，变体可经
+                // `::` 访问）；struct 字段与变体携带的结构体字段先入候选，
+                // 等 `:` 确认后收集（`pub(crate)` 可见性、`#[属性]`、数组类型
+                // `[T; N]` 与泛型 `<...>` 内部的标识符不参与）
+                if let Some(body) = &mut type_body
+                    && body_paren == 0
+                    && body_angle == 0
+                    && body_bracket == 0
+                    && body.at_start
+                    && text != "pub"
+                {
+                    if body.is_enum && body.depth == 1 {
+                        result.items.insert(text.to_string());
+                    } else {
+                        body.pending_member = Some(text.to_string());
+                    }
+                    body.at_start = false;
+                }
                 if let Some(keyword) = prev_decl {
                     if VAR_DECL_KEYWORDS.contains(&keyword) {
                         result.variables.insert(text.to_string());
@@ -128,6 +292,9 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
             TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {}
             TokenKind::OpenParen => {
                 prev_decl = None;
+                if type_body.is_some() {
+                    body_paren += 1;
+                }
                 if fn_head == 1 && fn_angle == 0 {
                     fn_head = 2;
                     paren_depth = 1;
@@ -145,6 +312,9 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
             }
             TokenKind::CloseParen => {
                 prev_decl = None;
+                if type_body.is_some() {
+                    body_paren = body_paren.saturating_sub(1);
+                }
                 if fn_head == 2 {
                     paren_depth = paren_depth.saturating_sub(1);
                     if paren_depth == 0 {
@@ -167,6 +337,16 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 if in_closure && closure_parens == 0 {
                     closure_start = true;
                 }
+                // 类型体成员分隔：重置成员开始位（括号/尖括号/方括号内的
+                // 逗号是类型参数分隔，不是成员分隔）
+                if body_paren == 0
+                    && body_angle == 0
+                    && body_bracket == 0
+                    && let Some(body) = &mut type_body
+                {
+                    body.at_start = true;
+                    body.pending_member = None;
+                }
                 // 名字后遇 `,`（无类型标注模式）：丢弃待确认候选
                 pending_param = None;
                 prev_value_end = false;
@@ -176,6 +356,13 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 // `名:` → 确认函数参数绑定（其他位置不会有待确认候选）
                 if let Some(name) = pending_param.take() {
                     result.variables.insert(name);
+                }
+                // `字段:` → 确认结构体字段名（收作成员名；`::` 的第二冒号
+                // 无候选，无副作用）
+                if let Some(body) = &mut type_body
+                    && let Some(name) = body.pending_member.take()
+                {
+                    result.members.insert(name);
                 }
                 prev_value_end = false;
             }
@@ -202,6 +389,9 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 if fn_head == 1 {
                     fn_angle += 1;
                 }
+                if type_body.is_some() {
+                    body_angle += 1;
+                }
                 pending_param = None;
                 prev_value_end = false;
             }
@@ -210,12 +400,89 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 if fn_head == 1 {
                     fn_angle = fn_angle.saturating_sub(1);
                 }
+                if type_body.is_some() {
+                    body_angle = body_angle.saturating_sub(1);
+                }
                 pending_param = None;
                 prev_value_end = false;
+            }
+            TokenKind::OpenBrace => {
+                // `struct/enum 名 {` → 进入类型体成员扫描；体内嵌套花括号
+                //（变体携带的结构体体、常量表达式块）加深一层
+                if let Some((is_enum, seen)) = pending_type.take() {
+                    if seen {
+                        type_body = Some(TypeBodyScan {
+                            is_enum,
+                            depth: 1,
+                            at_start: true,
+                            pending_member: None,
+                        });
+                        body_paren = 0;
+                        body_angle = 0;
+                        body_bracket = 0;
+                    }
+                } else if type_body.is_some()
+                    && body_paren == 0
+                    && body_angle == 0
+                    && body_bracket == 0
+                    && let Some(body) = &mut type_body
+                {
+                    body.depth += 1;
+                    body.at_start = true;
+                    body.pending_member = None;
+                }
+                prev_decl = None;
+                pending_param = None;
+                prev_value_end = false;
+            }
+            TokenKind::CloseBrace => {
+                // 类型体闭合：depth 归零退出扫描（括号/尖括号/方括号内的
+                // 花括号不是类型体边界）
+                if body_paren == 0 && body_angle == 0 && body_bracket == 0 {
+                    let exited = if let Some(body) = &mut type_body {
+                        body.depth = body.depth.saturating_sub(1);
+                        if body.depth == 0 {
+                            true
+                        } else {
+                            body.at_start = true;
+                            body.pending_member = None;
+                            false
+                        }
+                    } else {
+                        false
+                    };
+                    if exited {
+                        type_body = None;
+                    }
+                }
+                prev_decl = None;
+                pending_param = None;
+                prev_value_end = true;
+            }
+            TokenKind::OpenBracket => {
+                // 方括号内的标识符不参与成员收集（属性、数组类型 `[T; N]`）
+                if type_body.is_some() {
+                    body_bracket += 1;
+                }
+                prev_decl = None;
+                pending_param = None;
+                prev_value_end = false;
+            }
+            TokenKind::CloseBracket => {
+                if type_body.is_some() {
+                    body_bracket = body_bracket.saturating_sub(1);
+                }
+                prev_decl = None;
+                pending_param = None;
+                prev_value_end = true;
             }
             _ => {
                 prev_decl = None;
                 pending_param = None;
+                // `struct/enum 名;`（单元结构体）：放弃类型体等待
+                if matches!(token.kind, TokenKind::Semi) {
+                    pending_type = None;
+                }
                 prev_value_end = matches!(
                     token.kind,
                     TokenKind::Literal { .. }
@@ -373,6 +640,25 @@ pub fn replace_aliases_with_map(
     source: &str,
     alias_map: &HashMap<String, String>,
 ) -> ReplaceResult {
+    replace_aliases_with_context(source, alias_map, None)
+}
+
+/// 同 [`replace_aliases_with_map`]，附项目级声明上下文（跨文件声明豁免）
+///
+/// `project` 为 None 时行为与 [`replace_aliases_with_map`] 完全一致。
+/// 提供上下文时在逐文件豁免之上额外豁免：
+/// - 项目声明名（含其他文件声明的项/结构体字段）的裸使用处；
+/// - 项目模块名的裸使用处；
+/// - 以 `crate`/`super`/`self`/项目模块名/项目项名为根的 `::` 路径链：
+///   链内**与项目声明名同名**的段豁免（`crate::平台Linux::Linux内存源::新建`
+///   ——跨文件引用成员与声明侧一致，避免 E0599）；链内非项目名
+///   （`源码映射项::新建` 的 `新建` 未定义于项目）照常替换。
+///   `::` 后非项目根的段（`盒子::新建`）同样照常替换：`新建` 是库 API。
+pub fn replace_aliases_with_context(
+    source: &str,
+    alias_map: &HashMap<String, String>,
+    project: Option<&ProjectContext>,
+) -> ReplaceResult {
     // 映射表为空时直接返回，避免不必要的词法分析开销
     if alias_map.is_empty() {
         return ReplaceResult {
@@ -384,7 +670,10 @@ pub fn replace_aliases_with_map(
     let declared = collect_declared_names(source, alias_map);
     // 单个 Colon 跟踪：rustc_lexer 把 `::` 拆成两个 Colon token
     let mut last_was_colon = false;
-    let token_stream = tokenize(source);
+    // token 序列化收集：`.方法()` 判定需向后看一位（下一个有意义 token
+    // 是否为 `(`），字段访问 `实例.字段` 与方法调用 `实例.方法()` 的
+    // 豁免集合不同
+    let tokens: Vec<rustc_lexer::Token> = tokenize(source).collect();
     let mut output = String::new();
     let mut edits = Vec::new();
     let mut current_offset = 0;
@@ -393,24 +682,62 @@ pub fn replace_aliases_with_map(
     let mut prev_decl: Option<&'static str> = None;
     // 上一个有意义 token 是否为 `::`（两个连续 Colon token 的第二个）
     let mut prev_is_path_sep = false;
+    // 上一个有意义 token 是否为 `.`（成员访问/方法链）
+    let mut prev_is_dot = false;
+    // —— 项目路径链跟踪（仅 project 为 Some 时生效）——
+    // pending_project_root：上一标识符是项目根候选（crate/模块名/项名），
+    // 等待 `::` 确认；in_project_path：根段已确认，链内段按项目声明名豁免
+    let mut pending_project_root = false;
+    let mut in_project_path = false;
 
-    for token in token_stream {
+    for (index, token) in tokens.iter().enumerate() {
         let len = token.len;
         let text = &source[current_offset..current_offset + len];
         match token.kind {
             TokenKind::Ident => {
+                // `.方法()` 位：`.` 后的标识符且下一个有意义 token 是 `(`
+                //（字段名不是方法名，豁免集合见下方 usage_exempt）
+                let is_method_pos = prev_is_dot && next_significant_is_open_paren(&tokens, index);
+                // 项目路径链：根段后跟 `::` 时链内段按项目声明名豁免。
+                // 根段确认依赖上一标识符留存的候选标记与当前 `::` 状态
+                let in_project_chain = project.is_some()
+                    && (in_project_path || (pending_project_root && prev_is_path_sep));
+                if in_project_chain {
+                    in_project_path = true;
+                }
                 // 声明位保护：紧随声明关键字的名字是用户自己的定义；
                 // 例外——库特征实现块内 `fn` 后的方法名是库 API 名称
                 //（见 collect_library_impl_fns），照常参与替换
                 let decl_protected = prev_decl.is_some()
                     && !(prev_decl == Some("fn") && declared.library_fns.contains(text));
-                // 用户声明名在使用处豁免；`::` 后仅「项名」豁免：
-                // 变量不可能经 `::` 访问（`字符串::新建` 是库 API），
-                // 而项可以（`接口错误::错误请求` 是用户关联函数）
-                let usage_exempt = if prev_is_path_sep {
+                // 各位置豁免集合：
+                // - 链内：仅项目声明名（项/模块）——`平台Linux::新建` 豁免，
+                //   未定义于项目的 `源码映射项::新建` 照常替换（与教程
+                //   `fn new` 定义侧一致）；
+                // - `::` 后非链（根非项目根）：无项目上下文时保留旧行为
+                //   （本文件项名豁免，`接口错误::错误请求`）；有上下文时
+                //   一律按库 API 替换（`盒子::新建` 的同名项目项不得误伤）；
+                // - `.方法()` 位：仅项目方法名（项集合）——`编辑表.长度()`
+                //   的 `长度` 是 `Vec::len` 调用，字段名豁免不适用于方法位；
+                // - 其他：本文件声明名 + 项目裸使用处豁免（含结构体字段）
+                let usage_exempt = if in_project_chain {
                     declared.items.contains(text)
+                        || project
+                            .is_some_and(|p| p.items.contains(text) || p.modules.contains(text))
+                } else if prev_is_path_sep {
+                    project.is_none() && declared.items.contains(text)
+                } else if is_method_pos {
+                    declared.items.contains(text) || project.is_some_and(|p| p.items.contains(text))
                 } else {
-                    declared.items.contains(text) || declared.variables.contains(text)
+                    declared.items.contains(text)
+                        || declared.variables.contains(text)
+                        || declared.members.contains(text)
+                        // 项目声明名（项+字段，含其他文件声明）与项目根词
+                        //（模块名；crate/super/self 为英文，替换表不会命中，
+                        // 在此仅作为路径链起点）
+                        || project.is_some_and(|p| {
+                            p.naked_exempt(text) || p.is_path_root(text)
+                        })
                 };
                 if decl_protected || usage_exempt {
                     // 声明位标识符或用户声明名的使用处：保留原样
@@ -421,30 +748,60 @@ pub fn replace_aliases_with_map(
                 } else {
                     output.push_str(text);
                 }
+                // 根段候选判定（基于母语原文；`包`等已在词法阶段转为英文）
+                pending_project_root = project.is_some_and(|p| p.is_path_root(text));
                 // `让 mut 名称`：声明位内的 mut 透明传递声明状态；
                 // `&mut 类型` 等非声明位的 mut 不传递，库类型引用仍被替换
                 prev_decl = next_decl_keyword(prev_decl, text);
                 prev_is_path_sep = false;
+                prev_is_dot = false;
             }
             TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {
                 output.push_str(text);
-                // 空白与注释不打断声明状态与路径限定状态
+                // 空白与注释不打断声明状态、路径限定状态与成员访问状态
             }
             _ => {
                 output.push_str(text);
                 // 符号终结声明位；连续两个 Colon 构成 `::` 路径限定
                 prev_decl = None;
-                prev_is_path_sep = if matches!(token.kind, TokenKind::Colon) {
+                let is_colon = matches!(token.kind, TokenKind::Colon);
+                // 非 Colon 符号终结项目路径链（`::` 的冒号保持链状态）
+                if !is_colon {
+                    in_project_path = false;
+                    pending_project_root = false;
+                }
+                prev_is_path_sep = if is_colon {
                     prev_is_path_sep || last_was_colon
                 } else {
                     false
                 };
-                last_was_colon = matches!(token.kind, TokenKind::Colon);
+                last_was_colon = is_colon;
+                prev_is_dot = matches!(token.kind, TokenKind::Dot);
             }
         }
         current_offset += len;
     }
     ReplaceResult { output, edits }
+}
+
+/// 下一个有意义 token（跳过空白/注释）是否为 `(`
+///
+/// 判定标识符处于「方法调用位」（`实例.方法()`）而非「字段访问位」
+///（`实例.字段`）——两者豁免集合不同（字段名不是方法名）。
+/// 行选择上限：rustc_lexer 的 `Token` 仅含 kind/len，`tokens` 与源码
+/// 对齐，索引索引即偏移序位。
+fn next_significant_is_open_paren(tokens: &[rustc_lexer::Token], index: usize) -> bool {
+    tokens
+        .get(index + 1..)
+        .unwrap_or_default()
+        .iter()
+        .find(|t| {
+            !matches!(
+                t.kind,
+                TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
+            )
+        })
+        .is_some_and(|t| matches!(t.kind, TokenKind::OpenParen))
 }
 
 #[cfg(test)]
@@ -635,6 +992,225 @@ mod tests {
     fn test_string_literal_and_comment_untouched() {
         let out = replace_aliases("println!(\"绝对值\"); // 绝对值", &alias_map());
         assert_eq!(out, "println!(\"绝对值\"); // 绝对值");
+    }
+
+    #[test]
+    fn test_struct_field_names_preserved() {
+        // 结构体字段名是用户命名（撞 `值`=values 映射键）：定义/构造/访问处
+        // 全豁免；字段不可经 `::` 访问故收作值绑定
+        let map = HashMap::from([("值".to_string(), "values".to_string())]);
+        let src = "struct 容器 { 值: i32 }\nlet c = 容器 { 值: 1 };\nlet x = c.值;";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn test_enum_variant_names_preserved() {
+        // 枚举变体名是用户命名（撞 `保留`=retain、`丢弃`=drop 映射键）：
+        // 定义与 `::` 限定使用处均豁免（变体可经 `::` 访问，收作项）
+        let map = HashMap::from([
+            ("保留".to_string(), "retain".to_string()),
+            ("丢弃".to_string(), "drop".to_string()),
+        ]);
+        let src = "enum 判定结果 { 保留, 丢弃 }\nlet r = 判定结果::保留;";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn test_enum_variant_struct_body_fields_preserved() {
+        // 变体携带的结构体字段同受豁免；反例——无声明时映射词照常替换
+        let map = HashMap::from([("内容".to_string(), "contents".to_string())]);
+        let src = "enum 消息 { 退出, 写入 { 内容: String } }\nlet m = 消息::写入 { 内容: String::new() };";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, src);
+        let out2 = replace_aliases("let x = 内容 + 1;", &map);
+        assert_eq!(out2, "let x = contents + 1;");
+    }
+
+    #[test]
+    fn test_pub_struct_field_preserved() {
+        // pub 与 pub(crate) 可见性修饰的字段名收集（可见性修饰不消耗
+        // 成员开始位，括号内标识符不参与收集）
+        let map = HashMap::from([
+            ("值".to_string(), "values".to_string()),
+            ("计数".to_string(), "count".to_string()),
+        ]);
+        let src = "struct 容器 { pub 值: i32, pub(crate) 计数: u32 }";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn test_generic_and_attribute_members_not_miscollected() {
+        // 泛型参数 `乙` 不得被误收为字段（无声明则照常替换）
+        let map = HashMap::from([
+            ("甲".to_string(), "first".to_string()),
+            ("乙".to_string(), "second".to_string()),
+        ]);
+        let src = "struct 容器 { 字段: 映射<甲, 乙> }";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, "struct 容器 { 字段: 映射<first, second> }");
+    }
+
+    /// 项目上下文夹具：模块 `平台Linux`，声明名 `新建`（weix-1 场景）
+    fn project_ctx() -> ProjectContext {
+        ProjectContext {
+            modules: HashSet::from(["平台Linux".to_string()]),
+            names: HashSet::from(["新建".to_string()]),
+            items: HashSet::from(["新建".to_string()]),
+        }
+    }
+
+    #[test]
+    fn test_project_context_cross_file_call_preserved() {
+        // 跨文件调用（#8）：`新建` 在本文件的转译单元无声明，由项目上下文
+        // 豁免（否则被替换出 `new` → E0599，与声明侧 `fn 新建` 不一致）
+        let map = HashMap::from([
+            ("新建".to_string(), "new".to_string()),
+            ("平台Linux".to_string(), "platform_linux".to_string()),
+        ]);
+        let ctx = project_ctx();
+        let src = "let e = crate::平台Linux::Linux内存源::新建();";
+        let out = replace_aliases_with_context(src, &map, Some(&ctx));
+        assert_eq!(out.output, src);
+        // 无项目上下文（旧行为）时模块名与成员都被替换
+        let out2 = replace_aliases_with_context(src, &map, None);
+        assert_eq!(
+            out2.output,
+            "let e = crate::platform_linux::Linux内存源::new();"
+        );
+    }
+
+    #[test]
+    fn test_project_context_module_root_chain() {
+        // 模块名为根的路径链（无 crate 前缀）链内全豁免；
+        // 模块名自身的裸使用处同样豁免（模块词不落入别名替换）
+        let map = HashMap::from([
+            ("新建".to_string(), "new".to_string()),
+            ("平台Linux".to_string(), "platform_linux".to_string()),
+        ]);
+        let ctx = project_ctx();
+        let src = "let a = 平台Linux::Linux内存源::新建();\nlet b = 平台Linux;";
+        let out = replace_aliases_with_context(src, &map, Some(&ctx));
+        assert_eq!(out.output, src);
+    }
+
+    #[test]
+    fn test_project_context_library_path_segment_still_replaced() {
+        // 非同模块的库路径段不受项目上下文影响：`盒子::新建` 的 `新建`
+        // 是库 API（项目内同名 `fn 新建` 不得误伤）
+        let map = HashMap::from([
+            ("新建".to_string(), "new".to_string()),
+            ("盒子".to_string(), "Box".to_string()),
+        ]);
+        let ctx = project_ctx();
+        let out = replace_aliases_with_context("let b = 盒子::新建();", &map, Some(&ctx));
+        assert_eq!(out.output, "let b = Box::new();");
+    }
+
+    #[test]
+    fn test_project_context_naked_usage_exempt() {
+        // 项目声明名（其他文件声明）的裸使用处豁免；
+        // `::` 链外的普通表达式不受影响
+        let map = HashMap::from([
+            ("新建".to_string(), "new".to_string()),
+            ("计算".to_string(), "calculate".to_string()),
+        ]);
+        let ctx = project_ctx();
+        let out = replace_aliases_with_context("let x = 新建 + 计算;", &map, Some(&ctx));
+        assert_eq!(out.output, "let x = 新建 + calculate;");
+    }
+
+    #[test]
+    fn test_project_context_chain_ends_at_symbol() {
+        // 路径链在非 Colon 符号处终结：链后的普通标识符照常替换
+        let map = HashMap::from([
+            ("新建".to_string(), "new".to_string()),
+            ("计算".to_string(), "calculate".to_string()),
+        ]);
+        let ctx = project_ctx();
+        let out = replace_aliases_with_context(
+            "let e = crate::平台Linux::新建() + 计算;",
+            &map,
+            Some(&ctx),
+        );
+        assert_eq!(out.output, "let e = crate::平台Linux::新建() + calculate;");
+    }
+
+    /// 链内未定义于项目的成员照常替换（教程彩蛋块回归）：
+    /// `源码映射项` 是项目声明的结构体，`新建` 不是项目声明的方法名
+    ///（项目定义的是 `new`）——调用位必须替换出 `new`，与声明位一致；
+    /// 同时验证方法调用位不查字段名（`编辑表.长度()` → `len`），
+    /// 字段访问位仍豁免（`实例.长度` 保持）
+    #[test]
+    fn test_project_context_undeclared_member_and_method_pos() {
+        let map = HashMap::from([
+            ("新建".to_string(), "new".to_string()),
+            ("源码映射项".to_string(), "SourceMapEntry".to_string()),
+            ("推入".to_string(), "push".to_string()),
+            ("长度".to_string(), "len".to_string()),
+        ]);
+        // 项目声明：结构体 `源码映射项`（项）+ 字段 `长度`（成员名，非项）；
+        // `new` 为方法名（项）；不含 `新建`
+        let ctx = ProjectContext {
+            modules: HashSet::from(["替换模块路径".to_string()]),
+            names: HashSet::from([
+                "源码映射项".to_string(),
+                "长度".to_string(),
+                "new".to_string(),
+            ]),
+            items: HashSet::from(["源码映射项".to_string(), "new".to_string()]),
+        };
+        let src = "编辑表.推入(源码映射项::新建(当前偏移, 令牌长));\nlet n = 编辑表.长度();\nlet m = 实例.长度;";
+        let out = replace_aliases_with_context(src, &map, Some(&ctx));
+        assert_eq!(
+            out.output,
+            "编辑表.push(源码映射项::new(当前偏移, 令牌长));\nlet n = 编辑表.len();\nlet m = 实例.长度;"
+        );
+    }
+
+    #[test]
+    fn test_project_context_fingerprint_deterministic() {
+        // 集合迭代顺序不影响指纹（排序后哈希）：跨进程缓存稳定
+        let a = ProjectContext {
+            modules: HashSet::from(["甲".to_string(), "乙".to_string()]),
+            names: HashSet::from(["丙".to_string(), "丁".to_string()]),
+            items: HashSet::from(["丙".to_string()]),
+        };
+        let b = ProjectContext {
+            modules: HashSet::from(["乙".to_string(), "甲".to_string()]),
+            names: HashSet::from(["丁".to_string(), "丙".to_string()]),
+            items: HashSet::from(["丙".to_string()]),
+        };
+        assert_eq!(a.fingerprint(), b.fingerprint());
+        let c = ProjectContext {
+            modules: HashSet::from(["甲".to_string()]),
+            names: HashSet::from(["丙".to_string()]),
+            items: HashSet::new(),
+        };
+        assert_ne!(a.fingerprint(), c.fingerprint());
+    }
+
+    #[test]
+    fn test_project_context_from_sources_collects_items_and_members() {
+        // 项目扫描：项名与结构体字段都并入声明名，字段不入项名；
+        // 源文件为母语原文（内部先跑词法转译再收集声明）
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
+        let manager = crate::mapping_manager::MappingManager::load_from_dir(&dir)
+            .expect("加载 zh 语言包失败");
+        let ctx = ProjectContext::from_sources(
+            HashSet::from(["甲".to_string()]),
+            ["公开 函数 新建() {}\n结构体 配置 { pub 超时: u32 }"],
+            &manager,
+        );
+        assert!(ctx.names.contains("新建"));
+        assert!(ctx.names.contains("超时"));
+        assert!(ctx.items.contains("新建"));
+        assert!(!ctx.items.contains("超时"));
+        assert!(ctx.modules.contains("甲"));
+        assert!(!ctx.is_empty());
+        assert!(ProjectContext::default().is_empty());
     }
 
     #[test]

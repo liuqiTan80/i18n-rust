@@ -31,3 +31,7 @@
 "JSON层" = "json"
 "过滤器层" = "filter"
 "注册表" = "registry"
+"环境过滤器" = "EnvFilter"
+"尝试新建" = "try_new"
+"带环境过滤器" = "with_env_filter"
+"带写出目标" = "with_writer"

@@ -92,6 +92,10 @@ pub struct TranslationCache {
     reverse_map: Arc<HashMap<String, String>>,
     /// 文档变更代号：任何文档打开/更新/关闭时递增，用于用户词汇缓存失效
     docs_generation: std::sync::atomic::AtomicU64,
+    /// 项目声明名指纹（[`i18n_rust_engine::alias::ProjectContext::fingerprint`]）：
+    /// 声明集合变化（新增/删除项、结构体字段）时触发全量重写——
+    /// 跨文件声明豁免会影响其他文件的虚拟内容（#8）
+    project_fingerprint: std::sync::atomic::AtomicU64,
     /// 用户词汇缓存：(代号, 结果)。Arc 共享避免每次补全请求克隆整个集合，
     /// 代号匹配时直接复用，避免重复词法扫描全部已打开文档
     user_tokens_cache: std::sync::Mutex<(u64, Option<Arc<HashSet<String>>>)>,
@@ -139,6 +143,7 @@ impl TranslationCache {
             module_version: std::sync::atomic::AtomicU64::new(0),
             reverse_map: Arc::new(reverse_map),
             docs_generation: std::sync::atomic::AtomicU64::new(0),
+            project_fingerprint: std::sync::atomic::AtomicU64::new(0),
             user_tokens_cache: std::sync::Mutex::new((0, None)),
         });
         // 初始时生成空虚拟项目，供 rust-analyzer 工作区发现
@@ -246,16 +251,28 @@ impl TranslationCache {
         self.docs_generation
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
-        // 模块集合变化时重写全部条目并刷新虚拟项目，否则只重写当前条目
-        let changes = if set_changed {
-            let _ = self.bump_module_version();
-            // main.rs/Cargo.toml 只依赖模块集合：纯内容编辑不触发，
-            // 每次按键省去数次磁盘写与全表遍历
-            self.refresh_virtual_project();
-            self.rewrite_all(&new_module_names)
+        // 项目级声明上下文（跨文件声明豁免，#8）：项目声明名（项/结构体
+        // 字段）变化会改变其他文件的豁免结果，须与模块集合变化同样触发
+        // 全量重写；声明名指纹无变化（纯函数体编辑）时只重写当前条目
+        let project = self.current_project_context(&new_module_names);
+        let project_fp = project.fingerprint();
+        let names_changed = self
+            .project_fingerprint
+            .swap(project_fp, std::sync::atomic::Ordering::SeqCst)
+            != project_fp;
+        // 模块集合变化时重写全部条目并刷新虚拟项目；声明名变化时
+        // 仅全量重写（main.rs 聚合只依赖模块集合，无需刷新/重载）
+        let changes = if set_changed || names_changed {
+            if set_changed {
+                let _ = self.bump_module_version();
+                // main.rs/Cargo.toml 只依赖模块集合：纯内容编辑不触发，
+                // 每次按键省去数次磁盘写与全表遍历
+                self.refresh_virtual_project();
+            }
+            self.rewrite_all(&new_module_names, &project)
         } else {
             let mut changes = Vec::new();
-            if let Some(entry) = self.rewrite_entry(uri, &new_module_names) {
+            if let Some(entry) = self.rewrite_entry(uri, &new_module_names, &project) {
                 changes.push(entry);
             }
             changes
@@ -315,9 +332,13 @@ impl TranslationCache {
         self.docs_generation
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
-        // 模块集合缩小：重写其余条目（去掉对已关闭模块的 crate:: 前缀）
+        // 模块集合缩小：重写其余条目（去掉对已关闭模块的 crate:: 前缀）；
+        // 项目声明名集合同步收缩（关闭文件声明的名字不再豁免其他文件）
         let module_names = self.current_module_names(None);
-        let changes = self.rewrite_all(&module_names);
+        let project = self.current_project_context(&module_names);
+        self.project_fingerprint
+            .store(project.fingerprint(), std::sync::atomic::Ordering::SeqCst);
+        let changes = self.rewrite_all(&module_names, &project);
 
         // 模块集合变化：刷新虚拟项目文件（main.rs 聚合）
         self.refresh_virtual_project();
@@ -515,24 +536,48 @@ impl TranslationCache {
         names
     }
 
+    /// 项目级声明上下文（跨文件声明豁免，#8）
+    ///
+    /// 模块名 = 全部已打开方言文件的词干（同 [`current_module_names`]）；
+    /// 声明名 = 各文件母语原文的项名与结构体字段并集。声明收集在关键字
+    /// 转译后的文本上进行，由引擎 [`i18n_rust_engine::alias::ProjectContext::from_sources`]
+    /// 统一实现（与 CLI 同一规则来源，杜绝平行实现漂移）。
+    /// 调用方在文档内容入库后调用，保证上下文包含最新内容。
+    fn current_project_context(
+        &self,
+        module_names: &HashSet<String>,
+    ) -> i18n_rust_engine::alias::ProjectContext {
+        let sources: Vec<String> = match self.entries.read() {
+            Ok(table) => table.values().map(|e| e.zh_content.clone()).collect(),
+            Err(_) => Vec::new(),
+        };
+        i18n_rust_engine::alias::ProjectContext::from_sources(
+            module_names.clone(),
+            sources.iter().map(String::as_str),
+            &self.manager,
+        )
+    }
+
     /// 重写单个条目的虚拟内容：翻译 + 模块路径加 `crate::` 前缀 + 重建列映射 + 写盘
     ///
-    /// 内容未发生变化（模块集合未引入新前缀）时返回 None。
+    /// 内容未发生变化（模块集合/项目声明名集合未引入新豁免或前缀）时返回 None。
     ///
-    /// 转译与列映射统一走引擎完整管线（`transpile_pipeline_with_map`）：
-    /// 词法 → use 路径 → `crate::` 前缀（跨文件引用）→ 别名，
-    /// 列映射基于引擎实测的 `pipeline_map` 回放（[`replay_column_map`]），
+    /// 转译与列映射统一走引擎完整管线（`transpile_pipeline_with_map_and_project`）：
+    /// 词法 → use 路径 → `crate::` 前缀（跨文件引用）→ 别名（含项目级
+    /// 声明豁免，#8），列映射基于引擎实测的 `pipeline_map` 回放（[`replay_column_map`]），
     /// 不复刻任何转译规则——规则唯一来源是引擎，杜绝平行实现漂移。
     fn rewrite_entry(
         &self,
         uri: &str,
         module_names: &HashSet<String>,
+        project: &i18n_rust_engine::alias::ProjectContext,
     ) -> Option<Arc<TranslationEntry>> {
         let old_entry = self.query_original(uri)?;
-        let output = i18n_rust_engine::transpile_pipeline_with_map(
+        let output = i18n_rust_engine::transpile_pipeline_with_map_and_project(
             &old_entry.zh_content,
             &self.manager,
             Some(module_names),
+            Some(project),
         );
         let en_content = output.output;
         // 虚拟项目的 crate 入口在聚合 main.rs 中转发调用 `main::main()`，
@@ -615,7 +660,11 @@ impl TranslationCache {
     /// 用给定的模块名集合重写缓存中的所有条目
     ///
     /// 返回内容实际发生变化的条目列表（供调用方通知 rust-analyzer）。
-    fn rewrite_all(&self, module_names: &HashSet<String>) -> Vec<Arc<TranslationEntry>> {
+    fn rewrite_all(
+        &self,
+        module_names: &HashSet<String>,
+        project: &i18n_rust_engine::alias::ProjectContext,
+    ) -> Vec<Arc<TranslationEntry>> {
         let uris: Vec<String> = {
             let table = match self.entries.read() {
                 Ok(t) => t,
@@ -625,7 +674,7 @@ impl TranslationCache {
         };
         let mut changes = Vec::new();
         for uri in uris {
-            if let Some(entry) = self.rewrite_entry(&uri, module_names) {
+            if let Some(entry) = self.rewrite_entry(&uri, module_names, project) {
                 changes.push(entry);
             }
         }
@@ -1301,6 +1350,89 @@ mod tests {
         // 列映射与虚拟内容对齐：行首位置 zh↔en 恒等
         assert_eq!(zh_col_to_en_col_single(&entry, 0, 0), 0);
         assert_eq!(en_col_to_zh_col_single(&entry, 0, 0), 0);
+    }
+
+    /// #3 症状一回归：crate 名连字符在 LSP 转译路径上规范化为下划线
+    ///
+    /// weix-1 实测：`使用 日志订阅 as 日志框架;` 曾转译为
+    /// `use tracing-subscriber as 日志框架;`（含连字符，非法路径），
+    /// rust-analyzer 报 "expected one of `::`, `;`, or `as`, found `-`"。
+    /// crate 段规范化后虚拟文件语法合法，误报消失（CLI 走同一引擎管线）。
+    #[test]
+    fn test_use_stmt_hyphenated_crate_normalized() {
+        let manager = MappingManager::load_from_builtin(
+            r#"
+["声明"]
+"使用" = "use"
+"#,
+            r#"
+["模块路径"]
+"日志订阅" = "tracing-subscriber"
+"#,
+            "",
+            &[],
+        )
+        .expect("管理器创建失败");
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(manager, temp.path().to_path_buf());
+        let (entry, _) = cache
+            .update_document("file:///test/日志设置.zh", "使用 日志订阅 as 日志框架;", 1)
+            .unwrap();
+        assert_eq!(entry.en_content, "use tracing_subscriber as 日志框架;");
+    }
+
+    /// 跨文件声明豁免（#8）：其他文件声明的成员名在调用侧同样豁免
+    ///
+    /// weix-1 场景：A 文件声明 `函数 新建()`（撞 `新建`=new 映射），
+    /// B 文件跨文件调用 `平台Linux::新建()`——模块路径链（`crate::` 前缀
+    /// 由虚拟项目重写补全）内成员与声明侧一致；库 API 路径（盒子::新建）
+    /// 照常替换。
+    #[test]
+    fn test_project_context_cross_file_declaration() {
+        let temp = tempfile::tempdir().unwrap();
+        let alias_map =
+            HashMap::from([("新建".into(), "new".into()), ("盒子".into(), "Box".into())]);
+        let cache =
+            TranslationCache::new(test_manager(alias_map.clone()), temp.path().to_path_buf());
+
+        // A 文件：声明 `新建`（同名用户函数）
+        let (_, _) = cache
+            .update_document("file:///test/平台Linux.zh", "函数 新建() {}", 1)
+            .unwrap();
+        // B 文件：跨文件调用 A 的成员 + 库 API 调用
+        let (entry, _) = cache
+            .update_document(
+                "file:///test/平台接口.zh",
+                "让 e = 平台Linux::新建();\n让 b = 盒子::新建();",
+                1,
+            )
+            .unwrap();
+        assert!(
+            entry.en_content.contains("crate::平台Linux::新建()"),
+            "跨文件调用位应与声明侧一致：{}",
+            entry.en_content
+        );
+        assert!(
+            entry.en_content.contains("Box::new()"),
+            "库 API 路径段照常替换：{}",
+            entry.en_content
+        );
+
+        // 对照：无 A 声明（单独打开 B）时保持旧行为——`新建` 被替换出 `new`
+        let temp2 = tempfile::tempdir().unwrap();
+        let cache2 = TranslationCache::new(test_manager(alias_map), temp2.path().to_path_buf());
+        let (entry2, _) = cache2
+            .update_document(
+                "file:///test/平台接口.zh",
+                "让 e = 平台Linux::新建();\n让 b = 盒子::新建();",
+                1,
+            )
+            .unwrap();
+        assert!(
+            entry2.en_content.contains("平台Linux::new()"),
+            "无跨文件声明时保持旧行为：{}",
+            entry2.en_content
+        );
     }
 
     #[test]

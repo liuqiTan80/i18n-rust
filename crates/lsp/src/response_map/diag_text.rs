@@ -253,6 +253,22 @@ pub(super) fn is_main_fn_hint(diag: &Value, _virtual_uri: &str) -> bool {
         || (message.contains("function `main`") && message.contains("never used"))
 }
 
+/// 过滤虚拟项目固有的过程宏误报（#3 症状二）
+///
+/// 虚拟项目禁用了过程宏（`procMacro.enable=false`）且不含第三方依赖，
+/// `#[派生(解析器)]`→`#[derive(Parser)]`（clap 等）无法展开，其辅助属性与
+/// 派生宏的名字解析必然失败：
+/// - `cannot find attribute `arg``（helper attribute，如 `#[arg(长参数)]`）
+/// - `cannot find derive macro `Parser``
+///
+/// 这两类诊断在虚拟项目语境下恒为误报（用户项目中 `rzc check` 正常通过），
+/// 直接过滤；`unresolved import` 不过滤——它是“添加依赖”快速修复的输入，
+/// 且用户项目真实缺依赖时同样出现。
+pub(super) fn is_missing_dependency_noise(diag: &Value) -> bool {
+    let message = diag.get("message").and_then(|v| v.as_str()).unwrap_or("");
+    message.contains("cannot find attribute") || message.contains("cannot find derive macro")
+}
+
 /// 从 LSP 诊断（rust-analyzer 格式）中提取所有权错误详情
 ///
 /// 变量名取自原始消息中的反引号（如 use of moved value: `x`）；

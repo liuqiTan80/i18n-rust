@@ -86,6 +86,7 @@
 "cmd_lang_remove_about" = "ユーザーインストールの言語パックを削除（組み込みパックは削除不可）"
 "cmd_lang_search_about" = "リモート言語パックマーケットを閲覧（キーワード絞り込み可）"
 "arg_lang_help" = "言語コード（言語パックのディレクトリ名。例：zh、ru。既定はシステム言語）"
+"arg_no_lint_help" = "教学用 lint のヒントを出力しない（初心者向けコードスタイル警告。Unicode 混同・全角記号の警告には影響しません）"
 "arg_provider_help" = "AI プロバイダ：deepseek（既定。環境変数 DEEPSEEK_API_KEY が必要）または rule（オフラインルールモード）"
 "arg_output_help" = "出力ファイルパス（既定：lang-packs/<言語>/crates/<crate名>.toml）"
 "arg_add_crates_help" = "追加する crate 名。@version でバージョン指定可（例: serde_json、tokio@1）"

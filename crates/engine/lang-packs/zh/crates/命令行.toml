@@ -19,6 +19,15 @@
 "版本" = "version"
 "必需" = "required"
 "参数默认值" = "default_value"
+# clap 派生属性名（全小写）：#[arg(长参数 = "config", 简介 = "…")]
+"简介" = "about"
+"值名" = "value_name"
+"动作" = "action"
+# `subcommand`（小写属性）与 `子命令`（=Subcommand 类型名）重名，
+# 属性位单独用 `子命令字段`：#[命令(子命令字段)]
+"子命令字段" = "subcommand"
+# `name` 未收：与 salvo 库的 `名称` = Name 跨库同名异义；
+# 需改命令名时写显式英文 name
 
 # structopt
 "结构体选项" = "StructOpt"

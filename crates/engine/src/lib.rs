@@ -44,6 +44,19 @@ pub fn transpile_source_with_map(
     manager: &mapping_manager::MappingManager,
     cache: &mut cache::TranslationCache,
 ) -> Result<cache::TranspileOutput, error::TranspileError> {
+    transpile_source_with_project(source, manager, cache, None)
+}
+
+/// 同 [`transpile_source_with_map`]，附项目级声明上下文（跨文件声明豁免）
+///
+/// 缓存语境指纹并入项目上下文指纹（[`alias::ProjectContext::fingerprint`]）：
+/// 项目声明集合变化时相关缓存自动失效，无需语言包版本变化触发。
+pub fn transpile_source_with_project(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    cache: &mut cache::TranslationCache,
+    project: Option<&alias::ProjectContext>,
+) -> Result<cache::TranspileOutput, error::TranspileError> {
     logger::init();
     let start = Instant::now();
     crate::log_info!(
@@ -52,10 +65,13 @@ pub fn transpile_source_with_map(
         crate::语言::f("log_transpile_start", &[&source.len().to_string()])
     );
 
-    let fingerprint = manager.context_fingerprint();
+    let fingerprint = manager.context_fingerprint()
+        ^ project.map(alias::ProjectContext::fingerprint).unwrap_or(0);
 
     let output = cache.get_or_transpile(source, fingerprint, || {
-        Ok(transpile_pipeline(source, manager))
+        Ok(transpile_pipeline_inner(
+            source, manager, None, project, true,
+        ))
     })?;
 
     let elapsed = format!("{:?}", start.elapsed());
@@ -83,7 +99,7 @@ pub fn transpile_pipeline(
     source: &str,
     manager: &mapping_manager::MappingManager,
 ) -> cache::TranspileOutput {
-    transpile_pipeline_with_map(source, manager, None)
+    transpile_pipeline_inner(source, manager, None, None, true)
 }
 
 /// 静默转译管线：不输出教学告警（Unicode 混淆/全角标点/lint）
@@ -98,7 +114,30 @@ pub fn transpile_pipeline_quiet(
     source: &str,
     manager: &mapping_manager::MappingManager,
 ) -> cache::TranspileOutput {
-    transpile_pipeline_inner(source, manager, None, false)
+    transpile_pipeline_inner(source, manager, None, None, false)
+}
+
+/// 同 [`transpile_pipeline_quiet`]，附项目级声明上下文（跨文件声明豁免）
+///
+/// CLI 多文件项目中项目内文件与诊断重放的转译入口：项目上下文由调用方
+/// 预先收集（见 [`alias::ProjectContext::from_sources`]），与入口文件共享。
+pub fn transpile_pipeline_quiet_with_project(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    project: Option<&alias::ProjectContext>,
+) -> cache::TranspileOutput {
+    transpile_pipeline_inner(source, manager, None, project, false)
+}
+
+/// 同 [`transpile_pipeline`]，附项目级声明上下文（跨文件声明豁免）
+///
+/// 供无缓存场景的调用方使用；带缓存的入口见 [`transpile_source_with_project`]。
+pub fn transpile_pipeline_with_project(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    project: Option<&alias::ProjectContext>,
+) -> cache::TranspileOutput {
+    transpile_pipeline_inner(source, manager, None, project, true)
 }
 
 /// 同 [`transpile_pipeline`]，支持 LSP 虚拟项目的 `crate::` 前缀重写
@@ -114,7 +153,20 @@ pub fn transpile_pipeline_with_map(
     manager: &mapping_manager::MappingManager,
     module_names: Option<&HashSet<String>>,
 ) -> cache::TranspileOutput {
-    transpile_pipeline_inner(source, manager, module_names, true)
+    transpile_pipeline_inner(source, manager, module_names, None, true)
+}
+
+/// 同 [`transpile_pipeline_with_map`]，附项目级声明上下文（LSP 虚拟项目）
+///
+/// LSP 跨文件场景与 CLI 同源：项目上下文（模块名与声明名）与 `crate::`
+/// 前缀重写共同保证跨文件引用的成员在调用侧与声明侧行为一致。
+pub fn transpile_pipeline_with_map_and_project(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    module_names: Option<&HashSet<String>>,
+    project: Option<&alias::ProjectContext>,
+) -> cache::TranspileOutput {
+    transpile_pipeline_inner(source, manager, module_names, project, true)
 }
 
 /// 转译管线的唯一实现：`emit_teaching_warnings` 控制教学告警日志的开关
@@ -122,6 +174,7 @@ fn transpile_pipeline_inner(
     source: &str,
     manager: &mapping_manager::MappingManager,
     module_names: Option<&HashSet<String>>,
+    project: Option<&alias::ProjectContext>,
     emit_teaching_warnings: bool,
 ) -> cache::TranspileOutput {
     if emit_teaching_warnings {
@@ -134,9 +187,13 @@ fn transpile_pipeline_inner(
         for warning in fullwidth::find_fullwidth_punct(source) {
             crate::log_warn!("fullwidth", "{}", warning.format());
         }
-        // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深
-        for warning in lint::lint_teaching(source) {
-            crate::log_warn!("lint", "{}", warning.format());
+        // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深。
+        // CLI `--no-lint` 可关闭（lint::set_teaching_lint_enabled），
+        // 供项目开发（非教学）场景静默刷屏提示
+        if lint::teaching_lint_enabled() {
+            for warning in lint::lint_teaching(source) {
+                crate::log_warn!("lint", "{}", warning.format());
+            }
         }
     }
 
@@ -164,14 +221,14 @@ fn transpile_pipeline_inner(
             edits: Vec::new(),
         }
     };
-    // 阶段 4：标识符别名替换（声明位保护）
+    // 阶段 4：标识符别名替换（声明位保护 + 项目级声明上下文）
     let al = if manager.alias_map.is_empty() {
         alias::ReplaceResult {
             output: qual.output.clone(),
             edits: Vec::new(),
         }
     } else {
-        alias::replace_aliases_with_map(&qual.output, manager.get_alias_map())
+        alias::replace_aliases_with_context(&qual.output, manager.get_alias_map(), project)
     };
 
     // 组合各阶段编辑表为母语源坐标的全管线地图（replacement 取最终输出文本）

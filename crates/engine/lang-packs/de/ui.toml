@@ -86,6 +86,7 @@
 "cmd_lang_remove_about" = "Benutzerinstalliertes Sprachpaket entfernen (eingebaute Pakete sind unentfernbar)"
 "cmd_lang_search_about" = "Remote-Sprachpaket-Markt durchsuchen (optional nach Schlüsselwort filtern)"
 "arg_lang_help" = "Sprachcode (Sprachpaket-Verzeichnisname, z. B. zh, ru; Standard: Systemsprache)"
+"arg_no_lint_help" = "Lehrmodus-Lint-Hinweise unterdrücken (Codestil-Warnungen für Anfänger; Unicode-Verwechslungs- und Vollbreite-Satzzeichen-Warnungen bleiben aktiv)"
 "arg_provider_help" = "KI-Anbieter: deepseek (Standard, benoetigt die Umgebungsvariable DEEPSEEK_API_KEY) oder rule (Offline-Regelmodus)"
 "arg_output_help" = "Ausgabedateipfad (Standard: lang-packs/<sprache>/crates/<crate>.toml)"
 "arg_add_crates_help" = "Hinzuzufügende Crates; Version mit @version angeben (z. B. serde_json, tokio@1)"

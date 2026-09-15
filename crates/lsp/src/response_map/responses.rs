@@ -4,7 +4,10 @@
 use serde_json::{Value, json};
 
 use super::ResponseMapper;
-use super::diag_text::{extract_ownership_details, is_main_fn_hint, translate_diagnostic_message};
+use super::diag_text::{
+    extract_ownership_details, is_main_fn_hint, is_missing_dependency_noise,
+    translate_diagnostic_message,
+};
 use super::restore_line_single;
 use crate::translation_cache::en_col_to_zh_col_single;
 
@@ -36,6 +39,13 @@ impl ResponseMapper {
                 // （fn main() 在模块内不是真正的入口，rust-analyzer 会发出
                 // "here is a function named `main`" 等教学无关的提示）
                 if is_main_fn_hint(diag, virtual_uri) {
+                    continue;
+                }
+                // 过滤虚拟项目固有的过程宏误报（#3 症状二）：虚拟项目无第三方
+                // 依赖且禁用过程宏，clap 等 derive 未展开时的辅助属性
+                // （`#[arg(...)]`）与派生宏名字解析必然失败——用户在项目中
+                // 构建正常（rzc check 通过），此类诊断恒为误报
+                if is_missing_dependency_noise(diag) {
                     continue;
                 }
 

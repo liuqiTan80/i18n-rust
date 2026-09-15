@@ -4,6 +4,11 @@
 // 2. 为已知模块路径段添加 `crate::` 前缀（LSP 虚拟项目跨文件引用专用，
 //    原实现在 lsp crate，迁入引擎统一维护转译规则）。
 // 两个阶段均以 token 级替换并产出编辑表，供全管线编辑地图组合。
+//
+// crate 名规范化：Cargo 包名允许连字符（如 `tracing-subscriber`），但 Rust
+// 代码中引用 crate 必须写 `_` 形式（`tracing_subscriber`）；use 路径中
+// 模块/类型/函数名不含连字符，`-` 只会出现在 crate 名段，故替换时对
+// 映射值做 `-` → `_` 规范化安全。
 
 use crate::cache::SourceMapEntry;
 use rustc_lexer::{TokenKind, tokenize};
@@ -70,8 +75,12 @@ pub fn replace_module_paths_with_map(
                 // 保持原样交给别名替换处理
                 if in_use_stmt {
                     if let Some(english) = path_map.get(text) {
-                        edits.push(SourceMapEntry::new(current_offset, len, text, english));
-                        output.push_str(english);
+                        // crate 名规范化：`日志订阅` → `tracing_subscriber`
+                        //（映射值 `tracing-subscriber` 中的连字符非法）
+                        let normalized = normalize_crate_hyphen(english);
+                        let replacement = normalized.as_deref().unwrap_or(english);
+                        edits.push(SourceMapEntry::new(current_offset, len, text, replacement));
+                        output.push_str(replacement);
                     } else {
                         output.push_str(text);
                     }
@@ -94,6 +103,16 @@ pub fn replace_module_paths_with_map(
         current_offset += len;
     }
     ReplaceResult { output, edits }
+}
+
+/// 将 use 路径段中的连字符规范化为下划线（crate 名规则）
+///
+/// Cargo 包名允许连字符（如 `tracing-subscriber`、`tokio-util`），但 Rust
+/// 路径中 crate 段必须写 `_` 形式（`tracing_subscriber`）。use 路径中
+/// 模块、类型、函数名均不含连字符，`-` 只会出现在 crate 名段，故直接
+/// 替换安全；无需替换时返回 None（避免无谓分配）。
+fn normalize_crate_hyphen(segment: &str) -> Option<String> {
+    segment.contains('-').then(|| segment.replace('-', "_"))
 }
 
 /// 为已知模块路径段添加 `crate::` 前缀
@@ -257,6 +276,24 @@ mod tests {
         let map = sample_path_map();
         let result = replace_module_paths("使用 salvo::服务器;", &map);
         assert_eq!(result, "使用 salvo::服务器;");
+    }
+
+    /// crate 名含连字符时（Cargo 名 ≠ Rust 路径名）：替换值规范化为下划线形式
+    #[test]
+    fn test_use_hyphen_crate_name_normalized() {
+        let map = HashMap::from([("日志订阅".to_string(), "tracing-subscriber".to_string())]);
+        let result = replace_module_paths_with_map("使用 日志订阅 as 日志框架;", &map);
+        assert_eq!(result.output, "使用 tracing_subscriber as 日志框架;");
+        assert_eq!(result.edits.len(), 1);
+        assert_eq!(result.edits[0].replacement, "tracing_subscriber");
+    }
+
+    /// 无连字符的路径段不受规范化影响
+    #[test]
+    fn test_use_plain_path_not_normalized() {
+        let map = sample_path_map();
+        let result = replace_module_paths("使用 标准集合::哈希映射;", &map);
+        assert_eq!(result, "使用 std::collections::哈希映射;");
     }
 
     /// use 语句结束后（分号后）恢复默认行为
