@@ -19,7 +19,7 @@
 "TokioJoinHandle" = "TokioJoinHandle"  # type TokioJoinHandle = tokio::task::JoinHandle
 "JoinHandle" = "JoinHandle"  # enum JoinHandle<T>
 "RuntimeHandle" = "RuntimeHandle"  # enum RuntimeHandle
-"handle" = "handle"  # fn handle() -> RuntimeHandle
+"句柄" = "handle"  # fn handle() -> RuntimeHandle
 "block_on" = "block_on"  # fn block_on<F>(task: F) -> F::Output
 "spawn" = "spawn"  # fn spawn<F>(task: F) -> JoinHandle<F::Output>
 "spawn_blocking" = "spawn_blocking"  # fn spawn_blocking<F, R>(func: F) -> JoinHandle<R>
@@ -54,7 +54,7 @@
 "TauriPlugin" = "TauriPlugin"  # struct TauriPlugin<R, C>
 "PermissionState" = "PermissionState"  # enum PermissionState
 "WebviewWindow" = "WebviewWindow"  # type WebviewWindow = webview_window::WebviewWindow
-"WebviewWindowBuilder" = "WebviewWindowBuilder"  # type WebviewWindowBuilder = webview_window::WebviewWindowBuilder
+"网页窗口构建器" = "WebviewWindowBuilder"  # type WebviewWindowBuilder = webview_window::WebviewWindowBuilder
 "cookie" = "cookie"  # type cookie = cookie
 "NewWindowFeatures" = "NewWindowFeatures"  # type NewWindowFeatures = tauri_runtime::webview::NewWindowFeatures
 "PageLoadEvent" = "PageLoadEvent"  # type PageLoadEvent = tauri_runtime::webview::PageLoadEvent
@@ -108,8 +108,8 @@
 "ResourceId" = "ResourceId"  # type ResourceId = resources::ResourceId
 "ResourceTable" = "ResourceTable"  # type ResourceTable = resources::ResourceTable
 "include_image" = "include_image"  # type include_image = tauri_macros::include_image
-"command" = "command"  # type command = tauri_macros::command
-"generate_handler" = "generate_handler"  # type generate_handler = tauri_macros::generate_handler
+"指令" = "command"  # type command = tauri_macros::command
+"指令集" = "generate_handler"  # type generate_handler = tauri_macros::generate_handler
 "utils" = "utils"  # type utils = tauri_utils
 "Wry" = "Wry"  # type Wry = tauri_runtime_wry::Wry<EventLoopMessage>
 "WryHandle" = "WryHandle"  # type WryHandle = tauri_runtime_wry::WryHandle<EventLoopMessage>
@@ -117,7 +117,7 @@
 "webview_version" = "webview_version"  # type webview_version = tauri_runtime_wry::webview_version
 "TitleBarStyle" = "TitleBarStyle"  # type TitleBarStyle = self::utils::TitleBarStyle
 "App" = "App"  # type App = self::app::App
-"AppHandle" = "AppHandle"  # type AppHandle = self::app::AppHandle
+"应用句柄" = "AppHandle"  # type AppHandle = self::app::AppHandle
 "AssetResolver" = "AssetResolver"  # type AssetResolver = self::app::AssetResolver
 "CloseRequestApi" = "CloseRequestApi"  # type CloseRequestApi = self::app::CloseRequestApi
 "ExitRequestApi" = "ExitRequestApi"  # type ExitRequestApi = self::app::ExitRequestApi
@@ -143,12 +143,12 @@
 "WindowSizeConstraints" = "WindowSizeConstraints"  # type WindowSizeConstraints = self::runtime::window::WindowSizeConstraints
 "DeviceEventFilter" = "DeviceEventFilter"  # type DeviceEventFilter = self::runtime::DeviceEventFilter
 "UserAttentionType" = "UserAttentionType"  # type UserAttentionType = self::runtime::UserAttentionType
-"WebviewUrl" = "WebviewUrl"  # type WebviewUrl = self::utils::config::WebviewUrl
+"网页网址" = "WebviewUrl"  # type WebviewUrl = self::utils::config::WebviewUrl
 "Env" = "Env"  # type Env = self::utils::Env
 "PackageInfo" = "PackageInfo"  # type PackageInfo = self::utils::PackageInfo
 "Theme" = "Theme"  # type Theme = self::utils::Theme
 "EventLoopMessage" = "EventLoopMessage"  # enum EventLoopMessage
-"generate_context" = "generate_context"  # type generate_context = tauri_macros::generate_context
+"生成上下文" = "generate_context"  # type generate_context = tauri_macros::generate_context
 "Assets" = "Assets"  # trait Assets<R>
 "Listener" = "Listener"  # trait Listener<R>
 "Emitter" = "Emitter"  # trait Emitter<R>
@@ -156,7 +156,7 @@
 "SerializeOptions" = "SerializeOptions"  # type SerializeOptions = serialize_to_javascript::Options
 "EventTarget" = "EventTarget"  # type EventTarget = self::event::EventTarget
 "Size" = "Size"  # type Size = self::runtime::dpi::Size
-"Response" = "Response"  # struct Response
+"响应" = "Response"  # struct Response
 "Request" = "Request"  # struct Request<'a>
 "VERSION" = "VERSION"  # const VERSION: &str
 "Config" = "Config"  # type Config = self::utils::config::Config
@@ -168,13 +168,27 @@
 "set" = "set"  # fn set(handle: TokioHandle) -> ?
 "EventId" = "EventId"  # type EventId = self::event::EventId
 "RunEvent" = "RunEvent"  # type RunEvent = self::app::RunEvent
-"http" = "http"  # type http = http
+"HTTP" = "http"  # type http = http
 "is_dev" = "is_dev"  # const fn is_dev() -> bool
 "State" = "State"  # type State = self::state::State
 "Result" = "Result"  # type Result = error::Result
 "Runtime" = "Runtime"  # enum Runtime
 "Builder" = "Builder"  # struct Builder<R, C>
-"Manager" = "Manager"  # trait Manager<R>
+"管理器" = "Manager"  # trait Manager<R>
+
+# ---- 实践补充：应用构建与窗口常用词 ----
+"运行" = "run"  # Builder::run 启动应用
+"建立" = "setup"  # Builder::setup 启动回调
+"注册指令" = "invoke_handler"  # Builder::invoke_handler
+"本地页面" = "App"  # WebviewUrl::App（「应用」已被 Web 框架占用）
+"进入" = "into"  # Into::into 类型转换
+"窗口标题" = "title"  # WebviewWindowBuilder::title（避开字段名「标题」）
+"内尺寸" = "inner_size"  # WebviewWindowBuilder::inner_size
+"始终置顶" = "always_on_top"  # WebviewWindowBuilder::always_on_top
+"可调整大小" = "resizable"  # WebviewWindowBuilder::resizable
+"居中" = "center"  # WebviewWindowBuilder::center
+"聚焦" = "focused"  # WebviewWindowBuilder::focused 抢焦点
+"构建" = "build"  # WebviewWindowBuilder::build
 
 ["解释"]
 "TokioHandle" = "异步运行时的把手，用来往运行时里派发任务。"
@@ -187,7 +201,7 @@
 "TokioJoinHandle" = "异步任务的句柄，可以等待任务结束并取回结果。"
 "JoinHandle" = "任务句柄，用来等待某个异步任务完成并拿返回值。"
 "RuntimeHandle" = "运行时的轻量引用，可在别处派发新任务。"
-"handle" = "获取当前全局运行时的句柄，用来派发任务。"
+"句柄" = "获取当前全局运行时的句柄，用来派发任务。"
 "block_on" = "阻塞当前线程，一直等到这个异步任务跑完。"
 "spawn" = "把一个异步任务丢进运行时后台执行，立刻返回句柄。"
 "spawn_blocking" = "把耗时的同步函数放到专用线程池里执行。"
@@ -222,7 +236,7 @@
 "TauriPlugin" = "Tauri 插件对象，注册后即可扩展应用能力。"
 "PermissionState" = "权限状态，表示允许、拒绝或询问。"
 "WebviewWindow" = "网页窗口对象，可操作窗口和页面。"
-"WebviewWindowBuilder" = "网页窗口构建器，配置并创建窗口。"
+"网页窗口构建器" = "网页窗口构建器，配置并创建窗口。"
 "cookie" = "处理网页 cookie 的模块。"
 "NewWindowFeatures" = "新开窗口时的特性配置，如大小位置。"
 "PageLoadEvent" = "页面加载事件，表示加载开始或完成。"
@@ -276,8 +290,8 @@
 "ResourceId" = "资源的编号，用来在资源表里找到对应资源。"
 "ResourceTable" = "存放所有资源的表格，按编号管理它们。"
 "include_image" = "编译时把图片打包进程序的宏，方便直接用。"
-"command" = "把普通函数标记成前端可调用的命令的宏。"
-"generate_handler" = "把多个命令收集起来，生成统一处理入口的宏。"
+"指令" = "把普通函数标记成前端可调用的命令的宏。"
+"指令集" = "把多个命令收集起来，生成统一处理入口的宏。"
 "utils" = "Tauri 提供的一些通用小工具集合。"
 "Wry" = "底层网页渲染引擎的封装类型，负责显示网页。"
 "WryHandle" = "操作 Wry 渲染引擎的句柄，用来控制它。"
@@ -285,7 +299,7 @@
 "webview_version" = "获取当前系统网页渲染引擎的版本号。"
 "TitleBarStyle" = "设置窗口标题栏样式的选项，比如隐藏或透明。"
 "App" = "整个 Tauri 应用的主体对象，管理窗口和生命周期。"
-"AppHandle" = "应用主体的可克隆句柄，方便在别处操作应用。"
+"应用句柄" = "应用主体的可克隆句柄，方便在别处操作应用。"
 "AssetResolver" = "负责把请求的静态资源找出来并返回。"
 "CloseRequestApi" = "窗口收到关闭请求时，用来决定是否真的关闭。"
 "ExitRequestApi" = "应用收到退出请求时，用来决定是否真的退出。"
@@ -311,12 +325,12 @@
 "WindowSizeConstraints" = "限制窗口大小范围的约束条件。"
 "DeviceEventFilter" = "过滤设备输入事件的选项，决定哪些事件被接收。"
 "UserAttentionType" = "请求用户注意的方式，比如让任务栏闪烁。"
-"WebviewUrl" = "指定网页视图加载的地址，可以是本地文件或网址。"
+"网页网址" = "指定网页视图加载的地址，可以是本地文件或网址。"
 "Env" = "运行环境信息，比如系统类型和架构。"
 "PackageInfo" = "应用包的信息，如名称、版本和作者。"
 "Theme" = "界面主题，控制应用是浅色还是深色外观。"
 "EventLoopMessage" = "事件循环中传递的消息类型，用于窗口间通信。"
-"generate_context" = "宏，自动生成应用运行所需的上下文代码。"
+"生成上下文" = "宏，自动生成应用运行所需的上下文代码。"
 "Assets" = "定义如何加载前端静态资源，如 HTML 和 JS 文件。"
 "Listener" = "监听事件的接口，用来接收并处理自定义事件。"
 "Emitter" = "发送事件的接口，可以向其他部分广播消息。"
@@ -324,7 +338,7 @@
 "SerializeOptions" = "把数据序列化给前端 JavaScript 时的选项。"
 "EventTarget" = "事件要发送到的目标，比如某个窗口。"
 "Size" = "尺寸类型，可以是逻辑或物理单位。"
-"Response" = "一次 IPC 响应的具体实现，装着返回数据。"
+"响应" = "一次 IPC 响应的具体实现，装着返回数据。"
 "Request" = "一次 IPC 请求，包含命令名和参数。"
 "VERSION" = "当前 Tauri 框架的版本号字符串。"
 "Config" = "应用的配置信息，比如窗口大小、标题等设置。"
@@ -336,10 +350,10 @@
 "set" = "设置全局异步运行时，让 Tauri 使用你提供的运行时。"
 "EventId" = "事件的编号，用来区分不同的事件。"
 "RunEvent" = "应用运行过程中产生的各种事件，比如启动或退出。"
-"http" = "Tauri 里用于发起和处理网络请求的模块。"
+"HTTP" = "Tauri 里用于发起和处理网络请求的模块。"
 "is_dev" = "判断当前是否处于开发模式，返回布尔值。"
 "State" = "在应用里共享的全局状态，可被命令读取。"
 "Result" = "Tauri 的返回结果类型，成功或失败都靠它。"
 "Runtime" = "Tauri 的异步运行时，管理任务调度和线程池。"
 "Builder" = "构建器，用链式调用一步步配置出插件或应用。"
-"Manager" = "管理窗口、菜单等资源的接口，方便统一操作。"
+"管理器" = "管理窗口、菜单等资源的接口，方便统一操作。"

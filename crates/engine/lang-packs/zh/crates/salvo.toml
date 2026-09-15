@@ -3,11 +3,20 @@
 # 生成时间: 2026-08-16 11:12:02
 # 本文件中的解释由 AI 根据 API 名称和签名自动生成，不是原 crate 的官方文档翻译，仅供学习参考。原 crate 的版权归其作者所有。
 # 已人工完善：标识符全部翻译为中文名，并补充解释。
+# 实践补充：子模块路径（前置、跨域）与过程宏名（处理器）、方法名（启动、装配）。
 
 ["模块路径"]
 "salvo" = "salvo"
+"前置" = "prelude"
+"跨域" = "cors"  # 子模块：salvo::cors 跨域资源共享（需 salvo 开启 cors feature）
 
 ["标识符"]
+"处理器" = "handler"  # 过程宏：标记请求处理器
+"启动" = "serve"  # 方法：Server::serve，启动服务
+"装配" = "hoop"  # 方法：Service::hoop，给服务挂载中间件（如跨域策略）
+"跨域策略" = "Cors"  # struct Cors：跨域配置构建器
+"宽松" = "permissive"  # 方法：Cors::permissive，允许任意来源/方法/头部
+"转为处理器" = "into_handler"  # 方法：Cors::into_handler，转为可装配的处理器
 "核心" = "core"  # type core = salvo_core
 "捕获器" = "Catcher"  # struct Catcher
 "默认目标" = "DefaultGoal"  # struct DefaultGoal
@@ -119,7 +128,7 @@
 "发送目标" = "SendTarget"  # type SendTarget = request::SendTarget
 "响应扩展" = "ResponseExt"  # type ResponseExt = response::ResponseExt
 "异步特征" = "async_trait"  # type async_trait = async_trait::async_trait
-"仓库" = "Depot"  # type Depot = crate::depot::Depot
+"请求容器" = "Depot"  # type Depot = crate::depot::Depot
 "服务" = "Service"  # type Service = crate::service::Service
 "HTTP库" = "hyper"  # type hyper = hyper
 "宏集" = "macros"  # type macros = salvo_macros
@@ -199,6 +208,25 @@
 "消息打包应用" = "APPLICATION_MSGPACK"  # const APPLICATION_MSGPACK: Mime
 "PDF应用" = "APPLICATION_PDF"  # const APPLICATION_PDF: Mime
 "多部分表单数据" = "MULTIPART_FORM_DATA"  # const MULTIPART_FORM_DATA: Mime
+
+# ---- 实践补充：路由与请求处理常用词 ----
+"解析JSON" = "parse_json"  # Request::parse_json 解析 JSON 请求体
+"取参数" = "param"  # Request::param 路径参数取值
+"错误请求" = "bad_request"  # StatusError::bad_request
+"内部错误" = "internal_server_error"  # StatusError::internal_server_error
+"未找到" = "not_found"  # StatusError::not_found
+"路径前缀" = "path"  # Router::path 挂载子路由
+"带路径" = "with_path"  # Router::with_path 创建带路径过滤的路由器
+"简述" = "brief"  # StatusError::brief 错误简述
+"更新" = "put"  # HTTP PUT 路由方法
+"HTTP" = "http"  # salvo::http 模块（StatusResult 所在）
+
+# ---- 实践补充：响应与状态 ----
+"响应" = "Response"  # salvo::Response 响应主体
+"渲染" = "render"  # Response::render / Scribe::render
+"设置状态码" = "status_code"  # Response::status_code 设置状态码
+"错误请求状态" = "BAD_REQUEST"  # StatusCode::BAD_REQUEST
+"未找到状态" = "NOT_FOUND"  # StatusCode::NOT_FOUND
 
 ["解释"]
 "核心" = "salvo_core 核心 crate 的类型别名，承载全部核心 API。"
@@ -312,8 +340,12 @@
 "发送目标" = "测试请求的发送目标（服务器）。"
 "响应扩展" = "测试响应的扩展方法集合。"
 "异步特征" = "异步特征宏的类型别名。"
-"仓库" = "请求共享数据容器，各中间件在此存取数据。"
+"请求容器" = "请求共享数据容器，各中间件在此存取数据。"
 "服务" = "salvo 服务主体，可被 hyper 驱动运行。"
+"跨域策略" = "跨域资源共享（CORS）配置构建器，设置允许的来源、方法与头部。"
+"宽松" = "宽松跨域配置：允许任意来源、方法与头部（本机工具场景适用）。"
+"装配" = "给服务装配中间件（如跨域策略），在请求进入路由前生效。"
+"转为处理器" = "把跨域策略转换为可装配的处理器。"
 "HTTP库" = "hyper crate 的类型别名（底层 HTTP 实现）。"
 "宏集" = "salvo 过程宏 crate 的类型别名。"
 "盒装错误" = "装箱的动态错误（Box<dyn Error>）。"

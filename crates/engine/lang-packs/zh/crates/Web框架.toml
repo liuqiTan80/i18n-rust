@@ -37,5 +37,5 @@
 
 # rocket
 "火箭" = "Rocket"
-"启动" = "launch"
+"发射" = "launch"  # 原「启动」让位给 salvo 的 serve
 "模板" = "Template"

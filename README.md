@@ -298,6 +298,7 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 
 ## 🤝 参与贡献
 
+- **应用开发者缺词条指引**：[docs/missing-mapping-guide.md](docs/missing-mapping-guide.md)（写应用时补词条 / 定制映射，面向新手）
 - **新增语言包**：[docs/contributing-lang-pack.md](docs/contributing-lang-pack.md)（含 `rzc mapping scaffold` AI 翻译流程）
 - **第三方库映射**：[docs/third-party-mapping.md](docs/third-party-mapping.md)
 - **第三方库共享注册中心**：[docs/third-party-registry.md](docs/third-party-registry.md)（社区上传/下载自译映射）

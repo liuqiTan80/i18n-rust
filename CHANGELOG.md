@@ -5,6 +5,22 @@
 
 ## [Unreleased]
 
+### 新增
+- zh 语言包：stdlib.toml 标识符节补「文件系统」→「fs」，让函数体内直接调用完整路径
+  （如 `文件系统::递归创建目录` → `fs::create_dir_all`）可转译（模块路径节仅 use 语句
+  生效）；来自 xiaozs 实战验证
+- zh 语言包：数据库.toml 的 rusqlite 段补充「SQLite」→「rusqlite」标识符映射，
+  支撑函数体内以 `SQLite::xxx` 限定路径调用（模块路径节仅在 use 语句生效）；
+  来自 xiaozs 单机版（SQLite 本地文件存储）实战验证
+- zh 语言包补充与修正约百条映射（stdlib、chrono、reqwest、rusqlite、serde_json、salvo、
+tauri 及新建 mysql），均来自 xiaozs 实战项目验证；含「阻塞」→「阻塞调用」、
+「启动」→「发射」等冲突避让改名
+- zh 语言包：salvo 补充跨域装配词条（「跨域」子模块、「跨域策略」Cors、「宽松」
+permissive、「转为处理器」into_handler、「装配」hoop），支撑浏览器直连模式的
+CORS 中间件；均来自 xiaozs 实战验证
+- 文档 `docs/missing-mapping-guide.md`：应用开发者缺词条指引（四级来源、项目语言包定制、
+常见坑）；contributing-lang-pack.md / third-party-mapping.md / README 增加指路链接
+
 ## [0.7.2] - 2026-09-13
 
 ### 新增

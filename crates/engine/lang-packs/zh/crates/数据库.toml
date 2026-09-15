@@ -29,5 +29,15 @@
 "限制" = "limit"
 
 # rusqlite
+"SQLite" = "rusqlite"  # 函数体内限定路径可用（模块路径节仅在 use 语句生效）
 "语句" = "Statement"
 "准备" = "prepare"
+"绑定参数" = "params"  # rusqlite::params! 宏（「参数」已被 env::args 占用）
+"数据行" = "Row"  # rusqlite::Row 行数据（「行」已被 line 占用）
+"取列" = "get"  # Row::get 按列号取值（「取值」已被 take 占用）
+"查询映射" = "query_map"  # Statement::query_map 行迭代
+"单行查询" = "query_row"  # Connection::query_row 取单行
+"执行批处理" = "execute_batch"  # Connection::execute_batch 建表等多语句
+"开始事务" = "transaction"  # Connection::transaction（「事务」=Transaction 为类型名）
+"提交" = "commit"  # Transaction::commit
+"数据库错误" = "Error"  # rusqlite::Error 错误类型

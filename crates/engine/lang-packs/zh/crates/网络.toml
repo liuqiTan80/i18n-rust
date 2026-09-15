@@ -10,6 +10,7 @@
 # reqwest
 "客户端" = "Client"
 "HTTP请求" = "Request"
+"请求构建器" = "RequestBuilder"
 "HTTP响应" = "Response"
 "获取" = "get"
 "发送请求" = "post"
@@ -19,6 +20,9 @@
 "JSON格式" = "json"
 "文本响应" = "text"
 "字节响应" = "bytes"
+"响应状态" = "status"  # Response::status 取状态码
+"是否成功" = "is_success"  # StatusCode::is_success 判断 2xx
+"阻塞" = "blocking"  # reqwest::blocking 同步子模块
 
 # hyper
 "服务器" = "Server"

@@ -31,6 +31,35 @@
 "格式化" = "format"
 "解析" = "parse"
 
+# chrono 补充：类型与特征
+"单文本日期时间" = "NaiveDateTime"  # 不带时区的日期时间
+"单文本时间" = "NaiveTime"  # use 语句内避开模块路径「时间」=time
+"天数" = "Days"
+"月数" = "Months"
+"日期特征" = "Datelike"  # year/month/day/weekday 方法来源
+"时间特征" = "Timelike"  # hour/minute/second 方法来源
+
+# chrono 补充：构造与字段
+"从年月日" = "from_ymd_opt"
+"与时分秒" = "and_hms_opt"
+"自字符串解析" = "parse_from_str"
+"与本地时区" = "and_local_timezone"
+"原始日期" = "date_naive"
+"加天数" = "checked_add_days"
+"加月数" = "checked_add_months"
+"时间戳" = "timestamp"
+"年份" = "year"
+"月份" = "month"
+"日号" = "day"
+"小时" = "hour"
+"分钟" = "minute"
+"秒钟" = "second"
+"小时数" = "hours"
+"分钟数" = "minutes"
+"秒数" = "seconds"
+"星期几" = "weekday"
+"从周一计数" = "number_from_monday"
+
 # time
 "偏移日期时间" = "OffsetDateTime"
 "本地日期" = "Date"

@@ -24,7 +24,7 @@
 # async-std
 "任务" = "task"
 "生成" = "spawn"
-"阻塞" = "task::spawn_blocking"
+"阻塞调用" = "task::spawn_blocking"  # 原「阻塞」让位给网络库 reqwest::blocking
 "流" = "stream"
 
 # futures

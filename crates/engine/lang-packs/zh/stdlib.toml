@@ -123,6 +123,7 @@
 "可显示" = "Display"
 "默认" = "Default"
 "默认值" = "default"
+"缺省" = "default"  # 同义写法（工程常用）
 "相等" = "PartialEq"
 "全等" = "Eq"
 "可排序" = "PartialOrd"
@@ -155,6 +156,7 @@
 "字符串" = "String"
 "字符串引用" = "&str"
 "生命周期引用" = "&'a"
+"静态字符串引用" = "&'static str"
 
 # --------------------------------------------
 # 字符串 / 文本方法（String / str）
@@ -321,6 +323,7 @@
 "取值" = "take"
 "迭代" = "iter"
 "可变迭代" = "iter_mut"
+"迭代可变" = "iter_mut"  # 同义写法
 "消费迭代" = "into_iter"
 
 # --------------------------------------------
@@ -340,6 +343,7 @@
 "读取全部字符串" = "read_to_string"
 "读取行" = "read_line"
 "读取" = "read"
+"读" = "read"  # 短词（RwLock::read 等）
 "写入全部" = "write_all"
 "写入" = "write"
 "刷新" = "flush"
@@ -348,6 +352,9 @@
 # --------------------------------------------
 # 文件系统补充
 # --------------------------------------------
+# `文件系统` 同时存在于模块路径节（use 语句专用）；此副本让函数体内
+# 直接调用完整路径（如 `文件系统::递归创建目录` → `fs::create_dir_all`）也能转译
+"文件系统" = "fs"
 "文件" = "File"
 "路径" = "Path"
 "路径缓冲" = "PathBuf"
@@ -378,6 +385,10 @@
 "文件名" = "file_name"
 "扩展名" = "extension"
 "父目录" = "parent"
+"存在" = "exists"
+"读取字符串" = "read_to_string"  # 文件一次性读入字符串
+"递归创建目录" = "create_dir_all"
+"展示" = "display"  # 路径展示（「显示」已被 Display 占用）
 
 # --------------------------------------------
 # 进程与环境
@@ -399,6 +410,8 @@
 "设置当前目录" = "set_current_dir"
 "当前可执行文件" = "current_exe"
 "临时目录" = "temp_dir"
+"进程号" = "id"  # std::process::id 当前进程号
+"单参数" = "arg"  # Command::arg（「参数」已被 args 占用）
 "参数们" = "args"
 "退出" = "exit"
 "终止" = "abort"
@@ -450,7 +463,7 @@
 "原子u32" = "AtomicU32"
 "原子u64" = "AtomicU64"
 "加载" = "load"
-"存储" = "store"
+"存值" = "store"  # 原子操作写入（「存储」易与普通语义混淆）
 "交换" = "swap"
 "比较并交换" = "compare_exchange"
 "获取并修改" = "fetch_add"
@@ -472,6 +485,8 @@
 "瞬间" = "Instant"
 "系统时间" = "SystemTime"
 "UNIX纪元" = "UNIX_EPOCH"
+"时钟" = "time"  # std::time 模块（「时间」=NaiveTime 已占用）
+"自纪元" = "duration_since"  # SystemTime::duration_since
 "新建" = "new"
 "从秒" = "from_secs"
 "从毫秒" = "from_millis"
@@ -597,6 +612,7 @@
 "是否为无" = "is_none"
 "解包" = "unwrap"
 "取值或" = "unwrap_or"
+"解包或" = "unwrap_or"  # 同义写法
 "取值或_else" = "unwrap_or_else"
 "取值或默认" = "unwrap_or_default"
 "期望" = "expect"
