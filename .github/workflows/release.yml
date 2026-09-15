@@ -247,23 +247,25 @@ jobs:
         if: env.CARGO_REGISTRY_TOKEN == '' && steps.inventory.outputs.pending == 'true'
         run: echo "::warning::存在未发布 crate 但未配置 CARGO_REGISTRY_TOKEN，跳过 crates.io 发布（离线版 VSIX 与 GitHub Release 不受影响）"
 
-      - name: 校验 crates.io 令牌（仅在有未发布 crate 时）
+      - name: 探测 crates.io 令牌（仅在有未发布 crate 时；/me 非 200 仅警告）
         if: env.CARGO_REGISTRY_TOKEN != '' && steps.inventory.outputs.pending == 'true'
         run: |
-          # 先自检令牌有效性，避免发布循环里才暴露（裸 token 与 Bearer
-          # 两种鉴权头 crates.io 均接受，依次尝试；缺 User-Agent 会被拒）
+          # 预检 /api/v1/me 仅供提示：受限 scope 的 token（仅 publish-new/
+          # publish-update，无 read 类权限）访问该端点会返回 403，但发布
+          # 本身完全可用（已在本地实测验证）——故本步不作为硬门禁；token
+          # 的真实有效性由下方 cargo publish 步骤裁决（认证失败会明确
+          # 报错并退出）。裸 token 与 Bearer 两种鉴权头均尝试，避免误判。
           CODE="$(curl -sS -A "rzc-ci" -o /dev/null -w '%{http_code}' --retry 2 --max-time 30 \
             -H "Authorization: $CARGO_REGISTRY_TOKEN" https://crates.io/api/v1/me || echo 000)"
           if [ "$CODE" != "200" ]; then
             CODE="$(curl -sS -A "rzc-ci" -o /dev/null -w '%{http_code}' --retry 2 --max-time 30 \
               -H "Authorization: Bearer $CARGO_REGISTRY_TOKEN" https://crates.io/api/v1/me || echo 000)"
           fi
-          if [ "$CODE" != "200" ]; then
-            echo "❌ crates.io 令牌无效（/api/v1/me → HTTP $CODE）"
-            echo "   请在仓库 Secrets 更新 CARGO_REGISTRY_TOKEN（需 publish-new 与 publish-update 权限）"
-            exit 1
+          if [ "$CODE" = "200" ]; then
+            echo "✅ crates.io 令牌有效"
+          else
+            echo "::warning::/api/v1/me 探测返回 HTTP $CODE（受限 scope 令牌属正常，继续发布；若令牌真实失效，发布步骤将报错退出）"
           fi
-          echo "✅ crates.io 令牌有效"
 
       - name: 登录 crates.io（仅在有未发布 crate 时）
         if: env.CARGO_REGISTRY_TOKEN != '' && steps.inventory.outputs.pending == 'true'
