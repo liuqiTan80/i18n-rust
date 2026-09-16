@@ -27,7 +27,10 @@
 //    retain/drop 映射键）同理；变体可经 `::` 访问
 //    （`判定结果::保留`）故收集为项，字段收集为值绑定。
 //    方法调用位（`实例.方法()`）不查字段名：`编辑表.长度()` 的
-//    `长度` 是 `Vec::len` 调用，只查「项目方法名集合」（项）。
+//    `长度` 是 `Vec::len` 调用，只查「项目方法名集合」（项）；
+// 5. 模式绑定（match 臂、let 解构、for 模式）同样是值绑定：
+//    `匹配 有值(入参) { 有值(连接) => … }` 的 `连接`（撞
+//    `连接`=join 映射键）全文件豁免（见 collect_pattern_bindings）。
 
 use rustc_lexer::{TokenKind, tokenize};
 use std::collections::{HashMap, HashSet};
@@ -229,8 +232,11 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
     // 上一个 `|`（Or）token 的结束偏移：rustc_lexer 不合并 `||`，它是连续
     // 两个 `|` token，紧邻的第二个不得判定为闭包起始（`a || b` 是逻辑或）
     let mut last_or_end = usize::MAX;
+    // token 序列预收集：本函数内三遍扫描（声明名/库特征方法/模式绑定）
+    // 共享同一份 token 序列，避免重复词法化
+    let tokens: Vec<rustc_lexer::Token> = tokenize(source).collect();
     let mut offset = 0;
-    for token in tokenize(source) {
+    for token in &tokens {
         let text = &source[offset..offset + token.len];
         match token.kind {
             TokenKind::Ident => {
@@ -498,11 +504,13 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
     }
     // 库特征实现块内的方法名从保护集合剔除：它们是库 API 规定的名称，
     // 应照常参与别名替换（如 `实现 抄写器 对于 类型 { 函数 渲染（...） }`）
-    result.library_fns = collect_library_impl_fns(source, &result.items, alias_map);
+    result.library_fns = collect_library_impl_fns(&tokens, source, &result.items, alias_map);
     for name in &result.library_fns {
         result.items.remove(name);
         result.variables.remove(name);
     }
+    // 模式绑定收集（match 臂 / let 解构 / for 模式）：独立扫描
+    collect_pattern_bindings(&tokens, source, &mut result);
     result
 }
 
@@ -536,6 +544,7 @@ enum ImplScan {
 /// 同文件自定义特征），且在别名映射表中（无映射词时替换循环本就无事
 /// 可做，保持保护无害，也避免跨文件自定义特征被误判）。
 fn collect_library_impl_fns(
+    tokens: &[rustc_lexer::Token],
     source: &str,
     items: &HashSet<String>,
     alias_map: &HashMap<String, String>,
@@ -549,7 +558,7 @@ fn collect_library_impl_fns(
     // 上一个有意义 token 是否为 `fn`（空白/注释不打断，与主循环一致）
     let mut prev_is_fn = false;
     let mut offset = 0;
-    for token in tokenize(source) {
+    for token in tokens {
         let text = &source[offset..offset + token.len];
         match token.kind {
             TokenKind::Ident => {
@@ -616,6 +625,256 @@ fn collect_library_impl_fns(
         offset += token.len;
     }
     library_fns
+}
+
+/// for 模式挂起中出现的「非模式词」：声明/语句关键字
+///
+/// 真模式里不可能出现这些词，出现即说明挂起跨越了语句边界
+/// （残留/剥离代码），须丢弃挂起，避免把后续代码里的名字误收为绑定。
+const STMT_BOUNDARY_KEYWORDS: &[&str] = &[
+    "fn", "struct", "enum", "impl", "trait", "mod", "type", "const", "static", "let", "use", "pub",
+    "return", "if", "else", "while", "loop", "match", "break", "continue", "unsafe", "async",
+    "await", "move", "where",
+];
+
+/// 模式绑定收集（第三遍扫描）：match 臂 / let 解构 / for 模式
+///
+/// 模式中出现的标识符是「值绑定」（用户命名），须与函数/闭包参数一样
+/// 全文件豁免替换——否则 `成功(连接) =>` 的 `连接`（撞 `连接`=join
+/// 映射键）会被误替换为 `join`（实测确认的缺陷）。识别规则：
+/// - match 臂：`=>`（`Eq`+`Gt` 相邻两 token）向左回溯到臂起点
+///   （深度 0 的 `,`/`{`/`;`），区间内标识符按模式语法过滤后收集；
+///   守卫表达式中的名字同为值使用，一并收集无害（方法调用位与
+///   `::` 路径位不查值绑定集合，不会过度豁免库 API）；
+/// - let 解构：`let` 后解构括号（`let (甲, 乙) = …`、
+///   `let 点 { x, y } = …`）内的名字；`=` 结束（类型标注在括号外，
+///   不受影响），if-let/while-let 同形覆盖；
+/// - for 模式：`for` 到 `in` 之间的名字（`for &长度 in …`、
+///   `for (键, 值) in …`）；挂起期间遇声明/语句关键字即丢弃。
+///   `impl … for 类型 {` 的 for 由 impl 头部状态排除。
+///
+/// 过滤见 [`is_pattern_binding`]：`::` 路径段（`错误::连接` 的
+/// `连接` 是库变体）、后跟 `(`/`{`/`[` 的构造路径（`有值(…)`、
+/// `点 { … }`）、后跟 `:` 的字段名（`x: 甲` 的 `x`）、`mut`/`ref`
+/// 修饰符都不是绑定。
+fn collect_pattern_bindings(
+    tokens: &[rustc_lexer::Token],
+    source: &str,
+    result: &mut DeclaredNames,
+) {
+    // —— let 解构态 / for 模式态 / impl 头部区间 ——
+    let mut let_ok = false;
+    let mut let_depth = 0u32;
+    let mut for_ok = false;
+    let mut for_depth = 0u32;
+    let mut for_pending: Vec<String> = Vec::new();
+    // `impl … for 类型 {` 的头部区间：其间出现的 `for` 是 impl 语法
+    let mut in_impl_header = false;
+
+    let mut offset = 0usize;
+    for i in 0..tokens.len() {
+        let kind = tokens[i].kind;
+        let text = &source[offset..offset + tokens[i].len];
+        match kind {
+            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {}
+            TokenKind::Ident => {
+                if text == "impl" {
+                    in_impl_header = true;
+                }
+                // —— for 模式态 ——
+                if for_ok {
+                    if text == "in" && for_depth == 0 {
+                        // 模式结束：提交挂起绑定
+                        result.variables.extend(for_pending.drain(..));
+                        for_ok = false;
+                    } else if for_depth == 0
+                        && (text == "for" || STMT_BOUNDARY_KEYWORDS.contains(&text))
+                    {
+                        // 遇嵌套 for 重启挂起；遇声明/语句关键字丢弃挂起
+                        for_pending.clear();
+                        for_ok = text == "for";
+                        for_depth = 0;
+                    } else if is_pattern_binding(tokens, i, text) {
+                        for_pending.push(text.to_string());
+                    }
+                } else if text == "for" && !in_impl_header {
+                    for_ok = true;
+                    for_depth = 0;
+                    for_pending.clear();
+                }
+                // —— let 解构态（`=` 之前括号内的名字是绑定）——
+                if let_ok && let_depth > 0 && is_pattern_binding(tokens, i, text) {
+                    result.variables.insert(text.to_string());
+                }
+                if text == "let" {
+                    let_ok = true;
+                    let_depth = 0;
+                }
+            }
+            TokenKind::OpenParen | TokenKind::OpenBracket => {
+                if let_ok {
+                    let_depth += 1;
+                }
+                if for_ok {
+                    for_depth += 1;
+                }
+            }
+            TokenKind::OpenBrace => {
+                // impl 头部结束（进入块体）
+                in_impl_header = false;
+                if let_ok {
+                    let_depth += 1;
+                }
+                if for_ok {
+                    for_depth += 1;
+                }
+            }
+            TokenKind::CloseParen | TokenKind::CloseBracket | TokenKind::CloseBrace => {
+                let_depth = let_depth.saturating_sub(1);
+                for_depth = for_depth.saturating_sub(1);
+            }
+            TokenKind::Semi => {
+                in_impl_header = false;
+                let_ok = false;
+                let_depth = 0;
+                for_pending.clear();
+                for_ok = false;
+                for_depth = 0;
+            }
+            TokenKind::Eq => {
+                // `let 模式 =`：模式结束（`=` 之后是表达式，名字照常替换）；
+                // for 模式里 `=` 不合法（防御）
+                if let_ok && let_depth == 0 {
+                    let_ok = false;
+                }
+                if for_ok && for_depth == 0 {
+                    for_pending.clear();
+                    for_ok = false;
+                }
+            }
+            TokenKind::Lt | TokenKind::Colon if for_ok && for_depth == 0 => {
+                // for 模式里 `<`/`:` 不合法（泛型/类型标注等非循环场景，防御）
+                for_pending.clear();
+                for_ok = false;
+            }
+            TokenKind::Gt => {
+                // `=>`（`Eq`+`Gt` 相邻两 token）：match 臂箭头 → 回溯收集
+                //（索引相邻即两 token 间无其他 token，`=>` 无空白）
+                if let Some(p) = prev_sig_index(tokens, i)
+                    && tokens[p].kind == TokenKind::Eq
+                    && p == i - 1
+                {
+                    collect_match_arm_bindings(tokens, offset, i, source, result);
+                }
+            }
+            _ => {}
+        }
+        offset += tokens[i].len;
+    }
+}
+
+/// `=>` 回溯：收集 match 臂模式中的绑定名
+///
+/// 从箭头（索引 `arrow`，起点偏移 `arrow_offset`）向左回溯到臂起点
+/// （深度 0 的 `,`/`{`/`;`），区间内标识符经 [`is_pattern_binding`]
+/// 过滤后收为值绑定。`{}`/`()`/`[]` 深度配对处理结构体模式
+/// （`点 { x, y }`）与嵌套模式。
+fn collect_match_arm_bindings(
+    tokens: &[rustc_lexer::Token],
+    arrow_offset: usize,
+    arrow: usize,
+    source: &str,
+    result: &mut DeclaredNames,
+) {
+    // arrow 前一个有意义 token 是 `=`（调用方已确认 `=>` 相邻）
+    let Some(eq) = prev_sig_index(tokens, arrow) else {
+        return;
+    };
+    let mut depth = 0u32;
+    // 反向累计各 token 的起点偏移（tokenize 连续覆盖全源）
+    let mut start = arrow_offset.saturating_sub(tokens[eq].len);
+    for j in (0..eq).rev() {
+        start = start.saturating_sub(tokens[j].len);
+        let kind = tokens[j].kind;
+        match kind {
+            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {}
+            TokenKind::CloseParen | TokenKind::CloseBracket | TokenKind::CloseBrace => depth += 1,
+            TokenKind::OpenParen | TokenKind::OpenBracket => {
+                if depth == 0 {
+                    break; // 模式区间外的括号（异常输入）：保守停止
+                }
+                depth -= 1;
+            }
+            TokenKind::OpenBrace => {
+                if depth == 0 {
+                    break; // match 体（或宏体）的起点
+                }
+                depth -= 1;
+            }
+            TokenKind::Comma | TokenKind::Semi => {
+                if depth == 0 {
+                    break; // 上一臂的分隔或语句边界
+                }
+            }
+            TokenKind::Ident => {
+                let text = &source[start..start + tokens[j].len];
+                if is_pattern_binding(tokens, j, text) {
+                    result.variables.insert(text.to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// 模式内标识符的「值绑定」判定
+///
+/// `mut`/`ref` 修饰符不是名字；`::` 路径段（变体/常量路径）、后跟
+/// `(`/`{`/`[` 的构造路径（`有值(…)`、`点 { … }`）、后跟 `:` 的
+/// 字段名（`x: 甲` 的 `x`，兼作 `::` 前段判定）都不是绑定。
+fn is_pattern_binding(tokens: &[rustc_lexer::Token], i: usize, text: &str) -> bool {
+    if text == "mut" || text == "ref" {
+        return false;
+    }
+    if let Some(n) = next_sig_index(tokens, i) {
+        match tokens[n].kind {
+            TokenKind::Colon
+            | TokenKind::OpenParen
+            | TokenKind::OpenBrace
+            | TokenKind::OpenBracket => return false,
+            _ => {}
+        }
+    }
+    // 前是 `::` 后段（前两个有意义 token 都是 Colon）→ 路径段，不是绑定
+    if let Some(p) = prev_sig_index(tokens, i)
+        && tokens[p].kind == TokenKind::Colon
+        && let Some(pp) = prev_sig_index(tokens, p)
+        && tokens[pp].kind == TokenKind::Colon
+    {
+        return false;
+    }
+    true
+}
+
+/// i 之前（不含 i）第一个有意义 token 的索引（跳过空白/注释）
+fn prev_sig_index(tokens: &[rustc_lexer::Token], i: usize) -> Option<usize> {
+    tokens[..i].iter().rposition(|t| !is_trivia_token(t.kind))
+}
+
+/// i 之后（不含 i）第一个有意义 token 的索引（跳过空白/注释）
+fn next_sig_index(tokens: &[rustc_lexer::Token], i: usize) -> Option<usize> {
+    tokens[i + 1..]
+        .iter()
+        .position(|t| !is_trivia_token(t.kind))
+        .map(|p| p + i + 1)
+}
+
+/// 空白/注释（trivia）：不参与相邻性判断
+fn is_trivia_token(kind: TokenKind) -> bool {
+    matches!(
+        kind,
+        TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
+    )
 }
 
 /// 将源码中的中文别名替换为英文标识符（仅替换标识符 token）
@@ -1218,5 +1477,114 @@ mod tests {
     #[test]
     fn test_empty_map_returns_original() {
         assert_eq!(replace_aliases("任意内容", &HashMap::new()), "任意内容");
+    }
+
+    #[test]
+    fn test_match_arm_binding_preserved() {
+        // match 臂模式中的绑定名是值绑定：`连接`（撞 join 映射键）
+        // 声明与使用处均豁免
+        let map = HashMap::from([("连接".to_string(), "join".to_string())]);
+        let src = "match 甲 { Some(连接) => 连接 + 1, None => 0 }";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn test_match_arm_path_segment_still_replaced() {
+        // 对照：`::` 路径段与后跟 `(` 的构造路径名不是绑定，照常替换
+        let map = HashMap::from([
+            ("连接".to_string(), "join".to_string()),
+            ("数据行".to_string(), "Row".to_string()),
+        ]);
+        let out = replace_aliases("match 甲 { 错误::连接 => 0, 数据行(乙) => 1 }", &map);
+        assert_eq!(out, "match 甲 { 错误::join => 0, Row(乙) => 1 }");
+    }
+
+    #[test]
+    fn test_match_arm_struct_pattern_bindings() {
+        // 结构体模式：路径名（后跟 `{`）照常替换；字段绑定（`x: 值`
+        // 的 `值`）与缩写绑定（`y`）收为值绑定，使用处豁免
+        let map = HashMap::from([
+            ("点".to_string(), "Point".to_string()),
+            ("值".to_string(), "values".to_string()),
+        ]);
+        let src = "match 甲 { 点 { x: 值, y: 乙 } => 值 + 乙 }";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, "match 甲 { Point { x: 值, y: 乙 } => 值 + 乙 }");
+    }
+
+    #[test]
+    fn test_match_arm_field_name_still_replaced() {
+        // 字段名（后跟 `:`）不是绑定：库字段名照常替换
+        let map = HashMap::from([("值".to_string(), "values".to_string())]);
+        let out = replace_aliases("match 甲 { 点 { 值: 乙 } => 乙 }", &map);
+        assert_eq!(out, "match 甲 { 点 { values: 乙 } => 乙 }");
+    }
+
+    #[test]
+    fn test_match_arm_with_guard_binding_preserved() {
+        // 守卫表达式中的名字同为值使用，一并收集
+        let map = HashMap::from([("连接".to_string(), "join".to_string())]);
+        let src = "match 甲 { Some(连接) if 连接 > 0 => 连接, _ => 0 }";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn test_let_destructure_binding_preserved() {
+        // let 解构括号内的名字是绑定：声明与使用处豁免
+        let map = HashMap::from([("连接".to_string(), "join".to_string())]);
+        let src = "let (连接, 乙) = 对; let s = 连接;";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn test_if_let_binding_preserved() {
+        // if-let 与 let 链同形覆盖：`有值(连接)` 内为绑定
+        let map = HashMap::from([("连接".to_string(), "join".to_string())]);
+        let src = "if let Some(连接) = 甲 { let y = 连接; }";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn test_for_pattern_binding_preserved() {
+        // for 模式（解构/引用形式）内的名字是绑定；使用处豁免
+        let map = HashMap::from([
+            ("值".to_string(), "values".to_string()),
+            ("长度".to_string(), "len".to_string()),
+        ]);
+        let src = "for (键, 值) in 映射 { let z = 值; }\nfor &长度 in 长度们 {}";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn test_for_binding_only_until_in() {
+        // `for` 与 `in` 之间的名字是绑定；`in` 之后的迭代源照常替换
+        let map = HashMap::from([
+            ("项".to_string(), "item".to_string()),
+            ("迭代".to_string(), "iter".to_string()),
+        ]);
+        let out = replace_aliases("for 项 in 容器.迭代() { let z = 项; }", &map);
+        assert_eq!(out, "for 项 in 容器.iter() { let z = 项; }");
+    }
+
+    #[test]
+    fn test_impl_for_target_not_treated_as_binding() {
+        // `impl … for 类型 {` 的 for 是 impl 语法：目标类型名照常替换，
+        // 不被当作 for 模式绑定收集
+        let map = HashMap::from([("渲染器".to_string(), "Renderer".to_string())]);
+        let out = replace_aliases("impl 显示 for 渲染器 {}", &map);
+        assert_eq!(out, "impl 显示 for Renderer {}");
+    }
+
+    #[test]
+    fn test_pattern_keyword_without_binding_still_replaced() {
+        // 对照：无模式绑定时，同词在值使用位照常替换
+        let map = HashMap::from([("连接".to_string(), "join".to_string())]);
+        let out = replace_aliases("let y = 连接;", &map);
+        assert_eq!(out, "let y = join;");
     }
 }
