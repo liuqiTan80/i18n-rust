@@ -780,6 +780,14 @@ fn collect_pattern_bindings(
 /// （深度 0 的 `,`/`{`/`;`），区间内标识符经 [`is_pattern_binding`]
 /// 过滤后收为值绑定。`{}`/`()`/`[]` 深度配对处理结构体模式
 /// （`点 { x, y }`）与嵌套模式。
+///
+/// 越界防护（weix-1 #27）：带块臂体（`=> { … }`）的**下一臂**回溯时
+/// 会先遇到上一臂的块闭合 `}`；若不识别，深度失衡后 `,`/`;` 不再
+/// 终止，回溯将穿透上一臂语句，把类型标注（`让 x: T = …` 的 `T`）
+/// 等裸标识符误收为值绑定 → 其全文件豁免替换（`无符号机器整数`
+/// = usize 实测不被翻译，产物 E0425）。块体臂的逗号可省略，其闭合
+/// `}` 即当前臂模式的左边界：识别后立即截止
+/// （见 [`close_brace_ends_arm_body`]）。
 fn collect_match_arm_bindings(
     tokens: &[rustc_lexer::Token],
     arrow_offset: usize,
@@ -799,7 +807,15 @@ fn collect_match_arm_bindings(
         let kind = tokens[j].kind;
         match kind {
             TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {}
-            TokenKind::CloseParen | TokenKind::CloseBracket | TokenKind::CloseBrace => depth += 1,
+            TokenKind::CloseParen | TokenKind::CloseBracket => depth += 1,
+            TokenKind::CloseBrace => {
+                // 上一臂块体闭合即当前臂模式左边界：就此截止，
+                // 不得穿入上一臂体（见函数文档「越界防护」）
+                if depth == 0 && close_brace_ends_arm_body(tokens, j) {
+                    break;
+                }
+                depth += 1;
+            }
             TokenKind::OpenParen | TokenKind::OpenBracket => {
                 if depth == 0 {
                     break; // 模式区间外的括号（异常输入）：保守停止
@@ -826,6 +842,38 @@ fn collect_match_arm_bindings(
             _ => {}
         }
     }
+}
+
+/// `}`（索引 `close`）是否为「臂块体闭合」（`=> { … }` 的收尾）
+///
+/// 判定：向左找配对的 `{`，其前一个有意义 token 是 `=>` 的 `>`
+/// （`Eq`+`Gt` 相邻）则为臂体闭合。结构体模式的 `}`（配对 `{` 前
+/// 是路径名，如 `点 { x }`、`点<T> { x }`）返回 false，照常参与
+/// 深度配对。
+fn close_brace_ends_arm_body(tokens: &[rustc_lexer::Token], close: usize) -> bool {
+    let mut depth = 0u32;
+    let mut k = close;
+    while k > 0 {
+        k -= 1;
+        match tokens[k].kind {
+            TokenKind::CloseBrace => depth += 1,
+            TokenKind::OpenBrace => {
+                if depth == 0 {
+                    // 配对 `{`：前一个有意义 token 是 `=>` 的 `>`？
+                    return prev_sig_index(tokens, k).is_some_and(|p| {
+                        tokens[p].kind == TokenKind::Gt
+                            && prev_sig_index(tokens, p)
+                                .is_some_and(|pp| {
+                                    tokens[pp].kind == TokenKind::Eq && pp == p - 1
+                                })
+                    });
+                }
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 /// 模式内标识符的「值绑定」判定
@@ -1527,6 +1575,31 @@ mod tests {
         // 守卫表达式中的名字同为值使用，一并收集
         let map = HashMap::from([("连接".to_string(), "join".to_string())]);
         let src = "match 甲 { Some(连接) if 连接 > 0 => 连接, _ => 0 }";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn test_match_arm_block_body_does_not_leak_to_next_arm() {
+        // 缺陷回归（weix-1 #27）：带块臂体（`=> { … }`）的下一臂回溯
+        // 曾越过块闭合 `}`，`;` 深度失衡后不再终止 → 穿透上一臂语句，
+        // 把类型标注等裸标识符误收为值绑定（全文件豁免替换）：
+        // `无符号机器整数`（stdlib 别名 = usize）因此不被翻译（E0425）
+        let map = HashMap::from([("无符号机器整数".to_string(), "usize".to_string())]);
+        let src = "match 乙 { Ok(报告值) => { let 库总数: 无符号机器整数 = 报告值; 库总数 } Err(_) => 0 }";
+        let out = replace_aliases(src, &map);
+        assert_eq!(
+            out,
+            "match 乙 { Ok(报告值) => { let 库总数: usize = 报告值; 库总数 } Err(_) => 0 }"
+        );
+    }
+
+    #[test]
+    fn test_match_arm_block_body_bindings_still_preserved() {
+        // 修复不误伤：带块臂体的模式绑定仍被收集（体块 `}` 即模式左界），
+        // 绑定名与使用处照常豁免
+        let map = HashMap::from([("连接".to_string(), "join".to_string())]);
+        let src = "match 甲 { Ok(连接) => { let n = 连接; n } Err(_) => 0 }";
         let out = replace_aliases(src, &map);
         assert_eq!(out, src);
     }
