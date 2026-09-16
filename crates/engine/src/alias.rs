@@ -124,6 +124,7 @@ impl ProjectContext {
                 &macro_map,
                 &derive_map,
                 manager.get_use_defer_words(),
+                manager.get_method_defer_words(),
                 alias_map,
             );
             let declared = collect_declared_names(&lex.output, alias_map);

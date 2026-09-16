@@ -44,6 +44,12 @@ pub struct MappingManager {
     /// 优先（`文件` 宏节为 file、标准库为 File，`使用 标准库::文件系统::文件`
     /// 必须产出 `use std::fs::File`）。构造时一次性生成，转译时直接复用。
     use_defer_words: HashSet<String>,
+    /// 方法调用位的“让位词”：词法层替换值为 Rust 保留关键字（`枚举`→enum、
+    /// `匹配`→match）、而别名表（标准库 + 第三方）中该词另有不同有效词条
+    /// （`枚举`=enumerate、`匹配`=matches）的词。词法转译在方法位（前面是
+    /// `.`）跳过这些词的替换——`.枚举()` 直译会成非法的 `.enum()`，让位后
+    /// 由别名阶段替换为 `.enumerate()`。构造时一次性生成，转译时直接复用。
+    method_defer_words: HashSet<String>,
     /// 教学 lint 已知词表缓存：全部映射表键的并集（关键字/宏/派生/模块路径/
     /// 别名）。供“方法调用位未命中映射表”的易混词提示判定——词表大且
     /// lint 每文件调用，惰性计算一次后复用（映射表构造后不可变）。
@@ -165,11 +171,13 @@ impl MappingManager {
         }
 
         let use_defer_words = Self::build_use_defer_words(&module_path_map, &alias_map);
+        let method_defer_words = Self::build_method_defer_words(&keyword_map, &alias_map);
         Ok(Self {
             keyword_map,
             section_map,
             derive_map,
             use_defer_words,
+            method_defer_words,
             module_path_map,
             alias_map,
             fingerprint_cache: OnceLock::new(),
@@ -243,11 +251,13 @@ impl MappingManager {
         }
 
         let use_defer_words = Self::build_use_defer_words(&module_path_map, &alias_map);
+        let method_defer_words = Self::build_method_defer_words(&keyword_map, &alias_map);
         Ok(Self {
             keyword_map,
             section_map,
             derive_map,
             use_defer_words,
+            method_defer_words,
             module_path_map,
             alias_map,
             fingerprint_cache: OnceLock::new(),
@@ -271,11 +281,13 @@ impl MappingManager {
         alias_map: HashMap<String, String>,
     ) -> Self {
         let use_defer_words = Self::build_use_defer_words(&module_path_map, &alias_map);
+        let method_defer_words = Self::build_method_defer_words(&keyword_map, &alias_map);
         Self {
             keyword_map,
             section_map: HashMap::new(),
             derive_map: HashMap::new(),
             use_defer_words,
+            method_defer_words,
             module_path_map,
             alias_map,
             fingerprint_cache: OnceLock::new(),
@@ -313,6 +325,11 @@ impl MappingManager {
         &self.use_defer_words
     }
 
+    /// 获取方法调用位让位词集合（见字段 `method_defer_words` 说明）
+    pub fn get_method_defer_words(&self) -> &HashSet<String> {
+        &self.method_defer_words
+    }
+
     /// 获取教学 lint 已知词表（见字段 `lint_words_cache` 说明）：
     /// 关键字/宏/派生/模块路径/别名五表键的并集，惰性计算一次后复用。
     pub fn get_lint_words(&self) -> &HashSet<String> {
@@ -339,6 +356,86 @@ impl MappingManager {
             .chain(alias_map.keys())
             .cloned()
             .collect()
+    }
+
+    /// 构建方法调用位让位词集合：词法层替换值为 Rust 保留关键字、且别名表
+    /// 中该词另有不同且有效（非保留字）的词条——仅此冲突类让位，其余词
+    /// （如 `文件`：宏节 file / 别名 File）在方法位保留词法层行为，避免
+    /// 改变本就合法的产物（`.文件()` 依旧是 `.file()`）。
+    fn build_method_defer_words(
+        keyword_map: &HashMap<String, String>,
+        alias_map: &HashMap<String, String>,
+    ) -> HashSet<String> {
+        keyword_map
+            .iter()
+            .filter(|(word, en)| {
+                Self::is_rust_reserved_keyword(en)
+                    && alias_map
+                        .get(*word)
+                        .is_some_and(|alias| alias != *en && !Self::is_rust_reserved_keyword(alias))
+            })
+            .map(|(word, _)| word.clone())
+            .collect()
+    }
+
+    /// Rust 保留关键字（不能用作标识符；`union` 等弱关键字不在列，仍可作
+    /// 方法名）。用于方法位让位词判定：替换值是保留关键字的词在方法位直译
+    /// 必为非法产物（`.enum()`），应让位给别名表。
+    fn is_rust_reserved_keyword(word: &str) -> bool {
+        matches!(
+            word,
+            "abstract"
+                | "as"
+                | "async"
+                | "await"
+                | "become"
+                | "box"
+                | "break"
+                | "const"
+                | "continue"
+                | "crate"
+                | "do"
+                | "dyn"
+                | "else"
+                | "enum"
+                | "extern"
+                | "false"
+                | "final"
+                | "fn"
+                | "for"
+                | "if"
+                | "impl"
+                | "in"
+                | "let"
+                | "loop"
+                | "macro"
+                | "match"
+                | "mod"
+                | "move"
+                | "mut"
+                | "override"
+                | "priv"
+                | "pub"
+                | "ref"
+                | "return"
+                | "self"
+                | "Self"
+                | "static"
+                | "struct"
+                | "super"
+                | "trait"
+                | "true"
+                | "try"
+                | "type"
+                | "typeof"
+                | "unsafe"
+                | "unsized"
+                | "use"
+                | "virtual"
+                | "where"
+                | "while"
+                | "yield"
+        )
     }
 
     /// 翻译语境指纹（惰性计算并缓存）：任一映射表内容变化时指纹变化。
@@ -471,6 +568,32 @@ mod tests {
         // 宏集合（仅宏节）
         assert!(manager.get_macro_names().contains("打印行"));
         assert!(!manager.get_macro_names().contains("函数"));
+        // 方法位让位词：合成包无「保留字替换值 + 别名表另有有效词条」的冲突词
+        assert!(manager.get_method_defer_words().is_empty());
+    }
+
+    #[test]
+    fn test_build_method_defer_words() {
+        // 保留字替换值 + 别名表另有不同有效词条 → 让位；
+        // 替换值非保留字、别名表无词条、别名词条同为保留字 → 均不让位
+        let keyword_map = HashMap::from([
+            ("枚举".to_string(), "enum".to_string()),
+            ("函数".to_string(), "fn".to_string()),
+            ("文件".to_string(), "file".to_string()),
+            ("让".to_string(), "let".to_string()),
+            ("类型".to_string(), "type".to_string()),
+        ]);
+        let alias_map = HashMap::from([
+            ("枚举".to_string(), "enumerate".to_string()),
+            ("函数".to_string(), "Fn".to_string()),
+            ("文件".to_string(), "File".to_string()),
+            ("类型".to_string(), "enum".to_string()),
+        ]);
+        let words = MappingManager::build_method_defer_words(&keyword_map, &alias_map);
+        assert_eq!(
+            words,
+            HashSet::from(["枚举".to_string(), "函数".to_string()])
+        );
     }
 
     #[test]

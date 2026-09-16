@@ -64,6 +64,7 @@ pub fn transpile_source_with_macros(
         &macro_map,
         &HashMap::new(),
         &HashSet::new(),
+        &HashSet::new(),
         &HashMap::new(),
     )
     .output
@@ -84,6 +85,7 @@ pub fn transpile_source_with_macro_map(
         macro_map,
         derive_map,
         &HashSet::new(),
+        &HashSet::new(),
         &HashMap::new(),
     )
     .output
@@ -97,6 +99,12 @@ pub fn transpile_source_with_macro_map(
 /// [`crate::mapping_manager::MappingManager::get_use_defer_words`]）。
 /// use 段内命中该集合的词跳过关键字/宏替换，原样保留给后续阶段处理。
 ///
+/// `method_defer`：方法位让位词集合（见
+/// [`crate::mapping_manager::MappingManager::get_method_defer_words`]）——
+/// 词法替换值是保留关键字的词（`枚举`→enum）在方法位（前面是 `.`）原样
+/// 保留：`.枚举()` 直译会成非法的 `.enum()`，让位后由别名阶段替换为
+/// `.enumerate()`。
+///
 /// `literal_suffix_map`：数字字面量后缀的兜底查表（标准库标识符映射，见
 /// [`crate::mapping_manager::MappingManager::get_alias_map`]）——标准库层
 /// 数值类型词（如 `无符号机器整数` = usize）不在 keyword_map，黏连数字后
@@ -107,6 +115,7 @@ pub fn transpile_with_map(
     macro_map: &HashMap<String, String>,
     derive_map: &HashMap<String, String>,
     defer_in_use: &HashSet<String>,
+    method_defer: &HashSet<String>,
     literal_suffix_map: &HashMap<String, String>,
 ) -> TranspileResult {
     // 收集所有 token 以便前瞻/后顾
@@ -213,6 +222,12 @@ pub fn transpile_with_map(
                     };
                     let replacement = if in_use_stmt && defer_in_use.contains(raw_name) {
                         // use 段让位：保持原文，由模块路径/别名阶段替换
+                        text.to_string()
+                    } else if method_defer.contains(raw_name)
+                        && is_preceded_by_dot(&token_stream, i)
+                    {
+                        // 方法位让位：替换值是保留关键字，直译非法（`.枚举()` →
+                        // `.enum()`）；保持原文由别名阶段替换为有效词条（enumerate）
                         text.to_string()
                     } else if let Some(en) = derive_replacement {
                         en
@@ -975,6 +990,7 @@ mod tests {
             &macros,
             &HashMap::new(),
             &HashSet::new(),
+            &HashSet::new(),
             &HashMap::new(),
         );
         assert_eq!(
@@ -993,6 +1009,7 @@ mod tests {
             &map,
             &macros,
             &HashMap::new(),
+            &HashSet::new(),
             &HashSet::new(),
             &HashMap::new(),
         );
@@ -1042,6 +1059,7 @@ mod tests {
             &map,
             &empty,
             &HashMap::new(),
+            &HashSet::new(),
             &HashSet::new(),
             &HashMap::new(),
         );
@@ -1250,6 +1268,7 @@ mod tests {
             &HashMap::new(),
             &HashMap::new(),
             &defer,
+            &HashSet::new(),
             &HashMap::new(),
         )
         .output;
@@ -1261,10 +1280,46 @@ mod tests {
             &HashMap::new(),
             &HashMap::new(),
             &HashSet::new(),
+            &HashSet::new(),
             &HashMap::new(),
         )
         .output;
         assert_eq!(out_no_defer, "use 标准库::文件系统::file as 库文件;");
+    }
+
+    /// 方法位让位：词法替换值是保留关键字的词（`枚举`→enum）在 `.` 后
+    /// 原样保留（交别名阶段替成 enumerate）；未命中让位集合时照旧替换
+    #[test]
+    fn test_method_pos_defers_conflicting_word() {
+        let map = HashMap::from([
+            ("让".to_string(), "let".to_string()),
+            ("迭代".to_string(), "iter".to_string()),
+            ("枚举".to_string(), "enum".to_string()),
+        ]);
+        let method_defer = HashSet::from(["枚举".to_string()]);
+        let out = transpile_with_map(
+            "让 n = 列.迭代().枚举();",
+            &map,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashSet::new(),
+            &method_defer,
+            &HashMap::new(),
+        )
+        .output;
+        assert_eq!(out, "let n = 列.iter().枚举();");
+        // 对照组：无让位集合时方法位照旧替换（旧行为，验证让位集合确为开关）
+        let out_no_defer = transpile_with_map(
+            "让 n = 列.迭代().枚举();",
+            &map,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashSet::new(),
+            &HashSet::new(),
+            &HashMap::new(),
+        )
+        .output;
+        assert_eq!(out_no_defer, "let n = 列.iter().enum();");
     }
 
     /// 数字与中文类型黏连（`0无符号微整数`）：rustc_lexer 视为单个
@@ -1280,6 +1335,7 @@ mod tests {
             &empty,
             &empty,
             &HashSet::new(),
+            &HashSet::new(),
             &empty,
         );
         assert_eq!(result.output, "vec![0u8; 16]");
@@ -1293,6 +1349,7 @@ mod tests {
             &empty,
             &empty,
             &HashSet::new(),
+            &HashSet::new(),
             &empty,
         )
         .output;
@@ -1303,6 +1360,7 @@ mod tests {
             &map,
             &empty,
             &empty,
+            &HashSet::new(),
             &HashSet::new(),
             &empty,
         )
@@ -1323,6 +1381,7 @@ mod tests {
             &empty,
             &empty,
             &HashSet::new(),
+            &HashSet::new(),
             &stdlib,
         );
         assert_eq!(result.output, "let x = 0usize;");
@@ -1332,8 +1391,16 @@ mod tests {
         // 两表同词冲突：keyword_map 优先（匹配其它阶段的查找次序）
         let map = HashMap::from([("微整数".to_string(), "u8".to_string())]);
         let fallback = HashMap::from([("微整数".to_string(), "usize".to_string())]);
-        let out =
-            transpile_with_map("0微整数", &map, &empty, &empty, &HashSet::new(), &fallback).output;
+        let out = transpile_with_map(
+            "0微整数",
+            &map,
+            &empty,
+            &empty,
+            &HashSet::new(),
+            &HashSet::new(),
+            &fallback,
+        )
+        .output;
         assert_eq!(out, "0u8");
     }
 }

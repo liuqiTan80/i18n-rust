@@ -205,6 +205,7 @@ fn transpile_pipeline_inner(
         &macro_map,
         &derive_map,
         manager.get_use_defer_words(),
+        manager.get_method_defer_words(),
         manager.get_alias_map(),
     );
 
@@ -344,10 +345,14 @@ mod tests {
 ["声明"]
 "函数" = "fn"
 "让" = "let"
+"枚举" = "enum"
 ["类型"]
 "整数" = "i32"
 ["宏"]
 "打印行" = "println"
+"文件" = "file"
+["标准库成员"]
+"迭代" = "iter"
 "#;
         let module_paths_toml = r#"
 ["模块路径"]
@@ -358,6 +363,7 @@ mod tests {
 "线程" = "std::thread"
 ["标识符"]
 "字符串" = "String"
+"枚举" = "enumerate"
 "#;
         let third_party_data = [(
             "测试库.toml",
@@ -417,6 +423,23 @@ mod tests {
 
         assert_eq!(cache.current_count(), 2);
         assert_eq!(cache.miss_count(), 2);
+    }
+
+    #[test]
+    fn test_pipeline_method_position_defers_reserved_word() {
+        // 方法位让位（`枚举` 词法值为保留字 enum、别名表为 enumerate）：
+        // 完整管线产出 `.iter().enumerate()`（此前为 `.iter().enum()` 编译失败）
+        let manager = create_manager();
+        let mut cache = new_cache();
+        let source = "函数 主函数() { 让 n = 甲.迭代().枚举(); }";
+        let out = transpile_source(source, &manager, &mut cache).expect("翻译失败");
+        assert!(out.contains(".iter().enumerate()"), "实际输出：{}", out);
+
+        // 替换值非保留字的词不受让位影响：`.文件()` 照旧 `.file()`（宏节词表）
+        let mut cache = new_cache();
+        let out = transpile_source("函数 主函数() { 让 f = 甲.文件(); }", &manager, &mut cache)
+            .expect("翻译失败");
+        assert!(out.contains(".file()"), "实际输出：{}", out);
     }
 
     #[test]
@@ -697,6 +720,55 @@ mod tests {
             .expect("语言包应能解析");
             let cycles = manager.find_mapping_cycles();
             assert!(cycles.is_empty(), "{code} 语言包存在循环映射：{cycles:?}");
+        }
+    }
+
+    /// 门禁：内置语言包的「方法位让位」词在完整管线中必须落到别名层词条
+    ///
+    /// 词法替换值为保留关键字的词（`枚举`→enum）在方法位直译非法
+    /// （`.枚举()` → `.enum()`）；让位机制应将其保留给别名阶段
+    /// （`.enumerate()`）。本测试对每个语言包在每个让位词上验证管线闭环，
+    /// 不硬编码具体词汇——新增语言包自动纳入守护。
+    #[test]
+    fn test_builtin_lang_packs_method_defer_words_reach_alias_stage() {
+        for code in 语言::builtin_language_codes() {
+            let files = 语言::builtin_lang_files(code);
+            let get = |name: &str| {
+                files
+                    .iter()
+                    .find(|(n, _)| *n == name)
+                    .map(|(_, c)| *c)
+                    .unwrap_or("")
+            };
+            let third_party: Vec<(&str, &str)> = files
+                .iter()
+                .filter(|(n, _)| n.starts_with("crates/"))
+                .map(|(n, c)| (*n, *c))
+                .collect();
+            let manager = mapping_manager::MappingManager::load_from_builtin(
+                get("keywords.toml"),
+                get("module_paths.toml"),
+                get("stdlib.toml"),
+                &third_party,
+            )
+            .expect("语言包应能解析");
+
+            let mut cache = new_cache();
+            for word in manager.get_method_defer_words() {
+                let target = manager
+                    .get_alias_map()
+                    .get(word)
+                    .expect("让位词应有别名词条");
+                let source = format!("函数 主函数() {{ 让 x = 甲.{}(); }}", word);
+                let out = transpile_source(&source, &manager, &mut cache).expect("翻译失败");
+                assert!(
+                    out.contains(&format!(".{}()", target)),
+                    "{code}: `.{}()` 应经让位落到别名词条 `.{}()`，实际输出：{}",
+                    word,
+                    target,
+                    out
+                );
+            }
         }
     }
 
