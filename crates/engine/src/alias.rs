@@ -863,9 +863,7 @@ fn close_brace_ends_arm_body(tokens: &[rustc_lexer::Token], close: usize) -> boo
                     return prev_sig_index(tokens, k).is_some_and(|p| {
                         tokens[p].kind == TokenKind::Gt
                             && prev_sig_index(tokens, p)
-                                .is_some_and(|pp| {
-                                    tokens[pp].kind == TokenKind::Eq && pp == p - 1
-                                })
+                                .is_some_and(|pp| tokens[pp].kind == TokenKind::Eq && pp == p - 1)
                     });
                 }
                 depth -= 1;
