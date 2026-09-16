@@ -292,6 +292,7 @@
 "lint_untyped_let" = "Zeile {}, Spalte {}: `让` ohne Typannotation – versuche, den Typ explizit anzugeben (Lernhinweis)"
 "lint_magic_number" = "Zeile {}, Spalte {}: magische Zahl {} – benenne sie als Konstante (Lernhinweis)"
 "lint_deep_indent" = "Zeile {}: zu tief verschachtelt ({} Leerzeichen Einrückung) – ziehe das Auslagern einer Funktion in Erwägung (Lernhinweis)"
+"lint_confusable_method" = "Zeile {}, Spalte {}: Methodenname „{}“ nicht erfasst – meinten Sie „{}“? (Lernhinweis)"
 "first_run_hello" = "Willkommen bei rzc – lerne Rust in deiner Muttersprache!"
 "first_run_rustc_missing" = "rustc wurde nicht gefunden. Installiere die Rust-Toolchain (https://rustup.rs) oder führe `rzc install toolchain` für die integrierte Toolchain aus."
 "first_run_next_steps" = "Nächste Schritte: `rzc doctor` Umgebung prüfen · `rzc init` Projekt anlegen · `rzc install lsp` für VS-Code-Vervollständigung"

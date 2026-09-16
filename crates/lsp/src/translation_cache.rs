@@ -458,6 +458,12 @@ impl TranslationCache {
         &self.manager.alias_map
     }
 
+    /// 获取教学 lint 已知词表的引用（全部映射表键的并集，
+    /// 供易混方法名提示判定；manager 内惰性缓存一次）
+    pub fn lint_words(&self) -> &HashSet<String> {
+        self.manager.get_lint_words()
+    }
+
     /// 获取合并反向表的引用（英文 → 母语，关键字优先于别名）
     ///
     /// 构造时预构建，供 ResponseMapper 共用，避免重复构建。

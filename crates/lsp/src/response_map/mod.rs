@@ -67,6 +67,11 @@ impl ResponseMapper {
         self.cache.query_original(uri)
     }
 
+    /// 获取教学 lint 已知词表（转发 TranslationCache，易混方法名提示用）
+    pub fn lint_words(&self) -> &std::collections::HashSet<String> {
+        self.cache.lint_words()
+    }
+
     /// 将虚拟 URI 替换为原始 URI
     pub fn restore_uri(&self, uri: &str) -> String {
         if let Some(entry) = self.cache.query_by_virtual_uri(uri) {

@@ -58,7 +58,15 @@ pub fn transpile_source_with_macros(
             )
         })
         .collect();
-    transpile_with_map(source, keyword_map, &macro_map, &HashMap::new()).output
+    transpile_with_map(
+        source,
+        keyword_map,
+        &macro_map,
+        &HashMap::new(),
+        &HashSet::new(),
+        &HashMap::new(),
+    )
+    .output
 }
 
 /// 同 [`transpile_source_with_macros`]，但宏名英文替换来自宏映射表
@@ -70,17 +78,36 @@ pub fn transpile_source_with_macro_map(
     macro_map: &HashMap<String, String>,
     derive_map: &HashMap<String, String>,
 ) -> String {
-    transpile_with_map(source, keyword_map, macro_map, derive_map).output
+    transpile_with_map(
+        source,
+        keyword_map,
+        macro_map,
+        derive_map,
+        &HashSet::new(),
+        &HashMap::new(),
+    )
+    .output
 }
 
 /// 同 [`transpile_source_with_macros`]，同时产出源映射（被替换标识符的源偏移与翻译前后文本）
 ///
 /// 源映射在标识符实际被替换时记录；宏感叹号自动补充不产生映射条目。
+///
+/// `defer_in_use`：use 语句内的让位词集合（模块路径/别名映射键，见
+/// [`crate::mapping_manager::MappingManager::get_use_defer_words`]）。
+/// use 段内命中该集合的词跳过关键字/宏替换，原样保留给后续阶段处理。
+///
+/// `literal_suffix_map`：数字字面量后缀的兜底查表（标准库标识符映射，见
+/// [`crate::mapping_manager::MappingManager::get_alias_map`]）——标准库层
+/// 数值类型词（如 `无符号机器整数` = usize）不在 keyword_map，黏连数字后
+/// 同样需要拆分替换。
 pub fn transpile_with_map(
     source: &str,
     keyword_map: &HashMap<String, String>,
     macro_map: &HashMap<String, String>,
     derive_map: &HashMap<String, String>,
+    defer_in_use: &HashSet<String>,
+    literal_suffix_map: &HashMap<String, String>,
 ) -> TranspileResult {
     // 收集所有 token 以便前瞻/后顾
     let token_stream: Vec<_> = tokenize(source).collect();
@@ -104,6 +131,11 @@ pub fn transpile_with_map(
     // 派生参数态：`#[派生(` 之后的参数（直到 `)`）内的标识符
     // 优先查派生特征映射（`克隆` → `Clone`），避免与方法名别名（小写 clone）冲突
     let mut in_derive_params = false;
+    // use 语句态：use 段内的路径段命中"让位词"（模块路径/别名映射键）时
+    // 跳过关键字/宏替换，交由后续模块路径与别名阶段按标准库语义替换——
+    // 同名词在宏表与标准库表重复时 use 段内标准库优先（`文件`=file/File，
+    // `使用 标准库::文件系统::文件` 必须产出 `use std::fs::File` 而非小写 file）
+    let mut in_use_stmt = false;
 
     for i in 0..token_stream.len() {
         let token = &token_stream[i];
@@ -124,6 +156,7 @@ pub fn transpile_with_map(
                     && !is_preceded_by_double_colon(&token_stream, i)
                     && !is_preceded_by_dot(&token_stream, i)
                     && !is_attribute_name(&token_stream, i)
+                    && !(in_use_stmt && defer_in_use.contains(raw_name))
                     && let Some(next_kind) = find_next_non_ws_kind(&token_stream, i + 1)
                 {
                     let is_bang = matches!(next_kind, TokenKind::Not);
@@ -178,7 +211,10 @@ pub fn transpile_with_map(
                     } else {
                         None
                     };
-                    let replacement = if let Some(en) = derive_replacement {
+                    let replacement = if in_use_stmt && defer_in_use.contains(raw_name) {
+                        // use 段让位：保持原文，由模块路径/别名阶段替换
+                        text.to_string()
+                    } else if let Some(en) = derive_replacement {
                         en
                     } else if let Some(inner) = text.strip_prefix("r#") {
                         keyword_map
@@ -222,6 +258,10 @@ pub fn transpile_with_map(
                     }
                     output.push_str(final_replacement);
                 }
+                // use 语句态推进：`使用`/`use` 词开启让位态，由 `;` 结束
+                if text == "use" || text == "使用" {
+                    in_use_stmt = true;
+                }
             }
             TokenKind::OpenParen => {
                 // 派生属性：`派生`（转译为 derive）后跟 `(` 进入参数态
@@ -236,6 +276,39 @@ pub fn transpile_with_map(
                 // 离开派生参数态
                 in_derive_params = false;
                 output.push_str(text);
+            }
+            // use 语句以分号结束，退出让位态
+            TokenKind::Semi => {
+                in_use_stmt = false;
+                output.push_str(text);
+            }
+            // 数字字面量：数字与中文类型"黏连"（`0无符号微整数`）时，
+            // rustc_lexer 把整串（含 Unicode 后缀）切为单个 Literal token，
+            // 后缀是完整映射词（keywords 表或标准库表：`无符号微整数` → u8、
+            // `无符号机器整数` → usize）时替换后缀（产出 `0u8`/`0usize`）；
+            // 未命中保持原样（编译错误交由编译器报告）
+            TokenKind::Literal { suffix_start, .. } => {
+                let suffix = &text[suffix_start..];
+                if !suffix.is_empty()
+                    && !suffix.is_ascii()
+                    && let Some(en) = keyword_map
+                        .get(suffix)
+                        .or_else(|| literal_suffix_map.get(suffix))
+                {
+                    let number = &text[..suffix_start];
+                    let replaced = format!("{}{}", number, en);
+                    let entry = SourceMapEntry::new(
+                        current_offset + suffix_start,
+                        suffix.len(),
+                        suffix,
+                        en,
+                    );
+                    source_map.push(entry.clone());
+                    final_edits.push(entry);
+                    output.push_str(&replaced);
+                } else {
+                    output.push_str(text);
+                }
             }
             // 其他所有 token 直接原样输出
             _ => output.push_str(text),
@@ -896,7 +969,14 @@ mod tests {
         let map = create_test_map();
         let macros = create_macro_map();
         let source = "函数 主函数() { 让 x = 5; 打印行(\"你好\") }";
-        let result = transpile_with_map(source, &map, &macros, &HashMap::new());
+        let result = transpile_with_map(
+            source,
+            &map,
+            &macros,
+            &HashMap::new(),
+            &HashSet::new(),
+            &HashMap::new(),
+        );
         assert_eq!(
             result.output,
             transpile_source_with_macro_map(source, &map, &macros, &HashMap::new())
@@ -908,7 +988,14 @@ mod tests {
         let map = create_test_map();
         let macros = create_macro_map();
         let source = "函数 主函数() { 让 x = 5; 打印行(\"你好\") }";
-        let result = transpile_with_map(source, &map, &macros, &HashMap::new());
+        let result = transpile_with_map(
+            source,
+            &map,
+            &macros,
+            &HashMap::new(),
+            &HashSet::new(),
+            &HashMap::new(),
+        );
 
         // 函数/让/打印行 被替换，主函数 未命中映射不记录
         let fn_entry = result
@@ -950,7 +1037,14 @@ mod tests {
         map.insert("匹配".to_string(), "match".to_string());
         let empty = HashMap::new();
         let source = "让 r#匹配 = 1;";
-        let result = transpile_with_map(source, &map, &empty, &HashMap::new());
+        let result = transpile_with_map(
+            source,
+            &map,
+            &empty,
+            &HashMap::new(),
+            &HashSet::new(),
+            &HashMap::new(),
+        );
         assert_eq!(result.output, "let r#match = 1;");
         let entry = result
             .source_map
@@ -1138,5 +1232,108 @@ mod tests {
             ),
             "宏规则 创建向量 { () => { } }"
         );
+    }
+
+    /// use 段让位：`文件` 同时在宏表（file）与让位集合（标准库 File）中时，
+    /// use 段内跳过词法替换（交后续模块路径/别名阶段处理）；
+    /// 普通代码位置的 `文件!` 宏调用照常替换
+    #[test]
+    fn test_use_stmt_defers_conflicting_word() {
+        let map = HashMap::from([
+            ("使用".to_string(), "use".to_string()),
+            ("文件".to_string(), "file".to_string()),
+        ]);
+        let defer = HashSet::from(["文件".to_string()]);
+        let out = transpile_with_map(
+            "使用 标准库::文件系统::文件 as 库文件;\n文件!()",
+            &map,
+            &HashMap::new(),
+            &HashMap::new(),
+            &defer,
+            &HashMap::new(),
+        )
+        .output;
+        assert_eq!(out, "use 标准库::文件系统::文件 as 库文件;\nfile!()");
+        // 对照组：无让位集合时 use 段内照旧替换（旧行为，验证让位集合确为开关）
+        let out_no_defer = transpile_with_map(
+            "使用 标准库::文件系统::文件 as 库文件;",
+            &map,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashSet::new(),
+            &HashMap::new(),
+        )
+        .output;
+        assert_eq!(out_no_defer, "use 标准库::文件系统::file as 库文件;");
+    }
+
+    /// 数字与中文类型黏连（`0无符号微整数`）：rustc_lexer 视为单个
+    /// Literal token，后缀命中映射表时替换（→ `0u8`）；未命中/ASCII 后缀原样
+    #[test]
+    fn test_number_literal_with_chinese_suffix() {
+        let map = HashMap::from([("无符号微整数".to_string(), "u8".to_string())]);
+        let empty = HashMap::new();
+        // 后缀命中：替换为英文数值类型，并记录编辑条目（仅后缀部分）
+        let result = transpile_with_map(
+            "vec![0无符号微整数; 16]",
+            &map,
+            &empty,
+            &empty,
+            &HashSet::new(),
+            &empty,
+        );
+        assert_eq!(result.output, "vec![0u8; 16]");
+        assert_eq!(result.source_map.len(), 1);
+        assert_eq!(result.source_map[0].original, "无符号微整数");
+        assert_eq!(result.source_map[0].replacement, "u8");
+        // 后缀未命中：原样保留（编译错误交给编译器）
+        let out = transpile_with_map(
+            "let x = 0未知词;",
+            &map,
+            &empty,
+            &empty,
+            &HashSet::new(),
+            &empty,
+        )
+        .output;
+        assert_eq!(out, "let x = 0未知词;");
+        // ASCII 后缀不受影响
+        let out = transpile_with_map(
+            "let x = 0u8;",
+            &map,
+            &empty,
+            &empty,
+            &HashSet::new(),
+            &empty,
+        )
+        .output;
+        assert_eq!(out, "let x = 0u8;");
+    }
+
+    /// 标准库层数值类型词（`无符号机器整数` = usize，不在 keyword_map）
+    /// 黏连数字后由兜底表拆分：`0无符号机器整数` → `0usize`；
+    /// 两表同词冲突时 keyword_map 优先
+    #[test]
+    fn test_number_literal_suffix_falls_back_to_stdlib_map() {
+        let empty = HashMap::new();
+        let stdlib = HashMap::from([("无符号机器整数".to_string(), "usize".to_string())]);
+        let result = transpile_with_map(
+            "let x = 0无符号机器整数;",
+            &empty,
+            &empty,
+            &empty,
+            &HashSet::new(),
+            &stdlib,
+        );
+        assert_eq!(result.output, "let x = 0usize;");
+        assert_eq!(result.source_map.len(), 1);
+        assert_eq!(result.source_map[0].original, "无符号机器整数");
+        assert_eq!(result.source_map[0].replacement, "usize");
+        // 两表同词冲突：keyword_map 优先（匹配其它阶段的查找次序）
+        let map = HashMap::from([("微整数".to_string(), "u8".to_string())]);
+        let fallback = HashMap::from([("微整数".to_string(), "usize".to_string())]);
+        let out =
+            transpile_with_map("0微整数", &map, &empty, &empty, &HashSet::new(), &fallback).output;
+        assert_eq!(out, "0u8");
     }
 }

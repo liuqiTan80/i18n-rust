@@ -6,7 +6,7 @@
 use clap::{FromArgMatches, Parser, Subcommand};
 use i18n_rust_engine::cache::TranslationCache;
 use i18n_rust_engine::mapping_manager::MappingManager;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -2139,7 +2139,11 @@ fn transpile_project_files(
                             .unwrap_or_default()
                             .to_string_lossy()
                             .to_string();
-                        emit_teaching_warnings_for_file(&source, &display_name);
+                        emit_teaching_warnings_for_file(
+                            &source,
+                            &display_name,
+                            manager.get_lint_words(),
+                        );
                         cache
                             .lock()
                             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -2170,7 +2174,7 @@ fn transpile_project_files(
 /// 多文件项目中项目内文件分散在多个方言文件，裸行列无法定位具体文件；
 /// 入口文件的告警仍由转译管线直接输出（裸行列即命令传入的入口文件）。
 /// 时机与转译一致（仅缓存未命中时输出），静默管线保证不重复输出。
-fn emit_teaching_warnings_for_file(source: &str, display_name: &str) {
+fn emit_teaching_warnings_for_file(source: &str, display_name: &str, lint_words: &HashSet<String>) {
     for warning in i18n_rust_engine::unicode_confusion::check_unicode_confusion(source) {
         i18n_rust_engine::log_warn!(
             "unicode_confusion",
@@ -2183,7 +2187,7 @@ fn emit_teaching_warnings_for_file(source: &str, display_name: &str) {
         i18n_rust_engine::log_warn!("fullwidth", "{}：{}", display_name, warning.format());
     }
     if i18n_rust_engine::lint::teaching_lint_enabled() {
-        for warning in i18n_rust_engine::lint::lint_teaching(source) {
+        for warning in i18n_rust_engine::lint::lint_teaching_with_words(source, lint_words) {
             i18n_rust_engine::log_warn!("lint", "{}：{}", display_name, warning.format());
         }
     }

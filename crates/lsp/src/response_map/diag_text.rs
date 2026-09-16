@@ -93,7 +93,11 @@ fn diag_phrase_replacements() -> &'static Vec<(String, String)> {
             ("mismatched types", ui.t("lsp_phrase_mismatched_types")),
             ("type mismatch", ui.t("lsp_phrase_type_mismatch")),
             ("expected", ui.t("lsp_phrase_expected")),
-            ("found", ui.t("lsp_phrase_found")),
+            // "found" 仅在类型不匹配场景（"expected ..., found ..."）译为
+            // 「实际为」：以带逗号的长键限定语境——裸词 "found" 会把 E0599 的
+            // "no method named ... found for struct ..." 误译为「实际为」
+            //（"找到"义），也会与 "method not found" 变体相互干扰
+            (", found ", format!("，{} ", ui.t("lsp_phrase_found"))),
             ("unused variable", ui.t("lsp_phrase_unused_variable")),
             ("unused import", ui.t("lsp_phrase_unused_import")),
             ("cannot borrow", ui.t("lsp_phrase_cannot_borrow")),
@@ -118,7 +122,9 @@ fn diag_phrase_replacements() -> &'static Vec<(String, String)> {
             replacements.push((en.to_string(), localized));
         }
         // 长键优先：按键长降序应用，避免短串先替换打碎长短语
-        //（如 "found" 先于 "file not found" 会把后者拆成 "file not 实际为"）
+        //（如 "found" 先于 "file not found" 会把后者拆成 "file not 实际为"）。
+        // 语境冲突已从源头消解（裸词 "found" 改为 ", found " 语境键），
+        // 排序仍作为一般性防御保留。
         replacements.sort_by_key(|a| std::cmp::Reverse(a.0.len()));
         replacements
     })

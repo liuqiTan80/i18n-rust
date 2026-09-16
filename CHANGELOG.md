@@ -5,6 +5,24 @@
 
 ## [Unreleased]
 
+### 新增
+- engine/cli/lsp：教学 lint 第 4 条规则「易混方法名」——方法调用位未命中映射表的
+  长中文串（≥2 字）存在编辑距离 ≤1 的相近词时提示（`.拉平()` → 建议「展平」；
+  词表为关键字/宏/派生/模块路径/别名五表键并集）；CLI 与 IDE 诊断同步提示，
+  `--no-lint` 可关闭（weix-1 #14）
+- 10 个内置语言包（zh/ja/ko/ru/de/fr/es/pt/ar/hi）新增 `lint_confusable_method`
+  UI 词条
+
+### 修复
+- engine：use 段内宏表词与标准库表冲突时让位——`使用 标准库::文件系统::文件 as 库文件;`
+  产出 `use std::fs::File as 库文件;`（宏表无位置豁免，此前 `文件` 在 use 段被
+  译成小写 `file` 导致编译失败）（weix-1 #16）
+- engine：数字与中文类型黏连的拆分查表补齐标准库层——`0无符号机器整数` 产出
+  `0usize`（此前仅 keywords 层词生效，如 `0无符号微整数` → `0u8`）（weix-1 #17）
+- lsp：诊断消息 "found" 改为语境键——仅类型不匹配（`expected …, found …`）的
+  `", found "` 译为「实际为」，E0599 的 `no method named … found for struct …`
+  不再出现「实际为」误译
+
 ## [0.7.3] - 2026-09-16
 
 ### 新增

@@ -963,3 +963,31 @@ fn test_translate_diagnostic_skips_backtick_content() {
     // 反引号外的短语已被翻译（不再含英文原短语）
     assert!(!translated.contains("cannot find value"));
 }
+
+/// E0599（no method named ... found for ...）不得把 "found" 误译为「实际为」
+///
+/// 回归：裸词 "found" 替换会把 "no method named `X` found for struct `Y`"
+/// 产出 "没有名为 `X` 实际为 for struct `Y`"（"找到"义被误译），
+/// 并与 "method not found ..." 变体相互干扰。现改为语境键 ", found "。
+/// 本测试在所有路径（消息表命中/轻量兜底）下均不得出现「实际为」。
+#[test]
+fn test_translate_diagnostic_no_method_named_not_misleading() {
+    let t = translate_diagnostic_message(
+        "no method named `拉平` found for struct `Vec<i32>` in the current scope",
+    );
+    assert!(!t.contains("实际为"), "{t}");
+    let t2 = translate_diagnostic_message("method not found in `Vec<i32>`");
+    assert!(!t2.contains("实际为"), "{t2}");
+}
+
+/// E0308（expected ..., found ...）保留「实际为」翻译（语境键 ", found " 生效）
+///
+/// 轻量兜底路径（测试环境未初始化消息表）：expected→期望、
+/// ", found "→"，实际为 "。
+#[test]
+fn test_translate_diagnostic_mismatch_keeps_found_phrase() {
+    let t = translate_diagnostic_message("mismatched types: expected `char`, found `&str`");
+    assert!(t.contains("实际为"), "{t}");
+    // 反引号内类型名保留
+    assert!(t.contains("`char`") && t.contains("`&str`"), "{t}");
+}

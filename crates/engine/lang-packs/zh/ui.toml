@@ -285,6 +285,7 @@
 "lint_untyped_let" = "第 {} 行第 {} 列：`让` 未标注类型，试试显式写出类型（教学提示）"
 "lint_magic_number" = "第 {} 行第 {} 列：魔法数字「{}」，建议命名常量（教学提示）"
 "lint_deep_indent" = "第 {} 行：嵌套过深（{} 个空格缩进），建议拆分函数（教学提示）"
+"lint_confusable_method" = "第 {} 行第 {} 列：方法名「{}」未收录（将原样保留），是否想写「{}」？（教学提示）"
 "first_run_hello" = "欢迎使用 rzc——用母语学习 Rust 的编译工具！"
 "first_run_rustc_missing" = "未检测到 rustc 编译器。请安装 Rust 工具链（访问 https://rustup.rs），或执行 `rzc install toolchain` 使用内置工具链。"
 "first_run_next_steps" = "下一步：`rzc doctor` 检查环境 · `rzc init` 创建项目 · `rzc install lsp` 为 VS Code 提供补全诊断"

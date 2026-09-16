@@ -6,6 +6,8 @@
 // - 未标注类型：`让 x = 5;` 缺少类型注解（类型系统教学）
 // - 魔法数字：非平凡数字字面量（命名常量教学）
 // - 嵌套过深：代码行缩进过深（重构教学，每文件仅首个）
+// - 易混方法名：方法调用位未命中映射表且与表内词近似的长中文串
+//   （如 `.拉平()` 应为 `.展平()`，编辑距离 ≤1 才提示以降噪）
 //
 // 行注释含「教学忽略」时整行跳过（教师可标注故意不修的示例）：
 // `让 x = 5;  // 教学忽略` 不产生任何教学警告。
@@ -43,6 +45,8 @@ pub enum LintKind {
     MagicNumber,
     /// 代码行嵌套过深（建议拆分函数）
     DeepIndent,
+    /// 方法调用位的长中文串未命中映射表且与表内词近似（疑似笔误）
+    ConfusableMethod,
 }
 
 /// 单个教学 lint 警告：位置（1 起行/列）+ 规则 + 相关文本
@@ -54,8 +58,10 @@ pub struct LintWarning {
     pub column: usize,
     /// 规则种类
     pub kind: LintKind,
-    /// 相关文本（魔法数字的原文等；其他规则为空串）
+    /// 相关文本（魔法数字原文、方法名等；其他规则为空串）
     pub text: String,
+    /// 补充文本（易混词提示的候选词等；其他规则为空串）
+    pub extra: String,
 }
 
 impl LintWarning {
@@ -73,6 +79,15 @@ impl LintWarning {
             LintKind::DeepIndent => {
                 crate::语言::f("lint_deep_indent", &[&self.line.to_string(), &self.text])
             }
+            LintKind::ConfusableMethod => crate::语言::f(
+                "lint_confusable_method",
+                &[
+                    &self.line.to_string(),
+                    &self.column.to_string(),
+                    &self.text,
+                    &self.extra,
+                ],
+            ),
         }
     }
 }
@@ -87,10 +102,23 @@ struct LetScan {
     annotated: bool,
 }
 
+/// 对源码执行教学 lint（无已知词表：不做易混方法名提示），返回全部警告（升序）
+///
+/// 兼容入口；需要易混方法名提示（方法调用位未命中映射表）时用
+/// [`lint_teaching_with_words`] 并传入映射表键集合。
+pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
+    lint_teaching_with_words(source, &HashSet::new())
+}
+
 /// 对源码执行教学 lint，返回全部警告（升序）
 ///
+/// `known_words`：全部映射表键的集合（关键字/宏/派生/模块路径/别名）。
+/// 方法调用位出现未命中词表的长中文串（≥2 字）且与表内词近似
+/// （编辑距离 ≤1）时提示疑似笔误——未命中词会被原样保留，错误在
+/// 产物侧才爆发（如 `.拉平()` 应为 `.展平()`）。
+///
 /// 仅报告代码位置的问题；字符串/注释内的同名文本被状态机跳过。
-pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
+pub fn lint_teaching_with_words(source: &str, known_words: &HashSet<String>) -> Vec<LintWarning> {
     let chars: Vec<char> = source.chars().collect();
     let mut warnings = Vec::new();
     let mut line = 1usize;
@@ -158,6 +186,7 @@ pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
                             column: line_indent + 1,
                             kind: LintKind::DeepIndent,
                             text: line_indent.to_string(),
+                            extra: String::new(),
                         });
                     }
                     at_line_start = false;
@@ -275,6 +304,23 @@ pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
                     i = scan_number(&chars, i, ch, &mut warnings, line, col, prev_plain);
                     continue;
                 }
+                // 方法调用位的长中文串（如 `.拉平()`）：未命中映射表且与
+                // 表内词近似时提示疑似笔误——未命中词会被原样保留，错误在
+                // 产物侧才爆发（#14）。仅调用位（后随 `(`）判定以降噪；
+                // `..` 范围与浮点（前一字为 `.`/数字）不启动扫描。
+                '.' if prev_plain != '.' && !prev_plain.is_ascii_digit() => {
+                    if let Some(name) = scan_method_name(&chars, i)
+                        && let Some(candidate) = confusable_candidate(&name, known_words)
+                    {
+                        warnings.push(LintWarning {
+                            line,
+                            column: col + 1,
+                            kind: LintKind::ConfusableMethod,
+                            text: name,
+                            extra: candidate.to_string(),
+                        });
+                    }
+                }
                 _ => {}
             },
         }
@@ -325,6 +371,7 @@ fn finish_let_scan(let_scan: &mut Option<LetScan>, warnings: &mut Vec<LintWarnin
             column: scan.column,
             kind: LintKind::UntypedLet,
             text: String::new(),
+            extra: String::new(),
         });
     }
 }
@@ -394,6 +441,7 @@ fn scan_number(
         column,
         kind: LintKind::MagicNumber,
         text,
+        extra: String::new(),
     });
     i
 }
@@ -401,6 +449,83 @@ fn scan_number(
 /// 标识符续字符（数字后跟这些字符视为同一标识符）
 fn is_ident_continue(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
+}
+
+/// 判定字符是否属于 CJK 统一表意文字（基本区 + 扩展 A）
+fn is_cjk(c: char) -> bool {
+    matches!(c, '\u{4E00}'..='\u{9FFF}' | '\u{3400}'..='\u{4DBF}')
+}
+
+/// 前瞻扫描 `.` 后的方法名：收集连续 CJK 字符（如 `拉平`），
+/// 名字与 `(` 之间允许空格/tab；只有最终跟 `(`（调用位）才返回名字。
+/// 名字含 ASCII/假名等其他字符（如 `拉平_所有`、字段访问）时不判定。
+fn scan_method_name(chars: &[char], dot: usize) -> Option<String> {
+    let mut j = dot + 1;
+    let mut name = String::new();
+    while j < chars.len() && is_cjk(chars[j]) {
+        name.push(chars[j]);
+        j += 1;
+    }
+    if name.is_empty() {
+        return None;
+    }
+    let mut k = j;
+    while k < chars.len() && (chars[k] == ' ' || chars[k] == '\t') {
+        k += 1;
+    }
+    if k < chars.len() && chars[k] == '(' {
+        Some(name)
+    } else {
+        None
+    }
+}
+
+/// 在已知词表中寻找与未命中方法名编辑距离 ≤1 的候选（按字典序取
+/// 首个，结果确定）；名字本身在表中或过短（单字）时不提示。
+fn confusable_candidate<'a>(name: &str, known: &'a HashSet<String>) -> Option<&'a str> {
+    if name.chars().count() < 2 || known.contains(name) {
+        return None;
+    }
+    let mut candidates: Vec<&str> = known
+        .iter()
+        .filter(|word| within_one_edit(name, word))
+        .map(String::as_str)
+        .collect();
+    candidates.sort_unstable();
+    candidates.first().copied()
+}
+
+/// 编辑距离 ≤1 的近似判定（等长时恰有一处不同；差一字时短词是长词
+/// 删去一个字符的结果），用于易混词候选筛选。
+fn within_one_edit(a: &str, b: &str) -> bool {
+    let av: Vec<char> = a.chars().collect();
+    let bv: Vec<char> = b.chars().collect();
+    match av.len().abs_diff(bv.len()) {
+        0 => av.iter().zip(&bv).filter(|(x, y)| x != y).count() == 1,
+        1 => {
+            let (short, long) = if av.len() < bv.len() {
+                (&av, &bv)
+            } else {
+                (&bv, &av)
+            };
+            let mut skipped = false;
+            let mut si = 0usize;
+            let mut li = 0usize;
+            while si < short.len() {
+                if short[si] == long[li] {
+                    si += 1;
+                    li += 1;
+                } else if skipped {
+                    return false;
+                } else {
+                    skipped = true;
+                    li += 1;
+                }
+            }
+            true
+        }
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -524,6 +649,107 @@ mod tests {
         assert_eq!(warnings.len(), 1, "{warnings:?}");
         assert_eq!(warnings[0].kind, LintKind::MagicNumber);
         assert_eq!(warnings[0].text, "0.5");
+    }
+
+    /// #14：方法调用位未命中映射表且与表内词编辑距离 ≤1 → 提示疑似笔误
+    #[test]
+    fn test_confusable_method_hint() {
+        let known: HashSet<String> = ["展平".to_string(), "长度".to_string()]
+            .into_iter()
+            .collect();
+        let source = "函数 主函数() {\n    让 x = 项们.拉平();\n}";
+        let warnings = lint_teaching_with_words(source, &known);
+        let hints: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.kind == LintKind::ConfusableMethod)
+            .collect();
+        assert_eq!(hints.len(), 1, "{warnings:?}");
+        assert_eq!(hints[0].text, "拉平");
+        assert_eq!(hints[0].extra, "展平");
+        assert_eq!(hints[0].line, 2);
+        assert_eq!(hints[0].column, 14);
+    }
+
+    /// 差一字的短名（长词删一字符的结果）也提示
+    #[test]
+    fn test_confusable_method_length_diff_one() {
+        let known: HashSet<String> = ["打印行".to_string()].into_iter().collect();
+        let source = "函数 主函数() {\n    项们.打印();\n}";
+        let warnings = lint_teaching_with_words(source, &known);
+        let hints: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.kind == LintKind::ConfusableMethod)
+            .collect();
+        assert_eq!(hints.len(), 1, "{warnings:?}");
+        assert_eq!(hints[0].text, "打印");
+        assert_eq!(hints[0].extra, "打印行");
+    }
+
+    /// 降噪边界：表内词/远距离词/单字名/字段访问/字符串/注释/范围与浮点不提示
+    #[test]
+    fn test_confusable_method_negative_cases() {
+        let known: HashSet<String> = ["展平".to_string()].into_iter().collect();
+        let cases = [
+            // 表内词
+            "函数 主函数() {\n    让 x = 项们.展平();\n}",
+            // 远距离词（编辑距离 >1）
+            "函数 主函数() {\n    让 x = 项们.翻江倒海();\n}",
+            // 单字方法名
+            "函数 主函数() {\n    让 x = 项们.拉();\n}",
+            // 字段访问（无括号）
+            "函数 主函数() {\n    让 x = 项们.拉平;\n}",
+            // 字符串内
+            "函数 主函数() {\n    让 s = \"项.拉平()\";\n}",
+            // 注释内
+            "函数 主函数() {\n    // 项.拉平()\n}",
+            // 范围语法 `..`
+            "函数 主函数() {\n    循环 i 于 0..10 {}\n}",
+            // 浮点字面量
+            "函数 主函数() {\n    让 f: 浮点数 = 1.5;\n}",
+        ];
+        for source in cases {
+            let warnings = lint_teaching_with_words(source, &known);
+            assert!(
+                !warnings
+                    .iter()
+                    .any(|w| w.kind == LintKind::ConfusableMethod),
+                "不应提示: {source}\n{warnings:?}"
+            );
+        }
+    }
+
+    /// 名字与 `(` 间隔空白仍判定；带 `_` 的复合名不判定（降噪边界）
+    #[test]
+    fn test_confusable_method_spacing_and_compound() {
+        let known: HashSet<String> = ["展平".to_string()].into_iter().collect();
+        let source = "函数 主函数() {\n    让 x = 项们.拉平 ();\n}";
+        let warnings = lint_teaching_with_words(source, &known);
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.kind == LintKind::ConfusableMethod),
+            "{warnings:?}"
+        );
+        let source = "函数 主函数() {\n    让 x = 项们.拉平_所有();\n}";
+        let warnings = lint_teaching_with_words(source, &known);
+        assert!(
+            !warnings
+                .iter()
+                .any(|w| w.kind == LintKind::ConfusableMethod),
+            "{warnings:?}"
+        );
+    }
+
+    /// 兼容入口（无词表）不做易混方法名提示
+    #[test]
+    fn test_confusable_method_compat_entry_silent() {
+        let warnings = lint_teaching("函数 主函数() {\n    让 x = 项们.拉平();\n}");
+        assert!(
+            !warnings
+                .iter()
+                .any(|w| w.kind == LintKind::ConfusableMethod),
+            "{warnings:?}"
+        );
     }
 
     #[test]

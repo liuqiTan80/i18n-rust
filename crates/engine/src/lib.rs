@@ -187,11 +187,11 @@ fn transpile_pipeline_inner(
         for warning in fullwidth::find_fullwidth_punct(source) {
             crate::log_warn!("fullwidth", "{}", warning.format());
         }
-        // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深。
+        // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深/易混方法名。
         // CLI `--no-lint` 可关闭（lint::set_teaching_lint_enabled），
         // 供项目开发（非教学）场景静默刷屏提示
         if lint::teaching_lint_enabled() {
-            for warning in lint::lint_teaching(source) {
+            for warning in lint::lint_teaching_with_words(source, manager.get_lint_words()) {
                 crate::log_warn!("lint", "{}", warning.format());
             }
         }
@@ -199,7 +199,14 @@ fn transpile_pipeline_inner(
 
     let macro_map = manager.get_macro_map();
     let derive_map = manager.get_derive_map();
-    let lex = lexer::transpile_with_map(source, manager.get_keyword_map(), &macro_map, &derive_map);
+    let lex = lexer::transpile_with_map(
+        source,
+        manager.get_keyword_map(),
+        &macro_map,
+        &derive_map,
+        manager.get_use_defer_words(),
+        manager.get_alias_map(),
+    );
 
     // 阶段 2：use 语句路径替换
     let mp = if manager.module_path_map.is_empty() {

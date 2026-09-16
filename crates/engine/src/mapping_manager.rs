@@ -38,6 +38,16 @@ pub struct MappingManager {
     /// 每次转译都全量重算指纹（构建全部键值对 + 排序 + 哈希）
     /// 在批量转译场景是纯浪费（语言包不变则指纹恒定）。
     fingerprint_cache: OnceLock<u64>,
+    /// use 语句内的“让位词”：模块路径与别名映射（标准库 + 第三方）键的并集。
+    /// 词法转译在 use 段内跳过这些词的关键字/宏替换，交由模块路径与别名
+    /// 阶段按标准库语义处理——同名词在宏表与标准库表重复时 use 段内标准库
+    /// 优先（`文件` 宏节为 file、标准库为 File，`使用 标准库::文件系统::文件`
+    /// 必须产出 `use std::fs::File`）。构造时一次性生成，转译时直接复用。
+    use_defer_words: HashSet<String>,
+    /// 教学 lint 已知词表缓存：全部映射表键的并集（关键字/宏/派生/模块路径/
+    /// 别名）。供“方法调用位未命中映射表”的易混词提示判定——词表大且
+    /// lint 每文件调用，惰性计算一次后复用（映射表构造后不可变）。
+    lint_words_cache: OnceLock<HashSet<String>>,
 }
 
 impl MappingManager {
@@ -154,13 +164,16 @@ impl MappingManager {
                 })?;
         }
 
+        let use_defer_words = Self::build_use_defer_words(&module_path_map, &alias_map);
         Ok(Self {
             keyword_map,
             section_map,
             derive_map,
+            use_defer_words,
             module_path_map,
             alias_map,
             fingerprint_cache: OnceLock::new(),
+            lint_words_cache: OnceLock::new(),
         })
     }
 
@@ -229,13 +242,16 @@ impl MappingManager {
                 })?;
         }
 
+        let use_defer_words = Self::build_use_defer_words(&module_path_map, &alias_map);
         Ok(Self {
             keyword_map,
             section_map,
             derive_map,
+            use_defer_words,
             module_path_map,
             alias_map,
             fingerprint_cache: OnceLock::new(),
+            lint_words_cache: OnceLock::new(),
         })
     }
 
@@ -254,13 +270,16 @@ impl MappingManager {
         module_path_map: HashMap<String, String>,
         alias_map: HashMap<String, String>,
     ) -> Self {
+        let use_defer_words = Self::build_use_defer_words(&module_path_map, &alias_map);
         Self {
             keyword_map,
             section_map: HashMap::new(),
             derive_map: HashMap::new(),
+            use_defer_words,
             module_path_map,
             alias_map,
             fingerprint_cache: OnceLock::new(),
+            lint_words_cache: OnceLock::new(),
         }
     }
 
@@ -287,6 +306,39 @@ impl MappingManager {
     /// 获取标识符别名映射表
     pub fn get_alias_map(&self) -> &HashMap<String, String> {
         &self.alias_map
+    }
+
+    /// 获取 use 语句内的让位词集合（见字段 `use_defer_words` 说明）
+    pub fn get_use_defer_words(&self) -> &HashSet<String> {
+        &self.use_defer_words
+    }
+
+    /// 获取教学 lint 已知词表（见字段 `lint_words_cache` 说明）：
+    /// 关键字/宏/派生/模块路径/别名五表键的并集，惰性计算一次后复用。
+    pub fn get_lint_words(&self) -> &HashSet<String> {
+        self.lint_words_cache.get_or_init(|| {
+            let mut words: HashSet<String> = HashSet::new();
+            words.extend(self.keyword_map.keys().cloned());
+            if let Some(macro_section) = self.section_map.get("宏") {
+                words.extend(macro_section.keys().cloned());
+            }
+            words.extend(self.derive_map.keys().cloned());
+            words.extend(self.module_path_map.keys().cloned());
+            words.extend(self.alias_map.keys().cloned());
+            words
+        })
+    }
+
+    /// 构建 use 段让位词集合：模块路径与别名映射键的并集
+    fn build_use_defer_words(
+        module_path_map: &HashMap<String, String>,
+        alias_map: &HashMap<String, String>,
+    ) -> HashSet<String> {
+        module_path_map
+            .keys()
+            .chain(alias_map.keys())
+            .cloned()
+            .collect()
     }
 
     /// 翻译语境指纹（惰性计算并缓存）：任一映射表内容变化时指纹变化。

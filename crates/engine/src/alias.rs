@@ -120,6 +120,8 @@ impl ProjectContext {
                 manager.get_keyword_map(),
                 &macro_map,
                 &derive_map,
+                manager.get_use_defer_words(),
+                alias_map,
             );
             let declared = collect_declared_names(&lex.output, alias_map);
             for name in declared.items {

@@ -292,6 +292,7 @@
 "lint_untyped_let" = "Línea {}, columna {}: `让` sin anotación de tipo – prueba a escribir el tipo explícitamente (consejo didáctico)"
 "lint_magic_number" = "Línea {}, columna {}: número mágico «{}» – considera nombrarlo como constante (consejo didáctico)"
 "lint_deep_indent" = "Línea {}: anidamiento demasiado profundo ({} espacios de sangría) – considera extraer una función (consejo didáctico)"
+"lint_confusable_method" = "Línea {}, columna {}: nombre de método «{}» no registrado – ¿quería escribir «{}»? (consejo didáctico)"
 "first_run_hello" = "¡Bienvenido a rzc — aprende Rust en tu idioma!"
 "first_run_rustc_missing" = "No se detectó rustc. Instala la cadena de herramientas de Rust (https://rustup.rs) o ejecuta `rzc install toolchain` para usar la integrada."
 "first_run_next_steps" = "Siguientes pasos: `rzc doctor` revisar entorno · `rzc init` crear proyecto · `rzc install lsp` para completado en VS Code"

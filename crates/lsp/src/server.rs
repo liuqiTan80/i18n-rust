@@ -6,7 +6,7 @@
 //! 3. 转发 rust-analyzer 的响应/通知，并还原位置信息
 //! 4. 翻译诊断消息为对应语言
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -1616,7 +1616,8 @@ fn handle_analyzer_message(
                         });
                         merged_diags.extend(fullwidth_diagnostics(&entry));
                         if teaching_lint_enabled() {
-                            merged_diags.extend(lint_teaching_diagnostics(&entry));
+                            merged_diags
+                                .extend(lint_teaching_diagnostics(&entry, mapper.lint_words()));
                         }
                         mapped["diagnostics"] = Value::Array(merged_diags.clone());
                     }
@@ -1677,8 +1678,12 @@ fn handle_analyzer_message(
     ///
     /// 直接在母语原文上扫描（`让` 等关键字在转译后已不存在）：行列均为
     /// 字符计数，中文代码在 BMP 内 char 列即 UTF-16 列，直接转换即可。
-    fn lint_teaching_diagnostics(entry: &TranslationEntry) -> Vec<Value> {
-        i18n_rust_engine::lint::lint_teaching(&entry.zh_content)
+    /// `known_words` 为映射表键集合，供易混方法名提示判定（#14）。
+    fn lint_teaching_diagnostics(
+        entry: &TranslationEntry,
+        known_words: &HashSet<String>,
+    ) -> Vec<Value> {
+        i18n_rust_engine::lint::lint_teaching_with_words(&entry.zh_content, known_words)
             .iter()
             .map(|w| {
                 let line = (w.line - 1) as u32;
@@ -1719,6 +1724,7 @@ fn lint_code(kind: i18n_rust_engine::lint::LintKind) -> &'static str {
         i18n_rust_engine::lint::LintKind::UntypedLet => "lint-untyped-let",
         i18n_rust_engine::lint::LintKind::MagicNumber => "lint-magic-number",
         i18n_rust_engine::lint::LintKind::DeepIndent => "lint-deep-indent",
+        i18n_rust_engine::lint::LintKind::ConfusableMethod => "lint-confusable-method",
     }
 }
 
