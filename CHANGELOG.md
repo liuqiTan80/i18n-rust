@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-17
+
 ### 新增
 - VS Code 扩展新增「转译产物显示开关」：设置 `i18n-rust.hideGeneratedFiles`
   或命令「i18n: 显示/隐藏转译产物」一键把转译生成的 `.rs` 与 `.rs.bak`
