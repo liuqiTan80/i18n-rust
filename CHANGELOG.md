@@ -43,6 +43,10 @@
 - lsp：诊断消息 "found" 改为语境键——仅类型不匹配（`expected …, found …`）的
   `", found "` 译为「实际为」，E0599 的 `no method named … found for struct …`
   不再出现「实际为」误译
+- tools：修复两处工具链临时目录泄漏（/tmp 累积）——教程验证脚本的工作目录
+  （每次运行残留 `zrverify_*`）改由 atexit 进程退出统一清理；VS Code 扩展测试
+  prompt-builder.test.ts 的临时语言包目录（每次运行残留 3 个 `i18n-rust-test-*`）
+  改由 after 钩子在用例结束后删除
 
 ## [0.7.3] - 2026-09-16
 

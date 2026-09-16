@@ -9,7 +9,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import { parseToml, loadLanguagePack, buildSystemPrompt } from '../ai/prompt-builder';
 
 // ============================================================
@@ -36,9 +36,13 @@ test('parseToml：引号内 # 不是注释', () => {
 // 语言包加载与提示词生成
 // ============================================================
 
+/** 本次进程创建的全部临时语言包根目录（下方 after 钩子统一清理，避免 /tmp 残留） */
+const 已建临时根目录: string[] = [];
+
 /** 构造临时语言包根目录 <root>/zh/（模拟仓库 lang-packs 布局） */
 function 构造语言包(): string {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-rust-test-'));
+    已建临时根目录.push(root);
     const langDir = path.join(root, 'zh');
     fs.mkdirSync(langDir);
     fs.writeFileSync(path.join(langDir, 'keywords.toml'), [
@@ -63,6 +67,13 @@ function 构造语言包(): string {
     ].join('\n'), 'utf8');
     return root;
 }
+
+// 所有用例结束后统一删除临时目录（无论通过或断言失败都会执行）
+after(() => {
+    for (const root of 已建临时根目录) {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
 
 test('loadLanguagePack：按代码目录读取，显示名来自 lang_info', () => {
     const root = 构造语言包();

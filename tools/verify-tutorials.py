@@ -33,10 +33,12 @@ Result 的 `错误(...)` 构造、`错误(原因)` 模式匹配、`xxx错误` �
       [--rzc 路径] [--dir 教程目录] [--parallel N]
 """
 import argparse
+import atexit
 import glob
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -654,6 +656,9 @@ def main():
 
     # 2. 生成并验证单块
     work = tempfile.mkdtemp(prefix="zrverify_")
+    # 临时工作目录随进程退出统一清理（正常结束、验证失败退出、KeyboardInterrupt
+    # 均覆盖；被 SIGKILL 强杀时无法保证），避免本地反复运行在 /tmp 残留
+    atexit.register(shutil.rmtree, work, ignore_errors=True)
     tasks = []
     stats = {"完整程序": 0, "片段": 0, "错误示例": 0, "输出示例": 0, "省略": 0}
     for index, fname, start, section, content, expected, behavior, expected_output in all_blocks:
