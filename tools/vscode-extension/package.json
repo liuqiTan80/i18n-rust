@@ -199,6 +199,11 @@
         "command": "i18n-rust.cargoAdd",
         "title": "i18n: 添加依赖 (cargo add)",
         "icon": "$(package)"
+      },
+      {
+        "command": "i18n-rust.toggleGeneratedFiles",
+        "title": "i18n: 显示/隐藏转译产物 (.rs / .rs.bak)",
+        "icon": "$(eye)"
       }
     ],
     "menus": {
@@ -310,6 +315,12 @@
           "type": "boolean",
           "default": true,
           "description": "启动后检查 GitHub Releases 上的新版本（每天最多一次），发现新版本时弹出提示"
+        },
+        "i18n-rust.hideGeneratedFiles": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "隐藏转译产物：将 `**/*.rs` 与 `**/*.rs.bak` 写入工作区 `files.exclude`（资源管理器不再显示，关闭时移除条目恢复显示）。适用于以 `.zh` 等方言文件为源码、`.rs` 为转译产物的项目；工作区本身是 Rust 源码仓库（`.rs` 即源码）时请保持关闭。可用命令「i18n: 显示/隐藏转译产物」快捷切换。"
         },
         "i18n-rust.trace.server": {
           "type": "string",

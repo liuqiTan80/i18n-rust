@@ -9,6 +9,7 @@
  * - 所有权错误可视化（变量移动/借用/再次使用位置颜色高亮）
  * - 全角符号自动转换（换行感知）
  * - AI 教学助手（SecretStorage 密钥、可取消流式对话）
+ * - 转译产物显示控制（一键隐藏/显示 .rs / .rs.bak）
  */
 
 import * as vscode from 'vscode';
@@ -41,6 +42,7 @@ import { quoteCommandArg, quoteShellArg } from './shell';
 import { findInPath, 解析可执行文件 } from './executable';
 import { 注册转译预览 } from './transpile-preview';
 import { 注册更新检查 } from './update-checker';
+import { 注册产物隐藏 } from './artifact-hide';
 
 const execFileAsync = promisify(cp.execFile);
 
@@ -565,6 +567,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // 检查扩展更新（GitHub Releases，每天最多一次；可在设置中关闭）
     注册更新检查(context);
+
+    // 转译产物显示控制（hideGeneratedFiles 开关 ↔ 工作区 files.exclude 同步）
+    注册产物隐藏(context);
 }
 
 /**
