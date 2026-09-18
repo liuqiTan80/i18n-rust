@@ -30,9 +30,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 
-use crate::response_map::diag_text::{
-    extract_ownership_details, translate_diagnostic_message,
-};
+use crate::response_map::diag_text::{extract_ownership_details, translate_diagnostic_message};
 use crate::translation_cache::{TranslationCache, path_to_uri};
 
 /// 镜像树复制时排除的目录名（构建产物/版本库/依赖缓存）
@@ -82,7 +80,10 @@ pub(crate) fn run_mirror_check(
     origin_uri: &str,
 ) -> bool {
     // 触发文件须在缓存中（didOpen/didSave 均已入库），据此定位项目根
-    let Some(origin_path) = cache.query_original(origin_uri).map(|e| e.original_path.clone()) else {
+    let Some(origin_path) = cache
+        .query_original(origin_uri)
+        .map(|e| e.original_path.clone())
+    else {
         return false;
     };
     let Some(project_root) = find_project_root(&origin_path) else {
@@ -118,7 +119,8 @@ pub(crate) fn run_mirror_check(
         return false;
     };
 
-    let (seen, published) = publish_rustc_diagnostics(&stdout, &mirror_dir, &files, builtin_diags, sender);
+    let (seen, published) =
+        publish_rustc_diagnostics(&stdout, &mirror_dir, &files, builtin_diags, sender);
     if !ok && seen == 0 {
         // 无任何可归位诊断却异常退出：cargo 层失败（清单/离线缺依赖等），
         // 镜像结论不可信，回退虚拟检查
@@ -325,11 +327,7 @@ fn transpile_into_mirror(
             // 声明，E0754），产物固定写入 src/main.rs
             let (annotated, line_map) =
                 i18n_rust_engine::module_path::annotate_non_ascii_mods_with_lines(&p.output);
-            (
-                annotated,
-                mirror_src.join("main.rs"),
-                Some(line_map),
-            )
+            (annotated, mirror_src.join("main.rs"), Some(line_map))
         } else {
             // 其余文件与 rzc 的 transpile_project_files 一致：不注解，
             // 天然产物路径（同名 .rs）
@@ -390,11 +388,7 @@ fn line_similarity(candidate: &str, reference: &str) -> f64 {
     }
     let mut total = 0usize;
     let mut hit = 0usize;
-    for line in candidate
-        .lines()
-        .map(str::trim)
-        .filter(|l| substantial(l))
-    {
+    for line in candidate.lines().map(str::trim).filter(|l| substantial(l)) {
         total += 1;
         if ref_lines.contains(line) {
             hit += 1;
@@ -476,7 +470,10 @@ fn run_cargo_check(mirror_dir: &Path, target_dir: &Path) -> Option<(String, bool
             );
         }
     }
-    Some((String::from_utf8_lossy(&stdout).to_string(), status.success()))
+    Some((
+        String::from_utf8_lossy(&stdout).to_string(),
+        status.success(),
+    ))
 }
 
 /// 解析 rustc JSON 诊断流：坐标回译 → 消息翻译 → 所有权提取 → 合并发布
@@ -492,11 +489,7 @@ fn publish_rustc_diagnostics(
     // 产物路径 → 方言源映射：canonical 键归一 rustc 的绝对/相对路径
     let index: HashMap<PathBuf, &MirrorFile> = files
         .iter()
-        .filter_map(|f| {
-            std::fs::canonicalize(&f.product_path)
-                .ok()
-                .map(|p| (p, f))
-        })
+        .filter_map(|f| std::fs::canonicalize(&f.product_path).ok().map(|p| (p, f)))
         .collect();
 
     let mut by_uri: HashMap<String, Vec<Value>> = HashMap::new();
@@ -596,7 +589,10 @@ fn publish_rustc_diagnostics(
         {
             diag["data"] = details_value;
         }
-        by_uri.entry(file.original_uri.clone()).or_default().push(diag);
+        by_uri
+            .entry(file.original_uri.clone())
+            .or_default()
+            .push(diag);
     }
 
     // 合并内置诊断（RA 最近一次映射后的方言坐标诊断 + 教学提示）：
@@ -682,7 +678,10 @@ fn map_position(file: &MirrorFile, line_1based: u32, col_1based: u32) -> (u32, u
 /// 引擎列映射的列口径为字符数（与 rustc JSON 一致）；LSP 协议要求
 /// UTF-16 代码单元列，非 BMP 字符（emoji 等）占 2 个单元，须逐字符累加。
 fn zh_char_col_to_utf16(zh_content: &str, line_1based: u32, char_col_1based: u32) -> u32 {
-    let Some(line_text) = zh_content.lines().nth(line_1based.saturating_sub(1) as usize) else {
+    let Some(line_text) = zh_content
+        .lines()
+        .nth(line_1based.saturating_sub(1) as usize)
+    else {
         return char_col_1based.saturating_sub(1);
     };
     line_text

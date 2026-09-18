@@ -311,11 +311,9 @@ impl TranslationCache {
             original_path.hash(&mut h);
             h.finish()
         };
-        self.temp_dir.join("src").join(format!(
-            "{}_{:x}.rs",
-            sanitize_module_name(file_stem),
-            hash
-        ))
+        self.temp_dir
+            .join("src")
+            .join(format!("{}_{:x}.rs", sanitize_module_name(file_stem), hash))
     }
 
     /// 同步同目录兄弟方言模块（虚拟项目高保真化）
@@ -344,7 +342,9 @@ impl TranslationCache {
             if path == current_path || path.extension() != Some(ext) || !path.is_file() {
                 continue;
             }
-            let Some(meta) = disk_meta(&path) else { continue };
+            let Some(meta) = disk_meta(&path) else {
+                continue;
+            };
             on_disk.insert(path.clone());
             let uri = path_to_uri(&path);
             match self.query_original(&uri).as_ref() {
@@ -416,7 +416,10 @@ impl TranslationCache {
                 }
                 self.docs_generation
                     .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                log::info!("{}", crate::ui::global().f("lsp_log_cache_removed", &[&uri]));
+                log::info!(
+                    "{}",
+                    crate::ui::global().f("lsp_log_cache_removed", &[&uri])
+                );
             }
         }
         updated
@@ -1060,7 +1063,9 @@ fn collect_include_asset_paths(content: &str) -> Vec<String> {
     while i < spans.len() {
         let (kind, start, end) = spans[i];
         i += 1;
-        if kind != TokenKind::Ident || !matches!(&content[start..end], "include_str" | "include_bytes") {
+        if kind != TokenKind::Ident
+            || !matches!(&content[start..end], "include_str" | "include_bytes")
+        {
             continue;
         }
         // 依次找到 `!` `(` 后的字符串字面量（允许空白/注释分隔）
@@ -1078,7 +1083,13 @@ fn collect_include_asset_paths(content: &str) -> Vec<String> {
                 0 if k == TokenKind::Not => step = 1,
                 1 if k == TokenKind::OpenParen => step = 2,
                 2 => {
-                    if matches!(k, TokenKind::Literal { kind: LiteralKind::Str { .. }, .. }) {
+                    if matches!(
+                        k,
+                        TokenKind::Literal {
+                            kind: LiteralKind::Str { .. },
+                            ..
+                        }
+                    ) {
                         let text = &content[s..e];
                         path = Some(
                             text.strip_prefix('"')
@@ -1908,7 +1919,11 @@ mod tests {
         let src = proj.path().join("src");
         std::fs::create_dir_all(&src).unwrap();
         let tool_path = src.join("工具.zh");
-        std::fs::write(&tool_path, "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n").unwrap();
+        std::fs::write(
+            &tool_path,
+            "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
+        )
+        .unwrap();
 
         let cache = TranslationCache::new(test_manager_extended(), virt.path().to_path_buf());
         let main_uri = path_to_uri(&src.join("main.zh"));
@@ -1962,7 +1977,11 @@ mod tests {
             .update_document(&main_uri, "函数 主函数() {}\n", 1)
             .unwrap();
         let tool_uri = path_to_uri(&tool_path);
-        let tool_virtual = cache.query_original(&tool_uri).unwrap().virtual_path.clone();
+        let tool_virtual = cache
+            .query_original(&tool_uri)
+            .unwrap()
+            .virtual_path
+            .clone();
         assert!(tool_virtual.exists());
         let version_before = cache.module_version();
 

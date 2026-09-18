@@ -822,8 +822,12 @@ mod tests {
     fn test_qualify_adds_prefix() {
         let set = HashSet::from(["辅助".to_string(), "主".to_string()]);
         assert_eq!(
-            qualify_module_paths_with_map("fn main() {\n    辅助::辅助函数();\n}", &set, &HashSet::new())
-                .output,
+            qualify_module_paths_with_map(
+                "fn main() {\n    辅助::辅助函数();\n}",
+                &set,
+                &HashSet::new()
+            )
+            .output,
             "fn main() {\n    crate::辅助::辅助函数();\n}"
         );
     }
@@ -832,8 +836,7 @@ mod tests {
     fn test_qualify_no_double_prefix() {
         let set = HashSet::from(["辅助".to_string(), "主".to_string()]);
         assert_eq!(
-            qualify_module_paths_with_map("crate::辅助::辅助函数()", &set, &HashSet::new())
-                .output,
+            qualify_module_paths_with_map("crate::辅助::辅助函数()", &set, &HashSet::new()).output,
             "crate::辅助::辅助函数()"
         );
         // 其他路径段内的模块名（a::辅助）不重复处理
@@ -914,8 +917,12 @@ mod tests {
     fn test_qualify_mod_decl_not_shadowed() {
         let set = HashSet::from(["工具".to_string()]);
         assert_eq!(
-            qualify_module_paths_with_map("mod 工具;\nfn f() { 工具::加一() }", &set, &HashSet::new())
-                .output,
+            qualify_module_paths_with_map(
+                "mod 工具;\nfn f() { 工具::加一() }",
+                &set,
+                &HashSet::new()
+            )
+            .output,
             "mod 工具;\nfn f() { crate::工具::加一() }"
         );
     }

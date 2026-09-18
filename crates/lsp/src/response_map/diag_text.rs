@@ -388,9 +388,7 @@ pub(super) fn is_missing_project_dependency(
     };
     i18n_rust_engine::diagnostic::extract_backtick_first_segments(message)
         .iter()
-        .any(|seg| {
-            seg.is_ascii() && crate_name_forms(seg).iter().any(|form| deps.contains(form))
-        })
+        .any(|seg| seg.is_ascii() && crate_name_forms(seg).iter().any(|form| deps.contains(form)))
 }
 
 /// 过滤“include_str!/include_bytes! 资源在虚拟项目中缺失”的误报
