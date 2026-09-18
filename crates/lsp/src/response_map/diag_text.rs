@@ -10,7 +10,9 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::SystemTime;
 
 use i18n_rust_engine::diagnostic::{DiagnosticLocation, OwnershipDetails};
-use serde_json::Value;
+use serde_json::{Value, json};
+
+use crate::translation_cache::{TranslationEntry, en_col_to_zh_col_single};
 
 /// 诊断消息翻译器（errors.toml 消息表）：与 CLI 同源，覆盖 rustc/rust-analyzer
 /// 的常见消息（精确/最长前缀/最长后缀匹配）。由服务器启动时初始化
@@ -661,6 +663,110 @@ fn construct_position_from_range(file_name: &str, range: &Value) -> Option<Diagn
         label: None,
         is_primary: false,
     })
+}
+
+/// 计算文档的全角标点教学诊断（方言坐标，severity 为 Hint）
+///
+/// 在转译后的虚拟文本上扫描：代码位置的全角标点在转译中保留（映射表
+/// 不含全角字符），字符串/注释内的全角标点是合法内容且被扫描器跳过；
+/// 扫描得到虚拟坐标（转译不改变行结构，代码位置为 ASCII，char 列即
+/// UTF-16 列），再经列映射还原为方言坐标，与 RA/内置诊断坐标系一致。
+pub(crate) fn fullwidth_diagnostics(entry: &TranslationEntry) -> Vec<Value> {
+    i18n_rust_engine::fullwidth::find_fullwidth_punct(&entry.en_content)
+        .iter()
+        .map(|w| {
+            let line = (w.line - 1) as u32;
+            let en_col = (w.column - 1) as u32;
+            let zh_col = en_col_to_zh_col_single(entry, line, en_col);
+            json!({
+                "range": {
+                    "start": { "line": line, "character": zh_col },
+                    "end": { "line": line, "character": zh_col + 1 }
+                },
+                "severity": 3,
+                "code": "fullwidth",
+                "source": "i18n-rust",
+                "message": w.format(),
+                // 修复动作数据：全角字符与建议的半角字符（供 codeAction 注入）
+                "data": {
+                    "character": w.character.to_string(),
+                    "replacement": w.replacement.map(|c| c.to_string())
+                }
+            })
+        })
+        .collect()
+}
+
+/// 计算文档的教学 lint 诊断（方言坐标，severity 为 Hint）
+///
+/// 直接在母语原文上扫描（`让` 等关键字在转译后已不存在）：行列均为
+/// 字符计数，中文代码在 BMP 内 char 列即 UTF-16 列，直接转换即可。
+/// `known_words` 为映射表键集合，供易混方法名提示判定（#14）。
+pub(crate) fn lint_teaching_diagnostics(
+    entry: &TranslationEntry,
+    known_words: &HashSet<String>,
+) -> Vec<Value> {
+    i18n_rust_engine::lint::lint_teaching_with_words(&entry.zh_content, known_words)
+        .iter()
+        .map(|w| {
+            let line = (w.line - 1) as u32;
+            let col = (w.column - 1) as u32;
+            json!({
+                "range": {
+                    "start": { "line": line, "character": col },
+                    "end": { "line": line, "character": col + 1 }
+                },
+                "severity": 3,
+                "code": lint_code(w.kind),
+                "source": "i18n-rust",
+                "message": w.format()
+            })
+        })
+        .collect()
+}
+
+/// 注入教学诊断（全角标点 + 教学 lint）到方言坐标的诊断列表
+///
+/// 三条发布路径共用：rust-analyzer 诊断链（publishDiagnostics 处理）、
+/// 虚拟项目检查、真实项目镜像检查。教学诊断由 entry 内容直接计算，
+/// 不依赖 builtin 缓存（缓存有时序窗口：代理自跑检查先于 RA 首批发布
+/// 时缓存为空，教学诊断会丢失）。注入前先移除旧的教学诊断（按
+/// code + source 识别），保证与文档最新内容一致。
+pub(crate) fn inject_teaching_diags(
+    diags: &mut Vec<Value>,
+    entry: &TranslationEntry,
+    known_words: &HashSet<String>,
+) {
+    diags.retain(|d| !(is_teaching_diag(d) && d["source"].as_str() == Some("i18n-rust")));
+    diags.extend(fullwidth_diagnostics(entry));
+    if teaching_lint_enabled() {
+        diags.extend(lint_teaching_diagnostics(entry, known_words));
+    }
+}
+
+/// 教学诊断开关：默认开启；`RZ_LSP_TEACHING_LINT=off` 关闭
+///（重度开发者不需要教学提示时避免诊断噪音）
+pub(crate) fn teaching_lint_enabled() -> bool {
+    std::env::var("RZ_LSP_TEACHING_LINT")
+        .map(|v| v != "off" && v != "0")
+        .unwrap_or(true)
+}
+
+/// 判断诊断是否为我方注入的教学诊断（全角标点/教学 lint）
+pub(crate) fn is_teaching_diag(d: &Value) -> bool {
+    d["code"]
+        .as_str()
+        .is_some_and(|c| c == "fullwidth" || c.starts_with("lint-"))
+}
+
+/// 教学 lint 规则 → LSP 诊断 code
+fn lint_code(kind: i18n_rust_engine::lint::LintKind) -> &'static str {
+    match kind {
+        i18n_rust_engine::lint::LintKind::UntypedLet => "lint-untyped-let",
+        i18n_rust_engine::lint::LintKind::MagicNumber => "lint-magic-number",
+        i18n_rust_engine::lint::LintKind::DeepIndent => "lint-deep-indent",
+        i18n_rust_engine::lint::LintKind::ConfusableMethod => "lint-confusable-method",
+    }
 }
 
 #[cfg(test)]

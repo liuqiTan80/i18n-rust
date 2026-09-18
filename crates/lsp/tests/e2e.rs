@@ -454,8 +454,10 @@ fn e2e_fullwidth_diagnostic_injected() {
         }),
     );
 
-    // 等待代理注入的全角标点诊断（消息模板含「全角标点」）
-    let diag = wait_diagnostics_containing(&rx, &uri, "全角标点", Duration::from_secs(120))
+    // 等待代理注入的全角标点诊断（消息模板含「检测到全角标点」；
+    // 该片段与 RA/rustc 诊断的翻译文本（「检查是否混入了全角标点」）
+    // 不撞车，避免等待到未注入教学诊断的批次）
+    let diag = wait_diagnostics_containing(&rx, &uri, "检测到全角标点", Duration::from_secs(120))
         .expect("120s 内未收到全角标点教学诊断（注入链路异常）");
     let diagnostics = diag
         .pointer("/params/diagnostics")

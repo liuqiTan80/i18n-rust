@@ -30,7 +30,9 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 
-use crate::response_map::diag_text::{extract_ownership_details, translate_diagnostic_message};
+use crate::response_map::diag_text::{
+    extract_ownership_details, inject_teaching_diags, translate_diagnostic_message,
+};
 use crate::translation_cache::{TranslationCache, path_to_uri};
 
 /// 镜像树复制时排除的目录名（构建产物/版本库/依赖缓存）
@@ -78,6 +80,7 @@ pub(crate) fn run_mirror_check(
     builtin_diags: &Arc<Mutex<HashMap<String, Vec<Value>>>>,
     extensions: &[String],
     origin_uri: &str,
+    known_words: &HashSet<String>,
 ) -> bool {
     // 触发文件须在缓存中（didOpen/didSave 均已入库），据此定位项目根
     let Some(origin_path) = cache
@@ -119,8 +122,15 @@ pub(crate) fn run_mirror_check(
         return false;
     };
 
-    let (seen, published) =
-        publish_rustc_diagnostics(&stdout, &mirror_dir, &files, builtin_diags, sender);
+    let (seen, published) = publish_rustc_diagnostics(
+        &stdout,
+        &mirror_dir,
+        &files,
+        cache,
+        known_words,
+        builtin_diags,
+        sender,
+    );
     if !ok && seen == 0 {
         // 无任何可归位诊断却异常退出：cargo 层失败（清单/离线缺依赖等），
         // 镜像结论不可信，回退虚拟检查
@@ -483,6 +493,8 @@ fn publish_rustc_diagnostics(
     stdout: &str,
     mirror_dir: &Path,
     files: &[MirrorFile],
+    cache: &Arc<TranslationCache>,
+    known_words: &HashSet<String>,
     builtin_diags: &Arc<Mutex<HashMap<String, Vec<Value>>>>,
     sender: &crossbeam_channel::Sender<lsp_server::Message>,
 ) -> (usize, usize) {
@@ -612,6 +624,11 @@ fn publish_rustc_diagnostics(
                     diags.push(e);
                 }
             }
+        }
+        // 教学诊断注入（全角标点 + 教学 lint）：由 entry 内容直接计算，
+        // 不依赖 builtin 缓存（镜像检查先于 RA 首批发布时缓存为空）
+        if let Some(entry) = cache.query_original(&uri) {
+            inject_teaching_diags(&mut diags, &entry, known_words);
         }
         let notification = lsp_server::Notification {
             method: "textDocument/publishDiagnostics".to_string(),

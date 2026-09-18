@@ -6,7 +6,7 @@
 //! 3. 转发 rust-analyzer 的响应/通知，并还原位置信息
 //! 4. 翻译诊断消息为对应语言
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -19,9 +19,7 @@ use i18n_rust_engine::mapping_source;
 
 use crate::analyzer::AnalyzerConnection;
 use crate::response_map::ResponseMapper;
-use crate::translation_cache::{
-    TranslationCache, TranslationEntry, en_col_to_zh_col_single, path_to_uri,
-};
+use crate::translation_cache::{TranslationCache, TranslationEntry, path_to_uri};
 
 /// 默认支持的方言文件扩展名（与内置语言包 lang_info.toml 的扩展名一致，
 /// 单一来源：引擎 lang-packs 目录，避免清单与语言包漂移）；
@@ -866,6 +864,7 @@ impl ProxyServer {
         let check_running = self.check_running.clone();
         let check_pending = self.check_pending.clone();
         let extensions = self.supported_extensions.clone();
+        let known_words = mapper.lint_words().clone();
         let saved_uri = saved_uri.to_string();
         let project_dir = cache.virtual_project_dir();
 
@@ -899,6 +898,7 @@ impl ProxyServer {
                     &builtin_diags,
                     &extensions,
                     &saved_uri,
+                    &known_words,
                 );
                 if !mirror_ok && !draft_virtual {
                     Self::run_cargo_check_once(
@@ -1052,7 +1052,22 @@ impl ProxyServer {
                 }
             }
             let params = json!({ "uri": virtual_uri, "diagnostics": diags });
-            let mapped = mapper.map_diagnostics(&params);
+            let mut mapped = mapper.map_diagnostics(&params);
+            // 教学诊断注入（与 RA 链一致）：由 entry 内容直接计算，
+            // 不依赖 builtin 缓存时序（虚拟检查可能先于 RA 首批发布，
+            // 缓存为空时教学提示不能丢失）
+            if let Some(entry) = cache.query_original(&original_uri) {
+                let mut final_diags = mapped["diagnostics"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default();
+                crate::response_map::diag_text::inject_teaching_diags(
+                    &mut final_diags,
+                    &entry,
+                    mapper.lint_words(),
+                );
+                mapped["diagnostics"] = Value::Array(final_diags);
+            }
             let notification = Notification {
                 method: "textDocument/publishDiagnostics".to_string(),
                 params: mapped,
@@ -1149,7 +1164,12 @@ impl ProxyServer {
                     teaching_diags: if req.method == "textDocument/codeAction" {
                         req.params["context"]["diagnostics"]
                             .as_array()
-                            .map(|a| a.iter().filter(|d| is_teaching_diag(d)).cloned().collect())
+                            .map(|a| {
+                                a.iter()
+                                    .filter(|d| crate::response_map::diag_text::is_teaching_diag(d))
+                                    .cloned()
+                                    .collect()
+                            })
                             .unwrap_or_default()
                     } else {
                         Vec::new()
@@ -1702,15 +1722,12 @@ fn handle_analyzer_message(
                                 &entry.original_path,
                             )
                         });
-                        // 移除旧的教学诊断（按 code+source 识别），追加新的
-                        merged_diags.retain(|d| {
-                            !(is_teaching_diag(d) && d["source"].as_str() == Some("i18n-rust"))
-                        });
-                        merged_diags.extend(fullwidth_diagnostics(&entry));
-                        if teaching_lint_enabled() {
-                            merged_diags
-                                .extend(lint_teaching_diagnostics(&entry, mapper.lint_words()));
-                        }
+                        // 教学诊断注入（全角标点 + 教学 lint；移除旧注入保证最新）
+                        crate::response_map::diag_text::inject_teaching_diags(
+                            &mut merged_diags,
+                            &entry,
+                            mapper.lint_words(),
+                        );
                         mapped["diagnostics"] = Value::Array(merged_diags.clone());
                     }
                     // 缓存映射后的内置诊断（方言坐标），供 cargo check 结果合并发布
@@ -1732,91 +1749,6 @@ fn handle_analyzer_message(
                 let _ = sender.send(Message::Notification(notification));
             }
         }
-    }
-
-    /// 计算文档的全角标点教学诊断（方言坐标，severity 为 Hint）
-    ///
-    /// 在转译后的虚拟文本上扫描：代码位置的全角标点在转译中保留（映射表
-    /// 不含全角字符），字符串/注释内的全角标点是合法内容且被扫描器跳过；
-    /// 扫描得到虚拟坐标（转译不改变行结构，代码位置为 ASCII，char 列即
-    /// UTF-16 列），再经列映射还原为方言坐标，与 RA/内置诊断坐标系一致。
-    fn fullwidth_diagnostics(entry: &TranslationEntry) -> Vec<Value> {
-        i18n_rust_engine::fullwidth::find_fullwidth_punct(&entry.en_content)
-            .iter()
-            .map(|w| {
-                let line = (w.line - 1) as u32;
-                let en_col = (w.column - 1) as u32;
-                let zh_col = en_col_to_zh_col_single(entry, line, en_col);
-                json!({
-                    "range": {
-                        "start": { "line": line, "character": zh_col },
-                        "end": { "line": line, "character": zh_col + 1 }
-                    },
-                    "severity": 3,
-                    "code": "fullwidth",
-                    "source": "i18n-rust",
-                    "message": w.format(),
-                    // 修复动作数据：全角字符与建议的半角字符（供 codeAction 注入）
-                    "data": {
-                        "character": w.character.to_string(),
-                        "replacement": w.replacement.map(|c| c.to_string())
-                    }
-                })
-            })
-            .collect()
-    }
-
-    /// 计算文档的教学 lint 诊断（方言坐标，severity 为 Hint）
-    ///
-    /// 直接在母语原文上扫描（`让` 等关键字在转译后已不存在）：行列均为
-    /// 字符计数，中文代码在 BMP 内 char 列即 UTF-16 列，直接转换即可。
-    /// `known_words` 为映射表键集合，供易混方法名提示判定（#14）。
-    fn lint_teaching_diagnostics(
-        entry: &TranslationEntry,
-        known_words: &HashSet<String>,
-    ) -> Vec<Value> {
-        i18n_rust_engine::lint::lint_teaching_with_words(&entry.zh_content, known_words)
-            .iter()
-            .map(|w| {
-                let line = (w.line - 1) as u32;
-                let col = (w.column - 1) as u32;
-                json!({
-                    "range": {
-                        "start": { "line": line, "character": col },
-                        "end": { "line": line, "character": col + 1 }
-                    },
-                    "severity": 3,
-                    "code": lint_code(w.kind),
-                    "source": "i18n-rust",
-                    "message": w.format()
-                })
-            })
-            .collect()
-    }
-}
-
-/// 教学诊断开关：默认开启；`RZ_LSP_TEACHING_LINT=off` 关闭
-///（重度开发者不需要教学提示时避免诊断噪音）
-fn teaching_lint_enabled() -> bool {
-    std::env::var("RZ_LSP_TEACHING_LINT")
-        .map(|v| v != "off" && v != "0")
-        .unwrap_or(true)
-}
-
-/// 判断诊断是否为我方注入的教学诊断（全角标点/教学 lint）
-fn is_teaching_diag(d: &Value) -> bool {
-    d["code"]
-        .as_str()
-        .is_some_and(|c| c == "fullwidth" || c.starts_with("lint-"))
-}
-
-/// 教学 lint 规则 → LSP 诊断 code
-fn lint_code(kind: i18n_rust_engine::lint::LintKind) -> &'static str {
-    match kind {
-        i18n_rust_engine::lint::LintKind::UntypedLet => "lint-untyped-let",
-        i18n_rust_engine::lint::LintKind::MagicNumber => "lint-magic-number",
-        i18n_rust_engine::lint::LintKind::DeepIndent => "lint-deep-indent",
-        i18n_rust_engine::lint::LintKind::ConfusableMethod => "lint-confusable-method",
     }
 }
 
