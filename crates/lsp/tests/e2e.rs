@@ -18,6 +18,7 @@
 //! 开发环境；CI 中先安装工具链再显式运行：
 //! `cargo test -p i18n-rust-lsp --test e2e -- --ignored`
 
+use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -135,9 +136,54 @@ fn wait_response(rx: &mpsc::Receiver<Value>, id: u64, timeout: Duration) -> Opti
     }
 }
 
+/// 收到的 publishDiagnostics 批次统计：URI →（批次数, 样例消息）
+type BatchStats = BTreeMap<String, (usize, String)>;
+
+/// 记录一条 publishDiagnostics 批次（不论 URI 是否为目标）
+fn record_batch(stats: &mut BatchStats, msg: &Value) {
+    if msg.get("method").and_then(Value::as_str) != Some("textDocument/publishDiagnostics") {
+        return;
+    }
+    let batch_uri = msg
+        .pointer("/params/uri")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let sample: String = msg
+        .pointer("/params/diagnostics")
+        .and_then(Value::as_array)
+        .and_then(|a| a.first())
+        .and_then(|d| d.get("message"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .chars()
+        .take(160)
+        .collect();
+    let entry = stats.entry(batch_uri).or_insert((0, String::new()));
+    entry.0 += 1;
+    if entry.1.is_empty() {
+        entry.1 = sample;
+    }
+}
+
+/// 转储批次统计（超时诊断：显示收到的全部 URI 与样例，最多 30 个）
+fn dump_batch_stats(stats: &BatchStats, target_uri: &str) {
+    eprintln!(
+        "已收到 {} 个不同 URI 的 publishDiagnostics 批次（目标 URI：{target_uri}）：",
+        stats.len()
+    );
+    for (uri, (count, sample)) in stats.iter().take(30) {
+        eprintln!("  - {uri} × {count}：{sample}");
+    }
+}
+
 /// 等待目标 uri 的 publishDiagnostics：rust-analyzer 分批发诊断
 /// （先发 format 错误，后发名称解析错误等），因此持续收集直到
 /// 诊断文本包含 `keyword`（或超时）。空诊断通知被跳过。
+///
+/// 超时时转储收到的全部批次 URI 统计：目标 uri 收不到诊断时，
+/// 可区分「链路从未发布」与「发布到了另一种 URI 形式」（Windows
+/// 盘符大小写/分隔符/编码差异会导致字符串比较不相等）。
 fn wait_diagnostics_containing(
     rx: &mpsc::Receiver<Value>,
     uri: &str,
@@ -146,6 +192,7 @@ fn wait_diagnostics_containing(
 ) -> Option<Value> {
     let deadline = Instant::now() + timeout;
     let mut seen_texts: Vec<String> = Vec::new();
+    let mut stats = BatchStats::new();
     loop {
         let remain = deadline.saturating_duration_since(Instant::now());
         if remain.is_zero() {
@@ -153,6 +200,7 @@ fn wait_diagnostics_containing(
             for t in seen_texts.iter().take(20) {
                 eprintln!("  {t}");
             }
+            dump_batch_stats(&stats, uri);
             return None;
         }
         let msg = match rx.recv_timeout(remain) {
@@ -165,11 +213,13 @@ fn wait_diagnostics_containing(
                     for t in seen_texts.iter().take(20) {
                         eprintln!("  {t}");
                     }
+                    dump_batch_stats(&stats, uri);
                     return None;
                 }
                 continue;
             }
         };
+        record_batch(&mut stats, &msg);
         if msg.get("method").and_then(Value::as_str) == Some("textDocument/publishDiagnostics")
             && msg.pointer("/params/uri").and_then(Value::as_str) == Some(uri)
         {
@@ -583,18 +633,30 @@ fn collect_diagnostics_until_settle(
     let mut found = false;
     let mut settle_deadline: Option<Instant> = None;
     let mut all: Vec<Value> = Vec::new();
+    let mut stats = BatchStats::new();
     loop {
         let now = Instant::now();
         let limit = settle_deadline.unwrap_or(hard_deadline).min(hard_deadline);
         if now >= limit {
+            if !found {
+                eprintln!("⚠️ 锚点「{keyword}」未在超时内出现：");
+                dump_batch_stats(&stats, uri);
+            }
             return (found, all);
         }
         let wait = (limit - now).min(Duration::from_millis(500));
         let msg = match rx.recv_timeout(wait) {
             Ok(m) => m,
             Err(mpsc::RecvTimeoutError::Timeout) => continue,
-            Err(mpsc::RecvTimeoutError::Disconnected) => return (found, all),
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                if !found {
+                    eprintln!("⚠️ 通道断开且锚点「{keyword}」未出现：");
+                    dump_batch_stats(&stats, uri);
+                }
+                return (found, all);
+            }
         };
+        record_batch(&mut stats, &msg);
         if msg.get("method").and_then(Value::as_str) != Some("textDocument/publishDiagnostics")
             || msg.pointer("/params/uri").and_then(Value::as_str) != Some(uri)
         {

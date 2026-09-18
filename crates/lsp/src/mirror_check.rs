@@ -272,9 +272,10 @@ fn transpile_into_mirror(
         let Ok(rel) = mirror_path.strip_prefix(mirror_dir) else {
             continue;
         };
-        let uri = path_to_uri(&project_root.join(rel));
+        // 打开文档取缓冲区内容：按路径查询（容忍客户端 URI 与规范化
+        // 路径的表示差异——Windows 上字符串键匹配会失效）
         let content = cache
-            .query_original(&uri)
+            .query_by_path(&project_root.join(rel))
             .filter(|e| e.is_open)
             .map(|e| e.zh_content.clone())
             .or_else(|| std::fs::read_to_string(mirror_path).ok());
@@ -330,7 +331,15 @@ fn transpile_into_mirror(
         let Ok(rel) = p.mirror_path.strip_prefix(mirror_dir) else {
             continue;
         };
-        let original_uri = path_to_uri(&project_root.join(rel));
+        let source_path = project_root.join(rel);
+        // 诊断发布 URI 复用缓存条目的客户端原样 URI：与编辑器打开的
+        // 文档严格一致（Windows 上规范化形式与客户端形式不同，直接用
+        // 反推 URI 会导致诊断发布到用户不可见的文档上）；未登记条目
+        // （缓存无路径匹配）回退规范化形式
+        let original_uri = cache
+            .query_by_path(&source_path)
+            .map(|e| e.original_uri.clone())
+            .unwrap_or_else(|| path_to_uri(&source_path));
         let is_entry = entry_path.as_deref() == Some(p.mirror_path.as_path());
         let (content, product_path, entry_line_map) = if is_entry {
             // 入口：补 #[path] 注解（rustc 拒绝非 ASCII 模块名的文件式

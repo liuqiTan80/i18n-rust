@@ -519,6 +519,32 @@ impl TranslationCache {
         table.get(uri).cloned()
     }
 
+    /// 根据原始文件路径查询翻译条目（不限打开状态；同路径多条时优先打开中）
+    ///
+    /// 供「从文件路径反推」的链路使用（镜像检查的源内容与诊断发布 URI
+    /// 归属）：这些链路只有磁盘路径，而缓存键是客户端 URI 字符串——
+    /// Windows 上两者的路径表示可能不同（客户端反斜杠形式 vs 规范化
+    /// 正斜杠形式），字符串键匹配失效。本方法先精确比较路径，再按
+    /// 归一化比较键兜底（盘符/目录名大小写、分隔符、verbatim 前缀），
+    /// 同路径多条（客户端 URI 打开 + 历史兄弟登记）时优先打开中的条目
+    ///（其 URI 与编辑器打开的文档严格一致，诊断才能落到用户可见文档上）。
+    pub fn query_by_path(&self, path: &Path) -> Option<Arc<TranslationEntry>> {
+        let table = self.entries.read().ok()?;
+        let exact = table
+            .values()
+            .filter(|e| e.original_path == path)
+            .min_by_key(|e| !e.is_open);
+        if let Some(entry) = exact {
+            return Some(Arc::clone(entry));
+        }
+        let want = path_compare_key(path);
+        table
+            .values()
+            .filter(|e| path_compare_key(&e.original_path) == want)
+            .min_by_key(|e| !e.is_open)
+            .map(Arc::clone)
+    }
+
     /// 返回所有已打开文档的翻译条目
     ///
     /// rust-analyzer 崩溃自动重启后，代理用它重发 didOpen 同步全部文档。
@@ -601,6 +627,15 @@ impl TranslationCache {
         let decoded = url_decode(virtual_uri);
         for entry in table.values() {
             if entry.virtual_uri == decoded {
+                return Some(Arc::clone(entry));
+            }
+        }
+        // 兜底：URI 表示差异（Windows 盘符大小写/分隔符、verbatim 前缀）
+        // 导致字符串永不相等时，按归一化路径比较键匹配虚拟文件路径——
+        // 同一虚拟文件的任何 URI 形式都能反查命中
+        let want = path_compare_key(&uri_to_path(virtual_uri));
+        for entry in table.values() {
+            if path_compare_key(&entry.virtual_path) == want {
                 return Some(Arc::clone(entry));
             }
         }
@@ -1142,6 +1177,23 @@ fn copy_include_assets(content: &str, original_dir: &Path, virtual_dir: &Path, t
     }
 }
 
+/// 路径归一化比较键：容忍同一文件路径的表示差异
+///
+/// URI 解出的路径与文件系统路径可能形式不同（Windows 盘符/目录名大小写、
+/// 分隔符、`\\?\` verbatim 前缀），字符串比较会失效。Windows 上统一为
+/// 小写、正斜杠、无 verbatim 前缀的形式；其他平台保持原样（路径大小写
+/// 敏感，归一化反而会引入误判）。
+fn path_compare_key(path: &Path) -> String {
+    let text = path.to_string_lossy();
+    if cfg!(windows) {
+        let normalized = text.replace('\\', "/");
+        let normalized = normalized.strip_prefix("//?/").unwrap_or(&normalized);
+        normalized.to_lowercase()
+    } else {
+        text.into_owned()
+    }
+}
+
 /// 将 file:// URI 转换为文件路径
 ///
 /// 编辑器（如 VSCode）会对非 ASCII 字符（中文文件名）做百分号编码，
@@ -1451,6 +1503,29 @@ mod tests {
         assert_eq!(entry.en_content, "let mut x = 5;");
         assert!(entry.virtual_path.exists());
         assert!(others.is_empty());
+    }
+
+    /// 路径级反查（query_by_path）：URI 与路径的表示差异（Windows 盘符
+    /// 大小写/分隔符）在 Windows 上归一命中，其他平台保持精确匹配语义
+    ///（大小写敏感，归一化会引入误判）
+    #[test]
+    fn test_query_by_path_tolerates_windows_forms() {
+        let temp = tempfile::tempdir().unwrap();
+        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
+
+        // 客户端 URI 为反斜杠/盘符形式：uri 解出 C:/x/main.zh
+        let (entry, _) = cache
+            .update_document("file://C:/x/main.zh", "让 x = 1;", 1)
+            .unwrap();
+        // 精准路径命中（不限平台）
+        assert!(cache.query_by_path(&entry.original_path).is_some());
+        // 表示变体：Windows 归一命中；其他平台视为不同路径
+        assert_eq!(
+            cache.query_by_path(Path::new(r"c:\x\main.zh")).is_some(),
+            cfg!(windows),
+            "大小写/分隔符归一应仅 Windows 生效"
+        );
+        assert!(cache.query_by_path(Path::new("/no/such/file.zh")).is_none());
     }
 
     /// 别名替换接通：库标识符转英文，声明位同名用户定义受保护（与 CLI 一致）

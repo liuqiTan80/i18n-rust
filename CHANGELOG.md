@@ -5,14 +5,6 @@
 
 ## [Unreleased]
 
-### 修复
-- lsp：教学诊断注入统一到三条诊断发布路径（RA 链 / 虚拟项目检查 / 镜像检查）——
-  注入函数迁入 `response_map::diag_text`（`inject_teaching_diags`），由 entry 内容
-  直接计算全角标点与教学 lint，不再依赖内置诊断缓存合并的时序：代理自跑检查
-  （虚拟/镜像链）先于 rust-analyzer 首批发布时缓存为空，此前教学提示会随批次
-  丢失（CI e2e 三平台失败根因）；e2e 全角断言锚点精确为「检测到全角标点」，
-  与 rustc/RA 翻译文本（「混入了全角标点」）不再撞车
-
 ## [0.8.1] - 2026-09-18
 
 ### 新增
@@ -24,6 +16,18 @@
   绑定参数、tracing-appender、clap 补全等；weix-1 实测）
 
 ### 修复
+- lsp：诊断与文档的关联升级为路径级（不再依赖 URI 字符串相等）——镜像检查的
+  诊断发布 URI 复用缓存条目的客户端原样 URI（与编辑器打开的文档严格一致），
+  教学注入与虚拟 URI 反查增加归一化路径兜底（容忍 Windows 盘符大小写 /
+  分隔符 / verbatim 前缀差异）；修复 Windows 上因 URI 形式不一致导致诊断
+  发布到编辑器不可见的 URI、教学提示缺失的问题
+- lsp：教学诊断注入统一到三条诊断发布路径（RA 链 / 虚拟项目检查 / 镜像检查）——
+  注入函数迁入 `response_map::diag_text`（`inject_teaching_diags`），由 entry 内容
+  直接计算全角标点与教学 lint，不再依赖内置诊断缓存合并的时序：代理自跑检查
+  （虚拟/镜像链）先于 rust-analyzer 首批发布时缓存为空，此前教学提示会随批次
+  丢失（CI e2e 三平台失败根因）；e2e 全角断言锚点精确为「检测到全角标点」，
+  与 rustc/RA 翻译文本（「混入了全角标点」）不再撞车；e2e 超时转储新增全部
+  批次 URI 统计，CI 失败关键日志转为工作流注解（annotations API 匿名可读）
 - zh `stdlib.toml`：`"线程数" → "available_parallelism"` 键修正为「可用并行数」——
   「线程数」与用户项目字段名高频撞车，且声明位豁免 / 访问位替换的单侧不一致会产出
   E0609（weix-1 实测）；新键与 fr 包 `parallelisme_disponible` 语义对齐

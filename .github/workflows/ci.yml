@@ -196,9 +196,18 @@ jobs:
 
       - name: 运行 LSP 端到端测试（显式启用 ignored 测试）
         # e2e 测试需要 rust-analyzer 可执行文件，默认 #[ignore] 跳过；
-        # 此处先安装工具链再显式运行，验证 E0425 诊断的翻译全链路
+        # 此处先安装工具链再显式运行，验证 E0425 诊断的翻译全链路。
+        # 失败时把关键日志转为 ::error:: 注解（可经 annotations API 匿名
+        # 读取，便于无 GitHub 登录时定位失败）；完整日志同时留在 e2e-full.log
         shell: bash
-        run: cargo test -p i18n-rust-lsp --test e2e -- --ignored
+        run: |
+          set +e
+          cargo test -p i18n-rust-lsp --test e2e -- --ignored 2>&1 | tee e2e-full.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            bash .github/scripts/e2e-failure-annotations.sh e2e-full.log "${{ matrix.os_name }}" || true
+          fi
+          exit "$status"
 
   # ---------- 5. 基准回归对比 ----------
   bench:
