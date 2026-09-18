@@ -6,6 +6,12 @@
 "正则" = "regex"
 "延迟静态" = "lazy_static"
 "单次" = "once_cell"
+"随机核心" = "rand_core"
+"数据并行" = "rayon"
+"字节查找" = "memchr"
+"路径通配" = "glob"
+"标准目录" = "directories"
+"ZSTD压缩" = "zstd"
 
 # 内部标识符映射（用于库内的类型、函数等）
 ["标识符"]
@@ -20,6 +26,9 @@
 "随机选择" = "choose"
 "填充" = "fill"
 "采样" = "sample"
+
+# rand_core
+"系统随机源" = "OsRng"
 
 # chrono
 "本地时间" = "Local"
@@ -81,3 +90,22 @@
 # once_cell
 "单次" = "OnceCell"
 "延迟静态值" = "Lazy"
+
+# rayon
+"数据并行" = "rayon"  # 模块路径词在函数体内的副本（rayon:: 限定路径）
+"线程池构建器" = "ThreadPoolBuilder"
+
+# memchr（crate 与函数同名）
+"字节查找" = "memchr"
+
+# glob（crate 与函数同名）
+"路径通配" = "glob"
+
+# directories
+"标准目录" = "directories"  # 模块路径词在函数体内的副本
+"基础目录" = "BaseDirs"
+
+# zstd
+"ZSTD压缩" = "zstd"  # 模块路径词在函数体内的副本（zstd:: 限定路径）
+"解压全部" = "decode_all"
+"压缩全部" = "encode_all"

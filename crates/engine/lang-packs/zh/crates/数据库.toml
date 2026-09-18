@@ -41,3 +41,10 @@
 "开始事务" = "transaction"  # Connection::transaction（「事务」=Transaction 为类型名）
 "提交" = "commit"  # Transaction::commit
 "数据库错误" = "Error"  # rusqlite::Error 错误类型
+"取值类型" = "types"  # rusqlite::types 模块
+"取值引用" = "ValueRef"  # rusqlite::types::ValueRef 列值引用
+"空值" = "Null"
+"文本值" = "Text"  # 「文本」已被 str 占用
+"字节块" = "Blob"
+"整数值" = "Integer"
+"浮点值" = "Real"

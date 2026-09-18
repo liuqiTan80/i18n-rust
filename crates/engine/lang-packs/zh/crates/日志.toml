@@ -4,6 +4,7 @@
 "日志" = "log"
 "环境变量日志" = "env_logger"
 "日志订阅" = "tracing-subscriber"
+"日志追加" = "tracing_appender"  # tracing-appender 文件追加器（连字符值→下划线形式）
 
 # 内部标识符映射（用于库内的类型、函数等）
 ["标识符"]

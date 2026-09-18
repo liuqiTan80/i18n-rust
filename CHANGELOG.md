@@ -5,6 +5,19 @@
 
 ## [Unreleased]
 
+### 新增
+- zh 语言包新增 `crates/密码学.toml`：sha2 / md5 / hmac / pbkdf2 / aes / cbc / zeroize /
+  ed25519_dalek / getrandom / hex 共 10 个 crate 的「模块路径 + 标识符」词条 40 余条
+  （含 Aes256 / 分组解密器 / NoPadding / SigningKey / Signature / OsRng 等；weix-1
+  全量中文化实战定稿）
+- zh `工具 / 数据库 / 日志 / 命令行` 四表补条（rand_core / OsRng、SQLite 取值类型与
+  绑定参数、tracing-appender、clap 补全等；weix-1 实测）
+
+### 修复
+- zh `stdlib.toml`：`"线程数" → "available_parallelism"` 键修正为「可用并行数」——
+  「线程数」与用户项目字段名高频撞车，且声明位豁免 / 访问位替换的单侧不一致会产出
+  E0609（weix-1 实测）；新键与 fr 包 `parallelisme_disponible` 语义对齐
+
 ## [0.8.0] - 2026-09-17
 
 ### 新增

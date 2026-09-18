@@ -1,0 +1,64 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"SHA2哈希" = "sha2"
+"MD5摘要" = "md5"
+"HMAC认证" = "hmac"
+"PBKDF2派生" = "pbkdf2"
+"AES加密" = "aes"
+"CBC模式" = "cbc"
+"内存零化" = "zeroize"
+"Ed25519签名" = "ed25519_dalek"
+"系统随机" = "getrandom"
+"十六进制" = "hex"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+# sha2 / md5（共用 digest 摘要特征；crate 与类型同名者分设键名）
+"摘要算法" = "Digest"
+"SHA256哈希" = "Sha256"
+"SHA512哈希" = "Sha512"
+"MD5摘要器" = "Md5"
+"计算摘要" = "digest"  # 摘要核心三方法（sha2/md5/hmac 通用）
+"追加输入" = "update"  # 「更新」已被 put 占用
+"完成摘要" = "finalize"  # 「完成」为常用词不宜作键
+
+# hmac
+"认证码" = "Hmac"
+"认证特征" = "Mac"
+
+# pbkdf2
+"PBKDF2派生" = "pbkdf2"  # 模块路径词在函数体内的副本（pbkdf2:: 限定路径）
+"PBKDF2派生_hmac" = "pbkdf2_hmac"  # 函数名含下划线，整词映射（同「排序_by」先例）
+
+# aes
+"AES加密" = "aes"  # 模块路径词在函数体内的副本
+"AES256加密" = "Aes256"
+
+# cbc（含 cipher 子模块路径段；模块路径词在函数体内的副本）
+"CBC模式" = "cbc"
+"分组加密器" = "Encryptor"
+"分组解密器" = "Decryptor"
+"分组密码" = "cipher"
+"密钥初始向量" = "KeyIvInit"
+"分组加密" = "BlockEncryptMut"
+"分组解密" = "BlockDecryptMut"
+"块填充" = "block_padding"
+"无填充" = "NoPadding"
+
+# zeroize（crate 与方法同名；模块路径词在函数体内的副本）
+"内存零化" = "zeroize"
+"零化特征" = "Zeroize"
+
+# ed25519_dalek
+"Ed25519签名" = "ed25519_dalek"  # 模块路径词在函数体内的副本
+"签名密钥" = "SigningKey"
+"验证密钥" = "VerifyingKey"
+"签名值" = "Signature"
+"签名特征" = "Signer"
+"签署" = "sign"  # Signer::sign；变量位引用受绑定豁免保护
+
+# getrandom（crate 与函数同名）
+"系统随机" = "getrandom"
+
+# hex（crate 与限定路径调用同键）
+"十六进制" = "hex"

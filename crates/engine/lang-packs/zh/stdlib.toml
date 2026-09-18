@@ -472,7 +472,7 @@
 "线程名" = "name"
 "线程休眠" = "sleep"
 "让步" = "yield_now"
-"线程数" = "available_parallelism"
+"可用并行数" = "available_parallelism"
 "原子布尔" = "AtomicBool"
 "原子整数" = "AtomicIsize"
 "原子无符号整数" = "AtomicUsize"

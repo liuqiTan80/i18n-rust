@@ -4,6 +4,7 @@
 "结构体选项" = "structopt"
 "对话框" = "dialoguer"
 "控制台" = "console"
+"命令补全" = "clap_complete"
 
 # 内部标识符映射（用于库内的类型、函数等）
 ["标识符"]
