@@ -65,7 +65,7 @@ echo "▶ 运行基准（对比模式，回归阈值 ${THRESHOLD_PCT}%）..."
 ${BENCH} bench -p i18n-rust-engine --bench transpile ${BENCH_EXTRA_ARGS:-}
 
 "${PYTHON}" - "$BASELINE_FILE" "$THRESHOLD_PCT" <<'PYEOF'
-import json, pathlib, sys
+import json, os, pathlib, sys
 baseline_file, threshold = sys.argv[1], float(sys.argv[2])
 baseline = json.loads(pathlib.Path(baseline_file).read_text(encoding="utf-8"))["results"]
 results = {}
@@ -101,6 +101,19 @@ if failures:
         print(f"   {key}: {base:.1f} → {new:.1f} ns（{pct:+.1f}%）")
     print("   若为硬件差异导致的误报，请调整 BENCH_REGRESSION_PCT 或刷新基线；")
     print("   确认为真实回归时，请优化相关代码后重新运行。")
+    # CI 环境附加工作流注解：job 日志需登录才能查看，注解经
+    # check-runs annotations API 匿名可读（与 e2e 失败注解同一思路），
+    # 使维护者在无法登录 GitHub 时也能拿到超阈值明细
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        parts = [
+            f"{key}: {base:.1f} → {new:.1f} ns（{pct:+.1f}%）"
+            for key, base, new, pct in failures[:10]
+        ]
+        msg = " | ".join(parts)
+        if len(failures) > 10:
+            msg += f" | … 共 {len(failures)} 项"
+        msg = msg.replace("%", "%25")
+        print(f"::error title=基准回归超阈值::共 {len(failures)} 项超过 {threshold:.0f}%：{msg}")
     sys.exit(1)
 print(f"\n✅ 全部基准项在回归阈值 {threshold:.0f}% 内")
 PYEOF
