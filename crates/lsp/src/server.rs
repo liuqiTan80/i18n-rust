@@ -306,18 +306,14 @@ impl ProxyServer {
                 }
                 // 初始化期间 rust-analyzer 可能主动请求配置（workspace/configuration）：
                 // 必须立即响应，否则它一直等待导致配置加载挂起。
-                // 返回补全 snippet 配置（方法补全附带括号），其余键用默认
-                //（checkOnSave 默认关闭，诊断由代理自跑 cargo check 提供）。
+                // 返回补全 snippet 配置并禁用其自跑 cargo check（见
+                // [`ra_configuration_result`] 的说明），其余键维持默认。
                 if msg.get("method").and_then(|v| v.as_str()) == Some("workspace/configuration") {
                     let count = msg["params"]["items"]
                         .as_array()
                         .map(|a| a.len())
                         .unwrap_or(0);
-                    let result = Value::Array(
-                        (0..count)
-                            .map(|_| json!({ "completion": { "snippets": "custom" } }))
-                            .collect(),
-                    );
+                    let result = ra_configuration_result(count);
                     let response = json!({
                         "jsonrpc": "2.0",
                         "id": msg["id"].clone(),
@@ -529,8 +525,14 @@ impl ProxyServer {
         // 工作区：initialize 请求已携带虚拟项目 workspaceFolders，
         // 新进程按磁盘现状直接加载（main.rs 已由模块集合变化写盘），
         // 无需再发工作区变更通知
-        // 重新打开所有已打开的文档（虚拟 .rs 文件仍在磁盘，重发 didOpen 即可）
+        // 重新打开所有已打开文档的虚拟文件（其磁盘副本与缓冲区不同步，
+        // 必须重发 didOpen 提供内存副本）；兄弟模块未打开，不发 didOpen
+        // ——否则 rust-analyzer 以内存副本为准，后续磁盘更新通知
+        //（didChangeWatchedFiles）不再生效
         for entry in self.cache.all_entries() {
+            if !entry.is_open {
+                continue;
+            }
             let msg = json!({
                 "jsonrpc": "2.0",
                 "method": "textDocument/didOpen",
@@ -648,6 +650,43 @@ impl ProxyServer {
         self.analyzer.send(&notification)
     }
 
+    /// 其他虚拟条目的内容变化通知：按条目状态路由
+    ///
+    /// 打开中的文档在 rust-analyzer 中有对应的内存副本，必须用 didChange
+    /// 全量同步（对已打开文档重复 didOpen 违反 LSP 协议）；兄弟模块
+    /// 未在编辑器中打开，其虚拟文件由代理直接写盘，用
+    /// didChangeWatchedFiles（Changed）让 rust-analyzer 从磁盘重读。
+    fn notify_virtual_entries_changed(
+        &self,
+        entries: &[Arc<TranslationEntry>],
+    ) -> anyhow::Result<()> {
+        for entry in entries {
+            let ra_msg = if entry.is_open {
+                json!({
+                    "jsonrpc": "2.0",
+                    "method": "textDocument/didChange",
+                    "params": {
+                        "textDocument": {
+                            "uri": entry.virtual_uri,
+                            "version": entry.version
+                        },
+                        "contentChanges": [{ "text": entry.ra_content }]
+                    }
+                })
+            } else {
+                json!({
+                    "jsonrpc": "2.0",
+                    "method": "workspace/didChangeWatchedFiles",
+                    "params": {
+                        "changes": [{ "uri": entry.virtual_uri, "type": 2 }]
+                    }
+                })
+            };
+            self.analyzer.send(&ra_msg)?;
+        }
+        Ok(())
+    }
+
     /// 处理文档打开
     fn handle_did_open(&self, params: &Value) -> anyhow::Result<()> {
         let doc = &params["textDocument"];
@@ -665,24 +704,10 @@ impl ProxyServer {
         // 确保其识别新模块（虚拟项目的文件系统监听不可靠）。
         self.notify_main_updated_if_modules_changed()?;
 
-        // 模块集合变化可能导致其他已打开文件被重写
-        // （其虚拟内容新增/移除了 crate:: 前缀），重新通知 rust-analyzer。
-        // 这些文档已在 rust-analyzer 中打开，必须用 didChange 全量同步
-        // （对已打开文档重复发送 didOpen 违反 LSP 协议）
-        for change_entry in &other_changes {
-            let ra_msg = json!({
-                "jsonrpc": "2.0",
-                "method": "textDocument/didChange",
-                "params": {
-                    "textDocument": {
-                        "uri": change_entry.virtual_uri,
-                        "version": change_entry.version
-                    },
-                    "contentChanges": [{ "text": change_entry.ra_content }]
-                }
-            });
-            self.analyzer.send(&ra_msg)?;
-        }
+        // 模块集合变化可能导致其他文件被重写（其虚拟内容新增/移除
+        // crate:: 前缀）：打开中的用 didChange 同步，兄弟模块用
+        // didChangeWatchedFiles 通知磁盘重读
+        self.notify_virtual_entries_changed(&other_changes)?;
 
         let ra_msg = json!({
             "jsonrpc": "2.0",
@@ -701,6 +726,10 @@ impl ProxyServer {
             "{}",
             crate::ui::global().f("lsp_log_doc_opened", &[uri, &version.to_string()])
         );
+
+        // 打开即跑权威检查（真实项目镜像）：无需保存即可见编译级诊断；
+        // 镜像不可用时回退虚拟项目检查（draft_virtual=false 的兜底）
+        self.trigger_cargo_check(uri, false)?;
         Ok(())
     }
 
@@ -740,7 +769,7 @@ impl ProxyServer {
             }
         }
 
-        let (entry, _) = self.cache.update_document(uri, &content, version)?;
+        let (entry, other_changes) = self.cache.update_document(uri, &content, version)?;
         let ra_msg = json!({
             "jsonrpc": "2.0",
             "method": "textDocument/didChange",
@@ -753,6 +782,10 @@ impl ProxyServer {
             }
         });
         self.analyzer.send(&ra_msg)?;
+        // 兄弟模块集合可能增删（磁盘文件变化）：聚合 main.rs 需重读；
+        // 其他条目内容被重写时按打开状态分别同步
+        self.notify_main_updated_if_modules_changed()?;
+        self.notify_virtual_entries_changed(&other_changes)?;
         Ok(())
     }
 
@@ -780,22 +813,9 @@ impl ProxyServer {
         // 模块集合变化时通知 rust-analyzer 重读聚合 main.rs（模块已移除）
         self.notify_main_updated_if_modules_changed()?;
 
-        // 模块集合缩小：其余条目仍在 rust-analyzer 中打开，
-        // 用 didChange 全量同步（重复 didOpen 违反 LSP 协议）
-        for change_entry in &other_changes {
-            let ra_msg = json!({
-                "jsonrpc": "2.0",
-                "method": "textDocument/didChange",
-                "params": {
-                    "textDocument": {
-                        "uri": change_entry.virtual_uri,
-                        "version": change_entry.version
-                    },
-                    "contentChanges": [{ "text": change_entry.ra_content }]
-                }
-            });
-            self.analyzer.send(&ra_msg)?;
-        }
+        // 其余条目按状态同步：打开中的用 didChange 全量同步，
+        // 兄弟模块（含刚降级的本条）用 didChangeWatchedFiles 磁盘重读
+        self.notify_virtual_entries_changed(&other_changes)?;
         Ok(())
     }
 
@@ -818,26 +838,35 @@ impl ProxyServer {
             self.analyzer.send(&ra_msg)?;
         }
 
-        // 代理自跑 cargo check 并发布诊断：rust-analyzer 的 checkOnSave 在
-        // 虚拟项目上诊断不可达（cargo 常驻但无发布），而所有权可视化依赖
-        // E0382 等 check 诊断（移动黄/使用红/生命周期绿）
-        self.trigger_cargo_check()?;
+        // 代理自跑 cargo check 并发布诊断：先虚拟项目草稿（快速反馈），
+        // 再真实项目镜像（权威，与 rzc 构建口径一致）。rust-analyzer
+        // 的 checkOnSave 在虚拟项目上诊断不可达（cargo 常驻但无发布），
+        // 而所有权可视化依赖 E0382 等 check 诊断（移动黄/使用红/生命周期绿）
+        self.trigger_cargo_check(uri, true)?;
         Ok(())
     }
 
     /// 异步执行 cargo check 并发布诊断
     ///
-    /// rust-analyzer 的 checkOnSave 在虚拟项目上诊断不可达（cargo 常驻但
-    /// 无诊断发布），改为代理直接跑 `cargo check --message-format=json`，
-    /// 解析 compiler-message 行转换为 LSP 诊断，合并最近一次内置诊断后
-    /// 发布给客户端。教学场景虚拟项目无第三方依赖，check 开销可控。
-    fn trigger_cargo_check(&self) -> anyhow::Result<()> {
+    /// 两条通路：
+    /// - 虚拟项目草稿检查（`draft_virtual` 时先跑）：教学场景无第三方
+    ///   依赖，秒级反馈；
+    /// - 真实项目镜像检查（权威）：项目树复制 + 方言转译产物覆盖 +
+    ///   `cargo check --offline`，复用真实 target 目录的依赖产物，
+    ///   诊断口径与 rzc 构建完全一致；镜像不可用时回退虚拟检查。
+    ///
+    /// `saved_uri`：触发本次检查的方言文件（定位项目根）；
+    /// `draft_virtual`：是否先跑虚拟项目草稿检查（didSave 为 true，
+    /// didOpen 为 false——镜像已含全部信息，草稿无必要）。
+    fn trigger_cargo_check(&self, saved_uri: &str, draft_virtual: bool) -> anyhow::Result<()> {
         let cache = self.cache.clone();
         let mapper = self.mapper.clone();
         let sender = self.connection.sender.clone();
         let builtin_diags = self.builtin_diags.clone();
         let check_running = self.check_running.clone();
         let check_pending = self.check_pending.clone();
+        let extensions = self.supported_extensions.clone();
+        let saved_uri = saved_uri.to_string();
         let project_dir = cache.virtual_project_dir();
 
         // 并发保护：上次 check 未结束（可能卡在锁等待）时，标记待重跑
@@ -853,7 +882,33 @@ impl ProxyServer {
             // pending 由首轮消费，最多连跑两次，合并中间全部状态
             loop {
                 check_pending.store(false, std::sync::atomic::Ordering::SeqCst);
-                Self::run_cargo_check_once(&cache, &mapper, &sender, &builtin_diags, &project_dir);
+                if draft_virtual {
+                    Self::run_cargo_check_once(
+                        &cache,
+                        &mapper,
+                        &sender,
+                        &builtin_diags,
+                        &project_dir,
+                    );
+                }
+                // 镜像检查（权威）；不可用时回退虚拟检查
+                //（didSave 已跑过草稿，无需重复）
+                let mirror_ok = crate::mirror_check::run_mirror_check(
+                    &cache,
+                    &sender,
+                    &builtin_diags,
+                    &extensions,
+                    &saved_uri,
+                );
+                if !mirror_ok && !draft_virtual {
+                    Self::run_cargo_check_once(
+                        &cache,
+                        &mapper,
+                        &sender,
+                        &builtin_diags,
+                        &project_dir,
+                    );
+                }
                 if !check_pending.load(std::sync::atomic::Ordering::SeqCst) {
                     break;
                 }
@@ -1256,13 +1311,18 @@ fn virtual_temp_dir() -> anyhow::Result<PathBuf> {
     Ok(dir)
 }
 
-/// 清理同用户的残留虚拟目录：仅删除名称中带 PID 后缀且进程已死的目录
+/// 清理同用户的残留虚拟/镜像目录：仅删除名称中带 PID 后缀且进程已死的目录
 ///
+/// 虚拟目录名 `i18n_lsp_virtual_<用户>_<PID>`；镜像目录名
+/// `i18n_lsp_mirror_<用户>_<PID>_<项目哈希>`（PID 段后还有哈希段）。
 /// 尽力而为：任何失败（目录列举失败、无法解析 PID、删除失败）都静默跳过，
 /// 不影响本实例启动。存活检查对 Unix（kill 0 信号）与 Windows
 /// （OpenProcess 语义的 tasklist 查询不可移植，退回 mtime 启发式）分别处理。
 fn cleanup_stale_virtual_dirs(safe_user: &str) {
-    let prefix = format!("i18n_lsp_virtual_{}_", safe_user);
+    let prefixes = [
+        format!("i18n_lsp_virtual_{}_", safe_user),
+        format!("i18n_lsp_mirror_{}_", safe_user),
+    ];
     let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) else {
         return;
     };
@@ -1272,11 +1332,16 @@ fn cleanup_stale_virtual_dirs(safe_user: &str) {
             continue;
         };
         // 仅处理本用户且带 PID 后缀的目录；无后缀的旧版目录不动（避免误删）
-        let Some(pid_str) = name_str.strip_prefix(&prefix) else {
+        let Some(rest) = prefixes
+            .iter()
+            .find_map(|p| name_str.strip_prefix(p.as_str()))
+        else {
             continue;
         };
-        // 兼容上轮 rename 后未删除干净的 `.stale` 残留（纯数字 PID 前加后缀）
-        let pid_str = pid_str.strip_suffix(".stale").unwrap_or(pid_str);
+        // 兼容上轮 rename 后未删除干净的 `.stale` 残留；镜像名 PID 后还有
+        // 哈希段，取首个下划线之前的部分为 PID
+        let rest = rest.strip_suffix(".stale").unwrap_or(rest);
+        let pid_str = rest.split('_').next().unwrap_or(rest);
         if pid_str == std::process::id().to_string() {
             continue; // 当前进程自己的目录
         }
@@ -1302,6 +1367,28 @@ fn cleanup_stale_virtual_dirs(safe_user: &str) {
             let _ = std::fs::remove_dir_all(&stale_path);
         }
     }
+}
+
+/// 响应 rust-analyzer 的 workspace/configuration 请求
+///
+/// - `completion.snippets = custom`：方法补全附带括号；
+/// - `checkOnSave`/`check.enable = false`：禁用 rust-analyzer 自跑的
+///   cargo check（flycheck）。该检查针对无第三方依赖、无过程宏的虚拟
+///   项目，结果按 workspace 全部文件成批发布：依赖缺失（E0432/E0599）、
+///   derive 不展开的级联错误（E0277 Display 等）在该环境下恒为假红。
+///   编译级诊断由代理自跑虚拟/镜像检查提供（didSave/didOpen 触发）。
+fn ra_configuration_result(count: usize) -> Value {
+    Value::Array(
+        (0..count)
+            .map(|_| {
+                json!({
+                    "completion": { "snippets": "custom" },
+                    "checkOnSave": { "enable": false },
+                    "check": { "enable": false }
+                })
+            })
+            .collect(),
+    )
 }
 
 /// 判断 PID 是否存活（仅用于残留目录清理，误判代价低）
@@ -1567,16 +1654,11 @@ fn handle_analyzer_message(
             // 必须把响应回发给 rust-analyzer 本身，否则它会一直等待。
             let method = msg["method"].as_str().unwrap_or("");
             let result = if method == "workspace/configuration" {
-                // 返回补全 snippet 配置（方法补全附带括号）；其余默认
                 let count = msg["params"]["items"]
                     .as_array()
                     .map(|a| a.len())
                     .unwrap_or(0);
-                Value::Array(
-                    (0..count)
-                        .map(|_| json!({ "completion": { "snippets": "custom" } }))
-                        .collect(),
-                )
+                ra_configuration_result(count)
             } else {
                 Value::Null
             };
@@ -1610,6 +1692,16 @@ fn handle_analyzer_message(
                         .unwrap_or_default();
                     let merged_uri = mapped["uri"].as_str().unwrap_or("").to_string();
                     if let Some(entry) = mapper.entry_for_original(&merged_uri) {
+                        // RA 的 E 系列编译错误在 cargo 项目内抑制：编译级诊断
+                        // 以代理自跑的镜像/虚拟项目检查（rustc 口径）为准，
+                        // RA 在虚拟项目上对第三方依赖与过程宏的类型推断恒为
+                        // 假红（详见 suppress_ra_compile_error 的说明）
+                        merged_diags.retain(|d| {
+                            !crate::response_map::diag_text::suppress_ra_compile_error(
+                                d,
+                                &entry.original_path,
+                            )
+                        });
                         // 移除旧的教学诊断（按 code+source 识别），追加新的
                         merged_diags.retain(|d| {
                             !(is_teaching_diag(d) && d["source"].as_str() == Some("i18n-rust"))

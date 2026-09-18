@@ -490,6 +490,161 @@ fn test_map_diagnostics_filters_unopened_module_reference() {
     );
 }
 
+/// 虚拟项目“引用未打开模块文件”误报的新消息格式（rust-analyzer 0.3.3025）：
+/// 新 E0432（unresolved import `crate::X`）、新 E0433（cannot find `X` in
+/// `crate`）与同伴 hint（no `X` in the root）在同名方言文件存在时过滤；
+/// 文件不存在的拼写错误保留
+#[test]
+fn test_map_diagnostics_filters_unopened_module_reference_new_formats() {
+    let (cache, temp) = create_test_cache();
+    let mapper = ResponseMapper::new(cache.clone());
+    // 同目录存在被引用但未打开的模块文件
+    std::fs::write(temp.path().join("日志设置.zh"), "公开 函数 初始化() {}").unwrap();
+    let main_uri = format!("file://{}", temp.path().join("main.zh").display());
+    let (entry, _) = cache.update_document(&main_uri, "让 x = 1;", 1).unwrap();
+
+    let mk = |code: &str, severity: u32, message: &str| {
+        json!({
+            "range": {
+                "start": { "line": 0, "character": 0 },
+                "end": { "line": 0, "character": 1 }
+            },
+            "severity": severity,
+            "code": code,
+            "message": message
+        })
+    };
+    let e0432 = mk(
+        "E0432",
+        1,
+        "unresolved import `crate::日志设置`\ncould not find `日志设置` in the crate root",
+    );
+    let e0433 = mk("E0433", 1, "cannot find `日志设置` in `crate`");
+    let hint = mk("E0432", 4, "no `日志设置` in the root");
+    let e0432_typo = mk(
+        "E0432",
+        1,
+        "unresolved import `crate::日志设值`\ncould not find `日志设值` in the crate root",
+    );
+    let e0433_typo = mk("E0433", 1, "cannot find `日志设值` in `crate`");
+    let params = json!({
+        "uri": entry.virtual_uri,
+        "version": 1,
+        "diagnostics": [e0432, e0433, hint, e0432_typo, e0433_typo]
+    });
+
+    let mapped = mapper.map_diagnostics(&params);
+    let diags = mapped["diagnostics"].as_array().unwrap();
+    // 三处“文件存在”的误报被过滤，两处拼写错误保留
+    assert_eq!(diags.len(), 2, "仅保留拼写错误诊断：{mapped}");
+    for diag in diags {
+        assert!(
+            diag["message"].as_str().unwrap().contains("日志设值"),
+            "保留的诊断应为拼写错误：{mapped}"
+        );
+    }
+}
+
+/// 虚拟项目“第三方依赖缺失”的误报被过滤：
+/// 候选 crate 名出现在项目最近 Cargo.toml 依赖表中（含 target 节与
+/// `-`/`_` 归一化）时过滤；未声明的库（拼写错误/待添加）保留
+#[test]
+fn test_map_diagnostics_filters_project_dependency() {
+    let (cache, temp) = create_test_cache();
+    let mapper = ResponseMapper::new(cache.clone());
+    // 用户项目置于子目录：与虚拟项目根（temp）隔离，避免虚拟项目生成的
+    // Cargo.toml 覆盖测试清单（真实场景中两者天然分离）
+    let proj = temp.path().join("proj");
+    std::fs::create_dir_all(&proj).unwrap();
+    std::fs::write(
+        proj.join("Cargo.toml"),
+        r#"[package]
+name = "demo"
+version = "0.1.0"
+
+[dependencies]
+serde = "1"
+serde-json = "1"
+
+[target.'cfg(unix)'.dependencies]
+getrandom = "0.2"
+"#,
+    )
+    .unwrap();
+    let main_uri = format!("file://{}", proj.join("main.zh").display());
+    let (entry, _) = cache.update_document(&main_uri, "让 x = 1;", 1).unwrap();
+
+    let mk = |message: &str| {
+        json!({
+            "range": {
+                "start": { "line": 0, "character": 0 },
+                "end": { "line": 0, "character": 1 }
+            },
+            "severity": 1,
+            "message": message
+        })
+    };
+    let params = json!({
+        "uri": entry.virtual_uri,
+        "version": 1,
+        "diagnostics": [
+            mk("unresolved import `serde`"),
+            mk("unresolved import `serde_json::Value`"),
+            mk("cannot find module or crate `getrandom` in this scope"),
+            mk("unresolved import `clap`")
+        ]
+    });
+
+    let mapped = mapper.map_diagnostics(&params);
+    let diags = mapped["diagnostics"].as_array().unwrap();
+    // 依赖表中的名字被过滤，未声明的 clap 保留
+    assert_eq!(diags.len(), 1, "仅保留未声明依赖：{mapped}");
+    assert!(
+        diags[0]["message"].as_str().unwrap().contains("clap"),
+        "保留的诊断应为未声明依赖：{mapped}"
+    );
+}
+
+/// 虚拟项目“include_str! 资源缺失”的误报被过滤：
+/// 资源文件在原方言文件同目录存在（消息路径按虚拟项目根显示，带
+/// `src/` 前缀）时过滤；资源真实缺失时保留
+#[test]
+fn test_map_diagnostics_filters_missing_include_asset() {
+    let (cache, temp) = create_test_cache();
+    let mapper = ResponseMapper::new(cache.clone());
+    std::fs::write(temp.path().join("页面.html"), "<html></html>").unwrap();
+    let main_uri = format!("file://{}", temp.path().join("main.zh").display());
+    let (entry, _) = cache.update_document(&main_uri, "让 x = 1;", 1).unwrap();
+
+    let mk = |message: &str| {
+        json!({
+            "range": {
+                "start": { "line": 0, "character": 0 },
+                "end": { "line": 0, "character": 1 }
+            },
+            "severity": 1,
+            "message": message
+        })
+    };
+    let params = json!({
+        "uri": entry.virtual_uri,
+        "version": 1,
+        "diagnostics": [
+            mk("couldn't read `src/页面.html`: No such file or directory (os error 2)"),
+            mk("couldn't read `src/缺失.html`: No such file or directory (os error 2)")
+        ]
+    });
+
+    let mapped = mapper.map_diagnostics(&params);
+    let diags = mapped["diagnostics"].as_array().unwrap();
+    // 原目录存在的资源误报被过滤，真实缺失的保留
+    assert_eq!(diags.len(), 1, "仅保留真实缺失的资源：{mapped}");
+    assert!(
+        diags[0]["message"].as_str().unwrap().contains("缺失.html"),
+        "保留的诊断应为真实缺失的资源：{mapped}"
+    );
+}
+
 /// documentHighlight 响应的 range 必须还原为母语坐标
 #[test]
 fn test_map_document_highlight_response() {

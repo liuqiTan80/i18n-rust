@@ -4,6 +4,11 @@
 //! 回退引擎内嵌 zh），为 publishDiagnostics 提供消息中文化与
 //! 所有权错误的叙事化详情。
 
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::SystemTime;
+
 use i18n_rust_engine::diagnostic::{DiagnosticLocation, OwnershipDetails};
 use serde_json::Value;
 
@@ -45,7 +50,9 @@ fn builtin_zh_error_translator() -> Option<i18n_rust_engine::diagnostic::ErrorTr
 /// 未命中时退化为轻量短语替换。多行消息按行逐条翻译后拼接。
 /// 替换仅作用于反引号之外的文本，避免误伤消息中引用的
 /// 标识符/类型名（如变量名 `expected_value` 含子串 "expected"）。
-pub(super) fn translate_diagnostic_message(message: &str) -> String {
+///
+/// pub(crate)：镜像检查（真实项目 rustc 诊断）复用同一消息表。
+pub(crate) fn translate_diagnostic_message(message: &str) -> String {
     // 多行消息（rust-analyzer 的 E0004 等）逐行翻译
     if message.contains('\n') {
         let mut first = true;
@@ -278,15 +285,21 @@ pub(super) fn is_missing_dependency_noise(diag: &Value) -> bool {
     message.contains("cannot find attribute") || message.contains("cannot find derive macro")
 }
 
-/// 过滤“引用未打开模块文件”的 E0433 误报
+/// 过滤“引用未打开模块文件”的 E0433/E0432 误报
 ///
-/// LSP 虚拟项目只聚合当前打开的文件：`模块 日志设置;` 引用的
+/// LSP 虚拟项目只聚合当前打开的文件：`crate::日志设置` 引用的
 /// `日志设置.zh` 未打开时，聚合 main.rs 中没有对应模块声明，
-/// `crate::日志设置` 无法解析，rust-analyzer 会报
-/// "cannot find module or crate `日志设置` in this scope"（E0433）。
-/// 该引用在本项目中实际有效（同名文件存在于同目录，打开后即可解析），
-/// 属于虚拟项目固有误报；条目同目录存在同名方言文件时过滤。
-/// 文件确实不存在（如拼写错误）时诊断保留，供用户修正。
+/// rust-analyzer 会报 E0433/E0432。该引用在本项目中实际有效
+/// （同名文件存在于同目录，打开后即可解析），属于虚拟项目固有误报；
+/// 条目同目录存在同名方言文件时过滤。文件确实不存在（如拼写错误）时
+/// 诊断保留，供用户修正。
+///
+/// 覆盖的 rust-analyzer 消息格式（0.3.3025 起为 rustc 1.98 风格）：
+/// - `cannot find module or crate `X` in this scope`（旧 E0433）
+/// - `cannot find `X` in `crate``（新 E0433）
+/// - `unresolved import `crate::X``（新 E0432，可含 `::Y` 尾段）
+/// - `unresolved import `X``（裸路径）
+/// - `no `X` in the root`（severity=4 同伴 hint）
 pub(super) fn is_unopened_module_reference(
     diag: &Value,
     entry: Option<&crate::translation_cache::TranslationEntry>,
@@ -295,22 +308,9 @@ pub(super) fn is_unopened_module_reference(
         return false;
     };
     let message = diag.get("message").and_then(|v| v.as_str()).unwrap_or("");
-    // 仅匹配 rust-analyzer 的未解析模块/库告警（E0433 主消息）
-    let Some(rest) = message.strip_prefix("cannot find module or crate `") else {
+    let Some(name) = unopened_module_name(message) else {
         return false;
     };
-    let Some((name, _)) = rest.split_once('`') else {
-        return false;
-    };
-    // 模块名必须是单个安全路径段（防御恶意构造的路径穿越，如 `..`/`/`）
-    if name.is_empty()
-        || name.contains('/')
-        || name.contains('\\')
-        || name.contains("..")
-        || name.starts_with('.')
-    {
-        return false;
-    }
     // 同目录存在 `名字.<原扩展名>` 时视为“模块文件未打开”的误报
     let (Some(dir), Some(ext)) = (
         entry.original_path.parent(),
@@ -321,13 +321,256 @@ pub(super) fn is_unopened_module_reference(
     dir.join(format!("{name}.{ext}")).is_file()
 }
 
+/// 从诊断消息中提取“未打开模块”候选名（仅识别已知消息格式）
+fn unopened_module_name(message: &str) -> Option<&str> {
+    const RESERVED: &[&str] = &["crate", "self", "super", "std", "core", "alloc"];
+    let path = if let Some(rest) = message.strip_prefix("cannot find module or crate `") {
+        rest.split_once('`')?.0
+    } else if let Some(rest) = message.strip_prefix("cannot find `") {
+        let (name, tail) = rest.split_once('`')?;
+        if !tail.starts_with(" in `crate`") {
+            return None;
+        }
+        name
+    } else if let Some(rest) = message.strip_prefix("unresolved import `") {
+        rest.split_once('`')?.0
+    } else {
+        let rest = message.strip_prefix("no `")?;
+        let (name, tail) = rest.split_once('`')?;
+        if !tail.starts_with(" in the root") {
+            return None;
+        }
+        name
+    };
+    // 去掉 `crate::` 前缀后取首段（`crate::X::Y` → X）
+    let path = path.strip_prefix("crate::").unwrap_or(path);
+    let first = path.split("::").next().unwrap_or(path);
+    // 模块名必须是单个安全路径段（防御恶意构造的路径穿越，如 `..`/`/`），
+    // 且不能是保留字路径段（std/core/alloc 等系统 crate 不可能是本地模块）
+    if first.is_empty()
+        || first.contains('/')
+        || first.contains('\\')
+        || first.contains("..")
+        || first.starts_with('.')
+        || RESERVED.contains(&first)
+    {
+        return None;
+    }
+    Some(first)
+}
+
+/// 过滤“第三方依赖在 LSP 虚拟项目缺失”的误报
+///
+/// 虚拟项目 Cargo.toml 不含用户项目依赖，`serde`/`serde_json` 等已声明
+/// 依赖的导入与引用在虚拟项目中必然无法解析。当消息中的候选 crate 名
+/// 出现在用户项目最近 Cargo.toml 的依赖表（dependencies/dev/build、
+/// workspace、target 各节；`-`/`_` 与大小写归一化，另含去全部
+/// 分隔符的紧致形式——`md-5` 的 lib 名为 `md5`）中时，判定为虚拟项目
+/// 固有误报并过滤；未列入依赖表的名字（拼写错误、真正缺失的库）保留
+/// 诊断，继续提供 `rzc add` 教学提示。
+pub(super) fn is_missing_project_dependency(
+    diag: &Value,
+    entry: Option<&crate::translation_cache::TranslationEntry>,
+) -> bool {
+    let Some(entry) = entry else {
+        return false;
+    };
+    let message = diag.get("message").and_then(|v| v.as_str()).unwrap_or("");
+    // 仅处理“导入/引用未声明 crate”类消息，避免误伤同名变量/函数的诊断
+    let is_import_like = message.starts_with("unresolved import `")
+        || message.starts_with("cannot find module or crate `")
+        || message.contains("use of undeclared crate or module `");
+    if !is_import_like {
+        return false;
+    }
+    let Some(deps) = project_dependency_names(&entry.original_path) else {
+        return false;
+    };
+    i18n_rust_engine::diagnostic::extract_backtick_first_segments(message)
+        .iter()
+        .any(|seg| {
+            seg.is_ascii() && crate_name_forms(seg).iter().any(|form| deps.contains(form))
+        })
+}
+
+/// 过滤“include_str!/include_bytes! 资源在虚拟项目中缺失”的误报
+///
+/// 虚拟 .rs 位于 `/tmp/i18n_lsp_virtual_*/src/` 下，`include_str!("界面.html")`
+/// 相对虚拟目录解析必然失败（rust-analyzer 报 couldn't read `src/界面.html`，
+/// 路径按虚拟项目根显示）。去掉 `src` 前缀后能在原方言文件同目录找到该
+/// 文件时判定为误报；原项目真实缺失该资源时诊断保留。
+pub(super) fn is_missing_include_asset(
+    diag: &Value,
+    entry: Option<&crate::translation_cache::TranslationEntry>,
+) -> bool {
+    let Some(entry) = entry else {
+        return false;
+    };
+    let message = diag.get("message").and_then(|v| v.as_str()).unwrap_or("");
+    let Some((path, _)) = message
+        .split("couldn't read `")
+        .nth(1)
+        .and_then(|rest| rest.split_once('`'))
+    else {
+        return false;
+    };
+    if path.is_empty() || path.contains("..") {
+        return false;
+    }
+    let Some(dir) = entry.original_path.parent() else {
+        return false;
+    };
+    let path = Path::new(path);
+    // 虚拟项目根相对路径（如 `src/界面.html`）：去 `src` 前缀后按原目录解析
+    let relative = path.strip_prefix("src").unwrap_or(path);
+    dir.join(relative).is_file()
+}
+
+/// rust-analyzer 编译级诊断抑制判定：文件位于 cargo 项目时，RA 的
+/// E 系列 error（severity=1）与 hint（severity=4）不转发给客户端，
+/// 编译级诊断以代理自跑的镜像/虚拟项目 cargo check（rustc 口径）为权威来源
+///
+/// RA 在虚拟项目上对第三方依赖与过程宏的类型推断恒为假红（依赖缺失的
+/// E0432/E0599、derive 不展开的 E0277 Display 级联等），且其原生诊断与
+/// 真错无法从消息文本可靠区分；镜像检查（或不可用时的虚拟检查）在
+/// didOpen/didSave 时提供与 rzc 构建同口径的权威结果。E 系列 hint 是
+/// 编译错误的伴生信息拆分发布（“no external crate ...”、“由 this / formatting
+/// parameter”等），同为编译级判定的产物，一并抑制。非 cargo 项目
+/// （单文件教学场景）不受影响，RA 诊断全量保留；非 E 系列（语法错误、
+/// RA 内部错误等）与 warning（severity=2，可能有价值）一律保留。
+pub(crate) fn suppress_ra_compile_error(diag: &Value, original_path: &Path) -> bool {
+    let severity = diag.get("severity").and_then(|v| v.as_u64()).unwrap_or(0);
+    if severity != 1 && severity != 4 {
+        return false;
+    }
+    let Some(code) = diag.get("code").and_then(|v| v.as_str()) else {
+        return false;
+    };
+    if !is_rustc_error_code(code) {
+        return false;
+    }
+    in_cargo_project(original_path)
+}
+
+/// E 系列 rustc 错误码（E0432/E0277 等；RA 自带诊断沿用该格式）
+fn is_rustc_error_code(code: &str) -> bool {
+    let Some(digits) = code.strip_prefix('E') else {
+        return false;
+    };
+    !digits.is_empty() && digits.len() <= 4 && digits.chars().all(|c| c.is_ascii_digit())
+}
+
+/// 文件路径 → 是否位于 cargo 项目（最近上层存在 Cargo.toml）的进程级缓存
+static IN_CARGO_PROJECT_CACHE: OnceLock<Mutex<HashMap<PathBuf, bool>>> = OnceLock::new();
+
+/// 判断文件是否位于 cargo 项目（向上查找最近 Cargo.toml），按路径缓存
+fn in_cargo_project(file_path: &Path) -> bool {
+    let cache = IN_CARGO_PROJECT_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(v) = cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(file_path)
+    {
+        return *v;
+    }
+    let mut dir = file_path.parent();
+    let mut has_manifest = false;
+    while let Some(d) = dir {
+        if d.join("Cargo.toml").is_file() {
+            has_manifest = true;
+            break;
+        }
+        dir = d.parent();
+    }
+    cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(file_path.to_path_buf(), has_manifest);
+    has_manifest
+}
+
+/// 依赖清单解析结果缓存（Cargo.toml 路径 → (mtime, 归一化依赖名集合)）
+type ProjectDepsCache = Mutex<HashMap<PathBuf, (SystemTime, Arc<HashSet<String>>)>>;
+
+/// 项目依赖清单 mtime 缓存（键为 Cargo.toml 路径）
+static PROJECT_DEPS_CACHE: OnceLock<ProjectDepsCache> = OnceLock::new();
+
+/// 向上查找最近的 Cargo.toml 并解析依赖名集合（归一化），按 mtime 缓存；
+/// 未找到清单时返回 None（调用方保持原诊断行为）
+fn project_dependency_names(file_path: &Path) -> Option<Arc<HashSet<String>>> {
+    let mut dir = file_path.parent();
+    let manifest = loop {
+        let d = dir?;
+        let candidate = d.join("Cargo.toml");
+        if candidate.is_file() {
+            break candidate;
+        }
+        dir = d.parent();
+    };
+    let mtime = std::fs::metadata(&manifest).ok()?.modified().ok()?;
+    let cache = PROJECT_DEPS_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut guard = cache.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((cached_mtime, deps)) = guard.get(&manifest)
+        && *cached_mtime == mtime
+    {
+        return Some(deps.clone());
+    }
+    let text = std::fs::read_to_string(&manifest).ok()?;
+    let deps = Arc::new(parse_dependency_names(&text));
+    guard.insert(manifest, (mtime, deps.clone()));
+    Some(deps)
+}
+
+/// 解析 Cargo.toml 中的全部依赖名（含 dev/build、workspace、target 各节）
+fn parse_dependency_names(text: &str) -> HashSet<String> {
+    let mut names = HashSet::new();
+    let Ok(value) = text.parse::<toml::Value>() else {
+        return names;
+    };
+    let mut collect = |table: Option<&toml::Value>| {
+        if let Some(t) = table.and_then(|v| v.as_table()) {
+            names.extend(t.keys().flat_map(|k| crate_name_forms(k)));
+        }
+    };
+    for section in ["dependencies", "dev-dependencies", "build-dependencies"] {
+        collect(value.get(section));
+    }
+    collect(value.get("workspace").and_then(|w| w.get("dependencies")));
+    if let Some(targets) = value.get("target").and_then(|t| t.as_table()) {
+        for (_, cfg) in targets {
+            for section in ["dependencies", "dev-dependencies", "build-dependencies"] {
+                collect(cfg.get(section));
+            }
+        }
+    }
+    names
+}
+
+/// 依赖名归一化：Cargo 视 `-`/`_` 等价，crate 名统一小写比较
+fn normalize_crate_name(name: &str) -> String {
+    name.to_ascii_lowercase().replace('-', "_")
+}
+
+/// crate 名比对候选集：归一形式外另收录去全部分隔符的紧致形式——
+/// 包名与实际 lib 名可能只在紧致意义上对应（`md-5` 的 lib 名为 `md5`，
+/// 代码中 `使用 md5::...` 而清单声明 `md-5 = "0.10"`）
+fn crate_name_forms(name: &str) -> Vec<String> {
+    let underscore = normalize_crate_name(name);
+    let compact: String = underscore.chars().filter(|c| *c != '_').collect();
+    if compact == underscore {
+        vec![underscore]
+    } else {
+        vec![underscore, compact]
+    }
+}
+
 /// 从 LSP 诊断（rust-analyzer 格式）中提取所有权错误详情
 ///
 /// 变量名取自原始消息中的反引号（如 use of moved value: `x`）；
 /// 移动/借用/再次使用位置取自已还原到母语文件的 range 与 relatedInformation，
 /// LSP 的 0-based 行号统一转为 1-based（与 rustc 诊断一致）。
 /// 仅处理 E0382/E0502/E0507 及消息模式匹配的所有权错误。
-pub(super) fn extract_ownership_details(
+pub(crate) fn extract_ownership_details(
     original_diag: &Value,
     restored: &Value,
     original_uri: &str,
@@ -420,4 +663,76 @@ fn construct_position_from_range(file_name: &str, range: &Value) -> Option<Diagn
         label: None,
         is_primary: false,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        crate_name_forms, is_rustc_error_code, parse_dependency_names, suppress_ra_compile_error,
+    };
+
+    /// 紧致形式：`md-5` → md_5 + md5（lib 名去分隔符）
+    #[test]
+    fn test_crate_name_forms_compact() {
+        let forms = crate_name_forms("md-5");
+        assert!(forms.contains(&"md_5".to_string()));
+        assert!(forms.contains(&"md5".to_string()));
+        // 无分隔符的名字保持单一形式
+        assert_eq!(crate_name_forms("rayon"), vec!["rayon".to_string()]);
+    }
+
+    /// 依赖清单解析收录紧致形式，供 md-5 风格的包名匹配
+    #[test]
+    fn test_parse_dependency_names_compact() {
+        let deps = parse_dependency_names("[dependencies]\nmd-5 = \"0.10\"\n");
+        assert!(deps.contains("md_5"));
+        assert!(deps.contains("md5"));
+        assert!(!deps.contains("serde"));
+    }
+
+    /// E 系列错误码识别（E + 至多 4 位数字）
+    #[test]
+    fn test_is_rustc_error_code() {
+        assert!(is_rustc_error_code("E0432"));
+        assert!(is_rustc_error_code("E0277"));
+        assert!(!is_rustc_error_code("e0432"));
+        assert!(!is_rustc_error_code("E"));
+        assert!(!is_rustc_error_code("E04a2"));
+        assert!(!is_rustc_error_code("unused_imports"));
+    }
+
+    /// cargo 项目内的 E 系列 error 抑制；项目外/非 E 码/非 error 级不抑制
+    #[test]
+    fn test_suppress_ra_compile_error() {
+        let pid = std::process::id();
+        let dir = std::env::temp_dir().join(format!("diag_text_suppress_{pid}"));
+        let src = dir.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(dir.join("Cargo.toml"), "[package]\nname = \"t\"\n").unwrap();
+        let file = src.join("main.zh");
+        std::fs::write(&file, "").unwrap();
+
+        let err = serde_json::json!({ "severity": 1, "code": "E0432", "message": "unresolved import `md5`" });
+        assert!(suppress_ra_compile_error(&err, &file));
+        // E 系列 hint（编译错误的伴生信息拆分发布）同样抑制
+        let hint = serde_json::json!({ "severity": 4, "code": "E0432", "message": "no external crate `toml`" });
+        assert!(suppress_ra_compile_error(&hint, &file));
+        // warning 不抑制（可能有价值）
+        let warn = serde_json::json!({ "severity": 2, "code": "E0432" });
+        assert!(!suppress_ra_compile_error(&warn, &file));
+        // 非 E 系列（语法错误等）不抑制
+        let syntax = serde_json::json!({ "severity": 1, "code": "syntax" });
+        assert!(!suppress_ra_compile_error(&syntax, &file));
+        // 非 E 系列 hint 不抑制（如 main 函数提示）
+        let plain_hint = serde_json::json!({ "severity": 4, "code": "unused" });
+        assert!(!suppress_ra_compile_error(&plain_hint, &file));
+        // 非 cargo 项目（单文件教学场景）不抑制
+        let outside = std::env::temp_dir().join(format!("diag_text_suppress_out_{pid}.zh"));
+        std::fs::write(&outside, "").unwrap();
+        assert!(!suppress_ra_compile_error(&err, &outside));
+        assert!(!suppress_ra_compile_error(&hint, &outside));
+
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_file(&outside);
+    }
 }

@@ -218,11 +218,14 @@ fn transpile_pipeline_inner(
     } else {
         module_path::replace_module_paths_with_map(&lex.output, manager.get_module_path_map())
     };
-    // 阶段 3（可选）：`crate::` 前缀重写（LSP 虚拟项目跨文件引用）
+    // 阶段 3（可选）：`crate::` 前缀重写（LSP 虚拟项目跨文件引用）；
+    // 项目项名集合供 glob 导入场景的遮蔽豁免（无项目上下文时传空集）
     let qual = if let Some(names) = module_names
         && !names.is_empty()
     {
-        module_path::qualify_module_paths_with_map(&mp.output, names)
+        let empty_items = HashSet::new();
+        let item_names = project.map(|p| &p.items).unwrap_or(&empty_items);
+        module_path::qualify_module_paths_with_map(&mp.output, names, item_names)
     } else {
         module_path::ReplaceResult {
             output: mp.output.clone(),

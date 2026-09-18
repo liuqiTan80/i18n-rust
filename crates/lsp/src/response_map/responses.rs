@@ -6,7 +6,8 @@ use serde_json::{Value, json};
 use super::ResponseMapper;
 use super::diag_text::{
     extract_ownership_details, is_main_fn_hint, is_missing_dependency_noise,
-    is_unopened_module_reference, translate_diagnostic_message,
+    is_missing_include_asset, is_missing_project_dependency, is_unopened_module_reference,
+    translate_diagnostic_message,
 };
 use super::restore_line_single;
 use crate::translation_cache::en_col_to_zh_col_single;
@@ -48,10 +49,22 @@ impl ResponseMapper {
                 if is_missing_dependency_noise(diag) {
                     continue;
                 }
-                // 过滤“引用未打开模块文件”的 E0433 误报：虚拟项目只聚合
-                // 已打开文件，被引用模块未打开时无法解析（打开后即恢复）；
-                // 同名方言文件存在于同目录时判定为误报
+                // 过滤“引用未打开模块文件”的 E0433/E0432 误报：虚拟项目只
+                // 聚合已打开文件，被引用模块未打开时无法解析（打开后即恢复）；
+                // 同名方言文件存在于同目录时判定为误报（覆盖 RA 新旧消息格式）
                 if is_unopened_module_reference(diag, entry.as_deref()) {
+                    continue;
+                }
+                // 过滤“真实依赖在虚拟项目缺失”的误报：虚拟项目 Cargo.toml
+                // 不含用户依赖，serde/serde_json 等已声明依赖的导入必然无法
+                // 解析（用户项目中 rzc check 正常通过）
+                if is_missing_project_dependency(diag, entry.as_deref()) {
+                    continue;
+                }
+                // 过滤 include_str!/include_bytes! 资源在虚拟项目中缺失的
+                // 误报：资源文件在原方言文件同目录存在时，虚拟 .rs 的相对
+                // 路径解析失败属虚拟项目固有现象
+                if is_missing_include_asset(diag, entry.as_deref()) {
                     continue;
                 }
 

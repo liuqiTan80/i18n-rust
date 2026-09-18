@@ -7,7 +7,10 @@
 //! 覆盖矩阵：
 //! - 4 种代表性语言（zh 中文 / ja 日文 / ru 俄文西里尔 / ar 阿拉伯文 RTL）
 //!   验证 E0425（未定义名称）诊断的消息翻译与教学提示；
-//! - 全角标点教学诊断注入（代码位置的全角标点在 IDE 内联提示）。
+//! - 全角标点教学诊断注入（代码位置的全角标点在 IDE 内联提示）；
+//! - 教学 lint 诊断注入（未标注类型/魔法数字 + 忽略标记）；
+//! - 多模块项目无假红语料（模块聚合 / `#[path]` 注解 / include 资源，
+//!   rust-analyzer 升级时必跑，防诊断格式漂移）。
 //!
 //! 前置条件：rust-analyzer 可执行文件可用（查找顺序与 analyzer.rs 相同：
 //! RUST_ANALYZER_PATH 环境变量 → ~/.rz/toolchain/bin/rust-analyzer → PATH）。
@@ -560,4 +563,169 @@ fn test_lang_keywords_cover_expected_languages() {
             "缺少 {code} 的 e2e 覆盖"
         );
     }
+}
+
+/// 收集目标 uri 的诊断直至稳定（返回锚点是否出现 + 窗口内全部诊断）
+///
+/// 从调用起持续收集；锚点（keyword）出现在某批诊断后，再继续收集
+/// `settle` 时长——覆盖 rust-analyzer 的后续批次与代理镜像 cargo check
+/// 的权威诊断发布。`total_timeout` 为全程硬上限（防锚点反复触发无限延长）。
+fn collect_diagnostics_until_settle(
+    rx: &mpsc::Receiver<Value>,
+    uri: &str,
+    keyword: &str,
+    total_timeout: Duration,
+    settle: Duration,
+) -> (bool, Vec<Value>) {
+    let hard_deadline = Instant::now() + total_timeout;
+    let mut found = false;
+    let mut settle_deadline: Option<Instant> = None;
+    let mut all: Vec<Value> = Vec::new();
+    loop {
+        let now = Instant::now();
+        let limit = settle_deadline.unwrap_or(hard_deadline).min(hard_deadline);
+        if now >= limit {
+            return (found, all);
+        }
+        let wait = (limit - now).min(Duration::from_millis(500));
+        let msg = match rx.recv_timeout(wait) {
+            Ok(m) => m,
+            Err(mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(mpsc::RecvTimeoutError::Disconnected) => return (found, all),
+        };
+        if msg.get("method").and_then(Value::as_str) != Some("textDocument/publishDiagnostics")
+            || msg.pointer("/params/uri").and_then(Value::as_str) != Some(uri)
+        {
+            continue;
+        }
+        let Some(diagnostics) = msg.pointer("/params/diagnostics").and_then(Value::as_array) else {
+            continue;
+        };
+        if diagnostics.is_empty() {
+            continue;
+        }
+        let batch = diagnostics
+            .iter()
+            .filter_map(|d| d.get("message").and_then(Value::as_str))
+            .collect::<Vec<_>>()
+            .join("\n");
+        if batch.contains(keyword) {
+            found = true;
+            settle_deadline = Some(Instant::now() + settle);
+        }
+        all.extend(diagnostics.iter().cloned());
+    }
+}
+
+/// 多模块项目语料·无假红回归（rust-analyzer 升级必跑）
+///
+/// fixture 同时覆盖三个历史误报根因，并以真错误（E0425）为锚点：
+/// 1. 入口含文件式 `模块 工具;` 声明 → 历史上报 E0583/E0754
+///    （strip_file_module_decls + 镜像 `#[path]` 注解修复）；
+/// 2. 跨文件引用未打开的兄弟模块 `工具::加一` → 历史上报 E0432/E0433
+///    （C2a 同目录模块聚合修复）；
+/// 3. `包含字符串!("数据.txt")` 资源引用 → 历史上报 couldn't read
+///    （C2b include 资源复制修复）。
+///
+/// 断言：锚点出现后追加稳定窗口内收集到的全部诊断（含镜像 cargo check
+/// 的权威批次）不含以上误报；真锚点不被过滤链误杀。
+#[test]
+#[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
+fn e2e_no_false_red_in_corpus_project() {
+    let Some(ra_path) = find_rust_analyzer() else {
+        eprintln!("跳过 LSP 端到端测试：未找到 rust-analyzer（可设置 RUST_ANALYZER_PATH）");
+        return;
+    };
+
+    let manifest_dir =
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
+
+    let temp = tempfile::tempdir().expect("创建临时项目失败");
+    std::fs::create_dir_all(temp.path().join("src")).expect("创建 src 目录失败");
+    std::fs::write(
+        temp.path().join("Cargo.toml"),
+        "[package]\nname = \"e2e-corpus\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+    )
+    .expect("写入 Cargo.toml 失败");
+    let main_src = "模块 工具;\n\n函数 主函数() {\n    让 结果 = 工具::加一(1) + 不存在的变量;\n    让 页面 = 包含字符串!(\"数据.txt\");\n    打印行!(\"{} {}\", 结果, 页面);\n}\n";
+    std::fs::write(temp.path().join("src/main.zh"), main_src).expect("写入 main.zh 失败");
+    // 未打开的兄弟模块（C2a 场景）
+    std::fs::write(
+        temp.path().join("src/工具.zh"),
+        "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
+    )
+    .expect("写入 工具.zh 失败");
+    // include 资源（C2b 场景）
+    std::fs::write(temp.path().join("src/数据.txt"), "占位内容\n").expect("写入 数据.txt 失败");
+    let uri = format!("file://{}", temp.path().join("src/main.zh").display());
+
+    let (mut child, mut stdin, rx) = spawn_lsp(&ra_path, &lang_pack);
+    let root_uri = format!("file://{}", temp.path().display());
+    initialize(&mut stdin, &rx, &root_uri);
+    send_notification(&mut stdin, "initialized", json!({}));
+    send_notification(
+        &mut stdin,
+        "textDocument/didOpen",
+        json!({
+            "textDocument": {
+                "uri": uri,
+                "languageId": "rust-zh",
+                "version": 1,
+                "text": main_src
+            }
+        }),
+    );
+
+    // 锚点：E0425「找不到」的母语翻译；命中后再收集 15s 稳定窗口
+    let (found, diags) = collect_diagnostics_until_settle(
+        &rx,
+        &uri,
+        "找不到",
+        Duration::from_secs(120),
+        Duration::from_secs(15),
+    );
+    assert!(
+        found,
+        "锚点（E0425 母语翻译）未出现：rust-analyzer 未就绪或翻译链路异常"
+    );
+
+    // 误报断言一：诊断 code（与消息文案无关，RA 改文案也能抓住）
+    let codes: Vec<String> = diags
+        .iter()
+        .filter_map(|d| d.get("code").and_then(Value::as_str).map(str::to_string))
+        .collect();
+    for bad in ["E0432", "E0433", "E0583", "E0754"] {
+        assert!(
+            !codes.contains(&bad.to_string()),
+            "出现误报 {bad}（模块聚合/注解/引用链路失效）：\n{diags:#?}"
+        );
+    }
+
+    // 误报断言二：消息文本特征（无 code 的 couldn't read 等 + RA 特有文案）
+    let texts = diags
+        .iter()
+        .filter_map(|d| d.get("message").and_then(Value::as_str))
+        .collect::<Vec<_>>()
+        .join("\n");
+    for bad in [
+        "couldn't read",
+        "unresolved import",
+        "cannot find module",
+        "not included in the module tree",
+    ] {
+        assert!(
+            !texts.contains(bad),
+            "出现误报特征「{bad}」（RA 消息格式漂移或修复失效）：\n{texts}"
+        );
+    }
+
+    // 反向断言：真错误不被过滤链误杀
+    assert!(
+        texts.contains("找不到"),
+        "真错误 E0425 的翻译不应被过滤：\n{texts}"
+    );
+
+    shutdown(&mut child, &mut stdin, &rx);
+    eprintln!("✅ LSP 端到端测试通过：多模块 + include 项目无假红");
 }

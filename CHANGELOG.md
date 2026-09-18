@@ -17,6 +17,31 @@
 - zh `stdlib.toml`：`"线程数" → "available_parallelism"` 键修正为「可用并行数」——
   「线程数」与用户项目字段名高频撞车，且声明位豁免 / 访问位替换的单侧不一致会产出
   E0609（weix-1 实测）；新键与 fr 包 `parallelisme_disponible` 语义对齐
+- engine：`crate::` 前缀（qualify）遮蔽豁免——模块名与文件内类型声明名 / use
+  导入绑定名重名时，裸路径首段保持本地语义不加前缀（`结构体 项目配置` 与
+  `模块 项目配置` 并存时，`项目配置::缺省()` 不再误产出
+  `crate::项目配置::default()`——weix-1 E0425 假红根因）；含 glob 导入
+  （`use …::*`）时项目项名集合一并豁免
+- lsp：误报根治三步实施（weix-1 复现验证假红清零）——(1) 虚拟项目高保真化：
+  同目录全部兄弟方言模块自动聚合（跨文件引用不再依赖逐个打开），
+  `include_str!` / `include_bytes!` 引用资源按相对路径复制入虚拟项目，从源头
+  消除 E0432/E0433 与 couldn't read 误报；(2) 权威诊断切换：打开 / 保存即
+  执行「真实项目镜像」cargo check（项目树复制 + 方言转译产物覆盖 + 非 ASCII
+  模块 `#[path]` 注解 + `--offline` 复用真实 target），rustc 口径诊断按方言
+  坐标回译发布；镜像不可用时回退虚拟检查，RA 侧自跑 cargo check 关闭避免
+  重复；(3) 编译级假红抑制：RA 链的 E 系列 error/hint（severity 1/4）不再
+  转发（编译诊断以镜像为权威），教学 lint 与「rzc add」添加依赖提示完整保留
+- lsp：诊断过滤链升级——E0433/E0432 覆盖 RA 新版消息格式（`cannot find X in
+  crate` / `unresolved import crate::X` 及 severity=4 同伴 hint）、第三方依赖
+  在虚拟项目缺失（对照用户 Cargo.toml 依赖表，`-`/`_` 归一化与紧致形式，
+  另含 workspace/target 各节）、include 资源缺失三类误报过滤
+
+### 工程
+- lsp：多模块项目 e2e 语料测试「无假红」回归（E0583/E0754/E0432/E0433/
+  couldn't read 五类历史误报 + 真错误锚点 E0425 不被误杀；rust-analyzer
+  升级必跑）
+- engine/cli：非 ASCII 模块名 `#[path]` 注解迁入引擎（`annotate_non_ascii_mods`），
+  CLI 与 LSP 镜像共享同一实现
 
 ## [0.8.0] - 2026-09-17
 

@@ -9,7 +9,7 @@
 //!
 //! 本文件保留映射基础设施：URI/行/列还原、编辑映射与反向转译。
 
-mod diag_text;
+pub(crate) mod diag_text;
 mod responses;
 
 #[cfg(test)]

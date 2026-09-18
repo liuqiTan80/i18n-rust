@@ -6,6 +6,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
+use std::time::SystemTime;
 
 use i18n_rust_engine::cache::SourceMapEntry;
 use i18n_rust_engine::lexer;
@@ -52,6 +53,14 @@ pub struct TranslationEntry {
     pub added_crate_tokens: HashSet<usize>,
     /// 文档版本
     pub version: i32,
+    /// 是否为编辑器打开的文档（false = 同目录自动聚合的兄弟模块）
+    ///
+    /// 打开文档以编辑器缓冲区内容为准，代理用 didOpen/didChange 向
+    /// rust-analyzer 同步；兄弟模块以磁盘内容为准，内容刷新用
+    /// didChangeWatchedFiles 通知（不得对未打开的文档发 didChange）。
+    pub is_open: bool,
+    /// 磁盘源文件的 (修改时间, 字节数)：兄弟模块增量同步的变更判定
+    pub source_meta: Option<(SystemTime, u64)>,
 }
 
 /// 列偏移映射的一个分段边界点
@@ -182,50 +191,16 @@ impl TranslationCache {
         }
 
         // 生成虚拟文件路径（用哈希避免同名文件冲突）。
-        // 文件名只保留合法标识符字符，防止引号等特殊字符注入生成的 main.rs
-        let file_stem = original_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("unknown");
-        let hash = {
-            use std::collections::hash_map::DefaultHasher;
-            use std::hash::{Hash, Hasher};
-            let mut h = DefaultHasher::new();
-            original_path.as_path().hash(&mut h);
-            h.finish()
-        };
-        let virtual_path = self.temp_dir.join("src").join(format!(
-            "{}_{:x}.rs",
-            sanitize_module_name(file_stem),
-            hash
-        ));
+        let virtual_path = self.virtual_path_for(&original_path);
         let virtual_uri = path_to_uri(&virtual_path);
 
-        // 判断模块集合是否变化（打开新文件会新增模块）。
-        // 集合变化 ⟺ 新文件模块名不在旧集合中：单次遍历顺带构建新集合，
-        // 避免两次全表扫描各建一个 HashSet 再比较（每次按键的热路径）。
-        // 注意首开文件（旧集合为空）必然变化：新名字不在空集中
-        let new_name = original_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default()
-            .to_string();
-        let (set_changed, new_module_names) = {
-            let mut names = HashSet::new();
-            let mut existed = false;
-            if let Ok(table) = self.entries.read() {
-                for entry in table.values() {
-                    if let Some(name) = entry.original_path.file_stem().and_then(|s| s.to_str()) {
-                        if name == new_name {
-                            existed = true;
-                        }
-                        names.insert(name.to_string());
-                    }
-                }
-            }
-            names.insert(new_name);
-            (!existed, names)
-        };
+        // 同步前的旧模块集合：同步后按新旧集合差异判定变化
+        let old_names = self.current_module_names(None);
+
+        // 同目录兄弟模块同步（虚拟项目高保真化）：未打开的同目录方言
+        // 文件也纳入虚拟项目，使 crate::模块 跨文件引用在兄弟文件从未
+        // 打开时也能解析（E0432/E0433 误报的根治手段，过滤链仅兜底）
+        let updated_siblings = self.sync_sibling_modules(&original_path);
 
         // 行映射不依赖模块路径重写（重写不改变行数），先按中文行数生成
         let line_map = generate_line_map(content, content);
@@ -248,6 +223,8 @@ impl TranslationCache {
                 column_map: Vec::new(),
                 added_crate_tokens: HashSet::new(),
                 version,
+                is_open: true,
+                source_meta: disk_meta(&original_path),
             });
             table.insert(uri.to_string(), Arc::clone(&new_entry));
             // 同步虚拟 URI 索引（同一 uri 的 virtual_uri 恒定，插入一次即可）
@@ -259,6 +236,11 @@ impl TranslationCache {
         // 内容可能变化：递增文档变更代号，使用户词汇缓存失效
         self.docs_generation
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+        // 模块集合 = 全部条目（已打开文档 + 同目录兄弟模块）的词干；
+        // 新增/删除必然体现为新旧集合差异（首开文件旧集合为空必然变化）
+        let new_module_names = self.current_module_names(None);
+        let set_changed = new_module_names != old_names;
 
         // 项目级声明上下文（跨文件声明豁免，#8）：项目声明名（项/结构体
         // 字段）变化会改变其他文件的豁免结果，须与模块集合变化同样触发
@@ -284,6 +266,15 @@ impl TranslationCache {
             if let Some(entry) = self.rewrite_entry(uri, &new_module_names, &project) {
                 changes.push(entry);
             }
+            // 兄弟模块磁盘内容变更（集合不变时的增量路径）：逐条重译
+            for sibling_uri in &updated_siblings {
+                if sibling_uri == uri {
+                    continue;
+                }
+                if let Some(entry) = self.rewrite_entry(sibling_uri, &new_module_names, &project) {
+                    changes.push(entry);
+                }
+            }
             changes
         };
 
@@ -305,44 +296,209 @@ impl TranslationCache {
         Ok((entry, other_changes))
     }
 
-    /// 关闭文档，清理虚拟文件
+    /// 计算原始路径对应的虚拟文件路径（哈希后缀避免同名文件冲突）
     ///
-    /// 返回其余条目中因模块集合缩小而被重写的条目列表。
-    /// 文档本就不在缓存中时不做任何工作（模块集合未变，无需重写/刷新）。
-    pub fn close_document(&self, uri: &str) -> anyhow::Result<Vec<Arc<TranslationEntry>>> {
-        let removed = {
-            let mut table = self
+    /// 文件名只保留合法标识符字符，防止引号等特殊字符注入生成的 main.rs。
+    fn virtual_path_for(&self, original_path: &Path) -> PathBuf {
+        let file_stem = original_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown");
+        let hash = {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut h = DefaultHasher::new();
+            original_path.hash(&mut h);
+            h.finish()
+        };
+        self.temp_dir.join("src").join(format!(
+            "{}_{:x}.rs",
+            sanitize_module_name(file_stem),
+            hash
+        ))
+    }
+
+    /// 同步同目录兄弟方言模块（虚拟项目高保真化）
+    ///
+    /// 虚拟项目只聚合已打开文件时，被引用模块未打开就无法解析
+    /// （E0432/E0433 误报的根源之一，过滤链只是兜底）。本方法把当前
+    /// 文档同目录下的全部兄弟方言文件（同扩展名）纳入缓存与虚拟项目：
+    /// - 新文件按磁盘内容登记为模块条目（is_open=false，翻译在重写步骤）；
+    /// - 磁盘内容变化的兄弟条目重新登记（以 (mtime, 大小) 判定增量）；
+    /// - 磁盘文件已删除的兄弟条目连同虚拟文件一并移除（模块集合随之
+    ///   缩小，由调用方按新旧集合差异触发刷新）。
+    ///
+    /// 已打开文档（is_open=true）一律跳过：其内容以编辑器缓冲区为准。
+    /// 返回磁盘内容发生变化、需要重新翻译的条目 uri 列表。
+    fn sync_sibling_modules(&self, current_path: &Path) -> Vec<String> {
+        let (Some(dir), Some(ext)) = (current_path.parent(), current_path.extension()) else {
+            return Vec::new();
+        };
+        let Ok(read_dir) = std::fs::read_dir(dir) else {
+            return Vec::new();
+        };
+        let mut on_disk: HashSet<PathBuf> = HashSet::new();
+        let mut updated: Vec<String> = Vec::new();
+        for dent in read_dir.flatten() {
+            let path = dent.path();
+            if path == current_path || path.extension() != Some(ext) || !path.is_file() {
+                continue;
+            }
+            let Some(meta) = disk_meta(&path) else { continue };
+            on_disk.insert(path.clone());
+            let uri = path_to_uri(&path);
+            match self.query_original(&uri).as_ref() {
+                // 已打开：缓冲区内容为准，不参与磁盘同步
+                Some(e) if e.is_open => continue,
+                // 磁盘未变化：跳过重译
+                Some(e) if e.source_meta == Some(meta) => continue,
+                _ => {}
+            }
+            let Ok(content) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            let virtual_path = self.virtual_path_for(&path);
+            let virtual_uri = path_to_uri(&virtual_path);
+            let line_map = generate_line_map(&content, &content);
+            if let Ok(mut table) = self.entries.write() {
+                let entry = Arc::new(TranslationEntry {
+                    original_uri: uri.clone(),
+                    original_path: path.clone(),
+                    zh_content: content,
+                    en_content: String::new(),
+                    ra_content: String::new(),
+                    virtual_uri: virtual_uri.clone(),
+                    virtual_path,
+                    line_map,
+                    column_map: Vec::new(),
+                    added_crate_tokens: HashSet::new(),
+                    version: 0,
+                    is_open: false,
+                    source_meta: Some(meta),
+                });
+                table.insert(uri.clone(), Arc::clone(&entry));
+                if let Ok(mut index) = self.virtual_index.write() {
+                    index.insert(virtual_uri, entry);
+                }
+            }
+            self.docs_generation
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            updated.push(uri);
+        }
+
+        // 清理：同目录下已不在磁盘的兄弟模块条目（文件删除/改名）
+        let stale: Vec<String> = match self.entries.read() {
+            Ok(table) => table
+                .values()
+                .filter(|e| {
+                    !e.is_open
+                        && e.original_path.parent() == Some(dir)
+                        && !on_disk.contains(&e.original_path)
+                })
+                .map(|e| e.original_uri.clone())
+                .collect(),
+            Err(_) => Vec::new(),
+        };
+        for uri in stale {
+            let removed = self
                 .entries
                 .write()
-                .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock")))?;
-            if let Some(entry) = table.remove(uri) {
+                .ok()
+                .and_then(|mut table| table.remove(&uri));
+            if let Some(entry) = removed {
                 log_io_err(
                     "删除虚拟文件",
                     &entry.virtual_path,
                     std::fs::remove_file(&entry.virtual_path),
                 );
-                // 同步移除虚拟 URI 索引
                 if let Ok(mut index) = self.virtual_index.write() {
                     index.remove(&entry.virtual_uri);
                 }
-                // 模块集合缩小，版本号递增（供工作区重载判断）
-                let _ = self.bump_module_version();
-                log::info!("{}", crate::ui::global().f("lsp_log_cache_removed", &[uri]));
-                true
-            } else {
-                false
+                self.docs_generation
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                log::info!("{}", crate::ui::global().f("lsp_log_cache_removed", &[&uri]));
+            }
+        }
+        updated
+    }
+
+    /// 关闭文档：编辑器侧关闭后条目仍保留为磁盘模块
+    ///
+    /// 虚拟项目聚合的是“同目录全部方言模块”，不因编辑器关闭而移除；
+    /// 磁盘文件仍存在时把条目降级为兄弟模块（内容以磁盘为准，虚拟文件
+    /// 保留）；磁盘文件已删除时才移除条目与虚拟文件。
+    /// 返回其他条目中因模块/声明集合变化而被重写的条目列表。
+    pub fn close_document(&self, uri: &str) -> anyhow::Result<Vec<Arc<TranslationEntry>>> {
+        let removed_entry = {
+            let mut table = self
+                .entries
+                .write()
+                .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock")))?;
+            match table.remove(uri) {
+                Some(entry) => entry,
+                None => return Ok(Vec::new()),
             }
         };
-        if !removed {
-            return Ok(Vec::new());
+        // 先移除虚拟 URI 索引（降级为模块时会重新插入）
+        if let Ok(mut index) = self.virtual_index.write() {
+            index.remove(&removed_entry.virtual_uri);
         }
-
         // 内容可能变化：递增文档变更代号，使用户词汇缓存失效
         self.docs_generation
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        log::info!("{}", crate::ui::global().f("lsp_log_cache_removed", &[uri]));
 
-        // 模块集合缩小：重写其余条目（去掉对已关闭模块的 crate:: 前缀）；
-        // 项目声明名集合同步收缩（关闭文件声明的名字不再豁免其他文件）
+        // 磁盘文件仍存在：降级为兄弟模块（缓冲区 → 磁盘内容），
+        // 模块集合不变（名字仍在），虚拟项目无需刷新/重载
+        if let Some(meta) = disk_meta(&removed_entry.original_path)
+            && let Ok(content) = std::fs::read_to_string(&removed_entry.original_path)
+        {
+            let mut demoted = (*removed_entry).clone();
+            demoted.is_open = false;
+            demoted.zh_content = content;
+            demoted.en_content = String::new();
+            demoted.ra_content = String::new();
+            demoted.source_meta = Some(meta);
+            demoted.line_map = generate_line_map(&demoted.zh_content, &demoted.zh_content);
+            demoted.column_map = Vec::new();
+            demoted.added_crate_tokens = HashSet::new();
+            let demoted = Arc::new(demoted);
+            {
+                let mut table = self.entries.write().map_err(|_| {
+                    anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock"))
+                })?;
+                table.insert(uri.to_string(), Arc::clone(&demoted));
+                if let Ok(mut index) = self.virtual_index.write() {
+                    index.insert(demoted.virtual_uri.clone(), Arc::clone(&demoted));
+                }
+            }
+            let module_names = self.current_module_names(None);
+            let project = self.current_project_context(&module_names);
+            let project_fp = project.fingerprint();
+            let names_changed = self
+                .project_fingerprint
+                .swap(project_fp, std::sync::atomic::Ordering::SeqCst)
+                != project_fp;
+            return Ok(if names_changed {
+                // 声明名集合变化（缓冲区与磁盘不一致）：全量重写
+                self.rewrite_all(&module_names, &project)
+            } else {
+                // 仅本条目内容变化（缓冲区 → 磁盘）：单条重译
+                let mut changes = Vec::new();
+                if let Some(entry) = self.rewrite_entry(uri, &module_names, &project) {
+                    changes.push(entry);
+                }
+                changes
+            });
+        }
+
+        // 磁盘文件已删除：移除虚拟文件，模块集合缩小
+        log_io_err(
+            "删除虚拟文件",
+            &removed_entry.virtual_path,
+            std::fs::remove_file(&removed_entry.virtual_path),
+        );
+        let _ = self.bump_module_version();
         let module_names = self.current_module_names(None);
         let project = self.current_project_context(&module_names);
         self.project_fingerprint
@@ -517,6 +673,11 @@ impl TranslationCache {
         self.temp_dir.clone()
     }
 
+    /// 映射管理器（镜像检查用同一语言包转译，规则零重复）
+    pub(crate) fn manager(&self) -> &MappingManager {
+        &self.manager
+    }
+
     /// 当前模块集合版本号（模块集合变化时递增）
     pub fn module_version(&self) -> u64 {
         self.module_version
@@ -658,6 +819,18 @@ impl TranslationCache {
             &new_entry.virtual_path,
             std::fs::write(&new_entry.virtual_path, &disk_content),
         );
+
+        // include_str!/include_bytes! 资源复制（虚拟项目高保真化）：
+        // 资源按与源文件相同的相对位置复制到虚拟项目，使 rust-analyzer
+        // 与 cargo check 在虚拟项目中也能读取 include 资源（如 `包含字符串!
+        // ("界面.html")` 转译后为 include_str!("界面.html")），消除
+        // "couldn't read" 类误报的根源（过滤链仅兜底）
+        if let (Some(original_dir), Some(virtual_dir)) = (
+            new_entry.original_path.parent(),
+            new_entry.virtual_path.parent(),
+        ) {
+            copy_include_assets(&disk_content, original_dir, virtual_dir, &self.temp_dir);
+        }
 
         {
             let mut table = match self.entries.write() {
@@ -841,6 +1014,121 @@ fn sanitize_module_name(name: &str) -> String {
         out.insert(0, '_');
     }
     out
+}
+
+/// 读取磁盘文件的 (修改时间, 字节数)，失败返回 None
+fn disk_meta(path: &Path) -> Option<(SystemTime, u64)> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some((meta.modified().ok()?, meta.len()))
+}
+
+/// 词法归一化路径（解析 `.`/`..`，不访问文件系统）并判断是否位于根内
+///
+/// 供 include 资源复制防护 `..` 逃逸虚拟项目根（写入任意位置）。
+fn path_within(path: &Path, root: &Path) -> bool {
+    fn normalize(p: &Path) -> PathBuf {
+        let mut out = PathBuf::new();
+        for c in p.components() {
+            match c {
+                std::path::Component::ParentDir => {
+                    out.pop();
+                }
+                std::path::Component::CurDir => {}
+                other => out.push(other),
+            }
+        }
+        out
+    }
+    normalize(path).starts_with(normalize(root))
+}
+
+/// 从（已转译的）源码中提取 include_str!/include_bytes! 的路径字面量
+///
+/// 以词法扫描实现：仅识别标识符后紧跟 `!` `(` 字符串字面量 `)` 的形式，
+/// 注释与字符串内的伪调用天然排除。
+fn collect_include_asset_paths(content: &str) -> Vec<String> {
+    use rustc_lexer::{LiteralKind, TokenKind, tokenize};
+    let mut spans: Vec<(TokenKind, usize, usize)> = Vec::new();
+    let mut offset = 0usize;
+    for token in tokenize(content) {
+        let start = offset;
+        offset += token.len;
+        spans.push((token.kind, start, offset));
+    }
+    let mut result = Vec::new();
+    let mut i = 0usize;
+    while i < spans.len() {
+        let (kind, start, end) = spans[i];
+        i += 1;
+        if kind != TokenKind::Ident || !matches!(&content[start..end], "include_str" | "include_bytes") {
+            continue;
+        }
+        // 依次找到 `!` `(` 后的字符串字面量（允许空白/注释分隔）
+        let (mut j, mut step, mut path) = (i, 0u8, None);
+        while j < spans.len() {
+            let (k, s, e) = spans[j];
+            if matches!(
+                k,
+                TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
+            ) {
+                j += 1;
+                continue;
+            }
+            match step {
+                0 if k == TokenKind::Not => step = 1,
+                1 if k == TokenKind::OpenParen => step = 2,
+                2 => {
+                    if matches!(k, TokenKind::Literal { kind: LiteralKind::Str { .. }, .. }) {
+                        let text = &content[s..e];
+                        path = Some(
+                            text.strip_prefix('"')
+                                .and_then(|t| t.strip_suffix('"'))
+                                .unwrap_or(text)
+                                .to_string(),
+                        );
+                    }
+                    break;
+                }
+                _ => break,
+            }
+            j += 1;
+        }
+        if let Some(p) = path {
+            result.push(p);
+        }
+    }
+    result
+}
+
+/// 复制 include_str!/include_bytes! 引用的资源到虚拟项目对应相对位置
+///
+/// 源文件与其虚拟文件处于相同的相对位置（都位于 src/ 下），以相同的
+/// 相对路径拷贝即可让 include 宏在虚拟项目中命中（支持 `../`，如
+/// `include_str!("../配置.toml")`）。目标路径词法归一化后必须仍落在
+/// 虚拟项目根内（防 `..` 逃逸）；源文件不存在时跳过，交由诊断过滤链兜底。
+fn copy_include_assets(content: &str, original_dir: &Path, virtual_dir: &Path, temp_dir: &Path) {
+    for rel in collect_include_asset_paths(content) {
+        let rel = Path::new(&rel);
+        if rel.is_absolute() {
+            continue;
+        }
+        let source = original_dir.join(rel);
+        if !source.is_file() {
+            continue;
+        }
+        let dest = virtual_dir.join(rel);
+        if !path_within(&dest, temp_dir) {
+            continue;
+        }
+        if let Some(parent) = dest.parent() {
+            log_io_err("创建资源目录", parent, std::fs::create_dir_all(parent));
+        }
+        log_io_err(
+            "复制 include 资源",
+            &dest,
+            std::fs::copy(&source, &dest).map(|_| ()),
+        );
+    }
 }
 
 /// 将 file:// URI 转换为文件路径
@@ -1555,5 +1843,202 @@ mod tests {
             "mod 名应为解码后的中文: {main_rs}"
         );
         assert!(!main_rs.contains('%'));
+    }
+
+    /// 含 `公开`/`包含字符串` 映射的测试管理器（C2 系列测试用）
+    fn test_manager_extended() -> MappingManager {
+        let mut map = test_map();
+        map.insert("公开".into(), "pub".into());
+        map.insert("包含字符串".into(), "include_str".into());
+        MappingManager::from_flat_maps(map, HashMap::new(), HashMap::new())
+    }
+
+    /// C2a：同目录未打开的兄弟模块被聚合（虚拟项目高保真化）
+    ///
+    /// weix-1 场景：主文件引用 工具.zh 的函数而 工具.zh 从未在编辑器中
+    /// 打开——此前虚拟项目不含该模块，rust-analyzer 报 E0433/E0432 误报。
+    #[test]
+    fn test_sibling_module_aggregated() {
+        let proj = tempfile::tempdir().unwrap();
+        let virt = tempfile::tempdir().unwrap();
+        let src = proj.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(
+            src.join("工具.zh"),
+            "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
+        )
+        .unwrap();
+
+        let cache = TranslationCache::new(test_manager_extended(), virt.path().to_path_buf());
+        let main_uri = path_to_uri(&src.join("main.zh"));
+        let (entry, _) = cache
+            .update_document(&main_uri, "函数 主函数() {\n    工具::加一(1);\n}\n", 1)
+            .unwrap();
+
+        // 主文件跨文件引用补 crate:: 前缀（模块集合已含新聚合的 工具）
+        assert!(
+            entry.en_content.contains("crate::工具::加一(1)"),
+            "跨文件引用应补 crate:: 前缀：{}",
+            entry.en_content
+        );
+        // 兄弟模块已登记（is_open=false）并转译写盘
+        let tool = cache
+            .query_original(&path_to_uri(&src.join("工具.zh")))
+            .expect("同目录兄弟模块应被聚合");
+        assert!(!tool.is_open, "磁盘聚合的模块不应标记为打开");
+        assert!(
+            tool.en_content.contains("pub fn 加一"),
+            "兄弟模块应已转译：{}",
+            tool.en_content
+        );
+        assert!(tool.virtual_path.exists(), "兄弟模块虚拟文件应写盘");
+        // 聚合 main.rs 同时声明两个模块
+        let agg = std::fs::read_to_string(virt.path().join("src").join("main.rs")).unwrap();
+        assert!(
+            agg.contains("mod 工具;") && agg.contains("mod main;"),
+            "聚合 main.rs：{agg}"
+        );
+    }
+
+    /// C2a：兄弟模块磁盘内容变化被增量同步（未打开文件以磁盘为准）
+    #[test]
+    fn test_sibling_module_disk_update_synced() {
+        let proj = tempfile::tempdir().unwrap();
+        let virt = tempfile::tempdir().unwrap();
+        let src = proj.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let tool_path = src.join("工具.zh");
+        std::fs::write(&tool_path, "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n").unwrap();
+
+        let cache = TranslationCache::new(test_manager_extended(), virt.path().to_path_buf());
+        let main_uri = path_to_uri(&src.join("main.zh"));
+        cache
+            .update_document(&main_uri, "函数 主函数() {\n    工具::加一(1);\n}\n", 1)
+            .unwrap();
+        let tool_uri = path_to_uri(&tool_path);
+        assert!(
+            cache
+                .query_original(&tool_uri)
+                .unwrap()
+                .en_content
+                .contains("加一")
+        );
+
+        // 修改磁盘上的兄弟模块（长度变化确保增量判定命中）
+        std::fs::write(
+            &tool_path,
+            "公开 函数 加二(数: i32) -> i32 {\n    数 + 2\n}\n// 变更标记\n",
+        )
+        .unwrap();
+        let (_, others) = cache
+            .update_document(&main_uri, "函数 主函数() {\n    工具::加一(1);\n}\n", 2)
+            .unwrap();
+
+        let tool = cache.query_original(&tool_uri).unwrap();
+        assert!(
+            tool.en_content.contains("加二"),
+            "磁盘变更应增量同步：{}",
+            tool.en_content
+        );
+        assert!(
+            others.iter().any(|e| e.original_uri == tool_uri),
+            "变更的兄弟模块应进入通知列表"
+        );
+    }
+
+    /// C2a：磁盘上删除的兄弟模块被清理（条目与虚拟文件一并移除）
+    #[test]
+    fn test_sibling_module_removed_on_disk_delete() {
+        let proj = tempfile::tempdir().unwrap();
+        let virt = tempfile::tempdir().unwrap();
+        let src = proj.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let tool_path = src.join("工具.zh");
+        std::fs::write(&tool_path, "公开 函数 加一() {}\n").unwrap();
+
+        let cache = TranslationCache::new(test_manager_extended(), virt.path().to_path_buf());
+        let main_uri = path_to_uri(&src.join("main.zh"));
+        cache
+            .update_document(&main_uri, "函数 主函数() {}\n", 1)
+            .unwrap();
+        let tool_uri = path_to_uri(&tool_path);
+        let tool_virtual = cache.query_original(&tool_uri).unwrap().virtual_path.clone();
+        assert!(tool_virtual.exists());
+        let version_before = cache.module_version();
+
+        // 磁盘删除后再次更新：条目与虚拟文件应被清理，模块集合版本递增
+        std::fs::remove_file(&tool_path).unwrap();
+        cache
+            .update_document(&main_uri, "函数 主函数() {}\n", 2)
+            .unwrap();
+
+        assert!(
+            cache.query_original(&tool_uri).is_none(),
+            "删除的兄弟模块应移除条目"
+        );
+        assert!(!tool_virtual.exists(), "虚拟文件应一并移除");
+        assert!(
+            cache.module_version() > version_before,
+            "模块集合变化应递增版本"
+        );
+    }
+
+    /// C2b：include_str! 资源复制进虚拟项目（couldn't read 误报根治）
+    #[test]
+    fn test_include_asset_copied_to_virtual_project() {
+        let proj = tempfile::tempdir().unwrap();
+        let virt = tempfile::tempdir().unwrap();
+        let src = proj.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(src.join("数据.txt"), "占位内容").unwrap();
+
+        let cache = TranslationCache::new(test_manager_extended(), virt.path().to_path_buf());
+        let main_uri = path_to_uri(&src.join("main.zh"));
+        let (entry, _) = cache
+            .update_document(
+                &main_uri,
+                "函数 主函数() {\n    让 页面 = 包含字符串!(\"数据.txt\");\n}\n",
+                1,
+            )
+            .unwrap();
+        assert!(
+            entry.en_content.contains("include_str!(\"数据.txt\")"),
+            "宏名应转译且保留感叹号：{}",
+            entry.en_content
+        );
+        // 资源按相对位置复制到虚拟项目（与虚拟 .rs 同目录）
+        let copied = virt.path().join("src").join("数据.txt");
+        assert!(copied.is_file(), "include 资源应复制到虚拟项目");
+        assert_eq!(std::fs::read_to_string(copied).unwrap(), "占位内容");
+    }
+
+    /// 关闭文档：磁盘文件仍存在时降级为兄弟模块（不删除条目/虚拟文件）
+    #[test]
+    fn test_close_document_demotes_when_file_on_disk() {
+        let proj = tempfile::tempdir().unwrap();
+        let virt = tempfile::tempdir().unwrap();
+        let src = proj.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        // 磁盘内容与缓冲区不同：关闭后应以磁盘为准
+        std::fs::write(src.join("main.zh"), "让 磁盘 = 1;\n").unwrap();
+
+        let cache = TranslationCache::new(test_manager(HashMap::new()), virt.path().to_path_buf());
+        let main_uri = path_to_uri(&src.join("main.zh"));
+        cache
+            .update_document(&main_uri, "让 缓冲 = 2;\n", 1)
+            .unwrap();
+
+        cache.close_document(&main_uri).unwrap();
+        let entry = cache
+            .query_original(&main_uri)
+            .expect("磁盘文件存在时应降级保留，而非移除");
+        assert!(!entry.is_open, "关闭后应降级为兄弟模块");
+        assert_eq!(entry.zh_content, "让 磁盘 = 1;\n", "降级后内容以磁盘为准");
+        assert!(entry.virtual_path.exists(), "虚拟文件保留");
+        assert!(
+            entry.en_content.contains("let 磁盘 = 1;"),
+            "应重译磁盘内容：{}",
+            entry.en_content
+        );
     }
 }
