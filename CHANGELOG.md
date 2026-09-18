@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-18
+
 ### 新增
 - zh 语言包新增 `crates/密码学.toml`：sha2 / md5 / hmac / pbkdf2 / aes / cbc / zeroize /
   ed25519_dalek / getrandom / hex 共 10 个 crate 的「模块路径 + 标识符」词条 40 余条
