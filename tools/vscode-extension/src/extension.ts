@@ -40,6 +40,8 @@ import { 全角符号映射, 全角符号检测正则, 扫描词法状态, 扫�
 import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
 import { quoteCommandArg, quoteShellArg } from './shell';
 import { findInPath, 解析可执行文件 } from './executable';
+import { 探测语言目录, 向上探测语言目录 } from './lang-pack-path';
+import { 更新退出时间戳, 重启窗口内上限 } from './restart-window';
 import { 注册转译预览 } from './transpile-preview';
 import { 注册更新检查 } from './update-checker';
 import { 注册产物隐藏 } from './artifact-hide';
@@ -47,19 +49,19 @@ import { 注册产物隐藏 } from './artifact-hide';
 const execFileAsync = promisify(cp.execFile);
 
 /** 全部方言源码扩展名（用于 eject 输出路径推导） */
-const 方言扩展名正则 = /\.(zh|en|ja|de|es|fr|pt|ru|ko|hi|ar)$/;
+const 方言扩展名正则 = /\.(zh|ja|de|es|fr|pt|ru|ko|hi|ar)$/;
 
 let client: LanguageClient | undefined;
 let statusBarItem: vscode.StatusBarItem;
 // LSP 自动重启计数（防止崩溃循环导致无限重启）
-// 上限放宽：rust-analyzer 工作区重载存在已知竞态崩溃（sysroot SendError panic），
-// 崩后自动恢复优于“不再重启”的体验；20 次仍可防止死循环刷屏
-let 自动重启次数 = 0;
+// 采用时间窗口：仅统计最近 10 分钟内的异常退出，窗口外的旧崩溃自动过期，
+// 避免偶发崩溃跨周月累计导致永久停止自动重启；窗口内 20 次仍可防止死循环刷屏。
+let 自动重启时间戳们: number[] = [];
 // 日志输出通道（替代 console.log，便于用户排查问题）
 let 日志通道: vscode.OutputChannel;
-// Run/Check 共用终端（避免每次命令新建终端刷屏）
-let 命令终端: vscode.Terminal | undefined;
-let 命令终端工作目录: string | undefined;
+// Run/Check 复用终端表：按工作目录复用已存活终端（避免每次命令新建终端刷屏）；
+// 不同目录的长时间运行程序互不干扰（不 dispose 避免杀死进程）。
+const 命令终端表 = new Map<string, vscode.Terminal>();
 // 当前 AI 会话的中止器（新会话自动中止上一个，避免输出交错）
 let 当前AI中止器: AbortController | undefined;
 
@@ -425,8 +427,7 @@ function 工作区根们(): string[] {
  * 2. 工作区中的语言包目录（lang-packs/<代码> 或主仓库单副本结构 crates/engine/lang-packs/<代码>）
  * 3. 全局安装目录 ~/.rz/lang-packs/<代码>（rzc 全局安装位置）
  * 4. LSP 二进制所在项目的语言包目录（沿 PATH 查找）
- * 5. 常见项目目录（~/code/zrRust 等）
- * 6. 找不到返回 undefined（LSP 使用默认内置映射）
+ * 5. 找不到返回 undefined（LSP 使用默认内置映射）
  */
 function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | undefined {
     // 1. 显式配置
@@ -437,7 +438,7 @@ function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | 
     const 语言 = 语言代码(config.get<string>('languagePack', '中文'));
     // 2. 工作区语言包（lang-packs/ 用户项目约定 + crates/engine/lang-packs/ 主仓库单副本）
     for (const 根 of 工作区根们()) {
-        const 候选 = 语言包候选们(根, 语言);
+        const 候选 = 探测语言目录(根, 语言);
         if (候选) {
             return 候选;
         }
@@ -452,51 +453,9 @@ function 查找语言包路径(config: vscode.WorkspaceConfiguration): string | 
     if (!path.isAbsolute(serverPath)) {
         const lspRealPath = findInPath(serverPath);
         if (lspRealPath) {
-            const 候选 = 向上查找语言包(path.dirname(lspRealPath), 语言);
+            const 候选 = 向上探测语言目录(path.dirname(lspRealPath), 语言);
             if (候选) { return 候选; }
         }
-    }
-    // 5. 常见项目目录
-    const home = os.homedir();
-    for (const 项目名 of ['code/zrRust', 'zrRust']) {
-        const 候选 = 语言包候选们(path.join(home, 项目名), 语言);
-        if (候选) {
-            return 候选;
-        }
-    }
-    return undefined;
-}
-
-/**
- * 在指定基础目录下探测两种语言包布局：
- * lang-packs/<代码>（用户项目约定）与 crates/engine/lang-packs/<代码>（主仓库单一数据源）
- */
-function 语言包候选们(基础目录: string, 语言: string): string | undefined {
-    for (const 相对路径 of [
-        path.join('lang-packs', 语言),
-        path.join('crates', 'engine', 'lang-packs', 语言),
-    ]) {
-        const 候选 = path.join(基础目录, 相对路径);
-        if (fs.existsSync(候选)) {
-            return 候选;
-        }
-    }
-    return undefined;
-}
-
-/**
- * 从指定目录向上搜索语言包目录（最多向上 5 级，两种布局均探测）
- */
-function 向上查找语言包(startDir: string, 语言: string): string | undefined {
-    let dir = startDir;
-    for (let i = 0; i < 5; i++) {
-        const 候选 = 语言包候选们(dir, 语言);
-        if (候选) {
-            return 候选;
-        }
-        const parent = path.dirname(dir);
-        if (parent === dir) { break; }
-        dir = parent;
     }
     return undefined;
 }
@@ -527,12 +486,13 @@ export function activate(context: vscode.ExtensionContext): void {
         .getConfiguration('i18n-rust')
         .get<boolean>('autoConvertFullWidthSymbols', true);
 
-    // 终端关闭时重置复用引用
+    // 终端关闭时从复用表移除，后续按需重建
     context.subscriptions.push(
         vscode.window.onDidCloseTerminal(终端 => {
-            if (终端 === 命令终端) {
-                命令终端 = undefined;
-                命令终端工作目录 = undefined;
+            for (const [cwd, 复用终端] of 命令终端表) {
+                if (复用终端 === 终端) {
+                    命令终端表.delete(cwd);
+                }
             }
         })
     );
@@ -931,7 +891,7 @@ async function 重启服务器(context: vscode.ExtensionContext): Promise<void> 
         await client.stop();
         client = undefined;
     }
-    自动重启次数 = 0;
+    自动重启时间戳们 = [];
     启动语言服务器(context);
 }
 
@@ -998,7 +958,7 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
     const clientOptions: LanguageClientOptions = {
         documentSelector: 方言语言Id.map(语言 => ({ scheme: 'file', language: 语言 })),
         synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{zh,en,ja,de,es,fr,pt,ru,ko,hi,ar}')
+            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{zh,ja,de,es,fr,pt,ru,ko,hi,ar}')
         },
         diagnosticCollectionName: 'i18n-rust',
         outputChannelName: 'i18n-rust LSP',
@@ -1012,10 +972,11 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
                 action: (count ?? 0) >= 3 ? ErrorAction.Shutdown : ErrorAction.Continue
             }),
             closed: () => {
-                if (自动重启次数 < 20) {
-                    自动重启次数++;
+                const { 修剪后, 次数 } = 更新退出时间戳(自动重启时间戳们, Date.now());
+                自动重启时间戳们 = 修剪后;
+                if (次数 < 重启窗口内上限) {
                     vscode.window.showWarningMessage(
-                        `i18n-rust 语言服务器异常退出，正在自动重启（第 ${自动重启次数} 次）...`
+                        `i18n-rust 语言服务器异常退出，正在自动重启（第 ${次数} 次）...`
                     );
                     return { action: CloseAction.Restart };
                 }
@@ -1223,21 +1184,18 @@ async function 解析rzc(): Promise<string | undefined> {
 }
 
 /**
- * 获取复用终端：cwd 与上次一致则复用，否则销毁重建
+ * 获取复用终端：按工作目录复用已存活的终端；不同目录各自独立，
+ * 避免销毁仍可能运行中的程序。已退出/被关闭的终端会由 onDidCloseTerminal
+ * 清出复用表，此处按需重建。
  */
 function 获取命令终端(cwd: string): vscode.Terminal {
-    if (命令终端 && !命令终端.exitStatus && 命令终端工作目录 === cwd) {
-        return 命令终端;
+    const 已有 = 命令终端表.get(cwd);
+    if (已有 && !已有.exitStatus) {
+        return 已有;
     }
-    if (!命令终端 || 命令终端.exitStatus) {
-        // 旧终端已退出：安全重建并复用引用
-        命令终端 = vscode.window.createTerminal({ name: 'i18n-rust', cwd });
-        命令终端工作目录 = cwd;
-        return 命令终端;
-    }
-    // cwd 变了但旧终端仍在运行（可能有长时间编译/运行中的程序）：
-    // 不 dispose 避免杀死进程，新建独立终端（不覆盖复用引用）
-    return vscode.window.createTerminal({ name: 'i18n-rust', cwd });
+    const 终端 = vscode.window.createTerminal({ name: 'i18n-rust', cwd });
+    命令终端表.set(cwd, 终端);
+    return 终端;
 }
 
 /**

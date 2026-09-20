@@ -14,6 +14,7 @@ import * as path from 'path';
 import { AIConfig, ProviderId } from './types';
 import { buildSystemPrompt } from './prompt-builder';
 import { 语言代码 } from '../languages';
+import { 探测语言包根 } from '../lang-pack-path';
 
 /** SecretStorage 中 API 密钥的存储键 */
 const 密钥存储键 = 'i18n-rust.ai.apiKey';
@@ -38,9 +39,24 @@ export async function initAISecrets(context: vscode.ExtensionContext): Promise<v
     if (!existing) {
         await secretStore.store(密钥存储键, settingsKey);
     }
-    // 清空明文设置（全局与工作区两级都尝试）
-    await config.update('apiKey', undefined, vscode.ConfigurationTarget.Global);
-    await config.update('apiKey', undefined, vscode.ConfigurationTarget.Workspace);
+    // 清空明文设置：仅清实际存在密钥的层级（避免对无值层级写空串污染设置文件，
+    // 也避免 update 传 undefined 抛异常导致后续层级被跳过）。逐层 try/catch，
+    // 单层写失败不阻塞其它层——密钥已安全落入 SecretStorage，明文清理属尽力而为。
+    const 检查 = config.inspect<string>('apiKey');
+    const 层级们: vscode.ConfigurationTarget[] = [];
+    if (检查?.globalValue != null && 检查.globalValue !== '') {
+        层级们.push(vscode.ConfigurationTarget.Global);
+    }
+    if (检查?.workspaceValue != null && 检查.workspaceValue !== '') {
+        层级们.push(vscode.ConfigurationTarget.Workspace);
+    }
+    for (const 层级 of 层级们) {
+        try {
+            await config.update('apiKey', '', 层级);
+        } catch {
+            // 忽略：明文残留不影响功能，密钥已存入 SecretStorage
+        }
+    }
 }
 
 /**
@@ -95,18 +111,19 @@ export function currentLanguageCode(): string {
  * Returns undefined when none exists (prompt builder falls back to English).
  */
 export function findLanguagePackRoot(): string | undefined {
-    const candidates = [
-        vscode.workspace.getConfiguration('i18n-rust').get<string>('languagePackPath', ''),
-        ...(vscode.workspace.workspaceFolders ?? []).flatMap(folder => [
-            path.join(folder.uri.fsPath, 'lang-packs'),
-            path.join(folder.uri.fsPath, 'crates', 'engine', 'lang-packs')
-        ]),
-        path.join(os.homedir(), '.rz', 'lang-packs')
-    ];
-    for (const candidate of candidates) {
-        if (candidate && fs.existsSync(candidate)) {
-            return candidate;
+    const 显式 = vscode.workspace.getConfiguration('i18n-rust').get<string>('languagePackPath', '');
+    if (显式 && fs.existsSync(显式)) {
+        return 显式;
+    }
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+        const 候选 = 探测语言包根(folder.uri.fsPath);
+        if (候选) {
+            return 候选;
         }
+    }
+    const 全局 = path.join(os.homedir(), '.rz', 'lang-packs');
+    if (fs.existsSync(全局)) {
+        return 全局;
     }
     return undefined;
 }
