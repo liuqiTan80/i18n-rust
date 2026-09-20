@@ -6,7 +6,7 @@
 
 import * as assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { quoteCommandArg, quotePosixArg, quoteWindowsArg } from '../shell';
+import { quoteCommandArg, quotePosixArg, quotePowerShellArg, quoteCmdArg } from '../shell';
 import { 应转换全角, 计算插入字符位置们, 扫描词法状态, 扫描词法状态们, 词法状态, 全角符号映射, 全角符号检测正则 } from '../fullwidth-convert';
 import { 语言代码, 按代码查找, 方言语言表, 方言语言Id } from '../languages';
 import { 选择光标诊断, 位置形状 } from '../diagnostic-pick';
@@ -28,12 +28,18 @@ test('POSIX 引用：反引号与 $() 失去注入能力', () => {
     assert.equal(quotePosixArg('/tmp/`rm -rf ~`$(x).zh'), `'/tmp/\`rm -rf ~\`$(x).zh'`);
 });
 
-test('Windows 引用：双引号加倍', () => {
-    assert.equal(quoteWindowsArg('C:\\a "b".zh'), '"C:\\a ""b"".zh"');
+test('PowerShell 引用：单引号内字面量，内部单引号加倍', () => {
+    assert.equal(quotePowerShellArg(`C:\\a 'b'.zh`), `'C:\\a ''b''.zh'`);
 });
 
-test('Windows 引用：反引号与 % 转义', () => {
-    assert.equal(quoteWindowsArg('a`b%c'), '"a``b^%c"');
+test('PowerShell 引用：反引号与 $() 失去注入能力', () => {
+    // 单引号字符串为纯字面量：$()、反引号均无特殊含义，无转义
+    assert.equal(quotePowerShellArg('a`$(x)b'), "'a`$(x)b'");
+});
+
+test('cmd 引用：双引号加倍 + 元字符加 ^ 前缀', () => {
+    assert.equal(quoteCmdArg('C:\\a "b".zh'), '"C:\\a ""b"".zh"');
+    assert.equal(quoteCmdArg('a&b|c<d>e'), '"a^&b^|c^<d^>e"');
 });
 
 test('命令名引用按平台分支（Windows 加 PowerShell 调用运算符前缀，cmd 亦兼容）', () => {

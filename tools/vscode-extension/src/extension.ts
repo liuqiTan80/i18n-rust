@@ -70,6 +70,20 @@ function 日志(消息: string): void {
     日志通道?.appendLine(`[${new Date().toISOString()}] ${消息}`);
 }
 
+// 命令参数安全引用：按当前集成终端实际 shell 选择转义策略。若省略 shell
+// 路径，Windows 上会保守地假定为 cmd.exe，但 VS Code 在 Windows 的默认终端
+// 是 PowerShell，二者转义语义不同——cmd 的 ^ 转义在 PowerShell 中是字面量，
+// 且 cmd 的 % 环境变量展开无法被 ^ 中和，仍构成命令注入残留；PowerShell
+// 单引号字符串为纯字面量，可彻底消除 $()/反引号等注入面。故统一传入
+// vscode.env.shell 以匹配终端实际所使用的 shell。
+function 安全引用(参数: string): string {
+    return quoteShellArg(参数, vscode.env.shell);
+}
+
+function 安全命令(参数: string): string {
+    return quoteCommandArg(参数, vscode.env.shell);
+}
+
 // 全角转换开关缓存（输入热路径避免每次文本变更重新读取配置）
 let 全角转换开关 = true;
 
@@ -1071,13 +1085,13 @@ function 注册映射工具命令(context: vscode.ExtensionContext): void {
                         return;
                     }
                     if (选择.label !== '全部内置语言') {
-                        目标参数 = ` ${quoteShellArg(path.join(langPacks目录, 选择.label))}`;
+                        目标参数 = ` ${安全引用(path.join(langPacks目录, 选择.label))}`;
                     }
                 }
             }
             const 终端 = 获取命令终端(工作区根 ?? '.');
             终端.show();
-            终端.sendText(`${quoteCommandArg(rzc路径)} mapping check${目标参数}`);
+            终端.sendText(`${安全命令(rzc路径)} mapping check${目标参数}`);
         })
     );
 
@@ -1128,8 +1142,8 @@ function 注册映射工具命令(context: vscode.ExtensionContext): void {
             const 终端 = 获取命令终端(工作区根 ?? '.');
             终端.show();
             终端.sendText(
-                `${quoteCommandArg(rzc路径)} mapping scaffold ${quoteShellArg(源选择.label)} `
-                + `${quoteShellArg(目标.trim())} --provider ${方式选择.label}`
+                `${安全命令(rzc路径)} mapping scaffold ${安全引用(源选择.label)} `
+                + `${安全引用(目标.trim())} --provider ${方式选择.label}`
             );
         })
     );
@@ -1152,7 +1166,7 @@ function 注册映射工具命令(context: vscode.ExtensionContext): void {
             const 工作区根 = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
             const 终端 = 获取命令终端(工作区根 ?? '.');
             终端.show();
-            终端.sendText(`${quoteCommandArg(rzc路径)} lang install ${quoteShellArg(来源.trim())}`);
+            终端.sendText(`${安全命令(rzc路径)} lang install ${安全引用(来源.trim())}`);
         })
     );
 
@@ -1181,9 +1195,9 @@ function 注册映射工具命令(context: vscode.ExtensionContext): void {
             const config = vscode.workspace.getConfiguration('i18n-rust');
             const rzc路径 = 解析可执行文件(config.get<string>('rzcPath', 'rzc'), 工作区根们());
             if (rzc路径) {
-                终端.sendText(`${quoteCommandArg(rzc路径)} add ${quoteShellArg(crate名.trim())}`);
+                终端.sendText(`${安全命令(rzc路径)} add ${安全引用(crate名.trim())}`);
             } else {
-                终端.sendText(`cargo add ${quoteShellArg(crate名.trim())}`);
+                终端.sendText(`cargo add ${安全引用(crate名.trim())}`);
             }
         })
     );
@@ -1257,7 +1271,7 @@ async function 运行文件(文件路径: string): Promise<void> {
     const 终端 = 获取命令终端(path.dirname(文件路径));
     终端.show();
     // 参数安全引用，防止路径中的引号/反引号等导致命令注入
-    终端.sendText(`${quoteCommandArg(rzc路径)} run ${quoteShellArg(文件路径)}`);
+    终端.sendText(`${安全命令(rzc路径)} run ${安全引用(文件路径)}`);
 }
 
 /**
@@ -1279,7 +1293,7 @@ async function 检查文件(文件路径: string): Promise<void> {
     }
     const 终端 = 获取命令终端(path.dirname(文件路径));
     终端.show();
-    终端.sendText(`${quoteCommandArg(rzc路径)} check ${quoteShellArg(文件路径)}`);
+    终端.sendText(`${安全命令(rzc路径)} check ${安全引用(文件路径)}`);
 }
 
 /**
