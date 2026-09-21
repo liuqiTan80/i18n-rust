@@ -6,9 +6,32 @@
 //! 教程验证（tools/verify-tutorials.py）覆盖。
 
 use assert_cmd::Command;
+use std::path::PathBuf;
+use std::sync::OnceLock;
+
+/// 测试沙箱根目录（进程内唯一，仅创建一次）
+///
+/// 测试必须与开发者机器隔离：`~/.rz/lang-packs` 中的用户安装语言包会改变
+/// `lang list` 的计数（断言「11」失真），`~/.rz` 缓存会影响转译告警输出。
+/// 统一把 HOME / USERPROFILE / RZ_LANG_DIR 指向空沙箱，使结果仅取决于
+/// 编译期嵌入的内置语言包与源码本身。
+fn 沙箱根() -> &'static PathBuf {
+    static 根: OnceLock<PathBuf> = OnceLock::new();
+    根.get_or_init(|| {
+        let dir = std::env::temp_dir().join(format!("rzc-test-sandbox-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("创建测试沙箱目录失败");
+        dir
+    })
+}
 
 fn rzc() -> Command {
-    Command::cargo_bin("rzc").expect("应能定位 rzc 二进制")
+    let mut cmd = Command::cargo_bin("rzc").expect("应能定位 rzc 二进制");
+    let 沙箱 = 沙箱根();
+    cmd.env("HOME", 沙箱)
+        .env("USERPROFILE", 沙箱)
+        .env("RZ_LANG_DIR", 沙箱.join("lang-packs"))
+        .env_remove("RZ_LOG");
+    cmd
 }
 
 /// `--version` 输出 `rzc <版本>`，且与 Cargo.toml 声明一致
@@ -22,7 +45,8 @@ fn test_version_outputs_name_and_version() {
         .stdout(predicates::str::contains(env!("CARGO_PKG_VERSION")));
 }
 
-/// `lang list` 无需 RZ_LANG_DIR 与网络：内置 11 语言包编译期嵌入
+/// `lang list` 无需网络：内置 11 语言包编译期嵌入；沙箱内无用户安装包，
+/// 计数稳定为 11（不随开发者机器上的 `~/.rz/lang-packs` 变化）
 #[test]
 fn test_lang_list_lists_builtin_packs() {
     rzc()

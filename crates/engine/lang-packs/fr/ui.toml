@@ -230,6 +230,7 @@
 "mc_cross_conflict_mp" = "  ❌ la clé de chemin de module « {} » est en conflit entre fichiers : {} = « {} » vs {} = « {} »"
 "mc_stdlib_parse_failed" = "  ❌ échec d'analyse de stdlib.toml : {} (le mappage de la bibliothèque standard est entièrement inopérant)"
 "mc_stdlib_shadow" = "  ⚠️ {} la clé « {} » (valeur « {} ») est masquée par stdlib (valeur stdlib « {} »), l'entrée crates est inactive"
+"mc_missing_section" = "  ❌ {} keywords.toml n'a pas la section obligatoire [\"{}\"] (toute cette catégorie de termes cesse silencieusement de fonctionner alors que la transpilation signale toujours un succès)"
 "mc_unknown_target" = "cible de vérification inconnue : {} (ni un code de langue intégré, ni un répertoire existant)"
 "mc_cross_lang_header" = "📊 nombre d'identifiants par langue :"
 "mc_cross_integrity_header" = "🔬 vérification d'intégrité inter-langues (base : zh) :"

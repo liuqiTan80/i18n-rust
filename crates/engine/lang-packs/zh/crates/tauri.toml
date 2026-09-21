@@ -209,6 +209,12 @@
 "设图标" = "icon"  # TrayIconBuilder::icon 设置托盘图标
 "悬停提示" = "tooltip"  # TrayIconBuilder::tooltip 鼠标悬停提示
 "设菜单" = "menu"  # TrayIconBuilder::menu 挂接菜单
+"插件" = "plugin"  # Builder::plugin 注册插件（二期：自启插件）
+"接口" = "api"  # WindowEvent::CloseRequested 的 api 字段（拦截关闭用）
+"窗口事件类型" = "WindowEvent"  # tauri::WindowEvent（「窗口事件」让位给 on_window_event 方法）
+"广播管理" = "Emitter"  # trait Emitter：向所有窗口广播事件
+"广播" = "emit"  # Emitter::emit 广播事件给前端
+"取标识" = "id"  # MenuEvent::id 取菜单项标识（区分点了哪项）
 
 ["解释"]
 "TokioHandle" = "异步运行时的把手，用来往运行时里派发任务。"

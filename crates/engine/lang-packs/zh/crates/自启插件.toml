@@ -1,0 +1,25 @@
+# crate 名称映射（用于 use 路径）
+["模块路径"]
+"自启插件" = "tauri_plugin_autostart"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+"初始化" = "init"  # tauri_plugin_autostart::init 插件初始化（接入构建器链）
+"自启管理" = "ManagerExt"  # trait ManagerExt 给应用句柄扩展自启能力
+"自启" = "autolaunch"  # ManagerExt::autolaunch 取自启管理器
+"启用" = "enable"  # 开启开机自启（幂等，可重复调用）
+"禁用" = "disable"  # 关闭开机自启（备用）
+"已启用" = "is_enabled"  # 查询是否已开启（备用）
+"MacosLauncher" = "MacosLauncher"  # 原样（macOS 专用参数，Linux 下被忽略）
+"LaunchAgent" = "LaunchAgent"  # 原样（MacosLauncher::LaunchAgent 变体）
+
+["解释"]
+"自启插件" = "开机自启插件，让程序登录桌面后自动拉起。"
+"初始化" = "把自启插件接入应用构建器链的初始化函数。"
+"自启管理" = "给应用句柄扩展自启能力的接口（trait）。"
+"自启" = "取自启管理器，随后可启用、禁用或查询自启状态。"
+"启用" = "开启开机自启，重复调用不会出错。"
+"禁用" = "关闭开机自启，程序不会随登录自动启动。"
+"已启用" = "查询当前是否已开启开机自启，返回布尔值。"
+"MacosLauncher" = "macOS 上使用的启动方式选项，其它系统忽略。"
+"LaunchAgent" = "macOS 的 LaunchAgent 启动方式。"

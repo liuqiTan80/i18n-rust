@@ -8,18 +8,30 @@
 
 ["标识符"]
 "预导入" = "prelude"  # mysql::prelude（Queryable 等查询特征所在）
+"查询特征" = "Queryable"  # mysql::prelude::Queryable 查询特征（exec/query 系列方法所在）
 "数据库连接" = "Conn"  # mysql::Conn 同步连接对象
 "连接选项" = "Opts"  # mysql::Opts 连接参数（由连接串解析生成）
 "从网址" = "from_url"  # Opts::from_url 从连接串解析（返回 Result）
 "执行语句" = "exec_drop"  # Queryable::exec_drop 带参执行（丢弃结果）
+"执行取首行" = "exec_first"  # Queryable::exec_first 带参取单行（Option<Row>）
 "值转换" = "ToValue"  # mysql_common ToValue（&[&dyn ToValue] 位置参数切片）
 "查询语句" = "query_drop"  # Queryable::query_drop 无参查询 / DDL（丢弃结果）
 "取首行" = "query_first"  # Queryable::query_first 取单行（Option<Row>）
-"开启事务" = "start_transaction"  # Conn::start_transaction 开启事务
+"开启事务" = "start_transaction"  # Conn::start_transaction 开启事务（需 TxOpts 参数）
+"事务选项" = "TxOpts"  # 事务选项（TxOpts::default() 缺省即可）
+"查询迭代" = "query_iter"  # Queryable::query_iter 逐行迭代查询（文本协议）
+"执行迭代" = "exec_iter"  # Queryable::exec_iter 带参逐行迭代查询（二进制协议）
+"列引用" = "columns_ref"  # Row::columns_ref 列元数据切片（&[Column]）
+"列名" = "name_str"  # Column::name_str 列名文本
 
 ["解释"]
 "数据库连接" = "到 MySQL / MariaDB 的同步连接对象（mysql crate）"
 "预导入" = "mysql::prelude 模块，导入 Queryable 等特征后可使用查询方法"
 "从网址" = "从 mysql:// 连接串解析出连接选项（Opts::from_url）"
+"事务选项" = "事务选项（TxOpts）；缺省（Default）即常规行为"
+"查询迭代" = "逐行迭代的查询（返回 QueryResult 迭代器，文本协议）"
+"列引用" = "某行的列元数据切片（&[Column]）"
+"列名" = "列的名字（Cow<str>）"
 "查询语句" = "无参查询或 DDL 语句（丢弃结果，如建表、DELETE 全表）"
 "取首行" = "取查询结果的第一行（返回 Option<Row>）"
+"执行取首行" = "带位置参数的取首行（返回 Option<Row>）"

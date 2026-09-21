@@ -213,6 +213,7 @@
 "mc_keyword_collision" = "  ❌ {}[{}] key \"{}\" collides with a keyword (crates value \"{}\" never applies, keyword value is \"{}\")"
 "mc_cross_conflict" = "  ❌ key \"{}\" conflicts across files: {} = \"{}\" vs {} = \"{}\""
 "mc_stdlib_shadow" = "  ⚠️ {} key \"{}\" (value \"{}\") is shadowed by stdlib (stdlib value \"{}\"), crates entry ineffective"
+"mc_missing_section" = "  ❌ {} keywords.toml is missing required section [\"{}\"] (that whole category of terms silently stops working, yet transpilation still reports success)"
 "mc_unknown_target" = "unknown check target: {} (not a builtin language code nor an existing directory)"
 "mc_cross_lang_header" = "📊 cross-language identifier entry counts:"
 "mc_cross_lang_inconsistent" = "⚠️ entry counts differ across languages; sync manually (use rzc mapping scaffold for a skeleton)"

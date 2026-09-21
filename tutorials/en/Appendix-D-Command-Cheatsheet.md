@@ -21,7 +21,7 @@ For when a command slips your mind. Deeper explanations live in Chapter 1 (rzc b
 | `rzc mapping check` | Validate third-party mapping files | |
 | `rzc mapping coverage` | Check a pack's coverage against real backend source code, listing missing native mappings (run from the i18n-rust repo root) | `rzc mapping coverage --lang zh` |
 | `rzc crate search <keyword>` | Search the community registry for shared crate mappings | `rzc crate search serde` |
-| `rzc crate install <crate>@<lang>` | Install a community mapping into your global language pack | |
+| `rzc crate install <crate> --lang <lang>` | Install a community mapping into your global language pack | `rzc crate install serde --lang zh` |
 | `rzc crate publish` | Publish your local mappings to the registry (quality-gated) | |
 | `rzc install lsp` | Install the language server (VS Code completions) | |
 | `rzc install toolchain` | One-command bundled official toolchain (standalone rustc/cargo/rust-analyzer, no rustup needed) | |

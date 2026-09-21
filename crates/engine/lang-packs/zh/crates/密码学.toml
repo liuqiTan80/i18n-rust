@@ -44,6 +44,8 @@
 "分组解密" = "BlockDecryptMut"
 "块填充" = "block_padding"
 "无填充" = "NoPadding"
+"从切片新建" = "new_from_slices"  # KeyIvInit::new_from_slices 由字节切片建加解密器（含长度校验）
+"解密填充可变" = "decrypt_padded_mut"  # BlockDecryptMut::decrypt_padded_mut 原地解密（配合 NoPadding）
 
 # zeroize（crate 与方法同名；模块路径词在函数体内的副本）
 "内存零化" = "zeroize"

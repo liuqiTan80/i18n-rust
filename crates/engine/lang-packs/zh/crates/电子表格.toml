@@ -1,0 +1,84 @@
+# ============================================================
+# 电子表格词条
+# 覆盖：rust_xlsxwriter（写入）、calamine（读取）、umya_spreadsheet（读写）
+# 说明：三个 crate 社区/内置原无映射，本轮收录；仅含骨架阶段核心 API，
+#       后续按需扩充。
+# ============================================================
+
+["模块路径"]
+"电子表格写入" = "rust_xlsxwriter"
+"电子表格读取" = "calamine"
+"电子表格读写" = "umya_spreadsheet"
+
+["标识符"]
+# 模块路径词在函数体内的副本（支持表达式中的限定调用）
+"电子表格写入" = "rust_xlsxwriter"
+"电子表格读取" = "calamine"
+"电子表格读写" = "umya_spreadsheet"
+
+# —— rust_xlsxwriter ——
+"工作簿" = "Workbook"
+"工作表" = "Worksheet"
+"添加工作表" = "add_worksheet"
+"写字符串" = "write_string"
+"写数字" = "write_number"
+"保存" = "save"
+
+# —— calamine ——
+"电子表格文件" = "Xlsx"
+"表格读取器" = "Reader"
+"打开工作簿" = "open_workbook"
+"工作表区域" = "worksheet_range"
+"全部行" = "rows"
+
+# —— calamine 扩展（M5 台账解析阶段，含 .xls/.xlsx 自动识别）——
+"多表工作簿" = "Sheets"
+"自动打开工作簿" = "open_workbook_auto"
+"工作表名称列表" = "sheet_names"
+"单元数据" = "Data"
+"数据接口" = "DataType"
+"取浮点数" = "get_float"
+"取整数" = "get_int"
+"取日期时间" = "get_datetime"
+"分拆日期时间" = "to_ymd_hms_milli"
+"取格" = "get"
+
+# —— calamine 扩展（M5 日期序列值兼容：无日期格式的单元格需手动包装）——
+"表格日期时间" = "ExcelDateTime"
+"日期时间类型" = "ExcelDateTimeType"
+
+# —— calamine 扩展（M8 公式探测：读取单元格公式串）——
+"工作表公式" = "worksheet_formula"
+"起点" = "start"
+
+# —— umya-spreadsheet（M8 公司日报生成：读改写 xlsx，保留公式/格式）——
+# 用法：使用 电子表格读写::读取器::xlsx格式::读取电子表格;
+#       使用 电子表格读写::写出器::xlsx格式::写入电子表格;
+#       使用 电子表格读写::工作簿; / 使用 电子表格读写::工作表;
+"读取器" = "reader"
+"写出器" = "writer"
+"xlsx格式" = "xlsx"
+"读取电子表格" = "read"
+"写入电子表格" = "write"
+
+# Workbook 方法（按名称取工作表；可变 = 需要修改）
+"取工作表" = "sheet_by_name"
+"取工作表可变" = "sheet_by_name_mut"
+
+# Worksheet / Cell 通用方法
+"取单元" = "cell"
+"取单元可变" = "cell_mut"
+"取样式" = "style"
+"取样式可变" = "style_mut"
+"置样式" = "set_style"
+"取显示值" = "value"
+"取数值" = "value_number"
+"置值" = "set_value"
+"置数值" = "set_value_number"
+"置公式" = "set_formula"
+"公式文本" = "formula"
+"是否公式" = "is_formula"
+"最高行" = "highest_row"
+"插入新行" = "insert_new_row"
+"删除行" = "remove_row"
+"映射合并单元" = "map_merged_cell"

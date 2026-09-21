@@ -26,6 +26,15 @@
 "从文件读取" = "from_reader"
 "写入文件" = "to_writer"
 
+# serde_json::Value 取值与类型判断（office-zb 使用反馈）
+"作为字符串" = "as_str"
+"作为长整数" = "as_u64"
+"作为对象" = "as_object"
+"作为数组" = "as_array"
+"是对象" = "is_object"
+"是数组" = "is_array"
+"是字符串" = "is_string"
+
 # toml
 
 # bincode

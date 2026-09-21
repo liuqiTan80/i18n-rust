@@ -228,6 +228,7 @@
 "长度" = "len"
 "转为字节" = "as_bytes"
 "从字节" = "from_utf8"
+"从utf8宽松" = "from_utf8_lossy"  # String::from_utf8_lossy 有损 UTF-8 解码（非法序列替 U+FFFD）
 "匹配" = "matches"
 
 # --------------------------------------------
@@ -254,6 +255,8 @@
 "切片_mut" = "as_mut_slice"
 "拼接" = "concat"
 "扩展" = "extend"
+"扩展从切片" = "extend_from_slice"  # Vec::extend_from_slice 追加切片内容
+"到向量" = "to_vec"  # 切片/数组 → 向量（复制）
 "从迭代器收集" = "from_iter"
 "耗尽" = "drain"
 "分块" = "chunks"
@@ -390,6 +393,8 @@
 "复制文件" = "copy"
 "重命名" = "rename"
 "元数据" = "Metadata"
+"取元数据" = "metadata"  # fs::metadata 取文件元数据（「元数据」=Metadata 已作类型名）
+"修改时间" = "modified"  # Metadata::modified 修改时间（SystemTime）
 "文件大小" = "len"
 "是否为文件" = "is_file"
 "是否为目录" = "is_dir"
@@ -423,6 +428,7 @@
 "退出状态" = "ExitStatus"
 "退出码" = "ExitCode"
 "输出" = "Output"
+"取输出" = "output"  # Command::output（「输出」已被 Output 类型占用）
 "参数" = "args"
 "环境变量" = "var"
 "设置环境变量" = "set_var"
@@ -746,3 +752,16 @@
 # `窗口`=windows 见切片节（同形词），`Unix系统` 为 cfg(unix) 平台值词
 "允许" = "allow"
 "Unix系统" = "unix"
+
+# --------------------------------------------
+# 类型/方法缺口（office-zb 使用反馈，路径与字符判断等常用 API）
+# --------------------------------------------
+# Path 类型：use 语句内的「路径」一律按模块解释（→ path），无法导入 Path 类型；
+# 全中文写法补充「路径类型」。用法：使用 标准库::路径::路径类型; → std::path::Path
+"路径类型" = "Path"
+# DirEntry::path()：「路径」一词已被模块/类型占用，补充完整方法词。用法：条目值.条目路径()
+"条目路径" = "path"
+# char::is_ascii_digit：判断字符是否为 ASCII 数字
+"是数字字符" = "is_ascii_digit"
+# u8 字节类型（数据库解密、消息字节处理等场景）
+"字节" = "u8"

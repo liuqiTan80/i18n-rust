@@ -30,6 +30,7 @@
 
 # rusqlite
 "SQLite" = "rusqlite"  # 函数体内限定路径可用（模块路径节仅在 use 语句生效）
+# 注：Connection 类型复用上方 sqlx 节的「连接对象」词条（同值），use rusqlite::Connection 写 ôSQLite::连接对象ô
 "语句" = "Statement"
 "准备" = "prepare"
 "绑定参数" = "params"  # rusqlite::params! 宏（「参数」已被 env::args 占用）
@@ -43,8 +44,12 @@
 "数据库错误" = "Error"  # rusqlite::Error 错误类型
 "取值类型" = "types"  # rusqlite::types 模块
 "取值引用" = "ValueRef"  # rusqlite::types::ValueRef 列值引用
+"打开带标志" = "open_with_flags"  # Connection::open_with_flags 指定打开模式（只读等）
+"打开标志" = "OpenFlags"  # rusqlite::OpenFlags 打开标志位
+"只读打开" = "SQLITE_OPEN_READ_ONLY"  # OpenFlags::SQLITE_OPEN_READ_ONLY 只读模式
 "空值" = "Null"
 "文本值" = "Text"  # 「文本」已被 str 占用
 "字节块" = "Blob"
+"取列引用" = "get_ref"  # Row::get_ref 按列号取 ValueRef（文本/字节块等原样引用）
 "整数值" = "Integer"
 "浮点值" = "Real"

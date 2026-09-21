@@ -174,6 +174,26 @@ fn extract_keyword_map(content: &str) -> HashMap<String, String> {
     }
 }
 
+/// keywords.toml 必需节（引擎按节名取表，缺节不会报错，只会让整类词条静默失效）
+///
+/// - `宏`：宏名 → 英文宏名，供宏调用自动补 `!`。缺失则 `get_macro_map()`
+///   为空、宏调用不再补 `!`，产物非法却仍报「转译成功」，最难排查；
+/// - `派生特征`：`#[派生(...)]` 参数。缺失则派生参数不替换；
+/// - 其余节经 `flatten_sections` 合并进关键字表，缺节即整类方言词不可用。
+const 必需关键字节: &[&str] = &[
+    "声明",
+    "控制流",
+    "类型",
+    "逻辑值",
+    "特殊值",
+    "内存",
+    "不安全",
+    "错误处理",
+    "宏",
+    "派生特征",
+    "标准库成员",
+];
+
 /// 校验单个语言包的 crates 映射质量
 ///
 /// 检查项（按严重级别）：
@@ -191,6 +211,25 @@ fn extract_keyword_map(content: &str) -> HashMap<String, String> {
 pub fn check_lang_pack(view: &LangPackView) -> CheckReport {
     let mut report = CheckReport::default();
     let keyword_map = extract_keyword_map(&view.keywords_toml);
+
+    // 0. keywords.toml 可解析性与必需节完整性。
+    // 解析失败（如重复键）会让关键字表整体失效（全部方言词不可用）；
+    // 缺节不会报错——引擎按节名取表，缺节返回空表，整类词条静默失效。
+    // 其中缺 `["宏"]` 最危险：宏调用不再自动补 `!`，产物非法却仍报「转译成功」。
+    match toml::from_str::<toml::Table>(&view.keywords_toml) {
+        Ok(表) => {
+            for 节 in 必需关键字节 {
+                if !表.contains_key(*节) {
+                    report
+                        .errors
+                        .push(format!("mc_missing_section|{}|{节}", view.lang));
+                }
+            }
+        }
+        Err(e) => report
+            .errors
+            .push(format!("mc_parse_failed|keywords.toml|{e}")),
+    }
 
     // stdlib 解析失败必须报错（重复键等会让 stdlib 整体加载失败）；
     // 空内容（无 stdlib 文件）解析为空表，不会误报
@@ -1127,7 +1166,14 @@ mod tests {
     fn view_with_crates(crates: Vec<(&str, &str)>) -> LangPackView {
         LangPackView {
             lang: "zh".to_string(),
-            keywords_toml: "[\"声明\"]\n\"函数\" = \"fn\"\n\"让\" = \"let\"\n".to_string(),
+            // 含全部必需节：本组用例聚焦 crates 冲突检测，
+            // 缺节会额外触发 mc_missing_section 干扰断言
+            keywords_toml: concat!(
+                "[\"声明\"]\n\"函数\" = \"fn\"\n\"让\" = \"let\"\n",
+                "[\"控制流\"]\n[\"类型\"]\n[\"逻辑值\"]\n[\"特殊值\"]\n[\"内存\"]\n",
+                "[\"不安全\"]\n[\"错误处理\"]\n[\"宏\"]\n[\"派生特征\"]\n[\"标准库成员\"]\n",
+            )
+            .to_string(),
             stdlib_toml: "[\"标识符\"]\n\"字符串\" = \"String\"\n".to_string(),
             errors_toml: String::new(),
             crates: crates
@@ -1148,6 +1194,66 @@ mod tests {
         assert!(report.passed(), "干净映射应通过: {:?}", report.errors);
         assert_eq!(report.stats.ident_entries, 2);
         assert_eq!(report.stats.crate_files, 1);
+    }
+
+    /// 缺少必需节报 error（缺节不报错但整类词条静默失效）
+    ///
+    /// 回归：缺 `["宏"]` 时 `get_macro_map()` 返回空表，宏调用不再自动补 `!`，
+    /// 产物非法却仍显示「转译成功」——最难排查的一类静默降级。
+    #[test]
+    fn test_missing_required_section_detected() {
+        let view = LangPackView {
+            lang: "xx".to_string(),
+            // 仅保留「声明」与「宏」，缺少其余必需节
+            keywords_toml: "[\"声明\"]\n\"函数\" = \"fn\"\n[\"宏\"]\n\"打印行\" = \"println\"\n"
+                .to_string(),
+            stdlib_toml: String::new(),
+            errors_toml: String::new(),
+            crates: Vec::new(),
+        };
+        let report = check_lang_pack(&view);
+        assert!(!report.passed(), "缺必需节应校验失败");
+        let 缺节: Vec<&String> = report
+            .errors
+            .iter()
+            .filter(|e| e.starts_with("mc_missing_section"))
+            .collect();
+        assert_eq!(缺节.len(), 必需关键字节.len() - 2, "应报出全部缺失节");
+        assert!(
+            缺节.iter().any(|e| e.ends_with("|派生特征")),
+            "缺 [\"派生特征\"] 应被检出: {缺节:?}"
+        );
+        // 含全部必需节的视图不应报缺节
+        let 完整 = view_with_crates(Vec::new());
+        assert!(
+            !check_lang_pack(&完整)
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_missing_section")),
+            "节齐全时不应报缺节"
+        );
+    }
+
+    /// keywords.toml 解析失败（重复键）报 error：关键字表整体失效
+    #[test]
+    fn test_keywords_parse_failure_detected() {
+        let view = LangPackView {
+            lang: "xx".to_string(),
+            // 同一节内重复键 → TOML 解析失败
+            keywords_toml: "[\"声明\"]\n\"函数\" = \"fn\"\n\"函数\" = \"fn2\"\n".to_string(),
+            stdlib_toml: String::new(),
+            errors_toml: String::new(),
+            crates: Vec::new(),
+        };
+        let report = check_lang_pack(&view);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_parse_failed|keywords.toml")),
+            "keywords.toml 重复键应报解析失败: {:?}",
+            report.errors
+        );
     }
 
     /// crates 键与 keywords 键相撞报 error

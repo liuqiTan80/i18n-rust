@@ -230,6 +230,7 @@
 "mc_cross_conflict_mp" = "  ❌ モジュールパスキー \"{}\" がファイル間で競合: {} = \"{}\" と {} = \"{}\""
 "mc_stdlib_parse_failed" = "  ❌ stdlib.toml 解析失敗: {}（標準ライブラリのマッピングが全体として無効）"
 "mc_stdlib_shadow" = "  ⚠️ {} キー \"{}\"（値 \"{}\"）は stdlib に上書きされる（stdlib 値 \"{}\"）、crates 項目は無効"
+"mc_missing_section" = "  ❌ {} keywords.toml に必須セクション [\"{}\"] がありません（その分類の語句が無言で無効になり、変換は成功と報告されます）"
 "mc_unknown_target" = "不明な検査対象: {}（組み込み言語コードでも既存ディレクトリでもない）"
 "mc_cross_lang_header" = "📊 言語横断の識別子エントリ数:"
 "mc_cross_integrity_header" = "🔬 言語横断の完全性チェック（基準：zh）:"

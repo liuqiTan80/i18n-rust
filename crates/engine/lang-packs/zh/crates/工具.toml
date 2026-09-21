@@ -34,6 +34,8 @@
 "本地时间" = "Local"
 "世界标准时间" = "Utc"
 "日期时间" = "DateTime"
+"时区日期时间" = "DateTime"  # use 末段专用（避开「日期时间」同名模块路径词被 use 阶段误替换为 crate 名）
+"时区日期" = "NaiveDate"  # use 末段专用（避开「日期」与项目字段/项名同名被豁免替换）
 "日期" = "NaiveDate"
 "时间" = "NaiveTime"
 "持续时间" = "Duration"
@@ -59,6 +61,9 @@
 "加天数" = "checked_add_days"
 "加月数" = "checked_add_months"
 "时间戳" = "timestamp"
+"从时间戳" = "from_timestamp"  # DateTime::from_timestamp 由 UNIX 秒构造（UTC；0.4.34+ 替代已弃用 from_timestamp_opt）
+"按时区转换" = "with_timezone"  # 转换时区（如 Utc → Local）
+"取天数" = "num_days"  # 日期/时长天数（如 (日期甲 − 日期乙).取天数() ）
 "年份" = "year"
 "月份" = "month"
 "日号" = "day"

@@ -230,6 +230,7 @@
 "mc_cross_conflict_mp" = "  ❌ 모듈 경로 키 \"{}\" 이(가) 파일 간 충돌: {} = \"{}\" 대 {} = \"{}\""
 "mc_stdlib_parse_failed" = "  ❌ stdlib.toml 파싱 실패: {} (표준 라이브러리 매핑 전체가 무효)"
 "mc_stdlib_shadow" = "  ⚠️ {} 키 \"{}\" (값 \"{}\") 이(가) stdlib 에 의해 가려짐 (stdlib 값 \"{}\"), crates 항목은 무효"
+"mc_missing_section" = "  ❌ {} keywords.toml 에 필수 섹션 [\"{}\"] 이(가) 없습니다 (해당 분류 단어가 조용히 무효화되지만 변환은 성공으로 보고됩니다)"
 "mc_unknown_target" = "알 수 없는 검사 대상: {} (내장 언어 코드도, 기존 디렉터리도 아님)"
 "mc_cross_lang_header" = "📊 언어별 식별자 항목 수:"
 "mc_cross_integrity_header" = "🔬 언어 간 완전성 검사 (기준: zh):"

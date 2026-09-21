@@ -19,7 +19,7 @@
 | `rzc mapping auto 库名` | 用 AI 或规则自动生成第三方库映射 | `rzc mapping auto rand --provider rule` |
 | `rzc mapping check` | 校验第三方库映射文件 | |
 | `rzc crate search 关键词` | 检索社区共享的第三方库映射 | `rzc crate search serde` |
-| `rzc crate install serde@zh` | 安装社区映射到全局语言包 | |
+| `rzc crate install 库名 --lang 语言` | 安装社区映射到全局语言包 | `rzc crate install serde --lang zh` |
 | `rzc crate publish` | 把本地映射发布到注册中心（先过质量门禁） | |
 | `rzc mapping coverage` | 用后端真实源码检验语言包覆盖度，列出缺失的母语映射（在 i18n-rust 仓库根运行） | `rzc mapping coverage --lang zh` |
 | `rzc mapping scaffold` | 为新语言生成映射脚手架 | |
