@@ -157,7 +157,7 @@ rzc doctor               # 查看工具链环境状态（内置 / PATH / 版本�
 
 前置条件：已按上面第三步编译 release 产物；联网执行一次 `rzc install toolchain --ra-only --force` 下载当前平台的 rust-analyzer（打包脚本会把它复制进包内）。
 
-脚本自动识别平台（Linux / Darwin / Windows），包内含 rzc、i18n-rust-lsp、rust-analyzer、10 种语言包与教程，解压即用（详细步骤见教程附录 D.5）。
+脚本自动识别平台（Linux / Darwin / Windows），包内含 rzc、i18n-rust-lsp、rust-analyzer、11 个内置语言包（10 种自然语言 + `en` 恒等包）与教程，解压即用（详细步骤见教程附录 D.5）。
 
 ### 环境变量（可选，一般无需配置）
 
@@ -207,12 +207,17 @@ rzc run src/main.zh      # 翻译 → 编译 → 运行
 | `rzc run <文件>`                   | 翻译并运行；警告/错误/构建进度全部母语化 |
 | `rzc check <文件>`                 | 类型检查，输出母语教学诊断 |
 | `rzc eject <文件>`                 | 导出为标准 Rust 代码（渐进过渡） |
+| `rzc transpile <文件>`             | 只转译不编译，标准 Rust 输出到屏幕 |
+| `rzc cheat <语言>`                 | 母语 ↔ Rust 映射速查表（`--markdown` 可嵌入文档） |
 | `rzc add <库名>[@版本]`            | 添加第三方依赖（封装 `cargo add`，附母语映射提示） |
+| `rzc doctor`                       | 诊断工具链环境（内置 / PATH / 版本对比） |
 | `rzc lang list`                    | 列出已安装语言包 |
 | `rzc lang install <码/目录>`       | 安装语言包（远程仓库或本地目录） |
+| `rzc lang search [关键词]`         | 检索可安装的远程语言包 |
 | `rzc lang remove <码>`             | 删除用户安装的语言包 |
 | `rzc mapping auto <crate名> [--target-version 版本]` | 自动生成第三方库的母语映射（AI/规则），可锁定生成基准版本 |
-| `rzc mapping check [目标]`         | 校验映射质量（重复键/关键字碰撞/跨文件冲突） |
+| `rzc mapping check [目标]`         | 校验映射质量（重复键/关键字碰撞/跨文件冲突/必备节完整性） |
+| `rzc mapping coverage [--lang 语言]` | 用真实源码检验语言包覆盖度，列出缺失的母语映射（仓库根运行） |
 | `rzc mapping scaffold <源> <目标>` | 生成新语言的翻译骨架，`--provider deepseek` 可 AI 自动翻译 |
 | `rzc crate search [关键词]` | 检索社区共享的第三方库母语映射（注册中心） |
 | `rzc crate install <库> --lang <语言>` | 从注册中心安装单个第三方库映射到全局语言包 |
@@ -220,7 +225,7 @@ rzc run src/main.zh      # 翻译 → 编译 → 运行
 | `rzc crate remove <库> --lang <语言>` | 移除已安装的社区映射 |
 | `rzc crate update` | 按清单重新拉取所有已安装映射（获取更新） |
 | `rzc crate publish <库> --lang <语言>` | 把本地自译映射发布到注册中心（先经质量门禁） |
-| `rzc install [lsp]` | 安装配套组件（语言服务器） |
+| `rzc install <lsp\|toolchain>` | 安装配套组件（语言服务器 / 内置官方工具链） |
 
 完整参考见 [附录D：rzc命令速查](tutorials/附录D：rzc命令速查.md)。
 
@@ -241,7 +246,7 @@ rzc run src/main.zh      # 翻译 → 编译 → 运行
 | 한국어  | `.ko` | العربية   | `.ar`  |
 | Русский | `.ru` | हिन्दी    | `.hi`  |
 
-Rust 本身以英文书写，因此不提供英语方言（恒等映射无教学价值）；其余 10 种自然语言按文件扩展名自动匹配，同一项目可混用。
+Rust 本身以英文书写，因此英语不作为教学方言（恒等映射无教学价值）；语言包目录中另有一个 `en` 恒等包（扩展名 `.en`），供需要恒等映射的场景与英文界面文案使用。上表 10 种自然语言按文件扩展名自动匹配，同一项目可混用。
 
 ### 教学级诊断
 - **错误码 + 消息双轨翻译**：覆盖 rustc 错误码、无码 lint 警告、help 短语
@@ -287,7 +292,7 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 | `crates/engine`            | 语言无关核心引擎：转译管线、映射管理、诊断翻译、增量缓存、Unicode 安全检查 |
 | `crates/cli`               | `rzc` 命令行工具 |
 | `crates/lsp`               | `i18n-rust-lsp`：代理官方语言服务器（rust-analyzer），双向翻译位置与诊断 |
-| `crates/engine/lang-packs` | 11 个自然语言包（关键字/标准库/模块路径/错误翻译/界面文案） |
+| `crates/engine/lang-packs` | 11 个内置语言包（10 种自然语言 + `en` 恒等包：关键字/标准库/模块路径/错误翻译/界面文案） |
 | `tools/vscode-extension`   | VS Code / Qoder 扩展 |
 | `tutorials`                | 25 章中文教程与附录 |
 | `docs`                     | 语言包贡献指南、第三方映射工具链、方言框架生成蓝图 |
