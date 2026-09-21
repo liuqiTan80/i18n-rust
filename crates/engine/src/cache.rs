@@ -118,9 +118,23 @@ pub struct TranslationCache {
     capacity: usize,
     hits: AtomicU64,
     misses: AtomicU64,
-    /// 磁盘持久化路径：Some 时每次插入/清空后自动原子写盘
+    /// 磁盘持久化路径：Some 时由 [`TranslationCache::flush`] 原子写盘
     ///（跨进程复用：CLI 短命进程把上次运行的翻译结果留给下次）
     persistence: Option<PathBuf>,
+    /// 待写盘标记：变更后置位，[`TranslationCache::flush`] 成功写盘后清除。
+    ///
+    /// 不每次变更都写盘的原因：`save` 会把**整个**缓存序列化为 JSON，
+    /// 批量转译 N 个文件（各自 miss 后插入）会产生 N 次全量写，
+    /// 且这些写发生在调用方持有缓存的临界区内，把并行转译串行化。
+    /// 改为累积变更、批量一次写盘（进程退出由 `Drop` 兜底，不丢数据）。
+    dirty: bool,
+}
+
+/// 退出兜底：保证累积的未写盘变更不丢失（正常路径无需显式 `flush`）
+impl Drop for TranslationCache {
+    fn drop(&mut self) {
+        self.flush();
+    }
 }
 
 /// 磁盘持久化文件格式（版本不匹配/解析失败时静默丢弃，回退内存缓存）
@@ -158,6 +172,7 @@ impl TranslationCache {
             hits: AtomicU64::new(0),
             misses: AtomicU64::new(0),
             persistence: None,
+            dirty: false,
         }
     }
 
@@ -167,7 +182,8 @@ impl TranslationCache {
     }
 
     /// 带磁盘持久化的缓存：从 `path` 加载既有条目（尽力而为：文件不存在、
-    /// 版本不匹配、JSON 损坏时静默回退为空缓存），此后每次插入/清空自动写盘。
+    /// 版本不匹配、JSON 损坏时静默回退为空缓存），此后变更累积、由
+    /// [`Self::flush`] 批量写盘（进程退出由 `Drop` 兜底）。
     ///
     /// 跨进程增量复用场景（如 CLI 每次运行都是新进程）：上次运行转译过的
     /// 文件内容未变时直接命中，省去整条转译管线（Unicode/全角/lint 检查 + 词法）。
@@ -220,18 +236,29 @@ impl TranslationCache {
         Ok(())
     }
 
-    /// 自动持久化：绑定路径存在时写盘；失败仅告警（缓存丢失可接受，不阻断转译）
-    fn persist(&self) {
-        let Some(path) = &self.persistence else {
+    /// 批量写盘：有待写变更且绑定了持久化路径时写盘一次（幂等，无变更时空操作）。
+    ///
+    /// 批量转译场景应在全部文件处理完后调用一次（而非每个文件一次）：
+    /// [`Self::save`] 会序列化整个缓存，逐次写盘会把并行转译串行化。
+    /// 进程退出时由 `Drop` 兜底调用，正常路径无需显式调用。
+    pub fn flush(&mut self) {
+        if !self.dirty {
+            return;
+        }
+        let Some(path) = self.persistence.clone() else {
+            // 无持久化路径：变更无需落盘，标记清零避免无谓重试
+            self.dirty = false;
             return;
         };
-        if let Err(e) = self.save(path) {
-            crate::log_warn!(
+        match self.save(&path) {
+            Ok(()) => self.dirty = false,
+            // 写失败：保留 dirty 以便后续（含 Drop）重试；缓存丢失可接受，不阻断转译
+            Err(e) => crate::log_warn!(
                 "translation_cache",
                 "{}（{}）",
                 crate::语言::t("log_cache_disk_save_failed"),
                 e
-            );
+            ),
         }
     }
 
@@ -322,6 +349,21 @@ impl TranslationCache {
         Self::compute_content_hash(&pairs.join("\n"))
     }
 
+    /// 组合语言包语境指纹与项目上下文指纹为最终缓存指纹
+    ///
+    /// 不用异或：异或满足交换律（`(a, b)` 与 `(b, a)` 不可区分），且
+    /// `None` 与「项目指纹恰为 0」的组合结果相同，会把「无项目上下文」与
+    /// 「项目上下文指纹为 0」混为一谈而错误复用缓存。此处对 `None`/`Some`
+    /// 使用显式标签，并用无歧义定界拼接后走稳定哈希（FNV-1a，跨进程一致，
+    /// 与 [`Self::generate_context_fingerprint`] 同一算法，便于磁盘缓存比对）。
+    pub fn combine_fingerprint(manager_fingerprint: u64, project_fingerprint: Option<u64>) -> u64 {
+        let project_part = match project_fingerprint {
+            Some(fp) => format!("project:{fp:#x}"),
+            None => "project:none".to_string(),
+        };
+        Self::compute_content_hash(&format!("{manager_fingerprint:#x}\n{project_part}"))
+    }
+
     /// 查询缓存（计数命中/未命中；不更新 LRU 顺序）
     ///
     /// 命中条件：内容哈希一致、内容长度一致、语境指纹一致。
@@ -406,7 +448,9 @@ impl TranslationCache {
         self.entries.clear();
         self.order.clear();
         self.generations.clear();
-        self.persist();
+        // 清空是显式破坏性操作，立即落盘（不等批量写盘）
+        self.dirty = true;
+        self.flush();
     }
 
     /// 当前缓存条目数
@@ -455,6 +499,8 @@ impl TranslationCache {
             entry.context_fingerprint = context_fingerprint;
             entry.output = output;
             self.mark_hit(hash);
+            // 覆盖也是内容变更：置脏（此前该路径不回写磁盘，磁盘副本会残留旧产物）
+            self.dirty = true;
             return;
         }
         self.entries.insert(
@@ -484,8 +530,8 @@ impl TranslationCache {
                 // 代际不匹配：过时条目，惰性跳过
             }
         }
-        // 绑定持久化路径时同步写盘（新条目/淘汰后状态落盘）
-        self.persist();
+        // 标记待写盘：实际写盘由 `flush()` 批量执行（详见 `dirty` 字段说明）
+        self.dirty = true;
     }
 
     /// O(1) LRU 命中更新：递增代际并在队尾添加新条目，
@@ -538,6 +584,25 @@ mod tests {
             TranslationCache::compute_content_hash("函数 主函数() { }")
         );
         assert_ne!(TranslationCache::compute_content_hash(""), hash1);
+    }
+
+    /// 组合指纹：`None` 与 `Some(0)` 必须区分（异或会把二者混为一谈）
+    #[test]
+    fn test_combine_fingerprint_distinguishes_none_from_zero() {
+        let 语言包 = sample_fingerprint();
+        let 无项目 = TranslationCache::combine_fingerprint(语言包, None);
+        let 零指纹项目 = TranslationCache::combine_fingerprint(语言包, Some(0));
+        assert_ne!(无项目, 零指纹项目, "无项目上下文不应与指纹为 0 的项目同键");
+    }
+
+    /// 组合指纹：区分不同项目上下文，且对同一输入稳定
+    #[test]
+    fn test_combine_fingerprint_distinguishes_projects() {
+        let 语言包 = sample_fingerprint();
+        let 甲 = TranslationCache::combine_fingerprint(语言包, Some(1));
+        let 乙 = TranslationCache::combine_fingerprint(语言包, Some(2));
+        assert_ne!(甲, 乙);
+        assert_eq!(甲, TranslationCache::combine_fingerprint(语言包, Some(1)));
     }
 
     #[test]
@@ -773,11 +838,16 @@ mod tests {
         let path = dir.path().join("transpile.json");
         let fp = sample_fingerprint();
 
-        // 第一次：插入后自动写盘
+        // 第一次：插入只累积变更，写盘延迟到 flush（或进程退出时 Drop 兜底）
         {
             let mut cache = TranslationCache::persistent(&path);
             cache.insert("函数 主函数() {}", fp, sample_output("甲"));
-            assert!(path.exists(), "插入后应自动写盘");
+            assert!(
+                !path.exists(),
+                "插入不应立即写盘：批量转译下逐次全量写会把并行转译串行化"
+            );
+            cache.flush();
+            assert!(path.exists(), "flush 后应落盘");
         }
         // 第二次（模拟新进程）：从磁盘加载，可直接命中
         {
@@ -863,5 +933,30 @@ mod tests {
         assert!(cache.query("内容乙", fp).is_some());
         assert!(cache.query("内容丙", fp).is_some());
         assert!(cache.query("内容甲", fp).is_none(), "被淘汰条目不应复活");
+    }
+
+    /// 批量转译：N 次插入只在 flush 时写盘一次，且全部落盘
+    ///
+    /// 回归：此前每次 insert 都会把整个缓存序列化写盘（N 文件 → N 次全量写，
+    /// 且发生在调用方持锁期间），是批量转译的主要 I/O 开销来源。
+    #[test]
+    fn test_persistent_batches_writes_until_flush() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let path = dir.path().join("transpile.json");
+        let fp = sample_fingerprint();
+        let mut cache = TranslationCache::persistent(&path);
+        for 名 in ["甲", "乙", "丙", "丁"] {
+            cache.insert(&format!("内容{名}"), fp, sample_output(名));
+            assert!(!path.exists(), "flush 前不应有任何写盘");
+        }
+        assert_eq!(cache.current_count(), 4);
+        cache.flush();
+        let 重载 = TranslationCache::persistent(&path);
+        assert_eq!(重载.current_count(), 4, "一次 flush 应写入全部累积条目");
+        // 幂等：无新变更时再 flush 不产生写盘（文件 mtime 不变）
+        let 修改前 = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+        cache.flush();
+        let 修改后 = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+        assert_eq!(修改前, 修改后, "无变更时 flush 应为空操作");
     }
 }

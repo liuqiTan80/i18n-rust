@@ -323,7 +323,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let project_ctx = collect_project_context(&project_root, &file, &manager);
             // 入口文件写入 src/main.rs 作为编译目标；会话缓存贯穿入口文件与
             // 项目内其他文件（并行转译共享命中，见 transpile_project_files）
-            let source_path = project_root.join("src/main.rs");
+            let source_path = entry_output_path(&project_root, &file);
             let cache = std::sync::Mutex::new(
                 i18n_rust_engine::cache::TranslationCache::persistent_default(),
             );
@@ -502,7 +502,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let project_root = find_project_root(&file)?;
             // 项目级声明上下文（跨文件声明豁免，同 run）
             let project_ctx = collect_project_context(&project_root, &file, &manager);
-            let source_path = project_root.join("src/main.rs");
+            let source_path = entry_output_path(&project_root, &file);
             let cache = std::sync::Mutex::new(
                 i18n_rust_engine::cache::TranslationCache::persistent_default(),
             );
@@ -1029,6 +1029,19 @@ fn find_project_root(file: &Path) -> anyhow::Result<PathBuf> {
     )
 }
 
+/// 计算 `run`/`check` 的入口产物路径。
+///
+/// 仅当源文件确为入口（词干 `main`）时才写入 Cargo 固定编译目标 `src/main.rs`；
+/// 其余文件（如项目根的 `build.zh`）产物跟随自身扩展名（`build.rs`），绝不占用
+/// `src/main.rs`——否则会把 build 脚本静默覆盖为项目入口（weix 工具异常 #4）。
+fn entry_output_path(project_root: &Path, file: &Path) -> PathBuf {
+    if file.file_stem().is_some_and(|s| s == "main") {
+        project_root.join("src/main.rs")
+    } else {
+        file.with_extension("rs")
+    }
+}
+
 /// 从指定目录向上查找项目根（含 Cargo.toml 的目录），未找到返回 None
 fn find_project_root_upward(start: &Path) -> Option<PathBuf> {
     let mut current = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
@@ -1128,6 +1141,34 @@ pub fn resolve_cargo() -> PathBuf {
 pub fn resolve_rustc() -> PathBuf {
     i18n_rust_engine::toolchain::find_toolchain_bin("rustc")
         .unwrap_or_else(|| PathBuf::from("rustc"))
+}
+
+/// 解析与 [`resolve_rustc`] 同工具链的 rustdoc：优先内建/PATH 的独立 rustdoc，
+/// 缺失时改用 rustc 的 sysroot 精确定位其配套 rustdoc（rustdoc 与 rustc 同
+/// sysroot，版本一致），否则回退 PATH 的 "rustdoc" 由系统报错。
+///
+/// `mapping auto` 手调 rustdoc 生成 JSON 时必须与 cargo 编译 rlib 用同一
+/// rustc，否则跨版本链接触发 E0514（见 doc_json.rs 的 RUSTC 统一注入）。
+pub fn resolve_rustdoc() -> PathBuf {
+    if let Some(p) = i18n_rust_engine::toolchain::find_toolchain_bin("rustdoc") {
+        return p;
+    }
+    if let Ok(out) = std::process::Command::new(resolve_rustc())
+        .arg("--print")
+        .arg("sysroot")
+        .output()
+    {
+        let sysroot = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if !sysroot.is_empty() {
+            let bin = PathBuf::from(sysroot)
+                .join("bin")
+                .join(format!("rustdoc{}", std::env::consts::EXE_SUFFIX));
+            if bin.is_file() {
+                return bin;
+            }
+        }
+    }
+    PathBuf::from("rustdoc")
 }
 
 /// 判断是否可单文件直调 rustc：src/ 下仅一个方言文件且 Cargo.toml 无依赖
@@ -1922,8 +1963,14 @@ fn transpile_project_files(
     }
 
     // 语境指纹只算一次（全部文件共享同一语言包与项目上下文）；
-    // 项目上下文指纹并入后，跨文件声明变化时旧缓存自动失效
-    let fingerprint = manager.context_fingerprint() ^ project.fingerprint();
+    // 项目上下文指纹并入后，跨文件声明变化时旧缓存自动失效。
+    // 必须与引擎 `transpile_source_with_project` 使用同一组合函数：
+    // 入口文件与项目内其它文件共用同一个 TranslationCache 实例，
+    // 两处指纹算法若不同，同一语境会算出两个键，缓存互相不可见。
+    let fingerprint = i18n_rust_engine::cache::TranslationCache::combine_fingerprint(
+        manager.context_fingerprint(),
+        Some(project.fingerprint()),
+    );
     let first_error: std::sync::Mutex<Option<anyhow::Error>> = std::sync::Mutex::new(None);
     std::thread::scope(|scope| {
         let mut handles = Vec::with_capacity(files.len());
@@ -2101,7 +2148,7 @@ fn print_cheat(manager: &MappingManager, lang_code: &str, markdown: bool) {
         ("Keywords / 关键字", manager.get_keyword_map()),
         ("Module paths / 模块路径", manager.get_module_path_map()),
         ("Aliases / 别名", manager.get_alias_map()),
-        ("Derives / 派生特征", &derive_map),
+        ("Derives / 派生特征", derive_map),
     ];
 
     // 过滤恒等条目（native == english）后统计剩余量：全恒等则无需速查
@@ -2468,9 +2515,10 @@ fn get_lang_code_from_extension(extension: &str) -> Option<String> {
 mod tests {
     use super::{
         annotate_non_ascii_mods, annotate_non_ascii_mods_with_lines, can_use_direct_rustc,
-        collect_project_context, detect_toolchain_channel, extract_unresolved_crates,
-        find_alias_in_toml, get_lang_code_from_extension, transpile_project_files,
-        transpile_to_english, transpile_with_map_cached_in_project, write_transpiled,
+        collect_project_context, detect_toolchain_channel, entry_output_path,
+        extract_unresolved_crates, find_alias_in_toml, get_lang_code_from_extension,
+        transpile_project_files, transpile_to_english, transpile_with_map_cached_in_project,
+        write_transpiled,
     };
 
     /// 加载内置中文映射管理器（测试转译管线用）
@@ -2483,6 +2531,29 @@ mod tests {
             builtin.crates_data,
         )
         .expect("内置中文语言包应可加载")
+    }
+
+    /// 入口产物路径：`main` 词干写入 src/main.rs，非入口文件跟随自身扩展名，
+    /// 不占用 src/main.rs（weix 工具异常 #4：build.zh 不得覆盖入口产物）
+    #[test]
+    fn test_entry_output_path() {
+        use std::path::{Path, PathBuf};
+        let root = Path::new("/proj");
+        // src/main.zh（词干 main）→ 聚合到 Cargo 固定入口
+        assert_eq!(
+            entry_output_path(root, Path::new("/proj/src/main.zh")),
+            PathBuf::from("/proj/src/main.rs")
+        );
+        // 项目根的 build.zh（词干非 main）→ 同目录 build.rs，绝不触碰 src/main.rs
+        assert_eq!(
+            entry_output_path(root, Path::new("/proj/build.zh")),
+            PathBuf::from("/proj/build.rs")
+        );
+        // src 下非 main 模块（如 helper.zh）→ src/helper.rs
+        assert_eq!(
+            entry_output_path(root, Path::new("/proj/src/helper.zh")),
+            PathBuf::from("/proj/src/helper.rs")
+        );
     }
 
     /// 工具链通道探测：开发/CI 环境必有 rustc；主次版本号形如 `1.98`，通道词原样

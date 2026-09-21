@@ -54,6 +54,8 @@ pub struct MappingManager {
     /// 别名）。供“方法调用位未命中映射表”的易混词提示判定——词表大且
     /// lint 每文件调用，惰性计算一次后复用（映射表构造后不可变）。
     lint_words_cache: OnceLock<HashSet<String>>,
+    /// 宏映射缓存（`["宏"]` 节的物化副本）：见 [`Self::get_macro_map`]
+    macro_map_cache: OnceLock<HashMap<String, String>>,
 }
 
 impl MappingManager {
@@ -182,6 +184,7 @@ impl MappingManager {
             alias_map,
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
+            macro_map_cache: OnceLock::new(),
         })
     }
 
@@ -262,6 +265,7 @@ impl MappingManager {
             alias_map,
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
+            macro_map_cache: OnceLock::new(),
         })
     }
 
@@ -292,6 +296,7 @@ impl MappingManager {
             alias_map,
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
+            macro_map_cache: OnceLock::new(),
         }
     }
 
@@ -470,16 +475,22 @@ impl MappingManager {
     /// 与 [`get_macro_names`] 的区别：保留每个宏名的英文替换值。
     /// 宏名同时在类型节与宏节定义时（如 `向量` 类型节为 `Vec`、宏节为 `vec`），
     /// keyword_map 中值被类型节覆盖，宏调用必须用本映射才能得到正确的英文宏名。
-    pub fn get_macro_map(&self) -> HashMap<String, String> {
-        self.section_map.get("宏").cloned().unwrap_or_default()
+    ///
+    /// 返回引用而非副本：该映射由 `section_map` 派生，每次调用都克隆整表
+    /// 在批量转译/项目上下文收集中是纯浪费（映射表构造后不可变），
+    /// 故惰性物化一次缓存后复用（与 [`Self::get_lint_words`] 同一策略）。
+    pub fn get_macro_map(&self) -> &HashMap<String, String> {
+        self.macro_map_cache
+            .get_or_init(|| self.section_map.get("宏").cloned().unwrap_or_default())
     }
 
     /// 获取派生特征映射（中文特征名 → 英文），来自 `["派生特征"]` 节
     ///
     /// 仅在 `#[派生(...)]` 属性内生效（词法转译的派生参数态），
     /// 如 `克隆` → `Clone`；方法调用 `值.克隆()` 仍走别名表（`clone` 小写）。
-    pub fn get_derive_map(&self) -> HashMap<String, String> {
-        self.derive_map.clone()
+    /// 返回引用而非副本：`derive_map` 本身已是字段，克隆纯属浪费。
+    pub fn get_derive_map(&self) -> &HashMap<String, String> {
+        &self.derive_map
     }
 
     /// 检测映射表中的循环引用（A→B 且 B→A 的互指对）

@@ -191,14 +191,16 @@ fn extract_doc_json_internal(
         }
     }
 
-    // 2. cargo build：编译依赖树，解析依赖 .rlib/.so 路径
-    let build_output = run_command(
-        Command::new(crate::resolve_cargo())
-            .arg("build")
-            .arg("--message-format=json")
-            .current_dir(project_root),
-        &ui.t("mg_cmd_build_deps"),
-    )?;
+    // 2. cargo build：编译依赖树，解析依赖 .rlib/.so 路径。
+    //    统一工具链：显式指定 RUSTC 为解析到的同一编译器，保证 rlib 与后续
+    //    手调 rustdoc（同 sysroot）版本一致，根治跨版本链接 E0514。
+    let mut build_cmd = Command::new(crate::resolve_cargo());
+    build_cmd
+        .arg("build")
+        .arg("--message-format=json")
+        .env("RUSTC", crate::resolve_rustc())
+        .current_dir(project_root);
+    let build_output = run_command(&mut build_cmd, &ui.t("mg_cmd_build_deps"))?;
     // package_id -> (lib target 名, .rlib/.so 路径, 实际启用的 features)。
     // 按 package_id 索引而非 target 名：依赖树中同名不同版本的 crate 共存时
     // （如 rand 0.8.7 与 0.10.2），按名字覆盖会链接错误版本；features 取 cargo
@@ -522,7 +524,7 @@ fn rustdoc_single(
     let crate_name_underscore = crate_name.replace('-', "_");
     let json_dir = project_root.join("mapping-json");
     fs::create_dir_all(&json_dir)?;
-    let mut cmd = Command::new("rustdoc");
+    let mut cmd = Command::new(crate::resolve_rustdoc());
     cmd.arg(&lib_file)
         .arg("--crate-name")
         .arg(&crate_name_underscore)

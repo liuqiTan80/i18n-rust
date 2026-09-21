@@ -65,8 +65,10 @@ pub fn transpile_source_with_project(
         crate::语言::f("log_transpile_start", &[&source.len().to_string()])
     );
 
-    let fingerprint = manager.context_fingerprint()
-        ^ project.map(alias::ProjectContext::fingerprint).unwrap_or(0);
+    let fingerprint = cache::TranslationCache::combine_fingerprint(
+        manager.context_fingerprint(),
+        project.map(alias::ProjectContext::fingerprint),
+    );
 
     let output = cache.get_or_transpile(source, fingerprint, || {
         Ok(transpile_pipeline_inner(
@@ -202,8 +204,8 @@ fn transpile_pipeline_inner(
     let lex = lexer::transpile_with_map(
         source,
         manager.get_keyword_map(),
-        &macro_map,
-        &derive_map,
+        macro_map,
+        derive_map,
         manager.get_use_defer_words(),
         manager.get_method_defer_words(),
         manager.get_alias_map(),

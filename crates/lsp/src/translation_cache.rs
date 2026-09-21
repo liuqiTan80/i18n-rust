@@ -116,26 +116,27 @@ pub struct TranslationCache {
     /// 用户词汇缓存：(代号, 结果)。Arc 共享避免每次补全请求克隆整个集合，
     /// 代号匹配时直接复用，避免重复词法扫描全部已打开文档
     user_tokens_cache: std::sync::Mutex<(u64, Option<Arc<HashSet<String>>>)>,
+    /// 单文件声明收集结果缓存：母语内容哈希 → 声明名（项 + 字段）。
+    ///
+    /// [`Self::current_project_context`] 每次按键都要汇总全部打开文件的
+    /// 声明名，而收集需先跑一遍词法转译；按内容哈希缓存后，每次按键
+    /// 只有内容真正变化的文件需要重算（其余直接复用）。
+    decl_names_cache: RwLock<HashMap<u64, Arc<i18n_rust_engine::alias::DeclaredNames>>>,
 }
+
+/// 单文件声明收集缓存的条数上限（超出时整体清空，避免长期会话无界增长）
+const 声明缓存上限: usize = 512;
 
 impl TranslationCache {
     /// 创建新的翻译缓存
     ///
     /// - 映射管理器：统一持有关键字/宏/派生/模块路径/别名映射（与 CLI 管线同源）
     /// - 临时目录：虚拟 .rs 文件的存放位置
+    ///
+    /// 安全性由调用方负责：`temp_dir` 必须已经过符号链接校验与创建
+    /// （生产路径见 `server::virtual_temp_dir`，它先校验再创建并复核）。
+    /// 此处不再重复「只记日志不拒绝」的假校验——那会让调用方误以为已防护。
     pub fn new(manager: MappingManager, temp_dir: PathBuf) -> Arc<Self> {
-        // 安全检查：临时目录若已被替换为符号链接则拒绝使用，
-        // 防止后续写文件时跟随链接覆写任意位置
-        if temp_dir
-            .symlink_metadata()
-            .map(|m| m.file_type().is_symlink())
-            .unwrap_or(false)
-        {
-            log::error!(
-                "{}",
-                crate::ui::global().f("lsp_err_temp_symlink", &[&temp_dir.display().to_string()])
-            );
-        }
         log_io_err(
             "创建临时目录",
             &temp_dir,
@@ -162,6 +163,7 @@ impl TranslationCache {
             docs_generation: std::sync::atomic::AtomicU64::new(0),
             project_fingerprint: std::sync::atomic::AtomicU64::new(0),
             user_tokens_cache: std::sync::Mutex::new((0, None)),
+            decl_names_cache: RwLock::new(HashMap::new()),
         });
         // 初始时生成空虚拟项目，供 rust-analyzer 工作区发现
         cache.refresh_virtual_project();
@@ -757,6 +759,10 @@ impl TranslationCache {
     /// 转译后的文本上进行，由引擎 [`i18n_rust_engine::alias::ProjectContext::from_sources`]
     /// 统一实现（与 CLI 同一规则来源，杜绝平行实现漂移）。
     /// 调用方在文档内容入库后调用，保证上下文包含最新内容。
+    ///
+    /// 性能：汇总所需的单文件声明收集（词法转译 + 声明扫描）按**内容哈希**
+    /// 缓存复用。本函数每次按键都会被调用，若每次重算全部打开文件，等于
+    /// O(项目规模) 次词法转译；缓存后每次按键只有内容真正变化的文件需重算。
     fn current_project_context(
         &self,
         module_names: &HashSet<String>,
@@ -765,11 +771,38 @@ impl TranslationCache {
             Ok(table) => table.values().map(|e| e.zh_content.clone()).collect(),
             Err(_) => Vec::new(),
         };
-        i18n_rust_engine::alias::ProjectContext::from_sources(
+        let 声明们: Vec<Arc<i18n_rust_engine::alias::DeclaredNames>> = sources
+            .iter()
+            .map(|内容| self.declared_names_cached(内容))
+            .collect();
+        i18n_rust_engine::alias::ProjectContext::from_declarations(
             module_names.clone(),
-            sources.iter().map(String::as_str),
-            &self.manager,
+            声明们.iter().map(Arc::as_ref),
         )
+    }
+
+    /// 取单文件声明收集结果（按内容哈希缓存）
+    ///
+    /// 缓存条数上限 [`声明缓存上限`]：超出时整体清空（会话内打开的文件数
+    /// 远小于该值，清空代价可忽略，避免长期会话下无界增长）。
+    fn declared_names_cached(&self, 内容: &str) -> Arc<i18n_rust_engine::alias::DeclaredNames> {
+        let hash = i18n_rust_engine::cache::TranslationCache::compute_content_hash(内容);
+        if let Ok(表) = self.decl_names_cache.read()
+            && let Some(命中) = 表.get(&hash)
+        {
+            return 命中.clone();
+        }
+        let 结果 = Arc::new(i18n_rust_engine::alias::collect_source_declarations(
+            内容,
+            &self.manager,
+        ));
+        if let Ok(mut 表) = self.decl_names_cache.write() {
+            if 表.len() >= 声明缓存上限 {
+                表.clear();
+            }
+            表.insert(hash, 结果.clone());
+        }
+        结果
     }
 
     /// 重写单个条目的虚拟内容：翻译 + 模块路径加 `crate::` 前缀 + 重建列映射 + 写盘

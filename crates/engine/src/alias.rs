@@ -112,27 +112,30 @@ impl ProjectContext {
         sources: impl IntoIterator<Item = &'a str>,
         manager: &crate::mapping_manager::MappingManager,
     ) -> Self {
-        let alias_map = manager.get_alias_map();
-        let macro_map = manager.get_macro_map();
-        let derive_map = manager.get_derive_map();
+        let 声明们: Vec<DeclaredNames> = sources
+            .into_iter()
+            .map(|source| collect_source_declarations(source, manager))
+            .collect();
+        Self::from_declarations(modules, 声明们.iter())
+    }
+
+    /// 同 [`Self::from_sources`]，但单文件声明收集结果由调用方提供
+    ///
+    /// 汇总规则唯一来源（[`Self::from_sources`] 亦委托本函数）：调用方可按
+    /// 文件粒度缓存 [`collect_source_declarations`] 的结果（如 LSP 按内容哈希
+    /// 缓存），避免同一内容被重复跑词法转译，同时无需复刻合并规则。
+    pub fn from_declarations<'a>(
+        modules: HashSet<String>,
+        declarations: impl IntoIterator<Item = &'a DeclaredNames>,
+    ) -> Self {
         let mut names = HashSet::new();
         let mut items = HashSet::new();
-        for source in sources {
-            let lex = crate::lexer::transpile_with_map(
-                source,
-                manager.get_keyword_map(),
-                &macro_map,
-                &derive_map,
-                manager.get_use_defer_words(),
-                manager.get_method_defer_words(),
-                alias_map,
-            );
-            let declared = collect_declared_names(&lex.output, alias_map);
-            for name in declared.items {
+        for declared in declarations {
+            for name in &declared.items {
                 names.insert(name.clone());
-                items.insert(name);
+                items.insert(name.clone());
             }
-            names.extend(declared.members);
+            names.extend(declared.members.iter().cloned());
         }
         Self {
             modules,
@@ -186,6 +189,29 @@ struct TypeBodyScan {
     at_start: bool,
     /// 已见的名字（等 `:` 确认后收集为字段）
     pending_member: Option<String>,
+}
+
+/// 收集单个方言源文件的声明名（词法转译 + 声明扫描）
+///
+/// 与 [`ProjectContext::from_sources`] 内部的单文件收集步骤完全一致
+/// （后者亦委托本函数，规则唯一来源），供需要按文件粒度缓存结果的调用方
+/// 使用——例如 LSP 每按键都要汇总全部打开文件的声明名，若每次重算
+/// 等于 O(项目规模) 次词法转译；按内容哈希缓存本函数的返回值后，
+/// 每次按键只有内容真正变化的那个文件需要重算。
+pub fn collect_source_declarations(
+    source: &str,
+    manager: &crate::mapping_manager::MappingManager,
+) -> DeclaredNames {
+    let lex = crate::lexer::transpile_with_map(
+        source,
+        manager.get_keyword_map(),
+        manager.get_macro_map(),
+        manager.get_derive_map(),
+        manager.get_use_defer_words(),
+        manager.get_method_defer_words(),
+        manager.get_alias_map(),
+    );
+    collect_declared_names(&lex.output, manager.get_alias_map())
 }
 
 /// 收集用户在声明位定义的标识符名（第一遍扫描）
@@ -753,8 +779,30 @@ fn collect_pattern_bindings(
                     for_ok = false;
                 }
             }
-            TokenKind::Lt | TokenKind::Colon if for_ok && for_depth == 0 => {
-                // for 模式里 `<`/`:` 不合法（泛型/类型标注等非循环场景，防御）
+            TokenKind::Colon => {
+                // `let 名: 类型` 的 `:` 是类型标注分隔——其后是类型（可能含
+                // `[`/`<`/`(`），不再是模式绑定。须立即结束 let 态，否则类型
+                // 中的 `[` 会把 let 深度抬回非零、`=` 无法结束 let 态，导致类型
+                // 内的别名被误收为值绑定而全文件豁免替换（weix-1 #15）。
+                // `::` 是路径分隔（两个相邻 Colon token），不代表类型标注，不能结束。
+                if let_ok
+                    && let_depth == 0
+                    && !prev_sig_index(tokens, i)
+                        .is_some_and(|p| tokens[p].kind == TokenKind::Colon)
+                    && !next_sig_index(tokens, i)
+                        .is_some_and(|n| tokens[n].kind == TokenKind::Colon)
+                {
+                    let_ok = false;
+                    let_depth = 0;
+                }
+                // for 模式里 `:` 不合法（类型标注等非循环场景，防御）
+                if for_ok && for_depth == 0 {
+                    for_pending.clear();
+                    for_ok = false;
+                }
+            }
+            TokenKind::Lt if for_ok && for_depth == 0 => {
+                // for 模式里 `<` 不合法（泛型等非循环场景，防御）
                 for_pending.clear();
                 for_ok = false;
             }
@@ -1658,5 +1706,29 @@ mod tests {
         let map = HashMap::from([("连接".to_string(), "join".to_string())]);
         let out = replace_aliases("let y = 连接;", &map);
         assert_eq!(out, "let y = join;");
+    }
+
+    #[test]
+    fn test_let_type_annotation_with_bracket_not_binding() {
+        // weix-1 #15：let 类型标注含 `[`（切片/数组）时，`[` 曾把 let 深度
+        // 抬回非零、`=` 无法结束 let 态，类型内别名被误收为值绑定而全文件
+        // 豁免替换（E0425）。修复后顶层的 `:` 立即结束 let 态，类型内别名照常替换。
+        let map = HashMap::from([("单元数据".to_string(), "Data".to_string())]);
+        let src = "let 行列表: 向量<&[单元数据]> = 区域.全部行(); let z = 单元数据;";
+        let out = replace_aliases(src, &map);
+        assert_eq!(
+            out,
+            "let 行列表: 向量<&[Data]> = 区域.全部行(); let z = Data;"
+        );
+    }
+
+    #[test]
+    fn test_let_struct_pattern_field_colon_still_binding() {
+        // 修复不误伤：结构体模式 `点 { x: 甲 }` 的 `:` 位于括号深度内（字段名
+        // 分隔），不能结束 let 态——字段值 `甲` 仍是绑定，须全文件豁免。
+        let map = HashMap::from([("数据".to_string(), "data".to_string())]);
+        let src = "let 点 { x: 数据, y: 乙 } = 甲; let z = 数据;";
+        let out = replace_aliases(src, &map);
+        assert_eq!(out, src);
     }
 }
