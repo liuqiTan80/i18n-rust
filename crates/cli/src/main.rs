@@ -323,7 +323,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let project_ctx = collect_project_context(&project_root, &file, &manager);
             // 入口文件写入 src/main.rs 作为编译目标；会话缓存贯穿入口文件与
             // 项目内其他文件（并行转译共享命中，见 transpile_project_files）
-            let source_path = entry_output_path(&project_root, &file);
+            let source_path = entry_output_path(&project_root, &file, &manager);
             let cache = std::sync::Mutex::new(
                 i18n_rust_engine::cache::TranslationCache::persistent_default(),
             );
@@ -502,7 +502,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let project_root = find_project_root(&file)?;
             // 项目级声明上下文（跨文件声明豁免，同 run）
             let project_ctx = collect_project_context(&project_root, &file, &manager);
-            let source_path = entry_output_path(&project_root, &file);
+            let source_path = entry_output_path(&project_root, &file, &manager);
             let cache = std::sync::Mutex::new(
                 i18n_rust_engine::cache::TranslationCache::persistent_default(),
             );
@@ -1031,15 +1031,32 @@ fn find_project_root(file: &Path) -> anyhow::Result<PathBuf> {
 
 /// 计算 `run`/`check` 的入口产物路径。
 ///
-/// 仅当源文件确为入口（词干 `main`）时才写入 Cargo 固定编译目标 `src/main.rs`；
-/// 其余文件（如项目根的 `build.zh`）产物跟随自身扩展名（`build.rs`），绝不占用
-/// `src/main.rs`——否则会把 build 脚本静默覆盖为项目入口（weix 工具异常 #4）。
-fn entry_output_path(project_root: &Path, file: &Path) -> PathBuf {
-    if file.file_stem().is_some_and(|s| s == "main") {
+/// 仅当源文件确为入口（词干为 [`is_entry_stem`]，即 `main` 或语言包主函数
+/// 词，如 zh 教程约定的 `src/主函数.zh`）时才写入 Cargo 固定编译目标
+/// `src/main.rs`；其余文件（如项目根的 `build.zh`）产物跟随自身扩展名
+/// （`build.rs`），绝不占用 `src/main.rs`——否则会把 build 脚本静默覆盖为
+/// 项目入口（weix 工具异常 #4）。
+fn entry_output_path(project_root: &Path, file: &Path, manager: &MappingManager) -> PathBuf {
+    let stem = file.file_stem().and_then(|s| s.to_str());
+    if stem.is_some_and(|s| is_entry_stem(s, manager)) {
         project_root.join("src/main.rs")
     } else {
         file.with_extension("rs")
     }
+}
+
+/// 词干是否为项目入口主函数名：字面 `main`，或语言包中映射到 `main` 的
+/// 母语词（zh「主函数」、ja「主関数」、ru「главная」等）。
+///
+/// 教程与 `init` 项目两条命名约定并存：`init` 生成 `src/main.<lang>`，
+/// 而中文教程与示例（.zh-demo）约定 `src/主函数.zh`——两者都须聚合到
+/// Cargo 固定入口 `src/main.rs`，否则 cargo 报「no targets specified」。
+fn is_entry_stem(stem: &str, manager: &MappingManager) -> bool {
+    stem == "main"
+        || manager
+            .get_keyword_map()
+            .iter()
+            .any(|(母语词, 英文)| 英文 == "main" && 母语词 == stem)
 }
 
 /// 从指定目录向上查找项目根（含 Cargo.toml 的目录），未找到返回 None
@@ -1938,8 +1955,9 @@ fn transpile_project_files(
     let Ok(entries) = fs::read_dir(&src_dir) else {
         return Ok(());
     };
-    // 入口产物固定写入 src/main.rs：src/ 下任何词干为 main 的方言文件
-    // （如 init 生成的 main.zh）转译后会覆盖入口产物，必须跳过
+    // 入口产物固定写入 src/main.rs：src/ 下任何入口词干的方言文件
+    // （init 生成的 main.zh、教程约定的 主函数.zh 等）转译后都会覆盖
+    // 入口产物，必须跳过
     let entry_abs = entry_file.canonicalize().ok();
     let mut files = Vec::new();
     for entry in entries.flatten() {
@@ -1950,7 +1968,11 @@ fn transpile_project_files(
         if Some(&path) == entry_abs.as_ref() {
             continue;
         }
-        if path.file_stem().is_some_and(|s| s == "main") {
+        if path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .is_some_and(|s| is_entry_stem(s, manager))
+        {
             continue;
         }
         let Some(extension) = path.extension().and_then(|e| e.to_str()) else {
@@ -2533,25 +2555,33 @@ mod tests {
         .expect("内置中文语言包应可加载")
     }
 
-    /// 入口产物路径：`main` 词干写入 src/main.rs，非入口文件跟随自身扩展名，
-    /// 不占用 src/main.rs（weix 工具异常 #4：build.zh 不得覆盖入口产物）
+    /// 入口产物路径：入口词干（main / 语言包主函数词）写入 src/main.rs，
+    /// 非入口文件跟随自身扩展名，不占用 src/main.rs
+    /// （weix 工具异常 #4：build.zh 不得覆盖入口产物）
     #[test]
     fn test_entry_output_path() {
         use std::path::{Path, PathBuf};
         let root = Path::new("/proj");
+        let m = zh_manager();
         // src/main.zh（词干 main）→ 聚合到 Cargo 固定入口
         assert_eq!(
-            entry_output_path(root, Path::new("/proj/src/main.zh")),
+            entry_output_path(root, Path::new("/proj/src/main.zh"), &m),
             PathBuf::from("/proj/src/main.rs")
         );
-        // 项目根的 build.zh（词干非 main）→ 同目录 build.rs，绝不触碰 src/main.rs
+        // zh 约定入口「主函数」（映射 main）→ 同样聚合到 src/main.rs
+        // （回归：此前仅认字面 main，主函数.zh 产物写自身名致 cargo 找不到目标）
         assert_eq!(
-            entry_output_path(root, Path::new("/proj/build.zh")),
+            entry_output_path(root, Path::new("/proj/src/主函数.zh"), &m),
+            PathBuf::from("/proj/src/main.rs")
+        );
+        // 项目根的 build.zh（词干非入口）→ 同目录 build.rs，绝不触碰 src/main.rs
+        assert_eq!(
+            entry_output_path(root, Path::new("/proj/build.zh"), &m),
             PathBuf::from("/proj/build.rs")
         );
-        // src 下非 main 模块（如 helper.zh）→ src/helper.rs
+        // src 下非入口模块（如 helper.zh）→ src/helper.rs
         assert_eq!(
-            entry_output_path(root, Path::new("/proj/src/helper.zh")),
+            entry_output_path(root, Path::new("/proj/src/helper.zh"), &m),
             PathBuf::from("/proj/src/helper.rs")
         );
     }
