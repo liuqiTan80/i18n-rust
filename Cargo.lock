@@ -760,7 +760,7 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 
 [[package]]
 name = "i18n-rust-engine"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "criterion",
  "encoding_rs",
@@ -774,7 +774,7 @@ dependencies = [
 
 [[package]]
 name = "i18n-rust-lsp"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
@@ -1485,7 +1485,7 @@ dependencies = [
 
 [[package]]
 name = "rzc"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "assert_cmd",

@@ -5,10 +5,60 @@
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-09-21
+
+### 新增
+- zh 语言包新增三张 crate 表：`crates/电子表格.toml`（rust_xlsxwriter 写入 /
+  calamine 读取 / umya_spreadsheet 读写）、`crates/对话框插件.toml`、
+  `crates/自启插件.toml`（office-zb 实战：电子表格台账与 Tauri 插件化）
+- zh 六表补条：mysql（事务选项 TxOpts / 迭代查询 / 列元数据）、tauri（插件注册 /
+  事件广播 Emitter / 窗口事件）、密码学（new_from_slices / decrypt_padded_mut）、
+  工具（chrono 时区专名与 from_timestamp）、序列化（serde_json Value 取值族）、
+  数据库（rusqlite 只读打开 / ValueRef 取列引用）
+- zh `stdlib.toml` 补条：路径类型 Path / 条目路径 / from_utf8_lossy / metadata /
+  modified / output / to_vec / extend_from_slice / 是数字字符 / u8「字节」等；
+  `module_paths.toml` 补「环境」→ env
+- `mapping check` 新增 keywords.toml 可解析性与必需节完整性校验——缺节不报错但
+  整类词条静默失效（缺 `["宏"]` 时宏调用不再补 `!`，产物非法却仍报转译成功），
+  是最难排查的一类静默降级；11 语言 ui.toml 同步 `mc_missing_section` 词条
+- VS Code 扩展：AI 关键设置（provider / baseUrl / apiKey）限定用户级——不可信
+  仓库曾能把 baseUrl 指向第三方使明文密钥外发；激活时对历史工作区覆盖给出警告
+
+### 修复
+- cli：入口产物路径修复——词干为入口主函数名（`main` 或语言包主函数词，如 zh
+  「主函数」）才聚合写入 `src/main.rs`；`build.zh` 等其余文件跟随自身名
+  （`build.rs`），修复 build 脚本被静默覆盖为项目入口（weix 工具异常 #4）；
+  母语主函数名词干同样聚合，修复 zh 教程 / 示例项目 `src/主函数.zh` 产物不落
+  `src/main.rs` 致 cargo 报「no targets specified」
+- cli：`resolve_rustdoc` 按 rustc sysroot 定位配套 rustdoc + cargo build 显式注入
+  RUSTC——根治与 cargo 编译产物跨版本的链接 E0514
+- cli：rust-analyzer 安装完整性校验不再降级——官方 digest 不可用（API 限流 /
+  被阻断）时中止安装，阻断一次 API 请求即让任意二进制入装运行的路径随之关闭；
+  ZIP 条目校验升级 safe_zip_entry_path（反斜杠归一化 + Windows 盘符前缀显式
+  拒绝）；AI 响应体加 8 MiB 读取上限（timeout 不限字节数）
+- engine：修复 `let 名: 类型` 类型标注含 `[`（切片 / 数组）时类型内别名被误收为
+  值绑定、整文件豁免替换（weix-1 #15，E0425 假红根因）
+- engine：缓存覆盖路径补置脏——磁盘副本不再残留旧产物；新增
+  `combine_fingerprint`（`None` 与 `Some(0)` 不再因异或混同）
+- lsp：hover 标题行仅为 `**` / `***` 时不再越界切片 panic（客户端源码文档注释
+  可构造）；虚拟目录符号链接校验补「创建后复核」（覆盖创建前的 TOCTOU 窗口）
+- vscode-extension：Windows 命令注入残留根治——按实际终端 shell（PowerShell /
+  cmd / Git Bash 等）分派转义，此前按 os.platform 二分在 PowerShell 下失效；
+  插件薄弱点加固（终端按 cwd 复用表 / 密钥迁移逐层容错 / 自动重启 10 分钟
+  时间窗口 / 语言包探测共享模块，删除硬编码开发机路径）
+
+### 性能
+- engine 转译缓存写盘改为脏标记 + `flush` 批量（此前每次插入全量序列化写盘、
+  N 文件 N 次写且发生在调用方持锁期间）；lsp 单文件声明收集按内容哈希缓存
+  （每次按键仅重算内容变化的文件）；宏表 / 派生表改返回引用（消除逐次全表克隆）
+
 ### 工程
-- CI：基准回归对比超阈值失败时附加工作流注解（超阈值项 / 基线 / 本次 / 百分比
-  明细）——annotations API 匿名可读，无法登录 GitHub 时也能区分 runner
-  负载波动与真实性能回归
+- cli 测试沙箱隔离（HOME / USERPROFILE / RZ_LANG_DIR 指向空目录——开发者机器
+  的用户语言包与缓存不再干扰计数与输出断言）；mirror_check 补 9 例纯逻辑单测
+- CI：基准回归对比超阈值失败附加工作流注解（明细匿名可读，区分 runner 负载
+  波动与真实性能回归）
+- 教程附录 D（zh/en）crate install 命令修正为 `--lang` 形式；README 语言包
+  表述（11 内置包）与命令速查表同步
 
 ## [0.8.1] - 2026-09-18
 

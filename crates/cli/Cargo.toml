@@ -1,6 +1,6 @@
 [package]
 name = "rzc"
-version = "0.8.1"
+version = "0.8.2"
 edition = "2024"
 rust-version.workspace = true
 description = "多语言 Rust 教学方言编译器，支持用母语编写 Rust 程序"
@@ -13,7 +13,7 @@ categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 # 内部引擎（发布时 path 自动转为 crates.io 版本依赖，故必须显式声明版本）
-i18n-rust-engine = { path = "../engine", version = "0.8.1" }
+i18n-rust-engine = { path = "../engine", version = "0.8.2" }
 clap = { version = "4", features = ["derive"] }
 anyhow.workspace = true
 serde_json.workspace = true
