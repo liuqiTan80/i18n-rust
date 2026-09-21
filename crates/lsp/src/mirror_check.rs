@@ -716,3 +716,131 @@ fn zh_char_col_to_utf16(zh_content: &str, line_1based: u32, char_col_1based: u32
         .map(|c| c.len_utf16() as u32)
         .sum()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pending(name: &str, output: &str) -> Pending {
+        Pending {
+            mirror_path: PathBuf::from("/mirror/src").join(name),
+            output: output.to_string(),
+            column_map: i18n_rust_engine::column_map::ColumnMap::build("", &[]),
+            zh_content: String::new(),
+        }
+    }
+
+    /// 小于 8 字符的短行（`}`、空行等）不参与相似度，避免结构行虚高命中
+    #[test]
+    fn test_line_similarity_ignores_short_lines() {
+        assert_eq!(line_similarity("}\n{\n", "}\n{\n"), 0.0);
+        assert_eq!(line_similarity("", ""), 0.0);
+        // 参照侧全是短行 → 实质行为空 → 0.0
+        assert_eq!(line_similarity("fn main() {}", "}\n)\n"), 0.0);
+    }
+
+    /// 完全相同为 1.0；无交集为 0.0
+    #[test]
+    fn test_line_similarity_bounds() {
+        let 文本 = "fn main() {\n    println!(\"hi\");\n}\n";
+        assert_eq!(line_similarity(文本, 文本), 1.0);
+        assert_eq!(
+            line_similarity(文本, "fn other() {\n    let 甲 = 1;\n}\n"),
+            0.0
+        );
+    }
+
+    /// 分母取两侧较大者：小文件与参照的局部巧合命中无法抬高分数
+    ///
+    /// 候选仅 1 条实质行且命中，参照有 3 条实质行 → 1/3 而非 1.0。
+    #[test]
+    fn test_line_similarity_denominator_uses_larger_side() {
+        let 参照 = "fn 甲() {\nfn 乙() {\nfn 丙() {\n";
+        let 分数 = line_similarity("fn 甲() {\n", 参照);
+        assert!(
+            (分数 - 1.0 / 3.0).abs() < 1e-9,
+            "分母应为 3（较大侧），实际 {分数}"
+        );
+    }
+
+    /// 分词干为 main 的方言文件优先作为入口（不看相似度）
+    #[test]
+    fn test_detect_entry_prefers_main_stem() {
+        let 候选 = vec![
+            pending("甲.zh", "fn 甲() {\n    let 甲值 = 1;\n}\n"),
+            pending("main.zh", "fn 主函数() {\n}\n"),
+            pending("乙.zh", "fn 乙() {\n    let 乙值 = 2;\n}\n"),
+        ];
+        assert_eq!(
+            detect_entry(&候选, None).map(|p| p.file_name().unwrap().to_owned()),
+            Some("main.zh".into()),
+            "词干为 main 时应无视相似度直接选中"
+        );
+    }
+
+    /// 无 main 时按与现有 main.rs 的相似度选取（须达阈值 0.6）
+    #[test]
+    fn test_detect_entry_by_similarity_with_threshold() {
+        let 入口文本 = "fn 主函数() {\n    println!(\"你好\");\n}\n";
+        let 候选 = vec![
+            pending("甲.zh", "fn 甲() {\n    let 甲值 = 1;\n}\n"),
+            pending("入口.zh", 入口文本),
+        ];
+        assert_eq!(
+            detect_entry(&候选, Some(入口文本)).map(|p| p.file_name().unwrap().to_owned()),
+            Some("入口.zh".into()),
+            "相似度达阈值者应被选为入口"
+        );
+        // 全部候选都与参照不相似 → None（低于阈值宁可不识别）
+        assert!(
+            detect_entry(
+                &[pending("甲.zh", "fn 甲() {\n    let 甲值 = 1;\n}\n")],
+                Some("fn 乙() {\n    let 乙值 = 2;\n}\n")
+            )
+            .is_none(),
+            "相似度不足阈值时不应误判入口"
+        );
+    }
+
+    /// 无 main 词干且无参照 main.rs 时无法识别入口
+    #[test]
+    fn test_detect_entry_none_without_reference() {
+        let 候选 = vec![pending("甲.zh", "fn 甲() {\n    let 甲值 = 1;\n}\n")];
+        assert!(detect_entry(&候选, None).is_none());
+        assert!(detect_entry(&[], Some("fn 主函数() {\n}\n")).is_none());
+    }
+
+    /// 方言扩展名匹配：大小写与后缀精确性
+    #[test]
+    fn test_file_matches_extensions() {
+        let 扩展名 = vec!["zh".to_string(), "ja".to_string()];
+        assert!(file_matches_extensions(Path::new("/p/main.zh"), &扩展名));
+        assert!(file_matches_extensions(Path::new("/p/模块.ja"), &扩展名));
+        assert!(!file_matches_extensions(Path::new("/p/main.rs"), &扩展名));
+        // 仅匹配完整后缀：`xzh` 不是 `.zh`
+        assert!(!file_matches_extensions(Path::new("/p/main.zhx"), &扩展名));
+        // 无扩展名
+        assert!(!file_matches_extensions(Path::new("/p/main"), &扩展名));
+    }
+
+    /// 项目根哈希：同路径稳定、不同路径不同（镜像目录隔离的依据）
+    #[test]
+    fn test_path_hash_is_stable_and_distinct() {
+        let 甲 = path_hash(Path::new("/a/b"));
+        assert_eq!(甲, path_hash(Path::new("/a/b")), "同路径应稳定");
+        assert_ne!(甲, path_hash(Path::new("/a/c")), "不同路径应不同");
+    }
+
+    /// 字符列 → UTF-16 列：非 BMP 字符占 2 个单元，BMP 中文占 1
+    #[test]
+    fn test_zh_char_col_to_utf16_counts_units() {
+        // "字符😀甲"：字符列 1-based → 取前 n 个字符累加 len_utf16
+        let 文本 = "字符😀甲";
+        assert_eq!(zh_char_col_to_utf16(文本, 1, 1), 0);
+        assert_eq!(zh_char_col_to_utf16(文本, 1, 2), 1);
+        // 含 emoji：到第 4 列时已计入 emoji 的 2 个单元
+        assert_eq!(zh_char_col_to_utf16(文本, 1, 4), 4);
+        // 越界行回退为 0-based 字符列
+        assert_eq!(zh_char_col_to_utf16(文本, 9, 3), 2);
+    }
+}
