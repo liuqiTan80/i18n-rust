@@ -345,19 +345,22 @@
             "custom"
           ],
           "default": "openai",
-          "description": "AI 提供商标识：openai / deepseek / qwen / glm / ollama / anthropic / gemini / custom"
+          "scope": "application",
+          "description": "AI 提供商标识：openai / deepseek / qwen / glm / ollama / anthropic / gemini / custom（仅用户级配置，工作区不可覆盖）"
         },
         "i18n-rust.ai.apiKey": {
           "type": "string",
           "default": "",
+          "scope": "application",
           "description": "AI API 密钥（Ollama 本地服务可留空）",
-          "markdownDescription": "AI API 密钥（Ollama 本地服务可留空）。**已弃用**：扩展会自动将此值迁移到加密的 SecretStorage 并清空该设置。",
+          "markdownDescription": "AI API 密钥（Ollama 本地服务可留空）。**已弃用**：扩展会自动将此值迁移到加密的 SecretStorage 并清空该设置。仅用户级配置，工作区不可覆盖。",
           "deprecationMessage": "密钥现由扩展安全存储（SecretStorage）管理；此处填写的值会在下次使用时自动迁移并清空。"
         },
         "i18n-rust.ai.baseUrl": {
           "type": "string",
           "default": "",
-          "description": "AI API 基础地址（留空时使用所选服务商的默认地址，如 DeepSeek: https://api.deepseek.com/v1）"
+          "scope": "application",
+          "description": "AI API 基础地址（留空时使用所选服务商的默认地址，如 DeepSeek: https://api.deepseek.com/v1；仅用户级配置，工作区不可覆盖）"
         },
         "i18n-rust.ai.model": {
           "type": "string",

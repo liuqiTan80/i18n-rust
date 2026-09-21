@@ -78,8 +78,14 @@ pub fn deepseek_chat(system_prompt: &str, user_prompt: &str) -> anyhow::Result<S
             ui.f("mg_err_ai_status", &[&resp.status().to_string()])
         );
     }
-    let resp_text = resp
-        .into_body()
+    // 读取上限：被控/故障端点的响应若无界，`read_to_string` 会持续累积
+    // 直到进程 OOM（timeout 只限制时长，不限制字节数）。
+    // 8 MiB 远超单批键名翻译的合理响应（数百条短键），仅作安全上限。
+    const 响应上限: u64 = 8 * 1024 * 1024;
+    let mut body = resp.into_body();
+    let resp_text = body
+        .with_config()
+        .limit(响应上限)
         .read_to_string()
         .map_err(|e| anyhow!("{}", ui.f("mg_err_ai_read", &[&e.to_string()])))?;
     let resp_json: Value = serde_json::from_str(&resp_text)

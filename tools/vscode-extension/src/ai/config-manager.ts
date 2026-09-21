@@ -69,6 +69,39 @@ export async function readApiKey(): Promise<string> {
     return vscode.workspace.getConfiguration('i18n-rust.ai').get<string>('apiKey', '');
 }
 
+/** 受限为「仅用户级」的 AI 设置键（工作区不可覆盖，见 package.json scope: application） */
+const 仅用户级键 = ['provider', 'baseUrl', 'apiKey'] as const;
+
+/**
+ * 检测工作区层级对 AI 关键设置的覆盖。
+ *
+ * 安全背景：若 apiKey / baseUrl / provider 可被工作区 settings.json 覆盖，
+ * 打开不可信仓库时该仓库即可把 baseUrl 指向第三方服务器，使后续请求把
+ * 明文密钥发送到攻击者地址。故三者限定为 application 作用域（VS Code 忽略
+ * 工作区层级取值）。本函数为历史遗留的工作区配置给出明确提示，避免用户
+ * 误以为其仍在生效。返回提示文案列表（无覆盖时为空）。
+ */
+export function 检测AI设置作用域覆盖(): string[] {
+    const config = vscode.workspace.getConfiguration('i18n-rust.ai');
+    const 提示: string[] = [];
+    for (const 键 of 仅用户级键) {
+        const 检查 = config.inspect<string>(键);
+        const 覆盖项: Array<[string, string | undefined]> = [
+            ['工作区', 检查?.workspaceValue],
+            ['工作区文件夹', 检查?.workspaceFolderValue]
+        ];
+        for (const [层级, 值] of 覆盖项) {
+            if (!值 || 值 === 检查?.globalValue) {
+                continue;
+            }
+            提示.push(
+                `i18n-rust.ai.${键} 在${层级}设置中被设为「${值}」，出于安全考虑该层级取值已被忽略；实际生效值来自用户设置。`
+            );
+        }
+    }
+    return 提示;
+}
+
 /**
  * Read AI-related configuration (i18n-rust.ai.*), using defaults when unset
  */

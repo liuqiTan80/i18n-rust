@@ -31,7 +31,8 @@ import {
     loadAIConfig,
     getSystemPrompt,
     currentLanguageName,
-    initAISecrets
+    initAISecrets,
+    检测AI设置作用域覆盖
 } from './ai/config-manager';
 import { AIError, AIConfig, ChatMessage } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
@@ -469,8 +470,20 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(日志通道);
     日志('i18n-rust 扩展已激活');
 
-    // AI 密钥迁移到 SecretStorage（一次性）
-    void initAISecrets(context).catch(错误 => 日志(`AI 密钥迁移失败: ${(错误 as Error).message}`));
+    // AI 密钥迁移到 SecretStorage（一次性）；随后检查工作区对 AI 关键设置的非法覆盖
+    void initAISecrets(context)
+        .then(() => {
+            const 覆盖提示 = 检测AI设置作用域覆盖();
+            for (const 提示 of 覆盖提示) {
+                日志(提示);
+            }
+            if (覆盖提示.length > 0) {
+                void vscode.window.showWarningMessage(
+                    `检测到工作区试图覆盖 AI 关键设置（已忽略，防止密钥被转发到第三方地址）：${覆盖提示[0]}`
+                );
+            }
+        })
+        .catch(错误 => 日志(`AI 密钥迁移失败: ${(错误 as Error).message}`));
 
     // 创建状态栏项
     statusBarItem = vscode.window.createStatusBarItem(

@@ -899,7 +899,10 @@ fn extract_hover_parts(doc: &str) -> (Option<String>, Option<String>) {
     let lines: Vec<&str> = doc.lines().collect();
     for (i, line) in lines.iter().enumerate() {
         let t = line.trim();
-        if type_name.is_none() && t.starts_with("**") && t.ends_with("**") {
+        // len >= 4 是切片 `t[2..t.len() - 2]` 的前置条件：
+        // `**`（len 2）与 `***`（len 3）同样以 `**` 开头并以 `**` 结尾，
+        // 但会得到 start > end 的越界切片而 panic（客户端源码文档注释可构造）。
+        if type_name.is_none() && t.len() >= 4 && t.starts_with("**") && t.ends_with("**") {
             let mut inner = t[2..t.len() - 2].replace('`', "");
             inner = inner.trim().to_string();
             let name = if let Some(rest) = inner.strip_prefix("impl") {
@@ -1004,4 +1007,30 @@ pub(super) fn label_identifier_suffix(label: &str) -> Option<&str> {
     let head = head.trim().trim_end_matches('!').trim_end_matches("::");
     let last = head.rsplit("::").next().unwrap_or("").trim();
     if last.is_empty() { None } else { Some(last) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 回归：标题行仅为 `**` / `***` 时不得越界切片 panic
+    ///
+    /// 此前判定条件只看前后缀，`t[2..t.len() - 2]` 在 len<4 时 start>end
+    /// 直接 panic；客户端源码的文档注释可构造该 hover 内容。
+    #[test]
+    fn test_hover_bold_only_line_does_not_panic() {
+        for 文档 in ["**", "***", "**\n**", "a\n***\nb"] {
+            let (类型名, _) = extract_hover_parts(文档);
+            assert!(类型名.is_none(), "纯星号行不应解析出类型名");
+        }
+    }
+
+    /// 正常标题行仍能提取类型名（含 `impl` 前缀与泛型两种形态）
+    #[test]
+    fn test_hover_type_name_extraction() {
+        let (类型名, _) = extract_hover_parts("**`Option<T>`**");
+        assert_eq!(类型名.as_deref(), Some("Option"));
+        let (类型名, _) = extract_hover_parts("**impl<T> Option<T>**");
+        assert_eq!(类型名.as_deref(), Some("Option"));
+    }
 }

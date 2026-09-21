@@ -279,8 +279,8 @@ fn install_rust_analyzer_only(ui: &Ui, ra_tag: &str, bin_dir: &Path) -> anyhow::
 /// 资产命名：linux/macos 为 `rust-analyzer-<triple>.gz`、windows 为 `.zip`，
 /// 官方不发布裸二进制资产（旧代码直接下载裸名 404，从未安装成功）。
 /// 完整性校验：官方未发布独立 `.sha256` 文件，digest 由 GitHub API 的
-/// assets 列表提供；校验失败（篡改）抛错，digest 不可用（如 API 限流）时
-/// 明确警告后继续（下载通道本身为 TLS 认证的 github.com）。
+/// assets 列表提供；校验失败（篡改）或 digest 不可用（API 限流）均抛错中止，
+/// 不做「未验证降级安装」——后者会让阻断 API 请求成为绕过完整性校验的手段。
 fn download_rust_analyzer(
     ra_tag: &str,
     triple: &str,
@@ -302,20 +302,20 @@ fn download_rust_analyzer(
     let compressed = tmp.join("rust-analyzer.asset");
     download_to(&url, &compressed)?;
 
-    // 完整性校验：官方 API 的 digest 字段（无独立 .sha256 文件）
-    match ra_asset_digest(ra_tag, &asset_name) {
-        Some(expected) => {
-            let actual = sha256_file(&compressed)?;
-            if actual != expected {
-                let _ = std::fs::remove_file(&compressed);
-                anyhow::bail!("rust-analyzer 包 SHA-256 校验失败（下载可能被篡改）");
-            }
-        }
-        None => {
-            println!(
-                "警告：无法获取 rust-analyzer 官方 SHA-256（GitHub API 限流？），未经验证直接安装"
-            );
-        }
+    // 完整性校验：官方 API 的 digest 字段（无独立 .sha256 文件）。
+    // digest 不可用时**中止安装**：跳过校验等于放弃完整性保证，而让 API
+    // 不可达（限流、DNS/中间人劫持）比篡改发布资产容易得多，若此时仍安装，
+    // 攻击者只需阻断一次 API 请求即可让任意二进制被装入并随后运行。
+    let expected = ra_asset_digest(ra_tag, &asset_name).ok_or_else(|| {
+        anyhow::anyhow!(
+            "无法获取 rust-analyzer 官方 SHA-256（资产 {asset_name}，标签 {ra_tag}）：\
+             GitHub API 可能限流或网络不可达。为避免安装未经验证的二进制已中止，请稍后重试"
+        )
+    })?;
+    let actual = sha256_file(&compressed)?;
+    if actual != expected {
+        let _ = std::fs::remove_file(&compressed);
+        anyhow::bail!("rust-analyzer 包 SHA-256 校验失败（下载可能被篡改）");
     }
 
     // 解压到目标目录

@@ -715,7 +715,7 @@ fn try_curl_install(
 
 /// 解压 ZIP 压缩包到目标目录（保留完整条目路径）
 ///
-/// 拒绝含 `..` 路径段的条目，防止路径穿越。
+/// 每个条目名先经 [`safe_zip_entry_path`] 校验，命中穿越向量的条目直接跳过。
 fn extract_zip(archive_path: &Path, extract_dir: &Path) -> anyhow::Result<()> {
     let file = fs::File::open(archive_path).map_err(|e| {
         anyhow::anyhow!(
@@ -739,11 +739,11 @@ fn extract_zip(archive_path: &Path, extract_dir: &Path) -> anyhow::Result<()> {
                 crate::ui::Ui::global().f("lc_err_read_zip_entry", &[&e.to_string()])
             )
         })?;
-        let name = entry.name().replace('\\', "/");
-        if name.starts_with('/') || name.split('/').any(|seg| seg == "..") {
+        let name = entry.name();
+        // 条目名安全校验：拒绝绝对路径、盘符前缀与 `..` 上跳（详见函数文档）
+        let Some(target) = safe_zip_entry_path(name).map(|rel| extract_dir.join(rel)) else {
             continue;
-        }
-        let target = extract_dir.join(&name);
+        };
         if entry.is_dir() {
             fs::create_dir_all(&target)?;
         } else {
@@ -763,6 +763,35 @@ fn extract_zip(archive_path: &Path, extract_dir: &Path) -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+/// 校验 ZIP 条目名，返回可安全拼接到解压根目录的相对路径
+///
+/// 拒绝三类条目（均为路径穿越向量，命中返回 `None`）：
+/// - **空名**：无有效路径段；
+/// - **绝对路径**：`/etc/x`、`\etc\x`。反斜杠须先归一化为 `/`——ZIP 规范
+///   要求 `/` 分隔，但 Windows 打包工具会写入 `\`，而 Unix 的
+///   `Path::components` 不把 `\` 当分隔符，只按平台原生规则判断会漏拦；
+/// - **`..` 上跳段**：`a/../../x`；
+/// - **Windows 盘符前缀**：`C:/Users/x/...`。`Path::join` 遇带前缀的路径会
+///   **整体替换** base（而非拼接），解压会写到 `extract_dir` 之外；该前缀
+///   在 Unix 上不被 `Path::components` 识别为 `Prefix`，故必须显式判断，
+///   仅检查 `..` 会完全漏掉这一向量。
+fn safe_zip_entry_path(name: &str) -> Option<PathBuf> {
+    let 归一化 = name.replace('\\', "/");
+    if 归一化.is_empty() || 归一化.starts_with('/') {
+        return None;
+    }
+    if 归一化.split('/').any(|段| 段 == "..") {
+        return None;
+    }
+    // 盘符前缀：首两字节为「ASCII 字母 + 冒号」即判定（`C:/x` 与盘符相对路径
+    // `c:foo` 都属带前缀路径，`Path::join` 都会整体替换 base）
+    let 字节 = 归一化.as_bytes();
+    if 字节.len() >= 2 && 字节[0].is_ascii_alphabetic() && 字节[1] == b':' {
+        return None;
+    }
+    Some(PathBuf::from(归一化))
 }
 
 /// 在解压目录中查找语言包目录
@@ -938,8 +967,36 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn test_safe_zip_entry_path_rejects_traversal() {
+        // 正常相对路径放行
+        assert_eq!(
+            safe_zip_entry_path("zh/keywords.toml"),
+            Some(PathBuf::from("zh/keywords.toml"))
+        );
+        assert_eq!(
+            safe_zip_entry_path("zh\\keywords.toml"),
+            Some(PathBuf::from("zh/keywords.toml")),
+            "反斜杠应归一化为正斜杠"
+        );
+        // 绝对路径（含反斜杠形态）
+        assert!(safe_zip_entry_path("/etc/passwd").is_none());
+        assert!(safe_zip_entry_path("\\etc\\passwd").is_none());
+        // `..` 上跳
+        assert!(safe_zip_entry_path("../x").is_none());
+        assert!(safe_zip_entry_path("a/../../x").is_none());
+        assert!(safe_zip_entry_path("..\\..\\x").is_none());
+        // Windows 盘符前缀：`Path::join` 会整体替换 base，务必拒绝
+        assert!(safe_zip_entry_path("C:/Users/x/Startup/y.cmd").is_none());
+        assert!(safe_zip_entry_path("c:relative").is_none());
+        // 空名
+        assert!(safe_zip_entry_path("").is_none());
+        // 首段含冒号但非盘符（首字符非 ASCII 字母）仍放行
+        assert!(safe_zip_entry_path("1b:c/x").is_some());
+    }
+
+    #[test]
     fn test_local_install_and_delete_flow() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         let temp_root = tempfile::tempdir().unwrap();
         make_temp_lang_pack(temp_root.path(), "日语");
         let source_dir = temp_root.path().join("日语");
@@ -989,7 +1046,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_install_from_repo_dir() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         let temp_root = tempfile::tempdir().unwrap();
         make_temp_lang_pack(temp_root.path(), "俄语");
         let repo = temp_root.path();
@@ -1012,7 +1069,7 @@ pub(crate) mod tests {
     /// 语言包放在仓库 `lang-packs/<语言码>/` 子目录时也能安装（兼容旧结构）
     #[test]
     fn test_install_from_repo_dir_nested_lang_packs() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         let temp_root = tempfile::tempdir().unwrap();
         make_temp_lang_pack(&temp_root.path().join("lang-packs"), "法语");
         let repo = temp_root.path();
@@ -1031,7 +1088,7 @@ pub(crate) mod tests {
     /// 语言包放在 `crates/engine/lang-packs/<语言码>/` 时也能安装（主仓库单副本结构）
     #[test]
     fn test_install_from_repo_dir_engine_layout() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         let temp_root = tempfile::tempdir().unwrap();
         make_temp_lang_pack(&temp_root.path().join("crates/engine/lang-packs"), "德语");
         let repo = temp_root.path();
@@ -1050,7 +1107,7 @@ pub(crate) mod tests {
     #[test]
     fn test_extract_zip_and_find() {
         use std::io::Write;
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         let temp_root = tempfile::tempdir().unwrap();
 
         let zip_path = temp_root.path().join("lang_pack.zip");
@@ -1117,7 +1174,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_dynamic_extension_map() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         let temp_root = tempfile::tempdir().unwrap();
         make_temp_lang_pack(temp_root.path(), "日语");
         unsafe {
@@ -1198,7 +1255,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_rz_lang_repo_env_priority() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         unsafe {
             std::env::set_var("RZ_LANG_REPO", "http://127.0.0.1:18080/自定义仓库/");
             let sources = collect_sources();
@@ -1214,7 +1271,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_multi_source_fallback_install() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         let temp_root = tempfile::tempdir().unwrap();
         let backup_repo = temp_root.path().join("lang_repo");
         fs::create_dir_all(&backup_repo).unwrap();
@@ -1260,7 +1317,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_all_sources_failed_error_message() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         let temp_root = tempfile::tempdir().unwrap();
         unsafe {
             std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));

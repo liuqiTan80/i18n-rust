@@ -1318,17 +1318,34 @@ fn virtual_temp_dir() -> anyhow::Result<PathBuf> {
         safe_user,
         std::process::id()
     ));
-    if dir
-        .symlink_metadata()
-        .map(|m| m.file_type().is_symlink())
-        .unwrap_or(false)
-    {
+    // 两道校验，缺一不可：
+    // 1. 创建前——可预测名（用户 + PID）可被本地攻击者预创建为符号链接；
+    // 2. 创建后、任何写文件之前——校验与创建之间存在 TOCTOU 窗口，
+    //    攻击者可在此期间把路径换成符号链接，而 create_dir_all 会跟随它。
+    //    此时 lstat（symlink_metadata）仍报告符号链接本身，立即拒绝可保证
+    //    尚无任何文件写入发生在链接目标处。
+    if is_symlink(&dir) {
+        anyhow::bail!(
+            "{}",
+            crate::ui::global().f("lsp_err_temp_symlink", &[&dir.display().to_string()])
+        );
+    }
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| anyhow::anyhow!("创建 LSP 虚拟项目目录失败：{}（{}）", dir.display(), e))?;
+    if is_symlink(&dir) {
         anyhow::bail!(
             "{}",
             crate::ui::global().f("lsp_err_temp_symlink", &[&dir.display().to_string()])
         );
     }
     Ok(dir)
+}
+
+/// 路径自身是否为符号链接（lstat 语义，不跟随末段链接）
+fn is_symlink(path: &Path) -> bool {
+    path.symlink_metadata()
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false)
 }
 
 /// 清理同用户的残留虚拟/镜像目录：仅删除名称中带 PID 后缀且进程已死的目录
@@ -1418,6 +1435,9 @@ fn ra_configuration_result(count: usize) -> Value {
 fn process_alive(pid: u32) -> bool {
     #[cfg(unix)]
     {
+        // SAFETY: `kill` 为 POSIX 标准 C 函数，签名与声明一致（pid_t/int 均为 i32）；
+        // 本进程不安装 signal handler，调用本身不改变内存状态；sig=0 只做权限与
+        // 存在性检查、不递送任何信号，故无内存安全或状态破坏风险。
         unsafe extern "C" {
             fn kill(pid: i32, sig: i32) -> i32;
         }
