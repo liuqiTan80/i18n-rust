@@ -3,6 +3,7 @@
 **[中文](README.md)** · **[English](README.en.md)** · **[日本語](README.ja.md)** · **[Русский](README.ru.md)** · **[Español](README.es.md)** · **[Français](README.fr.md)** · **[Deutsch](README.de.md)** · **[한국어](README.ko.md)** · **[العربية](README.ar.md)** · **[Português](README.pt.md)** · **[हिन्दी](README.hi.md)**
 
 [![CI](https://github.com/liuqiTan80/i18n-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/liuqiTan80/i18n-rust/actions)
+[![Docs](https://img.shields.io/badge/Docs-Online%20documentation-blue)](https://liuqiTan80.github.io/i18n-rust/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 </div>
@@ -41,11 +42,22 @@ $ rzc run src/main.zh
 💡 如果需要修改变量的值，请使用 `让 可变` 声明变量。
 ```
 
+**从这里开始**：🚀 [快速跑通](#-快速开始) · 🌐 [在线文档站](https://liuqiTan80.github.io/i18n-rust/)（四语言） · 📖 [系统学习（中文教程）](#-配套教程) · 🤝 [参与贡献](#-参与贡献)
+
 ---
 
 ## 📦 安装（源码编译）
 
 rzc 不提供在线预编译安装，请用官方工具链在本机编译（首次约 1-3 分钟）。下面从先决条件到编译、验证，每一步都写清楚。
+
+**最短路径**（已装 Rust 工具链的开发者，4 条命令跑通第一个程序）：
+
+```bash
+git clone https://github.com/liuqiTan80/i18n-rust && cd i18n-rust
+cargo build --release --workspace   # 约 1-3 分钟
+cargo install --path crates/cli     # 让 rzc 全局可用（也可直接用 ./target/release/rzc）
+rzc init 我的项目 && cd 我的项目 && rzc run src/main.zh
+```
 
 ### 先决条件一览
 
@@ -187,6 +199,7 @@ i18n-rust 扩展（.vsix）兼容所有 VS Code 系编辑器；rzc、语言服�
    rzc install toolchain  # 内置工具链 → ~/.rz/toolchain（联网安装；或从发布者分发的离线包复制）
    ```
 3. 打开 `.zh` 文件即用（扩展自动定位语言服务器与工具链；也可用环境变量 RUST_ANALYZER_PATH 或设置 i18n-rust.serverPath 显式指定）。
+
 ## 🚀 快速开始
 
 ```bash
@@ -260,18 +273,33 @@ Rust 本身以英文书写，因此英语不作为教学方言（恒等映射无
 ### 第三方库母语化
 `rzc mapping auto` 从已安装 crate 提取公开 API，AI 生成母语名；生产映射用 `--target-version` 锁定生成基准版本（写入文件头）；社区共建映射经 `rzc mapping check` 质量门禁。
 
+### 为什么不是"玩具语言"
+
+| | 常见"母语编程"玩具方案 | rzc |
+|---|---|---|
+| 代码形态 | 自创语法或伪代码 | 与标准 Rust 完全同构，只有标识符母语化 |
+| 编译运行 | 自带解释器 / 只转不跑 | 官方 rustc/cargo，真实编译与运行 |
+| 依赖生态 | 封闭或裁剪 | 全量 crates.io（`rzc add` + 母语映射） |
+| 报错体验 | 英文原样或自制提示 | 母语翻译 + 错误码 + 教学提示 |
+| 退出成本 | 中途放弃要重写 | `rzc eject` 一键导出标准 Rust |
+
 ---
 
 ## 📖 配套教程
 
-面向零基础学习者的完整中文教程：**25 章 + 总术语表 + 5 个附录**，见 [tutorials/](tutorials/)。
+面向零基础学习者的完整中文教程：**26 章 + 总术语表 + 5 个附录**，见 [tutorials/](tutorials/)。
 从《你好世界》到所有权、闭包、异步、宏，直至综合实战——所有示例全部用中文 Rust 书写。
+
+🌐 **在线阅读**：[在线文档站](https://liuqiTan80.github.io/i18n-rust/)（mdBook 四语言 + 顶栏切换；本地预览 `make site-serve`）
+
+**多语言译本进行中**：英文（开篇、第 1–13 章、附录 D，15/33）、日本語、Русский 持续滚动；
+进度与下一批见 [translation-status.md](docs/translation-status.md)。
 
 > 教程质量由 CI 自动门禁守护（[tools/verify-tutorials.py](tools/verify-tutorials.py)）：
 > 每个代码块须可编译，错误示例须报出标注的预期错误码（`// 预期错误: EXXXX`），
-> 修改教程后可本地验证：`python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json`。
+> 修改教程后本地验证：`make tutorials`（中文）或 `make tutorials-all`（英日俄）。
 
-> 欢迎共同翻译**教程**与**映射表**到其他语言，见下文“参与贡献”。
+> 常见问题与学习路线见[附录E](tutorials/附录E：常见问题、迁移指南与学习路线.md)；欢迎共同翻译**教程**与**映射表**到其他语言，见下文“参与贡献”。
 
 ---
 
@@ -294,8 +322,10 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 | `crates/lsp`               | `i18n-rust-lsp`：代理官方语言服务器（rust-analyzer），双向翻译位置与诊断 |
 | `crates/engine/lang-packs` | 11 个内置语言包（10 种自然语言 + `en` 恒等包：关键字/标准库/模块路径/错误翻译/界面文案） |
 | `tools/vscode-extension`   | VS Code / Qoder 扩展 |
-| `tutorials`                | 25 章中文教程与附录 |
-| `docs`                     | 语言包贡献指南、第三方映射工具链、方言框架生成蓝图 |
+| `tools`                    | 门禁与构建脚本：教程验证、基准回归、文档站装配等（见 [tools/README.md](tools/README.md)） |
+| `tutorials`                | 26 章中文教程与附录（en/ja/ru 译本进行中） |
+| `book`                     | 文档站装配源（mdBook，见 [book/README.md](book/README.md)） |
+| `docs`                     | 参考文档、开发文档与[项目地图](docs/project-map.md)；运营与路线图见 [docs/strategy/](docs/strategy/README.md) |
 
 **设计原则**：引擎不硬编码任何具体语言；新增一门自然语言 = 新增一个语言包目录，零代码改动（构建脚本自动嵌入）。想把这套范式移植到其他编程语言（如中文 Python），参见 [方言编程框架生成蓝图](docs/dialect-framework-blueprint.md)。
 
@@ -303,12 +333,19 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 
 ## 🤝 参与贡献
 
+- **第一次参与先看**：[项目地图（维护者手册）](docs/project-map.md)——"我想改 X 去哪里、改完怎么验证"一页速查；开发环境与提交规范见 [CONTRIBUTING.md](CONTRIBUTING.md)
 - **应用开发者缺词条指引**：[docs/missing-mapping-guide.md](docs/missing-mapping-guide.md)（写应用时补词条 / 定制映射，面向新手）
 - **新增语言包**：[docs/contributing-lang-pack.md](docs/contributing-lang-pack.md)（含 `rzc mapping scaffold` AI 翻译流程）
 - **第三方库映射**：[docs/third-party-mapping.md](docs/third-party-mapping.md)
 - **第三方库共享注册中心**：[docs/third-party-registry.md](docs/third-party-registry.md)（社区上传/下载自译映射）
-- **翻译教程**：以 `tutorials/` 为源，保持章节结构一致
-- 提交前请确保 `cargo test --workspace` 全部通过
+- **翻译教程**：以 `tutorials/` 为源，保持章节结构一致；进度面板见 [translation-status.md](docs/translation-status.md)
+- 提交前请确保 `make gate` 全绿（等价 CI 测试门禁）
+
+---
+
+## ⭐ 支持项目
+
+如果 rzc 对你有帮助或有启发，欢迎给一个 Star；也欢迎把教程翻译成你的母语——这是对项目最好的支持。
 
 ---
 

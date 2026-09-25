@@ -5,6 +5,72 @@
 
 ## [Unreleased]
 
+### 修复
+- 引擎：路径根位置不再豁免字段名与变量名（office-zb #27 字段场景）——字段名与
+  词表词撞名（如「天数」=Days）时，`天数::新建()` 曾因字段豁免保留「天数」、
+  只替换段位（产物 `天数::new` 报 E0433）；现在 `::` 前缀位置只豁免本文件项名与
+  项目项名/模块名，字面量与字段访问等普通使用处豁免不变
+- 引擎：use 之外的模块词路径前缀转译（office-zb #10/#18）——表达式与属性里的
+  `模块词::项`（`异步运行时::睡眠`、`#[异步运行时::主函数]`）在别名阶段回退
+  模块路径表（产物 `tokio::sleep`、`#[tokio::main]`）；use 语句仍由模块路径阶段
+  处理，别名表命中优先（「路径」=Path 优先于 path 模块），替换值做 crate 名
+  连字符规范化
+- 引擎：教学 lint「未标注类型」只对简单标识符绑定提示——`让` 后为模式解构
+  （元组/结构体/数组解构、让-否则、let 链）时不再误报：这类绑定须标注整个
+  模式的类型，教程示例均以不标注形式书写，提示无解成噪音；`让 x = …` 与
+  `让 可变 x = …` 照常提示
+
+### 新增
+- zh 语言包补条：`stdlib.toml`「懒静态」=LazyLock（office-zb #21）；
+  `crates/网络.toml`「取构建器」=builder /「连接超时」=connect_timeout；
+  `crates/salvo.toml`「提取」=extract 子模块 /「JSON请求体」=JsonBody
+  （office-zb 服务端引入实战：HTTP 客户端封装与 JsonBody 提取）
+- 教程：附录 C 补充 if-let 漏写 `让` 与模块路径前缀常见原因；附录 E 新增
+  「匹配字段简写为何不转译」FAQ（显式写法 `{ 字段: 绑定, .. }`）
+- 工程：LSP 热路径基准入库——`crates/lsp/benches/hot_paths.rs`（criterion 4 项：
+  `update_document` 打开/连续编辑、`reverse_transpile` 补全片段/整文档）；
+  `tools/bench-check.sh` 升级为 engine + lsp 双基准集（组名前缀隔离，支持
+  `--only engine|lsp`），LSP 每键热路径纳入回归门禁（基线 ≈1.56ms/0.96ms/0.50µs/73µs）
+- 工程：CLI 诊断子系统拆分——`crates/cli/src/main.rs` 抽出 `diagnostics.rs`
+  （约 700 行纯移动：直调 rustc 快速路径、cargo 进度行翻译、JSON 诊断解析与
+  教学化翻译、位置回译 `DiagLocationFixer`、未声明 crate 提取），与 LSP 侧
+  `response_map/diag_text.rs` 职责对称；main.rs 2899 → 2086 行，诊断测试随
+  模块迁移（5 项移入 `diagnostics::tests`），行为不变
+- 教程：en 第 13 章《特征》入库（en 15/33）——685 行转创（trait 定义/默认
+  方法/泛型约束与 `impl Trait` 两种写法/特征对象/关联类型/运算符重载/
+  超特征/`derive` 真相），代码块全部实机编译验证；验证器 DECL_WORDS 补
+  英文 `trait ` 声明头（纯 trait 定义块此前被误包裹进 main 致编译失败）；
+  白名单 +5（与 zh 版同位置），四语言门禁（zh/en/ja/ru）0 失败
+- 工程：多语言教程门禁落地——`make tutorials-all`（en/ja/ru 三语依次验证）；
+  期望失败清单 `tools/expected-failures.json` 合并三语条目（368 → 908 行），
+  白名单过期检查改为按本次实际扫描文件过滤（同一清单跑单语言目录不再
+  误报其它语言条目过期）
+- 文档站：mdBook 多语言站点骨架（`book/` 装配源 + `tools/build-site.py`）——
+  中文（教程/附录/术语表 + 6 份参考文档）与 en/ja/ru 四语言书从仓库 md 原位
+  组装到 `_site/`（落地页、404 与 `.nojekyll` 一并生成）；顶栏语言切换脚本
+  注入所有语言书；`make site` / `make site-serve` 本地入口；
+  `.github/workflows/pages.yml` 部署 GitHub Pages（固定 mdBook 0.4.52，
+  与本地同款；启用需在仓库 Settings → Pages 选择 "GitHub Actions"）
+
+### 工程
+- 本地门禁统一入口 `Makefile`（`make gate` = CI test job 全链，`make help`
+  列出全部目标）；新增 CONTRIBUTING.md（开发环境 / 提交规范 / 测试要求）
+  与 GitHub Issue 模板（bug 报告 / 功能建议）
+- 发布产物随附 `SHA256SUMS` 校验和（GitHub Release 附件与 GitCode Release
+  均自动包含），GitCode 附件上传后自动回查核验
+- crates 模块文档规范化：engine / CLI / LSP 模块级 `//!` 文档补全与措辞修订
+
+### 文档
+- 维护者入口整理：新增 [项目地图](docs/project-map.md)（任务→文件→命令速查 +
+  目录/工作流/门禁/文档体系一页）与 [tools/README.md](tools/README.md)（脚本索引，
+  `make` 为本地唯一入口）；`docs/strategy/` 收敛为"现状与路线图 + 推广方案 +
+  发布准备清单"，5 份历史评估快照移入 `docs/strategy/archive/`
+- README（中/英）首页改版：新增「从这里开始」导航、最短路径安装、与"玩具语言"
+  的对比表、在线文档站入口、多语言教程进度与 Star 引导
+- 演示素材：`docs/demo/` 三语言 [vhs](https://github.com/charmbracelet/vhs) 录屏
+  脚本（`demo-{zh,ja,ru}.tape`）与演示样例（实机验证：命中 E0384 教学报错、
+  eject 导出成功），附 GIF 制作指南与规格（15 秒三幕挂载 README 首屏）
+
 ## [0.8.2] - 2026-09-21
 
 ### 新增
