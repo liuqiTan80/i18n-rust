@@ -37,5 +37,13 @@ rustc_lexer.workspace = true
 anyhow.workspace = true
 tempfile.workspace = true
 
+[dev-dependencies]
+# 性能基准（LSP 热路径：update_document / reverse_transpile）
+criterion = "0.5"
+
+[[bench]]
+name = "hot_paths"
+harness = false
+
 [lints]
 workspace = true

@@ -1,15 +1,15 @@
-// 界面消息本地化模块（LSP 独立实现，不依赖 cli crate）
-//
-// 每个语言包的 ui.toml 提供 ["界面消息"] 节，内含 LSP 帮助与错误提示；
-// 可选提供 ["解释"] 节，内含方法/函数的大白话使用提示（键为符号路径）。
-// 占位符 `{}` 在运行时按出现顺序替换为具体参数。
-//
-// 加载优先级：
-// 1. --language-pack 显式目录内的 ui.toml（用户自定义覆盖）
-// 2. 按 --language-pack 目录名匹配内置语言包（如 lang-packs/de → 德语提示语）
-// 3. RZ_LANG 环境变量
-// 4. 系统语言（LC_ALL / LC_MESSAGES / LANG）
-// 5. 中文（默认）
+//! 界面消息本地化模块（LSP 独立实现，不依赖 cli crate）
+//!
+//! 每个语言包的 ui.toml 提供 ["界面消息"] 节，内含 LSP 帮助与错误提示；
+//! 可选提供 ["解释"] 节，内含方法/函数的大白话使用提示（键为符号路径）。
+//! 占位符 `{}` 在运行时按出现顺序替换为具体参数。
+//!
+//! 加载优先级：
+//! 1. --language-pack 显式目录内的 ui.toml（用户自定义覆盖）
+//! 2. 按 --language-pack 目录名匹配内置语言包（如 lang-packs/de → 德语提示语）
+//! 3. RZ_LANG 环境变量
+//! 4. 系统语言（LC_ALL / LC_MESSAGES / LANG）
+//! 5. 中文（默认）
 
 use std::collections::HashMap;
 use std::path::Path;

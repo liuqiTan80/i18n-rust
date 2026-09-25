@@ -21,6 +21,17 @@ VS Code 扩展（i18n-rust）会自动发现语言服务器。
 - `response_map`：各 LSP 请求类型的响应映射与诊断翻译
 - `analyzer`：rust-analyzer 子进程生命周期管理与 LSP 双向转发
 
+## 性能基准
+
+LSP 热路径有 criterion 基准与入库回归门禁（覆盖文档同步
+`update_document` 与响应映射 `reverse_transpile`，见 `benches/hot_paths.rs`）：
+
+```bash
+cargo bench -p i18n-rust-lsp               # 只出结果（-- --quick 快速模式）
+tools/bench-check.sh --only lsp            # 对比入库基线（本地阈值 30%）
+tools/bench-check.sh --update --only lsp   # 刷新基线（随提交）
+```
+
 项目主页与完整文档见
 [仓库根 README](https://github.com/liuqiTan80/i18n-rust)。
 

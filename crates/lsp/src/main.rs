@@ -1,4 +1,4 @@
-//! i18n-rust LSP 代理服务器
+//! i18n-rust LSP 代理服务器（二进制入口）
 //!
 //! 作为 LSP 服务器接收编辑器的连接，将方言 Rust 文件（.zh/.de 等）
 //! 翻译为标准 Rust 后交给 rust-analyzer 处理，实现母语代码的
@@ -8,21 +8,13 @@
 //!   i18n-rust-lsp [--language-pack <路径>] [--extensions .zh,.de]
 //!
 //! 默认语言包路径：crates/engine/lang-packs/zh（主仓库单副本）；默认扩展名：全部内置语言包的扩展名
-
-/// rust-analyzer 子进程管理（启动、消息收发、关闭）
-mod analyzer;
-/// 真实项目镜像 cargo check（权威诊断，镜像不可用时回退虚拟项目）
-mod mirror_check;
-/// 响应位置映射（虚拟 .rs 坐标 → 原始 .zh 坐标 + 诊断翻译）
-mod response_map;
-/// LSP 代理服务器核心（握手、文档同步、请求转发、消息路由）
-mod server;
-/// 翻译缓存（虚拟文件系统，维护 .zh → .rs 翻译缓存与行号映射）
-mod translation_cache;
-/// 界面消息本地化（帮助与错误提示随语言包/系统语言变化）
-mod ui;
+//!
+//! 功能模块在库 target（[`i18n_rust_lsp`]）中实现，本文件仅做
+//! 命令行解析与启动；模块清单与职责见 `src/lib.rs`。
 
 use std::path::PathBuf;
+
+use i18n_rust_lsp::{server, ui};
 
 /// 命令行参数
 struct CliArgs {

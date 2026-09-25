@@ -1,0 +1,12 @@
+{
+  "benchmark": "i18n-rust-lsp/hot_paths",
+  "created": "2026-09-25",
+  "unit": "ns（mean point_estimate）",
+  "threshold_pct": 30,
+  "results": {
+    "lsp_reverse_transpile/reverse_transpile_completion": 501.9933543512661,
+    "lsp_reverse_transpile/reverse_transpile_formatting": 72975.6569305413,
+    "lsp_update_document/update_document_open": 1564978.0017220206,
+    "lsp_update_document/update_document_typing": 964937.8697220181
+  }
+}

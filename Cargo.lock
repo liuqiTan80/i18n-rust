@@ -777,6 +777,7 @@ name = "i18n-rust-lsp"
 version = "0.8.2"
 dependencies = [
  "anyhow",
+ "criterion",
  "crossbeam-channel",
  "env_logger",
  "i18n-rust-engine",
