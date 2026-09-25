@@ -1,15 +1,15 @@
-// 第三方库映射校验与脚手架模块
-//
-// 提供 `rzc mapping check` 与 `rzc mapping scaffold` 的核心逻辑：
-// - check：校验单个语言包的 crates/*.toml 映射质量
-//   （TOML 可解析 / 无重复键 / 关键字避让 / 跨文件同键冲突 / 条目数统计），
-//   以及跨内置语言的条目数一致性对比。
-// - scaffold：从源语言 crates 生成目标语言的翻译骨架（保留英文值，母语键留待翻译）。
-//
-// 校验规则来自翻译实践（见记忆 ff7678c2）：
-// 1. 关键字避让：crates 键与 keywords.toml 键相撞时，关键字先替换，crates 键永不生效 → error
-// 2. crates 文件之间同键不同值：read_dir 顺序未定义，合并非确定 → error
-// 3. crates 键与 stdlib 标识符同键不同值：stdlib 最后加载优先，crates 键被覆盖失效 → warning
+//! 第三方库映射校验与脚手架模块
+//!
+//! 提供 `rzc mapping check` 与 `rzc mapping scaffold` 的核心逻辑：
+//! - check：校验单个语言包的 crates/*.toml 映射质量
+//!   （TOML 可解析 / 无重复键 / 关键字避让 / 跨文件同键冲突 / 条目数统计），
+//!   以及跨内置语言的条目数一致性对比。
+//! - scaffold：从源语言 crates 生成目标语言的翻译骨架（保留英文值，母语键留待翻译）。
+//!
+//! 校验规则来自翻译实践（见记忆 ff7678c2）：
+//! 1. 关键字避让：crates 键与 keywords.toml 键相撞时，关键字先替换，crates 键永不生效 → error
+//! 2. crates 文件之间同键不同值：read_dir 顺序未定义，合并非确定 → error
+//! 3. crates 键与 stdlib 标识符同键不同值：stdlib 最后加载优先，crates 键被覆盖失效 → warning
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};

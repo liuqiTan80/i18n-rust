@@ -1,14 +1,14 @@
-// 后端源码语料覆盖矩阵（`rzc mapping coverage`）
-//
-// 将仓库内后端真实 Rust 源码（engine / cli / lsp 的 src/*.rs）作为真实语料，
-// 对每个语言包检验「用户写代码时会遇到的名字」的覆盖度，自动列出缺失的母语映射：
-// - 关键字（fn/let/...）：缺失时用户无法用母语写出该语法结构（error 级）
-// - API 名（std/core/alloc 路径段、use 导入、首字母大写类型名）：缺失时只能
-//   写英文原名，全母语体验打折（warning 级）
-//
-// 用法：在仓库根目录运行 `rzc mapping coverage [--lang <代码>]`（默认全部内置语言）。
-// 语料来自仓库内 crates/{engine,cli,lsp}/src/*.rs；发布版（无源码）环境下不可用，
-// 此命令面向语言包维护者与 CI 门禁。
+//! 后端源码语料覆盖矩阵（`rzc mapping coverage`）
+//!
+//! 将仓库内后端真实 Rust 源码（engine / cli / lsp 的 src/*.rs）作为真实语料，
+//! 对每个语言包检验「用户写代码时会遇到的名字」的覆盖度，自动列出缺失的母语映射：
+//! - 关键字（fn/let/...）：缺失时用户无法用母语写出该语法结构（error 级）
+//! - API 名（std/core/alloc 路径段、use 导入、首字母大写类型名）：缺失时只能
+//!   写英文原名，全母语体验打折（warning 级）
+//!
+//! 用法：在仓库根目录运行 `rzc mapping coverage [--lang <代码>]`（默认全部内置语言）。
+//! 语料来自仓库内 crates/{engine,cli,lsp}/src/*.rs；发布版（无源码）环境下不可用，
+//! 此命令面向语言包维护者与 CI 门禁。
 
 use std::collections::HashMap;
 use std::path::Path;

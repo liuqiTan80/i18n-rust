@@ -1,10 +1,10 @@
-// 内置语言包 - 将默认语言包嵌入到可执行文件中
-//
-// 语言包 TOML 数据由引擎 crate 在编译期嵌入（include_str!），
-// 本模块通过 [`i18n_rust_engine::语言::builtin_file`] 获取，
-// 使得 rzc 可执行文件无需附带语言包目录即可独立运行。
-// 通过 [`get_builtin_data`] 按语言代码获取对应的内置语言包，
-// 未知语言代码自动回退到中文。
+//! 内置语言包 - 将默认语言包嵌入到可执行文件中
+//!
+//! 语言包 TOML 数据由引擎 crate 在编译期嵌入（include_str!），
+//! 本模块通过 [`i18n_rust_engine::语言::builtin_file`] 获取，
+//! 使得 rzc 可执行文件无需附带语言包目录即可独立运行。
+//! 通过 [`get_builtin_data`] 按语言代码获取对应的内置语言包，
+//! 未知语言代码自动回退到中文。
 
 /// 单个语言的完整内置数据
 pub struct BuiltinLangData {

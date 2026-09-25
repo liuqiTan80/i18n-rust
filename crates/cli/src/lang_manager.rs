@@ -1,14 +1,14 @@
-// 语言包管理模块
-//
-// 实现 `rzc lang list / install / remove` 子命令的底层逻辑：
-// 管理用户全局语言包目录（默认 `~/.rz/lang-packs/`，可用 `RZ_LANG_DIR` 环境变量覆盖）。
-//
-// 每个语言包是一个目录，目录名即语言代码（如 `zh`、`ru`），
-// 内含 `keywords.toml`、`errors.toml`、`module_paths.toml` 及可选的 `crates/` 子目录。
-//
-// 远程安装：默认依次尝试 [`DEFAULT_REPO_SOURCES`]（GitCode 首选，失败自动回退 GitHub），
-// 每个源优先 `git clone`，git 不存在或克隆失败时回退 `curl` 下载 ZIP 压缩包并解压；
-// 设置 `RZ_LANG_REPO` 环境变量后完全使用用户指定地址（不再尝试默认源）。
+//! 语言包管理模块
+//!
+//! 实现 `rzc lang list / install / remove` 子命令的底层逻辑：
+//! 管理用户全局语言包目录（默认 `~/.rz/lang-packs/`，可用 `RZ_LANG_DIR` 环境变量覆盖）。
+//!
+//! 每个语言包是一个目录，目录名即语言代码（如 `zh`、`ru`），
+//! 内含 `keywords.toml`、`errors.toml`、`module_paths.toml` 及可选的 `crates/` 子目录。
+//!
+//! 远程安装：默认依次尝试 [`DEFAULT_REPO_SOURCES`]（GitCode 首选，失败自动回退 GitHub），
+//! 每个源优先 `git clone`，git 不存在或克隆失败时回退 `curl` 下载 ZIP 压缩包并解压；
+//! 设置 `RZ_LANG_REPO` 环境变量后完全使用用户指定地址（不再尝试默认源）。
 
 use std::collections::HashMap;
 use std::fs;

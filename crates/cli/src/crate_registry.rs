@@ -1,12 +1,12 @@
-// 第三方库共享注册中心模块
-//
-// 实现 `rzc crate` 子命令：search / install / list / remove / update / publish。
-// 注册中心即一个 Git 仓库（GitCode/GitHub 或任意 git 可达地址 / 本地路径），
-// 根含 index.json 索引，映射按 <语言>/crates/<crate>.toml 存放
-// （与语言包内 crates/ 子目录结构一致）。
-//
-// 远程获取复用 lang_manager 的 RepoSource / TempDir / fetch_repo_zip 能力；
-// 本地路径注册中心直接复用目录，无需网络。
+//! 第三方库共享注册中心模块
+//!
+//! 实现 `rzc crate` 子命令：search / install / list / remove / update / publish。
+//! 注册中心即一个 Git 仓库（GitCode/GitHub 或任意 git 可达地址 / 本地路径），
+//! 根含 index.json 索引，映射按 <语言>/crates/<crate>.toml 存放
+//! （与语言包内 crates/ 子目录结构一致）。
+//!
+//! 远程获取复用 lang_manager 的 RepoSource / TempDir / fetch_repo_zip 能力；
+//! 本地路径注册中心直接复用目录，无需网络。
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

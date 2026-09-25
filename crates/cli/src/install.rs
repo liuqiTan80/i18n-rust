@@ -1,13 +1,13 @@
-// 配套组件安装模块
-//
-// `rzc install` 安装 rzc 所需的配套组件。当前组件为语言服务器
-// i18n-rust-lsp（VS Code 扩展的补全/诊断后端），与 rzc 属于不同
-// crate，cargo install rzc 不会自动带上，需单独安装。
-//
-// 安装来源优先级：
-// 1. 与 rzc 同目录的二进制（离线发布包自带，免网络直接复制到 cargo bin）
-// 2. crates.io（cargo install i18n-rust-lsp，版本与 rzc 严格一致，
-//    保证协议与语言包版本兼容）
+//! 配套组件安装模块
+//!
+//! `rzc install` 安装 rzc 所需的配套组件。当前组件为语言服务器
+//! i18n-rust-lsp（VS Code 扩展的补全/诊断后端），与 rzc 属于不同
+//! crate，cargo install rzc 不会自动带上，需单独安装。
+//!
+//! 安装来源优先级：
+//! 1. 与 rzc 同目录的二进制（离线发布包自带，免网络直接复制到 cargo bin）
+//! 2. crates.io（cargo install i18n-rust-lsp，版本与 rzc 严格一致，
+//!    保证协议与语言包版本兼容）
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
