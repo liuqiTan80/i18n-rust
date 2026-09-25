@@ -65,8 +65,9 @@ EXPECT_OUT_RE = re.compile(r"^\s*//\s*预期输出[:：]\s*(.*?)\s*$")
 EXPECT_OUT_LINE_RE = re.compile(r"^\s*//\s?(.*)$")
 
 # 片段包裹：顶层声明词头（其后允许空格/泛型参数/括号/!；
-# 异步/不安全 为前缀修饰，后跟 函数/结构体/块）
-DECL_WORDS = ("fn ", "struct ", "impl ", "enum ", "use ", "mod ", "pub ", "const ", "static ", "type ",
+# 异步/不安全 为前缀修饰，后跟 函数/结构体/块）；
+# 英文 trait 与 collect_decl 的 is_block 正则保持一致（en 教程用）
+DECL_WORDS = ("fn ", "struct ", "impl ", "enum ", "trait ", "use ", "mod ", "pub ", "const ", "static ", "type ",
               "使用", "结构体", "实现", "特征", "枚举", "常量",
               "类型", "函数", "外部", "宏规则", "宏", "模块", "异步", "不安全",
               # 日本語 (ja)
@@ -741,7 +742,12 @@ def main():
     # 白名单条目无从匹配，全部误报过期）
     if allowlist and not args.serialize:
         matched = {(r["file"], r["line"]) for r in expecteds}
+        # 只检查本次实际扫描到的文件：多语言白名单合并存放时（zh + en/ja/ru
+        # 条目），跑单语言目录不会误报其它语言的条目过期
+        run_files = {r["file"] for r in results}
         for key in sorted(allowlist):
+            if key[0] not in run_files:
+                continue
             if key not in matched:
                 print(f"  ⚠️ 白名单过期条目（已不失败，建议删除）：{key[0]} L{key[1]}")
     sfails = []
