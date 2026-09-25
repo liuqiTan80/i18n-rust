@@ -1,0 +1,48 @@
+name: Bug 报告
+description: 报告可复现的问题（rzc / LSP / VS Code 扩展 / 语言包 / 教程）
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量提供**可复现的最小示例**（母语源码片段 + 命令 + 实际输出）。
+  - type: dropdown
+    id: component
+    attributes:
+      label: 涉及组件
+      options:
+        - rzc（命令行）
+        - i18n-rust-lsp（语言服务器）
+        - VS Code 扩展
+        - 语言包 / 词表
+        - 教程 / 文档
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: "`rzc --version` 输出（扩展问题则填扩展版本号）"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤 / 最小示例
+      description: 母语源码片段 + 执行的命令 + 实际输出（含完整错误信息）
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: false
+  - type: input
+    id: env
+    attributes:
+      label: 运行环境
+      description: 操作系统 / Rust 版本 / VS Code 版本（如相关）
+    validations:
+      required: false

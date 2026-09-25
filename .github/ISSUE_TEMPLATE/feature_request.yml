@@ -1,0 +1,30 @@
+name: 功能建议
+description: 提出改进建议或新功能
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: 类别
+      options:
+        - 语言包 / 词表扩充
+        - 教程 / 文档
+        - rzc 命令与体验
+        - LSP / 编辑器集成
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你遇到的场景
+      description: 描述当前的做法与不便之处
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议的方案
+    validations:
+      required: false
