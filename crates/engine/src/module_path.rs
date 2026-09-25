@@ -1,16 +1,17 @@
-// 模块路径替换模块
-// 1. 将源代码中 `use` 语句的中文模块路径段替换为英文路径段
-//    （如 `使用 标准集合::哈希映射` → `使用 std::collections::HashMap`）；
-// 2. 为已知模块路径段添加 `crate::` 前缀（LSP 虚拟项目跨文件引用专用，
-//    原实现在 lsp crate，迁入引擎统一维护转译规则）；
-// 3. 文件式 `mod 名字;` 声明的净化（虚拟项目聚合用）与非 ASCII 模块名的
-//    `#[path]` 注解（真实项目产物用，CLI 与 LSP 镜像共享同一实现）。
-// 各阶段均以 token 级替换并产出编辑表，供全管线编辑地图组合。
-//
-// crate 名规范化：Cargo 包名允许连字符（如 `tracing-subscriber`），但 Rust
-// 代码中引用 crate 必须写 `_` 形式（`tracing_subscriber`）；use 路径中
-// 模块/类型/函数名不含连字符，`-` 只会出现在 crate 名段，故替换时对
-// 映射值做 `-` → `_` 规范化安全。
+//! 模块路径替换模块
+//! 1. 将源代码中 `use` 语句的中文模块路径段替换为英文路径段
+//!    （如 `使用 标准集合::哈希映射` → `使用 std::collections::HashMap`）；
+//! 2. 为已知模块路径段添加 `crate::` 前缀（LSP 虚拟项目跨文件引用专用，
+//!    原实现在 lsp crate，迁入引擎统一维护转译规则）；
+//! 3. 文件式 `mod 名字;` 声明的净化（虚拟项目聚合用）与非 ASCII 模块名的
+//!    `#[path]` 注解（真实项目产物用，CLI 与 LSP 镜像共享同一实现）。
+//!
+//! 各阶段均以 token 级替换并产出编辑表，供全管线编辑地图组合。
+//!
+//! crate 名规范化：Cargo 包名允许连字符（如 `tracing-subscriber`），但 Rust
+//! 代码中引用 crate 必须写 `_` 形式（`tracing_subscriber`）；use 路径中
+//! 模块/类型/函数名不含连字符，`-` 只会出现在 crate 名段，故替换时对
+//! 映射值做 `-` → `_` 规范化安全。
 
 use crate::cache::SourceMapEntry;
 use rustc_lexer::{TokenKind, tokenize};
@@ -113,7 +114,8 @@ pub fn replace_module_paths_with_map(
 /// 路径中 crate 段必须写 `_` 形式（`tracing_subscriber`）。use 路径中
 /// 模块、类型、函数名均不含连字符，`-` 只会出现在 crate 名段，故直接
 /// 替换安全；无需替换时返回 None（避免无谓分配）。
-fn normalize_crate_hyphen(segment: &str) -> Option<String> {
+/// 别名阶段（alias.rs）对 use 之外的模块词回退替换时复用本函数。
+pub(crate) fn normalize_crate_hyphen(segment: &str) -> Option<String> {
     segment.contains('-').then(|| segment.replace('-', "_"))
 }
 

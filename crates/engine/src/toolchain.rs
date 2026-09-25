@@ -1,9 +1,9 @@
-// 工具链定位模块
-//
-// 内置工具链：`rzc install toolchain` 将官方 standalone 工具链
-//（rustc/cargo/rust-analyzer）安装到 `~/.rz/toolchain/bin`，
-// 使发布包自包含、不依赖 rustup 与 PATH 配置。
-// 查找优先级：内置目录 → 环境变量 → PATH 扫描。
+//! 工具链定位模块
+//!
+//! 内置工具链：`rzc install toolchain` 将官方 standalone 工具链
+//!（rustc/cargo/rust-analyzer）安装到 `~/.rz/toolchain/bin`，
+//! 使发布包自包含、不依赖 rustup 与 PATH 配置。
+//! 查找优先级：内置目录 → 环境变量 → PATH 扫描。
 
 use std::path::PathBuf;
 

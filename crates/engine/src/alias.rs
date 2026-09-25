@@ -1,36 +1,36 @@
-// 别名替换模块
-// 将源代码中的中文标识符别名（如第三方库的中文名称）替换为英文标识符。
-// 仅替换标识符类型的 token，不触碰字符串字面量和注释等内容。
-// 声明位保护：紧跟在声明关键字（fn/struct/let 等）后的标识符是用户自己的定义，
-// 不是库 API 引用，不参与别名替换；且用户声明的名字在整个文件内的
-// 裸使用处都豁免（两遍扫描：先收集声明名，再逐 token 替换），
-// 避免 `let 新建 = 5` 声明位受保护而后续使用处被误替换成 new。
-// 三条精细规则：
-// 1. `::` 限定后的路径段按「链根」分级处理：根是项目符号
-//    （crate/self/super/项目模块名/项目项名）时链内**与项目声明名
-//    同名**的段豁免——`平台Linux::新建` 的定义侧与调用侧一致
-//    （避免 E0599）；链内非项目名与根非项目符号的段都照常替换
-//    （`源码映射项::新建` 的 `新建` 未定义于项目、`盒子::新建`
-//    的 `新建` 是库 API）；无项目上下文时退化为「本文件项名豁免」
-//    （`接口错误::错误请求`）；
-// 2. 库特征实现块（`impl <映射词特征> for 类型 {}`）内的方法名是库 API
-//    规定的名称（用户从映射表抄写而来），不是用户自定义名字，不受声明位
-//    保护——`实现 抄写器 对于 类型 { 函数 渲染（...） }` 中的 `渲染`
-//    必须转译为 `render`，否则无法匹配 `Scribe::render`（E0407/E0046）；
-// 3. 函数参数与闭包参数是「值绑定」（用户命名）：`fn 完整网址(路径: &str)`
-//    的 `路径` 在声明与使用处都豁免替换（参数「类型」位置的字照常替换），
-//    与格式化串中的 `{路径}` 保持一致，避免 E0425（找不到名称 `路径`）；
-// 4. 结构体字段名与枚举变体名同样是用户命名，纳入声明收集：
-//    字段 `struct 容器 { 值: i32 }` 的 `值`（撞 `值`=values 映射键）
-//    在定义/构造/访问处（`实例.值`）全豁免；枚举变体
-//    `enum 判定结果 { 保留, 丢弃 }` 的 `保留`/`丢弃`（撞
-//    retain/drop 映射键）同理；变体可经 `::` 访问
-//    （`判定结果::保留`）故收集为项，字段收集为值绑定。
-//    方法调用位（`实例.方法()`）不查字段名：`编辑表.长度()` 的
-//    `长度` 是 `Vec::len` 调用，只查「项目方法名集合」（项）；
-// 5. 模式绑定（match 臂、let 解构、for 模式）同样是值绑定：
-//    `匹配 有值(入参) { 有值(连接) => … }` 的 `连接`（撞
-//    `连接`=join 映射键）全文件豁免（见 collect_pattern_bindings）。
+//! 别名替换模块
+//! 将源代码中的中文标识符别名（如第三方库的中文名称）替换为英文标识符。
+//! 仅替换标识符类型的 token，不触碰字符串字面量和注释等内容。
+//! 声明位保护：紧跟在声明关键字（fn/struct/let 等）后的标识符是用户自己的定义，
+//! 不是库 API 引用，不参与别名替换；且用户声明的名字在整个文件内的
+//! 裸使用处都豁免（两遍扫描：先收集声明名，再逐 token 替换），
+//! 避免 `let 新建 = 5` 声明位受保护而后续使用处被误替换成 new。
+//! 三条精细规则：
+//! 1. `::` 限定后的路径段按「链根」分级处理：根是项目符号
+//!    （crate/self/super/项目模块名/项目项名）时链内**与项目声明名
+//!    同名**的段豁免——`平台Linux::新建` 的定义侧与调用侧一致
+//!    （避免 E0599）；链内非项目名与根非项目符号的段都照常替换
+//!    （`源码映射项::新建` 的 `新建` 未定义于项目、`盒子::新建`
+//!    的 `新建` 是库 API）；无项目上下文时退化为「本文件项名豁免」
+//!    （`接口错误::错误请求`）；
+//! 2. 库特征实现块（`impl <映射词特征> for 类型 {}`）内的方法名是库 API
+//!    规定的名称（用户从映射表抄写而来），不是用户自定义名字，不受声明位
+//!    保护——`实现 抄写器 对于 类型 { 函数 渲染（...） }` 中的 `渲染`
+//!    必须转译为 `render`，否则无法匹配 `Scribe::render`（E0407/E0046）；
+//! 3. 函数参数与闭包参数是「值绑定」（用户命名）：`fn 完整网址(路径: &str)`
+//!    的 `路径` 在声明与使用处都豁免替换（参数「类型」位置的字照常替换），
+//!    与格式化串中的 `{路径}` 保持一致，避免 E0425（找不到名称 `路径`）；
+//! 4. 结构体字段名与枚举变体名同样是用户命名，纳入声明收集：
+//!    字段 `struct 容器 { 值: i32 }` 的 `值`（撞 `值`=values 映射键）
+//!    在定义/构造/访问处（`实例.值`）全豁免；枚举变体
+//!    `enum 判定结果 { 保留, 丢弃 }` 的 `保留`/`丢弃`（撞
+//!    retain/drop 映射键）同理；变体可经 `::` 访问
+//!    （`判定结果::保留`）故收集为项，字段收集为值绑定。
+//!    方法调用位（`实例.方法()`）不查字段名：`编辑表.长度()` 的
+//!    `长度` 是 `Vec::len` 调用，只查「项目方法名集合」（项）；
+//! 5. 模式绑定（match 臂、let 解构、for 模式）同样是值绑定：
+//!    `匹配 有值(入参) { 有值(连接) => … }` 的 `连接`（撞
+//!    `连接`=join 映射键）全文件豁免（见 collect_pattern_bindings）。
 
 use rustc_lexer::{TokenKind, tokenize};
 use std::collections::{HashMap, HashSet};
@@ -1015,8 +1015,28 @@ pub fn replace_aliases_with_context(
     alias_map: &HashMap<String, String>,
     project: Option<&ProjectContext>,
 ) -> ReplaceResult {
+    replace_aliases_with_context_and_module_paths(source, alias_map, &HashMap::new(), project)
+}
+
+/// 同 [`replace_aliases_with_context`]，附模块路径表（use 之外的模块前缀转译）
+///
+/// 管线的「模块路径替换」阶段只处理 use 语句；表达式与属性位置的
+/// `模块词::项`（`异步运行时::睡眠`、`#[异步运行时::主函数]`）在本函数内
+/// 回退模块路径表完成（office-zb #10/#18：此前「模块词」保留、「项」被
+/// 别名替换，产物 `异步运行时::main` 报 E0433）。回退规则：
+/// - 仅**路径根位置**（后跟 `::`、且前不是 `::` 的段）触发；
+/// - 别名表命中优先——标识符语义覆盖模块语义（`路径::新建` 的 `路径`
+///   是 `Path` 而非 `path` 模块）；
+/// - 路径根位上的字段/变量名豁免不适用（见 `usage_exempt` 的根位分支）；
+/// - 替换值做 crate 名连字符规范化（`-` → `_`）。
+pub fn replace_aliases_with_context_and_module_paths(
+    source: &str,
+    alias_map: &HashMap<String, String>,
+    module_path_map: &HashMap<String, String>,
+    project: Option<&ProjectContext>,
+) -> ReplaceResult {
     // 映射表为空时直接返回，避免不必要的词法分析开销
-    if alias_map.is_empty() {
+    if alias_map.is_empty() && module_path_map.is_empty() {
         return ReplaceResult {
             output: source.to_string(),
             edits: Vec::new(),
@@ -1054,6 +1074,11 @@ pub fn replace_aliases_with_context(
                 // `.方法()` 位：`.` 后的标识符且下一个有意义 token 是 `(`
                 //（字段名不是方法名，豁免集合见下方 usage_exempt）
                 let is_method_pos = prev_is_dot && next_significant_is_open_paren(&tokens, index);
+                // 路径根位置（首段）：后跟 `::` 且前不是 `::` 的标识符——
+                // `模块词::项` 的首段。字段/变量不可经 `::` 访问，根位豁免
+                // 不适用（office-zb #27）；模块词回退替换亦仅限根位
+                let is_path_head =
+                    !prev_is_path_sep && next_significant_is_path_sep(&tokens, index);
                 // 项目路径链：根段后跟 `::` 时链内段按项目声明名豁免。
                 // 根段确认依赖上一标识符留存的候选标记与当前 `::` 状态
                 let in_project_chain = project.is_some()
@@ -1084,6 +1109,14 @@ pub fn replace_aliases_with_context(
                     project.is_none() && declared.items.contains(text)
                 } else if is_method_pos {
                     declared.items.contains(text) || project.is_some_and(|p| p.items.contains(text))
+                } else if is_path_head {
+                    // 路径根位（后跟 `::`）：字段/变量/裸名豁免不适用——它们
+                    // 不可经 `::` 访问。缺陷回归（office-zb #27 字段场景）：
+                    // 字段名与词表词撞名（如「天数」=Days）时，`天数::新建`
+                    // 曾因字段豁免保留「天数」、只替换段位 → `天数::new`
+                    // 报 E0433；字面量/字段访问位等非根位仍按字段豁免。
+                    // 仅本文件项名与项目项名/模块名（路径链根）在根位豁免
+                    declared.items.contains(text) || project.is_some_and(|p| p.is_path_root(text))
                 } else {
                     declared.items.contains(text)
                         || declared.variables.contains(text)
@@ -1101,6 +1134,14 @@ pub fn replace_aliases_with_context(
                 } else if let Some(english) = alias_map.get(text) {
                     edits.push(SourceMapEntry::new(current_offset, len, text, english));
                     output.push_str(english);
+                } else if is_path_head && let Some(english) = module_path_map.get(text) {
+                    // 路径根位回退模块路径表：`异步运行时::睡眠` → `tokio::sleep`、
+                    // `#[异步运行时::主函数]` → `#[tokio::main]`（office-zb #10/#18）。
+                    // use 语句内已在管线模块路径阶段替换，此处覆盖表达式/属性位置
+                    let normalized = crate::module_path::normalize_crate_hyphen(english);
+                    let replacement = normalized.as_deref().unwrap_or(english);
+                    edits.push(SourceMapEntry::new(current_offset, len, text, replacement));
+                    output.push_str(replacement);
                 } else {
                     output.push_str(text);
                 }
@@ -1158,6 +1199,32 @@ fn next_significant_is_open_paren(tokens: &[rustc_lexer::Token], index: usize) -
             )
         })
         .is_some_and(|t| matches!(t.kind, TokenKind::OpenParen))
+}
+
+/// 下一个有意义 token（跳过空白/注释）是否为 `::`
+///
+/// 判定标识符处于「路径根位置」（`模块词::项` 的首段）。rustc_lexer 将
+/// `::` 拆分为两个连续 Colon token；空白/注释不打断（与主循环
+/// `last_was_colon` 状态对空白的处理一致）。
+fn next_significant_is_path_sep(tokens: &[rustc_lexer::Token], index: usize) -> bool {
+    let mut colon_count = 0;
+    for t in tokens.get(index + 1..).unwrap_or_default() {
+        if matches!(
+            t.kind,
+            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
+        ) {
+            continue;
+        }
+        if matches!(t.kind, TokenKind::Colon) {
+            colon_count += 1;
+            if colon_count >= 2 {
+                return true;
+            }
+            continue;
+        }
+        return false;
+    }
+    false
 }
 
 #[cfg(test)]
@@ -1730,5 +1797,136 @@ mod tests {
         let src = "let 点 { x: 数据, y: 乙 } = 甲; let z = 数据;";
         let out = replace_aliases(src, &map);
         assert_eq!(out, src);
+    }
+
+    /// 项目上下文的字段名（不参与项集合）在路径根位不得豁免（office-zb
+    /// #27 字段场景）：字段名「天数」撞词表词（Days）时，`天数::新建` 须
+    /// 替换出 `Days::new`——此前因字段并入项目 names 而全豁免，产物
+    /// `天数::new` 报 E0433
+    #[test]
+    fn test_project_field_not_exempt_in_path_root_position() {
+        let map = HashMap::from([
+            ("天数".to_string(), "Days".to_string()),
+            ("新建".to_string(), "new".to_string()),
+        ]);
+        let ctx = ProjectContext {
+            modules: HashSet::new(),
+            names: HashSet::from(["天数".to_string()]),
+            items: HashSet::new(),
+        };
+        let out = replace_aliases_with_context("let d = 天数::新建(1);", &map, Some(&ctx));
+        assert_eq!(out.output, "let d = Days::new(1);");
+        // 裸使用处的字段名照旧豁免（值语义与字面量场景）
+        let out2 = replace_aliases_with_context("let x = 天数 + 1;", &map, Some(&ctx));
+        assert_eq!(out2.output, "let x = 天数 + 1;");
+    }
+
+    /// 单文件字段场景（无项目上下文）：同文件声明的字段名撞词表词时，
+    /// 路径根位同样不豁免；字面量与字段访问位仍豁免
+    #[test]
+    fn test_local_field_not_exempt_in_path_root_position() {
+        let map = HashMap::from([
+            ("天数".to_string(), "Days".to_string()),
+            ("新建".to_string(), "new".to_string()),
+        ]);
+        let src = "struct 账本 { 天数: i32 }\nlet d = 天数::新建(1);\nlet x = 账本 { 天数: 1 };";
+        let out = replace_aliases(src, &map);
+        assert_eq!(
+            out,
+            "struct 账本 { 天数: i32 }\nlet d = Days::new(1);\nlet x = 账本 { 天数: 1 };"
+        );
+    }
+
+    /// 模块路径回退：use 之外的限定路径前缀（office-zb #10）——
+    /// 「异步运行时」在模块路径表（tokio），表达式位置根段回退替换；
+    /// 段位「睡眠」由别名表替换
+    #[test]
+    fn test_module_path_prefix_replaced_in_expression() {
+        let alias = HashMap::from([("睡眠".to_string(), "sleep".to_string())]);
+        let modules = HashMap::from([("异步运行时".to_string(), "tokio".to_string())]);
+        let out = replace_aliases_with_context_and_module_paths(
+            "let r = 异步运行时::睡眠(1);",
+            &alias,
+            &modules,
+            None,
+        );
+        assert_eq!(out.output, "let r = tokio::sleep(1);");
+    }
+
+    /// 属性宏路径位置的模块词同样回退转译（office-zb #18）
+    #[test]
+    fn test_module_path_prefix_in_attribute() {
+        let alias = HashMap::from([("主函数".to_string(), "main".to_string())]);
+        let modules = HashMap::from([("异步运行时".to_string(), "tokio".to_string())]);
+        let out = replace_aliases_with_context_and_module_paths(
+            "#[异步运行时::主函数]\nfn f() {}",
+            &alias,
+            &modules,
+            None,
+        );
+        assert_eq!(out.output, "#[tokio::main]\nfn f() {}");
+    }
+
+    /// 模块路径回退的 crate 名连字符规范化（`tauri-plugin-autostart` → `_`）
+    #[test]
+    fn test_module_path_prefix_hyphen_normalized() {
+        let alias = HashMap::from([("初始化".to_string(), "init".to_string())]);
+        let modules =
+            HashMap::from([("自启插件".to_string(), "tauri-plugin-autostart".to_string())]);
+        let out = replace_aliases_with_context_and_module_paths(
+            "自启插件::初始化();",
+            &alias,
+            &modules,
+            None,
+        );
+        assert_eq!(out.output, "tauri_plugin_autostart::init();");
+    }
+
+    /// 别名表命中优先于模块路径回退（「路径」为 `Path` 而非 `path` 模块）
+    #[test]
+    fn test_module_path_fallback_alias_priority() {
+        let alias = HashMap::from([
+            ("路径".to_string(), "Path".to_string()),
+            ("新建".to_string(), "new".to_string()),
+        ]);
+        let modules = HashMap::from([("路径".to_string(), "path".to_string())]);
+        let out = replace_aliases_with_context_and_module_paths(
+            "let p = 路径::新建();",
+            &alias,
+            &modules,
+            None,
+        );
+        assert_eq!(out.output, "let p = Path::new();");
+    }
+
+    /// 回退仅限路径根位：裸使用与 `::` 后段（中段）不查模块路径表
+    #[test]
+    fn test_module_path_fallback_only_at_path_head() {
+        let alias = HashMap::new();
+        let modules = HashMap::from([("时间".to_string(), "time".to_string())]);
+        let out =
+            replace_aliases_with_context_and_module_paths("let t = 时间;", &alias, &modules, None);
+        assert_eq!(out.output, "let t = 时间;");
+        let out2 = replace_aliases_with_context_and_module_paths(
+            "let x = 我的类型::时间();",
+            &alias,
+            &modules,
+            None,
+        );
+        assert_eq!(out2.output, "let x = 我的类型::时间();");
+    }
+
+    /// 本文件声明的类型名与模块词撞名：路径根位按本地项豁免（本地语义优先）
+    #[test]
+    fn test_local_item_shadows_module_path_fallback() {
+        let alias = HashMap::from([("新建".to_string(), "new".to_string())]);
+        let modules = HashMap::from([("时间".to_string(), "time".to_string())]);
+        let out = replace_aliases_with_context_and_module_paths(
+            "struct 时间 {}\nlet t = 时间::新建();",
+            &alias,
+            &modules,
+            None,
+        );
+        assert_eq!(out.output, "struct 时间 {}\nlet t = 时间::new();");
     }
 }

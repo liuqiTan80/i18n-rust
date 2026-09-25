@@ -1,7 +1,7 @@
-// 日志模块
-// 轻量结构化日志系统，支持 RZ_LOG 环境变量控制级别（debug/info/warn/error）。
-// 输出格式：`[时间戳] [级别] [模块名] 消息`（时间戳为 UTC，无第三方依赖）。
-// 提供 log_debug!、log_info!、log_warn!、log_error! 四个宏供其他模块使用。
+//! 日志模块
+//! 轻量结构化日志系统，支持 RZ_LOG 环境变量控制级别（debug/info/warn/error）。
+//! 输出格式：`[时间戳] [级别] [模块名] 消息`（时间戳为 UTC，无第三方依赖）。
+//! 提供 log_debug!、log_info!、log_warn!、log_error! 四个宏供其他模块使用。
 
 use std::sync::Once;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};

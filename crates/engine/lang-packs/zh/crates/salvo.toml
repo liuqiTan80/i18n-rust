@@ -9,6 +9,7 @@
 "salvo" = "salvo"
 "前置" = "prelude"
 "跨域" = "cors"  # 子模块：salvo::cors 跨域资源共享（需 salvo 开启 cors feature）
+"提取" = "extract"  # 子模块：salvo::extract 提取器（JsonBody 等）
 
 ["标识符"]
 "处理器" = "handler"  # 过程宏：标记请求处理器
@@ -44,6 +45,7 @@
 "源" = "Source"  # struct Source
 "重命名规则" = "RenameRule"  # type RenameRule = case::RenameRule
 "可提取" = "Extractible"  # trait Extractible<'ex>
+"JSON请求体" = "JsonBody"  # struct JsonBody<T>：从请求体提取 JSON（需 Content-Type: application/json）
 "分块文件" = "ChunkedFile"  # struct ChunkedFile<T>
 "传输协议" = "TransProto"  # enum TransProto
 "熔断信息" = "FuseInfo"  # struct FuseInfo

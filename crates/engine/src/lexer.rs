@@ -1,7 +1,7 @@
-// 词法处理模块 - 将母语源码根据关键字映射转译为标准 Rust 源码
-//
-// 基于 rustc_lexer 的 token 级转译，保证注释与字符串字面量内容不被误改。
-// 支持宏感叹号自动补充、原始标识符（r#）处理、反向转译（Rust → 母语）。
+//! 词法处理模块 - 将母语源码根据关键字映射转译为标准 Rust 源码
+//!
+//! 基于 rustc_lexer 的 token 级转译，保证注释与字符串字面量内容不被误改。
+//! 支持宏感叹号自动补充、原始标识符（r#）处理、反向转译（Rust → 母语）。
 
 use crate::cache::SourceMapEntry;
 use rustc_lexer::{TokenKind, tokenize};

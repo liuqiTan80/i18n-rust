@@ -1,19 +1,19 @@
-// 教学 lint 模块
-// 针对 Rust 初学者的启发式代码风格提示（教学价值驱动）：
-// 与编译器错误不同，这些提示不阻断编译，只在代码位置出现常见
-// 教学问题时给出建设性建议。规则刻意保守，避免噪音——教学工具的
-// 提示必须每条都有价值：
-// - 未标注类型：`让 x = 5;` 缺少类型注解（类型系统教学）
-// - 魔法数字：非平凡数字字面量（命名常量教学）
-// - 嵌套过深：代码行缩进过深（重构教学，每文件仅首个）
-// - 易混方法名：方法调用位未命中映射表且与表内词近似的长中文串
-//   （如 `.拉平()` 应为 `.展平()`，编辑距离 ≤1 才提示以降噪）
-//
-// 行注释含「教学忽略」时整行跳过（教师可标注故意不修的示例）：
-// `让 x = 5;  // 教学忽略` 不产生任何教学警告。
-//
-// 扫描器与 fullwidth 模块同构：状态机跳过字符串/字符/原始字符串与
-// 注释，仅在代码位置判定，避免把字符串内容误判为代码问题。
+//! 教学 lint 模块
+//! 针对 Rust 初学者的启发式代码风格提示（教学价值驱动）：
+//! 与编译器错误不同，这些提示不阻断编译，只在代码位置出现常见
+//! 教学问题时给出建设性建议。规则刻意保守，避免噪音——教学工具的
+//! 提示必须每条都有价值：
+//! - 未标注类型：`让 x = 5;` 缺少类型注解（类型系统教学）
+//! - 魔法数字：非平凡数字字面量（命名常量教学）
+//! - 嵌套过深：代码行缩进过深（重构教学，每文件仅首个）
+//! - 易混方法名：方法调用位未命中映射表且与表内词近似的长中文串
+//!   （如 `.拉平()` 应为 `.展平()`，编辑距离 ≤1 才提示以降噪）
+//!
+//! 行注释含「教学忽略」时整行跳过（教师可标注故意不修的示例）：
+//! `让 x = 5;  // 教学忽略` 不产生任何教学警告。
+//!
+//! 扫描器与 fullwidth 模块同构：状态机跳过字符串/字符/原始字符串与
+//! 注释，仅在代码位置判定，避免把字符串内容误判为代码问题。
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -286,18 +286,23 @@ pub fn lint_teaching_with_words(source: &str, known_words: &HashSet<String>) -> 
                         continue;
                     }
                 }
-                // `让` 关键字：开始未标注类型扫描（前后均须有标识符边界）
+                // `让` 关键字：简单标识符绑定时开始未标注类型扫描（前后均须
+                // 有标识符边界）；模式解构绑定（元组/结构体/数组/枚举解构、
+                // 让-否则、let 链）不做提示——教学示例均以不标注形式书写，
+                // 且无法自然标注类型（须标注整个模式），提示无解成噪音
                 '让' if is_ident_boundary(prev_plain)
                     && (i + 1 >= chars.len() || is_ident_boundary(chars[i + 1])) =>
                 {
                     // 前一个 let 未闭合（上一语句缺分号）：先收尾
                     finish_let_scan(&mut let_scan, &mut warnings);
-                    let_scan = Some(LetScan {
-                        line,
-                        column: col,
-                        seen_eq: false,
-                        annotated: false,
-                    });
+                    if is_simple_let_binding(&chars, i + 1) {
+                        let_scan = Some(LetScan {
+                            line,
+                            column: col,
+                            seen_eq: false,
+                            annotated: false,
+                        });
+                    }
                 }
                 // 数字字面量（前一字不是标识符字符时才是独立字面量）
                 c if c.is_ascii_digit() && is_ident_boundary(prev_plain) => {
@@ -359,6 +364,59 @@ fn is_ident_boundary(c: char) -> bool {
 /// 判定前一字符是否可作为原始字符串前缀（r#/br#：前一字为行首/空白/运算符）
 fn is_raw_prefix(prev: char) -> bool {
     prev == '\0' || prev.is_whitespace() || "([{<,;:!?&|=+-*/%^".contains(prev)
+}
+
+/// 判定 `让` 后的绑定是否为简单标识符绑定（`名字` / `可变 名字`）
+///
+/// `from` 为「让」之后的下标。仅简单绑定参与「未标注类型」提示；
+/// 模式解构绑定（`(甲, 乙)`、`点 { x, y }`、`[首, 次]`、`有值(数)`、
+/// `枚举::变体(数)` 等）返回 false——这类绑定须标注整个模式的类型
+/// （远超初学者范围），教程示例均不标注，提示无解且成噪音。
+///
+/// 无法归类的形态（如语法错误、注释紧跟）一律返回 false（宁缺毋滥）。
+fn is_simple_let_binding(chars: &[char], from: usize) -> bool {
+    let mut j = from;
+    // 跳过空白（含换行：多行布局不影响绑定判定）
+    while j < chars.len() && chars[j].is_whitespace() {
+        j += 1;
+    }
+    // 可选「可变」前缀（`让 可变 名字 = …`；须为独立词）
+    if starts_with_word(chars, j, "可变") {
+        j += "可变".chars().count();
+        while j < chars.len() && chars[j].is_whitespace() {
+            j += 1;
+        }
+    }
+    // 绑定首字符须为标识符字符：`(`/`[`/`{` 等模式起始一律排除
+    if j >= chars.len() || !(chars[j].is_alphanumeric() || chars[j] == '_') {
+        return false;
+    }
+    // 收集标识符（到名字结束），再跳过名字与后续符号之间的空白
+    let mut k = j;
+    while k < chars.len() && (chars[k].is_alphanumeric() || chars[k] == '_') {
+        k += 1;
+    }
+    while k < chars.len() && chars[k].is_whitespace() {
+        k += 1;
+    }
+    match chars.get(k) {
+        // `名字 = …` / `名字;`（语法错，交给编译器）：简单绑定
+        Some('=' | ';') => true,
+        // 单个 `:` 是类型标注（`名字: 类型 = …`）；`::` 是路径
+        // （`枚举::变体(数)` 模式）——后者非简单绑定
+        Some(':') => !matches!(chars.get(k + 1), Some(':')),
+        // `名字(` / `名字 {` 等模式、行尾、无法归类的形态：不提示
+        _ => false,
+    }
+}
+
+/// 判断 `chars[j..]` 是否以独立词 `word` 开头（词后不能紧跟标识符续字符）
+fn starts_with_word(chars: &[char], j: usize, word: &str) -> bool {
+    let w: Vec<char> = word.chars().collect();
+    if j + w.len() > chars.len() || chars[j..j + w.len()] != w[..] {
+        return false;
+    }
+    !matches!(chars.get(j + w.len()), Some(c) if c.is_alphanumeric() || *c == '_')
 }
 
 /// 收尾进行中的 `让` 扫描：无类型注解时报告
@@ -540,6 +598,66 @@ mod tests {
         assert_eq!(warnings[0].kind, LintKind::UntypedLet);
         assert_eq!(warnings[0].line, 2);
         assert_eq!(warnings[0].column, 5);
+    }
+
+    /// 模式解构绑定不做「未标注类型」提示（元组/结构体/数组/可变元组）：
+    /// 这类绑定须标注整个模式的类型（教学示例均不标注），提示无解且成
+    /// 噪音（回归：教程第四/十一章解构写法被误报）
+    #[test]
+    fn test_pattern_destructuring_not_flagged() {
+        let cases = [
+            "函数 主函数() {\n    让 (甲, 乙) = (1, 2);\n}",
+            "函数 主函数() {\n    让 点 { x, y } = 某点;\n}",
+            "函数 主函数() {\n    让 [首, 次] = 列表;\n}",
+            "函数 主函数() {\n    让 可变 (丙, 丁) = (1, 2);\n}",
+        ];
+        for source in cases {
+            let warnings = lint_teaching(source);
+            assert!(
+                !warnings.iter().any(|w| w.kind == LintKind::UntypedLet),
+                "模式解构不应提示未标注类型: {source}\n{warnings:?}"
+            );
+        }
+    }
+
+    /// 让-否则（let-else）与 let 链中的模式绑定同样不提示；
+    /// `枚举::变体(数)` 限定路径模式（`::` 非类型标注）也不提示
+    #[test]
+    fn test_let_else_chain_and_path_pattern_not_flagged() {
+        let cases = [
+            "函数 主函数() {\n    让 有值(数) = 输入 否则 {\n        返回;\n    };\n}",
+            "函数 主函数() {\n    如果让 有值(a) = 有值(1) && 让 有值(b) = 有值(2) {\n        打印行!(\"{}\", a);\n    }\n}",
+            "函数 主函数() {\n    让 选项::有值(数) = 输入;\n}",
+        ];
+        for source in cases {
+            let warnings = lint_teaching(source);
+            assert!(
+                !warnings.iter().any(|w| w.kind == LintKind::UntypedLet),
+                "模式绑定不应提示未标注类型: {source}\n{warnings:?}"
+            );
+        }
+    }
+
+    /// 简单标识符绑定（含「可变」前缀）仍照常提示；
+    /// 显式标注（含「可变」）仍豁免
+    #[test]
+    fn test_simple_binding_still_flagged() {
+        let source = concat!(
+            "函数 主函数() {\n",
+            "    让 x = 1;\n",
+            "    让 可变 y = 1;\n",
+            "    让 x2: 整数 = 1;\n",
+            "    让 可变 y2: 整数 = 1;\n",
+            "}"
+        );
+        let warnings = lint_teaching(source);
+        let untyped: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.kind == LintKind::UntypedLet)
+            .collect();
+        assert_eq!(untyped.len(), 2, "{warnings:?}");
+        assert_eq!(untyped[0].line, 2);
+        assert_eq!(untyped[1].line, 3);
     }
 
     /// 空行/纯空白行计入行号：警告位置不得因空行而前移

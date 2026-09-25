@@ -464,6 +464,7 @@
 "屏障" = "Barrier"
 "屏障结果" = "BarrierWaitResult"
 "一次性" = "Once"
+"懒静态" = "LazyLock"  # std::sync::LazyLock 惰性初始化静态值（office-zb #21）
 "消息传递" = "mpsc"
 "通道" = "channel"
 "发送端" = "Sender"

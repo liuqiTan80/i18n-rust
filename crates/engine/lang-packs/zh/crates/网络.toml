@@ -23,6 +23,8 @@
 "响应状态" = "status"  # Response::status 取状态码
 "是否成功" = "is_success"  # StatusCode::is_success 判断 2xx
 "阻塞" = "blocking"  # reqwest::blocking 同步子模块
+"取构建器" = "builder"  # Client::builder 创建客户端构建器
+"连接超时" = "connect_timeout"  # ClientBuilder::connect_timeout
 
 # hyper
 "服务器" = "Server"

@@ -1,5 +1,5 @@
-// i18n-rust 核心引擎
-// 提供多语言 Rust 方言的词法处理、映射管理、诊断翻译、增量缓存、安全检测等功能
+//! i18n-rust 核心引擎
+//! 提供多语言 Rust 方言的词法处理、映射管理、诊断翻译、增量缓存、安全检测等功能
 
 pub mod alias;
 pub mod cache;
@@ -234,14 +234,21 @@ fn transpile_pipeline_inner(
             edits: Vec::new(),
         }
     };
-    // 阶段 4：标识符别名替换（声明位保护 + 项目级声明上下文）
-    let al = if manager.alias_map.is_empty() {
+    // 阶段 4：标识符别名替换（声明位保护 + 项目级声明上下文）；
+    // 附模块路径表：use 之外的路径根位模块词（`异步运行时::睡眠`、
+    // `#[异步运行时::主函数]`）在别名阶段回退模块路径表完成转译
+    let al = if manager.alias_map.is_empty() && manager.module_path_map.is_empty() {
         alias::ReplaceResult {
             output: qual.output.clone(),
             edits: Vec::new(),
         }
     } else {
-        alias::replace_aliases_with_context(&qual.output, manager.get_alias_map(), project)
+        alias::replace_aliases_with_context_and_module_paths(
+            &qual.output,
+            manager.get_alias_map(),
+            manager.get_module_path_map(),
+            project,
+        )
     };
 
     // 组合各阶段编辑表为母语源坐标的全管线地图（replacement 取最终输出文本）
