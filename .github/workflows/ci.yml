@@ -224,7 +224,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: 运行基准并对比入库基线（超阈值时失败）
-        # 基线：crates/engine/benches/baseline.json（开发者用
+        # 基线：crates/engine/benches/baseline.json（转译管线）与
+        # crates/lsp/benches/baseline.json（LSP 热路径）（开发者用
         # tools/bench-check.sh --update 刷新后随仓库提交）；
         # 阈值：本地默认 30%；CI 复用共享 runner（邻租户负载干扰大），
         # 同一提交实测波动可超 60%，故 CI 放宽到 100% 只拦灾难性回归，

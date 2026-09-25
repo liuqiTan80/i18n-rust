@@ -11,6 +11,7 @@
 #
 # 产物：
 #   i18n-rust-<版本>.vsix             （VS Code 扩展离线安装包）
+#   SHA256SUMS                        （产物校验和，供下载者验证文件完整性）
 #   （rzc 离线发布包不在 CI 构建：由本地脚本 release-offline.sh/.ps1
 #     编译打包后手动上传到 Release / 网盘）
 #
@@ -154,6 +155,18 @@ jobs:
       - name: 查看产物列表
         run: ls -lh artifacts/
 
+      # 生成 SHA256SUMS（随 Release 附件一并分发，供下载者校验完整性）：
+      # GitHub 侧经 files: artifacts/* 上传、GitCode 侧经附件循环上传，
+      # 两平台发布物均自动包含该文件
+      - name: 生成产物校验和（SHA256SUMS）
+        run: |
+          cd artifacts
+          for f in *; do
+            [ -f "$f" ] || continue
+            sha256sum "$f"
+          done > SHA256SUMS
+          cat SHA256SUMS
+
       # GitHub 镜像仓库：官方 action 创建 GitHub Release（GITHUB_TOKEN 自动注入）
       - name: 创建 GitHub Release 并上传附件
         if: github.repository == 'liuqiTan80/i18n-rust'
@@ -202,6 +215,14 @@ jobs:
             echo
           done
           ls -lh artifacts/
+
+          # 3) 核验：回查 Release 附件列表并打印（失败仅警告，供发布后人工确认）
+          echo "=== GitCode 附件核验（应与 artifacts/ 列表一致）==="
+          { curl -s -H "$AUTH" \
+              "$API/releases/$RELEASE_ID/attach_files?access_token=${GITCODE_TOKEN}" \
+              | head -c 2000; } || true
+          echo
+          echo "::notice::GitCode Release 已创建：https://gitcode.com/tan80/i18n-rust/releases （附件缺失时可手动补传或重跑本 job）"
 
   # ---------- 发布 crates.io（需配置 CARGO_REGISTRY_TOKEN 密钥） ----------
   # 注意：if 条件中不可引用 secrets 上下文（GitHub Actions 限制），
