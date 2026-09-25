@@ -1,0 +1,32 @@
+# =============================================================
+# rzc 文档站 · 中文书（mdBook）
+#
+# src/ 目录由 tools/build-site.py 在构建时组装：教程/附录来自 ../../tutorials/
+# （仓库源文件原位不动），参考文档来自 ../../docs/；SUMMARY.md / index.md /
+# 本配置随仓库提交。本地构建：make site；预览：make site-serve（见 book/README.md）
+# =============================================================
+[book]
+title = "rzc 教程 · 用母语写 Rust"
+language = "zh-CN"
+src = "src"
+# 目录中列出的文件缺失时构建失败，防止章节改名后站点静默缺页
+create-missing = false
+
+[build]
+# 兜底值（直接运行 mdbook build book/zh 时生效）；构建脚本以 -d 指定真实输出
+build-dir = "book"
+
+[output.html]
+git-repository-url = "https://github.com/liuqiTan80/i18n-rust"
+# 顶栏语言切换（所有语言书共用同一脚本，站点内各语言位于同级子目录）
+additional-js = ["lang-switch.js"]
+# 更换自定义域名时需同步更新此处（及 tools/build-site.py 的 404 逻辑）
+site-url = "/i18n-rust/zh/"
+
+[output.html.fold]
+enable = true
+
+[output.html.playground]
+# 中文教程代码为中文方言（非标准 Rust），禁用编辑/运行按钮避免误导
+editable = false
+runnable = false

@@ -1,0 +1,88 @@
+# =============================================================
+# i18n-rust 文档站部署工作流（mdBook → GitHub Pages）
+#
+# 触发条件：
+#   - push 到 main 且涉及教程 / 文档 / 站点装配文件
+#   - 手动触发（workflow_dispatch）
+#
+# 任务：
+#   1. 安装与本地同款的 mdBook（cargo install --locked 固定版本，带缓存）
+#   2. tools/build-site.py 组装并构建多语言站点（_site/）
+#   3. 上传产物并部署到 GitHub Pages
+#
+# 前置（一次性）：仓库 Settings → Pages → Source 选择 "GitHub Actions"。
+# 说明：GitCode 侧不提供 Pages，部署仅 GitHub；教程 md 源文件仍在仓库原位，
+#       站点装配源见 book/（本地构建说明：book/README.md）。
+# =============================================================
+name: 文档站
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "tutorials/**"
+      - "docs/**"
+      - "book/**"
+      - "tools/build-site.py"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 站点构建互斥：新的推送取消进行中的旧构建
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MDBOOK_VERSION: "0.4.52"
+
+jobs:
+  # ---------- 1. 构建站点 ----------
+  build:
+    name: 构建站点
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 mdBook 可执行文件（按版本键）
+        uses: actions/cache@v4
+        id: cache-mdbook
+        with:
+          path: ~/.cargo/bin/mdbook
+          key: mdbook-${{ runner.os }}-${{ env.MDBOOK_VERSION }}
+
+      - name: 安装 mdBook（缓存未命中时）
+        if: steps.cache-mdbook.outputs.cache-hit != 'true'
+        run: cargo install mdbook --locked --version "$MDBOOK_VERSION"
+
+      - name: 组装并构建多语言站点
+        run: python3 tools/build-site.py
+
+      - name: 配置 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传站点产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  # ---------- 2. 部署 ----------
+  deploy:
+    name: 部署 Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

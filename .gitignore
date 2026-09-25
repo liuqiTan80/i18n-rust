@@ -30,3 +30,10 @@ Thumbs.db
 # 发布产物目录（CI 产物不应提交进仓库，避免旧产物混入 Release）
 /release/
 tools/vscode-extension/release/.Trash-*/
+
+# 文档站构建产物（站点装配源见 book/，脚本 tools/build-site.py）
+/_site/
+/build/site-work/
+
+# Python 字节码缓存
+__pycache__/

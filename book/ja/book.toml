@@ -1,0 +1,27 @@
+# =============================================================
+# rzc 文档站 · 日本語の本（mdBook）
+#
+# src/ 由 tools/build-site.py 构建时组装（教程来自 ../../tutorials/ja/，
+# README.md 除外）；配置/SUMMARY/index 随仓库提交。本地构建：make site
+# =============================================================
+[book]
+title = "rzc チュートリアル · 母語で Rust を書く"
+language = "ja"
+src = "src"
+create-missing = false
+
+[build]
+build-dir = "book"
+
+[output.html]
+git-repository-url = "https://github.com/liuqiTan80/i18n-rust"
+additional-js = ["lang-switch.js"]
+site-url = "/i18n-rust/ja/"
+
+[output.html.fold]
+enable = true
+
+[output.html.playground]
+# ja 教程代码为日语方言（非标准 Rust），禁用运行按钮避免误导
+editable = false
+runnable = false
