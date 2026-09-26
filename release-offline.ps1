@@ -19,7 +19,7 @@
 # 提示：
 #   - 本包不内置 rustc/cargo 与 VS Code（发布方案已取消）；编译运行中文代码
 #     需自行安装 Rust 环境，或联网执行 rzc install toolchain；
-#   - 离线包由本地编译，手动上传到 Release / 网盘分发。
+#   - 离线包由本地编译，手动上传到 Release 分发。
 # =============================================================
 $ErrorActionPreference = 'Stop'
 
@@ -204,4 +204,4 @@ if (Get-Command tar.exe -ErrorAction SilentlyContinue) {
 Remove-Item $temp_root -Recurse -Force
 Write-Host ""
 Write-Host "✅ 离线发布包已生成：$((Get-Location).Path)\$archive"
-Write-Host "💡 部署方式：将压缩包手动上传到 Release / 网盘，用户解压后直接运行其中的 rzc.exe 即可。"
+Write-Host "💡 部署方式：将压缩包手动上传到 Release，用户解压后直接运行其中的 rzc.exe 即可。"

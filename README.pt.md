@@ -188,7 +188,7 @@ A extensão i18n-rust (.vsix) é compatível com todos os editores baseados no V
 
 ### Para distribuidores: pacote de release offline (distribuição em sala de aula)
 
-O repositório inclui um script de empacotamento de um comando (compilação local, pacote para a plataforma atual, para Releases / compartilhamento de arquivos):
+O repositório inclui um script de empacotamento de um comando (compilação local, pacote para a plataforma atual, para Releases):
 
 | Plataforma | Comando | Artefato |
 |---|---|---|

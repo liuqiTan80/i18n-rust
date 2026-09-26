@@ -188,7 +188,7 @@ L'extension i18n-rust (.vsix) est compatible avec tous les éditeurs basés sur 
 
 ### Pour les distributeurs : pack de release hors ligne (distribution en salle de classe)
 
-Le dépôt fournit un script d'empaquetage en une commande (compilation locale, pack pour la plateforme courante, pour Releases / partage de fichiers) :
+Le dépôt fournit un script d'empaquetage en une commande (compilation locale, pack pour la plateforme courante, pour Releases) :
 
 | Plateforme | Commande | Artefact |
 |---|---|---|

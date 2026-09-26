@@ -539,7 +539,7 @@ pub fn show_setup_wizard() {
 
     // 3. VS Code 扩展
     println!("【第 3 步】VS Code 扩展（.vsix 手动安装，未发布到扩展商城）");
-    println!("  [? 手动] 从网盘或 GitHub Releases 下载 i18n-rust-<版本>.vsix");
+    println!("  [? 手动] 从 GitHub Releases 下载 i18n-rust-<版本>.vsix");
     println!("           → VS Code 命令面板（Ctrl+Shift+P）→ Install from VSIX 选择该文件");
     println!();
 

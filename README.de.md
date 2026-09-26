@@ -188,7 +188,7 @@ Die i18n-rust-Erweiterung (.vsix) ist mit allen VS-Code-basierten Editoren kompa
 
 ### Für Distributoren: Offline-Release-Paket (Verteilung für Schulungsräume)
 
-Ein Ein-Kommando-Paketierskript erzeugt ein plattformspezifisches Release-Paket (für Releases / Dateifreigaben):
+Ein Ein-Kommando-Paketierskript erzeugt ein plattformspezifisches Release-Paket (für Releases):
 
 | Plattform | Befehl | Artefakt |
 |---|---|---|

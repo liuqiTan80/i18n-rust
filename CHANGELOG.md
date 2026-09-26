@@ -143,6 +143,10 @@
 - 文档：translation-status 新增「第三方库映射（crates/ 覆盖差异）」节
   （zh 独有 6 表 / 9 翻译语言共享十表 / en 恒等包折叠的差异明示与补齐
   路径）；third-party-mapping §6 对应重写
+- 分发渠道收敛：今后不再使用百度网盘——移除全部网盘分发措辞，离线包与
+  `.vsix` 统一经 GitHub / GitCode Releases 分发（README 中/英及 9 翻译版
+  「给发布者」、教程附录 D 中/en、`release-offline.sh` / `.ps1` 提示、
+  release.yml 注释、`rzc doctor` 安装提示同步更新）
 
 ## [0.8.2] - 2026-09-21
 

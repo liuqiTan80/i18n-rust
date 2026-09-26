@@ -98,6 +98,6 @@ cargo build --release            # 发布优化版（第十八章）
 4. **运行打包脚本**（自动识别平台，无需改参数）：
    - Linux / macOS：`./release-offline.sh`
    - Windows（PowerShell）：`.\release-offline.ps1`
-5. **产物**在 `release/` 目录（如 `rzc-<版本>-windows-x86_64.zip`），包含 rzc、语言服务器、rust-analyzer、11 个内置语言包（10 种自然语言 + `en` 恒等包）与教程，解压即用；上传到 Release / 网盘即可分发。
+5. **产物**在 `release/` 目录（如 `rzc-<版本>-windows-x86_64.zip`），包含 rzc、语言服务器、rust-analyzer、11 个内置语言包（10 种自然语言 + `en` 恒等包）与教程，解压即用；上传到 Release 即可分发。
 
 > 💡 脚本只负责当前平台，交叉编译（在 Linux 上出 Windows 包）需要额外目标工具链，不推荐；直接在目标平台运行脚本最简单可靠。

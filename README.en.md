@@ -186,7 +186,7 @@ The i18n-rust extension (`.vsix`) works in every VS Code-based editor; rzc, the 
 
 ### For distributors: offline release package (classroom distribution)
 
-One-shot local packaging scripts produce a platform-specific release bundle for Releases / file shares:
+One-shot local packaging scripts produce a platform-specific release bundle for Releases:
 
 | Platform | Command | Artifact |
 |---|---|---|

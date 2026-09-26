@@ -97,6 +97,6 @@ Official offline packages cover Windows / Linux / macOS (uploaded manually by th
 4. **Run the packaging script** (auto-detects the platform, no arguments needed):
    - Linux / macOS: `./release-offline.sh`
    - Windows (PowerShell): `.\release-offline.ps1`
-5. **The artifact** lands in `release/` (e.g. `rzc-0.6.3-windows-x86_64.zip`) — rzc, the language server, rust-analyzer, all 10 language packs and the tutorials, ready to unpack and use. Upload it to a Release page or a file host to distribute.
+5. **The artifact** lands in `release/` (e.g. `rzc-0.6.3-windows-x86_64.zip`) — rzc, the language server, rust-analyzer, all 10 language packs and the tutorials, ready to unpack and use. Upload it to a Release page to distribute.
 
 > 💡 The script targets the platform it runs on. Cross-compiling (building Windows packages on Linux) needs extra target toolchains and isn't recommended — just run the script on the target platform.
