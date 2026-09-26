@@ -3,6 +3,7 @@
 **[中文](README.md)** · **[English](README.en.md)** · **[日本語](README.ja.md)** · **[Русский](README.ru.md)** · **[Español](README.es.md)** · **[Français](README.fr.md)** · **[Deutsch](README.de.md)** · **[한국어](README.ko.md)** · **[العربية](README.ar.md)** · **[Português](README.pt.md)** · **[हिन्दी](README.hi.md)**
 
 [![CI](https://github.com/liuqiTan80/i18n-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/liuqiTan80/i18n-rust/actions)
+[![crates.io](https://img.shields.io/crates/v/rzc.svg)](https://crates.io/crates/rzc)
 [![Docs](https://img.shields.io/badge/Docs-Online%20documentation-blue)](https://liuqiTan80.github.io/i18n-rust/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -48,11 +49,21 @@ The same program runs in any of the 10 built-in dialects — e.g. Japanese (`関
 
 ---
 
-## 📦 Installation (build from source)
+## 📦 Installation
 
-rzc ships no prebuilt online installer — build it on your own machine with the official toolchain (1–3 minutes). Every step, from prerequisites to verification, is spelled out below.
+Two options: **Option 1 — install from crates.io** (recommended for most users); **Option 2 — build from source** (latest development build, or when modifying rzc).
 
-**Shortest path** (if you already have a Rust toolchain — four commands to your first program):
+**Option 1: Install from crates.io (recommended)** — published on crates.io; one command gives you a global `rzc`:
+
+```bash
+cargo install rzc        # fetch the source from crates.io and build locally (1–3 minutes)
+rzc --version            # verify (a version number means success)
+rzc init my-project && cd my-project && rzc run src/main.zh
+```
+
+> Language packs are built in — no extra configuration. Crate page: <https://crates.io/crates/rzc>; upgrade an installed version with `cargo install rzc --force`. No Rust toolchain yet? See step 1 below.
+
+**Option 2: Build from source (developers)** — get the latest development build, or build after modifying rzc. **Shortest path** (with a Rust toolchain installed — four commands to your first program):
 
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust.git && cd i18n-rust
@@ -60,6 +71,8 @@ cargo build --release --workspace   # 1–3 minutes
 cargo install --path crates/cli     # make rzc globally available (or use ./target/release/rzc directly)
 rzc init my-project && cd my-project && rzc run src/main.zh
 ```
+
+The full walkthrough below covers Option 2 (prerequisites → build → verify); Option 1 only needs step 1 for the toolchain.
 
 ### Prerequisites
 

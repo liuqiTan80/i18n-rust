@@ -1,6 +1,6 @@
 # 附录D：rzc 命令速查
 
-忘记命令时来这里查。详细讲解见第一章（rzc 基础）和第二章（VS Code 扩展）。
+忘记命令时来这里查。详细讲解见第一章（VS Code 扩展）和第二章（rzc 基础）。
 
 ---
 
@@ -8,11 +8,11 @@
 
 | 命令 | 作用 | 例子 |
 |---|---|---|
-| `rzc init 名字` | 新建中文项目（生成 Cargo.toml + 主函数.zh） | `rzc init 我的项目` |
-| `rzc run 文件.zh` | 转译 + 编译 + 运行 | `rzc run src/主函数.zh` |
-| `rzc check 文件.zh` | 只检查，不生成可执行文件（更快） | `rzc check src/主函数.zh` |
-| `rzc eject 文件.zh` | 导出为标准 Rust（生成 .rs） | `rzc eject src/主函数.zh` |
-| `rzc transpile 文件.zh` | 只转译不编译，标准 Rust 输出到屏幕 | `rzc transpile src/主函数.zh` |
+| `rzc init 名字` | 新建中文项目（生成 Cargo.toml + main.zh） | `rzc init 我的项目` |
+| `rzc run 文件.zh` | 转译 + 编译 + 运行 | `rzc run src/main.zh` |
+| `rzc check 文件.zh` | 只检查，不生成可执行文件（更快） | `rzc check src/main.zh` |
+| `rzc eject 文件.zh` | 导出为标准 Rust（生成 .rs） | `rzc eject src/main.zh` |
+| `rzc transpile 文件.zh` | 只转译不编译，标准 Rust 输出到屏幕 | `rzc transpile src/main.zh` |
 | `rzc cheat 语言` | 母语 ↔ Rust 映射速查表（--markdown 可嵌入文档） | `rzc cheat zh --markdown` |
 | `rzc lang list` | 查看可用语言包 | |
 | `rzc lang install 语言` | 安装语言包 | `rzc lang install ja` |
@@ -33,9 +33,9 @@
 
 ```bash
 rzc init 练习簿 && cd 练习簿    # 造项目
-rzc run src/主函数.zh              # 写一点，跑一点
-rzc check src/主函数.zh            # 改完快速检查
-rzc eject src/主函数.zh && cargo test   # 跑测试（第二十一章）
+rzc run src/main.zh              # 写一点，跑一点
+rzc check src/main.zh            # 改完快速检查
+rzc eject src/main.zh && cargo test   # 跑测试（第二十一章）
 cargo build --release            # 发布优化版（第十八章）
 ```
 
@@ -98,6 +98,6 @@ cargo build --release            # 发布优化版（第十八章）
 4. **运行打包脚本**（自动识别平台，无需改参数）：
    - Linux / macOS：`./release-offline.sh`
    - Windows（PowerShell）：`.\release-offline.ps1`
-5. **产物**在 `release/` 目录（如 `rzc-0.6.3-windows-x86_64.zip`），包含 rzc、语言服务器、rust-analyzer、10 种语言包与教程，解压即用；上传到 Release / 网盘即可分发。
+5. **产物**在 `release/` 目录（如 `rzc-<版本>-windows-x86_64.zip`），包含 rzc、语言服务器、rust-analyzer、10 种语言包与教程，解压即用；上传到 Release / 网盘即可分发。
 
 > 💡 脚本只负责当前平台，交叉编译（在 Linux 上出 Windows 包）需要额外目标工具链，不推荐；直接在目标平台运行脚本最简单可靠。

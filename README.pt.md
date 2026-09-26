@@ -26,9 +26,21 @@ $ rzc run src/main.pt
 Número: 11
 ```
 
-## 📦 Instalação (compilar a partir do código-fonte)
+## 📦 Instalação
 
-O rzc não oferece instalador pré-compilado online — compile-o na sua própria máquina (1–3 minutos).
+Duas opções: **Opção 1 — instalar via crates.io** (recomendada); **Opção 2 — compilar a partir do código-fonte** (para desenvolvedores).
+
+**Opção 1: instalar via crates.io (recomendada)** — publicado no crates.io; com a toolchain Rust instalada basta um comando:
+
+```bash
+cargo install rzc        # baixa do crates.io e compila localmente (1–3 minutos)
+rzc --version            # número de versão = sucesso
+rzc init meu-projeto && cd meu-projeto && rzc run src/main.pt
+```
+
+> Os pacotes de idioma são embutidos — sem configuração extra. Página do crate: <https://crates.io/crates/rzc>; atualização: `cargo install rzc --force`. Ainda sem toolchain Rust? Veja o «1.» abaixo.
+
+**Opção 2: compilar a partir do código-fonte (desenvolvedores)** — o passo a passo completo está abaixo («1. Instalar a toolchain Rust» vale para as duas opções).
 
 ### Pré-requisitos
 

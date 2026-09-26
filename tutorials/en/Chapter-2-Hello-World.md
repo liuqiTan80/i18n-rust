@@ -193,9 +193,9 @@ Reopen the terminal and verify:
 rustc --version
 ```
 
-> 📖 `--version` means "tell me your version number". A version number is a piece of software's birthday tag, like 1.85.0.
+> 📖 `--version` means "tell me your version number". A version number is a piece of software's birthday tag, like 1.98.0.
 
-If you see something like `rustc 1.85.0`, installation succeeded. An exact match doesn't matter.
+If you see something like `rustc 1.98.0`, installation succeeded. An exact match doesn't matter.
 
 > **Problems?** If it says "command not found", the window probably wasn't reopened. Close and reopen. Still nothing? Restart the computer and try again.
 

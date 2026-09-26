@@ -85,7 +85,7 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | [docs/project-map.md](project-map.md) | 改哪儿、怎么验（维护者，本页） |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 开发环境与提交规范 |
 | 参考文档 6 篇：[contributing-lang-pack](contributing-lang-pack.md) / [missing-mapping-guide](missing-mapping-guide.md) / [third-party-mapping](third-party-mapping.md) / [third-party-registry](third-party-registry.md) / [dialect-framework-blueprint](dialect-framework-blueprint.md) / [translation-status](translation-status.md) | 专项流程 |
-| [docs/dev/i18n-rust.md](dev/i18n-rust.md) | 架构总览（深度贡献） |
+| [docs/dev/i18n-rust.md](dev/i18n-rust.md) | 早期设计愿景稿（部分已演进；架构现状见本页与代码） |
 | [docs/strategy/README.md](strategy/README.md) | 现状与路线图（维护者） |
 | [CHANGELOG.md](../CHANGELOG.md) | 逐版本变更流水 |
 

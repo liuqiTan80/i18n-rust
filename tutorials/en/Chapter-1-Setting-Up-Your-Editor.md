@@ -68,7 +68,7 @@ cargo install rzc
 
 rzc understands standard Rust (your code passes through unchanged) and adds: translated teaching diagnostics in 10 languages, offline packaging for classrooms without internet, and a native-keyword dialect so each student can write Rust in their own mother tongue. English readers don't need it for this book — it's there for the classroom.
 
-> 💡 The i18n-rust extension (the one this project publishes) hooks into rzc and provides: error-message translation with teaching hints, AI-assisted explanations (your own API key), and code snippets for the non-English dialects. English-only readers can skip it — rust-analyzer covers you.
+> 💡 The i18n-rust extension (the one this project publishes) hooks into rzc and provides: error-message translation with teaching hints, AI-assisted explanations (your own API key), and code snippets for the non-English dialects. It ships as a `.vsix` file (GitHub Releases / the offline package — same source as rzc), **not on the VS Code Marketplace**: `Ctrl + Shift + P` (Mac: `Cmd + Shift + P`) → **`Install from VSIX`** → pick the file. English-only readers can skip it — rust-analyzer covers you.
 
 ---
 

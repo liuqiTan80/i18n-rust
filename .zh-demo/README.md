@@ -8,9 +8,9 @@
 运行方式：在工作区根目录执行
 
 ```bash
-rzc run .zh-demo/src/主函数.zh
+rzc run .zh-demo/src/main.zh
 ```
 
-注意：`src/主函数.zh` 中 `rustc_lexer` 保持英文原名——第三方库尚未
+注意：`src/main.zh` 中 `rustc_lexer` 保持英文原名——第三方库尚未
 建立母语映射，属预期行为（可通过 `rzc mapping auto rustc_lexer`
 生成映射后改善）。

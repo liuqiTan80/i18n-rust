@@ -26,9 +26,21 @@ $ rzc run src/main.ko
 수: 11
 ```
 
-## 📦 설치 (소스에서 빌드)
+## 📦 설치
 
-rzc는 온라인 프리빌드 설치를 제공하지 않습니다. 직접 빌드하세요 (첫 빌드 약 1~3분).
+두 가지 방법 중 선택하세요: **방법 1 — crates.io 설치** (권장); **방법 2 — 소스에서 빌드** (개발자용).
+
+**방법 1: crates.io 설치 (권장)** — crates.io에 공개되어 있어 Rust 툴체인만 있으면 한 줄로 끝납니다:
+
+```bash
+cargo install rzc        # crates.io에서 받아 로컬에서 빌드 (첫 빌드 약 1~3분)
+rzc --version            # 버전 번호가 나오면 설치 성공
+rzc init 내-프로젝트 && cd 내-프로젝트 && rzc run src/main.ko
+```
+
+> 언어 팩은 내장되어 별도 설정이 필요 없습니다. crate 페이지: <https://crates.io/crates/rzc>; 업그레이드: `cargo install rzc --force`. Rust 툴체인이 없다면 아래 「1.」을 먼저 실행하세요.
+
+**방법 2: 소스에서 빌드 (개발자용)** — 아래는 방법 2의 전체 단계입니다 (「1. Rust 툴체인 설치」는 두 방법 공통).
 
 ### 사전 요구 사항
 

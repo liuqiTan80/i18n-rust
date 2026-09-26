@@ -8,8 +8,14 @@
 ```rust,ignore
 use i18n_rust_engine::mapping_manager::MappingManager;
 
-// 加载中文语言包（关键字/模块路径/别名/错误消息翻译）
-let manager = MappingManager::load_builtin("zh");
+// 加载内置中文语言包四表：关键字 / 模块路径 / 标准库别名 / 第三方库映射
+let manager = MappingManager::load_from_builtin(
+    include_str!("../lang-packs/zh/keywords.toml"),
+    include_str!("../lang-packs/zh/module_paths.toml"),
+    include_str!("../lang-packs/zh/stdlib.toml"),
+    &[], // 第三方库映射：(文件名, 内容) 列表
+)?;
+// 亦可运行时从目录加载：MappingManager::load_from_dir(Path::new("…/lang-packs/zh"))
 
 // 母语 Rust → 标准 Rust（逐 token 原地替换，行号恒等）
 let english = i18n_rust_engine::transpile_pipeline(

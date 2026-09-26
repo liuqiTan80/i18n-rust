@@ -25,7 +25,7 @@ block.
 | [Chapter 13: Traits](Chapter-13-Traits.md) | 第十三章：特征 | ✅ done |
 | Chapter 14–26, Appendices A–C & E | 第十四章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
-Gate status (2026-09-25): 242 blocks extracted, 239 verified — 210 pass +
+Gate status (2026-09-26): 242 blocks extracted, 239 verified — 210 pass +
 29 cross-block deps allowlisted, 0 failures (allowlist keyed by file+line
 in `tools/expected-failures.json`).
 
@@ -42,6 +42,6 @@ Translation principles (revised 2026-09-06):
 - **Every code block is still compile-verified** with
   `tools/verify-tutorials.py --dir tutorials/en` — standard Rust passes
   through rzc unchanged, and the gate still catches broken examples.
-- Conversion status: **all chapters are converted** — Chapter 2 is the
-  reference template, Chapters 1–13 are complete, and the multilingual gate
+- Conversion status: **Chapters 1–13 are complete** — Chapter 2 is the
+  reference template; Chapters 14+ are in progress, and the multilingual gate
   (zh/en/ja/ru) passes with 0 failures (see translation-status.md).

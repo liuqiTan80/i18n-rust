@@ -26,9 +26,21 @@ $ rzc run src/main.de
 Zahl: 11
 ```
 
-## 📦 Installation (aus dem Quellcode bauen)
+## 📦 Installation
 
-rzc bietet kein fertiges Online-Installationspaket — bauen Sie es auf Ihrem eigenen Rechner (1–3 Minuten).
+Zwei Optionen: **Option 1 — Installation über crates.io** (empfohlen); **Option 2 — aus dem Quellcode bauen** (für Entwickler).
+
+**Option 1: Installation über crates.io (empfohlen)** — auf crates.io veröffentlicht; mit installierter Rust-Toolchain genügt ein Befehl:
+
+```bash
+cargo install rzc        # von crates.io holen und lokal bauen (1–3 Minuten)
+rzc --version            # Versionsnummer = Erfolg
+rzc init mein-projekt && cd mein-projekt && rzc run src/main.de
+```
+
+> Sprachpakete sind eingebaut — keine zusätzliche Konfiguration. Crate-Seite: <https://crates.io/crates/rzc>; Upgrade: `cargo install rzc --force`. Noch keine Rust-Toolchain? Zuerst „1.“ unten.
+
+**Option 2: Aus dem Quellcode bauen (Entwickler)** — die vollständige Schritt-für-Schritt-Anleitung steht unten („1. Rust-Werkzeugkette installieren“ gilt für beide Optionen).
 
 ### Voraussetzungen
 

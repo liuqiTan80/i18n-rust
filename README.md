@@ -3,6 +3,7 @@
 **[中文](README.md)** · **[English](README.en.md)** · **[日本語](README.ja.md)** · **[Русский](README.ru.md)** · **[Español](README.es.md)** · **[Français](README.fr.md)** · **[Deutsch](README.de.md)** · **[한국어](README.ko.md)** · **[العربية](README.ar.md)** · **[Português](README.pt.md)** · **[हिन्दी](README.hi.md)**
 
 [![CI](https://github.com/liuqiTan80/i18n-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/liuqiTan80/i18n-rust/actions)
+[![crates.io](https://img.shields.io/crates/v/rzc.svg)](https://crates.io/crates/rzc)
 [![Docs](https://img.shields.io/badge/Docs-Online%20documentation-blue)](https://liuqiTan80.github.io/i18n-rust/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -46,11 +47,21 @@ $ rzc run src/main.zh
 
 ---
 
-## 📦 安装（源码编译）
+## 📦 安装
 
-rzc 不提供在线预编译安装，请用官方工具链在本机编译（首次约 1-3 分钟）。下面从先决条件到编译、验证，每一步都写清楚。
+两种方式任选：**方式一 crates.io 一键安装**（推荐，适合绝大多数用户）；**方式二 源码编译**（需要最新开发版，或要修改 rzc 源码的开发者）。
 
-**最短路径**（已装 Rust 工具链的开发者，4 条命令跑通第一个程序）：
+**方式一：crates.io 一键安装（推荐）**——已在 crates.io 发布，一条命令装完全局可用：
+
+```bash
+cargo install rzc        # 从 crates.io 获取源码并在本机编译（首次约 1-3 分钟）
+rzc --version            # 验证（显示版本号即成功）
+rzc init 我的项目 && cd 我的项目 && rzc run src/main.zh
+```
+
+> 语言包已内置，无需任何额外配置。crate 页面：<https://crates.io/crates/rzc>；升级已装版本：`cargo install rzc --force`。尚未安装 Rust 工具链？见下方「第一步」。
+
+**方式二：源码编译（开发者）**——获取最新开发版，或修改 rzc 后本地构建。**最短路径**（已装 Rust 工具链，4 条命令跑通第一个程序）：
 
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust && cd i18n-rust
@@ -58,6 +69,8 @@ cargo build --release --workspace   # 约 1-3 分钟
 cargo install --path crates/cli     # 让 rzc 全局可用（也可直接用 ./target/release/rzc）
 rzc init 我的项目 && cd 我的项目 && rzc run src/main.zh
 ```
+
+下方为方式二的完整分步说明（先决条件 → 编译 → 验证）；其中「第一步」两种方式通用。
 
 ### 先决条件一览
 

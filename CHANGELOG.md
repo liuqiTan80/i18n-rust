@@ -63,13 +63,20 @@
 ### 文档
 - 维护者入口整理：新增 [项目地图](docs/project-map.md)（任务→文件→命令速查 +
   目录/工作流/门禁/文档体系一页）与 [tools/README.md](tools/README.md)（脚本索引，
-  `make` 为本地唯一入口）；`docs/strategy/` 收敛为"现状与路线图 + 推广方案 +
-  发布准备清单"，5 份历史评估快照移入 `docs/strategy/archive/`
+  `make` 为本地唯一入口）；`docs/strategy/` 收敛为"现状与路线图 +
+  发布准备清单"（原《推广方案》已移除），5 份历史评估快照移入 `docs/strategy/archive/`
 - README（中/英）首页改版：新增「从这里开始」导航、最短路径安装、与"玩具语言"
   的对比表、在线文档站入口、多语言教程进度与 Star 引导
+- README（中/英）安装节改版：crates.io 一键安装（`cargo install rzc`）提为推荐
+  方式并加版本徽章，源码编译降为方式二（开发者）
 - 演示素材：`docs/demo/` 三语言 [vhs](https://github.com/charmbracelet/vhs) 录屏
   脚本（`demo-{zh,ja,ru}.tape`）与演示样例（实机验证：命中 E0384 教学报错、
   eject 导出成功），附 GIF 制作指南与规格（15 秒三幕挂载 README 首屏）
+- 教程与文档过时内容修正：zh 教程入口文件名全量统一为 `main.zh`（对齐
+  `rzc init` 产物，含 `.zh-demo` 重命名）；ja/ru/en 第一章补 `.vsix` 离线
+  安装指引、ja 项目命令修正为 `rzc init --lang ja`、rustc 示例版本更新为
+  1.98；教程第一章能力表编号、附录 D 命令示例与附录 E 迁移对照表修正；
+  engine README 示例 API 修正；strategy 文档同步 crates.io 0.8.2 发布状态
 
 ## [0.8.2] - 2026-09-21
 

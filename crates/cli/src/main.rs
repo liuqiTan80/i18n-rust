@@ -1037,7 +1037,7 @@ fn find_project_root(file: &Path) -> anyhow::Result<PathBuf> {
 /// 计算 `run`/`check` 的入口产物路径。
 ///
 /// 仅当源文件确为入口（词干为 [`is_entry_stem`]，即 `main` 或语言包主函数
-/// 词，如 zh 教程约定的 `src/主函数.zh`）时才写入 Cargo 固定编译目标
+/// 词，如 `src/main.zh`、旧项目里的 `src/主函数.zh`）时才写入 Cargo 固定编译目标
 /// `src/main.rs`；其余文件（如项目根的 `build.zh`）产物跟随自身扩展名
 /// （`build.rs`），绝不占用 `src/main.rs`——否则会把 build 脚本静默覆盖为
 /// 项目入口（weix 工具异常 #4）。
@@ -1053,8 +1053,8 @@ fn entry_output_path(project_root: &Path, file: &Path, manager: &MappingManager)
 /// 词干是否为项目入口主函数名：字面 `main`，或语言包中映射到 `main` 的
 /// 母语词（zh「主函数」、ja「主関数」、ru「главная」等）。
 ///
-/// 教程与 `init` 项目两条命名约定并存：`init` 生成 `src/main.<lang>`，
-/// 而中文教程与示例（.zh-demo）约定 `src/主函数.zh`——两者都须聚合到
+/// `init` 生成 `src/main.<lang>`，教程与示例（.zh-demo）同样使用 `src/main.zh`；
+/// 早期项目还可能有母语词干入口（如 zh 的 `src/主函数.zh`）——都须聚合到
 /// Cargo 固定入口 `src/main.rs`，否则 cargo 报「no targets specified」。
 fn is_entry_stem(stem: &str, manager: &MappingManager) -> bool {
     stem == "main"
@@ -1272,7 +1272,7 @@ fn transpile_project_files(
         return Ok(());
     };
     // 入口产物固定写入 src/main.rs：src/ 下任何入口词干的方言文件
-    // （init 生成的 main.zh、教程约定的 主函数.zh 等）转译后都会覆盖
+    // （main.zh、旧项目的主函数.zh 等）转译后都会覆盖
     // 入口产物，必须跳过
     let entry_abs = entry_file.canonicalize().ok();
     let mut files = Vec::new();
@@ -1873,7 +1873,7 @@ mod tests {
             entry_output_path(root, Path::new("/proj/src/main.zh"), &m),
             PathBuf::from("/proj/src/main.rs")
         );
-        // zh 约定入口「主函数」（映射 main）→ 同样聚合到 src/main.rs
+        // 母语词干入口「主函数」（映射 main，旧项目命名）→ 同样聚合到 src/main.rs
         // （回归：此前仅认字面 main，主函数.zh 产物写自身名致 cargo 找不到目标）
         assert_eq!(
             entry_output_path(root, Path::new("/proj/src/主函数.zh"), &m),
