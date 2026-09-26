@@ -38,6 +38,13 @@
 ["标识符"]
 
 "standard" = "std"
+"entree_sortie" = "io"
+"collections" = "collections"
+"reseau" = "net"
+"atomic" = "atomic"
+"noyau" = "core"
+"allocation" = "alloc"
+"processus" = "process"
 # --------------------------------------------
 # Types numériques supplémentaires
 # --------------------------------------------
@@ -145,6 +152,10 @@
 "ecrivable" = "Write"
 "positionnable" = "Seek"
 "position_depuis" = "SeekFrom"
+"chaine" = "String"
+"reference_chaine" = "&str"
+"reference_duree_de_vie" = "&'a"
+"reference_chaine_statique" = "&'static str"
 
 # --------------------------------------------
 # Méthodes de chaînes / texte (String / str)
@@ -193,6 +204,7 @@
 "longueur" = "len"
 "comme_octets" = "as_bytes"
 "depuis_utf8" = "from_utf8"
+"depuis_utf8_avec_perte" = "from_utf8_lossy"
 "correspondances" = "matches"
 
 # --------------------------------------------
@@ -204,6 +216,7 @@
 "trier_par_cle" = "sort_by_key"
 "trier_instable" = "sort_unstable"
 "inverser" = "reverse"
+"ordre_inverse" = "rev"
 "dedoublonner" = "dedup"
 "dedoublonner_par" = "dedup_by"
 "conserver" = "retain"
@@ -216,6 +229,8 @@
 "comme_tranche_mutable" = "as_mut_slice"
 "concatenation" = "concat"
 "etendre" = "extend"
+"etendre_depuis_tranche" = "extend_from_slice"
+"vers_vecteur" = "to_vec"
 "depuis_iterateur" = "from_iter"
 "drainer" = "drain"
 "morceaux" = "chunks"
@@ -248,6 +263,8 @@
 "tas_binaire" = "BinaryHeap"
 "ensemble_hash" = "HashSet"
 "file_double" = "VecDeque"
+"emprunter" = "borrow"
+"emprunter_mutable" = "borrow_mut"
 "liste_chainee" = "LinkedList"
 "cles" = "keys"
 "valeurs" = "values"
@@ -314,23 +331,30 @@
 "ecrire" = "write"
 "purger" = "flush"
 "ouvrir" = "open"
+"systeme_fichiers" = "fs"
 
 # --------------------------------------------
 # Système de fichiers supplémentaire
 # --------------------------------------------
 "fichier" = "File"
 "chemin" = "Path"
+"chemin_entree" = "path"
+"est_chiffre_ascii" = "is_ascii_digit"
+"octet" = "u8"
 "chemin_tampon" = "PathBuf"
 "entree_dossier" = "DirEntry"
 "lire_dossier" = "read_dir"
 "creer_dossier" = "create_dir"
 "creer_tous_dossiers" = "create_dir_all"
+"montrer" = "display"
 "supprimer_fichier" = "remove_file"
 "supprimer_dossier" = "remove_dir"
 "supprimer_tous_dossiers" = "remove_dir_all"
 "copier" = "copy"
 "renommer" = "rename"
 "metadonnees" = "Metadata"
+"obtenir_metadonnees" = "metadata"
+"date_modification" = "modified"
 "taille_fichier" = "len"
 "est_fichier" = "is_file"
 "est_dossier" = "is_dir"
@@ -348,6 +372,7 @@
 "nom_fichier" = "file_name"
 "extension" = "extension"
 "parent" = "parent"
+"existe" = "exists"
 
 # --------------------------------------------
 # Processus et environnement
@@ -360,6 +385,14 @@
 "statut_sortie" = "ExitStatus"
 "code_sortie" = "ExitCode"
 "sortie" = "Output"
+"memoire" = "mem"
+"module_format" = "fmt"
+"module_erreur" = "error"
+"pousser_fin" = "push_back"
+"pousser_debut" = "push_front"
+"retirer_fin" = "pop_back"
+"retirer_debut" = "pop_front"
+"obtenir_sortie" = "output"
 "arguments" = "args"
 "variable_environnement" = "var"
 "definir_variable" = "set_var"
@@ -369,6 +402,8 @@
 "definir_repertoire_actuel" = "set_current_dir"
 "executable_actuel" = "current_exe"
 "repertoire_temporaire" = "temp_dir"
+"id_processus" = "id"
+"ajouter_argument" = "arg"
 "tous_arguments" = "args"
 "terminer" = "exit"
 "abandonner" = "abort"
@@ -388,6 +423,8 @@
 "barriere" = "Barrier"
 "resultat_barriere" = "BarrierWaitResult"
 "une_seule_fois" = "Once"
+"statique_paresseux" = "LazyLock"
+"passage_de_messages" = "mpsc"
 "canal" = "channel"
 "expediteur" = "Sender"
 "recepteur" = "Receiver"
@@ -435,6 +472,8 @@
 "instant" = "Instant"
 "temps_systeme" = "SystemTime"
 "epoque_unix" = "UNIX_EPOCH"
+"temps" = "time"
+"depuis_epoque" = "duration_since"
 "nouvelle_valeur" = "new"
 "depuis_secondes" = "from_secs"
 "depuis_millisecondes" = "from_millis"
@@ -469,6 +508,7 @@
 # Fonctions mémoire
 # --------------------------------------------
 "taille" = "size_of"
+"comme_pointeur" = "as_ptr"
 "alignement" = "align_of"
 "taille_valeur" = "size_of_val"
 "detruire" = "drop"
@@ -562,6 +602,7 @@
 "deballer_ou_sinon" = "unwrap_or_else"
 "deballer_ou_defaut" = "unwrap_or_default"
 "attendre" = "expect"
+"attendu" = "expected"
 "mapper_ou" = "map_or"
 "mapper_ou_sinon" = "map_or_else"
 "et_puis" = "and_then"
@@ -611,6 +652,12 @@
 "macro_inclure_chaine" = "include_str"
 "macro_inclure_octets" = "include_bytes"
 "macro_environnement" = "env"
+"conversion" = "convert"
+"pointeur" = "ptr"
+"nombres" = "num"
+"operations" = "ops"
+"tableau" = "array"
+"marqueur" = "marker"
 "macro_option_environnement" = "option_env"
 "macro_config" = "cfg"
 "macro_vecteur" = "vec"
@@ -669,3 +716,5 @@
 "cmp" = "cmp"
 "ParseIntError" = "ParseIntError"
 "test" = "test"
+"permettre" = "allow"
+"systeme_unix" = "unix"

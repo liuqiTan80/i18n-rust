@@ -23,6 +23,7 @@
 "変換" = "convert"
 "イテレータ" = "iter"
 "フォーマット" = "fmt"
+"format" = "fmt"
 "メモリ" = "mem"
 "ポインタ" = "ptr"
 "数値" = "num"
@@ -38,6 +39,13 @@
 ["标识符"]
 
 "標準ライブラリ" = "std"
+"入出力" = "io"
+"コレクション" = "collections"
+"ネットワーク" = "net"
+"atomic" = "atomic"
+"コア" = "core"
+"アロケーション" = "alloc"
+"プロセス" = "process"
 # --------------------------------------------
 # 数値型の補足
 # --------------------------------------------
@@ -144,6 +152,10 @@
 "書込可能" = "Write"
 "位置決め可能" = "Seek"
 "位置指定" = "SeekFrom"
+"文字列型" = "String"
+"文字列参照" = "&str"
+"ライフタイム参照" = "&'a"
+"静的文字列参照" = "&'static str"
 
 # --------------------------------------------
 # 文字列 / テキストメソッド（String / str）
@@ -192,6 +204,7 @@
 "長さ" = "len"
 "バイトとして" = "as_bytes"
 "UTF8から" = "from_utf8"
+"UTF8から緩和" = "from_utf8_lossy"
 "一致" = "matches"
 
 # --------------------------------------------
@@ -203,6 +216,7 @@
 "キーソート" = "sort_by_key"
 "不安定ソート" = "sort_unstable"
 "反転" = "reverse"
+"逆順" = "rev"
 "重複除去" = "dedup"
 "比較重複除去" = "dedup_by"
 "保持" = "retain"
@@ -215,6 +229,8 @@
 "可変スライスとして" = "as_mut_slice"
 "結合" = "concat"
 "拡張" = "extend"
+"スライスから拡張" = "extend_from_slice"
+"ベクタへ変換" = "to_vec"
 "イテレータから" = "from_iter"
 "排出" = "drain"
 "チャンク" = "chunks"
@@ -247,6 +263,8 @@
 "二分ヒープ" = "BinaryHeap"
 "ハッシュセット" = "HashSet"
 "双方向キュー" = "VecDeque"
+"借入" = "borrow"
+"可変借用" = "borrow_mut"
 "連結リスト" = "LinkedList"
 "キー群" = "keys"
 "値群" = "values"
@@ -313,23 +331,30 @@
 "書く" = "write"
 "フラッシュ" = "flush"
 "開く" = "open"
+"ファイルシステム" = "fs"
 
 # --------------------------------------------
 # ファイルシステム補足
 # --------------------------------------------
 "ファイル" = "File"
 "パス" = "Path"
+"エントリパス" = "path"
+"ASCII数字か" = "is_ascii_digit"
+"バイト" = "u8"
 "パスバッファ" = "PathBuf"
 "ディレクトリ項目" = "DirEntry"
 "ディレクトリ読取" = "read_dir"
 "ディレクトリ作成" = "create_dir"
 "全ディレクトリ作成" = "create_dir_all"
+"展示" = "display"
 "ファイル削除" = "remove_file"
 "ディレクトリ削除" = "remove_dir"
 "全ディレクトリ削除" = "remove_dir_all"
 "コピー" = "copy"
 "名前変更" = "rename"
 "メタデータ" = "Metadata"
+"メタデータ取得" = "metadata"
+"更新時刻" = "modified"
 "ファイルサイズ" = "len"
 "ファイルか" = "is_file"
 "ディレクトリか" = "is_dir"
@@ -347,6 +372,7 @@
 "ファイル名" = "file_name"
 "拡張子" = "extension"
 "親" = "parent"
+"存在するか" = "exists"
 
 # --------------------------------------------
 # プロセスと環境
@@ -359,6 +385,14 @@
 "終了状態" = "ExitStatus"
 "終了コード" = "ExitCode"
 "出力" = "Output"
+"メモリ" = "mem"
+"フォーマットモジュール" = "fmt"
+"エラーモジュール" = "error"
+"末尾に追加" = "push_back"
+"先頭に追加" = "push_front"
+"末尾から取り出し" = "pop_back"
+"先頭から取り出し" = "pop_front"
+"出力取得" = "output"
 "引数" = "args"
 "環境変数" = "var"
 "環境変数設定" = "set_var"
@@ -368,6 +402,8 @@
 "現在ディレクトリ設定" = "set_current_dir"
 "現在実行ファイル" = "current_exe"
 "一時ディレクトリ" = "temp_dir"
+"プロセスID" = "id"
+"単一引数" = "arg"
 "全引数" = "args"
 "終了" = "exit"
 "強制終了" = "abort"
@@ -387,6 +423,8 @@
 "バリア" = "Barrier"
 "バリア待機結果" = "BarrierWaitResult"
 "一度" = "Once"
+"遅延静的" = "LazyLock"
+"メッセージ受け渡し" = "mpsc"
 "チャンネル" = "channel"
 "送信端" = "Sender"
 "受信端" = "Receiver"
@@ -434,6 +472,8 @@
 "瞬間" = "Instant"
 "システム時間" = "SystemTime"
 "UNIX紀元" = "UNIX_EPOCH"
+"時間" = "time"
+"紀元から" = "duration_since"
 "新規値" = "new"
 "秒から" = "from_secs"
 "ミリ秒から" = "from_millis"
@@ -467,6 +507,7 @@
 # メモリ関数
 # --------------------------------------------
 "サイズ" = "size_of"
+"ポインタとして" = "as_ptr"
 "アラインメント" = "align_of"
 "値のサイズ" = "size_of_val"
 "破棄" = "drop"
@@ -560,6 +601,7 @@
 "展開または処理" = "unwrap_or_else"
 "展開または既定" = "unwrap_or_default"
 "期待" = "expect"
+"期待値" = "expected"
 "マップまたは" = "map_or"
 "マップまたは処理" = "map_or_else"
 "そして" = "and_then"
@@ -609,6 +651,12 @@
 "文字列取り込み" = "include_str"
 "バイト取り込み" = "include_bytes"
 "環境マクロ" = "env"
+"変換モジュール" = "convert"
+"ポインタ" = "ptr"
+"数値" = "num"
+"演算子" = "ops"
+"配列" = "array"
+"マーカー" = "marker"
 "オプション環境マクロ" = "option_env"
 "設定マクロ" = "cfg"
 "ベクタマクロ" = "vec"
@@ -668,3 +716,5 @@
 "cmp" = "cmp"
 "ParseIntError" = "ParseIntError"
 "test" = "test"
+"許可" = "allow"
+"Unixシステム" = "unix"

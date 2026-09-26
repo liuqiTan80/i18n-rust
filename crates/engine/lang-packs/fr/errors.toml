@@ -1402,7 +1402,7 @@
 
 [E0583]
 "消息模板" = "le fichier correspondant au module est introuvable"
-"教学提示" = "Une déclaration de module (`module nom;`) exige l'existence du fichier `nom.zh` ou `nom/mod.zh` dans le même répertoire. Créez le fichier ou vérifiez le nom."
+"教学提示" = "Une déclaration de module (`module nom;`) exige l'existence du fichier `nom.fr` dans le même répertoire. Créez le fichier ou vérifiez le nom."
 
 [E0584]
 "消息模板" = "aucun élément ne suit le commentaire de documentation"
@@ -1910,7 +1910,7 @@
 
 [E0761]
 "消息模板" = "plusieurs fichiers candidats existent pour le module"
-"教学提示" = "Le module du même nom existe simultanément sous forme `.zh` et répertoire. Ne conservez qu'un seul fichier candidat."
+"教学提示" = "Le module du même nom existe simultanément sous forme `.fr` et répertoire. Ne conservez qu'un seul fichier candidat."
 
 [E0762]
 "消息模板" = "le littéral de caractère n'est pas terminé correctement"
@@ -2373,4 +2373,59 @@
 
 ["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown: "]
 "消息模板" = "assurez-vous que tous les cas sont couverts : ajoutez une branche générique (`_ => ...`) ou une branche explicite, par exemple : "
+
+# ============================================
+# Conseils de syntaxe et d'import (diagnostics VS Code)
+# ============================================
+
+["消息翻译"."items from traits can only be used if the trait is in scope"]
+"消息模板" = "Cette méthode provient d'un trait ; il faut d'abord importer ce trait dans la portée actuelle"
+"教学提示" = "Importez en tête de fichier le trait qui fournit la méthode avec `utiliser`, puis la méthode sera appelable."
+
+["消息翻译"."if you wanted to use a crate named "]
+"消息模板" = "Si vous souhaitez utiliser la caisse externe {q0}, exécutez `rzc add {q0}` pour ajouter la dépendance"
+
+["消息翻译"."expected item, found keyword `let`"]
+"消息模板" = "un élément était attendu, mais le mot-clé `laisser` a été trouvé"
+"教学提示" = "Au niveau du module (racine), `laisser` ne peut pas être écrit directement : pour les variables globales utilisez `statique` ou `constante`, et placez la logique dans des fonctions (par ex. `fonction principale()`)."
+
+["消息翻译"."expected item, found keyword "]
+"消息模板" = "un élément était attendu, mais le mot-clé "
+
+["消息翻译"."consider using `static` or `const` instead of `let`"]
+"消息模板" = "Envisagez d'utiliser `statique` ou `constante` au lieu de `laisser`"
+
+# ============================================
+# Fichiers de module manquants et unlinked-file
+# ============================================
+
+["消息翻译"."file not found for module `"]
+"消息模板" = "le fichier correspondant au module `{q0}` est introuvable"
+"教学提示" = "Une déclaration de module (`module nom;`) exige l'existence du fichier `nom.fr` dans le même répertoire. Créez le fichier ou vérifiez le nom."
+
+["消息翻译"."to create the module `"]
+"消息模板" = "Pour créer le module `{q0}`, créez le fichier `{q0}.fr`"
+
+["消息翻译"."if there is a `mod "]
+"消息模板" = "Si une déclaration `module {q0}` existe déjà ailleurs dans la caisse, vous pouvez importer avec `utiliser crate::...`"
+
+["消息翻译"."unresolved module, can't find module file: "]
+"消息模板" = "module non résolu, fichier de module introuvable : {q0}"
+
+["消息翻译"."cannot find module or crate `"]
+"消息模板" = "impossible de trouver le module ou la caisse `{q0}` dans la portée actuelle"
+"教学提示" = "S'il s'agit d'un module de ce projet, vérifiez qu'un fichier du même nom existe dans le même répertoire (la déclaration de module exige un fichier de même nom). S'il s'agit d'une caisse externe, consultez la suggestion d'ajout de dépendance ci-dessous."
+
+["消息翻译"."trying to load file for module `"]
+"消息模板" = "lors du chargement du fichier du module `{q0}`, un identifiant non ASCII a été rencontré (E0754)"
+"教学提示" = "Une déclaration de module (`module nom;`) exige l'existence du fichier `nom.fr` dans le même répertoire. Créez le fichier ou vérifiez le nom."
+
+["消息翻译"."consider using the `#[path]` attribute to specify filesystem path"]
+"消息模板" = "Envisagez d'utiliser l'attribut `#[path]` pour spécifier le chemin du fichier"
+
+["消息翻译"."This file is not included anywhere in the module tree, so rust-analyzer can't offer IDE services."]
+"消息模板" = "Ce fichier n'est inclus nulle part dans l'arbre des modules ; rust-analyzer ne peut donc pas fournir les fonctions IDE (complétion, navigation, etc.)."
+
+["消息翻译"."If you're intentionally working on unowned files, you can silence this warning by adding \"unlinked-file\" to your rust-analyzer.diagnostics.disabled configuration."]
+"消息模板" = "Si vous travaillez intentionnellement sur des fichiers non rattachés, vous pouvez désactiver cet avertissement en ajoutant \"unlinked-file\" à la configuration rust-analyzer.diagnostics.disabled."
 

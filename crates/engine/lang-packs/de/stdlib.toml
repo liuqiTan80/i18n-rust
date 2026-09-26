@@ -39,6 +39,13 @@
 # ============================================
 ["标识符"]
 "standard" = "std"
+"einAusgabe" = "io"
+"sammlungen" = "collections"
+"netzwerk" = "net"
+"atomic" = "atomic"
+"kern" = "core"
+"allokation" = "alloc"
+"prozess" = "process"
 
 # --------------------------------------------
 # Zusätzliche numerische Typen
@@ -146,6 +153,10 @@
 "schreibbar" = "Write"
 "positionierbar" = "Seek"
 "positionVon" = "SeekFrom"
+"zeichenkette" = "String"
+"zeichenkettenreferenz" = "&str"
+"lebensdauerReferenz" = "&'a"
+"statischeZeichenkettenReferenz" = "&'static str"
 
 # --------------------------------------------
 # Zeichenketten / Text-Methoden (String / str)
@@ -194,6 +205,7 @@
 "laenge" = "len"
 "alsBytes" = "as_bytes"
 "ausUtf8" = "from_utf8"
+"ausUtf8Verlustbehaftet" = "from_utf8_lossy"
 "passt" = "matches"
 
 # --------------------------------------------
@@ -207,6 +219,7 @@
 "sortiereMitSchluessel" = "sort_by_key"
 "sortiereInstabil" = "sort_unstable"
 "kehreUm" = "reverse"
+"rueckwaerts" = "rev"
 "entdoppele" = "dedup"
 "entdoppeleMit" = "dedup_by"
 "behalte" = "retain"
@@ -219,6 +232,8 @@
 "alsMutabelScheibe" = "as_mut_slice"
 "verkette" = "concat"
 "erweitere" = "extend"
+"erweitereVonScheibe" = "extend_from_slice"
+"zuVektor" = "to_vec"
 "ausIterierer" = "from_iter"
 "erschoepfe" = "drain"
 "stuecke" = "chunks"
@@ -251,6 +266,8 @@
 "binaerHaufen" = "BinaryHeap"
 "hashMenge" = "HashSet"
 "doppelSchlange" = "VecDeque"
+"leihe" = "borrow"
+"leiheMutabel" = "borrow_mut"
 "verketteteListe" = "LinkedList"
 "schluessel" = "keys"
 "werte" = "values"
@@ -317,23 +334,30 @@
 "schreibe" = "write"
 "spuele" = "flush"
 "oeffne" = "open"
+"dateisystem" = "fs"
 
 # --------------------------------------------
 # Dateisystem Ergänzung
 # --------------------------------------------
 "datei" = "File"
 "pfad" = "Path"
+"eintragPfad" = "path"
+"istAsciiZiffer" = "is_ascii_digit"
+"byte" = "u8"
 "pfadpuffer" = "PathBuf"
 "verzeichniseintrag" = "DirEntry"
 "liesVerzeichnis" = "read_dir"
 "erstelleVerzeichnis" = "create_dir"
 "erstelleAlleVerzeichnisse" = "create_dir_all"
+"darstellung" = "display"
 "entferneDatei" = "remove_file"
 "entferneVerzeichnis" = "remove_dir"
 "entferneAlleVerzeichnisse" = "remove_dir_all"
 "kopiere" = "copy"
 "benenneUm" = "rename"
 "metadaten" = "Metadata"
+"holeMetadaten" = "metadata"
+"aenderungszeit" = "modified"
 "dateigroesse" = "len"
 "istDatei" = "is_file"
 "istVerzeichnis" = "is_dir"
@@ -351,6 +375,7 @@
 "dateiname" = "file_name"
 "endung" = "extension"
 "eltern" = "parent"
+"existiert" = "exists"
 
 # --------------------------------------------
 # Prozess und Umgebung
@@ -363,6 +388,14 @@
 "endstatus" = "ExitStatus"
 "endcode" = "ExitCode"
 "ausgabe" = "Output"
+"speicher" = "mem"
+"formatierungsModul" = "fmt"
+"fehlerModul" = "error"
+"haengeHintenAn" = "push_back"
+"haengeVorneAn" = "push_front"
+"nimmHinten" = "pop_back"
+"nimmVorne" = "pop_front"
+"holeAusgabe" = "output"
 "argumente" = "args"
 "umgebungsvariable" = "var"
 "setzeVariable" = "set_var"
@@ -372,6 +405,8 @@
 "setzeAktuellesVerzeichnis" = "set_current_dir"
 "aktuellesProgramm" = "current_exe"
 "tempverzeichnis" = "temp_dir"
+"prozessId" = "id"
+"fuegeArgumentEin" = "arg"
 "alleArgumente" = "args"
 "beende" = "exit"
 "brichAb" = "abort"
@@ -391,6 +426,8 @@
 "barriere" = "Barrier"
 "barriereWarteErgebnis" = "BarrierWaitResult"
 "einmal" = "Once"
+"lazyStatisch" = "LazyLock"
+"nachrichtenweitergabe" = "mpsc"
 "kanal" = "channel"
 "sender" = "Sender"
 "empfaenger" = "Receiver"
@@ -438,6 +475,8 @@
 "moment" = "Instant"
 "systemzeit" = "SystemTime"
 "unixEpoch" = "UNIX_EPOCH"
+"zeit" = "time"
+"seitEpoche" = "duration_since"
 "neuerWert" = "new"
 "ausSekunden" = "from_secs"
 "ausMillisekunden" = "from_millis"
@@ -472,6 +511,7 @@
 # Speicherfunktionen
 # --------------------------------------------
 "groesseVon" = "size_of"
+"alsZeiger" = "as_ptr"
 "ausrichtungVon" = "align_of"
 "groesseVonWert" = "size_of_val"
 "verwerfe" = "drop"
@@ -565,6 +605,7 @@
 "entpackeOderSonst" = "unwrap_or_else"
 "entpackeOderStandard" = "unwrap_or_default"
 "erwarte" = "expect"
+"erwartet" = "expected"
 "mappeOder" = "map_or"
 "mappeOderSonst" = "map_or_else"
 "undDann" = "and_then"
@@ -614,6 +655,12 @@
 "bindeTextEin" = "include_str"
 "bindeBytesEin" = "include_bytes"
 "umgebung" = "env"
+"umwandlung" = "convert"
+"zeiger" = "ptr"
+"zahl" = "num"
+"operationen" = "ops"
+"array" = "array"
+"marker" = "marker"
 "optionUmgebung" = "option_env"
 "konfig" = "cfg"
 "vektor" = "vec"
@@ -672,3 +719,5 @@
 "cmp" = "cmp"
 "ParseIntError" = "ParseIntError"
 "test" = "test"
+"erlaube" = "allow"
+"unixSystem" = "unix"

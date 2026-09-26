@@ -93,7 +93,10 @@ rzc mapping check           # 校验全部内置语言 + 跨语言条目数一�
 | error | 跨文件同键不同值 | crates 文件之间标识符键冲突，合并非确定 |
 | warning | stdlib 覆盖 | crates 键与 stdlib 标识符同键不同值，crates 条目失效 |
 
-存在 error 时退出码非零（已接入 CI 门禁）。
+存在 error 时退出码非零（已接入 CI 门禁）。另有**告警数基线**：
+`make mapping-check`（CI 同款）经 `tools/check-mapping-warnings.py` 对照
+`tools/mapping-baseline.json` 校验告警数只减不增；当前基线 2 条，均为已明示的
+结构性差异（跨语言条目数、en 消息翻译节缺省）。
 
 ### 3.3 翻译脚手架：`rzc mapping scaffold`
 
@@ -149,16 +152,27 @@ CI 已内置映射质量门禁（`rzc mapping check`）。
 
 ## 6. 关于 en（英语）包
 
-en 语言包已于 0.5.6 移除：英语即 Rust 的原语言，无需方言层转译。
-历史上英语包的母语键即英文本身、第三方映射为恒等替换、无需 crates/ 目录；
-如需恢复可参考 git 历史中 0.5.x 的语言包结构。
+en 语言包为**恒等映射**（母语键即英文本身，第三方映射为恒等替换）：英语即
+Rust 的原语言，包内词条不改变转译结果，其作用是让 rzc/LSP 识别 `.en`
+项目（8 月曾一度删除致 en 教程门禁静默失效 168 例，随后恢复，见
+[translation-status.md](./translation-status.md) 2026-09-08 条目）。
+
+两处**结构性差异**属预期，不强行同步（已登记告警基线）：
+
+- crates 表与 9 个翻译语言同为 10 张，但标识符为 373 条（少 3 条）：
+  `spawn`/`filter`/`route` 的第二个语义语境在英语中与第一个同词，TOML
+  同键唯一（重复键会解析失败）而自然折叠；
+- 未建 `["消息翻译"]` 节：诊断消息本就为英文，回退原文即最终效果。
+
+覆盖差异总览（zh 独有 6 表等）见 [translation-status.md](./translation-status.md)。
 
 ## 7. 验证清单
 
 新增或修改映射后依次执行：
 
 1. `cargo build --workspace`（内嵌数据生效）；
-2. `rzc mapping check`（全部内置语言 + 一致性）；
+2. `make mapping-check`（全部内置语言 + 一致性 + 告警数基线；单跑
+   `rzc mapping check` 不校验基线）；
 3. 编写使用新映射词的方言源码，`rzc eject` 检查转译结果；
 4. `cargo test --workspace`（含全内置语言通过校验的回归测试）；
 5. 语言包目录 `crates/engine/lang-packs/` 为唯一事实源（build.rs 自动内嵌），

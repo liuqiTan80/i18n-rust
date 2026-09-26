@@ -43,7 +43,7 @@ $ rzc run src/main.zh
 💡 如果需要修改变量的值，请使用 `让 可变` 声明变量。
 ```
 
-**从这里开始**：🚀 [快速跑通](#-快速开始) · 🌐 [在线文档站](https://liuqiTan80.github.io/i18n-rust/)（四语言） · 📖 [系统学习（中文教程）](#-配套教程) · 🤝 [参与贡献](#-参与贡献)
+**从这里开始**：🚀 [快速跑通](#快速开始) · 🌐 [在线文档站](https://liuqiTan80.github.io/i18n-rust/)（四语言；托管于 GitHub Pages，国内访问可能不稳定） · 📚 [飞书知识库](https://my.feishu.cn/wiki/space/7689728327082314704)（中文教程，国内免登录阅读） · 📖 [系统学习（中文教程）](#配套教程) · 🤝 [参与贡献](#参与贡献)
 
 ---
 
@@ -213,7 +213,7 @@ i18n-rust 扩展（.vsix）兼容所有 VS Code 系编辑器；rzc、语言服�
    ```
 3. 打开 `.zh` 文件即用（扩展自动定位语言服务器与工具链；也可用环境变量 RUST_ANALYZER_PATH 或设置 i18n-rust.serverPath 显式指定）。
 
-## 🚀 快速开始
+## 🚀快速开始
 
 ```bash
 rzc init 我的项目        # 生成完整项目骨架（Cargo.toml + src/main.zh）
@@ -298,12 +298,12 @@ Rust 本身以英文书写，因此英语不作为教学方言（恒等映射无
 
 ---
 
-## 📖 配套教程
+## 📖配套教程
 
 面向零基础学习者的完整中文教程：**26 章 + 总术语表 + 5 个附录**，见 [tutorials/](tutorials/)。
 从《你好世界》到所有权、闭包、异步、宏，直至综合实战——所有示例全部用中文 Rust 书写。
 
-🌐 **在线阅读**：[在线文档站](https://liuqiTan80.github.io/i18n-rust/)（mdBook 四语言 + 顶栏切换；本地预览 `make site-serve`）
+🌐 **在线阅读**：[在线文档站](https://liuqiTan80.github.io/i18n-rust/)（mdBook 四语言 + 顶栏切换；本地预览 `make site-serve`） · 📚 **国内推荐**：[飞书知识库](https://my.feishu.cn/wiki/space/7689728327082314704)（33 篇中文教程，公网免登录直接阅读）。站点托管于 GitHub Pages，**国内网络可能无法稳定访问**（此时用上方飞书入口）；也可直接在仓库内阅读 [tutorials/](tutorials/)（GitCode 页内可正常浏览），或使用离线发布包随附的 `教程/` 目录。
 
 **多语言译本进行中**：英文（开篇、第 1–13 章、附录 D，15/33）、日本語、Русский 持续滚动；
 进度与下一批见 [translation-status.md](docs/translation-status.md)。
@@ -344,7 +344,7 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 
 ---
 
-## 🤝 参与贡献
+## 🤝参与贡献
 
 - **第一次参与先看**：[项目地图（维护者手册）](docs/project-map.md)——"我想改 X 去哪里、改完怎么验证"一页速查；开发环境与提交规范见 [CONTRIBUTING.md](CONTRIBUTING.md)
 - **应用开发者缺词条指引**：[docs/missing-mapping-guide.md](docs/missing-mapping-guide.md)（写应用时补词条 / 定制映射，面向新手）

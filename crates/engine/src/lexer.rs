@@ -273,8 +273,12 @@ pub fn transpile_with_map(
                     }
                     output.push_str(final_replacement);
                 }
-                // use 语句态推进：`使用`/`use` 词开启让位态，由 `;` 结束
-                if text == "use" || text == "使用" {
+                // use 语句态推进：本语言 use 关键字词形开启让位态，由 `;` 结束。
+                // 词形经关键字映射反查（zh/ja `使用`、es/pt `usar`、ru `используй`
+                // 等全部本地词形），不硬编码字面 `use`/`使用`——历史实现只识别
+                // 这两种，其余语言 use 段让位态从未开启，冲突词（如 es `formato`
+                // 宏 format 与模块 fmt 同名）被词法替换后残留英文宏名 `format::`
+                if text == "use" || keyword_map.get(text).is_some_and(|v| v == "use") {
                     in_use_stmt = true;
                 }
             }
@@ -1285,6 +1289,30 @@ mod tests {
         )
         .output;
         assert_eq!(out_no_defer, "use 标准库::文件系统::file as 库文件;");
+    }
+
+    /// use 段让位（本地化 use 词形）：非 `use`/`使用` 词形的语言（如 es `usar`）
+    /// 也需开启让位态——词形经关键字映射反查（历史硬编码只识别 `use`/`使用`，
+    /// es 等语言 use 段的冲突词被词法替换后残留 `format::`，模块路径阶段无法修复）
+    #[test]
+    fn test_use_stmt_defers_with_localized_use_keyword() {
+        let map = HashMap::from([
+            ("usar".to_string(), "use".to_string()),
+            ("formato".to_string(), "format".to_string()),
+        ]);
+        let defer = HashSet::from(["formato".to_string()]);
+        let out = transpile_with_map(
+            "usar estandar::formato::Mostrar;",
+            &map,
+            &HashMap::new(),
+            &HashMap::new(),
+            &defer,
+            &HashSet::new(),
+            &HashMap::new(),
+        )
+        .output;
+        // `usar` 照常译为 use；`formato` 让位保留（交模块路径阶段替换为 fmt）
+        assert_eq!(out, "use estandar::formato::Mostrar;");
     }
 
     /// 方法位让位：词法替换值是保留关键字的词（`枚举`→enum）在 `.` 后

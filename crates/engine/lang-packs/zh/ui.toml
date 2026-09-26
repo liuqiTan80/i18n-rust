@@ -98,7 +98,7 @@
 "crate_publish_not_found" = "未找到待发布的映射文件（{} / {}）：请用 --file 指定路径"
 "crate_publish_invalid_toml" = "映射文件不是合法 TOML：{}"
 "crate_publish_not_table" = "映射文件根必须是 TOML 表"
-"crate_publish_bad_section" = "映射文件含不允许的节：{}（仅允许 模块路径 / 标识符 / 解释）"
+"crate_publish_bad_section" = "映射文件含不允许的节：{}（仅允许模块路径 / 标识符 / 解释）"
 "crate_publish_wrote_local" = "已写入本地注册中心：{}"
 "crate_publish_clone_failed" = "克隆注册中心仓库失败：{}"
 "crate_publish_push_failed" = "推送注册中心失败：{}"
@@ -523,6 +523,35 @@
 # 第三方用方法名/宏名（对应 hover 提取的候选键）
 # ============================================
 "transpile_backup" = "已将 {} 备份为 {}（原内容被新的转译结果覆盖）"
+
+# ---- v0.8.3 新增：cheat / coverage / toolchain / crate 注册中心 CLI 本地化键 ----
+"cmd_cheat_about" = "母语 ↔ Rust 映射速查表（关键字/模块路径/别名/派生特征）"
+"arg_cheat_lang_help" = "内置语言代码（如 zh）或语言包目录路径；省略时按系统语言检测"
+"arg_markdown_help" = "以 Markdown 表格输出，便于嵌入文档"
+"cmd_mapping_coverage_about" = "语料覆盖矩阵：用后端真实源码检验语言包关键字/API 覆盖度，自动列出缺失的母语映射"
+"arg_coverage_lang_help" = "内置语言代码（如 zh）；省略时检测全部内置语言"
+"arg_check_fix_help" = "自动修复全角标点（写入源文件，仅转换有半角对应的字符）"
+"arg_tc_version_help" = "工具链版本（默认与 rzc 锁定版本一致，如 1.98.0）"
+"arg_tc_ra_tag_help" = "rust-analyzer 官方 Release tag（默认锁定版本）"
+"arg_tc_ra_only_help" = "仅升级 rust-analyzer（跳过 rustc/cargo 的 300MB 重下）"
+"arg_mapping_auto_crate_help" = "目标 crate 名（需已安装或可从 crates.io 获取）"
+"arg_target_version_help" = "锁定目标 crate 版本（如 2.11.5 精确锁定；2.11 / 2 为该线最新）；省略时用最新版（不可复现）"
+"arg_crate_name_help" = "crate 名"
+"arg_crate_name_normalize_help" = "crate 名（连字符归一为下划线）"
+"arg_lang_source_help" = "本地语言包目录路径，或远程语言代码"
+"arg_lang_code_help" = "语言代码（语言包目录名）"
+"arg_lang_search_keyword_help" = "关键词（匹配语言代码或显示名称）；省略时列出全部远程语言包"
+
+# ---- v0.8.3 新增：panic 输出本地化（run 运行程序时的恐慌信息） ----
+"panic_header" = "线程 '{}' 恐慌于 {}:"
+"panic_thread_main" = "主函数"
+"panic_note" = "提示：设置 RUST_BACKTRACE=1 环境变量可显示回溯"
+"panic_msg_index_oob" = "下标越界：长度是 {}，但下标是 {}"
+"panic_msg_byte_start_oob" = "切片起点字节索引 {} 超出字符串长度 {}"
+"panic_msg_byte_end_oob" = "切片终点字节索引 {} 超出字符串长度 {}"
+"panic_msg_char_boundary" = "字节索引 {} 不是字符边界；它位于 '{}'（字节 {}..{}）内部"
+"panic_msg_borrow" = "引用单元格已被借用"
+"panic_msg_borrow_mut" = "引用单元格已被可变借用"
 
 ["解释"]
 "Option::unwrap" = "直接取出里面的值；如果没有值（None），程序直接崩溃"

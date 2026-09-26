@@ -1109,7 +1109,7 @@
 "教学提示" = "O ciclo de vida nos limites de trait deve estar associado aos tipos de entrada. Ajuste a posicao do ciclo de vida."
 [E0583]
 "消息模板" = "O arquivo correspondente ao modulo nao foi encontrado"
-"教学提示" = "A declaracao do modulo (`modulo nome;`) exige que exista um arquivo `nome.zh` ou `nome/modulo.rs` no mesmo diretorio. Crie esse arquivo ou verifique a ortografia do nome."
+"教学提示" = "A declaracao do modulo (`modulo nome;`) exige que exista um arquivo `nome.pt` no mesmo diretorio. Crie esse arquivo ou verifique a ortografia do nome."
 [E0584]
 "消息模板" = "O comentario de documentacao nao e seguido por nenhum item"
 "教学提示" = "Comentarios `///` devem vir imediatamente antes de um item. Acrescente o item depois do comentario ou use um comentario normal."
@@ -1490,7 +1490,7 @@
 "教学提示" = "Ajuste o tipo de retorno e as anotacoes de ciclo de vida."
 [E0761]
 "消息模板" = "O modulo fora de linha tem varios arquivos candidatos"
-"教学提示" = "O modulo com o mesmo nome existe ao mesmo tempo na forma `.zh` e de diretorio. Deixe apenas um arquivo candidato."
+"教学提示" = "O modulo com o mesmo nome existe ao mesmo tempo na forma `.pt` e de diretorio. Deixe apenas um arquivo candidato."
 [E0762]
 "消息模板" = "O literal de caractere nao terminou corretamente"
 "教学提示" = "Falta a aspa simples de fechamento no literal de caractere. Acrescente `'`."
@@ -1908,4 +1908,59 @@
 
 ["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown: "]
 "消息模板" = "garanta que todos os casos sejam cobertos: adicione um braço curinga (`_ => ...`) ou um braço explícito, por exemplo: "
+
+# ============================================
+# Dicas de sintaxe e importacao (diagnosticos do VS Code)
+# ============================================
+
+["消息翻译"."items from traits can only be used if the trait is in scope"]
+"消息模板" = "Este metodo vem de um trait; primeiro e preciso importar esse trait para o escopo atual"
+"教学提示" = "Importe no inicio do arquivo o trait que fornece o metodo com `usar`; depois disso ele podera ser chamado."
+
+["消息翻译"."if you wanted to use a crate named "]
+"消息模板" = "Se quiser usar o pacote externo {q0}, execute `rzc add {q0}` para adicionar a dependencia"
+
+["消息翻译"."expected item, found keyword `let`"]
+"消息模板" = "esperava-se um item, mas a palavra-chave `deixar` foi encontrada"
+"教学提示" = "No escopo do modulo (nivel superior) nao se pode escrever `deixar` diretamente: para variaveis globais use `estatico` ou `constante`, e coloque a logica em funcoes (p. ex. `funcao principal()`)."
+
+["消息翻译"."expected item, found keyword "]
+"消息模板" = "esperava-se um item, mas a palavra-chave "
+
+["消息翻译"."consider using `static` or `const` instead of `let`"]
+"消息模板" = "Considere usar `estatico` ou `constante` em vez de `deixar`"
+
+# ============================================
+# Arquivos de modulo ausentes e unlinked-file
+# ============================================
+
+["消息翻译"."file not found for module `"]
+"消息模板" = "O arquivo correspondente ao modulo `{q0}` nao foi encontrado"
+"教学提示" = "A declaracao do modulo (`modulo nome;`) exige que exista um arquivo `nome.pt` no mesmo diretorio. Crie esse arquivo ou verifique a ortografia do nome."
+
+["消息翻译"."to create the module `"]
+"消息模板" = "Para criar o modulo `{q0}`, crie o arquivo `{q0}.pt`"
+
+["消息翻译"."if there is a `mod "]
+"消息模板" = "Se em outro lugar do pacote ja existe uma declaracao `modulo {q0}`, voce pode importa-lo com `usar crate::...`"
+
+["消息翻译"."unresolved module, can't find module file: "]
+"消息模板" = "nao foi possivel resolver o modulo, arquivo do modulo nao encontrado: {q0}"
+
+["消息翻译"."cannot find module or crate `"]
+"消息模板" = "nao foi possivel encontrar o modulo ou o pacote `{q0}` no escopo atual"
+"教学提示" = "Se for um modulo deste projeto, verifique se existe um arquivo de mesmo nome no mesmo diretorio (a declaracao de modulo exige um arquivo de mesmo nome). Se for um pacote externo, consulte a sugestao de adicionar dependencia abaixo."
+
+["消息翻译"."trying to load file for module `"]
+"消息模板" = "ao carregar o arquivo do modulo `{q0}` foi encontrado um identificador nao ASCII (E0754)"
+"教学提示" = "A declaracao do modulo (`modulo nome;`) exige que exista um arquivo `nome.pt` no mesmo diretorio. Crie esse arquivo ou verifique a ortografia do nome."
+
+["消息翻译"."consider using the `#[path]` attribute to specify filesystem path"]
+"消息模板" = "Considere usar o atributo `#[path]` para especificar o caminho do arquivo"
+
+["消息翻译"."This file is not included anywhere in the module tree, so rust-analyzer can't offer IDE services."]
+"消息模板" = "Este arquivo nao esta incluido em nenhum lugar da arvore de modulos, portanto o rust-analyzer nao pode oferecer recursos de IDE (completacao, navegacao etc.)."
+
+["消息翻译"."If you're intentionally working on unowned files, you can silence this warning by adding \"unlinked-file\" to your rust-analyzer.diagnostics.disabled configuration."]
+"消息模板" = "Se voce trabalha intencionalmente com arquivos nao vinculados, pode silenciar este aviso adicionando \"unlinked-file\" a configuracao rust-analyzer.diagnostics.disabled."
 

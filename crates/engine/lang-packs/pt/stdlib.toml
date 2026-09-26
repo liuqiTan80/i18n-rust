@@ -23,6 +23,7 @@
 "conversao" = "convert"
 "iterador" = "iter"
 "formato" = "fmt"
+"format" = "fmt"
 "memoria" = "mem"
 "ponteiro" = "ptr"
 "numeros" = "num"
@@ -37,6 +38,13 @@
 # ============================================
 ["标识符"]
 "padrao" = "std"
+"entrada_saida" = "io"
+"colecoes" = "collections"
+"rede" = "net"
+"atomic" = "atomic"
+"nucleo" = "core"
+"alocacao" = "alloc"
+"processo" = "process"
 
 # --------------------------------------------
 # Tipos numericos adicionais
@@ -145,6 +153,10 @@
 "escrevivel" = "Write"
 "posicionavel" = "Seek"
 "posicao_de" = "SeekFrom"
+"cadeia" = "String"
+"referencia_cadeia" = "&str"
+"referencia_tempo_de_vida" = "&'a"
+"referencia_cadeia_estatica" = "&'static str"
 
 # --------------------------------------------
 # Metodos de cadeias / texto (String / str)
@@ -193,6 +205,7 @@
 "comprimento" = "len"
 "como_bytes" = "as_bytes"
 "de_utf8" = "from_utf8"
+"de_utf8_tolerante" = "from_utf8_lossy"
 "correspondencias" = "matches"
 
 # --------------------------------------------
@@ -204,6 +217,7 @@
 "ordenar_por_chave" = "sort_by_key"
 "ordenar_instavel" = "sort_unstable"
 "inverter" = "reverse"
+"ordem_inversa" = "rev"
 "deduplicar" = "dedup"
 "deduplicar_comparando" = "dedup_by"
 "manter" = "retain"
@@ -216,6 +230,8 @@
 "como_fatia_mutavel" = "as_mut_slice"
 "concatenacao" = "concat"
 "estender" = "extend"
+"estender_de_fatia" = "extend_from_slice"
+"para_vetor" = "to_vec"
 "de_iterador" = "from_iter"
 "drenar" = "drain"
 "pedacos" = "chunks"
@@ -248,6 +264,8 @@
 "monticulo_binario" = "BinaryHeap"
 "conjunto_hash" = "HashSet"
 "fila_dupla" = "VecDeque"
+"emprestimo" = "borrow"
+"emprestimo_mutavel" = "borrow_mut"
 "lista_ligada" = "LinkedList"
 "chaves" = "keys"
 "valores" = "values"
@@ -314,23 +332,30 @@
 "escrever" = "write"
 "descarregar" = "flush"
 "abrir" = "open"
+"sistema_arquivos" = "fs"
 
 # --------------------------------------------
 # Sistema de arquivos adicional
 # --------------------------------------------
 "arquivo" = "File"
 "caminho" = "Path"
+"caminho_entrada" = "path"
+"eh_digito_ascii" = "is_ascii_digit"
+"byte" = "u8"
 "caminho_buffer" = "PathBuf"
 "entrada_diretorio" = "DirEntry"
 "ler_diretorio" = "read_dir"
 "criar_diretorio" = "create_dir"
 "criar_todos_diretorios" = "create_dir_all"
+"visualizar" = "display"
 "remover_arquivo" = "remove_file"
 "remover_diretorio" = "remove_dir"
 "remover_todos_diretorios" = "remove_dir_all"
 "copiar" = "copy"
 "renomear" = "rename"
 "metadados" = "Metadata"
+"obter_metadados" = "metadata"
+"hora_modificacao" = "modified"
 "tamanho_arquivo" = "len"
 "eh_arquivo" = "is_file"
 "eh_diretorio" = "is_dir"
@@ -348,6 +373,7 @@
 "nome_arquivo" = "file_name"
 "extensao" = "extension"
 "pai" = "parent"
+"existe" = "exists"
 
 # --------------------------------------------
 # Processos e ambiente
@@ -360,6 +386,14 @@
 "estado_saida" = "ExitStatus"
 "codigo_saida" = "ExitCode"
 "saida" = "Output"
+"memoria" = "mem"
+"modulo_formato" = "fmt"
+"modulo_erro" = "error"
+"empurrar_fim" = "push_back"
+"empurrar_inicio" = "push_front"
+"remover_ultimo_fim" = "pop_back"
+"remover_primeiro" = "pop_front"
+"obter_saida" = "output"
 "argumentos" = "args"
 "variavel_ambiente" = "var"
 "definir_variavel" = "set_var"
@@ -369,6 +403,8 @@
 "definir_diretorio_atual" = "set_current_dir"
 "executavel_atual" = "current_exe"
 "diretorio_temporario" = "temp_dir"
+"id_processo" = "id"
+"adicionar_argumento" = "arg"
 "todos_argumentos" = "args"
 "terminar" = "exit"
 "abortar" = "abort"
@@ -388,6 +424,8 @@
 "barreira" = "Barrier"
 "resultado_barreira" = "BarrierWaitResult"
 "uma_unica_vez" = "Once"
+"estatico_preguicoso" = "LazyLock"
+"passagem_mensagens" = "mpsc"
 "canal" = "channel"
 "emissor" = "Sender"
 "receptor" = "Receiver"
@@ -435,6 +473,8 @@
 "instante" = "Instant"
 "tempo_sistema" = "SystemTime"
 "epoca_unix" = "UNIX_EPOCH"
+"tempo" = "time"
+"desde_epoca" = "duration_since"
 "novo_valor" = "new"
 "de_segundos" = "from_secs"
 "de_milissegundos" = "from_millis"
@@ -469,6 +509,7 @@
 # Funcoes de memoria
 # --------------------------------------------
 "tamanho" = "size_of"
+"como_ponteiro" = "as_ptr"
 "alinhamento" = "align_of"
 "tamanho_valor" = "size_of_val"
 "destruir" = "drop"
@@ -562,6 +603,7 @@
 "desembrulhar_ou_se_nao" = "unwrap_or_else"
 "desembrulhar_ou_padrao" = "unwrap_or_default"
 "esperar" = "expect"
+"esperado" = "expected"
 "mapear_ou" = "map_or"
 "mapear_ou_se_nao" = "map_or_else"
 "e_depois" = "and_then"
@@ -611,6 +653,12 @@
 "macro_incluir_cadeia" = "include_str"
 "macro_incluir_bytes" = "include_bytes"
 "macro_ambiente" = "env"
+"conversao" = "convert"
+"ponteiro" = "ptr"
+"numeros" = "num"
+"operacoes" = "ops"
+"matriz" = "array"
+"marcador" = "marker"
 "macro_opcao_ambiente" = "option_env"
 "macro_config" = "cfg"
 "macro_vetor" = "vec"
@@ -669,3 +717,5 @@
 "cmp" = "cmp"
 "ParseIntError" = "ParseIntError"
 "test" = "test"
+"permitir" = "allow"
+"sistema_unix" = "unix"

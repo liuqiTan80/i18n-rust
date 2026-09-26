@@ -54,6 +54,7 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | 加 / 改 rzc 命令 | `crates/cli/src/main.rs`（诊断区 `diagnostics.rs`） | `make test` + 手动跑通 |
 | 改 IDE 体验 | `crates/lsp/` + `tools/vscode-extension/` | 扩展 `npm test`；LSP `make test` |
 | 调文档站 | `book/` + `tools/build-site.py` | `make site` · `make site-serve` |
+| 发教程到飞书（国内阅读入口） | `tools/publish-feishu.py` | `make feishu`（平台侧配置见[发布准备清单](strategy/发布准备清单.md)第 5 节） |
 | 改 CI / 发布 | `.github/workflows/{ci,release,pages}.yml` | 本地等价：`make gate` |
 | 出发布包 | `release-offline.{sh,ps1}` | 见 [发布准备清单](strategy/发布准备清单.md) |
 | 新增一门语言 | [docs/contributing-lang-pack.md](contributing-lang-pack.md) | `make mapping-check` + 教程门禁 |

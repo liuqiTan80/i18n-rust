@@ -133,8 +133,39 @@ pub(crate) fn run_direct_rustc(
     if !ok {
         return Ok(std::process::ExitCode::FAILURE);
     }
-    // 编译成功：运行程序并传播退出码（无论成败都清理临时 exe）
-    let status = match Command::new(&exe).status() {
+    // 编译成功：运行程序并传播退出码（无论成败都清理临时 exe）。
+    // stderr 改为管道逐行过滤：panic 框头/消息与 cargo 进度本地化，
+    // 其余字节原样透传（lossy 解码，不因非 UTF-8 输出中断）；
+    // stdout/stdin 保持继承，交互式程序不受影响
+    let mut child = match Command::new(&exe)
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = std::fs::remove_file(&exe);
+            return Err(anyhow::anyhow!("运行失败: {e}"));
+        }
+    };
+    if let Some(stderr) = child.stderr.take() {
+        use std::io::{BufRead, BufReader};
+        let mut reader = BufReader::new(stderr);
+        let mut translator = StreamTranslator::new();
+        let mut buf: Vec<u8> = Vec::new();
+        loop {
+            buf.clear();
+            match reader.read_until(b'\n', &mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(_) => {
+                    let raw = String::from_utf8_lossy(&buf);
+                    let line = raw.trim_end_matches(['\n', '\r']);
+                    eprintln!("{}", translator.translate(line, ui));
+                }
+            }
+        }
+    }
+    let status = match child.wait() {
         Ok(s) => s,
         Err(e) => {
             let _ = std::fs::remove_file(&exe);
@@ -248,6 +279,129 @@ pub(crate) fn translate_cargo_progress(line: &str, ui: &ui::Ui) -> String {
         }
     }
     line.to_string()
+}
+
+/// 程序 stderr 流式翻译器：cargo 进度行 + 运行时 panic 输出的本地化
+///
+/// rustc 1.98 实测的程序 panic 输出形态（框头 → 消息 → note 三行）：
+/// ```text
+/// thread 'main' (621725) panicked at src/main.rs:8:5:
+/// index out of bounds: the len is 3 but the index is 5
+/// note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+/// ```
+/// 框头：线程名 `main` 映射为各语言主函数词（`<unnamed>` 等自定义名保留）、
+/// 线程 ID `(621725) ` 剥离；消息六型（下标越界 / 字节索引越界 ×2 /
+/// 字符边界 / RefCell 借用冲突 ×2）按 ui.toml 模板本地化；note 行固定翻译；
+/// 其余行回退 cargo 进度翻译（无匹配则原样返回）。
+pub(crate) struct StreamTranslator {
+    /// 上一行是 panic 框头：下一行按 panic 消息匹配
+    expect_panic_message: bool,
+}
+
+impl StreamTranslator {
+    pub(crate) fn new() -> Self {
+        Self {
+            expect_panic_message: false,
+        }
+    }
+
+    /// 翻译一行程序/cargo stderr（无匹配时原样返回）
+    pub(crate) fn translate(&mut self, line: &str, ui: &ui::Ui) -> String {
+        // 框头之后的第一行是 panic 消息；无论命中与否都退出该状态
+        if std::mem::take(&mut self.expect_panic_message)
+            && let Some(msg) = translate_panic_message(line, ui)
+        {
+            return msg;
+        }
+        if let Some(header) = translate_panic_header(line, ui) {
+            self.expect_panic_message = true;
+            return header;
+        }
+        if line.trim_end() == PANIC_NOTE {
+            return ui.t("panic_note");
+        }
+        translate_cargo_progress(line, ui)
+    }
+}
+
+/// 程序 panic 输出末尾的 note 行（rustc 稳定文本，原样匹配）
+const PANIC_NOTE: &str =
+    "note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace";
+
+/// 翻译 panic 框头 `thread 'NAME' [(TID)] panicked at FILE:LINE:COL:`
+///
+/// 返回 None 表示该行不是 panic 框头（由调用方原样透传）。
+fn translate_panic_header(line: &str, ui: &ui::Ui) -> Option<String> {
+    let rest = line.trim_start().strip_prefix("thread '")?;
+    let (name, after_name) = rest.split_once('\'')?;
+    // rustc 1.98 起框头含线程 ID（如 `thread 'main' (621725) panicked at ...`），
+    // 旧格式无 ID；两种形态都归一为「name + panicked at」
+    let after = match after_name.strip_prefix(" (") {
+        Some(id_and_rest) => id_and_rest
+            .split_once(") ")
+            .map(|(_, rest)| rest)
+            .unwrap_or(after_name),
+        None => after_name,
+    };
+    // 剥离线程 ID 后 `after` 以 `panicked at ...` 开头（无 ID 时带前导空格），
+    // trim_start 统一两种形态后再匹配
+    let loc = after.trim_start().strip_prefix("panicked at ")?;
+    let loc = loc.trim_end().strip_suffix(':')?;
+    if name.is_empty() || loc.is_empty() {
+        return None;
+    }
+    let display_name = if name == "main" {
+        ui.t("panic_thread_main")
+    } else {
+        name.to_string()
+    };
+    Some(ui.f("panic_header", &[&display_name, loc]))
+}
+
+/// 翻译 panic 消息（六型；未识别返回 None 由调用方原样透传）
+fn translate_panic_message(line: &str, ui: &ui::Ui) -> Option<String> {
+    let line = line.trim();
+    if line == "RefCell already borrowed" {
+        return Some(ui.t("panic_msg_borrow"));
+    }
+    if line == "RefCell already mutably borrowed" {
+        return Some(ui.t("panic_msg_borrow_mut"));
+    }
+    if let Some(rest) = line.strip_prefix("index out of bounds: the len is ") {
+        let (len_s, idx_s) = rest.split_once(" but the index is ")?;
+        return Some(ui.f("panic_msg_index_oob", &[len_s.trim(), idx_s.trim()]));
+    }
+    if let Some(rest) = line.strip_prefix("start byte index ") {
+        return translate_byte_index_message(rest, ui, true);
+    }
+    if let Some(rest) = line.strip_prefix("end byte index ") {
+        return translate_byte_index_message(rest, ui, false);
+    }
+    None
+}
+
+/// 字节索引 panic 消息：越界（`... is out of bounds for string of length N`）或
+/// 非字符边界（`... is not a char boundary; it is inside 'C' (bytes A..B of string)`）
+fn translate_byte_index_message(rest: &str, ui: &ui::Ui, is_start: bool) -> Option<String> {
+    let (idx_s, tail) = rest.split_once(' ')?;
+    if let Some(len_s) = tail.strip_prefix("is out of bounds for string of length ") {
+        let key = if is_start {
+            "panic_msg_byte_start_oob"
+        } else {
+            "panic_msg_byte_end_oob"
+        };
+        return Some(ui.f(key, &[idx_s.trim(), len_s.trim()]));
+    }
+    if let Some(inside) = tail.strip_prefix("is not a char boundary; it is inside '") {
+        let (ch, range_s) = inside.split_once("' (bytes ")?;
+        let (a, b) = range_s.split_once("..")?;
+        let b = b.strip_suffix(" of string)")?;
+        return Some(ui.f(
+            "panic_msg_char_boundary",
+            &[idx_s.trim(), ch, a.trim(), b.trim()],
+        ));
+    }
+    None
 }
 
 /// 诊断翻译上下文：封装 `translate_cargo_diagnostics` 的共享引用参数，
@@ -734,6 +888,15 @@ mod tests {
     use super::*;
     use i18n_rust_engine::module_path::annotate_non_ascii_mods_with_lines;
 
+    /// 测试用界面消息：直接读仓库语言包（绕开 ~/.rz 全局安装副本的
+    /// 缺键干扰，保证断言与仓库内容一致）
+    fn ui_for_test(lang: &str) -> crate::ui::Ui {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../engine/lang-packs")
+            .join(lang);
+        crate::ui::Ui::for_explicit_dir(&dir)
+    }
+
     /// 加载内置中文映射管理器（测试诊断回译用）
     fn zh_manager() -> i18n_rust_engine::mapping_manager::MappingManager {
         let builtin = crate::builtin_lang::get_builtin_data("zh");
@@ -861,5 +1024,117 @@ mod tests {
             extract_unresolved_crates(&output),
             vec!["serde_json", "tokio"]
         );
+    }
+
+    /// 流式翻译器：panic 三行序列（含线程 ID 框头 → 消息 → note）本地化
+    #[test]
+    fn test_stream_translator_panic_sequence() {
+        let ui = ui_for_test("zh");
+        let mut t = StreamTranslator::new();
+        assert_eq!(
+            t.translate("thread 'main' (621725) panicked at a.rs:1:50:", &ui),
+            "线程 '主函数' 恐慌于 a.rs:1:50:"
+        );
+        assert_eq!(
+            t.translate("index out of bounds: the len is 3 but the index is 5", &ui),
+            "下标越界：长度是 3，但下标是 5"
+        );
+        assert_eq!(
+            t.translate(
+                "note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace",
+                &ui
+            ),
+            "提示：设置 RUST_BACKTRACE=1 环境变量可显示回溯"
+        );
+    }
+
+    /// 框头变体：旧格式（无线程 ID）与命名线程（`<unnamed>` 保留不译）
+    #[test]
+    fn test_stream_translator_panic_header_variants() {
+        let ui = ui_for_test("zh");
+        let mut t = StreamTranslator::new();
+        assert_eq!(
+            t.translate("thread 'main' panicked at b.rs:2:3:", &ui),
+            "线程 '主函数' 恐慌于 b.rs:2:3:"
+        );
+        assert_eq!(
+            t.translate("thread '<unnamed>' (42) panicked at c.rs:9:9:", &ui),
+            "线程 '<unnamed>' 恐慌于 c.rs:9:9:"
+        );
+        // 消息未识别（如 unwrap None）：原样透传，且不残留状态影响后续行
+        assert_eq!(
+            t.translate("called `Option::unwrap()` on a `None` value", &ui),
+            "called `Option::unwrap()` on a `None` value"
+        );
+    }
+
+    /// 六型 panic 消息：越界 start/end、字符边界、RefCell 借用冲突两向
+    #[test]
+    fn test_stream_translator_panic_messages() {
+        let ui = ui_for_test("zh");
+        let header = "thread 'main' panicked at a.rs:1:1:";
+        let mut t = StreamTranslator::new();
+        let _ = t.translate(header, &ui);
+        assert_eq!(
+            t.translate(
+                "start byte index 10 is out of bounds for string of length 6",
+                &ui
+            ),
+            "切片起点字节索引 10 超出字符串长度 6"
+        );
+        let mut t = StreamTranslator::new();
+        let _ = t.translate(header, &ui);
+        assert_eq!(
+            t.translate(
+                "end byte index 10 is out of bounds for string of length 6",
+                &ui
+            ),
+            "切片终点字节索引 10 超出字符串长度 6"
+        );
+        let mut t = StreamTranslator::new();
+        let _ = t.translate(header, &ui);
+        assert_eq!(
+            t.translate(
+                "start byte index 1 is not a char boundary; it is inside '你' (bytes 0..3 of string)",
+                &ui
+            ),
+            "字节索引 1 不是字符边界；它位于 '你'（字节 0..3）内部"
+        );
+        let mut t = StreamTranslator::new();
+        let _ = t.translate(header, &ui);
+        assert_eq!(
+            t.translate("RefCell already borrowed", &ui),
+            "引用单元格已被借用"
+        );
+        let mut t = StreamTranslator::new();
+        let _ = t.translate(header, &ui);
+        assert_eq!(
+            t.translate("RefCell already mutably borrowed", &ui),
+            "引用单元格已被可变借用"
+        );
+    }
+
+    /// en 界面：panic 输出除线程 ID 剥离外保持英文原文（不引入本地化偏差）
+    #[test]
+    fn test_stream_translator_en_unchanged() {
+        let ui = ui_for_test("en");
+        let mut t = StreamTranslator::new();
+        assert_eq!(
+            t.translate("thread 'main' (621725) panicked at a.rs:1:50:", &ui),
+            "thread 'main' panicked at a.rs:1:50:"
+        );
+        assert_eq!(
+            t.translate("index out of bounds: the len is 3 but the index is 5", &ui),
+            "index out of bounds: the len is 3 but the index is 5"
+        );
+    }
+
+    /// 非 panic 行回退 cargo 进度翻译（Finished 等本地化）
+    #[test]
+    fn test_stream_translator_falls_back_to_cargo_progress() {
+        let ui = ui_for_test("zh");
+        let mut t = StreamTranslator::new();
+        let out = t.translate("    Finished `dev` profile [unoptimized]", &ui);
+        assert!(out.contains("编译完成"), "应本地化进度行：{out}");
     }
 }

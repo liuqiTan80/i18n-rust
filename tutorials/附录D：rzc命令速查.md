@@ -86,7 +86,7 @@ cargo build --release            # 发布优化版（第十八章）
 
 官方离线包只有 Windows / Linux / macOS 三平台（由发布者手动上传）；如果你需要**特定平台或特定修改**的版本，可在对应平台的机器上自行打包（如给教学机房打 Windows 包）：
 
-1. **获取源码**：`git clone https://github.com/liuqiTan80/i18n-rust`（或从离线包同源的镜像仓库拉取）；
+1. **获取源码**：`git clone https://gitcode.com/tan80/i18n-rust`（国内推荐；国际线路 `https://github.com/liuqiTan80/i18n-rust`，两仓库同步）；
 2. **安装 Rust 工具链**（rustup），然后编译：
    ```bash
    cargo build --release -p rzc
@@ -98,6 +98,6 @@ cargo build --release            # 发布优化版（第十八章）
 4. **运行打包脚本**（自动识别平台，无需改参数）：
    - Linux / macOS：`./release-offline.sh`
    - Windows（PowerShell）：`.\release-offline.ps1`
-5. **产物**在 `release/` 目录（如 `rzc-<版本>-windows-x86_64.zip`），包含 rzc、语言服务器、rust-analyzer、10 种语言包与教程，解压即用；上传到 Release / 网盘即可分发。
+5. **产物**在 `release/` 目录（如 `rzc-<版本>-windows-x86_64.zip`），包含 rzc、语言服务器、rust-analyzer、11 个内置语言包（10 种自然语言 + `en` 恒等包）与教程，解压即用；上传到 Release / 网盘即可分发。
 
 > 💡 脚本只负责当前平台，交叉编译（在 Linux 上出 Windows 包）需要额外目标工具链，不推荐；直接在目标平台运行脚本最简单可靠。

@@ -143,7 +143,7 @@
 "untertyp_plain" = "PLAIN"  # const PLAIN: Name<''static'>
 "untertyp_html" = "HTML"  # const HTML: Name<''static'>
 "untertyp_xml" = "XML"  # const XML: Name<''static'>
-"untertyp_javascript" = "JavaScript"  # const JAVASCRIPT: Name<''static'>
+"untertyp_javascript" = "JAVASCRIPT"  # const JAVASCRIPT: Name<''static'>
 "untertyp_css" = "CSS"  # const CSS: Name<''static'>
 "untertyp_csv" = "CSV"  # const CSV: Name<''static'>
 "untertyp_event_stream" = "EVENT_STREAM"  # const EVENT_STREAM: Name<''static'>

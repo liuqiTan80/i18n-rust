@@ -24,8 +24,8 @@ mod temp_guard;
 mod ui;
 
 use diagnostics::{
-    DiagContext, can_use_direct_rustc, check_direct_rustc, run_direct_rustc,
-    translate_cargo_diagnostics, translate_cargo_progress,
+    DiagContext, StreamTranslator, can_use_direct_rustc, check_direct_rustc, run_direct_rustc,
+    translate_cargo_diagnostics,
 };
 use lang_manager::Source;
 // 非 ASCII 模块名 #[path] 注解：CLI 与 LSP 镜像共享同一引擎实现
@@ -36,7 +36,7 @@ use i18n_rust_engine::module_path::{annotate_non_ascii_mods, annotate_non_ascii_
 // 兜底文案（localize_clap 会按界面语言覆盖）；用英文避免硬编码中文
 #[command(about = "Multi-language Rust teaching dialect compiler")]
 struct CliArgs {
-    /// 不输出教学 lint 提示（初学者代码风格警告；Unicode 混淆/全角标点告警不受影响）
+    /// Suppress teaching lint hints (beginner code-style warnings; Unicode confusables / full-width punctuation warnings are unaffected)
     #[arg(long, global = true)]
     no_lint: bool,
     #[command(subcommand)]
@@ -60,7 +60,7 @@ enum CliCommand {
         file: PathBuf,
         #[arg(short, long)]
         lang_pack: Option<PathBuf>,
-        /// 自动修复全角标点（写入源文件，仅转换有半角对应的字符）
+        /// Auto-fix full-width punctuation (writes to the source file; only characters with a half-width counterpart are converted)
         #[arg(long)]
         fix: bool,
     },
@@ -69,47 +69,45 @@ enum CliCommand {
         #[arg(short, long)]
         lang_pack: Option<PathBuf>,
     },
-    /// 转译预览：将方言源码转译为标准 Rust 并输出到 stdout（不写文件）
+    /// Transpile preview: convert dialect source to standard Rust and print to stdout (no files written)
     Transpile {
         file: PathBuf,
         #[arg(short, long)]
         lang_pack: Option<PathBuf>,
     },
-    /// 为当前项目添加第三方依赖（封装 cargo add，附带母语映射提示）
+    /// Add third-party dependencies to the current project (wraps cargo add, with native-language mapping hints)
     Add {
-        /// crate 名或 名称@版本，可多个（如 serde tokio@1）
+        /// crate name or name@version, repeatable (e.g. serde tokio@1)
         #[arg(required = true)]
         crates: Vec<String>,
     },
-    /// 语言包管理（list / install / remove）
+    /// Language pack management (list / install / remove)
     Lang {
         #[command(subcommand)]
         subcommand: LangCommand,
     },
-    /// 自动生成第三方库映射（从已安装 crate 提取 API）
+    /// Generate third-party crate mappings (extract APIs from installed crates)
     Mapping {
         #[command(subcommand)]
         subcommand: MappingCommand,
     },
-    /// 第三方库共享注册中心（search / install / list / remove / update / publish）
+    /// Shared third-party crate registry (search / install / list / remove / update / publish)
     Crate {
         #[command(subcommand)]
         subcommand: CrateCommand,
     },
-    /// 安装配套组件（语言服务器 i18n-rust-lsp 等）
+    /// Install companion components (language server i18n-rust-lsp, etc.)
     Install {
         #[command(subcommand)]
         subcommand: Option<InstallCommand>,
     },
-    /// 诊断工具链环境：内置工具链 / PATH / 版本对比
+    /// Diagnose the toolchain environment: bundled toolchain / PATH / version comparison
     Doctor,
-    /// 母语 ↔ Rust 映射速查表（关键字/模块路径/别名/派生特征）
-    ///
-    /// 全球用户的"第一张卡"：可用 --markdown 粘贴进教程/README。
+    /// Native-language ↔ Rust mapping cheat sheet (keywords / module paths / aliases / derive traits)
     Cheat {
-        /// 内置语言代码（如 zh）或语言包目录路径；省略时按系统语言检测
+        /// Built-in language code (e.g. zh) or a language-pack directory path; auto-detected from the system language when omitted
         lang: Option<String>,
-        /// 以 Markdown 表格输出，便于嵌入文档
+        /// Output as a Markdown table for embedding into docs
         #[arg(long)]
         markdown: bool,
     },
@@ -117,24 +115,24 @@ enum CliCommand {
 
 #[derive(Subcommand)]
 enum InstallCommand {
-    /// 安装语言服务器 i18n-rust-lsp（VS Code 扩展的补全/诊断后端）
+    /// Install the language server i18n-rust-lsp (completion / diagnostics backend for the VS Code extension)
     Lsp {
-        /// 已存在时强制覆盖安装
+        /// Force overwrite if already installed
         #[arg(short = 'f', long = "force")]
         force: bool,
     },
-    /// 一键安装内置工具链（standalone rustc/cargo/rust-analyzer，脱离 rustup）
+    /// One-click install of the bundled toolchain (standalone rustc/cargo/rust-analyzer, no rustup required)
     Toolchain {
-        /// 工具链版本（默认与 rzc 锁定版本一致，如 1.98.0）
+        /// Toolchain version (defaults to the version rzc is locked to, e.g. 1.98.0)
         #[arg(long, default_value = i18n_rust_engine::toolchain::LOCKED_TOOLCHAIN_VERSION)]
         version: String,
-        /// rust-analyzer 官方 Release tag（默认锁定版本）
+        /// Official rust-analyzer release tag (defaults to the locked version)
         #[arg(long, default_value = crate::install::RA_RELEASE_TAG)]
         ra_tag: String,
-        /// 仅升级 rust-analyzer（跳过 rustc/cargo 的 300MB 重下）
+        /// Upgrade rust-analyzer only (skip the ~300 MB rustc/cargo re-download)
         #[arg(long)]
         ra_only: bool,
-        /// 已存在时强制重新安装
+        /// Force reinstall if already installed
         #[arg(short = 'f', long = "force")]
         force: bool,
     },
@@ -142,47 +140,47 @@ enum InstallCommand {
 
 #[derive(Subcommand)]
 enum MappingCommand {
-    /// 自动生成第三方库映射文件：提取 crate 公开 API，AI 或规则生成中文名与解释
+    /// Auto-generate third-party crate mapping files: extract the crate's public API; AI or rules generate names and explanations in the target language
     Auto {
-        /// 目标 crate 名（需已安装或可从 crates.io 获取）
+        /// Target crate name (must be installed or available from crates.io)
         crate_name: String,
-        /// 目标语言（语言包目录名，如 zh、ru；默认按系统语言检测）
+        /// Target language (language-pack directory name, e.g. zh, ru; auto-detected from the system language by default)
         #[arg(long)]
         lang: Option<String>,
-        /// AI 服务商：deepseek（默认，需 DEEPSEEK_API_KEY 环境变量）或 rule（离线规则模式）
+        /// AI provider: deepseek (default; requires the DEEPSEEK_API_KEY environment variable) or rule (offline rule mode)
         #[arg(long, default_value = "deepseek")]
         provider: String,
-        /// 锁定目标 crate 版本（如 2.11.5 精确锁定；2.11 / 2 为该线最新）；省略时用最新版（不可复现）
+        /// Pin the target crate version (e.g. 2.11.5 exact; 2.11 / 2 = latest in that line); uses the latest when omitted (not reproducible)
         #[arg(long)]
         target_version: Option<String>,
-        /// 输出文件路径（默认项目语言包根：<lang>/crates/<crate_name>.toml）
+        /// Output file path (defaults to the project language-pack root: <lang>/crates/<crate_name>.toml)
         #[arg(long)]
         output: Option<PathBuf>,
-        /// 生成映射后同时将该 crate 加入当前项目的 Cargo.toml（cargo add）
+        /// Also add the crate to the current project's Cargo.toml after generating mappings (cargo add)
         #[arg(long)]
         install: bool,
     },
-    /// 校验第三方库映射质量：重复键/关键字避让/跨文件冲突/条目数一致性
+    /// Validate third-party crate mapping quality: duplicate keys / keyword avoidance / cross-file conflicts / entry-count consistency
     Check {
-        /// 内置语言代码（如 zh）或语言包目录路径；省略时校验全部内置语言
+        /// Built-in language code (e.g. zh) or a language-pack directory path; validates all built-in languages when omitted
         target: Option<String>,
     },
-    /// 语料覆盖矩阵：用后端真实源码检验语言包关键字/API 覆盖度，自动列出缺失的母语映射
+    /// Corpus coverage matrix: validate language-pack keyword/API coverage against real backend sources; lists missing native-language mappings
     Coverage {
-        /// 内置语言代码（如 zh）；省略时检测全部内置语言
+        /// Built-in language code (e.g. zh); checks all built-in languages when omitted
         #[arg(long)]
         lang: Option<String>,
     },
-    /// 从源语言 crates 映射生成目标语言的翻译骨架（键保留待翻译，英文值不变）
+    /// Generate a translation skeleton for the target language from the source-language crates mappings (keys kept for translation, English values unchanged)
     Scaffold {
-        /// 源语言代码（内置语言，如 zh）
+        /// Source language code (a built-in language, e.g. zh)
         source: String,
-        /// 目标语言代码（新语言包目录名，如 vi）
+        /// Target language code (new language-pack directory name, e.g. vi)
         target: String,
-        /// 输出目录（默认项目语言包根：<target>/crates/）
+        /// Output directory (defaults to the project language-pack root: <target>/crates/)
         #[arg(long)]
         output: Option<PathBuf>,
-        /// 翻译方式：rule（默认，生成 TODO 骨架待人工翻译）或 deepseek（AI 自动翻译键名，需 DEEPSEEK_API_KEY）
+        /// Translation mode: rule (default; generates a TODO skeleton for manual translation) or deepseek (AI translates keys; requires DEEPSEEK_API_KEY)
         #[arg(long, default_value = "rule")]
         provider: String,
     },
@@ -190,45 +188,45 @@ enum MappingCommand {
 
 #[derive(Subcommand)]
 enum CrateCommand {
-    /// 检索注册中心已发布的第三方库映射（可选关键词过滤）
+    /// Search third-party crate mappings published in the registry (optional keyword filter)
     Search {
-        /// 关键词（匹配 crate 名 / 语言 / 作者）；省略时列出全部（按下载量排序）
+        /// Keyword (matches crate name / language / author); lists everything when omitted (sorted by downloads)
         keyword: Option<String>,
     },
-    /// 安装单个第三方库映射：从注册中心复制到全局语言包
+    /// Install a single third-party crate mapping: copy it from the registry into the global language pack
     Install {
-        /// crate 名（连字符归一为下划线）
+        /// Crate name (hyphens normalized to underscores)
         crate_name: String,
-        /// 目标语言代码（如 zh）
+        /// Target language code (e.g. zh)
         #[arg(long)]
         lang: String,
-        /// 已存在时强制覆盖安装
+        /// Force overwrite if already installed
         #[arg(short = 'f', long = "force")]
         force: bool,
     },
-    /// 列出已安装的社区映射
+    /// List installed community mappings
     List,
-    /// 删除已安装的社区映射（从全局语言包与清单移除）
+    /// Remove an installed community mapping (from the global language pack and the manifest)
     Remove {
-        /// crate 名
+        /// Crate name
         crate_name: String,
-        /// 语言代码
+        /// Language code
         #[arg(long)]
         lang: String,
     },
-    /// 按已安装清单重新拉取所有映射（获取他人更新）
+    /// Re-fetch all mappings according to the installed manifest (pick up others' updates)
     Update,
-    /// 发布本地映射到注册中心（先经质量门禁）
+    /// Publish a local mapping to the registry (quality gate runs first)
     Publish {
-        /// crate 名
+        /// Crate name
         crate_name: String,
-        /// 语言代码
+        /// Language code
         #[arg(long)]
         lang: String,
-        /// 映射文件路径（缺省按常见位置查找：全局/项目语言包或当前目录）
+        /// Mapping file path (when omitted, searched in common locations: global/project language pack or the current directory)
         #[arg(long)]
         file: Option<PathBuf>,
-        /// 译者署名（缺省取 git user.name）
+        /// Translator credit (defaults to git user.name)
         #[arg(long)]
         author: Option<String>,
     },
@@ -236,24 +234,24 @@ enum CrateCommand {
 
 #[derive(Subcommand)]
 enum LangCommand {
-    /// 列出所有已安装的语言包（内置 + 用户安装）
+    /// List all installed language packs (built-in + user-installed)
     List,
-    /// 安装语言包：本地目录路径直接复制；语言代码从远程仓库下载
+    /// Install a language pack: a local directory path is copied directly; a language code is downloaded from the remote repository
     Install {
-        /// 本地语言包目录路径，或远程语言代码
+        /// Local language-pack directory path, or a remote language code
         source: String,
-        /// 已存在时强制覆盖安装
+        /// Force overwrite if already installed
         #[arg(short = 'f', long = "force")]
         force: bool,
     },
-    /// 删除用户安装的语言包（内置语言包不可删除）
+    /// Remove a user-installed language pack (built-in packs cannot be removed)
     Remove {
-        /// 语言代码（语言包目录名）
+        /// Language code (language-pack directory name)
         lang_code: String,
     },
-    /// 浏览远程语言包市场（下载远程仓库扫描可用语言包，可选关键词过滤）
+    /// Browse the remote language-pack marketplace (scan the remote repository; optional keyword filter)
     Search {
-        /// 关键词（匹配语言代码或显示名称）；省略时列出全部远程语言包
+        /// Keyword (matches language code or display name); lists all remote packs when omitted
         keyword: Option<String>,
     },
 }
@@ -390,18 +388,19 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 .stdout
                 .take()
                 .ok_or_else(|| anyhow::anyhow!("cargo run stdout 管道不可用"))?;
-            // stderr 线程逐行翻译 cargo 进度（Compiling/Finished 等），
-            // 其余行（程序 stderr）原样透传
+            // stderr 线程逐行翻译：cargo 进度（Compiling/Finished 等）与程序
+            // panic 输出本地化，其余行（程序普通 stderr）原样透传
             let stderr_pipe = child
                 .stderr
                 .take()
                 .ok_or_else(|| anyhow::anyhow!("cargo run stderr 管道不可用"))?;
             let stderr_handle = std::thread::spawn(move || {
                 let ui = ui::Ui::global();
+                let mut translator = StreamTranslator::new();
                 let reader = BufReader::new(stderr_pipe);
                 for line in reader.lines() {
                     match line {
-                        Ok(line) => eprintln!("{}", translate_cargo_progress(&line, &ui)),
+                        Ok(line) => eprintln!("{}", translator.translate(&line, &ui)),
                         Err(_) => break,
                     }
                 }
@@ -1756,7 +1755,10 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
                 .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
         })
         .mut_subcommand("run", |cmd| cmd.about(ui.t("cmd_run_about")))
-        .mut_subcommand("check", |cmd| cmd.about(ui.t("cmd_check_about")))
+        .mut_subcommand("check", |cmd| {
+            cmd.about(ui.t("cmd_check_about"))
+                .mut_arg("fix", |arg| arg.help(ui.t("arg_check_fix_help")))
+        })
         .mut_subcommand("eject", |cmd| cmd.about(ui.t("cmd_eject_about")))
         .mut_subcommand("transpile", |cmd| cmd.about(ui.t("cmd_transpile_about")))
         .mut_subcommand("add", |cmd| {
@@ -1765,21 +1767,55 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
         })
         .mut_subcommand("install", |cmd| {
             cmd.about(ui.t("cmd_install_about"))
-                .mut_subcommand("lsp", |sub| sub.about(ui.t("cmd_install_lsp_about")))
+                .mut_subcommand("lsp", |sub| {
+                    sub.about(ui.t("cmd_install_lsp_about"))
+                        .mut_arg("force", |arg| arg.help(ui.t("arg_force_help")))
+                })
+                .mut_subcommand("toolchain", |sub| {
+                    sub.about(ui.t("tc_install_help"))
+                        .mut_arg("version", |arg| arg.help(ui.t("arg_tc_version_help")))
+                        .mut_arg("ra_tag", |arg| arg.help(ui.t("arg_tc_ra_tag_help")))
+                        .mut_arg("ra_only", |arg| arg.help(ui.t("arg_tc_ra_only_help")))
+                        .mut_arg("force", |arg| arg.help(ui.t("arg_force_help")))
+                })
+        })
+        .mut_subcommand("doctor", |cmd| cmd.about(ui.t("tc_doctor_help")))
+        .mut_subcommand("cheat", |cmd| {
+            cmd.about(ui.t("cmd_cheat_about"))
+                .mut_arg("lang", |arg| arg.help(ui.t("arg_cheat_lang_help")))
+                .mut_arg("markdown", |arg| arg.help(ui.t("arg_markdown_help")))
         })
         .mut_subcommand("lang", |cmd| {
             cmd.about(ui.t("cmd_lang_about"))
                 .mut_subcommand("list", |sub| sub.about(ui.t("cmd_lang_list_about")))
-                .mut_subcommand("install", |sub| sub.about(ui.t("cmd_lang_install_about")))
-                .mut_subcommand("search", |sub| sub.about(ui.t("cmd_lang_search_about")))
-                .mut_subcommand("remove", |sub| sub.about(ui.t("cmd_lang_remove_about")))
+                .mut_subcommand("install", |sub| {
+                    sub.about(ui.t("cmd_lang_install_about"))
+                        .mut_arg("source", |arg| arg.help(ui.t("arg_lang_source_help")))
+                        .mut_arg("force", |arg| arg.help(ui.t("arg_force_help")))
+                })
+                .mut_subcommand("search", |sub| {
+                    sub.about(ui.t("cmd_lang_search_about"))
+                        .mut_arg("keyword", |arg| {
+                            arg.help(ui.t("arg_lang_search_keyword_help"))
+                        })
+                })
+                .mut_subcommand("remove", |sub| {
+                    sub.about(ui.t("cmd_lang_remove_about"))
+                        .mut_arg("lang_code", |arg| arg.help(ui.t("arg_lang_code_help")))
+                })
         })
         .mut_subcommand("mapping", |cmd| {
             cmd.about(ui.t("cmd_mapping_about"))
                 .mut_subcommand("auto", |sub| {
                     sub.about(ui.t("cmd_mapping_auto_about"))
+                        .mut_arg("crate_name", |arg| {
+                            arg.help(ui.t("arg_mapping_auto_crate_help"))
+                        })
                         .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
                         .mut_arg("provider", |arg| arg.help(ui.t("arg_provider_help")))
+                        .mut_arg("target_version", |arg| {
+                            arg.help(ui.t("arg_target_version_help"))
+                        })
                         .mut_arg("output", |arg| arg.help(ui.t("arg_output_help")))
                         .mut_arg("install", |arg| arg.help(ui.t("arg_install_help")))
                 })
@@ -1802,6 +1838,10 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
                             arg.help(ui.t("cmd_mapping_scaffold_provider_help"))
                         })
                 })
+                .mut_subcommand("coverage", |sub| {
+                    sub.about(ui.t("cmd_mapping_coverage_about"))
+                        .mut_arg("lang", |arg| arg.help(ui.t("arg_coverage_lang_help")))
+                })
         })
         .mut_subcommand("crate", |cmd| {
             cmd.about(ui.t("cmd_crate_about"))
@@ -1811,17 +1851,22 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
                 })
                 .mut_subcommand("install", |sub| {
                     sub.about(ui.t("cmd_crate_install_about"))
+                        .mut_arg("crate_name", |arg| {
+                            arg.help(ui.t("arg_crate_name_normalize_help"))
+                        })
                         .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
                         .mut_arg("force", |arg| arg.help(ui.t("arg_force_help")))
                 })
                 .mut_subcommand("list", |sub| sub.about(ui.t("cmd_crate_list_about")))
                 .mut_subcommand("remove", |sub| {
                     sub.about(ui.t("cmd_crate_remove_about"))
+                        .mut_arg("crate_name", |arg| arg.help(ui.t("arg_crate_name_help")))
                         .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
                 })
                 .mut_subcommand("update", |sub| sub.about(ui.t("cmd_crate_update_about")))
                 .mut_subcommand("publish", |sub| {
                     sub.about(ui.t("cmd_crate_publish_about"))
+                        .mut_arg("crate_name", |arg| arg.help(ui.t("arg_crate_name_help")))
                         .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
                         .mut_arg("file", |arg| arg.help(ui.t("arg_crate_file_help")))
                         .mut_arg("author", |arg| arg.help(ui.t("arg_crate_author_help")))

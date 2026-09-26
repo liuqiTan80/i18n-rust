@@ -130,13 +130,15 @@
 
 ### index out of bounds（下标越界）
 
-- **原文**：`index out of bounds: the length is 3 but the index is 9`
+- **原文**：`index out of bounds: the len is 3 but the index is 9`
+- **本地化**：`下标越界：长度是 3，但下标是 9`
 - **人话**：数组/向量没有那个位置。
 - **解决**：检查下标来源；不确定就用 `截取()`。（第十六章）
 
 ### byte index is not a char boundary（切片落进汉字中间）
 
-- **原文**：`byte index 1 is not a char boundary; it is inside '你' (bytes 0..3)`
+- **原文**：`end byte index 1 is not a char boundary; it is inside '你' (bytes 0..3 of string)`
+- **本地化**：`字节索引 1 不是字符边界；它位于 '你'（字节 0..3）内部`
 - **人话**：汉字占 3 个字节，切片必须落在字符边界上。
 - **解决**：切片前按字节边界想清楚，或用 `逐字符()` 处理。（第九章）
 

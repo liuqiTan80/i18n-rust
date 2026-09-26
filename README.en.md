@@ -45,7 +45,7 @@ Mistakes are reported in your language too:
 
 The same program runs in any of the 10 built-in dialects — e.g. Japanese (`関数 主関数()`, `表示行!`) or Russian (`функция главная()`, `печатай_строку!`). Standard Rust (`fn main()`) is always accepted as-is.
 
-**Start here**: 🚀 [Quick start](#-quick-start) · 🌐 [Online docs](https://liuqiTan80.github.io/i18n-rust/) (4 languages) · 📖 [Learn step by step](#-tutorials) · 🤝 [Contributing](#-contributing)
+**Start here**: 🚀 [Quick start](#quick-start) · 🌐 [Online docs](https://liuqiTan80.github.io/i18n-rust/) (4 languages) · 📚 [Feishu KB](https://my.feishu.cn/wiki/space/7689728327082314704) (Chinese tutorial, no login required) · 📖 [Learn step by step](#tutorials) · 🤝 [Contributing](#contributing)
 
 ---
 
@@ -195,7 +195,7 @@ One-shot local packaging scripts produce a platform-specific release bundle for 
 
 Prerequisite: a release build (step 2 above) and one online run of `rzc install toolchain --ra-only --force` (the packager copies the platform rust-analyzer into the bundle). The package contains rzc, i18n-rust-lsp, rust-analyzer, all 11 language packs and the tutorial — unzip and use (details in tutorial Appendix D.5).
 
-## 🚀 Quick Start
+## 🚀Quick Start
 
 ```bash
 rzc init my-project
@@ -280,11 +280,11 @@ Syntax highlighting, smart completion, hover docs, go-to-definition, find refere
 
 ---
 
-## 📖 Tutorials
+## 📖Tutorials
 
 A complete beginner-friendly **Chinese tutorial** — 26 chapters + glossary + 5 appendices — lives in [tutorials/](tutorials/): from "Hello, World" through ownership, closures, async and macros, up to a full capstone project. Every example is written in Chinese Rust.
 
-🌐 **Read online**: [documentation site](https://liuqiTan80.github.io/i18n-rust/) (mdBook, 4 languages with a top-bar switcher; preview locally with `make site-serve`).
+🌐 **Read online**: [documentation site](https://liuqiTan80.github.io/i18n-rust/) (mdBook, 4 languages with a top-bar switcher; preview locally with `make site-serve`) · 📚 **For readers in China**: [Feishu knowledge base](https://my.feishu.cn/wiki/space/7689728327082314704) (33-part Chinese tutorial, publicly readable without a Feishu account).
 
 **Translations in progress**: English (Preface, Chapters 1–13, Appendix D — 15/33), 日本語 and Русский rolling; see [translation-status.md](docs/translation-status.md) for progress and the next batch.
 
@@ -327,7 +327,7 @@ JSON diagnostics → error-code/message translation + type localization + teachi
 
 ---
 
-## 🤝 Contributing
+## 🤝Contributing
 
 - **First time here?** Start with the [project map (maintainer handbook)](docs/project-map.md) — where to change X and how to verify; dev setup and commit conventions in [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Missing-mapping guide for app developers**: [docs/missing-mapping-guide.md](docs/missing-mapping-guide.md) — how to add entries / customize mappings while writing your app (beginner-friendly)

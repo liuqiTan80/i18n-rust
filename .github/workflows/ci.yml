@@ -73,17 +73,35 @@ jobs:
 
       - name: 第三方库映射质量门禁
         # 校验全部内置语言包的 crates 映射：重复键 / 关键字避让 /
-        # 跨文件同键冲突 / 跨语言条目数一致性；发现错误时退出码非零
-        run: cargo run --quiet --bin rzc -- mapping check
+        # 跨文件同键冲突 / 跨语言条目数一致性（发现 error 时退出码非零），
+        # 并对照告警基线（tools/mapping-baseline.json）校验告警数只减不增
+        run: |
+          cargo build --quiet --bin rzc
+          python3 tools/check-mapping-warnings.py
 
-      - name: 教程代码块验证（单块编译 + 预期错误码断言）
+      - name: ui.toml 键完备性检查
+        # 以 zh 为基准逐语言比对：界面消息键缺失 / 界面消息键误放「解释」段 /
+        # 共有键 {} 占位符数量不一致时退出码非零（防止新增键只补部分语言）
+        run: python3 tools/check-ui-keys.py
+
+      - name: README 结构 parity 检查（9 份翻译 vs en 基准）
+        # 校验 9 份翻译 README 的 h1/h2/h3 章节数、页内锚点有效性、
+        # 代码围栏配对、「从这里开始」导航行链接与必需结构元素——
+        # 防止章节漂移与锚点失效（新增章节只改基准、emoji 标题锚点回归等）
+        run: python3 tools/check-readme-parity.py
+
+      - name: 教程代码块验证（单块编译 + 预期错误码断言，zh/en/ja/ru）
         # 逐个验证 tutorials/*.md 代码块：完整程序/片段须编译通过，
         # 错误示例须编译失败且实际错误码与 `// 预期错误: EXXXX` 标记一致；
         # 非预期失败时退出码非零。白名单（tools/expected-failures.json）
         # 仅豁免教程结构固有噪音（跨块上下文依赖/环境依赖等）
         run: |
           cargo build --quiet --bin rzc
-          python3 tools/verify-tutorials.py --rzc target/debug/rzc --allowlist tools/expected-failures.json
+          python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json
+          for lang in en ja ru; do
+            python3 tools/verify-tutorials.py --dir "tutorials/$lang" --lang "$lang" \
+              --allowlist tools/expected-failures.json
+          done
 
       - name: 术语表与语言包一致性检查
         # 术语表「对应关键字/宏/方法/…」引用必须能在 zh 语言包找到对应键，
@@ -230,9 +248,14 @@ jobs:
         # 阈值：本地默认 30%；CI 复用共享 runner（邻租户负载干扰大），
         # 同一提交实测波动可超 60%，故 CI 放宽到 100% 只拦灾难性回归，
         # 精细对比留给开发者本地（BENCH_REGRESSION_PCT 默认 30）。
+        # 首次失败自动重跑一次（共享 runner 偶发噪声），仍超阈值才判失败
         env:
           BENCH_REGRESSION_PCT: "100"
-        run: tools/bench-check.sh
+        run: |
+          if ! tools/bench-check.sh; then
+            echo "::warning title=基准首次运行超阈值::自动重跑一次以排除共享 runner 噪声"
+            tools/bench-check.sh
+          fi
 
       - name: 上传基准报告
         uses: actions/upload-artifact@v4

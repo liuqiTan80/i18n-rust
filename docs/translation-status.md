@@ -30,8 +30,44 @@
 | 文档 | 状态 |
 |---|---|
 | README.md / README.en.md | ✅ 最新（含英文 tagline） |
-| 9 份翻译 README | ✅ 已补母语 tagline；正文为早期快照，随教程英文化后按需刷新 |
+| 9 份翻译 README | ✅ 已与 zh/en 结构对齐（9 章节全量同步：命令速查 22 条 / 功能特性 6 小节 / 项目结构 / 参与贡献等；`make readme-parity` 门禁防漂移） |
 | docs/contributing-lang-pack.md 等 | ⬜ 待英文化（第 11 种语言贡献路径） |
+
+## 第三方库映射（crates/ 覆盖差异）
+
+> 截至 2026-09-26 统计。`rzc mapping check` 的「跨语言条目数不一致」告警属
+> **已知结构性差异**（已登记告警基线 `tools/mapping-baseline.json`）：不做
+> 强行同步，各语言按需翻译、逐步跟进即可。
+
+| 范围 | 表数 | 标识符 | 模块路径 | 说明 |
+|---|---|---|---|---|
+| zh（基准） | 16 | 796 | 69 | 教程实战词条持续增补（xiaozs 回馈、office-zb 实战等） |
+| 9 翻译语言（ar/de/es/fr/hi/ja/ko/pt/ru） | 10 | 376 | 38 | 共享十表统一样式；zh 独有表、共享表增补未跟进 |
+| en | 10 | 373 | 38 | 恒等包：`spawn`/`filter`/`route` 第 2 语境与首条同词，TOML 同键唯一而自然折叠 |
+
+**zh 独有 6 表**（其他语言用户直接写英文名即可，编译结果不受影响）：
+
+| 表 | 标识符 | 覆盖 |
+|---|---|---|
+| tauri.toml | 200 | tauri 2.11.5 |
+| 电子表格.toml | 51 | rust_xlsxwriter / calamine / umya_spreadsheet |
+| 密码学.toml | 34 | sha2 / md5 / hmac / pbkdf2 等 |
+| mysql.toml | 16 | mysql（同步连接） |
+| 自启插件.toml | 8 | tauri_plugin_autostart |
+| 对话框插件.toml | 0（模块路径 1 条） | tauri_plugin_dialog |
+
+zh 共享 10 表另比其他语言多 111 条标识符与 12 条模块路径（如 `异步.toml` 的
+`异步任务`=spawn 同义词、`日志.toml` 的 EnvFilter / try_new / with_env_filter
+等），待各语言按需跟进。
+
+补齐路径（格式与命名规则见 [third-party-mapping.md](./third-party-mapping.md)，
+新语言接入全流程见 [contributing-lang-pack.md](./contributing-lang-pack.md)）：
+
+```bash
+rzc mapping scaffold zh <lang>                      # 生成 TODO 骨架，人工翻译键名
+rzc mapping scaffold zh <lang> --provider deepseek  # AI 翻译（需 DEEPSEEK_API_KEY）
+rzc mapping check <lang>                            # 冲突校验（告警数回归基线）
+```
 
 ## 近期完成
 
@@ -307,3 +343,12 @@
   - 四语言门禁全绿（DECL_WORDS 改动全回归确认）：zh 320/381、en 210/239、
     ja 181/202、ru 226/266，0 失败。
   - en 进度 15/33。下一批：第 14 章《生命周期》。
+- 2026-09-26（翻译 README 全量同步）：**9 份翻译 README 与 zh/en 结构对齐**——
+  - ja/ru/de/es/fr/pt/ko/ar/hi 由早期快照（约 150 行）重建为同构正文（353〜355 行）：
+    统一 9 个 h2 章节（安装 / 快速开始 / 命令速查 22 条 / 功能特性 6 小节 / 教程 /
+    项目结构 / 参与贡献 / 支持 / 许可）+ 徽章 4 行 + 🪞 双平台镜像说明 +
+    「从这里开始」5 链接导航（新增 📚 飞书中文教程入口，与 en 口径一致）。
+  - 错误示例逐语言实机采集真实 E0384 输出（오류/خطأ/त्रुटि…），代码示例与映射词
+    全部对照语言包核实（함수·선언·출력_줄、دالة·دع·اطبع_سطرا、फंक्शन·मानो·पंक्ति_छापो）。
+  - 新增 `tools/check-readme-parity.py` 门禁（h1/h2/h3 计数、页内锚点有效性、
+    `](#-` 禁用、围栏配对、导航行链接），接入 `make gate`（readme-parity）与 CI。

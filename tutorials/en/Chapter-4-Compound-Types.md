@@ -239,7 +239,7 @@ fn main() {
 
 Rust immediately **panics** — the program stops on the spot.
 
-> 📖 **Panic**: when a program hits an unrecoverable error, it shouts "something's wrong!" and stops immediately, never running while broken. Like a fire alarm: everyone stops what they're doing and evacuates. Chapter 16 covers this.
+> 📖 **Panic**: when a program hits an unrecoverable error, it shouts "something's wrong!" and stops immediately, never running while broken. Like a fire alarm: everyone stops what they're doing and evacuates. Later chapters cover this.
 
 The panic message looks like this:
 
@@ -457,6 +457,7 @@ You'll see a real panic message:
 ```
 thread 'main' panicked at ...:
 index out of bounds: the len is 3 but the index is 5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 ```
 
 Now a legal number:

@@ -23,6 +23,7 @@
 "변환" = "convert"
 "반복자" = "iter"
 "포맷" = "fmt"
+"format" = "fmt"
 "메모리" = "mem"
 "포인터" = "ptr"
 "숫자" = "num"
@@ -38,6 +39,13 @@
 ["标识符"]
 
 "표준" = "std"
+"입출력" = "io"
+"컬렉션" = "collections"
+"네트워크" = "net"
+"atomic" = "atomic"
+"핵심" = "core"
+"할당" = "alloc"
+"프로세스" = "process"
 # --------------------------------------------
 # 추가 숫자 타입
 # --------------------------------------------
@@ -145,6 +153,10 @@
 "작성_가능" = "Write"
 "위치_가능" = "Seek"
 "위치_기준" = "SeekFrom"
+"문자열" = "String"
+"문자열_참조" = "&str"
+"수명_참조" = "&'a"
+"정적_문자열_참조" = "&'static str"
 
 # --------------------------------------------
 # 문자열 / 텍스트 메서드 (String / str)
@@ -193,6 +205,7 @@
 "길이" = "len"
 "바이트로" = "as_bytes"
 "utf8에서" = "from_utf8"
+"utf8에서_완화" = "from_utf8_lossy"
 "일치" = "matches"
 
 # --------------------------------------------
@@ -204,6 +217,7 @@
 "키_정렬" = "sort_by_key"
 "불안정_정렬" = "sort_unstable"
 "역순" = "reverse"
+"역방향" = "rev"
 "중복_제거" = "dedup"
 "비교_중복_제거" = "dedup_by"
 "유지" = "retain"
@@ -216,6 +230,8 @@
 "가변_슬라이스로" = "as_mut_slice"
 "연결_결합" = "concat"
 "확장" = "extend"
+"슬라이스에서_확장" = "extend_from_slice"
+"벡터로_변환" = "to_vec"
 "반복자에서" = "from_iter"
 "배출" = "drain"
 "조각들" = "chunks"
@@ -248,6 +264,8 @@
 "이진_힙" = "BinaryHeap"
 "해시_집합" = "HashSet"
 "이중_큐" = "VecDeque"
+"빌림" = "borrow"
+"가변_빌림" = "borrow_mut"
 "연결_리스트" = "LinkedList"
 "키들" = "keys"
 "값들" = "values"
@@ -314,23 +332,30 @@
 "작성" = "write"
 "플러시" = "flush"
 "열기" = "open"
+"파일_시스템" = "fs"
 
 # --------------------------------------------
 # 파일 시스템 추가
 # --------------------------------------------
 "파일" = "File"
 "경로" = "Path"
+"항목_경로" = "path"
+"아스키_숫자_인가" = "is_ascii_digit"
+"바이트" = "u8"
 "경로_버퍼" = "PathBuf"
 "디렉토리_항목" = "DirEntry"
 "디렉토리_읽기" = "read_dir"
 "디렉토리_생성" = "create_dir"
 "모든_디렉토리_생성" = "create_dir_all"
+"디스플레이" = "display"
 "파일_삭제" = "remove_file"
 "디렉토리_삭제" = "remove_dir"
 "모든_디렉토리_삭제" = "remove_dir_all"
 "복사" = "copy"
 "이름_변경" = "rename"
 "메타데이터" = "Metadata"
+"메타데이터_가져오기" = "metadata"
+"수정_시간" = "modified"
 "파일_크기" = "len"
 "파일_인가" = "is_file"
 "디렉토리_인가" = "is_dir"
@@ -348,6 +373,7 @@
 "파일_이름" = "file_name"
 "확장자" = "extension"
 "부모" = "parent"
+"존재_여부" = "exists"
 
 # --------------------------------------------
 # 프로세스와 환경
@@ -360,6 +386,14 @@
 "종료_상태" = "ExitStatus"
 "종료_코드" = "ExitCode"
 "출력" = "Output"
+"메모리" = "mem"
+"포맷_모듈" = "fmt"
+"오류_모듈" = "error"
+"뒤에_밀어넣기" = "push_back"
+"앞에_밀어넣기" = "push_front"
+"뒤에서_꺼내기" = "pop_back"
+"앞에서_꺼내기" = "pop_front"
+"출력_얻기" = "output"
 "인자" = "args"
 "환경_변수" = "var"
 "변수_설정" = "set_var"
@@ -369,6 +403,8 @@
 "현재_디렉토리_설정" = "set_current_dir"
 "현재_실행파일" = "current_exe"
 "임시_디렉토리" = "temp_dir"
+"프로세스_ID" = "id"
+"단일_인자" = "arg"
 "모든_인자" = "args"
 "종료" = "exit"
 "중지" = "abort"
@@ -388,6 +424,8 @@
 "장벽" = "Barrier"
 "장벽_결과" = "BarrierWaitResult"
 "한번만" = "Once"
+"지연_정적" = "LazyLock"
+"메시지_전달" = "mpsc"
 "채널" = "channel"
 "송신자" = "Sender"
 "수신자" = "Receiver"
@@ -435,6 +473,8 @@
 "순간" = "Instant"
 "시스템_시간" = "SystemTime"
 "유닉스_에포크" = "UNIX_EPOCH"
+"시간" = "time"
+"에포크_부터" = "duration_since"
 "새_값" = "new"
 "초에서" = "from_secs"
 "밀리초에서" = "from_millis"
@@ -469,6 +509,7 @@
 # 메모리 함수
 # --------------------------------------------
 "크기" = "size_of"
+"포인터로" = "as_ptr"
 "정렬_맞춤" = "align_of"
 "값_크기" = "size_of_val"
 "파괴" = "drop"
@@ -562,6 +603,7 @@
 "또는_함수_포장_풀기" = "unwrap_or_else"
 "기본_포장_풀기" = "unwrap_or_default"
 "기대" = "expect"
+"기대값" = "expected"
 "맵_또는" = "map_or"
 "맵_또는_함수" = "map_or_else"
 "그리고_다음" = "and_then"
@@ -611,6 +653,12 @@
 "매크로_포함_문자열" = "include_str"
 "매크로_포함_바이트" = "include_bytes"
 "매크로_환경" = "env"
+"변환" = "convert"
+"포인터" = "ptr"
+"숫자" = "num"
+"연산" = "ops"
+"배열" = "array"
+"마커" = "marker"
 "매크로_환경_옵션" = "option_env"
 "매크로_설정" = "cfg"
 "매크로_벡터" = "vec"
@@ -669,3 +717,5 @@
 "cmp" = "cmp"
 "ParseIntError" = "ParseIntError"
 "test" = "test"
+"허용" = "allow"
+"유닉스_시스템" = "unix"

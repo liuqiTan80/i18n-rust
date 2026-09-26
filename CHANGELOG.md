@@ -19,6 +19,24 @@
   （元组/结构体/数组解构、让-否则、let 链）时不再误报：这类绑定须标注整个
   模式的类型，教程示例均以不标注形式书写，提示无解成噪音；`让 x = …` 与
   `让 可变 x = …` 照常提示
+- 语言包：11 语言 `ui.toml` 键完备性补齐（zh +25 / en +126 / 其余 9 语言
+  各 +66，含 `mc_cov_*` 键组段位归位）——修复 en 等语言 `rzc crate --help`
+  一类界面直接显示原始键名（如 `cmd_crate_about`）的整域缺口
+- 语言包：9 语言 `errors.toml` 各补 14 键（E0583 模块文件缺失 / E0761 同名
+  歧义 / trait 未导入 / `expected item, found keyword` 等语法与导入提示的
+  教学文案）；ja 修正「分支」中文残留与 `.zh` 扩展名外露（应为 `.ja`）；
+  zh 教学提示移除已不支持的 `名字/模.rs` 目录式模块写法
+- 语言包：en 与 9 翻译语言 stdlib 覆盖缺口按 zh 基准清零（各 +46~50 行，
+  含 `Path` / `from_utf8_lossy` 与 u8「字节」族）；配套修复引擎 use 段
+  让位态——词形判定由硬编码 `use`/`使用` 改关键字映射反查（es `usar` 等
+  语言让位态此前从未开启，`formato` 一类冲突词残留英文宏名）
+- 语言包：crates 映射修正——de/es/fr/ru `salvo` 表 `untertyp_javascript`
+  值由展示文案改回常量名 `JAVASCRIPT`；de `standardwert` 更名
+  `argument_standardwert`；ru stdlib 解析错误条目改名
+- CLI：`doctor` / `cheat` / `toolchain` 子命令帮助文本纳入 `localize_clap`
+  本地化（此前 `--help` 硬编码中文，与其余命令的 ui.toml 机制不一致）
+- 教程门禁：第十九章白名单条目行号漂移（400 → 401）——该章早前将一处输出
+  示例由 1 行改为 2 行，`make tutorials` 曾因此误报失败
 
 ### 新增
 - zh 语言包补条：`stdlib.toml`「懒静态」=LazyLock（office-zb #21）；
@@ -27,6 +45,10 @@
   （office-zb 服务端引入实战：HTTP 客户端封装与 JsonBody 提取）
 - 教程：附录 C 补充 if-let 漏写 `让` 与模块路径前缀常见原因；附录 E 新增
   「匹配字段简写为何不转译」FAQ（显式写法 `{ 字段: 绑定, .. }`）
+- 教程：开篇补「项目地址」导读框与符号图例「项目」行、第二章与附录 D 的
+  获取源码命令改国内 GitCode 优先（`https://gitcode.com/tan80/i18n-rust`，
+  国际线路 GitHub 同步保留）——国内读者不翻墙即可找到仓库；三篇已重导同步
+  至飞书知识库（目录顺序不变）
 - 工程：LSP 热路径基准入库——`crates/lsp/benches/hot_paths.rs`（criterion 4 项：
   `update_document` 打开/连续编辑、`reverse_transpile` 补全片段/整文档）；
   `tools/bench-check.sh` 升级为 engine + lsp 双基准集（组名前缀隔离，支持
@@ -51,6 +73,23 @@
   注入所有语言书；`make site` / `make site-serve` 本地入口；
   `.github/workflows/pages.yml` 部署 GitHub Pages（固定 mdBook 0.4.52，
   与本地同款；启用需在仓库 Settings → Pages 选择 "GitHub Actions"）
+- 教程发布：飞书知识库发布工具 `tools/publish-feishu.py`（`make feishu`）——
+  经官方开放平台 API 四步流水线（上传素材 → md 导入为 docx → 移入知识库节点）
+  将 33 篇中文教程按文档站 SUMMARY 顺序发布至知识库，国内公网免登录阅读
+  （语雀公网可见需专业会员、Gitee Pages 已停服）；同名文档幂等跳过、限频与
+  网络抖动自动重试；正文首行 H1 默认移除（`--keep-h1` 保留）；`--dry-run`
+  预览 / `--only <子串>` 定向重导 / `--force` 全量重发；App Secret 仅经环境
+  变量传入不落盘；平台侧一次性配置与核验见[发布准备清单](docs/strategy/发布准备清单.md)第 5 节
+  ——2026-09-26 首次全量发布完成：33 篇 0 失败、顺序与文档站一致，知识库已开启
+  「互联网公开」（外部访客免登录可阅读）；建库默认「首页」节点已移除，
+  空间链接自动跳转首篇
+- CLI：程序 stderr 流式本地化——运行子进程（cargo 与直调 rustc 两条
+  路径）的 stderr 统一经 `StreamTranslator` 过滤：cargo 进度行照旧翻译；
+  运行时 panic 框头（`thread 'main' (TID) panicked at file:line:col:`）
+  本地化——线程 ID 剥离、主线程名映射为各语言主函数词、自定义线程名保留；
+  六型 panic 消息（下标越界 / 字节索引越界 ×2 / 字符边界 / RefCell 借用
+  冲突 ×2）与 `RUST_BACKTRACE` note 行按 ui.toml 模板翻译，其余行原样
+  透传（lossy 解码不断流）；stdout/stdin 保持继承，交互式程序不受影响
 
 ### 工程
 - 本地门禁统一入口 `Makefile`（`make gate` = CI test job 全链，`make help`
@@ -59,6 +98,16 @@
 - 发布产物随附 `SHA256SUMS` 校验和（GitHub Release 附件与 GitCode Release
   均自动包含），GitCode 附件上传后自动回查核验
 - crates 模块文档规范化：engine / CLI / LSP 模块级 `//!` 文档补全与措辞修订
+- 语言包 / README 门禁三件套：`tools/check-ui-keys.py`（ui.toml 键完备性：
+  11 语言与 zh 对齐 + `{}` 占位符一致性）、`tools/check-mapping-warnings.py`
+  + `tools/mapping-baseline.json`（mapping check 告警数只减不增，基线 2 条
+  为已明示的结构性差异）、`tools/check-readme-parity.py`（9 份翻译 README
+  结构 parity：章节数 / GFM 锚点有效性（含 Unicode Mark 类）/ 围栏配对）
+- `make gate` 升级：教程验证由 zh 单语扩为四语 `tutorials-all`
+  （zh/en/ja/ru），并纳入 `ui-keys` / `readme-parity` / 告警基线三项门禁
+- CI test job 同步强化：新增 ui.toml 键完备性与 README parity 步骤、教程
+  验证循环 en/ja/ru、mapping 门禁改经告警基线脚本；bench 作业首次失败自动
+  重跑一次（共享 runner 噪声）后仍超阈值才判失败
 
 ### 文档
 - 维护者入口整理：新增 [项目地图](docs/project-map.md)（任务→文件→命令速查 +
@@ -77,6 +126,23 @@
   安装指引、ja 项目命令修正为 `rzc init --lang ja`、rustc 示例版本更新为
   1.98；教程第一章能力表编号、附录 D 命令示例与附录 E 迁移对照表修正；
   engine README 示例 API 修正；strategy 文档同步 crates.io 0.8.2 发布状态
+- README（中/英）「从这里开始」页内锚点修复：GitHub 与 GitCode 的标题 id
+  规则不同（GitHub 保留 emoji 后的前导连字符，GitCode 整体去除并 trim），
+  统一为「emoji 紧贴标题文字 + 无连字符锚点」写法（`## 📖配套教程` ↔
+  `#配套教程`），快速开始 / 配套教程 / 参与贡献 三个导航锚点双平台可用
+- 中文 README 文档站入口补充国内访问提示：GitHub Pages 托管、国内网络
+  可能无法稳定访问，替代路径为仓库内直接阅读 `tutorials/`
+- 9 份翻译 README 全量重建：ja/ru/de/es/fr/pt/ko/ar/hi 由早期快照（约
+  150 行）同步为与 zh/en 同构正文（9 章节 + 徽章 + 🪞 镜像说明 + 命令速查
+  22 条 + 功能特性 6 小节 + 「从这里开始」5 链接导航含飞书入口）；错误示例
+  按各语言包实机采集真实 E0384 输出，映射词逐语言核对
+- 教程：恐慌输出示例四语言与产品实机输出对齐（zh / ja / ru 为本地化格式，
+  en 标准格式；字节索引消息同步 rustc 1.98 实测）；第一章安装步骤重写为
+  crates.io 优先并整理「第二步」结构；「网盘」字样清理、语言包计数
+  （11 = 10 自然语言 + en 恒等包）校对
+- 文档：translation-status 新增「第三方库映射（crates/ 覆盖差异）」节
+  （zh 独有 6 表 / 9 翻译语言共享十表 / en 恒等包折叠的差异明示与补齐
+  路径）；third-party-mapping §6 对应重写
 
 ## [0.8.2] - 2026-09-21
 

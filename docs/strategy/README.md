@@ -22,7 +22,8 @@
 | 1 | VS Code Marketplace + OpenVSX 发布 | Azure PAT / OpenVSX token |
 | 2 | 演示 GIF 录屏（15 秒，放 README 顶部） | 人工录屏（脚本已就绪） |
 | 3 | 启用 GitHub Pages（Settings → Pages → Source 选 "GitHub Actions"） | 网页操作；启用后站点：https://liuqiTan80.github.io/i18n-rust/ |
-| 4 | GitHub 仓库 about 栏文案 + Topics 标签 | 网页操作（推广露面） |
+| 4 | GitHub 仓库元数据（描述 / Topics / Homepage） | 网页操作（推广露面；Homepage 依赖 Pages 启用） |
+| 5 | 飞书知识库教程发布（国内公网免登录阅读） | **已完成（2026-09-26）**：33 篇全量发布、已开启互联网公开；入口 <https://my.feishu.cn/wiki/space/7689728327082314704>（操作记录见[发布准备清单](发布准备清单.md)第 5 节） |
 
 逐条命令与发布后核验步骤见 [发布准备清单.md](发布准备清单.md)。
 

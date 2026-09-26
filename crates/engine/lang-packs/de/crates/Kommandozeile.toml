@@ -18,7 +18,7 @@
 "hilfe" = "help"
 "version" = "version"
 "erforderlich" = "required"
-"standardwert" = "default_value"
+"argument_standardwert" = "default_value"
 
 # structopt
 "struktur_opt" = "StructOpt"

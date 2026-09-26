@@ -23,6 +23,7 @@
 "conversion" = "convert"
 "iterador" = "iter"
 "formato" = "fmt"
+"format" = "fmt"
 "memoria" = "mem"
 "puntero" = "ptr"
 "numeros" = "num"
@@ -38,6 +39,13 @@
 ["标识符"]
 
 "estandar" = "std"
+"entrada_salida" = "io"
+"colecciones" = "collections"
+"red" = "net"
+"atomic" = "atomic"
+"nucleo" = "core"
+"asignacion" = "alloc"
+"proceso" = "process"
 # --------------------------------------------
 # Tipos numéricos adicionales
 # --------------------------------------------
@@ -145,6 +153,10 @@
 "escribible" = "Write"
 "posicionable" = "Seek"
 "posicion_desde" = "SeekFrom"
+"cadena" = "String"
+"referencia_cadena" = "&str"
+"referencia_tiempo_de_vida" = "&'a"
+"referencia_cadena_estatica" = "&'static str"
 
 # --------------------------------------------
 # Métodos de cadenas / texto (String / str)
@@ -193,6 +205,7 @@
 "longitud" = "len"
 "como_bytes" = "as_bytes"
 "desde_utf8" = "from_utf8"
+"desde_utf8_tolerante" = "from_utf8_lossy"
 "coincidencias" = "matches"
 
 # --------------------------------------------
@@ -204,6 +217,7 @@
 "ordenar_por_clave" = "sort_by_key"
 "ordenar_inestable" = "sort_unstable"
 "invertir" = "reverse"
+"orden_inverso" = "rev"
 "deduplicar" = "dedup"
 "deduplicar_comparando" = "dedup_by"
 "conservar" = "retain"
@@ -216,6 +230,8 @@
 "como_porcion_mutable" = "as_mut_slice"
 "concatenacion" = "concat"
 "extender" = "extend"
+"extender_desde_porcion" = "extend_from_slice"
+"a_vector" = "to_vec"
 "desde_iterador" = "from_iter"
 "drenar" = "drain"
 "trozos" = "chunks"
@@ -248,6 +264,8 @@
 "monticulo_binario" = "BinaryHeap"
 "conjunto_hash" = "HashSet"
 "cola_doble" = "VecDeque"
+"prestamo" = "borrow"
+"prestamo_mutable" = "borrow_mut"
 "lista_enlazada" = "LinkedList"
 "claves" = "keys"
 "valores" = "values"
@@ -314,23 +332,30 @@
 "escribir" = "write"
 "vaciar" = "flush"
 "abrir" = "open"
+"sistema_archivos" = "fs"
 
 # --------------------------------------------
 # Sistema de archivos adicional
 # --------------------------------------------
 "archivo" = "File"
 "ruta" = "Path"
+"ruta_entrada" = "path"
+"es_digito_ascii" = "is_ascii_digit"
+"byte" = "u8"
 "ruta_buffer" = "PathBuf"
 "entrada_directorio" = "DirEntry"
 "leer_directorio" = "read_dir"
 "crear_directorio" = "create_dir"
 "crear_todos_directorios" = "create_dir_all"
+"visualizar" = "display"
 "eliminar_archivo" = "remove_file"
 "eliminar_directorio" = "remove_dir"
 "eliminar_todos_directorios" = "remove_dir_all"
 "copiar" = "copy"
 "renombrar" = "rename"
 "metadatos" = "Metadata"
+"obtener_metadatos" = "metadata"
+"hora_modificacion" = "modified"
 "tamano_archivo" = "len"
 "es_archivo" = "is_file"
 "es_directorio" = "is_dir"
@@ -348,6 +373,7 @@
 "nombre_archivo" = "file_name"
 "extension" = "extension"
 "padre" = "parent"
+"existe" = "exists"
 
 # --------------------------------------------
 # Procesos y entorno
@@ -360,6 +386,14 @@
 "estado_salida" = "ExitStatus"
 "codigo_salida" = "ExitCode"
 "salida" = "Output"
+"memoria" = "mem"
+"modulo_formato" = "fmt"
+"modulo_error" = "error"
+"empujar_atras" = "push_back"
+"empujar_frente" = "push_front"
+"sacar_atras" = "pop_back"
+"sacar_frente" = "pop_front"
+"obtener_salida" = "output"
 "argumentos" = "args"
 "variable_entorno" = "var"
 "establecer_variable" = "set_var"
@@ -369,6 +403,8 @@
 "establecer_directorio_actual" = "set_current_dir"
 "ejecutable_actual" = "current_exe"
 "directorio_temporal" = "temp_dir"
+"id_proceso" = "id"
+"agregar_argumento" = "arg"
 "todos_argumentos" = "args"
 "terminar" = "exit"
 "abortar" = "abort"
@@ -388,6 +424,8 @@
 "barrera" = "Barrier"
 "resultado_barrera" = "BarrierWaitResult"
 "una_sola_vez" = "Once"
+"estatico_perezoso" = "LazyLock"
+"paso_mensajes" = "mpsc"
 "canal" = "channel"
 "emisor" = "Sender"
 "receptor" = "Receiver"
@@ -435,6 +473,8 @@
 "instante" = "Instant"
 "tiempo_sistema" = "SystemTime"
 "epoca_unix" = "UNIX_EPOCH"
+"tiempo" = "time"
+"desde_epoca" = "duration_since"
 "nuevo_valor" = "new"
 "desde_segundos" = "from_secs"
 "desde_milisegundos" = "from_millis"
@@ -469,6 +509,7 @@
 # Funciones de memoria
 # --------------------------------------------
 "tamano" = "size_of"
+"como_puntero" = "as_ptr"
 "alineacion" = "align_of"
 "tamano_valor" = "size_of_val"
 "destruir" = "drop"
@@ -562,6 +603,7 @@
 "desenvolver_o_si_no" = "unwrap_or_else"
 "desenvolver_o_predeterminado" = "unwrap_or_default"
 "esperar" = "expect"
+"esperado" = "expected"
 "mapear_o" = "map_or"
 "mapear_o_si_no" = "map_or_else"
 "y_luego" = "and_then"
@@ -611,6 +653,12 @@
 "macro_incluir_cadena" = "include_str"
 "macro_incluir_bytes" = "include_bytes"
 "macro_entorno" = "env"
+"conversion" = "convert"
+"puntero" = "ptr"
+"numeros" = "num"
+"operaciones" = "ops"
+"matriz" = "array"
+"marcador" = "marker"
 "macro_opcion_entorno" = "option_env"
 "macro_config" = "cfg"
 "macro_vector" = "vec"
@@ -669,3 +717,5 @@
 "cmp" = "cmp"
 "ParseIntError" = "ParseIntError"
 "test" = "test"
+"permitir" = "allow"
+"sistema_unix" = "unix"

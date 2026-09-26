@@ -194,7 +194,7 @@ Runtime panic:
 
 ```
 thread 'main' panicked at ...:
-byte index 4 is not a char boundary; it is inside 'é' (bytes 3..5) of `café`
+end byte index 4 is not a char boundary; it is inside 'é' (bytes 3..5 of string)
 ```
 
 ("Byte index 4 is not a character boundary; it lies inside 'é'" — half a box doesn't assemble into a letter, and Rust would rather panic than hand you garbage.)
