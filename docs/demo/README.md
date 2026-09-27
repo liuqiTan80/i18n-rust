@@ -29,8 +29,24 @@ vhs 读取 `.tape` 脚本自动输出 GIF（依赖 `ttyd` 与 `ffmpeg`）。
 ```bash
 brew install vhs                                     # macOS
 go install github.com/charmbracelet/vhs@latest       # Linux（Go 环境）
-# 或无 Go：从 https://github.com/charmbracelet/vhs/releases 下载二进制
+# 无 Go：从 https://github.com/charmbracelet/vhs/releases 下载二进制（Linux x86_64 为例）
+curl -fL -o vhs.tar.gz \
+  https://github.com/charmbracelet/vhs/releases/download/v0.12.1/vhs_0.12.1_Linux_x86_64.tar.gz
+tar xzf vhs.tar.gz && install -m755 vhs_*/vhs ~/.local/bin/vhs
 ```
+
+依赖 `ttyd` 与 `ffmpeg`（ffmpeg 多数发行版已装）。ttyd 同样从 release 取静态二进制，
+**必须放进 PATH**（仅放 `~/.vhs/bin/` 不生效，vhs 仍会报 `ttyd is not installed`）：
+
+```bash
+curl -fL -o ~/.local/bin/ttyd \
+  https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64
+chmod +x ~/.local/bin/ttyd
+```
+
+> 🌐 国内环境若 GitHub 443 不通（SSH 推送正常但下载失败），可在下载 URL 前加
+> GitHub 加速代理，例如 `https://gh-proxy.com/<原始 URL>`；代理仅用于本机取工具，
+> 不写进仓库与文档产物。
 
 ### 2. 准备演示项目（以中文版为例）
 
@@ -42,10 +58,12 @@ cp <仓库>/docs/demo/samples/main.zh src/main.zh
 ### 3. 运行 tape（在演示项目目录内）
 
 ```bash
+rm -f ~/.rz/cache/transpile-v1.json   # 清转译缓存，使 `rzc check` 段完整展示教学 lint
 vhs <仓库>/docs/demo/demo-zh.tape
 ```
 
 输出的 `demo-zh.gif` 位于当前目录（`Output` 为相对路径，可改 tape 中路径）。
+渲染前建议先手动跑一次 `rzc check` 确认环境就绪，再清缓存正式录。
 
 日语 / 俄语同理：`rzc init rzc-demo-ja --lang ja`、复制对应 sample、运行对应 tape。
 
@@ -78,18 +96,31 @@ ffmpeg -i demo.mp4 -vf "fps=12,scale=1080:-1:flags=lanczos,split[s0][s1];[s0]pal
 | 体积 | < 3 MB（超出则降 fps 或缩短尾部 `Sleep`） |
 | 内容 | 三幕缺一不可：母语源码 / 教学报错 / eject |
 
-## 挂载到 README（录屏完成后）
+## 挂载到 README（已完成）
 
-在 [README.md](../../README.md) 顶部（镜像说明之后、主标题之前）插入：
+`docs/demo/demo-zh.gif` 已渲染入库（1080×620、约 12.8 秒、262 KB），并作为首屏
+展示挂在 11 份 README 主标题之前（镜像说明之后），alt 文本按各语言本地化：
 
 ```markdown
-![rzc 演示：用母语编写真正的 Rust](docs/demo/demo-zh.gif)
+![rzc 演示：母语源码 → 母语教学报错 → 一键 eject 标准 Rust](docs/demo/demo-zh.gif)
 ```
 
-README.en.md 可复用同一份（GIF 中命令与报错结构自明），或按同法录一版以英文为主的镜头。
+各语言版复用同一份中文 GIF（命令与三段式结构自明）；如需按同法录日语 / 俄语镜头，
+产出 `demo-ja.gif` / `demo-ru.gif` 后替换对应语言 README 的引用路径即可。
 
 ## 常见问题
 
-- **中日文显示为方块**：vhs 默认字体不含 CJK，在 tape 末尾追加 `Set FontFamily "Noto Sans Mono CJK SC"`（俄语用 `Noto Sans Mono`），并确保系统已装该字体。
+- **中日文显示为方块**：vhs 默认主题字体不含 CJK，在 tape 中显式 `Set FontFamily "Noto Sans Mono CJK SC"`
+  （`demo-zh.tape` 已内置；俄语用 `Noto Sans Mono`），并确保系统已装该字体；
+- **报错行前的 `[时间戳] [警告] [lint]` 噪声**：来自教学 lint 日志（每次转译都会重放，
+  包括 `eject`），属预期画面；若想只保留 E0384 教学报错，需先让样本不触发 lint
+  （如给 `让` 补上类型标注、把 `10` 提为常量），但会同时丢掉「未标注类型」这类教学提示展示。
+- **教学 lint 出现在第三幕而不是第二幕**：转译磁盘缓存（`~/.rz/cache/transpile-v1.json`）
+  命中时不重放教学告警，`check` 段会变“干净”而 `eject` 段反而弹出告警；
+  录前 `rm -f ~/.rz/cache/transpile-v1.json` 即可（见上文步骤 3）。
+- **修复了语言包但 GIF / 终端输出不变**：检查是否被陈旧全局语言包遮蔽——
+  解析优先级为 `--lang-pack` 目录 > 项目内 `lang-packs/<语言码>/` >
+  `~/.rz/lang-packs/<语言码>/` > 内置表，只要前三者存在旧副本，重新构建的内置新词条
+  永远不生效（排障可用 `rzc check --lang-pack <仓库>/crates/engine/lang-packs/zh` 强制验证）。
 - **GIF 超过 3 MB**：调低 `Set Width`（如 900）、提高 `Set TypingSpeed`（如 80ms）或缩短 `Sleep`。
 - **`rzc: command not found`**：确保 rzc 已安装并在 PATH（参见主 README 安装节），或把 tape 中命令临时改为 `target/release/rzc` 全路径。

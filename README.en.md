@@ -11,6 +11,8 @@
 
 > 🪞 **Repository mirror**: maintained on both GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) and GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). `rzc lang install` prefers the GitCode source and falls back to GitHub automatically.
 
+![rzc demo: native-language source → native-language teaching errors → one command ejects to standard Rust](docs/demo/demo-zh.gif)
+
 # rzc: Multilingual Rust Teaching Dialect Compiler
 
 > 🌍 **Write Rust in your native language.** · 10 languages · real Rust, real toolchain · graduate anytime with `rzc eject`

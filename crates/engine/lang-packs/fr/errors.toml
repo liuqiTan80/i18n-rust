@@ -2395,6 +2395,25 @@
 ["消息翻译"."consider using `static` or `const` instead of `let`"]
 "消息模板" = "Envisagez d'utiliser `statique` ou `constante` au lieu de `laisser`"
 
+# ---- Suggestions help fréquentes pour E0384/E0596/E0106 (clés exactes, prioritaires sur le repli `consider `) ----
+["消息翻译"."consider making this binding mutable"]
+"消息模板" = "envisagez de déclarer ce lien mutable"
+["消息翻译"."consider changing this to be mutable"]
+"消息模板" = "envisagez de le rendre mutable"
+["消息翻译"."consider introducing a named lifetime parameter"]
+"消息模板" = "envisagez d'introduire un paramètre de durée de vie nommé"
+# ---- Deuxième lot de suggestions help fréquentes (variable inutilisée / cloner / else / appel de trait) ----
+["消息翻译"."if this is intentional, prefix it with an underscore"]
+"消息模板" = "Si c'est intentionnel, précédez le nom de la variable d'un tiret bas"
+["消息翻译"."consider cloning the value if the performance cost is acceptable"]
+"消息模板" = "envisagez de cloner la valeur si le coût en performances est acceptable"
+["消息翻译"."consider adding an `else` block that evaluates to the expected type"]
+"消息模板" = "envisagez d'ajouter un bloc `else` qui évalue vers le type attendu"
+["消息翻译"."items from traits can only be used if the trait is implemented and in scope"]
+"消息模板" = "les méthodes d'un trait ne sont utilisables que si le trait est implémenté et visible"
+["消息翻译"."this trait has no implementations, consider adding one"]
+"消息模板" = "ce trait n'a aucune implémentation, envisagez d'en ajouter une"
+
 # ============================================
 # Fichiers de module manquants et unlinked-file
 # ============================================
@@ -2429,3 +2448,11 @@
 ["消息翻译"."If you're intentionally working on unowned files, you can silence this warning by adding \"unlinked-file\" to your rust-analyzer.diagnostics.disabled configuration."]
 "消息模板" = "Si vous travaillez intentionnellement sur des fichiers non rattachés, vous pouvez désactiver cet avertissement en ajoutant \"unlinked-file\" à la configuration rust-analyzer.diagnostics.disabled."
 
+# ---- 通配段键第三批（诊断匹配器支持 `?` 逐段捕获后可覆盖「两端动态」消息，
+#      如 E0277/E0106 的 help；此前单一前缀/后缀键只能翻到头或尾，故不收录）----
+["消息翻译"."the trait `?` is not implemented for `?`"]
+"消息模板" = "Le trait « {q0} » n'est pas implémenté pour « {q1} »"
+["消息翻译"."this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `?` or `?`"]
+"消息模板" = "Le type de retour de cette fonction contient une valeur empruntée, mais la signature n'indique pas si elle est empruntée à « {q0} » ou à « {q1} »"
+["消息翻译"."?` doesn't implement `?"]
+"消息模板" = "« {q1} » n'implémente pas « {q0} »"

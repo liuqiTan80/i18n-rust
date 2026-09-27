@@ -14,6 +14,7 @@
 Output demo-zh.gif
 
 Set Shell bash
+Set FontFamily "Noto Sans Mono CJK SC"
 Set FontSize 18
 Set Width 1080
 Set Height 620

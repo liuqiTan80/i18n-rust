@@ -2310,6 +2310,25 @@
 ["消息翻译"."consider using `static` or `const` instead of `let`"]
 "消息模板" = "`मानो` के बजाय `स्थैतिक` या `स्थिर` उपयोग करने पर विचार करें"
 
+# ---- E0384/E0596/E0106 में बार-बार आने वाली help सुझाव (सटीक कुंजियाँ, `consider ` फ़ॉलबैक से प्राथमिक) ----
+["消息翻译"."consider making this binding mutable"]
+"消息模板" = "इस बाइंडिंग को mutable घोषित करने पर विचार करें"
+["消息翻译"."consider changing this to be mutable"]
+"消息模板" = "इसे mutable बनाने पर विचार करें"
+["消息翻译"."consider introducing a named lifetime parameter"]
+"消息模板" = "नाम वाले lifetime प्राचल को जोड़ने पर विचार करें"
+# ---- आवृत्त help सुझाव दूसरा बैच (अप्रयुक्त वेरिएबल / क्लोन / else / trait कॉल) ----
+["消息翻译"."if this is intentional, prefix it with an underscore"]
+"消息模板" = "यह जानबूझकर है तो नाम के आगे underscore जोड़ें"
+["消息翻译"."consider cloning the value if the performance cost is acceptable"]
+"消息模板" = "यदि लागत स्वीकार्य हो तो मान को क्लोन करें"
+["消息翻译"."consider adding an `else` block that evaluates to the expected type"]
+"消息模板" = "अपेक्षित प्रकार देने वाला `else` ब्लॉक जोड़ें"
+["消息翻译"."items from traits can only be used if the trait is implemented and in scope"]
+"消息模板" = "trait के methods तभी उपयोग हो सकते हैं जब वह trait implement हो और scope में हो"
+["消息翻译"."this trait has no implementations, consider adding one"]
+"消息模板" = "इस trait का कोई implementation नहीं है, एक जोड़ने पर विचार करें"
+
 # ============================================
 # अनुपलब्ध मॉड्यूल फ़ाइलें और unlinked-file
 # ============================================
@@ -2344,3 +2363,11 @@
 ["消息翻译"."If you're intentionally working on unowned files, you can silence this warning by adding \"unlinked-file\" to your rust-analyzer.diagnostics.disabled configuration."]
 "消息模板" = "यदि आप जानबूझकर असूचीबद्ध (unowned) फ़ाइलों पर काम कर रहे हैं, तो rust-analyzer.diagnostics.disabled कॉन्फ़िगरेशन में \"unlinked-file\" जोड़कर इस चेतावनी को बंद कर सकते हैं।"
 
+# ---- 通配段键第三批（诊断匹配器支持 `?` 逐段捕获后可覆盖「两端动态」消息，
+#      如 E0277/E0106 的 help；此前单一前缀/后缀键只能翻到头或尾，故不收录）----
+["消息翻译"."the trait `?` is not implemented for `?`"]
+"消息模板" = "trait «{q0}» को «{q1}» के लिए लागू नहीं किया गया है"
+["消息翻译"."this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `?` or `?`"]
+"消息模板" = "इस फलन का लौटाया गया प्रकार एक ऋण-लिया मान रखता है, पर सिग्नेचार नहीं बताता कि वह तर्क «{q0}» से ऋण-लिया है या «{q1}» से"
+["消息翻译"."?` doesn't implement `?"]
+"消息模板" = "«{q1}» ने «{q0}» को लागू नहीं किया है"

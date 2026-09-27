@@ -451,6 +451,22 @@ pub fn doctor() -> anyhow::Result<()> {
         println!("{line}");
     }
 
+    // 语言包健康检查：遮蔽/备份遗留/身份不符只在用户环境发生，静态门检查不出
+    let lang_root = crate::lang_manager::global_lang_dir();
+    let health = lang_pack_health_lines(
+        &crate::lang_manager::scan_global_packs(),
+        &crate::lang_manager::global_pack_subdir_names(),
+    );
+    println!();
+    println!("语言包: {}", lang_root.display());
+    if health.is_empty() {
+        println!("  全局语言包: 无遮蔽风险（未安装用户级语言包，或均与内置不冲突）");
+    } else {
+        for line in health {
+            println!("{line}");
+        }
+    }
+
     if let Some(v) = builtin_version.as_deref()
         && v != LOCKED_TOOLCHAIN_VERSION
     {
@@ -464,6 +480,99 @@ pub fn doctor() -> anyhow::Result<()> {
         LOCKED_TOOLCHAIN_VERSION
     );
     Ok(())
+}
+
+/// 语言包健康检查状态行（纯函数，便于测试）
+///
+/// `packs` 为全局目录下的语言包候选（含 keywords.toml 的子目录），
+/// `subdirs` 为该目录下全部子目录名。返回空表示无异常。
+///
+/// 报三类问题（均只在用户环境发生，静态门检查不出）：
+/// - 目录名与内置 code 相同 → 用户级副本遮蔽内置表（内置表优先级最低）
+/// - 目录名形如备份（以 `.bak` 结尾或含 `.stale`）→ 仍被当语言包吃掉并接管扩展名
+/// - 正常包（非备份）目录名与声明的扩展名不一致 → 提示确认是否有意为之
+///
+/// 第三方自研包（如 `vi` 的扩展名也是 `vi`）不属异常，不报警。
+fn lang_pack_health_lines(
+    packs: &[crate::lang_manager::GlobalLangPack],
+    subdirs: &[String],
+) -> Vec<String> {
+    let mut lines = Vec::new();
+    // 1. 遮蔽内置表（同名的正常目录）
+    for pack in packs {
+        if !crate::builtin_lang::has_builtin_lang(&pack.dir_name) || is_backup_name(&pack.dir_name)
+        {
+            continue;
+        }
+        let builtin_version = crate::lang_manager::get_builtin_metadata(&pack.dir_name)
+            .map(|m| m.version)
+            .unwrap_or_else(|| "?".to_string());
+        let user_version = pack
+            .metadata
+            .as_ref()
+            .map(|m| m.version.clone())
+            .unwrap_or_else(|| "?".to_string());
+        lines.push(format!(
+            "  ⚠ 全局包 {}（v{}）遮蔽内置语言包（v{}），当前 .{} 源码走全局副本",
+            pack.dir_name,
+            user_version,
+            builtin_version,
+            pack_extension(pack).unwrap_or_else(|| pack.dir_name.clone())
+        ));
+        lines.push(
+            "    → 升级 rzc 后诊断文案仍是旧的，多半是此因：rzc lang remove <码>，或把该目录移出 lang-packs/"
+                .to_string(),
+        );
+    }
+    // 2. 备份/改名遗留：无论是否含 keywords.toml，留在 lang-packs/ 内都可能被吃掉
+    for name in subdirs {
+        if !is_backup_name(name) {
+            continue;
+        }
+        if packs.iter().any(|p| &p.dir_name == name) {
+            lines.push(format!(
+                "  ⚠ 备份目录 {name} 仍被当作语言包吃掉（语言 code 取目录名）：请移出 {}",
+                crate::lang_manager::global_lang_dir().display()
+            ));
+        } else {
+            lines.push(format!(
+                "  ⚠ 子目录 {name} 不具备 keywords.toml（未作为语言包加载）：备份建议移出 lang-packs/"
+            ));
+        }
+    }
+    // 3. 目录名与声明扩展名不符（排除备份与自研同名包）
+    for pack in packs {
+        if crate::builtin_lang::has_builtin_lang(&pack.dir_name) || is_backup_name(&pack.dir_name) {
+            continue;
+        }
+        if let Some(ext) = pack_extension(pack)
+            && ext != pack.dir_name
+        {
+            lines.push(format!(
+                "  ⚠ 全局包目录名 {} 与其声明的扩展名 {ext} 不一致（语言 code 取目录名，当前 .{ext} 源码按声明接管）",
+                pack.dir_name
+            ));
+        }
+    }
+    lines
+}
+
+/// 备份/改名遗留目录名特征：以 .bak 结尾或含 .stale
+fn is_backup_name(name: &str) -> bool {
+    name.ends_with(".bak") || name.contains(".stale")
+}
+
+/// 取全局包生效的扩展名：lang_info 声明优先，缺失时回退静态映射推断
+fn pack_extension(pack: &crate::lang_manager::GlobalLangPack) -> Option<String> {
+    pack.metadata
+        .as_ref()
+        .map(|m| m.extension.clone())
+        .or_else(|| {
+            crate::lang_manager::static_extension_map()
+                .into_iter()
+                .find(|(_, code)| code == &pack.dir_name)
+                .map(|(ext, _)| ext)
+        })
 }
 
 /// 各组件来源状态行（纯函数，便于测试）：`rustc: 内置（路径）` / `cargo: PATH（路径）` 等
@@ -557,7 +666,7 @@ pub fn show_setup_wizard() {
     println!("  rzc check src/main.zh    类型检查（中文错误提示）");
     println!("  rzc install toolchain    一键安装内置工具链");
     println!("  rzc install lsp          安装语言服务器");
-    println!("  rzc doctor               查看工具链环境状态");
+    println!("  rzc doctor               查看工具链环境状态与语言包遮蔽");
     println!("  rzc --help               查看全部命令");
     println!();
     println!("详细教程见《开篇：这本书怎么用》与《第一章：用好 VS Code 扩展》。");
@@ -618,5 +727,91 @@ mod tests {
         // 其余组件未内置时标记 PATH 或未找到（不 panic）
         assert!(lines.iter().any(|l| l.starts_with("cargo:")));
         assert!(lines.iter().any(|l| l.starts_with("rust-analyzer:")));
+    }
+
+    /// 构造全局语言包候选条目（测试辅助）
+    fn global_pack(
+        dir_name: &str,
+        ext: Option<&str>,
+        version: Option<&str>,
+    ) -> crate::lang_manager::GlobalLangPack {
+        use crate::lang_manager::LangMetadata;
+        crate::lang_manager::GlobalLangPack {
+            dir_name: dir_name.to_string(),
+            metadata: ext.map(|e| LangMetadata {
+                name: "测试".to_string(),
+                extension: e.to_string(),
+                version: version.unwrap_or("0.1").to_string(),
+            }),
+        }
+    }
+
+    /// 全局同名包遮蔽内置表：须报警并给出解除命令
+    #[test]
+    fn test_lang_pack_health_flags_shadowing() {
+        let packs = vec![global_pack("zh", Some("zh"), Some("1.0"))];
+        let lines = lang_pack_health_lines(&packs, &["zh".to_string()]);
+        assert!(
+            lines.iter().any(|l| l.contains("遮蔽内置语言包")),
+            "{lines:?}"
+        );
+        assert!(
+            lines.iter().any(|l| l.contains("rzc lang remove")),
+            "应给出解除命令: {lines:?}"
+        );
+    }
+
+    /// 备份目录改名后仍被当语言包吃掉：须报警（即上一步实际踩到的坑）
+    #[test]
+    fn test_lang_pack_health_flags_backup_leftover() {
+        let name = "zh.stale-20260919.bak";
+        let packs = vec![global_pack(name, Some("zh"), None)];
+        let lines = lang_pack_health_lines(&packs, &[name.to_string()]);
+        assert!(
+            lines.iter().any(|l| l.contains("仍被当作语言包吃掉")),
+            "{lines:?}"
+        );
+        // 遮蔽行只针对目录名与内置 code 完全相同的包，备份不当作遮蔽报
+        assert!(
+            !lines.iter().any(|l| l.contains("遮蔽内置语言包")),
+            "{lines:?}"
+        );
+    }
+
+    /// 备份目录不具备 keywords.toml（未被加载）也须提示移出
+    #[test]
+    fn test_lang_pack_health_flags_unloaded_backup() {
+        let name = "ja.backup-20260919.stale";
+        let lines = lang_pack_health_lines(&[], &[name.to_string()]);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains(name) && l.contains("keywords.toml")),
+            "{lines:?}"
+        );
+    }
+
+    /// 第三方自研包（目录名与扩展名一致）不应被误报
+    #[test]
+    fn test_lang_pack_health_quiet_for_custom_pack() {
+        let packs = vec![global_pack("vi", Some("vi"), Some("1.0"))];
+        assert!(
+            lang_pack_health_lines(&packs, &["vi".to_string()]).is_empty(),
+            "自研包不应报警"
+        );
+    }
+
+    /// 自研包目录名与声明扩展名不符：提示身份不一致
+    #[test]
+    fn test_lang_pack_health_flags_identity_mismatch() {
+        let packs = vec![global_pack("mypack", Some("vi"), None)];
+        let lines = lang_pack_health_lines(&packs, &["mypack".to_string()]);
+        assert!(lines.iter().any(|l| l.contains("不一致")), "{lines:?}");
+    }
+
+    /// 无全局包时不报任何异常
+    #[test]
+    fn test_lang_pack_health_quiet_when_empty() {
+        assert!(lang_pack_health_lines(&[], &[]).is_empty());
     }
 }

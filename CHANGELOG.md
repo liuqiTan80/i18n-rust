@@ -6,6 +6,19 @@
 ## [Unreleased]
 
 ### 修复
+- 诊断：10 语言 `errors.toml` 再补 5 条高频 help 精确键（未使用变量的「if this is
+  intentional, prefix it with an underscore」、E0382/E0505「consider cloning the value
+  if the performance cost is acceptable」、E0308「consider adding an `else` block…」）、
+  E0599「items from traits…」）——由 9 个反例实跑 `rzc check` 采集得到，静态检查查不出
+  此类缺口；实测确认另有 2 类消息（E0106 「…borrowed from one of `a`'s 2 lifetimes or
+  one of `b`'s…」与 E0277「the trait `X` is not implemented for `Y`」）属「两端动态」，
+  现有前缀/后缀匹配器无法完整翻译（已由下述通配段键解决，带 `2 lifetimes` 的闭包
+  变体在当前 rustc 已不复现，仅在单测锁定语义）
+- 诊断：10 语言 `errors.toml` 补 3 条 rustc help 短语精确键（E0384
+  「consider making this binding mutable」/ E0596「consider changing this to be
+  mutable」/ E0106「consider introducing a named lifetime parameter」）——此前仅命中
+  `consider ` 前缀兜底键，输出「修复建议：考虑 making this binding mutable」这类
+  中英混排（首屏演示 GIF 可见）；en 语言包无「消息翻译」节（rustc 原文即英文），无需补
 - 引擎：路径根位置不再豁免字段名与变量名（office-zb #27 字段场景）——字段名与
   词表词撞名（如「天数」=Days）时，`天数::新建()` 曾因字段豁免保留「天数」、
   只替换段位（产物 `天数::new` 报 E0433）；现在 `::` 前缀位置只豁免本文件项名与
@@ -39,6 +52,16 @@
   示例由 1 行改为 2 行，`make tutorials` 曾因此误报失败
 
 ### 新增
+- 引擎：消息表支持**通配段键**（键内 `?` 逐段捕获，第 n 个对应 `{q0}`/`{q1}`/`{q2}`），
+  匹配顺序为「精确 → 最长通配段 → 最长前缀 → 最长后缀」——解决 E0277/E0106
+  这类**两端以上动态**的 help 无法用单一前缀/后缀键完整翻译的限制；`{qN}` 占位
+  编号随之放开到 q2（仅对通配段键有意义，前缀/后缀键行为不变）
+- 诊断：10 语言 `errors.toml` 各增 3 条通配段键（E0277「the trait `?` is not
+  implemented for `?`」、E0106「…borrowed from `?` or `?`」、「`?` doesn't implement `?`」），
+  消息翻译 116→119 键齐平；实跑 `rzc check` 验证中英混排已消（基线整句英文残留 →
+  「特征「std::fmt::Display」未对「Foo」实现」），ja 同步抽查通过
+- 文档：`contributing-lang-pack.md` 新增 2.7 通配段键节，并记录两个踩坑点：锚点子串
+  在消息中出现两次会吞掉整段前缀；含撇号的键不能用 TOML 单引号字面量串（会炸掉整包）
 - zh 语言包补条：`stdlib.toml`「懒静态」=LazyLock（office-zb #21）；
   `crates/网络.toml`「取构建器」=builder /「连接超时」=connect_timeout；
   `crates/salvo.toml`「提取」=extract 子模块 /「JSON请求体」=JsonBody
@@ -109,7 +132,25 @@
   验证循环 en/ja/ru、mapping 门禁改经告警基线脚本；bench 作业首次失败自动
   重跑一次（共享 runner 噪声）后仍超阈值才判失败
 
+### 新增
+- CLI：`rzc doctor` 新增语言包健康检查——全局目录（`~/.rz/lang-packs/`）下报三项：
+  同名包遮蔽内置表（附两侧版本与 `rzc lang remove` 解除命令）、备份/改名遗留目录
+  仍被当语言包吃掉、目录名与声明扩展名不符；第三方自研包（目录名与扩展名一致，
+  如 `vi`）不属异常不报警。遮蔽与译文陈旧均只在用户环境发生，静态门禁查不出，
+  现可一条命令自查（判定为纯函数 `lang_pack_health_lines`，附 6 项单测）
+
 ### 文档
+- 语言包贡献指南补两类「只有实践才暴露」的陷阱：2.5 全局旧语言包遮蔽内置表（含改名
+  遗留目录仍被当语言包吃掉、`rzc doctor` 自查示例输出）、2.6 诊断译文缺口静态检查查不出
+  （含取 help 原文与免重编译试键的命令、前缀键吞掉整句与前缀优先于后缀两个误用点），
+  并加入提交前自查清单
+- 首屏演示 GIF 入库：`docs/demo/demo-zh.tape` 经 charm vhs 渲染产出
+  [docs/demo/demo-zh.gif](docs/demo/demo-zh.gif)（1080×620、约 12.8 秒、262 KB，三幕：
+  母语源码 → 母语教学报错 → `rzc eject` 标准 Rust），挂在 11 份 README 主标题前作为
+  首屏展示（alt 文本按语言本地化）；tape 补 `Set FontFamily "Noto Sans Mono CJK SC"`
+  避免中文出方块，`docs/demo/README.md` 补全实测安装步骤（ttyd 须进 PATH、GitHub 443
+  不通时的加速代理）与两个陷阱（转译缓存命中使教学 lint 跑到第三幕、陈旧全局语言包
+  遮蔽内置新词条）
 - 维护者入口整理：新增 [项目地图](docs/project-map.md)（任务→文件→命令速查 +
   目录/工作流/门禁/文档体系一页）与 [tools/README.md](tools/README.md)（脚本索引，
   `make` 为本地唯一入口）；`docs/strategy/` 收敛为"现状与路线图 +

@@ -2319,6 +2319,25 @@
 ["消息翻译"."consider using `static` or `const` instead of `let`"]
 "消息模板" = "考虑改用 `静态` 或 `常量` 代替 `让`"
 
+# ---- E0384/E0596/E0106 高频 help 建议（精确键，优先于 `consider ` 兜底） ----
+["消息翻译"."consider making this binding mutable"]
+"消息模板" = "考虑将此绑定声明为可变"
+["消息翻译"."consider changing this to be mutable"]
+"消息模板" = "考虑改为可变"
+["消息翻译"."consider introducing a named lifetime parameter"]
+"消息模板" = "考虑引入具名生命周期参数"
+# ---- 高频 help 建议第二批（未使用变量 / E0382 克隆 / E0308 else / 特征调用，实测确认缺失） ----
+["消息翻译"."if this is intentional, prefix it with an underscore"]
+"消息模板" = "若这是有意为之，请在变量名前加下划线"
+["消息翻译"."consider cloning the value if the performance cost is acceptable"]
+"消息模板" = "考虑克隆该值（若性能开销可以接受）"
+["消息翻译"."consider adding an `else` block that evaluates to the expected type"]
+"消息模板" = "考虑补一个 `否则` 分支，使其求值为期望的类型"
+["消息翻译"."items from traits can only be used if the trait is implemented and in scope"]
+"消息模板" = "特征方法只有在「已实现且在当前作用域」时才能调用"
+["消息翻译"."this trait has no implementations, consider adding one"]
+"消息模板" = "该特征没有任何实现，考虑补一个"
+
 # ---- 所有权/借用 span label（E0382/E0502/E0507 等，无码或 label 兜底） ----
 ["消息翻译"."value moved here"]
 "消息模板" = "值在此处被移动"
@@ -2456,3 +2475,11 @@
 ["消息翻译"."If you're intentionally working on unowned files, you can silence this warning by adding \"unlinked-file\" to your rust-analyzer.diagnostics.disabled configuration."]
 "消息模板" = "若确实要在本项目中处理未关联模块的文件，可在 rust-analyzer.diagnostics.disabled 配置中添加 \"unlinked-file\" 关闭此警告。"
 
+# ---- 通配段键第三批（诊断匹配器支持 `?` 逐段捕获后可覆盖「两端动态」消息，
+#      如 E0277/E0106 的 help；此前单一前缀/后缀键只能翻到头或尾，故不收录）----
+["消息翻译"."the trait `?` is not implemented for `?`"]
+"消息模板" = "特征「{q0}」未对「{q1}」实现"
+["消息翻译"."this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `?` or `?`"]
+"消息模板" = "该函数的返回类型含有引用，但签名未说明它借自参数「{q0}」还是「{q1}」"
+["消息翻译"."?` doesn't implement `?"]
+"消息模板" = "「{q1}」未实现「{q0}」"

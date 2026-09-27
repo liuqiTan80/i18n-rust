@@ -344,6 +344,62 @@ pub fn query_extension_map(extension: &str) -> Option<String> {
     build_extension_map().remove(extension)
 }
 
+/// 全局语言包目录中的一个候选条目
+///
+/// 只要子目录内含 `keywords.toml` 就视为语言包（与 `build_extension_map` 同口径），
+/// `dir_name` 为目录名（语言 code 即取此名）。
+pub struct GlobalLangPack {
+    pub dir_name: String,
+    /// lang_info.toml 元数据；缺失或不可解析时为 None（扩展名回退静态映射推断）
+    pub metadata: Option<LangMetadata>,
+}
+
+/// 扫描全局语言包目录（`~/.rz/lang-packs/`，`RZ_LANG_DIR` 可改）
+///
+/// 供 `rzc doctor` 做语言包健康检查：定位陈旧副本遮蔽内置表、备份/杂项目录
+/// 被当语言包吃掉等问题（这类问题只在用户环境发生，静态门检查和不了）。
+/// 目录不存在或不可读时返回空列表（不报错）。
+pub fn scan_global_packs() -> Vec<GlobalLangPack> {
+    let mut packs = Vec::new();
+    if let Ok(entries) = fs::read_dir(global_lang_dir()) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() || !path.join("keywords.toml").is_file() {
+                continue;
+            }
+            let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            packs.push(GlobalLangPack {
+                dir_name: name.to_string(),
+                metadata: read_lang_info(&path),
+            });
+        }
+    }
+    packs.sort_by(|a, b| a.dir_name.cmp(&b.dir_name));
+    packs
+}
+
+/// 全局语言包目录下的子目录名（含不具备 `keywords.toml` 的）
+///
+/// 用于识别改名后仍留在 `lang-packs/` 内的备份目录（它们仍会被当语言包吃掉）。
+pub fn global_pack_subdir_names() -> Vec<String> {
+    let mut names = Vec::new();
+    if let Ok(entries) = fs::read_dir(global_lang_dir()) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                names.push(name.to_string());
+            }
+        }
+    }
+    names.sort();
+    names
+}
+
 /// 所有当前可用的扩展名（按名称排序）
 pub fn all_available_extensions() -> Vec<String> {
     let mut list: Vec<String> = build_extension_map().into_keys().collect();

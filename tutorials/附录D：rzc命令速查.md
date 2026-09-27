@@ -26,7 +26,7 @@
 | `rzc add 库名` | 添加第三方依赖（封装 cargo add，带母语映射提示） | `rzc add rand` |
 | `rzc install lsp` | 安装语言服务器（VS Code 智能提示） | |
 | `rzc install toolchain` | 一键安装内置官方工具链（独立版 rustc/cargo/rust-analyzer，脱离 rustup） | |
-| `rzc doctor` | 诊断工具链环境（内置 / PATH / 版本对比） | |
+| `rzc doctor` | 诊断工具链环境（内置 / PATH / 版本对比）与语言包遮蔽 | |
 | `rzc --version` | 查看版本 | |
 
 ### 日常流水线

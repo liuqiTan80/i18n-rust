@@ -2395,6 +2395,25 @@
 ["消息翻译"."consider using `static` or `const` instead of `let`"]
 "消息模板" = "Erwägen Sie `statisch` oder `konst` statt `lass` zu verwenden"
 
+# ---- Haeufige help-Vorschaege bei E0384/E0596/E0106 (exakte Schluessel, vor dem `consider `-Fallback) ----
+["消息翻译"."consider making this binding mutable"]
+"消息模板" = "erkläre diese Bindung veränderlich"
+["消息翻译"."consider changing this to be mutable"]
+"消息模板" = "ändere sie zu veränderlich"
+["消息翻译"."consider introducing a named lifetime parameter"]
+"消息模板" = "füge einen benannten Lifetime-Parameter ein"
+# ---- Zweite Gruppe häufiger help-Vorschläge (unbenutzte Variable / Klonen / else / Trait-Aufruf) ----
+["消息翻译"."if this is intentional, prefix it with an underscore"]
+"消息模板" = "Falls dies beabsichtigt ist, stellen Sie dem Variablennamen einen Unterstrich voran"
+["消息翻译"."consider cloning the value if the performance cost is acceptable"]
+"消息模板" = "Erwägen Sie, den Wert zu klonen, sofern die Leistungskosten akzeptabel sind"
+["消息翻译"."consider adding an `else` block that evaluates to the expected type"]
+"消息模板" = "Erwägen Sie das Hinzufügen eines `else`-Blocks mit dem erwarteten Typ"
+["消息翻译"."items from traits can only be used if the trait is implemented and in scope"]
+"消息模板" = "Trait-Methoden sind nur nutzbar, wenn der Trait implementiert und sichtbar ist"
+["消息翻译"."this trait has no implementations, consider adding one"]
+"消息模板" = "Dieser Trait hat keine Implementierungen, erwägen Sie eine"
+
 # ============================================
 # Fehlende Moduldateien und unlinked-file
 # ============================================
@@ -2429,3 +2448,11 @@
 ["消息翻译"."If you're intentionally working on unowned files, you can silence this warning by adding \"unlinked-file\" to your rust-analyzer.diagnostics.disabled configuration."]
 "消息模板" = "Wenn Sie bewusst an nicht zugeordneten Dateien arbeiten, können Sie diese Warnung abschalten, indem Sie \"unlinked-file\" zur Konfiguration rust-analyzer.diagnostics.disabled hinzufügen."
 
+# ---- 通配段键第三批（诊断匹配器支持 `?` 逐段捕获后可覆盖「两端动态」消息，
+#      如 E0277/E0106 的 help；此前单一前缀/后缀键只能翻到头或尾，故不收录）----
+["消息翻译"."the trait `?` is not implemented for `?`"]
+"消息模板" = "Das Trait »{q0}« ist für »{q1}« nicht implementiert"
+["消息翻译"."this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `?` or `?`"]
+"消息模板" = "Der Rückgabetyp dieser Funktion enthält einen entlehnten Wert, aber die Signatur gibt nicht an, ob er von »{q0}« oder »{q1}« entlehnt ist"
+["消息翻译"."?` doesn't implement `?"]
+"消息模板" = "»{q1}« implementiert »{q0}« nicht"

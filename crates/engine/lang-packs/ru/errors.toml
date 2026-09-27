@@ -2395,6 +2395,25 @@
 ["消息翻译"."consider using `static` or `const` instead of `let`"]
 "消息模板" = "Рассмотрите использование `статический` или `константа` вместо `пусть`"
 
+# ---- Частые подсказки help для E0384/E0596/E0106 (точные ключи, приоритетнее fallback `consider `) ----
+["消息翻译"."consider making this binding mutable"]
+"消息模板" = "объявите это связывание изменяемым"
+["消息翻译"."consider changing this to be mutable"]
+"消息模板" = "измените это на изменяемое"
+["消息翻译"."consider introducing a named lifetime parameter"]
+"消息模板" = "добавьте именованный параметр времени жизни"
+# ---- Вторая группа частых подсказок help (неиспользуемая переменная / клонирование / else / вызов трейта) ----
+["消息翻译"."if this is intentional, prefix it with an underscore"]
+"消息模板" = "Если это намеренно, добавьте к имени переменной символ подчёркивания"
+["消息翻译"."consider cloning the value if the performance cost is acceptable"]
+"消息模板" = "рассмотрите клонирование значения, если затраты на производительность допустимы"
+["消息翻译"."consider adding an `else` block that evaluates to the expected type"]
+"消息模板" = "рассмотрите добавление блока `else`, возвращающего ожидаемый тип"
+["消息翻译"."items from traits can only be used if the trait is implemented and in scope"]
+"消息模板" = "методы трейта доступны, только если трейт реализован и находится в области видимости"
+["消息翻译"."this trait has no implementations, consider adding one"]
+"消息模板" = "у этого трейта нет реализаций, рассмотрите добавление"
+
 # ============================================
 # Отсутствующие файлы модулей и unlinked-file
 # ============================================
@@ -2429,3 +2448,11 @@
 ["消息翻译"."If you're intentionally working on unowned files, you can silence this warning by adding \"unlinked-file\" to your rust-analyzer.diagnostics.disabled configuration."]
 "消息模板" = "Если вы намеренно работаете с несвязанными файлами, можно отключить это предупреждение, добавив \"unlinked-file\" в конфигурацию rust-analyzer.diagnostics.disabled."
 
+# ---- 通配段键第三批（诊断匹配器支持 `?` 逐段捕获后可覆盖「两端动态」消息，
+#      如 E0277/E0106 的 help；此前单一前缀/后缀键只能翻到头或尾，故不收录）----
+["消息翻译"."the trait `?` is not implemented for `?`"]
+"消息模板" = "trait «{q0}» не реализован для «{q1}»"
+["消息翻译"."this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `?` or `?`"]
+"消息模板" = "Возвращаемый тип этой функции содержит заимствованное значение, но сигнатура не указывает, заимзовано ли оно из аргумента «{q0}» или «{q1}»"
+["消息翻译"."?` doesn't implement `?"]
+"消息模板" = "«{q1}» не реализует «{q0}»"

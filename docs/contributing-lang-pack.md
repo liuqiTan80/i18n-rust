@@ -84,6 +84,86 @@ rzc check 你的文件.zh --lang-pack crates/engine/lang-packs/zh
 加载优先级：`--lang-pack` 显式目录 > 项目内 `lang-packs/<码>`（主仓库为
 `crates/engine/lang-packs/<码>`）> 全局 `~/.rz/lang-packs/<码>`（`RZ_LANG_DIR` 可改）> 内置。
 
+### 2.5 陷阱：全局旧语言包遮蔽内置表
+
+`~/.rz/lang-packs/` 下**含 `keywords.toml` 的目录都会被当作语言包吃掉**，语言 code 取
+**目录名**。两个后果：
+
+- 早期 `rzc lang install` 留下的旧快照会**遮蔽内置表**：补了新词条、重编译了 release，
+  跑出来仍是旧译文。
+- 给旧目录改名（如 `zh` → `zh.bak`）**不算移出**——`zh.bak` 仍被识别为 code 为 `zh.bak`
+  的语言包并接管 `.zh` 扩展名。
+
+处置：把陈旧目录**移出 `lang-packs/` 整个父目录**（如 `~/.rz/stale-<码>-pack`），
+再用 `RZ_LOG=info rzc check 文件.zh` 确认「映射数据来源」已回到内置表。
+
+上述两类情况 `rzc doctor` 会直接报出来（含版本对比与解除命令），无需靠猜：
+
+```bash
+rzc doctor
+# 语言包: /home/<user>/.rz/lang-packs
+#   ⚠ 全局包 zh（v0.3）遮蔽内置语言包（v1.0），当前 .zh 源码走全局副本
+#     → 升级 rzc 后诊断文案仍是旧的，多半是此因：rzc lang remove <码>，或把该目录移出 lang-packs/
+#   ⚠ 备份目录 zh.stale-test.bak 仍被当作语言包吃掉（语言 code 取目录名）：请移出 …/.rz/lang-packs
+```
+
+未报警只表示「无同名遮蔽 / 无备份遗留 / 无目录名与声明扩展名不符」；第三方自研包
+（目录名与扩展名一致，如 `vi`）属正常，不报警。
+
+### 2.6 陷阱：诊断译文只有真跑才暴露缺口
+
+help 子消息按「精确匹配 → 最长前缀 → 最长后缀」查表。因为有 `consider `、`try `
+这类**前缀兜底键**，表残缺不会回落成整句英文，而是输出半截译文半截英文：
+
+```text
+💡 修复建议：考虑 making this binding mutable      ← 命中 `consider `，后半句未译
+```
+
+这类缺口静态检查（TOML 解析、键数齐平、覆盖度对比）**一律看不见**，只能实跑采样。
+补键方法：
+
+```bash
+# 1. 取 help / note 子消息原文（JSON 不会因首个错误提前中止）
+rustc --edition 2021 --emit=metadata --error-format=json 反例.rs 2>&1 \
+  | python3 -c "import sys,json;[print(d['level'],':',d['message']) for l in sys.stdin if l.startswith('{') for d in [json.loads(l)]+json.loads(l).get('children',[]) if d['level'] in ('help','note')]" | sort -u
+
+# 2. 免重编译试键：写进临时语言包目录，用 --lang-pack 指过去
+echo '["消息翻译"."consider cloning the value if the performance cost is acceptable"]' >> /tmp/pack/errors.toml
+rzc check 反例.zh --lang-pack /tmp/pack
+```
+
+两点注意：兜底前缀键会**吞掉整条消息**（如 `the trait \`` → 只译开头、后半句连同关键
+类型名一起丢失），故只在译文能覆盖完整语义时才加前缀键；前缀匹配**优先于**后缀匹配，
+两种键形态不要对同一句式并存，否则后缀键永不生效。
+
+### 2.7 通配段键：两端动态的消息
+
+动态名不止一处时（`the trait \`X\` is not implemented for \`Y\``、E0106 的
+`...borrowed from \`a\` or \`b\``），单一前缀/后缀键只能取到头段或尾段。这类消息改用
+**通配段键**：键里用 `?` 标记每段动态内容，第 n 个 `?` 依次对应模板里的 `{q0}`/`{q1}`/`{q2}`。
+匹配顺序为「精确 → 最长通配段 → 最长前缀 → 最长后缀」，即通配段键**优于**前缀/后缀键；
+消息必须同时以首段字面量开头、以尾段字面量结尾，否则不命中；未被模板引用的 `?`
+直接丢弃（不会粘回原文）。
+
+```toml
+["消息翻译"."the trait `?` is not implemented for `?`"]
+"消息模板" = "特征「{q0}」未对「{q1}」实现"
+```
+
+两个易踩的约束：
+
+- **锚点要全局唯一**。`?` 按「上一段之后首次出现」定位，若消息前半句里也含有你的
+  锚点子串（如 `...a borrowed value, but the signature does not say ... borrowed from`
+  里 `borrowed from ` 出现两次），首个 `?` 会把整段前缀当成参数名抓走。键请从消息
+  开头写全，不要只剪句中片段。
+- **含撇号的键不能用单引号字面量串**。TOML 的 `'...'` 不支持转义，`doesn't`/`can't`
+  里的撇号会把字符串提前截断，整包解析失败；此类键（含值）必须用双引号串并把内部的
+  `"` 转义。提交前先逐包回读一遍：
+
+```bash
+python3 -c "import tomllib,pathlib;[print(d.name, len(tomllib.loads((d/'errors.toml').read_text(encoding='utf-8')).get('消息翻译', {}))) for d in sorted(pathlib.Path('crates/engine/lang-packs').iterdir()) if (d/'errors.toml').is_file()]"
+```
+
 ## 3. 分享给他人：两条路线
 
 ### 路线 A：合入主仓库（推荐，所有人默认内置）
@@ -131,4 +211,7 @@ RZ_LANG_REPO=https://gitcode.com/你的账号/你的语言包仓库 rzc lang ins
 - [ ] `rzc mapping check crates/engine/lang-packs/<码>` 无错误
 - [ ] `rzc lang install crates/engine/lang-packs/<码>` 安装成功
 - [ ] 母语方言源码 `rzc eject` 转出标准 Rust 且可编译
+- [ ] `~/.rz/lang-packs/` 下无陈旧/改名遗留目录（`rzc doctor` 可直接查出，见 2.5）
+- [ ] 高频反例实跑 `rzc check`，逐条看「修复建议」有无中英混排（静态检查查不出，见 2.6）
+- [ ] 两端动态的消息用通配段键（见 2.7），且逐包跑过上面的 TOML 回读命令（撇号会炸掉整包）
 - [ ] （路线 A）若内置，`cargo test --workspace` 全过

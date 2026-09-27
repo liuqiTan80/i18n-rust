@@ -13,6 +13,8 @@
 
 > ⚠️ Esta traducción se basa en la [versión en chino](README.md) y puede estar desactualizada respecto a ella.
 
+![Demo de rzc: código en tu idioma → errores explicados en tu idioma → exportación a Rust estándar con un comando](docs/demo/demo-zh.gif)
+
 # rzc: Compilador multilingüe del dialecto educativo de Rust
 
 > 🌍 **Escribe Rust en tu lengua materna.** · 10 idiomas · Rust real, toolchain real · gradúate cuando quieras con `rzc eject`

@@ -2395,6 +2395,25 @@
 ["消息翻译"."consider using `static` or `const` instead of `let`"]
 "消息模板" = "`선언` 대신 `정적` 또는 `상수` 사용을 고려하세요"
 
+# ---- E0384/E0596/E0106에서 자주 나오는 help 제안 (정확한 키, `consider ` 폴백보다 우선) ----
+["消息翻译"."consider making this binding mutable"]
+"消息模板" = "이 바인딩을 가변으로 선언하는 것을 고려하세요"
+["消息翻译"."consider changing this to be mutable"]
+"消息模板" = "가변으로 변경하는 것을 고려하세요"
+["消息翻译"."consider introducing a named lifetime parameter"]
+"消息模板" = "이름 붙인 수명 매개변수 도입을 고려하세요"
+# ---- 빈출 help 제안 2차 미사용 변수 / 클로닝 / else / 트레이트 호출 ----
+["消息翻译"."if this is intentional, prefix it with an underscore"]
+"消息模板" = "의도된 것이라면 변수 이름 앞에 밑줄을 붙이세요"
+["消息翻译"."consider cloning the value if the performance cost is acceptable"]
+"消息模板" = "성능 비용이 감당 가능하면 값을 클로닝하는 것을 고려하세요"
+["消息翻译"."consider adding an `else` block that evaluates to the expected type"]
+"消息模板" = "기대한 타입을 평가하는 `else` 블록 추가를 고려하세요"
+["消息翻译"."items from traits can only be used if the trait is implemented and in scope"]
+"消息模板" = "트레이트의 메서드는 해당 트레이트가 구현되고 스코프에 있을 때만 사용할 수 있습니다"
+["消息翻译"."this trait has no implementations, consider adding one"]
+"消息模板" = "이 트레이트에는 구현이 없습니다. 추가를 고려하세요"
+
 # ============================================
 # 모듈 파일 누락과 unlinked-file
 # ============================================
@@ -2429,3 +2448,11 @@
 ["消息翻译"."If you're intentionally working on unowned files, you can silence this warning by adding \"unlinked-file\" to your rust-analyzer.diagnostics.disabled configuration."]
 "消息模板" = "연결되지 않은 파일을 의도적으로 다루는 경우 rust-analyzer.diagnostics.disabled 설정에 \"unlinked-file\"을 추가해 이 경고를 끌 수 있습니다."
 
+# ---- 通配段键第三批（诊断匹配器支持 `?` 逐段捕获后可覆盖「两端动态」消息，
+#      如 E0277/E0106 的 help；此前单一前缀/后缀键只能翻到头或尾，故不收录）----
+["消息翻译"."the trait `?` is not implemented for `?`"]
+"消息模板" = "trait `{q0}`이(가) `{q1}`에 대해 구현되지 않았습니다"
+["消息翻译"."this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `?` or `?`"]
+"消息模板" = "이 함수의 반환 타입은 빌려온 값을 포함하지만, 시그니처가 인자 `{q0}`과(와) `{q1}` 중 어디서 빌려왔는지 지정하지 않습니다"
+["消息翻译"."?` doesn't implement `?"]
+"消息模板" = "`{q1}`이(가) `{q0}`을(를) 구현하지 않았습니다"

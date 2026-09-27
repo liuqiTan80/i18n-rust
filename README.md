@@ -11,6 +11,8 @@
 
 > 🪞 **仓库镜像**：本项目在 GitHub（[liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)）与 GitCode（[tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)）双平台同步维护。`rzc lang install` 默认优先使用 GitCode 源（国内访问更快），失败自动回退 GitHub。
 
+![rzc 演示：母语源码 → 母语教学报错 → 一键 eject 标准 Rust](docs/demo/demo-zh.gif)
+
 # rzc —— 用母语编写真正的 Rust
 
 > 🌍 **Write Rust in your native language.** · 10 languages · real Rust, real toolchain · graduate anytime with `rzc eject`
