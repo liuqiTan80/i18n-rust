@@ -1035,18 +1035,44 @@ fn find_project_root(file: &Path) -> anyhow::Result<PathBuf> {
 
 /// 计算 `run`/`check` 的入口产物路径。
 ///
-/// 仅当源文件确为入口（词干为 [`is_entry_stem`]，即 `main` 或语言包主函数
-/// 词，如 `src/main.zh`、旧项目里的 `src/主函数.zh`）时才写入 Cargo 固定编译目标
-/// `src/main.rs`；其余文件（如项目根的 `build.zh`）产物跟随自身扩展名
-/// （`build.rs`），绝不占用 `src/main.rs`——否则会把 build 脚本静默覆盖为
-/// 项目入口（weix 工具异常 #4）。
+/// 仅当源文件确为**项目 src 直属**入口（父目录恰为 `project_root/src`，且词干为
+/// [`is_entry_stem`]，即 `main` 或语言包主函数词，如 `src/main.zh`、旧项目里的
+/// `src/主函数.zh`）时才写入 Cargo 固定编译目标 `src/main.rs`；其余文件产物跟随
+/// 自身扩展名（`file.with_extension("rs")`），绝不占用 `src/main.rs`：
+/// - 项目根的 `build.zh` → `build.rs`，不把 build 脚本覆盖为入口（weix 工具异常 #4）；
+/// - 子目录/示例里恰好名为 `main` 的文件（`src/sub/main.zh`、`examples/main.zh`）→
+///   产物留在自身目录，不越界覆盖宿主 `src/main.rs`（越界写出坑）。
 fn entry_output_path(project_root: &Path, file: &Path, manager: &MappingManager) -> PathBuf {
     let stem = file.file_stem().and_then(|s| s.to_str());
-    if stem.is_some_and(|s| is_entry_stem(s, manager)) {
+    if stem.is_some_and(|s| is_entry_stem(s, manager)) && directly_under_src(file, project_root) {
         project_root.join("src/main.rs")
     } else {
         file.with_extension("rs")
     }
+}
+
+/// 文件父目录（规范化为绝对路径，纯比较不依赖文件必已存在）是否恰为
+/// `project_root/src`——即该文件是否为项目真正的 src 直属入口，用于防止子目录
+/// 里恰好名为 `main` 的文件越界聚合、覆盖宿主入口产物。
+fn directly_under_src(file: &Path, project_root: &Path) -> bool {
+    let Some(parent) = file.parent() else {
+        return false;
+    };
+    // 相对路径按当前目录补齐为绝对，再与已规范化的 project_root 对齐比较；
+    // 路径可能尚未落盘（单元测试、新建文件），canonicalize 失败时退回词法路径。
+    let abs_parent = if parent.is_absolute() {
+        parent.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map(|cwd| cwd.join(parent))
+            .unwrap_or_else(|_| parent.to_path_buf())
+    };
+    let canon_parent = abs_parent
+        .canonicalize()
+        .unwrap_or_else(|_| abs_parent.clone());
+    let src_dir = project_root.join("src");
+    let canon_src = src_dir.canonicalize().unwrap_or_else(|_| src_dir.clone());
+    canon_parent == canon_src
 }
 
 /// 词干是否为项目入口主函数名：字面 `main`，或语言包中映射到 `main` 的
@@ -1933,6 +1959,30 @@ mod tests {
         assert_eq!(
             entry_output_path(root, Path::new("/proj/src/helper.zh"), &m),
             PathBuf::from("/proj/src/helper.rs")
+        );
+    }
+
+    /// 越界写出回归：入口词干但**不在 project_root/src 直属**的文件（子目录/示例
+    /// 里恰好名为 main）不得聚合覆盖宿主 src/main.rs，产物须留在自身目录。
+    #[test]
+    fn test_entry_output_path_no_clobber_outside_src() {
+        use std::path::{Path, PathBuf};
+        let root = Path::new("/proj");
+        let m = zh_manager();
+        // src/sub/main.zh（词干 main 但在子目录）→ src/sub/main.rs，不覆盖 src/main.rs
+        assert_eq!(
+            entry_output_path(root, Path::new("/proj/src/sub/main.zh"), &m),
+            PathBuf::from("/proj/src/sub/main.rs")
+        );
+        // examples/main.zh（示例入口）→ examples/main.rs，不占用宿主 src/main.rs
+        assert_eq!(
+            entry_output_path(root, Path::new("/proj/examples/main.zh"), &m),
+            PathBuf::from("/proj/examples/main.rs")
+        );
+        // 母语主函数词但位于子目录（src/sub/主函数.zh）同样不越界
+        assert_eq!(
+            entry_output_path(root, Path::new("/proj/src/sub/主函数.zh"), &m),
+            PathBuf::from("/proj/src/sub/主函数.rs")
         );
     }
 
