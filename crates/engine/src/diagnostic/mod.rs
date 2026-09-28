@@ -17,7 +17,9 @@ mod output;
 mod teaching;
 mod translator;
 
-pub use message::{ErrorTranslationManager, MessageRest, fill_dynamic_placeholders};
+pub use message::{
+    ErrorTranslationManager, MessageAudit, MessageRest, audit_message, fill_dynamic_placeholders,
+};
 pub use model::{CompilerDiagnostic, DiagnosticCode, DiagnosticSpan};
 pub use output::{
     FormattedDiagnostic, extract_backtick_first_segments, is_unresolved_import_message,

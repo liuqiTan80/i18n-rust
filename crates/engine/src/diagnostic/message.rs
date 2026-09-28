@@ -205,21 +205,29 @@ fn segment_literals_len(key: &str) -> usize {
 ///
 /// 语义为**非贪婪**：每个字面量段从上一段之后首次出现的位置开始找，
 /// 因此同一消息内多个同名占位能逐个切分（如 借自 `a` 还是 `b`）。
-/// 要求消息以首段开头、以尾段结尾，且各段依次不重叠出现。
+/// 适用于任意个（n≥1）通配符：n 个 `?` 拆为 n+1 个字面量段，首段为前缀锚
+/// （须非空，否则退化为后缀键应由 `~` 机制处理），尾段为后缀锚（可空，
+/// 空表示动态段一直延伸到消息末尾），中间 n-1 段为捕获间的分隔锚，
+/// 要求依次不重叠出现；单个 `?`（rest_literals 仅两段）同样适用。
 fn match_segments<'b>(key: &str, message: &'b str) -> Option<Vec<&'b str>> {
     let literals = split_wildcard(key);
     let (first, rest_literals) = literals.split_first()?;
-    let tail = rest_literals.last()?;
-    let body = message.strip_prefix(first)?;
-    if !body.ends_with(tail) || rest_literals.len() < 2 {
+    if first.is_empty() {
         return None;
     }
-    let mut captures = Vec::with_capacity(rest_literals.len());
+    let tail = *rest_literals.last()?;
+    let body = message.strip_prefix(first)?;
+    if !body.ends_with(tail) {
+        return None;
+    }
+    // rest_literals 去掉尾部锚后为捕获之间的分隔锚（n-1 个，单 `?` 时为空）。
+    let separators = &rest_literals[..rest_literals.len() - 1];
+    let mut captures = Vec::with_capacity(separators.len() + 1);
     let mut remain = body;
-    for lit in &rest_literals[..rest_literals.len() - 1] {
-        let at = remain.find(lit)?;
+    for sep in separators {
+        let at = remain.find(sep)?;
         captures.push(&remain[..at]);
-        remain = &remain[at + lit.len()..];
+        remain = &remain[at + sep.len()..];
     }
     captures.push(remain.strip_suffix(tail)?);
     Some(captures)
@@ -307,6 +315,113 @@ fn entry_from_value(val: &toml::Value) -> ErrorMessageEntry {
     }
 }
 
+/// 单条 rustc 消息在给定语言包下的译文审计结果（供 `diag_audit` 与门禁测试共用）
+#[derive(Debug, Clone)]
+pub struct MessageAudit {
+    /// 命中形态：`CODE`/`EXACT`/`PREFIX`/`SUFFIX`/`SEGMENT`/`MISS`
+    pub kind: &'static str,
+    /// 渲染后的译文（含未消费残段回拼）
+    pub rendered: String,
+    /// 渲染后仍残留的英文词串（空表示已译全）
+    pub residue: Vec<String>,
+}
+
+/// 连续多少个英文单词即视为“未翻译残留”（单个 `let`、`crate` 之类不报）
+const MIN_ENGLISH_WORDS: usize = 4;
+
+/// 从文本中提取长度≥`MIN_ENGLISH_WORDS` 的连续 ASCII 英文词串
+///
+/// 分隔符仅用于切词：连续的标点/反引号/逗号（如 `` `x` `` 两侧、`to,` 之后）
+/// 会切出空串，但**空串不算英文、也不算译文**，必须跳过而非中断词串——
+/// 否则 `variable \`x\` is assigned to, but never used` 这类整句未译的英文会被
+/// 反引号与逗号拆成 <4 的碎串而漏报（实跑对照 CLI 才发现的门禁假阴性）。
+fn english_word_runs(text: &str) -> Vec<String> {
+    let mut runs = Vec::new();
+    let mut current: Vec<&str> = Vec::new();
+    for token in text.split(|c: char| !c.is_ascii_alphanumeric()) {
+        if token.is_empty() {
+            continue;
+        }
+        if token.chars().all(char::is_alphanumeric)
+            && token.contains(|c: char| c.is_ascii_alphabetic())
+        {
+            current.push(token);
+        } else {
+            if current.len() >= MIN_ENGLISH_WORDS {
+                runs.push(current.join(" "));
+            }
+            current.clear();
+        }
+    }
+    if current.len() >= MIN_ENGLISH_WORDS {
+        runs.push(current.join(" "));
+    }
+    runs
+}
+
+/// 用引擎自身的匹配器审计一条 rustc 消息在语言包中的译文残留
+///
+/// 渲染路径与 `DiagnosticTranslator` 完全一致（错误码表优先→消息表查询→
+/// `{qN}` 填充→未消费则回拼残段），因此这里报出的残留就是用户在终端里
+/// 实际看到的文字。只对「完全未命中的整条消息」与「未消费的 rustc 英文
+/// 残段」度量残留，不对整段译文模板跑词串（拉丁语系译文会全误报）。
+pub fn audit_message(
+    manager: &ErrorTranslationManager,
+    level: &str,
+    code: &str,
+    message: &str,
+) -> MessageAudit {
+    // 主消息优先看错误码表（完整桩）：若该码已有模板，主消息就不会残留英文。
+    if level == "main"
+        && !code.is_empty()
+        && let Some(entry) = manager.query(code)
+        && !entry.message_template.is_empty()
+    {
+        return MessageAudit {
+            kind: "CODE",
+            rendered: entry.message_template.clone(),
+            residue: Vec::new(),
+        };
+    }
+    match manager.query_by_message(message) {
+        // 完全未命中：整条 rustc 英文都是残留。
+        None => MessageAudit {
+            kind: "MISS",
+            rendered: String::new(),
+            residue: english_word_runs(message),
+        },
+        // 精确命中：译文即我方模板，不再度量模板。
+        Some((entry, None)) => MessageAudit {
+            kind: "EXACT",
+            rendered: entry.message_template.clone(),
+            residue: Vec::new(),
+        },
+        Some((entry, Some(rest))) => {
+            let kind = match &rest {
+                MessageRest::Tail(_) => "PREFIX",
+                MessageRest::Head(_) => "SUFFIX",
+                MessageRest::Parts(_) => "SEGMENT",
+            };
+            let (mut rendered, consumed) =
+                fill_dynamic_placeholders(&entry.message_template, &rest);
+            if !consumed {
+                rendered.push_str(rest.text());
+                // 未消费＝把 rustc 英文残段原样回拼，只对残段判残留。
+                return MessageAudit {
+                    kind,
+                    rendered,
+                    residue: english_word_runs(rest.text()),
+                };
+            }
+            MessageAudit {
+                kind,
+                rendered,
+                residue: Vec::new(),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -331,6 +446,60 @@ mod tests {
             }
         }
         Some(text)
+    }
+
+    /// 单 `?` 通配段键（回归）：rest_literals 仅两段时也必须能匹配
+    ///
+    /// 曾经的 `rest_literals.len() < 2` 守卫会让所有单 `?` 键永远匹配不上
+    /// （如 “consider specifying…type parameter `?`”），此处固定住修复。
+    #[test]
+    fn wildcard_segment_single_capture() {
+        let m = manager(
+            "[\"消息翻译\".\"consider specifying a concrete type for the type parameter `?`\"]\n\"消息模板\" = \"考虑为类型参数 `{q0}` 指定具体类型\"",
+        );
+        assert_eq!(
+            render(
+                &m,
+                "consider specifying a concrete type for the type parameter `T`"
+            )
+            .as_deref(),
+            Some("考虑为类型参数 `T` 指定具体类型")
+        );
+    }
+
+    /// 英文词串跨标点连续计数（回归）：反引号/逗号拆出的空串不得中断词串
+    ///
+    /// 旧 `english_word_runs` 把 `` `x` ``、`to,` 相邻分隔符产生的空串当作
+    /// 词串边界，导致整句未译的英文被拆成 <4 的碎串而漏报（实跑对照 CLI
+    /// 才发现的门禁假阴性）。修复后应作为一整段英文报出。
+    #[test]
+    fn english_word_runs_survives_punctuation() {
+        let runs = english_word_runs("variable `x` is assigned to, but never used");
+        assert!(
+            runs.iter()
+                .any(|r| r.contains("assigned") && r.contains("never")),
+            "整句英文应作为连续词串报出，实际: {runs:?}"
+        );
+        assert!(english_word_runs("赋值给 `x` 的值从未被读取").is_empty());
+    }
+
+    /// unused_variables「赋值但从未使用」通配段键：动态变量名回填、无英文残留
+    #[test]
+    fn wildcard_segment_assigned_but_never_used() {
+        let m = manager(
+            "[\"消息翻译\".\"variable `?` is assigned to, but never used\"]\n\"消息模板\" = \"`{q0}` 被赋值但从未使用\"",
+        );
+        assert_eq!(
+            audit_message(
+                &m,
+                "main",
+                "unused_variables",
+                "variable `x` is assigned to, but never used"
+            )
+            .residue,
+            Vec::<String>::new(),
+            "补键后应无英文残留"
+        );
     }
 
     /// 两端动态（E0277 族）：通配段键一次拿齐两个动态名
