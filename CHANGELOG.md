@@ -6,6 +6,20 @@
 ## [Unreleased]
 
 ### 修复
+- 引擎：修复**单 `?` 通配段键永远匹配不上**——`match_segments` 的 `rest_literals.len() < 2`
+  守卫误拒仅含一个动态段的键（如 `consider specifying…type parameter `?``、
+  `variable `?` is assigned to, but never used`），恢复「允许空尾锚」的原算法并只保留首段
+  非空守卫；回归单测 `wildcard_segment_single_capture`
+- 诊断：修复**审计残留词串检测的假阴性**——`english_word_runs` 把 `` `x` ``、`to,` 等相邻
+  分隔符切出的**空串**误当词串边界，使整句未译的英文被拆成 <4 碎串而漏报（实跑对照
+  `rzc check` 才发现门禁与用户所见背离）；改为空串跳过、英文词跨标点连续计数，并据此
+  补 10 语言 `errors.toml` 8 条此前被掩盖的中英混排缺口（`variable … is assigned to, but
+  never used`、`maybe it is overwritten before being read?`、`call … first`、`consider
+  introducing lifetime …`、`consider annotating … with #[derive(…)]`、`consider removing …
+  from the pattern`、`type … is private`、`remove the whole … item`），消息翻译 142→150 键齐平
+- CLI：`rzc doctor` 语言包健康检查补**端到端故障注入测试**（真实文件系统注入同名遮蔽 /
+  `.stale…bak` 劫持 / 未加载备份 / 自研包不误报 / 目录名与声明扩展名不符五场景），
+  确保四类隐患一次查全
 - 诊断：10 语言 `errors.toml` 再补 5 条高频 help 精确键（未使用变量的「if this is
   intentional, prefix it with an underscore」、E0382/E0505「consider cloning the value
   if the performance cost is acceptable」、E0308「consider adding an `else` block…」）、
@@ -52,6 +66,17 @@
   示例由 1 行改为 2 行，`make tutorials` 曾因此误报失败
 
 ### 新增
+- 门禁：新增语言包完整性检查 `tools/check-lang-packs.py`（逐包 TOML 真回读、消息/错误码/
+  关键词/stdlib 键数结构齐平、占位符形态、版本一致、短前缀吞整句告警），接入 `make lang-packs`
+  与 CI `gate` 链
+- 门禁：新增**诊断语料回归**——`tools/diag-corpus/collect.py` 把 `rustc --error-format json`
+  实跑采样出的高频反例固化为 `crates/engine/tests/data/diag-corpus.tsv`，配 `diag_audit` 示例
+  与集成测试 `crates/engine/tests/diag_corpus_gate.rs`（遍历全部内置语言包断言译文零残留），
+  把「只有实跑才暴露」的中英混排纳入可复现门禁
+- 工具：`collect.py` 采样加 `--out-dir`/`cwd` 隔离，避免 `rustc --crate-type lib` 产物 `.rlib`
+  逃逸污染仓库根；`.gitignore` 补 `/lib*.rlib` `/lib*.rmeta` `/rlib/`
+- 文档：`contributing-lang-pack.md` 修正 2.6 节诊断匹配顺序（补入「最长通配段」层，与引擎
+  及 2.7 一致），并在提交前自查清单加入 `make lang-packs`、`diag_corpus_gate` 两条可执行门禁项
 - 引擎：消息表支持**通配段键**（键内 `?` 逐段捕获，第 n 个对应 `{q0}`/`{q1}`/`{q2}`），
   匹配顺序为「精确 → 最长通配段 → 最长前缀 → 最长后缀」——解决 E0277/E0106
   这类**两端以上动态**的 help 无法用单一前缀/后缀键完整翻译的限制；`{qN}` 占位
