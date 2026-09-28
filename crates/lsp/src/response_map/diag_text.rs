@@ -14,21 +14,29 @@ use serde_json::{Value, json};
 
 use crate::translation_cache::{TranslationEntry, en_col_to_zh_col_single};
 
-/// 诊断消息翻译器（errors.toml 消息表）：与 CLI 同源，覆盖 rustc/rust-analyzer
-/// 的常见消息（精确/最长前缀/最长后缀匹配）。由服务器启动时初始化
-///（语言包目录 errors.toml，缺失时回退内置 zh）；未初始化时为 None，
-/// 翻译退化为下方轻量短语替换。
+/// 诊断翻译器（errors.toml 消息表 + 错误码表 + type_map）：与 CLI 完全同源，
+/// 走引擎 `render_main_message` 统一口径，覆盖 rustc/rust-analyzer 的常见消息。
+/// 由服务器启动时初始化（语言包目录 errors.toml + 映射管理器，缺失时回退内置
+/// zh）；未初始化时为 None，翻译退化为下方轻量短语替换。
 static DIAGNOSTIC_TRANSLATOR: std::sync::OnceLock<
-    Option<i18n_rust_engine::diagnostic::ErrorTranslationManager>,
+    Option<i18n_rust_engine::diagnostic::DiagnosticTranslator>,
 > = std::sync::OnceLock::new();
 
-/// 初始化诊断消息翻译器（语言包 errors.toml；失败/缺失时尝试内置 zh）
-pub fn init_diagnostic_translator(lang_pack_path: &std::path::Path) {
-    let translator = i18n_rust_engine::diagnostic::ErrorTranslationManager::load_from_file(
-        &lang_pack_path.join("errors.toml"),
-    )
-    .ok()
-    .or_else(builtin_zh_error_translator);
+/// 初始化诊断翻译器（errors.toml 消息表 + 由映射管理器构建的 type_map；
+/// 失败/缺失时回退内置 zh），使 LSP 主消息与 CLI 同 (code, message) 同译文。
+pub fn init_diagnostic_translator(
+    lang_pack_path: &std::path::Path,
+    manager: &i18n_rust_engine::mapping_manager::MappingManager,
+) {
+    let type_map = i18n_rust_engine::diagnostic::build_type_map(manager);
+    let translation_manager =
+        i18n_rust_engine::diagnostic::ErrorTranslationManager::load_from_file(
+            &lang_pack_path.join("errors.toml"),
+        )
+        .ok()
+        .or_else(builtin_zh_error_translator);
+    let translator = translation_manager
+        .map(|m| i18n_rust_engine::diagnostic::DiagnosticTranslator::new(m, type_map));
     let _ = DIAGNOSTIC_TRANSLATOR.set(translator);
 }
 
@@ -46,29 +54,38 @@ fn builtin_zh_error_translator() -> Option<i18n_rust_engine::diagnostic::ErrorTr
     .ok()
 }
 
-/// 翻译诊断消息为当前界面语言
+/// 翻译诊断主消息为当前界面语言（与 CLI 同口径）
 ///
-/// 优先使用错误消息表（errors.toml [消息翻译] 节，与 CLI 同源，含教学提示）；
-/// 未命中时退化为轻量短语替换。多行消息按行逐条翻译后拼接。
-/// 替换仅作用于反引号之外的文本，避免误伤消息中引用的
-/// 标识符/类型名（如变量名 `expected_value` 含子串 "expected"）。
+/// `code`：诊断错误码（若有），供错误码表优先命中；`primary_label`：rustc 主
+/// span 标签（镜像检查从真实 rustc JSON 可得，供提取期望/实际类型）。
+/// 优先走引擎 `render_main_message`（错误码表→消息表→占位符回填→类型中文化）；
+/// 未命中时退化为轻量短语替换。多行消息按行逐条翻译后拼接（仅首行适用
+/// 错误码/标签与教学提示）。仅反引号外文本参与兜底替换，避免误伤标识符。
 ///
-/// pub(crate)：镜像检查（真实项目 rustc 诊断）复用同一消息表。
-pub(crate) fn translate_diagnostic_message(message: &str) -> String {
-    // 多行消息（rust-analyzer 的 E0004 等）逐行翻译
+/// pub(crate)：镜像检查（真实项目 rustc 诊断）与 publishDiagnostics 共用同一渲染。
+pub(crate) fn translate_diagnostic_message(
+    code: Option<&str>,
+    message: &str,
+    primary_label: Option<&str>,
+) -> String {
+    // 多行消息（rust-analyzer 的 E0004 等）逐行翻译；错误码/标签只属于首行
     if message.contains('\n') {
         let mut first = true;
         let lines: Vec<String> = message
             .split('\n')
             .map(|line| {
-                let translated = translate_diagnostic_message_single(line, first);
+                let translated = if first {
+                    translate_diagnostic_message_single(code, line, primary_label, true)
+                } else {
+                    translate_diagnostic_message_single(None, line, None, false)
+                };
                 first = false;
                 translated
             })
             .collect();
         return lines.join("\n");
     }
-    translate_diagnostic_message_single(message, true)
+    translate_diagnostic_message_single(code, message, primary_label, true)
 }
 
 /// 轻量短语替换表（诊断翻译兜底）：UI 全局语言固定，首次构建后缓存。
@@ -139,28 +156,22 @@ fn diag_phrase_replacements() -> &'static Vec<(String, String)> {
     })
 }
 
-/// 单行诊断消息翻译：消息表优先，轻量短语表兜底
-fn translate_diagnostic_message_single(message: &str, with_hint: bool) -> String {
+/// 单行诊断主消息渲染：引擎同口径优先，轻量短语表兜底
+fn translate_diagnostic_message_single(
+    code: Option<&str>,
+    message: &str,
+    primary_label: Option<&str>,
+    with_hint: bool,
+) -> String {
     let ui = crate::ui::global();
 
-    // 1. 错误消息表（与 CLI 同源）：精确/最长前缀/最长后缀匹配
+    // 1. 引擎同口径渲染（与 CLI 完全同源）：错误码表优先→消息表（精确/前缀/
+    //    后缀/通配段）→ {qN}/占位符回填→ type_map 类型中文化。命中任一表即返回。
     if let Some(translator) = DIAGNOSTIC_TRANSLATOR.get().and_then(|opt| opt.as_ref())
-        && let Some((entry, rest)) = translator.query_by_message(message)
+        && let Some(rendered) = translator.render_main_message(code, message, primary_label)
     {
-        let mut text = entry.message_template.clone();
-        if let Some(rest) = rest {
-            // {q0}/{q1} 占位符：从动态部分提取引号内容填充（如
-            // "trait `Datelike` which provides `year` is never used" →
-            //  "特征 `Datelike` 从未被使用"）；填充不足时拼接动态原文
-            //（保留 did you mean `x` 等）。
-            let (filled, consumed) =
-                i18n_rust_engine::diagnostic::fill_dynamic_placeholders(&text, &rest);
-            text = filled;
-            if !consumed {
-                text.push_str(rest.text());
-            }
-        }
-        if with_hint && let Some(hint) = &entry.teaching_hint {
+        let mut text = rendered.text;
+        if with_hint && let Some(hint) = &rendered.hint {
             text.push('\n');
             text.push_str(hint);
         }

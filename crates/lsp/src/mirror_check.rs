@@ -586,11 +586,18 @@ fn publish_rustc_diagnostics(
         let restored = json!({ "range": range, "relatedInformation": raw_related });
         let ownership = extract_ownership_details(&raw, &restored, &file.original_uri);
 
+        // 主消息与 CLI 同口径：传错误码 + 主 span 标签（rustc JSON 携带
+        // “expected X, found Y”），使类型不匹配等能回填期望/实际并中文化类型名
+        let main_msg = translate_diagnostic_message(
+            if code.is_empty() { None } else { Some(&code) },
+            orig_message,
+            span["label"].as_str(),
+        );
         let mut diag = json!({
             "range": range,
             "severity": severity,
             "code": code,
-            "message": translate_diagnostic_message(orig_message),
+            "message": main_msg,
         });
         if !raw_related.is_empty() {
             let translated: Vec<Value> = raw_related
@@ -598,7 +605,9 @@ fn publish_rustc_diagnostics(
                 .map(|r| {
                     let mut item = r.clone();
                     item["message"] = Value::String(translate_diagnostic_message(
+                        None,
                         r["message"].as_str().unwrap_or(""),
+                        None,
                     ));
                     item
                 })

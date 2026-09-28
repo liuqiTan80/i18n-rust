@@ -1102,7 +1102,7 @@ fn test_inject_teaching_actions() {
 /// 未解析导入诊断追加依赖提示（内置 zh 回退含 lsp_hint_add_dependency 键）
 #[test]
 fn test_translate_diagnostic_unresolved_import_hint() {
-    let translated = translate_diagnostic_message("unresolved import `serde_json`");
+    let translated = translate_diagnostic_message(None, "unresolved import `serde_json`", None);
     // 反引号内容保留（提取依赖原名），且追加了 rzc add 提示
     assert!(translated.contains("`serde_json`"));
     assert!(translated.contains("rzc add serde_json"));
@@ -1111,8 +1111,11 @@ fn test_translate_diagnostic_unresolved_import_hint() {
 /// 诊断翻译不替换反引号内的标识符（避免误伤变量名中的子串）
 #[test]
 fn test_translate_diagnostic_skips_backtick_content() {
-    let translated =
-        translate_diagnostic_message("cannot find value `expected_value` in this scope");
+    let translated = translate_diagnostic_message(
+        None,
+        "cannot find value `expected_value` in this scope",
+        None,
+    );
     // 反引号内的标识符保持原样
     assert!(translated.contains("`expected_value`"));
     // 反引号外的短语已被翻译（不再含英文原短语）
@@ -1128,10 +1131,12 @@ fn test_translate_diagnostic_skips_backtick_content() {
 #[test]
 fn test_translate_diagnostic_no_method_named_not_misleading() {
     let t = translate_diagnostic_message(
+        None,
         "no method named `拉平` found for struct `Vec<i32>` in the current scope",
+        None,
     );
     assert!(!t.contains("实际为"), "{t}");
-    let t2 = translate_diagnostic_message("method not found in `Vec<i32>`");
+    let t2 = translate_diagnostic_message(None, "method not found in `Vec<i32>`", None);
     assert!(!t2.contains("实际为"), "{t2}");
 }
 
@@ -1141,7 +1146,11 @@ fn test_translate_diagnostic_no_method_named_not_misleading() {
 /// ", found "→"，实际为 "。
 #[test]
 fn test_translate_diagnostic_mismatch_keeps_found_phrase() {
-    let t = translate_diagnostic_message("mismatched types: expected `char`, found `&str`");
+    let t = translate_diagnostic_message(
+        None,
+        "mismatched types: expected `char`, found `&str`",
+        None,
+    );
     assert!(t.contains("实际为"), "{t}");
     // 反引号内类型名保留
     assert!(t.contains("`char`") && t.contains("`&str`"), "{t}");

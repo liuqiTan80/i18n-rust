@@ -100,19 +100,25 @@ impl ResponseMapper {
                             );
                         }
                         // 子消息（help/note）同样翻译——悬停查看诊断详情时
-                        // 不泄漏英文（如 "value moved here"、"consider ..."）
+                        // 不泄漏英文（如 "value moved here"、"consider ..."）；
+                        // 子消息无独立错误码/标签，走消息表/短语兜底
                         if let Some(message) = item.get("message").and_then(|v| v.as_str()) {
                             mapped_item["message"] =
-                                Value::String(translate_diagnostic_message(message));
+                                Value::String(translate_diagnostic_message(None, message, None));
                         }
                         mapped_related.push(mapped_item);
                     }
                     mapped["relatedInformation"] = Value::Array(mapped_related);
                 }
 
-                // 翻译诊断消息
+                // 翻译诊断主消息（与 CLI 同口径）：传入错误码供码表优先命中；
+                // rust-analyzer 把 expected/found 放在 relatedInformation 而非主
+                // span 标签，故 primary_label 传 None（命中不了码表时自动回退消息表）
+                let code_str = diag.get("code").and_then(|v| v.as_str());
                 mapped["message"] = Value::String(translate_diagnostic_message(
+                    code_str,
                     diag["message"].as_str().unwrap_or(""),
+                    None,
                 ));
 
                 // 所有权错误：提取叙事化详情并存入 data 字段（供 VS Code 扩展可视化）

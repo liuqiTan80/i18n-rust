@@ -449,7 +449,7 @@ pub(crate) fn translate_cargo_diagnostics(
     streamed_output: bool,
 ) -> bool {
     use i18n_rust_engine::diagnostic::{
-        DiagnosticTranslator, ErrorTranslationManager, parse_diagnostic_output,
+        DiagnosticTranslator, ErrorTranslationManager, build_type_map, parse_diagnostic_output,
     };
     let ui = ctx.ui;
     let lang_pack = ctx.lang_pack;
@@ -481,39 +481,10 @@ pub(crate) fn translate_cargo_diagnostics(
             .join(&lang_code)
             .join("errors.toml")
     };
-    // 类型映射（英文 → 中文）：keywords ["类型"] 节反转 + stdlib 标识符别名反转补充，
-    // 供诊断消息中的类型/特征名中文化（如 `std::fmt::Display` → `标准库::格式化::可显示`）；
-    // 类型节优先，stdlib 仅补充缺失条目（不覆盖）。
-    // 过滤英文键的反向修正条目（如 stdlib 的 "format" = "fmt"，仅供转译管线修正路径段），
-    // 避免诊断翻译中出现英文值。
-    let 是中文键 = |键: &str| {
-        !键.chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-    };
-    let mut reverse_map: HashMap<String, String> = manager
-        .get_section_mapping("类型")
-        .map(|section| {
-            section
-                .iter()
-                .filter(|(k, _)| 是中文键(k))
-                .map(|(k, v)| (v.clone(), k.clone()))
-                .collect()
-        })
-        .unwrap_or_default();
-    for (中文, 英文) in manager.get_alias_map() {
-        if 是中文键(中文) {
-            reverse_map
-                .entry(英文.clone())
-                .or_insert_with(|| 中文.clone());
-        }
-    }
-    // 模块路径映射补充（std → 标准库 等，供 `std::fmt::Display` 的路径段中文化）；
-    // 覆盖第三方库的同名条目（如 log crate 的 fmt → 格式化层），保证标准库路径翻译稳定
-    for (中文, 英文) in manager.get_module_path_map() {
-        if 是中文键(中文) {
-            reverse_map.insert(英文.clone(), 中文.clone());
-        }
-    }
+    // 类型映射（英文 → 母语）：供诊断消息中的类型/特征名中文化（如
+    // `std::fmt::Display` → `标准库::格式化::可显示`）。构建逻辑下沉引擎，
+    // 与 LSP 共用同一来源，避免两侧漂移（keywords [类型] 反转为主，别名/模块路径补充）。
+    let reverse_map = build_type_map(manager);
     let translator = if error_msg_path.exists() {
         // 加载失败时降级到内置表，不因错误消息文件损坏阻断诊断展示
         match ErrorTranslationManager::load_from_file(&error_msg_path) {

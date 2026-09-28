@@ -8,6 +8,7 @@ use super::model::CompilerDiagnostic;
 use super::teaching::{
     DiagnosticLevel, DiagnosticLocation, TeachingDiagnostic, extract_ownership_details,
 };
+use crate::mapping_manager::MappingManager;
 
 /// 诊断翻译器：将 rustc 诊断翻译为教学诊断
 ///
@@ -193,6 +194,52 @@ fn extract_types_from_message(message: &str) -> Option<(String, String)> {
     }
 }
 
+/// 由映射管理器构建诊断类型反查表（英文类型名 → 母语名），CLI 与 LSP 共用。
+///
+/// 数据来源与优先级（与历史 CLI 内联逻辑完全一致，抽出以消除两处漂移）：
+/// keywords `[类型]` 节反转为主，stdlib/别名表仅补充缺失条目（不覆盖），
+/// 模块路径映射（std → 标准库 等）覆盖同名第三方条目以稳定标准库路径翻译。
+/// 仅收录「母语键」（含非 ASCII 字符）的反向项，避免把 `format`→`fmt` 之类
+/// 纯英文修正项引入诊断译文（会让译文出现英文值）。
+pub fn build_type_map(manager: &MappingManager) -> HashMap<String, String> {
+    let 是母语键 = |键: &str| {
+        !键.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    };
+    let mut reverse_map: HashMap<String, String> = manager
+        .get_section_mapping("类型")
+        .map(|section| {
+            section
+                .iter()
+                .filter(|(k, _)| 是母语键(k))
+                .map(|(k, v)| (v.clone(), k.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
+    for (母语, 英文) in manager.get_alias_map() {
+        if 是母语键(母语) {
+            reverse_map
+                .entry(英文.clone())
+                .or_insert_with(|| 母语.clone());
+        }
+    }
+    for (母语, 英文) in manager.get_module_path_map() {
+        if 是母语键(母语) {
+            reverse_map.insert(英文.clone(), 母语.clone());
+        }
+    }
+    reverse_map
+}
+
+/// [`DiagnosticTranslator::render_main_message`] 的返回：主消息译文与其教学提示。
+#[derive(Debug, Clone)]
+pub struct RenderedMessage {
+    /// 已回填占位符并完成类型中文化的主消息译文
+    pub text: String,
+    /// 命中条目的教学提示（若有），供调用方按需追加
+    pub hint: Option<String>,
+}
+
 impl DiagnosticTranslator {
     /// 创建诊断翻译器
     pub fn new(
@@ -203,6 +250,86 @@ impl DiagnosticTranslator {
             translation_manager,
             type_map,
         }
+    }
+
+    /// 仅凭 (错误码, 消息原文, 主 span 标签) 渲染主消息——CLI/LSP 同口径共享入口。
+    ///
+    /// 渲染链与 [`DiagnosticTranslator::translate_diagnostic`] 的主消息分支一致：
+    /// 错误码表优先（完整桩/静态模板）→ 消息表（精确/前缀/后缀/通配段 + `{qN}`
+    /// 回填）→ 占位符按序回填 → `type_map` 类型中文化。区别在于不依赖完整
+    /// `CompilerDiagnostic`：期望/实际取自 `primary_label`（rustc 主 span 标签），
+    /// 其次从消息原文 `expected X, found Y`/前两个反引号类型提取；
+    /// `{变量名}`/`{名称}`/`{类型}`/`{特征}` 按序取消息反引号内容。
+    ///
+    /// 安全兵：错误码模板存在无法回填的占位符时（如 rust-analyzer 把
+    /// `expected/found` 放在 relatedInformation 而非主消息的 E0308）
+    /// **回退消息表**而非输出英文或裸占位符——保证译文不劣于旧行为。
+    /// 命中任一表返回 `Some`，两表皆未命中返回 `None`（调用方走轻量兵底）。
+    pub fn render_main_message(
+        &self,
+        code: Option<&str>,
+        message: &str,
+        primary_label: Option<&str>,
+    ) -> Option<RenderedMessage> {
+        let code_entry = code
+            .filter(|c| !c.is_empty())
+            .and_then(|c| self.translation_manager.query(c));
+        let message_query = self.translation_manager.query_by_message(message);
+
+        // 1. 错误码表优先（与 CLI `code_entry.or_else(message_query)` 对齐）
+        if let Some(entry) = code_entry {
+            let mut template = entry.message_template.clone();
+            let expected_found = primary_label
+                .and_then(extract_expected_found)
+                .or_else(|| extract_expected_found(message))
+                .or_else(|| extract_types_from_message(message));
+            if let Some((expected, found)) = expected_found
+                && !expected.is_empty()
+                && !found.is_empty()
+            {
+                template = template
+                    .replace("{期望}", &expected)
+                    .replace("{实际}", &found);
+            }
+            // 其余占位符按出现顺序从消息反引号内容回退填充
+            let mut tokens = extract_backtick_tokens(message).into_iter();
+            for placeholder in ["{变量名}", "{名称}", "{类型}", "{特征}"] {
+                if template.contains(placeholder) {
+                    match tokens.next() {
+                        Some(token) => template = template.replace(placeholder, &token),
+                        None => break,
+                    }
+                }
+            }
+            // 仍有未回填占位符 → 码表桩无法从可用信息渲染 → 回退消息表（不出英文/裸占位符）
+            let unresolved = ["{期望}", "{实际}", "{变量名}", "{名称}", "{类型}", "{特征}"]
+                .iter()
+                .any(|p| template.contains(p));
+            if !unresolved {
+                return Some(RenderedMessage {
+                    text: self.replace_type_names(template),
+                    hint: entry.teaching_hint.clone(),
+                });
+            }
+        }
+
+        // 2. 消息表（精确/前缀/后缀/通配段）+ `{qN}` 回填，额外补 type_map 类型中文化
+        if let Some((entry, rest)) = message_query {
+            let mut text = entry.message_template.clone();
+            if let Some(rest) = rest {
+                let (filled, consumed) = fill_dynamic_placeholders(&text, &rest);
+                text = filled;
+                if !consumed {
+                    text.push_str(rest.text());
+                }
+            }
+            return Some(RenderedMessage {
+                text: self.replace_type_names(text),
+                hint: entry.teaching_hint.clone(),
+            });
+        }
+
+        None
     }
 
     /// 翻译单条诊断信息

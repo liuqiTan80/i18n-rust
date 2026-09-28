@@ -92,9 +92,9 @@ impl ProxyServer {
     ) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
         // 1. 加载语言包（统一映射管理器，含模块路径映射）
         let manager = load_language_pack(lang_pack_path)?;
-        // 初始化诊断消息翻译器（errors.toml 消息表，与 CLI 同源），
-        // 供 map_diagnostics 翻译 rust-analyzer 诊断（E0004 等）
-        crate::response_map::init_diagnostic_translator(lang_pack_path);
+        // 初始化诊断翻译器（errors.toml 消息表 + 由映射管理器构建的 type_map，
+        // 与 CLI 同源），供 map_diagnostics/镜像检查翻译 rust-analyzer 诊断（E0004 等）
+        crate::response_map::init_diagnostic_translator(lang_pack_path, &manager);
         log::info!(
             "{}",
             crate::ui::global().f(

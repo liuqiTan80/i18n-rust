@@ -29,7 +29,7 @@ pub use teaching::{
     DiagnosticLevel, DiagnosticLocation, OWNERSHIP_ERROR_CODES, OwnershipDetails,
     TeachingDiagnostic, extract_ownership_details,
 };
-pub use translator::DiagnosticTranslator;
+pub use translator::{DiagnosticTranslator, RenderedMessage, build_type_map};
 
 // 内部辅助函数：仅测试直接引用（见下方 tests 模块）
 #[cfg(test)]
@@ -1007,5 +1007,92 @@ mod tests {
         let teaching = translator.translate_diagnostic(&diagnostic);
 
         assert_eq!(teaching.translated_message, "`黄灯` 和 `绿灯` 从未被构造");
+    }
+
+    /// 构造带主 span 标签的诊断（模拟 rustc JSON：主消息 + primary label）
+    fn diag_with(code: Option<&str>, message: &str, label: Option<&str>) -> CompilerDiagnostic {
+        CompilerDiagnostic {
+            message: message.to_string(),
+            code: code.map(|c| DiagnosticCode {
+                code: c.to_string(),
+                explanation: None,
+            }),
+            level: "error".to_string(),
+            spans: vec![DiagnosticSpan {
+                file_name: "src/main.rs".to_string(),
+                line_start: 3,
+                column_start: 5,
+                line_end: 3,
+                column_end: 10,
+                source_text: None,
+                byte_start: None,
+                byte_end: None,
+                is_primary: true,
+                label: label.map(|s| s.to_string()),
+                suggested_replacement: None,
+            }],
+            children: vec![],
+            rendered: None,
+        }
+    }
+
+    /// CLI/LSP 主消息译文 parity（P1-1）：同一 (code, message, 主 span 标签) 下，
+    /// LSP 复用的 `render_main_message` 与 CLI 的 `translate_diagnostic` 主消息
+    /// 必须逐字一致，杜绝“同诊断 CLI 详、LSP 略”的分叉。
+    #[test]
+    fn cli_lsp_main_message_parity() {
+        let _guard = crate::语言::test_language("zh");
+        let toml_content = r#"
+[E0308]
+"消息模板" = "类型不匹配：期望 `{期望}`，实际得到 `{实际}`"
+[E0433]
+"消息模板" = "未找到类型 `{名称}`"
+[E0369]
+"消息模板" = "类型不匹配：无法对 `{期望}` 和 `{实际}` 执行运算"
+[E0382]
+"消息模板" = "值在移动后被使用：`{变量名}`"
+
+["消息翻译"."unused variable: `"]
+"消息模板" = "未使用的变量：`{q0}`"
+
+["消息翻译"."mismatched types"]
+"消息模板" = "类型不匹配"
+"#;
+        let manager = ErrorTranslationManager::load_from_string(toml_content).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+
+        // 均为“可完整渲染命中”的代表性用例（占位符可从 label/消息回填）；
+        // 错误码桩无法回填时 CLI 回英文、LSP 回消息表属预期分叉，不纳入 parity。
+        let cases: Vec<(Option<&str>, &str, Option<&str>)> = vec![
+            (
+                Some("E0308"),
+                "mismatched types",
+                Some("expected `i32`, found `String`"),
+            ),
+            (Some("E0433"), "cannot find type `Foo` in this scope", None),
+            (Some("E0369"), "cannot add `{integer}` to `&str`", None),
+            (
+                Some("E0382"),
+                "use of moved value: `数据`",
+                Some("value used here after move"),
+            ),
+            (None, "unused variable: `x`", None),
+            (None, "mismatched types", None),
+        ];
+        for (code, message, label) in cases {
+            let cli = translator
+                .translate_diagnostic(&diag_with(code, message, label))
+                .translated_message;
+            let lsp = translator
+                .render_main_message(code, message, label)
+                .unwrap_or_else(|| panic!("LSP 应命中表并渲染：{:?}", (code, message, label)))
+                .text;
+            assert_eq!(
+                cli,
+                lsp,
+                "CLI/LSP 主消息译文不一致，case={:?}",
+                (code, message, label)
+            );
+        }
     }
 }
