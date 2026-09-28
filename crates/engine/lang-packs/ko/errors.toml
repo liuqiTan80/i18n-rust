@@ -2456,3 +2456,101 @@
 "消息模板" = "이 함수의 반환 타입은 빌려온 값을 포함하지만, 시그니처가 인자 `{q0}`과(와) `{q1}` 중 어디서 빌려왔는지 지정하지 않습니다"
 ["消息翻译"."?` doesn't implement `?"]
 "消息模板" = "`{q1}`이(가) `{q0}`을(를) 구현하지 않았습니다"
+
+# ---- 诊断实跑补键第四批（66 反例采样，16 精确 + 5 通配段） ----
+["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown"]
+"消息模板" = "모든 경우의 수가 처리되는지 확인하세요: 와일드카드 패턴을 가진 팔 또는 아래에 표시된 명시적 패턴을 가진 팔을 추가하세요"
+
+["消息翻译"."insert some indirection (e.g., a `Box`, `Rc`, or `&`) to break the cycle"]
+"消息模板" = "순환을 끊으려면 간접 참조(`Box`, `Rc`, `&` 등)를 추가하세요"
+
+["消息翻译"."function arguments must have a statically known size, borrowed types always have a known size"]
+"消息模板" = "함수 인자는 정적으로 알려진 크기를 가져야 하며, 빌림 형식은 항상 알려진 크기를 가집니다"
+
+["消息翻译"."a struct with a similar name exists"]
+"消息模板" = "이름이 유사한 구조체가 있습니다"
+
+["消息翻译"."a field with a similar name exists"]
+"消息模板" = "이름이 유사한 필드가 있습니다"
+
+["消息翻译"."you might be missing a type parameter"]
+"消息模板" = "타입 매개변수가 부족할 수 있습니다"
+
+["消息翻译"."use struct literal syntax instead"]
+"消息模板" = "대신 구조체 리터럴 구문을 사용하세요"
+
+["消息翻译"."use the path separator to refer to an item"]
+"消息模板" = "항목을 참조할 때 경로 구분자를 사용하세요"
+
+["消息翻译"."this function's return type contains a borrowed value, but there is no value for it to be borrowed from"]
+"消息模板" = "이 함수의 반환 형식이 빌린 값을 포함하지만 빌릴 수 있는 값이 없습니다"
+
+["消息翻译"."instead, you are more likely to want to return an owned value"]
+"消息模板" = "대신 소유한 값을 반환하는 것을 원할 가능성이 큽니다"
+
+["消息翻译"."convert the identifier to snake case"]
+"消息模板" = "식별자를 snake_case로 변환하세요"
+
+["消息翻译"."use `let _ = ...` to ignore the resulting value"]
+"消息模板" = "결과 값을 무시하려면 `let _ = ...`를 사용하세요"
+
+["消息翻译"."you can `clone` the value and consume it, but this might not be your desired behavior"]
+"消息模板" = "값을 `clone`하여 소비할 수 있지만, 원하지 않는 동작일 수 있습니다"
+
+["消息翻译"."use `.split_at_mut(position)` to obtain two mutable non-overlapping sub-slices"]
+"消息模板" = "`.split_at_mut(position)`을 사용하여 겹치지 않는 두 개의 가변 부분 슬라이스를 얻으세요"
+
+["消息翻译"."try removing the method call"]
+"消息模板" = "메서드 호출을 제거해 보세요"
+
+["消息翻译"."try changing it to one of the following valid forms of the attribute"]
+"消息模板" = "다음 중 하나의 유효한 속성 형식으로 변경해 보세요"
+
+["消息翻译"."consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`"]
+"消息模板" = "`'static` 수명 시간을 고려할 수 있지만, `const`나 `static`에서 빌린 값을 반환하는 경우가 아니라면 드뭅니다"
+
+["消息翻译"."consider importing this struct instead"]
+"消息模板" = "대신 이 구조체를 가져오기를 고려하세요"
+
+["消息翻译"."consider specifying a concrete type for the type parameter `?`"]
+"消息模板" = "타입 매개변수「{q0}」에 구체적인 형식을 지정하기를 고려하세요"
+
+["消息翻译"."type `?` is more private than the item `?`"]
+"消息模板" = "타입「{q0}」이 항목「{q1}」보다 접근 수준이 낮습니다"
+
+["消息翻译"."consider giving `?` an explicit type, where the type for type parameter `?` is specified"]
+"消息模板" = "타입 매개변수「{q1}」의 형식을 지정하고「{q0}」에 명시적 형식을 부여하세요"
+
+# ---- 诊断实跑补键第四批（66 反例采样，16 精确 + 5 通配段） ----
+["消息翻译"."unused comparison that must be used"]
+"消息模板" = "비교 결과가 사용되지 않았지만, 해당 결과는 사용되어야 합니다"
+
+["消息翻译"."you might be missing a crate named `?`"]
+"消息模板" = "이름이「{q0}」인 crate가 없을 수 있습니다"
+
+# ---- 诊断实跑补键第五批（unused_assignments help + unused_variables 赋值变体） ----
+["消息翻译"."maybe it is overwritten before being read?"]
+"消息模板" = "아마도 읽히기 전에 다시 할당된 것 같습니다"
+
+["消息翻译"."variable `?` is assigned to, but never used"]
+"消息模板" = "변수 `{q0}`에 값을 할당했지만 사용하지 않았습니다"
+
+# ---- 诊断实跑补键第六批（修复词串假阴性后暴露的 6 条中英混排） ----
+
+["消息翻译"."consider introducing lifetime `?` here"]
+"消息模板" = "여기서 「{q0}」에 생명 주기를 도입하는 것을 고려하세요"
+
+["消息翻译"."consider annotating `?` with `#[derive(?)]`"]
+"消息模板" = "「{q0}」에 `#[derive({q1})]` 주석을 추가하는 것을 고려하세요"
+
+["消息翻译"."consider removing `?` from the pattern"]
+"消息模板" = "패턴에서 「{q0}」을(를) 제거하는 것을 고려하세요"
+
+["消息翻译"."call `.into_iter()` first"]
+"消息模板" = "먼저 `.into_iter()`를 호출하세요"
+
+["消息翻译"."type `?` is private"]
+"消息模板" = "타입 「{q0}」이(가) 비공개입니다"
+
+["消息翻译"."remove the whole `?` item"]
+"消息模板" = "「{q0}」 항목 전체를 제거하세요"

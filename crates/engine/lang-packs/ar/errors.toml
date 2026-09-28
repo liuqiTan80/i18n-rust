@@ -2450,3 +2450,101 @@
 "消息模板" = "نوع الإرجاع لهذه الدالة يحتوي على قيمة مُستعارة، لكن التوقيع لا يحدد هل استُعير من الوسيط «{q0}» أم من «{q1}»"
 ["消息翻译"."?` doesn't implement `?"]
 "消息模板" = "«{q1}» لا يُطبِّق «{q0}»"
+
+# ---- 诊断实跑补键第四批（66 反例采样，16 精确 + 5 通配段） ----
+["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown"]
+"消息模板" = "تأكد من معالجة جميع الحالات الممكنة: أضف ذراع مطابقة بنمط عام أو بنمط صريح كما هو موضح"
+
+["消息翻译"."insert some indirection (e.g., a `Box`, `Rc`, or `&`) to break the cycle"]
+"消息模板" = "أضف وسيطًا غير مباشر (مثل `Box` أو `Rc` أو `&`) لكسر الدورة"
+
+["消息翻译"."function arguments must have a statically known size, borrowed types always have a known size"]
+"消息模板" = "يجب أن تكون وسائط الدالة ذات حجم معروف ثابتًا، والأنواع المستعارة لها دائمًا حجم معروف"
+
+["消息翻译"."a struct with a similar name exists"]
+"消息模板" = "يوجد هيكل باسم مشابه"
+
+["消息翻译"."a field with a similar name exists"]
+"消息模板" = "يوجد حقل باسم مشابه"
+
+["消息翻译"."you might be missing a type parameter"]
+"消息模板" = "قد يفتقد أحد المعاملات النوعية"
+
+["消息翻译"."use struct literal syntax instead"]
+"消息模板" = "استخدم بدلا من ذلك صيغة الحرفية للهيكل"
+
+["消息翻译"."use the path separator to refer to an item"]
+"消息模板" = "استخدم فاصل المسار للإشارة إلى عنصر"
+
+["消息翻译"."this function's return type contains a borrowed value, but there is no value for it to be borrowed from"]
+"消息模板" = "نوع الإرجاع لهذه الدالة يحتوي على قيمة مستعارة، لكن لا توجد قيمة لتُستعار منها"
+
+["消息翻译"."instead, you are more likely to want to return an owned value"]
+"消息模板" = "بدلا من ذلك، من المرجح أنك تريد إرجاع قيمة مملوكة"
+
+["消息翻译"."convert the identifier to snake case"]
+"消息模板" = "حوّل المعرّف إلى snake_case"
+
+["消息翻译"."use `let _ = ...` to ignore the resulting value"]
+"消息模板" = "استخدم `let _ = ...` لتجاهل القيمة الناتجة"
+
+["消息翻译"."you can `clone` the value and consume it, but this might not be your desired behavior"]
+"消息模板" = "يمكنك `استنساخ` القيمة واستهلاكها، لكن قد لا يكون هذا السلوك المرغوب"
+
+["消息翻译"."use `.split_at_mut(position)` to obtain two mutable non-overlapping sub-slices"]
+"消息模板" = "استخدم `.split_at_mut(الموضع)` للحصول على شريحتين فرعيتين قابلتين للتغيير وغير متداخلتين"
+
+["消息翻译"."try removing the method call"]
+"消息模板" = "جرّب إزالة استدعاء الطريقة"
+
+["消息翻译"."try changing it to one of the following valid forms of the attribute"]
+"消息模板" = "جرّب تغييره إلى إحدى الصيغ الصحيحة التالية للخاصية"
+
+["消息翻译"."consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`"]
+"消息模板" = "فكّر في استخدام عمر `'static`، لكن هذا نادر إلا إن كنت تُرجع قيمة مستعارة من `const` أو `static`"
+
+["消息翻译"."consider importing this struct instead"]
+"消息模板" = "فكّر في استيراد هذا الهيكل بدلا من ذلك"
+
+["消息翻译"."consider specifying a concrete type for the type parameter `?`"]
+"消息模板" = "فكّر في تحديد نوع ملموس لمعامل النوع «{q0}»"
+
+["消息翻译"."type `?` is more private than the item `?`"]
+"消息模板" = "النوع «{q0}» أكثر خصوصية من العنصر «{q1}»"
+
+["消息翻译"."consider giving `?` an explicit type, where the type for type parameter `?` is specified"]
+"消息模板" = "فكّر في إعطاء «{q0}» نوعا صريحا، بعد تحديد نوع معامل النوع «{q1}»"
+
+# ---- 诊断实跑补键第四批（66 反例采样，16 精确 + 5 通配段） ----
+["消息翻译"."unused comparison that must be used"]
+"消息模板" = "مقارنة غير مستخدمة يجب استخدام نتيجتها"
+
+["消息翻译"."you might be missing a crate named `?`"]
+"消息模板" = "قد يفتقد حزمة باسم «{q0}»"
+
+# ---- 诊断实跑补键第五批（unused_assignments help + unused_variables 赋值变体） ----
+["消息翻译"."maybe it is overwritten before being read?"]
+"消息模板" = "ربما تتم الكتابة فوقه قبل قراءته"
+
+["消息翻译"."variable `?` is assigned to, but never used"]
+"消息模板" = "المتغير `{q0}` تمت تهيئته لكن لا يتم استخدامه أبدًا"
+
+# ---- 诊断实跑补键第六批（修复词串假阴性后暴露的 6 条中英混排） ----
+
+["消息翻译"."consider introducing lifetime `?` here"]
+"消息模板" = "فكّر في تقديم عمر «{q0}» هنا"
+
+["消息翻译"."consider annotating `?` with `#[derive(?)]`"]
+"消息模板" = "فكّر في إضافة الشرح `#[derive({q1})]` إلى «{q0}»"
+
+["消息翻译"."consider removing `?` from the pattern"]
+"消息模板" = "فكّر في إزالة «{q0}» من النمط"
+
+["消息翻译"."call `.into_iter()` first"]
+"消息模板" = "استدعِ `.into_iter()` أولاً"
+
+["消息翻译"."type `?` is private"]
+"消息模板" = "النوع «{q0}» خاص"
+
+["消息翻译"."remove the whole `?` item"]
+"消息模板" = "أزل العنصر «{q0}» بالكامل"

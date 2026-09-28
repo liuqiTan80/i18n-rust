@@ -2456,3 +2456,101 @@
 "消息模板" = "Возвращаемый тип этой функции содержит заимствованное значение, но сигнатура не указывает, заимзовано ли оно из аргумента «{q0}» или «{q1}»"
 ["消息翻译"."?` doesn't implement `?"]
 "消息模板" = "«{q1}» не реализует «{q0}»"
+
+# ---- 诊断实跑补键第四批（66 反例采样，16 精确 + 5 通配段） ----
+["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown"]
+"消息模板" = "убедитесь, что обработаны все возможные варианты: добавьте ветку с шаблон-подстановкой или явный шаблон, как показано ниже"
+
+["消息翻译"."insert some indirection (e.g., a `Box`, `Rc`, or `&`) to break the cycle"]
+"消息模板" = "добавьте косвенную ссылку (например, `Box`, `Rc` или `&`), чтобы разорвать рекурсивный цикл"
+
+["消息翻译"."function arguments must have a statically known size, borrowed types always have a known size"]
+"消息模板" = "аргументы функции должны иметь статически известный размер, заёмные типы всегда имеют известный размер"
+
+["消息翻译"."a struct with a similar name exists"]
+"消息模板" = "существует структура со схожим именем"
+
+["消息翻译"."a field with a similar name exists"]
+"消息模板" = "существует поле со схожим именем"
+
+["消息翻译"."you might be missing a type parameter"]
+"消息模板" = "возможно, вам не хватает параметра типа"
+
+["消息翻译"."use struct literal syntax instead"]
+"消息模板" = "используйте вместо этого синтаксис литерала структуры"
+
+["消息翻译"."use the path separator to refer to an item"]
+"消息模板" = "используйте разделитель путей, чтобы сослаться на элемент"
+
+["消息翻译"."this function's return type contains a borrowed value, but there is no value for it to be borrowed from"]
+"消息模板" = "тип возвращаемого значения этой функции содержит заём, но заимствовать не откуда"
+
+["消息翻译"."instead, you are more likely to want to return an owned value"]
+"消息模板" = "скорее всего, вы захотите вернуть значение во владении"
+
+["消息翻译"."convert the identifier to snake case"]
+"消息模板" = "преобразуйте идентификатор в snake_case"
+
+["消息翻译"."use `let _ = ...` to ignore the resulting value"]
+"消息模板" = "используйте `let _ = ...`, чтобы игнорировать результирующее значение"
+
+["消息翻译"."you can `clone` the value and consume it, but this might not be your desired behavior"]
+"消息模板" = "вы можете «клонировать» значение и использовать его, но это нежелательное поведение"
+
+["消息翻译"."use `.split_at_mut(position)` to obtain two mutable non-overlapping sub-slices"]
+"消息模板" = "используйте `.split_at_mut(position)`, чтобы получить две непересекающихся изменяемых подслайса"
+
+["消息翻译"."try removing the method call"]
+"消息模板" = "попробуйте удалить вызов метода"
+
+["消息翻译"."try changing it to one of the following valid forms of the attribute"]
+"消息模板" = "попробуйте изменить на одну из допустимых форм атрибута, перечисленных ниже"
+
+["消息翻译"."consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`"]
+"消息模板" = "можно использовать время жизни `'static`, но это редко, если только вы не возвращаете заём из `const` или `static`"
+
+["消息翻译"."consider importing this struct instead"]
+"消息模板" = "рассмотрите импорт этой структуры вместо текущего"
+
+["消息翻译"."consider specifying a concrete type for the type parameter `?`"]
+"消息模板" = "рассмотрите явный конкретный тип для параметра типа «{q0}»"
+
+["消息翻译"."type `?` is more private than the item `?`"]
+"消息模板" = "тип «{q0}» приватнее, чем элемент «{q1}»"
+
+["消息翻译"."consider giving `?` an explicit type, where the type for type parameter `?` is specified"]
+"消息模板" = "укажите явный тип для «{q0}», задав тип параметра типа «{q1}»"
+
+# ---- 诊断实跑补键第四批（66 反例采样，16 精确 + 5 通配段） ----
+["消息翻译"."unused comparison that must be used"]
+"消息模板" = "сравнение не используется, а его результат должен быть использован"
+
+["消息翻译"."you might be missing a crate named `?`"]
+"消息模板" = "возможно, отсутствует крейт с именем «{q0}»"
+
+# ---- 诊断实跑补键第五批（unused_assignments help + unused_variables 赋值变体） ----
+["消息翻译"."maybe it is overwritten before being read?"]
+"消息模板" = "возможно, значение перезаписывается до чтения"
+
+["消息翻译"."variable `?` is assigned to, but never used"]
+"消息模板" = "переменная `{q0}` получает значение, но никогда не используется"
+
+# ---- 诊断实跑补键第六批（修复词串假阴性后暴露的 6 条中英混排） ----
+
+["消息翻译"."consider introducing lifetime `?` here"]
+"消息模板" = "попробуйте ввести время жизни «{q0}» здесь"
+
+["消息翻译"."consider annotating `?` with `#[derive(?)]`"]
+"消息模板" = "попробуйте добавить к «{q0}» аннотацию `#[derive({q1})]`"
+
+["消息翻译"."consider removing `?` from the pattern"]
+"消息模板" = "попробуйте убрать «{q0}» из шаблона"
+
+["消息翻译"."call `.into_iter()` first"]
+"消息模板" = "сначала вызовите `.into_iter()`"
+
+["消息翻译"."type `?` is private"]
+"消息模板" = "тип «{q0}» является приватным"
+
+["消息翻译"."remove the whole `?` item"]
+"消息模板" = "удалите весь элемент «{q0}»"

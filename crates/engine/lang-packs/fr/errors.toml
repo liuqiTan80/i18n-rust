@@ -2456,3 +2456,101 @@
 "消息模板" = "Le type de retour de cette fonction contient une valeur empruntée, mais la signature n'indique pas si elle est empruntée à « {q0} » ou à « {q1} »"
 ["消息翻译"."?` doesn't implement `?"]
 "消息模板" = "« {q1} » n'implémente pas « {q0} »"
+
+# ---- 诊断实跑补键第四批（66 反例采样，16 精确 + 5 通配段） ----
+["消息翻译"."ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown"]
+"消息模板" = "assurez-vous que tous les cas sont traités : ajoutez une branche avec un motif générique ou un motif explicite comme indiqué"
+
+["消息翻译"."insert some indirection (e.g., a `Box`, `Rc`, or `&`) to break the cycle"]
+"消息模板" = "insérez une indirection (par ex. `Box`, `Rc` ou `&`) pour briser la récursivité"
+
+["消息翻译"."function arguments must have a statically known size, borrowed types always have a known size"]
+"消息模板" = "les arguments d'une fonction doivent avoir une taille statiquement connue, les types empruntés ont toujours une taille connue"
+
+["消息翻译"."a struct with a similar name exists"]
+"消息模板" = "un struct au nom similaire existe"
+
+["消息翻译"."a field with a similar name exists"]
+"消息模板" = "un champ au nom similaire existe"
+
+["消息翻译"."you might be missing a type parameter"]
+"消息模板" = "il vous manque peut-être un paramètre de type"
+
+["消息翻译"."use struct literal syntax instead"]
+"消息模板" = "utilisez plutôt la syntaxe littérale de struct"
+
+["消息翻译"."use the path separator to refer to an item"]
+"消息模板" = "utilisez le séparateur de chemin pour désigner un élément"
+
+["消息翻译"."this function's return type contains a borrowed value, but there is no value for it to be borrowed from"]
+"消息模板" = "le type de retour de cette fonction contient une valeur empruntée, mais aucune valeur à lui prêter"
+
+["消息翻译"."instead, you are more likely to want to return an owned value"]
+"消息模板" = "à la place, vous voudrez probablement retourner une valeur possédée"
+
+["消息翻译"."convert the identifier to snake case"]
+"消息模板" = "convertissez l'identifiant en snake_case"
+
+["消息翻译"."use `let _ = ...` to ignore the resulting value"]
+"消息模板" = "utilisez `let _ = ...` pour ignorer la valeur résultante"
+
+["消息翻译"."you can `clone` the value and consume it, but this might not be your desired behavior"]
+"消息模板" = "vous pouvez `cloner` la valeur puis la consommer, mais ce n'est peut-être pas le comportement voulu"
+
+["消息翻译"."use `.split_at_mut(position)` to obtain two mutable non-overlapping sub-slices"]
+"消息模板" = "utilisez `.split_at_mut(position)` pour obtenir deux sous-tranches mutables et sans chevauchement"
+
+["消息翻译"."try removing the method call"]
+"消息模板" = "essayez de retirer l'appel de méthode"
+
+["消息翻译"."try changing it to one of the following valid forms of the attribute"]
+"消息模板" = "essayez de le changer pour l'une des formes valides de l'attribut listées ci-dessous"
+
+["消息翻译"."consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`"]
+"消息模板" = "envisagez la durée de vie `'static`, mais c'est rare sauf si vous retournez un emprunt depuis un `const` ou un `static`"
+
+["消息翻译"."consider importing this struct instead"]
+"消息模板" = "envisagez d'importer ce struct à la place"
+
+["消息翻译"."consider specifying a concrete type for the type parameter `?`"]
+"消息模板" = "envisagez de préciser un type concret pour le paramètre de type « {q0} »"
+
+["消息翻译"."type `?` is more private than the item `?`"]
+"消息模板" = "le type « {q0} » est plus privé que l'élément « {q1} »"
+
+["消息翻译"."consider giving `?` an explicit type, where the type for type parameter `?` is specified"]
+"消息模板" = "envisagez de donner un type explicite à « {q0} », le type du paramètre de type « {q1} » devant être spécifié"
+
+# ---- 诊断实跑补键第四批（66 反例采样，16 精确 + 5 通配段） ----
+["消息翻译"."unused comparison that must be used"]
+"消息模板" = "une comparaison non utilisée dont le résultat doit être utilisé"
+
+["消息翻译"."you might be missing a crate named `?`"]
+"消息模板" = "il vous manque peut-être un crate nommé « {q0} »"
+
+# ---- 诊断实跑补键第五批（unused_assignments help + unused_variables 赋值变体） ----
+["消息翻译"."maybe it is overwritten before being read?"]
+"消息模板" = "peut-être est-il écrasé avant d'être lu"
+
+["消息翻译"."variable `?` is assigned to, but never used"]
+"消息模板" = "la variable `{q0}` reçoit une valeur mais n'est jamais utilisée"
+
+# ---- 诊断实跑补键第六批（修复词串假阴性后暴露的 6 条中英混排） ----
+
+["消息翻译"."consider introducing lifetime `?` here"]
+"消息模板" = "pensez à introduire la durée de vie « {q0} » ici"
+
+["消息翻译"."consider annotating `?` with `#[derive(?)]`"]
+"消息模板" = "pensez à annoter « {q0} » avec `#[derive({q1})]`"
+
+["消息翻译"."consider removing `?` from the pattern"]
+"消息模板" = "pensez à retirer « {q0} » du motif"
+
+["消息翻译"."call `.into_iter()` first"]
+"消息模板" = "appelez d'abord `.into_iter()`"
+
+["消息翻译"."type `?` is private"]
+"消息模板" = "le type « {q0} » est privé"
+
+["消息翻译"."remove the whole `?` item"]
+"消息模板" = "supprimez l'élément « {q0} » entier"
