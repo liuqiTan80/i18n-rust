@@ -84,6 +84,13 @@ jobs:
         # 共有键 {} 占位符数量不一致时退出码非零（防止新增键只补部分语言）
         run: python3 tools/check-ui-keys.py
 
+      - name: 语言包 errors.toml 完整性检查
+        # 逐语言包回读全部 errors.toml（含撇号/反引号键必须为双引号字面量，
+        # 否则整包静默炸掉）、错误码表/消息表键数与 zh 齐平、通配段/前缀/后缀
+        # 键的 {qN} 占位符编号与形态匹配、非 en 模板不得回落英文原文、
+        # lang_info 版本与扩展名一致；任一项不满足退出码非零
+        run: python3 tools/check-lang-packs.py
+
       - name: README 结构 parity 检查（9 份翻译 vs en 基准）
         # 校验 9 份翻译 README 的 h1/h2/h3 章节数、页内锚点有效性、
         # 代码围栏配对、「从这里开始」导航行链接与必需结构元素——

@@ -1,0 +1,109 @@
+main	E0004	non-exhaustive patterns: `2_u8..=u8::MAX` not covered
+help		ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+main		aborting due to 1 previous error
+main	E0061	this function takes 2 arguments but 1 argument was supplied
+help		provide the argument
+main	E0063	missing field `y` in initializer of `Point`
+main	E0072	recursive type `Tree` has infinite size
+help		insert some indirection (e.g., a `Box`, `Rc`, or `&`) to break the cycle
+main	E0106	missing lifetime specifier
+help		this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `a` or `b`
+help		consider introducing a named lifetime parameter
+main	E0133	call to unsafe function `raw` is unsafe and requires unsafe function or block
+main	E0204	the trait `Copy` cannot be implemented for this type
+main	E0261	use of undeclared lifetime name `'x`
+help		consider introducing lifetime `'x` here
+main	E0277	`Raw` doesn't implement `Debug`
+help		consider annotating `Raw` with `#[derive(Debug)]`
+main	E0277	`Foo` doesn't implement `std::fmt::Display`
+help		the trait `std::fmt::Display` is not implemented for `Foo`
+main	E0277	the trait bound `Dog: Speak` is not satisfied
+help		the trait `Speak` is not implemented for `Dog`
+help		this trait has no implementations, consider adding one
+main	E0277	the size for values of type `str` cannot be known at compilation time
+help		the trait `Sized` is not implemented for `str`
+help		function arguments must have a statically known size, borrowed types always have a known size
+main	E0282	type annotations needed for `Vec<_>`
+help		consider giving `v` an explicit type, where the type for type parameter `T` is specified
+main	E0308	mismatched types
+help		try removing the method call
+main	E0369	cannot add `M` to `M`
+main	E0382	borrow of moved value: `a`
+help		consider cloning the value if the performance cost is acceptable
+main	E0382	use of moved value: `a`
+main	unused_variables	unused variable: `b`
+help		if this is intentional, prefix it with an underscore
+main		aborting due to 1 previous error; 1 warning emitted
+main	E0425	cannot find type `HashMap` in this scope
+help		consider importing this struct
+main		aborting due to 2 previous errors
+main	E0425	cannot find type `MyType` in this scope
+main	E0425	cannot find type `Owner2` in this scope
+help		a struct with a similar name exists
+help		you might be missing a type parameter
+main	E0423	expected function, tuple struct or tuple variant, found struct `Counter`
+help		use struct literal syntax instead
+main	E0425	cannot find value `y` in this scope
+main	E0425	cannot find value `total` in this scope
+main	E0428	the name `dup` is defined multiple times
+main	E0432	unresolved import `std::collections::Map`
+help		consider importing this struct instead
+main	E0432	unresolved import `std::collecions`
+main	E0433	cannot find module or crate `网络客户端` in this scope
+help		you might be missing a crate named `网络客户端`
+main	E0499	cannot borrow `*v` as mutable more than once at a time
+help		use `.split_at_mut(position)` to obtain two mutable non-overlapping sub-slices
+main	E0502	cannot borrow `*v` as mutable because it is also borrowed as immutable
+main	E0502	cannot borrow `v` as mutable because it is also borrowed as immutable
+main	E0507	cannot move out of index of `Vec<String>`
+help		you can `clone` the value and consume it, but this might not be your desired behavior
+main	E0508	cannot move out of type `[String; 3]`, a non-copy array
+help		consider removing `&` from the pattern
+main	E0560	struct `Q` has no field named `b`
+main	E0423	expected value, found struct `Thing`
+help		use the path separator to refer to an item
+main	E0596	cannot borrow `s` as mutable, as it is not declared as mutable
+help		consider changing this to be mutable
+main	E0597	`y` does not live long enough
+main	E0599	no method named `for_each` found for struct `HashMap<{integer}, &str>` in the current scope
+help		call `.into_iter()` first
+main	E0599	no method named `total` found for struct `Hour` in the current scope
+main	E0599	no method named `speak` found for struct `Cat` in the current scope
+help		items from traits can only be used if the trait is in scope
+help		trait `Speak` which provides `speak` is implemented but not in scope; perhaps you want to import it
+main	E0616	field `v` of struct `P` is private
+main	private_interfaces	type `Secret` is more private than the item `make`
+main		type `Secret` is private
+main	E0609	no field `y` on type `P`
+help		a field with a similar name exists
+help		this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help		consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`
+help		instead, you are more likely to want to return an owned value
+main	E0515	cannot return value referencing temporary value
+main	dead_code	field `hidden_field` is never read
+main		1 warning emitted
+main	dead_code	function `helper_never_used` is never used
+main	dead_code	struct `UnusedThing` is never constructed
+main	E0004	non-exhaustive patterns: `E::NeverConstructed(_)` not covered
+main	non_snake_case	function `DoSomething` should have a snake case name
+help		convert the identifier to snake case
+main	non_snake_case	variable `CoolValue` should have a snake case name
+main		2 warnings emitted
+main	E0283	type annotations needed
+help		consider specifying a concrete type for the type parameter `T`
+main	unreachable_patterns	unreachable pattern
+main	unused_variables	variable `x` is assigned to, but never used
+main	unused_assignments	value assigned to `x` is never read
+help		maybe it is overwritten before being read?
+main		3 warnings emitted
+main	unused_imports	unused import: `std::collections::BTreeMap`
+help		remove the whole `use` item
+main	unused_imports	unused import: `std::rc::Rc`
+main	unused_must_use	unused return value of `calc` that must be used
+help		use `let _ = ...` to ignore the resulting value
+main	unused_must_use	unused comparison that must be used
+main	unused_variables	unused variable: `total_count`
+main	unused_variables	unused variable: `unused_value`
+main	E0539	malformed `must_use` attribute input
+help		try changing it to one of the following valid forms of the attribute
+main		expected type, found `=`
