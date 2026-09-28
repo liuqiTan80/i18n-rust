@@ -814,4 +814,93 @@ mod tests {
     fn test_lang_pack_health_quiet_when_empty() {
         assert!(lang_pack_health_lines(&[], &[]).is_empty());
     }
+
+    /// 写一个全局语言包目录（keywords.toml + 可选 lang_info.toml），供端到端注入。
+    /// `lang_info` 为 None 时不写 lang_info.toml（模拟扩展名靠静态映射推断的旧包）。
+    fn write_global_pack(
+        root: &std::path::Path,
+        dir_name: &str,
+        extension: Option<&str>,
+        version: Option<&str>,
+        with_keywords: bool,
+    ) {
+        let dir = root.join(dir_name);
+        std::fs::create_dir_all(&dir).unwrap();
+        if with_keywords {
+            std::fs::write(dir.join("keywords.toml"), "# 占位\n").unwrap();
+        }
+        if let Some(ext) = extension {
+            let version = version.unwrap_or("1.0");
+            std::fs::write(
+                dir.join("lang_info.toml"),
+                format!("[\"语言包\"]\n\"名称\" = \"{dir_name}\"\n\"扩展名\" = \"{ext}\"\n\"版本\" = \"{version}\"\n"),
+            )
+            .unwrap();
+        }
+    }
+
+    /// 端到端故障注入：真实文件系统扫描 → health 行，逐场景核应报/不误报。
+    ///
+    /// 上面几例只喂合成切片，验不出 `scan_global_packs`/`global_pack_subdir_names`
+    /// 对真实目录（含/不含 keywords.toml、lang_info 解析）的处理是否与判定假设一致；
+    /// 这里把六类只在用户环境发生的坑一次性注入 `RZ_LANG_DIR` 指向的临时目录，
+    /// 走真实的 scan→health 链路验证 doctor 能一次查全且不误报。
+    #[test]
+    fn test_doctor_lang_health_end_to_end_injection() {
+        let _lock = crate::lang_manager::tests::env_lock();
+        let temp_root = tempfile::tempdir().unwrap();
+        let global = temp_root.path().join("global");
+        std::fs::create_dir_all(&global).unwrap();
+        // ① 同名遮蔽内置表（版本不同）
+        write_global_pack(&global, "zh", Some("zh"), Some("9.9"), true);
+        // ② 改名遗留的备份且仍被当包吃掉（含 keywords.toml）
+        write_global_pack(&global, "de.stale-20260101.bak", Some("de"), None, true);
+        // ③ 不具备 keywords.toml 的备份（未被加载，仍须提示移出）
+        write_global_pack(&global, "ja.backup.stale", Some("ja"), None, false);
+        // ④ 合法自研包（目录名即扩展名）：不得误报
+        write_global_pack(&global, "vi", Some("vi"), Some("1.0"), true);
+        // ⑤ 目录名与声明扩展名不符的自研包：应报身份不一致
+        write_global_pack(&global, "mypack", Some("fr"), None, true);
+
+        unsafe { std::env::set_var("RZ_LANG_DIR", &global) };
+        let packs = crate::lang_manager::scan_global_packs();
+        let subdirs = crate::lang_manager::global_pack_subdir_names();
+        let health = lang_pack_health_lines(&packs, &subdirs);
+        unsafe { std::env::remove_var("RZ_LANG_DIR") };
+
+        let joined = health.join("\n");
+        // ① 同名遮蔽：报警 + 给出解除命令
+        assert!(
+            joined.contains("遮蔽内置语言包") && joined.contains("rzc lang remove"),
+            "{joined}"
+        );
+        // ② 备份仍被吃掉
+        assert!(
+            health
+                .iter()
+                .any(|l| l.contains("de.stale-20260101.bak") && l.contains("仍被当作语言包吃掉")),
+            "{joined}"
+        );
+        // ③ 未加载备份：提示 keywords.toml 缺失
+        assert!(
+            health
+                .iter()
+                .any(|l| l.contains("ja.backup.stale") && l.contains("keywords.toml")),
+            "{joined}"
+        );
+        // ⑤ 身份不一致
+        assert!(
+            health
+                .iter()
+                .any(|l| l.contains("mypack") && l.contains("不一致")),
+            "{joined}"
+        );
+        // ④ 合法自研包 vi 不得出现在任何报警行
+        assert!(
+            !health.iter().any(|l| l.contains("vi（")
+                || l.contains("  vi ")
+                || (l.contains("vi") && l.contains("不一致"))),
+            "合法自研包 vi 不应被误报：{joined}"
+        );
+    }
 }
