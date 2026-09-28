@@ -37,3 +37,10 @@ tools/vscode-extension/release/.Trash-*/
 
 # Python 字节码缓存
 __pycache__/
+
+# 采样/验证逃逸到仓库根的编译器产物
+# rustc --crate-type lib 默认把产物写进程 CWD，历史上诊断采样曾在此留下 lib*.rlib
+# （tools/diag-corpus/collect.py 已改为 --out-dir 临时目录，此处兜底防再次污染）
+/lib*.rlib
+/lib*.rmeta
+/rlib/
