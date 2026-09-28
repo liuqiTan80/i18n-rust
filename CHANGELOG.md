@@ -6,6 +6,19 @@
 ## [Unreleased]
 
 ### 修复
+- LSP：主消息翻译不再只走 `errors.toml` 消息表，改为**复用引擎与 CLI 同口径的
+  `DiagnosticTranslator::render_main_message`**（错误码表优先 → 消息表 → 占位符
+  回填 → `type_map` 类型中文化）——此前 CLI 对同一诊断给「类型不匹配：期望…实际…」
+  的完整桩而 LSP 只给略短的「类型不匹配」且不中文化类型名；现 LSP 服务器启动时由
+  映射管理器经共享的 `build_type_map` 装填 type_map 并构建 `DiagnosticTranslator`，
+  镜像检查（真实 rustc JSON）额外透传主 span 标签以回填期望/实际，与 CLI 逐字一致
+  （新增 parity 单测 `cli_lsp_main_message_parity`；无法完整回填时回退消息表而非英文，
+  保证译文不劣于旧行为）
+- CLI：修 `entry_output_path` **越界写出**——此前凡入口词干（`main`/母语主函数词）
+  的源文件都聚合到 `project_root/src/main.rs`，导致子目录/示例里恰好名为 `main` 的
+  文件（`src/sub/main.zh`、`examples/main.zh`）经 `rzc check` 会越界覆盖宿主真实入口；
+  现仅当文件父目录确为 `project_root/src`（src 直属入口）时才聚合，其余产物跟随自身
+  路径（新增回归单测 `test_entry_output_path_no_clobber_outside_src`）
 - 引擎：修复**单 `?` 通配段键永远匹配不上**——`match_segments` 的 `rest_literals.len() < 2`
   守卫误拒仅含一个动态段的键（如 `consider specifying…type parameter `?``、
   `variable `?` is assigned to, but never used`），恢复「允许空尾锚」的原算法并只保留首段
