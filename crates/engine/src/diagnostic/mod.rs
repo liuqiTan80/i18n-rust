@@ -1095,4 +1095,37 @@ mod tests {
             );
         }
     }
+
+    /// E0583 码模板的 `{模块名}` 必须从消息反引号内容回填，
+    /// 不得输出字面 `{模块名}`（多层模块断裂假红回归）
+    #[test]
+    fn e0583_module_name_placeholder_filled() {
+        let _guard = crate::语言::test_language("zh");
+        let toml_content = r#"
+[E0583]
+"消息模板" = "找不到模块 `{模块名}` 对应的文件"
+"教学提示" = "模块声明要求同级目录存在同名文件。"
+"#;
+        let manager = ErrorTranslationManager::load_from_string(toml_content).unwrap();
+        let translator = DiagnosticTranslator::new(manager, create_test_type_map());
+        let code = Some("E0583");
+        let message = "file not found for module `工具`";
+
+        let rendered = translator
+            .render_main_message(code, message, None)
+            .expect("E0583 应命中码表并渲染");
+        assert!(
+            rendered.text.contains("工具") && !rendered.text.contains("{模块名}"),
+            "LSP 路径应回填模块名：{}",
+            rendered.text
+        );
+
+        let cli = translator
+            .translate_diagnostic(&diag_with(code, message, None))
+            .translated_message;
+        assert!(
+            cli.contains("工具") && !cli.contains("{模块名}"),
+            "CLI 路径应回填模块名：{cli}"
+        );
+    }
 }

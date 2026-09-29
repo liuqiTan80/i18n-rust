@@ -728,28 +728,35 @@ pub(crate) fn fullwidth_diagnostics(entry: &TranslationEntry) -> Vec<Value> {
 ///
 /// 直接在母语原文上扫描（`让` 等关键字在转译后已不存在）：行列均为
 /// 字符计数，中文代码在 BMP 内 char 列即 UTF-16 列，直接转换即可。
-/// `known_words` 为映射表键集合，供易混方法名提示判定（#14）。
+/// `known_words` 为映射表键集合，供易混方法名提示判定（#14）；
+/// `ambiguous_constructors` 为推导歧义构造器被调名集（new/default 及其
+/// 方言词），仅类型无法自行推导的初始化式才提示未标注类型。
 pub(crate) fn lint_teaching_diagnostics(
     entry: &TranslationEntry,
     known_words: &HashSet<String>,
+    ambiguous_constructors: &HashSet<String>,
 ) -> Vec<Value> {
-    i18n_rust_engine::lint::lint_teaching_with_words(&entry.zh_content, known_words)
-        .iter()
-        .map(|w| {
-            let line = (w.line - 1) as u32;
-            let col = (w.column - 1) as u32;
-            json!({
-                "range": {
-                    "start": { "line": line, "character": col },
-                    "end": { "line": line, "character": col + 1 }
-                },
-                "severity": 3,
-                "code": lint_code(w.kind),
-                "source": "i18n-rust",
-                "message": w.format()
-            })
+    i18n_rust_engine::lint::lint_teaching_with_words(
+        &entry.zh_content,
+        known_words,
+        ambiguous_constructors,
+    )
+    .iter()
+    .map(|w| {
+        let line = (w.line - 1) as u32;
+        let col = (w.column - 1) as u32;
+        json!({
+            "range": {
+                "start": { "line": line, "character": col },
+                "end": { "line": line, "character": col + 1 }
+            },
+            "severity": 3,
+            "code": lint_code(w.kind),
+            "source": "i18n-rust",
+            "message": w.format()
         })
-        .collect()
+    })
+    .collect()
 }
 
 /// 注入教学诊断（全角标点 + 教学 lint）到方言坐标的诊断列表
@@ -763,11 +770,16 @@ pub(crate) fn inject_teaching_diags(
     diags: &mut Vec<Value>,
     entry: &TranslationEntry,
     known_words: &HashSet<String>,
+    ambiguous_constructors: &HashSet<String>,
 ) {
     diags.retain(|d| !(is_teaching_diag(d) && d["source"].as_str() == Some("i18n-rust")));
     diags.extend(fullwidth_diagnostics(entry));
     if teaching_lint_enabled() {
-        diags.extend(lint_teaching_diagnostics(entry, known_words));
+        diags.extend(lint_teaching_diagnostics(
+            entry,
+            known_words,
+            ambiguous_constructors,
+        ));
     }
 }
 

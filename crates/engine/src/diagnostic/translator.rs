@@ -231,6 +231,26 @@ pub fn build_type_map(manager: &MappingManager) -> HashMap<String, String> {
     reverse_map
 }
 
+/// 错误码模板（`[E0xxx]` 节）支持的动态占位符：按此顺序从消息原文反引号
+/// 内容中依次回填。顺序须与各模板内占位符的出现先后相容（如 E0609 的
+/// `{类型}` 先于 `{字段名}`、E0027 的 `{结构名}` 先于 `{字段名}`）；
+/// 模板不含某占位符时不消费 token，故跨模板共用一份列表不会串位。
+/// `{期望}`/`{实际}` 另有专门的 expected/found 提取逻辑，不在此列。
+const CODE_TEMPLATE_PLACEHOLDERS: &[&str] = &[
+    "{变量名}",
+    "{名称}",
+    "{类型}",
+    "{特征}",
+    "{模块名}",
+    "{字段名}",
+    "{方法名}",
+    "{函数名}",
+    "{结构名}",
+    "{关联类型}",
+    "{特征名}",
+    "{生命周期}",
+];
+
 /// [`DiagnosticTranslator::render_main_message`] 的返回：主消息译文与其教学提示。
 #[derive(Debug, Clone)]
 pub struct RenderedMessage {
@@ -293,7 +313,7 @@ impl DiagnosticTranslator {
             }
             // 其余占位符按出现顺序从消息反引号内容回退填充
             let mut tokens = extract_backtick_tokens(message).into_iter();
-            for placeholder in ["{变量名}", "{名称}", "{类型}", "{特征}"] {
+            for placeholder in CODE_TEMPLATE_PLACEHOLDERS {
                 if template.contains(placeholder) {
                     match tokens.next() {
                         Some(token) => template = template.replace(placeholder, &token),
@@ -302,8 +322,9 @@ impl DiagnosticTranslator {
                 }
             }
             // 仍有未回填占位符 → 码表桩无法从可用信息渲染 → 回退消息表（不出英文/裸占位符）
-            let unresolved = ["{期望}", "{实际}", "{变量名}", "{名称}", "{类型}", "{特征}"]
+            let unresolved = ["{期望}", "{实际}"]
                 .iter()
+                .chain(CODE_TEMPLATE_PLACEHOLDERS.iter())
                 .any(|p| template.contains(p));
             if !unresolved {
                 return Some(RenderedMessage {
@@ -464,11 +485,12 @@ impl DiagnosticTranslator {
             translated_message = translated_message.replace("{变量名}", &details.var_name);
         }
 
-        // 其余占位符（{变量名}/{名称}/{类型}/{特征}）按出现顺序从消息反引号内容
-        // 回退填充，覆盖无 label 的错误（E0384 重复赋值、E0433 未找到类型等）；
+        // 其余占位符（{变量名}/{名称}/{类型}/{特征}/{模块名}/{字段名} 等）
+        // 按出现顺序从消息反引号内容回退填充，覆盖无 label 的错误
+        //（E0384 重复赋值、E0433 未找到类型、E0583 模块文件缺失等）；
         // 提取不到时回退 rustc 原文，避免输出裸占位符。
         let mut tokens = extract_backtick_tokens(&diagnostic.message).into_iter();
-        for placeholder in ["{变量名}", "{名称}", "{类型}", "{特征}"] {
+        for placeholder in CODE_TEMPLATE_PLACEHOLDERS {
             if translated_message.contains(placeholder) {
                 match tokens.next() {
                     Some(token) => {

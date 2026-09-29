@@ -660,4 +660,79 @@ mod tests {
         assert_eq!(segment_literals_len("a?b?c"), 3);
         assert_eq!(segment_literals_len("中文?"), 2);
     }
+
+    /// match_segments 直接对抗：单/双/三捕获、非贪婪切分、空尾锚、
+    /// 各类失配必须返回 None（键失配不能凭前缀巧合误抓）
+    #[test]
+    fn match_segments_adversarial() {
+        // 单 `?`：捕获含冒号路径的真实残段
+        assert_eq!(
+            match_segments("before `?` after", "before `std::io::Error` after"),
+            Some(vec!["std::io::Error"])
+        );
+        // 双捕获非贪婪：分隔锚在残段中再次出现时，首锚定位第一次出现
+        // （q1 吞掉后续重复，而不是 q0 贪婪吞掉前半）
+        assert_eq!(
+            match_segments("`?` and `?`", "`x` and `y` and `z`"),
+            Some(vec!["x", "y` and `z"])
+        );
+        // 三捕获按序切分
+        assert_eq!(
+            match_segments("[?][?][?]", "[a][b][c]"),
+            Some(vec!["a", "b", "c"])
+        );
+        // 空尾锚（键以 `?` 结尾）：动态段一直延伸到消息末尾
+        assert_eq!(
+            match_segments("prefix ?", "prefix tail goes to end"),
+            Some(vec!["tail goes to end"])
+        );
+        // 空首锚不允许（应由后缀键机制处理）
+        assert_eq!(match_segments("? suffix", "x suffix"), None);
+        // 前缀/后缀/分隔锚失配、消息短于前缀 → None
+        assert_eq!(match_segments("abc?def", "abXdef"), None);
+        assert_eq!(match_segments("abc?def", "abcdefXX"), None);
+        assert_eq!(match_segments("a?x?b", "ayyb"), None);
+        assert_eq!(match_segments("abc?def", "ab"), None);
+        // 捕获允许为空串（是否消费由上层 fill 决定，匹配层如实返回）
+        assert_eq!(match_segments("a?b", "ab"), Some(vec![""]));
+    }
+
+    /// english_word_runs 阈值与切分对抗：
+    /// 恰好 4 词报、3 词不报；纯数字断词；反引号/逗号链不拆碎；非 ASCII 断词
+    #[test]
+    fn english_word_runs_threshold_and_splitters() {
+        // 空串与纯标点
+        assert!(english_word_runs("").is_empty());
+        assert!(english_word_runs("``, ，。").is_empty());
+        // 恰好 3 个英文词不报，4 个报
+        assert!(english_word_runs("one two three").is_empty());
+        assert_eq!(
+            english_word_runs("one two three four"),
+            vec!["one two three four"]
+        );
+        // 纯数字 token 不含字母 → 断词（数字两侧不连成英文句）
+        assert_eq!(
+            english_word_runs("aaa bbb 123 ccc ddd eee fff"),
+            vec!["ccc ddd eee fff"]
+        );
+        // 字母数字混合 token 含字母，仍计为英文词
+        assert_eq!(
+            english_word_runs("foo1 bar2 baz3 qux4"),
+            vec!["foo1 bar2 baz3 qux4"]
+        );
+        // 反引号与逗号链不切碎整句（回归点的最小形态）
+        assert_eq!(
+            english_word_runs("word `a` word2, word3 word4"),
+            vec!["word a word2 word3 word4"]
+        );
+        // 非 ASCII 字符同样是分隔符，但跨分隔符产生的空串不断词（与反引号
+        // 同口径的设计取舍）：中英夹杂句中的英文词会连成一串被报出——
+        // 宁可误报夹杂句，也不让整句未译的英文借中文/标点逃过审计
+        assert_eq!(
+            english_word_runs("let x 赋值 alpha beta gamma"),
+            vec!["let x alpha beta gamma"]
+        );
+        // 连续标点之间没有空串计数问题
+        assert!(english_word_runs("let x = 1;").is_empty());
+    }
 }

@@ -27,15 +27,24 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-/// 各语言 E0425 翻译的特征词：取自 errors.toml [消息翻译] 节（LSP 走短语替换路径，
-/// 非 E0425 模板）：ru 的 cannot find value 翻译为「невозможно найти значение」、
-/// ar 为「لا يمكن العثور على القيمة」
+/// 各语言 E0425 翻译的特征词：取自 errors.toml [E0425]「消息模板」
+/// （新版 rust-analyzer 直接以 `code: "E0425"` 上报未解析名诊断，LSP 命中
+/// 错误码表渲染，而非短语替换路径）；关键词必须为该模板独有子串
 const LANG_KEYWORDS: &[(&str, &str)] = &[
     ("zh", "找不到"),
     ("ja", "見つかりません"),
-    ("ru", "найти значение"),
-    ("ar", "العثور"),
+    ("ru", "не найдено"),
+    ("ar", "غير موجود"),
 ];
+
+/// 按语言码取 E0425 特征词（单一事实来源，测试函数不得再硬编码）
+fn lang_keyword(lang_code: &str) -> &'static str {
+    LANG_KEYWORDS
+        .iter()
+        .find(|(code, _)| *code == lang_code)
+        .unwrap_or_else(|| panic!("LANG_KEYWORDS 未配置语言：{lang_code}"))
+        .1
+}
 
 /// 各语言方言源码：关键字取自该语言包（ja/ru/ar 与 zh 不同），
 /// 标识符统一用中文（转译保留用户标识符，RA 报错引用原名，跨语言可断言）
@@ -440,25 +449,25 @@ fn run_e2e_lang(lang_code: &str, keyword: &str) {
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_zh_diagnostics_translated() {
-    run_e2e_lang("zh", "找不到");
+    run_e2e_lang("zh", lang_keyword("zh"));
 }
 
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_ja_diagnostics_translated() {
-    run_e2e_lang("ja", "見つかりません");
+    run_e2e_lang("ja", lang_keyword("ja"));
 }
 
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_ru_diagnostics_translated() {
-    run_e2e_lang("ru", "найти значение");
+    run_e2e_lang("ru", lang_keyword("ru"));
 }
 
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_ar_diagnostics_translated() {
-    run_e2e_lang("ar", "العثور");
+    run_e2e_lang("ar", lang_keyword("ar"));
 }
 
 /// 全角标点教学诊断注入：代码位置的全角标点以 Hint 级诊断在 IDE 内联提示
@@ -551,8 +560,9 @@ fn e2e_teaching_lint_diagnostic_injected() {
         "[package]\nname = \"e2e-project\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
     )
     .expect("写入 Cargo.toml 失败");
-    // 第 2 行未标注类型（触发 lint-untyped-let），第 3 行带忽略标记（不触发）
-    let source = "函数 主函数() {\n    让 数量 = 5;\n    让 已忽略 = 1;  // 教学忽略\n}\n";
+    // 第 2 行类型无法自行推导（Vec::new() 无 turbofish，触发
+    // lint-untyped-let）；可自动推导的字面量不再提示。第 3 行带忽略标记
+    let source = "函数 主函数() {\n    让 数量 = Vec::new();\n    让 已忽略 = 1;  // 教学忽略\n}\n";
     let uri = format!("file://{}", temp.path().join("src/main.zh").display());
     std::fs::write(temp.path().join("src/main.zh"), source).expect("写入 main.zh 失败");
 
@@ -603,6 +613,262 @@ fn e2e_teaching_lint_diagnostic_injected() {
 
     shutdown(&mut child, &mut stdin, &rx);
     eprintln!("✅ LSP 端到端测试通过：教学 lint 诊断已注入（含忽略标记）");
+}
+
+/// 等待目标 uri 的「空诊断」批次（修复后/didClose 后诊断被清空）
+///
+/// rust-analyzer 与代理可能先发布若干非空批次（旧版本残留），仅当收到
+/// 该 uri 的 publishDiagnostics 且 diagnostics 为空数组时才返回 true。
+fn wait_empty_diagnostics(rx: &mpsc::Receiver<Value>, uri: &str, timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    loop {
+        let remain = deadline.saturating_duration_since(Instant::now());
+        if remain.is_zero() {
+            return false;
+        }
+        let Ok(msg) = rx.recv_timeout(remain) else {
+            continue;
+        };
+        if msg.get("method").and_then(Value::as_str) == Some("textDocument/publishDiagnostics")
+            && msg.pointer("/params/uri").and_then(Value::as_str) == Some(uri)
+            && msg
+                .pointer("/params/diagnostics")
+                .and_then(Value::as_array)
+                .is_some_and(|diags| diags.is_empty())
+        {
+            return true;
+        }
+    }
+}
+
+/// 启动 zh 会话并打开一份源码（initialize + initialized + didOpen）
+fn open_zh_session(
+    source: &str,
+    project_files: &[(&str, &str)],
+) -> (
+    tempfile::TempDir,
+    Child,
+    BufWriter<ChildStdin>,
+    mpsc::Receiver<Value>,
+    String,
+) {
+    let ra_path = find_rust_analyzer().expect("需要 rust-analyzer（可设置 RUST_ANALYZER_PATH）");
+    let manifest_dir =
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
+    let temp = tempfile::tempdir().expect("创建临时项目失败");
+    std::fs::create_dir_all(temp.path().join("src")).expect("创建 src 目录失败");
+    std::fs::write(
+        temp.path().join("Cargo.toml"),
+        "[package]\nname = \"e2e-project\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+    )
+    .expect("写入 Cargo.toml 失败");
+    for (rel, contents) in project_files {
+        let p = temp.path().join(rel);
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).expect("创建项目子目录失败");
+        }
+        std::fs::write(p, contents).expect("写入项目文件失败");
+    }
+    let uri = format!("file://{}", temp.path().join("src/main.zh").display());
+    let (child, mut stdin, rx) = spawn_lsp(&ra_path, &lang_pack);
+    let root_uri = format!("file://{}", temp.path().display());
+    initialize(&mut stdin, &rx, &root_uri);
+    send_notification(&mut stdin, "initialized", json!({}));
+    send_notification(
+        &mut stdin,
+        "textDocument/didOpen",
+        json!({
+            "textDocument": {
+                "uri": uri,
+                "languageId": "rust-zh",
+                "version": 1,
+                "text": source
+            }
+        }),
+    );
+    (temp, child, stdin, rx, uri)
+}
+
+/// 文档生命周期：didOpen 镜像检查报错 → didChange 修复清空 → didSave 权威
+/// 复核仍为空 → 再改坏后保存重新报错 → didClose 清空
+///
+/// 覆盖 handle_did_change 的全量替换/缓存更新、handle_did_save 的镜像
+/// cargo check 触发与 handle_did_close 的关闭同步（这些路径纯靠单测构造
+/// ProxyServer 成本过高，走真实协议）。
+///
+/// 注意：cargo 项目内 RA 原生 E 系列编译错误按设计被抑制（以代理镜像
+/// `cargo check` 的 rustc 口径为准），故未保存的实时编辑只下发 RA 原生
+/// 诊断（教学 lint 等），编译错误须在 didSave（或 didOpen）后由镜像
+/// 检查发布——本测试按该语义锁定，而非假定编辑即重发编译错误。
+#[test]
+#[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
+fn e2e_did_change_save_close_lifecycle() {
+    let bad = lang_source("zh");
+    let good = "函数 主函数() {\n    打印行!(\"好\");\n}\n";
+    let (_temp, mut child, mut stdin, rx, uri) = open_zh_session(&bad, &[("src/main.zh", &bad)]);
+
+    // 1. 打开即有 E0425 母语诊断（didOpen 触发镜像 cargo check）
+    wait_diagnostics_containing(&rx, &uri, "找不到", Duration::from_secs(120))
+        .expect("打开坏文件后应收到镜像检查的 E0425 翻译诊断");
+
+    // 2. didChange 改为正确代码：RA 实时诊断清空
+    send_notification(
+        &mut stdin,
+        "textDocument/didChange",
+        json!({
+            "textDocument": { "uri": uri, "version": 2 },
+            "contentChanges": [{ "text": good }]
+        }),
+    );
+    assert!(
+        wait_empty_diagnostics(&rx, &uri, Duration::from_secs(90)),
+        "修复后诊断应清空（didChange 缓存更新）"
+    );
+
+    // 3. didSave 正确代码：镜像检查复核后仍为空诊断
+    send_notification(
+        &mut stdin,
+        "textDocument/didSave",
+        json!({ "textDocument": { "uri": uri }, "text": good }),
+    );
+    assert!(
+        wait_empty_diagnostics(&rx, &uri, Duration::from_secs(120)),
+        "保存正确代码后镜像检查应发布空诊断"
+    );
+
+    // 4. 再改回错误代码并保存：镜像检查重新发布编译错误（未保存的纯编辑
+    //    不会重发 E 系列诊断，见测试文档注释）
+    send_notification(
+        &mut stdin,
+        "textDocument/didChange",
+        json!({
+            "textDocument": { "uri": uri, "version": 3 },
+            "contentChanges": [{ "text": bad }]
+        }),
+    );
+    send_notification(
+        &mut stdin,
+        "textDocument/didSave",
+        json!({ "textDocument": { "uri": uri }, "text": bad }),
+    );
+    wait_diagnostics_containing(&rx, &uri, "找不到", Duration::from_secs(120))
+        .expect("保存坏代码后应再次收到镜像检查的 E0425 诊断");
+
+    // 5. didClose：关闭处理器同步执行（条目移除/兄弟模块同步）；关闭后代理
+    //    不再为原 URI 发空批次（缓存条目已删，RA 的清空落在虚拟 URI 上；
+    //    LSP 客户端关闭文档时自行清诊断）。紧随其后的 shutdown 能正常应答，
+    //    即证明关闭处理器未 panic、主循环仍存活
+    send_notification(
+        &mut stdin,
+        "textDocument/didClose",
+        json!({ "textDocument": { "uri": uri } }),
+    );
+
+    shutdown(&mut child, &mut stdin, &rx);
+    eprintln!("✅ LSP 端到端测试通过：didChange/didSave/didClose 生命周期诊断同步");
+}
+
+/// didSave 触发代理自跑 cargo check（草稿 + 真实项目镜像），服务器保持可用
+///
+/// 覆盖 handle_did_save → trigger_cargo_check → run_cargo_check_once 与
+/// mirror_check 链路（纯单测无法触达的子进程编排路径）；保存后服务器仍能
+/// 响应请求，证明异步 check 线程未拖垮主循环。
+#[test]
+#[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
+fn e2e_did_save_triggers_cargo_check() {
+    let source = lang_source("zh");
+    let (_temp, mut child, mut stdin, rx, uri) =
+        open_zh_session(&source, &[("src/main.zh", &source)]);
+    wait_diagnostics_containing(&rx, &uri, "找不到", Duration::from_secs(120))
+        .expect("应先收到 RA 诊断");
+
+    send_notification(
+        &mut stdin,
+        "textDocument/didSave",
+        json!({ "textDocument": { "uri": uri }, "text": source }),
+    );
+
+    // 保存后服务器必须仍能正常响应（cargo check 在后台线程跑，不阻塞主循环）；
+    // formatting 走 run_rustfmt 子进程并反向翻译回母语
+    let resp = send_request(
+        &mut stdin,
+        &rx,
+        20,
+        "textDocument/formatting",
+        json!({
+            "textDocument": { "uri": uri },
+            "options": { "tabSize": 4, "insertSpaces": true }
+        }),
+        Duration::from_secs(120),
+    );
+    let edits = resp
+        .get("result")
+        .and_then(Value::as_array)
+        .expect("formatting 应返回编辑数组（cargo check 期间主循环仍可用）");
+    assert!(!edits.is_empty(), "坏代码也应能 rustfmt 出格式化结果");
+    let new_text = edits[0]["newText"].as_str().expect("编辑应含 newText");
+    assert!(
+        new_text.contains("函数"),
+        "格式化结果应反向翻译回母语：{new_text}"
+    );
+
+    shutdown(&mut child, &mut stdin, &rx);
+    eprintln!("✅ LSP 端到端测试通过：didSave 后台 cargo check 不阻塞主循环");
+}
+
+/// 请求转发：hover 经 forward_request 代理到 rust-analyzer 并回到客户端
+///
+/// 覆盖转发链路的位置换算/URI 替换/响应 id 还原（85 行的 forward_request
+/// 主体此前只有 e2e didOpen 通知路径，无请求往返）。
+#[test]
+#[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
+fn e2e_hover_forwarded_roundtrip() {
+    // 干净文件：避免错误诊断干扰，hover 落到主函数名上
+    let source = "函数 主函数() {\n    打印行!(\"好\");\n}\n";
+    let (_temp, mut child, mut stdin, rx, uri) =
+        open_zh_session(source, &[("src/main.zh", source)]);
+    assert!(
+        wait_empty_diagnostics(&rx, &uri, Duration::from_secs(120)),
+        "干净文件分析后应无诊断"
+    );
+
+    // RA 在分析迭代途中可能回 -32801 content modified（合法 LSP 响应，
+    // 客户端会重试）：重试 3 次；最终仍为该错误也证明转发往返链路畅通
+    let mut resp = Value::Null;
+    for attempt in 0..3u64 {
+        resp = send_request(
+            &mut stdin,
+            &rx,
+            21 + attempt,
+            "textDocument/hover",
+            json!({
+                "textDocument": { "uri": uri },
+                // 第 1 行「函数 主函数() {」的「主函数」内（UTF-16 BMP，字=偏移）
+                "position": { "line": 0, "character": 4 }
+            }),
+            Duration::from_secs(60),
+        );
+        if resp.get("result").is_some() {
+            break;
+        }
+        let modified = resp
+            .pointer("/error/code")
+            .and_then(Value::as_i64)
+            .is_some_and(|code| code == -32801);
+        if !modified {
+            panic!("hover 转发返回非预期错误：{resp}");
+        }
+        std::thread::sleep(Duration::from_secs(2));
+    }
+    assert!(
+        resp.get("result").is_some()
+            || resp.pointer("/error/code").and_then(Value::as_i64) == Some(-32801),
+        "hover 应返回结果或合法的 content-modified 重试信号：{resp}"
+    );
+
+    shutdown(&mut child, &mut stdin, &rx);
+    eprintln!("✅ LSP 端到端测试通过：hover 请求转发往返正常");
 }
 
 /// 语言矩阵完整性：LANG_KEYWORDS 与语言包目录一一对应，防止漏配语言
@@ -792,4 +1058,123 @@ fn e2e_no_false_red_in_corpus_project() {
 
     shutdown(&mut child, &mut stdin, &rx);
     eprintln!("✅ LSP 端到端测试通过：多模块 + include 项目无假红");
+}
+
+/// 多层模块项目零假红：`src/main.zh` → `src/领域.zh` → `src/领域/工具.zh`
+///
+/// 回归此前三类级联假红：非入口方言文件的 `mod 工具;` 未补层级 `#[path]`
+/// 导致 rustc E0754/E0583、子模块私有 E0603。didOpen 入口后：
+/// - 兄弟同步递归登记嵌套文件，虚拟项目以「顶层聚合 + 父文件末尾
+///   `#[path]` 子声明」表达层级；
+/// - 镜像 cargo check 按真实多层布局转译注解。
+///
+/// 三个方言 URI 的最终诊断批次均须为空（RA 链与镜像链）。
+#[test]
+#[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
+fn e2e_nested_module_no_false_diagnostics() {
+    let main_src = "模块 领域;\n\n函数 主函数() {\n    打印行!(\"{}\", 领域::工具::加一(1));\n}\n";
+    let domain_src = "公开 模块 工具;\n";
+    let tool_src = "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n";
+    // temp 必须活到测试结束（会话工作目录），故绑定保活
+    let (_temp, mut child, mut stdin, rx, main_uri) = open_zh_session(
+        main_src,
+        &[
+            ("src/main.zh", main_src),
+            ("src/领域.zh", domain_src),
+            ("src/领域/工具.zh", tool_src),
+        ],
+    );
+
+    // 镜像 cargo check 成功时不产生 JSON 消息、代理也不会给未打开文件发空
+    // 批次；因此以「入口收到空批次（RA 链就绪）+ 之后固定稳定窗口（覆盖
+    // 镜像 cargo check）」为收集策略，窗口内汇总所有 URI 的全部诊断。
+    // 等待入口空批次（RA 链就绪），期间收集所有 URI 的诊断批次——
+    // sync 完成前的首批可能「先红后清」，也不能放过
+    let mut collected: Vec<(String, Value)> = Vec::new();
+    let ready_deadline = Instant::now() + Duration::from_secs(150);
+    let mut entry_cleared = false;
+    while Instant::now() < ready_deadline {
+        let Ok(msg) = rx.recv_timeout(ready_deadline.saturating_duration_since(Instant::now()))
+        else {
+            break;
+        };
+        if msg.get("method").and_then(Value::as_str) != Some("textDocument/publishDiagnostics") {
+            continue;
+        }
+        let Some(diags) = msg.pointer("/params/diagnostics").and_then(Value::as_array) else {
+            continue;
+        };
+        let u = msg
+            .pointer("/params/uri")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        if u == main_uri && diags.is_empty() {
+            entry_cleared = true;
+            break;
+        }
+        for d in diags {
+            collected.push((u.clone(), d.clone()));
+        }
+    }
+    assert!(
+        entry_cleared,
+        "入口在 150s 内未收到空诊断批次（RA 未就绪或入口持续有诊断）"
+    );
+    // 空批次后再留稳定窗口覆盖镜像 cargo check（成功时镜像不发任何批次）
+    let settle_deadline = Instant::now() + Duration::from_secs(45);
+    while let Ok(msg) = rx.recv_timeout(settle_deadline.saturating_duration_since(Instant::now())) {
+        if msg.get("method").and_then(Value::as_str) == Some("textDocument/publishDiagnostics")
+            && let Some(diags) = msg.pointer("/params/diagnostics").and_then(Value::as_array)
+        {
+            let u = msg
+                .pointer("/params/uri")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            for d in diags {
+                collected.push((u.clone(), d.clone()));
+            }
+        }
+    }
+
+    // 错误级诊断（severity=1）一律不应出现：零错误项目下全为假红
+    let errors: Vec<_> = collected
+        .iter()
+        .filter(|(_, d)| d.get("severity").and_then(Value::as_u64) == Some(1))
+        .collect();
+    assert!(
+        errors.is_empty(),
+        "多层模块项目出现错误级诊断（假红）：{errors:#?}"
+    );
+    // 模块解析类 code 黑名单（RA 改文案也能抓住）
+    for (u, d) in &collected {
+        if let Some(code) = d.get("code").and_then(Value::as_str) {
+            assert!(
+                !["E0583", "E0754", "E0603", "E0432", "E0433"].contains(&code),
+                "多层模块出现模块解析误报 {code}（{u}）：{d}"
+            );
+        }
+    }
+    // 无 code 的解析类消息黑名单
+    let texts = collected
+        .iter()
+        .filter_map(|(_, d)| d.get("message").and_then(Value::as_str))
+        .collect::<Vec<_>>()
+        .join("\n");
+    for bad in [
+        "unresolved import",
+        "cannot find module",
+        "not included in the module tree",
+        "未解析",
+        "找不到模块",
+    ] {
+        assert!(
+            !texts.contains(bad),
+            "多层模块出现误报特征「{bad}」：\n{texts}"
+        );
+    }
+
+    shutdown(&mut child, &mut stdin, &rx);
+    eprintln!("✅ LSP 端到端测试通过：多层模块项目零假红");
 }

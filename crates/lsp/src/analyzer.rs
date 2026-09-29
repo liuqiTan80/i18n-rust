@@ -236,6 +236,19 @@ impl Drop for AnalyzerConnection {
     }
 }
 
+#[cfg(test)]
+impl Sender {
+    /// 测试用空发送器：无 RA 子进程，`send` 恒返回"未运行"错误。
+    ///
+    /// 供 [`crate::server`] 的消息分发单测构造参数——这些用例只验证
+    /// 响应映射/通知路由，不需要真实 rust-analyzer 回环（回环由 e2e 覆盖）。
+    pub(crate) fn null_for_test() -> Self {
+        Self {
+            writer: Arc::new(Mutex::new(None)),
+        }
+    }
+}
+
 /// 从 BufReader 中读取一条 LSP 消息（Content-Length 分帧）
 fn read_one_lsp_message<R: BufRead>(reader: &mut R) -> Option<Value> {
     let mut header_line = String::new();

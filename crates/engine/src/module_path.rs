@@ -541,8 +541,41 @@ fn is_path_separator_before(spans: &[(TokenKind, usize, usize)], current: usize)
 /// 的模块文件常以母语命名（如 `src/数学.zh` → `src/数学.rs`）；
 /// 显式指定 path 后 rustc 可正常加载。仅处理以分号结尾的文件式声明，
 /// 内联模块块（`mod 名称 { ... }`）与 ASCII 名不受影响。
+///
+/// 适用于 crate 根文件（`main.rs`/`lib.rs`）：子模块与根文件同处 `src/`。
+/// 非根文件的多层目录布局请用 [`annotate_nested_mods_with_lines`]，
+/// 虚拟托管布局（平铺 hash 产物）请用 [`annotate_mod_paths_with_lines`]。
 pub fn annotate_non_ascii_mods(code: &str) -> String {
     annotate_non_ascii_mods_with_lines(code).0
+}
+
+/// 非根模块文件（多层目录）的 `#[path]` 注解，并返回行映射。
+///
+/// `self_stem` 为当前文件自身词干（如 `src/领域.rs` 传 `"领域"`）：
+/// 其中 `mod 工具;` 的子文件实际位于 `src/领域/工具.rs`，而 `#[path]`
+/// 相对当前文件所在目录 `src/` 解析，故注入 `#[path = "领域/工具.rs"]`。
+/// 更深层同理（`src/领域/工具.rs` 传 `"工具"` → `#[path = "工具/内部.rs"]`，
+/// 相对 `src/领域/`）。仅注解非 ASCII 名；ASCII 名遵循 rustc 默认查找。
+pub fn annotate_nested_mods_with_lines(code: &str, self_stem: &str) -> (String, Vec<usize>) {
+    annotate_mod_paths_with_lines(code, |name| {
+        (!name.is_ascii()).then(|| format!("{self_stem}/{name}.rs"))
+    })
+}
+
+/// 通用文件式 `mod` 声明 `#[path]` 注解器，并返回磁盘行 → 引擎直行映射。
+///
+/// `resolve(模块名) -> Some(相对路径)` 时在声明前插入
+/// `#[path = "<相对路径>"]`；返回 `None` 不注解（如子文件不存在，
+/// 保留 rustc 原生 E0583）。仅处理分号结尾的文件式声明与尚无 `#[path]`
+/// 的声明；内联模块块（`mod 名 { ... }`）不受影响。
+///
+/// 供三类布局复用：根文件（`名.rs`）、多层真实布局（`自词干/名.rs`）、
+/// 虚拟托管布局（平铺 hash 产物，`<hash>.rs`）。
+pub fn annotate_mod_paths_with_lines(
+    code: &str,
+    resolve: impl Fn(&str) -> Option<String>,
+) -> (String, Vec<usize>) {
+    annotate_mod_paths_impl(code, &resolve)
 }
 
 /// 同 [`annotate_non_ascii_mods`]，并额外返回磁盘产物行 → 引擎直出行映射
@@ -554,6 +587,16 @@ pub fn annotate_non_ascii_mods(code: &str) -> String {
 /// `模块 xxx;`）的诊断行号会系统性偏移 3 行。映射为 0-based：
 /// `line_map[磁盘行] = 引擎直出行`（注解行归属其所在 `mod` 声明行）。
 pub fn annotate_non_ascii_mods_with_lines(code: &str) -> (String, Vec<usize>) {
+    annotate_mod_paths_impl(code, &|name| {
+        (!name.is_ascii()).then(|| format!("{name}.rs"))
+    })
+}
+
+/// [`annotate_mod_paths_with_lines`] 的实现体
+fn annotate_mod_paths_impl(
+    code: &str,
+    resolve: &dyn Fn(&str) -> Option<String>,
+) -> (String, Vec<usize>) {
     let tokens: Vec<_> = tokenize(code).collect();
     // 逐 token 的字节偏移（rustc_lexer 词法流覆盖全源，偏移连续）
     let mut offsets: Vec<usize> = Vec::with_capacity(tokens.len());
@@ -595,9 +638,9 @@ pub fn annotate_non_ascii_mods_with_lines(code: &str) -> (String, Vec<usize>) {
             continue;
         }
         let name = &code[offsets[name_idx]..offsets[name_idx] + name_t.len];
-        if name.is_ascii() {
+        let Some(mod_path) = resolve(name) else {
             continue;
-        }
+        };
         // 插入点：若有可见性修饰 `pub`，注解必须在 pub 之前
         let mut insert_at = offsets[i];
         let mut back = i;
@@ -647,7 +690,7 @@ pub fn annotate_non_ascii_mods_with_lines(code: &str) -> (String, Vec<usize>) {
             continue;
         }
         let indent = &code[line_start..insert_at];
-        insertions.push((insert_at, format!("#[path = \"{name}.rs\"]\n{indent}")));
+        insertions.push((insert_at, format!("#[path = \"{mod_path}\"]\n{indent}")));
     }
     // 按插入点升序回放：引擎直出文本的换行推进引擎行号；注解插入文本
     // 的换行不推进（插入行仍归属其所在 `mod` 声明行）

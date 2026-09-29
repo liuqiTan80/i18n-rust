@@ -674,6 +674,7 @@ pub fn show_setup_wizard() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn test_check_lsp_version_match() {
@@ -902,5 +903,102 @@ mod tests {
                 || (l.contains("vi") && l.contains("不一致"))),
             "合法自研包 vi 不应被误报：{joined}"
         );
+    }
+
+    /// sha256_file：已知向量（空串/abc）；文件缺失报错
+    #[test]
+    fn test_sha256_file_known_vectors() {
+        let temp = tempfile::tempdir().unwrap();
+        let empty = temp.path().join("empty");
+        fs::write(&empty, b"").unwrap();
+        assert_eq!(
+            sha256_file(&empty).unwrap(),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        let abc = temp.path().join("abc");
+        fs::write(&abc, b"abc").unwrap();
+        assert_eq!(
+            sha256_file(&abc).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert!(sha256_file(&temp.path().join("absent")).is_err());
+    }
+
+    /// copy_bin_dir：逐文件复制；目标已存在的文件跳过（不覆盖）
+    #[test]
+    fn test_copy_bin_dir_copies_and_skips_existing() {
+        let temp = tempfile::tempdir().unwrap();
+        let from = temp.path().join("from");
+        let to = temp.path().join("to");
+        fs::create_dir_all(&from).unwrap();
+        fs::create_dir_all(&to).unwrap();
+        fs::write(from.join("a"), b"new-a").unwrap();
+        fs::write(from.join("b"), b"new-b").unwrap();
+        fs::write(to.join("a"), b"keep-old").unwrap();
+        copy_bin_dir(&from, &to).unwrap();
+        assert_eq!(fs::read(to.join("a")).unwrap(), b"keep-old");
+        assert_eq!(fs::read(to.join("b")).unwrap(), b"new-b");
+        // 源目录缺失报错（调用方负责确保前置条件）
+        assert!(copy_bin_dir(&temp.path().join("absent"), &to).is_err());
+    }
+
+    /// extract_zip_entry：取 zip 第一个条目原样落盘（Windows 单文件资产路径）
+    #[test]
+    fn test_extract_zip_entry_roundtrip() {
+        use std::io::Write as _;
+        use zip::write::FileOptions;
+        let temp = tempfile::tempdir().unwrap();
+        let zip_path = temp.path().join("asset.zip");
+        let payload = b"rust-analyzer binary \x00\x01\x02";
+        {
+            let file = fs::File::create(&zip_path).unwrap();
+            let mut zip = zip::ZipWriter::new(file);
+            zip.start_file("rust-analyzer", FileOptions::<()>::default())
+                .unwrap();
+            zip.write_all(payload).unwrap();
+            zip.finish().unwrap();
+        }
+        let dest = temp.path().join("out/rust-analyzer");
+        fs::create_dir_all(dest.parent().unwrap()).unwrap();
+        extract_zip_entry(&zip_path, &dest).unwrap();
+        assert_eq!(fs::read(&dest).unwrap(), payload);
+        // 损坏/缺失 zip → 报错而非写出半截文件
+        let bad = temp.path().join("bad.zip");
+        fs::write(&bad, b"not a zip").unwrap();
+        assert!(extract_zip_entry(&bad, &temp.path().join("out2")).is_err());
+    }
+
+    /// extract_tar_gz：归档内文件按相对路径还原到目标目录
+    #[test]
+    fn test_extract_tar_gz_roundtrip() {
+        let temp = tempfile::tempdir().unwrap();
+        let archive_path = temp.path().join("bin.tar.gz");
+        let payload = b"#!/bin/sh\necho hi\n";
+        {
+            let file = fs::File::create(&archive_path).unwrap();
+            let enc = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+            let mut builder = tar::Builder::new(enc);
+            let mut header = tar::Header::new_gnu();
+            header.set_path("bin/rzc").unwrap();
+            header.set_size(payload.len() as u64);
+            header.set_mode(0o755);
+            header.set_cksum();
+            builder.append(&header, &payload[..]).unwrap();
+            builder.into_inner().unwrap().finish().unwrap();
+        }
+        let dest = temp.path().join("dest");
+        extract_tar_gz(&archive_path, &dest).unwrap();
+        assert_eq!(fs::read(dest.join("bin/rzc")).unwrap(), payload);
+    }
+
+    /// 备份名识别：.bak 后缀或含 .stale 段；正常目录名不误判
+    #[test]
+    fn test_is_backup_name_rules() {
+        assert!(is_backup_name("ja.bak"));
+        assert!(is_backup_name("de.stale-20260101.bak"));
+        assert!(is_backup_name("ja.backup.stale"));
+        assert!(!is_backup_name("ja"));
+        assert!(!is_backup_name("backup-dir"));
+        assert!(!is_backup_name("stale"));
     }
 }

@@ -3,7 +3,11 @@
 //! 与编译器错误不同，这些提示不阻断编译，只在代码位置出现常见
 //! 教学问题时给出建设性建议。规则刻意保守，避免噪音——教学工具的
 //! 提示必须每条都有价值：
-//! - 未标注类型：`让 x = 5;` 缺少类型注解（类型系统教学）
+//! - 未标注类型：仅在类型**无法靠初始化式自行推导**的歧义形态提示
+//!   （`让 x = 向量::新建();`、`让 x = 迭代器.收集();`）——这类位置
+//!   rustc 迟早要求 E0282 注解，提前给出建设性建议；字面量、普通函数/
+//!   方法调用、结构体/元组/数组、路径与块表达式的类型均可自行推导，
+//!   提示「显式写出类型」无解且成噪音，不报告
 //! - 魔法数字：非平凡数字字面量（命名常量教学）
 //! - 嵌套过深：代码行缩进过深（重构教学，每文件仅首个）
 //! - 易混方法名：方法调用位未命中映射表且与表内词近似的长中文串
@@ -100,14 +104,24 @@ struct LetScan {
     seen_eq: bool,
     /// 已见到 `:`（类型注解）
     annotated: bool,
+    /// `=` 之后的初始化式原文（到 `;`/`{`/`}` 为止；用于判定类型能否
+    /// 自行推导，仅在无注解时参与判定）
+    expr: String,
 }
+
+/// 类型推导歧义构造器的英文被调名（无映射表时的兜底集合）
+const EN_AMBIGUOUS_CONSTRUCTORS: &[&str] = &["new", "default"];
 
 /// 对源码执行教学 lint（无已知词表：不做易混方法名提示），返回全部警告（升序）
 ///
 /// 兼容入口；需要易混方法名提示（方法调用位未命中映射表）时用
 /// [`lint_teaching_with_words`] 并传入映射表键集合。
 pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
-    lint_teaching_with_words(source, &HashSet::new())
+    let ambiguous: HashSet<String> = EN_AMBIGUOUS_CONSTRUCTORS
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    lint_teaching_with_words(source, &HashSet::new(), &ambiguous)
 }
 
 /// 对源码执行教学 lint，返回全部警告（升序）
@@ -117,8 +131,17 @@ pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
 /// （编辑距离 ≤1）时提示疑似笔误——未命中词会被原样保留，错误在
 /// 产物侧才爆发（如 `.拉平()` 应为 `.展平()`）。
 ///
+/// `ambiguous_constructors`：类型推导歧义构造器的被调名集合（含英文
+/// `new`/`default` 及其各方言映射词，如「新建」「缺省」），由
+/// `MappingManager::ambiguous_constructor_words` 提供；仅这些关联构造
+/// 的无 turbofish 调用与无 turbofish 的 `.collect()` 才触发未标注类型提示。
+///
 /// 仅报告代码位置的问题；字符串/注释内的同名文本被状态机跳过。
-pub fn lint_teaching_with_words(source: &str, known_words: &HashSet<String>) -> Vec<LintWarning> {
+pub fn lint_teaching_with_words(
+    source: &str,
+    known_words: &HashSet<String>,
+    ambiguous_constructors: &HashSet<String>,
+) -> Vec<LintWarning> {
     let chars: Vec<char> = source.chars().collect();
     let mut warnings = Vec::new();
     let mut line = 1usize;
@@ -294,13 +317,14 @@ pub fn lint_teaching_with_words(source: &str, known_words: &HashSet<String>) -> 
                     && (i + 1 >= chars.len() || is_ident_boundary(chars[i + 1])) =>
                 {
                     // 前一个 let 未闭合（上一语句缺分号）：先收尾
-                    finish_let_scan(&mut let_scan, &mut warnings);
+                    finish_let_scan(&mut let_scan, &mut warnings, ambiguous_constructors);
                     if is_simple_let_binding(&chars, i + 1) {
                         let_scan = Some(LetScan {
                             line,
                             column: col,
                             seen_eq: false,
                             annotated: false,
+                            expr: String::new(),
                         });
                     }
                 }
@@ -334,7 +358,10 @@ pub fn lint_teaching_with_words(source: &str, known_words: &HashSet<String>) -> 
             match ch {
                 ':' if !scan.seen_eq => scan.annotated = true,
                 '=' => scan.seen_eq = true,
-                ';' | '{' | '}' => finish_let_scan(&mut let_scan, &mut warnings),
+                ';' | '{' | '}' => {
+                    finish_let_scan(&mut let_scan, &mut warnings, ambiguous_constructors)
+                }
+                _ if scan.seen_eq => scan.expr.push(ch),
                 _ => {}
             }
         }
@@ -344,7 +371,7 @@ pub fn lint_teaching_with_words(source: &str, known_words: &HashSet<String>) -> 
             prev_plain = ch;
         }
     }
-    finish_let_scan(&mut let_scan, &mut warnings);
+    finish_let_scan(&mut let_scan, &mut warnings, ambiguous_constructors);
     // 过滤被「教学忽略」标记的行（三种规则统一按行过滤）
     warnings.retain(|w| !ignored_lines.contains(&w.line));
     warnings
@@ -419,10 +446,15 @@ fn starts_with_word(chars: &[char], j: usize, word: &str) -> bool {
     !matches!(chars.get(j + w.len()), Some(c) if c.is_alphanumeric() || *c == '_')
 }
 
-/// 收尾进行中的 `让` 扫描：无类型注解时报告
-fn finish_let_scan(let_scan: &mut Option<LetScan>, warnings: &mut Vec<LintWarning>) {
+/// 收尾进行中的 `让` 扫描：无类型注解且初始化式类型无法自行推导时报告
+fn finish_let_scan(
+    let_scan: &mut Option<LetScan>,
+    warnings: &mut Vec<LintWarning>,
+    ambiguous_constructors: &HashSet<String>,
+) {
     if let Some(scan) = let_scan.take()
         && !scan.annotated
+        && initializer_needs_annotation(&scan.expr, ambiguous_constructors)
     {
         warnings.push(LintWarning {
             line: scan.line,
@@ -432,6 +464,49 @@ fn finish_let_scan(let_scan: &mut Option<LetScan>, warnings: &mut Vec<LintWarnin
             extra: String::new(),
         });
     }
+}
+
+/// 判定初始化式是否属于「类型无法自行推导、需要显式注解」的歧义形态
+///
+/// Rust 的局部变量类型绝大多数可由初始化式推导（字面量、普通函数/方法
+/// 调用、宏、结构体/元组/数组、路径引用、块与控制流表达式）；仅少数
+/// 构造的结果类型依赖使用处，rustc 会以 E0282（type annotations needed）
+/// 要求注解。教学提示只在这些位置才有建设性：
+/// - 无 turbofish 的歧义关联构造器：`X::new()`、`X::default()`
+///   （`X` 是任意路径段，含方言写法 `向量::新建()`——翻译后判定）；
+/// - 无 turbofish 的 `.collect()` 收集（目标集合类型未知）。
+///
+/// 纯词法启发式（与扫描器同构，不做语法分析）；无法归类时保守不报告，
+/// 真歧义自有 rustc E0282 兜底。
+fn initializer_needs_annotation(expr: &str, ambiguous_constructors: &HashSet<String>) -> bool {
+    let e = expr.trim();
+    if e.is_empty() {
+        return false;
+    }
+    // 去空白紧致形式（允许跨行/任意空格布局）
+    let compact: String = e.chars().filter(|c| !c.is_whitespace()).collect();
+    // turbofish `::<类型>` 已显式给出类型，不再歧义
+    if compact.contains("::<") {
+        return false;
+    }
+    // .collect()（含方法链前缀）：目标集合类型未知
+    if compact.ends_with(".collect()") {
+        return true;
+    }
+    // 首个调用的被调名：取第一个 '(' 前的标识符末段
+    // 宏调用（'(' 紧邻 '!'，如 vec![]/println!()）跳过
+    let Some(open) = compact.find('(') else {
+        return false;
+    };
+    if open > 0 && compact.as_bytes()[open - 1] == b'!' {
+        return false;
+    }
+    let before = &compact[..open];
+    // 路径末段（:: 之后），否则整段即被调名
+    let leaf = before.rsplit("::").next().unwrap_or(before);
+    // 仅关联函数（路径含 ::）的歧义构造器提示；集合含英文 new/default
+    // 与其各方言映射词（如「新建」「缺省」）；裸调用 `新建()` 不提示
+    before.contains("::") && ambiguous_constructors.contains(leaf)
 }
 
 /// 数字字面量扫描：返回结束位置（i 应前进到的下标）
@@ -590,14 +665,76 @@ fn within_one_edit(a: &str, b: &str) -> bool {
 mod tests {
     use super::*;
 
+    /// 测试用歧义构造器词集（模拟语言包：新建→new、缺省→default）
+    fn zh_ambiguous() -> HashSet<String> {
+        [
+            "new".to_string(),
+            "default".to_string(),
+            "新建".to_string(),
+            "缺省".to_string(),
+        ]
+        .into_iter()
+        .collect()
+    }
+
     #[test]
     fn test_untyped_let_detected() {
-        // 用平凡值 1 避免同时触发魔法数字提示
-        let warnings = lint_teaching("函数 主函数() {\n    让 x = 1;\n}");
+        // 类型无法自行推导的关联构造器调用才提示（普通字面量不再触发）
+        let src = "函数 主函数() {\n    让 x = 向量::新建();\n}";
+        let warnings = lint_teaching_with_words(src, &HashSet::new(), &zh_ambiguous());
         assert_eq!(warnings.len(), 1, "{warnings:?}");
         assert_eq!(warnings[0].kind, LintKind::UntypedLet);
         assert_eq!(warnings[0].line, 2);
         assert_eq!(warnings[0].column, 5);
+    }
+
+    /// 类型可自行推导的初始化式一律不报（用户反馈：自动推导时提示成噪音）
+    #[test]
+    fn test_inferable_initializers_not_flagged() {
+        let cases = [
+            "函数 主函数() {\n    让 x = 1;\n}",                 // 整数字面量
+            "函数 主函数() {\n    让 s = \"你好\";\n}",          // 字符串
+            "函数 主函数() {\n    让 b = 真;\n}",                // 布尔
+            "函数 主函数() {\n    让 y = x + 1;\n}",             // 运算
+            "函数 主函数() {\n    让 n = 加一(1);\n}",           // 普通函数调用
+            "函数 主函数() {\n    让 n = 项.长度();\n}",         // 方法调用
+            "函数 主函数() {\n    让 v = 向量![1, 2];\n}",       // 宏
+            "函数 主函数() {\n    让 p = 点 { x: 1, y: 2 };\n}", // 结构体字面量
+            "函数 主函数() {\n    让 t = (1, 2);\n}",            // 元组
+            "函数 主函数() {\n    让 a = [1, 2];\n}",            // 数组
+            "函数 主函数() {\n    让 r = serde_json::from_str(\"{}\");\n}", // 普通关联函数
+            "函数 主函数() {\n    让 x = 常量名;\n}",            // 路径/常量
+            "函数 主函数() {\n    让 v = 向量::新建::<i32>();\n}", // turbofish 已给类型
+            "函数 主函数() {\n    让 v: 整数 = 向量::新建();\n}", // 已注解
+        ];
+        for source in cases {
+            let warnings = lint_teaching_with_words(source, &HashSet::new(), &zh_ambiguous());
+            assert!(
+                !warnings.iter().any(|w| w.kind == LintKind::UntypedLet),
+                "可推导初始化式不应提示: {source}\n{warnings:?}"
+            );
+        }
+    }
+
+    /// 真正歧义（rustc 也会 E0282）的形态：无 turbofish 的 new/default
+    /// 关联构造（含各方言词）与 .collect()
+    #[test]
+    fn test_ambiguous_initializers_flagged() {
+        let cases = [
+            "函数 主函数() {\n    让 x = Vec::new();\n}",
+            "函数 主函数() {\n    让 x = 向量::新建();\n}",
+            "函数 主函数() {\n    让 x = Default::default();\n}",
+            "函数 主函数() {\n    让 x = 缺省值::缺省();\n}",
+            "函数 主函数() {\n    让 x = (0..10).collect();\n}",
+            "函数 主函数() {\n    让 x = 项们.迭代().collect();\n}",
+        ];
+        for source in cases {
+            let warnings = lint_teaching_with_words(source, &HashSet::new(), &zh_ambiguous());
+            assert!(
+                warnings.iter().any(|w| w.kind == LintKind::UntypedLet),
+                "歧义初始化式应提示: {source}\n{warnings:?}"
+            );
+        }
     }
 
     /// 模式解构绑定不做「未标注类型」提示（元组/结构体/数组/可变元组）：
@@ -638,19 +775,20 @@ mod tests {
         }
     }
 
-    /// 简单标识符绑定（含「可变」前缀）仍照常提示；
-    /// 显式标注（含「可变」）仍豁免
+    /// 歧义构造器绑定（含「可变」前缀）照常提示；
+    /// 显式标注（含「可变」）豁免；字面量绑定不提示
     #[test]
     fn test_simple_binding_still_flagged() {
         let source = concat!(
             "函数 主函数() {\n",
-            "    让 x = 1;\n",
-            "    让 可变 y = 1;\n",
+            "    让 x = 向量::新建();\n",
+            "    让 可变 y = 向量::新建();\n",
             "    让 x2: 整数 = 1;\n",
             "    让 可变 y2: 整数 = 1;\n",
+            "    让 z = 1;\n",
             "}"
         );
-        let warnings = lint_teaching(source);
+        let warnings = lint_teaching_with_words(source, &HashSet::new(), &zh_ambiguous());
         let untyped: Vec<_> = warnings
             .iter()
             .filter(|w| w.kind == LintKind::UntypedLet)
@@ -664,7 +802,7 @@ mod tests {
     ///（回归：第 5 行的 `让` 因两个空行被报成第 3 行）
     #[test]
     fn test_blank_lines_counted_in_line_numbers() {
-        let warnings = lint_teaching("// 注释\n\n// 注释\n   \n让 x = 1;");
+        let warnings = lint_teaching("// 注释\n\n// 注释\n   \n让 x = Foo::new();");
         assert_eq!(warnings.len(), 1, "{warnings:?}");
         assert_eq!(warnings[0].kind, LintKind::UntypedLet);
         assert_eq!(warnings[0].line, 5);
@@ -680,10 +818,15 @@ mod tests {
         );
     }
 
-    /// 路径分隔符 `::` 出现在 `=` 之后时不是类型注解
+    /// 路径分隔符 `::` 出现在 `=` 之后时不是类型注解；
+    /// 方言构造器词（新建）经歧义词集识别后仍应提示
     #[test]
     fn test_path_separator_after_eq_not_annotation() {
-        let warnings = lint_teaching("函数 主函数() {\n    让 x = 向量::新建();\n}");
+        let warnings = lint_teaching_with_words(
+            "函数 主函数() {\n    让 x = 向量::新建();\n}",
+            &HashSet::new(),
+            &zh_ambiguous(),
+        );
         assert!(
             warnings.iter().any(|w| w.kind == LintKind::UntypedLet),
             "{warnings:?}"
@@ -717,26 +860,36 @@ mod tests {
     fn test_ignore_mark_skips_line() {
         let source = concat!(
             "函数 主函数() {\n",
-            "    让 x = 1;  // 教学忽略\n",
+            "    让 x = 向量::新建();  // 教学忽略\n",
             "    让 数量: 整数 = 42;  // 教学忽略：这行也跳过\n",
-            "    让 y = 2;\n",
+            "    让 y = (0..1).collect();\n",
             "}"
         );
-        let warnings = lint_teaching(source);
+        let warnings = lint_teaching_with_words(source, &HashSet::new(), &zh_ambiguous());
         assert!(
             !warnings.iter().any(|w| w.line == 2 || w.line == 3),
             "标记行不应有警告: {warnings:?}"
         );
         // 未标记行照常报告
-        assert!(warnings.iter().any(|w| w.line == 4), "{warnings:?}");
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.line == 4 && w.kind == LintKind::UntypedLet),
+            "{warnings:?}"
+        );
     }
 
-    /// 字符串/注释里的「教学忽略」文本不生效（仅在代码行注释中识别）
+    /// 字符串里的「教学忽略」文本不生效（仅在代码行注释中识别）
     #[test]
     fn test_ignore_mark_in_string_not_effective() {
-        let source = "函数 主函数() {\n    让 s = \"教学忽略\";\n}";
+        let source = "函数 主函数() {\n    让 x = Foo::new(\"教学忽略\");\n}";
         let warnings = lint_teaching(source);
-        assert!(warnings.iter().any(|w| w.line == 2), "{warnings:?}");
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.line == 2 && w.kind == LintKind::UntypedLet),
+            "{warnings:?}"
+        );
     }
 
     #[test]
@@ -776,7 +929,7 @@ mod tests {
             .into_iter()
             .collect();
         let source = "函数 主函数() {\n    让 x = 项们.拉平();\n}";
-        let warnings = lint_teaching_with_words(source, &known);
+        let warnings = lint_teaching_with_words(source, &known, &zh_ambiguous());
         let hints: Vec<_> = warnings
             .iter()
             .filter(|w| w.kind == LintKind::ConfusableMethod)
@@ -793,7 +946,7 @@ mod tests {
     fn test_confusable_method_length_diff_one() {
         let known: HashSet<String> = ["打印行".to_string()].into_iter().collect();
         let source = "函数 主函数() {\n    项们.打印();\n}";
-        let warnings = lint_teaching_with_words(source, &known);
+        let warnings = lint_teaching_with_words(source, &known, &zh_ambiguous());
         let hints: Vec<_> = warnings
             .iter()
             .filter(|w| w.kind == LintKind::ConfusableMethod)
@@ -826,7 +979,7 @@ mod tests {
             "函数 主函数() {\n    让 f: 浮点数 = 1.5;\n}",
         ];
         for source in cases {
-            let warnings = lint_teaching_with_words(source, &known);
+            let warnings = lint_teaching_with_words(source, &known, &zh_ambiguous());
             assert!(
                 !warnings
                     .iter()
@@ -841,7 +994,7 @@ mod tests {
     fn test_confusable_method_spacing_and_compound() {
         let known: HashSet<String> = ["展平".to_string()].into_iter().collect();
         let source = "函数 主函数() {\n    让 x = 项们.拉平 ();\n}";
-        let warnings = lint_teaching_with_words(source, &known);
+        let warnings = lint_teaching_with_words(source, &known, &zh_ambiguous());
         assert!(
             warnings
                 .iter()
@@ -849,7 +1002,7 @@ mod tests {
             "{warnings:?}"
         );
         let source = "函数 主函数() {\n    让 x = 项们.拉平_所有();\n}";
-        let warnings = lint_teaching_with_words(source, &known);
+        let warnings = lint_teaching_with_words(source, &known, &zh_ambiguous());
         assert!(
             !warnings
                 .iter()

@@ -219,7 +219,7 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_extensions;
+    use super::{find_lang_pack_fallback, parse_extensions, search_upward};
 
     /// 带点与不带点的扩展名统一补点
     #[test]
@@ -235,5 +235,47 @@ mod tests {
         assert!(parse_extensions("  , ").is_empty());
         assert_eq!(parse_extensions("zh"), vec![".zh"]);
         assert_eq!(parse_extensions("zh,,de"), vec![".zh", ".de"]);
+    }
+
+    /// 向上搜索：命中主仓库布局与平铺布局；超过 5 级的祖先命中不到
+    #[test]
+    fn test_search_upward_layouts_and_depth_limit() {
+        let temp = tempfile::tempdir().unwrap();
+
+        // 布局一：crates/engine/lang-packs/<码>
+        let nested = temp.path().join("repo-nested");
+        let pack = nested.join("crates/engine/lang-packs/zh");
+        std::fs::create_dir_all(&pack).unwrap();
+        let start = nested.join("target/debug/deps/bin");
+        assert_eq!(search_upward(&start, "zh").as_deref(), Some(pack.as_path()));
+
+        // 布局二：平铺 lang-packs/<码>
+        let flat = temp.path().join("repo-flat");
+        let pack2 = flat.join("lang-packs/ja");
+        std::fs::create_dir_all(&pack2).unwrap();
+        let start2 = flat.join("a/b/bin");
+        assert_eq!(
+            search_upward(&start2, "ja").as_deref(),
+            Some(pack2.as_path())
+        );
+
+        // 语言码不存在 → None（不误中其他语言目录）
+        assert!(search_upward(&start, "xx").is_none());
+
+        // 包目录在 6 级祖先之外：向上最多 5 级，找不到
+        let deep = temp.path().join("d/l1/l2/l3/l4/l5/l6");
+        std::fs::create_dir_all(&deep).unwrap();
+        let pack3 = temp.path().join("d/lang-packs/zh");
+        std::fs::create_dir_all(&pack3).unwrap();
+        assert!(search_upward(&deep.join("bin"), "zh").is_none());
+    }
+
+    /// 默认路径已存在时直接采用，不触发任何搜索（显式 --language-pack 路径）
+    #[test]
+    fn test_find_lang_pack_fallback_existing_short_circuits() {
+        let temp = tempfile::tempdir().unwrap();
+        let default = temp.path().join("explicit/zh");
+        std::fs::create_dir_all(&default).unwrap();
+        assert_eq!(find_lang_pack_fallback(&default, "zh"), default);
     }
 }

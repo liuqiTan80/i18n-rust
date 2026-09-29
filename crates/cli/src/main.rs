@@ -1218,13 +1218,52 @@ pub fn resolve_rustdoc() -> PathBuf {
     PathBuf::from("rustdoc")
 }
 
+/// 递归收集目录下全部方言源文件（路径排序保证确定性）
+///
+/// 支持多层模块布局（`src/领域/工具.zh`）：模块文件可放在以父模块
+/// 命名的子目录中，与 rustc 的 `父模块.rs` + `父模块/` 目录规则一致。
+fn collect_dialect_files(dir: &Path, extensions: &[String]) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    collect_dialect_files_recursive(dir, extensions, &mut out);
+    out.sort();
+    out
+}
+
+fn collect_dialect_files_recursive(dir: &Path, extensions: &[String], out: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for dent in entries.flatten() {
+        let path = dent.path();
+        let Ok(ft) = dent.file_type() else {
+            continue;
+        };
+        if ft.is_dir() {
+            // target 等构建产物目录不会出现在 src 树内；无特殊排除
+            collect_dialect_files_recursive(&path, extensions, out);
+        } else if ft.is_file()
+            && path
+                .extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|ext| {
+                    extensions
+                        .iter()
+                        .any(|e| e == ext || e == &format!(".{ext}"))
+                })
+        {
+            out.push(path);
+        }
+    }
+}
+
 /// 收集项目级声明上下文（跨文件声明豁免）
 ///
-/// 扫描 src/ 下全部方言文件与入口文件（可能在项目根），收集：
-/// - 模块名：方言文件名词干（`模块::成员` 路径链根）；
+/// 递归扫描 src/ 下全部层级的方言文件与入口文件（可能在项目根），收集：
+/// - 模块名：各方言文件词干（含嵌套层级，供 `crate::领域::工具::成员`
+///   等多层路径链豁免）；
 /// - 声明名：各文件的项名与结构体字段（裸使用处豁免）。
 ///
-/// 与 [`transpile_project_files`] 扫描范围保持一致（src/ 顶层），
+/// 与 [`transpile_project_files`] 扫描范围保持一致（src/ 全层级递归），
 /// 入口文件不在 src/ 时单独补扫；读取失败的文件跳过（转译阶段会报错）。
 fn collect_project_context(
     project_root: &Path,
@@ -1233,30 +1272,21 @@ fn collect_project_context(
 ) -> i18n_rust_engine::alias::ProjectContext {
     use std::collections::HashSet;
     let extensions = lang_manager::all_available_extensions();
-    let is_dialect = |name: &str| extensions.iter().any(|e| name.ends_with(&format!(".{e}")));
     let entry_canon = entry_file.canonicalize().ok();
     let mut modules = HashSet::new();
     let mut sources: Vec<String> = Vec::new();
     let mut entry_seen = false;
 
-    if let Ok(entries) = fs::read_dir(project_root.join("src")) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
-                continue;
-            };
-            if !path.is_file() || !is_dialect(name) {
-                continue;
-            }
-            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                modules.insert(stem.to_string());
-            }
-            if entry_canon.is_some() && path.canonicalize().ok() == entry_canon {
-                entry_seen = true;
-            }
-            if let Ok(source) = fs::read_to_string(&path) {
-                sources.push(source);
-            }
+    let src_dir = project_root.join("src");
+    for path in collect_dialect_files(&src_dir, &extensions) {
+        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+            modules.insert(stem.to_string());
+        }
+        if entry_canon.is_some() && path.canonicalize().ok() == entry_canon {
+            entry_seen = true;
+        }
+        if let Ok(source) = fs::read_to_string(&path) {
+            sources.push(source);
         }
     }
     // 入口文件不在 src/（如项目根的自定义路径）时单独补扫
@@ -1293,26 +1323,25 @@ fn transpile_project_files(
     let ui = ui::Ui::global();
     let src_dir = project_root.join("src");
     // 无 src 目录时不处理，由 cargo 自行报错
-    let Ok(entries) = fs::read_dir(&src_dir) else {
+    if !src_dir.is_dir() {
         return Ok(());
-    };
-    // 入口产物固定写入 src/main.rs：src/ 下任何入口词干的方言文件
-    // （main.zh、旧项目的主函数.zh 等）转译后都会覆盖
-    // 入口产物，必须跳过
+    }
+    let extensions = lang_manager::all_available_extensions();
+    // 入口产物固定写入 src/main.rs：src/ 顶层任何入口词干的方言文件
+    // （main.zh、旧项目的 主函数.zh 等）转译后都会覆盖入口产物，必须跳过；
+    // 嵌套层级中的同名文件不是入口（rustc 模块树按路径区分），照常转译。
     let entry_abs = entry_file.canonicalize().ok();
     let mut files = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_file() {
-            continue;
-        }
+    for path in collect_dialect_files(&src_dir, &extensions) {
         if Some(&path) == entry_abs.as_ref() {
             continue;
         }
-        if path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .is_some_and(|s| is_entry_stem(s, manager))
+        let at_src_top = path.parent() == Some(src_dir.as_path());
+        if at_src_top
+            && path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .is_some_and(|s| is_entry_stem(s, manager))
         {
             continue;
         }
@@ -1341,6 +1370,12 @@ fn transpile_project_files(
             // ui/first_error 遮蔽为引用：move 闭包捕获的是 Copy 的共享引用
             let ui = &ui;
             let first_error = &first_error;
+            // 相对 src 的显示名在闭包外算好（避免 PathBuf 被 move 进线程）
+            let display_name = path
+                .strip_prefix(&src_dir)
+                .unwrap_or(&path)
+                .display()
+                .to_string();
             let handle = scope.spawn(move || {
                 if first_error
                     .lock()
@@ -1383,15 +1418,11 @@ fn transpile_project_files(
                             manager,
                             Some(project),
                         );
-                        let display_name = path
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .to_string();
                         emit_teaching_warnings_for_file(
                             &source,
                             &display_name,
                             manager.get_lint_words(),
+                            &manager.ambiguous_constructor_words(),
                         );
                         cache
                             .lock()
@@ -1400,7 +1431,19 @@ fn transpile_project_files(
                         output
                     }
                 };
-                if let Err(e) = write_transpiled(&path.with_extension("rs"), &output.output, ui) {
+                // 非入口模块按多层布局补 `#[path]`：src/领域.rs 中的
+                // `mod 工具;` 需指向 src/领域/工具.rs（#[path] 相对当前
+                // 文件目录解析，前缀为当前文件词干细胞目录）。
+                let product = if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                    i18n_rust_engine::module_path::annotate_nested_mods_with_lines(
+                        &output.output,
+                        stem,
+                    )
+                    .0
+                } else {
+                    output.output.clone()
+                };
+                if let Err(e) = write_transpiled(&path.with_extension("rs"), &product, ui) {
                     *first_error
                         .lock()
                         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(e);
@@ -1423,7 +1466,12 @@ fn transpile_project_files(
 /// 多文件项目中项目内文件分散在多个方言文件，裸行列无法定位具体文件；
 /// 入口文件的告警仍由转译管线直接输出（裸行列即命令传入的入口文件）。
 /// 时机与转译一致（仅缓存未命中时输出），静默管线保证不重复输出。
-fn emit_teaching_warnings_for_file(source: &str, display_name: &str, lint_words: &HashSet<String>) {
+fn emit_teaching_warnings_for_file(
+    source: &str,
+    display_name: &str,
+    lint_words: &HashSet<String>,
+    ambiguous_constructors: &HashSet<String>,
+) {
     for warning in i18n_rust_engine::unicode_confusion::check_unicode_confusion(source) {
         i18n_rust_engine::log_warn!(
             "unicode_confusion",
@@ -1436,7 +1484,11 @@ fn emit_teaching_warnings_for_file(source: &str, display_name: &str, lint_words:
         i18n_rust_engine::log_warn!("fullwidth", "{}：{}", display_name, warning.format());
     }
     if i18n_rust_engine::lint::teaching_lint_enabled() {
-        for warning in i18n_rust_engine::lint::lint_teaching_with_words(source, lint_words) {
+        for warning in i18n_rust_engine::lint::lint_teaching_with_words(
+            source,
+            lint_words,
+            ambiguous_constructors,
+        ) {
             i18n_rust_engine::log_warn!("lint", "{}：{}", display_name, warning.format());
         }
     }
@@ -1983,6 +2035,43 @@ mod tests {
         assert_eq!(
             entry_output_path(root, Path::new("/proj/src/sub/主函数.zh"), &m),
             PathBuf::from("/proj/src/sub/主函数.rs")
+        );
+    }
+
+    /// 正向聚合：真实磁盘项目的 src 直属入口（英文词干与母语词干）都聚合到
+    /// src/main.rs；相对词法路径（新建未落盘项目）按词法比较同样判定
+    #[test]
+    fn test_entry_output_path_aggregates_direct_src_entries() {
+        let m = zh_manager();
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("proj");
+        std::fs::create_dir_all(root.join("src/sub")).unwrap();
+
+        // 已落盘：真实目录的 canonicalize 比较
+        assert_eq!(
+            entry_output_path(&root, &root.join("src/main.zh"), &m),
+            root.join("src/main.rs")
+        );
+        assert_eq!(
+            entry_output_path(&root, &root.join("src/主函数.zh"), &m),
+            root.join("src/main.rs")
+        );
+        // 同目录的非入口模块不聚合
+        assert_eq!(
+            entry_output_path(&root, &root.join("src/工具.zh"), &m),
+            root.join("src/工具.rs")
+        );
+
+        // 未落盘：root/src 尚不存在，canonicalize 双双失败退回词法路径，
+        // 词干为入口时仍应聚合（编辑器里新建项目骨架的场景）
+        let ghost = temp.path().join("ghost-proj");
+        assert_eq!(
+            entry_output_path(&ghost, &ghost.join("src/main.zh"), &m),
+            ghost.join("src/main.rs")
+        );
+        assert_eq!(
+            entry_output_path(&ghost, &ghost.join("src/sub/main.zh"), &m),
+            ghost.join("src/sub/main.rs")
         );
     }
 

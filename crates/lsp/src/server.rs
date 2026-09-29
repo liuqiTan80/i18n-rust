@@ -1065,6 +1065,7 @@ impl ProxyServer {
                     &mut final_diags,
                     &entry,
                     mapper.lint_words(),
+                    &mapper.ambiguous_constructor_words(),
                 );
                 mapped["diagnostics"] = Value::Array(final_diags);
             }
@@ -1747,6 +1748,7 @@ fn handle_analyzer_message(
                             &mut merged_diags,
                             &entry,
                             mapper.lint_words(),
+                            &mapper.ambiguous_constructor_words(),
                         );
                         mapped["diagnostics"] = Value::Array(merged_diags.clone());
                     }
@@ -2142,5 +2144,379 @@ mod tests {
         assert!(extract_unresolved_crates_from_diagnostics(&[]).is_empty());
         let other = vec![json!({"message": "mismatched types"})];
         assert!(extract_unresolved_crates_from_diagnostics(&other).is_empty());
+    }
+
+    /// 给 rust-analyzer 的 workspace/configuration 回复：每条目固定三项关键配置，
+    /// 数量与请求的 items 对齐（数量错误会让 RA 对部分 workspace 缺省）
+    #[test]
+    fn test_ra_configuration_result_shape() {
+        let empty = ra_configuration_result(0);
+        assert_eq!(empty, json!([]));
+        let result = ra_configuration_result(2);
+        let arr = result.as_array().expect("应为数组");
+        assert_eq!(arr.len(), 2);
+        for item in arr {
+            assert_eq!(item["completion"]["snippets"], json!("custom"));
+            assert_eq!(item["checkOnSave"]["enable"], json!(false));
+            assert_eq!(item["check"]["enable"], json!(false));
+        }
+    }
+
+    /// is_symlink：lstat 语义——悬空链接仍是链接；普通文件/不存在路径为 false
+    #[test]
+    fn test_is_symlink_lstat_semantics() {
+        let temp = tempfile::tempdir().unwrap();
+        let file = temp.path().join("f");
+        std::fs::write(&file, b"x").unwrap();
+        assert!(!is_symlink(&file));
+        assert!(!is_symlink(&temp.path().join("absent")));
+
+        let link = temp.path().join("link");
+        std::os::unix::fs::symlink(&file, &link).unwrap();
+        assert!(is_symlink(&link));
+
+        // 悬空符号链接（目标不存在）仍须识别为链接
+        let dangling = temp.path().join("dangling");
+        std::os::unix::fs::symlink(temp.path().join("gone"), &dangling).unwrap();
+        assert!(is_symlink(&dangling));
+    }
+
+    /// PID 探活：当前进程必然存活（残留目录清理依据，误判会误删活进程目录）
+    #[test]
+    fn test_process_alive_self() {
+        assert!(process_alive(std::process::id()));
+    }
+
+    /// 虚拟临时目录：按用户+PID 隔离命名、实际创建、同进程重复调用稳定同目录
+    #[test]
+    fn test_virtual_temp_dir_shape_and_stable() {
+        let dir = virtual_temp_dir().expect("应能创建虚拟目录");
+        assert!(dir.is_dir());
+        let name = dir.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(name.starts_with("i18n_lsp_virtual_"), "实际：{name}");
+        assert!(name.ends_with(&std::process::id().to_string()));
+        let again = virtual_temp_dir().expect("重复调用应幂等");
+        assert_eq!(again, dir);
+    }
+
+    // ===== handle_analyzer_message：RA 消息分发的分支级单测 =====
+
+    /// 构造分发单测所需的全部部件：
+    /// （mapper, pending, client 发送端, client 接收端, builtin_diags, 空 RA 回发器,
+    ///  (cache, tempdir, 虚拟 URI)）
+    #[allow(clippy::type_complexity)]
+    fn dispatch_harness(
+        source: &str,
+    ) -> (
+        Arc<ResponseMapper>,
+        Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
+        crossbeam_channel::Sender<Message>,
+        crossbeam_channel::Receiver<Message>,
+        Arc<std::sync::Mutex<HashMap<String, Vec<Value>>>>,
+        crate::analyzer::Sender,
+        (Arc<TranslationCache>, tempfile::TempDir, String),
+    ) {
+        let (cache, temp) = create_test_cache();
+        let (entry, _) = cache
+            .update_document("file:///test/main.zh", source, 1)
+            .expect("测试文档应可入缓存");
+        let mapper = Arc::new(ResponseMapper::new(cache.clone()));
+        let pending = Arc::new(std::sync::Mutex::new(HashMap::new()));
+        let builtin = Arc::new(std::sync::Mutex::new(HashMap::new()));
+        let (tx, rx) = crossbeam_channel::unbounded();
+        let reply = crate::analyzer::Sender::null_for_test();
+        (
+            mapper,
+            pending,
+            tx,
+            rx,
+            builtin,
+            reply,
+            (cache, temp, entry.virtual_uri.clone()),
+        )
+    }
+
+    /// 登记一条转发请求记录
+    fn insert_pending(
+        pending: &Arc<std::sync::Mutex<HashMap<i64, PendingRequestInfo>>>,
+        ra_id: i64,
+        client_id: i32,
+        method: &str,
+        uri: &str,
+    ) {
+        pending.lock().unwrap().insert(
+            ra_id,
+            PendingRequestInfo {
+                original_id: lsp_server::RequestId::from(client_id),
+                method: method.to_string(),
+                original_uri: uri.to_string(),
+                created_at: std::time::Instant::now(),
+                unresolved_crates: if method == "textDocument/codeAction" {
+                    vec!["serde_json".to_string()]
+                } else {
+                    Vec::new()
+                },
+                teaching_diags: Vec::new(),
+            },
+        );
+    }
+
+    /// 全部响应映射分支：null 结果也必须安全通过各自 mapper 并应答到客户端，
+    /// 原始客户端请求 ID 必须原样带回
+    #[test]
+    fn test_handle_analyzer_response_method_branches() {
+        let (mapper, pending, tx, rx, builtin, reply, _h) =
+            dispatch_harness("函数 主() {\n    打印行!();\n}\n");
+        let methods = [
+            "textDocument/completion",
+            "textDocument/hover",
+            "textDocument/signatureHelp",
+            "textDocument/definition",
+            "textDocument/references",
+            "textDocument/documentSymbol",
+            "textDocument/codeAction",
+            "codeAction/resolve",
+            "textDocument/rename",
+            "textDocument/documentHighlight",
+            "textDocument/semanticTokens/full",
+            "textDocument/semanticTokens/range",
+            "textDocument/unknownFutureMethod",
+        ];
+        for (i, method) in methods.iter().enumerate() {
+            insert_pending(
+                &pending,
+                i as i64 + 1,
+                i as i32 + 100,
+                method,
+                "file:///test/main.zh",
+            );
+        }
+        for i in 0..methods.len() {
+            let msg = json!({ "jsonrpc": "2.0", "id": i as i64 + 1, "result": Value::Null });
+            handle_analyzer_message(&msg, &mapper, &tx, &pending, &reply, &builtin);
+        }
+        // 13 条全部应答（按发送顺序即为 pending 表插入顺序）
+        let collected: Vec<Message> = rx.try_iter().collect();
+        assert_eq!(collected.len(), methods.len());
+        for (i, message) in collected.iter().enumerate() {
+            if let Message::Response(resp) = message {
+                assert_eq!(resp.id, lsp_server::RequestId::from(i as i32 + 100));
+                assert!(resp.error.is_none(), "分支 {i} 不应产生错误应答");
+            } else {
+                panic!("期望 Response，实际收到 {message:?}");
+            }
+        }
+    }
+
+    /// RA 返回错误（如 -32601 方法未知）：错误体原样透传给客户端，
+    /// 缺省错误码归一为 -32603
+    #[test]
+    fn test_handle_analyzer_error_passthrough() {
+        let (mapper, pending, tx, rx, builtin, reply, _h) = dispatch_harness("函数 主() {}\n");
+        insert_pending(
+            &pending,
+            1,
+            100,
+            "textDocument/hover",
+            "file:///test/main.zh",
+        );
+        let msg = json!({
+            "jsonrpc": "2.0", "id": 1,
+            "error": { "code": -32601, "message": "method not found" }
+        });
+        handle_analyzer_message(&msg, &mapper, &tx, &pending, &reply, &builtin);
+        match rx.recv().unwrap() {
+            Message::Response(resp) => {
+                assert_eq!(resp.id, lsp_server::RequestId::from(100));
+                let err = resp.error.expect("应透传错误");
+                assert_eq!(err.code, -32601);
+                assert_eq!(err.message, "method not found");
+            }
+            other => panic!("期望 Response：{other:?}"),
+        }
+        // 缺 code：归一 -32603；缺 message：用内置文案
+        insert_pending(
+            &pending,
+            2,
+            101,
+            "textDocument/hover",
+            "file:///test/main.zh",
+        );
+        let msg = json!({ "jsonrpc": "2.0", "id": 2, "error": {} });
+        handle_analyzer_message(&msg, &mapper, &tx, &pending, &reply, &builtin);
+        match rx.recv().unwrap() {
+            Message::Response(resp) => {
+                let err = resp.error.unwrap();
+                assert_eq!(err.code, -32603);
+                assert!(!err.message.is_empty(), "缺 message 应用内置文案");
+            }
+            other => panic!("期望 Response：{other:?}"),
+        }
+    }
+
+    /// publishDiagnostics：非虚拟 URI 丢弃；虚拟 URI 经映射后转发到母语 URI，
+    /// 并写入 builtin_diags 缓存供 cargo check 合并
+    #[test]
+    fn test_handle_analyzer_diagnostics_routing() {
+        let (mapper, pending, tx, rx, builtin, reply, harness) =
+            dispatch_harness("函数 主() {\n    打印行!();\n}\n");
+        let (_cache, _temp, virtual_uri) = harness;
+
+        // 非虚拟 URI：直接丢弃，客户端收不到
+        let foreign = json!({
+            "jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
+            "params": { "uri": "file:///other/project/src/main.rs", "diagnostics": [] }
+        });
+        handle_analyzer_message(&foreign, &mapper, &tx, &pending, &reply, &builtin);
+        assert!(rx.is_empty(), "非虚拟文件诊断必须丢弃");
+
+        // 虚拟 URI：映射回母语 URI 并转发
+        let diag = json!({
+            "range": {
+                "start": { "line": 1, "character": 4 },
+                "end": { "line": 1, "character": 12 }
+            },
+            "severity": 1,
+            "source": "rust-analyzer",
+            "message": "mismatched types",
+            "code": "E0308"
+        });
+        let virtual_msg = json!({
+            "jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
+            "params": { "uri": virtual_uri, "diagnostics": [diag] }
+        });
+        handle_analyzer_message(&virtual_msg, &mapper, &tx, &pending, &reply, &builtin);
+        match rx.recv().unwrap() {
+            Message::Notification(note) => {
+                assert_eq!(note.method, "textDocument/publishDiagnostics");
+                assert_eq!(
+                    note.params["uri"].as_str(),
+                    Some("file:///test/main.zh"),
+                    "URI 应还原为母语文件"
+                );
+                assert!(
+                    !note.params["diagnostics"].as_array().unwrap().is_empty(),
+                    "原始诊断应保留（非 cargo 项目不抑制）"
+                );
+            }
+            other => panic!("期望 Notification：{other:?}"),
+        }
+        // builtin_diags 以母语 URI 为键缓存
+        let guard = builtin.lock().unwrap();
+        let cached = guard.get("file:///test/main.zh").expect("应缓存内置诊断");
+        assert!(!cached.is_empty());
+    }
+
+    /// 其他通知（logMessage 等）原样转发给客户端
+    #[test]
+    fn test_handle_analyzer_other_notification_forwarded() {
+        let (mapper, pending, tx, rx, builtin, reply, _h) = dispatch_harness("函数 主() {}\n");
+        let msg = json!({
+            "jsonrpc": "2.0", "method": "window/logMessage",
+            "params": { "type": 3, "message": "indexed" }
+        });
+        handle_analyzer_message(&msg, &mapper, &tx, &pending, &reply, &builtin);
+        match rx.recv().unwrap() {
+            Message::Notification(note) => {
+                assert_eq!(note.method, "window/logMessage");
+                assert_eq!(note.params["message"].as_str(), Some("indexed"));
+            }
+            other => panic!("期望 Notification：{other:?}"),
+        }
+    }
+
+    /// RA 主动请求（无 pending 记录）：workspace/configuration 按请求项数构造
+    /// 结果回发给 RA（本用例空发送器 send 失败被忽略，验证分发不 panic 且
+    /// 不会误转发给客户端）
+    #[test]
+    fn test_handle_analyzer_unsolicited_request_reply_path() {
+        let (mapper, pending, tx, rx, builtin, reply, _h) = dispatch_harness("函数 主() {}\n");
+        let msg = json!({
+            "jsonrpc": "2.0", "id": 999, "method": "workspace/configuration",
+            "params": { "items": [ {}, {} ] }
+        });
+        handle_analyzer_message(&msg, &mapper, &tx, &pending, &reply, &builtin);
+        assert!(rx.is_empty(), "回发给 RA 的响应不应出现在客户端通道");
+        // 无 method 的杂讯（既非响应也非通知）：静默忽略
+        let noise = json!({ "jsonrpc": "2.0" });
+        handle_analyzer_message(&noise, &mapper, &tx, &pending, &reply, &builtin);
+        assert!(rx.is_empty());
+    }
+
+    /// 超时清理：仅超过 REQUEST_TIMEOUT 的条目被移除并主动应答超时错误；
+    /// 新条目保留且不产生消息
+    #[test]
+    fn test_cleanup_expired_requests_only_old() {
+        let (_mapper, pending, tx, rx, _builtin, _reply, _h) = dispatch_harness("函数 主() {}\n");
+        // 新条目
+        insert_pending(
+            &pending,
+            1,
+            100,
+            "textDocument/hover",
+            "file:///test/main.zh",
+        );
+        // 过期条目
+        {
+            let mut map = pending.lock().unwrap();
+            map.get_mut(&1).unwrap().created_at = std::time::Instant::now();
+            map.insert(
+                2,
+                PendingRequestInfo {
+                    original_id: lsp_server::RequestId::from(101),
+                    method: "textDocument/hover".to_string(),
+                    original_uri: "file:///test/main.zh".to_string(),
+                    created_at: std::time::Instant::now()
+                        .checked_sub(REQUEST_TIMEOUT + std::time::Duration::from_secs(1))
+                        .unwrap(),
+                    unresolved_crates: Vec::new(),
+                    teaching_diags: Vec::new(),
+                },
+            );
+        }
+        cleanup_expired_requests(&pending, &tx);
+        // 仅 1 条超时应答
+        match rx.try_recv() {
+            Ok(Message::Response(resp)) => {
+                assert_eq!(resp.id, lsp_server::RequestId::from(101));
+                assert_eq!(resp.error.unwrap().code, -32603);
+            }
+            other => panic!("期望超时 Response：{other:?}"),
+        }
+        assert!(rx.is_empty(), "新条目不应产生应答");
+        let map = pending.lock().unwrap();
+        assert!(map.contains_key(&1), "新条目必须保留");
+        assert!(!map.contains_key(&2), "过期条目必须移除");
+    }
+
+    /// RA 崩溃重启：全部挂起请求排空，逐条收到 "restarted" 错误应答
+    #[test]
+    fn test_fail_all_pending_drains_with_errors() {
+        let (_mapper, pending, tx, rx, _builtin, _reply, _h) = dispatch_harness("函数 主() {}\n");
+        insert_pending(
+            &pending,
+            1,
+            100,
+            "textDocument/hover",
+            "file:///test/main.zh",
+        );
+        insert_pending(
+            &pending,
+            2,
+            101,
+            "textDocument/completion",
+            "file:///test/main.zh",
+        );
+        fail_all_pending(&pending, &tx);
+        assert!(pending.lock().unwrap().is_empty(), "排空后表应为空");
+        let mut ids = Vec::new();
+        while let Ok(Message::Response(resp)) = rx.try_recv() {
+            assert_eq!(
+                resp.error.as_ref().unwrap().message,
+                "rust-analyzer restarted"
+            );
+            ids.push(resp.id);
+        }
+        assert_eq!(ids.len(), 2, "两个挂起请求都应被应答");
     }
 }

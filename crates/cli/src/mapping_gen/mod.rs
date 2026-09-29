@@ -402,7 +402,7 @@ pub fn run_auto_generate(
 
 #[cfg(test)]
 mod tests {
-    use super::{explanation_coverage, version_requirement};
+    use super::{explanation_coverage, run_auto_generate, version_requirement};
     use std::collections::HashMap;
 
     /// 完整三段版本 → `=x.y.z` 精确锁定；兼容 =/v 前导与预发布/构建后缀
@@ -465,5 +465,20 @@ mod tests {
         explanations.insert("状态".to_string(), "状态值。".to_string());
         assert_eq!(explanation_coverage(&table, &explanations), (3, 3));
         assert_eq!(explanation_coverage(&[], &explanations), (0, 0));
+    }
+
+    /// 入参非法时在任何网络/提包动作之前 bail，且不落盘任何文件
+    #[test]
+    fn test_run_auto_generate_validates_before_network() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("out.toml");
+        // 空 crate 名
+        assert!(run_auto_generate("", "zh", "rule", &out, None).is_err());
+        // 名字含路径穿越/空格等非法字符
+        assert!(run_auto_generate("../evil name", "zh", "rule", &out, None).is_err());
+        // 版本号非法（None 之外才会在此 bail；合法版本随后才进入提包网络流程）
+        assert!(run_auto_generate("serde", "zh", "rule", &out, Some("abc")).is_err());
+        assert!(run_auto_generate("serde", "zh", "rule", &out, Some("2.x")).is_err());
+        assert!(!out.exists(), "校验失败不得产生输出文件");
     }
 }

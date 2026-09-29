@@ -11,7 +11,7 @@
 CARGO ?= cargo
 PYTHON ?= python3
 
-.PHONY: help fmt fmt-check clippy test gate ui-keys lang-packs readme-parity mapping-check tutorials tutorials-all site site-serve feishu glossary bench bench-check bench-update vsix clean
+.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs readme-parity mapping-check tutorials tutorials-all site site-serve feishu glossary bench bench-check bench-update vsix clean
 
 help: ## 显示全部可用目标
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -30,7 +30,10 @@ test: ## 全部单元测试（debug + release，锁定依赖；CI 同款）
 	$(CARGO) test --workspace --locked
 	$(CARGO) test --workspace --release --locked
 
-gate: fmt-check clippy test ui-keys lang-packs readme-parity mapping-check tutorials-all glossary ## 提交前完整门禁（= CI test job 全链）
+gate: fmt-check clippy test prod-panics ui-keys lang-packs readme-parity mapping-check tutorials-all glossary ## 提交前完整门禁（= CI test job 全链）
+
+prod-panics: ## 生产代码 panic 面门禁（unwrap/expect/panic! 仅限测试区或白名单）
+	$(PYTHON) tools/check-prod-panics.py
 
 ui-keys: ## ui.toml 键完备性检查（11 语言与 zh 对齐，含占位符一致性）
 	$(PYTHON) tools/check-ui-keys.py

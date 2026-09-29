@@ -72,6 +72,12 @@ impl ResponseMapper {
         self.cache.lint_words()
     }
 
+    /// 获取教学 lint 歧义构造器词集（转发 TranslationCache，
+    /// 「未标注类型」仅提示无法自行推导的 new/default/collect 形态）
+    pub fn ambiguous_constructor_words(&self) -> std::collections::HashSet<String> {
+        self.cache.ambiguous_constructor_words()
+    }
+
     /// 将虚拟 URI 替换为原始 URI
     pub fn restore_uri(&self, uri: &str) -> String {
         if let Some(entry) = self.cache.query_by_virtual_uri(uri) {

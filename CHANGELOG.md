@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-09-29
+
 ### 修复
 - LSP：主消息翻译不再只走 `errors.toml` 消息表，改为**复用引擎与 CLI 同口径的
   `DiagnosticTranslator::render_main_message`**（错误码表优先 → 消息表 → 占位符
@@ -57,10 +59,29 @@
   模块路径表（产物 `tokio::sleep`、`#[tokio::main]`）；use 语句仍由模块路径阶段
   处理，别名表命中优先（「路径」=Path 优先于 path 模块），替换值做 crate 名
   连字符规范化
-- 引擎：教学 lint「未标注类型」只对简单标识符绑定提示——`让` 后为模式解构
-  （元组/结构体/数组解构、让-否则、let 链）时不再误报：这类绑定须标注整个
-  模式的类型，教程示例均以不标注形式书写，提示无解成噪音；`让 x = …` 与
-  `让 可变 x = …` 照常提示
+- 引擎：教学 lint「未标注类型」大幅收窄误报——仅当初始化式的类型编译器
+  **无法自行推导**时才提示：无 turbofish 的关联构造器（`X::new()`/
+  `X::default()` 及方言词「新建」「缺省」）与无 turbofish 的 `.collect()`；
+  字面量、普通函数/方法调用、宏、结构体/元组/数组构造、路径、块表达式，
+  以及模式解构（元组/结构体/数组解构、让-否则、let 链）一律不再提示
+  （真歧义仍有 rustc E0282 兜底）。此前 `让 数量 = 5`、`让 x = 字符串::新建()`
+  这类可自动推导的写法在 IDE 里满屏蓝色波浪线；歧义词集由 MappingManager
+  从语言包反查（zh：新建→new、默认值/缺省→default），CLI/LSP/引擎三入口同口径
+- 诊断：修复 E0583 等模板消息残留**裸占位符**——`{模块名}`/`{变量名}`/`{类型}`
+  等占位符此前在模板缺词时直接出现在译文里；现统一从 rustc 原文反引号片段
+  按序回填（LSP `render_main_message` 与 CLI `translate_diagnostic` 两路径
+  同口径），回填不出时回退 rustc 原文/消息表而非裸占位符（回归单测
+  `e0583_module_name_placeholder_filled`）
+- 多层模块：rzc 源码管理由扁平布局升级为**支持多层目录**（贴合标准 Rust
+  模块树 `src/领域.rs` + `src/领域/工具.zh`）——CLI 递归收集 src 各方言文件、
+  非入口产物按自身层级补 `#[path="父词干/子词干.rs"]` 注解并原位写回；
+  LSP 镜像检查同步全层级词干与层级注解；虚拟项目（rust-analyzer 分析目标）
+  兄弟同步改为按模块树规则 DFS（仅同名子目录入队、visited 防环），聚合 main.rs
+  只声明顶层模块，嵌套子声明以 `#[path]` 追加在父虚拟文件末尾（统一 pub 防
+  E0603，追加行不影响原文行列映射）。此前多层项目报 E0754/E0583/E0603 与
+  连带的「未解析的导入」假红（新增 CLI 集成测试 `test_check_nested_module_project_succeeds`、
+  LSP 单测 `test_nested_module_tree_aggregated`、真实 rust-analyzer e2e
+  `e2e_nested_module_no_false_diagnostics`）
 - 语言包：11 语言 `ui.toml` 键完备性补齐（zh +25 / en +126 / 其余 9 语言
   各 +66，含 `mc_cov_*` 键组段位归位）——修复 en 等语言 `rzc crate --help`
   一类界面直接显示原始键名（如 `cmd_crate_about`）的整域缺口
@@ -171,6 +192,86 @@
 - CI test job 同步强化：新增 ui.toml 键完备性与 README parity 步骤、教程
   验证循环 en/ja/ru、mapping 门禁改经告警基线脚本；bench 作业首次失败自动
   重跑一次（共享 runner 噪声）后仍超阈值才判失败
+- 新增生产 panic 面门禁 `tools/check-prod-panics.py`：扫描 `crates/*/src` 下
+  `#[cfg(test)]` 区域外物理行的 `.unwrap()`/`.expect(`/`panic!`/
+  `unreachable!`/`unimplemented!`/`todo!`（自带词法器排除行/块注释、裸串、
+  字节串、字符字面量，tests.rs 与 tests/benches/examples 整目录豁免，
+  白名单仅 1 条启动期语言包加载 `.expect`），接入 `make gate` 与 CI——
+  防止向用户发布路径新增「运行时 panic 即崩溃」面；附 7 个合成对抗样例
+  锁定词法器行为
+- 基准门禁抗噪声加固：`tools/bench-check.sh` 新增 `BENCH_RUNS` 多遍机制
+  （逐遍收割 criterion `estimates.json` 均值并逐项取最小值，消除 runner
+  偶发抖动被当回归），回归阈值 100%→40%（真实回归必破、抖动不破），
+  CI bench 作业以 `BENCH_RUNS=3` 三遍聚合
+- `check-readme-parity.py` 目标语种由硬编码 9 语种改为 glob `README.*.md`
+  目录派生（排除基准 en）——新增翻译语种时不可能再漏配门禁；新增
+  `--lang` 显式覆盖参数，空目标告警并以非零退出
+- 胶水层补测 30 项（crate_registry 双布局/索引损坏/清单往返、mirror_check
+  根目录发现/目录净化/树复制排除项/span 行列换算、install 哈希与压缩包
+  往返、mapping_gen 早退路径、LSP 语言包回退/配置形状/`is_symlink` lstat
+  语义/进程探活/虚拟目录幂等），工作区行覆盖 74.2%→76.16%，CI 覆盖率
+  门禁 70%→75%
+- 覆盖率门禁把 7 条 `#[ignore]` 的 LSP 端到端测试纳入统计：coverage job
+  与 lsp-e2e 同口径先 `rzc install toolchain --ra-only` 装 rust-analyzer，
+  再以 `--include-ignored` 跑真实协议链路（子进程 LSP 二进制覆盖率经
+  LLVM_PROFILE_FILE 合并），工作区行覆盖 76.16%→**79.95%**、分支
+  78.65%→81.96%（server.rs 28.56%→55.86%、mirror_check.rs 50.14%→
+  87.54%），阈值上调到 79；rust-analyzer 缺失时 e2e 静默跳过会令覆盖
+  率跌破阈值显式失败，不会假装通过
+- 覆盖率第二档补测（纯函数边界缝 + 子命令集成），工作区行覆盖
+  79.95%→**86.11%**、分支 81.96%→**86.56%**（server.rs 行
+  55.86%→82.19%、diagnostics.rs 91.69%、mapping_check.rs 85.98%、
+  mapping_source.rs 91.54%、responses.rs 92.89%），CI 阈值 79→85：
+  - CLI 集成测试 `tests/cli_basic.rs`（22 项）：init 骨架、直调
+    rustc 路径 run（输出「输出：42」）、好/坏程序 check（E0384
+    本地化 + 💡）、eject、doctor、mapping check/coverage/scaffold、
+    本地语言包装/列/删/--force/路径逃逸拒绝、缺源码文件干净失败；
+    HOME 经临时目录逐进程隔离，mapping coverage 用例固定 cwd 为
+    工作区根（`find_project_root_upward` 命中首个 Cargo.toml 即停）
+  - `diagnostics::tests`（模块内 19 项）：cargo 五类进度前缀/panic
+    框头畸形拒绝/源码行边界/产物路径解析顺序/非方言位置直通/子模块
+    方言 .zh→.rs 回译/E0432 教学翻译/语言包损坏降级内置表/
+    cargo_ok×silent 四组合空分支
+  - `mapping_check::tests`（模块内 33 项，新增 5）：节解析错误、
+    干净/警告/失败三态报告与未知 code 渲染不 panic、scaffold 首跑
+    写 TODO 复跑幂等跳过、crates 目录覆盖与回退、check 目标三分支
+  - engine `mapping_source::tests`（新增 4）：FileMissing/
+    ParseFailed 错误分类、第三方 crates 多文件多子节归类（非 toml
+    忽略）、load_all 的 module_paths 仅补 stdlib 缺失键（stdlib
+    同键优先）、分类元信息与 UTF-8 文件名快路径
+  - LSP `responses::tests`（新增 2）：补全响应全链路（label/
+    newText/insertText/detail/labelDetails 母语化、方法项 snippet
+    补括号、严格母语过滤丢弃未翻译第三方英文项、用户英文标识保留、
+    文档命中「解释」表白话替换）、null/空 items 不 panic
+  - LSP `server::tests`（模块内 21 项，新增 7）：analyzer 响应
+    13 方法分发（含未知方法静默）、错误码透传（空 error 落
+    -32603）、虚拟 URI 诊断路由回 file:// 方言 URI、杂项通知转发、
+    主动请求回送 RA 不进客户端通道、超时条目只清理过期者、
+    restart 时全部待办以 "rust-analyzer restarted" 排空；新增
+    `#[cfg(test)] Sender::null_for_test` 测试缝（writer 恒 None）
+  - 明确不补：CLI 安装/registry、mapping auto 生成等 AI/网络/下载
+    路径与需真实 TTY 的首启引导，继续由 e2e 与人工验证覆盖；
+    锁定语义不变——编译错误只随 didOpen/didSave 镜像检查发布，
+    分发/超时/重启的应答行为经本档单测固定
+- LSP e2e：修正 ru/ar 两语言 E0425 特征词陈旧——新版 rust-analyzer
+  （2026-08-24/0.3.3025）对未解析名诊断直接上报 `code: "E0425"`，LSP 改
+  走错误码表渲染（ru「Имя … не найдено в этой области видимости」、
+  ar「الاسم … غير موجود في هذا النطاق」），测试却仍在等旧短语替换路径的
+  «найти значение» / «العثور» 而超时失败；关键词改为取自 `[E0425]`
+  消息模板并收敛为 `LANG_KEYWORDS` 单一事实来源（新增 `lang_keyword`
+  查找函数，四个语言测试不再各自硬编码，杜绝再次漂移）
+- 审计热路径补对抗性不变量测试：`match_segments` 单/双/三捕获、空首锚
+  拒绝、空捕获返回 `Some([""])` 等 17 例（`match_segments_adversarial`）；
+  `english_word_runs` 固定「4 词阈值、纯数字断词、非 ASCII 空串不断词」
+  的宁可误报语义（`english_word_runs_threshold_and_splitters`）；fuzz
+  `source_strategy` 注入 `?`/`` ` ``/`::`/中文路径/`->`/`=>` 对抗词；
+  入口聚合补真实 tempdir 回归（`test_entry_output_path_aggregates_direct_src_entries`，
+  锁定 src 直属多文件聚合、非入口不聚合、ghost 路径词法回退三条不变量）
+- 发布闭环：release.yml 新增 `publish-extension` job，推 tag 后同一 vsix
+  自动发布 VS Code Marketplace 与 OpenVSX（仅 GitHub 镜像仓库执行避免双发；
+  `VSCE_PAT`/`OVSX_PAT` 缺失各自告警跳过、不阻塞 Release）；演示 GIF
+  已用 vhs 实录入库 `docs/demo/demo-zh.gif`（309KB，三场景：母语源码 →
+  教学报错 E0384+💡 → eject 标准 Rust），中/英 README 顶部引用生效
 
 ### 新增
 - CLI：`rzc doctor` 新增语言包健康检查——全局目录（`~/.rz/lang-packs/`）下报三项：

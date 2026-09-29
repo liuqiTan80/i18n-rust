@@ -668,4 +668,174 @@ mod tests {
         let back: RegistryIndex = serde_json::from_str(&json).unwrap();
         assert_eq!(back.mappings.len(), 2);
     }
+
+    /// 注册中心子目录两种布局：合并进主仓库后在 third-party/，独立仓库在根
+    #[test]
+    fn test_registry_subdir_two_layouts() {
+        let temp = tempfile::tempdir().unwrap();
+        // 平铺布局：index.json 在根
+        let flat = temp.path().join("flat");
+        fs::create_dir_all(&flat).unwrap();
+        fs::write(flat.join("index.json"), "{}").unwrap();
+        assert_eq!(registry_subdir(&flat), flat);
+
+        // 嵌套布局：third-party/index.json
+        let nested = temp.path().join("nested");
+        let nested_tp = nested.join("third-party");
+        fs::create_dir_all(&nested_tp).unwrap();
+        fs::write(nested_tp.join("index.json"), "{}").unwrap();
+        assert_eq!(registry_subdir(&nested), nested_tp);
+    }
+
+    /// read_index：缺失 → 空索引；合法 → 解析；损坏 JSON → 报错
+    #[test]
+    fn test_read_index_missing_valid_corrupt() {
+        let temp = tempfile::tempdir().unwrap();
+        let missing = temp.path().join("absent.json");
+        assert!(read_index(&missing).unwrap().mappings.is_empty());
+
+        let good = temp.path().join("good.json");
+        let mut index = RegistryIndex::default();
+        upsert_entry(&mut index, "serde", "zh", "tan80");
+        write_index(&good, &index).unwrap();
+        assert_eq!(read_index(&good).unwrap().mappings.len(), 1);
+
+        let bad = temp.path().join("bad.json");
+        fs::write(&bad, "{ 不是合法 JSON").unwrap();
+        assert!(read_index(&bad).is_err());
+    }
+
+    /// write_index：父目录不存在时逐级创建，可回读
+    #[test]
+    fn test_write_index_creates_parent_dirs() {
+        let temp = tempfile::tempdir().unwrap();
+        let deep = temp.path().join("a").join("b").join("index.json");
+        write_index(&deep, &RegistryIndex::default()).unwrap();
+        assert!(deep.is_file());
+        assert_eq!(read_index(&deep).unwrap().mappings.len(), 0);
+    }
+
+    /// 新条目默认字段齐全且按 (crate, lang) 排序；file 路径与注册中心布局一致
+    #[test]
+    fn test_upsert_entry_defaults_and_order() {
+        let mut index = RegistryIndex::default();
+        upsert_entry(&mut index, "tokio", "zh", "alice");
+        upsert_entry(&mut index, "serde", "ja", "bob");
+        upsert_entry(&mut index, "serde", "zh", "carol");
+        let keys: Vec<_> = index
+            .mappings
+            .iter()
+            .map(|m| (m.crate_name.as_str(), m.lang.as_str()))
+            .collect();
+        assert_eq!(
+            keys,
+            vec![("serde", "ja"), ("serde", "zh"), ("tokio", "zh")]
+        );
+        let first = &index.mappings[0];
+        assert_eq!(first.version, "1.0");
+        assert_eq!(first.license, "MIT");
+        assert_eq!(first.quality, 1.0);
+        assert_eq!(first.downloads, 0);
+        assert_eq!(first.file, "ja/crates/serde.toml");
+        assert_eq!(first.updated.len(), 10);
+        assert_eq!(index.updated, first.updated);
+    }
+
+    /// --file 显式指定：存在即采用；不存在报错（不进入候选路径扫描）
+    #[test]
+    fn test_resolve_publish_file_explicit_branch() {
+        let temp = tempfile::tempdir().unwrap();
+        let existing = temp.path().join("mine.toml");
+        fs::write(&existing, "[\"标识符\"]\n\"a\" = \"b\"\n").unwrap();
+        assert_eq!(
+            resolve_publish_file("serde", "zh", Some(existing.clone())).unwrap(),
+            existing
+        );
+        let missing = temp.path().join("absent.toml");
+        assert!(resolve_publish_file("serde", "zh", Some(missing)).is_err());
+    }
+
+    /// 写入本地（嵌套 third-party 布局，即并入主仓库后的布局）：
+    /// 映射文件 + 索引条目一并落盘，git 提交 best effort（非 git 目录静默失败）
+    #[test]
+    fn test_write_to_local_registry_nested_layout() {
+        let temp = tempfile::tempdir().unwrap();
+        let repo = temp.path().join("repo");
+        // 真实主仓库中 third-party/index.json 已存在，写入方据此识别嵌套布局
+        let tp = repo.join("third-party");
+        fs::create_dir_all(&tp).unwrap();
+        write_index(&tp.join("index.json"), &RegistryIndex::default()).unwrap();
+
+        let content = "[\"标识符\"]\n\"服务器\" = \"Server\"\n";
+        write_to_local_registry(&repo, "serde", "zh", content, "tan80").unwrap();
+
+        let mapping = tp.join("zh/crates/serde.toml");
+        assert_eq!(fs::read_to_string(&mapping).unwrap(), content);
+        let index = read_index(&tp.join("index.json")).unwrap();
+        assert_eq!(index.mappings.len(), 1);
+        let entry = &index.mappings[0];
+        assert_eq!(entry.crate_name, "serde");
+        assert_eq!(entry.lang, "zh");
+        assert_eq!(entry.version, "1.0");
+        assert_eq!(entry.file, "zh/crates/serde.toml");
+    }
+
+    /// 写入本地（独立注册中心仓库的平铺布局）：映射文件直接落在 <lang>/crates/
+    #[test]
+    fn test_write_to_local_registry_flat_layout() {
+        let temp = tempfile::tempdir().unwrap();
+        let repo = temp.path().join("repo");
+        fs::create_dir_all(&repo).unwrap();
+        write_index(&repo.join("index.json"), &RegistryIndex::default()).unwrap();
+        write_to_local_registry(&repo, "tokio", "ja", "[\"标识符\"]\n\"a\"=\"b\"\n", "alice")
+            .unwrap();
+        assert!(repo.join("ja/crates/tokio.toml").is_file());
+        let index = read_index(&repo.join("index.json")).unwrap();
+        assert_eq!(index.mappings.len(), 1);
+        assert_eq!(index.mappings[0].file, "ja/crates/tokio.toml");
+    }
+
+    /// 已安装清单：缺失 → 空表；写入 → 按 (crate, lang) 键回读；损坏 → 回退空表
+    #[test]
+    fn test_installed_manifest_roundtrip_and_corrupt_fallback() {
+        let _guard = crate::lang_manager::tests::env_lock();
+        let temp = tempfile::tempdir().unwrap();
+        let saved = std::env::var("RZ_LANG_DIR").ok();
+        unsafe {
+            std::env::set_var("RZ_LANG_DIR", temp.path().join("lang-packs"));
+        }
+        let restore = || unsafe {
+            match &saved {
+                Some(v) => std::env::set_var("RZ_LANG_DIR", v),
+                None => std::env::remove_var("RZ_LANG_DIR"),
+            }
+        };
+
+        // 首次读取：清单不存在 → 空表（不报错）
+        assert!(read_installed().is_empty());
+
+        // 经 upsert_entry 构造一条真实条目并写清单
+        let mut index = RegistryIndex::default();
+        upsert_entry(&mut index, "serde", "zh", "tan80");
+        let entry = index.mappings[0].clone();
+        let mut map = BTreeMap::new();
+        map.insert(("serde".to_string(), "zh".to_string()), entry.clone());
+        write_installed(&map).unwrap();
+        // 清单位于语言包目录的上一级（全局 .rz 根）
+        assert!(temp.path().join("crate-registry.json").is_file());
+        let back = read_installed();
+        // MappingEntry 未派生 PartialEq（生产无等值比较需求），逐字段核对
+        let got = back
+            .get(&("serde".to_string(), "zh".to_string()))
+            .expect("回读清单应含 serde/zh");
+        assert_eq!(got.version, entry.version);
+        assert_eq!(got.author, entry.author);
+        assert_eq!(got.file, entry.file);
+
+        // 清单损坏（手工改坏 JSON）→ 回退空表，不传播错误
+        fs::write(temp.path().join("crate-registry.json"), "[坏").unwrap();
+        assert!(read_installed().is_empty());
+
+        restore();
+    }
 }

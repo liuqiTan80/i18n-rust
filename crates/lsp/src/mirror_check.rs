@@ -264,7 +264,9 @@ fn transpile_into_mirror(
         return None;
     }
 
-    // 模块名集合：src/ 顶层方言文件词干（与 CLI collect_project_context 同规则）
+    // 模块名集合：src/ 全层级方言文件词干（与 CLI collect_project_context
+    // 同规则）；嵌套模块（src/领域/工具.zh 的「工具」）也纳入，供
+    // `crate::领域::工具::成员` 多层路径链豁免
     let mut module_names: HashSet<String> = HashSet::new();
     // 方言源内容：打开文档取缓冲区，其余取磁盘
     let mut sources: HashMap<PathBuf, String> = HashMap::new();
@@ -280,9 +282,7 @@ fn transpile_into_mirror(
             .map(|e| e.zh_content.clone())
             .or_else(|| std::fs::read_to_string(mirror_path).ok());
         let Some(content) = content else { continue };
-        if mirror_path.parent() == Some(mirror_src.as_path())
-            && let Some(stem) = mirror_path.file_stem().and_then(|s| s.to_str())
-        {
+        if let Some(stem) = mirror_path.file_stem().and_then(|s| s.to_str()) {
             module_names.insert(stem.to_string());
         }
         sources.insert(mirror_path.clone(), content);
@@ -347,9 +347,19 @@ fn transpile_into_mirror(
             let (annotated, line_map) =
                 i18n_rust_engine::module_path::annotate_non_ascii_mods_with_lines(&p.output);
             (annotated, mirror_src.join("main.rs"), Some(line_map))
+        } else if let Some(stem) = p.mirror_path.file_stem().and_then(|s| s.to_str()) {
+            // 非入口模块（含多层）：按自身词干目录补 #[path]，
+            // 与 rzc transpile_project_files 同规则（src/领域.rs 的
+            // `mod 工具;` → #[path = "领域/工具.rs"]）；行映射同样
+            // 供诊断行号回译
+            let (annotated, line_map) =
+                i18n_rust_engine::module_path::annotate_nested_mods_with_lines(&p.output, stem);
+            (
+                annotated,
+                p.mirror_path.with_extension("rs"),
+                Some(line_map),
+            )
         } else {
-            // 其余文件与 rzc 的 transpile_project_files 一致：不注解，
-            // 天然产物路径（同名 .rs）
             (p.output.clone(), p.mirror_path.with_extension("rs"), None)
         };
         if let Err(e) = std::fs::write(&product_path, &content) {
@@ -646,7 +656,12 @@ fn publish_rustc_diagnostics(
         // 教学诊断注入（全角标点 + 教学 lint）：由 entry 内容直接计算，
         // 不依赖 builtin 缓存（镜像检查先于 RA 首批发布时缓存为空）
         if let Some(entry) = cache.query_original(&uri) {
-            inject_teaching_diags(&mut diags, &entry, known_words);
+            inject_teaching_diags(
+                &mut diags,
+                &entry,
+                known_words,
+                &cache.ambiguous_constructor_words(),
+            );
         }
         let notification = lsp_server::Notification {
             method: "textDocument/publishDiagnostics".to_string(),
@@ -851,5 +866,173 @@ mod tests {
         assert_eq!(zh_char_col_to_utf16(文本, 1, 4), 4);
         // 越界行回退为 0-based 字符列
         assert_eq!(zh_char_col_to_utf16(文本, 9, 3), 2);
+    }
+
+    /// 项目根定位：沿目录上行找最近的 Cargo.toml；全程没有则 None
+    #[test]
+    fn test_find_project_root_nearest_and_absent() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("proj");
+        let deep = root.join("src/sub/deep");
+        std::fs::create_dir_all(&deep).unwrap();
+        std::fs::write(root.join("Cargo.toml"), "[package]\n").unwrap();
+        let trigger = deep.join("main.zh");
+        assert_eq!(find_project_root(&trigger).as_deref(), Some(root.as_path()));
+        // 内层另有 Cargo.toml 时取最近者
+        std::fs::write(deep.join("Cargo.toml"), "[package]\n").unwrap();
+        assert_eq!(find_project_root(&trigger).as_deref(), Some(deep.as_path()));
+        // 无 Cargo.toml 的目录树（单文件教学场景）→ None
+        let other = temp.path().join("noproject/a");
+        std::fs::create_dir_all(&other).unwrap();
+        assert!(find_project_root(&other.join("main.zh")).is_none());
+    }
+
+    /// 镜像目录名：固定前缀 + 用户 + PID + 项目哈希；用户名非法字符清洗为下划线
+    #[test]
+    fn test_mirror_dir_shape_and_user_sanitize() {
+        let root = Path::new("/tmp/proj-alpha");
+        let dir = mirror_dir_for(root);
+        let name = dir.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(name.starts_with("i18n_lsp_mirror_"), "实际：{name}");
+        assert!(
+            name.ends_with(&format!("_{:x}", path_hash(root))),
+            "目录名应以项目哈希结尾：{name}"
+        );
+
+        // 用户名含空格/斜杠等非法字符时清洗（保存/恢复 USER，避免污染其他测试）
+        let saved = std::env::var("USER").ok();
+        unsafe {
+            std::env::set_var("USER", "a b/c");
+        }
+        let dir2 = mirror_dir_for(root);
+        let name2 = dir2.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(
+            name2.contains("a_b_c"),
+            "用户名非法字符应替换为下划线：{name2}"
+        );
+        unsafe {
+            match saved {
+                Some(v) => std::env::set_var("USER", v),
+                None => std::env::remove_var("USER"),
+            }
+        }
+    }
+
+    /// 项目树复制：源文件递归复制；target/.git/node_modules/dist 一律排除
+    #[test]
+    fn test_copy_project_tree_filters_excluded_dirs() {
+        let temp = tempfile::tempdir().unwrap();
+        let from = temp.path().join("proj");
+        std::fs::create_dir_all(from.join("src/sub")).unwrap();
+        std::fs::write(from.join("Cargo.toml"), "[package]\n").unwrap();
+        std::fs::write(from.join("src/main.zh"), "函数 主函数() {}\n").unwrap();
+        std::fs::write(from.join("src/sub/util.zh"), "公开 函数 工具() {}\n").unwrap();
+        for excluded in [
+            "target/debug/x",
+            ".git/config",
+            "node_modules/lib/a",
+            "dist/bundle",
+        ] {
+            let p = from.join(excluded);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(p, "应被排除").unwrap();
+        }
+        let to = temp.path().join("mirror");
+        copy_project_tree(&from, &to).unwrap();
+        assert!(to.join("Cargo.toml").is_file());
+        assert!(to.join("src/main.zh").is_file());
+        assert!(to.join("src/sub/util.zh").is_file());
+        assert!(!to.join("target").exists());
+        assert!(!to.join(".git").exists());
+        assert!(!to.join("node_modules").exists());
+        assert!(!to.join("dist").exists());
+    }
+
+    /// 方言源收集：递归、仅匹配给定扩展名
+    #[test]
+    fn test_collect_dialect_paths_recursive() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("proj/src");
+        std::fs::create_dir_all(root.join("sub")).unwrap();
+        std::fs::write(root.join("main.zh"), "").unwrap();
+        std::fs::write(root.join("main.rs"), "").unwrap();
+        std::fs::write(root.join("sub/util.zh"), "").unwrap();
+        let mut out = Vec::new();
+        collect_dialect_paths(&root, &[".zh".to_string()], &mut out);
+        out.sort();
+        let names: Vec<String> = out
+            .iter()
+            .map(|p| p.strip_prefix(&root).unwrap().display().to_string())
+            .collect();
+        assert_eq!(names, vec!["main.zh", "sub/util.zh"]);
+        // 目录不存在不报错（调用方依赖此容错）
+        let mut empty = Vec::new();
+        collect_dialect_paths(
+            &temp.path().join("absent"),
+            &[".zh".to_string()],
+            &mut empty,
+        );
+        assert!(empty.is_empty());
+    }
+
+    /// 构造一个带列映射的镜像文件（zh「让 x = 1;」→ en「let x = 1;」）
+    fn mapped_file(entry_line_map: Option<Vec<usize>>) -> MirrorFile {
+        let zh = "让 x = 1;\n";
+        let edits = [i18n_rust_engine::cache::SourceMapEntry::new(
+            0, 3, "让", "let",
+        )];
+        MirrorFile {
+            product_path: PathBuf::from("/mirror/src/main.rs"),
+            original_uri: "file:///proj/src/main.zh".to_string(),
+            zh_content: zh.to_string(),
+            column_map: i18n_rust_engine::column_map::ColumnMap::build(zh, &edits),
+            entry_line_map,
+        }
+    }
+
+    /// span 回译：列经列映射换算，行转 0-based；无 #[path] 行映射时行号恒等
+    #[test]
+    fn test_map_span_range_column_and_line_basics() {
+        let file = mapped_file(None);
+        // 产物 `let x = 1;` 第 1 行第 5 列（x 的首列，1-based）
+        // → 方言「让 x = 1;」第 3 列；输出为 0-based 行 + UTF-16 列
+        let span = serde_json::json!({"line_start": 1, "column_start": 5});
+        assert_eq!(map_span_range(&file, &span), Some((0, 2, 0, 2)));
+        // 缺 line_start → None（无法回译）
+        let bad = serde_json::json!({"column_start": 5});
+        assert_eq!(map_span_range(&file, &bad), None);
+    }
+
+    /// 入口产物含 #[path] 注解插入行：产物行先经入口行映射回引擎直出行号
+    #[test]
+    fn map_position_translates_entry_inserted_lines() {
+        // 方言 3 行；产物在顶部插入 1 行注解：产物 1 行 ↔ 引擎 3 行（映射值 2 → 行 3）
+        let zh = "函数 主函数() {\n    打印行!(\"hi\");\n}\n";
+        let edits = [
+            i18n_rust_engine::cache::SourceMapEntry::new(0, 6, "函数", "fn"),
+            // 第 1 行 21 字节 + 4 个前导空格 → 「打印行」字节偏移 25
+            i18n_rust_engine::cache::SourceMapEntry::new(25, 9, "打印行", "println"),
+        ];
+        let file = MirrorFile {
+            product_path: PathBuf::from("/mirror/src/main.rs"),
+            original_uri: "file:///proj/src/main.zh".to_string(),
+            zh_content: zh.to_string(),
+            column_map: i18n_rust_engine::column_map::ColumnMap::build(zh, &edits),
+            entry_line_map: Some(vec![2, 0, 1]),
+        };
+        // 产物第 1 行 → 引擎第 3 行（"}" 行）→ 方言 0-based 第 2 行
+        let (sl, _sc, el, _ec) = map_span_range(
+            &file,
+            &serde_json::json!({"line_start": 1, "column_start": 1}),
+        )
+        .unwrap();
+        assert_eq!((sl, el), (2, 2));
+        // 产物第 2 行 → 引擎第 1 行（映射值 0）
+        let (sl2, _, _, _) = map_span_range(
+            &file,
+            &serde_json::json!({"line_start": 2, "column_start": 1}),
+        )
+        .unwrap();
+        assert_eq!(sl2, 0);
     }
 }

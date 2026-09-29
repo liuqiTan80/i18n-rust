@@ -1041,4 +1041,140 @@ mod tests {
         let (类型名, _) = extract_hover_parts("**impl<T> Option<T>**");
         assert_eq!(类型名.as_deref(), Some("Option"));
     }
+
+    /// 构造带缓存文档的 mapper（关键字 + 别名最小集）
+    fn mapper_with_doc(
+        source: &str,
+    ) -> (
+        ResponseMapper,
+        tempfile::TempDir,
+        std::sync::Arc<crate::translation_cache::TranslationCache>,
+    ) {
+        use std::collections::HashMap;
+        use std::sync::Arc;
+        let manager = i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+            HashMap::from([
+                ("函数".into(), "fn".into()),
+                ("让".into(), "let".into()),
+                ("可变".into(), "mut".into()),
+            ]),
+            HashMap::new(),
+            HashMap::from([("长度".into(), "len".into()), ("向量".into(), "Vec".into())]),
+        );
+        let temp = tempfile::tempdir().unwrap();
+        let cache: Arc<crate::translation_cache::TranslationCache> =
+            crate::translation_cache::TranslationCache::new(manager, temp.path().to_path_buf());
+        cache
+            .update_document("file:///t/main.zh", source, 1)
+            .unwrap();
+        (ResponseMapper::new(cache.clone()), temp, cache)
+    }
+
+    /// 补全响应：关键字/方法项母语化（label/newText/insertText/detail/
+    /// labelDetails/documentation/textEdit 括号补全）；未翻译的第三方英文项
+    /// 被母语过滤丢弃；用户自定义英文标识项保留
+    #[test]
+    fn test_map_completion_response_full() {
+        // 源码含用户自定义英文标识：my_func 与 unwrap（后者用于保留文档项）
+        let source = "函数 my_func() {\n    unwrap();\n}\n";
+        let (mapper, _temp, _cache) = mapper_with_doc(source);
+        let virtual_range = json!({
+            "start": { "line": 0, "character": 0 },
+            "end": { "line": 0, "character": 2 }
+        });
+        let keyword_item = json!({
+            "label": "fn", "kind": 14,
+            "textEdit": { "range": virtual_range, "newText": "fn" },
+            "insertText": "fn",
+            "detail": "fn item",
+            "labelDetails": { "description": "fn()", "detail": "keyword" },
+            "documentation": "plain english keyword doc",
+            "additionalTextEdits": [{ "range": virtual_range, "newText": "use std::io;" }]
+        });
+        let method_item = json!({
+            "label": "len", "kind": 2,
+            "textEdit": { "range": virtual_range, "newText": "len" }
+        });
+        // 未收录第三方英文项：严格母语过滤下必须丢弃
+        let foreign_item = json!({
+            "label": "tokio::spawn", "kind": 3,
+            "textEdit": { "range": virtual_range, "newText": "tokio::spawn" }
+        });
+        // 用户自定义英文标识：保留
+        let user_item = json!({
+            "label": "my_func", "kind": 3,
+            "textEdit": { "range": virtual_range, "newText": "my_func" }
+        });
+        // 文档大白话：markdown 对象形态，Option::unwrap 命中解释表
+        let doc_item = json!({
+            "label": "unwrap", "kind": 2,
+            "textEdit": { "range": virtual_range, "newText": "unwrap" },
+            "documentation": {
+                "kind": "markdown",
+                "value": "**`Option<T>`**\n\n`Option::unwrap()` 直接取值"
+            }
+        });
+        let response = json!({
+            "isIncomplete": false,
+            "items": [keyword_item, method_item, foreign_item, user_item, doc_item]
+        });
+        let mapped = mapper.map_completion_response(&response, "file:///t/main.zh");
+        let items = mapped["items"].as_array().expect("应有 items 数组");
+        // 第三方项被过滤，其余 4 项保留
+        assert_eq!(items.len(), 4, "应过滤未翻译第三方项：{items:?}");
+        let by_label: std::collections::HashMap<_, _> = items
+            .iter()
+            .map(|i| (i["label"].as_str().unwrap_or("").to_string(), i.clone()))
+            .collect();
+
+        // 关键字项
+        let kw = by_label.get("函数").expect("fn 应反查为 函数");
+        assert_eq!(kw["insertText"].as_str(), Some("函数"));
+        assert_eq!(kw["textEdit"]["newText"].as_str(), Some("函数"));
+        assert_eq!(kw["labelDetails"]["description"].as_str(), Some("函数()"));
+        assert!(kw.get("additionalTextEdits").is_some());
+
+        // 方法项：别名反查 + 无括号补 snippet 括号
+        let len = by_label.get("长度").expect("len 应反查为 长度");
+        let new_text = len["textEdit"]["newText"].as_str().unwrap();
+        assert!(
+            new_text.starts_with("长度("),
+            "方法补全应补括号：{new_text}"
+        );
+        assert_eq!(len["insertTextFormat"].as_i64(), Some(2));
+
+        // 用户自定义项保留
+        assert!(by_label.contains_key("my_func"), "用户英文标识应保留");
+
+        // 文档解释命中大白话表
+        let unwrap_item = by_label
+            .values()
+            .find(|i| {
+                i["textEdit"]["newText"]
+                    .as_str()
+                    .is_some_and(|t| t.contains("unwrap"))
+            })
+            .or_else(|| by_label.get("unwrap"))
+            .expect("unwrap 项应保留（源码出现过该标识）");
+        let doc = unwrap_item["documentation"].as_str().unwrap_or("");
+        assert!(
+            doc.contains("直接取出里面的值"),
+            "应替换为大白话解释：{doc}"
+        );
+    }
+
+    /// 文档字符串形态 + 无 items 的响应不 panic，原样可处理
+    #[test]
+    fn test_translate_completion_doc_shapes() {
+        let source = "函数 主() {}\n";
+        let (mapper, _temp, _cache) = mapper_with_doc(source);
+        // null / 空数组 / 非对象响应均安全
+        assert!(
+            mapper
+                .map_completion_response(&Value::Null, "file:///t/main.zh")
+                .is_null()
+        );
+        let arr = mapper.map_completion_response(&json!({ "items": [] }), "file:///t/main.zh");
+        assert_eq!(arr["items"].as_array().unwrap().len(), 0);
+    }
 }

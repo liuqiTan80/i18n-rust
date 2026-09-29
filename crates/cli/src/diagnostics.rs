@@ -32,12 +32,14 @@ pub(crate) fn can_use_direct_rustc(project_root: &Path, file: &Path) -> bool {
     // `rzc lang install` 安装的新语言包脱节（新增语言走不了快速路径）
     let extensions = lang_manager::all_available_extensions();
     let is_dialect_file = |name: &str| extensions.iter().any(|e| name.ends_with(&format!(".{e}")));
-    // 方言文件计数：src/ 与项目根都扫（教学项目 src/main.zh 为主，
-    // 项目根也可能放 main.zh）；超过 1 个视为多文件项目
-    let mut dialect_count = 0usize;
-    for dir in [project_root.join("src"), project_root.to_path_buf()] {
-        if let Ok(entries) = fs::read_dir(&dir) {
-            for entry in entries.flatten() {
+    // 方言文件计数：src/ 全层级递归（多层模块布局）+ 项目根顶层
+    //（教学项目 src/main.zh 为主，项目根也可能放 main.zh）；
+    // 超过 1 个视为多文件项目
+    let mut dialect_count =
+        crate::collect_dialect_files(&project_root.join("src"), &extensions).len();
+    if let Ok(entries) = fs::read_dir(project_root) {
+        for entry in entries.flatten() {
+            if entry.file_type().is_ok_and(|ft| ft.is_file()) {
                 let name = entry.file_name().to_string_lossy().to_string();
                 if is_dialect_file(&name) {
                     dialect_count += 1;
@@ -1107,5 +1109,264 @@ mod tests {
         let mut t = StreamTranslator::new();
         let out = t.translate("    Finished `dev` profile [unoptimized]", &ui);
         assert!(out.contains("编译完成"), "应本地化进度行：{out}");
+    }
+
+    /// cargo 进度五种前缀：编译/检查/完成/运行/错误摘要均本地化，
+    /// 错误摘要的 "could not compile … due to N" 二段短语也翻译；
+    /// 无匹配行与非 could-not-compile 的 error: 原样透传
+    #[test]
+    fn test_translate_cargo_progress_prefixes() {
+        let ui = ui_for_test("zh");
+        assert!(
+            translate_cargo_progress("   Compiling serde v1.0.0", &ui).contains("正在编译 serde")
+        );
+        assert!(
+            translate_cargo_progress("    Checking myapp v0.1.0", &ui).contains("正在检查 myapp")
+        );
+        assert!(translate_cargo_progress("Running `target/debug/t`", &ui).contains("正在运行"));
+        let due = translate_cargo_progress(
+            "error: could not compile `myapp` (bin \"myapp\") due to 2 previous errors",
+            &ui,
+        );
+        assert!(due.contains("无法编译"), "应翻译无法编译：{due}");
+        assert!(due.contains("2"), "应保留错误数量：{due}");
+        // could not compile 无 due to 尾段
+        assert!(
+            translate_cargo_progress("error: could not compile `myapp`", &ui).contains("无法编译")
+        );
+        // error: 但不是 could-not-compile：rest 原样保留
+        let raw = translate_cargo_progress("error: some custom failure", &ui);
+        assert!(
+            raw.contains("some custom failure"),
+            "未识别错误摘要应保留：{raw}"
+        );
+        // 完全无匹配：原样返回
+        assert_eq!(translate_cargo_progress("hello world", &ui), "hello world");
+    }
+
+    /// 框头 None 分支：缺尾冒号 / 空线程名 / 非框头行均不匹配，原样透传
+    #[test]
+    fn test_translate_panic_header_reject_malformed() {
+        let ui = ui_for_test("zh");
+        assert!(translate_panic_header("thread 'main' panicked at a.rs:1:1", &ui).is_none());
+        assert!(translate_panic_header("thread '' panicked at a.rs:1:1:", &ui).is_none());
+        assert!(translate_panic_header("not a panic line", &ui).is_none());
+        // 字节索引消息：缺尾结构时返回 None（不硬译半截）
+        assert!(translate_byte_index_message("10 unexpected tail", &ui, true).is_none());
+        assert!(translate_panic_message("totally unknown message", &ui).is_none());
+    }
+
+    /// 源码行取值：0 行与越界返回 None，正常行返回原文
+    #[test]
+    fn test_get_chinese_source_line_bounds() {
+        let src = "第一行\n第二行\n";
+        assert_eq!(get_chinese_source_line(src, 0), None);
+        assert_eq!(get_chinese_source_line(src, 1).as_deref(), Some("第一行"));
+        assert_eq!(get_chinese_source_line(src, 3), None);
+    }
+
+    /// 产物路径解析：绝对路径原样；相对路径先查项目根；不存在再回退当前目录
+    #[test]
+    fn test_resolve_product_path_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let abs = if cfg!(windows) {
+            std::path::PathBuf::from("C:/abs/main.rs")
+        } else {
+            std::path::PathBuf::from("/abs/main.rs")
+        };
+        assert_eq!(
+            resolve_product_path(root, &abs.to_string_lossy()),
+            Some(abs)
+        );
+        std::fs::write(root.join("in-root.rs"), b"").unwrap();
+        assert_eq!(
+            resolve_product_path(root, "in-root.rs"),
+            Some(root.join("in-root.rs"))
+        );
+        // 项目根下不存在：回退当前工作目录拼接（始终 Some）
+        let got = resolve_product_path(root, "nowhere-12345.rs").expect("应回退 cwd");
+        assert!(got.ends_with("nowhere-12345.rs"));
+    }
+
+    /// 构造最小诊断回译上下文（列映射/行映射均为 None）
+    fn minimal_ctx<'a>(
+        ui: &'a crate::ui::Ui,
+        root: &'a std::path::Path,
+        manager: &'a i18n_rust_engine::mapping_manager::MappingManager,
+        file: &'a std::path::Path,
+        source: &'a str,
+    ) -> DiagContext<'a> {
+        DiagContext {
+            ui,
+            lang_pack: &None,
+            project_root: root,
+            manager,
+            source,
+            file,
+            column_map: None,
+            entry_line_map: None,
+            project: None,
+        }
+    }
+
+    /// 非方言产物（不存在的第三方 .rs）：定位保持 rustc 原样，绝不误标入口文件
+    #[test]
+    fn test_fix_location_non_dialect_passthrough() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/main.zh"), "函数 主函数() {}\n").unwrap();
+        std::fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+        let entry = root.join("src/main.zh");
+        let manager = zh_manager();
+        let ui = crate::ui::Ui::for_lang("zh");
+        let ctx = minimal_ctx(&ui, root, &manager, &entry, "函数 主函数() {}\n");
+        let mut fixer = DiagLocationFixer::new(&ctx, "main.zh", "zh");
+        let external = if cfg!(windows) {
+            "C:/nonexistent-crate-9f3/src/lib.rs".to_string()
+        } else {
+            "/nonexistent-crate-9f3/src/lib.rs".to_string()
+        };
+        let mut loc = i18n_rust_engine::diagnostic::DiagnosticLocation {
+            file_name: external.clone(),
+            line_start: 7,
+            column_start: 3,
+            line_end: 7,
+            column_end: 9,
+            source_text: Some("orig".to_string()),
+            label: None,
+            is_primary: true,
+        };
+        fixer.fix_location(&mut loc);
+        assert_eq!(loc.file_name, external);
+        assert_eq!(loc.line_start, 7);
+        assert_eq!(loc.column_start, 3);
+        assert_eq!(loc.source_text.as_deref(), Some("orig"));
+    }
+
+    /// 子模块方言产物（src/数学.rs）：解析回同名 .zh 源文件并重建坐标/源码行
+    #[test]
+    fn test_fix_location_submodule_dialect() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        let sub_source = "函数 加(甲: 整数, 乙: 整数) -> 整数 { 甲 + 乙 }\n";
+        std::fs::write(root.join("src/数学.zh"), sub_source).unwrap();
+        std::fs::write(root.join("src/main.zh"), "函数 主函数() {}\n").unwrap();
+        let manager = zh_manager();
+        let sub_transpiled = i18n_rust_engine::transpile_pipeline(sub_source, &manager);
+        std::fs::write(root.join("src/数学.rs"), &sub_transpiled.output).unwrap();
+        std::fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+        let entry = root.join("src/main.zh");
+        let ui = crate::ui::Ui::for_lang("zh");
+        let ctx = minimal_ctx(&ui, root, &manager, &entry, "函数 主函数() {}\n");
+        let mut fixer = DiagLocationFixer::new(&ctx, "main.zh", "zh");
+        let mut loc = i18n_rust_engine::diagnostic::DiagnosticLocation {
+            file_name: "src/数学.rs".to_string(),
+            line_start: 1,
+            column_start: 1,
+            line_end: 1,
+            column_end: 1,
+            source_text: None,
+            label: None,
+            is_primary: true,
+        };
+        fixer.fix_location(&mut loc);
+        assert_eq!(loc.file_name, "数学.zh");
+        assert_eq!(loc.source_text.as_deref(), Some(sub_source.trim_end()));
+    }
+
+    /// E0432 cargo JSON：翻译器返回存在教学诊断（true），并提取未声明 crate
+    #[test]
+    fn test_translate_cargo_diagnostics_e0432_teaching() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/main.zh"), "函数 主函数() {}\n").unwrap();
+        std::fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+        let entry = root.join("src/main.zh");
+        let manager = zh_manager();
+        let ui = crate::ui::Ui::for_lang("zh");
+        let ctx = minimal_ctx(&ui, root, &manager, &entry, "函数 主函数() {}\n");
+        let json = r#"{"reason":"compiler-message","message":{"message":"unresolved import `serde_json`","code":{"code":"E0432"},"level":"error","spans":[],"children":[]}}"#;
+        assert!(translate_cargo_diagnostics(
+            json, "", &ctx, false, true, false
+        ));
+    }
+
+    /// 项目内 lang-packs/zh/errors.toml 损坏：打印加载警告后降级内置表，
+    /// 诊断仍正常展示（不因消息文件损坏阻断）
+    #[test]
+    fn test_translate_cargo_diagnostics_broken_local_errors_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::create_dir_all(root.join("lang-packs/zh")).unwrap();
+        std::fs::write(
+            root.join("lang-packs/zh/errors.toml"),
+            "this is = = not valid toml [[[\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/main.zh"), "函数 主函数() {}\n").unwrap();
+        std::fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+        let entry = root.join("src/main.zh");
+        let manager = zh_manager();
+        let ui = crate::ui::Ui::for_lang("zh");
+        let ctx = minimal_ctx(&ui, root, &manager, &entry, "函数 主函数() {}\n");
+        let json = r#"{"reason":"compiler-message","message":{"message":"unresolved import `serde_json`","code":{"code":"E0432"},"level":"error","spans":[],"children":[]}}"#;
+        assert!(translate_cargo_diagnostics(
+            json, "", &ctx, false, true, false
+        ));
+    }
+
+    /// 无可解析诊断时：编译成功打印成功行（silent 时静默）；
+    /// 编译失败输出原始 cargo 摘要（streamed 时跳过，避免运行时失败误标）
+    #[test]
+    fn test_translate_cargo_diagnostics_empty_branches() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/main.zh"), "函数 主函数() {}\n").unwrap();
+        std::fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+        let entry = root.join("src/main.zh");
+        let manager = zh_manager();
+        let ui = crate::ui::Ui::for_lang("zh");
+        // 成功 + 非静默
+        let ctx = minimal_ctx(&ui, root, &manager, &entry, "函数 主函数() {}\n");
+        assert!(!translate_cargo_diagnostics(
+            "", "", &ctx, true, false, false
+        ));
+        // 成功 + 静默
+        assert!(!translate_cargo_diagnostics(
+            "", "", &ctx, true, true, false
+        ));
+        // 失败 + 非流式：输出 cargo 摘要
+        assert!(!translate_cargo_diagnostics(
+            "",
+            "linker `cc` not found",
+            &ctx,
+            false,
+            true,
+            false
+        ));
+        // 失败 + 流式：跳过摘要
+        assert!(!translate_cargo_diagnostics(
+            "",
+            "should not appear",
+            &ctx,
+            false,
+            true,
+            true
+        ));
+        // 非 JSON 杂讯不构成诊断：成功路径
+        assert!(!translate_cargo_diagnostics(
+            "   Compiling t v0.1.0",
+            "",
+            &ctx,
+            true,
+            true,
+            false
+        ));
     }
 }

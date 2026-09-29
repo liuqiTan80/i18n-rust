@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""README 结构 parity 检查：以 README.en.md 为基准，校验 9 份翻译 README 结构对齐。
+"""README 结构 parity 检查：以 README.en.md 为基准，校验各语种翻译 README 结构对齐。
+
+目标语种不硬编码：从仓库根的 README.<语言>.md 自动派生（排除基准 en；
+README.md 为中文源文件，不匹配该 glob，天然不在检查列）。新增语种时
+零配置即纳入门禁，--lang 可显式指定子集做人工排查。
 
 检查项（任一失败退出码非零）：
 1. h1/h2/h3 标题数与基准一致（防翻译版漏章节/多章节漂移）
@@ -13,16 +17,33 @@
 """
 
 import argparse
+import glob
 import os
 import re
 import sys
 import unicodedata
 
 BASELINE = "README.en.md"
-TARGETS = ["ja", "ru", "de", "es", "fr", "pt", "ko", "ar", "hi"]
+BASELINE_LANG = "en"
 
 ANCHOR_RE = re.compile(r"\]\(#([^)]*)\)")
 LINK_TEXT_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+
+
+def discover_targets(repo_root: str) -> list[str]:
+    """从仓库根的 README.<语言>.md 派生受检语种（排除基准 en）。
+
+    文件名形态不符（无法取到 `<语言>` 段）的条目忽略；结果排序保证输出稳定。
+    """
+    pattern = os.path.join(repo_root, "README.*.md")
+    langs = []
+    for path in glob.glob(pattern):
+        name = os.path.basename(path)
+        # README.<lang>.md → 剥掉前缀 README. 与后缀 .md
+        lang = name[len("README."):-len(".md")]
+        if lang and lang != BASELINE_LANG:
+            langs.append(lang)
+    return sorted(langs)
 
 
 def slugify(heading: str) -> str:
@@ -125,7 +146,18 @@ def main() -> int:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     parser = argparse.ArgumentParser(description="翻译 README 结构 parity 检查")
     parser.add_argument("--repo-root", default=repo_root, help="仓库根目录")
+    parser.add_argument(
+        "--lang",
+        default=None,
+        help="逗号分隔的语种子集（默认从 README.<语言>.md 自动派生，排除 en）",
+    )
     args = parser.parse_args()
+
+    targets = (
+        [s.strip() for s in args.lang.split(",") if s.strip()]
+        if args.lang
+        else discover_targets(args.repo_root)
+    )
 
     base_path = os.path.join(args.repo_root, BASELINE)
     if not os.path.exists(base_path):
@@ -139,7 +171,7 @@ def main() -> int:
             base_errs += 1
 
     total = base_errs
-    for lang in TARGETS:
+    for lang in targets:
         path = os.path.join(args.repo_root, f"README.{lang}.md")
         if not os.path.exists(path):
             print(f"❌ {lang}: 缺少 README.{lang}.md")
@@ -153,9 +185,12 @@ def main() -> int:
         total += errs
 
     if total:
-        print(f"\nREADME parity 检查失败：{total} 项问题（基准：{BASELINE}，共 {len(TARGETS)} 份翻译）")
+        print(f"\nREADME parity 检查失败：{total} 项问题（基准：{BASELINE}，共 {len(targets)} 份翻译）")
         return 1
-    print(f"\n✅ README parity 检查通过：{len(TARGETS)} 份翻译均与 {BASELINE} 结构对齐"
+    if not targets:
+        print("⚠️ 未发现任何 README.<语言>.md 翻译文件（除基准 en 外）")
+        return 1
+    print(f"\n✅ README parity 检查通过：{len(targets)} 份翻译均与 {BASELINE} 结构对齐"
           f"（h2={base['h2']}, h3={base['h3']}, 锚点={len(base['anchors'])}）")
     return 0
 

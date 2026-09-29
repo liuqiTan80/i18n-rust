@@ -193,7 +193,11 @@ fn transpile_pipeline_inner(
         // CLI `--no-lint` 可关闭（lint::set_teaching_lint_enabled），
         // 供项目开发（非教学）场景静默刷屏提示
         if lint::teaching_lint_enabled() {
-            for warning in lint::lint_teaching_with_words(source, manager.get_lint_words()) {
+            for warning in lint::lint_teaching_with_words(
+                source,
+                manager.get_lint_words(),
+                &manager.ambiguous_constructor_words(),
+            ) {
                 crate::log_warn!("lint", "{}", warning.format());
             }
         }

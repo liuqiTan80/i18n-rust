@@ -1727,4 +1727,103 @@ mod tests {
             );
         }
     }
+
+    /// extract_sections：两节正常提取；TOML 非法（含重复键）返回 Err
+    #[test]
+    fn test_extract_sections_basic_and_error() {
+        let (mp, id) = extract_sections(
+            "[\"模块路径\"]\n\"序列化\" = \"serde\"\n[\"标识符\"]\n\"向量\" = \"Vec\"\n",
+        )
+        .expect("合法 TOML 应解析成功");
+        assert_eq!(mp.get("序列化").map(String::as_str), Some("serde"));
+        assert_eq!(id.get("向量").map(String::as_str), Some("Vec"));
+        assert!(extract_sections("[\"标识符\"]\n\"a\" = \"1\"\n\"a\" = \"2\"\n").is_err());
+    }
+
+    /// 报告渲染三分支：干净通过 / 仅警告通过 / 错误失败；
+    /// render_issue 对无参数 code 与未知 code 均不 panic
+    #[test]
+    fn test_print_report_all_branches() {
+        let clean = CheckReport::default();
+        print_report("zh", &clean);
+        let mut warns_only = CheckReport::default();
+        warns_only
+            .warnings
+            .push("mc_stdlib_shadow|a.toml|键|a|b".to_string());
+        print_report("zh", &warns_only);
+        let mut failed = CheckReport::default();
+        failed
+            .errors
+            .push("mc_parse_failed|a.toml|重复键".to_string());
+        failed
+            .warnings
+            .push("mc_stdlib_shadow|a.toml|键|a|b".to_string());
+        print_report("zh", &failed);
+        // 无 `|` 参数的 code：整串作为 code 查模板
+        let _ = render_issue("mc_ok");
+        // 未知 code：回退键本身，不 panic
+        let _ = render_issue("not_a_real_code|x");
+    }
+
+    /// scaffold：首次写入并带目标语 TODO 注释（英文值保留）；重跑跳过已存在文件
+    #[test]
+    fn test_scaffold_writes_then_skips() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("fr");
+        let source = view_with_crates(vec![("a.toml", "[\"标识符\"]\n\"服务器\" = \"Server\"\n")]);
+        let (created, skipped) = scaffold(&source, "fr", &out).expect("首次生成应成功");
+        assert_eq!((created, skipped), (1, 0));
+        let content = std::fs::read_to_string(out.join("a.toml")).unwrap();
+        assert!(content.contains("TODO(fr)"), "应追加目标语 TODO：{content}");
+        assert!(content.contains("\"Server\""), "英文值必须保留：{content}");
+        let (created2, skipped2) = scaffold(&source, "fr", &out).expect("重跑应成功");
+        assert_eq!((created2, skipped2), (0, 1), "重跑必须幂等跳过");
+    }
+
+    /// view_from_crates_dir：目录内 keywords/stdlib 优先；
+    /// 缺省时回退源视图（crates 内容始终从目标目录读取）
+    #[test]
+    fn test_view_from_crates_dir_override_and_fallback() {
+        let source = view_with_crates(vec![("src.toml", "[\"标识符\"]\n\"源\" = \"Src\"\n")]);
+        // 覆盖路径：目标目录自带 keywords.toml
+        let dir = tempfile::tempdir().unwrap();
+        let lang_dir = dir.path().join("de");
+        let crates_dir = lang_dir.join("crates");
+        std::fs::create_dir_all(&crates_dir).unwrap();
+        std::fs::write(
+            crates_dir.join("a.toml"),
+            "[\"标识符\"]\n\"服务器\" = \"Server\"\n",
+        )
+        .unwrap();
+        std::fs::write(lang_dir.join("keywords.toml"), "# 自定义关键字\n").unwrap();
+        let view = view_from_crates_dir(&crates_dir, &source);
+        assert_eq!(view.lang, "de");
+        assert_eq!(view.crates.len(), 1);
+        assert_eq!(view.keywords_toml, "# 自定义关键字\n");
+        // 回退路径：空 lang 目录（无 crates、无 keywords）→ 回退源视图语言表
+        let dir2 = tempfile::tempdir().unwrap();
+        let lang_dir2 = dir2.path().join("xx");
+        let crates_dir2 = lang_dir2.join("crates");
+        std::fs::create_dir_all(&crates_dir2).unwrap();
+        let fallback = view_from_crates_dir(&crates_dir2, &source);
+        assert_eq!(fallback.lang, "xx");
+        assert!(fallback.crates.is_empty());
+        assert!(fallback.keywords_toml.contains("函数"));
+    }
+
+    /// run_check：内置语言代码走内置视图（zh 干净 → true）；
+    /// 未知目标（非目录非内置）报错；外部目录缺 keywords.toml 报错
+    #[test]
+    fn test_run_check_target_branches() {
+        assert!(
+            run_check(Some("zh")).expect("内置 zh 应可校验"),
+            "内置 zh 基线必须通过"
+        );
+        assert!(run_check(Some("no-such-lang-xyz")).is_err());
+        let dir = tempfile::tempdir().unwrap();
+        assert!(
+            run_check(dir.path().to_str()).is_err(),
+            "缺 keywords.toml 应报错"
+        );
+    }
 }

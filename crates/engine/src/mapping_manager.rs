@@ -54,6 +54,8 @@ pub struct MappingManager {
     /// 别名）。供“方法调用位未命中映射表”的易混词提示判定——词表大且
     /// lint 每文件调用，惰性计算一次后复用（映射表构造后不可变）。
     lint_words_cache: OnceLock<HashSet<String>>,
+    /// 教学 lint 歧义构造器被调名集缓存（见 [`Self::ambiguous_constructor_words`]）
+    ambiguous_constructors_cache: OnceLock<HashSet<String>>,
     /// 宏映射缓存（`["宏"]` 节的物化副本）：见 [`Self::get_macro_map`]
     macro_map_cache: OnceLock<HashMap<String, String>>,
 }
@@ -184,6 +186,7 @@ impl MappingManager {
             alias_map,
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
+            ambiguous_constructors_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
         })
     }
@@ -265,6 +268,7 @@ impl MappingManager {
             alias_map,
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
+            ambiguous_constructors_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
         })
     }
@@ -296,6 +300,7 @@ impl MappingManager {
             alias_map,
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
+            ambiguous_constructors_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
         }
     }
@@ -349,6 +354,29 @@ impl MappingManager {
             words.extend(self.alias_map.keys().cloned());
             words
         })
+    }
+
+    /// 教学 lint「未标注类型」用：类型推导歧义构造器被调名集合
+    ///
+    /// 含英文原词 `new`/`default` 与全部映射表中值恰为这些词的方言键
+    /// （如 zh：`新建`→new、`默认值`/`缺省`→default）。仅供 lint 启发式
+    /// 判定 `X::新建()` 这类无法自行推导结果类型的关联构造调用。
+    pub fn ambiguous_constructor_words(&self) -> HashSet<String> {
+        self.ambiguous_constructors_cache
+            .get_or_init(|| {
+                let mut words: HashSet<String> = ["new".to_string(), "default".to_string()]
+                    .into_iter()
+                    .collect();
+                for map in [&self.keyword_map, &self.module_path_map, &self.alias_map] {
+                    words.extend(
+                        map.iter()
+                            .filter(|(_, en)| matches!(en.as_str(), "new" | "default"))
+                            .map(|(zh, _)| zh.clone()),
+                    );
+                }
+                words
+            })
+            .clone()
     }
 
     /// 构建 use 段让位词集合：模块路径与别名映射键的并集

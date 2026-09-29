@@ -318,83 +318,116 @@ impl TranslationCache {
             .join(format!("{}_{:x}.rs", sanitize_module_name(file_stem), hash))
     }
 
-    /// 同步同目录兄弟方言模块（虚拟项目高保真化）
+    /// 同步模块目录树中的兄弟方言模块（虚拟项目高保真化，支持多层布局）
     ///
     /// 虚拟项目只聚合已打开文件时，被引用模块未打开就无法解析
     /// （E0432/E0433 误报的根源之一，过滤链只是兜底）。本方法把当前
-    /// 文档同目录下的全部兄弟方言文件（同扩展名）纳入缓存与虚拟项目：
+    /// 文档所在目录的全部兄弟方言文件（同扩展名）纳入缓存与虚拟项目，
+    /// 并沿 rustc 模块树规则向下递归：`<dir>/<某方言文件词干>/` 子目录
+    /// 中的方言文件作为该模块的嵌套子模块同步（如 `src/领域.zh` 存在时
+    /// 递归 `src/领域/工具.zh`），支撑多层 `crate::领域::工具::成员` 解析。
     /// - 新文件按磁盘内容登记为模块条目（is_open=false，翻译在重写步骤）；
-    /// - 磁盘内容变化的兄弟条目重新登记（以 (mtime, 大小) 判定增量）；
-    /// - 磁盘文件已删除的兄弟条目连同虚拟文件一并移除（模块集合随之
+    /// - 磁盘内容变化的条目重新登记（以 (mtime, 大小) 判定增量）；
+    /// - 磁盘文件已删除的条目连同虚拟文件一并移除（模块集合随之
     ///   缩小，由调用方按新旧集合差异触发刷新）。
     ///
     /// 已打开文档（is_open=true）一律跳过：其内容以编辑器缓冲区为准。
     /// 返回磁盘内容发生变化、需要重新翻译的条目 uri 列表。
     fn sync_sibling_modules(&self, current_path: &Path) -> Vec<String> {
-        let (Some(dir), Some(ext)) = (current_path.parent(), current_path.extension()) else {
+        let (Some(top_dir), Some(ext)) = (current_path.parent(), current_path.extension()) else {
             return Vec::new();
         };
-        let Ok(read_dir) = std::fs::read_dir(dir) else {
-            return Vec::new();
-        };
+        let ext = ext.to_owned();
+        // 已递归目录（防符号链接环）与全树在盘方言文件清单
+        let mut visited: HashSet<PathBuf> = HashSet::new();
         let mut on_disk: HashSet<PathBuf> = HashSet::new();
         let mut updated: Vec<String> = Vec::new();
-        for dent in read_dir.flatten() {
-            let path = dent.path();
-            if path == current_path || path.extension() != Some(ext) || !path.is_file() {
+        let mut pending: Vec<PathBuf> = vec![top_dir.to_path_buf()];
+        while let Some(dir) = pending.pop() {
+            if !visited.insert(dir.clone()) {
                 continue;
             }
-            let Some(meta) = disk_meta(&path) else {
+            let Ok(read_dir) = std::fs::read_dir(&dir) else {
                 continue;
             };
-            on_disk.insert(path.clone());
-            let uri = path_to_uri(&path);
-            match self.query_original(&uri).as_ref() {
-                // 已打开：缓冲区内容为准，不参与磁盘同步
-                Some(e) if e.is_open => continue,
-                // 磁盘未变化：跳过重译
-                Some(e) if e.source_meta == Some(meta) => continue,
-                _ => {}
-            }
-            let Ok(content) = std::fs::read_to_string(&path) else {
-                continue;
-            };
-            let virtual_path = self.virtual_path_for(&path);
-            let virtual_uri = path_to_uri(&virtual_path);
-            let line_map = generate_line_map(&content, &content);
-            if let Ok(mut table) = self.entries.write() {
-                let entry = Arc::new(TranslationEntry {
-                    original_uri: uri.clone(),
-                    original_path: path.clone(),
-                    zh_content: content,
-                    en_content: String::new(),
-                    ra_content: String::new(),
-                    virtual_uri: virtual_uri.clone(),
-                    virtual_path,
-                    line_map,
-                    column_map: Vec::new(),
-                    added_crate_tokens: HashSet::new(),
-                    version: 0,
-                    is_open: false,
-                    source_meta: Some(meta),
-                });
-                table.insert(uri.clone(), Arc::clone(&entry));
-                if let Ok(mut index) = self.virtual_index.write() {
-                    index.insert(virtual_uri, entry);
+            // 本目录的方言文件词干：仅同名子目录才是 rustc 模块子树，
+            // tests/assets 等无关目录不会被卷入
+            let mut stems: HashSet<String> = HashSet::new();
+            for dent in read_dir.flatten() {
+                let path = dent.path();
+                let Ok(ft) = dent.file_type() else {
+                    continue;
+                };
+                if ft.is_file() && path.extension() == Some(ext.as_os_str()) {
+                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                        stems.insert(stem.to_string());
+                    }
+                    if path == current_path {
+                        continue; // 打开文档以缓冲区为准
+                    }
+                    let Some(meta) = disk_meta(&path) else {
+                        continue;
+                    };
+                    on_disk.insert(path.clone());
+                    let uri = path_to_uri(&path);
+                    match self.query_original(&uri).as_ref() {
+                        // 已打开：缓冲区内容为准，不参与磁盘同步
+                        Some(e) if e.is_open => continue,
+                        // 磁盘未变化：跳过重译
+                        Some(e) if e.source_meta == Some(meta) => continue,
+                        _ => {}
+                    }
+                    let Ok(content) = std::fs::read_to_string(&path) else {
+                        continue;
+                    };
+                    let virtual_path = self.virtual_path_for(&path);
+                    let virtual_uri = path_to_uri(&virtual_path);
+                    let line_map = generate_line_map(&content, &content);
+                    if let Ok(mut table) = self.entries.write() {
+                        let entry = Arc::new(TranslationEntry {
+                            original_uri: uri.clone(),
+                            original_path: path.clone(),
+                            zh_content: content,
+                            en_content: String::new(),
+                            ra_content: String::new(),
+                            virtual_uri: virtual_uri.clone(),
+                            virtual_path,
+                            line_map,
+                            column_map: Vec::new(),
+                            added_crate_tokens: HashSet::new(),
+                            version: 0,
+                            is_open: false,
+                            source_meta: Some(meta),
+                        });
+                        table.insert(uri.clone(), Arc::clone(&entry));
+                        if let Ok(mut index) = self.virtual_index.write() {
+                            index.insert(virtual_uri, entry);
+                        }
+                    }
+                    self.docs_generation
+                        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    updated.push(uri);
                 }
             }
-            self.docs_generation
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            updated.push(uri);
+            // 本目录新增的词干对应的子目录可能在词干收集之后才入队：
+            // read_dir 顺序不定，统一在目录扫描后补扫一次
+            for stem in &stems {
+                let child_dir = dir.join(stem);
+                if child_dir.is_dir() {
+                    pending.push(child_dir);
+                }
+            }
         }
 
-        // 清理：同目录下已不在磁盘的兄弟模块条目（文件删除/改名）
+        // 清理：递归树内已不在磁盘的未打开模块条目（文件删除/改名）
         let stale: Vec<String> = match self.entries.read() {
             Ok(table) => table
                 .values()
                 .filter(|e| {
                     !e.is_open
-                        && e.original_path.parent() == Some(dir)
+                        && e.original_path
+                            .parent()
+                            .is_some_and(|p| visited.contains(p))
                         && !on_disk.contains(&e.original_path)
                 })
                 .map(|e| e.original_uri.clone())
@@ -660,6 +693,11 @@ impl TranslationCache {
         self.manager.get_lint_words()
     }
 
+    /// 教学 lint「未标注类型」歧义构造器被调名集（new/default 及方言词）
+    pub fn ambiguous_constructor_words(&self) -> HashSet<String> {
+        self.manager.ambiguous_constructor_words()
+    }
+
     /// 获取合并反向表的引用（英文 → 母语，关键字优先于别名）
     ///
     /// 构造时预构建，供 ResponseMapper 共用，避免重复构建。
@@ -752,6 +790,35 @@ impl TranslationCache {
         names
     }
 
+    /// 查询某源文件在多层模块树中的直接子模块条目
+    ///
+    /// rustc 规则：`src/领域.rs` 的子文件位于 `src/领域/<名>.rs`，
+    /// 即「与本文件同目录、以本文件词干命名的子目录」中的全部方言文件。
+    /// 返回 `(子模块名（真实词干，与用户路径一致）, 子虚拟文件名)`，
+    /// 按名排序保证产物确定性。
+    fn nested_child_decls(&self, original_path: &Path) -> Vec<(String, String)> {
+        let (Some(parent), Some(stem)) = (original_path.parent(), original_path.file_stem()) else {
+            return Vec::new();
+        };
+        let child_dir = parent.join(stem);
+        let table = match self.entries.read() {
+            Ok(t) => t,
+            Err(_) => return Vec::new(),
+        };
+        let mut children: Vec<(String, String)> = table
+            .values()
+            .filter(|e| e.original_path.parent() == Some(child_dir.as_path()))
+            .filter_map(|e| {
+                let child_stem = e.original_path.file_stem()?.to_str()?.to_string();
+                let child_file = e.virtual_path.file_name()?.to_str()?.to_string();
+                Some((child_stem, child_file))
+            })
+            .collect();
+        children.sort();
+        children.dedup();
+        children
+    }
+
     /// 项目级声明上下文（跨文件声明豁免，#8）
     ///
     /// 模块名 = 全部已打开方言文件的词干（同 [`current_module_names`]）；
@@ -834,7 +901,25 @@ impl TranslationCache {
         // 严格一致（column_map 无需调整）；发送给 rust-analyzer 的内存
         // 文档使用净化版，格式化与反向转译仍用 en_content
         //（用户原文的 `模块 名字;` 行不能丢失）。
-        let ra_content = i18n_rust_engine::module_path::strip_file_module_decls(&en_content);
+        // 用户原文的文件式 `mod 名;` 先 1:1 净化抹除（行列严格不变），
+        // 再在**末尾**追加本文件的嵌套子模块声明（多层模块树）。
+        // 子文件以平铺哈希名托管在同一 src/，#[path] 相对当前虚拟文件
+        // 所在目录解析，故直接指向子虚拟文件名；统一 pub 与合成 crate
+        // 的 main 放宽可见性同理（避免 E0603 假红）。追加在末尾新增行，
+        // 不影响原文任何行列映射；仅树中真实存在的子文件生成声明。
+        let mut ra_content = i18n_rust_engine::module_path::strip_file_module_decls(&en_content);
+        let nested_decls = self.nested_child_decls(&old_entry.original_path);
+        if !nested_decls.is_empty() {
+            if !ra_content.is_empty() && !ra_content.ends_with('\n') {
+                ra_content.push('\n');
+            }
+            ra_content.push_str("// i18n-virtual: nested module children\n");
+            for (child_stem, child_file) in &nested_decls {
+                ra_content.push_str(&format!(
+                    "#[path = \"{child_file}\"] pub mod {child_stem};\n"
+                ));
+            }
+        }
         // 虚拟项目的 crate 入口在聚合 main.rs 中转发调用 `main::main()`，
         // 模块内 fn 默认私有会触发 cargo check E0603。但发送给 rust-analyzer
         // 的内存文档必须保持无 pub——否则语义 token 多出 pub、
@@ -960,7 +1045,7 @@ impl TranslationCache {
     fn refresh_virtual_project(&self) {
         // 先在锁内收集所需数据、释放读锁，再执行磁盘 I/O：
         // 持读锁期间做文件系统操作会阻塞所有写入者（rewrite_entry 等）
-        let modules: Vec<(String, PathBuf)> = {
+        let modules: Vec<(String, PathBuf, PathBuf)> = {
             let table = match self.entries.read() {
                 Ok(t) => t,
                 Err(_) => return,
@@ -975,10 +1060,20 @@ impl TranslationCache {
                             .unwrap_or_default()
                             .to_string(),
                         e.virtual_path.clone(),
+                        e.original_path.clone(),
                     )
                 })
                 .collect()
         };
+        // 多层模块树的托管根（通常为项目 src/；无 src 布局时取公共父目录）。
+        // 聚合 main.rs 只声明根下的顶层模块；嵌套模块由各父虚拟文件
+        // 末尾的 `#[path]` 子声明承担（见 rewrite_entry 追加块）。
+        let src_root = derive_virtual_root(
+            &modules
+                .iter()
+                .map(|(_, _, p)| p.clone())
+                .collect::<Vec<_>>(),
+        );
 
         // Cargo.toml（包名保留英文，见项目规范）
         // [[bin]] 使其成为二进制 crate，fn main() 即为入口
@@ -1018,10 +1113,16 @@ impl TranslationCache {
             "#![allow(dead_code)]\n{}\n",
             crate::ui::global().t("lsp_gen_lib_comment")
         );
-        // 模块名净化为合法 Rust 标识符，并在重名时追加哈希后缀
+        // 模块名净化为合法 Rust 标识符，并在重名时追加哈希后缀。
+        // 仅聚合托管根下的顶层模块；嵌套模块（src/领域/工具.zh 等）由
+        // 父虚拟文件末尾的 #[path] 子声明加载，平铺在此会与父文件内的
+        // 子模块树冲突且无法表达层级。
         let mut used_names: HashSet<String> = HashSet::new();
         let mut has_main_module = false;
-        for (stem, virtual_path) in &modules {
+        for (stem, virtual_path, original_path) in &modules {
+            if original_path.parent() != Some(src_root.as_path()) {
+                continue;
+            }
             if stem == "main" {
                 has_main_module = true;
             }
@@ -1061,6 +1162,46 @@ impl TranslationCache {
             std::fs::write(self.temp_dir.join("src").join("main.rs"), main_content),
         );
     }
+}
+
+/// 推导虚拟模块树的托管根
+///
+/// 取各方言源路径最近的名为 `src` 的祖先（多数票，兼容 monorepo 中
+/// 打开依赖目录源文件的边界情况）；不存在 `src` 层级时退化为全部
+/// 父目录的公共祖先（项目根直接放 .zh 的教学布局）。
+fn derive_virtual_root(paths: &[PathBuf]) -> PathBuf {
+    let mut src_votes: std::collections::HashMap<PathBuf, usize> = std::collections::HashMap::new();
+    for p in paths {
+        let mut cur = p.parent();
+        while let Some(dir) = cur {
+            if dir.file_name().and_then(|s| s.to_str()) == Some("src") {
+                *src_votes.entry(dir.to_path_buf()).or_default() += 1;
+                break;
+            }
+            cur = dir.parent();
+        }
+    }
+    if let Some(root) = src_votes
+        .into_iter()
+        .max_by_key(|(_, n)| *n)
+        .map(|(p, _)| p)
+    {
+        return root;
+    }
+    // 公共父目录兜底
+    let mut iter = paths.iter().filter_map(|p| p.parent());
+    let Some(first) = iter.next() else {
+        return PathBuf::new();
+    };
+    let mut common: PathBuf = first.to_path_buf();
+    for parent in iter {
+        while !parent.starts_with(&common) {
+            if !common.pop() {
+                return PathBuf::new();
+            }
+        }
+    }
+    common
 }
 
 /// 将任意文件名主干净化为合法 Rust 模块名
@@ -2016,6 +2157,99 @@ mod tests {
         assert!(
             agg.contains("mod 工具;") && agg.contains("mod main;"),
             "聚合 main.rs：{agg}"
+        );
+    }
+
+    /// 多层模块布局：src/领域.zh + src/领域/工具.zh
+    ///
+    /// - 嵌套文件被递归登记并转译写盘；
+    /// - 聚合 main.rs 只声明顶层 `mod 领域`，不平铺嵌套 `mod 工具`；
+    /// - 父虚拟文件（领域）末尾追加 `#[path="工具哈希名.rs"] pub mod 工具;`，
+    ///   使 rust-analyzer 能解析 `crate::领域::工具::加一`；
+    /// - 叶子文件与 main 文件不追加子声明。
+    #[test]
+    fn test_nested_module_tree_aggregated() {
+        let proj = tempfile::tempdir().unwrap();
+        let virt = tempfile::tempdir().unwrap();
+        let src = proj.path().join("src");
+        let nested = src.join("领域");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(src.join("领域.zh"), "公开 模块 工具;\n").unwrap();
+        std::fs::write(
+            nested.join("工具.zh"),
+            "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
+        )
+        .unwrap();
+
+        let cache = TranslationCache::new(test_manager_extended(), virt.path().to_path_buf());
+        let main_uri = path_to_uri(&src.join("main.zh"));
+        let (entry, _) = cache
+            .update_document(
+                &main_uri,
+                "模块 领域;\n函数 主函数() {\n    领域::工具::加一(1);\n}\n",
+                1,
+            )
+            .unwrap();
+        assert!(
+            entry.en_content.contains("crate::领域::工具::加一(1)"),
+            "多层跨文件引用应补 crate:: 前缀：{}",
+            entry.en_content
+        );
+
+        // 嵌套文件被递归登记并转译
+        let tool = cache
+            .query_original(&path_to_uri(&nested.join("工具.zh")))
+            .expect("嵌套模块应被递归同步");
+        assert!(
+            tool.en_content.contains("pub fn 加一"),
+            "嵌套模块应已转译：{}",
+            tool.en_content
+        );
+        assert!(tool.virtual_path.exists(), "嵌套虚拟文件应写盘");
+
+        // 聚合 main.rs：仅顶层声明
+        let agg = std::fs::read_to_string(virt.path().join("src").join("main.rs")).unwrap();
+        assert!(agg.contains("mod 领域;"), "聚合应含顶层 领域：{agg}");
+        assert!(
+            !agg.contains("mod 工具;"),
+            "嵌套模块不应平铺进聚合 main.rs：{agg}"
+        );
+
+        // 父虚拟文件末尾的嵌套子声明：#[path] 指向工具的平铺哈希文件名
+        let domain = cache
+            .query_original(&path_to_uri(&src.join("领域.zh")))
+            .expect("领域模块应已登记");
+        let tool_file = tool
+            .virtual_path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        assert!(
+            domain
+                .ra_content
+                .contains(&format!("#[path = \"{tool_file}\"] pub mod 工具;")),
+            "父虚拟文件应追加嵌套子声明：{}",
+            domain.ra_content
+        );
+        // 用户原文行仍保留在反向转译用的 en_content 中（测试词表未收录
+        // 「模块」→mod，原文形态保留；真实 zh 语言包下为 `pub mod 工具;`）
+        assert!(
+            domain.en_content.contains("模块 工具;") || domain.en_content.contains("mod 工具;"),
+            "{}",
+            domain.en_content
+        );
+
+        // 叶子与 main 文件无追加块
+        assert!(
+            !tool.ra_content.contains("nested module children"),
+            "叶子模块不应有子声明块：{}",
+            tool.ra_content
+        );
+        assert!(
+            !entry.ra_content.contains("nested module children"),
+            "main 文件不应出现 src/main/ 之外的子声明：{}",
+            entry.ra_content
         );
     }
 

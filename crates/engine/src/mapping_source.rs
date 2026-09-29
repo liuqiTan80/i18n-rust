@@ -683,4 +683,170 @@ mod tests {
             .unwrap();
         assert_eq!(sub.get("服务器"), Some(&"Server".to_string()));
     }
+
+    /// 加载错误分类：文件缺失 / TOML 解析失败；第三方目录不存在静默成功
+    #[test]
+    fn test_loader_error_branches() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut loader = MappingLoader::new(temp.path());
+        // 空目录加载关键字：FileMissing
+        assert!(matches!(
+            loader.load(MappingCategory::Keywords),
+            Err(LoadError::FileMissing { .. })
+        ));
+        // crates/ 目录不存在：静默 Ok
+        loader.load(MappingCategory::ThirdParty).unwrap();
+        assert_eq!(loader.entry_count(MappingCategory::ThirdParty), 0);
+        // 未加载的分类查询全为 None / 空
+        assert_eq!(
+            loader.get_sub_categories(MappingCategory::StdLib),
+            Vec::<String>::new()
+        );
+        assert!(
+            loader
+                .get_sub_mapping(MappingCategory::StdLib, "标识符")
+                .is_none()
+        );
+        assert_eq!(loader.query(MappingCategory::StdLib, "x"), None);
+        assert_eq!(loader.reverse_query(MappingCategory::StdLib, "x"), None);
+
+        // 损坏 TOML：ParseFailed
+        fs::write(
+            temp.path().join("keywords.toml"),
+            "[\"声明\"]\n\"a\"=\"1\"\n\"a\"=\"2\"\n",
+        )
+        .unwrap();
+        assert!(matches!(
+            loader.load(MappingCategory::Keywords),
+            Err(LoadError::ParseFailed { .. })
+        ));
+        // parse_toml_sections 直接校验同样报错
+        assert!(parse_toml_sections("not = = toml").is_err());
+    }
+
+    /// 第三方目录：多文件、多子节按 `文件名/节名` 归类，非 toml 忽略，
+    /// 扁平化查询/反查可用
+    #[test]
+    fn test_load_third_party_multifile() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
+        fs::write(dir.join("keywords.toml"), "[\"声明\"]\n\"函数\" = \"fn\"\n").unwrap();
+        let crates = dir.join("crates");
+        fs::create_dir_all(&crates).unwrap();
+        fs::write(
+            crates.join("serde.toml"),
+            "[\"模块路径\"]\n\"序列化\" = \"serde\"\n[\"标识符\"]\n\"序列\" = \"Serialize\"\n",
+        )
+        .unwrap();
+        fs::write(
+            crates.join("tokio.toml"),
+            "[\"模块路径\"]\n\"异步\" = \"tokio\"\n",
+        )
+        .unwrap();
+        // 非 toml 文件必须忽略
+        fs::write(crates.join("README.md"), "ignore me").unwrap();
+
+        let mut loader = MappingLoader::new(dir);
+        loader.load(MappingCategory::ThirdParty).unwrap();
+
+        let mut subs = loader.get_sub_categories(MappingCategory::ThirdParty);
+        subs.sort();
+        assert_eq!(
+            subs,
+            vec![
+                "serde/标识符".to_string(),
+                "serde/模块路径".to_string(),
+                "tokio/模块路径".to_string(),
+            ]
+        );
+        assert_eq!(
+            loader.query(MappingCategory::ThirdParty, "序列"),
+            Some("Serialize".to_string())
+        );
+        assert_eq!(
+            loader.reverse_query(MappingCategory::ThirdParty, "tokio"),
+            Some("异步".to_string())
+        );
+        // 扁平化后共 3 条
+        assert_eq!(loader.entry_count(MappingCategory::ThirdParty), 3);
+    }
+
+    /// load_all 全量链路：stdlib 存在则加载；module_paths 仅补充 stdlib
+    /// 缺失的键（stdlib 优先）；crates 目录一并加载；
+    /// load_all_mappings 便捷函数返回三个分类
+    #[test]
+    fn test_load_all_with_module_paths_merge_priority() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
+        fs::write(dir.join("keywords.toml"), "[\"声明\"]\n\"函数\" = \"fn\"\n").unwrap();
+        fs::write(
+            dir.join("stdlib.toml"),
+            "[\"标识符\"]\n\"字符串\" = \"String\"\n[\"模块路径\"]\n\"格式化\" = \"fmt\"\n",
+        )
+        .unwrap();
+        // module_paths：与 stdlib 同键（stdlib 胜）+ 独有键（补入）
+        fs::write(
+            dir.join("module_paths.toml"),
+            "[\"模块路径\"]\n\"格式化\" = \"SHOULD_NOT_WIN\"\n\"输入输出\" = \"io\"\n",
+        )
+        .unwrap();
+        let crates = dir.join("crates");
+        fs::create_dir_all(&crates).unwrap();
+        fs::write(
+            crates.join("serde.toml"),
+            "[\"标识符\"]\n\"序列\" = \"Serialize\"\n",
+        )
+        .unwrap();
+
+        let all = load_all_mappings(dir).expect("全量加载应成功");
+        assert_eq!(all.len(), 3, "三个分类都应存在");
+        let mut loader = MappingLoader::new(dir);
+        loader.load_all().unwrap();
+        let mp = loader
+            .get_sub_mapping(MappingCategory::StdLib, "模块路径")
+            .unwrap();
+        assert_eq!(
+            mp.get("格式化"),
+            Some(&"fmt".to_string()),
+            "stdlib 同键优先"
+        );
+        assert_eq!(mp.get("输入输出"), Some(&"io".to_string()), "独有键应补入");
+        assert_eq!(
+            loader.query(MappingCategory::StdLib, "字符串"),
+            Some("String".to_string())
+        );
+        assert_eq!(loader.entry_count(MappingCategory::ThirdParty), 1);
+
+        // 便捷函数
+        assert_eq!(
+            load_stdlib_mapping(dir).unwrap().get("字符串"),
+            Some(&"String".to_string())
+        );
+    }
+
+    /// 分类元信息：默认文件名稳定，显示名非空且随分类变化
+    #[test]
+    fn test_category_metadata() {
+        assert_eq!(
+            MappingCategory::Keywords.default_filename(),
+            "keywords.toml"
+        );
+        assert_eq!(MappingCategory::StdLib.default_filename(), "stdlib.toml");
+        assert_eq!(
+            MappingCategory::ThirdParty.default_filename(),
+            "crates.toml"
+        );
+        let names = [
+            MappingCategory::Keywords.display_name(),
+            MappingCategory::StdLib.display_name(),
+            MappingCategory::ThirdParty.display_name(),
+        ];
+        for name in &names {
+            assert!(!name.is_empty());
+        }
+        assert_ne!(names[0], names[2]);
+        // UTF-8 文件名走快速路径原样返回
+        let name = std::ffi::OsStr::new("普通名字");
+        assert_eq!(decode_os_file_name(name), "普通名字");
+    }
 }

@@ -13,7 +13,8 @@
 #   5. 三平台构建：Linux / macOS / Windows 的 release 二进制
 #      （rzc 命令行工具 + i18n-rust-lsp 语言服务器）
 #   6. VS Code 扩展打包：编译 TypeScript 并生成 .vsix 离线安装包
-#   7. 测试覆盖率门禁：llvm-cov 行覆盖率低于 70% 时失败
+#   7. 测试覆盖率门禁：llvm-cov 行覆盖率低于 79% 时失败
+#      （覆盖率统计显式纳入需 rust-analyzer 的 #[ignore] e2e 测试）
 #
 # 全部产物上传为 Artifact，供手动下载或发布工作流复用。
 #
@@ -66,6 +67,12 @@ jobs:
 
       - name: 运行 Clippy 代码质量检查（警告视为错误）
         run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: 生产代码 panic 面门禁
+        # src/ 生产路径（解析用户方言源码/rustc JSON/第三方语言包）不得出现
+        # unwrap/expect/panic! 等（测试区与编译期嵌入资源白名单除外），
+        # 防止畸形输入把语言服务器整体带崩
+        run: python3 tools/check-prod-panics.py
 
       - name: 验证 mapping auto 帮助文本
         # 工作区含 rzc 与 i18n-rust-lsp 两个二进制，必须用 --bin 指定
@@ -154,12 +161,27 @@ jobs:
       - name: 启用 Rust 构建缓存
         uses: Swatinem/rust-cache@v2
 
-      - name: 覆盖率门禁（行覆盖率低于 70% 时失败）
-        # 当前基线 73.6%（2026-09 llvm-cov 实测；引擎各模块 90%+，CLI/LSP 命令
-        # 入口等协议胶水层难以单测属预期）。实测未达 80%，故维持 70% 阈值——
-        # 留余量防止小改动偶发触发，但能拦截大段未测代码；CLI 集成测试补齐后
-        # 可逐步上调
-        run: cargo llvm-cov --workspace --fail-under-lines 70 --html
+      - name: 构建 rzc（用于安装 rust-analyzer）
+        run: cargo build --quiet --bin rzc --locked
+
+      - name: 安装 rust-analyzer（--ra-only 仅下载分析器，跳过 300MB rustc）
+        # 与 lsp-e2e job 同口径：安装到 ~/.rz/toolchain/bin，
+        # 使 crates/lsp/tests/e2e.rs 的 7 条 #[ignore] 端到端测试在
+        # 覆盖率统计中真实启动 LSP 二进制（缺失时这些测试静默跳过，
+        # 覆盖率会跌破阈值而显式失败，不会假装通过）
+        shell: bash
+        run: ./target/debug/rzc install toolchain --ra-only --force
+
+      - name: 覆盖率门禁（纳入 e2e，行覆盖率低于 85% 时失败）
+        # 当前基线 86.11% 行 / 86.56% 分支（2026-09 llvm-cov 实测，
+        # --include-ignored 纳入 7 条真实 rust-analyzer 端到端测试：
+        # server.rs 28.56%→82.19%、diagnostics.rs 91.69%、
+        # mapping_check.rs 85.98%、mapping_source.rs 91.54%、
+        # responses.rs 92.89%）。
+        # 阈值 85 留约 1 个点余量吸收工具链计数漂移；e2e 驱动的 LSP
+        # 协议主循环/诊断映射与引擎各模块 90%+ 为已覆盖主体，剩余为
+        # CLI 网络安装/AI 映射生成等边界层（不做单测，经 e2e/手测覆盖）
+        run: cargo llvm-cov --workspace --fail-under-lines 85 --html -- --include-ignored
 
       - name: 上传覆盖率报告
         uses: actions/upload-artifact@v4
@@ -253,14 +275,17 @@ jobs:
         # crates/lsp/benches/baseline.json（LSP 热路径）（开发者用
         # tools/bench-check.sh --update 刷新后随仓库提交）；
         # 阈值：本地默认 30%；CI 复用共享 runner（邻租户负载干扰大），
-        # 同一提交实测波动可超 60%，故 CI 放宽到 100% 只拦灾难性回归，
-        # 精细对比留给开发者本地（BENCH_REGRESSION_PCT 默认 30）。
-        # 首次失败自动重跑一次（共享 runner 偶发噪声），仍超阈值才判失败
+        # 同一提交实测波动可超 60%——故 CI 每套基准连跑 3 遍（BENCH_RUNS=3）
+        # 逐项取【最小均值】：邻居负载只会把耗时放大、不可能压低，最小值
+        # 近似无干扰性能，阈值得以从旧的单次 100% 收紧到 40%，只拦真实
+        # 量级回归；精细对比留给开发者本地（单遍，BENCH_REGRESSION_PCT=30）。
+        # 首次失败自动重跑一组（三轮均遇高负载的极端情况），仍超阈值才判失败
         env:
-          BENCH_REGRESSION_PCT: "100"
+          BENCH_REGRESSION_PCT: "40"
+          BENCH_RUNS: "3"
         run: |
           if ! tools/bench-check.sh; then
-            echo "::warning title=基准首次运行超阈值::自动重跑一次以排除共享 runner 噪声"
+            echo "::warning title=基准首次运行超阈值::自动重跑一组（每基准 3 遍取最小值）以排除共享 runner 持续噪声"
             tools/bench-check.sh
           fi
 
