@@ -88,6 +88,22 @@ pub(crate) fn translate_diagnostic_message(
     translate_diagnostic_message_single(code, message, primary_label, true)
 }
 
+/// 从 rust-analyzer 诊断里归集含 "expected …, found …" 的候选标签文本。
+///
+/// rust-analyzer 把类型不匹配的期望/实际放在 `relatedInformation` 而非主
+/// span 标签（CLI 的 rustc JSON 则带在主 span label）。本函数从 related
+/// 消息中取首个命中者，作为 `render_main_message` 的 `primary_label`，使 RA
+/// 直连路径也能回填 `{期望}`/`{实际}`，与 CLI/镜像检查同一完整译文。
+/// 无命中时返回 None（渲染器自动回退消息表，不劣于旧行为）。
+pub(crate) fn find_expected_found_label(diag: &Value) -> Option<String> {
+    diag.get("relatedInformation")
+        .and_then(|v| v.as_array())?
+        .iter()
+        .filter_map(|item| item.get("message").and_then(|v| v.as_str()))
+        .find(|m| m.contains("expected ") && m.contains(", found "))
+        .map(|s| s.to_string())
+}
+
 /// 轻量短语替换表（诊断翻译兜底）：UI 全局语言固定，首次构建后缓存。
 /// 诊断每次按键都会发布，若每次翻译都重新构建 ~30 对 String 是纯浪费。
 static DIAG_PHRASE_REPLACEMENTS: std::sync::OnceLock<Vec<(String, String)>> =
@@ -783,8 +799,36 @@ fn lint_code(kind: i18n_rust_engine::lint::LintKind) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{
-        crate_name_forms, is_rustc_error_code, parse_dependency_names, suppress_ra_compile_error,
+        crate_name_forms, find_expected_found_label, is_rustc_error_code, parse_dependency_names,
+        suppress_ra_compile_error,
     };
+
+    /// RA 把 expected/found 放在 relatedInformation，应被归集为主消息标签
+    #[test]
+    fn test_find_expected_found_label_from_related() {
+        let diag = serde_json::json!({
+            "message": "mismatched types",
+            "code": "E0308",
+            "relatedInformation": [
+                { "message": "expected `i32`, found `String`" },
+            ]
+        });
+        assert_eq!(
+            find_expected_found_label(&diag).as_deref(),
+            Some("expected `i32`, found `String`")
+        );
+        // 无 expected/found 类标签时返回 None（渲染器自动回退消息表）
+        let plain = serde_json::json!({
+            "message": "use of moved value: `x`",
+            "relatedInformation": [ { "message": "moved value used here after move" } ]
+        });
+        assert_eq!(find_expected_found_label(&plain), None);
+        // 无 relatedInformation 也不崩
+        assert_eq!(
+            find_expected_found_label(&serde_json::json!({ "message": "x" })),
+            None
+        );
+    }
 
     /// 紧致形式：`md-5` → md_5 + md5（lib 名去分隔符）
     #[test]

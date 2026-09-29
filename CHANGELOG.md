@@ -13,7 +13,9 @@
   映射管理器经共享的 `build_type_map` 装填 type_map 并构建 `DiagnosticTranslator`，
   镜像检查（真实 rustc JSON）额外透传主 span 标签以回填期望/实际，与 CLI 逐字一致
   （新增 parity 单测 `cli_lsp_main_message_parity`；无法完整回填时回退消息表而非英文，
-  保证译文不劣于旧行为）
+  保证译文不劣于旧行为）；rust-analyzer 直连路径亦从 `relatedInformation` 归集
+  「expected …, found …」候选标签喂给同一渲染器，令 E0308 等类型错误在编辑器内也
+  拿到与 CLI 一致的完整译文（新增单测 `test_find_expected_found_label_from_related`）
 - CLI：修 `entry_output_path` **越界写出**——此前凡入口词干（`main`/母语主函数词）
   的源文件都聚合到 `project_root/src/main.rs`，导致子目录/示例里恰好名为 `main` 的
   文件（`src/sub/main.zh`、`examples/main.zh`）经 `rzc check` 会越界覆盖宿主真实入口；

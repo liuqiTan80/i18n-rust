@@ -5,9 +5,9 @@ use serde_json::{Value, json};
 
 use super::ResponseMapper;
 use super::diag_text::{
-    extract_ownership_details, is_main_fn_hint, is_missing_dependency_noise,
-    is_missing_include_asset, is_missing_project_dependency, is_unopened_module_reference,
-    translate_diagnostic_message,
+    extract_ownership_details, find_expected_found_label, is_main_fn_hint,
+    is_missing_dependency_noise, is_missing_include_asset, is_missing_project_dependency,
+    is_unopened_module_reference, translate_diagnostic_message,
 };
 use super::restore_line_single;
 use crate::translation_cache::en_col_to_zh_col_single;
@@ -113,12 +113,14 @@ impl ResponseMapper {
 
                 // 翻译诊断主消息（与 CLI 同口径）：传入错误码供码表优先命中；
                 // rust-analyzer 把 expected/found 放在 relatedInformation 而非主
-                // span 标签，故 primary_label 传 None（命中不了码表时自动回退消息表）
+                // span 标签，故从 related 归集候选标签回填 {期望}/{实际}（无则自动
+                // 回退消息表）
                 let code_str = diag.get("code").and_then(|v| v.as_str());
+                let primary_label = find_expected_found_label(diag);
                 mapped["message"] = Value::String(translate_diagnostic_message(
                     code_str,
                     diag["message"].as_str().unwrap_or(""),
-                    None,
+                    primary_label.as_deref(),
                 ));
 
                 // 所有权错误：提取叙事化详情并存入 data 字段（供 VS Code 扩展可视化）
