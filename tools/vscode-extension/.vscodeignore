@@ -15,5 +15,6 @@ package-lock.json
 package-vsix.sh
 package-vsix.ps1
 release/**
+.tmtest/**
 **/*.ts
 !out/extension.js

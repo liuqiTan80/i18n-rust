@@ -75,8 +75,8 @@
         },
         {
           "name": "string.quoted.raw.rust-pt",
-          "begin": "r#*\"",
-          "end": "\"#*"
+          "begin": "r(#*)\"",
+          "end": "\"\\1"
         }
       ]
     },

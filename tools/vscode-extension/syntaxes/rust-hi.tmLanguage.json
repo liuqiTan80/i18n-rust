@@ -75,8 +75,8 @@
         },
         {
           "name": "string.quoted.raw.rust-hi",
-          "begin": "r#*\"",
-          "end": "\"#*"
+          "begin": "r(#*)\"",
+          "end": "\"\\1"
         }
       ]
     },
