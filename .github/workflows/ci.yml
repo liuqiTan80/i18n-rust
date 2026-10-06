@@ -108,13 +108,7 @@ jobs:
         # lang_info 版本与扩展名一致；任一项不满足退出码非零
         run: python3 tools/check-lang-packs.py
 
-      - name: README 结构 parity 检查（9 份翻译 vs en 基准）
-        # 校验 9 份翻译 README 的 h1/h2/h3 章节数、页内锚点有效性、
-        # 代码围栏配对、「从这里开始」导航行链接与必需结构元素——
-        # 防止章节漂移与锚点失效（新增章节只改基准、emoji 标题锚点回归等）
-        run: python3 tools/check-readme-parity.py
-
-      - name: 教程代码块验证（单块编译 + 预期错误码断言，zh/en/ja/ru）
+      - name: 教程代码块验证（单块编译 + 预期错误码断言，中文专属）
         # 逐个验证 tutorials/*.md 代码块：完整程序/片段须编译通过，
         # 错误示例须编译失败且实际错误码与 `// 预期错误: EXXXX` 标记一致；
         # 非预期失败时退出码非零。白名单（tools/expected-failures.json）
@@ -122,10 +116,6 @@ jobs:
         run: |
           cargo build --quiet --bin rzc
           python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json
-          for lang in en ja ru; do
-            python3 tools/verify-tutorials.py --dir "tutorials/$lang" --lang "$lang" \
-              --allowlist tools/expected-failures.json
-          done
 
       - name: 术语表与语言包一致性检查
         # 术语表「对应关键字/宏/方法/…」引用必须能在 zh 语言包找到对应键，

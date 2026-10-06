@@ -160,9 +160,8 @@ mod 单元测试 {
 
     #[test]
     fn 测试内置全部语言可用() {
-        for 代码 in ["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
-            assert!(取内置界面(代码).is_some(), "{代码} 应内置 ui.toml");
-        }
+        // 单语分支：本分支仅内置中文包
+        assert!(取内置界面("zh").is_some(), "zh 应内置 ui.toml");
     }
 
     #[test]
@@ -191,8 +190,8 @@ mod 单元测试 {
 
     #[test]
     fn 测试按目录名加载() {
-        let 界面 = 界面::创建(Path::new("/任意路径/de"));
-        assert_eq!(界面.取文("lsp_about"), "i18n-rust LSP-Proxy-Server");
+        let 界面 = 界面::创建(Path::new("/任意路径/zh"));
+        assert_eq!(界面.取文("lsp_about"), "i18n-rust LSP 代理服务器");
     }
 
     #[test]

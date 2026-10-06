@@ -51,15 +51,15 @@ fn 版本命令报告名称与版本() {
         .stdout(predicates::str::contains(env!("CARGO_PKG_VERSION")));
 }
 
-/// `lang list` 无需网络：内置 11 语言包编译期嵌入；沙箱内无用户安装包，
-/// 计数稳定为 11（不随开发者机器上的 `~/.rz/lang-packs` 变化）
+/// `lang list` 无需网络：本分支内置中文单包编译期嵌入；沙箱内无用户安装包，
+/// 计数稳定为 1（不随开发者机器上的 `~/.rz/lang-packs` 变化）
 #[test]
 fn 语言列表列出内置包() {
     命令构造器()
         .args(["lang", "list"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("11"))
+        .stdout(predicates::str::contains("共 1 个"))
         .stdout(predicates::str::contains("zh"));
 }
 
@@ -104,27 +104,17 @@ fn 速查输出表格格式() {
         .stdout(predicates::str::contains("| 函数 | `fn` |"));
 }
 
-/// `rzc cheat ja`：非中文语言包同样可输出速查表（全球用户路径）
+/// `rzc init --lang` 缺省取系统 locale 命中的内置语言：本分支仅内置 zh，
+/// 即便 de_DE 环境也回退缺省 zh
 #[test]
-fn 速查日文输出映射表() {
-    命令构造器()
-        .args(["cheat", "ja"])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("ja ↔ Rust"))
-        .stdout(predicates::str::contains("Keywords"));
-}
-
-/// `rzc init --lang` 缺省跟随系统 locale：de_DE 环境下缺省 de（全球用户第一个项目是母语）
-#[test]
-fn 初始化默认语言跟随区域() {
+fn 初始化默认语言回退中文() {
     命令构造器()
         .args(["init", "--help"])
         .env("LC_ALL", "de_DE.UTF-8")
         .env("LANG", "de_DE.UTF-8")
         .assert()
         .success()
-        .stdout(predicates::str::contains("[default: de]"));
+        .stdout(predicates::str::contains("[default: zh]"));
 }
 
 /// 回归（#7）：`--no-lint` 静默教学 lint 提示

@@ -1945,24 +1945,21 @@ mod 单元测试 {
     #[test]
     fn 测试_文件类型受支持_默认() {
         let 扩展名列表 = 默认扩展名();
-        assert!(扩展名列表.len() >= 10, "内置语言包数量异常");
+        assert!(!扩展名列表.is_empty(), "内置语言包数量异常");
         assert!(文件类型受支持(
             "file:///project/src/main.zh",
             &扩展名列表
         ));
-        assert!(文件类型受支持(
-            "file:///project/src/main.zh",
-            &扩展名列表
-        ));
-        assert!(文件类型受支持(
+        // 单语分支：他语扩展名不再内置，应判为不支持
+        assert!(!文件类型受支持(
             "file:///project/src/main.de",
             &扩展名列表
         ));
-        assert!(文件类型受支持(
+        assert!(!文件类型受支持(
             "file:///project/src/main.ru",
             &扩展名列表
         ));
-        assert!(文件类型受支持(
+        assert!(!文件类型受支持(
             "file:///project/src/main.ja",
             &扩展名列表
         ));

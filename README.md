@@ -1,6 +1,6 @@
 <div align="center">
 
-**[中文](README.md)** · **[English](README.en.md)** · **[日本語](README.ja.md)** · **[Русский](README.ru.md)** · **[Español](README.es.md)** · **[Français](README.fr.md)** · **[Deutsch](README.de.md)** · **[한국어](README.ko.md)** · **[العربية](README.ar.md)** · **[Português](README.pt.md)** · **[हिन्दी](README.hi.md)**
+> 🇨🇳 本分支为 **中文专属版**：编译器以中文源真相自举，界面、教程、语言包均为中文。多语言语言包与 VS Code 扩展请见 `main` 分支。
 
 [![CI](https://github.com/liuqiTan80/i18n-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/liuqiTan80/i18n-rust/actions)
 [![crates.io](https://img.shields.io/crates/v/rzc.svg)](https://crates.io/crates/rzc)
@@ -52,7 +52,7 @@ $ rzc run src/main.zh
 💡 如果需要修改变量的值，请使用 `让 可变` 声明变量。
 ```
 
-**从这里开始**：🚀 [快速跑通](#快速开始) · 🌐 [在线文档站](https://liuqiTan80.github.io/i18n-rust/)（四语言；托管于 GitHub Pages，国内访问可能不稳定） · 📚 [飞书知识库](https://my.feishu.cn/wiki/space/7689728327082314704)（中文教程，国内免登录阅读） · 📖 [系统学习（中文教程）](#配套教程) · 🤝 [参与贡献](#参与贡献)
+**从这里开始**：🚀 [快速跑通](#快速开始) · 🌐 [在线文档站](https://liuqiTan80.github.io/i18n-rust/)（中文书；托管于 GitHub Pages，国内访问可能不稳定） · 📚 [飞书知识库](https://my.feishu.cn/wiki/space/7689728327082314704)（中文教程，国内免登录阅读） · 📖 [系统学习（中文教程）](#配套教程) · 🤝 [参与贡献](#参与贡献)
 
 ---
 
@@ -191,7 +191,7 @@ rzc doctor               # 查看工具链环境状态（内置 / PATH / 版本�
 
 前置条件：已按上面第三步编译 release 产物；联网执行一次 `rzc install toolchain --ra-only --force` 下载当前平台的 rust-analyzer（打包脚本会把它复制进包内）。
 
-脚本自动识别平台（Linux / Darwin / Windows），包内含 rzc、i18n-rust-lsp、rust-analyzer、11 个内置语言包（10 种自然语言 + `en` 恒等包）与教程，解压即用（详细步骤见教程附录 D.5）。
+脚本自动识别平台（Linux / Darwin / Windows），包内含 rzc、i18n-rust-lsp、rust-analyzer、内置中文语言包（`.zh`）与教程，解压即用（详细步骤见教程附录 D.5）。
 
 ### 环境变量（可选，一般无需配置）
 
@@ -271,17 +271,9 @@ rzc run src/main.zh      # 翻译 → 编译 → 运行
 ### 母语编程
 用母语关键字（`函数`、`让`、`如果`、`匹配`…）、母语标准库（`字符串`、`向量::新建()`、`使用 标准集合::哈希映射`）编写完整程序；宏、生命周期、泛型、特征全部支持。
 
-### 10 种语言内置
+### 中文内置（本分支专属）
 
-| 语言    | 扩展名 | 语言      | 扩展名 |
-|---------|-------|-----------|--------|
-| 中文    | `.zh` | Español   | `.es`  |
-| Deutsch | `.de` | Français  | `.fr`  |
-| 日本語  | `.ja` | Português | `.pt`  |
-| 한국어  | `.ko` | العربية   | `.ar`  |
-| Русский | `.ru` | हिन्दी    | `.hi`  |
-
-Rust 本身以英文书写，因此英语不作为教学方言（恒等映射无教学价值）；语言包目录中另有一个 `en` 恒等包（扩展名 `.en`），供需要恒等映射的场景与英文界面文案使用。上表 10 种自然语言按文件扩展名自动匹配，同一项目可混用。
+本分支仅内置中文语言包（扩展名 `.zh`）：其余语言包与 VS Code 扩展均已移除，使其成为纯粹的中文教学方言版。若需多语言编写或编辑器集成，请切回 `main` 分支。
 
 ### 教学级诊断
 - **错误码 + 消息双轨翻译**：覆盖 rustc 错误码、无码 lint 警告、help 短语
@@ -312,10 +304,8 @@ Rust 本身以英文书写，因此英语不作为教学方言（恒等映射无
 面向零基础学习者的完整中文教程：**26 章 + 总术语表 + 5 个附录**，见 [tutorials/](tutorials/)。
 从《你好世界》到所有权、闭包、异步、宏，直至综合实战——所有示例全部用中文 Rust 书写。
 
-🌐 **在线阅读**：[在线文档站](https://liuqiTan80.github.io/i18n-rust/)（mdBook 四语言 + 顶栏切换；本地预览 `make site-serve`） · 📚 **国内推荐**：[飞书知识库](https://my.feishu.cn/wiki/space/7689728327082314704)（33 篇中文教程，公网免登录直接阅读）。站点托管于 GitHub Pages，**国内网络可能无法稳定访问**（此时用上方飞书入口）；也可直接在仓库内阅读 [tutorials/](tutorials/)（GitCode 页内可正常浏览），或使用离线发布包随附的 `教程/` 目录。
+🌐 **在线阅读**：[在线文档站](https://liuqiTan80.github.io/i18n-rust/)（mdBook 中文书；本地预览 `make site-serve`） · 📚 **国内推荐**：[飞书知识库](https://my.feishu.cn/wiki/space/7689728327082314704)（33 篇中文教程，公网免登录直接阅读）。站点托管于 GitHub Pages，**国内网络可能无法稳定访问**（此时用上方飞书入口）；也可直接在仓库内阅读 [tutorials/](tutorials/)（GitCode 页内可正常浏览），或使用离线发布包随附的 `教程/` 目录。
 
-**多语言译本进行中**：英文（开篇、第 1–13 章、附录 D，15/33）、日本語、Русский 持续滚动；
-进度与下一批见 [translation-status.md](docs/translation-status.md)。
 
 > 教程质量由 CI 自动门禁守护（[tools/verify-tutorials.py](tools/verify-tutorials.py)）：
 > 每个代码块须可编译，错误示例须报出标注的预期错误码（`// 预期错误: EXXXX`），
@@ -342,7 +332,7 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 | `crates/engine`            | 语言无关核心引擎：转译管线、映射管理、诊断翻译、增量缓存、Unicode 安全检查 |
 | `crates/cli`               | `rzc` 命令行工具 |
 | `crates/lsp`               | `i18n-rust-lsp`：代理官方语言服务器（rust-analyzer），双向翻译位置与诊断 |
-| `crates/engine/lang-packs` | 11 个内置语言包（10 种自然语言 + `en` 恒等包：关键字/标准库/模块路径/错误翻译/界面文案） |
+| `crates/engine/lang-packs` | 内置中文语言包（关键字/标准库/模块路径/错误翻译/界面文案） |
 | `tools/vscode-extension`   | VS Code / Qoder 扩展 |
 | `tools`                    | 门禁与构建脚本：教程验证、基准回归、文档站装配等（见 [tools/README.md](tools/README.md)） |
 | `tutorials`                | 26 章中文教程与附录（en/ja/ru 译本进行中） |

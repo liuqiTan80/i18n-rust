@@ -404,7 +404,8 @@ mod 单元测试 {
         unsafe {
             std::env::set_var("LANG", "ru_RU.UTF-8");
         }
-        assert_eq!(检测系统语言(), "ru", "ru_RU 应识别为 ru");
+        // 单语分支：ru 非内置，命中的区域标签不在内置集合应回退 zh
+        assert_eq!(检测系统语言(), "zh", "ru_RU 非内置语言应回退 zh");
         unsafe {
             std::env::remove_var("LANG");
         }

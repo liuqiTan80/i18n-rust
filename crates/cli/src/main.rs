@@ -2230,10 +2230,8 @@ mod 单元测试 {
     fn 测试_语言代码从扩展名_内置() {
         let _锁 = crate::语言包工具::单元测试::环境锁();
         assert_eq!(按扩展名取语言代码("zh").as_deref(), Some("zh"));
-        assert_eq!(按扩展名取语言代码("de").as_deref(), Some("de"));
-        assert_eq!(按扩展名取语言代码("ru").as_deref(), Some("ru"));
-        assert_eq!(按扩展名取语言代码("ja").as_deref(), Some("ja"));
-        assert_eq!(按扩展名取语言代码("hi").as_deref(), Some("hi"));
+        // 单语分支：仅 zh 为内置扩展名；他语扩展名不再走内置映射
+        //（用户自带旧包的静态回退由 语言包工具 专项测试覆盖）
     }
 
     /// 未知扩展名返回 None（同样受 RZ_LANG_DIR 影响，需持锁）

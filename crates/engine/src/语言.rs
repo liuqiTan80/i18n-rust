@@ -277,14 +277,14 @@ mod 单元测试 {
     }
 
     #[test]
-    fn 设置语言为德语() {
-        let _守卫 = 测试语言("de");
-        assert_eq!(当前语言(), "de");
+    fn 设置语言并格式化消息() {
+        let _守卫 = 测试语言("zh");
+        assert_eq!(当前语言(), "zh");
         // 纯函数按语言取模板，不受全局状态干扰
-        assert_eq!(取消息于("de", "err_line_col"), "Zeile {}, Spalte {}");
+        assert_eq!(取消息于("zh", "err_line_col"), "第 {} 行第 {} 列");
         assert_eq!(
-            格式化消息于("de", "err_line_col", &["1", "2"]),
-            "Zeile 1, Spalte 2"
+            格式化消息于("zh", "err_line_col", &["1", "2"]),
+            "第 1 行第 2 列"
         );
     }
 
@@ -303,21 +303,20 @@ mod 单元测试 {
 
     #[test]
     fn 回退链路() {
-        let _守卫 = 测试语言("de");
-        // unicode_name_* 已同步到全部语言包（英文 Unicode 标准名），直接命中德语表
-        assert_eq!(
-            取消息于("de", "unicode_name_200B"),
-            "\u{200b} (Zero Width Space)"
-        );
+        let _守卫 = 测试语言("zh");
+        // 中文表命中本语言消息（unicode_name_* 存中文 Unicode 名称）
+        assert_eq!(取消息于("zh", "unicode_name_200B"), "零宽空格");
         // 完全缺失的键回退键名
-        assert_eq!(取消息于("de", "no_such_key"), "no_such_key");
+        assert_eq!(取消息于("zh", "no_such_key"), "no_such_key");
+        // 未知语言代码经 界面表路由 回退中文表
+        assert_eq!(取消息于("qq", "err_line_col"), "第 {} 行第 {} 列");
     }
 
     #[test]
     fn 所有语言含公共键() {
         // 语言集合来自 lang-packs 目录（单一事实源），随语言包增删自动适应
         let 代码 = 内置语言代码();
-        assert!(代码.len() >= 10, "内置语言包数量异常: {}", 代码.len());
+        assert!(!代码.is_empty(), "内置语言包数量异常: {}", 代码.len());
         for 语言 in 代码 {
             let 表 = 取消息表(语言);
             for 键 in ["err_line_col", "diag_kind_error", "mapping_cat_keywords"] {

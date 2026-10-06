@@ -168,6 +168,9 @@ fn main() {
     生成文本.push('\n');
 
     // ===== 界面表路由：按语言代码路由消息表（未知语言回退 zh） =====
+    // 单语场景（仅 zh）时 match 只剩 `_ =>` 一条臂，会触发 clippy 的
+    // match_single_binding；结构性保留 match（多语言时才有真实分支臂），用 allow 兼容两种。
+    生成文本.push_str("#[allow(clippy::match_single_binding)]\n");
     生成文本.push_str(
         "fn 界面表路由(语言代码: &str) -> &'static std::sync::LazyLock<std::collections::HashMap<String, String>> {\n    match 语言代码 {\n",
     );

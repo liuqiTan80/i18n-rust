@@ -11,7 +11,7 @@
 CARGO ?= cargo
 PYTHON ?= python3
 
-.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs readme-parity mapping-check tutorials tutorials-all site site-serve feishu glossary bench bench-check bench-update vsix clean zh-verify zh-demo-check zh-help-check
+.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs mapping-check tutorials tutorials-all site site-serve feishu glossary bench bench-check bench-update vsix clean zh-verify zh-demo-check zh-help-check
 
 help: ## 显示全部可用目标
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -30,19 +30,16 @@ test: ## 全部单元测试（debug + release，锁定依赖；CI 同款）
 	$(CARGO) test --workspace --locked
 	$(CARGO) test --workspace --release --locked
 
-gate: fmt-check clippy test prod-panics ui-keys lang-packs readme-parity mapping-check tutorials-all glossary zh-verify zh-demo-check zh-help-check ## 提交前完整门禁（= CI test job 全链）
+gate: fmt-check clippy test prod-panics ui-keys lang-packs mapping-check tutorials-all glossary zh-verify zh-demo-check zh-help-check ## 提交前完整门禁（= CI test job 全链）
 
 prod-panics: ## 生产代码 panic 面门禁（unwrap/expect/panic! 仅限测试区或白名单）
 	$(PYTHON) tools/check-prod-panics.py
 
-ui-keys: ## ui.toml 键完备性检查（11 语言与 zh 对齐，含占位符一致性）
+ui-keys: ## ui.toml 键完备性检查（扫描 lang-packs 目录，各语言与 zh 键齐平、占位符一致）
 	$(PYTHON) tools/check-ui-keys.py
 
 lang-packs: ## 语言包完整性门禁（errors.toml 回读/键数齐平/占位符形态/版本一致/通配段特异度）
 	$(PYTHON) tools/check-lang-packs.py
-
-readme-parity: ## 翻译 README 结构 parity 检查（章节数/锚点有效性/围栏配对，基准 en）
-	$(PYTHON) tools/check-readme-parity.py
 
 mapping-check: ## 第三方库映射质量门禁（重复键/避让/跨文件冲突/跨语言条目数/告警基线）
 	$(CARGO) build --quiet --bin rzc
@@ -52,12 +49,9 @@ tutorials: ## 教程代码块编译验证（zh 全量，携带预期失败白名
 	$(CARGO) build --quiet --bin rzc
 	$(PYTHON) tools/verify-tutorials.py --rzc target/debug/rzc --allowlist tools/expected-failures.json
 
-tutorials-all: ## 多语言教程门禁（zh/en/ja/ru 四语依次验证）
+tutorials-all: ## 中文教程代码块编译验证（本分支专属中文）
 	$(CARGO) build --quiet --bin rzc
 	$(PYTHON) tools/verify-tutorials.py --allowlist tools/expected-failures.json
-	$(PYTHON) tools/verify-tutorials.py --dir tutorials/en --lang en --allowlist tools/expected-failures.json
-	$(PYTHON) tools/verify-tutorials.py --dir tutorials/ja --lang ja --allowlist tools/expected-failures.json
-	$(PYTHON) tools/verify-tutorials.py --dir tutorials/ru --lang ru --allowlist tools/expected-failures.json
 
 site: ## 构建文档站到 _site/（多语言 mdBook；需 mdbook，安装见 book/README.md）
 	$(PYTHON) tools/build-site.py

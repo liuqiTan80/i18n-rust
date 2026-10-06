@@ -216,10 +216,8 @@ mod 单元测试 {
     #[test]
     fn 测试按显式目录加载回退() {
         let 界面 = 界面::按显式目录加载(Path::new("/不存在的目录/de"));
-        assert_eq!(
-            界面.取文("cli_about"),
-            "Ein mehrsprachiger Rust-Lehrdialekt-Compiler"
-        );
+        // 单语分支：de 包已移除，命中的他语目录回退内置中文表
+        assert_eq!(界面.取文("cli_about"), "多语言 Rust 教学方言编译器");
     }
 
     #[test]
@@ -233,19 +231,14 @@ mod 单元测试 {
         );
         for (区域, 期望) in [
             ("zh_CN.UTF-8", "zh"),
-            // en 语言包已恢复（恒等映射），en 区域设置直接命中 en
-            ("en_US.UTF-8", "en"),
-            ("de_DE.UTF-8", "de"),
-            ("ja_JP.UTF-8", "ja"),
-            ("ru_RU.UTF-8", "ru"),
-            ("es_ES.UTF-8", "es"),
-            ("fr_FR.UTF-8", "fr"),
-            ("pt_BR.UTF-8", "pt"),
-            ("ko_KR.UTF-8", "ko"),
-            ("ar_SA.UTF-8", "ar"),
-            ("hi_IN.UTF-8", "hi"),
             // 普通话标签 cmn 归入中文
             ("cmn_CN.UTF-8", "zh"),
+            // 单语分支：本分支仅内置 zh，其余语言标签不在内置集合，一律回退 zh
+            ("en_US.UTF-8", "zh"),
+            ("de_DE.UTF-8", "zh"),
+            ("ja_JP.UTF-8", "zh"),
+            ("ru_RU.UTF-8", "zh"),
+            ("fr_FR.UTF-8", "zh"),
         ] {
             unsafe {
                 std::env::set_var("LANG", 区域);

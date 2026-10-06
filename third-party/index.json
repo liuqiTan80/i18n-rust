@@ -15,39 +15,6 @@
     },
     {
       "crate_name": "serde",
-      "lang": "ja",
-      "version": "1.0",
-      "author": "tan80",
-      "license": "MIT",
-      "quality": 1.0,
-      "downloads": 0,
-      "file": "ja/crates/serde.toml",
-      "updated": "2026-09-04"
-    },
-    {
-      "crate_name": "serde",
-      "lang": "ko",
-      "version": "1.0",
-      "author": "tan80",
-      "license": "MIT",
-      "quality": 1.0,
-      "downloads": 0,
-      "file": "ko/crates/serde.toml",
-      "updated": "2026-09-04"
-    },
-    {
-      "crate_name": "serde",
-      "lang": "ru",
-      "version": "1.0",
-      "author": "tan80",
-      "license": "MIT",
-      "quality": 1.0,
-      "downloads": 0,
-      "file": "ru/crates/serde.toml",
-      "updated": "2026-09-04"
-    },
-    {
-      "crate_name": "serde",
       "lang": "zh",
       "version": "1.0",
       "author": "tan80",
@@ -55,39 +22,6 @@
       "quality": 1.0,
       "downloads": 0,
       "file": "zh/crates/serde.toml",
-      "updated": "2026-09-04"
-    },
-    {
-      "crate_name": "tokio",
-      "lang": "ja",
-      "version": "1.0",
-      "author": "tan80",
-      "license": "MIT",
-      "quality": 1.0,
-      "downloads": 0,
-      "file": "ja/crates/tokio.toml",
-      "updated": "2026-09-04"
-    },
-    {
-      "crate_name": "tokio",
-      "lang": "ko",
-      "version": "1.0",
-      "author": "tan80",
-      "license": "MIT",
-      "quality": 1.0,
-      "downloads": 0,
-      "file": "ko/crates/tokio.toml",
-      "updated": "2026-09-04"
-    },
-    {
-      "crate_name": "tokio",
-      "lang": "ru",
-      "version": "1.0",
-      "author": "tan80",
-      "license": "MIT",
-      "quality": 1.0,
-      "downloads": 0,
-      "file": "ru/crates/tokio.toml",
       "updated": "2026-09-04"
     },
     {

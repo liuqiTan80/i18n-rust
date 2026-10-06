@@ -1112,24 +1112,6 @@ mod 单元测试 {
         );
     }
 
-    /// en 界面：panic 输出除线程 ID 剥离外保持英文原文（不引入本地化偏差）
-    #[test]
-    fn 测试流式翻译器en不变() {
-        let 界面 = 界面供测试("en");
-        let mut 翻译器 = 流式翻译器::新建();
-        assert_eq!(
-            翻译器.翻译一行("thread 'main' (621725) panicked at a.rs:1:50:", &界面),
-            "thread 'main' panicked at a.rs:1:50:"
-        );
-        assert_eq!(
-            翻译器.翻译一行(
-                "index out of bounds: the len is 3 but the index is 5",
-                &界面
-            ),
-            "index out of bounds: the len is 3 but the index is 5"
-        );
-    }
-
     /// 非 panic 行回退 cargo 进度翻译（Finished 等本地化）
     #[test]
     fn 测试流式翻译器回退cargo进度() {
