@@ -7,7 +7,7 @@
 使用 标准库::路径::路径类型;
 
 /// 错误消息翻译条目（从 errors.toml 加载）
-#[derive(可反序列化, Debug, Clone)]
+#[派生(可反序列化, 调试, 克隆)]
 公开 结构体 消息条目 {
     #[serde(rename = "消息模板")]
     公开 消息模板: 字符串,
@@ -29,7 +29,7 @@
 ///   剥离（"Datelike` which provides `year` is never used"）；
 /// - 后缀键（键以 `~` 开头，如 "~ is never used"）：rest 是键之前的
 ///   **头段**，引号对完整（"variants `黄灯` and `绿灯` "）。
-#[derive(Debug, Clone, Copy)]
+#[派生(调试, 克隆, 复制)]
 公开 枚举 消息残段<'b> {
     /// 前缀键命中的尾段
     尾段(&'b 文本),
@@ -53,7 +53,7 @@
 }
 
 /// 错误消息翻译管理器：按错误码或消息文本查询翻译条目
-#[derive(Debug, Clone)]
+#[派生(调试, 克隆)]
 公开 结构体 错误翻译管理器 {
     /// 错误码表：错误码 → 翻译条目（errors.toml 顶层 [E0xxx] 节）
     公开 错误码表: 哈希映射<字符串, 消息条目>,
@@ -313,7 +313,7 @@
 }
 
 /// 单条 rustc 消息在给定语言包下的译文审计结果（供 `diag_audit` 与门禁测试共用）
-#[derive(Debug, Clone)]
+#[派生(调试, 克隆)]
 公开 结构体 消息审计 {
     /// 命中形态：`CODE`/`EXACT`/`PREFIX`/`SUFFIX`/`SEGMENT`/`MISS`
     公开 种类: &'static 文本,
