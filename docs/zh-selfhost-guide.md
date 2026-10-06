@@ -36,6 +36,10 @@ crates/**.zh  ──(tools/zh-selfhost/regen.sh: stage 拷贝 → rzc eject → 
 代码的引用会滞后）；五线全部收口后分支才算自洽。每线的验收都是：
 `扫描器定位 → 词条/存在性核验 → regen → build → fmt → test → make gate` 逐字节一致。
 
+其中**源真相逐字节一致（`regen --check`）、覆盖面断言、`.zh-demo` 往返校验**这三道
+不仅本地 `make gate` 跑，也已作为独立步进 **CI `test` job**（将 CI 自建 rzc 注入 PATH
+后调用；`--check` 只读不覆写产物，故用自建 rzc 安全且更严格），对所有贡献者强制。
+
 | 线 | 内容 | 例子 |
 |---|---|---|
 | 标识符面 | 模块/类型/函数/字段/局部变量/循环/参数/闭包参数 | `TranslationCache → 翻译缓存`、`\|k, v\| → \|键名项, 值项\|` |

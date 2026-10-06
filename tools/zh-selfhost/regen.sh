@@ -10,8 +10,11 @@
 #   ./tools/zh-selfhost/regen.sh            # 生成模式：再生全部登记的 .zh
 #   ./tools/zh-selfhost/regen.sh --check    # 校验模式：产物漂移则退出码 1（CI 门禁，不写文件）
 #
-# 引导约束：由 PATH 中的 rzc 执行转译；指向工作区 target/ 时警告不阻断
-#   （本地验收环境经软链接使用发布构建属预期；CI 应用独立发布的 rzc）。
+# 引导约束：由 PATH 中的 rzc 执行转译；指向工作区 target/ 时警告不阻断。
+#   该约束只针对 write 模式（本地验收经软链用发布快照属预期；若用重编过的工作区
+#   构建去覆写产物则属自举中间态，须知情）——CI 应用独立发布的 rzc。
+#   --check 为只读比对（从不写仓库产物），用 CI 自建 rzc 安全且更严格（验当前
+#   代码 eject 能否复现当前提交产物的不动点一致性），ci.yml test job 据此直接调用。
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
