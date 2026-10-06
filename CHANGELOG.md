@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+### 新增（仅 exp/zh-selfhost 分支）
+- 中文自举收官：全库 `.zh` 方言源真相覆盖 engine/cli/lsp 三 crate 全部模块，
+  「用 rzc 的中文方言写 rzc 自己」；产物由 `make zh-verify` 逐字节门禁核验。
+  四条终审线全部清零：标识符面（模块/类型/函数/字段/局部变量/闭包参数）、
+  关键字面（继续/中断/如果守卫/使用/&可变/引用绑定/真假/可丢弃丢弃）、
+  黏连混合面（原始uri→原始资源定位、zh_len→中文长度等）、属性位
+  （#[派生(调试, 克隆)]、#[配置(测试)]）；用户可见契约（CLI 参数、serde/LSP
+  协议键、build.rs 生成面）以英文钉死不变。方法论与保留类白名单见
+  [docs/zh-selfhost-guide.md](docs/zh-selfhost-guide.md)。本分支定位为学习与
+  参考，不合回主干（产品主线仍以英文源码为主）。
+
 ### 修复
 - VS Code 扩展：修复 `.zh` 等方言文件里 `r#"…"#` 原始字符串**整片区域串色**——
   `rust-zh.tmLanguage.json` 的原始字符串规则旧为 `begin: r#*"` / `end: "#*`，`end` 的
