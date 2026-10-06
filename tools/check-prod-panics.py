@@ -14,7 +14,8 @@ TOML），任何生产路径 panic 都会让编辑器语言服务器整体崩溃
 跳过区域：
   - #[cfg(test)] 属性修饰的整个项（mod tests { … } 或单个 fn/use/const，
     按花括号深度配对，支持行/块注释、字节串/裸字符串/字符字面量等情形）；
-  - src 下名为 tests.rs 的独立测试文件（经 #[cfg(test)] mod tests; 引入）；
+  - src 下名为 单元测试.rs（旧 tests.rs）的独立测试文件（经父模块
+    `#[cfg(test)] mod 单元测试;` 引入）；
   - crates/*/tests、benches、examples（集成测试与基准天然允许 panic）；
   - build.rs（cargo 受控构建期环境）。
 
@@ -33,7 +34,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 # (相对路径, 行内必须包含的特征串, 白名单理由)
 ALLOW = [
     (
-        "crates/cli/src/builtin_lang.rs",
+        "crates/cli/src/内置语言.rs",
         '内置文件(语言, 目标文件).expect(',
         "include_str! 编译期嵌入的内置语言包；缺失=引擎构建损坏，且 expect 带中文说明",
     ),
@@ -85,9 +86,9 @@ def iter_src_files():
         if not src.is_dir():
             continue
         for p in sorted(src.rglob("*.rs")):
-            # 独立测试文件（经父模块 `#[cfg(test)] mod tests;` 引入，
-            # 全仓唯一：lsp/src/response_map/tests.rs）整体视为测试代码
-            if p.name == "tests.rs":
+            # 独立测试文件（经父模块 `#[cfg(test)] mod 单元测试;` 引入，
+            # 全仓唯一：lsp/src/响应映射/单元测试.rs）整体视为测试代码
+            if p.name in ("单元测试.rs", "tests.rs"):
                 continue
             yield p
 

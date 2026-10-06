@@ -276,9 +276,9 @@ fn 读取单条分析器消息<R: BufRead>(读取器: &mut R) -> Option<Value> {
         }
 
         if let Some(长度串) = 去空白.strip_prefix("Content-Length:")
-            && let Ok(n) = 长度串.trim().parse::<usize>()
+            && let Ok(长度数值项) = 长度串.trim().parse::<usize>()
         {
-            内容长度 = Some(n);
+            内容长度 = Some(长度数值项);
         }
     }
 
@@ -307,15 +307,15 @@ fn 读取单条分析器消息<R: BufRead>(读取器: &mut R) -> Option<Value> {
 fn 查找分析器程序() -> anyhow::Result<PathBuf> {
     // 0. 用户显式指定的环境变量（最高优先级，覆盖内置与 PATH）
     if let Ok(路径) = std::env::var("RUST_ANALYZER_PATH") {
-        let p = PathBuf::from(&路径);
-        if p.exists() {
-            return Ok(p);
+        let 路径项 = PathBuf::from(&路径);
+        if 路径项.exists() {
+            return Ok(路径项);
         }
     }
 
     // 1. 内置工具链（脱离 rustup 的 standalone 版本，版本自管）
-    if let Some(p) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
-        return Ok(p);
+    if let Some(路径项) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
+        return Ok(路径项);
     }
 
     // rustup which 返回真实二进制路径（非 shim），避免被项目 rust-toolchain.toml
@@ -325,18 +325,18 @@ fn 查找分析器程序() -> anyhow::Result<PathBuf> {
         .output()
         && 输出.status.success()
     {
-        let s = String::from_utf8_lossy(&输出.stdout).trim().to_string();
-        if !s.is_empty() {
-            let p = PathBuf::from(&s);
-            if p.exists() {
-                return Ok(p);
+        let 文本项 = String::from_utf8_lossy(&输出.stdout).trim().to_string();
+        if !文本项.is_empty() {
+            let 路径项 = PathBuf::from(&文本项);
+            if 路径项.exists() {
+                return Ok(路径项);
             }
         }
     }
 
     // PATH 扫描（engine 工具链定位统一实现：含 Windows PATHEXT 探测）
-    if let Some(p) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
-        return Ok(p);
+    if let Some(路径项) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
+        return Ok(路径项);
     }
 
     let 候选 = [
@@ -345,9 +345,9 @@ fn 查找分析器程序() -> anyhow::Result<PathBuf> {
         PathBuf::from("/usr/local/bin/rust-analyzer"),
         PathBuf::from("/usr/bin/rust-analyzer"),
     ];
-    for p in 候选 {
-        if p.exists() {
-            return Ok(p);
+    for 路径候选项 in 候选 {
+        if 路径候选项.exists() {
+            return Ok(路径候选项);
         }
     }
 
@@ -366,16 +366,16 @@ fn 主目录路径(相对路径: &str) -> PathBuf {
     }
 }
 
-fn 截断文本(s: &str, 最大长度: usize) -> String {
-    if s.len() <= 最大长度 {
-        s.to_string()
+fn 截断文本(文本项: &str, 最大长度: usize) -> String {
+    if 文本项.len() <= 最大长度 {
+        文本项.to_string()
     } else {
         // 按字符边界安全截断，避免切到多字节字符（中文）中间
         let mut 边界 = 最大长度;
-        while 边界 > 0 && !s.is_char_boundary(边界) {
+        while 边界 > 0 && !文本项.is_char_boundary(边界) {
             边界 -= 1;
         }
-        format!("{}...", &s[..边界])
+        format!("{}...", &文本项[..边界])
     }
 }
 

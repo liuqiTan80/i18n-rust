@@ -46,7 +46,7 @@ impl<'b> 消息残段<'b> {
     /// （拼接会把已捕获的英文名再粘一遍）。
     pub fn 文字(&self) -> &'b str {
         match self {
-            Self::尾段(s) | Self::头段(s) => s,
+            Self::尾段(文本项) | Self::头段(文本项) => 文本项,
             Self::捕获段(_) => "",
         }
     }
@@ -304,13 +304,13 @@ fn 构建条目从值(值项: &toml::Value) -> 消息条目 {
     消息条目 {
         消息模板: 值项
             .get("消息模板")
-            .and_then(|v| v.as_str())
+            .and_then(|值内容项| 值内容项.as_str())
             .unwrap_or_default()
             .to_string(),
         教学提示: 值项
             .get("教学提示")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
+            .and_then(|值内容项| 值内容项.as_str())
+            .map(|文本项| 文本项.to_string()),
     }
 }
 
@@ -337,12 +337,12 @@ const 最小英文词数: usize = 4;
 fn 英文词串(待扫描文本: &str) -> Vec<String> {
     let mut 串列表 = Vec::new();
     let mut 当前: Vec<&str> = Vec::new();
-    for 词元 in 待扫描文本.split(|c: char| !c.is_ascii_alphanumeric()) {
+    for 词元 in 待扫描文本.split(|字符项: char| !字符项.is_ascii_alphanumeric()) {
         if 词元.is_empty() {
             continue;
         }
         if 词元.chars().all(char::is_alphanumeric)
-            && 词元.contains(|c: char| c.is_ascii_alphabetic())
+            && 词元.contains(|字符项: char| 字符项.is_ascii_alphabetic())
         {
             当前.push(词元);
         } else {
@@ -430,8 +430,8 @@ mod 单元测试 {
     }
 
     /// 渲染消息表命中结果：填充占位符，未消费时拼回残段（与 CLI/LSP 调用方同逻辑）
-    fn 渲染(m: &错误翻译管理器, 消息: &str) -> Option<String> {
-        let (条目, 残段) = m.按消息查询(消息)?;
+    fn 渲染(管理器项: &错误翻译管理器, 消息: &str) -> Option<String> {
+        let (条目, 残段) = 管理器项.按消息查询(消息)?;
         let mut 文本内容 = 条目.消息模板.clone();
         if let Some(残段) = 残段 {
             let (已填充, 已消费) = 填充动态占位符(&文本内容, &残段);
@@ -449,12 +449,12 @@ mod 单元测试 {
     /// （如 “consider specifying…type parameter `?`”），此处固定住修复。
     #[test]
     fn 通配段单捕获() {
-        let m = 管理器(
+        let 管理器项 = 管理器(
             "[\"消息翻译\".\"consider specifying a concrete type for the type parameter `?`\"]\n\"消息模板\" = \"考虑为类型参数 `{q0}` 指定具体类型\"",
         );
         assert_eq!(
             渲染(
-                &m,
+                &管理器项,
                 "consider specifying a concrete type for the type parameter `T`"
             )
             .as_deref(),
@@ -482,12 +482,12 @@ mod 单元测试 {
     /// unused_variables「赋值但从未使用」通配段键：动态变量名回填、无英文残留
     #[test]
     fn 通配段赋值从未使用() {
-        let m = 管理器(
+        let 管理器项 = 管理器(
             "[\"消息翻译\".\"variable `?` is assigned to, but never used\"]\n\"消息模板\" = \"`{q0}` 被赋值但从未使用\"",
         );
         assert_eq!(
             审计消息(
-                &m,
+                &管理器项,
                 "main",
                 "unused_variables",
                 "variable `x` is assigned to, but never used"
@@ -501,12 +501,12 @@ mod 单元测试 {
     /// 两端动态（E0277 族）：通配段键一次拿齐两个动态名
     #[test]
     fn 通配段捕获两个动态名() {
-        let m = 管理器(
+        let 管理器项 = 管理器(
             "[\"消息翻译\".\"the trait `?` is not implemented for `?`\"]\n\"消息模板\" = \"特征 `{q0}` 未对 `{q1}` 实现\"",
         );
         assert_eq!(
             渲染(
-                &m,
+                &管理器项,
                 "the trait `std::fmt::Display` is not implemented for `HashMap<&str, i32>`"
             )
             .as_deref(),
@@ -521,12 +521,12 @@ mod 单元测试 {
     /// 模板只引用 q0/q2，未引用的 q1 被丢弃（不粘回原文）。
     #[test]
     fn 通配段三捕获非贪婪() {
-        let m = 管理器(
+        let 管理器项 = 管理器(
             "[\"消息翻译\".\"the lifetime `'a` may only live as long as one of `?`'s ? or one of `?`'s ?\"]\n\"消息模板\" = \"`a` 只能与 `{q0}` 或 `{q2}` 的引用同长存活\"",
         );
         let 消息 = "the lifetime `'a` may only live as long as one of `a' and `b' and `c`'s 2 lifetimes or one of `d`'s 2 lifetimes";
         assert_eq!(
-            渲染(&m, 消息).as_deref(),
+            渲染(&管理器项, 消息).as_deref(),
             Some("`a` 只能与 `a' and `b' and `c` 或 `d` 的引用同长存活")
         );
     }
@@ -534,13 +534,13 @@ mod 单元测试 {
     /// 特异度：通配段键优先于更长的前缀/后缀键（避免前缀键吞掉整句）
     #[test]
     fn 通配段优先前后缀键() {
-        let m = 管理器(
+        let 管理器项 = 管理器(
             "[\"消息翻译\".\"the trait `\"]\n\"消息模板\" = \"特征 `{q0}`\"\n\
              [\"消息翻译\".\"~ is not implemented for `\"]\n\"消息模板\" = \"未实现尾巴\"\n\
              [\"消息翻译\".\"the trait `?` is not implemented for `?`\"]\n\"消息模板\" = \"特征 `{q0}` 未对 `{q1}` 实现\"",
         );
         assert_eq!(
-            渲染(&m, "the trait `Debug` is not implemented for `Foo`").as_deref(),
+            渲染(&管理器项, "the trait `Debug` is not implemented for `Foo`").as_deref(),
             Some("特征 `Debug` 未对 `Foo` 实现")
         );
     }
@@ -548,12 +548,16 @@ mod 单元测试 {
     /// 多通配段键同时命中时取字面量更长者（与最长前缀同口径）
     #[test]
     fn 更特异段键胜出() {
-        let m = 管理器(
+        let 管理器项 = 管理器(
             "[\"消息翻译\".\"`?` and `?`\"]\n\"消息模板\" = \"宽松\"\n\
              [\"消息翻译\".\"variants `?` and `?` are never constructed\"]\n\"消息模板\" = \"变体 `{q0}` 与 `{q1}` 从未被构造\"",
         );
         assert_eq!(
-            渲染(&m, "variants `Red` and `Green` are never constructed").as_deref(),
+            渲染(
+                &管理器项,
+                "variants `Red` and `Green` are never constructed"
+            )
+            .as_deref(),
             Some("变体 `Red` 与 `Green` 从未被构造")
         );
     }
@@ -561,11 +565,15 @@ mod 单元测试 {
     /// 无占位符的通配键：整句改写，不粘回英文残段
     #[test]
     fn 段无占位符整句改写() {
-        let m = 管理器(
+        let 管理器项 = 管理器(
             "[\"消息翻译\".\"this trait has no implementations, `?` adding `?`\"]\n\"消息模板\" = \"该特征无任何实现\"",
         );
         assert_eq!(
-            渲染(&m, "this trait has no implementations, `X` adding `Y`").as_deref(),
+            渲染(
+                &管理器项,
+                "this trait has no implementations, `X` adding `Y`"
+            )
+            .as_deref(),
             Some("该特征无任何实现")
         );
     }
@@ -573,16 +581,16 @@ mod 单元测试 {
     /// 精确匹配仍优先于通配段键
     #[test]
     fn 精确匹配优先于通配段() {
-        let m = 管理器(
+        let 管理器项 = 管理器(
             "[\"消息翻译\".\"the trait `?` is not implemented for `?`\"]\n\"消息模板\" = \"通配\"\n\
              [\"消息翻译\".\"the trait `A` is not implemented for `B`\"]\n\"消息模板\" = \"精确\"",
         );
         assert_eq!(
-            渲染(&m, "the trait `A` is not implemented for `B`").as_deref(),
+            渲染(&管理器项, "the trait `A` is not implemented for `B`").as_deref(),
             Some("精确")
         );
         assert_eq!(
-            渲染(&m, "the trait `C` is not implemented for `D`").as_deref(),
+            渲染(&管理器项, "the trait `C` is not implemented for `D`").as_deref(),
             Some("通配")
         );
     }
@@ -594,11 +602,14 @@ mod 单元测试 {
     /// 第一次出现的错误位置、把整段前缀当成参数名抓走。
     #[test]
     fn 段锚点歧义时拒绝() {
-        let m = 管理器(
+        let 管理器项 = 管理器(
             "[\"消息翻译\".\"this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `?` or `?`\"]\n\"消息模板\" = \"未说明借自 `{q0}` 还是 `{q1}`\"",
         );
         let 消息 = "this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `a` or `b`";
-        assert_eq!(渲染(&m, 消息).as_deref(), Some("未说明借自 `a` 还是 `b`"));
+        assert_eq!(
+            渲染(&管理器项, 消息).as_deref(),
+            Some("未说明借自 `a` 还是 `b`")
+        );
         // 同一消息不得被片段式键误抓（首段不是消息前缀 → 不命中）
         let 坏 = 管理器(
             "[\"消息翻译\".\"borrowed from `?` or `?`\"]\n\"消息模板\" = \"误抓 `{q0}`\"",
@@ -609,17 +620,17 @@ mod 单元测试 {
     /// 字面量不匹配时不得误命中（回落原行为）
     #[test]
     fn 段失配不误命中() {
-        let m = 管理器(
+        let 管理器项 = 管理器(
             "[\"消息翻译\".\"the trait `?` is not implemented for `?`\"]\n\"消息模板\" = \"特征 `{q0}`\"",
         );
-        assert!(m.按消息查询("totally different message").is_none());
+        assert!(管理器项.按消息查询("totally different message").is_none());
     }
 
     /// 捕获为空串时不假装消费（交回调用方回退，避免信息凭空丢失）
     #[test]
     fn 空捕获回退() {
-        let m = 管理器("[\"消息翻译\".\"a?b?c\"]\n\"消息模板\" = \"{q0}/{q1}\"");
-        let (条目, 残段) = m.按消息查询("abbc").expect("通配段键应命中空捕获");
+        let 管理器项 = 管理器("[\"消息翻译\".\"a?b?c\"]\n\"消息模板\" = \"{q0}/{q1}\"");
+        let (条目, 残段) = 管理器项.按消息查询("abbc").expect("通配段键应命中空捕获");
         let 残段 = 残段.expect("通配段键应携带捕获");
         let (已填充, 已消费) = 填充动态占位符(&条目.消息模板, &残段);
         assert_eq!(已填充, "{q0}/{q1}");
@@ -629,9 +640,9 @@ mod 单元测试 {
     /// 既有前缀键行为不变（残段回拼，零回归）
     #[test]
     fn 前缀键行为不变() {
-        let m = 管理器("[\"消息翻译\".\"consider \"]\n\"消息模板\" = \"考虑 \"");
+        let 管理器项 = 管理器("[\"消息翻译\".\"consider \"]\n\"消息模板\" = \"考虑 \"");
         assert_eq!(
-            渲染(&m, "consider making this binding mutable").as_deref(),
+            渲染(&管理器项, "consider making this binding mutable").as_deref(),
             Some("考虑 making this binding mutable")
         );
     }
@@ -639,10 +650,10 @@ mod 单元测试 {
     /// 既有后缀键行为不变（头段取引号对内容，反引号由模板自带）
     #[test]
     fn 后缀键行为不变() {
-        let m =
+        let 管理器项 =
             管理器("[\"消息翻译\".\"~ is never used\"]\n\"消息模板\" = \"`{q0}` 从未被使用\"");
         assert_eq!(
-            渲染(&m, "function `helper` is never used").as_deref(),
+            渲染(&管理器项, "function `helper` is never used").as_deref(),
             Some("`helper` 从未被使用")
         );
     }

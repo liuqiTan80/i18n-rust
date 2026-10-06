@@ -3,9 +3,9 @@
 // 消除 语言.rs 中手写的 include_str! 白名单（builtin_file match 与 ui_table! 宏列表）：
 // 语言包新增/删除文件后无需修改任何 Rust 代码，重新编译即自动纳入。
 //
-// 生成物（OUT_DIR/builtin_generated.rs，由 语言.rs include! 引入）：
-// - BUILTIN_FILES：(语言代码, 相对路径, 文件内容) 全量清单，供 builtin_file 查询
-// - UI_TABLE_*：每语言 ui.toml 的消息表静态实例，供 ui_table_for 查询
+// 生成物（OUT_DIR/内置生成.rs，由 语言.rs include! 引入）：
+// - 内置文件清单：(语言代码, 相对路径, 文件内容) 全量清单，供 builtin_file 查询
+// - 界面消息表_*：每语言 ui.toml 的消息表静态实例，供 界面表路由 查询
 //
 // 发布兼容性：lang-packs/ 位于 crate 目录内且已列入 Cargo.toml include 白名单，
 // crates.io 消费者编译时本脚本同样可扫描到完整数据。
@@ -16,90 +16,96 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// 语言包文件集合：顶层文件 + crates/ 子目录文件
-struct LangFiles {
+struct 语言文件集 {
     /// (相对路径, 绝对路径)，相对路径形如 "keywords.toml" 或 "crates/序列化.toml"
-    files: Vec<(String, PathBuf)>,
+    文件清单: Vec<(String, PathBuf)>,
 }
 
-fn collect_lang_files(lang_dir: &Path) -> LangFiles {
-    let mut files = Vec::new();
-    if let Ok(entries) = fs::read_dir(lang_dir) {
-        let mut list: Vec<PathBuf> = entries
+fn 收集语言文件(语言目录: &Path) -> 语言文件集 {
+    let mut 文件清单 = Vec::new();
+    if let Ok(目录项) = fs::read_dir(语言目录) {
+        let mut 名单: Vec<PathBuf> = 目录项
             .flatten()
-            .map(|e| e.path())
-            .filter(|p| p.is_file() && p.extension().and_then(|s| s.to_str()) == Some("toml"))
+            .map(|条目项| 条目项.path())
+            .filter(|路径项| {
+                路径项.is_file()
+                    && 路径项.extension().and_then(|后缀项| 后缀项.to_str()) == Some("toml")
+            })
             .collect();
-        list.sort();
-        for path in list {
-            let name = path.file_name().unwrap().to_string_lossy().into_owned();
-            files.push((name, path));
+        名单.sort();
+        for 路径 in 名单 {
+            let 名称 = 路径.file_name().unwrap().to_string_lossy().into_owned();
+            文件清单.push((名称, 路径));
         }
     }
-    let crates_dir = lang_dir.join("crates");
-    if crates_dir.is_dir()
-        && let Ok(entries) = fs::read_dir(&crates_dir)
+    let 三方目录 = 语言目录.join("crates");
+    if 三方目录.is_dir()
+        && let Ok(目录项) = fs::read_dir(&三方目录)
     {
-        let mut list: Vec<PathBuf> = entries
+        let mut 名单: Vec<PathBuf> = 目录项
             .flatten()
-            .map(|e| e.path())
-            .filter(|p| p.is_file() && p.extension().and_then(|s| s.to_str()) == Some("toml"))
+            .map(|条目项| 条目项.path())
+            .filter(|路径项| {
+                路径项.is_file()
+                    && 路径项.extension().and_then(|后缀项| 后缀项.to_str()) == Some("toml")
+            })
             .collect();
-        list.sort();
-        for path in list {
-            let name = path.file_name().unwrap().to_string_lossy().into_owned();
-            files.push((format!("crates/{name}"), path));
+        名单.sort();
+        for 路径 in 名单 {
+            let 名称 = 路径.file_name().unwrap().to_string_lossy().into_owned();
+            文件清单.push((format!("crates/{名称}"), 路径));
         }
     }
-    LangFiles { files }
+    语言文件集 { 文件清单 }
 }
 
-/// FNV-1a 64 位增量哈希（与 cache.rs 的 compute_content_hash 同算法）
-fn fnv1a(hash: &mut u64, bytes: &[u8]) {
-    for byte in bytes {
-        *hash ^= *byte as u64;
-        *hash = hash.wrapping_mul(0x100000001b3);
+/// FNV-1a 64 位增量哈希（与 缓存::计算内容哈希 同算法）
+fn fnv1a混列(哈希: &mut u64, 字节串: &[u8]) {
+    for 字节项 in 字节串 {
+        *哈希 ^= *字节项 as u64;
+        *哈希 = 哈希.wrapping_mul(0x100000001b3);
     }
 }
 
 /// 引擎源码指纹：对 src/ 下全部 .rs 文件（按路径排序，逐个混入相对路径
 /// 与内容）计算 FNV-1a 哈希。转译算法任何变化都会改变指纹，使磁盘缓存
 /// 自动失效（仅靠内容哈希与映射指纹无法感知引擎升级）。
-fn engine_source_fingerprint(crate_root: &Path) -> u64 {
-    fn collect(dir: &Path, files: &mut Vec<PathBuf>) {
-        let Ok(entries) = fs::read_dir(dir) else {
+fn 引擎源码指纹(包根目录: &Path) -> u64 {
+    fn 收集源码文件(目录: &Path, 文件清单: &mut Vec<PathBuf>) {
+        let Ok(目录项) = fs::read_dir(目录) else {
             return;
         };
-        let mut list: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
-        list.sort();
-        for path in list {
-            if path.is_dir() {
-                collect(&path, files);
-            } else if path.extension().and_then(|s| s.to_str()) == Some("rs") {
-                files.push(path);
+        let mut 名单: Vec<PathBuf> = 目录项.flatten().map(|条目项| 条目项.path()).collect();
+        名单.sort();
+        for 路径 in 名单 {
+            if 路径.is_dir() {
+                收集源码文件(&路径, 文件清单);
+            } else if 路径.extension().and_then(|后缀项| 后缀项.to_str()) == Some("rs") {
+                文件清单.push(路径);
             }
         }
     }
 
-    let mut files = Vec::new();
-    collect(&crate_root.join("src"), &mut files);
-    let mut hash = 0xcbf29ce484222325u64;
-    for path in files {
-        let rel = path
-            .strip_prefix(crate_root)
-            .unwrap_or(&path)
+    let mut 文件清单 = Vec::new();
+    收集源码文件(&包根目录.join("src"), &mut 文件清单);
+    let mut 哈希 = 0xcbf29ce484222325u64;
+    for 路径 in 文件清单 {
+        let 相对 = 路径
+            .strip_prefix(包根目录)
+            .unwrap_or(&路径)
             .to_string_lossy();
-        fnv1a(&mut hash, rel.as_bytes());
-        if let Ok(content) = fs::read(&path) {
-            fnv1a(&mut hash, &content);
+        fnv1a混列(&mut 哈希, 相对.as_bytes());
+        if let Ok(内容) = fs::read(&路径) {
+            fnv1a混列(&mut 哈希, &内容);
         }
     }
-    hash
+    哈希
 }
 
 fn main() {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let lang_root = Path::new(&manifest_dir).join("lang-packs");
-    let out_dir = env::var("OUT_DIR").unwrap();
+    let 清单目录 = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let 语言根 = Path::new(&清单目录).join("lang-packs");
+    let 输出目录 = env::var("OUT_DIR").unwrap();
 
     println!("cargo:rerun-if-changed=lang-packs");
     // 引擎源码变化时重跑本脚本：源码指纹（见下）必须随算法代码更新，
@@ -107,73 +113,76 @@ fn main() {
     println!("cargo:rerun-if-changed=src");
 
     // 语言目录按名称排序，保证生成代码与嵌入顺序确定
-    let mut lang_dirs: Vec<PathBuf> = fs::read_dir(&lang_root)
+    let mut 语言目录集: Vec<PathBuf> = fs::read_dir(&语言根)
         .expect("语言包目录 lang-packs 不存在")
         .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.is_dir())
+        .map(|条目项| 条目项.path())
+        .filter(|路径项| 路径项.is_dir())
         .collect();
-    lang_dirs.sort();
+    语言目录集.sort();
 
-    let mut code = String::from("// 由 build.rs 自动生成，勿手工编辑\n\n");
+    let mut 生成文本 = String::from("// 由 build.rs 自动生成，勿手工编辑\n\n");
 
-    // ===== BUILTIN_FILES 全量清单 =====
-    code.push_str("static BUILTIN_FILES: &[(&str, &str, &str)] = &[\n");
-    let mut ui_tables = Vec::new();
-    for dir in &lang_dirs {
-        let lang = dir.file_name().unwrap().to_string_lossy().into_owned();
-        let lang_files = collect_lang_files(dir);
-        for (rel, abs) in &lang_files.files {
-            let abs_str = abs.to_string_lossy();
-            writeln!(code, "    ({lang:?}, {rel:?}, include_str!({abs_str:?})),").unwrap();
-            if rel == "ui.toml" {
-                ui_tables.push((lang.clone(), abs_str.into_owned()));
+    // ===== 内置文件清单 全量清单 =====
+    生成文本.push_str("static 内置文件清单: &[(&str, &str, &str)] = &[\n");
+    let mut 界面表集 = Vec::new();
+    for 目录 in &语言目录集 {
+        let 语言 = 目录.file_name().unwrap().to_string_lossy().into_owned();
+        let 语言文件 = 收集语言文件(目录);
+        for (相对, 绝对路径) in &语言文件.文件清单 {
+            let 绝对串 = 绝对路径.to_string_lossy();
+            writeln!(
+                生成文本,
+                "    ({语言:?}, {相对:?}, include_str!({绝对串:?})),"
+            )
+            .unwrap();
+            if 相对 == "ui.toml" {
+                界面表集.push((语言.clone(), 绝对串.into_owned()));
             }
         }
     }
-    code.push_str("];\n\n");
+    生成文本.push_str("];\n\n");
 
-    // ===== 引擎源码指纹（转译缓存失效依据，见 cache.rs 语境指纹） =====
+    // ===== 引擎源码指纹（转译缓存失效依据，见 缓存 语境指纹） =====
     // 缓存条目除内容哈希与语言包映射指纹外，还须绑定转译算法自身的身份：
     // 算法变更（如别名替换细则修复）后旧缓存必须失效，否则源文件未变时
     // 旧转译产物继续命中、修复不生效（真实事故：`实现 库特征` 块内方法名
     // 替换修复后，旧产物仍被复用）。
     writeln!(
-        code,
-        "pub(crate) static ENGINE_SOURCE_FINGERPRINT: u64 = {:#x};",
-        engine_source_fingerprint(Path::new(&manifest_dir))
+        生成文本,
+        "pub(crate) static 引擎源码指纹: u64 = {:#x};",
+        引擎源码指纹(Path::new(&清单目录))
     )
     .unwrap();
-    code.push('\n');
+    生成文本.push('\n');
 
     // ===== UI 消息表静态实例（每语言一个，惰性解析一次） =====
-    for (i, (_, abs)) in ui_tables.iter().enumerate() {
+    for (序号, (_, 绝对路径)) in 界面表集.iter().enumerate() {
         writeln!(
-            code,
-            "static UI_TABLE_{i}: std::sync::LazyLock<std::collections::HashMap<String, String>> =\n    \
-             std::sync::LazyLock::new(|| 解析界面表(include_str!({abs:?})));"
+            生成文本,
+            "static 界面消息表_{序号}: std::sync::LazyLock<std::collections::HashMap<String, String>> =\n    \
+             std::sync::LazyLock::new(|| 解析界面表(include_str!({绝对路径:?})));"
         )
         .unwrap();
     }
-    code.push('\n');
+    生成文本.push('\n');
 
-    // ===== ui_table_for：按语言代码路由消息表（未知语言回退 zh） =====
-    code.push_str(
-        "fn ui_table_for(code: &str) -> &'static std::sync::LazyLock<std::collections::HashMap<String, String>> {\n    match code {\n",
+    // ===== 界面表路由：按语言代码路由消息表（未知语言回退 zh） =====
+    生成文本.push_str(
+        "fn 界面表路由(语言代码: &str) -> &'static std::sync::LazyLock<std::collections::HashMap<String, String>> {\n    match 语言代码 {\n",
     );
-    for (i, (lang, _)) in ui_tables.iter().enumerate() {
-        if lang == "zh" {
+    for (序号, (语言, _)) in 界面表集.iter().enumerate() {
+        if 语言 == "zh" {
             continue; // zh 作为回退分支最后输出
         }
-        writeln!(code, "        {lang:?} => &UI_TABLE_{i},").unwrap();
+        writeln!(生成文本, "        {语言:?} => &界面消息表_{序号},").unwrap();
     }
-    let zh_index = ui_tables
+    let 中文下标 = 界面表集
         .iter()
-        .position(|(lang, _)| lang == "zh")
+        .position(|(语言, _)| 语言 == "zh")
         .expect("zh 语言包必须存在（消息回退链依赖）");
-    writeln!(code, "        _ => &UI_TABLE_{zh_index},").unwrap();
-    code.push_str("    }\n}\n");
+    writeln!(生成文本, "        _ => &界面消息表_{中文下标},").unwrap();
+    生成文本.push_str("    }\n}\n");
 
-    fs::write(Path::new(&out_dir).join("builtin_generated.rs"), code)
-        .expect("写入生成的嵌入清单失败");
+    fs::write(Path::new(&输出目录).join("内置生成.rs"), 生成文本).expect("写入生成的嵌入清单失败");
 }

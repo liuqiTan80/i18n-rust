@@ -282,9 +282,9 @@
         }
 
         如果 让 有值(长度串) = 去空白.strip_prefix("Content-Length:")
-            && 让 成功(n) = 长度串.trim().parse::<usize>()
+            && 让 成功(长度数值项) = 长度串.trim().parse::<usize>()
         {
-            内容长度 = 有值(n);
+            内容长度 = 有值(长度数值项);
         }
     }
 
@@ -313,15 +313,15 @@
 函数 查找分析器程序() -> anyhow::Result<PathBuf> {
     // 0. 用户显式指定的环境变量（最高优先级，覆盖内置与 PATH）
     如果 让 成功(路径) = std::env::var("RUST_ANALYZER_PATH") {
-        让 p = PathBuf::from(&路径);
-        如果 p.exists() {
-            返回 成功(p);
+        让 路径项 = PathBuf::from(&路径);
+        如果 路径项.exists() {
+            返回 成功(路径项);
         }
     }
 
     // 1. 内置工具链（脱离 rustup 的 standalone 版本，版本自管）
-    如果 让 有值(p) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
-        返回 成功(p);
+    如果 让 有值(路径项) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
+        返回 成功(路径项);
     }
 
     // rustup which 返回真实二进制路径（非 shim），避免被项目 rust-toolchain.toml
@@ -331,18 +331,18 @@
         .output()
         && 输出.status.success()
     {
-        让 s = 字符串::from_utf8_lossy(&输出.stdout).trim().to_string();
-        如果 !s.is_empty() {
-            让 p = PathBuf::from(&s);
-            如果 p.exists() {
-                返回 成功(p);
+        让 文本项 = 字符串::from_utf8_lossy(&输出.stdout).trim().to_string();
+        如果 !文本项.is_empty() {
+            让 路径项 = PathBuf::from(&文本项);
+            如果 路径项.exists() {
+                返回 成功(路径项);
             }
         }
     }
 
     // PATH 扫描（engine 工具链定位统一实现：含 Windows PATHEXT 探测）
-    如果 让 有值(p) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
-        返回 成功(p);
+    如果 让 有值(路径项) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
+        返回 成功(路径项);
     }
 
     让 候选 = [
@@ -351,9 +351,9 @@
         PathBuf::from("/usr/local/bin/rust-analyzer"),
         PathBuf::from("/usr/bin/rust-analyzer"),
     ];
-    对于 p in 候选 {
-        如果 p.exists() {
-            返回 成功(p);
+    对于 路径候选项 in 候选 {
+        如果 路径候选项.exists() {
+            返回 成功(路径候选项);
         }
     }
 
@@ -372,16 +372,16 @@
     }
 }
 
-函数 截断文本(s: &文本, 最大长度: usize) -> 字符串 {
-    如果 s.len() <= 最大长度 {
-        s.to_string()
+函数 截断文本(文本项: &文本, 最大长度: usize) -> 字符串 {
+    如果 文本项.len() <= 最大长度 {
+        文本项.to_string()
     } 否则 {
         // 按字符边界安全截断，避免切到多字节字符（中文）中间
         让 可变 边界 = 最大长度;
-        当 边界 > 0 && !s.is_char_boundary(边界) {
+        当 边界 > 0 && !文本项.is_char_boundary(边界) {
             边界 -= 1;
         }
-        格式化!("{}...", &s[..边界])
+        格式化!("{}...", &文本项[..边界])
     }
 }
 

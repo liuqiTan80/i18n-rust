@@ -51,10 +51,13 @@ impl 教学诊断 {
         let 位置描述 = self
             .位置列表
             .iter()
-            .filter(|p| p.是主跨度)
-            .map(|p| {
-                let mut 描述 = format!("  --> {}:{}:{}", p.源文件名, p.起始行, p.起始列);
-                if let Some(标签) = &p.标签 {
+            .filter(|跨度项| 跨度项.是主跨度)
+            .map(|跨度项| {
+                let mut 描述 = format!(
+                    "  --> {}:{}:{}",
+                    跨度项.源文件名, 跨度项.起始行, 跨度项.起始列
+                );
+                if let Some(标签) = &跨度项.标签 {
                     描述 = format!("{}\n      {}", 描述, 标签);
                 }
                 描述
@@ -82,7 +85,7 @@ impl 教学诊断 {
         ));
 
         // 位置信息（只显示第一个主要位置）
-        if let Some(位置) = self.位置列表.iter().find(|p| p.是主跨度) {
+        if let Some(位置) = self.位置列表.iter().find(|跨度项| 跨度项.是主跨度) {
             输出.push_str(&format!(
                 "  --> {}:{}:{}\n",
                 位置.源文件名, 位置.起始行, 位置.起始列
@@ -143,7 +146,7 @@ pub fn 抽取反引号首段(待扫描文本: &str) -> Vec<String> {
         if !内部.is_empty()
             && 内部
                 .chars()
-                .all(|c| c.is_alphanumeric() || c == '_' || c == ':')
+                .all(|字符项| 字符项.is_alphanumeric() || 字符项 == '_' || 字符项 == ':')
         {
             let 首段 = 内部.split("::").next().unwrap_or(内部);
             if !首段.is_empty() {
@@ -170,7 +173,10 @@ pub fn 未解析包候选(消息: &str) -> Vec<String> {
         if matches!(
             段.as_str(),
             "std" | "core" | "alloc" | "self" | "super" | "crate" | "proc_macro"
-        ) || 段.chars().next().is_some_and(|c| c.is_ascii_digit())
+        ) || 段
+            .chars()
+            .next()
+            .is_some_and(|字符项| 字符项.is_ascii_digit())
             || !段.is_ascii()
         {
             continue;

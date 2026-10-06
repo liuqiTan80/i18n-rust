@@ -19,7 +19,7 @@ use i18n_rust_engine::映射源;
 
 use crate::分析器::分析器连接;
 use crate::响应映射::响应映射器;
-use crate::翻译缓存::{TranslationEntry, 路径转定位, 转译缓存};
+use crate::翻译缓存::{翻译条目, 路径转定位, 转译缓存};
 
 /// 默认支持的方言文件扩展名（与内置语言包 lang_info.toml 的扩展名一致，
 /// 单一来源：引擎 lang-packs 目录，避免清单与语言包漂移）；
@@ -27,7 +27,7 @@ use crate::翻译缓存::{TranslationEntry, 路径转定位, 转译缓存};
 fn 默认扩展名() -> Vec<String> {
     i18n_rust_engine::语言::内置语言扩展()
         .into_iter()
-        .map(|e| format!(".{e}"))
+        .map(|条目项| format!(".{条目项}"))
         .collect()
 }
 
@@ -86,7 +86,7 @@ impl 代理服务器 {
     ///
     /// `extensions`: 支持的方言文件扩展名列表（如 `.zh`），
     /// 传空列表时使用默认值（`.zh` / `.de`）。
-    pub fn new(
+    pub fn 装配实例(
         语言包路径: &Path,
         扩展名列表: &[String],
     ) -> anyhow::Result<(Self, lsp_server::IoThreads)> {
@@ -107,8 +107,8 @@ impl 代理服务器 {
         );
 
         // 2. 创建翻译缓存（临时目录按用户隔离，避免多用户共享 /tmp 路径）
-        let temp_dir = 虚拟临时目录()?;
-        let 缓存 = 转译缓存::新建缓存(管理器, temp_dir);
+        let 临时根路径 = 虚拟临时目录()?;
+        let 缓存 = 转译缓存::新建缓存(管理器, 临时根路径);
 
         // 3. 启动 rust-analyzer
         let 分析器实例 = 分析器连接::启动服务()?;
@@ -142,7 +142,7 @@ impl 代理服务器 {
     }
 
     /// 运行服务器主循环
-    pub fn run(self, 输入线程: lsp_server::IoThreads) -> anyhow::Result<()> {
+    pub fn 服务循环(self, 输入线程: lsp_server::IoThreads) -> anyhow::Result<()> {
         // 1. 等待 initialize 请求并握手
         let (初始化标识, 初始化参数) = self.握手()?;
         log::info!("{}", crate::本地化::全局().取文("lsp_log_client_init"));
@@ -176,19 +176,20 @@ impl 代理服务器 {
 
     /// 握手：接收 initialize 请求并回复
     fn 握手(&self) -> anyhow::Result<(lsp_server::RequestId, Value)> {
-        let 消息体 = self.客户端连接.receiver.recv().map_err(|e| {
+        let 消息体 = self.客户端连接.receiver.recv().map_err(|条目项| {
             anyhow::anyhow!(
                 "{}",
-                crate::本地化::全局().取文带参("lsp_err_recv_initialize", &[&e.to_string()])
+                crate::本地化::全局()
+                    .取文带参("lsp_err_recv_initialize", &[&条目项.to_string()])
             )
         })?;
 
         match 消息体 {
             Message::Request(请求对象) => {
                 if 请求对象.method == "initialize" {
-                    let id = 请求对象.id.clone();
-                    let params = 请求对象.params.clone();
-                    Ok((id, params))
+                    let 请求编号 = 请求对象.id.clone();
+                    let 请求参数体 = 请求对象.params.clone();
+                    Ok((请求编号, 请求参数体))
                 } else {
                     anyhow::bail!(
                         "{}",
@@ -202,14 +203,14 @@ impl 代理服务器 {
     }
 
     /// 向 rust-analyzer 发送 initialize 并等待响应
-    fn 初始化分析器(&self, params: &Value) -> anyhow::Result<()> {
+    fn 初始化分析器(&self, 请求参数体: &Value) -> anyhow::Result<()> {
         // 不透传客户端的 rootUri/workspaceFolders：
         // 客户端工作区（如整个 zrRust 项目）与母语文件无关，
         // 透传会导致 rust-analyzer 全量分析并发布海量诊断，
         // 阻塞代理到客户端的消息通道。
         // 改用虚拟项目目录作为 rust-analyzer 的工作区根，
         // 使其只分析自动生成的虚拟 .rs 文件。
-        let _ = params;
+        let _ = 请求参数体;
         let 虚拟项目定位 = self.缓存.虚拟项目资源定位();
 
         let 初始化请求 = json!({
@@ -289,7 +290,7 @@ impl 代理服务器 {
         let mut 初始化完成 = false;
         for _ in 0..200 {
             if let Some(消息体) = self.分析器实例.try_recv() {
-                if 消息体.get("id").and_then(|v| v.as_i64()) == Some(0) {
+                if 消息体.get("id").and_then(|值项| 值项.as_i64()) == Some(0) {
                     // 保存 rust-analyzer 的语义着色能力声明：initialize 响应
                     // 透传给客户端，保证 legend 与 token 类型索引一致
                     // （否则变量/参数等语义 token 的类型索引错位，着色乱或不显示）
@@ -308,20 +309,21 @@ impl 代理服务器 {
                 // 必须立即响应，否则它一直等待导致配置加载挂起。
                 // 返回补全 snippet 配置并禁用其自跑 cargo check（见
                 // [`分析器配置结果`] 的说明），其余键维持默认。
-                if 消息体.get("method").and_then(|v| v.as_str()) == Some("workspace/configuration")
+                if 消息体.get("method").and_then(|值项| 值项.as_str())
+                    == Some("workspace/configuration")
                 {
                     let 数量 = 消息体["params"]["items"]
                         .as_array()
-                        .map(|a| a.len())
+                        .map(|数组项| 数组项.len())
                         .unwrap_or(0);
-                    let result = 分析器配置结果(数量);
+                    let 应答结果 = 分析器配置结果(数量);
                     let 响应体 = json!({
                         "jsonrpc": "2.0",
                         "id": 消息体["id"].clone(),
-                        "result": result
+                        "result": 应答结果
                     });
-                    if let Err(e) = self.分析器实例.send(&响应体) {
-                        log::warn!("配置响应发送失败: {e}");
+                    if let Err(条目项) = self.分析器实例.send(&响应体) {
+                        log::warn!("配置响应发送失败: {条目项}");
                     }
                 }
             }
@@ -339,8 +341,8 @@ impl 代理服务器 {
     }
 
     /// 回复客户端 initialize 响应
-    fn 应答初始化(&self, id: lsp_server::RequestId) -> anyhow::Result<()> {
-        let mut capabilities = json!({
+    fn 应答初始化(&self, 请求编号: lsp_server::RequestId) -> anyhow::Result<()> {
+        let mut 能力表 = json!({
             "capabilities": {
                 "textDocumentSync": {
                     "openClose": true,
@@ -372,23 +374,23 @@ impl 代理服务器 {
         if let Ok(槽位) = self.语义令牌提供者配置.lock()
             && let Some(令牌提供者) = 槽位.as_ref()
         {
-            capabilities["capabilities"]["semanticTokensProvider"] = 令牌提供者.clone();
+            能力表["capabilities"]["semanticTokensProvider"] = 令牌提供者.clone();
         }
 
         let 响应体 = Response {
-            id,
-            result: Some(capabilities),
+            id: 请求编号,
+            result: Some(能力表),
             error: None,
         };
 
         self.客户端连接
             .sender
             .send(Message::Response(响应体))
-            .map_err(|e| {
+            .map_err(|条目项| {
                 anyhow::anyhow!(
                     "{}",
                     crate::本地化::全局()
-                        .取文带参("lsp_err_send_initialize", &[&e.to_string()])
+                        .取文带参("lsp_err_send_initialize", &[&条目项.to_string()])
                 )
             })?;
         Ok(())
@@ -396,9 +398,9 @@ impl 代理服务器 {
 
     /// 启动 rust-analyzer → 客户端的消息转发线程
     fn 启动转发线程(&self) -> anyhow::Result<()> {
-        let receiver = self.分析器实例.取消息通道();
+        let 接收端 = self.分析器实例.取消息通道();
         let 映射器实例 = self.映射器实例.clone();
-        let sender = self.客户端连接.sender.clone();
+        let 发送端 = self.客户端连接.sender.clone();
         let 待处理项 = self.待处理请求表.clone();
         // rust-analyzer 主动请求（如 workspace/diagnostic/refresh）
         // 的响应需要回发给 rust-analyzer 本身，而非客户端。
@@ -411,11 +413,11 @@ impl 代理服务器 {
             // 清理超时请求（rust-analyzer 挂起/丢弃请求时向客户端应答错误）
             let mut 上次清理 = std::time::Instant::now();
             loop {
-                match receiver.recv_timeout(std::time::Duration::from_secs(1)) {
+                match 接收端.recv_timeout(std::time::Duration::from_secs(1)) {
                     Ok(消息体) => 处理分析器消息(
                         &消息体,
                         &映射器实例,
-                        &sender,
+                        &发送端,
                         &待处理项,
                         &分析器发送端,
                         &内置诊断,
@@ -424,7 +426,7 @@ impl 代理服务器 {
                     Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
                 }
                 if 上次清理.elapsed() >= std::time::Duration::from_secs(10) {
-                    清理过期请求(&待处理项, &sender);
+                    清理过期请求(&待处理项, &发送端);
                     上次清理 = std::time::Instant::now();
                 }
             }
@@ -450,25 +452,25 @@ impl 代理服务器 {
                 Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
                     // rust-analyzer 异常退出：自动重启并重做完整握手
                     if self.分析器实例.检测崩溃()
-                        && let Err(e) = self.重启分析器()
+                        && let Err(条目项) = self.重启分析器()
                     {
                         log::error!(
                             "{}",
                             crate::本地化::全局()
-                                .取文带参("lsp_err_ra_restart", &[&e.to_string()])
+                                .取文带参("lsp_err_ra_restart", &[&条目项.to_string()])
                         );
                         // 重启失败（如二进制被卸载）：通知客户端并暂停自动重试，
                         // 避免每 100ms 刷一次错误日志与 showMessage
-                        let params = json!({
+                        let 请求参数体 = json!({
                             "type": 1,
-                            "message": crate::本地化::全局().取文带参("lsp_err_ra_restart", &[&e.to_string()])
+                            "message": crate::本地化::全局().取文带参("lsp_err_ra_restart", &[&条目项.to_string()])
                         });
                         let _ = self
                             .客户端连接
                             .sender
                             .send(Message::Notification(Notification {
                                 method: "window/showMessage".to_string(),
-                                params,
+                                params: 请求参数体,
                             }));
                         self.分析器实例.清除崩溃标志();
                     }
@@ -497,20 +499,22 @@ impl 代理服务器 {
                     }
                     // 单条请求处理失败（如 rust-analyzer 写入失败）只记录错误，
                     // 不退出服务器，避免一次偶发故障杀死整个会话
-                    if let Err(e) = self.处理客户端请求(请求对象) {
+                    if let Err(条目项) = self.处理客户端请求(请求对象) {
                         log::error!(
                             "{}",
                             crate::本地化::全局()
-                                .取文带参("lsp_err_handle_request", &[&e.to_string()])
+                                .取文带参("lsp_err_handle_request", &[&条目项.to_string()])
                         );
                     }
                 }
                 Message::Notification(通知对象) => {
-                    if let Err(e) = self.处理客户端通知(通知对象) {
+                    if let Err(条目项) = self.处理客户端通知(通知对象) {
                         log::error!(
                             "{}",
-                            crate::本地化::全局()
-                                .取文带参("lsp_err_handle_notification", &[&e.to_string()])
+                            crate::本地化::全局().取文带参(
+                                "lsp_err_handle_notification",
+                                &[&条目项.to_string()]
+                            )
                         );
                     }
                 }
@@ -648,14 +652,14 @@ impl 代理服务器 {
             return Ok(());
         }
         let 主资源定位 = 路径转定位(&self.缓存.虚拟项目目录().join("src").join("main.rs"));
-        let notification = json!({
+        let 通知消息 = json!({
             "jsonrpc": "2.0",
             "method": "workspace/didChangeWatchedFiles",
             "params": {
                 "changes": [{ "uri": 主资源定位, "type": 2 }]
             }
         });
-        self.分析器实例.send(&notification)
+        self.分析器实例.send(&通知消息)
     }
 
     /// 其他虚拟条目的内容变化通知：按条目状态路由
@@ -665,8 +669,7 @@ impl 代理服务器 {
     /// 未在编辑器中打开，其虚拟文件由代理直接写盘，用
     /// didChangeWatchedFiles（Changed）让 rust-analyzer 从磁盘重读。
     fn 通知虚拟条目已变更(
-        &self,
-        条目列表: &[Arc<TranslationEntry>],
+        &self, 条目列表: &[Arc<翻译条目>]
     ) -> anyhow::Result<()> {
         for 条目 in 条目列表 {
             let 分析器消息 = if 条目.是否打开 {
@@ -696,8 +699,8 @@ impl 代理服务器 {
     }
 
     /// 处理文档打开
-    fn 处理文档打开(&self, params: &Value) -> anyhow::Result<()> {
-        let 文档项 = &params["textDocument"];
+    fn 处理文档打开(&self, 请求参数体: &Value) -> anyhow::Result<()> {
+        let 文档项 = &请求参数体["textDocument"];
         let 资源定位 = 文档项["uri"].as_str().unwrap_or("");
         let 源码内容 = 文档项["text"].as_str().unwrap_or("");
         let 文档版本 = 文档项["version"].as_i64().unwrap_or(1) as i32;
@@ -748,8 +751,8 @@ impl 代理服务器 {
     /// 无 range 的变更项为全量文本（兼容旧客户端），
     /// 带 range 的按 LSP 位置（UTF-16）逐项应用到缓存中的母语文本。
     /// 应用后仍全量重译，并以全量替换通知 rust-analyzer。
-    fn 处理文档变更(&self, params: &Value) -> anyhow::Result<()> {
-        let 文档项 = &params["textDocument"];
+    fn 处理文档变更(&self, 请求参数体: &Value) -> anyhow::Result<()> {
+        let 文档项 = &请求参数体["textDocument"];
         let 资源定位 = 文档项["uri"].as_str().unwrap_or("");
         let 文档版本 = 文档项["version"].as_i64().unwrap_or(1) as i32;
 
@@ -757,7 +760,7 @@ impl 代理服务器 {
             return Ok(());
         }
 
-        let Some(变更列表) = params["contentChanges"].as_array() else {
+        let Some(变更列表) = 请求参数体["contentChanges"].as_array() else {
             return Ok(());
         };
 
@@ -765,7 +768,7 @@ impl 代理服务器 {
         let mut 源码内容 = self
             .缓存
             .查询原文(资源定位)
-            .map(|e| e.中文原文.clone())
+            .map(|条目项| 条目项.中文原文.clone())
             .unwrap_or_default();
         for 变更项 in 变更列表 {
             if let Some(文字) = 变更项["text"].as_str() {
@@ -799,8 +802,8 @@ impl 代理服务器 {
     }
 
     /// 处理文档关闭
-    fn 处理文档关闭(&self, params: &Value) -> anyhow::Result<()> {
-        let 资源定位 = params["textDocument"]["uri"].as_str().unwrap_or("");
+    fn 处理文档关闭(&self, 请求参数体: &Value) -> anyhow::Result<()> {
+        let 资源定位 = 请求参数体["textDocument"]["uri"].as_str().unwrap_or("");
         if !self.文件类型受支持(资源定位) {
             return Ok(());
         }
@@ -829,8 +832,8 @@ impl 代理服务器 {
     }
 
     /// 处理文档保存
-    fn 处理文档保存(&self, params: &Value) -> anyhow::Result<()> {
-        let 资源定位 = params["textDocument"]["uri"].as_str().unwrap_or("");
+    fn 处理文档保存(&self, 请求参数体: &Value) -> anyhow::Result<()> {
+        let 资源定位 = 请求参数体["textDocument"]["uri"].as_str().unwrap_or("");
         if !self.文件类型受支持(资源定位) {
             return Ok(());
         }
@@ -872,7 +875,7 @@ impl 代理服务器 {
     ) -> anyhow::Result<()> {
         let 缓存 = self.缓存.clone();
         let 映射器实例 = self.映射器实例.clone();
-        let sender = self.客户端连接.sender.clone();
+        let 发送端 = self.客户端连接.sender.clone();
         let 内置诊断 = self.内置诊断.clone();
         let 检查进行中 = self.检查进行中.clone();
         let 检查待补跑 = self.检查待补跑.clone();
@@ -898,7 +901,7 @@ impl 代理服务器 {
                     Self::运行cargo检查一次(
                         &缓存,
                         &映射器实例,
-                        &sender,
+                        &发送端,
                         &内置诊断,
                         &项目目录,
                     );
@@ -907,7 +910,7 @@ impl 代理服务器 {
                 //（didSave 已跑过草稿，无需重复）
                 let 镜像校验通过 = crate::镜像校验::执行镜像检查(
                     &缓存,
-                    &sender,
+                    &发送端,
                     &内置诊断,
                     &扩展名列表,
                     &保存资源定位,
@@ -917,7 +920,7 @@ impl 代理服务器 {
                     Self::运行cargo检查一次(
                         &缓存,
                         &映射器实例,
-                        &sender,
+                        &发送端,
                         &内置诊断,
                         &项目目录,
                     );
@@ -937,7 +940,7 @@ impl 代理服务器 {
     fn 运行cargo检查一次(
         缓存: &Arc<转译缓存>,
         映射器实例: &Arc<响应映射器>,
-        sender: &crossbeam_channel::Sender<Message>,
+        发送端: &crossbeam_channel::Sender<Message>,
         内置诊断: &Arc<std::sync::Mutex<HashMap<String, Vec<Value>>>>,
         项目目录: &Path,
     ) {
@@ -953,23 +956,25 @@ impl 代理服务器 {
             .stderr(std::process::Stdio::piped())
             .spawn()
         {
-            Ok(c) => c,
-            Err(e) => {
-                log::warn!("cargo check spawn failed: {e}");
+            Ok(进程句柄) => 进程句柄,
+            Err(条目项) => {
+                log::warn!("cargo check spawn failed: {条目项}");
                 return;
             }
         };
         let mut 子进程可选 = Some(子进程);
         let mut 进程输出 = None;
         let mut 已超时 = false;
-        for i in 0..300 {
-            match 子进程可选.as_mut().map(|c| c.try_wait()) {
+        for 循环序号 in 0..300 {
+            match 子进程可选.as_mut().map(|进程句柄| 进程句柄.try_wait()) {
                 Some(Ok(Some(_))) => {
-                    进程输出 = 子进程可选.take().and_then(|c| c.wait_with_output().ok());
+                    进程输出 = 子进程可选
+                        .take()
+                        .and_then(|进程句柄| 进程句柄.wait_with_output().ok());
                     break;
                 }
                 Some(Ok(None)) => {
-                    if i == 299 {
+                    if 循环序号 == 299 {
                         已超时 = true;
                     }
                     std::thread::sleep(std::time::Duration::from_millis(100));
@@ -979,9 +984,9 @@ impl 代理服务器 {
         }
         if 已超时 {
             log::warn!("cargo check timeout killed");
-            if let Some(mut c) = 子进程可选.take() {
-                let _ = c.kill();
-                let _ = c.wait();
+            if let Some(mut 进程句柄) = 子进程可选.take() {
+                let _ = 进程句柄.kill();
+                let _ = 进程句柄.wait();
             }
         }
         let Some(进程输出) = 进程输出 else {
@@ -989,27 +994,28 @@ impl 代理服务器 {
         };
 
         // 解析 compiler-message 行 → 按虚拟 uri 聚合（值 = (方言 uri, 诊断列表)）
-        let stdout = String::from_utf8_lossy(&进程输出.stdout);
+        let 标准输出文本 = String::from_utf8_lossy(&进程输出.stdout);
         let mut 按定位分组: HashMap<String, (String, Vec<Value>)> = HashMap::new();
-        for 行号 in stdout.lines() {
-            let Ok(v) = serde_json::from_str::<Value>(行号) else {
+        for 行号 in 标准输出文本.lines() {
+            let Ok(值项) = serde_json::from_str::<Value>(行号) else {
                 continue;
             };
-            if v["reason"].as_str() != Some("compiler-message") {
+            if 值项["reason"].as_str() != Some("compiler-message") {
                 continue;
             }
-            let 消息体 = &v["message"];
-            let Some(区间) = 消息体["spans"].as_array().and_then(|a| a.first()) else {
+            let 消息体 = &值项["message"];
+            let Some(区间) = 消息体["spans"].as_array().and_then(|数组项| 数组项.first())
+            else {
                 continue;
             };
-            let Some(file) = 区间["file_name"].as_str() else {
+            let Some(文件名段) = 区间["file_name"].as_str() else {
                 continue;
             };
             // rustc 可能输出相对路径（cwd 为虚拟项目目录），拼上项目目录
-            let 文件路径 = if std::path::Path::new(file).is_absolute() {
-                std::path::PathBuf::from(file)
+            let 文件路径 = if std::path::Path::new(文件名段).is_absolute() {
+                std::path::PathBuf::from(文件名段)
             } else {
-                项目目录.join(file)
+                项目目录.join(文件名段)
             };
             // 仅处理虚拟方言文件（聚合 main.rs、标准库等跳过）
             let Some(条目) = 缓存.按虚拟资源定位查询(&路径转定位(&文件路径))
@@ -1026,8 +1032,8 @@ impl 代理服务器 {
                 .as_u64()
                 .unwrap_or(列号 + 1)
                 .saturating_sub(1);
-            let code = 消息体["code"]["code"].as_str().unwrap_or("").to_string();
-            let severity = match 消息体["level"].as_str() {
+            let 诊断码 = 消息体["code"]["code"].as_str().unwrap_or("").to_string();
+            let 严重级别 = match 消息体["level"].as_str() {
                 Some("error") => 1,
                 Some("warning") => 2,
                 _ => 3,
@@ -1037,8 +1043,8 @@ impl 代理服务器 {
                     "start": { "line": 行号, "character": 列号 },
                     "end": { "line": 结束行, "character": 结束列 }
                 },
-                "severity": severity,
-                "code": code,
+                "severity": 严重级别,
+                "code": 诊断码,
                 "message": 消息体["message"].as_str().unwrap_or(""),
             });
             按定位分组
@@ -1055,18 +1061,19 @@ impl 代理服务器 {
             if let Ok(锁守卫) = 内置诊断.lock()
                 && let Some(内置映射) = 锁守卫.get(&原始资源定位)
             {
-                for e in 内置映射.clone() {
-                    let 重复 = 诊断列表.iter().any(|d| {
-                        d["code"] == e["code"]
-                            && d["range"]["start"]["line"] == e["range"]["start"]["line"]
+                for 条目项 in 内置映射.clone() {
+                    let 重复 = 诊断列表.iter().any(|诊断对象| {
+                        诊断对象["code"] == 条目项["code"]
+                            && 诊断对象["range"]["start"]["line"]
+                                == 条目项["range"]["start"]["line"]
                     });
                     if !重复 {
-                        诊断列表.push(e);
+                        诊断列表.push(条目项);
                     }
                 }
             }
-            let params = json!({ "uri": 虚拟资源定位, "diagnostics": 诊断列表 });
-            let mut 映射结果 = 映射器实例.映射诊断(&params);
+            let 请求参数体 = json!({ "uri": 虚拟资源定位, "diagnostics": 诊断列表 });
+            let mut 映射结果 = 映射器实例.映射诊断(&请求参数体);
             // 教学诊断注入（与 RA 链一致）：由 entry 内容直接计算，
             // 不依赖 builtin 缓存时序（虚拟检查可能先于 RA 首批发布，
             // 缓存为空时教学提示不能丢失）
@@ -1075,7 +1082,7 @@ impl 代理服务器 {
                     .as_array()
                     .cloned()
                     .unwrap_or_default();
-                crate::响应映射::diag_text::注入教学诊断(
+                crate::响应映射::诊断文本::注入教学诊断(
                     &mut 最终诊断,
                     &条目,
                     映射器实例.lint词表(),
@@ -1083,11 +1090,11 @@ impl 代理服务器 {
                 );
                 映射结果["diagnostics"] = Value::Array(最终诊断);
             }
-            let notification = Notification {
+            let 通知消息 = Notification {
                 method: "textDocument/publishDiagnostics".to_string(),
                 params: 映射结果,
             };
-            let _ = sender.send(Message::Notification(notification));
+            let _ = 发送端.send(Message::Notification(通知消息));
         }
     }
 
@@ -1102,7 +1109,7 @@ impl 代理服务器 {
             .as_str()
             .unwrap_or("");
 
-        let edits = match self.缓存.查询原文(资源定位) {
+        let 编辑列表 = match self.缓存.查询原文(资源定位) {
             Some(条目) => {
                 let 制表位宽度 = 请求对象.params["options"]["tabSize"].as_u64().unwrap_or(4);
                 match 运行rustfmt(&条目.英文源码, 制表位宽度) {
@@ -1126,16 +1133,17 @@ impl 代理服务器 {
 
         let 响应体 = Response {
             id: 请求对象.id,
-            result: Some(Value::Array(edits)),
+            result: Some(Value::Array(编辑列表)),
             error: None,
         };
         self.客户端连接
             .sender
             .send(Message::Response(响应体))
-            .map_err(|e| {
+            .map_err(|条目项| {
                 anyhow::anyhow!(
                     "{}",
-                    crate::本地化::全局().取文带参("lsp_err_send_format", &[&e.to_string()])
+                    crate::本地化::全局()
+                        .取文带参("lsp_err_send_format", &[&条目项.to_string()])
                 )
             })?;
         Ok(())
@@ -1171,7 +1179,7 @@ impl 代理服务器 {
                     未解析依赖: if 请求对象.method == "textDocument/codeAction" {
                         let 诊断列表 = 请求对象.params["context"]["diagnostics"]
                             .as_array()
-                            .map(|a| a.as_slice())
+                            .map(|数组项| 数组项.as_slice())
                             .unwrap_or(&[]);
                         从诊断提取未解析依赖(诊断列表)
                     } else {
@@ -1180,9 +1188,12 @@ impl 代理服务器 {
                     教学诊断: if 请求对象.method == "textDocument/codeAction" {
                         请求对象.params["context"]["diagnostics"]
                             .as_array()
-                            .map(|a| {
-                                a.iter()
-                                    .filter(|d| crate::响应映射::diag_text::是教学诊断(d))
+                            .map(|数组项| {
+                                数组项
+                                    .iter()
+                                    .filter(|诊断对象| {
+                                        crate::响应映射::诊断文本::是教学诊断(诊断对象)
+                                    })
                                     .cloned()
                                     .collect()
                             })
@@ -1195,7 +1206,7 @@ impl 代理服务器 {
         }
 
         // 替换 URI 为虚拟 URI，并转换请求中的位置
-        let mut params = 请求对象.params.clone();
+        let mut 请求参数体 = 请求对象.params.clone();
         let 条目 = if self.文件类型受支持(&原始资源定位) {
             self.缓存.查询原文(&原始资源定位)
         } else {
@@ -1204,9 +1215,9 @@ impl 代理服务器 {
 
         if let Some(条目) = &条目 {
             // 1. 替换 textDocument.uri
-            if let Some(资源定位字段) = params
+            if let Some(资源定位字段) = 请求参数体
                 .get_mut("textDocument")
-                .and_then(|td| td.get_mut("uri"))
+                .and_then(|表项| 表项.get_mut("uri"))
             {
                 *资源定位字段 = Value::String(条目.虚拟资源定位.clone());
             }
@@ -1220,19 +1231,19 @@ impl 代理服务器 {
                 | "textDocument/rename"
                 | "textDocument/documentHighlight"
                 | "textDocument/signatureHelp" => {
-                    if let Some(位置) = params.get_mut("position") {
+                    if let Some(位置) = 请求参数体.get_mut("position") {
                         *位置 = 位置转英文(条目, 位置);
                     }
                 }
                 "textDocument/codeAction" => {
-                    if let Some(跨度) = params.get_mut("range") {
+                    if let Some(跨度) = 请求参数体.get_mut("range") {
                         *跨度 = 跨度转英文(条目, 跨度);
                     }
                     // context.diagnostics 来自我们发布的中文诊断，同样需要转换
-                    if let Some(诊断清单) = params
+                    if let Some(诊断清单) = 请求参数体
                         .get_mut("context")
-                        .and_then(|c| c.get_mut("diagnostics"))
-                        .and_then(|d| d.as_array_mut())
+                        .and_then(|数组值项| 数组值项.get_mut("diagnostics"))
+                        .and_then(|诊断对象| 诊断对象.as_array_mut())
                     {
                         for 诊断项 in 诊断清单.iter_mut() {
                             if let Some(跨度) = 诊断项.get_mut("range") {
@@ -1246,7 +1257,7 @@ impl 代理服务器 {
 
             // 3. rename 的 newName：中文 → 英文（不在关键字映射中则保持原样）
             if 请求对象.method == "textDocument/rename"
-                && let Some(中文名称) = params.get("newName").and_then(|v| v.as_str())
+                && let Some(中文名称) = 请求参数体.get("newName").and_then(|值项| 值项.as_str())
             {
                 let 英文名称 = self
                     .缓存
@@ -1255,7 +1266,7 @@ impl 代理服务器 {
                     .or_else(|| self.缓存.别名映射表().get(中文名称))
                     .cloned()
                     .unwrap_or_else(|| 中文名称.to_string());
-                params["newName"] = Value::String(英文名称);
+                请求参数体["newName"] = Value::String(英文名称);
             }
         }
 
@@ -1263,7 +1274,7 @@ impl 代理服务器 {
             "jsonrpc": "2.0",
             "id": 分析器请求号,
             "method": 请求对象.method,
-            "params": params
+            "params": 请求参数体
         });
         self.分析器实例.send(&分析器消息)
     }
@@ -1281,9 +1292,9 @@ fn 文件类型受支持(资源定位: &str, 扩展名列表: &[String]) -> bool
 /// 内容，提取逻辑统一；母语消息按本地化短语表判定未解析导入。
 fn 从诊断提取未解析依赖(诊断列表: &[Value]) -> Vec<String> {
     let 已翻译词组 = crate::本地化::全局().取文("lsp_phrase_unresolved_import");
-    let mut result = Vec::new();
+    let mut 应答结果 = Vec::new();
     for 诊断项 in 诊断列表 {
-        let Some(消息体) = 诊断项.get("message").and_then(|v| v.as_str()) else {
+        let Some(消息体) = 诊断项.get("message").and_then(|值项| 值项.as_str()) else {
             continue;
         };
         let 是否未解析 = i18n_rust_engine::诊断::是未解析导入消息(消息体)
@@ -1295,16 +1306,19 @@ fn 从诊断提取未解析依赖(诊断列表: &[Value]) -> Vec<String> {
             if matches!(
                 片段.as_str(),
                 "std" | "core" | "alloc" | "self" | "super" | "crate" | "proc_macro"
-            ) || 片段.chars().next().is_some_and(|c| c.is_ascii_digit())
+            ) || 片段
+                .chars()
+                .next()
+                .is_some_and(|字符项| 字符项.is_ascii_digit())
             {
                 continue;
             }
-            if !result.contains(&片段) {
-                result.push(片段);
+            if !应答结果.contains(&片段) {
+                应答结果.push(片段);
             }
         }
     }
-    result
+    应答结果
 }
 
 /// 计算虚拟项目临时目录（按用户 + 进程实例隔离）并拒绝符号链接
@@ -1320,9 +1334,9 @@ fn 虚拟临时目录() -> anyhow::Result<PathBuf> {
         .unwrap_or_else(|_| "default".to_string());
     let 安全用户名: String = 用户名
         .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '_' {
-                c
+        .map(|字符项| {
+            if 字符项.is_alphanumeric() || 字符项 == '_' {
+                字符项
             } else {
                 '_'
             }
@@ -1347,8 +1361,13 @@ fn 虚拟临时目录() -> anyhow::Result<PathBuf> {
                 .取文带参("lsp_err_temp_symlink", &[&目录.display().to_string()])
         );
     }
-    std::fs::create_dir_all(&目录)
-        .map_err(|e| anyhow::anyhow!("创建 LSP 虚拟项目目录失败：{}（{}）", 目录.display(), e))?;
+    std::fs::create_dir_all(&目录).map_err(|条目项| {
+        anyhow::anyhow!(
+            "创建 LSP 虚拟项目目录失败：{}（{}）",
+            目录.display(),
+            条目项
+        )
+    })?;
     if 是符号链接(&目录) {
         anyhow::bail!(
             "{}",
@@ -1360,9 +1379,10 @@ fn 虚拟临时目录() -> anyhow::Result<PathBuf> {
 }
 
 /// 路径自身是否为符号链接（lstat 语义，不跟随末段链接）
-fn 是符号链接(path: &Path) -> bool {
-    path.symlink_metadata()
-        .map(|m| m.file_type().is_symlink())
+fn 是符号链接(路径: &Path) -> bool {
+    路径
+        .symlink_metadata()
+        .map(|目录项| 目录项.file_type().is_symlink())
         .unwrap_or(false)
 }
 
@@ -1389,7 +1409,7 @@ fn 清理陈旧虚拟目录(安全用户名: &str) {
         // 仅处理本用户且带 PID 后缀的目录；无后缀的旧版目录不动（避免误删）
         let Some(剩余) = 前缀列表
             .iter()
-            .find_map(|p| 名称串.strip_prefix(p.as_str()))
+            .find_map(|前缀项| 名称串.strip_prefix(前缀项.as_str()))
         else {
             continue;
         };
@@ -1409,16 +1429,16 @@ fn 清理陈旧虚拟目录(安全用户名: &str) {
         // 进程已死：目录是残留，先原子改名再删除（TOCTOU 防护）：
         // 检查与删除之间 PID 可能被系统回收并由新进程重建同名目录，
         // rename 把旧目录移走后再删，新进程创建的是新路径，不受影响
-        let path = 条目.path();
-        if path
+        let 路径 = 条目.path();
+        if 路径
             .symlink_metadata()
-            .map(|m| m.file_type().is_symlink())
+            .map(|目录项| 目录项.file_type().is_symlink())
             .unwrap_or(true)
         {
             continue; // 符号链接不跟随删除
         }
         let 陈旧路径 = 条目.path().with_file_name(format!("{名称串}.stale"));
-        if std::fs::rename(&path, &陈旧路径).is_ok() {
+        if std::fs::rename(&路径, &陈旧路径).is_ok() {
             let _ = std::fs::remove_dir_all(&陈旧路径);
         }
     }
@@ -1473,16 +1493,16 @@ fn 进程存活(进程号: u32) -> bool {
 /// 清理超时的待映射请求：向客户端应答错误，避免永久等待与条目泄漏
 fn 清理过期请求(
     待处理项: &Arc<std::sync::Mutex<HashMap<i64, 待处理请求信息>>>,
-    sender: &crossbeam_channel::Sender<Message>,
+    发送端: &crossbeam_channel::Sender<Message>,
 ) {
     let 当前时刻 = std::time::Instant::now();
     let mut 已过期: Vec<lsp_server::RequestId> = Vec::new();
     {
-        let mut map = match 待处理项.lock() {
-            Ok(m) => m,
+        let mut 待处理表 = match 待处理项.lock() {
+            Ok(守卫项) => 守卫项,
             Err(_) => return,
         };
-        map.retain(|_标识, 信息| {
+        待处理表.retain(|_标识, 信息| {
             if 当前时刻.duration_since(信息.创建时刻) > 请求超时 {
                 已过期.push(信息.原始请求号.clone());
                 false
@@ -1491,10 +1511,10 @@ fn 清理过期请求(
             }
         });
     }
-    for id in 已过期 {
+    for 请求编号 in 已过期 {
         log::warn!("{}", crate::本地化::全局().取文("lsp_warn_request_timeout"));
         let 响应体 = Response {
-            id,
+            id: 请求编号,
             result: None,
             error: Some(lsp_server::ResponseError {
                 code: -32603,
@@ -1502,7 +1522,7 @@ fn 清理过期请求(
                 data: None,
             }),
         };
-        let _ = sender.send(Message::Response(响应体));
+        let _ = 发送端.send(Message::Response(响应体));
     }
 }
 
@@ -1510,18 +1530,21 @@ fn 清理过期请求(
 /// 旧进程的请求永远不会有响应，必须主动应答避免客户端永久等待）
 fn 失败全部待处理(
     待处理项: &Arc<std::sync::Mutex<HashMap<i64, 待处理请求信息>>>,
-    sender: &crossbeam_channel::Sender<Message>,
+    发送端: &crossbeam_channel::Sender<Message>,
 ) {
     let 标识列表: Vec<lsp_server::RequestId> = {
-        let mut map = match 待处理项.lock() {
-            Ok(m) => m,
+        let mut 待处理表 = match 待处理项.lock() {
+            Ok(守卫项) => 守卫项,
             Err(_) => return,
         };
-        map.drain().map(|(_标识, 信息)| 信息.原始请求号).collect()
+        待处理表
+            .drain()
+            .map(|(_标识, 信息)| 信息.原始请求号)
+            .collect()
     };
-    for id in 标识列表 {
+    for 请求编号 in 标识列表 {
         let 响应体 = Response {
-            id,
+            id: 请求编号,
             result: None,
             error: Some(lsp_server::ResponseError {
                 code: -32603,
@@ -1529,7 +1552,7 @@ fn 失败全部待处理(
                 data: None,
             }),
         };
-        let _ = sender.send(Message::Response(响应体));
+        let _ = 发送端.send(Message::Response(响应体));
     }
 }
 
@@ -1538,7 +1561,7 @@ fn 失败全部待处理(
 /// 通过 stdin 传入源码、stdout 取回格式化结果。
 /// 新版 rustfmt（1.9+）不传文件参数时从 stdin 读取，需配合 `--emit stdout`；
 /// rustfmt 不存在、源码含语法错误或输出非 UTF-8 时返回 None。
-fn 运行rustfmt(source: &str, 制表位宽度: u64) -> Option<String> {
+fn 运行rustfmt(源码文本: &str, 制表位宽度: u64) -> Option<String> {
     let mut 子进程 = std::process::Command::new("rustfmt")
         .arg("--emit")
         .arg("stdout")
@@ -1552,7 +1575,7 @@ fn 运行rustfmt(source: &str, 制表位宽度: u64) -> Option<String> {
         .spawn()
         .ok()?;
     if let Some(mut stdin) = 子进程.stdin.take() {
-        stdin.write_all(source.as_bytes()).ok()?;
+        stdin.write_all(源码文本.as_bytes()).ok()?;
         // stdin 在此处 drop，关闭管道使 rustfmt 结束输出
     }
     let 进程输出 = 子进程.wait_with_output().ok()?;
@@ -1568,7 +1591,10 @@ fn 运行rustfmt(source: &str, 制表位宽度: u64) -> Option<String> {
 fn 文本末尾位置(源码内容: &str) -> Value {
     let 行数 = 源码内容.matches('\n').count() as u64 + 1;
     let 末行 = 源码内容.rsplit('\n').next().unwrap_or("");
-    let 列数 = 末行.chars().map(|c| c.len_utf16() as u64).sum::<u64>();
+    let 列数 = 末行
+        .chars()
+        .map(|字符项| 字符项.len_utf16() as u64)
+        .sum::<u64>();
     json!({ "line": 行数 - 1, "character": 列数 })
 }
 
@@ -1597,12 +1623,12 @@ fn 位置转偏移(源码内容: &str, 位置: &Value) -> usize {
     }
     // 行内按 UTF-16 单元前进，列号用尽或到达行尾（不含换行符）即停
     let 行文本 = &源码内容[行首位置..];
-    let mut utf16 = 0u32;
-    for (i, c) in 行文本.char_indices() {
-        if c == '\n' || utf16 >= 列单元 {
-            return 行首位置 + i;
+    let mut utf16列数 = 0u32;
+    for (循环序号, 字符项) in 行文本.char_indices() {
+        if 字符项 == '\n' || utf16列数 >= 列单元 {
+            return 行首位置 + 循环序号;
         }
-        utf16 += c.len_utf16() as u32;
+        utf16列数 += 字符项.len_utf16() as u32;
     }
     行首位置 + 行文本.len()
 }
@@ -1611,7 +1637,7 @@ fn 位置转偏移(源码内容: &str, 位置: &Value) -> usize {
 ///
 /// 当前翻译逐行替换关键字、行数保持不变（行映射为 1:1），
 /// 因此仅列号需要按列偏移映射转换。
-fn 位置转英文(条目: &TranslationEntry, 位置: &Value) -> Value {
+fn 位置转英文(条目: &翻译条目, 位置: &Value) -> Value {
     let 行号 = 位置["line"].as_u64().unwrap_or(0) as u32;
     let 列号 = 位置["character"].as_u64().unwrap_or(0) as u32;
     // 调用方已持有条目：直接走无锁单函数，避免再按 URI 查缓存（2-4 锁）
@@ -1620,7 +1646,7 @@ fn 位置转英文(条目: &TranslationEntry, 位置: &Value) -> Value {
 }
 
 /// 将 LSP 范围（range）从母语坐标转换为英文坐标
-fn 跨度转英文(条目: &TranslationEntry, 跨度: &Value) -> Value {
+fn 跨度转英文(条目: &翻译条目, 跨度: &Value) -> Value {
     let 起始偏移 = 位置转英文(条目, &跨度["start"]);
     let 末尾偏移 = 位置转英文(条目, &跨度["end"]);
     json!({ "start": 起始偏移, "end": 末尾偏移 })
@@ -1630,19 +1656,19 @@ fn 跨度转英文(条目: &TranslationEntry, 跨度: &Value) -> Value {
 fn 处理分析器消息(
     消息体: &Value,
     映射器实例: &Arc<响应映射器>,
-    sender: &crossbeam_channel::Sender<Message>,
+    发送端: &crossbeam_channel::Sender<Message>,
     待处理项: &Arc<std::sync::Mutex<HashMap<i64, 待处理请求信息>>>,
     回复发送端: &crate::分析器::发送器,
     内置诊断: &Arc<std::sync::Mutex<HashMap<String, Vec<Value>>>>,
 ) {
-    if let Some(id) = 消息体.get("id").and_then(|v| v.as_i64()) {
+    if let Some(请求编号) = 消息体.get("id").and_then(|值项| 值项.as_i64()) {
         // 是响应
         let 原始信息 = {
             let mut 待处理映射 = match 待处理项.lock() {
-                Ok(m) => m,
+                Ok(守卫项) => 守卫项,
                 Err(_) => return,
             };
-            待处理映射.remove(&id)
+            待处理映射.remove(&请求编号)
         };
 
         if let Some(信息) = 原始信息 {
@@ -1661,38 +1687,41 @@ fn 处理分析器消息(
                         data: 错误取值.get("data").cloned(),
                     }),
                 };
-                let _ = sender.send(Message::Response(响应体));
+                let _ = 发送端.send(Message::Response(响应体));
                 return;
             }
 
-            let result = 消息体.get("result").cloned().unwrap_or(Value::Null);
+            let 应答结果 = 消息体.get("result").cloned().unwrap_or(Value::Null);
             let 映射后结果 = match 信息.method.as_str() {
                 "textDocument/completion" => {
-                    映射器实例.映射补全响应(&result, &信息.原始资源定位)
+                    映射器实例.映射补全响应(&应答结果, &信息.原始资源定位)
                 }
-                "textDocument/hover" => 映射器实例.映射悬停响应(&result, &信息.原始资源定位),
-                "textDocument/signatureHelp" => 映射器实例.映射签名帮助响应(&result),
-                "textDocument/definition" => 映射器实例.映射定义响应(&result),
-                "textDocument/references" => 映射器实例.映射引用响应(&result),
+                "textDocument/hover" => {
+                    映射器实例.映射悬停响应(&应答结果, &信息.原始资源定位)
+                }
+                "textDocument/signatureHelp" => 映射器实例.映射签名帮助响应(&应答结果),
+                "textDocument/definition" => 映射器实例.映射定义响应(&应答结果),
+                "textDocument/references" => 映射器实例.映射引用响应(&应答结果),
                 "textDocument/documentSymbol" => {
-                    映射器实例.映射文档符号响应(&result, &信息.原始资源定位)
+                    映射器实例.映射文档符号响应(&应答结果, &信息.原始资源定位)
                 }
                 "textDocument/codeAction" => {
-                    let 映射结果 = 映射器实例.映射代码操作响应(&result, &信息.原始资源定位);
+                    let 映射结果 =
+                        映射器实例.映射代码操作响应(&应答结果, &信息.原始资源定位);
                     // 未解析导入错误时注入“添加依赖”快捷修复（cargo add）
                     let 映射结果 = 映射器实例.注入添加依赖动作(&映射结果, &信息.未解析依赖);
                     // 教学诊断（全角标点/教学 lint）注入一键修复动作
                     映射器实例.注入教学动作(&映射结果, &信息.教学诊断, &信息.原始资源定位)
                 }
-                "codeAction/resolve" => 映射器实例.映射代码操作解析响应(&result),
-                "textDocument/rename" => 映射器实例.映射重命名响应(&result),
+                "codeAction/resolve" => 映射器实例.映射代码操作解析响应(&应答结果),
+                "textDocument/rename" => 映射器实例.映射重命名响应(&应答结果),
                 "textDocument/documentHighlight" => {
-                    映射器实例.映射文档高亮响应(&result, &信息.原始资源定位)
+                    映射器实例.映射文档高亮响应(&应答结果, &信息.原始资源定位)
                 }
                 "textDocument/semanticTokens/full" | "textDocument/semanticTokens/range" => {
-                    映射器实例.映射语义记号响应(&result, &信息.原始资源定位)
+                    映射器实例.映射语义记号响应(&应答结果, &信息.原始资源定位)
                 }
-                _ => result,
+                _ => 应答结果,
             };
 
             let 响应体 = Response {
@@ -1700,16 +1729,20 @@ fn 处理分析器消息(
                 result: Some(映射后结果),
                 error: None,
             };
-            let _ = sender.send(Message::Response(响应体));
-        } else if 消息体.get("method").and_then(|v| v.as_str()).is_some() {
+            let _ = 发送端.send(Message::Response(响应体));
+        } else if 消息体
+            .get("method")
+            .and_then(|值项| 值项.as_str())
+            .is_some()
+        {
             // 待映射表中没有对应记录：这是 rust-analyzer 主动发来的请求
             // （如 workspace/configuration、workspace/diagnostic/refresh）。
             // 必须把响应回发给 rust-analyzer 本身，否则它会一直等待。
-            let method = 消息体["method"].as_str().unwrap_or("");
-            let result = if method == "workspace/configuration" {
+            let 协议方法名 = 消息体["method"].as_str().unwrap_or("");
+            let 应答结果 = if 协议方法名 == "workspace/configuration" {
                 let 数量 = 消息体["params"]["items"]
                     .as_array()
-                    .map(|a| a.len())
+                    .map(|数组项| 数组项.len())
                     .unwrap_or(0);
                 分析器配置结果(数量)
             } else {
@@ -1717,31 +1750,32 @@ fn 处理分析器消息(
             };
             let 响应体 = json!({
                 "jsonrpc": "2.0",
-                "id": id,
-                "result": result
+                "id": 请求编号,
+                "result": 应答结果
             });
             let _ = 回复发送端.send(&响应体);
         }
-    } else if let Some(method) = 消息体.get("method").and_then(|v| v.as_str()) {
+    } else if let Some(协议方法名) = 消息体.get("method").and_then(|值项| 值项.as_str())
+    {
         // 是通知
-        match method {
+        match 协议方法名 {
             "textDocument/publishDiagnostics" => {
-                if let Some(params) = 消息体.get("params") {
+                if let Some(请求参数体) = 消息体.get("params") {
                     // 只转发虚拟母语文件的诊断：
                     // rust-analyzer 可能对其他项目文件发布诊断，
                     // 这些与母语代码无关，不应发给客户端。
-                    let 诊断资源定位 = params["uri"].as_str().unwrap_or("");
+                    let 诊断资源定位 = 请求参数体["uri"].as_str().unwrap_or("");
                     if !映射器实例.是虚拟资源定位(诊断资源定位) {
                         return;
                     }
-                    let mut 映射结果 = 映射器实例.映射诊断(params);
+                    let mut 映射结果 = 映射器实例.映射诊断(请求参数体);
                     // 合并全角标点教学诊断（方言坐标，与内置诊断同格式）：
                     // 全角标点在转译后的虚拟文本中保留，扫描结果经列映射
                     // 还原为方言坐标，随 RA 发布链路同步下发——教学提示
                     // 与语法诊断共存，不因 publishDiagnostics 全量替换而闪烁
                     let mut 合并诊断 = 映射结果["diagnostics"]
                         .as_array()
-                        .map(|a| a.to_vec())
+                        .map(|数组项| 数组项.to_vec())
                         .unwrap_or_default();
                     let 合并资源定位 = 映射结果["uri"].as_str().unwrap_or("").to_string();
                     if let Some(条目) = 映射器实例.按原始取条目(&合并资源定位) {
@@ -1749,14 +1783,14 @@ fn 处理分析器消息(
                         // 以代理自跑的镜像/虚拟项目检查（rustc 口径）为准，
                         // RA 在虚拟项目上对第三方依赖与过程宏的类型推断恒为
                         // 假红（详见 抑制分析器编译错误 的说明）
-                        合并诊断.retain(|d| {
-                            !crate::响应映射::diag_text::抑制分析器编译错误(
-                                d,
+                        合并诊断.retain(|诊断对象| {
+                            !crate::响应映射::诊断文本::抑制分析器编译错误(
+                                诊断对象,
                                 &条目.原始路径,
                             )
                         });
                         // 教学诊断注入（全角标点 + 教学 lint；移除旧注入保证最新）
-                        crate::响应映射::diag_text::注入教学诊断(
+                        crate::响应映射::诊断文本::注入教学诊断(
                             &mut 合并诊断,
                             &条目,
                             映射器实例.lint词表(),
@@ -1768,19 +1802,19 @@ fn 处理分析器消息(
                     if let Ok(mut 锁守卫) = 内置诊断.lock() {
                         锁守卫.insert(合并资源定位, 合并诊断);
                     }
-                    let notification = Notification {
-                        method: method.to_string(),
+                    let 通知消息 = Notification {
+                        method: 协议方法名.to_string(),
                         params: 映射结果,
                     };
-                    let _ = sender.send(Message::Notification(notification));
+                    let _ = 发送端.send(Message::Notification(通知消息));
                 }
             }
             _ => {
-                let notification = Notification {
-                    method: method.to_string(),
+                let 通知消息 = Notification {
+                    method: 协议方法名.to_string(),
                     params: 消息体.get("params").cloned().unwrap_or(Value::Null),
                 };
-                let _ = sender.send(Message::Notification(notification));
+                let _ = 发送端.send(Message::Notification(通知消息));
             }
         }
     }
@@ -1798,19 +1832,20 @@ fn 加载语言包(
     let 映射表路径 = 语言包路径.join("映射表");
     if 映射表路径.exists() {
         match 映射源::加载关键词映射(语言包路径) {
-            Ok(map) => {
+            Ok(待处理表) => {
                 // 旧"映射表"目录格式：仅有扁平关键字表，宏/派生/模块路径/别名表为空
                 return Ok(
                     i18n_rust_engine::映射管理::映射管理器::自扁平映射新建(
-                        map,
+                        待处理表,
                         HashMap::new(),
                         HashMap::new(),
                     ),
                 );
             }
-            Err(e) => log::warn!(
+            Err(条目项) => log::warn!(
                 "{}",
-                crate::本地化::全局().取文带参("lsp_log_mappings_fallback", &[&e.to_string()])
+                crate::本地化::全局()
+                    .取文带参("lsp_log_mappings_fallback", &[&条目项.to_string()])
             ),
         }
     }
@@ -1819,10 +1854,10 @@ fn 加载语言包(
     if 关键词路径.exists() {
         // 复用 engine 统一加载器（与 CLI 完全同源）：关键字/别名分离、
         // stdlib 优先于第三方库、crates/*.toml 按文件名排序合并
-        return i18n_rust_engine::映射管理::映射管理器::自目录加载(语言包路径).map_err(|e| {
+        return i18n_rust_engine::映射管理::映射管理器::自目录加载(语言包路径).map_err(|条目项| {
             anyhow::anyhow!(
                 "{}",
-                crate::本地化::全局().取文带参("lsp_err_load_keywords", &[&e.to_string()])
+                crate::本地化::全局().取文带参("lsp_err_load_keywords", &[&条目项.to_string()])
             )
         });
     }
@@ -1857,20 +1892,20 @@ fn 加载内置中文后备() -> Option<i18n_rust_engine::映射管理::映射�
     let 目录 = tempfile::tempdir().ok()?;
     let 中文目录 = 目录.path().join("zh");
     std::fs::create_dir_all(&中文目录).ok()?;
-    for (file, 源码内容) in i18n_rust_engine::语言::内置语言文件("zh") {
+    for (文件名段, 源码内容) in i18n_rust_engine::语言::内置语言文件("zh") {
         // crates/*.toml 等含子目录的文件：逐级创建父目录
-        if let Some(父目录) = std::path::Path::new(file).parent()
+        if let Some(父目录) = std::path::Path::new(文件名段).parent()
             && !父目录.as_os_str().is_empty()
         {
             std::fs::create_dir_all(中文目录.join(父目录)).ok()?;
         }
-        std::fs::write(中文目录.join(file), 源码内容).ok()?;
+        std::fs::write(中文目录.join(文件名段), 源码内容).ok()?;
     }
     i18n_rust_engine::映射管理::映射管理器::自目录加载(&中文目录).ok()
 }
 
 #[cfg(test)]
-mod tests {
+mod 单元测试 {
     use super::*;
     use std::collections::HashMap;
 
@@ -1980,19 +2015,19 @@ mod tests {
 
         // 中文列 0（"让" 起点）→ 英文列 0
         let 位置 = json!({ "line": 0, "character": 0 });
-        let en = 位置转英文(&条目, &位置);
-        assert_eq!(en["line"], 0);
-        assert_eq!(en["character"], 0);
+        let 英文位置项 = 位置转英文(&条目, &位置);
+        assert_eq!(英文位置项["line"], 0);
+        assert_eq!(英文位置项["character"], 0);
 
         // 中文列 3（"x" 末尾）→ 英文列 5（"让" 为 1 个 UTF-16 单元，"let" 占 3 列）
         let 位置 = json!({ "line": 0, "character": 3 });
-        let en = 位置转英文(&条目, &位置);
-        assert_eq!(en["character"], 5);
+        let 英文位置项 = 位置转英文(&条目, &位置);
+        assert_eq!(英文位置项["character"], 5);
 
         // 中文列 2（"x" 起点）→ 英文列 4
         let 位置 = json!({ "line": 0, "character": 2 });
-        let en = 位置转英文(&条目, &位置);
-        assert_eq!(en["character"], 4);
+        let 英文位置项 = 位置转英文(&条目, &位置);
+        assert_eq!(英文位置项["character"], 4);
     }
 
     #[test]
@@ -2006,9 +2041,9 @@ mod tests {
             "start": { "line": 0, "character": 2 },
             "end": { "line": 0, "character": 3 }
         });
-        let en = 跨度转英文(&条目, &跨度);
-        assert_eq!(en["start"]["character"], 4);
-        assert_eq!(en["end"]["character"], 5);
+        let 英文位置项 = 跨度转英文(&条目, &跨度);
+        assert_eq!(英文位置项["start"]["character"], 4);
+        assert_eq!(英文位置项["end"]["character"], 5);
     }
 
     #[test]
@@ -2028,21 +2063,21 @@ mod tests {
             "newName": "函数"
         });
 
-        let mut params = 请求参数.clone();
+        let mut 请求参数体 = 请求参数.clone();
         // 1. URI 替换为虚拟 URI
-        params["textDocument"]["uri"] = Value::String(条目.虚拟资源定位.clone());
+        请求参数体["textDocument"]["uri"] = Value::String(条目.虚拟资源定位.clone());
         // 2. 位置转换为英文坐标
-        params["position"] = 位置转英文(&条目, &params["position"]);
+        请求参数体["position"] = 位置转英文(&条目, &请求参数体["position"]);
         // 3. newName 中文 → 英文
         let 英文名称 = 缓存.关键词映射表().get("函数").cloned().unwrap();
-        params["newName"] = Value::String(英文名称);
+        请求参数体["newName"] = Value::String(英文名称);
 
         assert_eq!(
-            params["textDocument"]["uri"].as_str().unwrap(),
+            请求参数体["textDocument"]["uri"].as_str().unwrap(),
             条目.虚拟资源定位
         );
-        assert_eq!(params["position"]["character"], 0);
-        assert_eq!(params["newName"].as_str().unwrap(), "fn");
+        assert_eq!(请求参数体["position"]["character"], 0);
+        assert_eq!(请求参数体["newName"].as_str().unwrap(), "fn");
 
         // —— 响应方向（rust-analyzer 返回虚拟文件编辑）——
         let 响应体 = json!({
@@ -2157,8 +2192,8 @@ mod tests {
     fn 测试_分析器配置结果形状() {
         let 空结果 = 分析器配置结果(0);
         assert_eq!(空结果, json!([]));
-        let result = 分析器配置结果(2);
-        let 数组值 = result.as_array().expect("应为数组");
+        let 应答结果 = 分析器配置结果(2);
+        let 数组值 = 应答结果.as_array().expect("应为数组");
         assert_eq!(数组值.len(), 2);
         for 数组项 in 数组值 {
             assert_eq!(数组项["completion"]["snippets"], json!("custom"));
@@ -2171,13 +2206,13 @@ mod tests {
     #[test]
     fn 测试_符号链接语义() {
         let 临时目录句柄 = tempfile::tempdir().unwrap();
-        let file = 临时目录句柄.path().join("f");
-        std::fs::write(&file, b"x").unwrap();
-        assert!(!是符号链接(&file));
+        let 文件名段 = 临时目录句柄.path().join("f");
+        std::fs::write(&文件名段, b"x").unwrap();
+        assert!(!是符号链接(&文件名段));
         assert!(!是符号链接(&临时目录句柄.path().join("absent")));
 
         let 链接 = 临时目录句柄.path().join("link");
-        std::os::unix::fs::symlink(&file, &链接).unwrap();
+        std::os::unix::fs::symlink(&文件名段, &链接).unwrap();
         assert!(是符号链接(&链接));
 
         // 悬空符号链接（目标不存在）仍须识别为链接
@@ -2211,7 +2246,7 @@ mod tests {
     ///  (cache, tempdir, 虚拟 URI)）
     #[allow(clippy::type_complexity)]
     fn 分发测试台(
-        source: &str,
+        源码文本: &str,
     ) -> (
         Arc<响应映射器>,
         Arc<std::sync::Mutex<HashMap<i64, 待处理请求信息>>>,
@@ -2223,7 +2258,7 @@ mod tests {
     ) {
         let (缓存, 临时目录句柄) = 构造测试缓存();
         let (条目, _) = 缓存
-            .更新文档("file:///test/main.zh", source, 1)
+            .更新文档("file:///test/main.zh", 源码文本, 1)
             .expect("测试文档应可入缓存");
         let 映射器实例 = Arc::new(响应映射器::新建映射器(缓存.clone()));
         let 待处理项 = Arc::new(std::sync::Mutex::new(HashMap::new()));
@@ -2246,17 +2281,17 @@ mod tests {
         待处理项: &Arc<std::sync::Mutex<HashMap<i64, 待处理请求信息>>>,
         分析器请求号: i64,
         客户端标识: i32,
-        method: &str,
+        协议方法名: &str,
         资源定位: &str,
     ) {
         待处理项.lock().unwrap().insert(
             分析器请求号,
             待处理请求信息 {
                 原始请求号: lsp_server::RequestId::from(客户端标识),
-                method: method.to_string(),
+                method: 协议方法名.to_string(),
                 原始资源定位: 资源定位.to_string(),
                 创建时刻: std::time::Instant::now(),
-                未解析依赖: if method == "textDocument/codeAction" {
+                未解析依赖: if 协议方法名 == "textDocument/codeAction" {
                     vec!["serde_json".to_string()]
                 } else {
                     Vec::new()
@@ -2287,26 +2322,27 @@ mod tests {
             "textDocument/semanticTokens/range",
             "textDocument/unknownFutureMethod",
         ];
-        for (i, method) in 方法列表.iter().enumerate() {
+        for (循环序号, 协议方法名) in 方法列表.iter().enumerate() {
             插入待处理(
                 &待处理项,
-                i as i64 + 1,
-                i as i32 + 100,
-                method,
+                循环序号 as i64 + 1,
+                循环序号 as i32 + 100,
+                协议方法名,
                 "file:///test/main.zh",
             );
         }
-        for i in 0..方法列表.len() {
-            let 消息体 = json!({ "jsonrpc": "2.0", "id": i as i64 + 1, "result": Value::Null });
+        for 循环序号 in 0..方法列表.len() {
+            let 消息体 =
+                json!({ "jsonrpc": "2.0", "id": 循环序号 as i64 + 1, "result": Value::Null });
             处理分析器消息(&消息体, &映射器实例, &发送端, &待处理项, &回复, &内置映射);
         }
         // 13 条全部应答（按发送顺序即为 pending 表插入顺序）
         let 已收集: Vec<Message> = 接收端.try_iter().collect();
         assert_eq!(已收集.len(), 方法列表.len());
-        for (i, message) in 已收集.iter().enumerate() {
+        for (循环序号, message) in 已收集.iter().enumerate() {
             if let Message::Response(应答) = message {
-                assert_eq!(应答.id, lsp_server::RequestId::from(i as i32 + 100));
-                assert!(应答.error.is_none(), "分支 {i} 不应产生错误应答");
+                assert_eq!(应答.id, lsp_server::RequestId::from(循环序号 as i32 + 100));
+                assert!(应答.error.is_none(), "分支 {循环序号} 不应产生错误应答");
             } else {
                 panic!("期望 Response，实际收到 {message:?}");
             }
@@ -2334,9 +2370,9 @@ mod tests {
         match 接收端.recv().unwrap() {
             Message::Response(应答) => {
                 assert_eq!(应答.id, lsp_server::RequestId::from(100));
-                let err = 应答.error.expect("应透传错误");
-                assert_eq!(err.code, -32601);
-                assert_eq!(err.message, "method not found");
+                let 错误对象 = 应答.error.expect("应透传错误");
+                assert_eq!(错误对象.code, -32601);
+                assert_eq!(错误对象.message, "method not found");
             }
             其他向量 => panic!("期望 Response：{其他向量:?}"),
         }
@@ -2352,9 +2388,9 @@ mod tests {
         处理分析器消息(&消息体, &映射器实例, &发送端, &待处理项, &回复, &内置映射);
         match 接收端.recv().unwrap() {
             Message::Response(应答) => {
-                let err = 应答.error.unwrap();
-                assert_eq!(err.code, -32603);
-                assert!(!err.message.is_empty(), "缺 message 应用内置文案");
+                let 错误对象 = 应答.error.unwrap();
+                assert_eq!(错误对象.code, -32603);
+                assert!(!错误对象.message.is_empty(), "缺 message 应用内置文案");
             }
             其他向量 => panic!("期望 Response：{其他向量:?}"),
         }
@@ -2467,9 +2503,9 @@ mod tests {
         );
         // 过期条目
         {
-            let mut map = 待处理项.lock().unwrap();
-            map.get_mut(&1).unwrap().创建时刻 = std::time::Instant::now();
-            map.insert(
+            let mut 待处理表 = 待处理项.lock().unwrap();
+            待处理表.get_mut(&1).unwrap().创建时刻 = std::time::Instant::now();
+            待处理表.insert(
                 2,
                 待处理请求信息 {
                     原始请求号: lsp_server::RequestId::from(101),
@@ -2493,9 +2529,9 @@ mod tests {
             其他向量 => panic!("期望超时 Response：{其他向量:?}"),
         }
         assert!(接收端.is_empty(), "新条目不应产生应答");
-        let map = 待处理项.lock().unwrap();
-        assert!(map.contains_key(&1), "新条目必须保留");
-        assert!(!map.contains_key(&2), "过期条目必须移除");
+        let 待处理表 = 待处理项.lock().unwrap();
+        assert!(待处理表.contains_key(&1), "新条目必须保留");
+        assert!(!待处理表.contains_key(&2), "过期条目必须移除");
     }
 
     /// RA 崩溃重启：全部挂起请求排空，逐条收到 "restarted" 错误应答

@@ -347,10 +347,7 @@ impl 转译缓存 {
     ) -> u64 {
         let mut 配对: Vec<String> = Vec::new();
         // 引擎源码指纹：转译算法自身的身份，算法代码变化即失效全部缓存
-        配对.push(format!(
-            "engine-source:{:#x}",
-            crate::语言::ENGINE_SOURCE_FINGERPRINT
-        ));
+        配对.push(format!("engine-source:{:#x}", crate::语言::引擎源码指纹));
         for 映射表 in [关键字表, 模块路径表, 别名表, 派生表] {
             for (键名, 值项) in 映射表 {
                 // 长度前缀 + NUL 定界：键/值中出现任意字符（含 `=`、`\0`）

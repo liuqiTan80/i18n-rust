@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use i18n_rust_lsp::{代理, 本地化};
 
 /// 命令行参数
-struct CliArgs类型 {
+struct 命令行参数类型 {
     /// 语言包目录路径
     语言包路径: PathBuf,
     /// 支持的方言文件扩展名列表（如 `.zh`）
@@ -44,7 +44,7 @@ fn 解析扩展名(逗号串: &str) -> Vec<String> {
 }
 
 /// 解析命令行参数
-fn 解析命令行参数() -> CliArgs类型 {
+fn 解析命令行参数() -> 命令行参数类型 {
     let mut 语言包路径 = PathBuf::from("crates/engine/lang-packs/zh");
     let mut 扩展名列表: Vec<String> = Vec::new();
 
@@ -95,7 +95,7 @@ fn 解析命令行参数() -> CliArgs类型 {
         }
     }
 
-    CliArgs类型 {
+    命令行参数类型 {
         语言包路径,
         扩展名列表,
     }
@@ -120,11 +120,11 @@ fn 打印帮助(界面实例: &本地化::界面) {
 /// 1. 二进制所在目录向上搜索（最多 5 级）
 /// 2. 当前工作目录向上搜索
 /// 3. $HOME 下常见项目目录（code/zrRust、zrRust）
-fn 查找语言包回退(default: &std::path::Path, 语言码: &str) -> PathBuf {
-    if default.exists() {
-        return default.to_path_buf();
+fn 查找语言包回退(默认目录: &std::path::Path, 语言码: &str) -> PathBuf {
+    if 默认目录.exists() {
+        return 默认目录.to_path_buf();
     }
-    log::warn!("默认语言包路径 {} 不存在，正在搜索...", default.display());
+    log::warn!("默认语言包路径 {} 不存在，正在搜索...", 默认目录.display());
     // 1. 二进制所在目录向上搜索
     if let Ok(可执行路径) = std::env::current_exe()
         && let Some(命中路径) = 向上搜索(&可执行路径, 语言码)
@@ -155,7 +155,7 @@ fn 查找语言包回退(default: &std::path::Path, 语言码: &str) -> PathBuf 
         }
     }
     log::warn!("未找到语言包目录，使用内置映射");
-    default.to_path_buf()
+    默认目录.to_path_buf()
 }
 
 /// 从指定路径向上搜索语言包目录（最多 5 级；两种布局均探测：
@@ -210,17 +210,17 @@ fn main() -> anyhow::Result<()> {
 
     // 创建代理服务器
     let (服务器实例, 输入线程) =
-        代理::代理服务器::new(&参数表.语言包路径, &参数表.扩展名列表)?;
+        代理::代理服务器::装配实例(&参数表.语言包路径, &参数表.扩展名列表)?;
 
     // 运行服务器（阻塞直到退出）
-    服务器实例.run(输入线程)?;
+    服务器实例.服务循环(输入线程)?;
 
     log::info!("{}", 本地化::全局().取文("lsp_log_exit"));
     Ok(())
 }
 
 #[cfg(test)]
-mod tests {
+mod 单元测试 {
     use super::{向上搜索, 查找语言包回退, 解析扩展名};
 
     /// 带点与不带点的扩展名统一补点
@@ -279,8 +279,8 @@ mod tests {
     #[test]
     fn 测试查找语言包回退已存在短路() {
         let 临时目录 = tempfile::tempdir().unwrap();
-        let default = 临时目录.path().join("explicit/zh");
-        std::fs::create_dir_all(&default).unwrap();
-        assert_eq!(查找语言包回退(&default, "zh"), default);
+        let 默认目录 = 临时目录.path().join("explicit/zh");
+        std::fs::create_dir_all(&默认目录).unwrap();
+        assert_eq!(查找语言包回退(&默认目录, "zh"), 默认目录);
     }
 }

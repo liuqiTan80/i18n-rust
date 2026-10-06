@@ -12,21 +12,32 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-mod builtin_lang;
-mod crate_registry;
-mod diagnostics;
-mod install;
-mod lang_manager;
-mod mapping_check;
-mod mapping_coverage;
-mod mapping_gen;
-mod temp_guard;
-mod ui;
+#[path = "依赖注册表.rs"]
+mod 依赖注册表;
+#[path = "内置语言.rs"]
+mod 内置语言;
+#[path = "映射校验.rs"]
+mod 映射校验;
+#[path = "组件安装.rs"]
+mod 组件安装;
+#[path = "覆盖审计.rs"]
+mod 覆盖审计;
+#[path = "诊断处理.rs"]
+mod 诊断处理;
+#[path = "语言包工具.rs"]
+mod 语言包工具;
+// 目录模块：非 ASCII 模块名需显式路径注解（同 LSP 响应映射先例）
+#[path = "临时守护.rs"]
+mod 临时守护;
+#[path = "映射生成器/mod.rs"]
+mod 映射生成器;
+#[path = "本地化.rs"]
+mod 本地化;
 
-use diagnostics::{
+use 诊断处理::{
     流式翻译器, 直调rustc检查, 直调rustc运行, 翻译cargo诊断, 能否直调rustc, 诊断上下文,
 };
-use lang_manager::语言来源;
+use 语言包工具::语言来源;
 // 非 ASCII 模块名 #[path] 注解：CLI 与 LSP 镜像共享同一引擎实现
 use i18n_rust_engine::模块路径::{标注非西文模块, 标注非西文模块并行号};
 
@@ -34,224 +45,269 @@ use i18n_rust_engine::模块路径::{标注非西文模块, 标注非西文模�
 #[command(name = "rzc", version)]
 // 兜底文案（本地化clap 会按界面语言覆盖）；用英文避免硬编码中文
 #[command(about = "Multi-language Rust teaching dialect compiler")]
-struct CliArgs {
+struct 命令行参数集 {
     /// Suppress teaching lint hints (beginner code-style warnings; Unicode confusables / full-width punctuation warnings are unaffected)
-    #[arg(long, global = true)]
-    no_lint: bool,
+    #[arg(long = "no-lint", global = true)]
+    屏蔽教学提醒: bool,
     #[command(subcommand)]
-    command: CliCommand,
+    子命令实例: 顶层子命令,
 }
 
 #[derive(Subcommand)]
-enum CliCommand {
-    Init {
-        project_name: String,
+enum 顶层子命令 {
+    #[command(name = "init")]
+    初始化项目 {
+        #[arg(value_name = "PROJECT_NAME")]
+        项目名: String,
         // 缺省跟随系统 locale（LC_ALL/LANG）：全球用户的第一个项目应是自己的母语
-        #[arg(short, long, default_value_t = mapping_gen::检测系统语言())]
-        lang: String,
+        #[arg(short = 'l', long = "lang", default_value_t = 映射生成器::检测系统语言())]
+        语言代码: String,
     },
-    Run {
-        file: PathBuf,
-        #[arg(short, long)]
-        lang_pack: Option<PathBuf>,
+    #[command(name = "run")]
+    运行项目 {
+        #[arg(value_name = "FILE")]
+        目标文件: PathBuf,
+        #[arg(short = 'l', long = "lang-pack")]
+        语言包路径: Option<PathBuf>,
     },
-    Check {
-        file: PathBuf,
-        #[arg(short, long)]
-        lang_pack: Option<PathBuf>,
+    #[command(name = "check")]
+    检查项目 {
+        #[arg(value_name = "FILE")]
+        目标文件: PathBuf,
+        #[arg(short = 'l', long = "lang-pack")]
+        语言包路径: Option<PathBuf>,
         /// Auto-fix full-width punctuation (writes to the source file; only characters with a half-width counterpart are converted)
-        #[arg(long)]
-        fix: bool,
+        #[arg(long = "fix")]
+        修复标点: bool,
     },
-    Eject {
-        file: PathBuf,
-        #[arg(short, long)]
-        lang_pack: Option<PathBuf>,
+    #[command(name = "eject")]
+    弹出代码 {
+        #[arg(value_name = "FILE")]
+        目标文件: PathBuf,
+        #[arg(short = 'l', long = "lang-pack")]
+        语言包路径: Option<PathBuf>,
     },
     /// Transpile preview: convert dialect source to standard Rust and print to stdout (no files written)
-    Transpile {
-        file: PathBuf,
-        #[arg(short, long)]
-        lang_pack: Option<PathBuf>,
+    #[command(name = "transpile")]
+    转译预览 {
+        #[arg(value_name = "FILE")]
+        目标文件: PathBuf,
+        #[arg(short = 'l', long = "lang-pack")]
+        语言包路径: Option<PathBuf>,
     },
     /// Add third-party dependencies to the current project (wraps cargo add, with native-language mapping hints)
-    Add {
+    #[command(name = "add")]
+    添加依赖 {
         /// crate name or name@version, repeatable (e.g. serde tokio@1)
-        #[arg(required = true)]
-        crates: Vec<String>,
+        #[arg(required = true, value_name = "CRATES")]
+        依赖名单: Vec<String>,
     },
     /// Language pack management (list / install / remove)
-    Lang {
+    #[command(name = "lang")]
+    语言包管理 {
         #[command(subcommand)]
-        subcommand: LangCommand,
+        子命令实例: 语言包子命令,
     },
     /// Generate third-party crate mappings (extract APIs from installed crates)
-    Mapping {
+    #[command(name = "mapping")]
+    映射生成 {
         #[command(subcommand)]
-        subcommand: MappingCommand,
+        子命令实例: 映射生成子命令,
     },
     /// Shared third-party crate registry (search / install / list / remove / update / publish)
-    Crate {
+    #[command(name = "crate")]
+    依赖仓库 {
         #[command(subcommand)]
-        subcommand: CrateCommand,
+        子命令实例: 依赖仓库子命令,
     },
     /// Install companion components (language server i18n-rust-lsp, etc.)
-    Install {
+    #[command(name = "install")]
+    安装组件 {
         #[command(subcommand)]
-        subcommand: Option<InstallCommand>,
+        子命令实例: Option<组件安装子命令>,
     },
     /// Diagnose the toolchain environment: bundled toolchain / PATH / version comparison
-    Doctor,
+    #[command(name = "doctor")]
+    环境体检,
     /// Native-language ↔ Rust mapping cheat sheet (keywords / module paths / aliases / derive traits)
-    Cheat {
+    #[command(name = "cheat")]
+    速查表 {
         /// Built-in language code (e.g. zh) or a language-pack directory path; auto-detected from the system language when omitted
-        lang: Option<String>,
+        #[arg(value_name = "LANG")]
+        语言代码: Option<String>,
         /// Output as a Markdown table for embedding into docs
-        #[arg(long)]
-        markdown: bool,
+        #[arg(long = "markdown")]
+        表格模式: bool,
     },
 }
 
 #[derive(Subcommand)]
-enum InstallCommand {
+enum 组件安装子命令 {
     /// Install the language server i18n-rust-lsp (completion / diagnostics backend for the VS Code extension)
-    Lsp {
+    #[command(name = "lsp")]
+    语言服务器 {
         /// Force overwrite if already installed
         #[arg(short = 'f', long = "force")]
-        force: bool,
+        强制覆盖: bool,
     },
     /// One-click install of the bundled toolchain (standalone rustc/cargo/rust-analyzer, no rustup required)
-    Toolchain {
+    #[command(name = "toolchain")]
+    工具链套装 {
         /// Toolchain version (defaults to the version rzc is locked to, e.g. 1.98.0)
-        #[arg(long, default_value = i18n_rust_engine::工具链::锁定工具链版本)]
-        version: String,
+        #[arg(long = "version", default_value = i18n_rust_engine::工具链::锁定工具链版本)]
+        工具链版本号: String,
         /// Official rust-analyzer release tag (defaults to the locked version)
-        #[arg(long, default_value = crate::install::分析器发布标签)]
-        ra_tag: String,
+        #[arg(long = "ra-tag", default_value = crate::组件安装::分析器发布标签)]
+        分析器发布标签: String,
         /// Upgrade rust-analyzer only (skip the ~300 MB rustc/cargo re-download)
-        #[arg(long)]
-        ra_only: bool,
+        #[arg(long = "ra-only")]
+        仅更新分析器: bool,
         /// Force reinstall if already installed
         #[arg(short = 'f', long = "force")]
-        force: bool,
+        强制覆盖: bool,
     },
 }
 
 #[derive(Subcommand)]
-enum MappingCommand {
+enum 映射生成子命令 {
     /// Auto-generate third-party crate mapping files: extract the crate's public API; AI or rules generate names and explanations in the target language
-    Auto {
+    #[command(name = "auto")]
+    自动生成 {
         /// Target crate name (must be installed or available from crates.io)
-        crate_name: String,
+        #[arg(value_name = "CRATE_NAME")]
+        依赖包名: String,
         /// Target language (language-pack directory name, e.g. zh, ru; auto-detected from the system language by default)
-        #[arg(long)]
-        lang: Option<String>,
+        #[arg(long = "lang")]
+        语言代码: Option<String>,
         /// AI provider: deepseek (default; requires the DEEPSEEK_API_KEY environment variable) or rule (offline rule mode)
-        #[arg(long, default_value = "deepseek")]
-        provider: String,
+        #[arg(long = "provider", default_value = "deepseek")]
+        生成提供方: String,
         /// Pin the target crate version (e.g. 2.11.5 exact; 2.11 / 2 = latest in that line); uses the latest when omitted (not reproducible)
-        #[arg(long)]
-        target_version: Option<String>,
+        #[arg(long = "target-version")]
+        目标版本: Option<String>,
         /// Output file path (defaults to the project language-pack root: <lang>/crates/<crate_name>.toml)
-        #[arg(long)]
-        output: Option<PathBuf>,
+        #[arg(long = "output")]
+        输出路径: Option<PathBuf>,
         /// Also add the crate to the current project's Cargo.toml after generating mappings (cargo add)
-        #[arg(long)]
-        install: bool,
+        #[arg(long = "install")]
+        同时添加依赖: bool,
     },
     /// Validate third-party crate mapping quality: duplicate keys / keyword avoidance / cross-file conflicts / entry-count consistency
-    Check {
+    #[command(name = "check")]
+    检查质量 {
         /// Built-in language code (e.g. zh) or a language-pack directory path; validates all built-in languages when omitted
-        target: Option<String>,
+        #[arg(value_name = "TARGET")]
+        目标语言: Option<String>,
     },
     /// Corpus coverage matrix: validate language-pack keyword/API coverage against real backend sources; lists missing native-language mappings
-    Coverage {
+    #[command(name = "coverage")]
+    覆盖矩阵 {
         /// Built-in language code (e.g. zh); checks all built-in languages when omitted
-        #[arg(long)]
-        lang: Option<String>,
+        #[arg(long = "lang")]
+        语言代码: Option<String>,
     },
     /// Generate a translation skeleton for the target language from the source-language crates mappings (keys kept for translation, English values unchanged)
-    Scaffold {
+    #[command(name = "scaffold")]
+    生成骨架 {
         /// Source language code (a built-in language, e.g. zh)
-        source: String,
+        #[arg(value_name = "SOURCE")]
+        源语言: String,
         /// Target language code (new language-pack directory name, e.g. vi)
-        target: String,
+        #[arg(value_name = "TARGET")]
+        目标语言: String,
         /// Output directory (defaults to the project language-pack root: <target>/crates/)
-        #[arg(long)]
-        output: Option<PathBuf>,
+        #[arg(long = "output")]
+        输出路径: Option<PathBuf>,
         /// Translation mode: rule (default; generates a TODO skeleton for manual translation) or deepseek (AI translates keys; requires DEEPSEEK_API_KEY)
-        #[arg(long, default_value = "rule")]
-        provider: String,
+        #[arg(long = "provider", default_value = "rule")]
+        生成提供方: String,
     },
 }
 
 #[derive(Subcommand)]
-enum CrateCommand {
+enum 依赖仓库子命令 {
     /// Search third-party crate mappings published in the registry (optional keyword filter)
-    Search {
+    #[command(name = "search")]
+    搜索映射 {
         /// Keyword (matches crate name / language / author); lists everything when omitted (sorted by downloads)
-        keyword: Option<String>,
+        #[arg(value_name = "KEYWORD")]
+        搜索关键词: Option<String>,
     },
     /// Install a single third-party crate mapping: copy it from the registry into the global language pack
-    Install {
+    #[command(name = "install")]
+    安装映射 {
         /// Crate name (hyphens normalized to underscores)
-        crate_name: String,
+        #[arg(value_name = "CRATE_NAME")]
+        依赖包名: String,
         /// Target language code (e.g. zh)
-        #[arg(long)]
-        lang: String,
+        #[arg(long = "lang")]
+        语言代码: String,
         /// Force overwrite if already installed
         #[arg(short = 'f', long = "force")]
-        force: bool,
+        强制覆盖: bool,
     },
     /// List installed community mappings
-    List,
+    #[command(name = "list")]
+    列出映射,
     /// Remove an installed community mapping (from the global language pack and the manifest)
-    Remove {
+    #[command(name = "remove")]
+    移除映射 {
         /// Crate name
-        crate_name: String,
+        #[arg(value_name = "CRATE_NAME")]
+        依赖包名: String,
         /// Language code
-        #[arg(long)]
-        lang: String,
+        #[arg(long = "lang")]
+        语言代码: String,
     },
     /// Re-fetch all mappings according to the installed manifest (pick up others' updates)
-    Update,
+    #[command(name = "update")]
+    更新映射,
     /// Publish a local mapping to the registry (quality gate runs first)
-    Publish {
+    #[command(name = "publish")]
+    发布映射 {
         /// Crate name
-        crate_name: String,
+        #[arg(value_name = "CRATE_NAME")]
+        依赖包名: String,
         /// Language code
-        #[arg(long)]
-        lang: String,
+        #[arg(long = "lang")]
+        语言代码: String,
         /// Mapping file path (when omitted, searched in common locations: global/project language pack or the current directory)
-        #[arg(long)]
-        file: Option<PathBuf>,
+        #[arg(long = "file")]
+        目标文件: Option<PathBuf>,
         /// Translator credit (defaults to git user.name)
-        #[arg(long)]
-        author: Option<String>,
+        #[arg(long = "author")]
+        译者署名: Option<String>,
     },
 }
 
 #[derive(Subcommand)]
-enum LangCommand {
+enum 语言包子命令 {
     /// List all installed language packs (built-in + user-installed)
-    List,
+    #[command(name = "list")]
+    列出语言包,
     /// Install a language pack: a local directory path is copied directly; a language code is downloaded from the remote repository
-    Install {
+    #[command(name = "install")]
+    安装语言包 {
         /// Local language-pack directory path, or a remote language code
-        source: String,
+        #[arg(value_name = "SOURCE")]
+        语言包来源: String,
         /// Force overwrite if already installed
         #[arg(short = 'f', long = "force")]
-        force: bool,
+        强制覆盖: bool,
     },
     /// Remove a user-installed language pack (built-in packs cannot be removed)
-    Remove {
+    #[command(name = "remove")]
+    移除语言包 {
         /// Language code (language-pack directory name)
-        lang_code: String,
+        #[arg(value_name = "LANG_CODE")]
+        语言代码: String,
     },
     /// Browse the remote language-pack marketplace (scan the remote repository; optional keyword filter)
-    Search {
+    #[command(name = "search")]
+    搜索语言包 {
         /// Keyword (matches language code or display name); lists all remote packs when omitted
-        keyword: Option<String>,
+        #[arg(value_name = "KEYWORD")]
+        搜索关键词: Option<String>,
     },
 }
 
@@ -262,7 +318,7 @@ fn main() -> std::process::ExitCode {
     // 连控制台）而非 stdin（双击场景 stdin 句柄可能无效，read 立即 EOF 导致秒关）；
     // stdin 读取失败时停留数秒兜底。管道/重定向场景 stdout 非终端，走正常流程。
     if std::env::args().len() == 1 && std::io::stdout().is_terminal() {
-        install::显示安装向导();
+        组件安装::显示安装向导();
         println!();
         println!("按任意键退出...");
         let mut 缓冲 = [0u8; 1];
@@ -282,50 +338,57 @@ fn main() -> std::process::ExitCode {
 
 fn 执行() -> anyhow::Result<std::process::ExitCode> {
     // 按当前界面语言本地化 clap 帮助文本
-    let 界面 = ui::界面::全局();
+    let 界面 = 本地化::界面::全局();
     // 同步引擎全局语言（错误/诊断/日志随界面语言输出）
-    i18n_rust_engine::语言::设定语言(&ui::检测界面语言());
+    i18n_rust_engine::语言::设定语言(&本地化::检测界面语言());
     let 命令行 = 本地化clap(&界面);
     // clap 自身错误（--help/--version 输出、非法参数等）按 clap 退出码直接退出
-    let 参数集 = match CliArgs::from_arg_matches(&命令行.get_matches()) {
+    let 参数集 = match 命令行参数集::from_arg_matches(&命令行.get_matches()) {
         Ok(参数集) => 参数集,
         Err(错) => 错.exit(),
     };
 
     // `--no-lint`：项目开发（非教学）场景静默教学 lint（初学者代码风格提示，
     // 每次转译刷屏）；Unicode 混淆/全角标点告警不受影响
-    if 参数集.no_lint {
+    if 参数集.屏蔽教学提醒 {
         i18n_rust_engine::教学检查::设定教学检查开关(false);
     }
 
     // 首次运行引导：终端交互场景下，首次执行教学核心命令时打印
     // 欢迎语与环境检查（rustc 缺失提示 + 下一步建议），仅一次
     // （~/.rz/first-run 标记文件）；CI/管道等非终端场景自动跳过。
-    match &参数集.command {
-        CliCommand::Run { .. } | CliCommand::Check { .. } | CliCommand::Init { .. } => {
+    match &参数集.子命令实例 {
+        顶层子命令::运行项目 { .. }
+        | 顶层子命令::检查项目 { .. }
+        | 顶层子命令::初始化项目 { .. } => {
             显示首次运行引导(&界面);
         }
         _ => {}
     }
 
-    match 参数集.command {
-        CliCommand::Init { project_name, lang } => {
-            i18n_rust_engine::语言::设定语言(&lang);
-            创建项目(&project_name, &lang)?;
+    match 参数集.子命令实例 {
+        顶层子命令::初始化项目 {
+            项目名, 语言代码
+        } => {
+            i18n_rust_engine::语言::设定语言(&语言代码);
+            创建项目(&项目名, &语言代码)?;
             Ok(std::process::ExitCode::SUCCESS)
         }
-        CliCommand::Run { file, lang_pack } => {
-            let 界面 = 界面按文件(&file, &lang_pack);
-            let 源码 = fs::read_to_string(&file)?;
-            let 管理器 = 加载映射(lang_pack.clone(), Some(&file))?;
-            let 项目根 = 定位项目根(&file)?;
+        顶层子命令::运行项目 {
+            目标文件,
+            语言包路径,
+        } => {
+            let 界面 = 界面按文件(&目标文件, &语言包路径);
+            let 源码 = fs::read_to_string(&目标文件)?;
+            let 管理器 = 加载映射(语言包路径.clone(), Some(&目标文件))?;
+            let 项目根 = 定位项目根(&目标文件)?;
             // 项目级声明上下文（跨文件声明豁免）：扫描 src/ 全部方言文件 +
             // 入口，收集模块名与声明名；入口文件、项目内文件与诊断重放
             // 共享同一上下文（否则跨文件调用的成员名被当库别名替换，E0599）
-            let 项目上下文 = 收集项目上下文(&项目根, &file, &管理器);
+            let 项目上下文 = 收集项目上下文(&项目根, &目标文件, &管理器);
             // 入口文件写入 src/main.rs 作为编译目标；会话缓存贯穿入口文件与
             // 项目内其他文件（并行转译共享命中，见 转译项目文件）
-            let 源码路径 = 入口产物路径(&项目根, &file, &管理器);
+            let 源码路径 = 入口产物路径(&项目根, &目标文件, &管理器);
             let 缓存 = std::sync::Mutex::new(i18n_rust_engine::缓存::转译缓存::持久默认项());
             let 转译产物 = 项目转译映射带缓存(
                 &源码,
@@ -342,19 +405,19 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
             let (注解产物, 入口行映射) = 标注非西文模块并行号(&转译产物.产出);
             写入转译产物(&源码路径, &注解产物, &界面)?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
-            转译项目文件(&项目根, &file, &管理器, &缓存, &项目上下文)?;
+            转译项目文件(&项目根, &目标文件, &管理器, &缓存, &项目上下文)?;
 
             // 单文件项目直调 rustc：绕开 cargo 的索引/项目结构（教学单文件
             // 场景编译更快、无网络索引问题）；多文件/有依赖项目回退 cargo
-            if 能否直调rustc(&项目根, &file) {
+            if 能否直调rustc(&项目根, &目标文件) {
                 return 直调rustc运行(
                     &界面,
                     &项目根,
                     &源码路径,
-                    &lang_pack,
+                    &语言包路径,
                     &管理器,
                     &源码,
-                    &file,
+                    &目标文件,
                     &列映射,
                     &入口行映射,
                     &项目上下文,
@@ -391,7 +454,7 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
                 .take()
                 .ok_or_else(|| anyhow::anyhow!("cargo run stderr 管道不可用"))?;
             let 错误输出线程 = std::thread::spawn(move || {
-                let 界面 = ui::界面::全局();
+                let 界面 = 本地化::界面::全局();
                 let mut 翻译器 = 流式翻译器::r#新建();
                 let 读取器 = BufReader::new(错误输出管道);
                 for 文本行 in 读取器.lines() {
@@ -443,11 +506,11 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
                     "",
                     &诊断上下文 {
                         界面: &界面,
-                        语言包: &lang_pack,
+                        语言包: &语言包路径,
                         项目根: &项目根,
                         管理器: &管理器,
                         源码: &源码,
-                        入口文件: &file,
+                        入口文件: &目标文件,
                         列映射: Some(&列映射),
                         入口行映射: Some(&入口行映射),
                         项目: Some(&项目上下文),
@@ -466,27 +529,27 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
                 .map(|码| std::process::ExitCode::from(码 as u8))
                 .unwrap_or(std::process::ExitCode::FAILURE))
         }
-        CliCommand::Check {
-            file,
-            lang_pack,
-            fix,
+        顶层子命令::检查项目 {
+            目标文件,
+            语言包路径,
+            修复标点,
         } => {
-            let 界面 = 界面按文件(&file, &lang_pack);
-            let mut 源码 = fs::read_to_string(&file)?;
+            let 界面 = 界面按文件(&目标文件, &语言包路径);
+            let mut 源码 = fs::read_to_string(&目标文件)?;
             // 全角标点教学修复：中文输入法下最常见的编译错误来源之一。
             // --fix 时自动将代码位置（字符串/注释内除外）的全角标点改写为半角，
             // 并提示剩余需人工修改的字符（顿号/全角空格等）；
             // 不带 --fix 时警告由转译管线（log_warn）自动输出。
-            if fix {
+            if 修复标点 {
                 let (修复文本, 数量) = i18n_rust_engine::全角标点::修复全角标点(&源码);
                 if 数量 > 0 {
-                    fs::write(&file, &修复文本)?;
+                    fs::write(&目标文件, &修复文本)?;
                     源码 = 修复文本;
                     println!(
                         "{}",
                         界面.取文带参(
                             "fullwidth_fix_done",
-                            &[&数量.to_string(), &file.display().to_string()]
+                            &[&数量.to_string(), &目标文件.display().to_string()]
                         )
                     );
                 }
@@ -498,11 +561,11 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
                     );
                 }
             }
-            let 管理器 = 加载映射(lang_pack.clone(), Some(&file))?;
-            let 项目根 = 定位项目根(&file)?;
+            let 管理器 = 加载映射(语言包路径.clone(), Some(&目标文件))?;
+            let 项目根 = 定位项目根(&目标文件)?;
             // 项目级声明上下文（跨文件声明豁免，同 run）
-            let 项目上下文 = 收集项目上下文(&项目根, &file, &管理器);
-            let 源码路径 = 入口产物路径(&项目根, &file, &管理器);
+            let 项目上下文 = 收集项目上下文(&项目根, &目标文件, &管理器);
+            let 源码路径 = 入口产物路径(&项目根, &目标文件, &管理器);
             let 缓存 = std::sync::Mutex::new(i18n_rust_engine::缓存::转译缓存::持久默认项());
             let 转译产物 = 项目转译映射带缓存(
                 &源码,
@@ -519,18 +582,18 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
             let (注解产物, 入口行映射) = 标注非西文模块并行号(&转译产物.产出);
             写入转译产物(&源码路径, &注解产物, &界面)?;
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
-            转译项目文件(&项目根, &file, &管理器, &缓存, &项目上下文)?;
+            转译项目文件(&项目根, &目标文件, &管理器, &缓存, &项目上下文)?;
 
             // 单文件项目直调 rustc（绕开 cargo）；多文件/有依赖项目回退 cargo
-            if 能否直调rustc(&项目根, &file) {
+            if 能否直调rustc(&项目根, &目标文件) {
                 return 直调rustc检查(
                     &界面,
                     &项目根,
                     &源码路径,
-                    &lang_pack,
+                    &语言包路径,
                     &管理器,
                     &源码,
-                    &file,
+                    &目标文件,
                     &列映射,
                     &入口行映射,
                     &项目上下文,
@@ -570,11 +633,11 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
                 &错误文本,
                 &诊断上下文 {
                     界面: &界面,
-                    语言包: &lang_pack,
+                    语言包: &语言包路径,
                     项目根: &项目根,
                     管理器: &管理器,
                     源码: &源码,
-                    入口文件: &file,
+                    入口文件: &目标文件,
                     列映射: Some(&列映射),
                     入口行映射: Some(&入口行映射),
                     项目: Some(&项目上下文),
@@ -585,12 +648,15 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
             );
             Ok(退出码)
         }
-        CliCommand::Eject { file, lang_pack } => {
-            let 界面 = 界面按文件(&file, &lang_pack);
-            let 源码 = fs::read_to_string(&file)?;
-            let 管理器 = 加载映射(lang_pack, Some(&file))?;
+        顶层子命令::弹出代码 {
+            目标文件,
+            语言包路径,
+        } => {
+            let 界面 = 界面按文件(&目标文件, &语言包路径);
+            let 源码 = fs::read_to_string(&目标文件)?;
+            let 管理器 = 加载映射(语言包路径, Some(&目标文件))?;
             let 英文代码 = 转译为英文(&源码, &管理器);
-            let 输出路径 = file.with_extension("rs");
+            let 输出路径 = 目标文件.with_extension("rs");
             fs::write(&输出路径, 英文代码)?;
             println!(
                 "{}",
@@ -598,56 +664,73 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
             );
             Ok(std::process::ExitCode::SUCCESS)
         }
-        CliCommand::Transpile { file, lang_pack } => {
+        顶层子命令::转译预览 {
+            目标文件,
+            语言包路径,
+        } => {
             // 转译预览：仅输出到 stdout，不产生任何文件（与 eject 互补）
-            let 界面 = 界面按文件(&file, &lang_pack);
-            let 源码 = fs::read_to_string(&file)?;
-            let 管理器 = 加载映射(lang_pack, Some(&file))?;
+            let 界面 = 界面按文件(&目标文件, &语言包路径);
+            let 源码 = fs::read_to_string(&目标文件)?;
+            let 管理器 = 加载映射(语言包路径, Some(&目标文件))?;
             let 英文代码 = 转译为英文(&源码, &管理器);
             print!("{英文代码}");
             let _ = 界面; // stdout 模式无需额外提示
             Ok(std::process::ExitCode::SUCCESS)
         }
-        CliCommand::Install { subcommand } => {
+        顶层子命令::安装组件 { 子命令实例 } => {
             // 省略子命令时默认安装全部组件（当前仅语言服务器）
-            match subcommand.unwrap_or(InstallCommand::Lsp { force: false }) {
-                InstallCommand::Lsp { force } => install::安装语言服务器(&界面, force)?,
-                InstallCommand::Toolchain {
-                    version,
-                    ra_tag,
-                    ra_only,
-                    force,
-                } => install::安装工具链(&界面, &version, &ra_tag, force, ra_only)?,
+            match 子命令实例.unwrap_or(组件安装子命令::语言服务器 {
+                强制覆盖: false
+            }) {
+                组件安装子命令::语言服务器 { 强制覆盖 } => {
+                    组件安装::安装语言服务器(&界面, 强制覆盖)?
+                }
+                组件安装子命令::工具链套装 {
+                    工具链版本号,
+                    分析器发布标签,
+                    仅更新分析器,
+                    强制覆盖,
+                } => 组件安装::安装工具链(
+                    &界面,
+                    &工具链版本号,
+                    &分析器发布标签,
+                    强制覆盖,
+                    仅更新分析器,
+                )?,
             }
             Ok(std::process::ExitCode::SUCCESS)
         }
-        CliCommand::Doctor => install::诊断环境().map(|()| std::process::ExitCode::SUCCESS),
-        CliCommand::Cheat { lang, markdown } => {
-            let 语言代码 = lang.clone().unwrap_or_else(mapping_gen::检测系统语言);
+        顶层子命令::环境体检 => {
+            组件安装::诊断环境().map(|()| std::process::ExitCode::SUCCESS)
+        }
+        顶层子命令::速查表 {
+            语言代码, 表格模式
+        } => {
+            let 语言代码 = 语言代码.clone().unwrap_or_else(映射生成器::检测系统语言);
             // 速查表标题固定英文：全球用户的第一张卡不依赖界面语言
             i18n_rust_engine::语言::设定语言(&语言代码);
             let 虚拟源码 = PathBuf::from(format!("main.{语言代码}"));
             // 借虚拟扩展名让 加载映射 走既有解析链（项目内 → 全局 → 内置语言包）
             let 管理器 = 加载映射(None, Some(&虚拟源码))?;
-            打印速查表(&管理器, &语言代码, markdown);
+            打印速查表(&管理器, &语言代码, 表格模式);
             Ok(std::process::ExitCode::SUCCESS)
         }
-        CliCommand::Lang { subcommand } => {
-            处理语言子命令(subcommand).map(|()| std::process::ExitCode::SUCCESS)
+        顶层子命令::语言包管理 { 子命令实例 } => {
+            处理语言子命令(子命令实例).map(|()| std::process::ExitCode::SUCCESS)
         }
-        CliCommand::Add { crates } => 处理添加子命令(&crates),
-        CliCommand::Mapping { subcommand } => match subcommand {
-            MappingCommand::Auto {
-                crate_name,
-                lang,
-                provider,
-                target_version,
-                output,
-                install,
+        顶层子命令::添加依赖 { 依赖名单 } => 处理添加子命令(&依赖名单),
+        顶层子命令::映射生成 { 子命令实例 } => match 子命令实例 {
+            映射生成子命令::自动生成 {
+                依赖包名,
+                语言代码,
+                生成提供方,
+                目标版本,
+                输出路径,
+                同时添加依赖,
             } => {
-                let 语言代码 = lang.unwrap_or_else(mapping_gen::检测系统语言);
+                let 语言代码 = 语言代码.unwrap_or_else(映射生成器::检测系统语言);
                 i18n_rust_engine::语言::设定语言(&语言代码);
-                let 输出路径 = output.unwrap_or_else(|| {
+                let 输出路径 = 输出路径.unwrap_or_else(|| {
                     // 默认写入项目语言包根：从 cwd 向上找 Cargo.toml，
                     // 保证任意子目录下执行都落到项目本地语言包（加载映射 同一位置查找）；
                     // 主仓库内落到 crates/engine/lang-packs/（单一数据源），用户项目落 lang-packs/
@@ -655,20 +738,20 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
                         .ok()
                         .and_then(|工作目录| 向上定位项目根(&工作目录))
                         .unwrap_or_else(|| PathBuf::from("."));
-                    语言包根目录(&基础目录).join(format!("{}/crates/{}.toml", 语言代码, crate_name))
+                    语言包根目录(&基础目录).join(format!("{}/crates/{}.toml", 语言代码, 依赖包名))
                 });
-                mapping_gen::运行自动生成(
-                    &crate_name,
+                映射生成器::运行自动生成(
+                    &依赖包名,
                     &语言代码,
-                    &provider,
+                    &生成提供方,
                     &输出路径,
-                    target_version.as_deref(),
+                    目标版本.as_deref(),
                 )
                 .map(|()| std::process::ExitCode::SUCCESS)
                 .inspect(|_| {
                     // --install：生成成功后把 crate 加入当前项目依赖（用户项目内执行时）
-                    if install {
-                        安装依赖到当前项目(&crate_name, target_version.as_deref());
+                    if 同时添加依赖 {
+                        安装依赖到当前项目(&依赖包名, 目标版本.as_deref());
                     }
                     // 生成后自动对所在语言包跑一次冲突检测（仅提示，不改变退出码：
                     // 语言包可能存在历史遗留问题，生成成功与否以写入结果为准）
@@ -676,67 +759,70 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
                         && 语言目录.join("keywords.toml").exists()
                         && let Some(目录串) = 语言目录.to_str()
                     {
-                        let _ = mapping_check::运行校验(Some(目录串));
+                        let _ = 映射校验::运行校验(Some(目录串));
                     }
                 })
             }
-            MappingCommand::Check { target } => {
+            映射生成子命令::检查质量 { 目标语言 } => {
                 // check 输出的语言默认跟随系统语言
-                let 语言代码 = mapping_gen::检测系统语言();
+                let 语言代码 = 映射生成器::检测系统语言();
                 i18n_rust_engine::语言::设定语言(&语言代码);
-                match mapping_check::运行校验(target.as_deref()) {
+                match 映射校验::运行校验(目标语言.as_deref()) {
                     Ok(true) => Ok(std::process::ExitCode::SUCCESS),
                     Ok(false) => Ok(std::process::ExitCode::FAILURE),
                     Err(错) => Err(错),
                 }
             }
-            MappingCommand::Coverage { lang } => {
+            映射生成子命令::覆盖矩阵 { 语言代码 } => {
                 // coverage 输出的语言默认跟随系统语言
-                let 界面语言 = mapping_gen::检测系统语言();
+                let 界面语言 = 映射生成器::检测系统语言();
                 i18n_rust_engine::语言::设定语言(&界面语言);
-                match mapping_coverage::运行覆盖(lang.as_deref()) {
+                match 覆盖审计::运行覆盖(语言代码.as_deref()) {
                     Ok(true) => Ok(std::process::ExitCode::SUCCESS),
                     Ok(false) => Ok(std::process::ExitCode::FAILURE),
                     Err(错) => Err(错),
                 }
             }
-            MappingCommand::Scaffold {
-                source,
-                target,
-                output,
-                provider,
+            映射生成子命令::生成骨架 {
+                源语言,
+                目标语言,
+                输出路径,
+                生成提供方,
             } => {
-                let 语言代码 = mapping_gen::检测系统语言();
+                let 语言代码 = 映射生成器::检测系统语言();
                 i18n_rust_engine::语言::设定语言(&语言代码);
-                mapping_check::运行脚手架(&source, &target, output.as_deref(), &provider)
+                映射校验::运行脚手架(&源语言, &目标语言, 输出路径.as_deref(), &生成提供方)
                     .map(|()| std::process::ExitCode::SUCCESS)
             }
         },
-        CliCommand::Crate { subcommand } => match subcommand {
-            CrateCommand::Search { keyword } => crate_registry::检索映射(keyword.as_deref())
-                .map(|()| std::process::ExitCode::SUCCESS),
-            CrateCommand::Install {
-                crate_name,
-                lang,
-                force,
-            } => crate_registry::安装映射(&crate_name, &lang, force)
-                .map(|()| std::process::ExitCode::SUCCESS),
-            CrateCommand::List => {
-                crate_registry::列出映射().map(|()| std::process::ExitCode::SUCCESS)
-            }
-            CrateCommand::Remove { crate_name, lang } => {
-                crate_registry::移除映射(&crate_name, &lang)
+        顶层子命令::依赖仓库 { 子命令实例 } => match 子命令实例 {
+            依赖仓库子命令::搜索映射 { 搜索关键词 } => {
+                依赖注册表::检索映射(搜索关键词.as_deref())
                     .map(|()| std::process::ExitCode::SUCCESS)
             }
-            CrateCommand::Update => {
-                crate_registry::刷新映射().map(|()| std::process::ExitCode::SUCCESS)
+            依赖仓库子命令::安装映射 {
+                依赖包名,
+                语言代码,
+                强制覆盖,
+            } => 依赖注册表::安装映射(&依赖包名, &语言代码, 强制覆盖)
+                .map(|()| std::process::ExitCode::SUCCESS),
+            依赖仓库子命令::列出映射 => {
+                依赖注册表::列出映射().map(|()| std::process::ExitCode::SUCCESS)
             }
-            CrateCommand::Publish {
-                crate_name,
-                lang,
-                file,
-                author,
-            } => crate_registry::发布映射(&crate_name, &lang, file, author.as_deref())
+            依赖仓库子命令::移除映射 {
+                依赖包名, 语言代码
+            } => {
+                依赖注册表::移除映射(&依赖包名, &语言代码).map(|()| std::process::ExitCode::SUCCESS)
+            }
+            依赖仓库子命令::更新映射 => {
+                依赖注册表::刷新映射().map(|()| std::process::ExitCode::SUCCESS)
+            }
+            依赖仓库子命令::发布映射 {
+                依赖包名,
+                语言代码,
+                目标文件,
+                译者署名,
+            } => 依赖注册表::发布映射(&依赖包名, &语言代码, 目标文件, 译者署名.as_deref())
                 .map(|()| std::process::ExitCode::SUCCESS),
         },
     }
@@ -746,12 +832,12 @@ fn 执行() -> anyhow::Result<std::process::ExitCode> {
 ///
 /// 仅交互终端（stdout 是终端）且标记文件不存在时显示；
 /// 显示后写入标记文件，保证每个用户只看到一次。
-fn 显示首次运行引导(界面: &ui::界面) {
+fn 显示首次运行引导(界面: &本地化::界面) {
     use std::io::IsTerminal;
     if !std::io::stdout().is_terminal() {
         return;
     }
-    // 与 lang_manager::全局语言目录 相同的跨平台主目录解析
+    // 与 语言包工具::全局语言目录 相同的跨平台主目录解析
     let 主目录 = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .ok();
@@ -785,11 +871,11 @@ fn 显示首次运行引导(界面: &ui::界面) {
 }
 
 /// 处理 `rzc lang` 子命令
-fn 处理语言子命令(子命令: LangCommand) -> anyhow::Result<()> {
-    let 界面 = ui::界面::全局();
+fn 处理语言子命令(子命令: 语言包子命令) -> anyhow::Result<()> {
+    let 界面 = 本地化::界面::全局();
     match 子命令 {
-        LangCommand::List => {
-            let 列表 = lang_manager::列语言();
+        语言包子命令::列出语言包 => {
+            let 列表 = 语言包工具::列语言();
             if 列表.is_empty() {
                 println!("{}", 界面.取文("no_lang_installed"));
                 return Ok(());
@@ -809,7 +895,7 @@ fn 处理语言子命令(子命令: LangCommand) -> anyhow::Result<()> {
                     .map(|后| format!(".{}", 后))
                     .unwrap_or_else(|| 界面.取文("unknown"));
                 let 版本 = match 信息.版本号.as_deref() {
-                    Some(v) => v.to_string(),
+                    Some(版本值项) => 版本值项.to_string(),
                     None => 界面.取文("unknown"),
                 };
                 let 可删除 = if 信息.语言来源 == 语言来源::内置 {
@@ -834,22 +920,25 @@ fn 处理语言子命令(子命令: LangCommand) -> anyhow::Result<()> {
                 "{}",
                 界面.取文带参(
                     "global_lang_dir",
-                    &[&lang_manager::全局语言目录().display().to_string()]
+                    &[&语言包工具::全局语言目录().display().to_string()]
                 )
             );
             Ok(())
         }
-        LangCommand::Install { source, force } => lang_manager::安装语言(&source, force),
-        LangCommand::Search { keyword } => {
+        语言包子命令::安装语言包 {
+            语言包来源,
+            强制覆盖,
+        } => 语言包工具::安装语言(&语言包来源, 强制覆盖),
+        语言包子命令::搜索语言包 { 搜索关键词 } => {
             // 市场浏览：下载仓库 ZIP 扫描语言包（含显示名/版本），
             // 可选关键词过滤；与 install 共用同一远程源回退策略
             println!(
                 "{}",
                 界面.取文带参("lang_search_header", &[&界面.取文("lang_search_source")])
             );
-            let 找到 = lang_manager::搜索远程语言(keyword.as_deref())?;
+            let 找到 = 语言包工具::搜索远程语言(搜索关键词.as_deref())?;
             if 找到.is_empty() {
-                match keyword.as_deref() {
+                match 搜索关键词.as_deref() {
                     Some(关键词) if !关键词.trim().is_empty() => {
                         println!("{}", 界面.取文带参("lang_search_empty", &[关键词]));
                     }
@@ -866,19 +955,21 @@ fn 处理语言子命令(子命令: LangCommand) -> anyhow::Result<()> {
             println!("{}", 界面.取文("lang_search_hint"));
             Ok(())
         }
-        LangCommand::Remove { lang_code } => lang_manager::删除语言(&lang_code),
+        语言包子命令::移除语言包 { 语言代码 } => {
+            语言包工具::删除语言(&语言代码)
+        }
     }
 }
 
 /// 处理 `rzc add` 子命令：封装 cargo add，成功后提示母语映射可用性
-fn 处理添加子命令(crates: &[String]) -> anyhow::Result<std::process::ExitCode> {
-    let 界面 = ui::界面::全局();
+fn 处理添加子命令(依赖名单: &[String]) -> anyhow::Result<std::process::ExitCode> {
+    let 界面 = 本地化::界面::全局();
     let 当前目录 = std::env::current_dir()?;
     let 项目根 = 向上定位项目根(&当前目录)
         .ok_or_else(|| anyhow::anyhow!("{}", 界面.取文("add_no_project")))?;
     let 状态 = Command::new(解析cargo路径())
         .arg("add")
-        .args(crates)
+        .args(依赖名单)
         .current_dir(&项目根)
         .status()
         .map_err(|错| {
@@ -888,8 +979,8 @@ fn 处理添加子命令(crates: &[String]) -> anyhow::Result<std::process::Exit
         // cargo add 自身已输出错误详情，直接传播退出码
         return Ok(std::process::ExitCode::FAILURE);
     }
-    let 语言代码 = ui::检测界面语言();
-    for 规格 in crates {
+    let 语言代码 = 本地化::检测界面语言();
+    for 规格 in 依赖名单 {
         // 依赖名取 @版本 前段，并将 - 归一为 _（代码中 use 路径用下划线）
         let crate名 = 规格.split('@').next().unwrap_or(规格).replace('-', "_");
         match 查找crate映射别名(&语言代码, &项目根, &crate名) {
@@ -912,7 +1003,7 @@ fn 查找crate映射别名(语言代码: &str, 项目根: &Path, crate名: &str)
     // 1. 项目内语言包与全局用户语言包的 crates/ 目录
     let 目录列表 = [
         语言包根目录(项目根).join(语言代码).join("crates"),
-        lang_manager::全局语言目录().join(语言代码).join("crates"),
+        语言包工具::全局语言目录().join(语言代码).join("crates"),
     ];
     for 目录 in &目录列表 {
         let Ok(条目列表) = fs::read_dir(目录) else {
@@ -931,7 +1022,7 @@ fn 查找crate映射别名(语言代码: &str, 项目根: &Path, crate名: &str)
         }
     }
     // 2. 内置语言包（未知语言代码自动回退中文）
-    let 内置 = builtin_lang::获取内置数据(语言代码);
+    let 内置 = 内置语言::获取内置数据(语言代码);
     for (_, 内容) in 内置.三方库数据 {
         if let Some(别名) = 解析映射别名(内容, crate名) {
             return Some(别名);
@@ -961,7 +1052,7 @@ fn 解析映射别名(内容: &str, crate名: &str) -> Option<String> {
 /// 指定 --target-version 时按同一版本需求添加（`crate@=x.y.z` 精确锁定 /
 /// `crate@x.y.*` 前缀），保证应用依赖与映射生成基准一致。
 fn 安装依赖到当前项目(crate名: &str, 目标版本: Option<&str>) {
-    let 界面 = ui::界面::全局();
+    let 界面 = 本地化::界面::全局();
     let Some(根) = std::env::current_dir()
         .ok()
         .and_then(|工作目录| 向上定位项目根(&工作目录))
@@ -969,7 +1060,7 @@ fn 安装依赖到当前项目(crate名: &str, 目标版本: Option<&str>) {
         println!("{}", 界面.取文("mapping_auto_install_no_project"));
         return;
     };
-    let 规格 = match 目标版本.and_then(mapping_gen::版本需求) {
+    let 规格 = match 目标版本.and_then(映射生成器::版本需求) {
         Some(需求) => format!("{}@{}", crate名, 需求),
         None => crate名.to_string(),
     };
@@ -1013,7 +1104,7 @@ fn 定位项目根(file: &Path) -> anyhow::Result<PathBuf> {
     // 未找到 Cargo.toml 时明确报错：静默回退当前目录会在无关目录写入 src/main.rs
     anyhow::bail!(
         "{}",
-        ui::界面::全局().取文带参("no_project_root", &[&file.display().to_string()])
+        本地化::界面::全局().取文带参("no_project_root", &[&file.display().to_string()])
     )
 }
 
@@ -1186,9 +1277,9 @@ pub fn 解析rustdoc路径() -> PathBuf {
         .arg("sysroot")
         .output()
     {
-        let sysroot = String::from_utf8_lossy(&输出结果.stdout).trim().to_string();
-        if !sysroot.is_empty() {
-            let 二进制 = PathBuf::from(sysroot)
+        let 系统根路径 = String::from_utf8_lossy(&输出结果.stdout).trim().to_string();
+        if !系统根路径.is_empty() {
+            let 二进制 = PathBuf::from(系统根路径)
                 .join("bin")
                 .join(format!("rustdoc{}", std::env::consts::EXE_SUFFIX));
             if 二进制.is_file() {
@@ -1252,7 +1343,7 @@ fn 收集项目上下文(
     管理器: &映射管理器,
 ) -> i18n_rust_engine::别名替换::项目上下文 {
     use std::collections::HashSet;
-    let 扩展名列表 = lang_manager::全部可用扩展名();
+    let 扩展名列表 = 语言包工具::全部可用扩展名();
     let 入口规范 = 入口文件.canonicalize().ok();
     let mut 模块集 = HashSet::new();
     let mut 源文件列表: Vec<String> = Vec::new();
@@ -1301,13 +1392,13 @@ fn 转译项目文件(
     缓存: &std::sync::Mutex<转译缓存>,
     项目: &i18n_rust_engine::别名替换::项目上下文,
 ) -> anyhow::Result<()> {
-    let 界面 = ui::界面::全局();
+    let 界面 = 本地化::界面::全局();
     let src目录 = 项目根.join("src");
     // 无 src 目录时不处理，由 cargo 自行报错
     if !src目录.is_dir() {
         return Ok(());
     }
-    let 扩展名列表 = lang_manager::全部可用扩展名();
+    let 扩展名列表 = 语言包工具::全部可用扩展名();
     // 入口产物固定写入 src/main.rs：src/ 顶层任何入口词干的方言文件
     // （main.zh、旧项目的 主函数.zh 等）转译后都会覆盖入口产物，必须跳过；
     // 嵌套层级中的同名文件不是入口（rustc 模块树按路径区分），照常转译。
@@ -1469,7 +1560,7 @@ fn 输出教学告警(
 ///
 /// 幂等重跑（内容一致）不产生备份；无同名手写文件时行为与直接写入完全一致。
 fn 写入转译产物(
-    路径: &Path, 内容: &str, 界面: &crate::ui::界面
+    路径: &Path, 内容: &str, 界面: &crate::本地化::界面
 ) -> anyhow::Result<()> {
     // 方言文件直接放在项目根等场景下 src/ 可能尚不存在，先创建父目录
     //（否则 fs::write 报裸 ENOENT，LSP 侧 translation_cache 已有同款处理）
@@ -1532,7 +1623,7 @@ fn 探测工具链通道() -> Option<String> {
 /// 四张表（关键字/模块路径/别名/派生特征）逐节输出，母语词按显示宽度对齐；
 /// 母语词与英文原词相同的恒等条目不输出（如 en 语言包整表恒等，仅提示）。
 /// `markdown` 模式输出可嵌入教程/README 的表格。
-fn 打印速查表(管理器: &映射管理器, 语言代码: &str, markdown: bool) {
+fn 打印速查表(管理器: &映射管理器, 语言代码: &str, 表格模式: bool) {
     let 派生表 = 管理器.取派生映射表();
     let 章节表: [(&str, &HashMap<String, String>); 4] = [
         ("Keywords / 关键字", 管理器.取关键词映射表()),
@@ -1563,7 +1654,7 @@ fn 打印速查表(管理器: &映射管理器, 语言代码: &str, markdown: bo
         return;
     }
 
-    if markdown {
+    if 表格模式 {
         println!("# rzc cheat — {语言代码} ↔ Rust ({总数})");
     } else {
         println!("rzc cheat — {语言代码} ↔ Rust（共 {总数} 条）");
@@ -1573,7 +1664,7 @@ fn 打印速查表(管理器: &映射管理器, 语言代码: &str, markdown: bo
         if 行列表.is_empty() {
             continue;
         }
-        if markdown {
+        if 表格模式 {
             println!("## {标题}");
             println!();
             println!("| {语言代码} | Rust |");
@@ -1596,13 +1687,13 @@ fn 打印速查表(管理器: &映射管理器, 语言代码: &str, markdown: bo
             println!();
         }
     }
-    if markdown {
+    if 表格模式 {
         println!("> Generated by `rzc cheat {语言代码} --markdown`.");
     }
 }
 
 fn 创建项目(项目名: &str, 语言: &str) -> anyhow::Result<()> {
-    let 界面 = ui::界面::按语言加载(语言);
+    let 界面 = 本地化::界面::按语言加载(语言);
     i18n_rust_engine::语言::设定语言(语言);
     let 项目路径 = PathBuf::from(项目名);
     if 项目路径.exists() {
@@ -1686,7 +1777,7 @@ fn 加载映射(
         .and_then(|后| 后.to_str())
         .unwrap_or("");
     let 语言代码 = 按扩展名取语言代码(扩展名).ok_or_else(|| {
-        let 可用 = lang_manager::全部可用扩展名();
+        let 可用 = 语言包工具::全部可用扩展名();
         let 可用文本 = if 可用.is_empty() {
             界面.取文("no_available_ext")
         } else {
@@ -1729,7 +1820,7 @@ fn 加载映射(
         }
     }
     // 4. 全局用户语言包目录
-    let 全局路径 = lang_manager::全局语言目录().join(&语言代码);
+    let 全局路径 = 语言包工具::全局语言目录().join(&语言代码);
     if 全局路径.exists() {
         i18n_rust_engine::信息日志!(
             "映射加载",
@@ -1744,13 +1835,13 @@ fn 加载映射(
         });
     }
     // 5. 回退到内置语言包（未内置的语言提示用户安装，避免静默使用中文）
-    if !builtin_lang::拥有内置语言(&语言代码) {
+    if !内置语言::拥有内置语言(&语言代码) {
         return Err(anyhow::anyhow!(
             "{}",
             界面.取文带参("lang_not_builtin", &[&语言代码, &语言代码])
         ));
     }
-    let 内置 = builtin_lang::获取内置数据(&语言代码);
+    let 内置 = 内置语言::获取内置数据(&语言代码);
     i18n_rust_engine::信息日志!(
         "映射加载",
         "{}",
@@ -1774,9 +1865,9 @@ fn 加载映射(
 ///
 /// --lang-pack 显式目录优先；否则按源文件扩展名确定语言代码；
 /// 无法识别时回退 RZ_LANG / 系统语言 / 中文。
-fn 界面按文件(file: &Path, 语言包: &Option<PathBuf>) -> ui::界面 {
+fn 界面按文件(file: &Path, 语言包: &Option<PathBuf>) -> 本地化::界面 {
     if let Some(路径) = 语言包 {
-        let 界面 = ui::界面::按显式目录加载(路径);
+        let 界面 = 本地化::界面::按显式目录加载(路径);
         // 同步引擎全局语言（目录名即语言代码）
         let 代码 = 路径
             .file_name()
@@ -1790,30 +1881,34 @@ fn 界面按文件(file: &Path, 语言包: &Option<PathBuf>) -> ui::界面 {
         .extension()
         .and_then(|后| 后.to_str())
         .and_then(按扩展名取语言代码)
-        .unwrap_or_else(ui::检测界面语言);
+        .unwrap_or_else(本地化::检测界面语言);
     i18n_rust_engine::语言::设定语言(&语言代码);
-    ui::界面::按语言加载(&语言代码)
+    本地化::界面::按语言加载(&语言代码)
 }
 
 /// 按当前界面语言本地化 clap 帮助文本
 ///
 /// 利用 `CommandFactory` 生成命令后逐项覆盖 about / help，
 /// 使 `rzc --help` 与各子命令帮助均使用目标语言。
-fn 本地化clap(界面: &ui::界面) -> clap::Command {
+fn 本地化clap(界面: &本地化::界面) -> clap::Command {
     use clap::CommandFactory;
-    CliArgs::command()
+    命令行参数集::command()
         .about(界面.取文("cli_about"))
-        .mut_arg("no_lint", |参数| 参数.help(界面.取文("arg_no_lint_help")))
+        .mut_arg("屏蔽教学提醒", |参数| {
+            参数.help(界面.取文("arg_no_lint_help"))
+        })
         .mut_subcommand("init", |命令| {
             命令
                 .about(界面.取文("cmd_init_about"))
-                .mut_arg("lang", |参数| 参数.help(界面.取文("arg_lang_help")))
+                .mut_arg("语言代码", |参数| 参数.help(界面.取文("arg_lang_help")))
         })
         .mut_subcommand("run", |命令| 命令.about(界面.取文("cmd_run_about")))
         .mut_subcommand("check", |命令| {
             命令
                 .about(界面.取文("cmd_check_about"))
-                .mut_arg("fix", |参数| 参数.help(界面.取文("arg_check_fix_help")))
+                .mut_arg("修复标点", |参数| {
+                    参数.help(界面.取文("arg_check_fix_help"))
+                })
         })
         .mut_subcommand("eject", |命令| 命令.about(界面.取文("cmd_eject_about")))
         .mut_subcommand("transpile", |命令| {
@@ -1822,33 +1917,45 @@ fn 本地化clap(界面: &ui::界面) -> clap::Command {
         .mut_subcommand("add", |命令| {
             命令
                 .about(界面.取文("cmd_add_about"))
-                .mut_arg("crates", |参数| 参数.help(界面.取文("arg_add_crates_help")))
+                .mut_arg("依赖名单", |参数| {
+                    参数.help(界面.取文("arg_add_crates_help"))
+                })
         })
         .mut_subcommand("install", |命令| {
             命令
                 .about(界面.取文("cmd_install_about"))
                 .mut_subcommand("lsp", |子| {
                     子.about(界面.取文("cmd_install_lsp_about"))
-                        .mut_arg("force", |参数| 参数.help(界面.取文("arg_force_help")))
+                        .mut_arg("强制覆盖", |参数| {
+                            参数.help(界面.取文("arg_force_help"))
+                        })
                 })
                 .mut_subcommand("toolchain", |子| {
                     子.about(界面.取文("tc_install_help"))
-                        .mut_arg("version", |参数| {
+                        .mut_arg("工具链版本号", |参数| {
                             参数.help(界面.取文("arg_tc_version_help"))
                         })
-                        .mut_arg("ra_tag", |参数| 参数.help(界面.取文("arg_tc_ra_tag_help")))
-                        .mut_arg("ra_only", |参数| {
+                        .mut_arg("分析器发布标签", |参数| {
+                            参数.help(界面.取文("arg_tc_ra_tag_help"))
+                        })
+                        .mut_arg("仅更新分析器", |参数| {
                             参数.help(界面.取文("arg_tc_ra_only_help"))
                         })
-                        .mut_arg("force", |参数| 参数.help(界面.取文("arg_force_help")))
+                        .mut_arg("强制覆盖", |参数| {
+                            参数.help(界面.取文("arg_force_help"))
+                        })
                 })
         })
         .mut_subcommand("doctor", |命令| 命令.about(界面.取文("tc_doctor_help")))
         .mut_subcommand("cheat", |命令| {
             命令
                 .about(界面.取文("cmd_cheat_about"))
-                .mut_arg("lang", |参数| 参数.help(界面.取文("arg_cheat_lang_help")))
-                .mut_arg("markdown", |参数| 参数.help(界面.取文("arg_markdown_help")))
+                .mut_arg("语言代码", |参数| {
+                    参数.help(界面.取文("arg_cheat_lang_help"))
+                })
+                .mut_arg("表格模式", |参数| {
+                    参数.help(界面.取文("arg_markdown_help"))
+                })
         })
         .mut_subcommand("lang", |命令| {
             命令
@@ -1856,20 +1963,22 @@ fn 本地化clap(界面: &ui::界面) -> clap::Command {
                 .mut_subcommand("list", |子| 子.about(界面.取文("cmd_lang_list_about")))
                 .mut_subcommand("install", |子| {
                     子.about(界面.取文("cmd_lang_install_about"))
-                        .mut_arg("source", |参数| {
+                        .mut_arg("语言包来源", |参数| {
                             参数.help(界面.取文("arg_lang_source_help"))
                         })
-                        .mut_arg("force", |参数| 参数.help(界面.取文("arg_force_help")))
+                        .mut_arg("强制覆盖", |参数| {
+                            参数.help(界面.取文("arg_force_help"))
+                        })
                 })
                 .mut_subcommand("search", |子| {
                     子.about(界面.取文("cmd_lang_search_about"))
-                        .mut_arg("keyword", |参数| {
+                        .mut_arg("搜索关键词", |参数| {
                             参数.help(界面.取文("arg_lang_search_keyword_help"))
                         })
                 })
                 .mut_subcommand("remove", |子| {
                     子.about(界面.取文("cmd_lang_remove_about"))
-                        .mut_arg("lang_code", |参数| {
+                        .mut_arg("语言代码", |参数| {
                             参数.help(界面.取文("arg_lang_code_help"))
                         })
                 })
@@ -1879,39 +1988,47 @@ fn 本地化clap(界面: &ui::界面) -> clap::Command {
                 .about(界面.取文("cmd_mapping_about"))
                 .mut_subcommand("auto", |子| {
                     子.about(界面.取文("cmd_mapping_auto_about"))
-                        .mut_arg("crate_name", |参数| {
+                        .mut_arg("依赖包名", |参数| {
                             参数.help(界面.取文("arg_mapping_auto_crate_help"))
                         })
-                        .mut_arg("lang", |参数| 参数.help(界面.取文("arg_lang_help")))
-                        .mut_arg("provider", |参数| 参数.help(界面.取文("arg_provider_help")))
-                        .mut_arg("target_version", |参数| {
+                        .mut_arg("语言代码", |参数| 参数.help(界面.取文("arg_lang_help")))
+                        .mut_arg("生成提供方", |参数| {
+                            参数.help(界面.取文("arg_provider_help"))
+                        })
+                        .mut_arg("目标版本", |参数| {
                             参数.help(界面.取文("arg_target_version_help"))
                         })
-                        .mut_arg("output", |参数| 参数.help(界面.取文("arg_output_help")))
-                        .mut_arg("install", |参数| 参数.help(界面.取文("arg_install_help")))
+                        .mut_arg("输出路径", |参数| {
+                            参数.help(界面.取文("arg_output_help"))
+                        })
+                        .mut_arg("同时添加依赖", |参数| {
+                            参数.help(界面.取文("arg_install_help"))
+                        })
                 })
                 .mut_subcommand("check", |子| {
                     子.about(界面.取文("cmd_mapping_check_about"))
-                        .mut_arg("target", |参数| {
+                        .mut_arg("目标语言", |参数| {
                             参数.help(界面.取文("cmd_mapping_check_target_help"))
                         })
                 })
                 .mut_subcommand("scaffold", |子| {
                     子.about(界面.取文("cmd_mapping_scaffold_about"))
-                        .mut_arg("source", |参数| {
+                        .mut_arg("源语言", |参数| {
                             参数.help(界面.取文("cmd_mapping_scaffold_source_help"))
                         })
-                        .mut_arg("target", |参数| {
+                        .mut_arg("目标语言", |参数| {
                             参数.help(界面.取文("cmd_mapping_scaffold_target_help"))
                         })
-                        .mut_arg("output", |参数| 参数.help(界面.取文("arg_output_help")))
-                        .mut_arg("provider", |参数| {
+                        .mut_arg("输出路径", |参数| {
+                            参数.help(界面.取文("arg_output_help"))
+                        })
+                        .mut_arg("生成提供方", |参数| {
                             参数.help(界面.取文("cmd_mapping_scaffold_provider_help"))
                         })
                 })
                 .mut_subcommand("coverage", |子| {
                     子.about(界面.取文("cmd_mapping_coverage_about"))
-                        .mut_arg("lang", |参数| {
+                        .mut_arg("语言代码", |参数| {
                             参数.help(界面.取文("arg_coverage_lang_help"))
                         })
                 })
@@ -1921,35 +2038,39 @@ fn 本地化clap(界面: &ui::界面) -> clap::Command {
                 .about(界面.取文("cmd_crate_about"))
                 .mut_subcommand("search", |子| {
                     子.about(界面.取文("cmd_crate_search_about"))
-                        .mut_arg("keyword", |参数| {
+                        .mut_arg("搜索关键词", |参数| {
                             参数.help(界面.取文("arg_crate_keyword_help"))
                         })
                 })
                 .mut_subcommand("install", |子| {
                     子.about(界面.取文("cmd_crate_install_about"))
-                        .mut_arg("crate_name", |参数| {
+                        .mut_arg("依赖包名", |参数| {
                             参数.help(界面.取文("arg_crate_name_normalize_help"))
                         })
-                        .mut_arg("lang", |参数| 参数.help(界面.取文("arg_lang_help")))
-                        .mut_arg("force", |参数| 参数.help(界面.取文("arg_force_help")))
+                        .mut_arg("语言代码", |参数| 参数.help(界面.取文("arg_lang_help")))
+                        .mut_arg("强制覆盖", |参数| {
+                            参数.help(界面.取文("arg_force_help"))
+                        })
                 })
                 .mut_subcommand("list", |子| 子.about(界面.取文("cmd_crate_list_about")))
                 .mut_subcommand("remove", |子| {
                     子.about(界面.取文("cmd_crate_remove_about"))
-                        .mut_arg("crate_name", |参数| {
+                        .mut_arg("依赖包名", |参数| {
                             参数.help(界面.取文("arg_crate_name_help"))
                         })
-                        .mut_arg("lang", |参数| 参数.help(界面.取文("arg_lang_help")))
+                        .mut_arg("语言代码", |参数| 参数.help(界面.取文("arg_lang_help")))
                 })
                 .mut_subcommand("update", |子| 子.about(界面.取文("cmd_crate_update_about")))
                 .mut_subcommand("publish", |子| {
                     子.about(界面.取文("cmd_crate_publish_about"))
-                        .mut_arg("crate_name", |参数| {
+                        .mut_arg("依赖包名", |参数| {
                             参数.help(界面.取文("arg_crate_name_help"))
                         })
-                        .mut_arg("lang", |参数| 参数.help(界面.取文("arg_lang_help")))
-                        .mut_arg("file", |参数| 参数.help(界面.取文("arg_crate_file_help")))
-                        .mut_arg("author", |参数| {
+                        .mut_arg("语言代码", |参数| 参数.help(界面.取文("arg_lang_help")))
+                        .mut_arg("目标文件", |参数| {
+                            参数.help(界面.取文("arg_crate_file_help"))
+                        })
+                        .mut_arg("译者署名", |参数| {
                             参数.help(界面.取文("arg_crate_author_help"))
                         })
                 })
@@ -1960,10 +2081,10 @@ fn 本地化clap(界面: &ui::界面) -> clap::Command {
 ///
 /// 优先查询动态映射表，未命中时回退静态映射。
 fn 按扩展名取语言代码(扩展名: &str) -> Option<String> {
-    if let Some(代码) = lang_manager::查询扩展名映射(扩展名) {
+    if let Some(代码) = 语言包工具::查询扩展名映射(扩展名) {
         return Some(代码);
     }
-    lang_manager::静态扩展名映射().get(扩展名).cloned()
+    语言包工具::静态扩展名映射().get(扩展名).cloned()
 }
 
 #[cfg(test)]
@@ -1976,7 +2097,7 @@ mod 单元测试 {
 
     /// 加载内置中文映射管理器（测试转译管线用）
     fn 中文管理器() -> i18n_rust_engine::映射管理::映射管理器 {
-        let 内置 = crate::builtin_lang::获取内置数据("zh");
+        let 内置 = crate::内置语言::获取内置数据("zh");
         i18n_rust_engine::映射管理::映射管理器::自内置加载(
             内置.关键字文本,
             内置.模块路径文本,
@@ -2099,10 +2220,10 @@ mod 单元测试 {
     /// 已内置的语言包扩展名可解析出语言代码
     ///
     /// 持环境变量锁：扩展名映射会扫描全局语言包目录（受 RZ_LANG_DIR 影响），
-    /// lang_manager 的环境变量测试并发修改该变量时会污染本测试
+    /// 语言包工具 的环境变量测试并发修改该变量时会污染本测试
     #[test]
     fn 测试_语言代码从扩展名_内置() {
-        let _锁 = crate::lang_manager::单元测试::环境锁();
+        let _锁 = crate::语言包工具::单元测试::环境锁();
         assert_eq!(按扩展名取语言代码("zh").as_deref(), Some("zh"));
         assert_eq!(按扩展名取语言代码("de").as_deref(), Some("de"));
         assert_eq!(按扩展名取语言代码("ru").as_deref(), Some("ru"));
@@ -2113,7 +2234,7 @@ mod 单元测试 {
     /// 未知扩展名返回 None（同样受 RZ_LANG_DIR 影响，需持锁）
     #[test]
     fn 测试_语言代码从扩展名_未知() {
-        let _锁 = crate::lang_manager::单元测试::环境锁();
+        let _锁 = crate::语言包工具::单元测试::环境锁();
         assert_eq!(按扩展名取语言代码("xyz"), None);
     }
 
@@ -2180,7 +2301,7 @@ mod 单元测试 {
     fn 测试_写入转译产物仅变更时备份() {
         let 目录 = tempfile::tempdir().unwrap();
         let 路径 = 目录.path().join("main.rs");
-        let 界面 = crate::ui::界面::按语言加载("zh");
+        let 界面 = crate::本地化::界面::按语言加载("zh");
 
         // 首次写入：文件不存在，直接写盘，无备份
         写入转译产物(&路径, "v1", &界面).unwrap();

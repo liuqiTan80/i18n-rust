@@ -204,21 +204,21 @@
         // 本 crate 仅此测试触碰这些变量，无需跨测试锁。
         让 键 = ["RZ_LANG", "LC_ALL", "LC_MESSAGES", "LANG"];
         让 已存: Vec<(&文本, 选项<字符串>)> =
-            键.iter().map(|k| (*k, std::env::var(k).ok())).collect();
-        对于 k in 键 {
+            键.iter().map(|键名项| (*键名项, std::env::var(键名项).ok())).collect();
+        对于 键名项 in 键 {
             不安全 {
-                std::env::remove_var(k);
+                std::env::remove_var(键名项);
             }
         }
         让 关于 = 界面::创建(Path::新建("/不存在的目录")).取文("lsp_about");
         // 先恢复环境变量再断言：断言失败 panic 也不污染并行测试
-        对于 (k, v) in 已存 {
-            匹配 v {
+        对于 (键名项, 值项) in 已存 {
+            匹配 值项 {
                 有值(值) => 不安全 {
-                    std::env::set_var(k, 值);
+                    std::env::set_var(键名项, 值);
                 },
                 无 => 不安全 {
-                    std::env::remove_var(k);
+                    std::env::remove_var(键名项);
                 },
             }
         }

@@ -15,14 +15,14 @@
 /// 虚拟项目磁盘操作：失败必须记录日志——虚拟项目是 rust-analyzer 的分析基础，
 /// 写失败会导致补全/诊断静默失效且无任何线索可查
 函数 记录读写错误(操作描述: &文本, 磁盘路径: &Path, 累加文本: std::io::Result<()>) {
-    如果 让 错误(e) = 累加文本 {
-        log::warn!("虚拟项目 读写失败：{操作描述} {}：{e}", 磁盘路径.display());
+    如果 让 错误(条目项) = 累加文本 {
+        log::warn!("虚拟项目 读写失败：{操作描述} {}：{条目项}", 磁盘路径.display());
     }
 }
 
 /// 单个文档的翻译缓存条目
 #[派生(调试, 克隆)]
-公开 结构体 TranslationEntry {
+公开 结构体 翻译条目 {
     /// 原始方言文件的 URI
     公开 原始资源定位: 字符串,
     /// 原始文件的磁盘路径
@@ -46,7 +46,7 @@
     /// 英文行号 → 中文行号的映射
     公开 行号映射: Vec<u32>,
     /// 列偏移映射（每行一个分段表，行号 → 该行的分段边界点）
-    公开 列偏移表: Vec<Vec<ColumnMapPoint>>,
+    公开 列偏移表: Vec<Vec<列映射点>>,
     /// 代理添加的 `crate::` 前缀在英文输出中的非空白 token 序号
     ///（仅 LSP 虚拟项目跨文件引用重写产生；供反向转译精确删除，
     /// 避免误删用户显式书写的 `crate::` 前缀）
@@ -70,7 +70,7 @@
 /// 列号按 LSP 的 UTF-16 code unit 计数（常用中文字符在 BMP 内占 1 个单元，
 /// 增补平面字符如 emoji 占 2 个单元），每行独立从 0 开始。
 #[派生(调试, 克隆)]
-公开 结构体 ColumnMapPoint {
+公开 结构体 列映射点 {
     /// 该分段起始处的英文列号
     公开 英文列号: u32,
     /// 该分段起始处的中文列号
@@ -87,13 +87,13 @@
     ///
     /// 条目以 Arc 共享：查询返回廉价引用计数克隆，避免每次按键
     /// 都全量克隆源码与列映射等大字段。
-    条目表: RwLock<HashMap<字符串, Arc<TranslationEntry>>>,
+    条目表: RwLock<HashMap<字符串, Arc<翻译条目>>>,
     /// 虚拟 URI → 翻译条目索引：RA 响应映射热路径的 O(1) 反查。
     /// 直存 Arc 引用：命中时一次锁完成查询（存原始 URI 还需二次查 entries）；
     /// 无索引时每次语义 token/诊断/高亮/引用映射都线性扫描全表
     ///（语义 token 每个 token 查 2 次，O(n) 放大到 O(n×token数)），
     /// 条目插入/替换/移除时与 entries 同步维护。
-    虚拟索引: RwLock<HashMap<字符串, Arc<TranslationEntry>>>,
+    虚拟索引: RwLock<HashMap<字符串, Arc<翻译条目>>>,
     /// 统一映射管理器（关键字/宏/派生/模块路径/别名，与 CLI 管线完全同源）。
     /// 转译与列映射统一走引擎完整管线，规则唯一来源为引擎。
     词表管理器: Arc<映射管理器>,
@@ -184,7 +184,7 @@
         资源定位: &文本,
         源码内容: &文本,
         文档版本: i32,
-    ) -> anyhow::Result<(Arc<TranslationEntry>, Vec<Arc<TranslationEntry>>)> {
+    ) -> anyhow::Result<(Arc<翻译条目>, Vec<Arc<翻译条目>>)> {
         让 原始路径 = 定位转路径(资源定位);
 
         // Unicode 混淆安全检查（零宽/双向/同形字符）：仅告警不阻断翻译
@@ -213,7 +213,7 @@
                 .条目表
                 .write()
                 .map_err(|_| anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_cache_lock")))?;
-            让 新条目 = Arc::new(TranslationEntry {
+            让 新条目 = Arc::new(翻译条目 {
                 原始资源定位: 资源定位.to_string(),
                 原始路径: 原始路径.clone(),
                 中文原文: 源码内容.to_string(),
@@ -286,9 +286,9 @@
                 crate::本地化::全局().取文带参("lsp_err_entry_missing", &[资源定位])
             )
         })?;
-        让 其他变更: Vec<Arc<TranslationEntry>> = 变更集
+        让 其他变更: Vec<Arc<翻译条目>> = 变更集
             .into_iter()
-            .filter(|e| e.原始资源定位 != 资源定位)
+            .filter(|条目项| 条目项.原始资源定位 != 资源定位)
             .collect();
 
         log::info!(
@@ -305,20 +305,20 @@
     ///
     /// 文件名只保留合法标识符字符，防止引号等特殊字符注入生成的 main.rs。
     函数 计算虚拟路径(&自我, 原始路径: &Path) -> PathBuf {
-        让 file_stem = 原始路径
+        让 词干名 = 原始路径
             .file_stem()
-            .and_then(|s| s.to_str())
+            .and_then(|文本项| 文本项.to_str())
             .unwrap_or("unknown");
-        让 hash = {
+        让 内容哈希值 = {
             使用 std::collections::hash_map::DefaultHasher;
             使用 std::hash::{Hash, Hasher};
-            让 可变 h = DefaultHasher::new();
-            原始路径.hash(&可变 h);
-            h.finish()
+            让 可变 哈希器项 = DefaultHasher::new();
+            原始路径.hash(&可变 哈希器项);
+            哈希器项.finish()
         };
         自我.临时目录
             .join("src")
-            .join(格式化!("{}_{:x}.rs", 净化模块名(file_stem), hash))
+            .join(格式化!("{}_{:x}.rs", 净化模块名(词干名), 内容哈希值))
     }
 
     /// 同步模块目录树中的兄弟方言模块（虚拟项目高保真化，支持多层布局）
@@ -358,11 +358,11 @@
             让 可变 词干列表: HashSet<字符串> = HashSet::new();
             对于 目录项 in read_dir.flatten() {
                 让 磁盘路径 = 目录项.path();
-                让 成功(ft) = 目录项.file_type() 否则 {
+                让 成功(文件类型项) = 目录项.file_type() 否则 {
                     continue;
                 };
-                如果 ft.is_file() && 磁盘路径.extension() == 有值(扩展.as_os_str()) {
-                    如果 让 有值(词干) = 磁盘路径.file_stem().and_then(|s| s.to_str()) {
+                如果 文件类型项.is_file() && 磁盘路径.extension() == 有值(扩展.as_os_str()) {
+                    如果 让 有值(词干) = 磁盘路径.file_stem().and_then(|文本项| 文本项.to_str()) {
                         词干列表.insert(词干.to_string());
                     }
                     如果 磁盘路径 == 当前路径 {
@@ -375,9 +375,9 @@
                     让 资源定位 = 路径转定位(&磁盘路径);
                     匹配 自我.查询原文(&资源定位).as_ref() {
                         // 已打开：缓冲区内容为准，不参与磁盘同步
-                        有值(e) 如果 e.是否打开 => continue,
+                        有值(条目项) 如果 条目项.是否打开 => continue,
                         // 磁盘未变化：跳过重译
-                        有值(e) 如果 e.源文件元信息 == 有值(元数据) => continue,
+                        有值(条目项) 如果 条目项.源文件元信息 == 有值(元数据) => continue,
                         _ => {}
                     }
                     让 成功(源码内容) = std::fs::read_to_string(&磁盘路径) 否则 {
@@ -387,7 +387,7 @@
                     让 虚拟资源定位 = 路径转定位(&虚拟路径);
                     让 行号映射 = 生成行号映射(&源码内容, &源码内容);
                     如果 让 成功(可变 对照表) = 自我.条目表.write() {
-                        让 条目 = Arc::new(TranslationEntry {
+                        让 条目 = Arc::new(翻译条目 {
                             原始资源定位: 资源定位.clone(),
                             原始路径: 磁盘路径.clone(),
                             中文原文: 源码内容,
@@ -426,14 +426,14 @@
         让 陈旧项: Vec<字符串> = 匹配 自我.条目表.read() {
             成功(对照表) => 对照表
                 .values()
-                .filter(|e| {
-                    !e.是否打开
-                        && e.原始路径
+                .filter(|条目项| {
+                    !条目项.是否打开
+                        && 条目项.原始路径
                             .parent()
-                            .is_some_and(|p| 已访问.contains(p))
-                        && !磁盘存在.contains(&e.原始路径)
+                            .is_some_and(|路径项| 已访问.contains(路径项))
+                        && !磁盘存在.contains(&条目项.原始路径)
                 })
-                .map(|e| e.原始资源定位.clone())
+                .map(|条目项| 条目项.原始资源定位.clone())
                 .collect(),
             错误(_) => Vec::new(),
         };
@@ -469,7 +469,7 @@
     /// 磁盘文件仍存在时把条目降级为兄弟模块（内容以磁盘为准，虚拟文件
     /// 保留）；磁盘文件已删除时才移除条目与虚拟文件。
     /// 返回其他条目中因模块/声明集合变化而被重写的条目列表。
-    公开 函数 关闭文档(&自我, 资源定位: &文本) -> anyhow::Result<Vec<Arc<TranslationEntry>>> {
+    公开 函数 关闭文档(&自我, 资源定位: &文本) -> anyhow::Result<Vec<Arc<翻译条目>>> {
         让 移除条目 = {
             让 可变 对照表 = 自我
                 .条目表
@@ -555,7 +555,7 @@
     }
 
     /// 根据原始 URI 查询翻译条目（Arc 廉价克隆，不复制内容）
-    公开 函数 查询原文(&自我, 资源定位: &文本) -> 选项<Arc<TranslationEntry>> {
+    公开 函数 查询原文(&自我, 资源定位: &文本) -> 选项<Arc<翻译条目>> {
         让 对照表 = 自我.条目表.read().ok()?;
         对照表.get(资源定位).cloned()
     }
@@ -569,27 +569,27 @@
     /// 归一化比较键兜底（盘符/目录名大小写、分隔符、verbatim 前缀），
     /// 同路径多条（客户端 URI 打开 + 历史兄弟登记）时优先打开中的条目
     ///（其 URI 与编辑器打开的文档严格一致，诊断才能落到用户可见文档上）。
-    公开 函数 按路径查询(&自我, 磁盘路径: &Path) -> 选项<Arc<TranslationEntry>> {
+    公开 函数 按路径查询(&自我, 磁盘路径: &Path) -> 选项<Arc<翻译条目>> {
         让 对照表 = 自我.条目表.read().ok()?;
         让 精确匹配值 = 对照表
             .values()
-            .filter(|e| e.原始路径 == 磁盘路径)
-            .min_by_key(|e| !e.是否打开);
+            .filter(|条目项| 条目项.原始路径 == 磁盘路径)
+            .min_by_key(|条目项| !条目项.是否打开);
         如果 让 有值(条目) = 精确匹配值 {
             返回 有值(Arc::clone(条目));
         }
         让 期望值 = 路径比较键(磁盘路径);
         对照表
             .values()
-            .filter(|e| 路径比较键(&e.原始路径) == 期望值)
-            .min_by_key(|e| !e.是否打开)
+            .filter(|条目项| 路径比较键(&条目项.原始路径) == 期望值)
+            .min_by_key(|条目项| !条目项.是否打开)
             .map(Arc::clone)
     }
 
     /// 返回所有已打开文档的翻译条目
     ///
     /// rust-analyzer 崩溃自动重启后，代理用它重发 didOpen 同步全部文档。
-    公开 函数 全部条目(&自我) -> Vec<Arc<TranslationEntry>> {
+    公开 函数 全部条目(&自我) -> Vec<Arc<翻译条目>> {
         自我.条目表
             .read()
             .map(|对照表| 对照表.values().cloned().collect())
@@ -627,7 +627,7 @@
         使用 rustc_lexer::{TokenKind, tokenize};
         让 可变 词元列表 = HashSet::new();
         让 对照表 = 匹配 自我.条目表.read() {
-            成功(t) => t,
+            成功(守卫项) => 守卫项,
             错误(_) => 返回 词元列表,
         };
         对于 条目 in 对照表.values() {
@@ -648,7 +648,7 @@
     /// rust-analyzer 返回的 URI 可能是 URL 百分号编码形式（如中文路径），
     /// 而缓存的虚拟 URI 是未编码的原始形式，因此先精确匹配，
     /// 失败后再解码匹配。
-    公开 函数 按虚拟资源定位查询(&自我, 虚拟资源定位: &文本) -> 选项<Arc<TranslationEntry>> {
+    公开 函数 按虚拟资源定位查询(&自我, 虚拟资源定位: &文本) -> 选项<Arc<翻译条目>> {
         // 索引 O(1) 反查：直存 Arc 引用，命中时一次锁完成
         //（RA 响应映射热路径：语义 token 每个 token 查 2 次、
         // 诊断/高亮/引用/定义每处位置查 2-5 次；无索引时
@@ -731,8 +731,8 @@
         // 跳过全表扫描：补全/代码操作响应的每个片段都走这里，
         // 每次省一次 O(文档数) 的读锁遍历
         让 新增前缀词元 = 资源定位
-            .and_then(|u| 自我.查询原文(u))
-            .map(|e| e.新增前缀词元.clone())
+            .and_then(|资源定位项| 自我.查询原文(资源定位项))
+            .map(|条目项| 条目项.新增前缀词元.clone())
             .unwrap_or_default();
         让 模块名列表 = 如果 新增前缀词元.is_empty() {
             HashSet::new()
@@ -782,13 +782,13 @@
     函数 当前模块名集合(&自我, 额外路径: 选项<&PathBuf>) -> HashSet<字符串> {
         让 可变 主干名集合 = HashSet::new();
         如果 让 有值(磁盘路径) = 额外路径
-            && 让 有值(主干名) = 磁盘路径.file_stem().and_then(|s| s.to_str())
+            && 让 有值(主干名) = 磁盘路径.file_stem().and_then(|文本项| 文本项.to_str())
         {
             主干名集合.insert(主干名.to_string());
         }
         如果 让 成功(对照表) = 自我.条目表.read() {
             对于 条目 in 对照表.values() {
-                如果 让 有值(主干名) = 条目.原始路径.file_stem().and_then(|s| s.to_str()) {
+                如果 让 有值(主干名) = 条目.原始路径.file_stem().and_then(|文本项| 文本项.to_str()) {
                     主干名集合.insert(主干名.to_string());
                 }
             }
@@ -808,15 +808,15 @@
         };
         让 子目录 = 父目录.join(词干);
         让 对照表 = 匹配 自我.条目表.read() {
-            成功(t) => t,
+            成功(守卫项) => 守卫项,
             错误(_) => 返回 Vec::new(),
         };
         让 可变 子项: Vec<(字符串, 字符串)> = 对照表
             .values()
-            .filter(|e| e.原始路径.parent() == 有值(子目录.as_path()))
-            .filter_map(|e| {
-                让 子词干 = e.原始路径.file_stem()?.to_str()?.to_string();
-                让 子文件 = e.虚拟路径.file_name()?.to_str()?.to_string();
+            .filter(|条目项| 条目项.原始路径.parent() == 有值(子目录.as_path()))
+            .filter_map(|条目项| {
+                让 子词干 = 条目项.原始路径.file_stem()?.to_str()?.to_string();
+                让 子文件 = 条目项.虚拟路径.file_name()?.to_str()?.to_string();
                 有值((子词干, 子文件))
             })
             .collect();
@@ -841,7 +841,7 @@
         模块名列表: &HashSet<字符串>,
     ) -> i18n_rust_engine::别名替换::项目上下文 {
         让 来源列表: Vec<字符串> = 匹配 自我.条目表.read() {
-            成功(对照表) => 对照表.values().map(|e| e.中文原文.clone()).collect(),
+            成功(对照表) => 对照表.values().map(|条目项| 条目项.中文原文.clone()).collect(),
             错误(_) => Vec::new(),
         };
         让 声明们: Vec<Arc<i18n_rust_engine::别名替换::声明收集>> = 来源列表
@@ -862,9 +862,9 @@
         &自我,
         内容: &文本,
     ) -> Arc<i18n_rust_engine::别名替换::声明收集> {
-        让 hash = i18n_rust_engine::缓存::转译缓存::计算内容哈希(内容);
+        让 内容哈希值 = i18n_rust_engine::缓存::转译缓存::计算内容哈希(内容);
         如果 让 成功(表) = 自我.声明名缓存.read()
-            && 让 有值(命中) = 表.get(&hash)
+            && 让 有值(命中) = 表.get(&内容哈希值)
         {
             返回 命中.clone();
         }
@@ -876,7 +876,7 @@
             如果 表.len() >= 声明缓存上限 {
                 表.clear();
             }
-            表.insert(hash, 转译结果.clone());
+            表.insert(内容哈希值, 转译结果.clone());
         }
         转译结果
     }
@@ -894,7 +894,7 @@
         资源定位: &文本,
         模块名列表: &HashSet<字符串>,
         项目对象: &i18n_rust_engine::别名替换::项目上下文,
-    ) -> 选项<Arc<TranslationEntry>> {
+    ) -> 选项<Arc<翻译条目>> {
         让 旧条目 = 自我.查询原文(资源定位)?;
         让 转译产出 = i18n_rust_engine::转译管线并映射并项目(
             &旧条目.中文原文,
@@ -934,7 +934,7 @@
         // 的内存文档必须保持无 pub——否则语义 token 多出 pub、
         // fn/main 位置偏移，变量等颜色错乱。
         //（column_map 基于无 pub 内容构建，与内存文档一致）
-        让 是否主文件 = 旧条目.原始路径.file_stem().and_then(|s| s.to_str()) == 有值("main");
+        让 是否主文件 = 旧条目.原始路径.file_stem().and_then(|文本项| 文本项.to_str()) == 有值("main");
         让 磁盘内容 = 如果 是否主文件 {
             // 逐行查找函数声明（行首空白后紧跟 `fn main(`），
             // 避免朴素子串替换误命中注释或字符串字面量中的 `fn main(`
@@ -964,7 +964,7 @@
         让 新增前缀词元 = 词法::补包标记下标(&英文源码, &转译产出.管线映射);
 
         // 构造新版本需要克隆旧条目一次；此后查询均为 Arc 廉价克隆
-        让 新条目 = Arc::new(TranslationEntry {
+        让 新条目 = Arc::new(翻译条目 {
             英文源码: 英文源码.clone(),
             分析器源码: 分析器源码.clone(),
             列偏移表,
@@ -998,7 +998,7 @@
 
         {
             让 可变 对照表 = 匹配 自我.条目表.write() {
-                成功(t) => t,
+                成功(守卫项) => 守卫项,
                 错误(_) => 返回 无,
             };
             如果 让 有值(条目) = 对照表.get_mut(资源定位) {
@@ -1027,13 +1027,13 @@
         &自我,
         模块名列表: &HashSet<字符串>,
         项目对象: &i18n_rust_engine::别名替换::项目上下文,
-    ) -> Vec<Arc<TranslationEntry>> {
+    ) -> Vec<Arc<翻译条目>> {
         让 资源定位列表: Vec<字符串> = {
             让 对照表 = 匹配 自我.条目表.read() {
-                成功(t) => t,
+                成功(守卫项) => 守卫项,
                 错误(_) => 返回 Vec::new(),
             };
-            对照表.values().map(|e| e.原始资源定位.clone()).collect()
+            对照表.values().map(|条目项| 条目项.原始资源定位.clone()).collect()
         };
         让 可变 变更集 = Vec::new();
         对于 资源定位 in 资源定位列表 {
@@ -1055,20 +1055,20 @@
         // 持读锁期间做文件系统操作会阻塞所有写入者（改写条目 等）
         让 模块名集: Vec<(字符串, PathBuf, PathBuf)> = {
             让 对照表 = 匹配 自我.条目表.read() {
-                成功(t) => t,
+                成功(守卫项) => 守卫项,
                 错误(_) => 返回,
             };
             对照表
                 .values()
-                .map(|e| {
+                .map(|条目项| {
                     (
-                        e.原始路径
+                        条目项.原始路径
                             .file_stem()
-                            .and_then(|s| s.to_str())
+                            .and_then(|文本项| 文本项.to_str())
                             .unwrap_or_default()
                             .to_string(),
-                        e.虚拟路径.clone(),
-                        e.原始路径.clone(),
+                        条目项.虚拟路径.clone(),
+                        条目项.原始路径.clone(),
                     )
                 })
                 .collect()
@@ -1079,7 +1079,7 @@
         让 源码根目录 = 推导虚拟根目录(
             &模块名集
                 .iter()
-                .map(|(_, _, p)| p.clone())
+                .map(|(_, _, 路径项)| 路径项.clone())
                 .collect::<Vec<_>>(),
         );
 
@@ -1142,18 +1142,18 @@
             如果 !已用名.insert(模块名.clone()) {
                 使用 std::collections::hash_map::DefaultHasher;
                 使用 std::hash::{Hash, Hasher};
-                让 可变 h = DefaultHasher::new();
-                虚拟路径.as_path().hash(&可变 h);
-                模块名 = 格式化!("{}_{:x}", 模块名, h.finish());
+                让 可变 哈希器项 = DefaultHasher::new();
+                虚拟路径.as_path().hash(&可变 哈希器项);
+                模块名 = 格式化!("{}_{:x}", 模块名, 哈希器项.finish());
                 已用名.insert(模块名.clone());
             }
-            让 file_name = 虚拟路径
+            让 文件名末段 = 虚拟路径
                 .file_name()
-                .and_then(|s| s.to_str())
+                .and_then(|文本项| 文本项.to_str())
                 .unwrap_or("");
             主文件内容.push_str(&格式化!(
                 "#[path = \"{}\"]\nmod {};\n",
-                file_name, 模块名
+                文件名末段, 模块名
             ));
         }
         // 入口转发：`fn main()` 位于子模块（如 mod main）时不是 crate 入口，
@@ -1179,10 +1179,10 @@
 /// 父目录的公共祖先（项目根直接放 .zh 的教学布局）。
 函数 推导虚拟根目录(路径列表: &[PathBuf]) -> PathBuf {
     让 可变 源码投票: std::collections::HashMap<PathBuf, usize> = std::collections::HashMap::new();
-    对于 p in 路径列表 {
-        让 可变 当前目录 = p.parent();
+    对于 路径项 in 路径列表 {
+        让 可变 当前目录 = 路径项.parent();
         当让 有值(目录项) = 当前目录 {
-            如果 目录项.file_name().and_then(|s| s.to_str()) == 有值("src") {
+            如果 目录项.file_name().and_then(|文本项| 文本项.to_str()) == 有值("src") {
                 *源码投票.entry(目录项.to_path_buf()).or_default() += 1;
                 break;
             }
@@ -1191,18 +1191,18 @@
     }
     如果 让 有值(根目录) = 源码投票
         .into_iter()
-        .max_by_key(|(_, n)| *n)
-        .map(|(p, _)| p)
+        .max_by_key(|(_, 数量项)| *数量项)
+        .map(|(路径项, _)| 路径项)
     {
         返回 根目录;
     }
     // 公共父目录兜底
-    让 可变 iter = 路径列表.iter().filter_map(|p| p.parent());
-    让 有值(首个) = iter.next() 否则 {
+    让 可变 祖先迭代器 = 路径列表.iter().filter_map(|路径项| 路径项.parent());
+    让 有值(首个) = 祖先迭代器.next() 否则 {
         返回 PathBuf::new();
     };
     让 可变 公共前缀: PathBuf = 首个.to_path_buf();
-    对于 父目录 in iter {
+    对于 父目录 in 祖先迭代器 {
         当 !父目录.starts_with(&公共前缀) {
             如果 !公共前缀.pop() {
                 返回 PathBuf::new();
@@ -1219,9 +1219,9 @@
 函数 净化模块名(主干名: &文本) -> 字符串 {
     让 可变 输出值: 字符串 = 主干名
         .chars()
-        .map(|c| {
-            如果 c == '_' || c.is_alphanumeric() {
-                c
+        .map(|字符项| {
+            如果 字符项 == '_' || 字符项.is_alphanumeric() {
+                字符项
             } 否则 {
                 '_'
             }
@@ -1230,7 +1230,7 @@
     如果 输出值.is_empty() {
         输出值.push('m');
     }
-    如果 输出值.chars().next().is_some_and(|c| c.is_numeric()) {
+    如果 输出值.chars().next().is_some_and(|字符项| 字符项.is_numeric()) {
         输出值.insert(0, '_');
     }
     输出值
@@ -1246,10 +1246,10 @@
 ///
 /// 供 include 资源复制防护 `..` 逃逸虚拟项目根（写入任意位置）。
 函数 路径在范围内(磁盘路径: &Path, 根目录: &Path) -> 布尔 {
-    函数 规范化路径(p: &Path) -> PathBuf {
+    函数 规范化路径(路径项: &Path) -> PathBuf {
         让 可变 输出值 = PathBuf::new();
-        对于 c in p.components() {
-            匹配 c {
+        对于 组件项 in 路径项.components() {
+            匹配 组件项 {
                 std::path::Component::ParentDir => {
                     输出值.pop();
                 }
@@ -1276,41 +1276,41 @@
         跨度列表.push((词元项.kind, 起始, 偏移));
     }
     让 可变 累加文本 = Vec::new();
-    让 可变 i = 0usize;
-    当 i < 跨度列表.len() {
-        让 (种类, 起始, 结束) = 跨度列表[i];
-        i += 1;
+    让 可变 跨度游标 = 0usize;
+    当 跨度游标 < 跨度列表.len() {
+        让 (种类, 起始, 结束) = 跨度列表[跨度游标];
+        跨度游标 += 1;
         如果 种类 != TokenKind::Ident
             || !matches!(&源码内容[起始..结束], "include_str" | "include_bytes")
         {
             continue;
         }
         // 依次找到 `!` `(` 后的字符串字面量（允许空白/注释分隔）
-        让 (可变 j, 可变 步长, 可变 磁盘路径) = (i, 0u8, 无);
-        当 j < 跨度列表.len() {
-            让 (k, s, e) = 跨度列表[j];
+        让 (可变 字面游标, 可变 步长, 可变 磁盘路径) = (跨度游标, 0u8, 无);
+        当 字面游标 < 跨度列表.len() {
+            让 (词元类别, 字面起点, 字面终点) = 跨度列表[字面游标];
             如果 matches!(
-                k,
+                词元类别,
                 TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
             ) {
-                j += 1;
+                字面游标 += 1;
                 continue;
             }
             匹配 步长 {
-                0 如果 k == TokenKind::Not => 步长 = 1,
-                1 如果 k == TokenKind::OpenParen => 步长 = 2,
+                0 如果 词元类别 == TokenKind::Not => 步长 = 1,
+                1 如果 词元类别 == TokenKind::OpenParen => 步长 = 2,
                 2 => {
                     如果 matches!(
-                        k,
+                        词元类别,
                         TokenKind::Literal {
                             kind: LiteralKind::Str { .. },
                             ..
                         }
                     ) {
-                        让 文字内容 = &源码内容[s..e];
+                        让 文字内容 = &源码内容[字面起点..字面终点];
                         磁盘路径 = 有值(
                             文字内容.strip_prefix('"')
-                                .and_then(|t| t.strip_suffix('"'))
+                                .and_then(|文字项| 文字项.strip_suffix('"'))
                                 .unwrap_or(文字内容)
                                 .to_string(),
                         );
@@ -1319,10 +1319,10 @@
                 }
                 _ => break,
             }
-            j += 1;
+            字面游标 += 1;
         }
-        如果 让 有值(p) = 磁盘路径 {
-            累加文本.push(p);
+        如果 让 有值(路径项) = 磁盘路径 {
+            累加文本.push(路径项);
         }
     }
     累加文本
@@ -1401,28 +1401,28 @@
 函数 定位解码(资源定位: &文本) -> 字符串 {
     让 字节 = 资源定位.as_bytes();
     让 可变 累加文本 = Vec::with_capacity(字节.len());
-    让 可变 i = 0;
-    当 i < 字节.len() {
-        如果 字节[i] == b'%'
-            && i + 2 < 字节.len()
-            && 让 (有值(高值), 有值(低值)) = (十六进制值(字节[i + 1]), 十六进制值(字节[i + 2]))
+    让 可变 字节游标 = 0;
+    当 字节游标 < 字节.len() {
+        如果 字节[字节游标] == b'%'
+            && 字节游标 + 2 < 字节.len()
+            && 让 (有值(高值), 有值(低值)) = (十六进制值(字节[字节游标 + 1]), 十六进制值(字节[字节游标 + 2]))
         {
             累加文本.push(高值 * 16 + 低值);
-            i += 3;
+            字节游标 += 3;
             continue;
         }
-        累加文本.push(字节[i]);
-        i += 1;
+        累加文本.push(字节[字节游标]);
+        字节游标 += 1;
     }
     字符串::from_utf8_lossy(&累加文本).to_string()
 }
 
 /// 十六进制字符转数值
-函数 十六进制值(b: u8) -> 选项<u8> {
-    匹配 b {
-        b'0'..=b'9' => 有值(b - b'0'),
-        b'a'..=b'f' => 有值(b - b'a' + 10),
-        b'A'..=b'F' => 有值(b - b'A' + 10),
+函数 十六进制值(字节值项: u8) -> 选项<u8> {
+    匹配 字节值项 {
+        b'0'..=b'9' => 有值(字节值项 - b'0'),
+        b'a'..=b'f' => 有值(字节值项 - b'a' + 10),
+        b'A'..=b'F' => 有值(字节值项 - b'A' + 10),
         _ => 无,
     }
 }
@@ -1457,13 +1457,13 @@
 ///
 /// pub(crate)：供 ResponseMapper 的语义 token 预取条目路径直接调用
 ///（避免每 token 重复锁与表扫描）。
-公开(crate) 函数 英文列转中文列(条目: &TranslationEntry, 行号: u32, 英文列号: u32) -> u32 {
+公开(crate) 函数 英文列转中文列(条目: &翻译条目, 行号: u32, 英文列号: u32) -> u32 {
     让 行索引 = 条目
         .列偏移表
         .get(行号 as usize)
         .or_else(|| 条目.列偏移表.last());
     让 行索引 = 匹配 行索引 {
-        有值(r) 如果 !r.is_empty() => r,
+        有值(行分段项) 如果 !行分段项.is_empty() => 行分段项,
         _ => 返回 英文列号,
     };
     // 顺序查找（每行分段极少，线性足够）：找到最后一个 en_col <= 目标 en_col 的分段
@@ -1482,13 +1482,13 @@
 ///
 /// pub(crate)：供 server.rs 请求方向位置转换直接调用
 ///（调用方已持有预取的条目，避免每处位置重复锁与表查询）。
-公开(crate) 函数 中文列转英文列(条目: &TranslationEntry, 行号: u32, 中文列号: u32) -> u32 {
+公开(crate) 函数 中文列转英文列(条目: &翻译条目, 行号: u32, 中文列号: u32) -> u32 {
     让 行索引 = 条目
         .列偏移表
         .get(行号 as usize)
         .or_else(|| 条目.列偏移表.last());
     让 行索引 = 匹配 行索引 {
-        有值(r) 如果 !r.is_empty() => r,
+        有值(行分段项) 如果 !行分段项.is_empty() => 行分段项,
         _ => 返回 中文列号,
     };
     // 顺序查找：找到最后一个 zh_col <= 目标 zh_col 的分段
@@ -1526,13 +1526,13 @@
 /// 此处仅做纯算术回放，杜绝与引擎转译逻辑的平行实现漂移。
 函数 重放列映射(
     中文原文: &文本, 管线映射: &[源映射条目]
-) -> Vec<Vec<ColumnMapPoint>> {
+) -> Vec<Vec<列映射点>> {
     使用 rustc_lexer::{TokenKind, tokenize};
 
     // 索引：源偏移 → 条目（token 级替换，一个 token 至多一条）
-    让 按偏移排序: HashMap<usize, &源映射条目> = 管线映射.iter().map(|e| (e.源偏移, e)).collect();
+    让 按偏移排序: HashMap<usize, &源映射条目> = 管线映射.iter().map(|条目项| (条目项.源偏移, 条目项)).collect();
 
-    让 可变 逐行映射: Vec<Vec<ColumnMapPoint>> = 向量![向量![ColumnMapPoint {
+    让 可变 逐行映射: Vec<Vec<列映射点>> = 向量![向量![列映射点 {
         英文列号: 0,
         中文列号: 0,
         偏移差: 0,
@@ -1541,9 +1541,9 @@
     让 可变 英文列号 = 0u32;
     让 可变 累计差值 = 0i32; // 当前行内 en_col - zh_col
     让 可变 当前偏移 = 0usize;
-    让 is_whitespace = |k: TokenKind| {
+    让 是空白判定 = |词元类别: TokenKind| {
         matches!(
-            k,
+            词元类别,
             TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
         )
     };
@@ -1554,30 +1554,30 @@
         当前偏移 += 词元项.len;
 
         // 空白 token：两列同步前进（逐字符处理，空白可能跨行）
-        如果 is_whitespace(词元项.kind) {
-            对于 c in 词元文本.chars() {
-                如果 c == '\n' {
+        如果 是空白判定(词元项.kind) {
+            对于 字符项 in 词元文本.chars() {
+                如果 字符项 == '\n' {
                     // 新行：行内列与偏移差重置，并记录新行起点
                     中文列号 = 0;
                     英文列号 = 0;
                     累计差值 = 0;
-                    逐行映射.push(向量![ColumnMapPoint {
+                    逐行映射.push(向量![列映射点 {
                         英文列号: 0,
                         中文列号: 0,
                         偏移差: 0,
                     }]);
                 } 否则 {
-                    中文列号 += c.len_utf16() as u32;
-                    英文列号 += c.len_utf16() as u32;
+                    中文列号 += 字符项.len_utf16() as u32;
+                    英文列号 += 字符项.len_utf16() as u32;
                 }
             }
             continue;
         }
 
         // 输出长度：命中地图条目取 replacement 的 UTF-16 长度，否则原样
-        让 zh_len: u32 = 词元文本.chars().map(|c| c.len_utf16() as u32).sum();
+        让 zh_len: u32 = 词元文本.chars().map(|字符项| 字符项.len_utf16() as u32).sum();
         让 en_len: u32 = 匹配 按偏移排序.get(&词元起点) {
-            有值(e) => e.替换文本.chars().map(|c| c.len_utf16() as u32).sum(),
+            有值(条目项) => 条目项.替换文本.chars().map(|字符项| 字符项.len_utf16() as u32).sum(),
             无 => zh_len,
         };
 
@@ -1589,12 +1589,12 @@
         让 末次差值 = 逐行映射
             .last()
             .and_then(|行索引| 行索引.last())
-            .map(|p| p.偏移差)
+            .map(|路径项| 路径项.偏移差)
             .unwrap_or(0);
         如果 累计差值 != 末次差值 {
             // 当前行映射必然存在（每行起点已入表）；防御性判断避免 panic
             如果 让 有值(行索引) = 逐行映射.last_mut() {
-                行索引.push(ColumnMapPoint {
+                行索引.push(列映射点 {
                     英文列号,
                     中文列号,
                     偏移差: 累计差值,
@@ -1620,15 +1620,15 @@
     让 可变 行映射表: Vec<u32> = (0..英文行数).collect();
 
     // 对于超出中文行数的英文行，映射到最后一行
-    对于 i in 最少行数..英文行数 {
-        行映射表[i as usize] = 中文行数.saturating_sub(1);
+    对于 溢出行索引 in 最少行数..英文行数 {
+        行映射表[溢出行索引 as usize] = 中文行数.saturating_sub(1);
     }
 
     行映射表
 }
 
 #[配置(测试)]
-模块 tests {
+模块 单元测试 {
     使用 超级::*;
 
     /// URI 双向转换：Unix 路径、空格/中文编码、Windows 盘符形式
@@ -2135,16 +2135,16 @@
     函数 测试_兄弟模块_聚合() {
         让 项目名 = tempfile::tempdir().unwrap();
         让 虚拟标记 = tempfile::tempdir().unwrap();
-        让 src = 项目名.path().join("src");
-        std::fs::create_dir_all(&src).unwrap();
+        让 源码目录 = 项目名.path().join("src");
+        std::fs::create_dir_all(&源码目录).unwrap();
         std::fs::write(
-            src.join("工具.zh"),
+            源码目录.join("工具.zh"),
             "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
         )
         .unwrap();
 
         让 缓存 = 转译缓存::新建缓存(测试_构造管理器_扩展(), 虚拟标记.path().to_path_buf());
-        让 主资源定位 = 路径转定位(&src.join("main.zh"));
+        让 主资源定位 = 路径转定位(&源码目录.join("main.zh"));
         让 (条目, _) = 缓存
             .更新文档(&主资源定位, "函数 主函数() {\n    工具::加一(1);\n}\n", 1)
             .unwrap();
@@ -2157,7 +2157,7 @@
         );
         // 兄弟模块已登记（is_open=false）并转译写盘
         让 工具项 = 缓存
-            .查询原文(&路径转定位(&src.join("工具.zh")))
+            .查询原文(&路径转定位(&源码目录.join("工具.zh")))
             .expect("同目录兄弟模块应被聚合");
         断言!(!工具项.是否打开, "磁盘聚合的模块不应标记为打开");
         断言!(
@@ -2185,10 +2185,10 @@
     函数 测试_嵌套模块树_聚合() {
         让 项目名 = tempfile::tempdir().unwrap();
         让 虚拟标记 = tempfile::tempdir().unwrap();
-        让 src = 项目名.path().join("src");
-        让 嵌套 = src.join("领域");
+        让 源码目录 = 项目名.path().join("src");
+        让 嵌套 = 源码目录.join("领域");
         std::fs::create_dir_all(&嵌套).unwrap();
-        std::fs::write(src.join("领域.zh"), "公开 模块 工具;\n").unwrap();
+        std::fs::write(源码目录.join("领域.zh"), "公开 模块 工具;\n").unwrap();
         std::fs::write(
             嵌套.join("工具.zh"),
             "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
@@ -2196,7 +2196,7 @@
         .unwrap();
 
         让 缓存 = 转译缓存::新建缓存(测试_构造管理器_扩展(), 虚拟标记.path().to_path_buf());
-        让 主资源定位 = 路径转定位(&src.join("main.zh"));
+        让 主资源定位 = 路径转定位(&源码目录.join("main.zh"));
         让 (条目, _) = 缓存
             .更新文档(
                 &主资源定位,
@@ -2231,7 +2231,7 @@
 
         // 父虚拟文件末尾的嵌套子声明：#[path] 指向工具的平铺哈希文件名
         让 域名集合 = 缓存
-            .查询原文(&路径转定位(&src.join("领域.zh")))
+            .查询原文(&路径转定位(&源码目录.join("领域.zh")))
             .expect("领域模块应已登记");
         让 工具文件 = 工具项
             .虚拟路径
@@ -2272,9 +2272,9 @@
     函数 测试_兄弟模块_磁盘更新同步() {
         让 项目名 = tempfile::tempdir().unwrap();
         让 虚拟标记 = tempfile::tempdir().unwrap();
-        让 src = 项目名.path().join("src");
-        std::fs::create_dir_all(&src).unwrap();
-        让 工具路径 = src.join("工具.zh");
+        让 源码目录 = 项目名.path().join("src");
+        std::fs::create_dir_all(&源码目录).unwrap();
+        让 工具路径 = 源码目录.join("工具.zh");
         std::fs::write(
             &工具路径,
             "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
@@ -2282,7 +2282,7 @@
         .unwrap();
 
         让 缓存 = 转译缓存::新建缓存(测试_构造管理器_扩展(), 虚拟标记.path().to_path_buf());
-        让 主资源定位 = 路径转定位(&src.join("main.zh"));
+        让 主资源定位 = 路径转定位(&源码目录.join("main.zh"));
         缓存
             .更新文档(&主资源定位, "函数 主函数() {\n    工具::加一(1);\n}\n", 1)
             .unwrap();
@@ -2312,7 +2312,7 @@
             工具项.英文源码
         );
         断言!(
-            其他项.iter().any(|e| e.原始资源定位 == 工具资源定位),
+            其他项.iter().any(|条目项| 条目项.原始资源定位 == 工具资源定位),
             "变更的兄弟模块应进入通知列表"
         );
     }
@@ -2322,13 +2322,13 @@
     函数 测试_兄弟模块_磁盘删除移除() {
         让 项目名 = tempfile::tempdir().unwrap();
         让 虚拟标记 = tempfile::tempdir().unwrap();
-        让 src = 项目名.path().join("src");
-        std::fs::create_dir_all(&src).unwrap();
-        让 工具路径 = src.join("工具.zh");
+        让 源码目录 = 项目名.path().join("src");
+        std::fs::create_dir_all(&源码目录).unwrap();
+        让 工具路径 = 源码目录.join("工具.zh");
         std::fs::write(&工具路径, "公开 函数 加一() {}\n").unwrap();
 
         让 缓存 = 转译缓存::新建缓存(测试_构造管理器_扩展(), 虚拟标记.path().to_path_buf());
-        让 主资源定位 = 路径转定位(&src.join("main.zh"));
+        让 主资源定位 = 路径转定位(&源码目录.join("main.zh"));
         缓存
             .更新文档(&主资源定位, "函数 主函数() {}\n", 1)
             .unwrap();
@@ -2363,12 +2363,12 @@
     函数 测试_包含资源_复制到虚拟项目() {
         让 项目名 = tempfile::tempdir().unwrap();
         让 虚拟标记 = tempfile::tempdir().unwrap();
-        让 src = 项目名.path().join("src");
-        std::fs::create_dir_all(&src).unwrap();
-        std::fs::write(src.join("数据.txt"), "占位内容").unwrap();
+        让 源码目录 = 项目名.path().join("src");
+        std::fs::create_dir_all(&源码目录).unwrap();
+        std::fs::write(源码目录.join("数据.txt"), "占位内容").unwrap();
 
         让 缓存 = 转译缓存::新建缓存(测试_构造管理器_扩展(), 虚拟标记.path().to_path_buf());
-        让 主资源定位 = 路径转定位(&src.join("main.zh"));
+        让 主资源定位 = 路径转定位(&源码目录.join("main.zh"));
         让 (条目, _) = 缓存
             .更新文档(
                 &主资源定位,
@@ -2392,14 +2392,14 @@
     函数 测试_关闭文档_磁盘存在时降级() {
         让 项目名 = tempfile::tempdir().unwrap();
         让 虚拟标记 = tempfile::tempdir().unwrap();
-        让 src = 项目名.path().join("src");
-        std::fs::create_dir_all(&src).unwrap();
+        让 源码目录 = 项目名.path().join("src");
+        std::fs::create_dir_all(&源码目录).unwrap();
         // 磁盘内容与缓冲区不同：关闭后应以磁盘为准
-        std::fs::write(src.join("main.zh"), "让 磁盘 = 1;\n").unwrap();
+        std::fs::write(源码目录.join("main.zh"), "让 磁盘 = 1;\n").unwrap();
 
         让 缓存 =
             转译缓存::新建缓存(测试_构造管理器(HashMap::new()), 虚拟标记.path().to_path_buf());
-        让 主资源定位 = 路径转定位(&src.join("main.zh"));
+        让 主资源定位 = 路径转定位(&源码目录.join("main.zh"));
         缓存
             .更新文档(&主资源定位, "让 缓冲 = 2;\n", 1)
             .unwrap();

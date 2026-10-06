@@ -202,22 +202,24 @@ mod 单元测试 {
         // 此处临时接管清除全部语言来源，验证“无任何来源时回退 zh”。
         // 本 crate 仅此测试触碰这些变量，无需跨测试锁。
         let 键 = ["RZ_LANG", "LC_ALL", "LC_MESSAGES", "LANG"];
-        let 已存: Vec<(&str, Option<String>)> =
-            键.iter().map(|k| (*k, std::env::var(k).ok())).collect();
-        for k in 键 {
+        let 已存: Vec<(&str, Option<String>)> = 键
+            .iter()
+            .map(|键名项| (*键名项, std::env::var(键名项).ok()))
+            .collect();
+        for 键名项 in 键 {
             unsafe {
-                std::env::remove_var(k);
+                std::env::remove_var(键名项);
             }
         }
         let 关于 = 界面::创建(Path::new("/不存在的目录")).取文("lsp_about");
         // 先恢复环境变量再断言：断言失败 panic 也不污染并行测试
-        for (k, v) in 已存 {
-            match v {
+        for (键名项, 值项) in 已存 {
+            match 值项 {
                 Some(值) => unsafe {
-                    std::env::set_var(k, 值);
+                    std::env::set_var(键名项, 值);
                 },
                 None => unsafe {
-                    std::env::remove_var(k);
+                    std::env::remove_var(键名项);
                 },
             }
         }

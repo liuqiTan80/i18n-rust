@@ -160,7 +160,7 @@ pub fn 抽取所有权详情(错误码: &str, 诊断: &编译器诊断) -> Optio
     }
 
     // 主 span 兜底：对应错误类型的核心位置
-    if let Some(主跨度) = 诊断.跨度列表.iter().find(|s| s.是主跨度) {
+    if let Some(主跨度) = 诊断.跨度列表.iter().find(|跨度项| 跨度项.是主跨度) {
         match 错误码 {
             "E0382" => {
                 再次使用.get_or_insert_with(|| 诊断位置::从跨度构造(主跨度));

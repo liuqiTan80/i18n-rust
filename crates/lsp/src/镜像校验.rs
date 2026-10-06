@@ -30,7 +30,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 
-use crate::响应映射::diag_text::{
+use crate::响应映射::诊断文本::{
     提取所有权详情, 注入教学诊断, 翻译诊断消息
 };
 use crate::翻译缓存::{路径转定位, 转译缓存};
@@ -160,9 +160,9 @@ fn 定位项目根(起点: &Path) -> Option<PathBuf> {
 fn 路径哈希(路径: &Path) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
-    let mut h = DefaultHasher::new();
-    路径.hash(&mut h);
-    h.finish()
+    let mut 哈希器项 = DefaultHasher::new();
+    路径.hash(&mut 哈希器项);
+    哈希器项.finish()
 }
 
 /// 镜像目录：系统临时目录下、用户名+PID+项目哈希隔离的独立顶层目录
@@ -177,9 +177,9 @@ fn 镜像目录路径(项目根: &Path) -> PathBuf {
         .unwrap_or_else(|_| "default".to_string());
     let 安全用户: String = 用户
         .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '_' {
-                c
+        .map(|字符项| {
+            if 字符项.is_alphanumeric() || 字符项 == '_' {
+                字符项
             } else {
                 '_'
             }
@@ -199,7 +199,7 @@ fn 复制项目树(来自: &Path, 到: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(到)?;
     for 目录项 in std::fs::read_dir(来自)?.flatten() {
         let 路径 = 目录项.path();
-        let Ok(ft) = 目录项.file_type() else {
+        let Ok(文件类型项) = 目录项.file_type() else {
             continue;
         };
         let Ok(元数据) = 目录项.metadata() else {
@@ -208,7 +208,7 @@ fn 复制项目树(来自: &Path, 到: &Path) -> std::io::Result<()> {
         let 名字 = 目录项.file_name();
         let 名字 = 名字.to_string_lossy();
         if 元数据.is_dir() {
-            if ft.is_symlink() || 排除目录名.contains(&名字.as_ref()) {
+            if 文件类型项.is_symlink() || 排除目录名.contains(&名字.as_ref()) {
                 continue;
             }
             复制项目树(&路径, &到.join(名字.as_ref()))?;
@@ -226,12 +226,12 @@ fn 收集方言路径(目录: &Path, 扩展名列表: &[String], 输出: &mut Ve
     };
     for 目录项 in 条目.flatten() {
         let 路径 = 目录项.path();
-        let Ok(ft) = 目录项.file_type() else {
+        let Ok(文件类型项) = 目录项.file_type() else {
             continue;
         };
-        if ft.is_dir() {
+        if 文件类型项.is_dir() {
             收集方言路径(&路径, 扩展名列表, 输出);
-        } else if ft.is_file() && 匹配方言扩展名(&路径, 扩展名列表) {
+        } else if 文件类型项.is_file() && 匹配方言扩展名(&路径, 扩展名列表) {
             输出.push(路径);
         }
     }
@@ -239,11 +239,13 @@ fn 收集方言路径(目录: &Path, 扩展名列表: &[String], 输出: &mut Ve
 
 /// 路径扩展名是否属于支持的方言扩展名（如 `.zh`）
 fn 匹配方言扩展名(路径: &Path, 扩展名列表: &[String]) -> bool {
-    let Some(后缀) = 路径.extension().and_then(|e| e.to_str()) else {
+    let Some(后缀) = 路径.extension().and_then(|后缀项| 后缀项.to_str()) else {
         return false;
     };
     let 带点 = format!(".{后缀}");
-    扩展名列表.iter().any(|e| e == &带点 || e == 后缀)
+    扩展名列表
+        .iter()
+        .any(|后缀项| 后缀项 == &带点 || 后缀项 == 后缀)
 }
 
 /// 把镜像 src/ 下的方言源转译为 .rs 产物（入口 → main.rs），返回产物映射表
@@ -287,7 +289,8 @@ fn 转译入镜像(
             .map(|条目| 条目.中文原文.clone())
             .or_else(|| std::fs::read_to_string(镜像路径).ok());
         let Some(内容) = 内容 else { continue };
-        if let Some(词干) = 镜像路径.file_stem().and_then(|s| s.to_str()) {
+        if let Some(词干) = 镜像路径.file_stem().and_then(|扩展名项| 扩展名项.to_str())
+        {
             模块名集.insert(词干.to_string());
         }
         源内容.insert(镜像路径.clone(), 内容);
@@ -331,8 +334,8 @@ fn 转译入镜像(
 
     // 写产物 + 构造映射表
     let mut 文件集: Vec<镜像文件> = Vec::new();
-    for p in 待写 {
-        let Ok(相对) = p.镜像路径.strip_prefix(镜像目录) else {
+    for 路径项 in 待写 {
+        let Ok(相对) = 路径项.镜像路径.strip_prefix(镜像目录) else {
             continue;
         };
         let 源路径 = 项目根.join(相对);
@@ -344,23 +347,31 @@ fn 转译入镜像(
             .按路径查询(&源路径)
             .map(|条目| 条目.原始资源定位.clone())
             .unwrap_or_else(|| 路径转定位(&源路径));
-        let 是入口 = 入口路径.as_deref() == Some(p.镜像路径.as_path());
+        let 是入口 = 入口路径.as_deref() == Some(路径项.镜像路径.as_path());
         let (内容, 产物路径, 入口行映射) = if 是入口 {
             // 入口：补 #[path] 注解（rustc 拒绝非 ASCII 模块名的文件式
             // 声明，E0754），产物固定写入 src/main.rs
             let (带注解, 行映射) =
-                i18n_rust_engine::模块路径::标注非西文模块并行号(&p.产出);
+                i18n_rust_engine::模块路径::标注非西文模块并行号(&路径项.产出);
             (带注解, 镜像src.join("main.rs"), Some(行映射))
-        } else if let Some(词干) = p.镜像路径.file_stem().and_then(|s| s.to_str()) {
+        } else if let Some(词干) = 路径项
+            .镜像路径
+            .file_stem()
+            .and_then(|扩展名项| 扩展名项.to_str())
+        {
             // 非入口模块（含多层）：按自身词干目录补 #[path]，
             // 与 rzc transpile_project_files 同规则（src/领域.rs 的
             // `mod 工具;` → #[path = "领域/工具.rs"]）；行映射同样
             // 供诊断行号回译
             let (带注解, 行映射) =
-                i18n_rust_engine::模块路径::标注嵌套模块并行号(&p.产出, 词干);
-            (带注解, p.镜像路径.with_extension("rs"), Some(行映射))
+                i18n_rust_engine::模块路径::标注嵌套模块并行号(&路径项.产出, 词干);
+            (带注解, 路径项.镜像路径.with_extension("rs"), Some(行映射))
         } else {
-            (p.产出.clone(), p.镜像路径.with_extension("rs"), None)
+            (
+                路径项.产出.clone(),
+                路径项.镜像路径.with_extension("rs"),
+                None,
+            )
         };
         if let Err(错误值) = std::fs::write(&产物路径, &内容) {
             log::warn!("镜像产物写入失败：{}：{错误值}", 产物路径.display());
@@ -369,8 +380,8 @@ fn 转译入镜像(
         文件集.push(镜像文件 {
             产物路径,
             原始uri,
-            方言内容: p.方言内容,
-            列映射: p.列映射,
+            方言内容: 路径项.方言内容,
+            列映射: 路径项.列映射,
             入口行映射,
         });
     }
@@ -388,18 +399,24 @@ fn 转译入镜像(
 /// 相似度最高者，相似度须达到阈值（初次构建即精确匹配，入口编辑后
 /// 仍高度相似；其他模块与入口的相似度接近零）。
 fn 识别入口(待写: &[待写产物], 现有主产物: Option<&str>) -> Option<PathBuf> {
-    for p in 待写 {
-        if p.镜像路径.file_stem().and_then(|s| s.to_str()) == Some("main") {
-            return Some(p.镜像路径.clone());
+    for 路径项 in 待写 {
+        if 路径项
+            .镜像路径
+            .file_stem()
+            .and_then(|扩展名项| 扩展名项.to_str())
+            == Some("main")
+        {
+            return Some(路径项.镜像路径.clone());
         }
     }
     let 现有主产物 = 现有主产物?;
     let mut 最佳: Option<(PathBuf, f64)> = None;
-    for p in 待写 {
-        let (带注解, _) = i18n_rust_engine::模块路径::标注非西文模块并行号(&p.产出);
+    for 路径项 in 待写 {
+        let (带注解, _) =
+            i18n_rust_engine::模块路径::标注非西文模块并行号(&路径项.产出);
         let 分数 = 逐行相似度(&带注解, 现有主产物);
         if 分数 >= 0.6 && 最佳.as_ref().is_none_or(|(_, 已选)| 分数 > *已选) {
-            最佳 = Some((p.镜像路径.clone(), 分数));
+            最佳 = Some((路径项.镜像路径.clone(), 分数));
         }
     }
     最佳.map(|(路径, _)| 路径)
@@ -446,7 +463,7 @@ fn 运行cargo检查(镜像目录: &Path, 目标目录: &Path) -> Option<(String
         .stderr(std::process::Stdio::piped())
         .spawn()
     {
-        Ok(c) => c,
+        Ok(子进程项) => 子进程项,
         Err(错误值) => {
             log::warn!("镜像 cargo check 启动失败：{错误值}");
             return None;
@@ -468,8 +485,8 @@ fn 运行cargo检查(镜像目录: &Path, 目标目录: &Path) -> Option<(String
     let mut 状态 = None;
     for _ in 0..检查超时毫秒 / 轮询间隔毫秒 {
         match 子进程.try_wait() {
-            Ok(Some(s)) => {
-                状态 = Some(s);
+            Ok(Some(等待结果项)) => {
+                状态 = Some(等待结果项);
                 break;
             }
             Ok(None) => std::thread::sleep(std::time::Duration::from_millis(轮询间隔毫秒)),
@@ -477,7 +494,7 @@ fn 运行cargo检查(镜像目录: &Path, 目标目录: &Path) -> Option<(String
         }
     }
     let 状态 = match 状态 {
-        Some(s) => s,
+        Some(等待结果项) => 等待结果项,
         None => {
             log::warn!("镜像 cargo check 超时/异常，已终止（回退虚拟检查）");
             let _ = 子进程.kill();
@@ -524,7 +541,11 @@ fn 发布rustc诊断(
     // 产物路径 → 方言源映射：canonical 键归一 rustc 的绝对/相对路径
     let 索引: HashMap<PathBuf, &镜像文件> = 文件集
         .iter()
-        .filter_map(|f| std::fs::canonicalize(&f.产物路径).ok().map(|p| (p, f)))
+        .filter_map(|文件项| {
+            std::fs::canonicalize(&文件项.产物路径)
+                .ok()
+                .map(|路径项| (路径项, 文件项))
+        })
         .collect();
 
     let mut 按uri: HashMap<String, Vec<Value>> = HashMap::new();
@@ -543,7 +564,7 @@ fn 发布rustc诊断(
         // 主 span 优先（rustc 的 spans 可能把次级位置排在前面）
         let Some(跨度) = 跨度列表
             .iter()
-            .find(|s| s["is_primary"] == Value::Bool(true))
+            .find(|跨度项| 跨度项["is_primary"] == Value::Bool(true))
             .or_else(|| 跨度列表.first())
         else {
             continue;
@@ -572,25 +593,28 @@ fn 发布rustc诊断(
         // 次级 span → relatedInformation（所有权可视化等）；消息先保留英文，
         // 供 提取所有权详情 关键词判定，发布前再翻译
         let mut 原始关联: Vec<Value> = Vec::new();
-        for s in 跨度列表 {
-            if s["is_primary"] == Value::Bool(true) {
+        for 跨度项 in 跨度列表 {
+            if 跨度项["is_primary"] == Value::Bool(true) {
                 continue;
             }
-            let Some(标签) = s["label"].as_str().filter(|l| !l.is_empty()) else {
+            let Some(标签) = 跨度项["label"].as_str().filter(|标签项| !标签项.is_empty())
+            else {
                 continue;
             };
-            let Some(关联文件) = 解析跨度归属文件(s, 镜像目录, &索引) else {
+            let Some(关联文件) = 解析跨度归属文件(跨度项, 镜像目录, &索引)
+            else {
                 continue;
             };
-            let Some((a, b, c, d)) = 回译跨度范围(关联文件, s) else {
+            let Some((起点行, 起点列, 终点行, 终点列)) = 回译跨度范围(关联文件, 跨度项)
+            else {
                 continue;
             };
             原始关联.push(json!({
                 "location": {
                     "uri": 关联文件.原始uri,
                     "range": {
-                        "start": { "line": a, "character": b },
-                        "end": { "line": c, "character": d }
+                        "start": { "line": 起点行, "character": 起点列 },
+                        "end": { "line": 终点行, "character": 终点列 }
                     }
                 },
                 "message": 标签
@@ -621,11 +645,11 @@ fn 发布rustc诊断(
         if !原始关联.is_empty() {
             let 译文列表: Vec<Value> = 原始关联
                 .iter()
-                .map(|r| {
-                    let mut 项 = r.clone();
+                .map(|关联项| {
+                    let mut 项 = 关联项.clone();
                     项["message"] = Value::String(翻译诊断消息(
                         None,
-                        r["message"].as_str().unwrap_or(""),
+                        关联项["message"].as_str().unwrap_or(""),
                         None,
                     ));
                     项
@@ -650,9 +674,9 @@ fn 发布rustc诊断(
             && let Some(内置项) = 守卫.get(&uri)
         {
             for 条目 in 内置项.clone() {
-                let 重复 = 诊断列表.iter().any(|d| {
-                    d["code"] == 条目["code"]
-                        && d["range"]["start"]["line"] == 条目["range"]["start"]["line"]
+                let 重复 = 诊断列表.iter().any(|诊断项| {
+                    诊断项["code"] == 条目["code"]
+                        && 诊断项["range"]["start"]["line"] == 条目["range"]["start"]["line"]
                 });
                 if !重复 {
                     诊断列表.push(条目);
@@ -713,7 +737,7 @@ fn 回译单点位置(file: &镜像文件, 行1基: u32, 列1基: u32) -> (u32, 
     let 引擎行 = match &file.入口行映射 {
         Some(映射表) => 映射表
             .get(行1基.saturating_sub(1) as usize)
-            .map(|l| *l as u32 + 1)
+            .map(|行号项| *行号项 as u32 + 1)
             .unwrap_or(行1基),
         None => 行1基,
     };
@@ -735,7 +759,7 @@ fn 方言字符列转utf16列(方言内容: &str, 行1基: u32, 字符列1基: u
     行文本
         .chars()
         .take(字符列1基.saturating_sub(1) as usize)
-        .map(|c| c.len_utf16() as u32)
+        .map(|字符项| 字符项.len_utf16() as u32)
         .sum()
 }
 
@@ -791,7 +815,7 @@ mod 单元测试 {
             构造待写产物("乙.zh", "fn 乙() {\n    let 乙值 = 2;\n}\n"),
         ];
         assert_eq!(
-            识别入口(&候选, None).map(|p| p.file_name().unwrap().to_owned()),
+            识别入口(&候选, None).map(|路径项| 路径项.file_name().unwrap().to_owned()),
             Some("main.zh".into()),
             "词干为 main 时应无视相似度直接选中"
         );
@@ -806,7 +830,7 @@ mod 单元测试 {
             构造待写产物("入口.zh", 入口文本),
         ];
         assert_eq!(
-            识别入口(&候选, Some(入口文本)).map(|p| p.file_name().unwrap().to_owned()),
+            识别入口(&候选, Some(入口文本)).map(|路径项| 路径项.file_name().unwrap().to_owned()),
             Some("入口.zh".into()),
             "相似度达阈值者应被选为入口"
         );
@@ -917,7 +941,7 @@ mod 单元测试 {
         );
         unsafe {
             match 已存 {
-                Some(v) => std::env::set_var("USER", v),
+                Some(值项) => std::env::set_var("USER", 值项),
                 None => std::env::remove_var("USER"),
             }
         }
@@ -938,9 +962,9 @@ mod 单元测试 {
             "node_modules/lib/a",
             "dist/bundle",
         ] {
-            let p = 来自.join(排除项);
-            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
-            std::fs::write(p, "应被排除").unwrap();
+            let 路径项 = 来自.join(排除项);
+            std::fs::create_dir_all(路径项.parent().unwrap()).unwrap();
+            std::fs::write(路径项, "应被排除").unwrap();
         }
         let 到 = 测试临时目录.path().join("mirror");
         复制项目树(&来自, &到).unwrap();
@@ -967,7 +991,13 @@ mod 单元测试 {
         输出.sort();
         let 声明名: Vec<String> = 输出
             .iter()
-            .map(|p| p.strip_prefix(&项目根目录).unwrap().display().to_string())
+            .map(|路径项| {
+                路径项
+                    .strip_prefix(&项目根目录)
+                    .unwrap()
+                    .display()
+                    .to_string()
+            })
             .collect();
         assert_eq!(声明名, vec!["main.zh", "sub/util.zh"]);
         // 目录不存在不报错（调用方依赖此容错）
@@ -982,15 +1012,15 @@ mod 单元测试 {
 
     /// 构造一个带列映射的镜像文件（zh「让 x = 1;」→ en「let x = 1;」）
     fn 构造映射文件(入口行映射: Option<Vec<usize>>) -> 镜像文件 {
-        let zh = "让 x = 1;\n";
+        let 方言源码 = "让 x = 1;\n";
         let 编辑列表 = [i18n_rust_engine::缓存::源映射条目::新建条目(
             0, 3, "让", "let",
         )];
         镜像文件 {
             产物路径: PathBuf::from("/mirror/src/main.rs"),
             原始uri: "file:///proj/src/main.zh".to_string(),
-            方言内容: zh.to_string(),
-            列映射: i18n_rust_engine::列映射::列映射表::r#构建(zh, &编辑列表),
+            方言内容: 方言源码.to_string(),
+            列映射: i18n_rust_engine::列映射::列映射表::r#构建(方言源码, &编辑列表),
             入口行映射,
         }
     }
@@ -1012,7 +1042,7 @@ mod 单元测试 {
     #[test]
     fn 测试单点回译入口插入行() {
         // 方言 3 行；产物在顶部插入 1 行注解：产物 1 行 ↔ 引擎 3 行（映射值 2 → 行 3）
-        let zh = "函数 主函数() {\n    打印行!(\"hi\");\n}\n";
+        let 方言源码 = "函数 主函数() {\n    打印行!(\"hi\");\n}\n";
         let 编辑列表 = [
             i18n_rust_engine::缓存::源映射条目::新建条目(0, 6, "函数", "fn"),
             // 第 1 行 21 字节 + 4 个前导空格 → 「打印行」字节偏移 25
@@ -1021,8 +1051,8 @@ mod 单元测试 {
         let file = 镜像文件 {
             产物路径: PathBuf::from("/mirror/src/main.rs"),
             原始uri: "file:///proj/src/main.zh".to_string(),
-            方言内容: zh.to_string(),
-            列映射: i18n_rust_engine::列映射::列映射表::r#构建(zh, &编辑列表),
+            方言内容: 方言源码.to_string(),
+            列映射: i18n_rust_engine::列映射::列映射表::r#构建(方言源码, &编辑列表),
             入口行映射: Some(vec![2, 0, 1]),
         };
         // 产物第 1 行 → 引擎第 3 行（"}" 行）→ 方言 0-based 第 2 行

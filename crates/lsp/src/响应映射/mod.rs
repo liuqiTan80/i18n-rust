@@ -4,24 +4,28 @@
 //! 还原为原始 .zh 文件的位置。同时处理诊断信息的中文翻译。
 //!
 //! 子模块划分：
-//! - [`responses`]：各 LSP 请求类型的响应映射（hover/补全/符号/编辑等）
-//! - [`diag_text`]：诊断消息翻译与所有权详情提取（CLI 同源消息表）
+//! - [`响应集合`]：各 LSP 请求类型的响应映射（hover/补全/符号/编辑等）
+//! - [`诊断文本`]：诊断消息翻译与所有权详情提取（CLI 同源消息表）
 //!
 //! 本文件保留映射基础设施：URI/行/列还原、编辑映射与反向转译。
 
-pub(crate) mod diag_text;
-mod responses;
+// 非 ASCII 子模块名需显式路径注解（避免自动插入与可见性符号冲突）
+#[path = "响应集合.rs"]
+mod 响应集合;
+#[path = "诊断文本.rs"]
+pub(crate) mod 诊断文本;
 
 #[cfg(test)]
-mod tests;
+#[path = "单元测试.rs"]
+mod 单元测试;
 
-pub use diag_text::初始化诊断翻译器;
+pub use 诊断文本::初始化诊断翻译器;
 
 use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use crate::翻译缓存::{TranslationEntry, 英文列转中文列, 转译缓存};
+use crate::翻译缓存::{翻译条目, 英文列转中文列, 转译缓存};
 
 /// 响应映射器
 ///
@@ -60,9 +64,7 @@ impl 响应映射器 {
     }
 
     /// 按方言 URI 查询翻译条目（全角标点教学诊断合并等场景）
-    pub fn 按原始取条目(
-        &self, 资源定位: &str
-    ) -> Option<std::sync::Arc<TranslationEntry>> {
+    pub fn 按原始取条目(&self, 资源定位: &str) -> Option<std::sync::Arc<翻译条目>> {
         self.缓存.查询原文(资源定位)
     }
 
@@ -91,12 +93,11 @@ impl 响应映射器 {
     /// 循环场景（诊断/定义/引用等批量映射）由调用方预取条目一次，
     /// 复用同一文档的列映射，避免每条 range 重复加锁查询缓存。
     pub(super) fn 带条目还原范围(
-        翻译条目: Option<&TranslationEntry>,
-        跨度: &Value,
+        翻译条目: Option<&翻译条目>, 跨度: &Value
     ) -> Value {
         let 映射位置 = |行号: u32, 列号: u32| -> (u32, u32) {
             match 翻译条目 {
-                Some(e) => (还原单行(e, 行号), 英文列转中文列(e, 行号, 列号)),
+                Some(条目项) => (还原单行(条目项, 行号), 英文列转中文列(条目项, 行号, 列号)),
                 None => (行号, 列号),
             }
         };
@@ -131,12 +132,12 @@ impl 响应映射器 {
     /// URI 还原与 range 映射共用同一预取条目；循环场景（诊断的
     /// relatedInformation、定义/引用批量映射）由调用方预取避免重复加锁。
     pub(super) fn 带条目还原位置(
-        翻译条目: Option<&TranslationEntry>,
+        翻译条目: Option<&翻译条目>,
         虚拟资源定位: &str,
         目标位置: &Value,
     ) -> Value {
         let 原始资源定位 = match 翻译条目 {
-            Some(e) => e.原始资源定位.clone(),
+            Some(条目项) => 条目项.原始资源定位.clone(),
             None => 虚拟资源定位.to_string(),
         };
         let 原始跨度 = Self::带条目还原范围(翻译条目, &目标位置["range"]);
@@ -185,7 +186,7 @@ impl 响应映射器 {
         let mut 映射结果 = 编辑.clone();
 
         // changes: { uri → [TextEdit] }
-        if let Some(变更) = 编辑.get("changes").and_then(|v| v.as_object()) {
+        if let Some(变更) = 编辑.get("changes").and_then(|值项| 值项.as_object()) {
             let mut 映射变更 = serde_json::Map::new();
             for (资源定位, 编辑列表) in 变更 {
                 if !self.是虚拟资源定位(资源定位) {
@@ -199,14 +200,15 @@ impl 响应映射器 {
         }
 
         // documentChanges: [TextDocumentEdit]
-        if let Some(文档变更) = 编辑.get("documentChanges").and_then(|v| v.as_array()) {
+        if let Some(文档变更) = 编辑.get("documentChanges").and_then(|值项| 值项.as_array())
+        {
             let 映射文档变更: Vec<Value> = 文档变更
                 .iter()
                 .filter_map(|项| {
                     let 资源定位 = 项
                         .get("textDocument")
                         .and_then(|文本文档| 文本文档.get("uri"))
-                        .and_then(|v| v.as_str())
+                        .and_then(|值项| 值项.as_str())
                         .unwrap_or("");
                     if !self.是虚拟资源定位(资源定位) {
                         return None;
@@ -246,7 +248,7 @@ impl 响应映射器 {
                             映射编辑["range"] = self.还原范围(虚拟资源定位, 跨度);
                         }
                         if 翻译新文本
-                            && let Some(新文本) = 编辑.get("newText").and_then(|v| v.as_str())
+                            && let Some(新文本) = 编辑.get("newText").and_then(|值项| 值项.as_str())
                         {
                             映射编辑["newText"] = Value::String(self.翻译代码(新文本));
                         }
@@ -260,7 +262,7 @@ impl 响应映射器 {
 }
 
 /// 根据翻译条目的行映射还原行号
-pub(super) fn 还原单行(翻译条目: &TranslationEntry, 英文行号: u32) -> u32 {
+pub(super) fn 还原单行(翻译条目: &翻译条目, 英文行号: u32) -> u32 {
     let 索引 = 英文行号 as usize;
     if 索引 < 翻译条目.行号映射.len() {
         翻译条目.行号映射[索引]

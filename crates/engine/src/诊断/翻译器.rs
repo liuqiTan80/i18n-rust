@@ -51,14 +51,14 @@ pub(crate) fn 本地化类型段(标记: &str, 映射: &HashMap<String, String>)
     // 1. 类型后缀段映射
     let 转换结果 = 替换类型段(标记, 映射).unwrap_or_else(|| 标记.to_string());
     // 2. 路径前缀完整匹配（从长到短）
-    let mut 段列表: Vec<String> = 转换结果.split("::").map(|s| s.to_string()).collect();
+    let mut 段列表: Vec<String> = 转换结果.split("::").map(|段项| 段项.to_string()).collect();
     if 段列表.len() >= 2 {
         for 序号 in (1..段列表.len()).rev() {
             let 前缀 = 段列表[..序号].join("::");
             if let Some(母语) = 映射.get(&前缀) {
                 let 其余 = 段列表[序号..].join("::");
                 段列表 = vec![母语.clone()];
-                段列表.extend(其余.split("::").map(|s| s.to_string()));
+                段列表.extend(其余.split("::").map(|段项| 段项.to_string()));
                 break;
             }
         }
@@ -143,7 +143,7 @@ fn 抽取期望实际(内容: &str) -> Option<(String, String)> {
 /// 整词替换：仅当目标前后字符均非标识符字符（字母/数字/下划线）时替换，
 /// 避免裸词模式（如 integer）误伤 to_integer/integer_count 等标识符子串
 pub(crate) fn 整词替换(内容: &str, 来源: &str, 目标: &str) -> String {
-    let 是标识符字符 = |c: char| c.is_alphanumeric() || c == '_';
+    let 是标识符字符 = |字符项: char| 字符项.is_alphanumeric() || 字符项 == '_';
     let mut 转换结果 = String::with_capacity(内容.len());
     let mut 剩余 = 内容;
     while let Some(位置) = 剩余.find(来源) {
@@ -151,8 +151,11 @@ pub(crate) fn 整词替换(内容: &str, 来源: &str, 目标: &str) -> String {
         let 前合规 = 剩余[..位置]
             .chars()
             .next_back()
-            .is_none_or(|c| !是标识符字符(c));
-        let 后合规 = 剩余[结束..].chars().next().is_none_or(|c| !是标识符字符(c));
+            .is_none_or(|字符项| !是标识符字符(字符项));
+        let 后合规 = 剩余[结束..]
+            .chars()
+            .next()
+            .is_none_or(|字符项| !是标识符字符(字符项));
         转换结果.push_str(&剩余[..位置]);
         转换结果.push_str(if 前合规 && 后合规 {
             目标
@@ -205,7 +208,7 @@ fn 从消息抽取类型(消息: &str) -> Option<(String, String)> {
 pub fn 构建类型映射(管理器: &映射管理器) -> HashMap<String, String> {
     let 是母语键 = |键: &str| {
         !键.chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+            .all(|字符项| 字符项.is_ascii_alphanumeric() || 字符项 == '_' || 字符项 == '-')
     };
     let mut 反向映射: HashMap<String, String> = 管理器
         .取节映射("类型")
@@ -290,8 +293,8 @@ impl 诊断翻译器 {
         主要标签: Option<&str>,
     ) -> Option<渲染消息> {
         let 码条目 = 码
-            .filter(|c| !c.is_empty())
-            .and_then(|c| self.翻译管理器.码查询(c));
+            .filter(|码文本项| !码文本项.is_empty())
+            .and_then(|码文本项| self.翻译管理器.码查询(码文本项));
         let 消息查询 = self.翻译管理器.按消息查询(消息);
 
         // 1. 错误码表优先（与 CLI `码条目.or_else(消息查询)` 对齐）
@@ -321,7 +324,7 @@ impl 诊断翻译器 {
             let 未解决 = ["{期望}", "{实际}"]
                 .iter()
                 .chain(码模板占位符.iter())
-                .any(|p| 模板.contains(p));
+                .any(|片段项| 模板.contains(片段项));
             if !未解决 {
                 return Some(渲染消息 {
                     主消息文本: self.替换类型名(模板),
@@ -351,7 +354,7 @@ impl 诊断翻译器 {
 
     /// 翻译单条诊断信息
     pub fn 翻译诊断(&self, 诊断: &编译器诊断) -> 教学诊断 {
-        let 错误码 = 诊断.诊断码.as_ref().map(|c| c.码值.clone());
+        let 错误码 = 诊断.诊断码.as_ref().map(|诊断码项| 诊断码项.码值.clone());
 
         let 码条目 = 错误码.as_deref().and_then(|码| self.翻译管理器.码查询(码));
         // 无错误码或错误码未收录时，按消息原文匹配（[消息翻译] 节）；
@@ -366,8 +369,8 @@ impl 诊断翻译器 {
         let 主要标签 = 诊断
             .跨度列表
             .iter()
-            .find(|s| s.是主跨度)
-            .and_then(|s| s.标签.as_deref());
+            .find(|跨度项| 跨度项.是主跨度)
+            .and_then(|跨度项| 跨度项.标签.as_deref());
 
         let (期望, 实际) = 主要标签
             .and_then(抽取期望实际)
@@ -539,6 +542,9 @@ impl 诊断翻译器 {
 
     /// 批量翻译诊断列表
     pub fn 批量翻译(&self, 诊断列表: &[编译器诊断]) -> Vec<教学诊断> {
-        诊断列表.iter().map(|d| self.翻译诊断(d)).collect()
+        诊断列表
+            .iter()
+            .map(|诊断项| self.翻译诊断(诊断项))
+            .collect()
     }
 }

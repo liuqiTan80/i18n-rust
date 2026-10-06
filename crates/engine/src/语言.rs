@@ -10,10 +10,9 @@
 //!   运行期惰性解析（每语言一次），占位符 `{}` 按出现顺序替换；
 //! - 缺失键依次回退：当前语言表 → 中文表 → 键名本身。
 //!
-//! 注：本模块是全项目公共底座，其导出 API（t/f/设定语言/当前语言/
-//! builtin_* 等）被 engine/cli/lsp 数百处按名字调用，且与 build.rs 生成的
-//! `BUILTIN_FILES`/`ui_table_for` 构成契约，故公开名保持英文（跨 包 稳定 ABI，
-//! 属 rzc 官方支持的英文透传）；内部实现、私有函数、局部变量、测试均已中文化。
+//! 注：本模块是全项目公共底座；build.rs 生成的契约符号已全部中文化
+//! （`内置文件清单`/`界面表路由`/`界面消息表_*`/`引擎源码指纹`），与生成器
+//! `build.zh` 严格同名；`t`/`f` 两个极短查询函数名作为历史 API 保留。
 
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
@@ -110,7 +109,7 @@ pub fn 当前语言() -> String {
 /// 解析 ui.toml 内容为消息表（键 → 模板）
 ///
 /// 函数名 `解析界面表` 是 build.rs 代码生成器契约符号——生成的
-/// `builtin_generated.rs` 按英文名调用它初始化各语言消息表，故不可中文化。
+/// `内置生成.rs` 按此名调用它初始化各语言消息表，改名须同步 build.zh。
 ///
 /// 使用自有 字符串值 存储而非 `&'static str`：每语言表仅解析一次，
 /// `Box::leak` 会永久泄漏全部消息文本，无必要。
@@ -129,10 +128,10 @@ fn 解析界面表(内容: &str) -> HashMap<String, String> {
 }
 
 // build.rs 扫描 lang-packs/ 自动生成的内嵌清单（勿手工编辑）：
-// - BUILTIN_FILES：(语言代码, 相对路径, 内容) 全量清单
-// - UI_TABLE_*：每语言 ui.toml 消息表静态实例 + ui_table_for 路由
+// - 内置文件清单：(语言代码, 相对路径, 内容) 全量清单
+// - 界面消息表_*：每语言 ui.toml 消息表静态实例 + 界面表路由 路由
 // 新增语言包文件无需修改任何 Rust 代码，重新编译即自动纳入。
-include!(concat!(env!("OUT_DIR"), "/builtin_generated.rs"));
+include!(concat!(env!("OUT_DIR"), "/内置生成.rs"));
 
 /// 按语言代码取内置语言包文件的编译期内容（供 CLI / LSP 嵌入回退数据）
 ///
@@ -140,7 +139,7 @@ include!(concat!(env!("OUT_DIR"), "/builtin_generated.rs"));
 /// `"crates/序列化.toml"`；未知语言或文件返回 `无`。
 /// 清单由 build.rs 扫描 lang-packs/ 自动生成，覆盖全部语言与文件。
 pub fn 内置文件(语言代码: &str, 文件名: &str) -> Option<&'static str> {
-    BUILTIN_FILES
+    内置文件清单
         .iter()
         .find(|(语言位, 文件位, _)| *语言位 == 语言代码 && *文件位 == 文件名)
         .map(|(_, _, 内容)| *内容)
@@ -152,7 +151,7 @@ pub fn 内置文件(语言代码: &str, 文件名: &str) -> Option<&'static str>
 /// 完全同源（关键字/宏/别名全量），避免硬编码旧表随语言包演进
 /// 而残缺（如缺宏表、缺新关键字）导致转译不完整。
 pub fn 内置语言文件(语言代码: &str) -> Vec<(&'static str, &'static str)> {
-    BUILTIN_FILES
+    内置文件清单
         .iter()
         .filter(|(语言位, _, _)| *语言位 == 语言代码)
         .map(|(_, 文件位, 内容位)| (*文件位, *内容位))
@@ -161,17 +160,17 @@ pub fn 内置语言文件(语言代码: &str) -> Vec<(&'static str, &'static str
 
 /// 按语言代码取消息表（未知语言回退中文表）；路由由 build.rs 生成
 fn 取消息表(代码: &str) -> &'static HashMap<String, String> {
-    ui_table_for(代码)
+    界面表路由(代码)
 }
 
 /// 内置语言包代码列表（从 lang-packs/ 目录自动生成，单一事实源）
 ///
-/// 由 build.rs 扫描目录生成 [`BUILTIN_FILES`] 后在此去重排序；
+/// 由 build.rs 扫描目录生成 [`内置文件清单`] 后在此去重排序；
 /// 新增/删除语言包无需修改任何 Rust 代码，重新编译即自动纳入。
 /// CLI / LSP 的语言清单（rzc lang、扩展名推断、系统语言检测）均以本函数为源。
 pub fn 内置语言代码() -> Vec<&'static str> {
     let mut 代码列表: Vec<&'static str> =
-        BUILTIN_FILES.iter().map(|(语言位, _, _)| *语言位).collect();
+        内置文件清单.iter().map(|(语言位, _, _)| *语言位).collect();
     代码列表.sort_unstable();
     代码列表.dedup();
     代码列表
@@ -188,7 +187,7 @@ pub fn 使用西里尔文字(语言代码: &str) -> bool {
 
 /// 判断语言代码是否有对应的内置语言包
 pub fn 拥有所属语言(代码: &str) -> bool {
-    BUILTIN_FILES.iter().any(|(语言位, _, _)| *语言位 == 代码)
+    内置文件清单.iter().any(|(语言位, _, _)| *语言位 == 代码)
 }
 
 /// 内置语言包扩展名列表（来自各语言包 lang_info.toml 的 `"扩展名"` 字段）
@@ -221,7 +220,7 @@ fn 取消息于(代码: &str, 键: &str) -> String {
     {
         return 消息内容.to_string();
     }
-    ui_table_for("zh")
+    界面表路由("zh")
         .get(键)
         .map(|串| 串.to_string())
         .unwrap_or_else(|| 键.to_string())
