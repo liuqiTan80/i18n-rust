@@ -52,9 +52,9 @@ scan_help_text() {
 #   防假绿要点（实测定案，勿回退）：
 #   ① locale 钉 UTF-8：grep -P '\x{4e00}' 在 LC_ALL=C 下硬报错空输出→红线②静默
 #     死掉永假绿（容器/CI 纯 C 环境实测复现）；脚本自带能力探测，不满足即红中止。
-#   ② 界面语言钉 RZ_LANG=zh：CLI 界面语言跟 LANG/LC_ALL 走，en locale 的 CI/macos
-#     runner 上 help 正确显示英文却被门禁误判泄漏爆红（实测 LANG=en_US.UTF-8 即红）；
-#     调用方已显式指定 RZ_LANG 则尊重之。
+#   ② 界面语言无条件钉 RZ_LANG=zh：CLI 界面语言跟 LANG/LC_ALL/RZ_LANG 走，任何
+#     非 zh 界面的合法文本都会被红线②误判「泄漏」（实测 RZ_LANG=en 入口整屏
+#     假红）——此为门禁内部前提，不容调用方环境穿透，与 locale 同理强制隔离。
 #   ③ --help 运行失败带命令路径归属中止；④ 有 Commands: 段却枚举不出子命令=
 #     失灵盲点中止；⑤ 上报覆盖路径数且 root 外须至少爬到 1 个子命令。
 
@@ -134,9 +134,10 @@ fi
 
 # --- 正常模式：解析 rzc 二进制（沿用 demo-check 惯例）---
 set_utf8_locale
-# 界面语言钉 zh：检测链与被检对象解耦，不随 runner/本机 locale 漂移；
-# 调用方已显式指定 RZ_LANG 则尊重（非空即不覆盖）。
-if [ -z "${RZ_LANG:-}" ]; then export RZ_LANG=zh; fi
+# 界面语言无条件钉 zh：红线②的断言对象就是「中文界面输出」，属门禁内部前提，
+# 必须像 locale 一样强制隔离——若尊重调用方环境里的 RZ_LANG（如 en），合法
+# 英文 UI 文本会被红线②整屏误判「泄漏」假红（实测坐实），门禁将不确定。
+export RZ_LANG=zh
 RZC="$(command -v rzc || true)"
 if [ "${1:-}" = "--rzc" ]; then RZC="${2:?--rzc 需紧跟二进制路径}"; fi
 if [ -z "$RZC" ]; then
