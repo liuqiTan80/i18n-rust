@@ -30,7 +30,7 @@ test: ## 全部单元测试（debug + release，锁定依赖；CI 同款）
 	$(CARGO) test --workspace --locked
 	$(CARGO) test --workspace --release --locked
 
-gate: fmt-check clippy test prod-panics ui-keys lang-packs readme-parity mapping-check tutorials-all glossary zh-verify ## 提交前完整门禁（= CI test job 全链）
+gate: fmt-check clippy test prod-panics ui-keys lang-packs readme-parity mapping-check tutorials-all glossary zh-verify zh-demo-check ## 提交前完整门禁（= CI test job 全链）
 
 prod-panics: ## 生产代码 panic 面门禁（unwrap/expect/panic! 仅限测试区或白名单）
 	$(PYTHON) tools/check-prod-panics.py
@@ -86,6 +86,9 @@ zh-regen: ## zh 自举：以 .zh 为源真相再生成 .rs 产物（需 PATH 有
 
 zh-verify: ## zh 自举产物一致性门禁（漂移即退出码 1，已纳入 gate 链）
 	./tools/zh-selfhost/regen.sh --check
+
+zh-demo-check: ## .zh-demo 演示方言改写往返校验（eject 产物须命中预期改写，已纳入 gate 链）
+	./tools/zh-selfhost/demo-check.sh
 
 vsix: ## 本地打包 VS Code 扩展（产物 release/*.vsix）
 	cd tools/vscode-extension && npm ci && npm run compile && \

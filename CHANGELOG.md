@@ -17,6 +17,10 @@
   协议键、build.rs 生成面）以英文钉死不变。方法论与保留类白名单见
   [docs/zh-selfhost-guide.md](docs/zh-selfhost-guide.md)。本分支定位为学习与
   参考，不合回主干（产品主线仍以英文源码为主）。
+- 新增 `make zh-demo-check`（`tools/zh-selfhost/demo-check.sh`，已纳入 `gate`）：
+  对用户风格演示项目 `.zh-demo/` 做方言改写往返校验——隔离目录 eject `main.zh`，
+  断言既命中预期英文改写（模块路径/关键字/宏/方法/第三方透传）又保留用户中文类型，
+  防演示随源码演化而失效。
 
 ### 修复
 - VS Code 扩展：修复 `.zh` 等方言文件里 `r#"…"#` 原始字符串**整片区域串色**——

@@ -163,5 +163,14 @@ cargo test --workspace                   # 同一套测试全绿
 make gate                                # 源真相与产物一致性门禁
 ```
 
+想直观感受「中文方言写真实 Rust」，跑用户风格最小演示项目 `.zh-demo/`（不在
+自举源真相范围内，主打模块路径替换等方言能力）：
+
+```bash
+rzc run .zh-demo/src/main.zh             # 方言转译后编译并执行
+make zh-demo-check                       # 改写往返校验（eject 产物须命中预期英文改写，
+                                         # 且用户中文类型存活；已纳入 gate 链）
+```
+
 每个 `feat(zh-selfhost)` 提交的说明记录了当批改名映射与保留判据，
 可按提交历史通读整个翻转过程。
