@@ -49,8 +49,36 @@ scan_help_text() {
     return "$fail"
 }
 
+#   防假绿要点（实测定案，勿回退）：
+#   ① locale 钉 UTF-8：grep -P '\x{4e00}' 在 LC_ALL=C 下硬报错空输出→红线②静默
+#     死掉永假绿（容器/CI 纯 C 环境实测复现）；脚本自带能力探测，不满足即红中止。
+#   ② 界面语言钉 RZ_LANG=zh：CLI 界面语言跟 LANG/LC_ALL 走，en locale 的 CI/macos
+#     runner 上 help 正确显示英文却被门禁误判泄漏爆红（实测 LANG=en_US.UTF-8 即红）；
+#     调用方已显式指定 RZ_LANG 则尊重之。
+#   ③ --help 运行失败带命令路径归属中止；④ 有 Commands: 段却枚举不出子命令=
+#     失灵盲点中止；⑤ 上报覆盖路径数且 root 外须至少爬到 1 个子命令。
+
+# --- 环境钉定（自检与真实模式共用，置于所有 grep -P 调用之前）---
+# 依次试当前环境与常见 UTF-8 locale，用中文样本实测 grep -P '\x{}' 真生效才 export；
+# 全部不可用即红退出——绝不带着静默失效的红线②继续判绿。
+set_utf8_locale() {
+    local c
+    for c in "${LC_ALL:-}" "${LANG:-}" C.UTF-8 en_US.UTF-8 zh_CN.UTF-8; do
+        [ -n "$c" ] || continue
+        if printf '你好' | LC_ALL="$c" grep -qP '[\x{4e00}-\x{9fff}]' 2>/dev/null; then
+            export LC_ALL="$c"
+            return 0
+        fi
+    done
+    echo "❌ 找不到能让 grep -P '\\x{}' 中文探测生效的 UTF-8 locale（当前 LC_ALL=${LC_ALL:-未设} LANG=${LANG:-未设}）"
+    echo "   红线②的中文过滤在 C locale 下会静默失效成假绿——拒绝在不可靠环境继续判定。"
+    echo "   排障：设 LC_ALL=C.UTF-8（或 en_US.UTF-8/zh_CN.UTF-8）重跑；容器镜像缺 locale 时先装。"
+    exit 1
+}
+
 # --- 自检模式：证明检测器判对（正样本过、两类负样本拒），不依赖 rzc ---
 if [ "${1:-}" = "--self-test" ]; then
+    set_utf8_locale
     ST="$(mktemp -d /tmp/zh-help-selftest-XXXXXX)"
     trap 'rm -rf "$ST"' EXIT
     # 正样本：真实形态的中文 help 片段 + 全部白名单结构行
@@ -105,6 +133,10 @@ HSUB
 fi
 
 # --- 正常模式：解析 rzc 二进制（沿用 demo-check 惯例）---
+set_utf8_locale
+# 界面语言钉 zh：检测链与被检对象解耦，不随 runner/本机 locale 漂移；
+# 调用方已显式指定 RZ_LANG 则尊重（非空即不覆盖）。
+if [ -z "${RZ_LANG:-}" ]; then export RZ_LANG=zh; fi
 RZC="$(command -v rzc || true)"
 if [ "${1:-}" = "--rzc" ]; then RZC="${2:?--rzc 需紧跟二进制路径}"; fi
 if [ -z "$RZC" ]; then
