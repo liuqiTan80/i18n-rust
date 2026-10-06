@@ -1893,6 +1893,7 @@ fn 界面按文件(file: &Path, 语言包: &Option<PathBuf>) -> 本地化::界�
 fn 本地化clap(界面: &本地化::界面) -> clap::Command {
     use clap::CommandFactory;
     命令行参数集::command()
+        .disable_help_subcommand(true)
         .about(界面.取文("cli_about"))
         .mut_arg("屏蔽教学提醒", |参数| {
             参数.help(界面.取文("arg_no_lint_help"))
@@ -1923,6 +1924,7 @@ fn 本地化clap(界面: &本地化::界面) -> clap::Command {
         })
         .mut_subcommand("install", |命令| {
             命令
+                .disable_help_subcommand(true)
                 .about(界面.取文("cmd_install_about"))
                 .mut_subcommand("lsp", |子| {
                     子.about(界面.取文("cmd_install_lsp_about"))
@@ -1959,6 +1961,7 @@ fn 本地化clap(界面: &本地化::界面) -> clap::Command {
         })
         .mut_subcommand("lang", |命令| {
             命令
+                .disable_help_subcommand(true)
                 .about(界面.取文("cmd_lang_about"))
                 .mut_subcommand("list", |子| 子.about(界面.取文("cmd_lang_list_about")))
                 .mut_subcommand("install", |子| {
@@ -1985,6 +1988,7 @@ fn 本地化clap(界面: &本地化::界面) -> clap::Command {
         })
         .mut_subcommand("mapping", |命令| {
             命令
+                .disable_help_subcommand(true)
                 .about(界面.取文("cmd_mapping_about"))
                 .mut_subcommand("auto", |子| {
                     子.about(界面.取文("cmd_mapping_auto_about"))
@@ -2035,6 +2039,7 @@ fn 本地化clap(界面: &本地化::界面) -> clap::Command {
         })
         .mut_subcommand("crate", |命令| {
             命令
+                .disable_help_subcommand(true)
                 .about(界面.取文("cmd_crate_about"))
                 .mut_subcommand("search", |子| {
                     子.about(界面.取文("cmd_crate_search_about"))

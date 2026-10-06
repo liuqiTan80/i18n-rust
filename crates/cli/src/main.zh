@@ -1866,7 +1866,7 @@
 函数 本地化clap(界面: &本地化::界面) -> clap::Command {
     使用 clap::CommandFactory;
     命令行参数集::command()
-        .about(界面.取文("cli_about"))
+        .disable_help_subcommand(true).about(界面.取文("cli_about"))
         .mut_arg("屏蔽教学提醒", |参数| 参数.help(界面.取文("arg_no_lint_help")))
         .mut_subcommand("init", |命令| {
             命令.about(界面.取文("cmd_init_about"))
@@ -1884,7 +1884,7 @@
                 .mut_arg("依赖名单", |参数| 参数.help(界面.取文("arg_add_crates_help")))
         })
         .mut_subcommand("install", |命令| {
-            命令.about(界面.取文("cmd_install_about"))
+            命令.disable_help_subcommand(true).about(界面.取文("cmd_install_about"))
                 .mut_subcommand("lsp", |子| {
                     子.about(界面.取文("cmd_install_lsp_about"))
                         .mut_arg("强制覆盖", |参数| 参数.help(界面.取文("arg_force_help")))
@@ -1904,7 +1904,7 @@
                 .mut_arg("表格模式", |参数| 参数.help(界面.取文("arg_markdown_help")))
         })
         .mut_subcommand("lang", |命令| {
-            命令.about(界面.取文("cmd_lang_about"))
+            命令.disable_help_subcommand(true).about(界面.取文("cmd_lang_about"))
                 .mut_subcommand("list", |子| 子.about(界面.取文("cmd_lang_list_about")))
                 .mut_subcommand("install", |子| {
                     子.about(界面.取文("cmd_lang_install_about"))
@@ -1923,7 +1923,7 @@
                 })
         })
         .mut_subcommand("mapping", |命令| {
-            命令.about(界面.取文("cmd_mapping_about"))
+            命令.disable_help_subcommand(true).about(界面.取文("cmd_mapping_about"))
                 .mut_subcommand("auto", |子| {
                     子.about(界面.取文("cmd_mapping_auto_about"))
                         .mut_arg("依赖包名", |参数| {
@@ -1962,7 +1962,7 @@
                 })
         })
         .mut_subcommand("crate", |命令| {
-            命令.about(界面.取文("cmd_crate_about"))
+            命令.disable_help_subcommand(true).about(界面.取文("cmd_crate_about"))
                 .mut_subcommand("search", |子| {
                     子.about(界面.取文("cmd_crate_search_about"))
                         .mut_arg("搜索关键词", |参数| 参数.help(界面.取文("arg_crate_keyword_help")))

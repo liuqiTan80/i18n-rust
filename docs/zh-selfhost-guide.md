@@ -65,6 +65,11 @@ crates/**.zh  ──(tools/zh-selfhost/regen.sh: stage 拷贝 → rzc eject → 
    源码里紧靠的注释 `// 兜底文案（本地化 clap 会按界面语言覆盖）；用英文避免硬编码中文`
    就是这个意图。判据：强制重编后 `rzc --help` 实际输出已中文、无英文泄漏；**勿中文化**
    这些兜底（否则与该设计自相矛盾，且源码里英文≠漏翻）。
+   配套取舍：clap 会为每个含子命令的命令自动加一个 `help` 子命令，其描述是 clap 内建英文
+   `Print this message or the help of the given subcommand(s)`（非 derive 兜底、无法用 `界面.取文`
+   覆盖）。为守住「全树 `--help` 无英文泄漏」，`本地化clap()` 里对 root 及 install/lang/mapping/crate
+   各调 `.disable_help_subcommand(true)` 移除内建 `help` 子命令——`rzc <命令> --help`/`-h` 仍全可用，
+   仅失去 `rzc help <命令>` 这种冗余写法。**勿重新启用**，否则英文自动描述会重新出现在中文帮助里。
 
 **审计“全中文”不变式的方法**：要确认「自有符号已全中文化、无漏网英文」，不能拿
 `grep -E 'fn [A-Za-z]'` 的一堆命中直接下结论——定义关键字同样大量出现在**字符串
