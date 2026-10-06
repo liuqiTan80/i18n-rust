@@ -11,7 +11,7 @@
 CARGO ?= cargo
 PYTHON ?= python3
 
-.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs readme-parity mapping-check tutorials tutorials-all site site-serve feishu glossary bench bench-check bench-update vsix clean
+.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs readme-parity mapping-check tutorials tutorials-all site site-serve feishu glossary bench bench-check bench-update vsix clean zh-verify zh-demo-check zh-help-check
 
 help: ## 显示全部可用目标
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -30,7 +30,7 @@ test: ## 全部单元测试（debug + release，锁定依赖；CI 同款）
 	$(CARGO) test --workspace --locked
 	$(CARGO) test --workspace --release --locked
 
-gate: fmt-check clippy test prod-panics ui-keys lang-packs readme-parity mapping-check tutorials-all glossary zh-verify zh-demo-check ## 提交前完整门禁（= CI test job 全链）
+gate: fmt-check clippy test prod-panics ui-keys lang-packs readme-parity mapping-check tutorials-all glossary zh-verify zh-demo-check zh-help-check ## 提交前完整门禁（= CI test job 全链）
 
 prod-panics: ## 生产代码 panic 面门禁（unwrap/expect/panic! 仅限测试区或白名单）
 	$(PYTHON) tools/check-prod-panics.py
@@ -90,6 +90,11 @@ zh-verify: ## zh 自举产物一致性门禁（漂移即退出码 1，已纳入 
 zh-demo-check: ## .zh-demo 演示方言改写往返校验（先自检检测器非永绿、再验实际改写，已纳入 gate 链）
 	./tools/zh-selfhost/demo-check.sh --self-test
 	./tools/zh-selfhost/demo-check.sh
+
+zh-help-check: ## CLI --help 全树本地化门禁（先自检检测器非永绿、再爬真实二进制命令树：无内建 help 复活、无英文散文泄漏）
+	./tools/zh-selfhost/help-check.sh --self-test
+	$(CARGO) build --quiet --bin rzc
+	./tools/zh-selfhost/help-check.sh --rzc target/debug/rzc
 
 vsix: ## 本地打包 VS Code 扩展（产物 release/*.vsix）
 	cd tools/vscode-extension && npm ci && npm run compile && \

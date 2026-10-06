@@ -78,6 +78,16 @@ jobs:
         # 工作区含 rzc 与 i18n-rust-lsp 两个二进制，必须用 --bin 指定
         run: cargo run --quiet --bin rzc -- mapping auto --help | grep -q "crate"
 
+      - name: CLI --help 全树本地化门禁
+        # 先自检检测器非「永远绿」（正样本过/两类负样本拒），再递归爬取真实
+        # 二进制整棵命令树：① clap 内建 help 子命令不得复活（其英文描述
+        # 无法被 界面.取文 覆盖）；② 描述文本不得漏英文散文（about/help
+        # 未本地化即红），守住 guide §3 条目 6 的「全树 --help 无英文泄漏」红线
+        run: |
+          cargo build --quiet --bin rzc
+          ./tools/zh-selfhost/help-check.sh --self-test
+          ./tools/zh-selfhost/help-check.sh --rzc target/debug/rzc
+
       - name: 第三方库映射质量门禁
         # 校验全部内置语言包的 crates 映射：重复键 / 关键字避让 /
         # 跨文件同键冲突 / 跨语言条目数一致性（发现 error 时退出码非零），

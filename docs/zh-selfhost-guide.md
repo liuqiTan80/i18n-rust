@@ -69,7 +69,7 @@ crates/**.zh  ──(tools/zh-selfhost/regen.sh: stage 拷贝 → rzc eject → 
    `Print this message or the help of the given subcommand(s)`（非 derive 兜底、无法用 `界面.取文`
    覆盖）。为守住「全树 `--help` 无英文泄漏」，`本地化clap()` 里对 root 及 install/lang/mapping/crate
    各调 `.disable_help_subcommand(true)` 移除内建 `help` 子命令——`rzc <命令> --help`/`-h` 仍全可用，
-   仅失去 `rzc help <命令>` 这种冗余写法。**勿重新启用**，否则英文自动描述会重新出现在中文帮助里。
+   仅失去 `rzc help <命令>` 这种冗余写法。**勿重新启用**，否则英文自动描述会重新出现在中文帮助里。这条红线现由常设门禁 `tools/zh-selfhost/help-check.sh`（`make gate` 的 zh-help-check）机器把守：自检负样本专门验证检测器非「永远绿」，再递归爬真实二进制整棵命令树复扫这两条。
 
 **审计“全中文”不变式的方法**：要确认「自有符号已全中文化、无漏网英文」，不能拿
 `grep -E 'fn [A-Za-z]'` 的一堆命中直接下结论——定义关键字同样大量出现在**字符串
