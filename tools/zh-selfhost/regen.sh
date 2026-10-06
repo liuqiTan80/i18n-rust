@@ -24,10 +24,12 @@ MODE="write"
 # 登记表：递归枚举 crates/ 下全部 .zh 源真相（一一对应生成同目录同名 .rs）。
 # 自举范围已从 engine 顶层 .zh 扩展到子目录（诊断/）与 cli/lsp 各 crate，
 # 故不再硬编码清单，改为发现（作用域限 crates/，排除 .zh-demo、docs 演示夹具）。
+# 排除任意层级的 target/：.gitignore 只锚定根 /target/，若有人将 CARGO_TARGET_DIR
+# 指进某 crate，构建生成物会污染发现清单与覆盖面断言（假孤儿 .rs）——两处 find 均排除。
 ZH_SOURCES=()
 while IFS= read -r _zh; do
     ZH_SOURCES+=("$_zh")
-done < <(find crates -name '*.zh' | LC_ALL=C sort)
+done < <(find crates -name '*.zh' -not -path '*/target/*' | LC_ALL=C sort)
 
 # 引导编译器来源提示：指向本工作区 target/ 时警告不阻断
 #   ——本地验收经软链接使用发布构建（v0.8.3 快照）属预期引导；
@@ -111,7 +113,7 @@ done
 orphan=0
 while IFS= read -r _rs; do
     [ -f "${_rs%.rs}.zh" ] || { echo "❌ 孤儿 .rs（无配对 .zh，未纳入源真相）: $_rs"; orphan=1; }
-done < <(find crates -name '*.rs' | LC_ALL=C sort)
+done < <(find crates -name '*.rs' -not -path '*/target/*' | LC_ALL=C sort)
 if [ "$orphan" -ne 0 ]; then
     echo "❌ 自举覆盖面断言失败：存在未由 .zh 生成的 .rs（应翻转为 .zh 源真相或删除）"
     exit 1
