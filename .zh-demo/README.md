@@ -19,3 +19,7 @@ rzc run .zh-demo/src/main.zh
 `tools/zh-selfhost/demo-check.sh`）在隔离目录 eject `main.zh`，断言产物既出现预期
 英文改写（`use std::collections::HashMap;`、`fn main()`、`println!`、第三方透传等），
 又保留用户自定义中文类型（`struct 替换结果` 等），已接入 `make gate` 防演示随演化失效。
+
+可跑 `demo-check.sh --self-test` 自检检测器本身（不依赖 rzc）：正样本须全通过、
+未转译的原始 `.zh` 负样本须被判失败，以此杜绝门禁“永远绿”假阳性；`make zh-demo-check`
+会先跑自检再跑实测。

@@ -10,35 +10,14 @@
 #   任一条不满足即退出码 1，纳入 make gate 链防止演示随源码演化而失效。
 #
 # 用法：
-#   ./tools/zh-selfhost/demo-check.sh            # 用 PATH 中的 rzc
+#   ./tools/zh-selfhost/demo-check.sh               # 用 PATH 中的 rzc 做往返校验
 #   ./tools/zh-selfhost/demo-check.sh --rzc <路径>  # 指定 rzc 二进制（如 target/debug/rzc）
+#   ./tools/zh-selfhost/demo-check.sh --self-test   # 自检：验证检测器本身能判对
+#       （正样本须通过、未转译负样本须失败；不依赖 rzc，用于确认门禁非「永远绿」）
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-RZC="$(command -v rzc || true)"
-if [ "${1:-}" = "--rzc" ]; then RZC="${2:?--rzc 需紧跟二进制路径}"; fi
-if [ -z "$RZC" ]; then
-    echo "❌ 找不到 rzc：PATH 中无 rzc 且未传 --rzc <路径>"
-    exit 1
-fi
-
 SRC=".zh-demo/src/main.zh"
-[ -f "$SRC" ] || { echo "❌ 缺少演示源 $SRC"; exit 1; }
-
-# 隔离到 /tmp 独立项目 eject：rzc 靠 Cargo.toml 定位项目根，直接在 .zh-demo/
-# 内 eject 会向上命中宿主根并覆盖其源文件（嵌套夹具坑），且污染 git 跟踪的演示目录。
-STAGE="$(mktemp -d /tmp/zh-demo-check-XXXXXX)"
-trap 'rm -rf "$STAGE"' EXIT
-cp "$SRC" "$STAGE/main.zh"
-cat > "$STAGE/Cargo.toml" <<'STUB'
-[package]
-name = "zh-demo-check"
-version = "0.0.0"
-edition = "2021"
-STUB
-(cd "$STAGE" && "$RZC" eject main.zh >/dev/null 2>&1)
-OUT="$STAGE/main.rs"
-[ -f "$OUT" ] || { echo "❌ eject 未产出 main.rs"; exit 1; }
 
 # ① 预期英文改写结果（缺任一即演示核心能力回退）
 MUST_HAVE=(
@@ -56,26 +35,77 @@ MUST_KEEP_ZH=(
     "fn 替换模块路径带表"
 )
 
-fail=0
-for s in "${MUST_HAVE[@]}"; do
-    if grep -qF "$s" "$OUT"; then
-        echo "✅ 改写生效: $s"
-    else
-        echo "❌ 缺失预期改写: $s"
-        fail=1
-    fi
-done
-for s in "${MUST_KEEP_ZH[@]}"; do
-    if grep -qF "$s" "$OUT"; then
-        echo "✅ 中文标识符存活: $s"
-    else
-        echo "❌ 中文标识符被劫持/丢失: $s"
-        fail=1
-    fi
-done
+QUIET=0
+# 对给定产物文件跑全部断言；全通过返回 0，任一失败返回 1。
+assert_output() {
+    local out="$1" fail=0 s
+    for s in "${MUST_HAVE[@]}"; do
+        if grep -qF "$s" "$out"; then
+            [ "$QUIET" = 1 ] || echo "✅ 改写生效: $s"
+        else
+            [ "$QUIET" = 1 ] || echo "❌ 缺失预期改写: $s"; fail=1
+        fi
+    done
+    for s in "${MUST_KEEP_ZH[@]}"; do
+        if grep -qF "$s" "$out"; then
+            [ "$QUIET" = 1 ] || echo "✅ 中文标识符存活: $s"
+        else
+            [ "$QUIET" = 1 ] || echo "❌ 中文标识符被劫持/丢失: $s"; fail=1
+        fi
+    done
+    [ "$fail" -eq 0 ]
+}
 
-if [ "$fail" -ne 0 ]; then
+# --- 自检模式：证明检测器本身可靠（不依赖 rzc） ---
+if [ "${1:-}" = "--self-test" ]; then
+    ST="$(mktemp -d /tmp/zh-demo-selftest-XXXXXX)"
+    trap 'rm -rf "$ST"' EXIT
+    # 正样本：构造含全部预期标记的产物，断言须通过
+    {
+        printf '%s\n' "${MUST_HAVE[@]}" "${MUST_KEEP_ZH[@]}"
+    } > "$ST/good.rs"
+    QUIET=1
+    if ! assert_output "$ST/good.rs"; then
+        echo "❌ 自检失败：正样本（应全通过）竟判失败——断言逻辑有误"; exit 1
+    fi
+    echo "✅ 自检·正样本：预期全通过的产物被判通过"
+    # 负样本：未转译的原始 .zh，断言须失败（改写标记均未出现）
+    [ -f "$SRC" ] || { echo "❌ 缺少演示源 $SRC"; exit 1; }
+    if assert_output "$SRC"; then
+        echo "❌ 自检失败：未转译输入竟通过校验——检测器失灵（门禁形同虚设）"; exit 1
+    fi
+    echo "✅ 自检·负样本：未转译输入被正确判失败"
+    echo "自检通过：demo-check 检测器判对可靠。"
+    exit 0
+fi
+
+# --- 正常往返校验 ---
+RZC="$(command -v rzc || true)"
+if [ "${1:-}" = "--rzc" ]; then RZC="${2:?--rzc 需紧跟二进制路径}"; fi
+if [ -z "$RZC" ]; then
+    echo "❌ 找不到 rzc：PATH 中无 rzc 且未传 --rzc <路径>"
+    exit 1
+fi
+[ -f "$SRC" ] || { echo "❌ 缺少演示源 $SRC"; exit 1; }
+
+# 隔离到 /tmp 独立项目 eject：rzc 靠 Cargo.toml 定位项目根，直接在 .zh-demo/
+# 内 eject 会向上命中宿主根并覆盖其源文件（嵌套夹具坑），且污染 git 跟踪的演示目录。
+STAGE="$(mktemp -d /tmp/zh-demo-check-XXXXXX)"
+trap 'rm -rf "$STAGE"' EXIT
+cp "$SRC" "$STAGE/main.zh"
+cat > "$STAGE/Cargo.toml" <<'STUB'
+[package]
+name = "zh-demo-check"
+version = "0.0.0"
+edition = "2021"
+STUB
+(cd "$STAGE" && "$RZC" eject main.zh >/dev/null 2>&1)
+OUT="$STAGE/main.rs"
+[ -f "$OUT" ] || { echo "❌ eject 未产出 main.rs"; exit 1; }
+
+if assert_output "$OUT"; then
+    echo "全部通过：.zh-demo 方言改写往返校验一致。"
+else
     echo "❌ .zh-demo 往返校验失败：方言改写结果与预期不符（详见上方缺失项）"
     exit 1
 fi
-echo "全部通过：.zh-demo 方言改写往返校验一致。"

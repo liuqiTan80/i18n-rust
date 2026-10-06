@@ -87,7 +87,8 @@ zh-regen: ## zh 自举：以 .zh 为源真相再生成 .rs 产物（需 PATH 有
 zh-verify: ## zh 自举产物一致性门禁（漂移即退出码 1，已纳入 gate 链）
 	./tools/zh-selfhost/regen.sh --check
 
-zh-demo-check: ## .zh-demo 演示方言改写往返校验（eject 产物须命中预期改写，已纳入 gate 链）
+zh-demo-check: ## .zh-demo 演示方言改写往返校验（先自检检测器非永绿、再验实际改写，已纳入 gate 链）
+	./tools/zh-selfhost/demo-check.sh --self-test
 	./tools/zh-selfhost/demo-check.sh
 
 vsix: ## 本地打包 VS Code 扩展（产物 release/*.vsix）
