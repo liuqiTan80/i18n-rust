@@ -1590,22 +1590,22 @@ fn 重放列映射(中文原文: &str, 管线映射: &[源映射条目]) -> Vec<
         }
 
         // 输出长度：命中地图条目取 replacement 的 UTF-16 长度，否则原样
-        let zh_len: u32 = 词元文本
+        let 中文长度: u32 = 词元文本
             .chars()
             .map(|字符项| 字符项.len_utf16() as u32)
             .sum();
-        let en_len: u32 = match 按偏移排序.get(&词元起点) {
+        let 英文长度: u32 = match 按偏移排序.get(&词元起点) {
             Some(条目项) => 条目项
                 .替换文本
                 .chars()
                 .map(|字符项| 字符项.len_utf16() as u32)
                 .sum(),
-            None => zh_len,
+            None => 中文长度,
         };
 
-        累计差值 += en_len as i32 - zh_len as i32;
-        中文列号 += zh_len;
-        英文列号 += en_len;
+        累计差值 += 英文长度 as i32 - 中文长度 as i32;
+        中文列号 += 中文长度;
+        英文列号 += 英文长度;
 
         // 如果偏移差变化了，记录新的分段边界（当前行内）
         let 末次差值 = 逐行映射

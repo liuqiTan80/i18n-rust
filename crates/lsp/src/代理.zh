@@ -1440,7 +1440,7 @@
         // SAFETY: `kill` 为 POSIX 标准 C 函数，签名与声明一致（pid_t/int 均为 i32）；
         // 本进程不安装 signal handler，调用本身不改变内存状态；sig=0 只做权限与
         // 存在性检查、不递送任何信号，故无内存安全或状态破坏风险。
-        unsafe extern "C" {
+        不安全 extern "C" {
             函数 kill(进程号: i32, sig: i32) -> i32;
         }
         // 不实际发信号（sig=0），仅做存在性检查
@@ -1848,7 +1848,7 @@
     i18n_rust_engine::映射管理::映射管理器::自目录加载(&中文目录).ok()
 }
 
-#[配置(test)]
+#[配置(测试)]
 模块 单元测试 {
     使用 超级::*;
     使用 std::collections::HashMap;

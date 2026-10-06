@@ -48,7 +48,7 @@ struct 镜像文件 {
     /// 镜像中的产物路径（src/main.rs 或同名 .rs；诊断归位用）
     产物路径: PathBuf,
     /// 真实项目中的方言源 URI（发布诊断用）
-    原始uri: String,
+    原始资源定位: String,
     /// 方言源内容（打开文档取缓冲区，否则取磁盘；同行列换算用）
     方言内容: String,
     /// 引擎列映射（产物字符列 → 方言字符列；本模块自行转译，与 CLI 同源）
@@ -79,11 +79,13 @@ pub(crate) fn 执行镜像检查(
     发送端: &crossbeam_channel::Sender<lsp_server::Message>,
     内置诊断: &Arc<Mutex<HashMap<String, Vec<Value>>>>,
     扩展名列表: &[String],
-    触发uri: &str,
+    触发资源定位: &str,
     已知词集: &HashSet<String>,
 ) -> bool {
     // 触发文件须在缓存中（didOpen/didSave 均已入库），据此定位项目根
-    let Some(触发路径) = 缓存.查询原文(触发uri).map(|条目| 条目.原始路径.clone())
+    let Some(触发路径) = 缓存
+        .查询原文(触发资源定位)
+        .map(|条目| 条目.原始路径.clone())
     else {
         return false;
     };
@@ -343,7 +345,7 @@ fn 转译入镜像(
         // 文档严格一致（Windows 上规范化形式与客户端形式不同，直接用
         // 反推 URI 会导致诊断发布到用户不可见的文档上）；未登记条目
         // （缓存无路径匹配）回退规范化形式
-        let 原始uri = 缓存
+        let 原始资源定位 = 缓存
             .按路径查询(&源路径)
             .map(|条目| 条目.原始资源定位.clone())
             .unwrap_or_else(|| 路径转定位(&源路径));
@@ -379,7 +381,7 @@ fn 转译入镜像(
         }
         文件集.push(镜像文件 {
             产物路径,
-            原始uri,
+            原始资源定位,
             方言内容: 路径项.方言内容,
             列映射: 路径项.列映射,
             入口行映射,
@@ -548,7 +550,7 @@ fn 发布rustc诊断(
         })
         .collect();
 
-    let mut 按uri: HashMap<String, Vec<Value>> = HashMap::new();
+    let mut 按资源定位: HashMap<String, Vec<Value>> = HashMap::new();
     let mut 已见 = 0usize;
     for line in 标准输出.lines() {
         let Ok(值) = serde_json::from_str::<Value>(line) else {
@@ -611,7 +613,7 @@ fn 发布rustc诊断(
             };
             原始关联.push(json!({
                 "location": {
-                    "uri": 关联文件.原始uri,
+                    "uri": 关联文件.原始资源定位,
                     "range": {
                         "start": { "line": 起点行, "character": 起点列 },
                         "end": { "line": 终点行, "character": 终点列 }
@@ -623,7 +625,7 @@ fn 发布rustc诊断(
 
         let 原始值 = json!({ "message": 原始消息, "code": 错误码 });
         let 还原值 = json!({ "range": 范围, "relatedInformation": 原始关联 });
-        let 所有权 = 提取所有权详情(&原始值, &还原值, &file.原始uri);
+        let 所有权 = 提取所有权详情(&原始值, &还原值, &file.原始资源定位);
 
         // 主消息与 CLI 同口径：传错误码 + 主 span 标签（rustc JSON 携带
         // “expected X, found Y”），使类型不匹配等能回填期望/实际并中文化类型名
@@ -662,16 +664,19 @@ fn 发布rustc诊断(
         {
             诊断["data"] = 详情值;
         }
-        按uri.entry(file.原始uri.clone()).or_default().push(诊断);
+        按资源定位
+            .entry(file.原始资源定位.clone())
+            .or_default()
+            .push(诊断);
     }
 
     // 合并内置诊断（RA 最近一次映射后的方言坐标诊断 + 教学提示）：
     // 同 code 且同起始行视为重复（与虚拟检查的合并规则一致），
     // 避免镜像结果覆盖语法/类型实时诊断
     let mut 已发布 = 0usize;
-    for (uri, mut 诊断列表) in 按uri {
+    for (资源定位, mut 诊断列表) in 按资源定位 {
         if let Ok(守卫) = 内置诊断.lock()
-            && let Some(内置项) = 守卫.get(&uri)
+            && let Some(内置项) = 守卫.get(&资源定位)
         {
             for 条目 in 内置项.clone() {
                 let 重复 = 诊断列表.iter().any(|诊断项| {
@@ -685,12 +690,12 @@ fn 发布rustc诊断(
         }
         // 教学诊断注入（全角标点 + 教学 lint）：由 entry 内容直接计算，
         // 不依赖 builtin 缓存（镜像检查先于 RA 首批发布时缓存为空）
-        if let Some(条目) = 缓存.查询原文(&uri) {
+        if let Some(条目) = 缓存.查询原文(&资源定位) {
             注入教学诊断(&mut 诊断列表, &条目, 已知词集, &缓存.歧义构造词集());
         }
         let 通知 = lsp_server::Notification {
             method: "textDocument/publishDiagnostics".to_string(),
-            params: json!({ "uri": uri, "diagnostics": 诊断列表 }),
+            params: json!({ "uri": 资源定位, "diagnostics": 诊断列表 }),
         };
         let _ = 发送端.send(lsp_server::Message::Notification(通知));
         已发布 += 1;
@@ -1018,7 +1023,7 @@ mod 单元测试 {
         )];
         镜像文件 {
             产物路径: PathBuf::from("/mirror/src/main.rs"),
-            原始uri: "file:///proj/src/main.zh".to_string(),
+            原始资源定位: "file:///proj/src/main.zh".to_string(),
             方言内容: 方言源码.to_string(),
             列映射: i18n_rust_engine::列映射::列映射表::r#构建(方言源码, &编辑列表),
             入口行映射,
@@ -1050,7 +1055,7 @@ mod 单元测试 {
         ];
         let file = 镜像文件 {
             产物路径: PathBuf::from("/mirror/src/main.rs"),
-            原始uri: "file:///proj/src/main.zh".to_string(),
+            原始资源定位: "file:///proj/src/main.zh".to_string(),
             方言内容: 方言源码.to_string(),
             列映射: i18n_rust_engine::列映射::列映射表::r#构建(方言源码, &编辑列表),
             入口行映射: Some(vec![2, 0, 1]),

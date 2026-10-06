@@ -581,8 +581,8 @@
         .or_else(|| {
             crate::语言包工具::静态扩展名映射()
                 .into_iter()
-                .find(|(_, code)| code == &包项.目录名)
-                .map(|(ext, _)| ext)
+                .find(|(_, 编码项)| 编码项 == &包项.目录名)
+                .map(|(扩展名项, _)| 扩展名项)
         })
 }
 
@@ -875,11 +875,11 @@
         // ⑤ 目录名与声明扩展名不符的自研包：应报身份不一致
         写入全局包(&全局目录, "mypack", 有值("fr"), 无, 真);
 
-        unsafe { std::env::set_var("RZ_LANG_DIR", &全局目录) };
+        不安全 { std::env::set_var("RZ_LANG_DIR", &全局目录) };
         让 包候选 = crate::语言包工具::扫描全局包();
         让 子目录列表 = crate::语言包工具::全局包子目录名();
         让 健康行 = 语言包健康状态行(&包候选, &子目录列表);
-        unsafe { std::env::remove_var("RZ_LANG_DIR") };
+        不安全 { std::env::remove_var("RZ_LANG_DIR") };
 
         让 合并文本 = 健康行.join("\n");
         // ① 同名遮蔽：报警 + 给出解除命令
