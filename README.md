@@ -11,6 +11,13 @@
 
 > 🪞 **仓库镜像**：本项目在 GitHub（[liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)）与 GitCode（[tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)）双平台同步维护。`rzc lang install` 默认优先使用 GitCode 源（国内访问更快），失败自动回退 GitHub。
 
+> 🇨🇳 **分支说明**：你正在查看的是 `exp/zh-selfhost` 分支——本编译器的**全中文参考实现**：
+> 用 rzc 自己的中文方言写下了全部编译器源码（`.zh` 源真相 → 逐字节一致的门禁产物），
+> 供学习和参考「如何用母语 Rust 写真实项目」；产品主线仍以英文源码为准（默认分支），
+> 本分支不合回主干。阅读入口：[中文自举分支导读](docs/zh-selfhost-guide.md)；
+> 上手体验：`bash tools/zh-selfhost/regen.sh && cargo test --workspace`，
+> 一致性门禁：`make gate`。逐个终审批次的改名映射与保留判据见 `feat(zh-selfhost)` 提交历史。
+
 ![rzc 演示：母语源码 → 母语教学报错 → 一键 eject 标准 Rust](docs/demo/demo-zh.gif)
 
 # rzc —— 用母语编写真正的 Rust
