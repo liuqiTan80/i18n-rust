@@ -86,6 +86,10 @@ if [ -z "$RZC" ]; then
     echo "❌ 找不到 rzc：PATH 中无 rzc 且未传 --rzc <路径>"
     exit 1
 fi
+# 规范化为绝对路径：稍后会 cd 进 /tmp STAGE 执行 eject，相对 --rzc 路径
+# （如 ./target/debug/rzc）届时尚会解析不到而 command-not-found（CI 直接传相对路径会踩）。
+# 此时 PWD 仍为脚本开头 cd 到的仓库根，据此补全；PATH 命中的 rzc 本就绝对，不动。
+if [ "${RZC:0:1}" != "/" ]; then RZC="$PWD/$RZC"; fi
 [ -f "$SRC" ] || { echo "❌ 缺少演示源 $SRC"; exit 1; }
 
 # 隔离到 /tmp 独立项目 eject：rzc 靠 Cargo.toml 定位项目根，直接在 .zh-demo/

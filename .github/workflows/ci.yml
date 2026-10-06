@@ -122,6 +122,18 @@ jobs:
         # 防止教程索引与转译事实来源漂移（学习者按术语表写代码却无法转译）
         run: python3 tools/verify-glossary.py
 
+      - name: zh 自举演示方言改写往返校验（.zh-demo eject）
+        # 佐证 rzc 对用户风格中文方言（.zh-demo，非自举源真相）的改写确实生效：
+        # eject 是纯词法文本转换（用编译进 rzc 的内置词条，不编译产物、不拉依赖），
+        # 产物须命中预期英文改写（模块路径/关键字/宏/方法/第三方透传）且用户自定义
+        # 中文类型存活。--self-test 先自证检测器非「永远绿」（正样本必过/未转译负样本
+        # 必失败），再用本 job 构建的 rzc 跑实测。本地经 make gate 触发；入 CI 保证
+        # 对所有贡献者强制（不依赖 PATH 中的引导 rzc，显式 --rzc 指向 CI 产物）
+        run: |
+          cargo build --quiet --bin rzc
+          ./tools/zh-selfhost/demo-check.sh --self-test
+          ./tools/zh-selfhost/demo-check.sh --rzc ./target/debug/rzc
+
   # ---------- 2. MSRV 门禁（声明的最低 Rust 版本可编译） ----------
   msrv:
     name: MSRV 1.88 构建

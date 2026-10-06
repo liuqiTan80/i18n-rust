@@ -22,6 +22,10 @@
   断言既命中预期英文改写（模块路径/关键字/宏/方法/第三方透传）又保留用户中文类型，
   防演示随源码演化而失效；支持 `--self-test`（正样本全通过/未转译负样本必失败）
   自证检测器非“永远绿”，`make zh-demo-check` 先自检再实测。
+- `demo-check.sh` 接入 CI `test` job（新增一步 `--self-test` + `--rzc target/debug/rzc`
+  实测）：把演示往返校验从“仅本地 gate”升为对所有贡献者强制（eject 属纯词法转换、
+  不编译不拉依赖，零新增 CI 前置）；并修复 `--rzc` 传相对路径时因脚本先 `cd` 入 /tmp
+  STAGE 而找不到 rzc 的 command-not-found 坑（现规范化为绝对路径，PATH/相对/裸相对三调法均绿）。
 - `regen --check`（`make zh-verify`）新增**自举覆盖面断言**：反向校验
   `crates/**/*.rs` 每一个都有同目录同名 `.zh`，拦截无源真相的英文孤儿 `.rs`
   绕过自举混入（此类文件不在 regen 的 `.zh` 遍历清单内、旧 `--check` 看不见），

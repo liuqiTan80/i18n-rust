@@ -182,7 +182,8 @@ make gate                                # 源真相与产物一致性门禁
 rzc run .zh-demo/src/main.zh             # 方言转译后编译并执行
 make zh-demo-check                       # 改写往返校验（先 --self-test 自检检测器非永绿，
                                          # 再 eject 验产物命中预期英文改写且用户中文类型
-                                         # 存活；已纳入 gate 链）
+                                         # 存活；已纳入 gate 链，并作为独立步进 CI test job
+                                         # （用 --rzc target/debug/rzc 指向 CI 构建产物）
 ```
 
 每个 `feat(zh-selfhost)` 提交的说明记录了当批改名映射与保留判据，
