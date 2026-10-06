@@ -1,4 +1,4 @@
-// 模块路径替换（真实后端 crates/engine/src/module_path.rs 的方言改写）
+// 模块路径替换（真实后端 crates/engine/src/模块路径.zh 的方言改写）
 
 使用 标准库::集合::哈希映射; // use std::collections::HashMap
 使用 rustc_lexer::{TokenKind, tokenize}; // 第三方库暂无母语映射，保留英文
@@ -36,7 +36,7 @@
     }
 }
 
-/// 替换 use 语句中的中文模块路径段（真实函数 replace_module_paths_with_map）
+/// 替换 use 语句中的中文模块路径段（真实函数 模块路径替换并映射）
 函数 替换模块路径带表(源码文本: 字符串引用, 路径映射表: 哈希映射<字符串, 字符串>) -> 替换结果 {
     如果 路径映射表.是否为空() {
         返回 替换结果 { 输出: 字符串::从(源码文本), 编辑表: 向量::新建() };

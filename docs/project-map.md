@@ -32,8 +32,8 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 |---|---|---|
 | `crates/engine` | 语言无关核心：转译管线、映射管理、诊断翻译、增量缓存 | 转译规则、诊断翻译 |
 | `crates/engine/lang-packs/<lang>/` | 语言包（数据非代码）：`keywords/stdlib/module_paths/errors/ui/lang_info.toml` + `crates/`（第三方映射） | 补词条、改文案 |
-| `crates/cli` | rzc：`main.rs` 命令层、`diagnostics.rs` 诊断翻译、`mapping_*` 子命令 | 命令与行为 |
-| `crates/lsp` | 代理 rust-analyzer：`response_map/` 反向翻译、`ui.rs` 界面消息本地化 | IDE 侧翻译 |
+| `crates/cli` | rzc：`main.rs` 命令层、`诊断处理.rs` 诊断翻译、`映射校验.rs`/`映射生成器` 子命令 | 命令与行为 |
+| `crates/lsp` | 代理 rust-analyzer：`响应映射/` 反向翻译、`本地化.rs` 界面消息本地化 | IDE 侧翻译 |
 | `tools/vscode-extension` | 扩展（TypeScript） | 高亮 / 补全 / 诊断 UI |
 | `tools/` | 验证与构建脚本（索引见 [tools/README.md](../tools/README.md)） | 门禁逻辑 |
 | `tutorials/` | 中文教程母本；`tutorials/<lang>/` 译本 | 章节内容 |
@@ -49,9 +49,9 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | 改教程章节 | `tutorials/`（zh 母本）；译本 `tutorials/<lang>/` | `make tutorials`（zh）· `make tutorials-all`（en/ja/ru） |
 | 补语言包词条 | `lang-packs/<lang>/{keywords,stdlib,module_paths}.toml` | `make mapping-check` + 相关单测 |
 | 补错误翻译 | `lang-packs/<lang>/errors.toml` | 带错误码的实机复现 + `make test` |
-| 改界面 / 教学文案 | CLI 侧 `lang-packs/<lang>/ui.toml`；LSP 侧 `crates/lsp/src/ui.rs`（读同一 `ui.toml`） | `make test` + 实机复现 |
+| 改界面 / 教学文案 | CLI 侧 `lang-packs/<lang>/ui.toml`；LSP 侧 `crates/lsp/src/本地化.rs`（读同一 `ui.toml`） | `make test` + 实机复现 |
 | 改转译管线 | `crates/engine/src/` | `make gate`；热路径配套 `make bench-check` |
-| 加 / 改 rzc 命令 | `crates/cli/src/main.rs`（诊断区 `diagnostics.rs`） | `make test` + 手动跑通 |
+| 加 / 改 rzc 命令 | `crates/cli/src/main.rs`（诊断区 `诊断处理.rs`） | `make test` + 手动跑通 |
 | 改 IDE 体验 | `crates/lsp/` + `tools/vscode-extension/` | 扩展 `npm test`；LSP `make test` |
 | 调文档站 | `book/` + `tools/build-site.py` | `make site` · `make site-serve` |
 | 发教程到飞书（国内阅读入口） | `tools/publish-feishu.py` | `make feishu`（平台侧配置见[发布准备清单](strategy/发布准备清单.md)第 5 节） |

@@ -2,7 +2,7 @@
 
 展示 rzc 方言改写能力的最小示例 crate，重点演示**模块路径替换**
 （`使用 标准集合::哈希映射;` → `use std::collections::HashMap;`，
-真实实现见 `crates/engine/src/module_path.rs`）以及中英文标识符
+真实实现见 `crates/engine/src/模块路径.zh`）以及中英文标识符
 混用时声明位与方法调用位的映射差异。
 
 运行方式：在工作区根目录执行
