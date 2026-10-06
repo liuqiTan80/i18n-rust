@@ -17,9 +17,9 @@ VS Code 扩展（i18n-rust）会自动发现语言服务器。
 
 ## 架构
 
-- `translation_cache`：文档转译缓存与行列映射（`RwLock` 分桶）
-- `response_map`：各 LSP 请求类型的响应映射与诊断翻译
-- `analyzer`：rust-analyzer 子进程生命周期管理与 LSP 双向转发
+- `翻译缓存`：文档转译缓存与行列映射（`RwLock` 分桶）
+- `响应映射`：各 LSP 请求类型的响应映射与诊断翻译
+- `分析器`：rust-analyzer 子进程生命周期管理与 LSP 双向转发
 
 ## 性能基准
 
