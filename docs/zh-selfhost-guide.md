@@ -22,7 +22,11 @@ crates/**.zh  ──(tools/zh-selfhost/regen.sh: stage 拷贝 → rzc eject → 
   保住 CLI；build.rs 生成契约（内置文件清单/界面表路由/引擎源码指纹）双侧同步；
   serde/LSP JSON 协议键原样透传。
 
-## 2. 中文化覆盖面（四条终审线）
+## 2. 终审五线总览
+
+前四线针对 `.zh` **源码**（逐面消除英文残留），第五线针对**文档**（改名后指向
+代码的引用会滞后）；五线全部收口后分支才算自洽。每线的验收都是：
+`扫描器定位 → 词条/存在性核验 → regen → build → fmt → test → make gate` 逐字节一致。
 
 | 线 | 内容 | 例子 |
 |---|---|---|
@@ -30,6 +34,7 @@ crates/**.zh  ──(tools/zh-selfhost/regen.sh: stage 拷贝 → rzc eject → 
 | 关键字面 | 有中文词条的关键字 | `continue→继续`、`break→中断`、守卫 `if→如果`、`&mut→&可变`、`fn drop→函数 丢弃`、`ref→引用绑定`、`true/false→真/假` |
 | 黏连混合面 | 中英拼接标识符 | `原始uri→原始资源定位`、`zh_len→中文长度` |
 | 属性位 | derive 与属性名 | `#[derive(Debug, Clone)] → #[派生(调试, 克隆)]`、`#[cfg(test)] → #[配置(测试)]` |
+| 文档面 | 导航表/crate README/演示注释里指向代码的失效英文路径与符号（详见第 7 节） | `ui.rs→本地化.rs`、`mapping_manager::MappingManager→映射管理::映射管理器` |
 
 ## 3. 保留类白名单（为什么这些保持英文）
 
