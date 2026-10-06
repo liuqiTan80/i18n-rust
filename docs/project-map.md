@@ -38,7 +38,7 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | `tools/` | 验证与构建脚本（索引见 [tools/README.md](../tools/README.md)） | 门禁逻辑 |
 | `tutorials/` | 中文教程母本；`tutorials/<lang>/` 译本 | 章节内容 |
 | `book/` | 文档站装配源（mdBook，见 [book/README.md](../book/README.md)） | SUMMARY 与站点结构 |
-| `docs/` | 参考文档 6 篇 + `dev/` + 本页 + `strategy/`（运营）+ `demo/`（演示素材） | 各类文档 |
+| `docs/` | 参考文档 7 篇 + `dev/` + 本页 + `strategy/`（运营）+ `demo/`（演示素材） | 各类文档 |
 | `third-party/` | 第三方映射注册中心数据与协议示例 | 注册中心协议 |
 | `.github/workflows/` | CI / 发布 / 文档站三条流水线 | 门禁与发布 |
 
@@ -85,7 +85,7 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | [tutorials/](../tutorials/) 与[文档站](https://liuqiTan80.github.io/i18n-rust/) | 怎么学会（学习者） |
 | [docs/project-map.md](project-map.md) | 改哪儿、怎么验（维护者，本页） |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 开发环境与提交规范 |
-| 参考文档 6 篇：[contributing-lang-pack](contributing-lang-pack.md) / [missing-mapping-guide](missing-mapping-guide.md) / [third-party-mapping](third-party-mapping.md) / [third-party-registry](third-party-registry.md) / [dialect-framework-blueprint](dialect-framework-blueprint.md) / [translation-status](translation-status.md) | 专项流程 |
+| 参考文档 7 篇：[contributing-lang-pack](contributing-lang-pack.md) / [missing-mapping-guide](missing-mapping-guide.md) / [third-party-mapping](third-party-mapping.md) / [third-party-registry](third-party-registry.md) / [dialect-framework-blueprint](dialect-framework-blueprint.md) / [translation-status](translation-status.md) / [zh-selfhost-guide](zh-selfhost-guide.md)（中文自举分支导读，仅 exp/zh-selfhost） | 专项流程 |
 | [docs/dev/i18n-rust.md](dev/i18n-rust.md) | 早期设计愿景稿（部分已演进；架构现状见本页与代码） |
 | [docs/strategy/README.md](strategy/README.md) | 现状与路线图（维护者） |
 | [CHANGELOG.md](../CHANGELOG.md) | 逐版本变更流水 |
