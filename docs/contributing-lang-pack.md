@@ -173,10 +173,10 @@ python3 -c "import tomllib,pathlib;[print(d.name, len(tomllib.loads((d/'errors.t
    （项目为单一数据源架构：编译期内嵌与文件系统消费共用这一份，
    无需任何同步步骤）
 2. 若希望**编译期内置**（无需安装即可用），还需在
-   `crates/cli/src/builtin_lang.rs` 中：
-   - 用 `define_builtin_lang!` 宏添加 vi 的静态数据（含 crates/ 文件名列表）
-   - 在 `get_builtin_data` 与 `has_builtin_lang` 增加分支
-   - 更新 `builtin_lang_codes` 与相关测试断言
+   `crates/cli/src/内置语言.rs` 中：
+   - 用 `定义内置语言!` 宏添加 vi 的静态数据（含 crates/ 文件名列表）
+   - 在 `获取内置数据` 与 `拥有内置语言` 增加分支
+   - 更新 `内置语言代码` 与相关测试断言
 
    也可以只合入数据不内置——用户通过
    `rzc lang install vi` 从主仓库远程安装（安装器已兼容
