@@ -102,6 +102,18 @@ for zh in "${ZH_SOURCES[@]}"; do
     fi
 done
 
+# 覆盖面断言：crates 下每个 .rs 都须有同目录同名 .zh。regen 只遍历 .zh 生成产物，
+# 若有人塞进一个无 .zh 配对的英文 .rs（绕过自举），--check 根本看不到它——故此处
+# 反向校验“全部模块源真相反转”不变式，孤儿 .rs 即退出码 1。
+orphan=0
+while IFS= read -r _rs; do
+    [ -f "${_rs%.rs}.zh" ] || { echo "❌ 孤儿 .rs（无配对 .zh，未纳入源真相）: $_rs"; orphan=1; }
+done < <(find crates -name '*.rs' | LC_ALL=C sort)
+if [ "$orphan" -ne 0 ]; then
+    echo "❌ 自举覆盖面断言失败：存在未由 .zh 生成的 .rs（应翻转为 .zh 源真相或删除）"
+    exit 1
+fi
+
 if [ "$MODE" = "check" ]; then
     [ "$drift" -eq 0 ] || { echo "❌ zh 自举门禁失败：请运行 make zh-regen 并提交再生成的产物"; exit 1; }
     echo "全部产物与 .zh 源真相一致。"

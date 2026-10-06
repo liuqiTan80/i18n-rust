@@ -18,6 +18,10 @@ crates/**.zh  ──(tools/zh-selfhost/regen.sh: stage 拷贝 → rzc eject → 
 - eject 还原依据 `crates/engine/lang-packs/zh/*.toml` 词条表 +
   `crates/**/映射源.zh` 运行时词表，因此**改名必须正反两向都成立**：
   中文标识符 → 还原英文 → 与旧产物一致（或直接以中文标识符编译，两代产物同源）。
+- **覆盖面不变式**：`regen --check` 除逐字节一致外，还反向断言
+  `crates/**/*.rs` 每一个都有同目录同名 `.zh`——因 regen 只遍历 `.zh` 生成，
+  若有人塞入无 `.zh` 配对的英文 `.rs`（绕过自举），`--check` 本就看不见它，
+  此断言专门拦截这类孤儿，机器担保“全部模块源真相反转”的声明。
 - 用户可见/对外契约用显式手段钉死英文：clap `#[command(name)]`/`#[arg(long)]`
   保住 CLI；build.rs 生成契约（内置文件清单/界面表路由/引擎源码指纹）双侧同步；
   serde/LSP JSON 协议键原样透传。
