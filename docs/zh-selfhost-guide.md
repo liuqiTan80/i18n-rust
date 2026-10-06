@@ -122,7 +122,34 @@ crates/**.zh  ──(tools/zh-selfhost/regen.sh: stage 拷贝 → rzc eject → 
 待处理项 { id: 请求编号, … }
 ```
 
-## 7. 体验本分支
+## 7. 文档自洽终审（失效引用交叉审读）
+
+标识符/文件名中文化后，**文档（导航表、crate README、演示项目注释）里指向代码的
+引用会滞后**——读者照着 `ui.rs`、`mapping_manager::MappingManager` 去翻，分支上
+早就不存在这些英文名了。源码翻转收官后必须补一轮文档交叉审读。
+
+做法是机械化扫描而非通读：从分支文档中抽出所有形如 `crates/**.rs|.zh|…` 的路径
+与代码符号，逐个 `os.path.exists` / `grep 定义位` 验证是否仍指向分支真实存在之物；
+命中即判「失效引用」还是「保留类」。本分支据此修过的高频类型：
+
+| 失效点 | 修法 | 判据 |
+|---|---|---|
+| 导航/架构表里的旧英文文件名（`ui.rs`/`diagnostics.rs`/`response_map`/`translation_cache`） | 换成分支真实中文名（`本地化.rs`/`诊断处理.rs`/`响应映射`/`翻译缓存`） | 该文件在本分支已改名，路径失效 |
+| README `rust,ignore` 用例里的英文 API 路径与类型名 | 对齐 `映射管理::映射管理器`、`源码转译(...)` 等真实符号；**顺带核对签名**——旧示例 `transpile_pipeline(..).output` 连返回形态都与分支不符 | 公开模块/函数随源码一并中文化 |
+| 演示项目注释「真实后端 `module_path.rs`」等交叉引用 | 指回 `模块路径.zh` / `模块路径替换并映射` | 分支自有资产须自相咬合 |
+
+**保留类（审读中判为不动，防误伤）**：`rust-analyzer`（被代理的外部工具专名）、
+`module_paths.toml`/`ui.toml` 等 lang-pack **数据文件名**（属数据契约，分支上未改名、
+真实存在）、`main.rs`/`build.rs`/`benches/hot_paths.rs`（cargo 对二进制入口、构建脚本、
+bench 名的硬约定）、`RwLock`/`HashMap` 等 stdlib、CHANGELOG **历史条目**内的旧英文
+文件名（记录当时产品线提交实况，改写历史即失真）、约定式提交格式示例里的 scope
+占位。**面向终端用户的多语言产品文档**（`tutorials/`、`book/`、`README.<10语种>.md`）
+按设计就该保持各语种，不属「分支全中文」范畴。
+
+> 脚本化验收：`regen --check` 只保证 `.zh→.rs` 产物一致，看不见文档里的引用漂移；
+> 文档失效引用须单独跑一遍「路径存在性 + 符号定义位」扫描，每轮改名批后重跑。
+
+## 8. 体验本分支
 
 ```bash
 git checkout exp/zh-selfhost
