@@ -22,6 +22,10 @@ crates/**.zh  ──(tools/zh-selfhost/regen.sh: stage 拷贝 → rzc eject → 
   `crates/**/*.rs` 每一个都有同目录同名 `.zh`——因 regen 只遍历 `.zh` 生成，
   若有人塞入无 `.zh` 配对的英文 `.rs`（绕过自举），`--check` 本就看不见它，
   此断言专门拦截这类孤儿，机器担保“全部模块源真相反转”的声明。
+  - **无需排除白名单**：`build.rs`、cli `main.rs`、`benches/*.rs`、`tests/*.rs` 这些
+    按 cargo 约定保留英文名的产物，**源真相层仍是中文**（`build.zh`→eject→`build.rs`）——
+    约定只钉在 eject 的**产物名**上，不豁免 `.zh` 配对。故断言扫它们全部命中、
+    零误报；切勿因“这些本该是英文”而给断言加排除项，那会在真孤儿 `.rs` 上重撕缺口。
 - 用户可见/对外契约用显式手段钉死英文：clap `#[command(name)]`/`#[arg(long)]`
   保住 CLI；build.rs 生成契约（内置文件清单/界面表路由/引擎源码指纹）双侧同步；
   serde/LSP JSON 协议键原样透传。
