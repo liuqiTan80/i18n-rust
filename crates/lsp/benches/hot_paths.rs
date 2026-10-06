@@ -15,31 +15,31 @@ use std::hint::black_box;
 use std::path::{Path, PathBuf};
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
-use i18n_rust_engine::mapping_manager::MappingManager;
-use i18n_rust_lsp::translation_cache::TranslationCache;
+use i18n_rust_engine::映射管理::映射管理器;
+use i18n_rust_lsp::翻译缓存::转译缓存;
 
 /// 构造内置 zh 语言包映射管理器（与 CLI / LSP 默认一致）
-fn zh_manager() -> MappingManager {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../engine/lang-packs/zh");
-    MappingManager::load_from_dir(&dir).expect("加载 zh 语言包失败")
+fn 内置管理器() -> 映射管理器 {
+    let 目录 = Path::new(env!("CARGO_MANIFEST_DIR")).join("../engine/lang-packs/zh");
+    映射管理器::自目录加载(&目录).expect("加载 zh 语言包失败")
 }
 
 /// 教学场景中等规模源码：约 250 行混合结构
 /// （函数/类型注解/字符串/宏/use 路径/for 循环/向量，与 engine 基准同语料）
-fn teaching_source() -> String {
-    let mut src = String::new();
-    src.push_str("使用 标准库::集合::映射;\n\n");
-    for i in 0..50 {
-        src.push_str(&format!(
-            "函数 函数_{i}(数量: 整数, 名称: 字符串) -> 整数 {{\n\
+fn 教学语料() -> String {
+    let mut 语料文本 = String::new();
+    语料文本.push_str("使用 标准库::集合::映射;\n\n");
+    for 序号 in 0..50 {
+        语料文本.push_str(&format!(
+            "函数 函数_{序号}(数量: 整数, 名称: 字符串) -> 整数 {{\n\
              \x20   让 结果 = 数量 * 2;\n\
-             \x20   // 计算注释：{i}\n\
-             \x20   打印行!(\"处理第 {i} 个：{{}}\", 名称);\n\
+             \x20   // 计算注释：{序号}\n\
+             \x20   打印行!(\"处理第 {序号} 个：{{}}\", 名称);\n\
              \x20   返回 结果;\n\
              }}\n\n",
         ));
     }
-    src.push_str(
+    语料文本.push_str(
         "函数 主函数() {\n\
          \x20   让 全部 = 向量::新建();\n\
          \x20   for i in 0..50 {\n\
@@ -48,43 +48,44 @@ fn teaching_source() -> String {
          \x20   打印行!(\"总计：{{:?}}\", 全部);\n\
          }\n",
     );
-    src
+    语料文本
 }
 
 /// 在演示目录中写入真实源文件（sync_sibling_modules / disk_meta 走真实磁盘分支），
 /// 返回源文件路径与其 file:// URI
-fn setup_project(root: &Path, dir_name: &str, content: &str) -> (PathBuf, String) {
-    let src_dir = root.join(dir_name).join("src");
-    std::fs::create_dir_all(&src_dir).expect("创建演示项目目录失败");
-    let path = src_dir.join("main.zh");
-    std::fs::write(&path, content).expect("写入演示源码失败");
-    let uri = format!("file://{}", path.display());
-    (path, uri)
+fn 搭建工程(工程根: &Path, 子目录名: &str, 文件内容: &str) -> (PathBuf, String) {
+    let 源码目录 = 工程根.join(子目录名).join("src");
+    std::fs::create_dir_all(&源码目录).expect("创建演示项目目录失败");
+    let 文件路径 = 源码目录.join("main.zh");
+    std::fs::write(&文件路径, 文件内容).expect("写入演示源码失败");
+    let 资源定位 = format!("file://{}", 文件路径.display());
+    (文件路径, 资源定位)
 }
 
 /// update_document：打开文件（全量路径）与连续编辑（增量路径）
-fn bench_update_document(c: &mut Criterion) {
+fn 文档更新基准(基准目标: &mut Criterion) {
     // 基准中抑制引擎教学日志（默认警告级会因教学 lint 刷屏并引入
     // 终端 I/O 抖动；与 engine 基准的静默口径一致）
-    i18n_rust_engine::logger::set_log_level(i18n_rust_engine::logger::LogLevel::Error);
-    let manager = zh_manager();
-    let source = teaching_source();
-    let mut group = c.benchmark_group("lsp_update_document");
-    group.sample_size(50);
+    i18n_rust_engine::日志::静默日志();
+    let 管理器 = 内置管理器();
+    let 语料 = 教学语料();
+    let mut 基准组 = 基准目标.benchmark_group("lsp_update_document");
+    基准组.sample_size(50);
 
     // ① 打开文件：冷缓存首次打开（模块集合空 → 全量重写 + 虚拟项目刷新）。
     //    每次迭代完整重建缓存与项目目录，量的是"打开一个文件"的端到端成本
-    group.bench_function("update_document_open", |b| {
-        b.iter_batched(
+    基准组.bench_function("update_document_open", |基准器| {
+        基准器.iter_batched(
             || {
-                let tmp = tempfile::tempdir().expect("创建临时目录失败");
-                let (_path, uri) = setup_project(tmp.path(), "proj", &source);
-                let cache = TranslationCache::new(manager.clone(), tmp.path().join("virtual"));
-                (tmp, cache, uri)
+                let 临时目录 = tempfile::tempdir().expect("创建临时目录失败");
+                let (_占位, 资源定位) = 搭建工程(临时目录.path(), "proj", &语料);
+                let 增量缓存 =
+                    转译缓存::新建缓存(管理器.clone(), 临时目录.path().join("virtual"));
+                (临时目录, 增量缓存, 资源定位)
             },
-            |(_tmp, cache, uri)| {
-                cache
-                    .update_document(black_box(&uri), black_box(&source), 1)
+            |(_临时, 增量缓存, 资源定位)| {
+                增量缓存
+                    .更新文档(black_box(&资源定位), black_box(&语料), 1)
                     .expect("打开文件失败")
             },
             BatchSize::SmallInput,
@@ -93,62 +94,65 @@ fn bench_update_document(c: &mut Criterion) {
 
     // ② 连续编辑：预热打开后反复修改同一文件（内容每次不同，模拟真实打字：
     //    模块集合不变 → 仅重写当前条目，声明名缓存按内容哈希逐次失效）
-    let tmp = tempfile::tempdir().expect("创建临时目录失败");
-    let (_path, uri) = setup_project(tmp.path(), "proj_typing", &source);
-    let cache = TranslationCache::new(manager.clone(), tmp.path().join("virtual"));
-    cache
-        .update_document(&uri, &source, 1)
+    let 临时目录 = tempfile::tempdir().expect("创建临时目录失败");
+    let (_占位, 资源定位) = 搭建工程(临时目录.path(), "proj_typing", &语料);
+    let 增量缓存 = 转译缓存::新建缓存(管理器.clone(), 临时目录.path().join("virtual"));
+    增量缓存
+        .更新文档(&资源定位, &语料, 1)
         .expect("预热打开失败");
-    let mut version = 1i32;
-    group.bench_function("update_document_typing", |b| {
-        let mut counter = 0usize;
-        b.iter(|| {
-            counter += 1;
-            version += 1;
-            let edited = format!("{source}\n// 连续编辑 {counter}");
-            cache
-                .update_document(black_box(&uri), black_box(&edited), version)
+    let mut 版本号 = 1i32;
+    基准组.bench_function("update_document_typing", |基准器| {
+        let mut 计数器 = 0usize;
+        基准器.iter(|| {
+            计数器 += 1;
+            版本号 += 1;
+            let 编辑后文本 = format!("{语料}\n// 连续编辑 {计数器}");
+            增量缓存
+                .更新文档(black_box(&资源定位), black_box(&编辑后文本), 版本号)
                 .expect("编辑失败")
         })
     });
 
-    group.finish();
+    基准组.finish();
 }
 
 /// reverse_transpile：补全片段（无上下文）与整文档还原（格式化响应）
-fn bench_reverse_transpile(c: &mut Criterion) {
+fn 逆向转译基准(基准目标: &mut Criterion) {
     // 同上：静默引擎教学日志
-    i18n_rust_engine::logger::set_log_level(i18n_rust_engine::logger::LogLevel::Error);
-    let manager = zh_manager();
-    let source = teaching_source();
-    let tmp = tempfile::tempdir().expect("创建临时目录失败");
-    let (_path, uri) = setup_project(tmp.path(), "proj_reverse", &source);
-    let cache = TranslationCache::new(manager.clone(), tmp.path().join("virtual"));
-    let (entry, _) = cache
-        .update_document(&uri, &source, 1)
+    i18n_rust_engine::日志::静默日志();
+    let 管理器 = 内置管理器();
+    let 语料 = 教学语料();
+    let 临时目录 = tempfile::tempdir().expect("创建临时目录失败");
+    let (_占位, 资源定位) = 搭建工程(临时目录.path(), "proj_reverse", &语料);
+    let 增量缓存 = 转译缓存::新建缓存(管理器.clone(), 临时目录.path().join("virtual"));
+    let (条目项, _) = 增量缓存
+        .更新文档(&资源定位, &语料, 1)
         .expect("预热打开失败");
     // 转译产物即"经 rustfmt 格式化后的英文文本"的典型素材
-    let en_doc = entry.en_content.clone();
+    let 英文产物 = 条目项.英文源码.clone();
 
-    let mut group = c.benchmark_group("lsp_reverse_transpile");
-    group.sample_size(50);
+    let mut 基准组 = 基准目标.benchmark_group("lsp_reverse_transpile");
+    基准组.sample_size(50);
 
     // ① 补全片段：uri=None 的无文档上下文场景（补全/代码操作每个片段都走这里）
-    let snippet = "let mut 总数 = String::new();";
-    group.bench_function("reverse_transpile_completion", |b| {
-        b.iter(|| cache.reverse_transpile(None, black_box(snippet)))
+    let 补全片段 = "let mut 总数 = String::new();";
+    基准组.bench_function("reverse_transpile_completion", |基准器| {
+        基准器.iter(|| 增量缓存.逆向转译(None, black_box(补全片段)))
     });
 
     // ② 整文档还原：textDocument/formatting 响应（传入 uri 以精确处理
     //    代理添加的 crate:: 前缀，避免误删用户手写前缀）
-    group.bench_function("reverse_transpile_formatting", |b| {
-        b.iter(|| {
-            cache.reverse_transpile(Some(black_box(uri.as_str())), black_box(en_doc.as_str()))
+    基准组.bench_function("reverse_transpile_formatting", |基准器| {
+        基准器.iter(|| {
+            增量缓存.逆向转译(
+                Some(black_box(资源定位.as_str())),
+                black_box(英文产物.as_str()),
+            )
         })
     });
 
-    group.finish();
+    基准组.finish();
 }
 
-criterion_group!(benches, bench_update_document, bench_reverse_transpile);
-criterion_main!(benches);
+criterion_group!(基准集合, 文档更新基准, 逆向转译基准);
+criterion_main!(基准集合);

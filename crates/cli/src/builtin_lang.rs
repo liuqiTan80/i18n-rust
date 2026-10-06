@@ -1,101 +1,101 @@
 //! 内置语言包 - 将默认语言包嵌入到可执行文件中
 //!
 //! 语言包 TOML 数据由引擎 crate 在编译期嵌入（include_str!），
-//! 本模块通过 [`i18n_rust_engine::语言::builtin_file`] 获取，
+//! 本模块通过 [`i18n_rust_engine::语言::内置文件`] 获取，
 //! 使得 rzc 可执行文件无需附带语言包目录即可独立运行。
-//! 通过 [`get_builtin_data`] 按语言代码获取对应的内置语言包，
+//! 通过 [`获取内置数据`] 按语言代码获取对应的内置语言包，
 //! 未知语言代码自动回退到中文。
 
 /// 单个语言的完整内置数据
-pub struct BuiltinLangData {
+pub struct 内置语言数据 {
     /// 关键字映射 TOML
-    pub keywords_toml: &'static str,
+    pub 关键字文本: &'static str,
     /// 模块路径映射 TOML
-    pub module_paths_toml: &'static str,
+    pub 模块路径文本: &'static str,
     /// 标准库映射 TOML（模块路径 + 标识符别名）
-    pub stdlib_toml: &'static str,
+    pub 标准库文本: &'static str,
     /// 错误消息翻译 TOML
-    pub errors_toml: &'static str,
+    pub 错误文本: &'static str,
     /// 语言包信息 TOML（名称 / 扩展名 / 版本）
-    pub lang_info_toml: &'static str,
+    pub 语言信息文本: &'static str,
     /// 界面消息 TOML（CLI / LSP 用户可见提示语）
-    pub ui_toml: &'static str,
+    pub 界面文本: &'static str,
     /// 第三方库映射文件列表（文件名, 内容）
-    pub crates_data: &'static [(&'static str, &'static str)],
+    pub 三方库数据: &'static [(&'static str, &'static str)],
 }
 
 /// 定义内置语言包的宏
 ///
 /// 参数：
-/// - `$name`：生成的 `static` 变量名
-/// - `$lang_dir`：语言包目录名（如 `"zh"`、`"de"`）
+/// - `$名字`：生成的 `static` 变量名
+/// - `$语言目录`：语言包目录名（如 `"zh"`、`"de"`）
 ///
 /// 第三方库映射清单不再手工维护：从引擎编译期扫描结果
-/// （[`i18n_rust_engine::语言::builtin_lang_files`]，build.rs 生成）动态过滤
+/// （[`i18n_rust_engine::语言::内置语言文件`]，build.rs 生成）动态过滤
 /// `crates/` 前缀条目，与语言包目录（单一数据源）天然一致，
 /// 新增/删除 crates 文件后无需修改本文件。
-macro_rules! define_builtin_lang {
-    ($name:ident, $lang_dir:literal) => {
-        static $name: std::sync::LazyLock<BuiltinLangData> = std::sync::LazyLock::new(|| {
+macro_rules! 定义内置语言 {
+    ($名字:ident, $语言目录:literal) => {
+        static $名字: std::sync::LazyLock<内置语言数据> = std::sync::LazyLock::new(|| {
             // 第三方库映射数组需 'static 引用，用 Box::leak 提升（仅初始化一次）
-            let crates_data: &'static [(&'static str, &'static str)] = Box::leak(Box::new(
-                i18n_rust_engine::语言::builtin_lang_files($lang_dir)
+            let 三方库数据: &'static [(&'static str, &'static str)] = Box::leak(Box::new(
+                i18n_rust_engine::语言::内置语言文件($语言目录)
                     .into_iter()
-                    .filter_map(|(path, content)| {
-                        path.strip_prefix("crates/").map(|name| (name, content))
+                    .filter_map(|(文件路径, 内容)| {
+                        文件路径.strip_prefix("crates/").map(|名| (名, 内容))
                     })
                     .collect::<Vec<(&'static str, &'static str)>>(),
             ));
-            BuiltinLangData {
-                keywords_toml: builtin_file_or_panic($lang_dir, "keywords.toml"),
-                module_paths_toml: builtin_file_or_panic($lang_dir, "module_paths.toml"),
-                stdlib_toml: builtin_file_or_panic($lang_dir, "stdlib.toml"),
-                errors_toml: builtin_file_or_panic($lang_dir, "errors.toml"),
-                lang_info_toml: builtin_file_or_panic($lang_dir, "lang_info.toml"),
-                ui_toml: builtin_file_or_panic($lang_dir, "ui.toml"),
-                crates_data,
+            内置语言数据 {
+                关键字文本: 内置文件或崩溃($语言目录, "keywords.toml"),
+                模块路径文本: 内置文件或崩溃($语言目录, "module_paths.toml"),
+                标准库文本: 内置文件或崩溃($语言目录, "stdlib.toml"),
+                错误文本: 内置文件或崩溃($语言目录, "errors.toml"),
+                语言信息文本: 内置文件或崩溃($语言目录, "lang_info.toml"),
+                界面文本: 内置文件或崩溃($语言目录, "ui.toml"),
+                三方库数据,
             }
         });
     };
 }
 
 /// 从引擎内置语言包取文件内容（缺失时 panic，内置数据必须完整）
-fn builtin_file_or_panic(lang: &str, file: &str) -> &'static str {
-    i18n_rust_engine::语言::builtin_file(lang, file).expect("内置语言包文件缺失：引擎未嵌入该文件")
+fn 内置文件或崩溃(语言: &str, 目标文件: &str) -> &'static str {
+    i18n_rust_engine::语言::内置文件(语言, 目标文件).expect("内置语言包文件缺失：引擎未嵌入该文件")
 }
 
 // 英文内置语言包（恒等映射：Rust 本以英文书写；教程验证管线依赖 .en 扩展名）
-define_builtin_lang!(EN_DATA, "en");
+定义内置语言!(英文数据, "en");
 
 // 中文内置语言包（完整翻译映射；第三方库映射清单自动纳入）
-define_builtin_lang!(ZH_DATA, "zh");
+定义内置语言!(中文数据, "zh");
 
 // 德语内置语言包（德语错误教学提示；第三方库映射清单自动纳入）
-define_builtin_lang!(DE_DATA, "de");
+定义内置语言!(德文数据, "de");
 
 // 日语内置语言包
-define_builtin_lang!(JA_DATA, "ja");
+定义内置语言!(日文数据, "ja");
 
 // 俄语内置语言包
-define_builtin_lang!(RU_DATA, "ru");
+定义内置语言!(俄文数据, "ru");
 
 // 西班牙语内置语言包
-define_builtin_lang!(ES_DATA, "es");
+定义内置语言!(西文数据, "es");
 
 // 法语内置语言包
-define_builtin_lang!(FR_DATA, "fr");
+定义内置语言!(法文数据, "fr");
 
 // 葡萄牙语内置语言包
-define_builtin_lang!(PT_DATA, "pt");
+定义内置语言!(葡文数据, "pt");
 
 // 韩语内置语言包
-define_builtin_lang!(KO_DATA, "ko");
+定义内置语言!(韩文数据, "ko");
 
 // 阿拉伯语内置语言包
-define_builtin_lang!(AR_DATA, "ar");
+定义内置语言!(阿拉伯文数据, "ar");
 
 // 印地语内置语言包
-define_builtin_lang!(HI_DATA, "hi");
+定义内置语言!(印地文数据, "hi");
 
 /// 根据语言代码获取内置语言包数据
 ///
@@ -112,30 +112,30 @@ define_builtin_lang!(HI_DATA, "hi");
 ///
 /// ```
 /// // 用户设置的语言代码（实际来源可为 --语言包 参数或 .zh/.de 文件扩展名）
-/// let lang_code = std::env::var("RZ_LANG").unwrap_or_else(|_| "zh".to_string());
-/// let data = get_builtin_data(&lang_code); // 未知代码自动回退中文
+/// let 语言码 = std::env::var("RZ_LANG").unwrap_or_else(|_| "zh".to_string());
+/// let 数据 = 获取内置数据(&语言码); // 未知代码自动回退中文
 ///
 /// // 直接使用嵌入的 TOML 内容
-/// println!("关键字映射: {}", data.keywords_toml);
+/// println!("关键字映射: {}", 数据.关键字文本);
 /// ```
 ///
-/// 新增语言时：在 [`get_builtin_data`] 与 [`has_builtin_lang`] 中增加分支，
-/// 用 [`define_builtin_lang!`] 添加对应 static 数据，并更新 [`builtin_lang_codes`]。
-pub fn get_builtin_data(lang_code: &str) -> &BuiltinLangData {
-    match lang_code {
-        "zh" => &ZH_DATA,
-        "en" => &EN_DATA,
-        "de" => &DE_DATA,
-        "ja" => &JA_DATA,
-        "ru" => &RU_DATA,
-        "es" => &ES_DATA,
-        "fr" => &FR_DATA,
-        "pt" => &PT_DATA,
-        "ko" => &KO_DATA,
-        "ar" => &AR_DATA,
-        "hi" => &HI_DATA,
+/// 新增语言时：在 [`获取内置数据`] 与 [`拥有内置语言`] 中增加分支，
+/// 用 [`定义内置语言!`] 添加对应 static 数据，并更新 [`内置语言代码`]。
+pub fn 获取内置数据(语言代码: &str) -> &内置语言数据 {
+    match 语言代码 {
+        "zh" => &中文数据,
+        "en" => &英文数据,
+        "de" => &德文数据,
+        "ja" => &日文数据,
+        "ru" => &俄文数据,
+        "es" => &西文数据,
+        "fr" => &法文数据,
+        "pt" => &葡文数据,
+        "ko" => &韩文数据,
+        "ar" => &阿拉伯文数据,
+        "hi" => &印地文数据,
         // 未知语言代码回退到中文（教学语言默认值）
-        _ => &ZH_DATA,
+        _ => &中文数据,
     }
 }
 
@@ -144,8 +144,8 @@ pub fn get_builtin_data(lang_code: &str) -> &BuiltinLangData {
 /// 用于区分"已内置的语言"与"需通过 `rzc lang install` 远程安装的语言"，
 /// 避免未知语言被静默回退到中文时用户无感知。
 /// 单一事实源：引擎 lang-packs 目录（build.rs 自动生成）。
-pub fn has_builtin_lang(lang_code: &str) -> bool {
-    i18n_rust_engine::语言::has_builtin_language(lang_code)
+pub fn 拥有内置语言(语言代码: &str) -> bool {
+    i18n_rust_engine::语言::拥有所属语言(语言代码)
 }
 
 /// 所有内置语言包的代码列表
@@ -154,106 +154,103 @@ pub fn has_builtin_lang(lang_code: &str) -> bool {
 /// 其他语言通过 `rzc lang install` 从远程仓库安装。
 /// 单一事实源：引擎 lang-packs 目录（build.rs 自动生成），
 /// 避免代码清单与语言包目录、扩展名清单并行维护而漂移。
-pub fn builtin_lang_codes() -> Vec<&'static str> {
-    i18n_rust_engine::语言::builtin_language_codes()
+pub fn 内置语言代码() -> Vec<&'static str> {
+    i18n_rust_engine::语言::内置语言代码()
 }
 
 #[cfg(test)]
-mod tests {
+mod 单元测试 {
     use super::*;
 
     /// 全部内置语言均能获取到数据，且 TOML 内容非空
     #[test]
-    fn test_get_builtin_data_known_langs() {
-        for code in [
+    fn 测试获取内置数据已知语言() {
+        for 语言码 in [
             "zh", "en", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi",
         ] {
-            let data = get_builtin_data(code);
-            assert!(!data.keywords_toml.is_empty(), "{code} keywords 为空");
+            let 数据 = 获取内置数据(语言码);
+            assert!(!数据.关键字文本.is_empty(), "{语言码} keywords 为空");
+            assert!(!数据.模块路径文本.is_empty(), "{语言码} module_paths 为空");
+            assert!(!数据.标准库文本.is_empty(), "{语言码} stdlib 为空");
+            assert!(!数据.错误文本.is_empty(), "{语言码} errors 为空");
+            assert!(!数据.语言信息文本.is_empty(), "{语言码} lang_info 为空");
+            assert!(!数据.界面文本.is_empty(), "{语言码} ui 为空");
             assert!(
-                !data.module_paths_toml.is_empty(),
-                "{code} module_paths 为空"
-            );
-            assert!(!data.stdlib_toml.is_empty(), "{code} stdlib 为空");
-            assert!(!data.errors_toml.is_empty(), "{code} errors 为空");
-            assert!(!data.lang_info_toml.is_empty(), "{code} lang_info 为空");
-            assert!(!data.ui_toml.is_empty(), "{code} ui 为空");
-            assert!(
-                data.ui_toml.contains("\"界面消息\""),
-                "{code} ui.toml 应包含 [界面消息] 节"
+                数据.界面文本.contains("\"界面消息\""),
+                "{语言码} ui.toml 应包含 [界面消息] 节"
             );
         }
     }
 
     /// 未知语言代码回退到中文
     #[test]
-    fn test_get_builtin_data_unknown_falls_back_to_zh() {
-        let data = get_builtin_data("xx");
-        let zh = get_builtin_data("zh");
+    fn 测试未知语言回退中文() {
+        let 数据 = 获取内置数据("xx");
+        let 中文 = 获取内置数据("zh");
         // 回退数据与中文包为同一静态实例（指针相等）
-        assert!(std::ptr::eq(data, zh), "未知语言应回退到中文包");
+        assert!(std::ptr::eq(数据, 中文), "未知语言应回退到中文包");
     }
 
     /// crates 清单与引擎编译期扫描结果逐项一致（单一数据源，杜绝手工清单漂移）；
     /// stdlib.toml 两节齐全（模块路径 + 标识符）
     #[test]
-    fn test_crates_data_per_lang() {
-        for code in ["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
-            let scanned: Vec<&str> = i18n_rust_engine::语言::builtin_lang_files(code)
+    fn 测试各语言三方库清单() {
+        for 语言码 in ["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
+            let 扫描结果: Vec<&str> = i18n_rust_engine::语言::内置语言文件(语言码)
                 .into_iter()
-                .filter_map(|(path, _)| path.strip_prefix("crates/"))
+                .filter_map(|(文件路径, _)| 文件路径.strip_prefix("crates/"))
                 .collect();
-            let cli_list: Vec<&str> = get_builtin_data(code)
-                .crates_data
+            let 清单: Vec<&str> = 获取内置数据(语言码)
+                .三方库数据
                 .iter()
-                .map(|(name, _)| *name)
+                .map(|(名, _)| *名)
                 .collect();
-            assert_eq!(cli_list, scanned, "{code} crates 清单应与引擎扫描一致");
-            assert!(!cli_list.is_empty(), "{code} 应含第三方库映射");
+            assert_eq!(清单, 扫描结果, "{语言码} crates 清单应与引擎扫描一致");
+            assert!(!清单.is_empty(), "{语言码} 应含第三方库映射");
         }
         // zh 已内置 tauri 映射（桌面应用常用），防止清单再次遗漏
         assert!(
-            get_builtin_data("zh")
-                .crates_data
+            获取内置数据("zh")
+                .三方库数据
                 .iter()
-                .any(|(name, _)| *name == "tauri.toml"),
+                .any(|(名, _)| *名 == "tauri.toml"),
             "zh 内置清单应包含 tauri.toml"
         );
         // stdlib.toml 中模块路径与标识符两节均存在
-        for data in [get_builtin_data("zh"), get_builtin_data("de")] {
-            assert!(data.stdlib_toml.contains("[\"模块路径\"]"));
-            assert!(data.stdlib_toml.contains("[\"标识符\"]"));
+        for 数据 in [获取内置数据("zh"), 获取内置数据("de")] {
+            assert!(数据.标准库文本.contains("[\"模块路径\"]"));
+            assert!(数据.标准库文本.contains("[\"标识符\"]"));
         }
     }
 
     /// 各语言包元数据互相独立（名称不同）
     #[test]
-    fn test_lang_info_distinct() {
-        let codes = builtin_lang_codes();
-        let infos: Vec<&str> = codes
+    fn 测试语言信息互异() {
+        let 代码列表 = 内置语言代码();
+        let 信息: Vec<&str> = 代码列表
             .iter()
-            .map(|code| get_builtin_data(code).lang_info_toml)
+            .map(|语言码| 获取内置数据(语言码).语言信息文本)
             .collect();
-        for (i, a) in infos.iter().enumerate() {
-            for (j, b) in infos[i + 1..].iter().enumerate() {
+        for (序号, 甲) in 信息.iter().enumerate() {
+            for (次序号, 乙) in 信息[序号 + 1..].iter().enumerate() {
                 assert_ne!(
-                    a,
-                    b,
+                    甲,
+                    乙,
                     "{} 与 {} 的 lang_info 相同",
-                    codes[i],
-                    codes[i + 1 + j]
+                    代码列表[序号],
+                    代码列表[序号 + 1 + 次序号]
                 );
             }
         }
     }
 
-    /// 内置代码列表与 has_builtin_lang 一致
+    /// 内置代码列表与 拥有内置语言 一致
     #[test]
-    fn test_builtin_codes_consistent() {
-        let codes = builtin_lang_codes();
-        for code in codes {
-            assert!(has_builtin_lang(code), "{code} 应在内置列表中");
+    fn 测试内置代码一致() {
+        let 代码列表 = 内置语言代码();
+        for 语言码 in 代码列表 {
+            assert!(拥有内置语言(语言码), "{语言码} 应在内置列表中");
         }
-        assert!(!has_builtin_lang("xx"));
+        assert!(!拥有内置语言("xx"));
     }
 }

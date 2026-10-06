@@ -12,6 +12,7 @@
 "路径通配" = "glob"
 "标准目录" = "directories"
 "ZSTD压缩" = "zstd"
+"编码库" = "encoding_rs"
 
 # 内部标识符映射（用于库内的类型、函数等）
 ["标识符"]
@@ -105,7 +106,8 @@
 
 # glob（crate 与函数同名）
 "路径通配" = "glob"
-
+# encoding_rs（crate 名在函数体内的副本：编码库::GB18030 等限定路径）
+"编码库" = "encoding_rs"
 # directories
 "标准目录" = "directories"  # 模块路径词在函数体内的副本
 "基础目录" = "BaseDirs"

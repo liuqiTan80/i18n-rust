@@ -8,31 +8,31 @@
 use assert_cmd::Command;
 use predicates::prelude::PredicateBooleanExt;
 
-fn rzc() -> Command {
+fn 命令构造器() -> Command {
     Command::cargo_bin("rzc").expect("应能定位 rzc 二进制")
 }
 
 /// 仓库内 zh 语言包目录（单一数据源：crates/engine/lang-packs/）
-fn zh_pack_dir() -> std::path::PathBuf {
+fn 中文包目录() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/engine/lang-packs/zh")
 }
 
 /// tauri 映射端到端：母语词条经 --lang-pack 目录加载后正确替换，不残留
 #[test]
-fn test_tauri_mapping_entries_transpile_from_pack_dir() {
-    let dir = tempfile::tempdir().expect("创建临时目录失败");
-    let file = dir.path().join("main.zh");
+fn 塔瑞映射词条经语言包目录正确转译() {
+    let 临时目录 = tempfile::tempdir().expect("创建临时目录失败");
+    let 源文件路径 = 临时目录.path().join("main.zh");
     std::fs::write(
-        &file,
+        &源文件路径,
         "函数 主函数() {\n    让 事件示例 = 应用事件::默认();\n    让 地址 = 网址::解析(\"https://tauri.app\");\n}\n",
     )
     .expect("写入测试源码失败");
 
-    rzc()
+    命令构造器()
         .arg("transpile")
-        .arg(&file)
+        .arg(&源文件路径)
         .arg("--lang-pack")
-        .arg(zh_pack_dir())
+        .arg(中文包目录())
         .assert()
         .success()
         .stdout(predicates::str::contains("fn main()"))

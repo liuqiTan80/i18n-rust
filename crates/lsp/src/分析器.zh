@@ -1,0 +1,535 @@
+//! 分析器连接模块
+//!
+//! 管理 rust-analyzer 子进程的生命周期：启动、消息收发、关闭。
+//! 通过 stdin/stdout 以 LSP 协议（Content-Length 分帧）与之通信。
+//!
+//! 注：外部 ABI 走透传（`std`/`crossbeam_channel`/`serde_json`/`anyhow`/`log`/
+//! `i18n_rust_engine::工具链::查找工具链程序`/`crate::本地化::{全局, 取文, 取文带参}`）。
+//! 本模块类型、构造、私有辅助函数、字段与局部全中文化；仅实例方法
+//! `send/try_recv/message_channel/sender_clone/is_crashed/clear_crashed/restart/stop`
+//! 刻意保持英文——它们镜像 crossbeam Channel API 语义，与同 crate 内
+//! `rx.try_recv()`/`events.send()` 等真实通道方法同名，改名会与第三方方法混淆。
+
+使用 std::io::{BufRead, BufReader, Write};
+使用 std::path::PathBuf;
+使用 std::process::{Child, Command, Stdio};
+使用 std::sync::atomic::{AtomicBool, Ordering};
+使用 std::sync::{Arc, Mutex};
+使用 std::thread;
+
+使用 serde_json::Value;
+
+/// rust-analyzer 子进程管理器
+///
+/// 支持崩溃自动重启：消息出口（receiver）与崩溃标志不随进程重启而变化，
+/// 转发线程无需重建；重启仅替换进程句柄与写入端，并由代理主循环
+/// 重新执行 initialize/initialized/工作区/文档同步握手。
+公开 结构体 分析器连接 {
+    /// 子进程句柄（重启/停止时替换）
+    子进程句柄: Mutex<选项<Child>>,
+    /// 写入端（向 rust-analyzer 发送消息；锁内发送，重启时替换）
+    写入端: Arc<Mutex<选项<std::process::ChildStdin>>>,
+    /// 统一消息出口（不随重启变化，转发线程持续读取）
+    消息出口: crossbeam_channel::Sender<Value>,
+    /// 消息接收通道（消息出口 的接收端，可克隆）
+    接收端: crossbeam_channel::Receiver<Value>,
+    /// 读取线程检测到输出结束（进程崩溃/异常退出）置位，
+    /// 供代理主循环检测并触发自动重启
+    崩溃标志: Arc<AtomicBool>,
+    /// 当前进程的主动停止抑制标志：每次 spawn 新建并替换（stop() 置位当前
+    /// 标志，reader 线程持各自标志），避免重启后旧进程 EOF 与新标志竞态
+    停止标志: Mutex<Arc<AtomicBool>>,
+}
+
+实现 分析器连接 {
+    /// 启动 rust-analyzer 子进程
+    公开 函数 启动服务() -> anyhow::Result<自身> {
+        让 (消息出口, 接收端) = crossbeam_channel::unbounded();
+        让 连接 = 自身 {
+            子进程句柄: Mutex::new(无),
+            写入端: Arc::new(Mutex::new(无)),
+            消息出口,
+            接收端,
+            崩溃标志: Arc::new(AtomicBool::new(假)),
+            停止标志: Mutex::new(Arc::new(AtomicBool::new(假))),
+        };
+        连接.启动子进程()?;
+        成功(连接)
+    }
+
+    /// 启动（或崩溃后重新启动）rust-analyzer 子进程并挂接消息管道
+    函数 启动子进程(&自我) -> anyhow::Result<()> {
+        让 分析器路径 = 查找分析器程序()?;
+        log::info!(
+            "{}",
+            crate::本地化::全局()
+                .取文带参("lsp_log_ra_starting", &[&分析器路径.display().to_string()])
+        );
+        让 可变 命令 = Command::new(&分析器路径);
+        // 新版 rust-analyzer 已移除 --stdio 参数（stdio 为默认模式）
+        自我.用命令启动(&可变 命令)
+    }
+
+    /// 用指定命令启动子进程（#[cfg(test)] 注入假进程用）
+    函数 用命令启动(&自我, 命令: &可变 Command) -> anyhow::Result<()> {
+        让 可变 子进程 = 命令
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .map_err(|错误值| {
+                anyhow::anyhow!(
+                    "{}",
+                    crate::本地化::全局().取文带参("lsp_err_ra_start", &[&错误值.to_string()])
+                )
+            })?;
+
+        让 写入端 = 子进程
+            .stdin
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_ra_stdin")))?;
+        让 读取器 = 子进程
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_ra_stdout")))?;
+
+        // 新进程的停止抑制标志：reader 线程持各自标志，stop() 只置位当前标志
+        让 停止标志 = Arc::new(AtomicBool::new(假));
+        *自我
+            .子进程句柄
+            .lock()
+            .map_err(|_| anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_write_lock")))? =
+            有值(子进程);
+        *自我
+            .写入端
+            .lock()
+            .map_err(|_| anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_write_lock")))? =
+            有值(写入端);
+        *自我
+            .停止标志
+            .lock()
+            .map_err(|_| anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_write_lock")))? =
+            停止标志.clone();
+
+        // 后台线程：持续读取 rust-analyzer 的 stdout，转发到统一消息出口；
+        // 输出结束（进程崩溃/被停止）时退出线程并报告崩溃状态
+        让 消息出口 = 自我.消息出口.clone();
+        让 崩溃标志 = 自我.崩溃标志.clone();
+        thread::spawn(move || {
+            让 可变 缓冲读取器 = BufReader::new(读取器);
+            循环 {
+                匹配 读取单条分析器消息(&可变 缓冲读取器) {
+                    有值(消息) => {
+                        如果 消息出口.send(消息).is_err() {
+                            中断;
+                        }
+                    }
+                    无 => {
+                        log::info!("{}", crate::本地化::全局().取文("lsp_log_ra_output_ended"));
+                        // 非主动停止视为异常退出：置崩溃标志供主循环自动重启
+                        如果 !停止标志.load(Ordering::SeqCst) {
+                            崩溃标志.store(真, Ordering::SeqCst);
+                        }
+                        中断;
+                    }
+                }
+            }
+        });
+
+        成功(())
+    }
+
+    /// 向 rust-analyzer 发送一条 JSON-RPC 消息
+    公开 函数 send(&自我, 消息: &Value) -> anyhow::Result<()> {
+        让 文本串 = serde_json::to_string(消息)?;
+        让 帧 = 格式化!("Content-Length: {}\r\n\r\n{}", 文本串.len(), 文本串);
+
+        让 可变 写入端 = 自我
+            .写入端
+            .lock()
+            .map_err(|_| anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_write_lock")))?;
+        让 标准输入 = 写入端.as_mut().ok_or_else(|| {
+            anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_ra_not_running"))
+        })?;
+        标准输入.write_all(帧.as_bytes())?;
+        标准输入.flush()?;
+
+        log::debug!("-> rust-analyzer: {}", 截断文本(&文本串, 200));
+        成功(())
+    }
+
+    /// 获取消息接收通道的克隆（可在多线程中共享）
+    公开 函数 取消息通道(&自我) -> crossbeam_channel::Receiver<Value> {
+        自我.接收端.clone()
+    }
+
+    /// 获取用于后台线程回发消息的发送器克隆
+    ///
+    /// 转发线程需要应答 rust-analyzer 主动发来的请求
+    /// （如 workspace/diagnostic/refresh），因此需要独立于
+    /// 主线程的发送能力。
+    公开 函数 取发送器副本(&自我) -> 发送器 {
+        发送器 {
+            写入端: 自我.写入端.clone(),
+        }
+    }
+
+    /// 尝试非阻塞接收一条来自 rust-analyzer 的消息
+    公开 函数 try_recv(&自我) -> 选项<Value> {
+        自我.接收端.try_recv().ok()
+    }
+
+    /// rust-analyzer 是否已异常退出（读取线程报告，等待自动重启）
+    公开 函数 检测崩溃(&自我) -> 布尔 {
+        自我.崩溃标志.load(Ordering::SeqCst)
+    }
+
+    /// 清除崩溃标志（自动重启失败时调用，避免主循环忙循环）
+    公开 函数 清除崩溃标志(&自我) {
+        自我.崩溃标志.store(假, Ordering::SeqCst);
+    }
+
+    /// 重启 rust-analyzer 子进程（崩溃后由代理主循环调用）
+    ///
+    /// 消息出口（接收端）不重建：转发线程持续消费；
+    /// 重握手由调用方（代理主循环）完成。
+    公开 函数 重启进程(&自我) -> anyhow::Result<()> {
+        自我.停止进程();
+        自我.崩溃标志.store(假, Ordering::SeqCst);
+        自我.启动子进程()
+    }
+
+    /// 停止 rust-analyzer 子进程（置当前进程的停止标志，EOF 不再报告崩溃）
+    公开 函数 停止进程(&自我) {
+        如果 让 有值(标志) = 自我.停止标志.lock().ok().map(|守卫| 守卫.clone()) {
+            标志.store(真, Ordering::SeqCst);
+        }
+        如果 让 有值(可变 进程) = 自我.子进程句柄.lock().ok().and_then(|可变 槽| 槽.take()) {
+            log::info!("{}", crate::本地化::全局().取文("lsp_log_ra_stopping"));
+            让 _ = 进程.kill();
+            让 _ = 进程.wait();
+        }
+    }
+}
+
+/// 独立的 rust-analyzer 消息发送器（供其他线程使用）
+公开 结构体 发送器 {
+    写入端: Arc<Mutex<选项<std::process::ChildStdin>>>,
+}
+
+实现 发送器 {
+    /// 向 rust-analyzer 发送一条 JSON-RPC 消息
+    公开 函数 send(&自我, 消息: &Value) -> anyhow::Result<()> {
+        让 文本串 = serde_json::to_string(消息)?;
+        让 帧 = 格式化!("Content-Length: {}\r\n\r\n{}", 文本串.len(), 文本串);
+
+        让 可变 写入端 = 自我
+            .写入端
+            .lock()
+            .map_err(|_| anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_write_lock")))?;
+        让 标准输入 = 写入端.as_mut().ok_or_else(|| {
+            anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_ra_not_running"))
+        })?;
+        标准输入.write_all(帧.as_bytes())?;
+        标准输入.flush()?;
+
+        log::debug!("-> rust-analyzer: {}", 截断文本(&文本串, 200));
+        成功(())
+    }
+}
+
+实现 Drop for 分析器连接 {
+    fn drop(&可变 自我) {
+        自我.停止进程();
+    }
+}
+
+#[配置(测试)]
+实现 发送器 {
+    /// 测试用空发送器：无 RA 子进程，`send` 恒返回"未运行"错误。
+    ///
+    /// 供 [`crate::server`] 的消息分发单测构造参数——这些用例只验证
+    /// 响应映射/通知路由，不需要真实 rust-analyzer 回环（回环由 e2e 覆盖）。
+    公开(crate) 函数 测试用空发送器() -> 自身 {
+        自身 {
+            写入端: Arc::new(Mutex::new(无)),
+        }
+    }
+}
+
+/// 从 BufReader 中读取一条 LSP 消息（Content-Length 分帧）
+函数 读取单条分析器消息<R: BufRead>(读取器: &可变 R) -> 选项<Value> {
+    让 可变 消息头行 = 字符串::new();
+    让 可变 内容长度: 选项<usize> = 无;
+
+    循环 {
+        消息头行.clear();
+        匹配 读取器.read_line(&可变 消息头行) {
+            成功(0) => 返回 无,
+            成功(_) => {}
+            错误(错误值) => {
+                log::error!(
+                    "{}",
+                    crate::本地化::全局().取文带参("lsp_err_read_output", &[&错误值.to_string()])
+                );
+                返回 无;
+            }
+        }
+
+        让 去空白 = 消息头行.trim();
+        如果 去空白.is_empty() {
+            中断;
+        }
+
+        如果 让 有值(长度串) = 去空白.strip_prefix("Content-Length:")
+            && 让 成功(n) = 长度串.trim().parse::<usize>()
+        {
+            内容长度 = 有值(n);
+        }
+    }
+
+    让 长度 = 内容长度?;
+
+    让 可变 缓冲区 = 向量![0u8; 长度];
+    如果 std::io::Read::read_exact(读取器, &可变 缓冲区).is_err() {
+        log::error!("{}", crate::本地化::全局().取文("lsp_err_read_body"));
+        返回 无;
+    }
+
+    让 文本串 = 字符串::from_utf8(缓冲区).ok()?;
+    log::debug!("<- rust-analyzer: {}", 截断文本(&文本串, 200));
+
+    serde_json::from_str(&文本串).ok()
+}
+
+/// 查找 rust-analyzer 可执行文件
+///
+/// 优先级：
+/// 0. 内置工具链（~/.rz/toolchain/bin，`rzc install toolchain` 安装的 standalone 版）
+/// 1. RUST_ANALYZER_PATH 环境变量
+/// 2. rustup which --toolchain stable（真实路径，不受项目 rust-toolchain.toml 影响）
+/// 3. PATH 扫描（跨平台，替代 Unix 专属 which；Windows 追加 PATHEXT 后缀）
+/// 4. 常见安装位置（含 ~/.cargo/bin，Windows 回退 USERPROFILE）
+函数 查找分析器程序() -> anyhow::Result<PathBuf> {
+    // 0. 用户显式指定的环境变量（最高优先级，覆盖内置与 PATH）
+    如果 让 成功(路径) = std::env::var("RUST_ANALYZER_PATH") {
+        让 p = PathBuf::from(&路径);
+        如果 p.exists() {
+            返回 成功(p);
+        }
+    }
+
+    // 1. 内置工具链（脱离 rustup 的 standalone 版本，版本自管）
+    如果 让 有值(p) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
+        返回 成功(p);
+    }
+
+    // rustup which 返回真实二进制路径（非 shim），避免被项目 rust-toolchain.toml
+    // （如 1.85 无 rust-analyzer 组件）导致 Unknown binary 启动失败
+    如果 让 成功(输出) = Command::new("rustup")
+        .args(["which", "--toolchain", "stable", "rust-analyzer"])
+        .output()
+        && 输出.status.success()
+    {
+        让 s = 字符串::from_utf8_lossy(&输出.stdout).trim().to_string();
+        如果 !s.is_empty() {
+            让 p = PathBuf::from(&s);
+            如果 p.exists() {
+                返回 成功(p);
+            }
+        }
+    }
+
+    // PATH 扫描（engine 工具链定位统一实现：含 Windows PATHEXT 探测）
+    如果 让 有值(p) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
+        返回 成功(p);
+    }
+
+    让 候选 = [
+        主目录路径("cargo/bin/rust-analyzer"),
+        主目录路径(".cargo/bin/rust-analyzer"),
+        PathBuf::from("/usr/local/bin/rust-analyzer"),
+        PathBuf::from("/usr/bin/rust-analyzer"),
+    ];
+    对于 p in 候选 {
+        如果 p.exists() {
+            返回 成功(p);
+        }
+    }
+
+    anyhow::bail!("{}", crate::本地化::全局().取文("lsp_err_ra_not_found"))
+}
+
+函数 主目录路径(相对路径: &文本) -> PathBuf {
+    // HOME（Unix）优先，USERPROFILE（Windows）回退，保证跨平台定位到用户主目录
+    让 主目录 = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_default();
+    如果 主目录.is_empty() {
+        PathBuf::from(相对路径)
+    } 否则 {
+        PathBuf::from(主目录).join(相对路径)
+    }
+}
+
+函数 截断文本(s: &文本, 最大长度: usize) -> 字符串 {
+    如果 s.len() <= 最大长度 {
+        s.to_string()
+    } 否则 {
+        // 按字符边界安全截断，避免切到多字节字符（中文）中间
+        让 可变 边界 = 最大长度;
+        当 边界 > 0 && !s.is_char_boundary(边界) {
+            边界 -= 1;
+        }
+        格式化!("{}...", &s[..边界])
+    }
+}
+
+#[配置(测试)]
+模块 单元测试 {
+    使用 超级::*;
+    使用 std::io::Cursor;
+
+    /// 合法 Content-Length 分帧消息可解析出 JSON
+    #[测试]
+    函数 测试读取单条消息合法() {
+        让 数据 = "Content-Length: 17\r\n\r\n{\"method\":\"test\"}";
+        让 可变 游标 = Cursor::new(数据);
+        让 消息 = 读取单条分析器消息(&可变 游标).expect("应解析出消息");
+        断言相等!(消息["method"], "test");
+    }
+
+    /// 消息头中缺少 Content-Length 时返回 None
+    #[测试]
+    函数 测试读取单条消息缺内容长度() {
+        让 数据 = "Content-Type: application/json\r\n\r\n{}";
+        让 可变 游标 = Cursor::new(数据);
+        断言!(读取单条分析器消息(&可变 游标).is_none());
+    }
+
+    /// 消息体长度不足（提前 EOF）时返回 None
+    #[测试]
+    函数 测试读取单条消息体截断() {
+        让 数据 = "Content-Length: 100\r\n\r\n{\"method\":\"test\"}";
+        让 可变 游标 = Cursor::new(数据);
+        断言!(读取单条分析器消息(&可变 游标).is_none());
+    }
+
+    /// 消息体为非 UTF-8 字节时返回 None
+    #[测试]
+    函数 测试读取单条消息非utf8() {
+        让 数据 = b"Content-Length: 2\r\n\r\n\xFF\xFE";
+        让 可变 游标 = Cursor::new(数据.as_slice());
+        断言!(读取单条分析器消息(&可变 游标).is_none());
+    }
+
+    /// 输入为 EOF 时返回 None
+    #[测试]
+    函数 测试读取单条消息空输入返回无() {
+        让 可变 游标 = Cursor::new("");
+        断言!(读取单条分析器消息(&可变 游标).is_none());
+    }
+
+    /// 短文本原样返回
+    #[测试]
+    函数 测试截断短文本不变() {
+        断言相等!(截断文本("abc", 10), "abc");
+        断言相等!(截断文本("hello world", 5), "hello...");
+    }
+
+    /// 截断长度落在多字节字符中间时回退到字符边界
+    #[测试]
+    函数 测试截断字符边界安全() {
+        断言相等!(截断文本("中文测试", 3), "中...");
+        断言相等!(截断文本("中文测试", 4), "中...");
+        断言相等!(截断文本("中文测试", 6), "中文...");
+    }
+
+    /// RUST_ANALYZER_PATH 环境变量优先返回
+    #[测试]
+    函数 测试查找分析器环境变量优先() {
+        让 临时 = tempfile::NamedTempFile::new().expect("创建临时文件失败");
+        不安全 {
+            std::env::set_var("RUST_ANALYZER_PATH", 临时.path());
+        }
+        让 找到 = 查找分析器程序().expect("应通过环境变量找到");
+        断言相等!(找到, 临时.path());
+        不安全 {
+            std::env::remove_var("RUST_ANALYZER_PATH");
+        }
+    }
+
+    /// PATH 扫描由 engine 工具链定位统一实现（见 crates/engine/src/toolchain.rs）
+    #[测试]
+    函数 测试引擎查找工具链程序缺失() {
+        // 内置与 PATH 都不存在的二进制名应返回 None（不 panic）
+        让 名称 = 格式化!("__ra_nonexistent__{}", std::process::id());
+        断言!(i18n_rust_engine::工具链::查找工具链程序(&名称).is_none());
+    }
+
+    /// 构造空连接（未启动任何子进程）
+    函数 构造空连接() -> 分析器连接 {
+        让 (消息出口, 接收端) = crossbeam_channel::unbounded();
+        分析器连接 {
+            子进程句柄: Mutex::new(无),
+            写入端: Arc::new(Mutex::new(无)),
+            消息出口,
+            接收端,
+            崩溃标志: Arc::new(AtomicBool::new(假)),
+            停止标志: Mutex::new(Arc::new(AtomicBool::new(假))),
+        }
+    }
+
+    /// 等待崩溃标志置位（最多 2 秒）
+    函数 等待崩溃(连接: &分析器连接) -> 布尔 {
+        对于 _ in 0..40 {
+            如果 连接.检测崩溃() {
+                返回 真;
+            }
+            thread::sleep(std::time::Duration::from_millis(50));
+        }
+        假
+    }
+
+    /// 子进程异常退出（EOF 且非主动停止）时置崩溃标志
+    #[配置(unix)]
+    #[测试]
+    函数 测试异常退出置崩溃标志() {
+        让 连接 = 构造空连接();
+        连接.用命令启动(Command::new("sh").arg("-c").arg("exit 0"))
+            .expect("启动假进程失败");
+        断言!(等待崩溃(&连接), "进程立即退出应触发崩溃标志");
+        // 模拟重启：停止旧进程（其 EOF 不再报崩溃）+ 复位标志 + 启动新进程
+        连接.停止进程();
+        连接.清除崩溃标志();
+        连接.用命令启动(Command::new("sh").arg("-c").arg("exit 1"))
+            .expect("二次启动失败");
+        断言!(!连接.检测崩溃(), "重启后标志应复位");
+        断言!(等待崩溃(&连接), "新进程退出应再次置位");
+    }
+
+    /// 主动 stop() 后的 EOF 不置崩溃标志
+    #[配置(unix)]
+    #[测试]
+    函数 测试优雅停止不置崩溃标志() {
+        让 连接 = 构造空连接();
+        连接.用命令启动(Command::new("sh").arg("-c").arg("sleep 5"))
+            .expect("启动假进程失败");
+        连接.停止进程();
+        thread::sleep(std::time::Duration::from_millis(200));
+        断言!(!连接.检测崩溃(), "主动停止不应报告崩溃");
+    }
+
+    /// 未启动（重启窗口内）发送返回明确错误而非 panic
+    #[测试]
+    函数 测试未运行发送报错() {
+        让 连接 = 构造空连接();
+        让 错误值 = 连接
+            .send(&serde_json::json!({ "method": "test" }))
+            .unwrap_err();
+        断言!(
+            错误值.to_string().contains("不可用")
+                || 错误值.to_string().contains("lsp_err_ra_not_running")
+        );
+    }
+}

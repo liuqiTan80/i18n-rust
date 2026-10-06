@@ -151,7 +151,7 @@ fn main() {
         writeln!(
             code,
             "static UI_TABLE_{i}: std::sync::LazyLock<std::collections::HashMap<String, String>> =\n    \
-             std::sync::LazyLock::new(|| parse_ui(include_str!({abs:?})));"
+             std::sync::LazyLock::new(|| 解析界面表(include_str!({abs:?})));"
         )
         .unwrap();
     }

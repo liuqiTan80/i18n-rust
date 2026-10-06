@@ -36,6 +36,10 @@
 "是字符串" = "is_string"
 
 # toml
+"TOML处理" = "toml"
+"反序列化模块" = "de"
+"表格" = "Table"
+"字符串值" = "String"
 
 # bincode
 "编码" = "encode"

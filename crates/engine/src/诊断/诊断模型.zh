@@ -1,0 +1,68 @@
+// rustc JSON 诊断数据结构（对应 --error-format=json 输出）。
+
+use 序列化::可反序列化;
+
+/// rustc 编译器诊断信息（对应一行 JSON 输出）
+#[derive(可反序列化, Debug, Clone)]
+公开 结构体 编译器诊断 {
+    #[serde(rename = "message")]
+    公开 诊断消息: 字符串,
+    #[serde(rename = "code")]
+    公开 诊断码: 选项<诊断码>,
+    #[serde(rename = "level")]
+    公开 诊断级别: 字符串,
+    #[serde(rename = "spans")]
+    公开 跨度列表: 向量<诊断跨度>,
+    #[serde(rename = "children")]
+    公开 子诊断: 向量<自身>,
+    #[serde(rename = "rendered")]
+    公开 预渲染文本: 选项<字符串>,
+}
+
+/// 诊断错误码（如 E0308）
+#[derive(可反序列化, Debug, Clone)]
+公开 结构体 诊断码 {
+    #[serde(rename = "code")]
+    公开 码值: 字符串,
+    #[serde(rename = "explanation")]
+    公开 解释: 选项<字符串>,
+}
+
+/// 诊断跨度（代码位置信息）
+#[derive(可反序列化, Debug, Clone)]
+公开 结构体 诊断跨度 {
+    #[serde(rename = "file_name")]
+    公开 源文件名: 字符串,
+    #[serde(rename = "line_start")]
+    公开 起始行: 无符号整数,
+    #[serde(rename = "column_start")]
+    公开 起始列: 无符号整数,
+    #[serde(rename = "line_end")]
+    公开 结束行: 无符号整数,
+    #[serde(rename = "column_end")]
+    公开 结束列: 无符号整数,
+    #[serde(rename = "text")]
+    公开 源码文本: 选项<serde_json::Value>,
+    #[serde(rename = "byte_start")]
+    公开 起始字节: 选项<无符号长整数>,
+    #[serde(rename = "byte_end")]
+    公开 结束字节: 选项<无符号长整数>,
+    #[serde(rename = "is_primary")]
+    公开 是主跨度: 布尔,
+    #[serde(rename = "label")]
+    公开 标签: 选项<字符串>,
+    #[serde(rename = "suggested_replacement")]
+    公开 建议替换: 选项<字符串>,
+}
+
+/// 从 serde_json::Value 中提取源码文本
+公开(超级) 函数 抽取源码文本(文本值: &选项<serde_json::Value>) -> 选项<字符串> {
+    文本值.as_ref().and_then(|数据| {
+        数据
+            .as_array()
+            .and_then(|数组| 数组.first())
+            .and_then(|对象| 对象.get("text"))
+            .and_then(|文本段| 文本段.as_str())
+            .map(|串| 串.to_string())
+    })
+}

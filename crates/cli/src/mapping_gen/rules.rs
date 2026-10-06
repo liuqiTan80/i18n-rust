@@ -9,32 +9,32 @@ use std::path::Path;
 /// 引擎的词法转译（关键字映射）先于别名替换执行，因此若生成的中文名
 /// 在 keywords.toml 中已映射为不同英文（如 `错误` → `Err`），则本映射不会生效。
 /// 返回冲突列表：(中文名, 关键字映射的英文, 本映射的英文)；语言包目录不存在时返回空。
-pub fn detect_keyword_conflicts(
-    lang_pack_dir: &Path,
-    chinese_name_table: &[(String, String)],
+pub fn 检测关键字冲突(
+    语言包目录: &Path,
+    中文名表: &[(String, String)],
 ) -> Vec<(String, String, String)> {
-    let Ok(content) = fs::read_to_string(lang_pack_dir.join("keywords.toml")) else {
+    let Ok(内容) = fs::read_to_string(语言包目录.join("keywords.toml")) else {
         return Vec::new();
     };
     // 复用引擎权威语义（按节名升序合并、后到覆盖），与运行时生效的
     // 关键字映射一致；否则按文档顺序先到先得会误报冲突
-    let Ok(sections) = i18n_rust_engine::mapping_source::parse_toml_sections(&content) else {
+    let Ok(节表) = i18n_rust_engine::映射源::解析配置节(&内容) else {
         return Vec::new();
     };
-    let keyword_map = i18n_rust_engine::mapping_source::flatten_sections(&sections);
-    let mut conflicts = Vec::new();
-    for (chinese, english) in chinese_name_table {
-        if let Some(keyword_english) = keyword_map.get(chinese)
-            && keyword_english != english
+    let 关键词映射表 = i18n_rust_engine::映射源::摊平节表(&节表);
+    let mut 冲突表 = Vec::new();
+    for (中文, 英文) in 中文名表 {
+        if let Some(关键词英文) = 关键词映射表.get(中文)
+            && 关键词英文 != 英文
         {
-            conflicts.push((chinese.clone(), keyword_english.clone(), english.clone()));
+            冲突表.push((中文.clone(), 关键词英文.clone(), 英文.clone()));
         }
     }
-    conflicts
+    冲突表
 }
 
 /// 整名特例（优先于一切规则，保证常见 API 的中文名准确直观）
-const WHOLE_NAME_EXCEPTIONS: &[(&str, &str)] = &[
+const 整名特例表: &[(&str, &str)] = &[
     ("new", "新建"),
     ("from_str", "从字符串解析"),
     ("from_bytes", "从字节解析"),
@@ -79,7 +79,7 @@ const WHOLE_NAME_EXCEPTIONS: &[(&str, &str)] = &[
 ];
 
 /// 前缀规则（按长度降序匹配，`get_xxx` → 获取xxx）
-const PREFIX_RULES: &[(&str, &str)] = &[
+const 前缀规则表: &[(&str, &str)] = &[
     ("from_str", "从字符串解析"),
     ("to_string", "转字符串"),
     ("is_empty", "是否为空"),
@@ -118,7 +118,7 @@ const PREFIX_RULES: &[(&str, &str)] = &[
 ];
 
 /// 英文单词 → 中文（用于类型名与函数名的拆词翻译）
-const WORD_TABLE: &[(&str, &str)] = &[
+const 单词翻译表: &[(&str, &str)] = &[
     ("anyhow", "任意错误"),
     ("serde", "序列化"),
     ("serde_json", "JSON序列化"),
@@ -397,7 +397,7 @@ const WORD_TABLE: &[(&str, &str)] = &[
 ];
 
 /// crate 名 → 中文名特例表（常见 crate，保证输出准确）
-const CRATE_NAME_EXCEPTIONS: &[(&str, &str)] = &[
+const 库名特例表: &[(&str, &str)] = &[
     ("anyhow", "任意错误"),
     ("serde", "序列化"),
     ("serde_json", "JSON序列化"),
@@ -436,199 +436,191 @@ const CRATE_NAME_EXCEPTIONS: &[(&str, &str)] = &[
 ];
 
 /// 按目标语言生成 crate 名称：zh 用特例表/拆词翻译，其他语言保留英文原名
-pub fn generate_crate_localized_name(lang: &str, crate_name: &str) -> String {
-    if lang == "zh" {
-        generate_crate_chinese_name(crate_name)
+pub fn 生成库名本地化(语言: &str, 库名: &str) -> String {
+    if 语言 == "zh" {
+        生成库名中文名(库名)
     } else {
-        crate_name.to_string()
+        库名.to_string()
     }
 }
 
 /// 生成 crate 的中文名（特例表优先，未命中拆词翻译，仍未知则保留原名）
-pub fn generate_crate_chinese_name(crate_name: &str) -> String {
-    if let Some((_, chinese)) = CRATE_NAME_EXCEPTIONS
-        .iter()
-        .find(|(en, _)| *en == crate_name)
-    {
-        return chinese.to_string();
+pub fn 生成库名中文名(库名: &str) -> String {
+    if let Some((_, 中文)) = 库名特例表.iter().find(|(英文, _)| *英文 == 库名) {
+        return 中文.to_string();
     }
-    let word_seq = split_words(crate_name);
-    if word_seq.is_empty() {
-        return crate_name.to_string();
+    let 词序列 = 拆分单词(库名);
+    if 词序列.is_empty() {
+        return 库名.to_string();
     }
-    let translations: Vec<String> = word_seq
+    let 译文表: Vec<String> = 词序列
         .iter()
-        .map(|word| {
-            WORD_TABLE
+        .map(|词| {
+            单词翻译表
                 .iter()
-                .find(|(en, _)| *en == word)
-                .map(|(_, zh)| zh.to_string())
-                .unwrap_or_else(|| word.clone())
+                .find(|(英文, _)| *英文 == 词)
+                .map(|(_, 中文)| 中文.to_string())
+                .unwrap_or_else(|| 词.clone())
         })
         .collect();
-    let result = translations.concat();
-    if result == crate_name {
-        crate_name.to_string()
+    let 拼接结果 = 译文表.concat();
+    if 拼接结果 == 库名 {
+        库名.to_string()
     } else {
-        result
+        拼接结果
     }
 }
 
 /// 按目标语言生成 API 名称：zh 走规则生成中文名，其他语言保留英文原名
-pub fn rule_generate_localized_name(lang: &str, english_name: &str) -> String {
-    if lang == "zh" {
-        rule_generate_chinese_name(english_name)
+pub fn 规则生成本地化名(语言: &str, 英文名: &str) -> String {
+    if 语言 == "zh" {
+        规则生成中文名(英文名)
     } else {
-        english_name.to_string()
+        英文名.to_string()
     }
 }
 
 /// 规则驱动：根据英文名生成中文名（整名特例 → 前缀规则 → 拆词翻译 → 原名）
-pub fn rule_generate_chinese_name(english_name: &str) -> String {
+pub fn 规则生成中文名(英文名: &str) -> String {
     // 1. 整名特例
-    if let Some((_, chinese)) = WHOLE_NAME_EXCEPTIONS
-        .iter()
-        .find(|(en, _)| *en == english_name)
-    {
-        return chinese.to_string();
+    if let Some((_, 中文)) = 整名特例表.iter().find(|(英文, _)| *英文 == 英文名) {
+        return 中文.to_string();
     }
     // 2. 前缀规则（按长度降序匹配，如 get_value → 获取值）
-    let mut prefix_candidates: Vec<&(&str, &str)> = PREFIX_RULES
+    let mut 前缀候选: Vec<&(&str, &str)> = 前缀规则表
         .iter()
-        .filter(|(prefix, _)| english_name.starts_with(prefix) && english_name.len() > prefix.len())
+        .filter(|(前缀, _)| 英文名.starts_with(前缀) && 英文名.len() > 前缀.len())
         .collect();
-    prefix_candidates.sort_by_key(|(prefix, _)| std::cmp::Reverse(prefix.len()));
-    if let Some((prefix, chinese)) = prefix_candidates.first() {
-        let remainder = &english_name[prefix.len()..];
-        return format!("{}{}", chinese, translate_words(remainder));
+    前缀候选.sort_by_key(|(前缀, _)| std::cmp::Reverse(前缀.len()));
+    if let Some((前缀, 中文)) = 前缀候选.first() {
+        let 剩余串 = &英文名[前缀.len()..];
+        return format!("{}{}", 中文, 翻译单词(剩余串));
     }
     // 3. 拆词翻译（如 SerializeValue → 序列化值）
-    let translation = translate_words(english_name);
-    if !translation.is_empty() {
-        return translation;
+    let 译文 = 翻译单词(英文名);
+    if !译文.is_empty() {
+        return 译文;
     }
     // 4. 兆底：保留原名
-    english_name.to_string()
+    英文名.to_string()
 }
 
 /// 把标识符拆成小写单词序列（支持 snake_case / 驼峰 / 连字符）
-fn split_words(identifier: &str) -> Vec<String> {
-    let mut words = Vec::new();
-    let mut current = String::new();
-    let mut prev_was_upper = false;
-    for c in identifier.chars() {
-        if c == '_' || c == '-' {
-            if !current.is_empty() {
-                words.push(current.clone());
-                current.clear();
+fn 拆分单词(原名: &str) -> Vec<String> {
+    let mut 词列表 = Vec::new();
+    let mut 当前词 = String::new();
+    let mut 先前大写 = false;
+    for 每字符 in 原名.chars() {
+        if 每字符 == '_' || 每字符 == '-' {
+            if !当前词.is_empty() {
+                词列表.push(当前词.clone());
+                当前词.clear();
             }
-            prev_was_upper = false;
+            先前大写 = false;
             continue;
         }
-        if c.is_ascii_uppercase() {
-            if !current.is_empty() && !prev_was_upper {
-                words.push(current.clone());
-                current.clear();
+        if 每字符.is_ascii_uppercase() {
+            if !当前词.is_empty() && !先前大写 {
+                词列表.push(当前词.clone());
+                当前词.clear();
             }
-            current.push(c.to_ascii_lowercase());
-            prev_was_upper = true;
+            当前词.push(每字符.to_ascii_lowercase());
+            先前大写 = true;
         } else {
-            current.push(c);
-            prev_was_upper = false;
+            当前词.push(每字符);
+            先前大写 = false;
         }
     }
-    if !current.is_empty() {
-        words.push(current);
+    if !当前词.is_empty() {
+        词列表.push(当前词);
     }
-    words
+    词列表
 }
 
 /// 拆词后逐词查词表翻译并拼接
-fn translate_words(english_name: &str) -> String {
-    let word_seq = split_words(english_name);
-    if word_seq.is_empty() {
+fn 翻译单词(英文名: &str) -> String {
+    let 词序列 = 拆分单词(英文名);
+    if 词序列.is_empty() {
         return String::new();
     }
-    let all_known = word_seq
+    let 全部已知 = 词序列
         .iter()
-        .all(|w| WORD_TABLE.iter().any(|(en, _)| en == w));
-    if !all_known {
+        .all(|词| 单词翻译表.iter().any(|(英文, _)| 英文 == 词));
+    if !全部已知 {
         return String::new();
     }
-    word_seq
+    词序列
         .iter()
-        .map(|w| {
-            WORD_TABLE
+        .map(|词| {
+            单词翻译表
                 .iter()
-                .find(|(en, _)| en == w)
-                .map(|(_, zh)| *zh)
-                .unwrap_or(w)
+                .find(|(英文, _)| 英文 == 词)
+                .map(|(_, 中文)| *中文)
+                .unwrap_or(词)
         })
         .collect()
 }
 
 #[cfg(test)]
-mod tests {
+mod 单元测试 {
     use super::*;
 
     #[test]
-    fn test_rule_chinese_name() {
-        assert_eq!(rule_generate_chinese_name("new"), "新建");
-        assert_eq!(rule_generate_chinese_name("get_value"), "获取值");
-        assert_eq!(rule_generate_chinese_name("set_name"), "设置名称");
-        assert_eq!(rule_generate_chinese_name("is_empty"), "是否为空");
-        assert_eq!(rule_generate_chinese_name("from_str"), "从字符串解析");
-        assert_eq!(rule_generate_chinese_name("to_string"), "转字符串");
-        assert_eq!(rule_generate_chinese_name("Error"), "错误");
-        assert_eq!(rule_generate_chinese_name("Client"), "客户端");
-        assert_eq!(rule_generate_chinese_name("Serialize"), "序列化");
-        assert_eq!(rule_generate_chinese_name("Deserialize"), "反序列化");
-        assert_eq!(rule_generate_chinese_name("未知标识符"), "未知标识符");
+    fn 测试规则中文名() {
+        assert_eq!(规则生成中文名("new"), "新建");
+        assert_eq!(规则生成中文名("get_value"), "获取值");
+        assert_eq!(规则生成中文名("set_name"), "设置名称");
+        assert_eq!(规则生成中文名("is_empty"), "是否为空");
+        assert_eq!(规则生成中文名("from_str"), "从字符串解析");
+        assert_eq!(规则生成中文名("to_string"), "转字符串");
+        assert_eq!(规则生成中文名("Error"), "错误");
+        assert_eq!(规则生成中文名("Client"), "客户端");
+        assert_eq!(规则生成中文名("Serialize"), "序列化");
+        assert_eq!(规则生成中文名("Deserialize"), "反序列化");
+        assert_eq!(规则生成中文名("未知标识符"), "未知标识符");
     }
 
     #[test]
-    fn test_crate_chinese_name() {
-        assert_eq!(generate_crate_chinese_name("anyhow"), "任意错误");
-        assert_eq!(generate_crate_chinese_name("serde"), "序列化");
-        assert_eq!(generate_crate_chinese_name("serde_json"), "JSON序列化");
-        assert_eq!(generate_crate_chinese_name("tokio"), "异步运行时");
+    fn 测试库名中文名() {
+        assert_eq!(生成库名中文名("anyhow"), "任意错误");
+        assert_eq!(生成库名中文名("serde"), "序列化");
+        assert_eq!(生成库名中文名("serde_json"), "JSON序列化");
+        assert_eq!(生成库名中文名("tokio"), "异步运行时");
         // 未命中特例时拆词翻译
-        assert_eq!(generate_crate_chinese_name("error_handler"), "错误处理器");
+        assert_eq!(生成库名中文名("error_handler"), "错误处理器");
         // 无法翻译时保留原名
-        assert_eq!(generate_crate_chinese_name("zxxyzq"), "zxxyzq");
+        assert_eq!(生成库名中文名("zxxyzq"), "zxxyzq");
     }
 
     #[test]
-    fn test_split_words() {
-        assert_eq!(split_words("get_value"), vec!["get", "value"]);
-        assert_eq!(split_words("SerializeValue"), vec!["serialize", "value"]);
-        assert_eq!(split_words("into_iter"), vec!["into", "iter"]);
-        assert_eq!(split_words("JSON"), vec!["json"]);
+    fn 测试拆分单词() {
+        assert_eq!(拆分单词("get_value"), vec!["get", "value"]);
+        assert_eq!(拆分单词("SerializeValue"), vec!["serialize", "value"]);
+        assert_eq!(拆分单词("into_iter"), vec!["into", "iter"]);
+        assert_eq!(拆分单词("JSON"), vec!["json"]);
     }
 
     /// 关键字冲突检测：中文名在 keywords.toml 中映射为不同英文时应报告冲突
     #[test]
-    fn test_keyword_conflict_detection() {
-        let temp = tempfile::tempdir().unwrap();
+    fn 测试关键字冲突检测() {
+        let 临时 = tempfile::tempdir().unwrap();
         fs::write(
-            temp.path().join("keywords.toml"),
+            临时.path().join("keywords.toml"),
             "[\"类型\"]\n\"错误\" = \"Err\"\n\"结果\" = \"Result\"\n",
         )
         .unwrap();
-        let chinese_name_table = vec![
+        let 中文名表 = vec![
             ("错误".to_string(), "Error".to_string()),
             ("结果".to_string(), "Result".to_string()),
             ("上下文".to_string(), "Context".to_string()),
         ];
-        let conflicts = detect_keyword_conflicts(temp.path(), &chinese_name_table);
-        assert_eq!(conflicts.len(), 1, "应只有 '错误' 冲突: {:?}", conflicts);
+        let 冲突表 = 检测关键字冲突(临时.path(), &中文名表);
+        assert_eq!(冲突表.len(), 1, "应只有 '错误' 冲突: {:?}", 冲突表);
         assert_eq!(
-            conflicts[0],
+            冲突表[0],
             ("错误".to_string(), "Err".to_string(), "Error".to_string())
         );
         // 语言包目录不存在时返回空
-        assert!(
-            detect_keyword_conflicts(&temp.path().join("不存在"), &chinese_name_table).is_empty()
-        );
+        assert!(检测关键字冲突(&临时.path().join("不存在"), &中文名表).is_empty());
     }
 }

@@ -14,66 +14,67 @@
 
 use std::path::PathBuf;
 
-use i18n_rust_lsp::{server, ui};
+use i18n_rust_lsp::{代理, 本地化};
 
 /// 命令行参数
-struct CliArgs {
+struct CliArgs类型 {
     /// 语言包目录路径
-    lang_pack_path: PathBuf,
+    语言包路径: PathBuf,
     /// 支持的方言文件扩展名列表（如 `.zh`）
-    extensions: Vec<String>,
+    扩展名列表: Vec<String>,
 }
 
 /// 解析逗号分隔的扩展名列表，自动补充 `.` 前缀
 ///
 /// 空项（如 `"zh,,en"`）被忽略。
 /// 示例：`"zh, .de,ja"` → `[".zh", ".de", ".ja"]`
-fn parse_extensions(list: &str) -> Vec<String> {
-    list.split(',')
+fn 解析扩展名(逗号串: &str) -> Vec<String> {
+    逗号串
+        .split(',')
         .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(|s| {
-            if s.starts_with('.') {
-                s.to_string()
+        .filter(|片段| !片段.is_empty())
+        .map(|片段| {
+            if 片段.starts_with('.') {
+                片段.to_string()
             } else {
-                format!(".{}", s)
+                format!(".{}", 片段)
             }
         })
         .collect()
 }
 
 /// 解析命令行参数
-fn parse_args() -> CliArgs {
-    let mut lang_pack_path = PathBuf::from("crates/engine/lang-packs/zh");
-    let mut extensions: Vec<String> = Vec::new();
+fn 解析命令行参数() -> CliArgs类型 {
+    let mut 语言包路径 = PathBuf::from("crates/engine/lang-packs/zh");
+    let mut 扩展名列表: Vec<String> = Vec::new();
 
-    let args: Vec<String> = std::env::args().collect();
-    let mut i = 1;
-    while i < args.len() {
-        match args[i].as_str() {
+    let 参数表: Vec<String> = std::env::args().collect();
+    let mut 游标 = 1;
+    while 游标 < 参数表.len() {
+        match 参数表[游标].as_str() {
             "--language-pack" | "-l" => {
-                if i + 1 < args.len() {
-                    lang_pack_path = PathBuf::from(&args[i + 1]);
-                    i += 2;
+                if 游标 + 1 < 参数表.len() {
+                    语言包路径 = PathBuf::from(&参数表[游标 + 1]);
+                    游标 += 2;
                 } else {
-                    let ui = ui::Ui::load(&lang_pack_path);
-                    eprintln!("{}", ui.t("lsp_err_lang_pack"));
+                    let 界面实例 = 本地化::界面::创建(&语言包路径);
+                    eprintln!("{}", 界面实例.取文("lsp_err_lang_pack"));
                     std::process::exit(1);
                 }
             }
             "--extensions" | "-e" => {
-                if i + 1 < args.len() {
-                    extensions = parse_extensions(&args[i + 1]);
-                    i += 2;
+                if 游标 + 1 < 参数表.len() {
+                    扩展名列表 = 解析扩展名(&参数表[游标 + 1]);
+                    游标 += 2;
                 } else {
-                    let ui = ui::Ui::load(&lang_pack_path);
-                    eprintln!("{}", ui.t("lsp_err_extensions"));
+                    let 界面实例 = 本地化::界面::创建(&语言包路径);
+                    eprintln!("{}", 界面实例.取文("lsp_err_extensions"));
                     std::process::exit(1);
                 }
             }
             "--help" | "-h" => {
-                let ui = ui::Ui::load(&lang_pack_path);
-                print_help(&ui);
+                let 界面实例 = 本地化::界面::创建(&语言包路径);
+                打印帮助(&界面实例);
                 std::process::exit(0);
             }
             // 输出版本号（纯版本号，供 rzc install 版本校验解析）
@@ -83,34 +84,34 @@ fn parse_args() -> CliArgs {
             }
             // VSCode LanguageClient 会传递 --stdio 参数，我们默认就使用 stdio，直接忽略
             "--stdio" => {
-                i += 1;
+                游标 += 1;
             }
             _ => {
-                let ui = ui::Ui::load(&lang_pack_path);
-                eprintln!("{}", ui.f("lsp_unknown_arg", &[&args[i]]));
-                eprintln!("{}", ui.t("lsp_use_help"));
+                let 界面实例 = 本地化::界面::创建(&语言包路径);
+                eprintln!("{}", 界面实例.取文带参("lsp_unknown_arg", &[&参数表[游标]]));
+                eprintln!("{}", 界面实例.取文("lsp_use_help"));
                 std::process::exit(1);
             }
         }
     }
 
-    CliArgs {
-        lang_pack_path,
-        extensions,
+    CliArgs类型 {
+        语言包路径,
+        扩展名列表,
     }
 }
 
 /// 打印帮助文本（提示语随语言包/系统语言本地化）
-fn print_help(ui: &ui::Ui) {
-    println!("{}", ui.t("lsp_about"));
+fn 打印帮助(界面实例: &本地化::界面) {
+    println!("{}", 界面实例.取文("lsp_about"));
     println!();
-    println!("{}", ui.t("lsp_usage"));
+    println!("{}", 界面实例.取文("lsp_usage"));
     println!();
-    println!("{}", ui.t("lsp_options"));
-    println!("{}", ui.t("lsp_lang_pack_opt"));
-    println!("{}", ui.t("lsp_extensions_opt"));
-    println!("{}", ui.t("lsp_version_opt"));
-    println!("{}", ui.t("lsp_help_opt"));
+    println!("{}", 界面实例.取文("lsp_options"));
+    println!("{}", 界面实例.取文("lsp_lang_pack_opt"));
+    println!("{}", 界面实例.取文("lsp_extensions_opt"));
+    println!("{}", 界面实例.取文("lsp_version_opt"));
+    println!("{}", 界面实例.取文("lsp_help_opt"));
 }
 
 /// 当默认语言包路径不存在时，自动搜索常见位置
@@ -119,36 +120,36 @@ fn print_help(ui: &ui::Ui) {
 /// 1. 二进制所在目录向上搜索（最多 5 级）
 /// 2. 当前工作目录向上搜索
 /// 3. $HOME 下常见项目目录（code/zrRust、zrRust）
-fn find_lang_pack_fallback(default: &std::path::Path, lang_code: &str) -> PathBuf {
+fn 查找语言包回退(default: &std::path::Path, 语言码: &str) -> PathBuf {
     if default.exists() {
         return default.to_path_buf();
     }
     log::warn!("默认语言包路径 {} 不存在，正在搜索...", default.display());
     // 1. 二进制所在目录向上搜索
-    if let Ok(exe) = std::env::current_exe()
-        && let Some(found) = search_upward(&exe, lang_code)
+    if let Ok(可执行路径) = std::env::current_exe()
+        && let Some(命中路径) = 向上搜索(&可执行路径, 语言码)
     {
-        log::info!("在二进制目录找到语言包: {}", found.display());
-        return found;
+        log::info!("在二进制目录找到语言包: {}", 命中路径.display());
+        return 命中路径;
     }
     // 2. 当前工作目录向上搜索
-    if let Ok(cwd) = std::env::current_dir()
-        && let Some(found) = search_upward(&cwd, lang_code)
+    if let Ok(当前目录) = std::env::current_dir()
+        && let Some(命中路径) = 向上搜索(&当前目录, 语言码)
     {
-        log::info!("在工作目录找到语言包: {}", found.display());
-        return found;
+        log::info!("在工作目录找到语言包: {}", 命中路径.display());
+        return 命中路径;
     }
     // 3. $HOME 下常见项目目录（两种布局：主仓库单副本与用户项目约定）
-    if let Ok(home) = std::env::var("HOME") {
-        for project in &["code/zrRust", "zrRust"] {
-            for layout in &["crates/engine/lang-packs", "lang-packs"] {
-                let candidate = PathBuf::from(&home)
-                    .join(project)
-                    .join(layout)
-                    .join(lang_code);
-                if candidate.exists() {
-                    log::info!("在 HOME 目录找到语言包: {}", candidate.display());
-                    return candidate;
+    if let Ok(主目录) = std::env::var("HOME") {
+        for 项目名 in &["code/zrRust", "zrRust"] {
+            for 布局名 in &["crates/engine/lang-packs", "lang-packs"] {
+                let 候选路径 = PathBuf::from(&主目录)
+                    .join(项目名)
+                    .join(布局名)
+                    .join(语言码);
+                if 候选路径.exists() {
+                    log::info!("在 HOME 目录找到语言包: {}", 候选路径.display());
+                    return 候选路径;
                 }
             }
         }
@@ -159,16 +160,16 @@ fn find_lang_pack_fallback(default: &std::path::Path, lang_code: &str) -> PathBu
 
 /// 从指定路径向上搜索语言包目录（最多 5 级；两种布局均探测：
 /// crates/engine/lang-packs/<码> 主仓库单副本与 lang-packs/<码> 用户项目约定）
-fn search_upward(start: &std::path::Path, lang_code: &str) -> Option<PathBuf> {
-    let mut dir = start.parent()?.to_path_buf();
+fn 向上搜索(起始路径: &std::path::Path, 语言码: &str) -> Option<PathBuf> {
+    let mut 上溯目录 = 起始路径.parent()?.to_path_buf();
     for _ in 0..5 {
-        for layout in &["crates/engine/lang-packs", "lang-packs"] {
-            let candidate = dir.join(layout).join(lang_code);
-            if candidate.exists() {
-                return Some(candidate);
+        for 布局名 in &["crates/engine/lang-packs", "lang-packs"] {
+            let 候选路径 = 上溯目录.join(布局名).join(语言码);
+            if 候选路径.exists() {
+                return Some(候选路径);
             }
         }
-        if !dir.pop() {
+        if !上溯目录.pop() {
             break;
         }
     }
@@ -182,100 +183,104 @@ fn main() -> anyhow::Result<()> {
         .init();
 
     // 解析命令行参数
-    let mut args = parse_args();
+    let mut 参数表 = 解析命令行参数();
 
     // 如果语言包路径不存在，自动搜索（仅在未显式指定时）
-    let 显式指定 = std::env::args().any(|a| a == "--language-pack" || a == "-l");
-    if !显式指定 && !args.lang_pack_path.exists() {
+    let 显式指定 = std::env::args().any(|参数项| 参数项 == "--language-pack" || 参数项 == "-l");
+    if !显式指定 && !参数表.语言包路径.exists() {
         // 从默认路径推断语言代码
-        let lang_code = args
-            .lang_pack_path
+        let 语言码 = 参数表
+            .语言包路径
             .file_name()
-            .and_then(|s| s.to_str())
+            .and_then(|片段| 片段.to_str())
             .unwrap_or("zh");
-        args.lang_pack_path = find_lang_pack_fallback(&args.lang_pack_path, lang_code);
+        参数表.语言包路径 = 查找语言包回退(&参数表.语言包路径, 语言码);
     }
 
     // 初始化全局界面消息（随语言包/系统语言变化）
-    ui::init(&args.lang_pack_path);
-    log::info!("{}", ui::global().t("lsp_log_start"));
+    本地化::初始化全局(&参数表.语言包路径);
+    log::info!("{}", 本地化::全局().取文("lsp_log_start"));
     log::info!(
         "{}",
-        ui::global().f(
+        本地化::全局().取文带参(
             "lsp_log_lang_pack",
-            &[&args.lang_pack_path.display().to_string()]
+            &[&参数表.语言包路径.display().to_string()]
         )
     );
 
     // 创建代理服务器
-    let (server, io_threads) = server::ProxyServer::new(&args.lang_pack_path, &args.extensions)?;
+    let (服务器实例, 输入线程) =
+        代理::代理服务器::new(&参数表.语言包路径, &参数表.扩展名列表)?;
 
     // 运行服务器（阻塞直到退出）
-    server.run(io_threads)?;
+    服务器实例.run(输入线程)?;
 
-    log::info!("{}", ui::global().t("lsp_log_exit"));
+    log::info!("{}", 本地化::全局().取文("lsp_log_exit"));
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{find_lang_pack_fallback, parse_extensions, search_upward};
+    use super::{向上搜索, 查找语言包回退, 解析扩展名};
 
     /// 带点与不带点的扩展名统一补点
     #[test]
-    fn test_parse_extensions_unifies_dot_prefix() {
-        assert_eq!(parse_extensions(".zh,.de,.ja"), vec![".zh", ".de", ".ja"]);
-        assert_eq!(parse_extensions("zh, de,ja"), vec![".zh", ".de", ".ja"]);
+    fn 测试解析扩展名统一补点前缀() {
+        assert_eq!(解析扩展名(".zh,.de,.ja"), vec![".zh", ".de", ".ja"]);
+        assert_eq!(解析扩展名("zh, de,ja"), vec![".zh", ".de", ".ja"]);
     }
 
     /// 空列表与单个扩展名
     #[test]
-    fn test_parse_extensions_edge_cases() {
-        assert!(parse_extensions("").is_empty());
-        assert!(parse_extensions("  , ").is_empty());
-        assert_eq!(parse_extensions("zh"), vec![".zh"]);
-        assert_eq!(parse_extensions("zh,,de"), vec![".zh", ".de"]);
+    fn 测试解析扩展名边界情形() {
+        assert!(解析扩展名("").is_empty());
+        assert!(解析扩展名("  , ").is_empty());
+        assert_eq!(解析扩展名("zh"), vec![".zh"]);
+        assert_eq!(解析扩展名("zh,,de"), vec![".zh", ".de"]);
     }
 
     /// 向上搜索：命中主仓库布局与平铺布局；超过 5 级的祖先命中不到
     #[test]
-    fn test_search_upward_layouts_and_depth_limit() {
-        let temp = tempfile::tempdir().unwrap();
+    fn 测试向上搜索布局与深度上限() {
+        let 临时目录 = tempfile::tempdir().unwrap();
 
         // 布局一：crates/engine/lang-packs/<码>
-        let nested = temp.path().join("repo-nested");
-        let pack = nested.join("crates/engine/lang-packs/zh");
-        std::fs::create_dir_all(&pack).unwrap();
-        let start = nested.join("target/debug/deps/bin");
-        assert_eq!(search_upward(&start, "zh").as_deref(), Some(pack.as_path()));
+        let 嵌套布局 = 临时目录.path().join("repo-nested");
+        let 语言包目录 = 嵌套布局.join("crates/engine/lang-packs/zh");
+        std::fs::create_dir_all(&语言包目录).unwrap();
+        let 起始路径 = 嵌套布局.join("target/debug/deps/bin");
+        assert_eq!(
+            向上搜索(&起始路径, "zh").as_deref(),
+            Some(语言包目录.as_path())
+        );
 
         // 布局二：平铺 lang-packs/<码>
-        let flat = temp.path().join("repo-flat");
-        let pack2 = flat.join("lang-packs/ja");
-        std::fs::create_dir_all(&pack2).unwrap();
-        let start2 = flat.join("a/b/bin");
+        let 平铺布局 = 临时目录.path().join("repo-flat");
+        let 语言包目录二 = 平铺布局.join("lang-packs/ja");
+        std::fs::create_dir_all(&语言包目录二).unwrap();
+        let 起始路径二 = 平铺布局.join("a/b/bin");
         assert_eq!(
-            search_upward(&start2, "ja").as_deref(),
-            Some(pack2.as_path())
+            向上搜索(&起始路径二, "ja").as_deref(),
+            Some(语言包目录二.as_path())
         );
 
         // 语言码不存在 → None（不误中其他语言目录）
-        assert!(search_upward(&start, "xx").is_none());
+        assert!(向上搜索(&起始路径, "xx").is_none());
 
         // 包目录在 6 级祖先之外：向上最多 5 级，找不到
-        let deep = temp.path().join("d/l1/l2/l3/l4/l5/l6");
-        std::fs::create_dir_all(&deep).unwrap();
-        let pack3 = temp.path().join("d/lang-packs/zh");
-        std::fs::create_dir_all(&pack3).unwrap();
-        assert!(search_upward(&deep.join("bin"), "zh").is_none());
+        let 过深目录 = 临时目录.path().join("d/l1/l2/l3/l4/l5/l6");
+        std::fs::create_dir_all(&过深目录).unwrap();
+        let 语言包目录三 = 临时目录.path().join("d/lang-packs/zh");
+        std::fs::create_dir_all(&语言包目录三).unwrap();
+        assert!(向上搜索(&过深目录.join("bin"), "zh").is_none());
     }
 
     /// 默认路径已存在时直接采用，不触发任何搜索（显式 --language-pack 路径）
     #[test]
-    fn test_find_lang_pack_fallback_existing_short_circuits() {
-        let temp = tempfile::tempdir().unwrap();
-        let default = temp.path().join("explicit/zh");
+    fn 测试查找语言包回退已存在短路() {
+        let 临时目录 = tempfile::tempdir().unwrap();
+        let default = 临时目录.path().join("explicit/zh");
         std::fs::create_dir_all(&default).unwrap();
-        assert_eq!(find_lang_pack_fallback(&default, "zh"), default);
+        assert_eq!(查找语言包回退(&default, "zh"), default);
     }
 }

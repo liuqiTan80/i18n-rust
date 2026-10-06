@@ -1,0 +1,848 @@
+//! 映射管理器 - 统一管理所有映射表（关键字、模块路径、标识符别名）
+//!
+//! 提供完整的映射加载、查询接口，是翻译管线的核心数据结构。
+//! 支持从文件系统目录加载或从内置字符串数据加载（无需文件系统）。
+
+use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::path::Path;
+use std::sync::OnceLock;
+
+// 解析原语与 mapping_source 共用单一实现（节表解析/两节合并），
+// 避免两个加载器对同一 TOML 格式的理解漂移
+use crate::映射源::{合并模块路径与标识符节, 摊平节表, 解析配置节};
+// 「错误类型」模块被第三方表劫持（错误类型→错误特征），改从 包 根重导出引用
+use crate::{加载目标, 加载错误};
+
+/// 映射管理器：统一管理关键字映射、模块路径映射、标识符别名映射
+///
+/// 翻译管线中各阶段（词法转译、模块路径替换、别名替换）均从此处获取映射表。
+/// 支持两种加载方式：
+/// - `自目录加载`: 从语言包目录读取 TOML 文件
+/// - `自内置加载`: 从编译时嵌入的字符串数据加载（无需文件系统）
+#[derive(Debug, Clone)]
+pub struct 映射管理器 {
+    /// 关键字映射（词法转译阶段使用）
+    pub 关键词映射表: HashMap<String, String>,
+    /// 按节（section）组织的关键字映射（用于查询宏名称等）
+    节映射表: HashMap<String, HashMap<String, String>>,
+    /// 派生特征映射（`#[派生(...)]` 属性内专用：中文特征名 → 英文，
+    /// 如 `克隆` → `Clone`；不并入 关键词映射表，避免与方法名别名冲突）
+    派生映射表: HashMap<String, String>,
+    /// 模块路径映射（如 `标准库` → `标准库`）
+    pub 模块路径映射表: HashMap<String, String>,
+    /// 标识符别名映射（标准库/第三方库的类型与函数名翻译）
+    pub 别名映射表: HashMap<String, String>,
+    /// 语境指纹缓存：映射表构造后不可变，首次计算后复用。
+    /// 每次转译都全量重算指纹（构建全部键值对 + 排序 + 哈希）
+    /// 在批量转译场景是纯浪费（语言包不变则指纹恒定）。
+    指纹缓存: OnceLock<u64>,
+    /// use 语句内的“让位词”：模块路径与别名映射（标准库 + 第三方）键的并集。
+    /// 词法转译在 use 段内跳过这些词的关键字/宏替换，交由模块路径与别名
+    /// 阶段按标准库语义处理——同名词在宏表与标准库表重复时 use 段内标准库
+    /// 优先（`文件` 宏节为 file、标准库为 File，`使用 标准库::文件系统::文件`
+    /// 必须产出 `use 标准库::文件系统::File`）。构造时一次性生成，转译时直接复用。
+    使用段让位词: HashSet<String>,
+    /// 方法调用位的“让位词”：词法层替换值为 Rust 保留关键字（`枚举`→enum、
+    /// `匹配`→match）、而别名表（标准库 + 第三方）中该词另有不同有效词条
+    /// （`枚举`=枚举、`匹配`=模式匹配）的词。词法转译在方法位（前面是
+    /// `.`）跳过这些词的替换——`.枚举()` 直译会成非法的 `.enum()`，让位后
+    /// 由别名阶段替换为 `.枚举()`。构造时一次性生成，转译时直接复用。
+    方法位让位词: HashSet<String>,
+    /// 教学 lint 已知词表缓存：全部映射表键的并集（关键字/宏/派生/模块路径/
+    /// 别名）。供“方法调用位未命中映射表”的易混词提示判定——词表大且
+    /// lint 每文件调用，惰性计算一次后复用（映射表构造后不可变）。
+    词表缓存: OnceLock<HashSet<String>>,
+    /// 教学 lint 歧义构造器被调名集缓存（见 [`Self::歧义构造词集`]）
+    歧义构造器缓存: OnceLock<HashSet<String>>,
+    /// 宏映射缓存（`["宏"]` 节的物化副本）：见 [`Self::取宏映射表`]
+    宏映射缓存: OnceLock<HashMap<String, String>>,
+}
+
+impl 映射管理器 {
+    /// 从语言包目录加载全部映射（推荐用于开发模式）
+    ///
+    /// 加载顺序：
+    /// 1. `keywords.toml` → 关键字映射
+    /// 2. `module_paths.toml` → 模块路径映射
+    /// 3. `stdlib.toml` → 标准库的模块路径 + 标识符别名（可选）
+    /// 4. `crates/*.toml` → 第三方库的模块路径 + 标识符别名
+    pub fn 自目录加载(语言包目录: &Path) -> Result<Self, 加载错误> {
+        let 关键字路径 = 语言包目录.join("keywords.toml");
+        if !关键字路径.exists() {
+            return Err(加载错误::新建文件缺失(
+                加载目标::关键字表,
+                关键字路径.display().to_string(),
+            ));
+        }
+
+        // 1. 加载关键字映射
+        let 关键字内容 = fs::read_to_string(&关键字路径).map_err(|错误值| {
+            加载错误::新建读取失败(
+                加载目标::关键字表,
+                Some(关键字路径.display().to_string()),
+                错误值.to_string(),
+            )
+        })?;
+        let 节映射表 = 解析配置节(&关键字内容).map_err(|错误值| {
+            加载错误::新建解析失败(加载目标::关键字表, None, 错误值.to_string())
+        })?;
+        // 派生特征节单独存放（不并入关键字表，避免与方法名别名冲突），
+        // 并从扁平化关键字表中移除对应键
+        let 派生映射表 = 节映射表.get("派生特征").cloned().unwrap_or_default();
+        let mut 关键词映射表 = 摊平节表(&节映射表);
+        for 键名 in 派生映射表.keys() {
+            关键词映射表.remove(键名);
+        }
+
+        // 2. 加载模块路径映射（来自 module_paths.toml）
+        let 模块路径磁盘项 = 语言包目录.join("module_paths.toml");
+        let mut 模块路径映射表 = HashMap::new();
+        if 模块路径磁盘项.exists() {
+            let 内容 = fs::read_to_string(&模块路径磁盘项).map_err(|错误值| {
+                加载错误::新建读取失败(
+                    加载目标::模块路径表,
+                    Some(模块路径磁盘项.display().to_string()),
+                    错误值.to_string(),
+                )
+            })?;
+            let 节表 = 解析配置节(&内容).map_err(|错误值| {
+                加载错误::新建解析失败(加载目标::模块路径表, None, 错误值.to_string())
+            })?;
+            if let Some(条目项) = 节表.get("模块路径") {
+                模块路径映射表.extend(
+                    条目项
+                        .iter()
+                        .map(|(键名, 值项)| (键名.clone(), 值项.clone())),
+                );
+            }
+        }
+
+        // 3. 扫描第三方库目录（crates/）
+        // 文件按文件名排序后合并：读取目录 顺序未定义，同键不同值时
+        // 合并结果必须确定（与 自内置加载 的排序行为一致）
+        let 库目录 = 语言包目录.join("crates");
+        let mut 别名映射表 = HashMap::new();
+        if 库目录.exists() && 库目录.is_dir() {
+            // 读取目录 或条目读取失败必须报错（不能静默吞掉），
+            // 否则第三方库映射整体丢失且用户无感知
+            let mut 配置表路径列表 = Vec::new();
+            for 迭代项 in
+                fs::read_dir(&库目录).map_err(|错误值| 加载错误::目录读取失败 {
+                    详情: 错误值.to_string(),
+                })?
+            {
+                let 迭代项 = 迭代项.map_err(|错误值| 加载错误::目录读取失败 {
+                    详情: 错误值.to_string(),
+                })?;
+                let 磁盘项 = 迭代项.path();
+                if 磁盘项.extension().and_then(|错误值| 错误值.to_str()) == Some("toml") {
+                    配置表路径列表.push(磁盘项);
+                }
+            }
+            配置表路径列表.sort();
+            for 磁盘路径 in 配置表路径列表 {
+                let 内容 = fs::read_to_string(&磁盘路径).map_err(|错误值| {
+                    加载错误::新建读取失败(
+                        加载目标::第三方库,
+                        Some(磁盘路径.display().to_string()),
+                        错误值.to_string(),
+                    )
+                })?;
+                合并模块路径与标识符节(&内容, &mut 模块路径映射表, &mut 别名映射表).map_err(
+                    |错误值| {
+                        加载错误::新建解析失败(
+                            加载目标::第三方库,
+                            Some(磁盘路径.display().to_string()),
+                            错误值.to_string(),
+                        )
+                    },
+                )?;
+            }
+        }
+
+        // 4. 加载标准库映射（stdlib.toml，可选，最后加载以保证优先）
+        //    与 crates/*.toml 相同格式：["模块路径"] + ["标识符"] 两节
+        //    后加载会覆盖第三方库中同名的通用词（如 mpsc 的 "发送" 不被 HTTP 库的 "post" 覆盖）
+        //    文件存在但读取失败必须报错（不能静默跳过，否则标准库映射整体丢失）
+        let 标准库磁盘项 = 语言包目录.join("stdlib.toml");
+        if 标准库磁盘项.exists() {
+            let 内容 = fs::read_to_string(&标准库磁盘项).map_err(|错误值| {
+                加载错误::新建读取失败(
+                    加载目标::标准库表,
+                    Some(标准库磁盘项.display().to_string()),
+                    错误值.to_string(),
+                )
+            })?;
+            合并模块路径与标识符节(&内容, &mut 模块路径映射表, &mut 别名映射表).map_err(
+                |错误值| {
+                    加载错误::新建解析失败(
+                        加载目标::标准库表,
+                        Some(标准库磁盘项.display().to_string()),
+                        错误值.to_string(),
+                    )
+                },
+            )?;
+        }
+
+        let 使用段让位词 = Self::构建使用段让位词(&模块路径映射表, &别名映射表);
+        let 方法位让位词 = Self::构建方法位让位词(&关键词映射表, &别名映射表);
+        Ok(Self {
+            关键词映射表,
+            节映射表,
+            派生映射表,
+            使用段让位词,
+            方法位让位词,
+            模块路径映射表,
+            别名映射表,
+            指纹缓存: OnceLock::new(),
+            词表缓存: OnceLock::new(),
+            歧义构造器缓存: OnceLock::new(),
+            宏映射缓存: OnceLock::new(),
+        })
+    }
+
+    /// 从内置数据加载全部映射（无需文件系统，用于编译时嵌入）
+    ///
+    /// 参数：
+    /// - `keywords_toml`: keywords.toml 的完整内容
+    /// - `module_paths_toml`: module_paths.toml 的完整内容
+    /// - `stdlib_toml`: stdlib.toml 的完整内容（标准库的模块路径 + 标识符别名）
+    /// - `third_party_data`: 各第三方库 .toml 文件的 (文件名, 内容) 列表
+    pub fn 自内置加载(
+        关键字数据: &str,
+        模块路径数据: &str,
+        标准库数据: &str,
+        第三方数据: &[(&str, &str)],
+    ) -> Result<Self, 加载错误> {
+        // 1. 解析关键字映射
+        let 节映射表 = 解析配置节(关键字数据).map_err(|错误值| {
+            加载错误::新建解析失败(加载目标::内置关键字, None, 错误值.to_string())
+        })?;
+        // 派生特征节单独存放（不并入关键字表），并从扁平化关键字表中移除
+        let 派生映射表 = 节映射表.get("派生特征").cloned().unwrap_or_default();
+        let mut 关键词映射表 = 摊平节表(&节映射表);
+        for 键名 in 派生映射表.keys() {
+            关键词映射表.remove(键名);
+        }
+
+        // 2. 解析模块路径映射
+        let mut 模块路径映射表 = HashMap::new();
+        let 节表 = 解析配置节(模块路径数据).map_err(|错误值| {
+            加载错误::新建解析失败(加载目标::内置模块路径表, None, 错误值.to_string())
+        })?;
+        if let Some(条目项) = 节表.get("模块路径") {
+            模块路径映射表.extend(
+                条目项
+                    .iter()
+                    .map(|(键名, 值项)| (键名.clone(), 值项.clone())),
+            );
+        }
+
+        // 3. 解析标准库映射（模块路径 + 标识符别名）
+        let mut 别名映射表 = HashMap::new();
+        let 节表 = 解析配置节(标准库数据).map_err(|错误值| {
+            加载错误::新建解析失败(加载目标::内置标准库表, None, 错误值.to_string())
+        })?;
+        if let Some(条目项) = 节表.get("模块路径") {
+            模块路径映射表.extend(
+                条目项
+                    .iter()
+                    .map(|(键名, 值项)| (键名.clone(), 值项.clone())),
+            );
+        }
+        if let Some(条目项) = 节表.get("标识符") {
+            别名映射表.extend(
+                条目项
+                    .iter()
+                    .map(|(键名, 值项)| (键名.clone(), 值项.clone())),
+            );
+        }
+
+        // 4. 解析第三方库映射（按文件名排序合并，与 自目录加载 行为一致）
+        let mut 排序列表: Vec<&(&str, &str)> = 第三方数据.iter().collect();
+        排序列表.sort_by_key(|(目录名, _)| *目录名);
+        for (目录名, 内容) in 排序列表 {
+            合并模块路径与标识符节(内容, &mut 模块路径映射表, &mut 别名映射表).map_err(
+                |错误值| {
+                    加载错误::新建解析失败(
+                        加载目标::第三方库,
+                        Some((*目录名).to_string()),
+                        错误值.to_string(),
+                    )
+                },
+            )?;
+        }
+
+        let 使用段让位词 = Self::构建使用段让位词(&模块路径映射表, &别名映射表);
+        let 方法位让位词 = Self::构建方法位让位词(&关键词映射表, &别名映射表);
+        Ok(Self {
+            关键词映射表,
+            节映射表,
+            派生映射表,
+            使用段让位词,
+            方法位让位词,
+            模块路径映射表,
+            别名映射表,
+            指纹缓存: OnceLock::new(),
+            词表缓存: OnceLock::new(),
+            歧义构造器缓存: OnceLock::new(),
+            宏映射缓存: OnceLock::new(),
+        })
+    }
+
+    /// 向后兼容：从单个关键字文件加载（委托给 自目录加载）
+    pub fn 自文件加载(磁盘路径: &Path) -> Result<Self, 加载错误> {
+        let 目录 = 磁盘路径.parent().unwrap_or(Path::new("."));
+        Self::自目录加载(目录)
+    }
+
+    /// 从已解析的映射表直接构造（旧格式语言包/降级场景）
+    ///
+    /// 不包含节信息（宏表/派生表为空），仅提供关键字/模块路径/别名三类映射；
+    /// 用于 LSP 旧"映射表"目录格式与硬编码兜底表的接入。
+    pub fn 自扁平映射新建(
+        关键词映射表: HashMap<String, String>,
+        模块路径映射表: HashMap<String, String>,
+        别名映射表: HashMap<String, String>,
+    ) -> Self {
+        let 使用段让位词 = Self::构建使用段让位词(&模块路径映射表, &别名映射表);
+        let 方法位让位词 = Self::构建方法位让位词(&关键词映射表, &别名映射表);
+        Self {
+            关键词映射表,
+            节映射表: HashMap::new(),
+            派生映射表: HashMap::new(),
+            使用段让位词,
+            方法位让位词,
+            模块路径映射表,
+            别名映射表,
+            指纹缓存: OnceLock::new(),
+            词表缓存: OnceLock::new(),
+            歧义构造器缓存: OnceLock::new(),
+            宏映射缓存: OnceLock::new(),
+        }
+    }
+
+    /// 查询关键字映射
+    pub fn 检索(&self, 母语词: &str) -> Option<&String> {
+        self.关键词映射表.get(母语词)
+    }
+
+    /// 获取完整关键字映射表
+    pub fn 取关键词映射表(&self) -> &HashMap<String, String> {
+        &self.关键词映射表
+    }
+
+    /// 获取指定节的映射表
+    pub fn 取节映射(&self, 节名: &str) -> Option<&HashMap<String, String>> {
+        self.节映射表.get(节名)
+    }
+
+    /// 获取模块路径映射表
+    pub fn 取模块路径映射表(&self) -> &HashMap<String, String> {
+        &self.模块路径映射表
+    }
+
+    /// 获取标识符别名映射表
+    pub fn 取别名映射表(&self) -> &HashMap<String, String> {
+        &self.别名映射表
+    }
+
+    /// 获取 use 语句内的让位词集合（见字段 `use_defer_words` 说明）
+    pub fn 取使用延迟词(&self) -> &HashSet<String> {
+        &self.使用段让位词
+    }
+
+    /// 获取方法调用位让位词集合（见字段 `method_defer_words` 说明）
+    pub fn 取方法延迟词(&self) -> &HashSet<String> {
+        &self.方法位让位词
+    }
+
+    /// 获取教学 lint 已知词表（见字段 `lint_words_cache` 说明）：
+    /// 关键字/宏/派生/模块路径/别名五表键的并集，惰性计算一次后复用。
+    pub fn 取教学检查词(&self) -> &HashSet<String> {
+        self.词表缓存.get_or_init(|| {
+            let mut 词集: HashSet<String> = HashSet::new();
+            词集.extend(self.关键词映射表.keys().cloned());
+            if let Some(宏节) = self.节映射表.get("宏") {
+                词集.extend(宏节.keys().cloned());
+            }
+            词集.extend(self.派生映射表.keys().cloned());
+            词集.extend(self.模块路径映射表.keys().cloned());
+            词集.extend(self.别名映射表.keys().cloned());
+            词集
+        })
+    }
+
+    /// 教学 lint「未标注类型」用：类型推导歧义构造器被调名集合
+    ///
+    /// 含英文原词 `新建`/`缺省` 与全部映射表中值恰为这些词的方言键
+    /// （如 zh：`新建`→新建、`默认值`/`缺省`→缺省）。仅供 lint 启发式
+    /// 判定 `X::新建()` 这类无法自行推导结果类型的关联构造调用。
+    pub fn 歧义构造词集(&self) -> HashSet<String> {
+        self.歧义构造器缓存
+            .get_or_init(|| {
+                let mut 词集: HashSet<String> = ["new".to_string(), "default".to_string()]
+                    .into_iter()
+                    .collect();
+                for 映射表 in [&self.关键词映射表, &self.模块路径映射表, &self.别名映射表]
+                {
+                    词集.extend(
+                        映射表
+                            .iter()
+                            .filter(|(_, 英文词)| matches!(英文词.as_str(), "new" | "default"))
+                            .map(|(母语词, _)| 母语词.clone()),
+                    );
+                }
+                词集
+            })
+            .clone()
+    }
+
+    /// 构建 use 段让位词集合：模块路径与别名映射键的并集
+    fn 构建使用段让位词(
+        模块路径映射: &HashMap<String, String>,
+        别名映射: &HashMap<String, String>,
+    ) -> HashSet<String> {
+        模块路径映射
+            .keys()
+            .chain(别名映射.keys())
+            .cloned()
+            .collect()
+    }
+
+    /// 构建方法调用位让位词集合：词法层替换值为 Rust 保留关键字、且别名表
+    /// 中该词另有不同且有效（非保留字）的词条——仅此冲突类让位，其余词
+    /// （如 `文件`：宏节 file / 别名 File）在方法位保留词法层行为，避免
+    /// 改变本就合法的产物（`.文件()` 依旧是 `.file()`）。
+    fn 构建方法位让位词(
+        关键字映射: &HashMap<String, String>,
+        别名映射: &HashMap<String, String>,
+    ) -> HashSet<String> {
+        关键字映射
+            .iter()
+            .filter(|(词条, 英文词)| {
+                Self::是否为保留关键字(英文词)
+                    && 别名映射.get(*词条).is_some_and(|别名| {
+                        别名 != *英文词 && !Self::是否为保留关键字(别名)
+                    })
+            })
+            .map(|(词条, _)| 词条.clone())
+            .collect()
+    }
+
+    /// Rust 保留关键字（不能用作标识符；`union` 等弱关键字不在列，仍可作
+    /// 方法名）。用于方法位让位词判定：替换值是保留关键字的词在方法位直译
+    /// 必为非法产物（`.enum()`），应让位给别名表。
+    fn 是否为保留关键字(词项: &str) -> bool {
+        matches!(
+            词项,
+            "abstract"
+                | "as"
+                | "async"
+                | "await"
+                | "become"
+                | "box"
+                | "break"
+                | "const"
+                | "continue"
+                | "crate"
+                | "do"
+                | "dyn"
+                | "else"
+                | "enum"
+                | "extern"
+                | "false"
+                | "final"
+                | "fn"
+                | "for"
+                | "if"
+                | "impl"
+                | "in"
+                | "let"
+                | "loop"
+                | "macro"
+                | "match"
+                | "mod"
+                | "move"
+                | "mut"
+                | "override"
+                | "priv"
+                | "pub"
+                | "ref"
+                | "return"
+                | "self"
+                | "Self"
+                | "static"
+                | "struct"
+                | "super"
+                | "trait"
+                | "true"
+                | "try"
+                | "type"
+                | "typeof"
+                | "unsafe"
+                | "unsized"
+                | "use"
+                | "virtual"
+                | "where"
+                | "while"
+                | "yield"
+        )
+    }
+
+    /// 翻译语境指纹（惰性计算并缓存）：任一映射表内容变化时指纹变化。
+    /// 映射表在构造后不可变，多次转译共用同一指纹，避免每次全量重算。
+    pub fn 语境指纹(&self) -> u64 {
+        *self.指纹缓存.get_or_init(|| {
+            crate::缓存::转译缓存::生成语境指纹(
+                &self.关键词映射表,
+                &self.模块路径映射表,
+                &self.别名映射表,
+                &self.派生映射表,
+            )
+        })
+    }
+
+    /// 获取所有在 `["宏"]` 节中定义的中文宏名集合（不含感叹号）
+    ///
+    /// 用于词法转译阶段的宏感叹号自动补充：
+    /// 当标识符是宏名称且后面跟着 `(`/`[`/`{` 时，自动插入 `!`。
+    pub fn 取宏名集(&self) -> HashSet<String> {
+        let mut 宏集 = HashSet::new();
+        if let Some(宏节) = self.节映射表.get("宏") {
+            for 母语词 in 宏节.keys() {
+                宏集.insert(母语词.clone());
+            }
+        }
+        宏集
+    }
+
+    /// 获取宏映射表（中文宏名 → 英文宏名），来自 `["宏"]` 节
+    ///
+    /// 与 [`取宏名集`] 的区别：保留每个宏名的英文替换值。
+    /// 宏名同时在类型节与宏节定义时（如 `向量` 类型节为 `新建向量`、宏节为 `向量宏`），
+    /// 关键词映射表 中值被类型节覆盖，宏调用必须用本映射才能得到正确的英文宏名。
+    ///
+    /// 返回引用而非副本：该映射由 `section_map` 派生，每次调用都克隆整表
+    /// 在批量转译/项目上下文收集中是纯浪费（映射表构造后不可变），
+    /// 故惰性物化一次缓存后复用（与 [`Self::取教学检查词`] 同一策略）。
+    pub fn 取宏映射表(&self) -> &HashMap<String, String> {
+        self.宏映射缓存
+            .get_or_init(|| self.节映射表.get("宏").cloned().unwrap_or_default())
+    }
+
+    /// 获取派生特征映射（中文特征名 → 英文），来自 `["派生特征"]` 节
+    ///
+    /// 仅在 `#[派生(...)]` 属性内生效（词法转译的派生参数态），
+    /// 如 `克隆` → `Clone`；方法调用 `值.克隆()` 仍走别名表（`克隆值` 小写）。
+    /// 返回引用而非副本：`derive_map` 本身已是字段，克隆纯属浪费。
+    pub fn 取派生映射表(&self) -> &HashMap<String, String> {
+        &self.派生映射表
+    }
+
+    /// 检测映射表中的循环引用（A→B 且 B→A 的互指对）
+    ///
+    /// 覆盖三类：关键字表内部（含宏节）、别名表内部、关键字↔别名跨表。
+    /// 循环引用会使正向转译与反向转译来回抖动（译出又译回），
+    /// 是语言包配置的严重错误；返回人类可读的循环描述列表（空 = 无循环）。
+    /// 自映射（A→A）不视为循环（回译无抖动，但属冗余条目）。
+    pub fn 查找映射环(&self) -> Vec<String> {
+        let mut 循环列表 = Vec::new();
+        let 检查自环 =
+            |映射表: &HashMap<String, String>, 标签: &str, 循环列表: &mut Vec<String>| {
+                for (键名, 值项) in 映射表 {
+                    if 键名 != 值项 && 映射表.get(值项).is_some_and(|反向| 反向 == 键名)
+                    {
+                        循环列表.push(format!("{标签}: {键名} ↔ {值项}"));
+                    }
+                }
+            };
+        检查自环(&self.关键词映射表, "关键字", &mut 循环列表);
+        检查自环(&self.别名映射表, "别名", &mut 循环列表);
+        // 跨表：关键字阶段替换后的英文值若命中别名表键、且别名替换回原键，
+        // 则管线末尾中文残留（别名阶段把关键字阶段的结果又译了回去）
+        for (键名, 值项) in &self.关键词映射表 {
+            if 键名 != 值项 && self.别名映射表.get(值项).is_some_and(|反向| 反向 == 键名)
+            {
+                循环列表.push(format!("关键字↔别名: {键名} ↔ {值项}"));
+            }
+        }
+        循环列表
+    }
+}
+
+#[cfg(test)]
+mod 单元测试 {
+    use super::*;
+    use std::fs;
+
+    /// 在临时目录下构造一个完整的语言包目录并返回其路径
+    fn 构造语言包(根目录: &std::path::Path, 目录名: &str) -> std::path::PathBuf {
+        let 目录 = 根目录.join(目录名);
+        fs::create_dir_all(目录.join("crates")).unwrap();
+        fs::write(
+            目录.join("keywords.toml"),
+            "[\"声明\"]\n\"函数\" = \"fn\"\n\"让\" = \"let\"\n[\"宏\"]\n\"打印行\" = \"println\"\n",
+        )
+        .unwrap();
+        fs::write(
+            目录.join("module_paths.toml"),
+            "[\"模块路径\"]\n\"标准库\" = \"std\"\n",
+        )
+        .unwrap();
+        fs::write(
+            目录.join("stdlib.toml"),
+            "[\"模块路径\"]\n\"文件系统\" = \"std::fs\"\n[\"标识符\"]\n\"字符串\" = \"String\"\n\"新\" = \"new\"\n",
+        )
+        .unwrap();
+        fs::write(
+            目录.join("crates").join("web.toml"),
+            "[\"模块路径\"]\n\"网络库\" = \"reqwest\"\n[\"标识符\"]\n\"客户端\" = \"Client\"\n",
+        )
+        .unwrap();
+        目录
+    }
+
+    #[test]
+    fn 测试从目录加载完整包() {
+        let 临时 = tempfile::tempdir().unwrap();
+        let 目录 = 构造语言包(临时.path(), "zh");
+
+        let 管理器 = 映射管理器::自目录加载(&目录).expect("语言包应能完整加载");
+
+        // 关键字映射（keywords.toml 全部节合并）
+        assert_eq!(管理器.检索("函数"), Some(&"fn".to_string()));
+        assert_eq!(管理器.检索("让"), Some(&"let".to_string()));
+        // 模块路径映射（module_paths.toml + stdlib.toml 合并）
+        assert_eq!(
+            管理器.模块路径映射表.get("标准库"),
+            Some(&"std".to_string())
+        );
+        assert_eq!(
+            管理器.模块路径映射表.get("文件系统"),
+            Some(&"std::fs".to_string())
+        );
+        // 标识符别名映射（stdlib.toml + crates/*.toml 合并）
+        assert_eq!(管理器.别名映射表.get("字符串"), Some(&"String".to_string()));
+        assert_eq!(管理器.别名映射表.get("新"), Some(&"new".to_string()));
+        assert_eq!(管理器.别名映射表.get("客户端"), Some(&"Client".to_string()));
+        // 宏集合（仅宏节）
+        assert!(管理器.取宏名集().contains("打印行"));
+        assert!(!管理器.取宏名集().contains("函数"));
+        // 方法位让位词：合成包无「保留字替换值 + 别名表另有有效词条」的冲突词
+        assert!(管理器.取方法延迟词().is_empty());
+    }
+
+    #[test]
+    fn 测试构建方法位让位词() {
+        // 保留字替换值 + 别名表另有不同有效词条 → 让位；
+        // 替换值非保留字、别名表无词条、别名词条同为保留字 → 均不让位
+        let 关键词映射表 = HashMap::from([
+            ("枚举".to_string(), "enum".to_string()),
+            ("函数".to_string(), "fn".to_string()),
+            ("文件".to_string(), "file".to_string()),
+            ("让".to_string(), "let".to_string()),
+            ("类型".to_string(), "type".to_string()),
+        ]);
+        let 别名映射表 = HashMap::from([
+            ("枚举".to_string(), "enumerate".to_string()),
+            ("函数".to_string(), "Fn".to_string()),
+            ("文件".to_string(), "File".to_string()),
+            ("类型".to_string(), "enum".to_string()),
+        ]);
+        let 词集 = 映射管理器::构建方法位让位词(&关键词映射表, &别名映射表);
+        assert_eq!(
+            词集,
+            HashSet::from(["枚举".to_string(), "函数".to_string()])
+        );
+    }
+
+    #[test]
+    fn 测试从目录加载缺关键字() {
+        let _守卫 = crate::语言::测试语言("zh");
+        let 临时 = tempfile::tempdir().unwrap();
+        let 错误串 = 映射管理器::自目录加载(临时.path()).unwrap_err();
+        assert!(
+            错误串.to_string().contains("关键字文件不存在"),
+            "错误信息应指明缺失文件: {}",
+            错误串
+        );
+    }
+
+    #[test]
+    fn 测试从目录加载非法关键字() {
+        let _守卫 = crate::语言::测试语言("zh");
+        let 临时 = tempfile::tempdir().unwrap();
+        fs::write(临时.path().join("keywords.toml"), "这不是合法 TOML [[[").unwrap();
+        let 错误串 = 映射管理器::自目录加载(临时.path()).unwrap_err();
+        assert!(
+            错误串.to_string().contains("解析关键字 TOML 失败"),
+            "错误信息应含解析失败: {}",
+            错误串
+        );
+    }
+
+    #[test]
+    fn 测试从目录加载缺可选文件() {
+        // 仅有 keywords.toml 时，可选文件缺失不应报错
+        let 临时 = tempfile::tempdir().unwrap();
+        fs::write(
+            临时.path().join("keywords.toml"),
+            "[\"声明\"]\n\"函数\" = \"fn\"\n",
+        )
+        .unwrap();
+        let 管理器 = 映射管理器::自目录加载(临时.path()).expect("仅有关键字文件也应可加载");
+        assert!(管理器.模块路径映射表.is_empty());
+        assert!(管理器.别名映射表.is_empty());
+    }
+
+    #[test]
+    fn 测试从内置加载标准库合并() {
+        let 关键字数据 = "[\"声明\"]\n\"函数\" = \"fn\"\n";
+        let 模块路径数据 = "[\"模块路径\"]\n\"标准库\" = \"std\"\n";
+        let 标准库数据 =
+            "[\"模块路径\"]\n\"文件系统\" = \"std::fs\"\n[\"标识符\"]\n\"字符串\" = \"String\"\n";
+        let 第三方数据 = [("web.toml", "[\"标识符\"]\n\"客户端\" = \"Client\"\n")];
+
+        let 管理器 =
+            映射管理器::自内置加载(关键字数据, 模块路径数据, 标准库数据, &第三方数据)
+                .expect("内置数据应能加载");
+
+        assert_eq!(管理器.检索("函数"), Some(&"fn".to_string()));
+        assert_eq!(
+            管理器.模块路径映射表.get("标准库"),
+            Some(&"std".to_string())
+        );
+        assert_eq!(
+            管理器.模块路径映射表.get("文件系统"),
+            Some(&"std::fs".to_string())
+        );
+        assert_eq!(管理器.别名映射表.get("字符串"), Some(&"String".to_string()));
+        assert_eq!(管理器.别名映射表.get("客户端"), Some(&"Client".to_string()));
+    }
+
+    #[test]
+    fn 测试从内置加载非法标准库() {
+        let _守卫 = crate::语言::测试语言("zh");
+        let 关键字数据 = "[\"声明\"]\n";
+        let 模块路径数据 = "[\"模块路径\"]\n";
+        let 错误串 = 映射管理器::自内置加载(关键字数据, 模块路径数据, "非法内容", &[]).unwrap_err();
+        assert!(
+            错误串.to_string().contains("解析内置标准库 TOML 失败"),
+            "错误信息应含解析失败: {}",
+            错误串
+        );
+    }
+
+    #[test]
+    fn 测试从文件加载委托目录() {
+        let 临时 = tempfile::tempdir().unwrap();
+        let 目录 = 构造语言包(临时.path(), "zh");
+        let 管理器 = 映射管理器::自文件加载(&目录.join("keywords.toml")).expect("委托加载应成功");
+        assert_eq!(管理器.检索("函数"), Some(&"fn".to_string()));
+    }
+
+    #[test]
+    fn 测试合并节报告非法内容() {
+        let mut 模块路径映射表 = HashMap::new();
+        let mut 别名映射表 = HashMap::new();
+        // 非法 TOML 不应 崩溃，但必须报告错误（不再静默忽略，防止映射丢失）
+        let 错误串 = 合并模块路径与标识符节("[[[", &mut 模块路径映射表, &mut 别名映射表)
+            .expect_err("非法 TOML 应返回错误");
+        assert!(!错误串.to_string().is_empty());
+        assert!(模块路径映射表.is_empty());
+        assert!(别名映射表.is_empty());
+        // 合法内容正常合并
+        合并模块路径与标识符节(
+            "[\"模块路径\"]\n\"文件系统\" = \"std::fs\"\n[\"标识符\"]\n\"字符串\" = \"String\"\n",
+            &mut 模块路径映射表,
+            &mut 别名映射表,
+        )
+        .expect("合法 TOML 应合并成功");
+        assert_eq!(模块路径映射表.get("文件系统"), Some(&"std::fs".to_string()));
+        assert_eq!(别名映射表.get("字符串"), Some(&"String".to_string()));
+    }
+
+    #[test]
+    fn 测试获取节映射与查询() {
+        let 临时 = tempfile::tempdir().unwrap();
+        let 目录 = 构造语言包(临时.path(), "zh");
+        let 管理器 = 映射管理器::自目录加载(&目录).unwrap();
+
+        let 声明节 = 管理器.取节映射("声明").expect("声明节应存在");
+        assert_eq!(声明节.get("函数"), Some(&"fn".to_string()));
+        assert_eq!(管理器.取节映射("不存在的节"), None);
+        assert_eq!(管理器.检索("不存在的关键字"), None);
+    }
+
+    /// 循环引用检测：关键字表内部互指
+    #[test]
+    fn 测试查找映射循环关键字自环() {
+        let 管理器 = 映射管理器::自扁平映射新建(
+            HashMap::from([
+                ("函数".to_string(), "fn".to_string()),
+                ("方法".to_string(), "函数".to_string()),
+                ("函数".to_string(), "方法".to_string()), // 后写覆盖：函数→方法
+            ]),
+            HashMap::new(),
+            HashMap::new(),
+        );
+        let 循环列表 = 管理器.查找映射环();
+        assert!(
+            循环列表.iter().any(|项| 项.contains("方法 ↔ 函数")),
+            "应检测到关键字互指循环：{循环列表:?}"
+        );
+    }
+
+    /// 循环引用检测：别名表内部互指
+    #[test]
+    fn 测试查找映射循环别名自环() {
+        let 管理器 = 映射管理器::自扁平映射新建(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::from([
+                ("甲".to_string(), "乙".to_string()),
+                ("乙".to_string(), "甲".to_string()),
+            ]),
+        );
+        let 循环列表 = 管理器.查找映射环();
+        assert!(
+            循环列表
+                .iter()
+                .any(|项| 项.contains("别名") && 项.contains("甲 ↔ 乙")),
+            "应检测到别名互指循环：{循环列表:?}"
+        );
+    }
+
+    /// 循环引用检测：关键字↔别名跨表互指（管线末尾中文残留）
+    #[test]
+    fn 测试查找映射循环跨表() {
+        let 管理器 = 映射管理器::自扁平映射新建(
+            HashMap::from([("甲".to_string(), "乙".to_string())]),
+            HashMap::new(),
+            HashMap::from([("乙".to_string(), "甲".to_string())]),
+        );
+        let 循环列表 = 管理器.查找映射环();
+        assert!(
+            循环列表
+                .iter()
+                .any(|项| 项.contains("关键字↔别名") && 项.contains("甲 ↔ 乙")),
+            "应检测到跨表互指循环：{循环列表:?}"
+        );
+    }
+
+    /// 正常映射表（含同值不同键、自映射豁免）不产生循环报告
+    #[test]
+    fn 测试查找映射循环干净表() {
+        let 管理器 = 映射管理器::自扁平映射新建(
+            HashMap::from([
+                ("函数".to_string(), "fn".to_string()),
+                ("让".to_string(), "let".to_string()),
+            ]),
+            HashMap::new(),
+            HashMap::from([("字符串".to_string(), "String".to_string())]),
+        );
+        assert!(管理器.查找映射环().is_empty());
+    }
+}

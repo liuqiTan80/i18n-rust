@@ -7,7 +7,7 @@
 //! - 语料 `data/diag-corpus.tsv` 由 `tools/diag-corpus/collect.py` 从
 //!   `tools/diag-corpus/fixtures/*.rs` 采集生成（每行 `LEVEL\tCODE\t消息原文`）；
 //!   rustc 新增/改动消息句子时，重跑采集器刷新语料即可暴露缺口。
-//! - 审计判据 [`audit_message`] 与开发期 `diag_audit` 示例同源，渲染路径与
+//! - 审计判据 [`审计消息`] 与开发期 `diag_audit` 示例同源，渲染路径与
 //!   `DiagnosticTranslator` 一致，这里报出的残留即用户在终端实际看到的文字。
 //!
 //! 只要有人删键、改坏通配段匹配、或补了等于没补（模板回落英文原文），
@@ -17,76 +17,77 @@
 
 use std::collections::HashSet;
 
-use i18n_rust_engine::diagnostic::{ErrorTranslationManager, audit_message};
+use i18n_rust_engine::诊断::{审计消息, 错误翻译管理器};
 
 /// 每行 `LEVEL\tCODE\t消息原文`（CODE 可为空）；裸行按 main/空码处理。
-fn parse_corpus(raw: &str) -> Vec<(String, String, String)> {
-    let mut seen = HashSet::new();
-    let mut out = Vec::new();
-    for line in raw
+fn 解析语料(原文本: &str) -> Vec<(String, String, String)> {
+    let mut 已见集 = HashSet::new();
+    let mut 条目列表 = Vec::new();
+    for 每行 in 原文本
         .lines()
         .map(str::trim)
-        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .filter(|行项| !行项.is_empty() && !行项.starts_with('#'))
     {
-        let mut cols = line.splitn(3, '\t');
-        let (level, code, message) = match (cols.next(), cols.next(), cols.next()) {
-            (Some(l), Some(c), Some(m)) => (l, c, m),
-            (Some(l), Some(m), None) => (l, "", m),
-            _ => ("main", "", line),
+        let mut 分段迭代 = 每行.splitn(3, '\t');
+        let (级别串, 状态码, 消息文本) = match (分段迭代.next(), 分段迭代.next(), 分段迭代.next())
+        {
+            (Some(甲), Some(乙), Some(丙)) => (甲, 乙, 丙),
+            (Some(甲), Some(丙), None) => (甲, "", 丙),
+            _ => ("main", "", 每行),
         };
         // 与 diag_audit 一致：按消息原文去重。
-        if !seen.insert(message.to_string()) {
+        if !已见集.insert(消息文本.to_string()) {
             continue;
         }
-        out.push((level.to_string(), code.to_string(), message.to_string()));
+        条目列表.push((级别串.to_string(), 状态码.to_string(), 消息文本.to_string()));
     }
-    out
+    条目列表
 }
 
 #[test]
 fn 诊断反例语料在全部内置语言包中译文无残留() {
-    let raw = include_str!("data/diag-corpus.tsv");
-    let corpus = parse_corpus(raw);
+    let 原文本 = include_str!("data/diag-corpus.tsv");
+    let 语料 = 解析语料(原文本);
     assert!(
-        corpus.len() >= 50,
+        语料.len() >= 50,
         "语料过少（{} 条），疑似采集或签入异常",
-        corpus.len()
+        语料.len()
     );
 
-    let mut failures: Vec<String> = Vec::new();
-    let mut checked_langs = 0usize;
-    for code in i18n_rust_engine::语言::builtin_language_codes() {
-        if code == "en" {
+    let mut 失败列表: Vec<String> = Vec::new();
+    let mut 已查语言数 = 0usize;
+    for 语言码 in i18n_rust_engine::语言::内置语言代码() {
+        if 语言码 == "en" {
             continue; // 直通语言，rustc 原文即英文，不查消息表
         }
-        let errors_toml = i18n_rust_engine::语言::builtin_lang_files(code)
+        let 错误表内容 = i18n_rust_engine::语言::内置语言文件(语言码)
             .into_iter()
-            .find(|(n, _)| *n == "errors.toml")
-            .map(|(_, c)| c)
-            .unwrap_or_else(|| panic!("{code} 语言包缺少 errors.toml"));
-        let manager = ErrorTranslationManager::load_from_string(errors_toml)
-            .unwrap_or_else(|e| panic!("{code}/errors.toml 解析失败：{e}"));
-        checked_langs += 1;
-        for (level, ec, message) in &corpus {
-            let audit = audit_message(&manager, level, ec, message);
-            if !audit.residue.is_empty() {
-                failures.push(format!(
-                    "[{code}] {level}/{ec} 形态={} 残留={:?}\n    原文: {message}\n    译文: {}",
-                    audit.kind, audit.residue, audit.rendered
+            .find(|(名, _)| *名 == "errors.toml")
+            .map(|(_, 内容)| 内容)
+            .unwrap_or_else(|| panic!("{语言码} 语言包缺少 errors.toml"));
+        let 管理器 = 错误翻译管理器::从字符串载入(错误表内容)
+            .unwrap_or_else(|错误值| panic!("{语言码}/errors.toml 解析失败：{错误值}"));
+        已查语言数 += 1;
+        for (级别串, 状态码, 消息文本) in &语料 {
+            let 审计项 = 审计消息(&管理器, 级别串, 状态码, 消息文本);
+            if !审计项.残留.is_empty() {
+                失败列表.push(format!(
+                    "[{语言码}] {级别串}/{状态码} 形态={} 残留={:?}\n    原文: {消息文本}\n    译文: {}",
+                    审计项.种类, 审计项.残留, 审计项.渲染文本
                 ));
             }
         }
     }
 
     assert!(
-        checked_langs >= 9,
-        "应审计至少 9 个非 en 内置语言，实际 {checked_langs}"
+        已查语言数 >= 9,
+        "应审计至少 9 个非 en 内置语言，实际 {已查语言数}"
     );
     assert!(
-        failures.is_empty(),
+        失败列表.is_empty(),
         "诊断反例语料存在未译全的句子（{} 处，涉及 {} 个语言）：\n{}",
-        failures.len(),
-        checked_langs,
-        failures.join("\n")
+        失败列表.len(),
+        已查语言数,
+        失败列表.join("\n")
     );
 }

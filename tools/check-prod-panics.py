@@ -34,7 +34,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 ALLOW = [
     (
         "crates/cli/src/builtin_lang.rs",
-        'builtin_file(lang, file).expect(',
+        '内置文件(语言, 目标文件).expect(',
         "include_str! 编译期嵌入的内置语言包；缺失=引擎构建损坏，且 expect 带中文说明",
     ),
 ]

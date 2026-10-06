@@ -1,0 +1,2419 @@
+//!
+//! 维护方言源码（.zh/.en/.de 等）与翻译后英文 .rs 代码的对应关系。
+//! 每当编辑器打开或修改方言文件时，本模块将其翻译为英文，
+//! 并记录行级映射信息供后续位置还原使用。
+
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
+use std::time::SystemTime;
+
+use i18n_rust_engine::映射管理::映射管理器;
+use i18n_rust_engine::缓存::源映射条目;
+use i18n_rust_engine::词法;
+
+/// 虚拟项目磁盘操作：失败必须记录日志——虚拟项目是 rust-analyzer 的分析基础，
+/// 写失败会导致补全/诊断静默失效且无任何线索可查
+fn 记录读写错误(操作描述: &str, 磁盘路径: &Path, 累加文本: std::io::Result<()>) {
+    if let Err(e) = 累加文本 {
+        log::warn!("虚拟项目 读写失败：{操作描述} {}：{e}", 磁盘路径.display());
+    }
+}
+
+/// 单个文档的翻译缓存条目
+#[derive(Debug, Clone)]
+pub struct TranslationEntry {
+    /// 原始方言文件的 URI
+    pub 原始资源定位: String,
+    /// 原始文件的磁盘路径
+    pub 原始路径: PathBuf,
+    /// 中文源码原文
+    pub 中文原文: String,
+    /// 翻译后的英文源码
+    pub 英文源码: String,
+    /// 净化后的英文源码：抹除文件式 `mod 名字;` 声明（含前置属性/可见性）
+    ///
+    /// LSP 虚拟项目按哈希名托管文件并以 `#[path]` 聚合，用户原文的文件式
+    /// 声明指向不存在的文件，会触发 cargo check E0583/E0754 误报。净化以
+    /// 1:1 字符替换实现，行号/列号与 `en_content` 严格一致（列映射继续有效）；
+    /// 发送给 rust-analyzer 的内存文档使用本字段，格式化与反向转译仍用
+    /// `en_content`（用户原文的 `模块 名字;` 行不能丢失）。
+    pub 分析器源码: String,
+    /// 虚拟 .rs 文件的 URI（通知 rust-analyzer 用）
+    pub 虚拟资源定位: String,
+    /// 虚拟 .rs 文件的磁盘路径
+    pub 虚拟路径: PathBuf,
+    /// 英文行号 → 中文行号的映射
+    pub 行号映射: Vec<u32>,
+    /// 列偏移映射（每行一个分段表，行号 → 该行的分段边界点）
+    pub 列偏移表: Vec<Vec<ColumnMapPoint>>,
+    /// 代理添加的 `crate::` 前缀在英文输出中的非空白 token 序号
+    ///（仅 LSP 虚拟项目跨文件引用重写产生；供反向转译精确删除，
+    /// 避免误删用户显式书写的 `crate::` 前缀）
+    pub 新增前缀词元: HashSet<usize>,
+    /// 文档版本
+    pub 文档版本: i32,
+    /// 是否为编辑器打开的文档（false = 同目录自动聚合的兄弟模块）
+    ///
+    /// 打开文档以编辑器缓冲区内容为准，代理用 didOpen/didChange 向
+    /// rust-analyzer 同步；兄弟模块以磁盘内容为准，内容刷新用
+    /// didChangeWatchedFiles 通知（不得对未打开的文档发 didChange）。
+    pub 是否打开: bool,
+    /// 磁盘源文件的 (修改时间, 字节数)：兄弟模块增量同步的变更判定
+    pub 源文件元信息: Option<(SystemTime, u64)>,
+}
+
+/// 列偏移映射的一个分段边界点
+///
+/// 在 [en_col, 下一段的 en_col) 区间内：
+///   zh_col = en_col - offset_diff
+/// 列号按 LSP 的 UTF-16 code unit 计数（常用中文字符在 BMP 内占 1 个单元，
+/// 增补平面字符如 emoji 占 2 个单元），每行独立从 0 开始。
+#[derive(Debug, Clone)]
+pub struct ColumnMapPoint {
+    /// 该分段起始处的英文列号
+    pub 英文列号: u32,
+    /// 该分段起始处的中文列号
+    pub 中文列号: u32,
+    /// 累计字符偏移差（en_col - zh_col）
+    pub 偏移差: i32,
+}
+
+/// 翻译缓存管理器
+///
+/// 持有所有已打开文档的翻译结果，并提供线程安全的读写接口。
+pub struct 转译缓存 {
+    /// URI → 翻译条目
+    ///
+    /// 条目以 Arc 共享：查询返回廉价引用计数克隆，避免每次按键
+    /// 都全量克隆源码与列映射等大字段。
+    条目表: RwLock<HashMap<String, Arc<TranslationEntry>>>,
+    /// 虚拟 URI → 翻译条目索引：RA 响应映射热路径的 O(1) 反查。
+    /// 直存 Arc 引用：命中时一次锁完成查询（存原始 URI 还需二次查 entries）；
+    /// 无索引时每次语义 token/诊断/高亮/引用映射都线性扫描全表
+    ///（语义 token 每个 token 查 2 次，O(n) 放大到 O(n×token数)），
+    /// 条目插入/替换/移除时与 entries 同步维护。
+    虚拟索引: RwLock<HashMap<String, Arc<TranslationEntry>>>,
+    /// 统一映射管理器（关键字/宏/派生/模块路径/别名，与 CLI 管线完全同源）。
+    /// 转译与列映射统一走引擎完整管线，规则唯一来源为引擎。
+    词表管理器: Arc<映射管理器>,
+    /// 虚拟文件存放的临时目录
+    临时目录: PathBuf,
+    /// 模块集合版本号：模块集合（已打开方言文件的文件名）变化时递增。
+    /// 供 代理服务器 判断是否需要重载虚拟项目工作区，
+    /// 避免每次打开/关闭文档同学都触发 rust-analyzer 全量重扫。
+    模块版本: std::sync::atomic::AtomicU64,
+    /// 合并反向表（英文 → 母语）：关键字反转后合并别名反转（关键字先入为主）。
+    /// 映射表构造后不可变，构造时预构建一次，
+    /// 供反向转译与 ResponseMapper 共用，避免每次调用重复构建。
+    反向映射表: Arc<HashMap<String, String>>,
+    /// 文档变更代号：任何文档打开/更新/关闭时递增，用于用户词汇缓存失效
+    文档代次: std::sync::atomic::AtomicU64,
+    /// 项目声明名指纹（[`i18n_rust_engine::别名替换::项目上下文::fingerprint`]）：
+    /// 声明集合变化（新增/删除项、结构体字段）时触发全量重写——
+    /// 跨文件声明豁免会影响其他文件的虚拟内容（#8）
+    项目指纹: std::sync::atomic::AtomicU64,
+    /// 用户词汇缓存：(代号, 结果)。Arc 共享避免每次补全请求克隆整个集合，
+    /// 代号匹配时直接复用，避免重复词法扫描全部已打开文档
+    用户词元缓存: std::sync::Mutex<(u64, Option<Arc<HashSet<String>>>)>,
+    /// 单文件声明收集结果缓存：母语内容哈希 → 声明名（项 + 字段）。
+    ///
+    /// [`Self::current_project_context`] 每次按键都要汇总全部打开文件的
+    /// 声明名，而收集需先跑一遍词法转译；按内容哈希缓存后，每次按键
+    /// 只有内容真正变化的文件需要重算（其余直接复用）。
+    声明名缓存: RwLock<HashMap<u64, Arc<i18n_rust_engine::别名替换::声明收集>>>,
+}
+
+/// 单文件声明收集缓存的条数上限（超出时整体清空，避免长期会话无界增长）
+const 声明缓存上限: usize = 512;
+
+impl 转译缓存 {
+    /// 创建新的翻译缓存
+    ///
+    /// - 映射管理器：统一持有关键字/宏/派生/模块路径/别名映射（与 CLI 管线同源）
+    /// - 临时目录：虚拟 .rs 文件的存放位置
+    ///
+    /// 安全性由调用方负责：`temp_dir` 必须已经过符号链接校验与创建
+    /// （生产路径见 `server::虚拟临时目录`，它先校验再创建并复核）。
+    /// 此处不再重复「只记日志不拒绝」的假校验——那会让调用方误以为已防护。
+    pub fn 新建缓存(词表管理器: 映射管理器, 临时目录: PathBuf) -> Arc<Self> {
+        记录读写错误(
+            "创建临时目录",
+            &临时目录,
+            std::fs::create_dir_all(&临时目录),
+        );
+        记录读写错误(
+            "创建 src 目录",
+            &临时目录.join("src"),
+            std::fs::create_dir_all(临时目录.join("src")),
+        );
+        // 合并反向表预构建：关键字反转优先，别名反转仅在英文键未占用时并入
+        let mut 反向映射表 = 构建反向表(&词表管理器.关键词映射表);
+        for (英文词, 母语词) in 构建反向表(&词表管理器.别名映射表) {
+            反向映射表.entry(英文词).or_insert(母语词);
+        }
+        let 词表管理器 = Arc::new(词表管理器);
+        let 缓存 = Arc::new(Self {
+            条目表: RwLock::new(HashMap::new()),
+            虚拟索引: RwLock::new(HashMap::new()),
+            词表管理器,
+            临时目录,
+            模块版本: std::sync::atomic::AtomicU64::new(0),
+            反向映射表: Arc::new(反向映射表),
+            文档代次: std::sync::atomic::AtomicU64::new(0),
+            项目指纹: std::sync::atomic::AtomicU64::new(0),
+            用户词元缓存: std::sync::Mutex::new((0, None)),
+            声明名缓存: RwLock::new(HashMap::new()),
+        });
+        // 初始时生成空虚拟项目，供 rust-analyzer 工作区发现
+        缓存.刷新虚拟项目();
+        缓存
+    }
+
+    /// 打开或更新一个文档的翻译
+    ///
+    /// 将中文内容翻译为英文，写入虚拟文件，并记录行映射。
+    /// 返回 (当前条目, 其他因模块集合变化而被重写的条目)；
+    /// 条目以 Arc 共享，调用方按需廉价克隆。
+    ///
+    /// 模块集合 = 所有已打开方言文件的文件名（不含扩展名）。
+    /// 打开新文件会新增模块，使其他文件的虚拟内容可能新增
+    /// `crate::` 前缀，因此需要全量重写；纯内容更新则只重写当前条目。
+    pub fn 更新文档(
+        &self,
+        资源定位: &str,
+        源码内容: &str,
+        文档版本: i32,
+    ) -> anyhow::Result<(Arc<TranslationEntry>, Vec<Arc<TranslationEntry>>)> {
+        let 原始路径 = 定位转路径(资源定位);
+
+        // Unicode 混淆安全检查（零宽/双向/同形字符）：仅告警不阻断翻译
+        for 警告 in i18n_rust_engine::混淆字符::检查混淆字符(源码内容) {
+            log::warn!("{}", 警告.格式化输出());
+        }
+
+        // 生成虚拟文件路径（用哈希避免同名文件冲突）。
+        let 虚拟路径 = self.计算虚拟路径(&原始路径);
+        let 虚拟资源定位 = 路径转定位(&虚拟路径);
+
+        // 同步前的旧模块集合：同步后按新旧集合差异判定变化
+        let 旧名列表 = self.当前模块名集合(None);
+
+        // 同目录兄弟模块同步（虚拟项目高保真化）：未打开的同目录方言
+        // 文件也纳入虚拟项目，使 crate::模块 跨文件引用在兄弟文件从未
+        // 打开时也能解析（E0432/E0433 误报的根治手段，过滤链仅兜底）
+        let 已更新兄弟项 = self.同步兄弟模块(&原始路径);
+
+        // 行映射不依赖模块路径重写（重写不改变行数），先按中文行数生成
+        let 行号映射 = 生成行号映射(源码内容, 源码内容);
+
+        // 存入缓存（英文内容与列映射由下面的重写步骤填充）
+        {
+            let mut 对照表 = self.条目表.write().map_err(|_| {
+                anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_cache_lock"))
+            })?;
+            let 新条目 = Arc::new(TranslationEntry {
+                原始资源定位: 资源定位.to_string(),
+                原始路径: 原始路径.clone(),
+                中文原文: 源码内容.to_string(),
+                英文源码: String::new(),
+                分析器源码: String::new(),
+                虚拟资源定位: 虚拟资源定位.clone(),
+                虚拟路径: 虚拟路径.clone(),
+                行号映射,
+                列偏移表: Vec::new(),
+                新增前缀词元: HashSet::new(),
+                文档版本,
+                是否打开: true,
+                源文件元信息: 磁盘元信息(&原始路径),
+            });
+            对照表.insert(资源定位.to_string(), Arc::clone(&新条目));
+            // 同步虚拟 URI 索引（同一 uri 的 virtual_uri 恒定，插入一次即可）
+            if let Ok(mut 索引) = self.虚拟索引.write() {
+                索引.insert(虚拟资源定位.clone(), Arc::clone(&新条目));
+            }
+        }
+
+        // 内容可能变化：递增文档变更代号，使用户词汇缓存失效
+        self.文档代次
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+        // 模块集合 = 全部条目（已打开文档 + 同目录兄弟模块）的词干；
+        // 新增/删除必然体现为新旧集合差异（首开文件旧集合为空必然变化）
+        let 新模块名列表 = self.当前模块名集合(None);
+        let 标记已变更 = 新模块名列表 != 旧名列表;
+
+        // 项目级声明上下文（跨文件声明豁免，#8）：项目声明名（项/结构体
+        // 字段）变化会改变其他文件的豁免结果，须与模块集合变化同样触发
+        // 全量重写；声明名指纹无变化（纯函数体编辑）时只重写当前条目
+        let 项目对象 = self.当前项目上下文(&新模块名列表);
+        let 项目指纹值 = 项目对象.计算指纹();
+        let 名称已变更 = self
+            .项目指纹
+            .swap(项目指纹值, std::sync::atomic::Ordering::SeqCst)
+            != 项目指纹值;
+        // 模块集合变化时重写全部条目并刷新虚拟项目；声明名变化时
+        // 仅全量重写（main.rs 聚合只依赖模块集合，无需刷新/重载）
+        let 变更集 = if 标记已变更 || 名称已变更 {
+            if 标记已变更 {
+                let _ = self.递增模块版本();
+                // main.rs/Cargo.toml 只依赖模块集合：纯内容编辑不触发，
+                // 每次按键省去数次磁盘写与全表遍历
+                self.刷新虚拟项目();
+            }
+            self.全部改写(&新模块名列表, &项目对象)
+        } else {
+            let mut 变更集 = Vec::new();
+            if let Some(条目) = self.改写条目(资源定位, &新模块名列表, &项目对象)
+            {
+                变更集.push(条目);
+            }
+            // 兄弟模块磁盘内容变更（集合不变时的增量路径）：逐条重译
+            for 兄弟资源定位 in &已更新兄弟项 {
+                if 兄弟资源定位 == 资源定位 {
+                    continue;
+                }
+                if let Some(条目) = self.改写条目(兄弟资源定位, &新模块名列表, &项目对象)
+                {
+                    变更集.push(条目);
+                }
+            }
+            变更集
+        };
+
+        let 条目 = self.查询原文(资源定位).ok_or_else(|| {
+            anyhow::anyhow!(
+                "{}",
+                crate::本地化::全局().取文带参("lsp_err_entry_missing", &[资源定位])
+            )
+        })?;
+        let 其他变更: Vec<Arc<TranslationEntry>> = 变更集
+            .into_iter()
+            .filter(|e| e.原始资源定位 != 资源定位)
+            .collect();
+
+        log::info!(
+            "{}",
+            crate::本地化::全局().取文带参(
+                "lsp_log_cache_updated",
+                &[资源定位, &源码内容.lines().count().to_string()]
+            )
+        );
+        Ok((条目, 其他变更))
+    }
+
+    /// 计算原始路径对应的虚拟文件路径（哈希后缀避免同名文件冲突）
+    ///
+    /// 文件名只保留合法标识符字符，防止引号等特殊字符注入生成的 main.rs。
+    fn 计算虚拟路径(&self, 原始路径: &Path) -> PathBuf {
+        let file_stem = 原始路径
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown");
+        let hash = {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut h = DefaultHasher::new();
+            原始路径.hash(&mut h);
+            h.finish()
+        };
+        self.临时目录
+            .join("src")
+            .join(format!("{}_{:x}.rs", 净化模块名(file_stem), hash))
+    }
+
+    /// 同步模块目录树中的兄弟方言模块（虚拟项目高保真化，支持多层布局）
+    ///
+    /// 虚拟项目只聚合已打开文件时，被引用模块未打开就无法解析
+    /// （E0432/E0433 误报的根源之一，过滤链只是兜底）。本方法把当前
+    /// 文档所在目录的全部兄弟方言文件（同扩展名）纳入缓存与虚拟项目，
+    /// 并沿 rustc 模块树规则向下递归：`<dir>/<某方言文件词干>/` 子目录
+    /// 中的方言文件作为该模块的嵌套子模块同步（如 `src/领域.zh` 存在时
+    /// 递归 `src/领域/工具.zh`），支撑多层 `crate::领域::工具::成员` 解析。
+    /// - 新文件按磁盘内容登记为模块条目（is_open=false，翻译在重写步骤）；
+    /// - 磁盘内容变化的条目重新登记（以 (mtime, 大小) 判定增量）；
+    /// - 磁盘文件已删除的条目连同虚拟文件一并移除（模块集合随之
+    ///   缩小，由调用方按新旧集合差异触发刷新）。
+    ///
+    /// 已打开文档（is_open=true）一律跳过：其内容以编辑器缓冲区为准。
+    /// 返回磁盘内容发生变化、需要重新翻译的条目 uri 列表。
+    fn 同步兄弟模块(&self, 当前路径: &Path) -> Vec<String> {
+        let (Some(顶层目录), Some(扩展)) = (当前路径.parent(), 当前路径.extension())
+        else {
+            return Vec::new();
+        };
+        let 扩展 = 扩展.to_owned();
+        // 已递归目录（防符号链接环）与全树在盘方言文件清单
+        let mut 已访问: HashSet<PathBuf> = HashSet::new();
+        let mut 磁盘存在: HashSet<PathBuf> = HashSet::new();
+        let mut 已更新项: Vec<String> = Vec::new();
+        let mut 待处理队列: Vec<PathBuf> = vec![顶层目录.to_path_buf()];
+        while let Some(目录项) = 待处理队列.pop() {
+            if !已访问.insert(目录项.clone()) {
+                continue;
+            }
+            let Ok(read_dir) = std::fs::read_dir(&目录项) else {
+                continue;
+            };
+            // 本目录的方言文件词干：仅同名子目录才是 rustc 模块子树，
+            // tests/assets 等无关目录不会被卷入
+            let mut 词干列表: HashSet<String> = HashSet::new();
+            for 目录项 in read_dir.flatten() {
+                let 磁盘路径 = 目录项.path();
+                let Ok(ft) = 目录项.file_type() else {
+                    continue;
+                };
+                if ft.is_file() && 磁盘路径.extension() == Some(扩展.as_os_str()) {
+                    if let Some(词干) = 磁盘路径.file_stem().and_then(|s| s.to_str()) {
+                        词干列表.insert(词干.to_string());
+                    }
+                    if 磁盘路径 == 当前路径 {
+                        continue; // 打开文档以缓冲区为准
+                    }
+                    let Some(元数据) = 磁盘元信息(&磁盘路径) else {
+                        continue;
+                    };
+                    磁盘存在.insert(磁盘路径.clone());
+                    let 资源定位 = 路径转定位(&磁盘路径);
+                    match self.查询原文(&资源定位).as_ref() {
+                        // 已打开：缓冲区内容为准，不参与磁盘同步
+                        Some(e) if e.是否打开 => continue,
+                        // 磁盘未变化：跳过重译
+                        Some(e) if e.源文件元信息 == Some(元数据) => continue,
+                        _ => {}
+                    }
+                    let Ok(源码内容) = std::fs::read_to_string(&磁盘路径) else {
+                        continue;
+                    };
+                    let 虚拟路径 = self.计算虚拟路径(&磁盘路径);
+                    let 虚拟资源定位 = 路径转定位(&虚拟路径);
+                    let 行号映射 = 生成行号映射(&源码内容, &源码内容);
+                    if let Ok(mut 对照表) = self.条目表.write() {
+                        let 条目 = Arc::new(TranslationEntry {
+                            原始资源定位: 资源定位.clone(),
+                            原始路径: 磁盘路径.clone(),
+                            中文原文: 源码内容,
+                            英文源码: String::new(),
+                            分析器源码: String::new(),
+                            虚拟资源定位: 虚拟资源定位.clone(),
+                            虚拟路径,
+                            行号映射,
+                            列偏移表: Vec::new(),
+                            新增前缀词元: HashSet::new(),
+                            文档版本: 0,
+                            是否打开: false,
+                            源文件元信息: Some(元数据),
+                        });
+                        对照表.insert(资源定位.clone(), Arc::clone(&条目));
+                        if let Ok(mut 索引) = self.虚拟索引.write() {
+                            索引.insert(虚拟资源定位, 条目);
+                        }
+                    }
+                    self.文档代次
+                        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    已更新项.push(资源定位);
+                }
+            }
+            // 本目录新增的词干对应的子目录可能在词干收集之后才入队：
+            // read_dir 顺序不定，统一在目录扫描后补扫一次
+            for 词干 in &词干列表 {
+                let 子目录 = 目录项.join(词干);
+                if 子目录.is_dir() {
+                    待处理队列.push(子目录);
+                }
+            }
+        }
+
+        // 清理：递归树内已不在磁盘的未打开模块条目（文件删除/改名）
+        let 陈旧项: Vec<String> = match self.条目表.read() {
+            Ok(对照表) => 对照表
+                .values()
+                .filter(|e| {
+                    !e.是否打开
+                        && e.原始路径.parent().is_some_and(|p| 已访问.contains(p))
+                        && !磁盘存在.contains(&e.原始路径)
+                })
+                .map(|e| e.原始资源定位.clone())
+                .collect(),
+            Err(_) => Vec::new(),
+        };
+        for 资源定位 in 陈旧项 {
+            let 已移除 = self
+                .条目表
+                .write()
+                .ok()
+                .and_then(|mut 对照表| 对照表.remove(&资源定位));
+            if let Some(条目) = 已移除 {
+                记录读写错误(
+                    "删除虚拟文件",
+                    &条目.虚拟路径,
+                    std::fs::remove_file(&条目.虚拟路径),
+                );
+                if let Ok(mut 索引) = self.虚拟索引.write() {
+                    索引.remove(&条目.虚拟资源定位);
+                }
+                self.文档代次
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                log::info!(
+                    "{}",
+                    crate::本地化::全局().取文带参("lsp_log_cache_removed", &[&资源定位])
+                );
+            }
+        }
+        已更新项
+    }
+
+    /// 关闭文档：编辑器侧关闭后条目仍保留为磁盘模块
+    ///
+    /// 虚拟项目聚合的是“同目录全部方言模块”，不因编辑器关闭而移除；
+    /// 磁盘文件仍存在时把条目降级为兄弟模块（内容以磁盘为准，虚拟文件
+    /// 保留）；磁盘文件已删除时才移除条目与虚拟文件。
+    /// 返回其他条目中因模块/声明集合变化而被重写的条目列表。
+    pub fn 关闭文档(&self, 资源定位: &str) -> anyhow::Result<Vec<Arc<TranslationEntry>>> {
+        let 移除条目 = {
+            let mut 对照表 = self.条目表.write().map_err(|_| {
+                anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_cache_lock"))
+            })?;
+            match 对照表.remove(资源定位) {
+                Some(条目) => 条目,
+                None => return Ok(Vec::new()),
+            }
+        };
+        // 先移除虚拟 URI 索引（降级为模块时会重新插入）
+        if let Ok(mut 索引) = self.虚拟索引.write() {
+            索引.remove(&移除条目.虚拟资源定位);
+        }
+        // 内容可能变化：递增文档变更代号，使用户词汇缓存失效
+        self.文档代次
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        log::info!(
+            "{}",
+            crate::本地化::全局().取文带参("lsp_log_cache_removed", &[资源定位])
+        );
+
+        // 磁盘文件仍存在：降级为兄弟模块（缓冲区 → 磁盘内容），
+        // 模块集合不变（名字仍在），虚拟项目无需刷新/重载
+        if let Some(元数据) = 磁盘元信息(&移除条目.原始路径)
+            && let Ok(源码内容) = std::fs::read_to_string(&移除条目.原始路径)
+        {
+            let mut 降级条目 = (*移除条目).clone();
+            降级条目.是否打开 = false;
+            降级条目.中文原文 = 源码内容;
+            降级条目.英文源码 = String::new();
+            降级条目.分析器源码 = String::new();
+            降级条目.源文件元信息 = Some(元数据);
+            降级条目.行号映射 = 生成行号映射(&降级条目.中文原文, &降级条目.中文原文);
+            降级条目.列偏移表 = Vec::new();
+            降级条目.新增前缀词元 = HashSet::new();
+            let 降级条目 = Arc::new(降级条目);
+            {
+                let mut 对照表 = self.条目表.write().map_err(|_| {
+                    anyhow::anyhow!("{}", crate::本地化::全局().取文("lsp_err_cache_lock"))
+                })?;
+                对照表.insert(资源定位.to_string(), Arc::clone(&降级条目));
+                if let Ok(mut 索引) = self.虚拟索引.write() {
+                    索引.insert(降级条目.虚拟资源定位.clone(), Arc::clone(&降级条目));
+                }
+            }
+            let 模块名列表 = self.当前模块名集合(None);
+            let 项目对象 = self.当前项目上下文(&模块名列表);
+            let 项目指纹值 = 项目对象.计算指纹();
+            let 名称已变更 = self
+                .项目指纹
+                .swap(项目指纹值, std::sync::atomic::Ordering::SeqCst)
+                != 项目指纹值;
+            return Ok(if 名称已变更 {
+                // 声明名集合变化（缓冲区与磁盘不一致）：全量重写
+                self.全部改写(&模块名列表, &项目对象)
+            } else {
+                // 仅本条目内容变化（缓冲区 → 磁盘）：单条重译
+                let mut 变更集 = Vec::new();
+                if let Some(条目) = self.改写条目(资源定位, &模块名列表, &项目对象)
+                {
+                    变更集.push(条目);
+                }
+                变更集
+            });
+        }
+
+        // 磁盘文件已删除：移除虚拟文件，模块集合缩小
+        记录读写错误(
+            "删除虚拟文件",
+            &移除条目.虚拟路径,
+            std::fs::remove_file(&移除条目.虚拟路径),
+        );
+        let _ = self.递增模块版本();
+        let 模块名列表 = self.当前模块名集合(None);
+        let 项目对象 = self.当前项目上下文(&模块名列表);
+        self.项目指纹
+            .store(项目对象.计算指纹(), std::sync::atomic::Ordering::SeqCst);
+        let 变更集 = self.全部改写(&模块名列表, &项目对象);
+
+        // 模块集合变化：刷新虚拟项目文件（main.rs 聚合）
+        self.刷新虚拟项目();
+        Ok(变更集)
+    }
+
+    /// 根据原始 URI 查询翻译条目（Arc 廉价克隆，不复制内容）
+    pub fn 查询原文(&self, 资源定位: &str) -> Option<Arc<TranslationEntry>> {
+        let 对照表 = self.条目表.read().ok()?;
+        对照表.get(资源定位).cloned()
+    }
+
+    /// 根据原始文件路径查询翻译条目（不限打开状态；同路径多条时优先打开中）
+    ///
+    /// 供「从文件路径反推」的链路使用（镜像检查的源内容与诊断发布 URI
+    /// 归属）：这些链路只有磁盘路径，而缓存键是客户端 URI 字符串——
+    /// Windows 上两者的路径表示可能不同（客户端反斜杠形式 vs 规范化
+    /// 正斜杠形式），字符串键匹配失效。本方法先精确比较路径，再按
+    /// 归一化比较键兜底（盘符/目录名大小写、分隔符、verbatim 前缀），
+    /// 同路径多条（客户端 URI 打开 + 历史兄弟登记）时优先打开中的条目
+    ///（其 URI 与编辑器打开的文档严格一致，诊断才能落到用户可见文档上）。
+    pub fn 按路径查询(&self, 磁盘路径: &Path) -> Option<Arc<TranslationEntry>> {
+        let 对照表 = self.条目表.read().ok()?;
+        let 精确匹配值 = 对照表
+            .values()
+            .filter(|e| e.原始路径 == 磁盘路径)
+            .min_by_key(|e| !e.是否打开);
+        if let Some(条目) = 精确匹配值 {
+            return Some(Arc::clone(条目));
+        }
+        let 期望值 = 路径比较键(磁盘路径);
+        对照表
+            .values()
+            .filter(|e| 路径比较键(&e.原始路径) == 期望值)
+            .min_by_key(|e| !e.是否打开)
+            .map(Arc::clone)
+    }
+
+    /// 返回所有已打开文档的翻译条目
+    ///
+    /// rust-analyzer 崩溃自动重启后，代理用它重发 didOpen 同步全部文档。
+    pub fn 全部条目(&self) -> Vec<Arc<TranslationEntry>> {
+        self.条目表
+            .read()
+            .map(|对照表| 对照表.values().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    /// 收集所有已打开方言文件中出现的标识符（用户自定义名词白名单）
+    ///
+    /// 词法扫描原文中的全部 Ident token（含 r# 原始标识符，
+    /// 注释与字符串字面量天然被词法器排除）。供补全语言过滤区分
+    /// “用户自己定义的项”与“未翻译的外部英文项”：
+    /// 用户源码中出现过的名词（无论母语还是英文）都视为其可见词汇。
+    ///
+    /// 结果按文档变更代号缓存：文档未变化时重复补全请求直接复用，
+    /// 词法扫描只在文档变更后首次调用时发生。
+    pub fn 用户自定义词元(&self) -> Arc<HashSet<String>> {
+        let 代号 = self.文档代次.load(std::sync::atomic::Ordering::SeqCst);
+        if let Ok(锁守卫) = self.用户词元缓存.lock()
+            && 锁守卫.0 == 代号
+            && let Some(集合) = &锁守卫.1
+        {
+            return Arc::clone(集合);
+        }
+        let 词元列表 = Arc::new(self.扫描用户词元());
+        if let Ok(mut 锁守卫) = self.用户词元缓存.lock() {
+            *锁守卫 = (代号, Some(Arc::clone(&词元列表)));
+        }
+        词元列表
+    }
+
+    /// 词法扫描所有已打开文档的原文，收集标识符（无缓存）
+    fn 扫描用户词元(&self) -> HashSet<String> {
+        use rustc_lexer::{TokenKind, tokenize};
+        let mut 词元列表 = HashSet::new();
+        let 对照表 = match self.条目表.read() {
+            Ok(t) => t,
+            Err(_) => return 词元列表,
+        };
+        for 条目 in 对照表.values() {
+            let mut 偏移 = 0usize;
+            for 词元项 in tokenize(&条目.中文原文) {
+                let 文字内容 = &条目.中文原文[偏移..偏移 + 词元项.len];
+                偏移 += 词元项.len;
+                if matches!(词元项.kind, TokenKind::Ident | TokenKind::RawIdent) {
+                    词元列表.insert(文字内容.strip_prefix("r#").unwrap_or(文字内容).to_string());
+                }
+            }
+        }
+        词元列表
+    }
+
+    /// 根据虚拟 URI 反查原始条目（Arc 廉价克隆，不复制内容）
+    ///
+    /// rust-analyzer 返回的 URI 可能是 URL 百分号编码形式（如中文路径），
+    /// 而缓存的虚拟 URI 是未编码的原始形式，因此先精确匹配，
+    /// 失败后再解码匹配。
+    pub fn 按虚拟资源定位查询(
+        &self, 虚拟资源定位: &str
+    ) -> Option<Arc<TranslationEntry>> {
+        // 索引 O(1) 反查：直存 Arc 引用，命中时一次锁完成
+        //（RA 响应映射热路径：语义 token 每个 token 查 2 次、
+        // 诊断/高亮/引用/定义每处位置查 2-5 次；无索引时
+        // 这些放大到 O(n×次数)）
+        if let Ok(索引) = self.虚拟索引.read()
+            && let Some(条目) = 索引.get(虚拟资源定位)
+        {
+            return Some(Arc::clone(条目));
+        }
+        // 兜底：索引未命中时回退线性扫描（含 URL 解码匹配）
+        let 对照表 = self.条目表.read().ok()?;
+        for 条目 in 对照表.values() {
+            if 条目.虚拟资源定位 == 虚拟资源定位 {
+                return Some(Arc::clone(条目));
+            }
+        }
+        let 解码结果 = 定位解码(虚拟资源定位);
+        for 条目 in 对照表.values() {
+            if 条目.虚拟资源定位 == 解码结果 {
+                return Some(Arc::clone(条目));
+            }
+        }
+        // 兜底：URI 表示差异（Windows 盘符大小写/分隔符、verbatim 前缀）
+        // 导致字符串永不相等时，按归一化路径比较键匹配虚拟文件路径——
+        // 同一虚拟文件的任何 URI 形式都能反查命中
+        let 期望值 = 路径比较键(&定位转路径(虚拟资源定位));
+        for 条目 in 对照表.values() {
+            if 路径比较键(&条目.虚拟路径) == 期望值 {
+                return Some(Arc::clone(条目));
+            }
+        }
+        None
+    }
+
+    /// 获取关键字映射的引用
+    pub fn 关键词映射表(&self) -> &HashMap<String, String> {
+        &self.词表管理器.关键词映射表
+    }
+
+    /// 获取别名映射的引用（标准库/第三方库标识符，供反向转译合并使用）
+    pub fn 别名映射表(&self) -> &HashMap<String, String> {
+        &self.词表管理器.别名映射表
+    }
+
+    /// 获取教学 lint 已知词表的引用（全部映射表键的并集，
+    /// 供易混方法名提示判定；manager 内惰性缓存一次）
+    pub fn 校验词表(&self) -> &HashSet<String> {
+        self.词表管理器.取教学检查词()
+    }
+
+    /// 教学 lint「未标注类型」歧义构造器被调名集（new/default 及方言词）
+    pub fn 歧义构造词集(&self) -> HashSet<String> {
+        self.词表管理器.歧义构造词集()
+    }
+
+    /// 获取合并反向表的引用（英文 → 母语，关键字优先于别名）
+    ///
+    /// 构造时预构建，供 ResponseMapper 共用，避免重复构建。
+    pub fn 反向映射表(&self) -> &HashMap<String, String> {
+        &self.反向映射表
+    }
+
+    /// 将中文（原始文件）列号转换为英文（虚拟文件）列号
+    ///
+    /// 由调用方先经 query_by_virtual_uri/query_original 预取条目后，
+    /// 调用无锁纯函数 zh_col_to_en_col_single（请求方向位置转换热路径）。
+    /// 将英文（虚拟文件）内容反向翻译为母语内容
+    ///
+    /// 供代码格式化（textDocument/formatting）与补全/代码操作文本还原使用：
+    /// 英文代码经 rustfmt 格式化后，据此还原为母语代码。
+    /// 反向表为构造时预构建的合并表（关键字优先），
+    /// 保证与正向翻译互逆。
+    ///
+    /// `uri` 为文档原始 URI：传入时按该文档的编辑地图精确删除代理添加的
+    /// `crate::` 前缀（用户手写的前缀保留）；为 None（补全片段等无文档
+    /// 上下文场景）时不删除任何前缀，宁可保留代理前缀也不误删用户手写。
+    pub fn 逆向转译(&self, 资源定位: Option<&str>, 英文源码: &str) -> String {
+        // 无文档上下文或条目无代理前缀时，module_names 完全不被使用
+        //（lexer 仅在 added_crate_tokens 命中后才查模块名集合）——
+        // 跳过全表扫描：补全/代码操作响应的每个片段都走这里，
+        // 每次省一次 O(文档数) 的读锁遍历
+        let 新增前缀词元 = 资源定位
+            .and_then(|u| self.查询原文(u))
+            .map(|e| e.新增前缀词元.clone())
+            .unwrap_or_default();
+        let 模块名列表 = if 新增前缀词元.is_empty() {
+            HashSet::new()
+        } else {
+            self.当前模块名集合(None)
+        };
+        词法::逆向转译(英文源码, &self.反向映射表, &模块名列表, &新增前缀词元)
+    }
+
+    /// 获取虚拟项目目录的 file:// URI（供工作区通知使用）
+    pub fn 虚拟项目资源定位(&self) -> String {
+        路径转定位(&self.临时目录)
+    }
+
+    /// 获取虚拟项目目录的文件路径（供代理自跑 cargo check 使用）
+    pub fn 虚拟项目目录(&self) -> PathBuf {
+        self.临时目录.clone()
+    }
+
+    /// 映射管理器（镜像检查用同一语言包转译，规则零重复）
+    pub(crate) fn 词表管理器(&self) -> &映射管理器 {
+        &self.词表管理器
+    }
+
+    /// 当前模块集合版本号（模块集合变化时递增）
+    pub fn 模块版本(&self) -> u64 {
+        self.模块版本.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// 递增模块集合版本号，返回新值
+    #[must_use]
+    pub fn 递增模块版本(&self) -> u64 {
+        self.模块版本
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            + 1
+    }
+
+    /// 获取当前模块名集合（所有已打开 .zh 文件的文件名）
+    ///
+    /// `extra_path` 用于在插入缓存前把新文件的模块名一并计入。
+    fn 当前模块名集合(&self, 额外路径: Option<&PathBuf>) -> HashSet<String> {
+        let mut 主干名集合 = HashSet::new();
+        if let Some(磁盘路径) = 额外路径
+            && let Some(主干名) = 磁盘路径.file_stem().and_then(|s| s.to_str())
+        {
+            主干名集合.insert(主干名.to_string());
+        }
+        if let Ok(对照表) = self.条目表.read() {
+            for 条目 in 对照表.values() {
+                if let Some(主干名) = 条目.原始路径.file_stem().and_then(|s| s.to_str()) {
+                    主干名集合.insert(主干名.to_string());
+                }
+            }
+        }
+        主干名集合
+    }
+
+    /// 查询某源文件在多层模块树中的直接子模块条目
+    ///
+    /// rustc 规则：`src/领域.rs` 的子文件位于 `src/领域/<名>.rs`，
+    /// 即「与本文件同目录、以本文件词干命名的子目录」中的全部方言文件。
+    /// 返回 `(子模块名（真实词干，与用户路径一致）, 子虚拟文件名)`，
+    /// 按名排序保证产物确定性。
+    fn 嵌套子声明(&self, 原始路径: &Path) -> Vec<(String, String)> {
+        let (Some(父目录), Some(词干)) = (原始路径.parent(), 原始路径.file_stem())
+        else {
+            return Vec::new();
+        };
+        let 子目录 = 父目录.join(词干);
+        let 对照表 = match self.条目表.read() {
+            Ok(t) => t,
+            Err(_) => return Vec::new(),
+        };
+        let mut 子项: Vec<(String, String)> = 对照表
+            .values()
+            .filter(|e| e.原始路径.parent() == Some(子目录.as_path()))
+            .filter_map(|e| {
+                let 子词干 = e.原始路径.file_stem()?.to_str()?.to_string();
+                let 子文件 = e.虚拟路径.file_name()?.to_str()?.to_string();
+                Some((子词干, 子文件))
+            })
+            .collect();
+        子项.sort();
+        子项.dedup();
+        子项
+    }
+
+    /// 项目级声明上下文（跨文件声明豁免，#8）
+    ///
+    /// 模块名 = 全部已打开方言文件的词干（同 [`当前模块名集合`]）；
+    /// 声明名 = 各文件母语原文的项名与结构体字段并集。声明收集在关键字
+    /// 转译后的文本上进行，由引擎 [`i18n_rust_engine::别名替换::项目上下文::自源文件新建`]
+    /// 统一实现（与 CLI 同一规则来源，杜绝平行实现漂移）。
+    /// 调用方在文档内容入库后调用，保证上下文包含最新内容。
+    ///
+    /// 性能：汇总所需的单文件声明收集（词法转译 + 声明扫描）按**内容哈希**
+    /// 缓存复用。本函数每次按键都会被调用，若每次重算全部打开文件，等于
+    /// O(项目规模) 次词法转译；缓存后每次按键只有内容真正变化的文件需重算。
+    fn 当前项目上下文(
+        &self,
+        模块名列表: &HashSet<String>,
+    ) -> i18n_rust_engine::别名替换::项目上下文 {
+        let 来源列表: Vec<String> = match self.条目表.read() {
+            Ok(对照表) => 对照表.values().map(|e| e.中文原文.clone()).collect(),
+            Err(_) => Vec::new(),
+        };
+        let 声明们: Vec<Arc<i18n_rust_engine::别名替换::声明收集>> =
+            来源列表.iter().map(|内容| self.声明名缓存(内容)).collect();
+        i18n_rust_engine::别名替换::项目上下文::自声明新建(
+            模块名列表.clone(),
+            声明们.iter().map(Arc::as_ref),
+        )
+    }
+
+    /// 取单文件声明收集结果（按内容哈希缓存）
+    ///
+    /// 缓存条数上限 [`声明缓存上限`]：超出时整体清空（会话内打开的文件数
+    /// 远小于该值，清空代价可忽略，避免长期会话下无界增长）。
+    fn 声明名缓存(&self, 内容: &str) -> Arc<i18n_rust_engine::别名替换::声明收集> {
+        let hash = i18n_rust_engine::缓存::转译缓存::计算内容哈希(内容);
+        if let Ok(表) = self.声明名缓存.read()
+            && let Some(命中) = 表.get(&hash)
+        {
+            return 命中.clone();
+        }
+        let 转译结果 = Arc::new(i18n_rust_engine::别名替换::收集源声明(
+            内容,
+            &self.词表管理器,
+        ));
+        if let Ok(mut 表) = self.声明名缓存.write() {
+            if 表.len() >= 声明缓存上限 {
+                表.clear();
+            }
+            表.insert(hash, 转译结果.clone());
+        }
+        转译结果
+    }
+
+    /// 重写单个条目的虚拟内容：翻译 + 模块路径加 `crate::` 前缀 + 重建列映射 + 写盘
+    ///
+    /// 内容未发生变化（模块集合/项目声明名集合未引入新豁免或前缀）时返回 None。
+    ///
+    /// 转译与列映射统一走引擎完整管线（`转译管线并映射并项目`）：
+    /// 词法 → use 路径 → `crate::` 前缀（跨文件引用）→ 别名（含项目级
+    /// 声明豁免，#8），列映射基于引擎实测的 `管线映射` 回放（[`replay_column_map`]），
+    /// 不复刻任何转译规则——规则唯一来源是引擎，杜绝平行实现漂移。
+    fn 改写条目(
+        &self,
+        资源定位: &str,
+        模块名列表: &HashSet<String>,
+        项目对象: &i18n_rust_engine::别名替换::项目上下文,
+    ) -> Option<Arc<TranslationEntry>> {
+        let 旧条目 = self.查询原文(资源定位)?;
+        let 转译产出 = i18n_rust_engine::转译管线并映射并项目(
+            &旧条目.中文原文,
+            &self.词表管理器,
+            Some(模块名列表),
+            Some(项目对象),
+        );
+        let 英文源码 = 转译产出.产出;
+        // 净化：抹除文件式 `mod 名字;` 声明（含前置属性/可见性）——
+        // LSP 虚拟项目按哈希名托管文件并以 `#[path]` 聚合，用户原文的
+        // 文件式声明指向不存在的文件，cargo check / rust-analyzer 会报
+        // E0583/E0754 误报。净化以 1:1 字符替换实现，行列号与 en_content
+        // 严格一致（column_map 无需调整）；发送给 rust-analyzer 的内存
+        // 文档使用净化版，格式化与反向转译仍用 en_content
+        //（用户原文的 `模块 名字;` 行不能丢失）。
+        // 用户原文的文件式 `mod 名;` 先 1:1 净化抹除（行列严格不变），
+        // 再在**末尾**追加本文件的嵌套子模块声明（多层模块树）。
+        // 子文件以平铺哈希名托管在同一 src/，#[path] 相对当前虚拟文件
+        // 所在目录解析，故直接指向子虚拟文件名；统一 pub 与合成 crate
+        // 的 main 放宽可见性同理（避免 E0603 假红）。追加在末尾新增行，
+        // 不影响原文任何行列映射；仅树中真实存在的子文件生成声明。
+        let mut 分析器源码 = i18n_rust_engine::模块路径::剥离文件模块声明(&英文源码);
+        let 嵌套声明 = self.嵌套子声明(&旧条目.原始路径);
+        if !嵌套声明.is_empty() {
+            if !分析器源码.is_empty() && !分析器源码.ends_with('\n') {
+                分析器源码.push('\n');
+            }
+            分析器源码.push_str("// i18n-virtual: nested module children\n");
+            for (子词干, 子文件) in &嵌套声明 {
+                分析器源码.push_str(&format!("#[path = \"{子文件}\"] pub mod {子词干};\n"));
+            }
+        }
+        // 虚拟项目的 crate 入口在聚合 main.rs 中转发调用 `main::main()`，
+        // 模块内 fn 默认私有会触发 cargo check E0603。但发送给 rust-analyzer
+        // 的内存文档必须保持无 pub——否则语义 token 多出 pub、
+        // fn/main 位置偏移，变量等颜色错乱。
+        //（column_map 基于无 pub 内容构建，与内存文档一致）
+        let 是否主文件 = 旧条目.原始路径.file_stem().and_then(|s| s.to_str()) == Some("main");
+        let 磁盘内容 = if 是否主文件 {
+            // 逐行查找函数声明（行首空白后紧跟 `fn main(`），
+            // 避免朴素子串替换误命中注释或字符串字面量中的 `fn main(`
+            let mut 累加文本 = String::with_capacity(分析器源码.len() + 8);
+            for 行文本 in 分析器源码.lines() {
+                let 裁剪结果 = 行文本.trim_start();
+                let 缩进长度 = 行文本.len() - 裁剪结果.len();
+                if 裁剪结果.starts_with("fn main(") {
+                    累加文本.push_str(&行文本[..缩进长度]);
+                    累加文本.push_str("pub ");
+                    累加文本.push_str(裁剪结果);
+                } else {
+                    累加文本.push_str(行文本);
+                }
+                累加文本.push('\n');
+            }
+            // 保留原文末尾是否有换行的精确性
+            if !分析器源码.ends_with('\n') && 累加文本.ends_with('\n') {
+                累加文本.pop();
+            }
+            累加文本
+        } else {
+            分析器源码.clone()
+        };
+        let 列偏移表 = 重放列映射(&旧条目.中文原文, &转译产出.管线映射);
+        // 代理添加的 crate:: 前缀记录（token 序号）：反向转译时只删这些前缀
+        let 新增前缀词元 = 词法::补包标记下标(&英文源码, &转译产出.管线映射);
+
+        // 构造新版本需要克隆旧条目一次；此后查询均为 Arc 廉价克隆
+        let 新条目 = Arc::new(TranslationEntry {
+            英文源码: 英文源码.clone(),
+            分析器源码: 分析器源码.clone(),
+            列偏移表,
+            新增前缀词元,
+            ..(*旧条目).clone()
+        });
+
+        // 写入虚拟文件到磁盘（rust-analyzer 需要文件系统支持；main 文件写 pub 版）
+        // 先确保父目录存在（首次打开时 src/ 可能尚未创建，
+        // 直接写会静默失败导致 cargo check 读到不完整的虚拟项目）
+        if let Some(父目录) = 新条目.虚拟路径.parent() {
+            记录读写错误("创建父目录", 父目录, std::fs::create_dir_all(父目录));
+        }
+        记录读写错误(
+            "写入虚拟文件",
+            &新条目.虚拟路径,
+            std::fs::write(&新条目.虚拟路径, &磁盘内容),
+        );
+
+        // include_str!/include_bytes! 资源复制（虚拟项目高保真化）：
+        // 资源按与源文件相同的相对位置复制到虚拟项目，使 rust-analyzer
+        // 与 cargo check 在虚拟项目中也能读取 include 资源（如 `包含字符串!
+        // ("界面.html")` 转译后为 include_str!("界面.html")），消除
+        // "couldn't read" 类误报的根源（过滤链仅兜底）
+        if let (Some(原始目录), Some(虚拟目录)) =
+            (新条目.原始路径.parent(), 新条目.虚拟路径.parent())
+        {
+            复制包含资源(&磁盘内容, 原始目录, 虚拟目录, &self.临时目录);
+        }
+
+        {
+            let mut 对照表 = match self.条目表.write() {
+                Ok(t) => t,
+                Err(_) => return None,
+            };
+            if let Some(条目) = 对照表.get_mut(资源定位) {
+                *条目 = Arc::clone(&新条目);
+            }
+            // 条目已替换：同步索引指向最新 Arc（语义 token/诊断等经索引
+            // 查询若拿到旧版本，列映射与虚拟内容会错位）
+            if let Ok(mut 索引) = self.虚拟索引.write() {
+                索引.insert(新条目.虚拟资源定位.clone(), Arc::clone(&新条目));
+            }
+        }
+
+        // 内容是否变化以净化版（rust-analyzer 实际感知的内容）为准：
+        // 仅在模块声明区域内改动（净化后为等宽空格）不需要重新通知
+        if 新条目.分析器源码 != 旧条目.分析器源码 {
+            Some(新条目)
+        } else {
+            None
+        }
+    }
+
+    /// 用给定的模块名集合重写缓存中的所有条目
+    ///
+    /// 返回内容实际发生变化的条目列表（供调用方通知 rust-analyzer）。
+    fn 全部改写(
+        &self,
+        模块名列表: &HashSet<String>,
+        项目对象: &i18n_rust_engine::别名替换::项目上下文,
+    ) -> Vec<Arc<TranslationEntry>> {
+        let 资源定位列表: Vec<String> = {
+            let 对照表 = match self.条目表.read() {
+                Ok(t) => t,
+                Err(_) => return Vec::new(),
+            };
+            对照表.values().map(|e| e.原始资源定位.clone()).collect()
+        };
+        let mut 变更集 = Vec::new();
+        for 资源定位 in 资源定位列表 {
+            if let Some(条目) = self.改写条目(&资源定位, 模块名列表, 项目对象) {
+                变更集.push(条目);
+            }
+        }
+        变更集
+    }
+
+    /// 刷新虚拟项目：写入 Cargo.toml 和 src/main.rs
+    ///
+    /// 将当前所有虚拟翻译文件聚合为同一二进制 crate，
+    /// 使 rust-analyzer 能够解析 `模块`/`使用` 声明的跨文件引用。
+    /// 使用 [[bin]] 而非 [lib]，使 `fn main()` 被识别为程序入口，
+    /// 避免 `function main is never used` 警告。
+    fn 刷新虚拟项目(&self) {
+        // 先在锁内收集所需数据、释放读锁，再执行磁盘 I/O：
+        // 持读锁期间做文件系统操作会阻塞所有写入者（改写条目 等）
+        let 模块名集: Vec<(String, PathBuf, PathBuf)> = {
+            let 对照表 = match self.条目表.read() {
+                Ok(t) => t,
+                Err(_) => return,
+            };
+            对照表
+                .values()
+                .map(|e| {
+                    (
+                        e.原始路径
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or_default()
+                            .to_string(),
+                        e.虚拟路径.clone(),
+                        e.原始路径.clone(),
+                    )
+                })
+                .collect()
+        };
+        // 多层模块树的托管根（通常为项目 src/；无 src 布局时取公共父目录）。
+        // 聚合 main.rs 只声明根下的顶层模块；嵌套模块由各父虚拟文件
+        // 末尾的 `#[path]` 子声明承担（见 改写条目 追加块）。
+        let 源码根目录 = 推导虚拟根目录(
+            &模块名集
+                .iter()
+                .map(|(_, _, p)| p.clone())
+                .collect::<Vec<_>>(),
+        );
+
+        // Cargo.toml（包名保留英文，见项目规范）
+        // [[bin]] 使其成为二进制 crate，fn main() 即为入口
+        // [workspace] 空表使其脱离任何父工作区，避免被上层 Cargo.toml 吞并
+        let cargo文件内容 = "[package]\nname = \"i18n-virtual\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[[bin]]\npath = \"src/main.rs\"\nname = \"i18n-virtual\"\n\n[workspace]\n";
+        记录读写错误(
+            "写入 Cargo.toml",
+            &self.临时目录.join("Cargo.toml"),
+            std::fs::write(self.临时目录.join("Cargo.toml"), cargo文件内容),
+        );
+        // 预生成 Cargo.lock：无依赖项目内容固定。缺少锁文件时 cargo
+        // （rust-analyzer 的 cargo metadata / 代理的 check）会尝试联网更新
+        // crates.io 索引，网络不可达时进程卡死且无诊断
+        let lock文件内容 = "# This file is automatically @generated by Cargo.\n# It is not intended for manual editing.\nversion = 3\n\n[[package]]\nname = \"i18n-virtual\"\nversion = \"0.1.0\"\n";
+        记录读写错误(
+            "写入 Cargo.lock",
+            &self.临时目录.join("Cargo.lock"),
+            std::fs::write(self.临时目录.join("Cargo.lock"), lock文件内容),
+        );
+
+        // 清理旧版本残留文件（避免 rust-analyzer 同时读取 lib.rs 和 main.rs）
+        记录读写错误(
+            "清理残留 lib.rs",
+            &self.临时目录.join("src").join("lib.rs"),
+            std::fs::remove_file(self.临时目录.join("src").join("lib.rs")),
+        );
+        // 确保 src 目录存在（首次启动时可能尚未创建，写盘会静默失败）
+        记录读写错误(
+            "创建 src 目录",
+            &self.临时目录.join("src"),
+            std::fs::create_dir_all(self.临时目录.join("src")),
+        );
+
+        // src/main.rs：以 #[path] 属性按模块名聚合所有虚拟文件
+        // #![allow(dead_code)] 抑制辅助函数/类型的未使用警告
+        let mut 主文件内容 = format!(
+            "#![allow(dead_code)]\n{}\n",
+            crate::本地化::全局().取文("lsp_gen_lib_comment")
+        );
+        // 模块名净化为合法 Rust 标识符，并在重名时追加哈希后缀。
+        // 仅聚合托管根下的顶层模块；嵌套模块（src/领域/工具.zh 等）由
+        // 父虚拟文件末尾的 #[path] 子声明加载，平铺在此会与父文件内的
+        // 子模块树冲突且无法表达层级。
+        let mut 已用名: HashSet<String> = HashSet::new();
+        let mut 含主模块 = false;
+        for (词干, 虚拟路径, 原始路径) in &模块名集 {
+            if 原始路径.parent() != Some(源码根目录.as_path()) {
+                continue;
+            }
+            if 词干 == "main" {
+                含主模块 = true;
+            }
+            let mut 模块名 = if 词干.is_empty() {
+                crate::本地化::全局().取文("lsp_gen_module_fallback")
+            } else {
+                净化模块名(词干)
+            };
+            if !已用名.insert(模块名.clone()) {
+                use std::collections::hash_map::DefaultHasher;
+                use std::hash::{Hash, Hasher};
+                let mut h = DefaultHasher::new();
+                虚拟路径.as_path().hash(&mut h);
+                模块名 = format!("{}_{:x}", 模块名, h.finish());
+                已用名.insert(模块名.clone());
+            }
+            let file_name = 虚拟路径.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            主文件内容.push_str(&format!("#[path = \"{}\"]\nmod {};\n", file_name, 模块名));
+        }
+        // 入口转发：`fn main()` 位于子模块（如 mod main）时不是 crate 入口，
+        // cargo check 会报 E0601 使 checkOnSave 诊断整体失败（所有权可视化
+        // 依赖 E0382 等 cargo check 诊断，将全部丢失）。此处显式转发调用：
+        // Rust 中 mod 名在类型命名空间、fn 名在值命名空间，同名合法；
+        // 错误仍定位在子模块文件内，行号映射零偏移。
+        if 含主模块 {
+            主文件内容.push_str("fn main() { main::main() }\n");
+        }
+        记录读写错误(
+            "写入聚合 main.rs",
+            &self.临时目录.join("src").join("main.rs"),
+            std::fs::write(self.临时目录.join("src").join("main.rs"), 主文件内容),
+        );
+    }
+}
+
+/// 推导虚拟模块树的托管根
+///
+/// 取各方言源路径最近的名为 `src` 的祖先（多数票，兼容 monorepo 中
+/// 打开依赖目录源文件的边界情况）；不存在 `src` 层级时退化为全部
+/// 父目录的公共祖先（项目根直接放 .zh 的教学布局）。
+fn 推导虚拟根目录(路径列表: &[PathBuf]) -> PathBuf {
+    let mut 源码投票: std::collections::HashMap<PathBuf, usize> = std::collections::HashMap::new();
+    for p in 路径列表 {
+        let mut 当前目录 = p.parent();
+        while let Some(目录项) = 当前目录 {
+            if 目录项.file_name().and_then(|s| s.to_str()) == Some("src") {
+                *源码投票.entry(目录项.to_path_buf()).or_default() += 1;
+                break;
+            }
+            当前目录 = 目录项.parent();
+        }
+    }
+    if let Some(根目录) = 源码投票.into_iter().max_by_key(|(_, n)| *n).map(|(p, _)| p) {
+        return 根目录;
+    }
+    // 公共父目录兜底
+    let mut iter = 路径列表.iter().filter_map(|p| p.parent());
+    let Some(首个) = iter.next() else {
+        return PathBuf::new();
+    };
+    let mut 公共前缀: PathBuf = 首个.to_path_buf();
+    for 父目录 in iter {
+        while !父目录.starts_with(&公共前缀) {
+            if !公共前缀.pop() {
+                return PathBuf::new();
+            }
+        }
+    }
+    公共前缀
+}
+
+/// 将任意文件名主干净化为合法 Rust 模块名
+///
+/// 非法字符替换为 `_`；空名回退 `m`；数字开头前补 `_`。
+/// 中文等 Unicode 字母属于合法标识符字符，予以保留。
+fn 净化模块名(主干名: &str) -> String {
+    let mut 输出值: String = 主干名
+        .chars()
+        .map(|c| {
+            if c == '_' || c.is_alphanumeric() {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if 输出值.is_empty() {
+        输出值.push('m');
+    }
+    if 输出值.chars().next().is_some_and(|c| c.is_numeric()) {
+        输出值.insert(0, '_');
+    }
+    输出值
+}
+
+/// 读取磁盘文件的 (修改时间, 字节数)，失败返回 None
+fn 磁盘元信息(磁盘路径: &Path) -> Option<(SystemTime, u64)> {
+    let 元数据 = std::fs::metadata(磁盘路径).ok()?;
+    Some((元数据.modified().ok()?, 元数据.len()))
+}
+
+/// 词法归一化路径（解析 `.`/`..`，不访问文件系统）并判断是否位于根内
+///
+/// 供 include 资源复制防护 `..` 逃逸虚拟项目根（写入任意位置）。
+fn 路径在范围内(磁盘路径: &Path, 根目录: &Path) -> bool {
+    fn 规范化路径(p: &Path) -> PathBuf {
+        let mut 输出值 = PathBuf::new();
+        for c in p.components() {
+            match c {
+                std::path::Component::ParentDir => {
+                    输出值.pop();
+                }
+                std::path::Component::CurDir => {}
+                其他对象 => 输出值.push(其他对象),
+            }
+        }
+        输出值
+    }
+    规范化路径(磁盘路径).starts_with(规范化路径(根目录))
+}
+
+/// 从（已转译的）源码中提取 include_str!/include_bytes! 的路径字面量
+///
+/// 以词法扫描实现：仅识别标识符后紧跟 `!` `(` 字符串字面量 `)` 的形式，
+/// 注释与字符串内的伪调用天然排除。
+fn 收集包含资源路径(源码内容: &str) -> Vec<String> {
+    use rustc_lexer::{LiteralKind, TokenKind, tokenize};
+    let mut 跨度列表: Vec<(TokenKind, usize, usize)> = Vec::new();
+    let mut 偏移 = 0usize;
+    for 词元项 in tokenize(源码内容) {
+        let 起始 = 偏移;
+        偏移 += 词元项.len;
+        跨度列表.push((词元项.kind, 起始, 偏移));
+    }
+    let mut 累加文本 = Vec::new();
+    let mut i = 0usize;
+    while i < 跨度列表.len() {
+        let (种类, 起始, 结束) = 跨度列表[i];
+        i += 1;
+        if 种类 != TokenKind::Ident
+            || !matches!(&源码内容[起始..结束], "include_str" | "include_bytes")
+        {
+            continue;
+        }
+        // 依次找到 `!` `(` 后的字符串字面量（允许空白/注释分隔）
+        let (mut j, mut 步长, mut 磁盘路径) = (i, 0u8, None);
+        while j < 跨度列表.len() {
+            let (k, s, e) = 跨度列表[j];
+            if matches!(
+                k,
+                TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
+            ) {
+                j += 1;
+                continue;
+            }
+            match 步长 {
+                0 if k == TokenKind::Not => 步长 = 1,
+                1 if k == TokenKind::OpenParen => 步长 = 2,
+                2 => {
+                    if matches!(
+                        k,
+                        TokenKind::Literal {
+                            kind: LiteralKind::Str { .. },
+                            ..
+                        }
+                    ) {
+                        let 文字内容 = &源码内容[s..e];
+                        磁盘路径 = Some(
+                            文字内容
+                                .strip_prefix('"')
+                                .and_then(|t| t.strip_suffix('"'))
+                                .unwrap_or(文字内容)
+                                .to_string(),
+                        );
+                    }
+                    break;
+                }
+                _ => break,
+            }
+            j += 1;
+        }
+        if let Some(p) = 磁盘路径 {
+            累加文本.push(p);
+        }
+    }
+    累加文本
+}
+
+/// 复制 include_str!/include_bytes! 引用的资源到虚拟项目对应相对位置
+///
+/// 源文件与其虚拟文件处于相同的相对位置（都位于 src/ 下），以相同的
+/// 相对路径拷贝即可让 include 宏在虚拟项目中命中（支持 `../`，如
+/// `include_str!("../配置.toml")`）。目标路径词法归一化后必须仍落在
+/// 虚拟项目根内（防 `..` 逃逸）；源文件不存在时跳过，交由诊断过滤链兜底。
+fn 复制包含资源(
+    源码内容: &str, 原始目录: &Path, 虚拟目录: &Path, 临时目录: &Path
+) {
+    for 相对路径 in 收集包含资源路径(源码内容) {
+        let 相对路径 = Path::new(&相对路径);
+        if 相对路径.is_absolute() {
+            continue;
+        }
+        let 源路径 = 原始目录.join(相对路径);
+        if !源路径.is_file() {
+            continue;
+        }
+        let 目标路径 = 虚拟目录.join(相对路径);
+        if !路径在范围内(&目标路径, 临时目录) {
+            continue;
+        }
+        if let Some(父目录) = 目标路径.parent() {
+            记录读写错误("创建资源目录", 父目录, std::fs::create_dir_all(父目录));
+        }
+        记录读写错误(
+            "复制 include 资源",
+            &目标路径,
+            std::fs::copy(&源路径, &目标路径).map(|_| ()),
+        );
+    }
+}
+
+/// 路径归一化比较键：容忍同一文件路径的表示差异
+///
+/// URI 解出的路径与文件系统路径可能形式不同（Windows 盘符/目录名大小写、
+/// 分隔符、`\\?\` verbatim 前缀），字符串比较会失效。Windows 上统一为
+/// 小写、正斜杠、无 verbatim 前缀的形式；其他平台保持原样（路径大小写
+/// 敏感，归一化反而会引入误判）。
+fn 路径比较键(磁盘路径: &Path) -> String {
+    let 文字内容 = 磁盘路径.to_string_lossy();
+    if cfg!(windows) {
+        let 规范化结果 = 文字内容.replace('\\', "/");
+        let 规范化结果 = 规范化结果.strip_prefix("//?/").unwrap_or(&规范化结果);
+        规范化结果.to_lowercase()
+    } else {
+        文字内容.into_owned()
+    }
+}
+
+/// 将 file:// URI 转换为文件路径
+///
+/// 编辑器（如 VSCode）会对非 ASCII 字符（中文文件名）做百分号编码，
+/// 必须完整解码，否则文件名残留 %XX 导致模块名非法。
+fn 定位转路径(资源定位: &str) -> PathBuf {
+    if let Some(磁盘路径) = 资源定位.strip_prefix("file://") {
+        let 解码结果 = 定位解码(磁盘路径);
+        // Windows 形式 file:///C:/...：盘符前的前导 `/` 不属于路径
+        let u8 = 解码结果.as_bytes();
+        if u8.len() >= 3 && u8[0] == b'/' && u8[2] == b':' {
+            return PathBuf::from(&解码结果[1..]);
+        }
+        PathBuf::from(解码结果)
+    } else {
+        PathBuf::from(资源定位)
+    }
+}
+
+/// 百分号解码 URI（仅处理 %XX 形式，UTF-8 字节流）
+///
+/// rust-analyzer 等工具返回的 URI 会百分号编码非 ASCII 字符
+/// （如中文路径），需要解码后才能与缓存中的未编码 URI 比较。
+fn 定位解码(资源定位: &str) -> String {
+    let u8 = 资源定位.as_bytes();
+    let mut 累加文本 = Vec::with_capacity(u8.len());
+    let mut i = 0;
+    while i < u8.len() {
+        if u8[i] == b'%'
+            && i + 2 < u8.len()
+            && let (Some(高值), Some(低值)) = (十六进制值(u8[i + 1]), 十六进制值(u8[i + 2]))
+        {
+            累加文本.push(高值 * 16 + 低值);
+            i += 3;
+            continue;
+        }
+        累加文本.push(u8[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&累加文本).to_string()
+}
+
+/// 十六进制字符转数值
+fn 十六进制值(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
+}
+
+/// 将文件路径转换为 file:// URI
+///
+/// 对非 URI 安全字符做百分号编码（路径含空格/中文时生成合法 URI）。
+/// Windows 路径额外处理：反斜杠归一为正斜杠、盘符前补 `/`、盘符转小写，
+/// 与 rust-analyzer 返回的规范形式（file:///c:/...）保持一致，
+/// 否则两端 URI 永不相等，查询/还原全链路失效。
+pub(crate) fn 路径转定位(磁盘路径: &Path) -> String {
+    let mut 资源定位 = String::from("file://");
+    let mut 文字内容 = 磁盘路径.to_string_lossy().replace('\\', "/");
+    // 盘符路径（X:/...）补前导斜杠并统一小写盘符（RA 返回小写）
+    let u8 = 文字内容.as_bytes();
+    if u8.len() >= 2 && u8[1] == b':' && !文字内容.starts_with('/') {
+        文字内容.insert(0, '/');
+        文字内容.replace_range(1..2, &文字内容[1..2].to_lowercase());
+    }
+    for &字节值 in 文字内容.as_bytes() {
+        match 字节值 {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' | b':' => {
+                资源定位.push(字节值 as char)
+            }
+            _ => 资源定位.push_str(&format!("%{:02X}", 字节值)),
+        }
+    }
+    资源定位
+}
+
+/// 根据列映射条目将英文列转换为中文列（按行查询）
+///
+/// pub(crate)：供 ResponseMapper 的语义 token 预取条目路径直接调用
+///（避免每 token 重复锁与表扫描）。
+pub(crate) fn 英文列转中文列(
+    条目: &TranslationEntry, 行号: u32, 英文列号: u32
+) -> u32 {
+    let 行索引 = 条目
+        .列偏移表
+        .get(行号 as usize)
+        .or_else(|| 条目.列偏移表.last());
+    let 行索引 = match 行索引 {
+        Some(r) if !r.is_empty() => r,
+        _ => return 英文列号,
+    };
+    // 顺序查找（每行分段极少，线性足够）：找到最后一个 en_col <= 目标 en_col 的分段
+    let mut 累加文本 = 行索引[0].偏移差;
+    for 映射点 in 行索引 {
+        if 映射点.英文列号 <= 英文列号 {
+            累加文本 = 映射点.偏移差;
+        } else {
+            break;
+        }
+    }
+    (英文列号 as i32 - 累加文本).max(0) as u32
+}
+
+/// 根据列映射条目将中文列转换为英文列（按行查询）
+///
+/// pub(crate)：供 server.rs 请求方向位置转换直接调用
+///（调用方已持有预取的条目，避免每处位置重复锁与表查询）。
+pub(crate) fn 中文列转英文列(
+    条目: &TranslationEntry, 行号: u32, 中文列号: u32
+) -> u32 {
+    let 行索引 = 条目
+        .列偏移表
+        .get(行号 as usize)
+        .or_else(|| 条目.列偏移表.last());
+    let 行索引 = match 行索引 {
+        Some(r) if !r.is_empty() => r,
+        _ => return 中文列号,
+    };
+    // 顺序查找：找到最后一个 zh_col <= 目标 zh_col 的分段
+    let mut 累加文本 = 行索引[0].偏移差;
+    for 映射点 in 行索引 {
+        if 映射点.中文列号 <= 中文列号 {
+            累加文本 = 映射点.偏移差;
+        } else {
+            break;
+        }
+    }
+    (中文列号 as i32 + 累加文本).max(0) as u32
+}
+
+/// 由正向关键字映射（母语 → 英文）构建反向映射（英文 → 母语）
+///
+/// 按母语词排序后插入，多对一冲突时保留排序最小者，保证结果确定性。
+fn 构建反向表(正向映射: &HashMap<String, String>) -> HashMap<String, String> {
+    let mut 配对列表: Vec<(&String, &String)> = 正向映射.iter().collect();
+    配对列表.sort();
+    let mut 反向映射 = HashMap::with_capacity(正向映射.len());
+    for (母语词, 英文词) in 配对列表 {
+        反向映射.entry(英文词.clone()).or_insert(母语词.clone());
+    }
+    反向映射
+}
+
+/// 由引擎全管线编辑地图重建列偏移映射
+///
+/// 对母语源逐 token 推进：命中地图条目的 token 输出长度取 replacement 的
+/// UTF-16 长度（与真实转译输出一致，含宏自动补的 `!` 与 `crate::` 前缀），
+/// 未命中的 token 原样长度；累计偏移差变化处记录分段点。
+///
+/// 不包含任何转译判定——规则的唯一来源是引擎（`转译管线并映射`），
+/// 此处仅做纯算术回放，杜绝与引擎转译逻辑的平行实现漂移。
+fn 重放列映射(
+    中文原文: &str, 管线映射: &[源映射条目]
+) -> Vec<Vec<ColumnMapPoint>> {
+    use rustc_lexer::{TokenKind, tokenize};
+
+    // 索引：源偏移 → 条目（token 级替换，一个 token 至多一条）
+    let 按偏移排序: HashMap<usize, &源映射条目> = 管线映射.iter().map(|e| (e.源偏移, e)).collect();
+
+    let mut 逐行映射: Vec<Vec<ColumnMapPoint>> = vec![vec![ColumnMapPoint {
+        英文列号: 0,
+        中文列号: 0,
+        偏移差: 0,
+    }]];
+    let mut 中文列号 = 0u32;
+    let mut 英文列号 = 0u32;
+    let mut 累计差值 = 0i32; // 当前行内 en_col - zh_col
+    let mut 当前偏移 = 0usize;
+    let is_whitespace = |k: TokenKind| {
+        matches!(
+            k,
+            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. }
+        )
+    };
+
+    for 词元项 in tokenize(中文原文) {
+        let 词元起点 = 当前偏移;
+        let 词元文本 = &中文原文[当前偏移..][..词元项.len];
+        当前偏移 += 词元项.len;
+
+        // 空白 token：两列同步前进（逐字符处理，空白可能跨行）
+        if is_whitespace(词元项.kind) {
+            for c in 词元文本.chars() {
+                if c == '\n' {
+                    // 新行：行内列与偏移差重置，并记录新行起点
+                    中文列号 = 0;
+                    英文列号 = 0;
+                    累计差值 = 0;
+                    逐行映射.push(vec![ColumnMapPoint {
+                        英文列号: 0,
+                        中文列号: 0,
+                        偏移差: 0,
+                    }]);
+                } else {
+                    中文列号 += c.len_utf16() as u32;
+                    英文列号 += c.len_utf16() as u32;
+                }
+            }
+            continue;
+        }
+
+        // 输出长度：命中地图条目取 replacement 的 UTF-16 长度，否则原样
+        let zh_len: u32 = 词元文本.chars().map(|c| c.len_utf16() as u32).sum();
+        let en_len: u32 = match 按偏移排序.get(&词元起点) {
+            Some(e) => e.替换文本.chars().map(|c| c.len_utf16() as u32).sum(),
+            None => zh_len,
+        };
+
+        累计差值 += en_len as i32 - zh_len as i32;
+        中文列号 += zh_len;
+        英文列号 += en_len;
+
+        // 如果偏移差变化了，记录新的分段边界（当前行内）
+        let 末次差值 = 逐行映射
+            .last()
+            .and_then(|行索引| 行索引.last())
+            .map(|p| p.偏移差)
+            .unwrap_or(0);
+        if 累计差值 != 末次差值 {
+            // 当前行映射必然存在（每行起点已入表）；防御性判断避免 panic
+            if let Some(行索引) = 逐行映射.last_mut() {
+                行索引.push(ColumnMapPoint {
+                    英文列号,
+                    中文列号,
+                    偏移差: 累计差值,
+                });
+            }
+        }
+    }
+
+    逐行映射
+}
+
+/// 生成英文行号到中文行号的映射
+///
+/// 由于当前翻译是逐行替换关键字，行数保持一致，
+/// 因此映射为 0→0, 1→1, 2→2, ...
+/// 未来若支持多行展开/折叠，此处需要更复杂的算法。
+fn 生成行号映射(中文原文: &str, 英文源码: &str) -> Vec<u32> {
+    let 英文行数 = 英文源码.lines().count() as u32;
+    let 中文行数 = 中文原文.lines().count() as u32;
+    let 最少行数 = 英文行数.min(中文行数);
+
+    // 基础 1:1 映射
+    let mut 行映射表: Vec<u32> = (0..英文行数).collect();
+
+    // 对于超出中文行数的英文行，映射到最后一行
+    for i in 最少行数..英文行数 {
+        行映射表[i as usize] = 中文行数.saturating_sub(1);
+    }
+
+    行映射表
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// URI 双向转换：Unix 路径、空格/中文编码、Windows 盘符形式
+    #[test]
+    fn 测试_路径定位往返() {
+        // Unix：根路径保留，空格百分号编码
+        assert_eq!(
+            路径转定位(Path::new("/tmp/a b/main.rs")),
+            "file:///tmp/a%20b/main.rs"
+        );
+        assert_eq!(
+            定位转路径("file:///tmp/a%20b/main.rs"),
+            PathBuf::from("/tmp/a b/main.rs")
+        );
+
+        // Windows：反斜杠归一、盘符前补 /、盘符转小写（与 rust-analyzer 一致）
+        assert_eq!(
+            路径转定位(Path::new("C:\\Users\\x\\main.rs")),
+            "file:///c:/Users/x/main.rs"
+        );
+        // 反向：盘符前导 / 被剥离
+        let 反向 = 定位转路径("file:///c:/Users/x/main.rs");
+        assert_eq!(
+            反向.to_string_lossy().replace('\\', "/"),
+            "c:/Users/x/main.rs"
+        );
+    }
+
+    fn 测试_构造映射() -> HashMap<String, String> {
+        HashMap::from([
+            ("函数".into(), "fn".into()),
+            ("让".into(), "let".into()),
+            ("可变".into(), "mut".into()),
+            ("如果".into(), "if".into()),
+            ("否则".into(), "else".into()),
+        ])
+    }
+
+    /// 构造测试用映射管理器（关键字表 + 可选别名表，模块路径/宏/派生表为空）
+    fn 测试_构造管理器(别名映射表: HashMap<String, String>) -> 映射管理器 {
+        映射管理器::自扁平映射新建(测试_构造映射(), HashMap::new(), 别名映射表)
+    }
+
+    #[test]
+    fn 测试_更新文档() {
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 缓存 = 转译缓存::新建缓存(
+            测试_构造管理器(HashMap::new()),
+            临时值.path().to_path_buf(),
+        );
+
+        let (条目, 其他项) = 缓存
+            .更新文档("file:///test/main.zh", "让 可变 x = 5;", 1)
+            .unwrap();
+        assert_eq!(条目.英文源码, "let mut x = 5;");
+        assert!(条目.虚拟路径.exists());
+        assert!(其他项.is_empty());
+    }
+
+    /// 路径级反查（query_by_path）：URI 与路径的表示差异（Windows 盘符
+    /// 大小写/分隔符）在 Windows 上归一命中，其他平台保持精确匹配语义
+    ///（大小写敏感，归一化会引入误判）
+    #[test]
+    fn 测试_按路径查询_容忍多平台路径() {
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 缓存 = 转译缓存::新建缓存(
+            测试_构造管理器(HashMap::new()),
+            临时值.path().to_path_buf(),
+        );
+
+        // 客户端 URI 为反斜杠/盘符形式：uri 解出 C:/x/main.zh
+        let (条目, _) = 缓存
+            .更新文档("file://C:/x/main.zh", "让 x = 1;", 1)
+            .unwrap();
+        // 精准路径命中（不限平台）
+        assert!(缓存.按路径查询(&条目.原始路径).is_some());
+        // 表示变体：Windows 归一命中；其他平台视为不同路径
+        assert_eq!(
+            缓存.按路径查询(Path::new(r"c:\x\main.zh")).is_some(),
+            cfg!(windows),
+            "大小写/分隔符归一应仅 Windows 生效"
+        );
+        assert!(缓存.按路径查询(Path::new("/no/such/file.zh")).is_none());
+    }
+
+    /// 别名替换接通：库标识符转英文，声明位同名用户定义受保护（与 CLI 一致）
+    #[test]
+    fn 测试_别名替换_声明保护() {
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 别名映射表 = HashMap::from([
+            ("字符串".into(), "String".into()),
+            ("新建".into(), "new".into()),
+        ]);
+        let 缓存 =
+            转译缓存::新建缓存(测试_构造管理器(别名映射表), 临时值.path().to_path_buf());
+
+        let (条目, _) = 缓存
+            .更新文档(
+                "file:///test/main.zh",
+                "让 新建 = 1;\n让 y = 新建;\n让 t = 字符串::新建();",
+                1,
+            )
+            .unwrap();
+        // 声明位 新建 保留；用户声明名的裸使用处（y = 新建）豁免；
+        // 但 `::` 限定后的路径段是库 API 访问，照常替换（字符串::新建 → String::new）
+        assert_eq!(
+            条目.英文源码,
+            "let 新建 = 1;\nlet y = 新建;\nlet t = String::new();"
+        );
+    }
+
+    /// 无用户声明撞名时，别名在使用处照常替换
+    #[test]
+    fn 测试_别名使用_未声明时替换() {
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 别名映射表 = HashMap::from([("字符串".into(), "String".into())]);
+        let 缓存 =
+            转译缓存::新建缓存(测试_构造管理器(别名映射表), 临时值.path().to_path_buf());
+
+        let (条目, _) = 缓存
+            .更新文档("file:///test/main.zh", "让 s: 字符串 = x;", 1)
+            .unwrap();
+        assert_eq!(条目.英文源码, "let s: String = x;");
+    }
+
+    /// 别名替换后的列映射对齐：中英文列号双向转换在替换点精确
+    #[test]
+    fn 测试_别名列映射对齐() {
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 别名映射表 = HashMap::from([("字符串".into(), "String".into())]);
+        let 缓存 =
+            转译缓存::新建缓存(测试_构造管理器(别名映射表), 临时值.path().to_path_buf());
+        let 资源定位 = "file:///test/main.zh";
+        let (条目, _) = 缓存.更新文档(资源定位, "让 s: 字符串 = x;", 1).unwrap();
+
+        // 中文列 5（字符串 起点）→ 英文列 7（String 起点），反向亦然
+        assert_eq!(中文列转英文列(&条目, 0, 5), 7);
+        assert_eq!(英文列转中文列(&条目, 0, 7), 5);
+        // 替换点之后的列（= 号：中文列 9 / 英文列 14）仍精确
+        assert_eq!(中文列转英文列(&条目, 0, 9), 14);
+        assert_eq!(英文列转中文列(&条目, 0, 14), 9);
+    }
+
+    #[test]
+    fn 测试_关闭文档() {
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 缓存 = 转译缓存::新建缓存(
+            测试_构造管理器(HashMap::new()),
+            临时值.path().to_path_buf(),
+        );
+
+        let (条目, _) = 缓存
+            .更新文档("file:///test/main.zh", "让 x = 1;", 1)
+            .unwrap();
+        assert!(条目.虚拟路径.exists());
+
+        缓存.关闭文档("file:///test/main.zh").unwrap();
+        assert!(!条目.虚拟路径.exists());
+        assert!(缓存.查询原文("file:///test/main.zh").is_none());
+    }
+
+    /// 关闭不在缓存中的文档：幂等早返回，不触发重写
+    #[test]
+    fn 测试_关闭缺失文档_空操作() {
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 缓存 = 转译缓存::新建缓存(
+            测试_构造管理器(HashMap::new()),
+            临时值.path().to_path_buf(),
+        );
+        缓存
+            .更新文档("file:///test/main.zh", "让 x = 1;", 1)
+            .unwrap();
+        let 变更前版本 = 缓存.模块版本();
+        let 变更集 = 缓存.关闭文档("file:///test/不存在.zh").unwrap();
+        assert!(变更集.is_empty());
+        // 模块集合未变：版本号不递增
+        assert_eq!(缓存.模块版本(), 变更前版本);
+    }
+
+    /// 用户词汇缓存：文档未变时命中，变更后失效重建
+    #[test]
+    fn 测试_用户词元缓存_失效() {
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 缓存 = 转译缓存::新建缓存(
+            测试_构造管理器(HashMap::new()),
+            临时值.path().to_path_buf(),
+        );
+        缓存
+            .更新文档("file:///test/main.zh", "函数 自定义甲() {}", 1)
+            .unwrap();
+        let 首个 = 缓存.用户自定义词元();
+        assert!(首个.contains("自定义甲"));
+        // 命中路径：结果一致
+        assert_eq!(首个, 缓存.用户自定义词元());
+        // 文档变更后缓存失效，新名词可见
+        缓存
+            .更新文档("file:///test/main.zh", "函数 自定义乙() {}", 2)
+            .unwrap();
+        let 第二结果 = 缓存.用户自定义词元();
+        assert!(第二结果.contains("自定义乙"));
+        assert!(!第二结果.contains("自定义甲"));
+    }
+
+    #[test]
+    fn 测试_按虚拟资源定位查询() {
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 缓存 = 转译缓存::新建缓存(
+            测试_构造管理器(HashMap::new()),
+            临时值.path().to_path_buf(),
+        );
+
+        let (条目, _) = 缓存
+            .更新文档("file:///test/main.zh", "让 x = 1;", 1)
+            .unwrap();
+        let 命中结果 = 缓存.按虚拟资源定位查询(&条目.虚拟资源定位).unwrap();
+        assert_eq!(命中结果.原始资源定位, "file:///test/main.zh");
+        // 解码形式（索引未命中时回退线性扫描）仍可查到
+        let 解码结果 = 定位解码(&条目.虚拟资源定位);
+        let 命中结果 = 缓存.按虚拟资源定位查询(&解码结果).unwrap();
+        assert_eq!(命中结果.原始资源定位, "file:///test/main.zh");
+        // 中文文件名：编码 URI 经索引命中
+        let (中文条目, _) = 缓存
+            .更新文档("file:///test/%E6%B5%8B%E8%AF%95.zh", "让 x = 1;", 1)
+            .unwrap();
+        assert!(
+            缓存.按虚拟资源定位查询(&中文条目.虚拟资源定位).is_some(),
+            "编码 URI 应经索引命中"
+        );
+        // 内容更新（改写条目 替换条目）后，索引应指向最新版本
+        let (条目二, _) = 缓存
+            .更新文档("file:///test/main.zh", "让 x = 2;", 2)
+            .unwrap();
+        let 命中结果 = 缓存.按虚拟资源定位查询(&条目二.虚拟资源定位).unwrap();
+        assert_eq!(命中结果.英文源码, "let x = 2;");
+        // 关闭文档后索引同步清理，查询不再命中
+        缓存.关闭文档("file:///test/main.zh").unwrap();
+        assert!(缓存.按虚拟资源定位查询(&条目.虚拟资源定位).is_none());
+    }
+
+    #[test]
+    fn 测试_模块路径列映射() {
+        // crate:: 前缀重写逻辑已迁入引擎（模块路径::模块路径限定并映射，
+        // 其行为测试在引擎侧）；此处验证列映射与虚拟内容经由完整管线正确对齐
+        let 词表管理器 = 映射管理器::自扁平映射新建(
+            HashMap::from([
+                ("函数".into(), "fn".into()),
+                ("让".into(), "let".into()),
+                ("公开".into(), "pub".into()),
+            ]),
+            HashMap::new(),
+            HashMap::new(),
+        );
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 缓存 = 转译缓存::新建缓存(词表管理器, 临时值.path().to_path_buf());
+
+        // 先打开 辅助.zh，使模块集合包含 辅助
+        let (辅助条目, _) = 缓存
+            .更新文档(
+                "file:///test/辅助.zh",
+                "公开 函数 辅助函数() {\n    让 x = 1;\n}",
+                1,
+            )
+            .unwrap();
+        assert_eq!(辅助条目.英文源码, "pub fn 辅助函数() {\n    let x = 1;\n}");
+
+        // 主.zh 引用 辅助 模块：中文列 8（辅助函数起点）应映射到英文列 15
+        // （`辅助::` 被重写为 `crate::辅助::`，多出 7 个 UTF-16 单元）
+        let (条目, 其他项) = 缓存
+            .更新文档(
+                "file:///test/主.zh",
+                "函数 主函数() {\n    辅助::辅助函数();\n}",
+                1,
+            )
+            .unwrap();
+        assert_eq!(
+            条目.英文源码,
+            "fn 主函数() {\n    crate::辅助::辅助函数();\n}"
+        );
+
+        // 中文列 8 → 英文列 15
+        assert_eq!(中文列转英文列(&条目, 1, 8), 15);
+        // 英文列 15 → 中文列 8
+        assert_eq!(英文列转中文列(&条目, 1, 15), 8);
+        // 英文列 19（辅助函数末尾）→ 中文列 12
+        assert_eq!(英文列转中文列(&条目, 1, 19), 12);
+        // 辅助.zh 未引用任何模块，内容不变，不进入变更列表
+        assert!(其他项.is_empty());
+    }
+
+    /// use 语句路径段中文化（LSP 此前缺失的环节，现经引擎完整管线修复）
+    #[test]
+    fn 测试_use语句模块路径翻译() {
+        let 词表管理器 = 映射管理器::自内置加载(
+            r#"
+["声明"]
+"函数" = "fn"
+"让" = "let"
+"使用" = "use"
+"#,
+            r#"
+["模块路径"]
+"标准集合" = "std::collections"
+"#,
+            r#"
+["标识符"]
+"哈希映射" = "HashMap"
+"#,
+            &[],
+        )
+        .expect("管理器创建失败");
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 缓存 = 转译缓存::新建缓存(词表管理器, 临时值.path().to_path_buf());
+        let (条目, _) = 缓存
+            .更新文档("file:///test/main.zh", "使用 标准集合::哈希映射;", 1)
+            .unwrap();
+        assert_eq!(条目.英文源码, "use std::collections::HashMap;");
+        // 列映射与虚拟内容对齐：行首位置 zh↔en 恒等
+        assert_eq!(中文列转英文列(&条目, 0, 0), 0);
+        assert_eq!(英文列转中文列(&条目, 0, 0), 0);
+    }
+
+    /// #3 症状一回归：crate 名连字符在 LSP 转译路径上规范化为下划线
+    ///
+    /// weix-1 实测：`使用 日志订阅 as 日志框架;` 曾转译为
+    /// `use tracing-subscriber as 日志框架;`（含连字符，非法路径），
+    /// rust-analyzer 报 "expected one of `::`, `;`, or `as`, found `-`"。
+    /// crate 段规范化后虚拟文件语法合法，误报消失（CLI 走同一引擎管线）。
+    #[test]
+    fn 测试_use语句连字符crate规范化() {
+        let 词表管理器 = 映射管理器::自内置加载(
+            r#"
+["声明"]
+"使用" = "use"
+"#,
+            r#"
+["模块路径"]
+"日志订阅" = "tracing-subscriber"
+"#,
+            "",
+            &[],
+        )
+        .expect("管理器创建失败");
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 缓存 = 转译缓存::新建缓存(词表管理器, 临时值.path().to_path_buf());
+        let (条目, _) = 缓存
+            .更新文档("file:///test/日志设置.zh", "使用 日志订阅 as 日志框架;", 1)
+            .unwrap();
+        assert_eq!(条目.英文源码, "use tracing_subscriber as 日志框架;");
+    }
+
+    /// 跨文件声明豁免（#8）：其他文件声明的成员名在调用侧同样豁免
+    ///
+    /// weix-1 场景：A 文件声明 `函数 新建()`（撞 `新建`=new 映射），
+    /// B 文件跨文件调用 `平台Linux::新建()`——模块路径链（`crate::` 前缀
+    /// 由虚拟项目重写补全）内成员与声明侧一致；库 API 路径（盒子::新建）
+    /// 照常替换。
+    #[test]
+    fn 测试_项目上下文_跨文件声明() {
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 别名映射表 =
+            HashMap::from([("新建".into(), "new".into()), ("盒子".into(), "Box".into())]);
+        let 缓存 = 转译缓存::新建缓存(
+            测试_构造管理器(别名映射表.clone()),
+            临时值.path().to_path_buf(),
+        );
+
+        // A 文件：声明 `新建`（同名用户函数）
+        let (_, _) = 缓存
+            .更新文档("file:///test/平台Linux.zh", "函数 新建() {}", 1)
+            .unwrap();
+        // B 文件：跨文件调用 A 的成员 + 库 API 调用
+        let (条目, _) = 缓存
+            .更新文档(
+                "file:///test/平台接口.zh",
+                "让 e = 平台Linux::新建();\n让 b = 盒子::新建();",
+                1,
+            )
+            .unwrap();
+        assert!(
+            条目.英文源码.contains("crate::平台Linux::新建()"),
+            "跨文件调用位应与声明侧一致：{}",
+            条目.英文源码
+        );
+        assert!(
+            条目.英文源码.contains("Box::new()"),
+            "库 API 路径段照常替换：{}",
+            条目.英文源码
+        );
+
+        // 对照：无 A 声明（单独打开 B）时保持旧行为——`新建` 被替换出 `new`
+        let 临时二 = tempfile::tempdir().unwrap();
+        let 缓存二 =
+            转译缓存::新建缓存(测试_构造管理器(别名映射表), 临时二.path().to_path_buf());
+        let (第二条目, _) = 缓存二
+            .更新文档(
+                "file:///test/平台接口.zh",
+                "让 e = 平台Linux::新建();\n让 b = 盒子::新建();",
+                1,
+            )
+            .unwrap();
+        assert!(
+            第二条目.英文源码.contains("平台Linux::new()"),
+            "无跨文件声明时保持旧行为：{}",
+            第二条目.英文源码
+        );
+    }
+
+    #[test]
+    fn 测试_行号映射() {
+        let 行映射表 = 生成行号映射("行0\n行1\n行2", "line0\nline1\nline2");
+        assert_eq!(行映射表, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn 测试_反向转译() {
+        let 词表管理器 = 映射管理器::自扁平映射新建(
+            HashMap::from([
+                ("函数".into(), "fn".into()),
+                ("让".into(), "let".into()),
+                ("打印行".into(), "println".into()),
+                ("整数".into(), "i32".into()),
+            ]),
+            HashMap::new(),
+            HashMap::new(),
+        );
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 缓存 = 转译缓存::新建缓存(词表管理器, 临时值.path().to_path_buf());
+        let (条目, _) = 缓存
+            .更新文档(
+                "file:///test/main.zh",
+                "函数 主函数() {\n让 count = 1;\n打印行!(\"count={}\", count);\n}",
+                1,
+            )
+            .unwrap();
+        assert_eq!(
+            条目.英文源码,
+            "fn 主函数() {\nlet count = 1;\nprintln!(\"count={}\", count);\n}"
+        );
+
+        // 模拟 rustfmt 输出：统一缩进为 4 空格
+        let 格式化英文 =
+            "fn 主函数() {\n    let count = 1;\n    println!(\"count={}\", count);\n}\n";
+        let 还原结果 = 缓存.逆向转译(Some("file:///test/main.zh"), 格式化英文);
+        // 关键字/宏还原为母语，英文自定义标识符 count 与中文标识符 主函数 保留
+        assert_eq!(
+            还原结果,
+            "函数 主函数() {\n    让 count = 1;\n    打印行!(\"count={}\", count);\n}\n"
+        );
+    }
+
+    /// URI 百分号解码：中文文件名（VSCode 必然编码）能还原为真实路径
+    #[test]
+    fn 测试_定位转路径_百分号解码() {
+        // 测试.zh 的 UTF-8 百分号编码
+        let 磁盘路径 = 定位转路径("file:///test/%E6%B5%8B%E8%AF%95.zh");
+        assert_eq!(磁盘路径, std::path::PathBuf::from("/test/测试.zh"));
+        // 空格与 # 同样可解码
+        let 磁盘路径 = 定位转路径("file:///a%20dir/f%23ile.zh");
+        assert_eq!(磁盘路径, std::path::PathBuf::from("/a dir/f#ile.zh"));
+    }
+
+    /// path_to_uri 对非安全字符做百分号编码，生成合法 URI
+    #[test]
+    fn 测试_路径转定位_特殊字符编码() {
+        let 资源定位 = 路径转定位(std::path::Path::new("/tmp/my dir/测试.rs"));
+        assert!(资源定位.starts_with("file:///tmp/my%20dir/"));
+        assert!(资源定位.contains("%"));
+        assert!(!资源定位.contains(' '));
+        // 解码后能往返还原
+        assert_eq!(定位解码(&资源定位), "file:///tmp/my dir/测试.rs");
+    }
+
+    /// 模块名净化：非法字符替换、数字开头补下划线、空名回退
+    #[test]
+    fn 测试_净化模块名() {
+        // 中文保留（合法标识符）
+        assert_eq!(净化模块名("辅助"), "辅助");
+        // 非法字符替换为 _
+        assert_eq!(净化模块名("a-b.zh\"x"), "a_b_zh_x");
+        // 数字开头前补 _
+        assert_eq!(净化模块名("1main"), "_1main");
+        // 空名回退 m
+        assert_eq!(净化模块名(""), "m");
+    }
+
+    /// 中文文件名（百分号编码 URI）打开后模块名合法，虚拟项目可编译
+    #[test]
+    fn 测试_更新文档_中文文件名编码() {
+        let 临时值 = tempfile::tempdir().unwrap();
+        let 缓存 = 转译缓存::新建缓存(
+            测试_构造管理器(HashMap::new()),
+            临时值.path().to_path_buf(),
+        );
+        let (条目, _) = 缓存
+            .更新文档("file:///test/%E6%B5%8B%E8%AF%95.zh", "让 x = 1;", 1)
+            .unwrap();
+        assert_eq!(条目.英文源码, "let x = 1;");
+        // 虚拟 main.rs 中的 mod 名应为解码后的中文（合法标识符），而非 %XX
+        let 主rs路径 = std::fs::read_to_string(临时值.path().join("src").join("main.rs")).unwrap();
+        assert!(
+            主rs路径.contains("mod 测试;"),
+            "mod 名应为解码后的中文: {主rs路径}"
+        );
+        assert!(!主rs路径.contains('%'));
+    }
+
+    /// 含 `公开`/`包含字符串` 映射的测试管理器（C2 系列测试用）
+    fn 测试_构造管理器_扩展() -> 映射管理器 {
+        let mut 行映射表 = 测试_构造映射();
+        行映射表.insert("公开".into(), "pub".into());
+        行映射表.insert("包含字符串".into(), "include_str".into());
+        映射管理器::自扁平映射新建(行映射表, HashMap::new(), HashMap::new())
+    }
+
+    /// C2a：同目录未打开的兄弟模块被聚合（虚拟项目高保真化）
+    ///
+    /// weix-1 场景：主文件引用 工具.zh 的函数而 工具.zh 从未在编辑器中
+    /// 打开——此前虚拟项目不含该模块，rust-analyzer 报 E0433/E0432 误报。
+    #[test]
+    fn 测试_兄弟模块_聚合() {
+        let 项目名 = tempfile::tempdir().unwrap();
+        let 虚拟标记 = tempfile::tempdir().unwrap();
+        let src = 项目名.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(
+            src.join("工具.zh"),
+            "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
+        )
+        .unwrap();
+
+        let 缓存 =
+            转译缓存::新建缓存(测试_构造管理器_扩展(), 虚拟标记.path().to_path_buf());
+        let 主资源定位 = 路径转定位(&src.join("main.zh"));
+        let (条目, _) = 缓存
+            .更新文档(&主资源定位, "函数 主函数() {\n    工具::加一(1);\n}\n", 1)
+            .unwrap();
+
+        // 主文件跨文件引用补 crate:: 前缀（模块集合已含新聚合的 工具）
+        assert!(
+            条目.英文源码.contains("crate::工具::加一(1)"),
+            "跨文件引用应补 crate:: 前缀：{}",
+            条目.英文源码
+        );
+        // 兄弟模块已登记（is_open=false）并转译写盘
+        let 工具项 = 缓存
+            .查询原文(&路径转定位(&src.join("工具.zh")))
+            .expect("同目录兄弟模块应被聚合");
+        assert!(!工具项.是否打开, "磁盘聚合的模块不应标记为打开");
+        assert!(
+            工具项.英文源码.contains("pub fn 加一"),
+            "兄弟模块应已转译：{}",
+            工具项.英文源码
+        );
+        assert!(工具项.虚拟路径.exists(), "兄弟模块虚拟文件应写盘");
+        // 聚合 main.rs 同时声明两个模块
+        let 聚合文本 =
+            std::fs::read_to_string(虚拟标记.path().join("src").join("main.rs")).unwrap();
+        assert!(
+            聚合文本.contains("mod 工具;") && 聚合文本.contains("mod main;"),
+            "聚合 main.rs：{聚合文本}"
+        );
+    }
+
+    /// 多层模块布局：src/领域.zh + src/领域/工具.zh
+    ///
+    /// - 嵌套文件被递归登记并转译写盘；
+    /// - 聚合 main.rs 只声明顶层 `mod 领域`，不平铺嵌套 `mod 工具`；
+    /// - 父虚拟文件（领域）末尾追加 `#[path="工具哈希名.rs"] pub mod 工具;`，
+    ///   使 rust-analyzer 能解析 `crate::领域::工具::加一`；
+    /// - 叶子文件与 main 文件不追加子声明。
+    #[test]
+    fn 测试_嵌套模块树_聚合() {
+        let 项目名 = tempfile::tempdir().unwrap();
+        let 虚拟标记 = tempfile::tempdir().unwrap();
+        let src = 项目名.path().join("src");
+        let 嵌套 = src.join("领域");
+        std::fs::create_dir_all(&嵌套).unwrap();
+        std::fs::write(src.join("领域.zh"), "公开 模块 工具;\n").unwrap();
+        std::fs::write(
+            嵌套.join("工具.zh"),
+            "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
+        )
+        .unwrap();
+
+        let 缓存 =
+            转译缓存::新建缓存(测试_构造管理器_扩展(), 虚拟标记.path().to_path_buf());
+        let 主资源定位 = 路径转定位(&src.join("main.zh"));
+        let (条目, _) = 缓存
+            .更新文档(
+                &主资源定位,
+                "模块 领域;\n函数 主函数() {\n    领域::工具::加一(1);\n}\n",
+                1,
+            )
+            .unwrap();
+        assert!(
+            条目.英文源码.contains("crate::领域::工具::加一(1)"),
+            "多层跨文件引用应补 crate:: 前缀：{}",
+            条目.英文源码
+        );
+
+        // 嵌套文件被递归登记并转译
+        let 工具项 = 缓存
+            .查询原文(&路径转定位(&嵌套.join("工具.zh")))
+            .expect("嵌套模块应被递归同步");
+        assert!(
+            工具项.英文源码.contains("pub fn 加一"),
+            "嵌套模块应已转译：{}",
+            工具项.英文源码
+        );
+        assert!(工具项.虚拟路径.exists(), "嵌套虚拟文件应写盘");
+
+        // 聚合 main.rs：仅顶层声明
+        let 聚合文本 =
+            std::fs::read_to_string(虚拟标记.path().join("src").join("main.rs")).unwrap();
+        assert!(
+            聚合文本.contains("mod 领域;"),
+            "聚合应含顶层 领域：{聚合文本}"
+        );
+        assert!(
+            !聚合文本.contains("mod 工具;"),
+            "嵌套模块不应平铺进聚合 main.rs：{聚合文本}"
+        );
+
+        // 父虚拟文件末尾的嵌套子声明：#[path] 指向工具的平铺哈希文件名
+        let 域名集合 = 缓存
+            .查询原文(&路径转定位(&src.join("领域.zh")))
+            .expect("领域模块应已登记");
+        let 工具文件 = 工具项
+            .虚拟路径
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        assert!(
+            域名集合
+                .分析器源码
+                .contains(&format!("#[path = \"{工具文件}\"] pub mod 工具;")),
+            "父虚拟文件应追加嵌套子声明：{}",
+            域名集合.分析器源码
+        );
+        // 用户原文行仍保留在反向转译用的 en_content 中（测试词表未收录
+        // 「模块」→mod，原文形态保留；真实 zh 语言包下为 `pub mod 工具;`）
+        assert!(
+            域名集合.英文源码.contains("模块 工具;") || 域名集合.英文源码.contains("mod 工具;"),
+            "{}",
+            域名集合.英文源码
+        );
+
+        // 叶子与 main 文件无追加块
+        assert!(
+            !工具项.分析器源码.contains("nested module children"),
+            "叶子模块不应有子声明块：{}",
+            工具项.分析器源码
+        );
+        assert!(
+            !条目.分析器源码.contains("nested module children"),
+            "main 文件不应出现 src/main/ 之外的子声明：{}",
+            条目.分析器源码
+        );
+    }
+
+    /// C2a：兄弟模块磁盘内容变化被增量同步（未打开文件以磁盘为准）
+    #[test]
+    fn 测试_兄弟模块_磁盘更新同步() {
+        let 项目名 = tempfile::tempdir().unwrap();
+        let 虚拟标记 = tempfile::tempdir().unwrap();
+        let src = 项目名.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let 工具路径 = src.join("工具.zh");
+        std::fs::write(
+            &工具路径,
+            "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
+        )
+        .unwrap();
+
+        let 缓存 =
+            转译缓存::新建缓存(测试_构造管理器_扩展(), 虚拟标记.path().to_path_buf());
+        let 主资源定位 = 路径转定位(&src.join("main.zh"));
+        缓存
+            .更新文档(&主资源定位, "函数 主函数() {\n    工具::加一(1);\n}\n", 1)
+            .unwrap();
+        let 工具资源定位 = 路径转定位(&工具路径);
+        assert!(
+            缓存
+                .查询原文(&工具资源定位)
+                .unwrap()
+                .英文源码
+                .contains("加一")
+        );
+
+        // 修改磁盘上的兄弟模块（长度变化确保增量判定命中）
+        std::fs::write(
+            &工具路径,
+            "公开 函数 加二(数: i32) -> i32 {\n    数 + 2\n}\n// 变更标记\n",
+        )
+        .unwrap();
+        let (_, 其他项) = 缓存
+            .更新文档(&主资源定位, "函数 主函数() {\n    工具::加一(1);\n}\n", 2)
+            .unwrap();
+
+        let 工具项 = 缓存.查询原文(&工具资源定位).unwrap();
+        assert!(
+            工具项.英文源码.contains("加二"),
+            "磁盘变更应增量同步：{}",
+            工具项.英文源码
+        );
+        assert!(
+            其他项.iter().any(|e| e.原始资源定位 == 工具资源定位),
+            "变更的兄弟模块应进入通知列表"
+        );
+    }
+
+    /// C2a：磁盘上删除的兄弟模块被清理（条目与虚拟文件一并移除）
+    #[test]
+    fn 测试_兄弟模块_磁盘删除移除() {
+        let 项目名 = tempfile::tempdir().unwrap();
+        let 虚拟标记 = tempfile::tempdir().unwrap();
+        let src = 项目名.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let 工具路径 = src.join("工具.zh");
+        std::fs::write(&工具路径, "公开 函数 加一() {}\n").unwrap();
+
+        let 缓存 =
+            转译缓存::新建缓存(测试_构造管理器_扩展(), 虚拟标记.path().to_path_buf());
+        let 主资源定位 = 路径转定位(&src.join("main.zh"));
+        缓存.更新文档(&主资源定位, "函数 主函数() {}\n", 1).unwrap();
+        let 工具资源定位 = 路径转定位(&工具路径);
+        let 工具虚拟标记 = 缓存.查询原文(&工具资源定位).unwrap().虚拟路径.clone();
+        assert!(工具虚拟标记.exists());
+        let 变更前版本 = 缓存.模块版本();
+
+        // 磁盘删除后再次更新：条目与虚拟文件应被清理，模块集合版本递增
+        std::fs::remove_file(&工具路径).unwrap();
+        缓存.更新文档(&主资源定位, "函数 主函数() {}\n", 2).unwrap();
+
+        assert!(
+            缓存.查询原文(&工具资源定位).is_none(),
+            "删除的兄弟模块应移除条目"
+        );
+        assert!(!工具虚拟标记.exists(), "虚拟文件应一并移除");
+        assert!(缓存.模块版本() > 变更前版本, "模块集合变化应递增版本");
+    }
+
+    /// C2b：include_str! 资源复制进虚拟项目（couldn't read 误报根治）
+    #[test]
+    fn 测试_包含资源_复制到虚拟项目() {
+        let 项目名 = tempfile::tempdir().unwrap();
+        let 虚拟标记 = tempfile::tempdir().unwrap();
+        let src = 项目名.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(src.join("数据.txt"), "占位内容").unwrap();
+
+        let 缓存 =
+            转译缓存::新建缓存(测试_构造管理器_扩展(), 虚拟标记.path().to_path_buf());
+        let 主资源定位 = 路径转定位(&src.join("main.zh"));
+        let (条目, _) = 缓存
+            .更新文档(
+                &主资源定位,
+                "函数 主函数() {\n    让 页面 = 包含字符串!(\"数据.txt\");\n}\n",
+                1,
+            )
+            .unwrap();
+        assert!(
+            条目.英文源码.contains("include_str!(\"数据.txt\")"),
+            "宏名应转译且保留感叹号：{}",
+            条目.英文源码
+        );
+        // 资源按相对位置复制到虚拟项目（与虚拟 .rs 同目录）
+        let 已复制项 = 虚拟标记.path().join("src").join("数据.txt");
+        assert!(已复制项.is_file(), "include 资源应复制到虚拟项目");
+        assert_eq!(std::fs::read_to_string(已复制项).unwrap(), "占位内容");
+    }
+
+    /// 关闭文档：磁盘文件仍存在时降级为兄弟模块（不删除条目/虚拟文件）
+    #[test]
+    fn 测试_关闭文档_磁盘存在时降级() {
+        let 项目名 = tempfile::tempdir().unwrap();
+        let 虚拟标记 = tempfile::tempdir().unwrap();
+        let src = 项目名.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        // 磁盘内容与缓冲区不同：关闭后应以磁盘为准
+        std::fs::write(src.join("main.zh"), "让 磁盘 = 1;\n").unwrap();
+
+        let 缓存 = 转译缓存::新建缓存(
+            测试_构造管理器(HashMap::new()),
+            虚拟标记.path().to_path_buf(),
+        );
+        let 主资源定位 = 路径转定位(&src.join("main.zh"));
+        缓存.更新文档(&主资源定位, "让 缓冲 = 2;\n", 1).unwrap();
+
+        缓存.关闭文档(&主资源定位).unwrap();
+        let 条目 = 缓存
+            .查询原文(&主资源定位)
+            .expect("磁盘文件存在时应降级保留，而非移除");
+        assert!(!条目.是否打开, "关闭后应降级为兄弟模块");
+        assert_eq!(条目.中文原文, "让 磁盘 = 1;\n", "降级后内容以磁盘为准");
+        assert!(条目.虚拟路径.exists(), "虚拟文件保留");
+        assert!(
+            条目.英文源码.contains("let 磁盘 = 1;"),
+            "应重译磁盘内容：{}",
+            条目.英文源码
+        );
+    }
+}

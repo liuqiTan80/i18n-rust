@@ -6,7 +6,7 @@
 //! 每个语言包是一个目录，目录名即语言代码（如 `zh`、`ru`），
 //! 内含 `keywords.toml`、`errors.toml`、`module_paths.toml` 及可选的 `crates/` 子目录。
 //!
-//! 远程安装：默认依次尝试 [`DEFAULT_REPO_SOURCES`]（GitCode 首选，失败自动回退 GitHub），
+//! 远程安装：默认依次尝试 [`默认仓库源列表`]（GitCode 首选，失败自动回退 GitHub），
 //! 每个源优先 `git clone`，git 不存在或克隆失败时回退 `curl` 下载 ZIP 压缩包并解压；
 //! 设置 `RZ_LANG_REPO` 环境变量后完全使用用户指定地址（不再尝试默认源）。
 
@@ -23,36 +23,36 @@ use std::process::Command;
 ///
 /// 注意：占位符使用前请替换为实际的 GitCode/GitHub 用户名。
 /// 设置 `RZ_LANG_REPO` 环境变量后完全使用用户指定地址，不再尝试默认源。
-pub const DEFAULT_REPO_SOURCES: [&str; 2] = [
+pub const 默认仓库源列表: [&str; 2] = [
     "https://gitcode.com/tan80/i18n-rust",
     "https://github.com/liuqiTan80/i18n-rust",
 ];
 
 /// 远程仓库源：git clone 地址与 curl 下载 ZIP 的地址
 #[derive(Debug, Clone)]
-pub(crate) struct RepoSource {
+pub(crate) struct 仓库源 {
     /// git clone 使用的仓库地址
-    pub(crate) git_url: String,
+    pub(crate) 仓库地址: String,
     /// curl 下载 ZIP 压缩包的地址
-    pub(crate) zip_url: String,
+    pub(crate) 压缩包地址: String,
 }
 
-impl RepoSource {
+impl 仓库源 {
     /// 从仓库地址生成 git 与 ZIP 下载地址
     ///
     /// - GitCode：`<仓库>/repository/archive/master.zip`（默认分支 master）
     /// - GitHub：`<仓库>/archive/refs/heads/main.zip`（默认分支 main）
     /// - 其他平台（含本地 HTTP 服务器测试）：按 GitHub 风格生成
-    pub(crate) fn from_url(url: &str) -> Self {
-        let url = url.trim_end_matches('/');
-        let zip_url = if url.contains("gitcode.com") {
-            format!("{}/repository/archive/master.zip", url)
+    pub(crate) fn 自地址构造(地址: &str) -> Self {
+        let 地址 = 地址.trim_end_matches('/');
+        let 压缩包地址 = if 地址.contains("gitcode.com") {
+            format!("{}/repository/archive/master.zip", 地址)
         } else {
-            format!("{}/archive/refs/heads/main.zip", url)
+            format!("{}/archive/refs/heads/main.zip", 地址)
         };
         Self {
-            git_url: url.to_string(),
-            zip_url,
+            仓库地址: 地址.to_string(),
+            压缩包地址,
         }
     }
 }
@@ -60,51 +60,51 @@ impl RepoSource {
 /// 收集本次安装要尝试的仓库源列表
 ///
 /// 若设置了 `RZ_LANG_REPO` 环境变量，完全使用用户指定的地址；
-/// 否则依次尝试 [`DEFAULT_REPO_SOURCES`]（GitCode 首选，GitHub 备用）。
-fn collect_sources() -> Vec<RepoSource> {
-    if let Ok(custom) = std::env::var("RZ_LANG_REPO") {
-        let custom = custom.trim().trim_end_matches('/').to_string();
-        if !custom.is_empty() {
-            return vec![RepoSource::from_url(&custom)];
+/// 否则依次尝试 [`默认仓库源列表`]（GitCode 首选，GitHub 备用）。
+fn 收集源() -> Vec<仓库源> {
+    if let Ok(自定义) = std::env::var("RZ_LANG_REPO") {
+        let 自定义 = 自定义.trim().trim_end_matches('/').to_string();
+        if !自定义.is_empty() {
+            return vec![仓库源::自地址构造(&自定义)];
         }
     }
-    DEFAULT_REPO_SOURCES
+    默认仓库源列表
         .iter()
-        .map(|url| RepoSource::from_url(url))
+        .map(|地址| 仓库源::自地址构造(地址))
         .collect()
 }
 
 /// 语言包来源
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Source {
+pub enum 语言来源 {
     /// 内置在 rzc 可执行文件中（不可删除）
-    Builtin,
+    内置,
     /// 用户通过 `rzc lang install` 安装到全局目录
-    UserInstalled,
+    用户安装,
 }
 
 /// 单个已安装语言包的信息
-pub struct LangInfo {
+pub struct 语言信息 {
     /// 语言代码（目录名）
-    pub lang_code: String,
+    pub 语言代码: String,
     /// 来源
-    pub source: Source,
+    pub 语言来源: 语言来源,
     /// 扩展名（不含点）；旧语言包无 lang_info.toml 时从静态映射推断
-    pub extension: Option<String>,
+    pub 文件扩展名: Option<String>,
     /// 版本号；旧语言包无 lang_info.toml 时为 None
-    pub version: Option<String>,
+    pub 版本号: Option<String>,
     /// 语言显示名称（来自 lang_info.toml；旧语言包为 None）
-    pub display_name: Option<String>,
+    pub 显示名称: Option<String>,
 }
 
 /// 语言包元数据（来自 lang_info.toml）
-pub struct LangMetadata {
+pub struct 语言元数据 {
     /// 语言名称
-    pub name: String,
+    pub 语言名称: String,
     /// 源码文件扩展名（不含点）
-    pub extension: String,
+    pub 文件扩展名: String,
     /// 版本号
-    pub version: String,
+    pub 版本号: String,
 }
 
 /// 解析 lang_info.toml 内容
@@ -118,170 +118,170 @@ pub struct LangMetadata {
 /// ```
 /// 版本缺省时为 "1.0"；名称或扩展名缺失/为空时返回 None。
 /// 兼容用户手写的裸键写法：标准解析失败时回退手工解析。
-fn parse_lang_info(content: &str) -> Option<LangMetadata> {
+fn 解析语言信息(内容文本: &str) -> Option<语言元数据> {
     // 1. 标准 TOML 解析：兼容引号包裹的键
-    if let Ok(value) = toml::from_str::<toml::Value>(content)
-        && let Some(table) = value.get("语言包")
-        && let Some(metadata) = extract_from_table(table)
+    if let Ok(根表) = toml::from_str::<toml::Value>(内容文本)
+        && let Some(节表) = 根表.get("语言包")
+        && let Some(元数据项) = 提取自表(节表)
     {
-        return Some(metadata);
+        return Some(元数据项);
     }
     // 2. 回退手工解析：兼容中文裸键的用户示例写法
-    manual_parse(content)
+    手工解析(内容文本)
 }
 
 /// 从解析出的 [语言包] 节表提取元数据
-fn extract_from_table(table: &toml::Value) -> Option<LangMetadata> {
-    let name = table.get("名称")?.as_str()?.trim();
-    let extension = table.get("扩展名")?.as_str()?.trim();
-    if name.is_empty() || extension.is_empty() {
+fn 提取自表(节表: &toml::Value) -> Option<语言元数据> {
+    let 语言名称 = 节表.get("名称")?.as_str()?.trim();
+    let 文件扩展名 = 节表.get("扩展名")?.as_str()?.trim();
+    if 语言名称.is_empty() || 文件扩展名.is_empty() {
         return None;
     }
-    let version = table
+    let 版本号 = 节表
         .get("版本")
-        .and_then(|v| v.as_str())
+        .and_then(|当前值| 当前值.as_str())
         .unwrap_or("1.0")
         .trim()
         .to_string();
-    Some(LangMetadata {
-        name: name.to_string(),
-        extension: extension.to_string(),
-        version,
+    Some(语言元数据 {
+        语言名称: 语言名称.to_string(),
+        文件扩展名: 文件扩展名.to_string(),
+        版本号,
     })
 }
 
 /// 手工逐行解析 `键 = "值"`，兼容标准 TOML 不允许的非 ASCII 裸键
 ///
 /// 只识别 名称 / 扩展名 / 版本 三个字段，忽略注释与节头。
-fn manual_parse(content: &str) -> Option<LangMetadata> {
-    let mut name: Option<String> = None;
-    let mut extension: Option<String> = None;
-    let mut version: Option<String> = None;
-    let mut has_lang_section = false;
-    for line in content.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
+fn 手工解析(内容文本: &str) -> Option<语言元数据> {
+    let mut 语言名称: Option<String> = None;
+    let mut 文件扩展名: Option<String> = None;
+    let mut 版本号: Option<String> = None;
+    let mut 含语言节 = false;
+    for 每行 in 内容文本.lines() {
+        let 每行 = 每行.trim();
+        if 每行.is_empty() || 每行.starts_with('#') {
             continue;
         }
-        if line.starts_with('[') {
-            let section_name = line
+        if 每行.starts_with('[') {
+            let 节名 = 每行
                 .trim_start_matches('[')
                 .trim_end_matches(']')
                 .trim_matches('"')
                 .trim();
-            if section_name == "语言包" {
-                has_lang_section = true;
+            if 节名 == "语言包" {
+                含语言节 = true;
             }
             continue;
         }
-        let (key, val) = line.split_once('=')?;
-        let key = key.trim().trim_matches('"').trim();
-        let val = val.trim().trim_matches('"').trim();
-        if val.is_empty() {
+        let (键名, 值文本) = 每行.split_once('=')?;
+        let 键名 = 键名.trim().trim_matches('"').trim();
+        let 值文本 = 值文本.trim().trim_matches('"').trim();
+        if 值文本.is_empty() {
             return None;
         }
-        match key {
-            "名称" => name = Some(val.to_string()),
-            "扩展名" => extension = Some(val.to_string()),
-            "版本" => version = Some(val.to_string()),
+        match 键名 {
+            "名称" => 语言名称 = Some(值文本.to_string()),
+            "扩展名" => 文件扩展名 = Some(值文本.to_string()),
+            "版本" => 版本号 = Some(值文本.to_string()),
             _ => {}
         }
     }
-    if !has_lang_section {
+    if !含语言节 {
         return None;
     }
-    Some(LangMetadata {
-        name: name?,
-        extension: extension?,
-        version: version.unwrap_or_else(|| "1.0".to_string()),
+    Some(语言元数据 {
+        语言名称: 语言名称?,
+        文件扩展名: 文件扩展名?,
+        版本号: 版本号.unwrap_or_else(|| "1.0".to_string()),
     })
 }
 
 /// 读取目录中语言包的元数据（读取并解析 lang_info.toml）
-pub fn read_lang_info(dir: &Path) -> Option<LangMetadata> {
-    let content = fs::read_to_string(dir.join("lang_info.toml")).ok()?;
-    parse_lang_info(&content)
+pub fn 读语言信息(目录: &Path) -> Option<语言元数据> {
+    let 内容文本 = fs::read_to_string(目录.join("lang_info.toml")).ok()?;
+    解析语言信息(&内容文本)
 }
 
 /// 获取内置语言包的元数据（来自嵌入可执行文件的 lang_info.toml）
-pub fn get_builtin_metadata(lang_code: &str) -> Option<LangMetadata> {
+pub fn 取内置元数据(语言代码: &str) -> Option<语言元数据> {
     // 内置代码列表内的语言必然存在；未知代码回退到中文不影响元数据查询
-    let data = crate::builtin_lang::get_builtin_data(lang_code);
-    parse_lang_info(data.lang_info_toml)
+    let 内置数据 = crate::builtin_lang::获取内置数据(语言代码);
+    解析语言信息(内置数据.语言信息文本)
 }
 
 /// 获取全局语言包根目录
 ///
 /// 优先使用 `RZ_LANG_DIR` 环境变量，否则默认 `~/.rz/lang-packs/`。
-pub fn global_lang_dir() -> PathBuf {
-    if let Ok(dir) = std::env::var("RZ_LANG_DIR")
-        && !dir.is_empty()
+pub fn 全局语言目录() -> PathBuf {
+    if let Ok(目录) = std::env::var("RZ_LANG_DIR")
+        && !目录.is_empty()
     {
-        return PathBuf::from(dir);
+        return PathBuf::from(目录);
     }
     // HOME（Unix）优先，USERPROFILE（Windows）回退，保证跨平台安装目录正确
-    let home = std::env::var("HOME")
+    let 主目录 = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home).join(".rz").join("lang-packs")
+    PathBuf::from(主目录).join(".rz").join("lang-packs")
 }
 
 /// 列出所有已安装的语言包（内置 + 用户安装）
 ///
 /// 内置语言包固定在前，用户安装的按名称排序在后。
 /// 扩展名/版本来自 lang_info.toml；旧语言包无该文件时扩展名回退静态映射推断。
-pub fn list_langs() -> Vec<LangInfo> {
-    let mut list: Vec<LangInfo> = crate::builtin_lang::builtin_lang_codes()
+pub fn 列语言() -> Vec<语言信息> {
+    let mut 列表: Vec<语言信息> = crate::builtin_lang::内置语言代码()
         .into_iter()
-        .map(|code| {
-            let metadata = get_builtin_metadata(code);
-            LangInfo {
-                lang_code: code.to_string(),
-                source: Source::Builtin,
-                extension: metadata
+        .map(|语言代码| {
+            let 元数据项 = 取内置元数据(语言代码);
+            语言信息 {
+                语言代码: 语言代码.to_string(),
+                语言来源: 语言来源::内置,
+                文件扩展名: 元数据项
                     .as_ref()
-                    .map(|m| m.extension.clone())
-                    .or_else(|| static_code_to_extension(code)),
-                version: metadata.as_ref().map(|m| m.version.clone()),
-                display_name: metadata.map(|m| m.name.clone()),
+                    .map(|项| 项.文件扩展名.clone())
+                    .or_else(|| 静态代码转扩展名(语言代码)),
+                版本号: 元数据项.as_ref().map(|项| 项.版本号.clone()),
+                显示名称: 元数据项.map(|项| 项.语言名称.clone()),
             }
         })
         .collect();
 
     // 扫描全局目录：含 keywords.toml 的子目录视为语言包
-    let root_dir = global_lang_dir();
-    let mut user_installed: Vec<(String, Option<LangMetadata>)> = Vec::new();
-    if let Ok(entries) = fs::read_dir(&root_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir()
-                && path.join("keywords.toml").is_file()
-                && let Some(name) = path.file_name().and_then(|s| s.to_str())
+    let 根目录 = 全局语言目录();
+    let mut 用户安装项: Vec<(String, Option<语言元数据>)> = Vec::new();
+    if let Ok(读取结果) = fs::read_dir(&根目录) {
+        for 每个条目 in 读取结果.flatten() {
+            let 目标路径 = 每个条目.path();
+            if 目标路径.is_dir()
+                && 目标路径.join("keywords.toml").is_file()
+                && let Some(目录名) = 目标路径.file_name().and_then(|原始名| 原始名.to_str())
             {
-                user_installed.push((name.to_string(), read_lang_info(&path)));
+                用户安装项.push((目录名.to_string(), 读语言信息(&目标路径)));
             }
         }
     }
-    user_installed.sort_by(|a, b| a.0.cmp(&b.0));
-    for (code, metadata) in user_installed {
-        list.push(LangInfo {
-            extension: metadata
+    用户安装项.sort_by(|甲, 乙| 甲.0.cmp(&乙.0));
+    for (语言代码, 元数据项) in 用户安装项 {
+        列表.push(语言信息 {
+            文件扩展名: 元数据项
                 .as_ref()
-                .map(|m| m.extension.clone())
-                .or_else(|| static_code_to_extension(&code)),
-            version: metadata.as_ref().map(|m| m.version.clone()),
-            display_name: metadata.map(|m| m.name.clone()),
-            lang_code: code,
-            source: Source::UserInstalled,
+                .map(|项| 项.文件扩展名.clone())
+                .or_else(|| 静态代码转扩展名(&语言代码)),
+            版本号: 元数据项.as_ref().map(|项| 项.版本号.clone()),
+            显示名称: 元数据项.map(|项| 项.语言名称.clone()),
+            语言代码,
+            语言来源: 语言来源::用户安装,
         });
     }
-    list
+    列表
 }
 
 /// 静态扩展名映射（扩展名 → 语言代码）
 ///
 /// 作为动态映射的回退，保证无 lang_info.toml 的旧语言包向后兼容。
-pub fn static_extension_map() -> HashMap<String, String> {
+pub fn 静态扩展名映射() -> HashMap<String, String> {
     [
         ("zh", "中文"),
         ("ru", "俄语"),
@@ -289,16 +289,16 @@ pub fn static_extension_map() -> HashMap<String, String> {
         ("ko", "韩语"),
     ]
     .into_iter()
-    .map(|(ext, code)| (ext.to_string(), code.to_string()))
+    .map(|(扩展名, 语言代码)| (扩展名.to_string(), 语言代码.to_string()))
     .collect()
 }
 
 /// 静态映射反查：语言代码 → 扩展名（旧语言包推断用）
-fn static_code_to_extension(lang_code: &str) -> Option<String> {
-    static_extension_map()
+fn 静态代码转扩展名(语言代码: &str) -> Option<String> {
+    静态扩展名映射()
         .into_iter()
-        .find(|(_, code)| code == lang_code)
-        .map(|(ext, _)| ext)
+        .find(|(_, code)| code == 语言代码)
+        .map(|(扩展名, _)| 扩展名)
 }
 
 /// 构建 扩展名 → 语言代码 的动态映射表
@@ -306,52 +306,56 @@ fn static_code_to_extension(lang_code: &str) -> Option<String> {
 /// 来源：内置语言包元数据 + 全局用户语言包目录。
 /// 用户安装的语言包优先于内置（同名扩展名时覆盖）；
 /// 无 lang_info.toml 的旧语言包回退静态映射推断。
-pub fn build_extension_map() -> HashMap<String, String> {
-    let mut map = HashMap::new();
+pub fn 构建扩展名映射() -> HashMap<String, String> {
+    let mut 映射表 = HashMap::new();
 
     // 1. 内置语言包
-    for code in crate::builtin_lang::builtin_lang_codes() {
-        if let Some(metadata) = get_builtin_metadata(code) {
-            map.insert(metadata.extension, code.to_string());
-        } else if let Some(ext) = static_code_to_extension(code) {
-            map.insert(ext, code.to_string());
+    for 语言代码 in crate::builtin_lang::内置语言代码() {
+        if let Some(元数据项) = 取内置元数据(语言代码) {
+            映射表.insert(元数据项.文件扩展名, 语言代码.to_string());
+        } else if let Some(扩展名) = 静态代码转扩展名(语言代码) {
+            映射表.insert(扩展名, 语言代码.to_string());
         }
     }
 
     // 2. 全局用户语言包（覆盖内置）
-    let root_dir = global_lang_dir();
-    if let Ok(entries) = fs::read_dir(&root_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() || !path.join("keywords.toml").is_file() {
+    let 根目录 = 全局语言目录();
+    if let Ok(读取结果) = fs::read_dir(&根目录) {
+        for 每个条目 in 读取结果.flatten() {
+            let 目标路径 = 每个条目.path();
+            if !目标路径.is_dir() || !目标路径.join("keywords.toml").is_file() {
                 continue;
             }
-            let Some(code) = path.file_name().and_then(|s| s.to_str()).map(String::from) else {
+            let Some(语言代码) = 目标路径
+                .file_name()
+                .and_then(|原始名| 原始名.to_str())
+                .map(String::from)
+            else {
                 continue;
             };
-            if let Some(metadata) = read_lang_info(&path) {
-                map.insert(metadata.extension, code.clone());
-            } else if let Some(ext) = static_code_to_extension(&code) {
-                map.insert(ext, code);
+            if let Some(元数据项) = 读语言信息(&目标路径) {
+                映射表.insert(元数据项.文件扩展名, 语言代码.clone());
+            } else if let Some(扩展名) = 静态代码转扩展名(&语言代码) {
+                映射表.insert(扩展名, 语言代码);
             }
         }
     }
-    map
+    映射表
 }
 
 /// 查询 扩展名 → 语言代码 的动态映射
-pub fn query_extension_map(extension: &str) -> Option<String> {
-    build_extension_map().remove(extension)
+pub fn 查询扩展名映射(文件扩展名: &str) -> Option<String> {
+    构建扩展名映射().remove(文件扩展名)
 }
 
 /// 全局语言包目录中的一个候选条目
 ///
-/// 只要子目录内含 `keywords.toml` 就视为语言包（与 `build_extension_map` 同口径），
-/// `dir_name` 为目录名（语言 code 即取此名）。
-pub struct GlobalLangPack {
-    pub dir_name: String,
+/// 只要子目录内含 `keywords.toml` 就视为语言包（与 `构建扩展名映射` 同口径），
+/// `目录名` 为目录名（语言 code 即取此名）。
+pub struct 全局语言包 {
+    pub 目录名: String,
     /// lang_info.toml 元数据；缺失或不可解析时为 None（扩展名回退静态映射推断）
-    pub metadata: Option<LangMetadata>,
+    pub 包元数据: Option<语言元数据>,
 }
 
 /// 扫描全局语言包目录（`~/.rz/lang-packs/`，`RZ_LANG_DIR` 可改）
@@ -359,52 +363,54 @@ pub struct GlobalLangPack {
 /// 供 `rzc doctor` 做语言包健康检查：定位陈旧副本遮蔽内置表、备份/杂项目录
 /// 被当语言包吃掉等问题（这类问题只在用户环境发生，静态门检查和不了）。
 /// 目录不存在或不可读时返回空列表（不报错）。
-pub fn scan_global_packs() -> Vec<GlobalLangPack> {
-    let mut packs = Vec::new();
-    if let Ok(entries) = fs::read_dir(global_lang_dir()) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() || !path.join("keywords.toml").is_file() {
+pub fn 扫描全局包() -> Vec<全局语言包> {
+    let mut 包列表 = Vec::new();
+    if let Ok(读取结果) = fs::read_dir(全局语言目录()) {
+        for 每个条目 in 读取结果.flatten() {
+            let 目标路径 = 每个条目.path();
+            if !目标路径.is_dir() || !目标路径.join("keywords.toml").is_file() {
                 continue;
             }
-            let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
+            let Some(目录名) = 目标路径.file_name().and_then(|原始名| 原始名.to_str())
+            else {
                 continue;
             };
-            packs.push(GlobalLangPack {
-                dir_name: name.to_string(),
-                metadata: read_lang_info(&path),
+            包列表.push(全局语言包 {
+                目录名: 目录名.to_string(),
+                包元数据: 读语言信息(&目标路径),
             });
         }
     }
-    packs.sort_by(|a, b| a.dir_name.cmp(&b.dir_name));
-    packs
+    包列表.sort_by(|甲, 乙| 甲.目录名.cmp(&乙.目录名));
+    包列表
 }
 
 /// 全局语言包目录下的子目录名（含不具备 `keywords.toml` 的）
 ///
 /// 用于识别改名后仍留在 `lang-packs/` 内的备份目录（它们仍会被当语言包吃掉）。
-pub fn global_pack_subdir_names() -> Vec<String> {
-    let mut names = Vec::new();
-    if let Ok(entries) = fs::read_dir(global_lang_dir()) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() {
+pub fn 全局包子目录名() -> Vec<String> {
+    let mut 名列表 = Vec::new();
+    if let Ok(读取结果) = fs::read_dir(全局语言目录()) {
+        for 每个条目 in 读取结果.flatten() {
+            let 目标路径 = 每个条目.path();
+            if !目标路径.is_dir() {
                 continue;
             }
-            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
-                names.push(name.to_string());
+            if let Some(目录名) = 目标路径.file_name().and_then(|原始名| 原始名.to_str())
+            {
+                名列表.push(目录名.to_string());
             }
         }
     }
-    names.sort();
-    names
+    名列表.sort();
+    名列表
 }
 
 /// 所有当前可用的扩展名（按名称排序）
-pub fn all_available_extensions() -> Vec<String> {
-    let mut list: Vec<String> = build_extension_map().into_keys().collect();
-    list.sort();
-    list
+pub fn 全部可用扩展名() -> Vec<String> {
+    let mut 列表: Vec<String> = 构建扩展名映射().into_keys().collect();
+    列表.sort();
+    列表
 }
 
 /// 安装语言包
@@ -412,128 +418,133 @@ pub fn all_available_extensions() -> Vec<String> {
 /// - `<source>` 是本地存在的目录路径：校验结构后整体复制到全局语言包目录。
 /// - 否则视为语言代码：从远程仓库下载安装。
 /// - 目标已存在时默认报错；`force` 为 true 时覆盖安装。
-pub fn install_lang(source: &str, force: bool) -> anyhow::Result<()> {
-    let source_path = PathBuf::from(source);
-    if source_path.is_dir() {
-        validate_lang_pack_dir(&source_path)?;
-        let lang_code = source_path
+pub fn 安装语言(源地址: &str, 强制: bool) -> anyhow::Result<()> {
+    let 源路径 = PathBuf::from(源地址);
+    if 源路径.is_dir() {
+        校验语言包目录(&源路径)?;
+        let 语言代码 = 源路径
             .file_name()
-            .and_then(|s| s.to_str())
+            .and_then(|原始名| 原始名.to_str())
             .ok_or_else(|| {
                 anyhow::anyhow!(
                     "{}",
-                    crate::ui::Ui::global().f(
+                    crate::ui::界面::全局().取文带参(
                         "lc_err_lang_code_from_path",
-                        &[&source_path.display().to_string()]
+                        &[&源路径.display().to_string()]
                     )
                 )
             })?;
-        return copy_to_global_dir(&source_path, lang_code, force);
+        return 复制到全局目录(&源路径, 语言代码, 强制);
     }
-    install_remote_lang(source, force)
+    安装远程语言(源地址, 强制)
 }
 
 /// 删除用户安装的语言包
 ///
 /// 内置语言包不可删除；同名用户安装包存在时优先删除用户安装的。
-pub fn remove_lang(lang_code: &str) -> anyhow::Result<()> {
-    let ui = crate::ui::Ui::global();
+pub fn 删除语言(语言代码: &str) -> anyhow::Result<()> {
+    let 界面 = crate::ui::界面::全局();
     // 校验语言代码，防止 ../ 等路径遍历导致删除语言包目录之外的目录
-    if !validate_lang_code(lang_code) {
-        anyhow::bail!("{}", ui.f("invalid_lang_code", &[lang_code]));
+    if !校验语言代码(语言代码) {
+        anyhow::bail!("{}", 界面.取文带参("invalid_lang_code", &[语言代码]));
     }
-    let target_dir = global_lang_dir().join(lang_code);
-    if target_dir.is_dir() {
-        fs::remove_dir_all(&target_dir)?;
-        println!("{}", ui.f("lang_removed", &[lang_code]));
+    let 目标目录 = 全局语言目录().join(语言代码);
+    if 目标目录.is_dir() {
+        fs::remove_dir_all(&目标目录)?;
+        println!("{}", 界面.取文带参("lang_removed", &[语言代码]));
         return Ok(());
     }
 
-    if crate::builtin_lang::builtin_lang_codes().contains(&lang_code) {
-        anyhow::bail!("{}", ui.f("lang_builtin_not_removable", &[lang_code]));
+    if crate::builtin_lang::内置语言代码().contains(&语言代码) {
+        anyhow::bail!(
+            "{}",
+            界面.取文带参("lang_builtin_not_removable", &[语言代码])
+        );
     }
 
     anyhow::bail!(
         "{}",
-        ui.f(
+        界面.取文带参(
             "lang_not_found",
-            &[lang_code, &target_dir.display().to_string()]
+            &[语言代码, &目标目录.display().to_string()]
         )
     );
 }
 
 /// 从远程仓库安装语言包
-fn install_remote_lang(lang_code: &str, force: bool) -> anyhow::Result<()> {
-    let ui = crate::ui::Ui::global();
-    if !validate_lang_code(lang_code) {
-        anyhow::bail!("{}", ui.f("invalid_lang_code", &[lang_code]));
+fn 安装远程语言(语言代码: &str, 强制: bool) -> anyhow::Result<()> {
+    let 界面 = crate::ui::界面::全局();
+    if !校验语言代码(语言代码) {
+        anyhow::bail!("{}", 界面.取文带参("invalid_lang_code", &[语言代码]));
     }
-    let sources = collect_sources();
-    let temp = TempDir::new()?;
-    try_all_sources(lang_code, &sources, &temp, force)
+    let 源列表 = 收集源();
+    let 临时句柄 = 临时目录句柄::创建()?;
+    尝试全部源(语言代码, &源列表, &临时句柄, 强制)
 }
 
 /// 远程语言包市场条目（`rzc lang search` 的浏览结果）
 #[derive(Debug, Clone)]
-pub struct RemoteLangInfo {
+pub struct 远程语言信息 {
     /// 语言代码（目录名）
-    pub lang_code: String,
+    pub 语言代码: String,
     /// 显示名称（来自 lang_info.toml；旧语言包为 None）
-    pub display_name: Option<String>,
+    pub 显示名称: Option<String>,
     /// 版本号（来自 lang_info.toml；旧语言包为 None）
-    pub version: Option<String>,
+    pub 版本号: Option<String>,
 }
 
 /// 浏览远程语言包市场：下载仓库 ZIP 后扫描可用语言包
 ///
-/// 依次尝试 [`collect_sources`] 中的源，首个成功下载并解析的源即返回其
-/// 语言包列表（与 install 的源回退策略一致）；`keyword` 为 Some 时按
+/// 依次尝试 [`收集源`] 中的源，首个成功下载并解析的源即返回其
+/// 语言包列表（与 install 的源回退策略一致）；`关键词` 为 Some 时按
 /// 语言代码或显示名称模糊过滤（不区分大小写）。全部失败时聚合错误。
-pub fn search_remote_langs(keyword: Option<&str>) -> anyhow::Result<Vec<RemoteLangInfo>> {
-    let sources = collect_sources();
-    let temp = TempDir::new()?;
-    let mut error_details = Vec::new();
-    for (index, source) in sources.iter().enumerate() {
-        match fetch_repo_zip(source, &temp) {
-            Ok(repo_dir) => {
-                let mut found = scan_repo_langs(&repo_dir);
-                found.sort_by(|a, b| a.lang_code.cmp(&b.lang_code));
-                return Ok(filter_remote_langs(found, keyword.unwrap_or("")));
+pub fn 搜索远程语言(关键词: Option<&str>) -> anyhow::Result<Vec<远程语言信息>> {
+    let 源列表 = 收集源();
+    let 临时句柄 = 临时目录句柄::创建()?;
+    let mut 错误详情 = Vec::new();
+    for (索引号, 源项) in 源列表.iter().enumerate() {
+        match 取仓库压缩(源项, &临时句柄) {
+            Ok(仓库目录) => {
+                let mut 命中项 = 扫描仓库语言(&仓库目录);
+                命中项.sort_by(|甲, 乙| 甲.语言代码.cmp(&乙.语言代码));
+                return Ok(过滤远程语言(命中项, 关键词.unwrap_or("")));
             }
-            Err(err) => error_details.push(crate::ui::Ui::global().f(
+            Err(错) => 错误详情.push(crate::ui::界面::全局().取文带参(
                 "lc_err_source_detail",
-                &[&(index + 1).to_string(), &source.git_url, &err.to_string()],
+                &[&(索引号 + 1).to_string(), &源项.仓库地址, &错.to_string()],
             )),
         }
     }
-    let ui = crate::ui::Ui::global();
+    let 界面 = crate::ui::界面::全局();
     anyhow::bail!(
         "{}",
-        ui.f(
+        界面.取文带参(
             "lang_search_failed",
             &[
-                keyword.unwrap_or(""),
-                &sources.len().to_string(),
-                &error_details.join("\n"),
+                关键词.unwrap_or(""),
+                &源列表.len().to_string(),
+                &错误详情.join("\n"),
             ]
         )
     )
 }
 
 /// 按关键词过滤远程语言包（匹配语言代码或显示名称，不区分大小写）
-fn filter_remote_langs(found: Vec<RemoteLangInfo>, keyword: &str) -> Vec<RemoteLangInfo> {
-    let kw = keyword.trim().to_lowercase();
-    if kw.is_empty() {
-        return found;
+fn 过滤远程语言(
+    命中项: Vec<远程语言信息>, 关键词: &str
+) -> Vec<远程语言信息> {
+    let 小写关键词 = 关键词.trim().to_lowercase();
+    if 小写关键词.is_empty() {
+        return 命中项;
     }
-    found
+    命中项
         .into_iter()
-        .filter(|info| {
-            info.lang_code.to_lowercase().contains(&kw)
-                || info
-                    .display_name
+        .filter(|项| {
+            项.语言代码.to_lowercase().contains(&小写关键词)
+                || 项
+                    .显示名称
                     .as_deref()
-                    .is_some_and(|n| n.to_lowercase().contains(&kw))
+                    .is_some_and(|名| 名.to_lowercase().contains(&小写关键词))
         })
         .collect()
 }
@@ -541,42 +552,45 @@ fn filter_remote_langs(found: Vec<RemoteLangInfo>, keyword: &str) -> Vec<RemoteL
 /// 下载仓库 ZIP 并解压，返回仓库根目录（自动下沉单层根目录）
 ///
 /// 设为 `pub(crate)` 以便 `crate_registry` 模块复用同一套 curl 下载/解压逻辑。
-pub(crate) fn fetch_repo_zip(source: &RepoSource, temp: &TempDir) -> anyhow::Result<PathBuf> {
+pub(crate) fn 取仓库压缩(
+    源项: &仓库源, 临时句柄: &临时目录句柄
+) -> anyhow::Result<PathBuf> {
     // 复用 curl 下载（与安装回退路径一致）；GitHub/GitCode 的 ZIP 顶层均为
     // `<仓库>-<分支>/` 目录，解压后若仅含一个目录则以其为仓库根。
-    let download_path = temp.path().join("lang_market.zip");
-    let output = Command::new("curl")
+    let 下载路径 = 临时句柄.目录路径().join("lang_market.zip");
+    let 命令输出 = Command::new("curl")
         .arg("-L")
         .arg("--fail")
         .arg("-o")
-        .arg(&download_path)
-        .arg(&source.zip_url)
+        .arg(&下载路径)
+        .arg(&源项.压缩包地址)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .output()
-        .map_err(|e| {
+        .map_err(|错| {
             anyhow::anyhow!(
                 "{}",
-                crate::ui::Ui::global().f("lc_err_curl_run", &[&e.to_string()])
+                crate::ui::界面::全局().取文带参("lc_err_curl_run", &[&错.to_string()])
             )
         })?;
-    if !output.status.success() {
-        let detail = String::from_utf8_lossy(&output.stderr);
+    if !命令输出.status.success() {
+        let 输出明细 = String::from_utf8_lossy(&命令输出.stderr);
         anyhow::bail!(
             "{}",
-            crate::ui::Ui::global().f("lc_err_curl_download", &[&source.zip_url, detail.trim()])
+            crate::ui::界面::全局()
+                .取文带参("lc_err_curl_download", &[&源项.压缩包地址, 输出明细.trim()])
         );
     }
-    let extract_dir = temp.path().join("market_extracted");
-    extract_zip(&download_path, &extract_dir)?;
-    let mut entries: Vec<PathBuf> = fs::read_dir(&extract_dir)
+    let 解压目录 = 临时句柄.目录路径().join("market_extracted");
+    解压压缩包(&下载路径, &解压目录)?;
+    let mut 解压项: Vec<PathBuf> = fs::read_dir(&解压目录)
         .ok()
-        .map(|rd| rd.flatten().map(|e| e.path()).collect())
+        .map(|读取结果| 读取结果.flatten().map(|每项| 每项.path()).collect())
         .unwrap_or_default();
-    if entries.len() == 1 && entries[0].is_dir() {
-        Ok(entries.remove(0))
+    if 解压项.len() == 1 && 解压项[0].is_dir() {
+        Ok(解压项.remove(0))
     } else {
-        Ok(extract_dir)
+        Ok(解压目录)
     }
 }
 
@@ -585,118 +599,115 @@ pub(crate) fn fetch_repo_zip(source: &RepoSource, temp: &TempDir) -> anyhow::Res
 /// 1. 仓库根 `<语言码>/`（自建语言包仓库的约定结构）；
 /// 2. `lang-packs/<语言码>/`（兼容旧版双副本结构与第三方仓库）；
 /// 3. `crates/engine/lang-packs/<语言码>/`（主仓库 zrRust 单副本结构）。
-fn scan_repo_langs(repo_dir: &Path) -> Vec<RemoteLangInfo> {
-    let mut found: Vec<RemoteLangInfo> = Vec::new();
-    scan_dir_langs(repo_dir, &mut found);
-    scan_dir_langs(&repo_dir.join("lang-packs"), &mut found);
-    scan_dir_langs(&repo_dir.join("crates/engine/lang-packs"), &mut found);
-    found
+fn 扫描仓库语言(仓库目录: &Path) -> Vec<远程语言信息> {
+    let mut 命中项: Vec<远程语言信息> = Vec::new();
+    扫描目录语言(仓库目录, &mut 命中项);
+    扫描目录语言(&仓库目录.join("lang-packs"), &mut 命中项);
+    扫描目录语言(&仓库目录.join("crates/engine/lang-packs"), &mut 命中项);
+    命中项
 }
 
 /// 扫描单个目录下的语言包子目录（含 keywords.toml 即视为语言包）
-fn scan_dir_langs(dir: &Path, found: &mut Vec<RemoteLangInfo>) {
-    let Ok(entries) = fs::read_dir(dir) else {
+fn 扫描目录语言(目录: &Path, 命中项: &mut Vec<远程语言信息>) {
+    let Ok(读取结果) = fs::read_dir(目录) else {
         return;
     };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() || !path.join("keywords.toml").is_file() {
+    for 每个条目 in 读取结果.flatten() {
+        let 目标路径 = 每个条目.path();
+        if !目标路径.is_dir() || !目标路径.join("keywords.toml").is_file() {
             continue;
         }
-        let Some(code) = path.file_name().and_then(|s| s.to_str()) else {
+        let Some(语言代码) = 目标路径.file_name().and_then(|原始名| 原始名.to_str())
+        else {
             continue;
         };
         // 布局间同名去重（保留先发现的；自建仓库根与 lang-packs 并存时）
-        if found.iter().any(|info| info.lang_code == code) {
+        if 命中项.iter().any(|项| 项.语言代码 == 语言代码) {
             continue;
         }
-        let metadata = read_lang_info(&path);
-        found.push(RemoteLangInfo {
-            lang_code: code.to_string(),
-            display_name: metadata.as_ref().map(|m| m.name.clone()),
-            version: metadata.as_ref().map(|m| m.version.clone()),
+        let 元数据项 = 读语言信息(&目标路径);
+        命中项.push(远程语言信息 {
+            语言代码: 语言代码.to_string(),
+            显示名称: 元数据项.as_ref().map(|项| 项.语言名称.clone()),
+            版本号: 元数据项.as_ref().map(|项| 项.版本号.clone()),
         });
     }
 }
 
 /// 依次尝试多个源，全部失败时聚合错误并建议 `RZ_LANG_REPO`
-fn try_all_sources(
-    lang_code: &str,
-    sources: &[RepoSource],
-    temp: &TempDir,
-    force: bool,
+fn 尝试全部源(
+    语言代码: &str,
+    源列表: &[仓库源],
+    临时句柄: &临时目录句柄,
+    强制: bool,
 ) -> anyhow::Result<()> {
-    let mut error_details = Vec::new();
-    for (index, source) in sources.iter().enumerate() {
-        match try_single_source(lang_code, source, temp, force) {
+    let mut 错误详情 = Vec::new();
+    for (索引号, 源项) in 源列表.iter().enumerate() {
+        match 尝试单个源(语言代码, 源项, 临时句柄, 强制) {
             Ok(()) => return Ok(()),
-            Err(err) => error_details.push(crate::ui::Ui::global().f(
+            Err(错) => 错误详情.push(crate::ui::界面::全局().取文带参(
                 "lc_err_source_detail",
-                &[&(index + 1).to_string(), &source.git_url, &err.to_string()],
+                &[&(索引号 + 1).to_string(), &源项.仓库地址, &错.to_string()],
             )),
         }
     }
-    let ui = crate::ui::Ui::global();
+    let 界面 = crate::ui::界面::全局();
     anyhow::bail!(
         "{}",
-        ui.f(
+        界面.取文带参(
             "remote_install_failed",
-            &[
-                lang_code,
-                &sources.len().to_string(),
-                &error_details.join("\n"),
-            ]
+            &[语言代码, &源列表.len().to_string(), &错误详情.join("\n"),]
         )
     )
 }
 
 /// 尝试从单个源安装：优先 git clone，失败回退 curl 下载 ZIP
-fn try_single_source(
-    lang_code: &str,
-    source: &RepoSource,
-    temp: &TempDir,
-    force: bool,
+fn 尝试单个源(
+    语言代码: &str,
+    源项: &仓库源,
+    临时句柄: &临时目录句柄,
+    强制: bool,
 ) -> anyhow::Result<()> {
-    let clone_dir = temp.path().join("repo");
-    let git_result = Command::new("git")
+    let 克隆目录 = 临时句柄.目录路径().join("repo");
+    let git结果 = Command::new("git")
         .arg("clone")
         .arg("--depth")
         .arg("1")
-        .arg(&source.git_url)
-        .arg(&clone_dir)
+        .arg(&源项.仓库地址)
+        .arg(&克隆目录)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .output();
-    match git_result {
-        Ok(output) if output.status.success() => {
-            install_from_repo_dir(lang_code, &clone_dir, force)
+    match git结果 {
+        Ok(命令输出) if 命令输出.status.success() => {
+            自仓库目录安装(语言代码, &克隆目录, 强制)
         }
-        Ok(output) => {
-            let git_error = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            match try_curl_install(lang_code, &source.zip_url, temp, force) {
+        Ok(命令输出) => {
+            let git错误 = String::from_utf8_lossy(&命令输出.stderr).trim().to_string();
+            match 尝试curl安装(语言代码, &源项.压缩包地址, 临时句柄, 强制) {
                 Ok(()) => Ok(()),
-                Err(curl_error) => {
-                    if git_error.is_empty() {
-                        Err(curl_error)
+                Err(curl错误) => {
+                    if git错误.is_empty() {
+                        Err(curl错误)
                     } else {
                         anyhow::bail!(
                             "{}",
-                            crate::ui::Ui::global().f(
+                            crate::ui::界面::全局().取文带参(
                                 "lc_err_git_curl_both",
-                                &[&git_error, &curl_error.to_string()]
+                                &[&git错误, &curl错误.to_string()]
                             )
                         )
                     }
                 }
             }
         }
-        Err(err) => {
-            if err.kind() == std::io::ErrorKind::NotFound {
-                return try_curl_install(lang_code, &source.zip_url, temp, force);
+        Err(错) => {
+            if 错.kind() == std::io::ErrorKind::NotFound {
+                return 尝试curl安装(语言代码, &源项.压缩包地址, 临时句柄, 强制);
             }
             Err(anyhow::anyhow!(
                 "{}",
-                crate::ui::Ui::global().f("lc_err_git_run", &[&err.to_string()])
+                crate::ui::界面::全局().取文带参("lc_err_git_run", &[&错.to_string()])
             ))
         }
     }
@@ -709,113 +720,117 @@ fn try_single_source(
 /// 2. 仓库根 `lang-packs/<语言码>/`（兼容旧版双副本结构与第三方仓库）；
 /// 3. `crates/engine/lang-packs/<语言码>/`（主仓库 zrRust 单副本结构，
 ///    使 `rzc lang install <码>` 可直接从主仓库安装）。
-fn install_from_repo_dir(lang_code: &str, repo_dir: &Path, force: bool) -> anyhow::Result<()> {
-    let lang_source = repo_dir.join(lang_code);
-    let lang_source = if lang_source.is_dir() {
-        lang_source
-    } else if repo_dir.join("lang-packs").join(lang_code).is_dir() {
-        repo_dir.join("lang-packs").join(lang_code)
-    } else if repo_dir
+fn 自仓库目录安装(
+    语言代码: &str, 仓库目录: &Path, 强制: bool
+) -> anyhow::Result<()> {
+    let 语言源 = 仓库目录.join(语言代码);
+    let 语言源 = if 语言源.is_dir() {
+        语言源
+    } else if 仓库目录.join("lang-packs").join(语言代码).is_dir() {
+        仓库目录.join("lang-packs").join(语言代码)
+    } else if 仓库目录
         .join("crates/engine/lang-packs")
-        .join(lang_code)
+        .join(语言代码)
         .is_dir()
     {
-        repo_dir.join("crates/engine/lang-packs").join(lang_code)
+        仓库目录.join("crates/engine/lang-packs").join(语言代码)
     } else {
-        let ui = crate::ui::Ui::global();
-        anyhow::bail!("{}", ui.f("remote_lang_not_found", &[lang_code]));
+        let 界面 = crate::ui::界面::全局();
+        anyhow::bail!("{}", 界面.取文带参("remote_lang_not_found", &[语言代码]));
     };
-    validate_lang_pack_dir(&lang_source)?;
-    copy_to_global_dir(&lang_source, lang_code, force)
+    校验语言包目录(&语言源)?;
+    复制到全局目录(&语言源, 语言代码, 强制)
 }
 
 /// 回退方案：curl 下载 ZIP 压缩包并解压安装
-fn try_curl_install(
-    lang_code: &str,
-    zip_url: &str,
-    temp: &TempDir,
-    force: bool,
+fn 尝试curl安装(
+    语言代码: &str,
+    压缩包地址: &str,
+    临时句柄: &临时目录句柄,
+    强制: bool,
 ) -> anyhow::Result<()> {
-    let download_path = temp.path().join("lang_pack.zip");
-    let output = Command::new("curl")
+    let 下载路径 = 临时句柄.目录路径().join("lang_pack.zip");
+    let 命令输出 = Command::new("curl")
         .arg("-L")
         .arg("--fail")
         .arg("-o")
-        .arg(&download_path)
-        .arg(zip_url)
+        .arg(&下载路径)
+        .arg(压缩包地址)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .output()
-        .map_err(|e| {
+        .map_err(|错| {
             anyhow::anyhow!(
                 "{}",
-                crate::ui::Ui::global().f("lc_err_curl_run", &[&e.to_string()])
+                crate::ui::界面::全局().取文带参("lc_err_curl_run", &[&错.to_string()])
             )
         })?;
-    if !output.status.success() {
-        let detail = String::from_utf8_lossy(&output.stderr);
+    if !命令输出.status.success() {
+        let 输出明细 = String::from_utf8_lossy(&命令输出.stderr);
         anyhow::bail!(
             "{}",
-            crate::ui::Ui::global().f("lc_err_curl_download", &[zip_url, detail.trim()])
+            crate::ui::界面::全局()
+                .取文带参("lc_err_curl_download", &[压缩包地址, 输出明细.trim()])
         );
     }
-    let extract_dir = temp.path().join("extracted");
-    extract_zip(&download_path, &extract_dir)?;
-    let lang_source = find_lang_in_extracted(&extract_dir, lang_code).ok_or_else(|| {
-        let ui = crate::ui::Ui::global();
-        anyhow::anyhow!("{}", ui.f("remote_lang_not_found", &[lang_code]))
+    let 解压目录 = 临时句柄.目录路径().join("extracted");
+    解压压缩包(&下载路径, &解压目录)?;
+    let 语言源 = 在解压目录找语言(&解压目录, 语言代码).ok_or_else(|| {
+        let 界面 = crate::ui::界面::全局();
+        anyhow::anyhow!("{}", 界面.取文带参("remote_lang_not_found", &[语言代码]))
     })?;
-    validate_lang_pack_dir(&lang_source)?;
-    copy_to_global_dir(&lang_source, lang_code, force)
+    校验语言包目录(&语言源)?;
+    复制到全局目录(&语言源, 语言代码, 强制)
 }
 
 /// 解压 ZIP 压缩包到目标目录（保留完整条目路径）
 ///
-/// 每个条目名先经 [`safe_zip_entry_path`] 校验，命中穿越向量的条目直接跳过。
-fn extract_zip(archive_path: &Path, extract_dir: &Path) -> anyhow::Result<()> {
-    let file = fs::File::open(archive_path).map_err(|e| {
+/// 每个条目名先经 [`安全压缩条目路径`] 校验，命中穿越向量的条目直接跳过。
+fn 解压压缩包(压缩文件路径: &Path, 解压目录: &Path) -> anyhow::Result<()> {
+    let 压缩文件 = fs::File::open(压缩文件路径).map_err(|错| {
         anyhow::anyhow!(
             "{}",
-            crate::ui::Ui::global().f(
+            crate::ui::界面::全局().取文带参(
                 "lc_err_open_zip",
-                &[&archive_path.display().to_string(), &e.to_string()]
+                &[&压缩文件路径.display().to_string(), &错.to_string()]
             )
         )
     })?;
-    let mut archive = zip::ZipArchive::new(file).map_err(|e| {
+    let mut 归档 = zip::ZipArchive::new(压缩文件).map_err(|错| {
         anyhow::anyhow!(
             "{}",
-            crate::ui::Ui::global().f("lc_err_read_zip", &[&e.to_string()])
+            crate::ui::界面::全局().取文带参("lc_err_read_zip", &[&错.to_string()])
         )
     })?;
-    for i in 0..archive.len() {
-        let mut entry = archive.by_index(i).map_err(|e| {
+    for 序号 in 0..归档.len() {
+        let mut 每个条目 = 归档.by_index(序号).map_err(|错| {
             anyhow::anyhow!(
                 "{}",
-                crate::ui::Ui::global().f("lc_err_read_zip_entry", &[&e.to_string()])
+                crate::ui::界面::全局().取文带参("lc_err_read_zip_entry", &[&错.to_string()])
             )
         })?;
-        let name = entry.name();
+        let 条目名 = 每个条目.name();
         // 条目名安全校验：拒绝绝对路径、盘符前缀与 `..` 上跳（详见函数文档）
-        let Some(target) = safe_zip_entry_path(name).map(|rel| extract_dir.join(rel)) else {
+        let Some(目标路径) = 安全压缩条目路径(条目名).map(|相对路径| 解压目录.join(相对路径))
+        else {
             continue;
         };
-        if entry.is_dir() {
-            fs::create_dir_all(&target)?;
+        if 每个条目.is_dir() {
+            fs::create_dir_all(&目标路径)?;
         } else {
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent)?;
+            if let Some(上级目录) = 目标路径.parent() {
+                fs::create_dir_all(上级目录)?;
             }
-            let mut file = fs::File::create(&target).map_err(|e| {
+            let mut 目标文件 = fs::File::create(&目标路径).map_err(|错| {
                 anyhow::anyhow!(
                     "{}",
-                    crate::ui::Ui::global().f(
+                    crate::ui::界面::全局().取文带参(
                         "lc_err_write_file",
-                        &[&target.display().to_string(), &e.to_string()]
+                        &[&目标路径.display().to_string(), &错.to_string()]
                     )
                 )
             })?;
-            std::io::copy(&mut entry, &mut file)?;
+            std::io::copy(&mut 每个条目, &mut 目标文件)?;
         }
     }
     Ok(())
@@ -833,8 +848,8 @@ fn extract_zip(archive_path: &Path, extract_dir: &Path) -> anyhow::Result<()> {
 ///   **整体替换** base（而非拼接），解压会写到 `extract_dir` 之外；该前缀
 ///   在 Unix 上不被 `Path::components` 识别为 `Prefix`，故必须显式判断，
 ///   仅检查 `..` 会完全漏掉这一向量。
-fn safe_zip_entry_path(name: &str) -> Option<PathBuf> {
-    let 归一化 = name.replace('\\', "/");
+fn 安全压缩条目路径(条目名: &str) -> Option<PathBuf> {
+    let 归一化 = 条目名.replace('\\', "/");
     if 归一化.is_empty() || 归一化.starts_with('/') {
         return None;
     }
@@ -843,25 +858,25 @@ fn safe_zip_entry_path(name: &str) -> Option<PathBuf> {
     }
     // 盘符前缀：首两字节为「ASCII 字母 + 冒号」即判定（`C:/x` 与盘符相对路径
     // `c:foo` 都属带前缀路径，`Path::join` 都会整体替换 base）
-    let 字节 = 归一化.as_bytes();
-    if 字节.len() >= 2 && 字节[0].is_ascii_alphabetic() && 字节[1] == b':' {
+    let 字节数组 = 归一化.as_bytes();
+    if 字节数组.len() >= 2 && 字节数组[0].is_ascii_alphabetic() && 字节数组[1] == b':' {
         return None;
     }
     Some(PathBuf::from(归一化))
 }
 
 /// 在解压目录中查找语言包目录
-fn find_lang_in_extracted(extract_dir: &Path, lang_code: &str) -> Option<PathBuf> {
-    let direct = extract_dir.join(lang_code);
-    if direct.is_dir() {
-        return Some(direct);
+fn 在解压目录找语言(解压目录: &Path, 语言代码: &str) -> Option<PathBuf> {
+    let 直接路径 = 解压目录.join(语言代码);
+    if 直接路径.is_dir() {
+        return Some(直接路径);
     }
-    for entry in fs::read_dir(extract_dir).ok()?.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            let nested = path.join(lang_code);
-            if nested.is_dir() {
-                return Some(nested);
+    for 每个条目 in fs::read_dir(解压目录).ok()?.flatten() {
+        let 目标路径 = 每个条目.path();
+        if 目标路径.is_dir() {
+            let 嵌套路径 = 目标路径.join(语言代码);
+            if 嵌套路径.is_dir() {
+                return Some(嵌套路径);
             }
         }
     }
@@ -869,61 +884,61 @@ fn find_lang_in_extracted(extract_dir: &Path, lang_code: &str) -> Option<PathBuf
 }
 
 /// 将源语言包目录复制到全局目录
-fn copy_to_global_dir(source_dir: &Path, lang_code: &str, force: bool) -> anyhow::Result<()> {
-    let ui = crate::ui::Ui::global();
-    let target_dir = global_lang_dir().join(lang_code);
-    if target_dir.exists() {
-        if !force {
+fn 复制到全局目录(源目录: &Path, 语言代码: &str, 强制: bool) -> anyhow::Result<()> {
+    let 界面 = crate::ui::界面::全局();
+    let 目标目录 = 全局语言目录().join(语言代码);
+    if 目标目录.exists() {
+        if !强制 {
             anyhow::bail!(
                 "{}",
-                ui.f(
+                界面.取文带参(
                     "lang_already_installed",
-                    &[lang_code, &target_dir.display().to_string(), lang_code]
+                    &[语言代码, &目标目录.display().to_string(), 语言代码]
                 )
             );
         }
-        fs::remove_dir_all(&target_dir)?;
+        fs::remove_dir_all(&目标目录)?;
     }
-    copy_dir_recursive(source_dir, &target_dir)?;
+    递归复制目录(源目录, &目标目录)?;
     println!(
         "{}",
-        ui.f(
+        界面.取文带参(
             "lang_installed",
-            &[lang_code, &target_dir.display().to_string()]
+            &[语言代码, &目标目录.display().to_string()]
         )
     );
-    println!("{}", ui.t("lang_install_hint"));
+    println!("{}", 界面.取文("lang_install_hint"));
     Ok(())
 }
 
 /// 校验语言包目录结构：必须包含 keywords.toml
-fn validate_lang_pack_dir(path: &Path) -> anyhow::Result<()> {
-    if !path.join("keywords.toml").is_file() {
-        let ui = crate::ui::Ui::global();
+fn 校验语言包目录(目标路径: &Path) -> anyhow::Result<()> {
+    if !目标路径.join("keywords.toml").is_file() {
+        let 界面 = crate::ui::界面::全局();
         anyhow::bail!(
             "{}",
-            ui.f("invalid_lang_dir", &[&path.display().to_string()])
+            界面.取文带参("invalid_lang_dir", &[&目标路径.display().to_string()])
         );
     }
     Ok(())
 }
 
 /// 校验语言代码可作为安全目录名（防止路径穿越）
-fn validate_lang_code(code: &str) -> bool {
-    !code.is_empty() && !code.contains(['/', '\\']) && code != "." && code != ".."
+fn 校验语言代码(语言代码: &str) -> bool {
+    !语言代码.is_empty() && !语言代码.contains(['/', '\\']) && 语言代码 != "." && 语言代码 != ".."
 }
 
 /// 递归复制目录
-fn copy_dir_recursive(source: &Path, target: &Path) -> anyhow::Result<()> {
-    fs::create_dir_all(target)?;
-    for entry in fs::read_dir(source)? {
-        let entry = entry?;
-        let source_path = entry.path();
-        let target_path = target.join(entry.file_name());
-        if source_path.is_dir() {
-            copy_dir_recursive(&source_path, &target_path)?;
+fn 递归复制目录(源目录: &Path, 目标目录: &Path) -> anyhow::Result<()> {
+    fs::create_dir_all(目标目录)?;
+    for 每个条目 in fs::read_dir(源目录)? {
+        let 每个条目 = 每个条目?;
+        let 源路径 = 每个条目.path();
+        let 目标路径 = 目标目录.join(每个条目.file_name());
+        if 源路径.is_dir() {
+            递归复制目录(&源路径, &目标路径)?;
         } else {
-            fs::copy(&source_path, &target_path)?;
+            fs::copy(&源路径, &目标路径)?;
         }
     }
     Ok(())
@@ -932,80 +947,83 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> anyhow::Result<()> {
 /// 临时目录句柄：Drop 时递归清理
 ///
 /// 设为 `pub(crate)` 以便 `crate_registry` 模块持有临时仓库目录的生命周期。
-pub(crate) struct TempDir(PathBuf);
+pub(crate) struct 临时目录句柄(PathBuf);
 
-impl TempDir {
-    pub(crate) fn new() -> anyhow::Result<Self> {
-        let timestamp = std::time::SystemTime::now()
+impl 临时目录句柄 {
+    pub(crate) fn 创建() -> anyhow::Result<Self> {
+        let 时间戳值 = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
+            .map(|时长| 时长.as_nanos())
             .unwrap_or(0);
         // 用户隔离 + 符号链接校验（与 temp_guard/LSP 虚拟目录同一威胁模型）
-        let path = crate::temp_guard::secure_temp_path(&format!(
+        let 目标路径 = crate::temp_guard::安全临时路径(&format!(
             "rzc-lang-{}-{}-{}",
-            crate::temp_guard::safe_user_segment(),
+            crate::temp_guard::安全用户段(),
             std::process::id(),
-            timestamp
+            时间戳值
         ))?;
-        fs::create_dir_all(&path)?;
-        Ok(Self(path))
+        fs::create_dir_all(&目标路径)?;
+        Ok(Self(目标路径))
     }
 
-    pub(crate) fn path(&self) -> &Path {
+    pub(crate) fn 目录路径(&self) -> &Path {
         &self.0
     }
 }
 
-impl Drop for TempDir {
+impl Drop for 临时目录句柄 {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);
     }
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+pub(crate) mod 单元测试 {
     use super::*;
 
     /// 环境变量互斥锁：测试并行运行时保护 RZ_LANG_DIR 等全局环境变量。
     /// crate 级共享（而非模块私有）：其他模块（main/ui）中依赖环境变量状态、
     /// 或修改环境变量的测试同样必须持有本锁，否则并发执行时互相污染。
-    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    static 环境互斥锁: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     /// 获取环境变量互斥锁（供其他测试模块复用）。
     ///
     /// 锁被毒化时（持锁测试断言失败 panic）取回内部数据继续运行，
     /// 避免一次失败级联成后续所有持锁测试的 PoisonError 假故障。
-    pub(crate) fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-        ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    pub(crate) fn 环境锁() -> std::sync::MutexGuard<'static, ()> {
+        环境互斥锁.lock().unwrap_or_else(|错| 错.into_inner())
     }
 
     /// 环境变量临时接管守卫（供其他测试模块复用）：保存指定变量原值并从
     /// 环境移除，Drop 时恢复——断言失败 panic 时也不污染后续测试。
-    pub(crate) struct EnvRestore(Vec<(&'static str, Option<String>)>);
+    pub(crate) struct 环境恢复(Vec<(&'static str, Option<String>)>);
 
-    impl EnvRestore {
-        /// 接管（保存并移除）指定环境变量；调用方须持有 env_lock
-        pub(crate) fn take(keys: &[&'static str]) -> Self {
-            let saved = keys.iter().map(|k| (*k, std::env::var(k).ok())).collect();
-            for k in keys {
-                // Rust 2024：读写进程级环境变量为 unsafe，须由 env_lock 串行化
+    impl 环境恢复 {
+        /// 接管（保存并移除）指定环境变量；调用方须持有 环境锁
+        pub(crate) fn 接管(变量键: &[&'static str]) -> Self {
+            let 保存值 = 变量键
+                .iter()
+                .map(|本键| (*本键, std::env::var(本键).ok()))
+                .collect();
+            for 本键 in 变量键 {
+                // Rust 2024：读写进程级环境变量为 unsafe，须由 环境锁 串行化
                 unsafe {
-                    std::env::remove_var(k);
+                    std::env::remove_var(本键);
                 }
             }
-            Self(saved)
+            Self(保存值)
         }
     }
 
-    impl Drop for EnvRestore {
+    impl Drop for 环境恢复 {
         fn drop(&mut self) {
-            for (k, v) in &self.0 {
-                match v {
-                    Some(val) => unsafe {
-                        std::env::set_var(k, val);
+            for (本键, 本值) in &self.0 {
+                match 本值 {
+                    Some(变量值) => unsafe {
+                        std::env::set_var(本键, 变量值);
                     },
                     None => unsafe {
-                        std::env::remove_var(k);
+                        std::env::remove_var(本键);
                     },
                 }
             }
@@ -1013,87 +1031,91 @@ pub(crate) mod tests {
     }
 
     /// 在临时根下制作一个最小语言包目录（含 crates/ 子目录）
-    fn make_temp_lang_pack(root: &Path, name: &str) {
-        let dir = root.join(name);
-        fs::create_dir_all(dir.join("crates")).unwrap();
-        fs::write(dir.join("keywords.toml"), "[\"声明\"]\n\"函数\" = \"fn\"\n").unwrap();
-        fs::write(dir.join("errors.toml"), "[示例]\n\"a\" = \"b\"\n").unwrap();
-        fs::write(dir.join("module_paths.toml"), "[示例]\n\"a\" = \"b\"\n").unwrap();
-        fs::write(dir.join("crates/test.toml"), "[示例]\n\"a\" = \"b\"\n").unwrap();
+    fn 制作临时语言包(临时根: &Path, 目录名: &str) {
+        let 目录 = 临时根.join(目录名);
+        fs::create_dir_all(目录.join("crates")).unwrap();
+        fs::write(
+            目录.join("keywords.toml"),
+            "[\"声明\"]\n\"函数\" = \"fn\"\n",
+        )
+        .unwrap();
+        fs::write(目录.join("errors.toml"), "[示例]\n\"a\" = \"b\"\n").unwrap();
+        fs::write(目录.join("module_paths.toml"), "[示例]\n\"a\" = \"b\"\n").unwrap();
+        fs::write(目录.join("crates/test.toml"), "[示例]\n\"a\" = \"b\"\n").unwrap();
     }
 
     #[test]
-    fn test_safe_zip_entry_path_rejects_traversal() {
+    fn 测试安全条目路径拒绝穿越() {
         // 正常相对路径放行
         assert_eq!(
-            safe_zip_entry_path("zh/keywords.toml"),
+            安全压缩条目路径("zh/keywords.toml"),
             Some(PathBuf::from("zh/keywords.toml"))
         );
         assert_eq!(
-            safe_zip_entry_path("zh\\keywords.toml"),
+            安全压缩条目路径("zh\\keywords.toml"),
             Some(PathBuf::from("zh/keywords.toml")),
             "反斜杠应归一化为正斜杠"
         );
         // 绝对路径（含反斜杠形态）
-        assert!(safe_zip_entry_path("/etc/passwd").is_none());
-        assert!(safe_zip_entry_path("\\etc\\passwd").is_none());
+        assert!(安全压缩条目路径("/etc/passwd").is_none());
+        assert!(安全压缩条目路径("\\etc\\passwd").is_none());
         // `..` 上跳
-        assert!(safe_zip_entry_path("../x").is_none());
-        assert!(safe_zip_entry_path("a/../../x").is_none());
-        assert!(safe_zip_entry_path("..\\..\\x").is_none());
+        assert!(安全压缩条目路径("../x").is_none());
+        assert!(安全压缩条目路径("a/../../x").is_none());
+        assert!(安全压缩条目路径("..\\..\\x").is_none());
         // Windows 盘符前缀：`Path::join` 会整体替换 base，务必拒绝
-        assert!(safe_zip_entry_path("C:/Users/x/Startup/y.cmd").is_none());
-        assert!(safe_zip_entry_path("c:relative").is_none());
+        assert!(安全压缩条目路径("C:/Users/x/Startup/y.cmd").is_none());
+        assert!(安全压缩条目路径("c:relative").is_none());
         // 空名
-        assert!(safe_zip_entry_path("").is_none());
+        assert!(安全压缩条目路径("").is_none());
         // 首段含冒号但非盘符（首字符非 ASCII 字母）仍放行
-        assert!(safe_zip_entry_path("1b:c/x").is_some());
+        assert!(安全压缩条目路径("1b:c/x").is_some());
     }
 
     #[test]
-    fn test_local_install_and_delete_flow() {
-        let _lock = env_lock();
-        let temp_root = tempfile::tempdir().unwrap();
-        make_temp_lang_pack(temp_root.path(), "日语");
-        let source_dir = temp_root.path().join("日语");
+    fn 测试本地安装与删除流程() {
+        let _锁 = 环境锁();
+        let 临时根 = tempfile::tempdir().unwrap();
+        制作临时语言包(临时根.path(), "日语");
+        let 源目录 = 临时根.path().join("日语");
         unsafe {
-            std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));
+            std::env::set_var("RZ_LANG_DIR", 临时根.path().join("global"));
         }
-        let global_dir = global_lang_dir();
+        let 全局目录 = 全局语言目录();
 
         // 1. 安装前：只有内置
-        let list1 = list_langs();
-        assert!(list1.iter().all(|info| info.source == Source::Builtin));
+        let 列表1 = 列语言();
+        assert!(列表1.iter().all(|项| 项.语言来源 == 语言来源::内置));
 
         // 2. 安装
-        install_lang(source_dir.to_str().unwrap(), false).unwrap();
-        assert!(global_dir.join("日语/keywords.toml").is_file());
-        assert!(global_dir.join("日语/crates/test.toml").is_file());
+        安装语言(源目录.to_str().unwrap(), false).unwrap();
+        assert!(全局目录.join("日语/keywords.toml").is_file());
+        assert!(全局目录.join("日语/crates/test.toml").is_file());
 
         // 3. 列表中出现用户安装的
-        let list2 = list_langs();
-        let japanese = list2
+        let 列表2 = 列语言();
+        let 日语项 = 列表2
             .iter()
-            .find(|info| info.lang_code == "日语")
+            .find(|项| 项.语言代码 == "日语")
             .expect("日语应被列出");
-        assert_eq!(japanese.source, Source::UserInstalled);
+        assert_eq!(日语项.语言来源, 语言来源::用户安装);
 
         // 4. 重复安装报错
-        assert!(install_lang(source_dir.to_str().unwrap(), false).is_err());
+        assert!(安装语言(源目录.to_str().unwrap(), false).is_err());
         // 4b. --force 覆盖成功
-        install_lang(source_dir.to_str().unwrap(), true).unwrap();
-        assert!(global_dir.join("日语/keywords.toml").is_file());
+        安装语言(源目录.to_str().unwrap(), true).unwrap();
+        assert!(全局目录.join("日语/keywords.toml").is_file());
 
         // 5. 删除内置报错
-        assert!(remove_lang("zh").is_err());
+        assert!(删除语言("zh").is_err());
 
         // 6. 删除成功
-        remove_lang("日语").unwrap();
-        let list3 = list_langs();
-        assert!(list3.iter().all(|info| info.lang_code != "日语"));
+        删除语言("日语").unwrap();
+        let 列表3 = 列语言();
+        assert!(列表3.iter().all(|项| 项.语言代码 != "日语"));
 
         // 7. 删除不存在报错
-        assert!(remove_lang("不存在").is_err());
+        assert!(删除语言("不存在").is_err());
 
         unsafe {
             std::env::remove_var("RZ_LANG_DIR");
@@ -1101,21 +1123,21 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_install_from_repo_dir() {
-        let _lock = env_lock();
-        let temp_root = tempfile::tempdir().unwrap();
-        make_temp_lang_pack(temp_root.path(), "俄语");
-        let repo = temp_root.path();
+    fn 测试从仓库目录安装() {
+        let _锁 = 环境锁();
+        let 临时根 = tempfile::tempdir().unwrap();
+        制作临时语言包(临时根.path(), "俄语");
+        let 仓库 = 临时根.path();
         unsafe {
-            std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));
+            std::env::set_var("RZ_LANG_DIR", 临时根.path().join("global"));
         }
 
-        assert!(install_from_repo_dir("日语", repo, false).is_err());
-        install_from_repo_dir("俄语", repo, false).unwrap();
-        assert!(global_lang_dir().join("俄语/keywords.toml").is_file());
-        assert!(install_from_repo_dir("俄语", repo, false).is_err());
-        install_from_repo_dir("俄语", repo, true).unwrap();
-        assert!(global_lang_dir().join("俄语/keywords.toml").is_file());
+        assert!(自仓库目录安装("日语", 仓库, false).is_err());
+        自仓库目录安装("俄语", 仓库, false).unwrap();
+        assert!(全局语言目录().join("俄语/keywords.toml").is_file());
+        assert!(自仓库目录安装("俄语", 仓库, false).is_err());
+        自仓库目录安装("俄语", 仓库, true).unwrap();
+        assert!(全局语言目录().join("俄语/keywords.toml").is_file());
 
         unsafe {
             std::env::remove_var("RZ_LANG_DIR");
@@ -1124,17 +1146,17 @@ pub(crate) mod tests {
 
     /// 语言包放在仓库 `lang-packs/<语言码>/` 子目录时也能安装（兼容旧结构）
     #[test]
-    fn test_install_from_repo_dir_nested_lang_packs() {
-        let _lock = env_lock();
-        let temp_root = tempfile::tempdir().unwrap();
-        make_temp_lang_pack(&temp_root.path().join("lang-packs"), "法语");
-        let repo = temp_root.path();
+    fn 测试从仓库目录安装嵌套语言包() {
+        let _锁 = 环境锁();
+        let 临时根 = tempfile::tempdir().unwrap();
+        制作临时语言包(&临时根.path().join("lang-packs"), "法语");
+        let 仓库 = 临时根.path();
         unsafe {
-            std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));
+            std::env::set_var("RZ_LANG_DIR", 临时根.path().join("global"));
         }
 
-        install_from_repo_dir("法语", repo, false).unwrap();
-        assert!(global_lang_dir().join("法语/keywords.toml").is_file());
+        自仓库目录安装("法语", 仓库, false).unwrap();
+        assert!(全局语言目录().join("法语/keywords.toml").is_file());
 
         unsafe {
             std::env::remove_var("RZ_LANG_DIR");
@@ -1143,17 +1165,17 @@ pub(crate) mod tests {
 
     /// 语言包放在 `crates/engine/lang-packs/<语言码>/` 时也能安装（主仓库单副本结构）
     #[test]
-    fn test_install_from_repo_dir_engine_layout() {
-        let _lock = env_lock();
-        let temp_root = tempfile::tempdir().unwrap();
-        make_temp_lang_pack(&temp_root.path().join("crates/engine/lang-packs"), "德语");
-        let repo = temp_root.path();
+    fn 测试从仓库目录安装主仓库布局() {
+        let _锁 = 环境锁();
+        let 临时根 = tempfile::tempdir().unwrap();
+        制作临时语言包(&临时根.path().join("crates/engine/lang-packs"), "德语");
+        let 仓库 = 临时根.path();
         unsafe {
-            std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));
+            std::env::set_var("RZ_LANG_DIR", 临时根.path().join("global"));
         }
 
-        install_from_repo_dir("德语", repo, false).unwrap();
-        assert!(global_lang_dir().join("德语/keywords.toml").is_file());
+        自仓库目录安装("德语", 仓库, false).unwrap();
+        assert!(全局语言目录().join("德语/keywords.toml").is_file());
 
         unsafe {
             std::env::remove_var("RZ_LANG_DIR");
@@ -1161,118 +1183,115 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_extract_zip_and_find() {
+    fn 测试解压与查找() {
         use std::io::Write;
-        let _lock = env_lock();
-        let temp_root = tempfile::tempdir().unwrap();
+        let _锁 = 环境锁();
+        let 临时根 = tempfile::tempdir().unwrap();
 
-        let zip_path = temp_root.path().join("lang_pack.zip");
-        let file = fs::File::create(&zip_path).unwrap();
-        let mut writer = zip::ZipWriter::new(file);
-        let options = zip::write::SimpleFileOptions::default();
-        writer
-            .start_file("language-packs-main/中文/keywords.toml", options)
+        let 压缩文件路径 = 临时根.path().join("lang_pack.zip");
+        let 压缩文件 = fs::File::create(&压缩文件路径).unwrap();
+        let mut 压缩写入 = zip::ZipWriter::new(压缩文件);
+        let 压缩选项 = zip::write::SimpleFileOptions::default();
+        压缩写入
+            .start_file("language-packs-main/中文/keywords.toml", 压缩选项)
             .unwrap();
-        writer
+        压缩写入
             .write_all("[\"声明\"]\n\"函数\" = \"fn\"\n".as_bytes())
             .unwrap();
-        writer
-            .start_file("language-packs-main/中文/errors.toml", options)
+        压缩写入
+            .start_file("language-packs-main/中文/errors.toml", 压缩选项)
             .unwrap();
-        writer
+        压缩写入
             .write_all("[示例]\n\"a\" = \"b\"\n".as_bytes())
             .unwrap();
-        writer.finish().unwrap();
+        压缩写入.finish().unwrap();
 
-        let extract_dir = temp_root.path().join("extracted");
-        extract_zip(&zip_path, &extract_dir).unwrap();
+        let 解压目录 = 临时根.path().join("extracted");
+        解压压缩包(&压缩文件路径, &解压目录).unwrap();
         assert!(
-            extract_dir
+            解压目录
                 .join("language-packs-main/中文/keywords.toml")
                 .is_file()
         );
 
-        let zh = find_lang_in_extracted(&extract_dir, "中文").expect("应找到中文");
-        assert!(zh.join("keywords.toml").is_file());
-        assert!(find_lang_in_extracted(&extract_dir, "俄语").is_none());
+        let 中文 = 在解压目录找语言(&解压目录, "中文").expect("应找到中文");
+        assert!(中文.join("keywords.toml").is_file());
+        assert!(在解压目录找语言(&解压目录, "俄语").is_none());
     }
 
     #[test]
-    fn test_validate_lang_code() {
-        assert!(validate_lang_code("中文"));
-        assert!(validate_lang_code("en-US"));
-        assert!(!validate_lang_code(""));
-        assert!(!validate_lang_code("../x"));
-        assert!(!validate_lang_code("a/b"));
-        assert!(!validate_lang_code(".."));
-        assert!(!validate_lang_code("."));
+    fn 测试校验语言代码() {
+        assert!(校验语言代码("中文"));
+        assert!(校验语言代码("en-US"));
+        assert!(!校验语言代码(""));
+        assert!(!校验语言代码("../x"));
+        assert!(!校验语言代码("a/b"));
+        assert!(!校验语言代码(".."));
+        assert!(!校验语言代码("."));
     }
 
     #[test]
-    fn test_parse_lang_info() {
-        let metadata = parse_lang_info(
+    fn 测试解析语言信息() {
+        let 元数据项 = 解析语言信息(
             "[\"语言包\"]\n\"名称\" = \"俄语\"\n\"扩展名\" = \"ru\"\n\"版本\" = \"1.0\"\n",
         )
         .unwrap();
-        assert_eq!(metadata.name, "俄语");
-        assert_eq!(metadata.extension, "ru");
-        assert_eq!(metadata.version, "1.0");
+        assert_eq!(元数据项.语言名称, "俄语");
+        assert_eq!(元数据项.文件扩展名, "ru");
+        assert_eq!(元数据项.版本号, "1.0");
 
-        let metadata = parse_lang_info("[语言包]\n名称 = \"日语\"\n扩展名 = \"ja\"\n").unwrap();
-        assert_eq!(metadata.name, "日语");
-        assert_eq!(metadata.extension, "ja");
-        assert_eq!(metadata.version, "1.0");
+        let 元数据项 = 解析语言信息("[语言包]\n名称 = \"日语\"\n扩展名 = \"ja\"\n").unwrap();
+        assert_eq!(元数据项.语言名称, "日语");
+        assert_eq!(元数据项.文件扩展名, "ja");
+        assert_eq!(元数据项.版本号, "1.0");
 
-        assert!(parse_lang_info("[语言包]\n名称 = \"俄语\"\n").is_none());
-        assert!(parse_lang_info("[其他]\n名称 = \"俄语\"\n扩展名 = \"ru\"\n").is_none());
-        assert!(parse_lang_info("这不是 TOML").is_none());
+        assert!(解析语言信息("[语言包]\n名称 = \"俄语\"\n").is_none());
+        assert!(解析语言信息("[其他]\n名称 = \"俄语\"\n扩展名 = \"ru\"\n").is_none());
+        assert!(解析语言信息("这不是 TOML").is_none());
     }
 
     #[test]
-    fn test_dynamic_extension_map() {
-        let _lock = env_lock();
-        let temp_root = tempfile::tempdir().unwrap();
-        make_temp_lang_pack(temp_root.path(), "日语");
+    fn 测试动态扩展名映射() {
+        let _锁 = 环境锁();
+        let 临时根 = tempfile::tempdir().unwrap();
+        制作临时语言包(临时根.path(), "日语");
         unsafe {
-            std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));
+            std::env::set_var("RZ_LANG_DIR", 临时根.path().join("global"));
         }
-        install_lang(temp_root.path().join("日语").to_str().unwrap(), false).unwrap();
+        安装语言(临时根.path().join("日语").to_str().unwrap(), false).unwrap();
 
-        assert_eq!(query_extension_map("ja").as_deref(), Some("日语"));
-        let list = list_langs();
-        let japanese = list
+        assert_eq!(查询扩展名映射("ja").as_deref(), Some("日语"));
+        let 列表 = 列语言();
+        let 日语项 = 列表
             .iter()
-            .find(|info| info.lang_code == "日语")
+            .find(|项| 项.语言代码 == "日语")
             .expect("日语应被列出");
-        assert_eq!(japanese.extension.as_deref(), Some("ja"));
-        assert!(japanese.version.is_none());
+        assert_eq!(日语项.文件扩展名.as_deref(), Some("ja"));
+        assert!(日语项.版本号.is_none());
 
-        assert_eq!(query_extension_map("zh").as_deref(), Some("zh"));
-        let chinese = list
+        assert_eq!(查询扩展名映射("zh").as_deref(), Some("zh"));
+        let 中文项 = 列表
             .iter()
-            .find(|info| info.lang_code == "zh")
+            .find(|项| 项.语言代码 == "zh")
             .expect("zh应被列出");
-        assert_eq!(chinese.extension.as_deref(), Some("zh"));
-        assert_eq!(chinese.version.as_deref(), Some("1.0"));
+        assert_eq!(中文项.文件扩展名.as_deref(), Some("zh"));
+        assert_eq!(中文项.版本号.as_deref(), Some("1.0"));
 
         // 补写 lang_info.toml
         fs::write(
-            temp_root.path().join("global/日语/lang_info.toml"),
+            临时根.path().join("global/日语/lang_info.toml"),
             "[语言包]\n名称 = \"日语\"\n扩展名 = \"ja\"\n版本 = \"2.1\"\n",
         )
         .unwrap();
-        assert_eq!(query_extension_map("ja").as_deref(), Some("日语"));
-        let list = list_langs();
-        let japanese = list
+        assert_eq!(查询扩展名映射("ja").as_deref(), Some("日语"));
+        let 列表 = 列语言();
+        let 日语项 = 列表
             .iter()
-            .find(|info| info.lang_code == "日语")
+            .find(|项| 项.语言代码 == "日语")
             .expect("日语应被列出");
-        assert_eq!(japanese.version.as_deref(), Some("2.1"));
+        assert_eq!(日语项.版本号.as_deref(), Some("2.1"));
 
-        assert_eq!(
-            static_extension_map().get("ru").map(String::as_str),
-            Some("俄语")
-        );
+        assert_eq!(静态扩展名映射().get("ru").map(String::as_str), Some("俄语"));
 
         unsafe {
             std::env::remove_var("RZ_LANG_DIR");
@@ -1280,66 +1299,66 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_default_repo_sources_and_zip_urls() {
-        assert_eq!(DEFAULT_REPO_SOURCES.len(), 2);
-        assert!(DEFAULT_REPO_SOURCES[0].starts_with("https://gitcode.com/"));
-        assert!(DEFAULT_REPO_SOURCES[1].starts_with("https://github.com/"));
+    fn 测试默认仓库源与下载地址() {
+        assert_eq!(默认仓库源列表.len(), 2);
+        assert!(默认仓库源列表[0].starts_with("https://gitcode.com/"));
+        assert!(默认仓库源列表[1].starts_with("https://github.com/"));
 
-        let gitcode = RepoSource::from_url("https://gitcode.com/用户名/zrRust");
-        assert_eq!(gitcode.git_url, "https://gitcode.com/用户名/zrRust");
+        let gitcode = 仓库源::自地址构造("https://gitcode.com/用户名/zrRust");
+        assert_eq!(gitcode.仓库地址, "https://gitcode.com/用户名/zrRust");
         assert_eq!(
-            gitcode.zip_url,
+            gitcode.压缩包地址,
             "https://gitcode.com/用户名/zrRust/repository/archive/master.zip"
         );
 
-        let github = RepoSource::from_url("https://github.com/用户名/zrRust");
+        let github = 仓库源::自地址构造("https://github.com/用户名/zrRust");
         assert_eq!(
-            github.zip_url,
+            github.压缩包地址,
             "https://github.com/用户名/zrRust/archive/refs/heads/main.zip"
         );
 
-        let local = RepoSource::from_url("http://127.0.0.1:18080/语言包");
+        let 本地址 = 仓库源::自地址构造("http://127.0.0.1:18080/语言包");
         assert_eq!(
-            local.zip_url,
+            本地址.压缩包地址,
             "http://127.0.0.1:18080/语言包/archive/refs/heads/main.zip"
         );
         assert_eq!(
-            RepoSource::from_url("https://github.com/用户名/zrRust/").git_url,
+            仓库源::自地址构造("https://github.com/用户名/zrRust/").仓库地址,
             "https://github.com/用户名/zrRust"
         );
     }
 
     #[test]
-    fn test_rz_lang_repo_env_priority() {
-        let _lock = env_lock();
+    fn 测试自定义仓库环境变量优先() {
+        let _锁 = 环境锁();
         unsafe {
             std::env::set_var("RZ_LANG_REPO", "http://127.0.0.1:18080/自定义仓库/");
-            let sources = collect_sources();
-            assert_eq!(sources.len(), 1);
-            assert_eq!(sources[0].git_url, "http://127.0.0.1:18080/自定义仓库");
+            let 源列表 = 收集源();
+            assert_eq!(源列表.len(), 1);
+            assert_eq!(源列表[0].仓库地址, "http://127.0.0.1:18080/自定义仓库");
             std::env::remove_var("RZ_LANG_REPO");
         }
-        let default = collect_sources();
-        assert_eq!(default.len(), 2);
-        assert_eq!(default[0].git_url, DEFAULT_REPO_SOURCES[0]);
-        assert_eq!(default[1].git_url, DEFAULT_REPO_SOURCES[1]);
+        let 默认源列表 = 收集源();
+        assert_eq!(默认源列表.len(), 2);
+        assert_eq!(默认源列表[0].仓库地址, 默认仓库源列表[0]);
+        assert_eq!(默认源列表[1].仓库地址, 默认仓库源列表[1]);
     }
 
     #[test]
-    fn test_multi_source_fallback_install() {
-        let _lock = env_lock();
-        let temp_root = tempfile::tempdir().unwrap();
-        let backup_repo = temp_root.path().join("lang_repo");
-        fs::create_dir_all(&backup_repo).unwrap();
-        make_temp_lang_pack(&backup_repo, "中文");
-        for args in [
+    fn 测试多源回退安装() {
+        let _锁 = 环境锁();
+        let 临时根 = tempfile::tempdir().unwrap();
+        let 备份仓库 = 临时根.path().join("lang_repo");
+        fs::create_dir_all(&备份仓库).unwrap();
+        制作临时语言包(&备份仓库, "中文");
+        for 命令参数 in [
             &["init", "-b", "main"][..],
             &["add", "."][..],
             &["commit", "-m", "init"][..],
         ] {
-            let result = Command::new("git")
-                .args(args)
-                .current_dir(&backup_repo)
+            let 返回结果 = Command::new("git")
+                .args(命令参数)
+                .current_dir(&备份仓库)
                 .env("GIT_AUTHOR_NAME", "测试")
                 .env("GIT_AUTHOR_EMAIL", "test@example.com")
                 .env("GIT_COMMITTER_NAME", "测试")
@@ -1347,24 +1366,24 @@ pub(crate) mod tests {
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
                 .output();
-            let status = result.expect("执行 git 失败").status;
-            assert!(status.success(), "git 子命令 {:?} 失败", args[0]);
+            let 返回状态 = 返回结果.expect("执行 git 失败").status;
+            assert!(返回状态.success(), "git 子命令 {:?} 失败", 命令参数[0]);
         }
 
-        let primary = RepoSource::from_url("file:///不存在的仓库路径");
-        let backup = RepoSource::from_url(backup_repo.to_str().unwrap());
+        let 主源 = 仓库源::自地址构造("file:///不存在的仓库路径");
+        let 备用源 = 仓库源::自地址构造(备份仓库.to_str().unwrap());
         unsafe {
-            std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));
+            std::env::set_var("RZ_LANG_DIR", 临时根.path().join("global"));
         }
 
-        let temp = TempDir::new().unwrap();
-        let result = try_all_sources("中文", &[primary, backup], &temp, false);
+        let 临时句柄 = 临时目录句柄::创建().unwrap();
+        let 返回结果 = 尝试全部源("中文", &[主源, 备用源], &临时句柄, false);
         assert!(
-            result.is_ok(),
+            返回结果.is_ok(),
             "首选源失败后应自动回退备用源：{}",
-            result.err().map(|e| e.to_string()).unwrap_or_default()
+            返回结果.err().map(|错| 错.to_string()).unwrap_or_default()
         );
-        assert!(global_lang_dir().join("中文/keywords.toml").is_file());
+        assert!(全局语言目录().join("中文/keywords.toml").is_file());
 
         unsafe {
             std::env::remove_var("RZ_LANG_DIR");
@@ -1372,39 +1391,39 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_all_sources_failed_error_message() {
-        let _lock = env_lock();
-        let temp_root = tempfile::tempdir().unwrap();
+    fn 测试全部源失败错误消息() {
+        let _锁 = 环境锁();
+        let 临时根 = tempfile::tempdir().unwrap();
         unsafe {
-            std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));
+            std::env::set_var("RZ_LANG_DIR", 临时根.path().join("global"));
             // 固定界面语言为中文，保证错误消息断言稳定（系统语言无关）
             std::env::set_var("RZ_LANG", "zh");
         }
-        let bad1 = RepoSource::from_url("file:///不存在的仓库1");
-        let bad2 = RepoSource::from_url("file:///不存在的仓库2");
-        let temp = TempDir::new().unwrap();
-        let error = try_all_sources("中文", &[bad1, bad2], &temp, false)
+        let 坏源甲 = 仓库源::自地址构造("file:///不存在的仓库1");
+        let 坏源乙 = 仓库源::自地址构造("file:///不存在的仓库2");
+        let 临时句柄 = 临时目录句柄::创建().unwrap();
+        let 错误文本 = 尝试全部源("中文", &[坏源甲, 坏源乙], &临时句柄, false)
             .expect_err("两个源都失败应报错")
             .to_string();
         assert!(
-            error.contains("已依次尝试 2 个源"),
+            错误文本.contains("已依次尝试 2 个源"),
             "应报告尝试的源数量：{}",
-            error
+            错误文本
         );
         assert!(
-            error.contains("file:///不存在的仓库1"),
+            错误文本.contains("file:///不存在的仓库1"),
             "应列出源1：{}",
-            error
+            错误文本
         );
         assert!(
-            error.contains("file:///不存在的仓库2"),
+            错误文本.contains("file:///不存在的仓库2"),
             "应列出源2：{}",
-            error
+            错误文本
         );
         assert!(
-            error.contains("RZ_LANG_REPO"),
+            错误文本.contains("RZ_LANG_REPO"),
             "应建议 RZ_LANG_REPO：{}",
-            error
+            错误文本
         );
         unsafe {
             std::env::remove_var("RZ_LANG_DIR");
@@ -1414,61 +1433,61 @@ pub(crate) mod tests {
 
     /// 市场扫描：三种仓库布局全部覆盖，无 keywords.toml 的目录不误报
     #[test]
-    fn test_scan_repo_langs_three_layouts() {
-        let temp_root = tempfile::tempdir().unwrap();
+    fn 测试扫描仓库三种布局() {
+        let 临时根 = tempfile::tempdir().unwrap();
         // 1. 仓库根直接是语言包（自建语言包仓库约定）
-        make_temp_lang_pack(temp_root.path(), "中文");
+        制作临时语言包(临时根.path(), "中文");
         // 2. lang-packs/ 布局
-        make_temp_lang_pack(&temp_root.path().join("lang-packs"), "日语");
+        制作临时语言包(&临时根.path().join("lang-packs"), "日语");
         // 3. crates/engine/lang-packs/ 布局（主仓库单副本）
-        make_temp_lang_pack(&temp_root.path().join("crates/engine/lang-packs"), "俄语");
+        制作临时语言包(&临时根.path().join("crates/engine/lang-packs"), "俄语");
         // 非语言包目录（无 keywords.toml）不应列出
-        fs::create_dir_all(temp_root.path().join("docs")).unwrap();
+        fs::create_dir_all(临时根.path().join("docs")).unwrap();
 
-        let found = scan_repo_langs(temp_root.path());
+        let 命中项 = 扫描仓库语言(临时根.path());
         // 扫描顺序：根 → lang-packs → crates/engine（排序在 search 入口完成）
-        let codes: Vec<&str> = found.iter().map(|i| i.lang_code.as_str()).collect();
-        assert_eq!(codes, ["中文", "日语", "俄语"]);
-        assert!(found.iter().all(|i| i.display_name.is_none()));
+        let 代码列表: Vec<&str> = 命中项.iter().map(|项| 项.语言代码.as_str()).collect();
+        assert_eq!(代码列表, ["中文", "日语", "俄语"]);
+        assert!(命中项.iter().all(|项| 项.显示名称.is_none()));
     }
 
     /// 市场扫描：布局间同名去重（保留先发现的根目录版本）
     #[test]
-    fn test_scan_repo_langs_dedup() {
-        let temp_root = tempfile::tempdir().unwrap();
-        make_temp_lang_pack(temp_root.path(), "中文");
-        make_temp_lang_pack(&temp_root.path().join("lang-packs"), "中文");
+    fn 测试扫描仓库同名去重() {
+        let 临时根 = tempfile::tempdir().unwrap();
+        制作临时语言包(临时根.path(), "中文");
+        制作临时语言包(&临时根.path().join("lang-packs"), "中文");
 
-        let found = scan_repo_langs(temp_root.path());
-        assert_eq!(found.len(), 1, "同名语言包应去重：{:?}", found);
+        let 命中项 = 扫描仓库语言(临时根.path());
+        assert_eq!(命中项.len(), 1, "同名语言包应去重：{:?}", 命中项);
     }
 
     /// 关键词过滤：匹配语言代码或显示名称，不区分大小写
     #[test]
-    fn test_filter_remote_langs() {
-        let found = vec![
-            RemoteLangInfo {
-                lang_code: "vi".to_string(),
-                display_name: Some("越南语".to_string()),
-                version: Some("1.0".to_string()),
+    fn 测试过滤远程语言() {
+        let 命中项 = vec![
+            远程语言信息 {
+                语言代码: "vi".to_string(),
+                显示名称: Some("越南语".to_string()),
+                版本号: Some("1.0".to_string()),
             },
-            RemoteLangInfo {
-                lang_code: "zh".to_string(),
-                display_name: Some("中文".to_string()),
-                version: None,
+            远程语言信息 {
+                语言代码: "zh".to_string(),
+                显示名称: Some("中文".to_string()),
+                版本号: None,
             },
         ];
 
         // 匹配代码（小写关键词）
-        let by_code = filter_remote_langs(found.clone(), "VI");
-        assert_eq!(by_code.len(), 1);
-        assert_eq!(by_code[0].lang_code, "vi");
+        let 按代码 = 过滤远程语言(命中项.clone(), "VI");
+        assert_eq!(按代码.len(), 1);
+        assert_eq!(按代码[0].语言代码, "vi");
         // 匹配显示名称
-        let by_name = filter_remote_langs(found.clone(), "越南");
-        assert_eq!(by_name.len(), 1);
+        let 按名称 = 过滤远程语言(命中项.clone(), "越南");
+        assert_eq!(按名称.len(), 1);
         // 空关键词返回全部
-        assert_eq!(filter_remote_langs(found.clone(), "  ").len(), 2);
+        assert_eq!(过滤远程语言(命中项.clone(), "  ").len(), 2);
         // 无匹配返回空
-        assert!(filter_remote_langs(found, "英语").is_empty());
+        assert!(过滤远程语言(命中项, "英语").is_empty());
     }
 }
