@@ -1,6 +1,6 @@
 // rustc JSON 诊断数据结构（对应 --error-format=json 输出）。
 
-use 序列化::可反序列化;
+使用 序列化::可反序列化;
 
 /// rustc 编译器诊断信息（对应一行 JSON 输出）
 #[derive(可反序列化, Debug, Clone)]

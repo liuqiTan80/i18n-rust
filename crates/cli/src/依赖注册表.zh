@@ -126,7 +126,7 @@
         .stderr(std::process::Stdio::null())
         .status()
         .map(|状态| 状态.success())
-        .unwrap_or(false);
+        .unwrap_or(假);
     如果 成功标志 && 注册中心子目录(&克隆目录).join("index.json").is_file() {
         返回 成功((临时句柄, 克隆目录));
     }
@@ -495,7 +495,7 @@
         .stderr(std::process::Stdio::null())
         .status()
         .map(|状态| 状态.success())
-        .unwrap_or(false);
+        .unwrap_or(假);
     如果 !克隆成功 {
         anyhow::bail!("{}", 界面.取文带参("crate_publish_clone_failed", &[网址]));
     }

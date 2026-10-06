@@ -127,7 +127,7 @@
                 {
                     // 保留 rust-analyzer 已有的 data（如代码操作数据），嵌套存入
                     匹配 映射结果.get_mut("data") {
-                        有值(现有值) if 现有值.is_object() => {
+                        有值(现有值) 如果 现有值.is_object() => {
                             现有值["所有权详情"] = 详情值;
                         }
                         _ => {
@@ -530,7 +530,7 @@
         匹配 正文 {
             // MarkupContent：{"kind": "markdown", "value": ...}
             Value::Object(对象体)
-                if 对象体.get("kind").and_then(|值项| 值项.as_str()) == 有值("markdown")
+                如果 对象体.get("kind").and_then(|值项| 值项.as_str()) == 有值("markdown")
                     && 对象体.get("value").and_then(|值项| 值项.as_str()).is_some() =>
             {
                 让 可变 映射对象 = 对象体.clone();
@@ -540,7 +540,7 @@
             }
             // MarkedString：{"language": "rust", "value": 代码签名}
             Value::Object(对象体)
-                if 对象体.get("language").is_some()
+                如果 对象体.get("language").is_some()
                     && 对象体.get("value").and_then(|值项| 值项.as_str()).is_some() =>
             {
                 让 可变 映射对象 = 对象体.clone();
@@ -853,7 +853,7 @@
 /// 判断字符串是否为合法 Rust 标识符片段（方法名/类型名，不含泛型）
 函数 是标识符(名字: &文本) -> 布尔 {
     让 可变 字符集 = 名字.chars();
-    matches!(字符集.next(), 有值(字符项) if 字符项 == '_' || 字符项.is_alphabetic())
+    matches!(字符集.next(), 有值(字符项) 如果 字符项 == '_' || 字符项.is_alphabetic())
         && 字符集.all(|字符项| 字符项 == '_' || 字符项.is_alphanumeric())
 }
 

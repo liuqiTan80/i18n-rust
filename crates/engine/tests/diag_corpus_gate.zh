@@ -36,7 +36,7 @@
         };
         // 与 diag_audit 一致：按消息原文去重。
         如果 !已见集.insert(消息文本.to_string()) {
-            continue;
+            继续;
         }
         条目列表.push((级别串.to_string(), 状态码.to_string(), 消息文本.to_string()));
     }
@@ -57,7 +57,7 @@
     让 可变 已查语言数 = 0usize;
     对于 语言码 in i18n_rust_engine::语言::内置语言代码() {
         如果 语言码 == "en" {
-            continue; // 直通语言，rustc 原文即英文，不查消息表
+            继续; // 直通语言，rustc 原文即英文，不查消息表
         }
         让 错误表内容 = i18n_rust_engine::语言::内置语言文件(语言码)
             .into_iter()

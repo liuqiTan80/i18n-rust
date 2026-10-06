@@ -142,7 +142,7 @@
                     目标.get("kind")
                         .and_then(Value::as_array)
                         .map(|种类| 种类.iter().any(|值内容项| 值内容项.as_str() == 有值("lib")))
-                        == 有值(true)
+                        == 有值(真)
                 })
             })
             .and_then(|目标| 目标.get("name"))
@@ -533,7 +533,7 @@
         .get("lib")
         .and_then(|表项| 表项.get("proc-macro"))
         .and_then(toml::Value::as_bool)
-        .unwrap_or(false);
+        .unwrap_or(假);
 
     让 库名下划线 = 库名.replace('-', "_");
     让 文档目录 = 项目根.join("mapping-json");

@@ -300,7 +300,7 @@
                     }
                     log::info!("{}", crate::本地化::全局().取文("lsp_log_ra_init_done"));
                     初始化完成 = 真;
-                    break;
+                    中断;
                 }
                 // 初始化期间 rust-analyzer 可能主动请求配置（workspace/configuration）：
                 // 必须立即响应，否则它一直等待导致配置加载挂起。
@@ -417,7 +417,7 @@
                         &内置诊断,
                     ),
                     错误(crossbeam_channel::RecvTimeoutError::Timeout) => {}
-                    错误(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
+                    错误(crossbeam_channel::RecvTimeoutError::Disconnected) => 中断,
                 }
                 如果 上次清理.elapsed() >= std::time::Duration::from_secs(10) {
                     清理过期请求(&待处理项, &发送端);
@@ -467,11 +467,11 @@
                             }));
                         自我.分析器实例.清除崩溃标志();
                     }
-                    continue;
+                    继续;
                 }
                 错误(_) => {
                     log::info!("{}", crate::本地化::全局().取文("lsp_log_client_disconnected"));
-                    break;
+                    中断;
                 }
             };
 
@@ -485,7 +485,7 @@
                             error: 无,
                         };
                         让 _ = 自我.客户端连接.sender.send(Message::Response(响应体));
-                        break;
+                        中断;
                     }
                     // 单条请求处理失败（如 rust-analyzer 写入失败）只记录错误，
                     // 不退出服务器，避免一次偶发故障杀死整个会话
@@ -531,7 +531,7 @@
         //（didChangeWatchedFiles）不再生效
         对于 条目 in 自我.缓存.全部条目() {
             如果 !条目.是否打开 {
-                continue;
+                继续;
             }
             让 消息体 = json!({
                 "jsonrpc": "2.0",
@@ -912,7 +912,7 @@
                     );
                 }
                 如果 !检查待补跑.load(std::sync::atomic::Ordering::SeqCst) {
-                    break;
+                    中断;
                 }
             }
             检查进行中.store(假, std::sync::atomic::Ordering::SeqCst);
@@ -955,7 +955,7 @@
             匹配 子进程可选.as_mut().map(|进程句柄| 进程句柄.try_wait()) {
                 有值(成功(有值(_))) => {
                     进程输出 = 子进程可选.take().and_then(|进程句柄| 进程句柄.wait_with_output().ok());
-                    break;
+                    中断;
                 }
                 有值(成功(无)) => {
                     如果 循环序号 == 299 {
@@ -963,7 +963,7 @@
                     }
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
-                _ => break,
+                _ => 中断,
             }
         }
         如果 已超时 {
@@ -982,17 +982,17 @@
         让 可变 按定位分组: HashMap<字符串, (字符串, Vec<Value>)> = HashMap::new();
         对于 行号 in 标准输出文本.lines() {
             让 成功(值项) = serde_json::from_str::<Value>(行号) 否则 {
-                continue;
+                继续;
             };
             如果 值项["reason"].as_str() != 有值("compiler-message") {
-                continue;
+                继续;
             }
             让 消息体 = &值项["message"];
             让 有值(区间) = 消息体["spans"].as_array().and_then(|数组项| 数组项.first()) 否则 {
-                continue;
+                继续;
             };
             让 有值(文件名段) = 区间["file_name"].as_str() 否则 {
-                continue;
+                继续;
             };
             // rustc 可能输出相对路径（cwd 为虚拟项目目录），拼上项目目录
             让 文件路径 = 如果 std::path::Path::new(文件名段).is_absolute() {
@@ -1002,7 +1002,7 @@
             };
             // 仅处理虚拟方言文件（聚合 main.rs、标准库等跳过）
             让 有值(条目) = 缓存.按虚拟资源定位查询(&路径转定位(&文件路径)) 否则 {
-                continue;
+                继续;
             };
             让 行号 = 区间["line_start"].as_u64().unwrap_or(1).saturating_sub(1);
             让 列号 = 区间["column_start"].as_u64().unwrap_or(1).saturating_sub(1);
@@ -1270,12 +1270,12 @@
     让 可变 应答结果 = Vec::new();
     对于 诊断项 in 诊断列表 {
         让 有值(消息体) = 诊断项.get("message").and_then(|值项| 值项.as_str()) 否则 {
-            continue;
+            继续;
         };
         让 是否未解析 = i18n_rust_engine::诊断::是未解析导入消息(消息体)
             || 消息体.contains(已翻译词组.as_str());
         如果 !是否未解析 {
-            continue;
+            继续;
         }
         对于 片段 in i18n_rust_engine::诊断::抽取反引号首段(消息体) {
             如果 matches!(
@@ -1283,7 +1283,7 @@
                 "std" | "core" | "alloc" | "self" | "super" | "crate" | "proc_macro"
             ) || 片段.chars().next().is_some_and(|字符项| 字符项.is_ascii_digit())
             {
-                continue;
+                继续;
             }
             如果 !应答结果.contains(&片段) {
                 应答结果.push(片段);
@@ -1368,27 +1368,27 @@
     对于 条目 in 条目列表.flatten() {
         让 名称值 = 条目.file_name();
         让 有值(名称串) = 名称值.to_str() 否则 {
-            continue;
+            继续;
         };
         // 仅处理本用户且带 PID 后缀的目录；无后缀的旧版目录不动（避免误删）
         让 有值(剩余) = 前缀列表
             .iter()
             .find_map(|前缀项| 名称串.strip_prefix(前缀项.as_str()))
         否则 {
-            continue;
+            继续;
         };
         // 兼容上轮 rename 后未删除干净的 `.stale` 残留；镜像名 PID 后还有
         // 哈希段，取首个下划线之前的部分为 PID
         让 剩余 = 剩余.strip_suffix(".stale").unwrap_or(剩余);
         让 进程号串 = 剩余.split('_').next().unwrap_or(剩余);
         如果 进程号串 == std::process::id().to_string() {
-            continue; // 当前进程自己的目录
+            继续; // 当前进程自己的目录
         }
         让 成功(进程号) = 进程号串.parse::<u32>() 否则 {
-            continue;
+            继续;
         };
         如果 进程存活(进程号) {
-            continue;
+            继续;
         }
         // 进程已死：目录是残留，先原子改名再删除（TOCTOU 防护）：
         // 检查与删除之间 PID 可能被系统回收并由新进程重建同名目录，
@@ -1399,7 +1399,7 @@
             .map(|目录项| 目录项.file_type().is_symlink())
             .unwrap_or(真)
         {
-            continue; // 符号链接不跟随删除
+            继续; // 符号链接不跟随删除
         }
         让 陈旧路径 = 条目.path().with_file_name(格式化!("{名称串}.stale"));
         如果 std::fs::rename(&路径, &陈旧路径).is_ok() {
@@ -1575,7 +1575,7 @@
     让 可变 行首位置 = 0usize;
     对于 (当前行, (行序号, _)) in 源码内容.match_indices('\n').enumerate() {
         如果 当前行 as u32 == 行号 {
-            break;
+            中断;
         }
         行首位置 = 行序号 + 1;
     }

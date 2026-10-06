@@ -313,7 +313,7 @@
         println!();
         println!("按任意键退出...");
         让 可变 缓冲 = [0u8; 1];
-        如果 std::io::stdin().read_exact(&mut 缓冲).is_err() {
+        如果 std::io::stdin().read_exact(&可变 缓冲).is_err() {
             std::thread::sleep(std::time::Duration::from_secs(8));
         }
         返回 std::process::ExitCode::SUCCESS;
@@ -377,7 +377,7 @@
             让 转译产物 = 项目转译映射带缓存(
                 &源码,
                 &管理器,
-                &mut 缓存
+                &可变 缓存
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner),
                 有值(&项目上下文),
@@ -554,7 +554,7 @@
             让 转译产物 = 项目转译映射带缓存(
                 &源码,
                 &管理器,
-                &mut 缓存
+                &可变 缓存
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner),
                 有值(&项目上下文),
@@ -897,7 +897,7 @@
             让 找到 = 语言包工具::搜索远程语言(搜索关键词.as_deref())?;
             如果 找到.is_empty() {
                 匹配 搜索关键词.as_deref() {
-                    有值(关键词) if !关键词.trim().is_empty() => {
+                    有值(关键词) 如果 !关键词.trim().is_empty() => {
                         println!("{}", 界面.取文带参("lang_search_empty", &[关键词]));
                     }
                     _ => println!("{}", 界面.取文("lang_search_empty_all")),
@@ -1033,7 +1033,7 @@
         .current_dir(&根)
         .status()
     {
-        成功(状态) if 状态.success() => {
+        成功(状态) 如果 状态.success() => {
             println!("{}", 界面.取文带参("mapping_auto_installed", &[crate名]))
         }
         成功(状态) => println!(
@@ -1159,7 +1159,7 @@
 /// 且内容未变的文件直接命中，省去整条转译管线；语言包变化时语境指纹失效。
 函数 转译为英文(源码: &文本, 管理器: &映射管理器) -> 字符串 {
     让 可变 缓存 = i18n_rust_engine::缓存::转译缓存::持久默认项();
-    转译为英文带缓存(源码, 管理器, &mut 缓存)
+    转译为英文带缓存(源码, 管理器, &可变 缓存)
 }
 
 /// 同 [`转译为英文`]，复用调用方提供的缓存实例
@@ -1169,7 +1169,7 @@
 函数 转译为英文带缓存(
     源码: &文本,
     管理器: &映射管理器,
-    缓存: &mut i18n_rust_engine::缓存::转译缓存,
+    缓存: &可变 i18n_rust_engine::缓存::转译缓存,
 ) -> 字符串 {
     标注非西文模块(&转译映射带缓存(源码, 管理器, 缓存).产出)
 }
@@ -1182,7 +1182,7 @@
 函数 转译映射带缓存(
     源码: &文本,
     管理器: &映射管理器,
-    缓存: &mut i18n_rust_engine::缓存::转译缓存,
+    缓存: &可变 i18n_rust_engine::缓存::转译缓存,
 ) -> i18n_rust_engine::缓存::转译产出 {
     i18n_rust_engine::源码转译并映射(源码, 管理器, 缓存).unwrap_or_else(|_错| {
         // 缓存失败不阻断转译：回退无缓存管线（与旧行为一致）
@@ -1202,7 +1202,7 @@
 函数 项目转译映射带缓存(
     源码: &文本,
     管理器: &映射管理器,
-    缓存: &mut i18n_rust_engine::缓存::转译缓存,
+    缓存: &可变 i18n_rust_engine::缓存::转译缓存,
     项目: 选项<&i18n_rust_engine::别名替换::项目上下文>,
 ) -> i18n_rust_engine::缓存::转译产出 {
     i18n_rust_engine::源码转译并项目(源码, 管理器, 缓存, 项目).unwrap_or_else(|_错| {
@@ -1261,12 +1261,12 @@
 /// 命名的子目录中，与 rustc 的 `父模块.rs` + `父模块/` 目录规则一致。
 函数 收集方言文件(目录: &Path, 扩展名列表: &[字符串]) -> Vec<PathBuf> {
     让 可变 输出 = Vec::new();
-    递归收集方言文件(目录, 扩展名列表, &mut 输出);
+    递归收集方言文件(目录, 扩展名列表, &可变 输出);
     输出.sort();
     输出
 }
 
-函数 递归收集方言文件(目录: &Path, 扩展名列表: &[字符串], 输出: &mut Vec<PathBuf>) {
+函数 递归收集方言文件(目录: &Path, 扩展名列表: &[字符串], 输出: &可变 Vec<PathBuf>) {
     让 成功(条目列表) = fs::read_dir(目录) 否则 {
         返回;
     };
@@ -2196,7 +2196,7 @@
         让 入口产物 = 项目转译映射带缓存(
             &std::fs::read_to_string(&入口).unwrap(),
             &管理,
-            &mut 缓存.lock().unwrap(),
+            &可变 缓存.lock().unwrap(),
             有值(&上下文),
         )
         .产出;

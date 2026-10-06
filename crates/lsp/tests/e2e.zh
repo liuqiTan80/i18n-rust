@@ -106,13 +106,13 @@
                 }
                 让 行文本 = 行文本.trim();
                 如果 行文本.is_empty() {
-                    break;
+                    中断;
                 }
                 如果 让 有值(前缀余串) = 行文本.strip_prefix("Content-Length:") {
                     内容长度 = 前缀余串.trim().parse::<usize>().ok();
                 }
             }
-            让 有值(长度) = 内容长度 否则 { continue };
+            让 有值(长度) = 内容长度 否则 { 继续 };
             让 可变 报文体 = 向量![0u8; 长度];
             如果 读取器.read_exact(&可变 报文体).is_err() {
                 返回;
@@ -123,7 +123,7 @@
                         返回;
                     }
                 }
-                错误(_) => continue, // 容忍异常帧
+                错误(_) => 继续, // 容忍异常帧
             }
         }
     });
@@ -225,7 +225,7 @@
                     转储批次统计(&统计, 资源定位);
                     返回 无;
                 }
-                continue;
+                继续;
             }
         };
         记录批次(&可变 统计, &消息);
@@ -234,10 +234,10 @@
         {
             让 诊断数组 = 消息.pointer("/params/diagnostics").and_then(Value::as_array);
             让 有值(诊断数组) = 诊断数组 否则 {
-                continue;
+                继续;
             };
             如果 诊断数组.is_empty() {
-                continue;
+                继续;
             }
             让 文本合集 = 诊断数组
                 .iter()
@@ -627,7 +627,7 @@
             返回 假;
         }
         让 成功(消息) = 接收端.recv_timeout(剩余时长) 否则 {
-            continue;
+            继续;
         };
         如果 消息.get("method").and_then(Value::as_str) == 有值("textDocument/publishDiagnostics")
             && 消息.pointer("/params/uri").and_then(Value::as_str) == 有值(资源定位)
@@ -850,7 +850,7 @@
             Duration::from_secs(60),
         );
         如果 响应值.get("result").is_some() {
-            break;
+            中断;
         }
         让 内容已变 = 响应值
             .pointer("/error/code")
@@ -913,7 +913,7 @@
         让 等待时长 = (时限 - 当前时刻).min(Duration::from_millis(500));
         让 消息 = 匹配 接收端.recv_timeout(等待时长) {
             成功(消息项) => 消息项,
-            错误(mpsc::RecvTimeoutError::Timeout) => continue,
+            错误(mpsc::RecvTimeoutError::Timeout) => 继续,
             错误(mpsc::RecvTimeoutError::Disconnected) => {
                 如果 !已找到 {
                     eprintln!("⚠️ 通道断开且锚点「{关键词}」未出现：");
@@ -926,13 +926,13 @@
         如果 消息.get("method").and_then(Value::as_str) != 有值("textDocument/publishDiagnostics")
             || 消息.pointer("/params/uri").and_then(Value::as_str) != 有值(资源定位)
         {
-            continue;
+            继续;
         }
         让 有值(诊断数组) = 消息.pointer("/params/diagnostics").and_then(Value::as_array) 否则 {
-            continue;
+            继续;
         };
         如果 诊断数组.is_empty() {
-            continue;
+            继续;
         }
         让 批次文本 = 诊断数组
             .iter()
@@ -1096,13 +1096,13 @@
     当 Instant::now() < 就绪截止 {
         让 成功(消息) = 接收端.recv_timeout(就绪截止.saturating_duration_since(Instant::now()))
         否则 {
-            break;
+            中断;
         };
         如果 消息.get("method").and_then(Value::as_str) != 有值("textDocument/publishDiagnostics") {
-            continue;
+            继续;
         }
         让 有值(诊断列表) = 消息.pointer("/params/diagnostics").and_then(Value::as_array) 否则 {
-            continue;
+            继续;
         };
         让 定位串 = 消息
             .pointer("/params/uri")
@@ -1111,7 +1111,7 @@
             .to_string();
         如果 定位串 == 主入口定位 && 诊断列表.is_empty() {
             入口已清空 = 真;
-            break;
+            中断;
         }
         对于 诊断项 in 诊断列表 {
             已收集.push((定位串.clone(), 诊断项.clone()));
