@@ -103,8 +103,10 @@ name = "zh-demo-check"
 version = "0.0.0"
 edition = "2021"
 STUB
-(cd "$STAGE" && "$RZC" eject main.zh >/dev/null 2>&1)
 OUT="$STAGE/main.rs"
+if ! eject_out="$(cd "$STAGE" && "$RZC" eject main.zh 2>&1)"; then
+    echo "❌ rzc eject 失败（二进制：$RZC）：方言改写无法进行"; printf '%s\n' "$eject_out" | tail -5; exit 1
+fi
 [ -f "$OUT" ] || { echo "❌ eject 未产出 main.rs"; exit 1; }
 
 if assert_output "$OUT"; then

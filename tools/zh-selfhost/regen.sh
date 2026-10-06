@@ -78,7 +78,9 @@ for zh in "${ZH_SOURCES[@]}"; do
         mkdir -p "$STAGE/src"
         cp -r "$src_root"/. "$STAGE/src/"
         cp "$zh" "$STAGE/src/$rel"
-        (cd "$STAGE" && rzc eject "src/$rel" >/dev/null 2>&1)
+        if ! eject_out="$(cd "$STAGE" && rzc eject "src/$rel" 2>&1)"; then
+            echo "❌ rzc eject 失败：$zh（src/$rel）"; printf '%s\n' "$eject_out" | tail -5; exit 1
+        fi
         stage_rs="$STAGE/src/${rel%.zh}.rs"
         ;;
       *)
@@ -89,7 +91,9 @@ for zh in "${ZH_SOURCES[@]}"; do
         mkdir -p "$(dirname "$STAGE/ns/$rel")"
         printf '[package]\nname="zh-selfhost-ns"\nversion="0.0.0"\nedition="%s"\n' "$edition" > "$STAGE/ns/Cargo.toml"
         cp "$zh" "$STAGE/ns/$rel"
-        (cd "$STAGE/ns" && rzc eject "$rel" >/dev/null 2>&1)
+        if ! eject_out="$(cd "$STAGE/ns" && rzc eject "$rel" 2>&1)"; then
+            echo "❌ rzc eject 失败：$zh（$rel）"; printf '%s\n' "$eject_out" | tail -5; exit 1
+        fi
         stage_rs="$STAGE/ns/${rel%.zh}.rs"
         ;;
     esac
