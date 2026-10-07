@@ -934,7 +934,7 @@ impl 代理服务器 {
         Ok(())
     }
 
-    /// 执行一次 cargo check 并发布诊断（供 [`触发cargo检查`] 的线程循环调用）
+    /// 执行一次 cargo check 并发布诊断（供 [`代理服务器::触发cargo检查`] 的线程循环调用）
     ///
     /// 不负责 check_running/check_pending 标记（由调用方线程循环统一管理）。
     fn 运行cargo检查一次(
@@ -1887,7 +1887,7 @@ fn 加载语言包(
 /// 从 engine 编译期内嵌的中文语言包物化出完整映射管理器
 ///
 /// 将内嵌文件（keywords/stdlib/module_paths/crates/*.toml）写入临时目录，
-/// 复用 [`映射管理器::自目录加载`] 统一加载，保证与磁盘语言包完全同源。
+/// 复用 [`i18n_rust_engine::映射管理::映射管理器::自目录加载`] 统一加载，保证与磁盘语言包完全同源。
 fn 加载内置中文后备() -> Option<i18n_rust_engine::映射管理::映射管理器> {
     let 目录 = tempfile::tempdir().ok()?;
     let 中文目录 = 目录.path().join("zh");
