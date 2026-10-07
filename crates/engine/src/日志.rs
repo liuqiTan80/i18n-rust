@@ -72,7 +72,7 @@ static 已程序化设置: AtomicBool = AtomicBool::new(false);
 ///
 /// 示例：`RZ_LOG=debug rzc run file.zh` 启用全部日志；
 /// `RZ_LOG=错误模块` 仅输出错误。
-/// 若级别已被 [`set_log_level`] 程序化设置，则环境变量不覆盖。
+/// 若级别已被 [`设置日志级别`] 程序化设置，则环境变量不覆盖。
 pub fn 初始化() {
     已初始化.call_once(|| {
         if 已程序化设置.load(Ordering::Relaxed) {

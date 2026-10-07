@@ -1,0 +1,189 @@
+   Compiling i18n-rust-engine v0.8.3 (/home/tan80/code/zrRust/crates/engine)
+ Documenting i18n-rust-engine v0.8.3 (/home/tan80/code/zrRust/crates/engine)
+ Documenting rzc v0.8.3 (/home/tan80/code/zrRust/crates/cli)
+ Documenting i18n-rust-lsp v0.8.3 (/home/tan80/code/zrRust/crates/lsp)
+warning: public documentation for `修复全角标点` links to private item `可修复映射`
+   --> crates/engine/src/全角标点.rs:244:11
+    |
+244 | /// 仅替换 [`可修复映射`] 中的字符；顿号/全角空格等仅提示字符保持原样。
+    |              ^^^^^^^^^^ this item is private
+    |
+    = note: this link will resolve properly if you pass `--document-private-items`
+    = note: `#[warn(rustdoc::private_intra_doc_links)]` on by default
+
+warning: public documentation for `收集声明名` links to private item `类型体扫描`
+   --> crates/engine/src/别名替换.rs:223:17
+    |
+223 | /// 结构体/枚举体扫描（[`类型体扫描`]）：命名字段（`字段: 类型`）
+    |                          ^^^^^^^^^^ this item is private
+    |
+    = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `收集声明名` links to private item `收集库特征方法名`
+   --> crates/engine/src/别名替换.rs:227:21
+    |
+227 | /// 库特征实现块内的方法名（见 [`收集库特征方法名`]）从保护集合剔除。
+    |                                  ^^^^^^^^^^^^^^^^ this item is private
+    |
+    = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: unresolved link to `set_log_level`
+  --> crates/engine/src/日志.rs:75:13
+   |
+75 | /// 若级别已被 [`set_log_level`] 程序化设置，则环境变量不覆盖。
+   |                  ^^^^^^^^^^^^^ no item named `set_log_level` in scope
+   |
+   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+   = note: requested on the command line with `-W rustdoc::broken-intra-doc-links`
+
+warning: unresolved link to `取宏名集`
+   --> crates/engine/src/映射管理.rs:523:13
+    |
+523 |     /// 与 [`取宏名集`] 的区别：保留每个宏名的英文替换值。
+    |              ^^^^^^^^ no item named `取宏名集` in scope
+    |
+    = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+
+warning: unresolved link to `原子u64`
+   --> crates/engine/src/缓存.rs:123:13
+    |
+123 | /// 统计计数用 [`原子u64`]，类型满足 `Send + Sync`，
+    |                  ^^^^^^^ no item named `原子u64` in scope
+    |
+    = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+
+warning: unresolved link to `自身::flush`
+   --> crates/engine/src/缓存.rs:200:11
+    |
+200 |     /// [`自身::flush`] 批量写盘（进程退出由 `Drop` 兜底）。
+    |           ^^^^^^^^^^^ no item named `自身` in scope
+
+warning: unresolved link to `包::工具链::安装根目录`
+   --> crates/engine/src/缓存.rs:227:24
+    |
+227 |     ///（与工具链/语言包同根，见 [`包::工具链::安装根目录`]）
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^ no item named `包` in scope
+
+warning: unresolved link to `自身::save`
+   --> crates/engine/src/缓存.rs:256:11
+    |
+256 |     /// [`自身::save`] 会序列化整个缓存，逐次写盘会把并行转译串行化。
+    |           ^^^^^^^^^^ no item named `自身` in scope
+
+warning: unresolved link to `自身::生成语境指纹`
+   --> crates/engine/src/缓存.rs:369:13
+    |
+369 |     /// 与 [`自身::生成语境指纹`] 同一算法，便于磁盘缓存比对）。
+    |              ^^^^^^^^^^^^^^^^^^ no item named `自身` in scope
+
+warning: unresolved link to `E0xxx`
+  --> crates/engine/src/诊断/消息翻译.rs:58:41
+   |
+58 |     /// 错误码表：错误码 → 翻译条目（errors.toml 顶层 [E0xxx] 节）
+   |                                                        ^^^^^ no item named `E0xxx` in scope
+   |
+   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+
+warning: unresolved link to `包::映射管理::映射管理器::取使用延迟词`
+  --> crates/engine/src/词法.rs:99:7
+   |
+99 | /// [`包::映射管理::映射管理器::取使用延迟词`]）。
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no item named `包` in scope
+
+warning: unresolved link to `包::映射管理::映射管理器::取方法延迟词`
+   --> crates/engine/src/词法.rs:103:7
+    |
+103 | /// [`包::映射管理::映射管理器::取方法延迟词`]）——
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no item named `包` in scope
+
+warning: unresolved link to `包::映射管理::映射管理器::取别名映射表`
+   --> crates/engine/src/词法.rs:109:7
+    |
+109 | /// [`包::映射管理::映射管理器::取别名映射表`]）——标准库层
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no item named `包` in scope
+
+warning: unresolved link to `语言测试锁`
+  --> crates/engine/src/语言.rs:47:15
+   |
+47 | /// 测试中仍应配合 [`语言测试锁`] 持锁使用。
+   |                      ^^^^^^^^^^ no item named `语言测试锁` in scope
+   |
+   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+
+warning: public documentation for `内置语言代码` links to private item `内置文件清单`
+   --> crates/engine/src/语言.rs:168:25
+    |
+168 | /// 由 build.rs 扫描目录生成 [`内置文件清单`] 后在此去重排序；
+    |                                ^^^^^^^^^^^^ this item is private
+    |
+    = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: `i18n-rust-engine` (lib doc) generated 16 warnings
+warning: unresolved link to `响应集合`
+  |
+  = note: the link appears in this line:
+          
+          - [`响应集合`]：各 LSP 请求类型的响应映射（hover/补全/符号/编辑等）
+             ^^^^^^^^^^^^^^
+  = note: no item named `响应集合` in scope
+  = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+  = note: requested on the command line with `-W rustdoc::broken-intra-doc-links`
+
+warning: unresolved link to `诊断文本`
+  |
+  = note: the link appears in this line:
+          
+          - [`诊断文本`]：诊断消息翻译与所有权详情提取（CLI 同源消息表）
+             ^^^^^^^^^^^^^^
+  = note: no item named `诊断文本` in scope
+  = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+
+warning: unresolved link to `TextEdit`
+   --> crates/lsp/src/响应映射/响应集合.rs:627:33
+    |
+627 |     /// 处理跨文件重命名：changes（uri → [TextEdit]）与 documentChanges；
+    |                                           ^^^^^^^^ no item named `TextEdit` in scope
+    |
+    = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+
+warning: `i18n-rust-lsp` (lib doc) generated 3 warnings
+warning: unresolved link to `语言包`
+   --> crates/cli/src/语言包工具.rs:133:12
+    |
+133 | /// 从解析出的 [语言包] 节表提取元数据
+    |                 ^^^^^^ no item named `语言包` in scope
+    |
+    = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+    = note: requested on the command line with `-W rustdoc::broken-intra-doc-links`
+
+warning: unresolved link to `源码转译并项目`
+    --> crates/cli/src/main.rs:1235:26
+     |
+1235 | /// 缓存语境指纹由引擎并入项目上下文指纹（[`源码转译并项目`]）：
+     |                                             ^^^^^^^^^^^^^^ no item named `源码转译并项目` in scope
+     |
+     = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+
+warning: unclosed HTML tag `crate`
+ --> crates/cli/src/依赖注册表.rs:5:38
+  |
+5 | //! 根含 index.json 索引，映射按 <语言>/crates/<crate>.toml 存放
+  |                                                ^^^^^^^
+  |
+  = note: `#[warn(rustdoc::invalid_html_tags)]` on by default
+
+warning: unclosed HTML tag `lang`
+   --> crates/cli/src/main.rs:188:75
+    |
+188 |         /// Output file path (defaults to the project language-pack root: <lang>/crates/<crate_name>.toml)
+    |                                                                           ^^^^^^
+
+warning: unclosed HTML tag `target`
+   --> crates/cli/src/main.rs:218:75
+    |
+218 |         /// Output directory (defaults to the project language-pack root: <target>/crates/)
+    |                                                                           ^^^^^^^^
+
+warning: `rzc` (bin "rzc" doc) generated 5 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.96s
+   Generated /home/tan80/code/zrRust/target/doc/i18n_rust_engine/index.html and 2 other files
