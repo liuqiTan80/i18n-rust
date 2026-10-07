@@ -22,7 +22,12 @@ Thumbs.db
 # 离线发布包产物
 .release-tmp-*/
 
-# VS Code 扩展打包产物
+# VS Code 扩展打包产物（本地编译/打包会重新生成或触碰，勿提交）
+tools/vscode-extension/syntaxes/
+tools/vscode-extension/out/
+tools/vscode-extension/node_modules/
+tools/vscode-extension/package-lock.json
+/tools/*.vsix
 
 # rzc 运行时产物（语言包缓存、工具链等）
 .rz/
