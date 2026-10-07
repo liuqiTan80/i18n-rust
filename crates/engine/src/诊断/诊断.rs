@@ -449,6 +449,51 @@ mod 单元测试 {
         );
     }
 
+    /// 回归：缺分号解析错 `expected `;`, found X` 与建议 `add `;` here` 应全中文化（不残 found/add/here）
+    #[test]
+    fn 测试内置中文缺分号全译() {
+        let _守卫 = crate::语言::测试语言("zh");
+        let zh = crate::语言::内置文件("zh", "errors.toml").expect("内置中文错误表应存在");
+        let 管理器 = 错误翻译管理器::从字符串载入(zh).unwrap();
+        let 翻译器 = 诊断翻译器::新建翻译器(管理器, 创建测试类型映射());
+
+        let 诊断 = 编译器诊断 {
+            诊断消息: "expected `;`, found `println`".to_string(),
+            诊断码: None,
+            诊断级别: "error".to_string(),
+            跨度列表: vec![],
+            子诊断: vec![编译器诊断 {
+                诊断消息: "add `;` here".to_string(),
+                诊断码: None,
+                诊断级别: "help".to_string(),
+                跨度列表: vec![],
+                子诊断: vec![],
+                预渲染文本: None,
+            }],
+            预渲染文本: None,
+        };
+        let 教学 = 翻译器.翻译诊断(&诊断);
+
+        assert_eq!(教学.翻译消息, "缺少分号：期望 `;`，却发现 `println`");
+        assert!(
+            !教学.翻译消息.contains("expected"),
+            "消息不得残留英文：{}",
+            教学.翻译消息
+        );
+        assert!(
+            !教学.翻译消息.contains("found"),
+            "消息不得残留 found：{}",
+            教学.翻译消息
+        );
+        assert_eq!(
+            教学.教学提示,
+            vec![
+                "上一条语句末尾漏了分号 `;`，在此处补上即可（每条语句均以分号结尾）。",
+                "修复建议：在此处添加 `;`"
+            ]
+        );
+    }
+
     /// 带模块路径的类型名：最长后缀匹配（std::fmt::Display → std::fmt::显示）
     #[test]
     fn 测试替换类型段最长后缀() {
