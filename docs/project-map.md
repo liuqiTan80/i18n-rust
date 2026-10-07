@@ -68,8 +68,9 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | `make bench-check` | ci.yml `bench` job（本地阈值 30%） | 动引擎 / LSP 热路径后 |
 | `make site` | pages.yml 构建步骤 | 动 `book/` 或教程结构后 |
 
-流水线：**ci.yml** 七个 job（test / msrv / coverage / audit / bench / build / vsix）·
-**release.yml** 四个 job（check / vsix / publish 三平台产物 + 双平台 Release / crates crates.io 发布）·
+流水线：**ci.yml** 七个 job（test / msrv / coverage / audit / lsp-e2e / bench / build）·
+**release.yml** 三个 job（check / publish 三平台产物 + 双平台 Release / crates crates.io 发布）·
+（本分支中文专属，VS Code 扩展已移除，故无 vsix job；扩展相关流水线见 `main`。）·
 **pages.yml** 文档站构建与部署。
 
 **教程白名单**：`tools/expected-failures.json` 只登记结构性噪音（跨块依赖等无法单独编译的块）；
