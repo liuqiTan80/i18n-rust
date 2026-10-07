@@ -6,7 +6,7 @@
 
 # 教程
 
-- [第一章：用好 VS Code 扩展](<第一章：用好VS Code扩展.md>)
+- [第一章：把程序跑起来](第一章：把程序跑起来.md)
 - [第二章：你好世界](第二章：你好世界.md)
 - [第三章：变量与类型](第三章：变量与类型.md)
 - [第四章：复合类型](第四章：复合类型.md)
@@ -48,4 +48,3 @@
 - [缺失映射处理指南](参考/missing-mapping-guide.md)
 - [第三方映射说明](参考/third-party-mapping.md)
 - [第三方注册中心](参考/third-party-registry.md)
-- [翻译状态跟踪](参考/translation-status.md)

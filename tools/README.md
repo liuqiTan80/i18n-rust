@@ -24,7 +24,7 @@
 ```bash
 cargo build --bin rzc                                  # 先产出 target/debug/rzc
 python3 tools/verify-tutorials.py \
-  --dir tutorials/en --lang en \                       # 教程目录与语言包
+  --dir tutorials --lang zh \                       # 教程目录与语言包
   --rzc target/debug/rzc \                             # rzc 路径
   --allowlist tools/expected-failures.json             # 白名单
 # 可选：--json report.json 输出机器可读报告 · --parallel N 并行度（默认 10）· --serialize 附加章节串联验证

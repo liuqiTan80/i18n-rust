@@ -79,11 +79,11 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 
 | 文档 | 回答 |
 |---|---|
-| [README.md](../README.md) / [README.en.md](../README.en.md) | 这是什么、怎么装、怎么用（访客） |
+| [README.md](../README.md) | 这是什么、怎么装、怎么用（访客；本分支中文专属，多语言 README 见 main） |
 | [tutorials/](../tutorials/) 与[文档站](https://liuqiTan80.github.io/i18n-rust/) | 怎么学会（学习者） |
 | [docs/project-map.md](project-map.md) | 改哪儿、怎么验（维护者，本页） |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 开发环境与提交规范 |
-| 参考文档 7 篇：[contributing-lang-pack](contributing-lang-pack.md) / [missing-mapping-guide](missing-mapping-guide.md) / [third-party-mapping](third-party-mapping.md) / [third-party-registry](third-party-registry.md) / [dialect-framework-blueprint](dialect-framework-blueprint.md) / [translation-status](translation-status.md) / [zh-selfhost-guide](zh-selfhost-guide.md)（中文自举分支导读，仅 exp/zh-selfhost） | 专项流程 |
+| 参考文档 6 篇：[contributing-lang-pack](contributing-lang-pack.md) / [missing-mapping-guide](missing-mapping-guide.md) / [third-party-mapping](third-party-mapping.md) / [third-party-registry](third-party-registry.md) / [dialect-framework-blueprint](dialect-framework-blueprint.md) / [zh-selfhost-guide](zh-selfhost-guide.md)（中文自举分支导读，仅 exp/zh-selfhost） | 专项流程 |
 | [docs/dev/i18n-rust.md](dev/i18n-rust.md) | 早期设计愿景稿（部分已演进；架构现状见本页与代码） |
 | [docs/strategy/README.md](strategy/README.md) | 现状与路线图（维护者） |
 | [CHANGELOG.md](../CHANGELOG.md) | 逐版本变更流水 |
@@ -91,5 +91,5 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 ## 修改纪律
 
 1. **数据驱动**：语言差异只进语言包，不改引擎代码；新增语言 = 新增目录 + 门禁通过。
-2. **文档同步**：用户可见变更 → `CHANGELOG` 的 `[Unreleased]`；教程 / 语言包变更 → 对应门禁，必要时更新 `translation-status`。
+2. **文档同步**：用户可见变更 → `CHANGELOG` 的 `[Unreleased]`；教程 / 语言包变更 → 对应门禁。
 3. **先门禁后提交**：`make gate` 全绿再提交；一次提交只做一件事（见 CONTRIBUTING）。

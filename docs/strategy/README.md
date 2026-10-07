@@ -3,6 +3,10 @@
 > **一页纸现状**（2026-09-26 更新）：工程侧全部就绪，剩余的是"凭据与素材"类
 > 维护者动作（P0）与按需启动的 P1 增强。
 > 历史评估快照见 [archive/](archive/README.md)（只读）；执行流水以 [CHANGELOG](../../CHANGELOG.md) 为准。
+>
+> ⚠️ **分支适用范围**：本文件描述主线 `main`（多语言 + VS Code 扩展）的战略
+> 与发布运营现状。当前 `exp/zh-selfhost` 为**中文专属分支**：不含 VS Code 扩展与
+> 他语语言包，下文涉及 vsix / Marketplace / en·ja·ru 教程 / 多语言站点等条目仅适用于 `main`。
 
 ## 已就绪（工程侧，无需动作）
 
@@ -10,7 +14,7 @@
 |---|---|
 | 全球品牌与双平台 | GitHub / GitCode 同名 `i18n-rust`，双平台同步推送；语言包安装源自动回退 |
 | 发布链路 | **crates.io 三 crate 0.8.2 已发布（2026-09-21）**；`vsce package` 本机一次通过（0.8.2）；release.yml 三平台产物 + SHA256SUMS |
-| 教程资产 | zh 全量（26 章 + 术语表 + 5 附录，逐块编译门禁）；en 15/33；ja/ru 滚动中（[translation-status](../translation-status.md)） |
+| 教程资产 | zh 全量（26 章 + 术语表 + 5 附录，逐块编译门禁）；en 15/33；ja/ru 滚动中（多语言进度见 main 分支） |
 | 文档站 | `book/` 装配源 + `tools/build-site.py` 四语言组装 + [pages.yml](../../.github/workflows/pages.yml) 自动部署（[book/README.md](../../book/README.md)） |
 | 演示素材 | `docs/demo/` 三语言 vhs 脚本 + 演示样本（zh/ja/ru），差一次录屏 |
 | 质量门禁 | CI 七 job（test / msrv / coverage / audit / bench / build / vsix）+ 本地 `make gate`；四语言教程门禁 0 失败；维护者入口见 [项目地图](../project-map.md) |

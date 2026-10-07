@@ -345,7 +345,7 @@ def block_deps(fname, index):
     deps = ""
     if "第二十四章" in fname:
         deps += 'futures = "0.3"\n'
-    if index == 96:  # 25.11 彩蛋（需 rustc_lexer）
+    if "第二十五章" in fname:  # 25.11 综合实战彩蛋（需 rustc_lexer）
         deps += 'rustc_lexer = "0.1"\n'
     return deps
 

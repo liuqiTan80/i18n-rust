@@ -44,7 +44,6 @@ REFERENCE_DOCS = [
     "missing-mapping-guide.md",
     "third-party-mapping.md",
     "third-party-registry.md",
-    "translation-status.md",
 ]
 
 MDBOOK_HINT = "cargo install mdbook --locked --version 0.4.52"

@@ -706,7 +706,7 @@ pub fn 显示安装向导() {
     println!("  rzc doctor               查看工具链环境状态与语言包遮蔽");
     println!("  rzc --help               查看全部命令");
     println!();
-    println!("详细教程见《开篇：这本书怎么用》与《第一章：用好 VS Code 扩展》。");
+    println!("详细教程见《开篇：这本书怎么用》与《第一章：把程序跑起来》。");
 }
 
 #[cfg(test)]

@@ -12,7 +12,7 @@ mapping check 本体失败（error 级，如重复键 / 关键字避让 / 跨文
 
 背景：当前基线 2 条均为已明示的结构性差异（zh 独有表与 en 恒等包的同义词
 折叠致跨语言条目数不一致；en 无「消息翻译」节、回退英文原文）——
-见 docs/translation-status.md「第三方库映射（crates/ 覆盖差异）」。
+详见 tools/mapping-baseline.json 的 known 条目。
 
 用法：python3 tools/check-mapping-warnings.py [--rzc target/debug/rzc]
 """

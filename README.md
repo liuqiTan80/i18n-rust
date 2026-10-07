@@ -322,7 +322,6 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 - **新增语言包**：[docs/contributing-lang-pack.md](docs/contributing-lang-pack.md)（含 `rzc mapping scaffold` AI 翻译流程）
 - **第三方库映射**：[docs/third-party-mapping.md](docs/third-party-mapping.md)
 - **第三方库共享注册中心**：[docs/third-party-registry.md](docs/third-party-registry.md)（社区上传/下载自译映射）
-- **翻译教程**：以 `tutorials/` 为源，保持章节结构一致；进度面板见 [translation-status.md](docs/translation-status.md)
 - 提交前请确保 `make gate` 全绿（等价 CI 测试门禁）
 
 ---

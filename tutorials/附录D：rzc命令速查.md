@@ -1,6 +1,6 @@
 # 附录D：rzc 命令速查
 
-忘记命令时来这里查。详细讲解见第一章（VS Code 扩展）和第二章（rzc 基础）。
+忘记命令时来这里查。详细讲解见第一章（把程序跑起来）和第二章（rzc 基础）。
 
 ---
 
@@ -24,7 +24,7 @@
 | `rzc mapping coverage` | 用后端真实源码检验语言包覆盖度，列出缺失的母语映射（在 i18n-rust 仓库根运行） | `rzc mapping coverage --lang zh` |
 | `rzc mapping scaffold` | 为新语言生成映射脚手架 | |
 | `rzc add 库名` | 添加第三方依赖（封装 cargo add，带母语映射提示） | `rzc add rand` |
-| `rzc install lsp` | 安装语言服务器（VS Code 智能提示） | |
+| `rzc install lsp` | 安装语言服务器（编辑器智能提示） | |
 | `rzc install toolchain` | 一键安装内置官方工具链（独立版 rustc/cargo/rust-analyzer，脱离 rustup） | |
 | `rzc doctor` | 诊断工具链环境（内置 / PATH / 版本对比）与语言包遮蔽 | |
 | `rzc --version` | 查看版本 | |
@@ -53,36 +53,15 @@ cargo build --release            # 发布优化版（第十八章）
 
 ---
 
-## D.3 VS Code 扩展命令
-
-命令面板（`Ctrl+Shift+P`）输入 "i18n" 或 "rzc" 即可找到：
-
-| 命令 | 作用 | 快捷键 |
-|---|---|---|
-| 运行当前文件 (run) | 编译并运行 | `Ctrl+Shift+R` |
-| 检查当前文件 (check) | 只检查 | `Ctrl+Shift+C` |
-| 导出标准 Rust (eject) | 转成 .rs | |
-| 选择语言包 (selectLanguagePack) | 切换 10 种语言 | |
-| 重启语言服务器 (restartServer) | 语言服务器卡住时用 | |
-| AI 对话 (aiChat) | AI 辅助（需配置） | |
-| 校验映射 (mappingCheck) | 检查映射文件 | |
-| 生成映射脚手架 (mappingScaffold) | 新语言模板 | |
-| 安装语言包 (langInstall) | 装社区语言包 | |
-| 添加依赖 (cargoAdd) | 图形化加库 | |
-
-编辑器右键 `.zh` 文件也能看到运行/检查/导出菜单。扩展的 20 个代码片段清单见第二章 2.5 节。
-
----
-
-## D.4 故障急救三招
+## D.3 故障急救三招
 
 1. **报错看不懂** → 查附录 C《常见错误信息字典》；
 2. **怀疑是映射词撞车** → `rzc eject` 看转译后的英文代码；
-3. **语言服务器抽风** → 命令面板执行"重启语言服务器"，或关掉 VS Code 重开。
+3. **语言服务器抽风** → 重启编辑器让它重新拉起语言服务器（纯命令行学习直接 `rzc check` 就能拿到全部错误）。
 
 ---
 
-## D.5 构建自己的离线发布包
+## D.4 构建自己的离线发布包
 
 官方离线包只有 Windows / Linux / macOS 三平台（由发布者手动上传）；如果你需要**特定平台或特定修改**的版本，可在对应平台的机器上自行打包（如给教学机房打 Windows 包）：
 
@@ -98,6 +77,6 @@ cargo build --release            # 发布优化版（第十八章）
 4. **运行打包脚本**（自动识别平台，无需改参数）：
    - Linux / macOS：`./release-offline.sh`
    - Windows（PowerShell）：`.\release-offline.ps1`
-5. **产物**在 `release/` 目录（如 `rzc-<版本>-windows-x86_64.zip`），包含 rzc、语言服务器、rust-analyzer、11 个内置语言包（10 种自然语言 + `en` 恒等包）与教程，解压即用；上传到 Release 即可分发。
+5. **产物**在 `release/` 目录（如 `rzc-<版本>-windows-x86_64.zip`），包含 rzc、语言服务器、rust-analyzer、内置中文语言包与教程，解压即用；上传到 Release 即可分发。
 
 > 💡 脚本只负责当前平台，交叉编译（在 Linux 上出 Windows 包）需要额外目标工具链，不推荐；直接在目标平台运行脚本最简单可靠。
