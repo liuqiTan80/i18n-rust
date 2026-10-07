@@ -8,6 +8,15 @@
 - **Rust stable**：`rust-toolchain.toml` 已锁定 channel 与组件（clippy/rustfmt）；MSRV 为 1.88；
 - **Python 3**：教程与术语表校验脚本（`tools/`）。
 
+## 编码规范（本分支为中文专属）
+
+本分支 `exp/zh-selfhost` 用 `.zh` 作中文源真相、`.rs` 是 `rzc eject` 英文产物。**动手前（无论人或 AI）先读**：
+
+- 跨工具 AI 入口：根目录 `AGENTS.md`（Qoder 另读 `.qoder/rules/中文编码规范.md`，Claude Code 另读 `CLAUDE.md`，均指向同一真源）；
+- 详细判据与历史坑：`docs/zh-selfhost-guide.md`（§3「三层判据」）。
+
+要点：只改 `.zh` 不手改 `.rs`（改后 `make zh-regen`）；`.zh` 里标识符/注释一律中文，仅两类英文合法保留（结构必需 + 门禁契约）；勿用撞词表关键词的裸中文名。
+
 ## 提交前门禁
 
 一条命令等价于 CI 测试门禁（提交前建议必跑）：
