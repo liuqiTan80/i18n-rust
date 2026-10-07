@@ -3,16 +3,13 @@
 #
 # 触发条件：
 #   - 推送 v 开头 tag（如 v0.1.0）：
-#       构建 VS Code 扩展 .vsix 并创建 Release 上传；
-#       GitHub 镜像仓库额外发布扩展到 Marketplace/OpenVSX
-#       （需配置 VSCE_PAT / OVSX_PAT，缺失则警告跳过）；
+#       创建 Release 上传（发布说明 + 附件）；
 #       同时发布 crates.io（需配置 CARGO_REGISTRY_TOKEN 密钥）
 #   - 手动触发（workflow_dispatch）：
-#       仅构建并上传 Artifact，不创建 Release；
+#       仅运行质量门禁，不创建 Release；
 #       勾选"发布到 crates.io"可额外执行 crates.io 发布
 #
 # 产物：
-#   i18n-rust-<版本>.vsix             （VS Code 扩展离线安装包）
 #   SHA256SUMS                        （产物校验和，供下载者验证文件完整性）
 #   （rzc 离线发布包不在 CI 构建：由本地脚本 release-offline.sh/.ps1
 #     编译打包后手动上传到 Release）
@@ -45,7 +42,7 @@ on:
         default: false
 
 jobs:
-  # ---------- 0. 发布前置质量门禁：任一失败中止 package/vsix/crates ----------
+  # ---------- 0. 发布前置质量门禁：任一失败中止 publish/crates ----------
   check:
     name: 发布质量门禁
     runs-on: ubuntu-latest
@@ -72,7 +69,7 @@ jobs:
       - name: 第三方库映射质量门禁
         run: cargo run --quiet --bin rzc -- mapping check
 
-      - name: 版本一致性校验（三 crate == 扩展 == tag，CHANGELOG 有对应条目）
+      - name: 版本一致性校验（三 crate == tag）
         run: |
           set -e
           V="$(grep -m1 '^version = ' crates/engine/Cargo.toml | cut -d'"' -f2)"
@@ -80,65 +77,17 @@ jobs:
             CV="$(grep -m1 '^version = ' "$C/Cargo.toml" | cut -d'"' -f2)"
             [ "$CV" = "$V" ] || { echo "❌ $C 版本 $CV 与引擎 $V 不一致"; exit 1; }
           done
-          JSV="$(grep -m1 '"version"' tools/vscode-extension/package.json | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
-          [ "$JSV" = "$V" ] || { echo "❌ 扩展版本 $JSV 与 Rust 侧 $V 不一致"; exit 1; }
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             TAG="${GITHUB_REF_NAME#v}"
             [ "$TAG" = "$V" ] || { echo "❌ tag v$TAG 与版本 $V 不一致"; exit 1; }
           fi
-          grep -q "^## $V" tools/vscode-extension/CHANGELOG.md || { echo "❌ CHANGELOG 缺少 $V 条目"; exit 1; }
           echo "✅ 版本一致：$V"
-
-  # ---------- VS Code 扩展打包 ----------
-  vsix:
-    name: 构建 VS Code 扩展
-    needs: check
-    runs-on: ubuntu-latest
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: 安装 Node.js（使用锁定依赖缓存）
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: tools/vscode-extension/package-lock.json
-
-      - name: 安装依赖（锁定版本，保证可复现）
-        working-directory: tools/vscode-extension
-        run: npm ci
-
-      - name: 检查与测试（lint + 单测）
-        working-directory: tools/vscode-extension
-        run: |
-          npm run lint
-          npm test
-
-      - name: 编译 TypeScript
-        working-directory: tools/vscode-extension
-        run: npm run compile
-
-      - name: 打包 .vsix
-        working-directory: tools/vscode-extension
-        # release/ 目录已加入 .gitignore（不再被 git 跟踪），checkout 后不存在，需先创建；
-        # --no-install 使用 npm ci 安装的锁定版本 @vscode/vsce，避免浮动最新版打出的包不一致
-        run: |
-          mkdir -p ../../release/
-          npx --no-install @vscode/vsce package --out ../../release/ --baseContentUrl https://gitcode.com/tan80/i18n-rust/raw/main/tools/vscode-extension/ --baseImagesUrl https://gitcode.com/tan80/i18n-rust/raw/main/tools/vscode-extension/
-
-      - name: 上传扩展包产物（供发布步骤使用）
-        uses: actions/upload-artifact@v4
-        with:
-          name: VSIX扩展包
-          path: release/*.vsix
-          if-no-files-found: error
 
   # ---------- 发布：推送 tag 时创建 Release 并附带全部产物 ----------
   publish:
     name: 创建 Release 并上传产物
-    needs: [vsix]
-    # 仅 tag 触发时发布；手动触发只产出 Artifact。
+    needs: [check]
+    # 仅 tag 触发时创建 Release（手动触发不建 Release）。
     # rzc 离线发布包由发布者按本地脚本（release-offline.sh/.ps1）
     # 编译后手动上传到本 Release。
     if: startsWith(github.ref, 'refs/tags/')
@@ -178,7 +127,7 @@ jobs:
           generate_release_notes: true
 
       # GitCode 主仓库：GitCode 开放 API 创建 GitCode Release（与 README 下载引导一致）：
-      # 与 Gitee OpenAPI v5 兼容，创建 Release 后逐个上传附件（三平台离线包 + vsix）。
+      # 与 Gitee OpenAPI v5 兼容，创建 Release 后逐个上传附件（三平台离线包）。
       - name: GITCODE_TOKEN 未配置提示（仅警告不失败）
         if: github.repository != 'liuqiTan80/i18n-rust' && env.GITCODE_TOKEN == ''
         env:
@@ -201,14 +150,14 @@ jobs:
           RELEASE_ID="$(echo "$RESP" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)"
           if [ -z "$RELEASE_ID" ]; then
             RESP="$(curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
-              -d "{\"tag_name\":\"$TAG\",\"name\":\"rzc $VERSION\",\"body\":\"i18n-rust $VERSION 发布产物：三平台离线包与 VS Code 扩展\",\"prerelease\":false}" \
+              -d "{\"tag_name\":\"$TAG\",\"name\":\"rzc $VERSION\",\"body\":\"i18n-rust $VERSION 发布产物：三平台离线包\",\"prerelease\":false}" \
               "$API/releases?access_token=${GITCODE_TOKEN}")"
             RELEASE_ID="$(echo "$RESP" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)"
           fi
           [ -n "$RELEASE_ID" ] || { echo "创建 Release 失败：$RESP"; exit 1; }
           echo "Release ID: $RELEASE_ID"
 
-          # 2) 上传全部附件（当前为 vsix；rzc 离线包由发布者手动上传）
+          # 2) 上传全部附件（rzc 离线包由发布者手动上传）
           for f in artifacts/*; do
             [ -f "$f" ] || continue
             echo "上传附件：$f"
@@ -225,79 +174,6 @@ jobs:
               | head -c 2000; } || true
           echo
           echo "::notice::GitCode Release 已创建：https://gitcode.com/tan80/i18n-rust/releases （附件缺失时可手动补传或重跑本 job）"
-
-  # ---------- 发布 VS Code 扩展到 Marketplace / OpenVSX ----------
-  # 仅在 GitHub 镜像仓库执行（避免双平台重复发布同版本）；
-  # 两个商店的 PAT 都缺失时仅 warning 跳过，不阻塞 Release——
-  # 离线 .vsix 已随 Release 附件分发，用户可手动 Install from VSIX。
-  # 首次发布前须人工完成：
-  #   1. Marketplace 创建 publisher（ID 必须为 i18n-rust）：
-  #      https://marketplace.visualstudio.com/manage → 新建发布者；
-  #      在仓库 Settings → Secrets 添加 VSCE_PAT（Azure DevOps PAT，
-  #      勾选 Marketplace > Manage 权限）；
-  #   2. OpenVSX 注册并 claim i18n-rust 命名空间：
-  #      https://open-vsx.org → Settings/Access Tokens 生成令牌，
-  #      在仓库 Secrets 添加 OVSX_PAT。
-  publish-extension:
-    name: 发布扩展到 VS Code 商店
-    needs: [vsix]
-    if: >-
-      startsWith(github.ref, 'refs/tags/') &&
-      github.repository == 'liuqiTan80/i18n-rust'
-    runs-on: ubuntu-latest
-    env:
-      VSCE_PAT: ${{ secrets.VSCE_PAT }}
-      OVSX_PAT: ${{ secrets.OVSX_PAT }}
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: 下载 VSIX 产物
-        uses: actions/download-artifact@v4
-        with:
-          name: VSIX扩展包
-          path: artifacts
-
-      - name: 定位 VSIX 文件（绝对路径）
-        id: vsix
-        run: |
-          F="$(find artifacts -name '*.vsix' -type f | head -1)"
-          [ -n "$F" ] || { echo "❌ artifacts 中未找到 .vsix"; exit 1; }
-          echo "path=$F"
-          echo "abs=$(realpath "$F")" >> "$GITHUB_OUTPUT"
-
-      - name: 两个商店令牌均未配置（仅警告）
-        if: env.VSCE_PAT == '' && env.OVSX_PAT == ''
-        run: |
-          echo "::warning::未配置 VSCE_PAT / OVSX_PAT，跳过商店发布。"
-          echo "::warning::离线 vsix 仍随 Release 分发；商店上架步骤见 docs/strategy/发布准备清单.md"
-
-      # VS Code Marketplace（官方扩展市场，VS Code/Cursor/Windsurf 默认源）
-      - name: VSCE_PAT 未配置提示
-        if: env.VSCE_PAT == '' && env.OVSX_PAT != ''
-        run: echo "::warning::未配置 VSCE_PAT，跳过 Marketplace 发布（OpenVSX 不受影响）"
-
-      - name: 发布到 VS Code Marketplace
-        if: env.VSCE_PAT != ''
-        uses: HaaLeo/publish-vscode-extension@v1
-        with:
-          pat: ${{ env.VSCE_PAT }}
-          extensionFile: ${{ steps.vsix.outputs.abs }}
-
-      # OpenVSX（VSCodium/Code OSS/Arch 系发行版的默认扩展源，MIT 扩展友好）
-      - name: 安装 Node.js（ovsx CLI）
-        if: env.OVSX_PAT != ''
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: OVSX_PAT 未配置提示
-        if: env.OVSX_PAT == '' && env.VSCE_PAT != ''
-        run: echo "::warning::未配置 OVSX_PAT，跳过 OpenVSX 发布（Marketplace 不受影响）"
-
-      - name: 发布到 OpenVSX
-        if: env.OVSX_PAT != ''
-        run: npx --yes ovsx publish "${{ steps.vsix.outputs.abs }}" -p "$OVSX_PAT"
 
   # ---------- 发布 crates.io（需配置 CARGO_REGISTRY_TOKEN 密钥） ----------
   # 注意：if 条件中不可引用 secrets 上下文（GitHub Actions 限制），

@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 # =============================================================
-# rzc 文档站构建脚本（mdBook 多语言装配）
+# rzc 文档站构建脚本（mdBook 中文书装配）
 #
-# 把仓库中的教程与参考文档组装成多语言静态站点：
+# 把仓库中的教程与参考文档组装成静态站点（本分支为中文专属，仅一本中文书）：
 #   tutorials/*.md         → 中文书（另含 docs/ 参考文档，仓库相对链接改写）
-#   tutorials/<lang>/*.md  → 对应语言书（en/ja/ru；README.md 为仓库导航，不入站）
 #
-# 站点装配源（book/<lang>/ 下的 book.toml / SUMMARY.md / index.md 与
+# 站点装配源（book/zh/ 下的 book.toml / SUMMARY.md / index.md 与
 # book/lang-switch.js）随仓库提交；本脚本只做组装与构建，不改动教程源文件。
 #
 # 产物（默认）：
-#   _site/<lang>/     每种语言一本书（mdbook 输出）
+#   _site/zh/         中文书（mdbook 输出）
 #   _site/index.html  站根落地页（语言卡片）
 #   _site/404.html    站根 404（跳回落地页）
 #   _site/.nojekyll   GitHub Pages 标记
@@ -33,12 +32,9 @@ BLOB = REPO_URL + "/blob/main"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # 语言注册表：code → (显示名, book/ 下书目录名, 教程源目录)
-# 新增语言时同步更新 book/lang-switch.js 的 LANGS 与 book/README.md 的步骤
+# 本分支为中文专属，仅保留 zh 一项
 LANGS = {
     "zh": ("中文", "zh", "tutorials"),
-    "en": ("English", "en", "tutorials/en"),
-    "ja": ("日本語", "ja", "tutorials/ja"),
-    "ru": ("Русский", "ru", "tutorials/ru"),
 }
 
 # 中文书附加的参考文档（docs/ 下文件名；复制到站内 参考/ 子目录）

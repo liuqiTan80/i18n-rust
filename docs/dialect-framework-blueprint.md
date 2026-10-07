@@ -6,8 +6,7 @@
 > 按移植清单完成宿主语言适配、避开本项目踩过的全部坑。
 >
 > 参考实现仓库结构：`crates/engine`（语言无关引擎）、`crates/cli`（rzc 命令行）、
-> `crates/lsp`（LSP 代理）、`tools/vscode-extension`（IDE 扩展）、
-> `crates/engine/lang-packs/`（10 个自然语言包）。
+> `crates/lsp`（LSP 代理）、`crates/engine/lang-packs/`（内置中文语言包）。
 
 ---
 

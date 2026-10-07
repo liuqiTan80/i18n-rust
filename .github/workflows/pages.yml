@@ -7,7 +7,7 @@
 #
 # 任务：
 #   1. 安装与本地同款的 mdBook（cargo install --locked 固定版本，带缓存）
-#   2. tools/build-site.py 组装并构建多语言站点（_site/）
+#   2. tools/build-site.py 组装并构建中文站点（_site/）
 #   3. 上传产物并部署到 GitHub Pages
 #
 # 前置（一次性）：仓库 Settings → Pages → Source 选择 "GitHub Actions"。
@@ -63,7 +63,7 @@ jobs:
         if: steps.cache-mdbook.outputs.cache-hit != 'true'
         run: cargo install mdbook --locked --version "$MDBOOK_VERSION"
 
-      - name: 组装并构建多语言站点
+      - name: 组装并构建中文站点
         run: python3 tools/build-site.py
 
       - name: 配置 Pages

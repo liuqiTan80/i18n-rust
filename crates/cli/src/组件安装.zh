@@ -1,7 +1,7 @@
 //! 配套组件安装模块
 //!
 //! `rzc install` 安装 rzc 所需的配套组件。当前组件为语言服务器
-//! i18n-rust-lsp（VS Code 扩展的补全/诊断后端），与 rzc 属于不同
+//! i18n-rust-lsp（编辑器的补全/诊断后端），与 rzc 属于不同
 //! crate，cargo install rzc 不会自动带上，需单独安装。
 //!
 //! 安装来源优先级：
@@ -642,7 +642,7 @@
     }
     println!();
 
-    // 2. 语言服务器（VS Code 补全/诊断后端）
+    // 2. 语言服务器（编辑器补全/诊断后端）
     println!("【第 2 步】语言服务器 i18n-rust-lsp（rzc install lsp 一键安装）");
     如果 让 有值(程序路径) = 查找工具链程序("i18n-rust-lsp") {
         println!("  [✓ 已就绪] {}", 程序路径.display());
@@ -657,17 +657,10 @@
     }
     println!();
 
-    // 3. VS Code 扩展
-    println!("【第 3 步】VS Code 扩展（.vsix 手动安装，未发布到扩展商城）");
-    println!("  [? 手动] 从 GitHub Releases 下载 i18n-rust-<版本>.vsix");
-    println!("           → VS Code 命令面板（Ctrl+Shift+P）→ Install from VSIX 选择该文件");
-    println!();
-
-    // 4. 环境变量（可选）
-    println!("【第 4 步】环境变量（可选，一般无需配置）");
+    // 3. 环境变量（可选）
+    println!("【第 3 步】环境变量（可选，一般无需配置）");
     println!("  RZ_LANG_DIR        指定语言包目录（默认内置）");
     println!("  RUST_ANALYZER_PATH 指定 rust-analyzer 路径（自动检测失败时）");
-    println!("  VS Code 设置 i18n-rust.serverPath 可指定语言服务器路径");
     println!();
 
     // 常用命令

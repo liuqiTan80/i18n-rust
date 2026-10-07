@@ -21,10 +21,9 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | 交付物 | 位置 | 面向 |
 |---|---|---|
 | `rzc` 命令行 | `crates/cli` | 所有用户 |
-| `i18n-rust-lsp` 语言服务器 | `crates/lsp` | VS Code 扩展后端 |
-| 语言无关引擎 + 11 语言包 | `crates/engine` | 被 CLI / LSP 复用 |
-| VS Code / Qoder 扩展 | `tools/vscode-extension` | IDE 用户 |
-| 教程（4 语言）与文档站 | `tutorials/` + `book/` | 学习者 |
+| `i18n-rust-lsp` 语言服务器 | `crates/lsp` | 支持 LSP 的编辑器 |
+| 语言无关引擎 + 内置中文语言包 | `crates/engine` | 被 CLI / LSP 复用 |
+| 中文教程与文档站 | `tutorials/` + `book/` | 学习者 |
 
 ## 目录速查
 
@@ -34,9 +33,8 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | `crates/engine/lang-packs/<lang>/` | 语言包（数据非代码）：`keywords/stdlib/module_paths/errors/ui/lang_info.toml` + `crates/`（第三方映射） | 补词条、改文案 |
 | `crates/cli` | rzc：`main.rs` 命令层、`诊断处理.rs` 诊断翻译、`映射校验.rs`/`映射生成器` 子命令 | 命令与行为 |
 | `crates/lsp` | 代理 rust-analyzer：`响应映射/` 反向翻译、`本地化.rs` 界面消息本地化 | IDE 侧翻译 |
-| `tools/vscode-extension` | 扩展（TypeScript） | 高亮 / 补全 / 诊断 UI |
 | `tools/` | 验证与构建脚本（索引见 [tools/README.md](../tools/README.md)） | 门禁逻辑 |
-| `tutorials/` | 中文教程母本；`tutorials/<lang>/` 译本 | 章节内容 |
+| `tutorials/` | 中文教程与附录 | 章节内容 |
 | `book/` | 文档站装配源（mdBook，见 [book/README.md](../book/README.md)） | SUMMARY 与站点结构 |
 | `docs/` | 参考文档 7 篇 + `dev/` + 本页 + `strategy/`（运营）+ `demo/`（演示素材） | 各类文档 |
 | `third-party/` | 第三方映射注册中心数据与协议示例 | 注册中心协议 |
@@ -46,13 +44,13 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 
 | 我想… | 改哪里 | 验证 |
 |---|---|---|
-| 改教程章节 | `tutorials/`（zh 母本）；译本 `tutorials/<lang>/` | `make tutorials`（zh）· `make tutorials-all`（en/ja/ru） |
+| 改教程章节 | `tutorials/`（中文母本） | `make tutorials` |
 | 补语言包词条 | `lang-packs/<lang>/{keywords,stdlib,module_paths}.toml` | `make mapping-check` + 相关单测 |
 | 补错误翻译 | `lang-packs/<lang>/errors.toml` | 带错误码的实机复现 + `make test` |
 | 改界面 / 教学文案 | CLI 侧 `lang-packs/<lang>/ui.toml`；LSP 侧 `crates/lsp/src/本地化.rs`（读同一 `ui.toml`） | `make test` + 实机复现 |
 | 改转译管线 | `crates/engine/src/` | `make gate`；热路径配套 `make bench-check` |
 | 加 / 改 rzc 命令 | `crates/cli/src/main.rs`（诊断区 `诊断处理.rs`） | `make test` + 手动跑通 |
-| 改 IDE 体验 | `crates/lsp/` + `tools/vscode-extension/` | 扩展 `npm test`；LSP `make test` |
+| 改 IDE 体验 | `crates/lsp/` | LSP `make test` |
 | 调文档站 | `book/` + `tools/build-site.py` | `make site` · `make site-serve` |
 | 发教程到飞书（国内阅读入口） | `tools/publish-feishu.py` | `make feishu`（平台侧配置见[发布准备清单](strategy/发布准备清单.md)第 5 节） |
 | 改 CI / 发布 | `.github/workflows/{ci,release,pages}.yml` | 本地等价：`make gate` |

@@ -88,7 +88,6 @@ rzc init 我的项目 && cd 我的项目 && rzc run src/main.zh
 | **Rust 工具链**（rustc + cargo） | 编译 rzc 本体 | ✅ 必需 |
 | **git** | 获取源码 | ✅ 必需（也可下载源码 zip） |
 | **网络** | 首次编译时下载依赖 | ✅ 必需（首次） |
-| **Node.js 18+ 与 npm** | 编译 VS Code 扩展 | 可选（仅 IDE 需要） |
 | **rust-analyzer** | IDE 补全/诊断后端 | 可选（仅 IDE 需要） |
 
 ### 第一步：安装编译工具（Rust 工具链）
@@ -132,7 +131,7 @@ cargo build --release --workspace
 首次编译需下载依赖并编译全部组件（rzc + 语言服务器），约 1-3 分钟。产物：
 
 - `target/release/rzc` —— 命令行工具
-- `target/release/i18n-rust-lsp` —— 语言服务器（VS Code 扩展后端）
+- `target/release/i18n-rust-lsp` —— 语言服务器（编辑器补全/诊断后端）
 
 验证：
 
@@ -150,7 +149,7 @@ cargo install --path crates/cli    # 本地编译并安装到 ~/.cargo/bin
 
 ### 第五步（可选）：安装 rust-analyzer（IDE 智能提示需要）
 
-VS Code 的补全/诊断/悬停由 rust-analyzer 提供，联网执行一次：
+编辑器的补全/诊断/悬停由 rust-analyzer 提供，联网执行一次：
 
 ```bash
 rzc install toolchain --ra-only --force
@@ -158,22 +157,10 @@ rzc install toolchain --ra-only --force
 
 官方 standalone rust-analyzer 安装到 `~/.rz/toolchain`，rzc 与 LSP 自动优先使用。
 
-### 第六步（可选）：编译 VS Code 扩展
-
-先决条件：Node.js 18+ 与 npm（[nodejs.org](https://nodejs.org) 下载安装）。
-
-```bash
-cd tools/vscode-extension
-npm ci
-npm run package    # 生成 i18n-rust-<版本>.vsix
-```
-
-在 VS Code 中「Install from VSIX…」安装生成的 `.vsix`，即获得语法高亮、补全、诊断、悬停、所有权可视化等全部功能；语言服务器由 `rzc install lsp` 提供（自动定位内置工具链）。
-
 ### 完整功能配置（一条命令各就位）
 
 ```bash
-rzc install lsp          # 语言服务器（VS Code 补全/诊断/悬停后端）
+rzc install lsp          # 语言服务器（编辑器补全/诊断/悬停后端）
 rzc install toolchain    # 内置官方工具链（standalone rustc/cargo/rust-analyzer 到 ~/.rz/toolchain）
 rzc doctor               # 查看工具链环境状态（内置 / PATH / 版本对比）
 ```
@@ -200,8 +187,6 @@ rzc doctor               # 查看工具链环境状态（内置 / PATH / 版本�
 | `RZ_LANG_DIR` | 指定语言包目录（默认使用内置语言包） |
 | `RUST_ANALYZER_PATH` | 指定 rust-analyzer 路径（自动检测失败时） |
 
-VS Code 设置 `i18n-rust.serverPath` 可显式指定 LSP 二进制路径（自动检测失败时使用）。
-
 ### 升级工具链中的某个软件
 
 | 场景 | 命令 |
@@ -209,18 +194,6 @@ VS Code 设置 `i18n-rust.serverPath` 可显式指定 LSP 二进制路径（自�
 | 升级 rustc/cargo（如 1.98 → 1.99） | `rzc install toolchain --version 1.99.0 --force` |
 | 仅升级 rust-analyzer（免重下 300MB） | `rzc install toolchain --ra-tag <日期tag> --ra-only --force` |
 | 查看当前版本与状态 | `rzc doctor` |
-
-### 更换编辑器（如改用 VSCodium / Cursor 等 VS Code 系）
-
-i18n-rust 扩展（.vsix）兼容所有 VS Code 系编辑器；rzc、语言服务器与工具链均与编辑器无关：
-
-1. 新编辑器 → 扩展 → 「Install from VSIX」→ 选 `i18n-rust-<版本>.vsix`；
-2. 把组件接入系统标准位置（用编译出的 rzc 执行）：
-   ```bash
-   rzc install lsp        # 语言服务器 → ~/.cargo/bin
-   rzc install toolchain  # 内置工具链 → ~/.rz/toolchain（联网安装；或从发布者分发的离线包复制）
-   ```
-3. 打开 `.zh` 文件即用（扩展自动定位语言服务器与工具链；也可用环境变量 RUST_ANALYZER_PATH 或设置 i18n-rust.serverPath 显式指定）。
 
 ## 🚀快速开始
 
@@ -281,8 +254,8 @@ rzc run src/main.zh      # 翻译 → 编译 → 运行
 - **💡 教学提示**：每条错误附带下一步建议；所有权错误附带 📌 移动/借用叙事
 - **依赖引导**：识别未声明的第三方库，提示 `rzc add <crate>`
 
-### 完整 IDE 体验（VS Code / Qoder 扩展）
-语法高亮、智能补全、悬停文档、定义跳转、引用查找、重命名、代码格式化、一键运行/检查、全角标点自动转半角、AI 辅助翻译。
+### 编辑器集成（语言服务器）
+`i18n-rust-lsp` 代理官方 rust-analyzer，向任意支持 LSP 的编辑器提供母语诊断与位置双向翻译。打包的 VS Code / Qoder 扩展（语法高亮、一键运行、全角转半角、AI 辅助翻译等）本分支已移除，如需完整 IDE 体验请切回 `main` 分支。
 
 ### 第三方库母语化
 `rzc mapping auto` 从已安装 crate 提取公开 API，AI 生成母语名；生产映射用 `--target-version` 锁定生成基准版本（写入文件头）；社区共建映射经 `rzc mapping check` 质量门禁。
@@ -309,7 +282,7 @@ rzc run src/main.zh      # 翻译 → 编译 → 运行
 
 > 教程质量由 CI 自动门禁守护（[tools/verify-tutorials.py](tools/verify-tutorials.py)）：
 > 每个代码块须可编译，错误示例须报出标注的预期错误码（`// 预期错误: EXXXX`），
-> 修改教程后本地验证：`make tutorials`（中文）或 `make tutorials-all`（英日俄）。
+> 修改教程后本地验证：`make tutorials`。
 
 > 常见问题与学习路线见[附录E](tutorials/附录E：常见问题、迁移指南与学习路线.md)；欢迎共同翻译**教程**与**映射表**到其他语言，见下文“参与贡献”。
 
@@ -333,9 +306,8 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 | `crates/cli`               | `rzc` 命令行工具 |
 | `crates/lsp`               | `i18n-rust-lsp`：代理官方语言服务器（rust-analyzer），双向翻译位置与诊断 |
 | `crates/engine/lang-packs` | 内置中文语言包（关键字/标准库/模块路径/错误翻译/界面文案） |
-| `tools/vscode-extension`   | VS Code / Qoder 扩展 |
 | `tools`                    | 门禁与构建脚本：教程验证、基准回归、文档站装配等（见 [tools/README.md](tools/README.md)） |
-| `tutorials`                | 26 章中文教程与附录（en/ja/ru 译本进行中） |
+| `tutorials`                | 26 章中文教程与附录 |
 | `book`                     | 文档站装配源（mdBook，见 [book/README.md](book/README.md)） |
 | `docs`                     | 参考文档、开发文档与[项目地图](docs/project-map.md)；运营与路线图见 [docs/strategy/](docs/strategy/README.md) |
 

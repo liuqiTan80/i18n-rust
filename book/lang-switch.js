@@ -1,7 +1,7 @@
 // =============================================================
 // rzc 文档站 · 顶栏语言切换
 //
-// mdBook 原生不支持多语言站点，本脚本在每种语言书的页面右上角注入切换菜单。
+// mdBook 原生不支持多语言站点。本分支为中文专属，顶栏仅展示“中文”一项。
 // 站点内各语言位于站根的同级子目录（/<lang>/，由 tools/build-site.py 生成），
 // 从当前路径中定位语言段并替换即可完成切换。
 //
@@ -11,15 +11,12 @@
   "use strict";
 
   var LANGS = [
-    { code: "zh", label: "中文" },
-    { code: "en", label: "English" },
-    { code: "ja", label: "日本語" },
-    { code: "ru", label: "Русский" }
+    { code: "zh", label: "中文" }
   ];
 
   // 从 URL 路径定位语言段（如 /i18n-rust/zh/chapter.html → zh）。
   // 落地页（站根）不注入：落地页自身已提供语言卡片。
-  var m = window.location.pathname.match(/\/(zh|en|ja|ru)\//);
+  var m = window.location.pathname.match(/\/(zh)\//);
   if (!m) return;
   var current = m[1];
   // 站根前缀（含尾斜杠）：/i18n-rust/zh/... → /i18n-rust/

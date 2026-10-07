@@ -6,8 +6,7 @@
 ## 开发环境
 
 - **Rust stable**：`rust-toolchain.toml` 已锁定 channel 与组件（clippy/rustfmt）；MSRV 为 1.88；
-- **Python 3**：教程与术语表校验脚本（`tools/`）；
-- **Node.js 18+**：仅 VS Code 扩展开发与打包需要（`tools/vscode-extension/`）。
+- **Python 3**：教程与术语表校验脚本（`tools/`）。
 
 ## 提交前门禁
 
@@ -27,8 +26,6 @@ make gate
 make bench-check     # 对比入库基线（本地阈值 30%）
 make bench-update    # 有意改变性能特征时刷新基线，并随提交
 ```
-
-VS Code 扩展改动：`cd tools/vscode-extension && npm ci && npm run lint && npm test`。
 
 ## 提交规范
 
@@ -52,7 +49,7 @@ ci(bench): 基准回归失败附加工作流注解
 | 方向 | 入口文档 |
 |---|---|
 | 新增 / 完善语言包（第 11 种语言等） | [docs/contributing-lang-pack.md](docs/contributing-lang-pack.md) |
-| 教程翻译与扩章 | [docs/translation-status.md](docs/translation-status.md) · [tutorials/en/README.md](tutorials/en/README.md) |
+| 教程翻译与扩章 | [docs/translation-status.md](docs/translation-status.md) |
 | 第三方库映射补充 | [docs/missing-mapping-guide.md](docs/missing-mapping-guide.md) · [docs/third-party-mapping.md](docs/third-party-mapping.md) |
 | 引擎 / CLI / LSP / 扩展代码 | [docs/project-map.md](docs/project-map.md)（改哪儿、怎么验）· [docs/dev/i18n-rust.md](docs/dev/i18n-rust.md)（早期设计愿景） |
 

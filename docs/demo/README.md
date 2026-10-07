@@ -7,18 +7,18 @@
 
 | 幕 | 命令 | 展示点 | 停留 |
 |---|---|---|---|
-| ① | `cat src/main.<lang>` | 母语关键字源码（4 行） | 2s |
-| ② | `rzc check src/main.<lang>` | 母语教学报错：错误码 + 💡 提示 | 3.5s |
-| ③ | `rzc eject src/main.<lang> && cat src/main.rs` | 导出标准 Rust，零锁定 | 3s |
+| ① | `cat src/main.zh` | 中文关键字源码（4 行） | 2s |
+| ② | `rzc check src/main.zh` | 中文教学报错：错误码 + 💡 提示 | 3.5s |
+| ③ | `rzc eject src/main.zh && cat src/main.rs` | 导出标准 Rust，零锁定 | 3s |
 
 ## 文件清单
 
 | 文件 | 说明 |
 |---|---|
-| `demo-zh.tape` / `demo-ja.tape` / `demo-ru.tape` | 三语言 [vhs](https://github.com/charmbracelet/vhs) 录屏脚本 |
-| `samples/main.zh` / `main.ja` / `main.ru` | 演示源码（故意触发 E0384 教学报错） |
+| `demo-zh.tape` | 中文 [vhs](https://github.com/charmbracelet/vhs) 录屏脚本 |
+| `samples/main.zh` | 演示源码（故意触发 E0384 教学报错） |
 
-样本已实机验证：三语言 `rzc check` 均命中 `E0384` 教学报错，`rzc eject` 均成功导出。
+样本已实机验证：`rzc check` 命中 `E0384` 教学报错，`rzc eject` 成功导出。
 
 ## 方案 A：vhs 自动录屏（推荐）
 
@@ -65,16 +65,12 @@ vhs <仓库>/docs/demo/demo-zh.tape
 输出的 `demo-zh.gif` 位于当前目录（`Output` 为相对路径，可改 tape 中路径）。
 渲染前建议先手动跑一次 `rzc check` 确认环境就绪，再清缓存正式录。
 
-日语 / 俄语同理：`rzc init rzc-demo-ja --lang ja`、复制对应 sample、运行对应 tape。
-
 ### 4. 收纳产物
 
 把 GIF 放回本目录，供 README 引用：
 
 ```
 docs/demo/demo-zh.gif
-docs/demo/demo-ja.gif
-docs/demo/demo-ru.gif
 ```
 
 ## 方案 B：手动录屏（无 vhs 时）
@@ -99,19 +95,16 @@ ffmpeg -i demo.mp4 -vf "fps=12,scale=1080:-1:flags=lanczos,split[s0][s1];[s0]pal
 ## 挂载到 README（已完成）
 
 `docs/demo/demo-zh.gif` 已渲染入库（1080×620、约 12.8 秒、262 KB），并作为首屏
-展示挂在 11 份 README 主标题之前（镜像说明之后），alt 文本按各语言本地化：
+展示挂在 README 主标题之前（镜像说明之后）：
 
 ```markdown
 ![rzc 演示：母语源码 → 母语教学报错 → 一键 eject 标准 Rust](docs/demo/demo-zh.gif)
 ```
 
-各语言版复用同一份中文 GIF（命令与三段式结构自明）；如需按同法录日语 / 俄语镜头，
-产出 `demo-ja.gif` / `demo-ru.gif` 后替换对应语言 README 的引用路径即可。
-
 ## 常见问题
 
 - **中日文显示为方块**：vhs 默认主题字体不含 CJK，在 tape 中显式 `Set FontFamily "Noto Sans Mono CJK SC"`
-  （`demo-zh.tape` 已内置；俄语用 `Noto Sans Mono`），并确保系统已装该字体；
+  （`demo-zh.tape` 已内置），并确保系统已装该字体；
 - **报错行前的 `[时间戳] [警告] [lint]` 噪声**：来自教学 lint 日志（每次转译都会重放，
   包括 `eject`），属预期画面；若想只保留 E0384 教学报错，需先让样本不触发 lint
   （如给 `让` 补上类型标注、把 `10` 提为常量），但会同时丢掉「未标注类型」这类教学提示展示。

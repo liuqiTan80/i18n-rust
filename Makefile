@@ -5,13 +5,13 @@
 #   make gate        —— 等价于 CI test job 全链（提交前跑这一个即可）
 #   make bench-check —— 等价于 CI bench job（本地阈值 30%）
 # 依赖：rustup 工具链（stable + clippy/rustfmt，见 rust-toolchain.toml）、
-#       python3（教程与术语表校验）；npm 仅 vsix 目标需要。
+#       python3（教程与术语表校验）。
 # =============================================================
 
 CARGO ?= cargo
 PYTHON ?= python3
 
-.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs mapping-check tutorials tutorials-all site site-serve feishu glossary bench bench-check bench-update vsix clean zh-verify zh-demo-check zh-help-check
+.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs mapping-check tutorials tutorials-all site site-serve feishu glossary bench bench-check bench-update clean zh-verify zh-demo-check zh-help-check
 
 help: ## 显示全部可用目标
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -53,7 +53,7 @@ tutorials-all: ## 中文教程代码块编译验证（本分支专属中文）
 	$(CARGO) build --quiet --bin rzc
 	$(PYTHON) tools/verify-tutorials.py --allowlist tools/expected-failures.json
 
-site: ## 构建文档站到 _site/（多语言 mdBook；需 mdbook，安装见 book/README.md）
+site: ## 构建文档站到 _site/（中文书 mdBook；需 mdbook，安装见 book/README.md）
 	$(PYTHON) tools/build-site.py
 
 site-serve: ## 本地预览文档站（mdbook serve，默认中文书，:3000）
@@ -89,10 +89,6 @@ zh-help-check: ## CLI --help 全树本地化门禁（先自检检测器非永绿
 	./tools/zh-selfhost/help-check.sh --self-test
 	$(CARGO) build --quiet --bin rzc
 	./tools/zh-selfhost/help-check.sh --rzc target/debug/rzc
-
-vsix: ## 本地打包 VS Code 扩展（产物 release/*.vsix）
-	cd tools/vscode-extension && npm ci && npm run compile && \
-		npx --no-install @vscode/vsce package --out ../../release/
 
 clean: ## 清理构建产物（cargo clean，可再生成）
 	$(CARGO) clean
