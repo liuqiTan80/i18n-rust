@@ -194,6 +194,18 @@
         工作目录.path().join("demo/src/main.zh").is_file(),
         "应生成 src/main.zh 入口样板"
     );
+    断言!(
+        工作目录.path().join("demo/AGENTS.md").is_file(),
+        "应生成 AGENTS.md（随项目分发的 AI 中文方言编码规则）"
+    );
+    // 内容非空且含指引正文：若漏加 agents_md_template 这个 ui 键，取文 会回退成键名字面量
+    让 代理规则 = std::fs::read_to_string(工作目录.path().join("demo/AGENTS.md"))
+        .expect("读取 AGENTS.md 失败");
+    断言!(
+        代理规则.contains("中文") && 代理规则.contains("rzc run"),
+        "AGENTS.md 应含方言编码指引正文，实得开头：{}",
+        代理规则
+    );
 }
 
 /// `rzc run`：无依赖教学项目走 rustc 直调路径，程序 stdout 原样透传

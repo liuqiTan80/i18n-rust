@@ -176,6 +176,36 @@
 # ---- 项目模板 ----
 "template_main" = "函数 主函数() {\n    打印行!(\"你好，世界！\");\n}\n"
 "readme_template" = "# {}\n\n使用 `rzc run src/main.{}` 运行。\n"
+"agents_md_template" = '''# AI 编码指令（本项目使用 rzc 中文 Rust 方言）
+
+本项目用 rzc 以**中文方言**编写 Rust：源码为 `.zh`，rzc 会先转译成标准 Rust，
+再交给 rustc 编译。AI 协助时请遵循以下约定。
+
+## 源码与文件
+- 源码扩展名是 `.zh`，入口位于 `src/main.zh`（扩展名即语言代码）。
+- `Cargo.toml`、工具链、依赖都是标准 Rust，照常规写即可。
+
+## 用中文书写
+- 关键字用中文：`函数`(fn)、`让`(let)、`可变`(mut)、`如果`(if)、`否则`(else)、
+  `循环`(loop)、`对于`(for)、`而`(while)、`匹配`(match)、`返回`(return)、
+  `公开`(pub)、`使用`(use)、`模块`(mod)、`结构体`(struct)、`枚举`(enum)、
+  `特征`(trait)、`实现`(impl)、`真`(true)、`假`(false) 等。
+- 标识符（函数名、变量名、类型名）也用中文，如 `函数 计算总额()`、`让 用户列表 = ...`。
+
+## 保留英文
+- 标准库路径仍写英文：`use std::...`、`std::println!`；
+- 第三方 crate 名保持原名；serde/LSP 等协议字段名不改。
+- 需要「英文 ↔ 中文」对应，运行 `rzc cheat zh` 查映射速查表。
+
+## 常用命令
+- `rzc run src/main.zh`：转译 → 编译 → 运行
+- `rzc check src/main.zh`：只做类型检查，输出中文教学诊断（更快）
+- `rzc transpile src/main.zh`：只打印转译出的标准 Rust，不编译
+- `rzc eject src/main.zh`：导出为标准英文 Rust（学习 / 对照）
+
+## 心法
+语法与 Rust 完全一致，只是换成中文书写；写错会收到中文诊断与 💡 教学提示。
+'''
 
 # ---- 映射生成 ----
 "mapping_crate_empty" = "crate 名不能为空"

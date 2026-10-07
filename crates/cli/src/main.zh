@@ -1710,6 +1710,11 @@
         项目路径.join("README.md"),
         界面.取文带参("readme_template", &[项目名, 语言]),
     )?;
+    // 随项目分发 AI 编码规则：让用户的编码代理从一开始就知道用中文方言写、并掌握常用命令
+    fs::write(
+        项目路径.join("AGENTS.md"),
+        界面.取文("agents_md_template"),
+    )?;
     println!("{}", 界面.取文带参("project_created", &[项目名]));
     println!("{}", 界面.取文带参("project_created_hint", &[语言]));
     println!("{}", 界面.取文带参("project_run_hint", &[语言]));
