@@ -11,7 +11,7 @@
 CARGO ?= cargo
 PYTHON ?= python3
 
-.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs mapping-check tutorials tutorials-all site site-serve feishu glossary bench bench-check bench-update clean zh-verify zh-demo-check zh-help-check
+.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs mapping-check tutorials tutorials-all site site-serve feishu glossary bench bench-check bench-update clean zh-verify zh-demo-check zh-help-check zh-doc-check
 
 help: ## 显示全部可用目标
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -30,7 +30,7 @@ test: ## 全部单元测试（debug + release，锁定依赖；CI 同款）
 	$(CARGO) test --workspace --locked
 	$(CARGO) test --workspace --release --locked
 
-gate: fmt-check clippy test prod-panics ui-keys lang-packs mapping-check tutorials-all glossary zh-verify zh-demo-check zh-help-check ## 提交前完整门禁（= CI test job 全链）
+gate: fmt-check clippy test prod-panics ui-keys lang-packs mapping-check tutorials-all glossary zh-verify zh-demo-check zh-help-check zh-doc-check ## 提交前完整门禁（= CI test job 全链）
 
 prod-panics: ## 生产代码 panic 面门禁（unwrap/expect/panic! 仅限测试区或白名单）
 	$(PYTHON) tools/check-prod-panics.py
@@ -89,6 +89,10 @@ zh-help-check: ## CLI --help 全树本地化门禁（先自检检测器非永绿
 	./tools/zh-selfhost/help-check.sh --self-test
 	$(CARGO) build --quiet --bin rzc
 	./tools/zh-selfhost/help-check.sh --rzc target/debug/rzc
+
+zh-doc-check: ## intra-doc 失效链接防回潮门禁（先自检检测器非永绿、再跑 cargo doc 比对基线：冒出对不存在符号的失效引用即退出码 1）
+	./tools/zh-selfhost/doc-links-check.sh --self-test
+	./tools/zh-selfhost/doc-links-check.sh
 
 clean: ## 清理构建产物（cargo clean，可再生成）
 	$(CARGO) clean

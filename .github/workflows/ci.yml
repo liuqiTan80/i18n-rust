@@ -133,6 +133,17 @@ jobs:
           cargo build --quiet --bin rzc
           PATH="$PWD/target/debug:$PATH" ./tools/zh-selfhost/regen.sh --check
 
+      - name: zh 自举 intra-doc 失效链接防回潮门禁
+        # cargo doc 是「注释/文档引用了不存在符号」这类失效引用的权威判定器（编译器
+        # 解析、零误判、全库覆盖）。先自检检测器非「永远绿」（正样本过/基线外新失效链接拒），
+        # 再跑 cargo doc --document-private-items 收集未解析链接，逐个比对已审定基线
+        # （tools/zh-selfhost/doc-links-baseline.txt：均为 .zh 惯用 包:: 路径 / 兄弟模块
+        # 列举 / 外部类型 / 非符号 / 双语言伪报，逐条附保留理由）；冒出基线外的新失效引用即红。
+        # 守住 guide §3「三层判据」第三层门禁兜底：把「失效引用」钉成回归红线。
+        run: |
+          ./tools/zh-selfhost/doc-links-check.sh --self-test
+          ./tools/zh-selfhost/doc-links-check.sh
+
       - name: zh 自举演示方言改写往返校验（.zh-demo eject）
         # 佐证 rzc 对用户风格中文方言（.zh-demo，非自举源真相）的改写确实生效：
         # eject 是纯词法文本转换（用编译进 rzc 的内置词条，不编译产物、不拉依赖），
