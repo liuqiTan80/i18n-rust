@@ -34,6 +34,11 @@ make gate
 含 fmt/clippy/test/prod-panics/ui-keys/lang-packs/mapping-check/tutorials-all/glossary 与
 zh 专属四门禁 `zh-verify` / `zh-demo-check` / `zh-help-check` / `zh-doc-check`。任一不过即失败。
 
+⚠️ **门禁有边界，靠你自律**：`make gate` 全绿 **≠** 绝无英文。门禁只管有编译器/预言机可
+客观判定的维度（注释引用失效、产物字节一致、用户面本地化、改写往返）；**你在 `.zh` 代码位
+新写的英文标识符不会被抓**（它是合法 Rust、能 eject、字节一致）。故**动手时就按本规范用中文
+命名**，勿指望门禁兜底。详见 `docs/zh-selfhost-guide.md` §3「自动化的边界」。
+
 ## Git 纪律
 
 本分支**永不合并进 `main`**；除非修复问题，**不动 `main`**。
