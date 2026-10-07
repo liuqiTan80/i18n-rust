@@ -4,7 +4,9 @@
 # IDE 配置
 .vscode/
 .idea/
-.qoder/
+.qoder/*
+# 项目级 AI 规则随仓库共享（面向所有 AI 助手，非本机 IDE 私有态）
+!.qoder/rules/
 .workbuddy/
 *.swp
 *.swo
