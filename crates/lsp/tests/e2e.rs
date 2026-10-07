@@ -12,7 +12,7 @@
 //! - 多模块项目无假红语料（模块聚合 / `#[path]` 注解 / include 资源，
 //!   rust-analyzer 升级时必跑，防诊断格式漂移）。
 //!
-//! 前置条件：rust-analyzer 可执行文件可用（查找顺序与 analyzer.rs 相同：
+//! 前置条件：rust-analyzer 可执行文件可用（查找顺序与 分析器.rs 相同：
 //! RUST_ANALYZER_PATH 环境变量 → ~/.rz/toolchain/bin/rust-analyzer → PATH）。
 //! 找不到时测试自动跳过（打印原因，不失败），方便无 rust-analyzer 的
 //! 开发环境；CI 中先安装工具链再显式运行：
@@ -61,7 +61,7 @@ fn 取方言源(语言码: &str) -> String {
     .to_string()
 }
 
-/// rust-analyzer 查找顺序与 analyzer.rs 保持一致
+/// rust-analyzer 查找顺序与 分析器.rs 保持一致
 fn 查找分析器程序() -> Option<PathBuf> {
     if let Ok(环境路径) = std::env::var("RUST_ANALYZER_PATH")
         && !环境路径.is_empty()

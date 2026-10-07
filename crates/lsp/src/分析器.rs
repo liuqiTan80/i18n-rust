@@ -453,7 +453,7 @@ mod 单元测试 {
         }
     }
 
-    /// PATH 扫描由 engine 工具链定位统一实现（见 crates/engine/src/toolchain.rs）
+    /// PATH 扫描由 engine 工具链定位统一实现（见 crates/engine/src/工具链.rs）
     #[test]
     fn 测试引擎查找工具链程序缺失() {
         // 内置与 PATH 都不存在的二进制名应返回 None（不 panic）
