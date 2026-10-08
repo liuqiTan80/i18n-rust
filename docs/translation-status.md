@@ -35,17 +35,21 @@
 
 ## 第三方库映射（crates/ 覆盖差异）
 
-> 截至 2026-09-26 统计。`rzc mapping check` 的「跨语言条目数不一致」告警属
+> 截至 2026-10-08 统计。`rzc mapping check` 的「跨语言条目数不一致」告警属
 > **已知结构性差异**（已登记告警基线 `tools/mapping-baseline.json`）：不做
 > 强行同步，各语言按需翻译、逐步跟进即可。
+>
+> 表的归属按**语义**判定而非文件名：各语言把自己的表名译成本国文字
+> （ja `非同期` / ru `Асинхронность` / de `Asynchron` / en `Async` 是同一张
+> `异步.toml`），只有 `salvo` 原名跨语言一致。
 
 | 范围 | 表数 | 标识符 | 模块路径 | 说明 |
 |---|---|---|---|---|
-| zh（基准） | 16 | 796 | 69 | 教程实战词条持续增补（xiaozs 回馈、office-zb 实战等） |
+| zh（基准） | 20 | 812 | 74 | 教程实战词条持续增补（xiaozs 回馈、office-zb 实战等）＋本轮新增四表 |
 | 9 翻译语言（ar/de/es/fr/hi/ja/ko/pt/ru） | 10 | 376 | 38 | 共享十表统一样式；zh 独有表、共享表增补未跟进 |
 | en | 10 | 373 | 38 | 恒等包：`spawn`/`filter`/`route` 第 2 语境与首条同词，TOML 同键唯一而自然折叠 |
 
-**zh 独有 6 表**（其他语言用户直接写英文名即可，编译结果不受影响）：
+**zh 独有 10 表**（其他语言用户直接写英文名即可，编译结果不受影响）：
 
 | 表 | 标识符 | 覆盖 |
 |---|---|---|
@@ -55,10 +59,24 @@
 | mysql.toml | 16 | mysql（同步连接） |
 | 自启插件.toml | 8 | tauri_plugin_autostart |
 | 对话框插件.toml | 0（模块路径 1 条） | tauri_plugin_dialog |
+| 语言服务器.toml | 3（模块路径 1 条） | lsp_server（Notification / RequestId） |
+| 并发.toml | 1（模块路径 1 条） | crossbeam_channel |
+| 引擎库.toml | 1（模块路径 1 条） | i18n_rust_engine（本项目引擎 crate） |
+| 测试.toml | 1（模块路径 1 条） | predicates |
 
-zh 共享 10 表另比其他语言多 111 条标识符与 12 条模块路径（如 `异步.toml` 的
-`异步任务`=spawn 同义词、`日志.toml` 的 EnvFilter / try_new / with_env_filter
-等），待各语言按需跟进。
+后四张是本轮回流 main 的新表；四张各含「模块路径词在函数体内的副本」，故
+标识符数不小于模块路径数。
+
+zh 共享 10 表另比其他语言多 121 条标识符与 13 条模块路径（如 `异步.toml` 的
+`异步任务`=spawn 同义词、`日志.toml` 的 EnvFilter / try_new / with_env_filter、
+`工具.toml` 的 encoding_rs 限定路径副本等），待各语言按需跟进。
+
+> ⚠️ **一处无门禁度量的分歧**（照实登记，勿被「门禁全绿」误导）：
+> `stdlib.toml` 的 `["标识符"]` 节 zh **715** 条，其余语言 575〜577 条，zh 领先约
+> 140 条（本轮 +128：rustc_lexer 词法令牌族、std 方法补缺与多义词消歧键、
+> 限定路径深层段、平台常量、`崩溃`→`panic` 别名）。`rzc mapping check` 与
+> `make lang-packs` 只比对 **crates/ 表条目数**与**错误码 / 消息表键集合**，
+> 不比对 stdlib 条目数，故这项差异不会由任何门禁暴露，只能在此人工登记。
 
 补齐路径（格式与命名规则见 [third-party-mapping.md](./third-party-mapping.md)，
 新语言接入全流程见 [contributing-lang-pack.md](./contributing-lang-pack.md)）：

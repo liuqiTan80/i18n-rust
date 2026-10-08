@@ -2251,11 +2251,20 @@
 ["消息翻译"."expected "]
 "消息模板" = "attendu : "
 
+# Point-virgule manquant (l'erreur de syntaxe la plus fréquente des débutants) : la clé à segment avec `?` est prioritaire sur la clé de préfixe "expected " ci-dessus
+["消息翻译"."expected `;`, found ?"]
+"消息模板" = "point-virgule manquant : `;` attendu, mais {q0} trouvé"
+"教学提示" = "Le point-virgule `;` manque à la fin de l'instruction précédente ; ajoutez-le ici (chaque instruction se termine par un point-virgule)."
+
 ["消息翻译"."consider "]
 "消息模板" = "envisagez : "
 
 ["消息翻译"."try "]
 "消息模板" = "essayez : "
+
+# Suggestion automatique pour le point-virgule manquant (affichée avec la clé ci-dessus)
+["消息翻译"."add `;` here"]
+"消息模板" = "ajoutez `;` ici"
 
 ["消息翻译"."value moved here"]
 "消息模板" = "la valeur a été déplacée ici"

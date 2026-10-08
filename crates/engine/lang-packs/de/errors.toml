@@ -2251,11 +2251,20 @@
 ["消息翻译"."expected "]
 "消息模板" = "Erwartet: "
 
+# Fehlendes Semikolon (häufigster Syntaxfehler von Anfängern): Segment-Key mit `?` hat Vorrang vor dem Präfix-Key "expected " weiter oben
+["消息翻译"."expected `;`, found ?"]
+"消息模板" = "Semikolon fehlt: `;` erwartet, aber {q0} gefunden"
+"教学提示" = "Am Ende der vorherigen Anweisung fehlt das Semikolon `;` — fügen Sie es hier ein (jede Anweisung endet mit einem Semikolon)."
+
 ["消息翻译"."consider "]
 "消息模板" = "Erwägen Sie: "
 
 ["消息翻译"."try "]
 "消息模板" = "Versuchen Sie: "
+
+# Maschineller Hinweis zum fehlenden Semikolon (erscheint gepaart mit dem Schlüssel oben)
+["消息翻译"."add `;` here"]
+"消息模板" = "Semikolon `;` hier hinzufügen"
 
 ["消息翻译"."value moved here"]
 "消息模板" = "Wert wurde hier verschoben"

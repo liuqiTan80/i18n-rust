@@ -1786,11 +1786,20 @@
 ["消息翻译"."expected "]
 "消息模板" = "esperava-se: "
 
+# Ponto e vírgula ausente (o erro de sintaxe mais comum entre iniciantes): a chave com `?` tem prioridade sobre a chave de prefixo "expected " acima
+["消息翻译"."expected `;`, found ?"]
+"消息模板" = "ponto e vírgula ausente: esperava-se `;`, mas foi encontrado {q0}"
+"教学提示" = "Falta o ponto e vírgula `;` no final da instrução anterior — adicione-o aqui (cada instrução termina com ponto e vírgula)."
+
 ["消息翻译"."consider "]
 "消息模板" = "considere: "
 
 ["消息翻译"."try "]
 "消息模板" = "tente: "
+
+# Sugestão automática para o ponto e vírgula ausente (aparece junto com a chave acima)
+["消息翻译"."add `;` here"]
+"消息模板" = "adicione `;` aqui"
 
 ["消息翻译"."value moved here"]
 "消息模板" = "o valor foi movido aqui"

@@ -12,6 +12,7 @@
 "路径通配" = "glob"
 "标准目录" = "directories"
 "ZSTD压缩" = "zstd"
+"编码库" = "encoding_rs"
 
 # 内部标识符映射（用于库内的类型、函数等）
 ["标识符"]
@@ -105,7 +106,8 @@
 
 # glob（crate 与函数同名）
 "路径通配" = "glob"
-
+# encoding_rs
+"编码库" = "encoding_rs"  # 模块路径词在函数体内的副本（encoding_rs:: 限定路径）
 # directories
 "标准目录" = "directories"  # 模块路径词在函数体内的副本
 "基础目录" = "BaseDirs"
@@ -114,3 +116,5 @@
 "ZSTD压缩" = "zstd"  # 模块路径词在函数体内的副本（zstd:: 限定路径）
 "解压全部" = "decode_all"
 "压缩全部" = "encode_all"
+# criterion / std::hint 的优化黑盒（基准与防优化消除）
+"基准黑盒" = "black_box"

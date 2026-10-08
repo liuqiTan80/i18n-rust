@@ -5,6 +5,25 @@
 
 ## [Unreleased]
 
+### 新增
+- zh 语言包新增四张 crate 表：`crates/并发.toml`（crossbeam_channel）、
+  `crates/引擎库.toml`（i18n_rust_engine）、`crates/测试.toml`（predicates）、
+  `crates/语言服务器.toml`（lsp_server）；crates 覆盖 16→20 表 / 标识符 796→812 /
+  模块路径 69→74
+- zh 共享表补条：`命令行.toml`（clap 链式改写 `mut_arg` / `mut_subcommand`）、
+  `工具.toml`（`encoding_rs` / `black_box` 及模块词在函数体内的限定路径副本）、
+  `序列化.toml`（toml / de / Table / String）、`网络.toml`（`success`）、
+  `错误处理.toml`（anyhow 标识符副本）
+- zh `stdlib.toml` `["标识符"]` 587→715（+128）：rustc_lexer 词法令牌族与 tempfile、
+  std 方法补缺（多义词消歧专用键）、限定路径深层段「X模块」、平台常量、
+  通用宏别名 `崩溃!` → `panic!`。⚠️ 该项差异**不被任何门禁度量**（门禁只管
+  crates/ 表与错误码/消息键），已登记于 docs/translation-status.md
+- 诊断：10 语言 `errors.toml` 各补两条高频「缺分号」键——``expected `;`, found ?``
+  （通配段键，带教学提示）与 ``add `;` here``；消息翻译键齐平数 150→152
+  （en 无「消息翻译」节，回退 rustc 原文，属设计）；端到端实测命中精确键而非
+  `expected ` 前缀兜底（zh：「缺少分号：期望 `;`，却发现 …」＋「修复建议：
+  在此处添加 `;`」；ja 同构）
+
 ## [0.8.3] - 2026-09-29
 
 ### 修复

@@ -49,3 +49,6 @@
 "彩色" = "style"
 "进度条" = "ProgressBar"
 "旋转器" = "Spinner"
+# clap Command 的链式改写方法（构造参数 / 子命令时常用）
+"改参数" = "mut_arg"
+"改子命令" = "mut_subcommand"

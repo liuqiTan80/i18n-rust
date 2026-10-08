@@ -43,3 +43,5 @@
 "二进制" = "Binary"
 "关闭" = "Close"
 "接收" = "recv"
+# reqwest StatusCode::success（「是否成功」已被 is_success 占用，改用多字词避让）
+"请求成功" = "success"

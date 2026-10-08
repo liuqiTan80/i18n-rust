@@ -1866,11 +1866,20 @@
 ["消息翻译"."expected "]
 "消息模板" = "se esperaba: "
 
+# Punto y coma ausente (el error de sintaxis más común entre principiantes): la clave con `?` tiene prioridad sobre la clave de prefijo "expected " de arriba
+["消息翻译"."expected `;`, found ?"]
+"消息模板" = "Falta el punto y coma: se esperaba `;`, pero se encontró {q0}"
+"教学提示" = "Falta el punto y coma `;` al final de la instrucción anterior; añádalo aquí (cada instrucción termina en punto y coma)."
+
 ["消息翻译"."consider "]
 "消息模板" = "considere: "
 
 ["消息翻译"."try "]
 "消息模板" = "pruebe: "
+
+# Sugerencia automática del punto y coma ausente (aparece emparejada con la clave de arriba)
+["消息翻译"."add `;` here"]
+"消息模板" = "añada `;` aquí"
 
 ["消息翻译"."value moved here"]
 "消息模板" = "el valor se movió aquí"
