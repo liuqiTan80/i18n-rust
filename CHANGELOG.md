@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### 修复
-- 测试：修三处 **Windows 专有测试缺陷**（CI 的 `cargo test` 只跑 ubuntu-latest，
+- 测试：修五处 **Windows 专有测试缺陷**（CI 的 `cargo test` 只跑 ubuntu-latest，
   所以一直没被发现）——现 `cargo test --workspace` 在 Windows 上首次可完整跑通：
   - `rzc::test_entry_output_path` 用合成路径 `/proj` 作项目根，而 Windows 上
     `Path::new("/proj/src").is_absolute() == false`、canonicalize 失败后与
@@ -21,6 +21,9 @@
     `std::os::unix::fs::symlink`，使 Windows 上整个 lib test **编译不过**
     （E0433）；链接构造段加 `#[cfg(unix)]`（Windows 建链接需开发者模式/管理员
     权限），非链接分支三平台照旧都测
+  - `i18n-rust-lsp` 的辅助函数 `wait_crashed` 只被 `#[cfg(unix)]` 的崩溃测试
+    （靠 `sh -c` 起假进程）使用，上一条修好后才暴露为 clippy dead-code 错误；
+    补同名 `#[cfg(unix)]` 门控
   - `i18n-rust-lsp` 的 `test_collect_dialect_paths_recursive` 期望值硬写
     `"sub/util.zh"`，而 `strip_prefix().display()` 在 Windows 上给出
     `sub\util.zh`；改为按平台 `PathBuf::from("sub").join("util.zh")` 构造，
