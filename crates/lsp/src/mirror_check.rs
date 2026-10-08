@@ -964,7 +964,16 @@ mod tests {
             .iter()
             .map(|p| p.strip_prefix(&root).unwrap().display().to_string())
             .collect();
-        assert_eq!(names, vec!["main.zh", "sub/util.zh"]);
+        // 期望值按平台构造分隔符：strip_prefix().display() 在 Windows 上给出
+        // sub\util.zh，硬写 "sub/util.zh" 只会测到平台差异而非收集逻辑
+        let expected: Vec<String> = [
+            std::path::PathBuf::from("main.zh"),
+            std::path::PathBuf::from("sub").join("util.zh"),
+        ]
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
+        assert_eq!(names, expected);
         // 目录不存在不报错（调用方依赖此容错）
         let mut empty = Vec::new();
         collect_dialect_paths(

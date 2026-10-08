@@ -2163,6 +2163,9 @@ mod tests {
     }
 
     /// is_symlink：lstat 语义——悬空链接仍是链接；普通文件/不存在路径为 false
+    ///
+    /// 链接构造只在 Unix 上跑（Windows 建符号链接需开发者模式/管理员权限，
+    /// 普通 CI 跑不上）；非链接分支三平台都测。
     #[test]
     fn test_is_symlink_lstat_semantics() {
         let temp = tempfile::tempdir().unwrap();
@@ -2171,14 +2174,17 @@ mod tests {
         assert!(!is_symlink(&file));
         assert!(!is_symlink(&temp.path().join("absent")));
 
-        let link = temp.path().join("link");
-        std::os::unix::fs::symlink(&file, &link).unwrap();
-        assert!(is_symlink(&link));
+        #[cfg(unix)]
+        {
+            let link = temp.path().join("link");
+            std::os::unix::fs::symlink(&file, &link).unwrap();
+            assert!(is_symlink(&link));
 
-        // 悬空符号链接（目标不存在）仍须识别为链接
-        let dangling = temp.path().join("dangling");
-        std::os::unix::fs::symlink(temp.path().join("gone"), &dangling).unwrap();
-        assert!(is_symlink(&dangling));
+            // 悬空符号链接（目标不存在）仍须识别为链接
+            let dangling = temp.path().join("dangling");
+            std::os::unix::fs::symlink(temp.path().join("gone"), &dangling).unwrap();
+            assert!(is_symlink(&dangling));
+        }
     }
 
     /// PID 探活：当前进程必然存活（残留目录清理依据，误判会误删活进程目录）

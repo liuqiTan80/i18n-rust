@@ -1986,55 +1986,70 @@ mod tests {
     /// 入口产物路径：入口词干（main / 语言包主函数词）写入 src/main.rs，
     /// 非入口文件跟随自身扩展名，不占用 src/main.rs
     /// （weix 工具异常 #4：build.zh 不得覆盖入口产物）
+    ///
+    /// 项目根必须是**真实落盘目录**：合成路径（`/proj`）在 Windows 上不具
+    /// 绝对性（`Path::new("/proj/src").is_absolute() == false`，且与
+    /// `project_root.join("src")` 不在同一比较空间），`directly_under_src` 会
+    /// 恒为 false，使母语词干入口这条断言在任何平台上都测不到真实行为。
     #[test]
     fn test_entry_output_path() {
-        use std::path::{Path, PathBuf};
-        let root = Path::new("/proj");
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("proj");
+        std::fs::create_dir_all(root.join("src")).unwrap();
         let m = zh_manager();
         // src/main.zh（词干 main）→ 聚合到 Cargo 固定入口
         assert_eq!(
-            entry_output_path(root, Path::new("/proj/src/main.zh"), &m),
-            PathBuf::from("/proj/src/main.rs")
+            entry_output_path(&root, &root.join("src/main.zh"), &m),
+            root.join("src/main.rs")
         );
         // 母语词干入口「主函数」（映射 main，旧项目命名）→ 同样聚合到 src/main.rs
         // （回归：此前仅认字面 main，主函数.zh 产物写自身名致 cargo 找不到目标）
         assert_eq!(
-            entry_output_path(root, Path::new("/proj/src/主函数.zh"), &m),
-            PathBuf::from("/proj/src/main.rs")
+            entry_output_path(&root, &root.join("src/主函数.zh"), &m),
+            root.join("src/main.rs")
         );
         // 项目根的 build.zh（词干非入口）→ 同目录 build.rs，绝不触碰 src/main.rs
         assert_eq!(
-            entry_output_path(root, Path::new("/proj/build.zh"), &m),
-            PathBuf::from("/proj/build.rs")
+            entry_output_path(&root, &root.join("build.zh"), &m),
+            root.join("build.rs")
         );
         // src 下非入口模块（如 helper.zh）→ src/helper.rs
         assert_eq!(
-            entry_output_path(root, Path::new("/proj/src/helper.zh"), &m),
-            PathBuf::from("/proj/src/helper.rs")
+            entry_output_path(&root, &root.join("src/helper.zh"), &m),
+            root.join("src/helper.rs")
         );
     }
 
     /// 越界写出回归：入口词干但**不在 project_root/src 直属**的文件（子目录/示例
     /// 里恰好名为 main）不得聚合覆盖宿主 src/main.rs，产物须留在自身目录。
+    /// 对照：同时断言 src 直属入口确实聚合（证明本测试真的在区分“直属”与
+    /// “子目录”，而非因目录不存在而两边都不聚合、造成假通过）。
     #[test]
     fn test_entry_output_path_no_clobber_outside_src() {
-        use std::path::{Path, PathBuf};
-        let root = Path::new("/proj");
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("proj");
+        std::fs::create_dir_all(root.join("src/sub")).unwrap();
+        std::fs::create_dir_all(root.join("examples")).unwrap();
         let m = zh_manager();
+        // 对照：src 直属入口确实聚合
+        assert_eq!(
+            entry_output_path(&root, &root.join("src/main.zh"), &m),
+            root.join("src/main.rs")
+        );
         // src/sub/main.zh（词干 main 但在子目录）→ src/sub/main.rs，不覆盖 src/main.rs
         assert_eq!(
-            entry_output_path(root, Path::new("/proj/src/sub/main.zh"), &m),
-            PathBuf::from("/proj/src/sub/main.rs")
+            entry_output_path(&root, &root.join("src/sub/main.zh"), &m),
+            root.join("src/sub/main.rs")
         );
         // examples/main.zh（示例入口）→ examples/main.rs，不占用宿主 src/main.rs
         assert_eq!(
-            entry_output_path(root, Path::new("/proj/examples/main.zh"), &m),
-            PathBuf::from("/proj/examples/main.rs")
+            entry_output_path(&root, &root.join("examples/main.zh"), &m),
+            root.join("examples/main.rs")
         );
         // 母语主函数词但位于子目录（src/sub/主函数.zh）同样不越界
         assert_eq!(
-            entry_output_path(root, Path::new("/proj/src/sub/主函数.zh"), &m),
-            PathBuf::from("/proj/src/sub/主函数.rs")
+            entry_output_path(&root, &root.join("src/sub/主函数.zh"), &m),
+            root.join("src/sub/主函数.rs")
         );
     }
 

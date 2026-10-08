@@ -5,6 +5,28 @@
 
 ## [Unreleased]
 
+### 修复
+- 测试：修三处 **Windows 专有测试缺陷**（CI 的 `cargo test` 只跑 ubuntu-latest，
+  所以一直没被发现）——现 `cargo test --workspace` 在 Windows 上首次可完整跑通：
+  - `rzc::test_entry_output_path` 用合成路径 `/proj` 作项目根，而 Windows 上
+    `Path::new("/proj/src").is_absolute() == false`、canonicalize 失败后与
+    `project_root.join("src")` 不在同一比较空间，`directly_under_src` 恒为
+    false，“母语词干入口聚合”这条断言在任何平台都测不到真实行为（且
+    `main.zh` 那条因两个分支恰好产出同一字符串而看上去正常）；改用
+    `tempfile` 建真实落盘项目根
+  - `rzc::test_entry_output_path_no_clobber_outside_src` 因上述原因在 Windows
+    上**假通过**（它断言的正是“不聚合”，而目录不存在时本来就不聚合）；同样
+    改用真实项目目录，并加一条“src 直属入口确实聚合”的对照断言防再退化
+  - `i18n-rust-lsp` 的 `test_is_symlink_lstat_semantics` 无门控直接调
+    `std::os::unix::fs::symlink`，使 Windows 上整个 lib test **编译不过**
+    （E0433）；链接构造段加 `#[cfg(unix)]`（Windows 建链接需开发者模式/管理员
+    权限），非链接分支三平台照旧都测
+  - `i18n-rust-lsp` 的 `test_collect_dialect_paths_recursive` 期望值硬写
+    `"sub/util.zh"`，而 `strip_prefix().display()` 在 Windows 上给出
+    `sub\util.zh`；改为按平台 `PathBuf::from("sub").join("util.zh")` 构造，
+    测的是收集逻辑而非路径分隔符
+  以上均为测试代码修正，生产行为不变（生产路径传入的是已规范化的绝对路径）
+
 ### 新增
 - zh 语言包新增四张 crate 表：`crates/并发.toml`（crossbeam_channel）、
   `crates/引擎库.toml`（i18n_rust_engine）、`crates/测试.toml`（predicates）、

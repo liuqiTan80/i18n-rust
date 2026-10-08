@@ -473,6 +473,10 @@ mod tests {
     }
 
     /// 等待崩溃标志置位（最多 2 秒）
+    ///
+    /// 仅 `cfg(unix)` 的崩溃测试使用（靠 `sh -c` 起假进程），
+    /// 不加门控会在 Windows 上被判为 dead code。
+    #[cfg(unix)]
     fn wait_crashed(conn: &AnalyzerConnection) -> bool {
         for _ in 0..40 {
             if conn.is_crashed() {
