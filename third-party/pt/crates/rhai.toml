@@ -1,0 +1,10 @@
+["模块路径"]
+"rhai_scripts" = "rhai"
+
+["标识符"]
+"rhai_motor" = "Engine"
+"rhai_ast" = "AST"
+"rhai_ambito" = "Scope"
+
+["解释"]
+"rhai_scripts" = "rhai — motor de scripts embutido: Engine/Scope/AST"

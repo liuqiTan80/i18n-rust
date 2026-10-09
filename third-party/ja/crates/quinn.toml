@@ -1,0 +1,10 @@
+["模块路径"]
+"qin接続" = "quinn"
+
+["标识符"]
+"qinエンドポイント" = "Endpoint"
+"qinコネクション" = "Connection"
+"qin送信ストリーム" = "SendStream"
+
+["解释"]
+"qin接続" = "quinn — QUICトランスポート: Endpoint/Connection/SendStream"

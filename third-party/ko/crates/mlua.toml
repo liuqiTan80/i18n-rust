@@ -1,0 +1,10 @@
+["模块路径"]
+"mlua바인딩" = "mlua"
+
+["标识符"]
+"mlua인스턴스" = "Lua"
+"mlua테이블" = "Table"
+"mlua함수" = "Function"
+
+["解释"]
+"mlua바인딩" = "mlua — 안전한 Lua 고수준 바인딩: Lua/Table/Function"

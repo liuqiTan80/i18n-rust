@@ -1,0 +1,10 @@
+["模块路径"]
+"pol_विश्लेषण" = "polars"
+
+["标识符"]
+"pol_डेटाफ्रेम" = "DataFrame"
+"pol_श्रृंखला" = "Series"
+"pol_लेज़ी" = "LazyFrame"
+
+["解释"]
+"pol_विश्लेषण" = "polars — उच्च-प्रदर्शन DataFrame: DataFrame/Series/LazyFrame"

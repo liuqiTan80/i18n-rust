@@ -1,0 +1,10 @@
+["模块路径"]
+"qin_connexion" = "quinn"
+
+["标识符"]
+"qin_endpoint" = "Endpoint"
+"qin_connection" = "Connection"
+"qin_flux_envoi" = "SendStream"
+
+["解释"]
+"qin_connexion" = "quinn — implémentation du transport QUIC: Endpoint/Connection/SendStream"

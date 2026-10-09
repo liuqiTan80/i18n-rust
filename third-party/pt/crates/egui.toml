@@ -1,0 +1,10 @@
+["模块路径"]
+"egui_interface" = "egui"
+
+["标识符"]
+"egui_contexto" = "Context"
+"egui_ui" = "Ui"
+"egui_pintor" = "Painter"
+
+["解释"]
+"egui_interface" = "egui — GUI em modo imediato: Context/Ui/Painter"

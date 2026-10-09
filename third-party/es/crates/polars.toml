@@ -1,0 +1,10 @@
+["模块路径"]
+"pol_analisis" = "polars"
+
+["标识符"]
+"pol_dataframe" = "DataFrame"
+"pol_serie" = "Series"
+"pol_lazy" = "LazyFrame"
+
+["解释"]
+"pol_analisis" = "polars — motor DataFrame alto rendimiento: DataFrame/Series/LazyFrame"

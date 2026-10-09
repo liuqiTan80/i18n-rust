@@ -1,0 +1,10 @@
+["模块路径"]
+"mluaバインド" = "mlua"
+
+["标识符"]
+"mluaインスタンス" = "Lua"
+"mluaテーブル" = "Table"
+"mlua関数" = "Function"
+
+["解释"]
+"mluaバインド" = "mlua — Lua高レベルバインディング: Lua/Table/Function"

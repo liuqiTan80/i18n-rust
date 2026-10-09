@@ -1,0 +1,10 @@
+["模块路径"]
+"egui_واجهة" = "egui"
+
+["标识符"]
+"egui_سياق" = "Context"
+"egui_لوحة" = "Ui"
+"egui_رسام" = "Painter"
+
+["解释"]
+"egui_واجهة" = "egui — واجهة رسومية فورية: Context/Ui/Painter"

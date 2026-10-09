@@ -1,0 +1,10 @@
+["模块路径"]
+"rhai스크립트" = "rhai"
+
+["标识符"]
+"rhai엔진" = "Engine"
+"rhai추상구문" = "AST"
+"rhai범위" = "Scope"
+
+["解释"]
+"rhai스크립트" = "rhai — 임베디드 스크립트 엔진: Engine/Scope/AST"

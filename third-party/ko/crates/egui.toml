@@ -1,0 +1,10 @@
+["模块路径"]
+"egui즉시모드" = "egui"
+
+["标识符"]
+"egui컨텍스트" = "Context"
+"egui패널" = "Ui"
+"egui페인터" = "Painter"
+
+["解释"]
+"egui즉시모드" = "egui — 즉시모드 GUI 프레임워크: Context/Ui/Painter"

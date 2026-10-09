@@ -1,0 +1,10 @@
+["模块路径"]
+"egui界面" = "egui"
+
+["标识符"]
+"egui上下文" = "Context"
+"egui面板" = "Ui"
+"egui画师" = "Painter"
+
+["解释"]
+"egui界面" = "egui — 即席模式GUI框架: Context/Ui/Painter"

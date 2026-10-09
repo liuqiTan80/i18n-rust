@@ -1,0 +1,10 @@
+["模块路径"]
+"egui_इंटरफेस" = "egui"
+
+["标识符"]
+"egui_संदर्भ" = "Context"
+"egui_यूआई" = "Ui"
+"egui_चित्रकार" = "Painter"
+
+["解释"]
+"egui_इंटरफेस" = "egui — इमीडिएट-मोड GUI: Context/Ui/Painter"

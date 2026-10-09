@@ -1,0 +1,10 @@
+["模块路径"]
+"wmiランタイム" = "wasmi"
+
+["标识符"]
+"wmiエンジン" = "Engine"
+"wmiストア" = "Store"
+"wmiモジュール" = "Module"
+
+["解释"]
+"wmiランタイム" = "wasmi — 軽量Wasmインタープリタ: Engine/Store/Module"

@@ -1,0 +1,10 @@
+["模块路径"]
+"mlua_liaison" = "mlua"
+
+["标识符"]
+"mlua_lua" = "Lua"
+"mlua_table" = "Table"
+"mlua_fonction" = "Function"
+
+["解释"]
+"mlua_liaison" = "mlua — liaisons Lua sures: Lua/Table/Function"

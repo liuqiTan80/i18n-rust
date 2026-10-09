@@ -1,0 +1,10 @@
+["模块路径"]
+"mlua_привязка" = "mlua"
+
+["标识符"]
+"mlua_машина" = "Lua"
+"mlua_таблица" = "Table"
+"mlua_функция" = "Function"
+
+["解释"]
+"mlua_привязка" = "mlua — безопасные привязки Lua: Lua/Table/Function"

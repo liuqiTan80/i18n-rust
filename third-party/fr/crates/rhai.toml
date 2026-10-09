@@ -1,0 +1,10 @@
+["模块路径"]
+"rhai_scripts" = "rhai"
+
+["标识符"]
+"rhai_moteur" = "Engine"
+"rhai_ast" = "AST"
+"rhai_portee" = "Scope"
+
+["解释"]
+"rhai_scripts" = "rhai — moteur de scripts embarque: Engine/Scope/AST"

@@ -1,0 +1,10 @@
+["模块路径"]
+"mlua绑定" = "mlua"
+
+["标识符"]
+"mlua虚拟机" = "Lua"
+"mlua表" = "Table"
+"mlua函数" = "Function"
+
+["解释"]
+"mlua绑定" = "mlua — Lua安全高层绑定: Lua/Table/Function"

@@ -1,0 +1,10 @@
+["模块路径"]
+"qin_اتصال" = "quinn"
+
+["标识符"]
+"qin_نقطة" = "Endpoint"
+"qin_موصل" = "Connection"
+"qin_بث_إرسال" = "SendStream"
+
+["解释"]
+"qin_اتصال" = "quinn — تنفيذ بروتوكول نقل QUIC: Endpoint/Connection/SendStream"

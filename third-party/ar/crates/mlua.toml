@@ -1,0 +1,10 @@
+["模块路径"]
+"mlua_ربط" = "mlua"
+
+["标识符"]
+"mlua_محرك" = "Lua"
+"mlua_جدول" = "Table"
+"mlua_دالة" = "Function"
+
+["解释"]
+"mlua_ربط" = "mlua — ربط Lua آمن: Lua/Table/Function"

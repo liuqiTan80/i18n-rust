@@ -1,0 +1,10 @@
+["模块路径"]
+"wmi_وهمي" = "wasmi"
+
+["标识符"]
+"wmi_محرك" = "Engine"
+"wmi_مخزن" = "Store"
+"wmi_وحدة" = "Module"
+
+["解释"]
+"wmi_وهمي" = "wasmi — مفسر Wasm خفيف: Engine/Store/Module"

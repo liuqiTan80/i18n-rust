@@ -1,0 +1,10 @@
+["模块路径"]
+"wmi_वर्चुअल" = "wasmi"
+
+["标识符"]
+"wmi_इंजन" = "Engine"
+"wmi_स्टोर" = "Store"
+"wmi_मॉड्यूल" = "Module"
+
+["解释"]
+"wmi_वर्चुअल" = "wasmi — हल्का Wasm इंटरप्रेटर: Engine/Store/Module"

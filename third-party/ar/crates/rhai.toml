@@ -1,0 +1,10 @@
+["模块路径"]
+"rhai_سكربت" = "rhai"
+
+["标识符"]
+"rhai_محرك" = "Engine"
+"rhai_شجرة" = "AST"
+"rhai_نطاق" = "Scope"
+
+["解释"]
+"rhai_سكربت" = "rhai — محرك سكربتات مدمج: Engine/Scope/AST"

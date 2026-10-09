@@ -1,0 +1,10 @@
+["模块路径"]
+"mlua_बाइंडिंग" = "mlua"
+
+["标识符"]
+"mlua_यंत्र" = "Lua"
+"mlua_तालिका" = "Table"
+"mlua_फलन" = "Function"
+
+["解释"]
+"mlua_बाइंडिंग" = "mlua — सुरक्षित Lua बाइंडिंग: Lua/Table/Function"

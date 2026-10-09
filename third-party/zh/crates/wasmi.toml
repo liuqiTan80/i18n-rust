@@ -1,0 +1,10 @@
+["模块路径"]
+"wmi虚拟机" = "wasmi"
+
+["标识符"]
+"wmi引擎" = "Engine"
+"wmi存储" = "Store"
+"wmi模块" = "Module"
+
+["解释"]
+"wmi虚拟机" = "wasmi — 轻量WebAssembly解释器: Engine/Store/Module"

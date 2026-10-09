@@ -1,0 +1,10 @@
+["模块路径"]
+"pol분석" = "polars"
+
+["标识符"]
+"pol데이터프레임" = "DataFrame"
+"pol시리즈" = "Series"
+"pol지연프레임" = "LazyFrame"
+
+["解释"]
+"pol분석" = "polars — 고효율 DataFrame 엔진: DataFrame/Series/LazyFrame"

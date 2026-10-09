@@ -1,0 +1,10 @@
+["模块路径"]
+"rhaiスクリプト" = "rhai"
+
+["标识符"]
+"rhaiエンジン" = "Engine"
+"rhai抽象構文木" = "AST"
+"rhaiスコープ" = "Scope"
+
+["解释"]
+"rhaiスクリプト" = "rhai — 埋め込みスクリプトエンジン: Engine/Scope/AST"

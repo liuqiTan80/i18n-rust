@@ -1,0 +1,10 @@
+["模块路径"]
+"mlua_vinculo" = "mlua"
+
+["标识符"]
+"mlua_lua" = "Lua"
+"mlua_tabla" = "Table"
+"mlua_funcion" = "Function"
+
+["解释"]
+"mlua_vinculo" = "mlua — enlaces Lua seguros: Lua/Table/Function"

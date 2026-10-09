@@ -1,0 +1,10 @@
+["模块路径"]
+"wmi_vm" = "wasmi"
+
+["标识符"]
+"wmi_motor" = "Engine"
+"wmi_armazem" = "Store"
+"wmi_modulo" = "Module"
+
+["解释"]
+"wmi_vm" = "wasmi — interpretador leve de Wasm: Engine/Store/Module"

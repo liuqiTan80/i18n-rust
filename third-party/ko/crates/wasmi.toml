@@ -1,0 +1,10 @@
+["模块路径"]
+"wmi가상머신" = "wasmi"
+
+["标识符"]
+"wmi엔진" = "Engine"
+"wmi스토어" = "Store"
+"wmi모듈" = "Module"
+
+["解释"]
+"wmi가상머신" = "wasmi — 경량 WebAssembly 인터프리터: Engine/Store/Module"

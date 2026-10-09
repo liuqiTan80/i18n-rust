@@ -1,0 +1,10 @@
+["模块路径"]
+"egui即席GUI" = "egui"
+
+["标识符"]
+"eguiコンテキスト" = "Context"
+"eguiパネル" = "Ui"
+"eguiペインター" = "Painter"
+
+["解释"]
+"egui即席GUI" = "egui — immediate GUIフレームワーク: Context/Ui/Painter"

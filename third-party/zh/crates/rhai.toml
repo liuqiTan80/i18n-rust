@@ -1,0 +1,10 @@
+["模块路径"]
+"rhai脚本引擎" = "rhai"
+
+["标识符"]
+"rhai引擎" = "Engine"
+"rhai语法树" = "AST"
+"rhai作用域" = "Scope"
+
+["解释"]
+"rhai脚本引擎" = "rhai — 嵌入式脚本引擎: Engine/Scope/AST"
