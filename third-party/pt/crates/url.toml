@@ -1,0 +1,10 @@
+["模块路径"]
+"url_analise_endereco" = "url"
+
+["标识符"]
+"url_endereco" = "Url"
+"url_posicao" = "Position"
+"url_hospedeiro" = "Host"
+
+["解释"]
+"url_analise_endereco" = "url — padrao URL WHATWG: Url/Position/Host"

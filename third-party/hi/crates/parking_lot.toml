@@ -1,0 +1,10 @@
+["模块路径"]
+"pkl_ताला_सिंक" = "parking_lot"
+
+["标识符"]
+"pkl_म्यूटेक्स" = "Mutex"
+"pkl_पठन_लेखन" = "RwLock"
+"pkl_शर्त_चर" = "Condvar"
+
+["解释"]
+"pkl_ताला_सिंक" = "parking_lot — तेज़ सिंक मूलभूत: Mutex/RwLock/Condvar"

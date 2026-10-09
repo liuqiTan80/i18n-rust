@@ -1,0 +1,10 @@
+["模块路径"]
+"imp_dados_imutaveis" = "im"
+
+["标识符"]
+"imp_vetor" = "Vector"
+"imp_tabela_hash" = "HashMap"
+"imp_mapa_ordenado" = "OrdMap"
+
+["解释"]
+"imp_dados_imutaveis" = "im — estruturas imutaveis: Vector/HashMap/OrdMap"

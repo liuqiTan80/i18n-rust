@@ -1,0 +1,10 @@
+["模块路径"]
+"nal線形代数" = "nalgebra"
+
+["标识符"]
+"nal行列" = "Matrix"
+"nal三次元ベクトル" = "Vector3"
+"nal二次元点" = "Point2"
+
+["解释"]
+"nal線形代数" = "nalgebra — 線形代数と幾何: Matrix/Vector3/Point2"

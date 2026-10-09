@@ -1,0 +1,10 @@
+["模块路径"]
+"crt_اختبار_معيار" = "criterion"
+
+["标识符"]
+"crt_مقياس" = "Criterion"
+"crt_مقيس" = "Bencher"
+"crt_معرّف_معيار" = "BenchmarkId"
+
+["解释"]
+"crt_اختبار_معيار" = "criterion — معايير دقيقة إحصائية: Criterion/Bencher/BenchmarkId"

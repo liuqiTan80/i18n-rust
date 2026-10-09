@@ -1,0 +1,10 @@
+["模块路径"]
+"nal_جبر_خطي" = "nalgebra"
+
+["标识符"]
+"nal_مصفوفة" = "Matrix"
+"nal_متجه_ثلاثي" = "Vector3"
+"nal_نقطة_ثنائية" = "Point2"
+
+["解释"]
+"nal_جبر_خطي" = "nalgebra — جبر خطي: Matrix/Vector3/Point2"

@@ -1,0 +1,10 @@
+["模块路径"]
+"url_adressparser" = "url"
+
+["标识符"]
+"url_adresse" = "Url"
+"url_position" = "Position"
+"url_host" = "Host"
+
+["解释"]
+"url_adressparser" = "url — WHATWG-URL-Standard: Url/Position/Host"

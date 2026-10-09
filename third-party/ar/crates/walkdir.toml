@@ -1,0 +1,10 @@
+["模块路径"]
+"wkd_تجوال_مجلدات" = "walkdir"
+
+["标识符"]
+"wkd_جوال" = "WalkDir"
+"wkd_مدخل" = "DirEntry"
+"wkd_مكرر" = "IntoIter"
+
+["解释"]
+"wkd_تجوال_مجلدات" = "walkdir — تجوال مجلدات تكراري: WalkDir/DirEntry/IntoIter"

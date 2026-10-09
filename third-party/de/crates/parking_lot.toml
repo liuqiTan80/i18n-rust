@@ -1,0 +1,10 @@
+["模块路径"]
+"pkl_synchronschloss" = "parking_lot"
+
+["标识符"]
+"pkl_mutex" = "Mutex"
+"pkl_rwschloss" = "RwLock"
+"pkl_kondition" = "Condvar"
+
+["解释"]
+"pkl_synchronschloss" = "parking_lot — schnelle Synchronprimitive: Mutex/RwLock/Condvar"

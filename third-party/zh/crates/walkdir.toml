@@ -1,0 +1,10 @@
+["模块路径"]
+"wkd目录遍历" = "walkdir"
+
+["标识符"]
+"wkd走目录" = "WalkDir"
+"wkd目录项" = "DirEntry"
+"wkd迭代器" = "IntoIter"
+
+["解释"]
+"wkd目录遍历" = "walkdir — 递归目录遍历: WalkDir/DirEntry/IntoIter"

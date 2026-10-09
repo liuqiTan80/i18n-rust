@@ -1,0 +1,10 @@
+["模块路径"]
+"imp불변자료" = "im"
+
+["标识符"]
+"imp벡터" = "Vector"
+"imp해시피" = "HashMap"
+"imp순서지도" = "OrdMap"
+
+["解释"]
+"imp불변자료" = "im — 불변 지속 자료 구조: Vector/HashMap/OrdMap"

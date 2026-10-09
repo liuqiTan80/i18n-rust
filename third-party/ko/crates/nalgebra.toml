@@ -1,0 +1,10 @@
+["模块路径"]
+"nal선형대수" = "nalgebra"
+
+["标识符"]
+"nal행렬" = "Matrix"
+"nal삼차원벡터" = "Vector3"
+"nal이차원점" = "Point2"
+
+["解释"]
+"nal선형대수" = "nalgebra — 선형 대수와 기하: Matrix/Vector3/Point2"

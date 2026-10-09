@@ -1,0 +1,10 @@
+["模块路径"]
+"pkl_fechadura_sinc" = "parking_lot"
+
+["标识符"]
+"pkl_mutex" = "Mutex"
+"pkl_fechadura_leit_esc" = "RwLock"
+"pkl_condicao" = "Condvar"
+
+["解释"]
+"pkl_fechadura_sinc" = "parking_lot — primitivas rapidas: Mutex/RwLock/Condvar"

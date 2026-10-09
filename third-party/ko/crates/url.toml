@@ -1,0 +1,10 @@
+["模块路径"]
+"url주소해석" = "url"
+
+["标识符"]
+"url주소" = "Url"
+"url위치" = "Position"
+"url호스트" = "Host"
+
+["解释"]
+"url주소해석" = "url — WHATWG URL 표준: Url/Position/Host"

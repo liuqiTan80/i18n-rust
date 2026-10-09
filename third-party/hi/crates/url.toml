@@ -1,0 +1,10 @@
+["模块路径"]
+"url_पता_विश्लेषण" = "url"
+
+["标识符"]
+"url_पता" = "Url"
+"url_स्थान" = "Position"
+"url_होस्ट" = "Host"
+
+["解释"]
+"url_पता_विश्लेषण" = "url — WHATWG URL मानक: Url/Position/Host"

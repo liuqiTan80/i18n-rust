@@ -1,0 +1,10 @@
+["模块路径"]
+"wkd_पथ_भ्रमण" = "walkdir"
+
+["标识符"]
+"wkd_भ्रमकारक" = "WalkDir"
+"wkd_प्रविष्टि" = "DirEntry"
+"wkd_पुनरावृत्तक" = "IntoIter"
+
+["解释"]
+"wkd_पथ_भ्रमण" = "walkdir — पुनरावृत्त पथ भ्रमण: WalkDir/DirEntry/IntoIter"

@@ -1,0 +1,10 @@
+["模块路径"]
+"nal线性代数" = "nalgebra"
+
+["标识符"]
+"nal矩阵" = "Matrix"
+"nal三维向量" = "Vector3"
+"nal二维点" = "Point2"
+
+["解释"]
+"nal线性代数" = "nalgebra — 线性代数与几何: Matrix/Vector3/Point2"

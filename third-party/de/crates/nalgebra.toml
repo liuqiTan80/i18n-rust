@@ -1,0 +1,10 @@
+["模块路径"]
+"nal_linearalgebra" = "nalgebra"
+
+["标识符"]
+"nal_matrix" = "Matrix"
+"nal_vektor3" = "Vector3"
+"nal_punkt2" = "Point2"
+
+["解释"]
+"nal_linearalgebra" = "nalgebra — lineare Algebra: Matrix/Vector3/Point2"

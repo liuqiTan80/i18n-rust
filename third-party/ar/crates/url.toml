@@ -1,0 +1,10 @@
+["模块路径"]
+"url_محلل_عناوين" = "url"
+
+["标识符"]
+"url_عنوان" = "Url"
+"url_موقع" = "Position"
+"url_مضيف" = "Host"
+
+["解释"]
+"url_محلل_عناوين" = "url — معيار WHATWG للعناوين: Url/Position/Host"

@@ -1,0 +1,10 @@
+["模块路径"]
+"url_разбор_адреса" = "url"
+
+["标识符"]
+"url_адрес" = "Url"
+"url_положение" = "Position"
+"url_хост" = "Host"
+
+["解释"]
+"url_разбор_адреса" = "url — стандарт WHATWG URL: Url/Position/Host"

@@ -1,0 +1,10 @@
+["模块路径"]
+"imp_donnees_immuables" = "im"
+
+["标识符"]
+"imp_vecteur" = "Vector"
+"imp_carte_hash" = "HashMap"
+"imp_carte_ordee" = "OrdMap"
+
+["解释"]
+"imp_donnees_immuables" = "im — structures immuables: Vector/HashMap/OrdMap"

@@ -1,0 +1,10 @@
+["模块路径"]
+"crt_benchmark" = "criterion"
+
+["标识符"]
+"crt_kriterium" = "Criterion"
+"crt_bencher" = "Bencher"
+"crt_benchmark_id" = "BenchmarkId"
+
+["解释"]
+"crt_benchmark" = "criterion — statistisches Mikro-Benchmarking: Criterion/Bencher/BenchmarkId"

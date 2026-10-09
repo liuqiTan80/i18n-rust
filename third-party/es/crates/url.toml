@@ -1,0 +1,10 @@
+["模块路径"]
+"url_analisis_direccion" = "url"
+
+["标识符"]
+"url_direccion" = "Url"
+"url_posicion" = "Position"
+"url_anfitrion" = "Host"
+
+["解释"]
+"url_analisis_direccion" = "url — estandar URL de WHATWG: Url/Position/Host"

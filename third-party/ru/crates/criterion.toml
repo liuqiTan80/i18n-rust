@@ -1,0 +1,10 @@
+["模块路径"]
+"crt_базовый_тест" = "criterion"
+
+["标识符"]
+"crt_критерий" = "Criterion"
+"crt_бенчер" = "Bencher"
+"crt_ид_базы" = "BenchmarkId"
+
+["解释"]
+"crt_базовый_тест" = "criterion — статистический микро-бенч: Criterion/Bencher/BenchmarkId"

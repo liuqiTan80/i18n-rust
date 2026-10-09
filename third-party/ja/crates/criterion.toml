@@ -1,0 +1,10 @@
+["模块路径"]
+"crtベンチマーク" = "criterion"
+
+["标识符"]
+"crt評価基準" = "Criterion"
+"crt測定者" = "Bencher"
+"crtベンチID" = "BenchmarkId"
+
+["解释"]
+"crtベンチマーク" = "criterion — 統計マイクロベンチ: Criterion/Bencher/BenchmarkId"

@@ -1,0 +1,10 @@
+["模块路径"]
+"crt_बेंच_आंकलन" = "criterion"
+
+["标识符"]
+"crt_मानदंड" = "Criterion"
+"crt_मापक" = "Bencher"
+"crt_पहचान" = "BenchmarkId"
+
+["解释"]
+"crt_बेंच_आंकलन" = "criterion — सांख्यिकी माइक्रोबेंच: Criterion/Bencher/BenchmarkId"

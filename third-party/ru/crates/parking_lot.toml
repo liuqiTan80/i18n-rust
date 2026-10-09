@@ -1,0 +1,10 @@
+["模块路径"]
+"pkl_синхр_замок" = "parking_lot"
+
+["标识符"]
+"pkl_мьютэкс" = "Mutex"
+"pkl_рив_замок" = "RwLock"
+"pkl_условие" = "Condvar"
+
+["解释"]
+"pkl_синхр_замок" = "parking_lot — быстрые примитивы: Mutex/RwLock/Condvar"

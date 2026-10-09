@@ -1,0 +1,10 @@
+["模块路径"]
+"imp_datos_inmutables" = "im"
+
+["标识符"]
+"imp_vector" = "Vector"
+"imp_tabla_hash" = "HashMap"
+"imp_mapa_ordenado" = "OrdMap"
+
+["解释"]
+"imp_datos_inmutables" = "im — estructuras inmutables: Vector/HashMap/OrdMap"

@@ -1,0 +1,10 @@
+["模块路径"]
+"wkd디렉터리순회" = "walkdir"
+
+["标识符"]
+"wkd순회기" = "WalkDir"
+"wkd항목" = "DirEntry"
+"wkd반복기" = "IntoIter"
+
+["解释"]
+"wkd디렉터리순회" = "walkdir — 재귀 디렉터리 순회: WalkDir/DirEntry/IntoIter"

@@ -1,0 +1,10 @@
+["模块路径"]
+"pkl동기화잠금" = "parking_lot"
+
+["标识符"]
+"pkl뮤추얼" = "Mutex"
+"pkl읽기쓰기" = "RwLock"
+"pkl조건변수" = "Condvar"
+
+["解释"]
+"pkl동기화잠금" = "parking_lot — 고속同期 원시: Mutex/RwLock/Condvar"

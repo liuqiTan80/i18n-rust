@@ -1,0 +1,10 @@
+["模块路径"]
+"imp不可变结构" = "im"
+
+["标识符"]
+"imp向量" = "Vector"
+"imp哈希映射" = "HashMap"
+"imp有序映射" = "OrdMap"
+
+["解释"]
+"imp不可变结构" = "im — 不可变持久化数据结构: Vector/HashMap/OrdMap"

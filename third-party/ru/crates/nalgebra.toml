@@ -1,0 +1,10 @@
+["模块路径"]
+"nal_лин_алгебра" = "nalgebra"
+
+["标识符"]
+"nal_матрица" = "Matrix"
+"nal_вектор3" = "Vector3"
+"nal_точка2" = "Point2"
+
+["解释"]
+"nal_лин_алгебра" = "nalgebra — линейная алгебра: Matrix/Vector3/Point2"

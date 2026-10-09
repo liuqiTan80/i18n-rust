@@ -1,0 +1,10 @@
+["模块路径"]
+"url_analyse_adresse" = "url"
+
+["标识符"]
+"url_adresse" = "Url"
+"url_position" = "Position"
+"url_hote" = "Host"
+
+["解释"]
+"url_analyse_adresse" = "url — norme URL WHATWG: Url/Position/Host"

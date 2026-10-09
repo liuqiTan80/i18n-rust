@@ -1,0 +1,10 @@
+["模块路径"]
+"imp_unveraenderliche" = "im"
+
+["标识符"]
+"imp_vektor" = "Vector"
+"imp_hash_karte" = "HashMap"
+"imp_ordnete_karte" = "OrdMap"
+
+["解释"]
+"imp_unveraenderliche" = "im — unveraenderliche Strukturen: Vector/HashMap/OrdMap"

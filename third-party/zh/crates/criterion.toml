@@ -1,0 +1,10 @@
+["模块路径"]
+"crt基准测试" = "criterion"
+
+["标识符"]
+"crt评判标准" = "Criterion"
+"crt计时员" = "Bencher"
+"crt基准标识" = "BenchmarkId"
+
+["解释"]
+"crt基准测试" = "criterion — 统计驱动的微基准: Criterion/Bencher/BenchmarkId"

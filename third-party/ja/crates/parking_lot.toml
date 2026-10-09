@@ -1,0 +1,10 @@
+["模块路径"]
+"pkl同期ロック" = "parking_lot"
+
+["标识符"]
+"pklミューテックス" = "Mutex"
+"pkl読み書きロック" = "RwLock"
+"pkl条件変数" = "Condvar"
+
+["解释"]
+"pkl同期ロック" = "parking_lot — 高速同期プリミティ: Mutex/RwLock/Condvar"

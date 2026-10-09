@@ -1,0 +1,10 @@
+["模块路径"]
+"wkd_percurso_dirs" = "walkdir"
+
+["标识符"]
+"wkd_caminhante" = "WalkDir"
+"wkd_entrada" = "DirEntry"
+"wkd_iterador" = "IntoIter"
+
+["解释"]
+"wkd_percurso_dirs" = "walkdir — percurso recursivo de diretorios: WalkDir/DirEntry/IntoIter"

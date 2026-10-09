@@ -1,0 +1,10 @@
+["模块路径"]
+"crt벤치마크" = "criterion"
+
+["标识符"]
+"crt기준" = "Criterion"
+"crt측정자" = "Bencher"
+"crt벤치ID" = "BenchmarkId"
+
+["解释"]
+"crt벤치마크" = "criterion — 통계 기반 마이크로 벤치: Criterion/Bencher/BenchmarkId"

@@ -1,0 +1,10 @@
+["模块路径"]
+"wkd_обход_папок" = "walkdir"
+
+["标识符"]
+"wkd_обход" = "WalkDir"
+"wkd_запись" = "DirEntry"
+"wkd_итератор" = "IntoIter"
+
+["解释"]
+"wkd_обход_папок" = "walkdir — рекурсивный обход папок: WalkDir/DirEntry/IntoIter"

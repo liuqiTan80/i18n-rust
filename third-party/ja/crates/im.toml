@@ -1,0 +1,10 @@
+["模块路径"]
+"imp不変データ" = "im"
+
+["标识符"]
+"impベクトル" = "Vector"
+"impマップ" = "HashMap"
+"imp順序マップ" = "OrdMap"
+
+["解释"]
+"imp不変データ" = "im — 不変永続データ構造: Vector/HashMap/OrdMap"

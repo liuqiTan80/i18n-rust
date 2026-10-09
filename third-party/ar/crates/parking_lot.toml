@@ -1,0 +1,10 @@
+["模块路径"]
+"pkl_قفل_تزامن" = "parking_lot"
+
+["标识符"]
+"pkl_تبادل_قفل" = "Mutex"
+"pkl_قفل_قراءة" = "RwLock"
+"pkl_متغير_شرط" = "Condvar"
+
+["解释"]
+"pkl_قفل_تزامن" = "parking_lot — بدائيات تزامن سريعة: Mutex/RwLock/Condvar"
