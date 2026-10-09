@@ -1,0 +1,10 @@
+["模块路径"]
+"typn_typzahlen" = "typenum"
+
+["标识符"]
+"typn_unsigned_int" = "UInt"
+"typn_pos_int" = "PInt"
+"typn_neg_int" = "NInt"
+
+["解释"]
+"typn_typzahlen" = "typenum — Typzahlen: UInt/PInt/NInt"

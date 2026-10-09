@@ -1,0 +1,10 @@
+["模块路径"]
+"cbrCbor符号化" = "ciborium"
+
+["标识符"]
+"cbr値列挙" = "Value"
+"cbrリーダより復号" = "from_reader"
+"cbr書き込みへ符号化" = "into_writer"
+
+["解释"]
+"cbrCbor符号化" = "ciborium — CBOR serde 符号化: Value/from_reader/into_writer"

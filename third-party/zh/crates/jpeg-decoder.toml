@@ -1,0 +1,10 @@
+["模块路径"]
+"jpgJpeg解码" = "jpeg_decoder"
+
+["标识符"]
+"jpg解码器" = "Decoder"
+"jpg图像信息" = "ImageInfo"
+"jpg像素格式" = "PixelFormat"
+
+["解释"]
+"jpgJpeg解码" = "jpeg-decoder — JPEG 图像解码: Decoder/ImageInfo/PixelFormat"

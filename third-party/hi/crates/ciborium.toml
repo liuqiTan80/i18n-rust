@@ -1,0 +1,10 @@
+["模块路径"]
+"cbr_सीबोरियम_कोडन" = "ciborium"
+
+["标识符"]
+"cbr_मान_सूची" = "Value"
+"cbr_पाठक_से" = "from_reader"
+"cbr_लेखक_में" = "into_writer"
+
+["解释"]
+"cbr_सीबोरियम_कोडन" = "ciborium — CBOR serde कोडन: Value/from_reader/into_writer"

@@ -1,0 +1,10 @@
+["模块路径"]
+"png_image_png" = "png"
+
+["标识符"]
+"png_decodeur" = "Decoder"
+"png_encodeur" = "Encoder"
+"png_type_couleur" = "ColorType"
+
+["解释"]
+"png_image_png" = "png — encodage images PNG: Decoder/Encoder/ColorType"

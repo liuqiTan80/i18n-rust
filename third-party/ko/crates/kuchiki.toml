@@ -1,0 +1,10 @@
+["模块路径"]
+"kchHtml트리조작" = "kuchiki"
+
+["标识符"]
+"kch노드참조" = "NodeRef"
+"kch셀렉터" = "Selector"
+"kchHtml해석함수" = "parse_html"
+
+["解释"]
+"kchHtml트리조작" = "kuchiki — HTML/XML 트리 조작: NodeRef/Selector/parse_html"

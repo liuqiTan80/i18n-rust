@@ -1,0 +1,10 @@
+["模块路径"]
+"typn型レベル数値" = "typenum"
+
+["标识符"]
+"typn符号無整数型" = "UInt"
+"typn正整数型" = "PInt"
+"typn負整数型" = "NInt"
+
+["解释"]
+"typn型レベル数値" = "typenum — 型レベル数値: UInt/PInt/NInt"

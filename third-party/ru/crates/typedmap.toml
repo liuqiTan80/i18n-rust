@@ -1,0 +1,10 @@
+["模块路径"]
+"tpm_типизир_мап" = "typedmap"
+
+["标识符"]
+"tpm_типизир_мап_тип" = "TypedMap"
+"tpm_ключ_типизир" = "TypedMapKey"
+"tpm_конкур_типизир" = "TypedDashMap"
+
+["解释"]
+"tpm_типизир_мап" = "typedmap — типизир. хеш-таблица Any: TypedMap/TypedMapKey/TypedDashMap"

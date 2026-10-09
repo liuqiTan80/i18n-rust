@@ -1,0 +1,10 @@
+["模块路径"]
+"tpm型付きマップ" = "typedmap"
+
+["标识符"]
+"tpm型付き本体" = "TypedMap"
+"tpm型付鍵型" = "TypedMapKey"
+"tpm並行型付マップ" = "TypedDashMap"
+
+["解释"]
+"tpm型付きマップ" = "typedmap — Any 型付きハッシュマップ: TypedMap/TypedMapKey/TypedDashMap"

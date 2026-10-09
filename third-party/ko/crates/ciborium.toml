@@ -1,0 +1,10 @@
+["模块路径"]
+"cbrCbor부호화" = "ciborium"
+
+["标识符"]
+"cbr값열거" = "Value"
+"cbr리더로부터역직렬" = "from_reader"
+"cbr쓰기에직렬화" = "into_writer"
+
+["解释"]
+"cbrCbor부호화" = "ciborium — CBOR serde 부호화: Value/from_reader/into_writer"

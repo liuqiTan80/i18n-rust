@@ -1,0 +1,10 @@
+["模块路径"]
+"png_пнг_изобр" = "png"
+
+["标识符"]
+"png_декодер" = "Decoder"
+"png_энкодер" = "Encoder"
+"png_тип_цвета" = "ColorType"
+
+["解释"]
+"png_пнг_изобр" = "png — кодирование PNG изображений: Decoder/Encoder/ColorType"

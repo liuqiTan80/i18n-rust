@@ -1,0 +1,10 @@
+["模块路径"]
+"png_صورة_بي إن جي" = "png"
+
+["标识符"]
+"png_مفكك_ترميز" = "Decoder"
+"png_مشفر_رمز" = "Encoder"
+"png_نوع_لون" = "ColorType"
+
+["解释"]
+"png_صورة_بي إن جي" = "png — ترميز صور PNG: Decoder/Encoder/ColorType"

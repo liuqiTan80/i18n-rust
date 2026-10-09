@@ -1,0 +1,10 @@
+["模块路径"]
+"jpg_decodificacao_jpeg" = "jpeg_decoder"
+
+["标识符"]
+"jpg_decodificador" = "Decoder"
+"jpg_info_imagem" = "ImageInfo"
+"jpg_formato_pixel" = "PixelFormat"
+
+["解释"]
+"jpg_decodificacao_jpeg" = "jpeg-decoder — decodificacao JPEG: Decoder/ImageInfo/PixelFormat"

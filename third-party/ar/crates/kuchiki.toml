@@ -1,0 +1,10 @@
+["模块路径"]
+"kch_شجرة_html" = "kuchiki"
+
+["标识符"]
+"kch_مرجع_عقدة" = "NodeRef"
+"kch_محدد" = "Selector"
+"kch_تحليل" = "parse_html"
+
+["解释"]
+"kch_شجرة_html" = "kuchiki — شجرة HTML/XML: NodeRef/Selector/parse_html"

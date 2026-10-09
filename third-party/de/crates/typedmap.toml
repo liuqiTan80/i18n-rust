@@ -1,0 +1,10 @@
+["模块路径"]
+"tpm_typtabelle" = "typedmap"
+
+["标识符"]
+"tpm_typtabelle_typ" = "TypedMap"
+"tpm_typschluessel" = "TypedMapKey"
+"tpm_parallele_typtabelle" = "TypedDashMap"
+
+["解释"]
+"tpm_typtabelle" = "typedmap — typisierte Any-Hashmap: TypedMap/TypedMapKey/TypedDashMap"

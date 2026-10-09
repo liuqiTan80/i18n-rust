@@ -1,0 +1,10 @@
+["模块路径"]
+"tpm类型化映射" = "typedmap"
+
+["标识符"]
+"tpm类型化映射体" = "TypedMap"
+"tpm类型化键特质" = "TypedMapKey"
+"tpm并发类型映射" = "TypedDashMap"
+
+["解释"]
+"tpm类型化映射" = "typedmap — Any 类型化哈希表: TypedMap/TypedMapKey/TypedDashMap"

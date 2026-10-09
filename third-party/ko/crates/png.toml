@@ -1,0 +1,10 @@
+["模块路径"]
+"pngPng이미지" = "png"
+
+["标识符"]
+"png디코더" = "Decoder"
+"png인코더" = "Encoder"
+"png색상종류" = "ColorType"
+
+["解释"]
+"pngPng이미지" = "png — PNG 이미지 부호화: Decoder/Encoder/ColorType"

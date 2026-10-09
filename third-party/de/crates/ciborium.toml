@@ -1,0 +1,10 @@
+["模块路径"]
+"cbr_cbor_kodierung" = "ciborium"
+
+["标识符"]
+"cbr_wert_enum" = "Value"
+"cbr_aus_leser" = "from_reader"
+"cbr_in_schreiber" = "into_writer"
+
+["解释"]
+"cbr_cbor_kodierung" = "ciborium — CBOR serde Kodierung: Value/from_reader/into_writer"

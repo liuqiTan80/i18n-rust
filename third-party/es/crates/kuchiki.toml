@@ -1,0 +1,10 @@
+["模块路径"]
+"kch_arbol_html" = "kuchiki"
+
+["标识符"]
+"kch_referencia_nodo" = "NodeRef"
+"kch_selector" = "Selector"
+"kch_parsear_html" = "parse_html"
+
+["解释"]
+"kch_arbol_html" = "kuchiki — arbol HTML/XML: NodeRef/Selector/parse_html"

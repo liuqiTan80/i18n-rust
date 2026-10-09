@@ -1,0 +1,10 @@
+["模块路径"]
+"jpgJpeg復号" = "jpeg_decoder"
+
+["标识符"]
+"jpg復号器" = "Decoder"
+"jpg画像情報" = "ImageInfo"
+"jpg画素形式" = "PixelFormat"
+
+["解释"]
+"jpgJpeg復号" = "jpeg-decoder — JPEG 画像復号: Decoder/ImageInfo/PixelFormat"

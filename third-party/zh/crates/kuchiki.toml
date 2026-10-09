@@ -1,0 +1,10 @@
+["模块路径"]
+"kchHtml树操作" = "kuchiki"
+
+["标识符"]
+"kch节点引用" = "NodeRef"
+"kch选择器" = "Selector"
+"kch解析Html函数" = "parse_html"
+
+["解释"]
+"kchHtml树操作" = "kuchiki — HTML/XML 树操作: NodeRef/Selector/parse_html"

@@ -1,0 +1,10 @@
+["模块路径"]
+"tpm_प्रकार_मानचित्र" = "typedmap"
+
+["标识符"]
+"tpm_प्रकार_मानचित्र_प्रकार" = "TypedMap"
+"tpm_प्रकार_कुंजी" = "TypedMapKey"
+"tpm_समानांतर_प्रकार_मानचित्र" = "TypedDashMap"
+
+["解释"]
+"tpm_प्रकार_मानचित्र" = "typedmap — प्रकारित Any हैशमानचित्र: TypedMap/TypedMapKey/TypedDashMap"

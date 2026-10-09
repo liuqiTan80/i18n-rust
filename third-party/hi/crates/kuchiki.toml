@@ -1,0 +1,10 @@
+["模块路径"]
+"kch_एचटीएमएल_वृक्ष" = "kuchiki"
+
+["标识符"]
+"kch_नोड_संदर्भ" = "NodeRef"
+"kch_चयनक" = "Selector"
+"kch_विश्लेषण" = "parse_html"
+
+["解释"]
+"kch_एचटीएमएल_वृक्ष" = "kuchiki — HTML/XML वृक्ष: NodeRef/Selector/parse_html"

@@ -1,0 +1,10 @@
+["模块路径"]
+"cbrCbor编解码" = "ciborium"
+
+["标识符"]
+"cbr值枚举" = "Value"
+"cbr从读取反序列化" = "from_reader"
+"cbr写入序列化" = "into_writer"
+
+["解释"]
+"cbrCbor编解码" = "ciborium — CBOR serde 编解码: Value/from_reader/into_writer"

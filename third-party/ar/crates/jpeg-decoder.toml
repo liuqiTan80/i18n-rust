@@ -1,0 +1,10 @@
+["模块路径"]
+"jpg_فك_ترميز_جبيغ" = "jpeg_decoder"
+
+["标识符"]
+"jpg_مفكك_الترميز" = "Decoder"
+"jpg_معلومات_الصورة" = "ImageInfo"
+"jpg_صيغة_بكسل" = "PixelFormat"
+
+["解释"]
+"jpg_فك_ترميز_جبيغ" = "jpeg-decoder — فك ترميز JPEG: Decoder/ImageInfo/PixelFormat"

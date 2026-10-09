@@ -1,0 +1,10 @@
+["模块路径"]
+"tpm_خريطة_مؤطرة" = "typedmap"
+
+["标识符"]
+"tpm_نوع_خريطة_مؤطرة" = "TypedMap"
+"tpm_مفتاح_مؤطر" = "TypedMapKey"
+"tpm_خريطة_متوازية_مؤطرة" = "TypedDashMap"
+
+["解释"]
+"tpm_خريطة_مؤطرة" = "typedmap — خريطة تجزئة مؤطرة Any: TypedMap/TypedMapKey/TypedDashMap"

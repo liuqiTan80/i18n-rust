@@ -1,0 +1,10 @@
+["模块路径"]
+"tpm_carte_typee" = "typedmap"
+
+["标识符"]
+"tpm_type_carte_typee" = "TypedMap"
+"tpm_cle_typee" = "TypedMapKey"
+"tpm_carte_parallele_typee" = "TypedDashMap"
+
+["解释"]
+"tpm_carte_typee" = "typedmap — table de hachage typee Any: TypedMap/TypedMapKey/TypedDashMap"

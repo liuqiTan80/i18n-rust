@@ -1,0 +1,10 @@
+["模块路径"]
+"cbr_ترميز_سيبوريوم" = "ciborium"
+
+["标识符"]
+"cbr_عداد_قيمة" = "Value"
+"cbr_من_قارئ" = "from_reader"
+"cbr_إلى_كاتب" = "into_writer"
+
+["解释"]
+"cbr_ترميز_سيبوريوم" = "ciborium — ترميز CBOR serde: Value/from_reader/into_writer"

@@ -1,0 +1,10 @@
+["模块路径"]
+"pngPng图像" = "png"
+
+["标识符"]
+"png解码器" = "Decoder"
+"png编码器" = "Encoder"
+"png色彩类型" = "ColorType"
+
+["解释"]
+"pngPng图像" = "png — PNG 图像编解码: Decoder/Encoder/ColorType"

@@ -1,0 +1,10 @@
+["模块路径"]
+"typn_nombres_type" = "typenum"
+
+["标识符"]
+"typn_type_uint" = "UInt"
+"typn_type_pint" = "PInt"
+"typn_type_nint" = "NInt"
+
+["解释"]
+"typn_nombres_type" = "typenum — nombres de type: UInt/PInt/NInt"

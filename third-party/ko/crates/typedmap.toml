@@ -1,0 +1,10 @@
+["模块路径"]
+"tpm타입지정영사" = "typedmap"
+
+["标识符"]
+"tpm타입지정영사체" = "TypedMap"
+"tpm타입지정키트레잇" = "TypedMapKey"
+"tpm동시타입지정영사" = "TypedDashMap"
+
+["解释"]
+"tpm타입지정영사" = "typedmap — Any 타입 지정 해시맵: TypedMap/TypedMapKey/TypedDashMap"

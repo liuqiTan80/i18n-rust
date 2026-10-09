@@ -1,0 +1,10 @@
+["模块路径"]
+"kch_html_baumarbeit" = "kuchiki"
+
+["标识符"]
+"kch_knoten_referenz" = "NodeRef"
+"kch_selektor" = "Selector"
+"kch_html_parsen" = "parse_html"
+
+["解释"]
+"kch_html_baumarbeit" = "kuchiki — HTML/XML Baumoperationen: NodeRef/Selector/parse_html"
