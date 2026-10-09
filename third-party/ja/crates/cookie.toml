@@ -1,0 +1,10 @@
+["模块路径"]
+"HTTPクッキー処理" = "cookie"
+
+["标识符"]
+"クッキーデータ" = "Cookie"
+"クッキービルダー" = "CookieBuilder"
+"クッキーSameSite" = "SameSite"
+
+["解释"]
+"HTTPクッキー処理" = "cookie は HTTP クッキーの解析と構築を扱う、Cookie/CookieBuilder/SameSite 型を提供"

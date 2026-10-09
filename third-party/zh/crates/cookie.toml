@@ -1,0 +1,10 @@
+["模块路径"]
+"HTTPcookie处理" = "cookie"
+
+["标识符"]
+"cookie数据" = "Cookie"
+"cookie构建器" = "CookieBuilder"
+"cookie同源策略" = "SameSite"
+
+["解释"]
+"HTTPcookie处理" = "cookie 库处理 HTTP Cookie 的解析与构造，提供 Cookie/CookieBuilder/SameSite 等类型"

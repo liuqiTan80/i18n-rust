@@ -1,0 +1,10 @@
+["模块路径"]
+"pest_पार्सर_जनरेटर" = "pest"
+
+["标识符"]
+"pest_पार्सर_trait" = "Parser"
+"pest_पेयर" = "Pair"
+"pest_पेयर_समूह" = "Pairs"
+
+["解释"]
+"pest_पार्सर_जनरेटर" = "pest एक PEG पार्सर जनरेटर है, derive से Parser/Pair/Pairs कोड स्वतः बनता है"

@@ -1,0 +1,10 @@
+["模块路径"]
+"pyo3_Python_बाइंडिंग" = "pyo3"
+
+["标识符"]
+"pyo3_संदर्भ" = "Py"
+"pyo3_परिणाम_टाइप" = "PyResult"
+"pyo3_कोई_वस्तु" = "PyAny"
+
+["解释"]
+"pyo3_Python_बाइंडिंग" = "pyo3 Rust-Python द्वि-दिशीय बाइंडिंग देता है, Py/PyResult/PyAny कोर प्रकार हैं"

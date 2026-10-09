@@ -1,0 +1,10 @@
+["模块路径"]
+"wasm_bindgen_Interop" = "wasm-bindgen"
+
+["标识符"]
+"JS_Wert_Typ" = "JsValue"
+"JS_Cast_Trait" = "JsCast"
+"JS_Closure" = "Closure"
+
+["解释"]
+"wasm_bindgen_Interop" = "wasm-bindgen verbindet Rust und JavaScript, JsValue/JsCast/Closure sind Kerntypen"

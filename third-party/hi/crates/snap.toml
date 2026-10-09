@@ -1,0 +1,10 @@
+["模块路径"]
+"snappy_संपीड़न" = "snap"
+
+["标识符"]
+"snappy_राइटर" = "Writer"
+"snappy_रीडर" = "Reader"
+"snappy_बाइट_राइटर" = "ByteWriter"
+
+["解释"]
+"snappy_संपीड़न" = "snap Snappy संपीड़न लागू करता है, Writer/Reader/ByteWriter स्ट्रीम देते हैं"

@@ -1,0 +1,10 @@
+["模块路径"]
+"pyo3_Python_Bindung" = "pyo3"
+
+["标识符"]
+"pyo3_Verweis" = "Py"
+"pyo3_Ergebnis_Typ" = "PyResult"
+"pyo3_Beliebiges_Objekt" = "PyAny"
+
+["解释"]
+"pyo3_Python_Bindung" = "pyo3 bietet bidirektionale Rust-Python-Bindung, Py/PyResult/PyAny sind Kernobjekttypen"

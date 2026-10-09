@@ -1,0 +1,10 @@
+["模块路径"]
+"pestパーサ生成" = "pest"
+
+["标识符"]
+"pestパーサtrait" = "Parser"
+"pest対応ペア" = "Pair"
+"pestペア集合" = "Pairs"
+
+["解释"]
+"pestパーサ生成" = "pest は PEG パーサ生成器で derive により Parser/Pair/Pairs 解析コードを自動生成"

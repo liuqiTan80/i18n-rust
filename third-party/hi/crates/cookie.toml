@@ -1,0 +1,10 @@
+["模块路径"]
+"HTTP_कुकी_प्रसंस्करण" = "cookie"
+
+["标识符"]
+"कुकी_डेटा" = "Cookie"
+"कुकी_बिल्डर" = "CookieBuilder"
+"कुकी_समसाइट" = "SameSite"
+
+["解释"]
+"HTTP_कुकी_प्रसंस्करण" = "cookie HTTP कुकी पार्स व बनाता है, Cookie/CookieBuilder/SameSite प्रकार देता है"

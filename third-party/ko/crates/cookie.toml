@@ -1,0 +1,10 @@
+["模块路径"]
+"HTTP_쿠키_처리" = "cookie"
+
+["标识符"]
+"쿠키_데이터" = "Cookie"
+"쿠키_빌더" = "CookieBuilder"
+"쿠키_SameSite" = "SameSite"
+
+["解释"]
+"HTTP_쿠키_처리" = "cookie 는 HTTP 쿠키의 파싱과 구성을 다루며 Cookie/CookieBuilder/SameSite 타입 제공"

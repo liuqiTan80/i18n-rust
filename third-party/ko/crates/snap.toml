@@ -1,0 +1,10 @@
+["模块路径"]
+"snappy_압축" = "snap"
+
+["标识符"]
+"snappy_기록자" = "Writer"
+"snappy_판독자" = "Reader"
+"snappy_바이트_기록자" = "ByteWriter"
+
+["解释"]
+"snappy_압축" = "snap 은 Snappy 압축 알고리즘 구현, Writer/Reader/ByteWriter 가 스트림 압축 해제 제공"

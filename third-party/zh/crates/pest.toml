@@ -1,0 +1,10 @@
+["模块路径"]
+"pest解析器生成" = "pest"
+
+["标识符"]
+"pest解析器trait" = "Parser"
+"pest匹配对" = "Pair"
+"pest匹配对集合" = "Pairs"
+
+["解释"]
+"pest解析器生成" = "pest 是 PEG 解析器生成器，derive 后自动生成 Parser/Pair/Pairs 解析代码"

@@ -1,0 +1,10 @@
+["模块路径"]
+"pest_파서_생성" = "pest"
+
+["标识符"]
+"pest_파서_trait" = "Parser"
+"pest_쌍" = "Pair"
+"pest_쌍_집합" = "Pairs"
+
+["解释"]
+"pest_파서_생성" = "pest 은 PEG 파서 생성기로 derive 후 Parser/Pair/Pairs 파싱 코드를 자동 생성"

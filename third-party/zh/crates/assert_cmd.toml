@@ -1,0 +1,10 @@
+["模块路径"]
+"命令断言测试" = "assert_cmd"
+
+["标识符"]
+"断言命令构建" = "Command"
+"断言结果" = "Assert"
+"定位cargo二进制" = "cargo_bin"
+
+["解释"]
+"命令断言测试" = "assert_cmd 在集成测试中运行并断言命令行程序，Command/Assert/cargo_bin 是主要接口"

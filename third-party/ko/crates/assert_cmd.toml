@@ -1,0 +1,10 @@
+["模块路径"]
+"명령_어서션_테스트" = "assert_cmd"
+
+["标识符"]
+"어서션_명령_구성" = "Command"
+"어서션_결과" = "Assert"
+"cargo_바이너리_위치" = "cargo_bin"
+
+["解释"]
+"명령_어서션_테스트" = "assert_cmd 는 통합 테스트에서 CLI 프로그램을 실행·검증, Command/Assert/cargo_bin 주요 인터페이스"

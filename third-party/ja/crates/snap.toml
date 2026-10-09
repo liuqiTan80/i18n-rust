@@ -1,0 +1,10 @@
+["模块路径"]
+"snappy圧縮" = "snap"
+
+["标识符"]
+"snappyライター" = "Writer"
+"snappyリーダー" = "Reader"
+"snappyバイトライター" = "ByteWriter"
+
+["解释"]
+"snappy圧縮" = "snap は Snappy 圧縮アルゴリズム実装、Writer/Reader/ByteWriter がストリーム圧縮解凍を提供"

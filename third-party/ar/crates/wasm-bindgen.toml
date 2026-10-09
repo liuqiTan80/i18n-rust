@@ -1,0 +1,10 @@
+["模块路径"]
+"تداخل_wasm_bindgen" = "wasm-bindgen"
+
+["标识符"]
+"نوع_قيمة_JS" = "JsValue"
+"سمة_تحويل_JS" = "JsCast"
+"إغلاق_JS" = "Closure"
+
+["解释"]
+"تداخل_wasm_bindgen" = "wasm-bindgen يربط Rust و JavaScript، JsValue/JsCast/Closure أنواع أساسية"

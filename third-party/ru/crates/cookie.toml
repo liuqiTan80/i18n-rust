@@ -1,0 +1,10 @@
+["模块路径"]
+"обработка_HTTP_куки" = "cookie"
+
+["标识符"]
+"данные_куки" = "Cookie"
+"конструктор_куки" = "CookieBuilder"
+"политика_SameSite" = "SameSite"
+
+["解释"]
+"обработка_HTTP_куки" = "cookie разбирает и строит HTTP-куки, предоставляет Cookie/CookieBuilder/SameSite"

@@ -1,0 +1,10 @@
+["模块路径"]
+"pyo3Python绑定" = "pyo3"
+
+["标识符"]
+"pyo3智能引用" = "Py"
+"pyo3结果类型" = "PyResult"
+"pyo3任意对象" = "PyAny"
+
+["解释"]
+"pyo3Python绑定" = "pyo3 提供 Rust 与 Python 双向绑定，Py/PyResult/PyAny 是核心对象类型"

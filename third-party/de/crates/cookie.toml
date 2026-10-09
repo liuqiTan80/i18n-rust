@@ -1,0 +1,10 @@
+["模块路径"]
+"HTTP_Cookie_Verarbeitung" = "cookie"
+
+["标识符"]
+"Cookie_Daten" = "Cookie"
+"Cookie_Erbauer" = "CookieBuilder"
+"Cookie_SameSite_Richtlinie" = "SameSite"
+
+["解释"]
+"HTTP_Cookie_Verarbeitung" = "cookie verarbeitet HTTP-Cookies und bietet Cookie/CookieBuilder/SameSite Typen"

@@ -1,0 +1,10 @@
+["模块路径"]
+"befehl_assert_test" = "assert_cmd"
+
+["标识符"]
+"Assert_Befehl_Konstruktor" = "Command"
+"Assert_Ergebnis" = "Assert"
+"cargo_Binary_finden" = "cargo_bin"
+
+["解释"]
+"befehl_assert_test" = "assert_cmd fuehrt CLI-Programme in Tests aus und prueft sie, Command/Assert/cargo_bin sind Kern-APIs"

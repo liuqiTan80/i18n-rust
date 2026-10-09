@@ -1,0 +1,10 @@
+["模块路径"]
+"interoperabilite_wasm_bindgen" = "wasm-bindgen"
+
+["标识符"]
+"type_valeur_js" = "JsValue"
+"trait_conversion_js" = "JsCast"
+"closure_js" = "Closure"
+
+["解释"]
+"interoperabilite_wasm_bindgen" = "wasm-bindgen connecte Rust et JavaScript, JsValue/JsCast/Closure sont les types noyau"

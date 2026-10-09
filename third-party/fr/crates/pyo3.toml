@@ -1,0 +1,10 @@
+["模块路径"]
+"liaison_python_pyo3" = "pyo3"
+
+["标识符"]
+"reference_pyo3" = "Py"
+"type_resultat_pyo3" = "PyResult"
+"objet_quelconque_pyo3" = "PyAny"
+
+["解释"]
+"liaison_python_pyo3" = "pyo3 offre une liaison bidirectionnelle Rust-Python, Py/PyResult/PyAny sont les types noyau"

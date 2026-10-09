@@ -1,0 +1,10 @@
+["模块路径"]
+"معالجة_كوكيز_HTTP" = "cookie"
+
+["标识符"]
+"بيانات_الكوكيز" = "Cookie"
+"بانِي_الكوكيز" = "CookieBuilder"
+"سياسة_SameSite" = "SameSite"
+
+["解释"]
+"معالجة_كوكيز_HTTP" = "cookie يحلل ويبني كوكيز HTTP، يوفر أنواع Cookie/CookieBuilder/SameSite"

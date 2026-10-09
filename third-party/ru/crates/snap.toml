@@ -1,0 +1,10 @@
+["模块路径"]
+"сжатие_snappy" = "snap"
+
+["标识符"]
+"писатель_snappy" = "Writer"
+"читатель_snappy" = "Reader"
+"байтовый_писатель_snappy" = "ByteWriter"
+
+["解释"]
+"сжатие_snappy" = "snap реализует алгоритм сжатия Snappy, Writer/Reader/ByteWriter для потокового сжатия"

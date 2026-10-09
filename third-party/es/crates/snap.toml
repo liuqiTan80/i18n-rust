@@ -1,0 +1,10 @@
+["模块路径"]
+"compresion_snappy" = "snap"
+
+["标识符"]
+"escritor_snappy" = "Writer"
+"lector_snappy" = "Reader"
+"escritor_bytes_snappy" = "ByteWriter"
+
+["解释"]
+"compresion_snappy" = "snap implementa la compresion Snappy, Writer/Reader/ByteWriter para flujo comprimido"

@@ -1,0 +1,10 @@
+["模块路径"]
+"взаимодействие_wasm_bindgen" = "wasm-bindgen"
+
+["标识符"]
+"тип_значения_JS" = "JsValue"
+"трет_преобразования_JS" = "JsCast"
+"замыкание_JS" = "Closure"
+
+["解释"]
+"взаимодействие_wasm_bindgen" = "wasm-bindgen связывает Rust и JavaScript, JsValue/JsCast/Closure — ключевые типы"

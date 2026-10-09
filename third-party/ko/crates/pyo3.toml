@@ -1,0 +1,10 @@
+["模块路径"]
+"pyo3_Python_바인딩" = "pyo3"
+
+["标识符"]
+"pyo3_스마트_참조" = "Py"
+"pyo3_결과_타입" = "PyResult"
+"pyo3_임의_객체" = "PyAny"
+
+["解释"]
+"pyo3_Python_바인딩" = "pyo3 은 Rust 와 Python 양방향 바인딩을 제공, Py/PyResult/PyAny 핵심 객체 타입"

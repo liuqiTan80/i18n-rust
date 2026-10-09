@@ -1,0 +1,10 @@
+["模块路径"]
+"wasm绑定互操作" = "wasm-bindgen"
+
+["标识符"]
+"JS值类型" = "JsValue"
+"JS转换trait" = "JsCast"
+"JS闭包" = "Closure"
+
+["解释"]
+"wasm绑定互操作" = "wasm-bindgen 打通 Rust 与 JavaScript，JsValue/JsCast/Closure 是交互核心类型"

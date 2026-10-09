@@ -1,0 +1,10 @@
+["模块路径"]
+"snappy压缩" = "snap"
+
+["标识符"]
+"snappy写入器" = "Writer"
+"snappy读取器" = "Reader"
+"snappy字节写入器" = "ByteWriter"
+
+["解释"]
+"snappy压缩" = "snap 是 Snappy 压缩算法实现，Writer/Reader/ByteWriter 提供流式压缩解压"

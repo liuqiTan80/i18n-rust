@@ -1,0 +1,10 @@
+["模块路径"]
+"wasm_bindgen_इनरऑप" = "wasm-bindgen"
+
+["标识符"]
+"JS_मान_टाइप" = "JsValue"
+"JS_कास्ट_trait" = "JsCast"
+"JS_क्लोज़र" = "Closure"
+
+["解释"]
+"wasm_bindgen_इनरऑप" = "wasm-bindgen Rust व JavaScript को जोड़ता है, JsValue/JsCast/Closure कोर प्रकार हैं"

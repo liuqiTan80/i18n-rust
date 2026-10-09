@@ -1,0 +1,10 @@
+["模块路径"]
+"test_assertion_commande" = "assert_cmd"
+
+["标识符"]
+"constructeur_commande_assertion" = "Command"
+"resultat_assertion" = "Assert"
+"trouver_binaire_cargo" = "cargo_bin"
+
+["解释"]
+"test_assertion_commande" = "assert_cmd execute et verifie des programmes CLI dans les tests, Command/Assert/cargo_bin sont les APIs cles"

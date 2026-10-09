@@ -1,0 +1,10 @@
+["模块路径"]
+"コマンドアサートテスト" = "assert_cmd"
+
+["标识符"]
+"アサートコマンド構築" = "Command"
+"アサート結果" = "Assert"
+"cargoバイナリ特定" = "cargo_bin"
+
+["解释"]
+"コマンドアサートテスト" = "assert_cmd は結合テストで CLI プログラムを実行し検証、Command/Assert/cargo_bin が主要 API"

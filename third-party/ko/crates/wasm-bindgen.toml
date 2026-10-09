@@ -1,0 +1,10 @@
+["模块路径"]
+"wasm_bindgen_상호_운용" = "wasm-bindgen"
+
+["标识符"]
+"JS_값_타입" = "JsValue"
+"JS_변환_trait" = "JsCast"
+"JS_클로저" = "Closure"
+
+["解释"]
+"wasm_bindgen_상호_운용" = "wasm-bindgen 은 Rust 와 JavaScript 를 연결, JsValue/JsCast/Closure 상호 운용 핵심 타입"

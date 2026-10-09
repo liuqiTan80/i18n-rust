@@ -1,0 +1,10 @@
+["模块路径"]
+"generador_parser_pest" = "pest"
+
+["标识符"]
+"trait_parser_pest" = "Parser"
+"par_pest" = "Pair"
+"conjunto_pares_pest" = "Pairs"
+
+["解释"]
+"generador_parser_pest" = "pest es un generador de analizadores PEG, derive crea codigo Parser/Pair/Pairs automaticamente"

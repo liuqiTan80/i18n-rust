@@ -1,0 +1,10 @@
+["模块路径"]
+"ضغط_snappy" = "snap"
+
+["标识符"]
+"كاتِب_snappy" = "Writer"
+"قارئ_snappy" = "Reader"
+"كاتِب_بايت_snappy" = "ByteWriter"
+
+["解释"]
+"ضغط_snappy" = "snap يطبّق ضغط Snappy، Writer/Reader/ByteWriter توفر تدفقًا مضغوطًا"

@@ -1,0 +1,10 @@
+["模块路径"]
+"snappy_Kompression" = "snap"
+
+["标识符"]
+"snappy_Schreiber" = "Writer"
+"snappy_Leser" = "Reader"
+"snappy_Byte_Schreiber" = "ByteWriter"
+
+["解释"]
+"snappy_Kompression" = "snap implementiert Snappy-Kompression, Writer/Reader/ByteWriter fuer Stromkompression"

@@ -1,0 +1,10 @@
+["模块路径"]
+"pyo3Pythonバインディング" = "pyo3"
+
+["标识符"]
+"pyo3スマート参照" = "Py"
+"pyo3結果型" = "PyResult"
+"pyo3任意オブジェクト" = "PyAny"
+
+["解释"]
+"pyo3Pythonバインディング" = "pyo3 は Rust と Python 双方向バインディングを提供、Py/PyResult/PyAny が中核オブジェクト型"
