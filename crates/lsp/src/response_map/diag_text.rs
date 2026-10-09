@@ -906,4 +906,250 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_file(&outside);
     }
+
+    // ==================== 噪声过滤器对偶测试 ====================
+    //
+    // 虚拟项目的 5 个 is_* 过滤器按消息文本判定"恒为误报"，两个失败方向
+    // 都有真实代价：漏过滤 → 噪声淹没用户；误杀 → 真错被静默吞掉且用户
+    // 无从知晓。本组测试钉住每条正例（固有误报应滤）与反例（真错应留），
+    // rustc/RA 消息格式漂移时在这里第一时间暴露（文本模式匹配的回归面）。
+
+    use super::{
+        TranslationEntry, is_main_fn_hint, is_missing_dependency_noise, is_missing_include_asset,
+        is_missing_project_dependency, is_unopened_module_reference, unopened_module_name,
+    };
+    use std::collections::HashSet;
+    use std::path::PathBuf;
+
+    /// 构造指向临时目录方言文件的缓存条目（仅 original_path 参与判定）
+    fn entry_for(original_path: PathBuf) -> TranslationEntry {
+        TranslationEntry {
+            original_uri: format!("file://{}", original_path.display()),
+            original_path,
+            zh_content: String::new(),
+            en_content: String::new(),
+            ra_content: String::new(),
+            virtual_uri: String::new(),
+            virtual_path: PathBuf::from("virtual_main.rs"),
+            line_map: Vec::new(),
+            column_map: Vec::new(),
+            added_crate_tokens: HashSet::new(),
+            version: 1,
+            is_open: true,
+            source_meta: None,
+        }
+    }
+
+    /// 正例：main 函数伴生 Hint 被过滤；反例：非 Hint 级/无关消息一律保留
+    #[test]
+    fn test_is_main_fn_hint_pairing() {
+        let hint = serde_json::json!({
+            "severity": 4,
+            "message": "here is a function named `main`, but it is not the real entrypoint"
+        });
+        assert!(is_main_fn_hint(&hint, "file:///v/main.rs"));
+        let never_used = serde_json::json!({
+            "severity": 4,
+            "message": "function `main` is never used"
+        });
+        assert!(is_main_fn_hint(&never_used, "file:///v/main.rs"));
+        // 反例 1：同文案但 error 级——severity 闸必须拦住，不得静默吞掉真错
+        let as_error = serde_json::json!({
+            "severity": 1,
+            "message": "function `main` is never used"
+        });
+        assert!(!is_main_fn_hint(&as_error, "file:///v/main.rs"));
+        // 反例 2：无关的 never-used 提示（其它函数）必须保留
+        let other = serde_json::json!({
+            "severity": 4,
+            "message": "function `helper` is never used"
+        });
+        assert!(!is_main_fn_hint(&other, "file:///v/main.rs"));
+        // 反例 3：无 severity 字段不视为 Hint
+        assert!(!is_main_fn_hint(
+            &serde_json::json!({ "message": "function `main` is never used" }),
+            ""
+        ));
+    }
+
+    /// 正例：过程宏未展开的 attribute/derive macro 缺失被过滤；
+    /// 反例：unresolved import/cannot find module 不过滤（"添加依赖"快速修复
+    /// 的输入，且真实缺依赖时同样出现）
+    #[test]
+    fn test_is_missing_dependency_noise_pairing() {
+        assert!(is_missing_dependency_noise(
+            &serde_json::json!({ "message": "cannot find attribute `arg` in this scope" })
+        ));
+        assert!(is_missing_dependency_noise(
+            &serde_json::json!({ "message": "cannot find derive macro `Parser` in this scope" })
+        ));
+        // 反例：用户真写错了宏名——必须保留
+        assert!(!is_missing_dependency_noise(
+            &serde_json::json!({ "message": "cannot find macro `prinln` in this scope" })
+        ));
+        // 反例：unresolved import 走 is_missing_project_dependency 精细判定，
+        // 不在本过滤器一刀切（行为钉住，防将来误扩 here 的匹配面）
+        assert!(!is_missing_dependency_noise(
+            &serde_json::json!({ "message": "unresolved import `serde`" })
+        ));
+    }
+
+    /// 候选名提取：四种消息格式 × 防御性拒绝（保留字/路径穿越/畸形段）
+    #[test]
+    fn test_unopened_module_name_parsing() {
+        // 四种已知 RA/rustc 消息格式（0.3.3025 前后两代）
+        assert_eq!(
+            unopened_module_name("cannot find module or crate `日志设置` in this scope"),
+            Some("日志设置")
+        );
+        assert_eq!(
+            unopened_module_name("cannot find `日志设置` in `crate`"),
+            Some("日志设置")
+        );
+        assert_eq!(
+            unopened_module_name("unresolved import `crate::日志设置::初始化`"),
+            Some("日志设置")
+        );
+        assert_eq!(
+            unopened_module_name("no `日志设置` in the root"),
+            Some("日志设置")
+        );
+        // 保留字/系统 crate 不可能是本地模块
+        assert_eq!(unopened_module_name("cannot find `std` in `crate`"), None);
+        assert_eq!(unopened_module_name("no `core` in the root"), None);
+        // 路径穿越防御：含 / \ .. 的段一律拒绝
+        assert_eq!(
+            unopened_module_name("unresolved import `crate/../秘密`"),
+            None
+        );
+        assert_eq!(unopened_module_name("cannot find `a/b` in `crate`"), None);
+        // 未知消息格式不强行解释（宁漏滤不误杀）
+        assert_eq!(
+            unopened_module_name("expected one of `::`, found keyword`fn`"),
+            None
+        );
+        // 非 `crate` 后缀的 cannot find `X` in `...` 不命中
+        assert_eq!(unopened_module_name("cannot find `foo` in `self`"), None);
+    }
+
+    /// 正例：同目录存在同名方言文件 → "模块未打开"误报被滤；
+    /// 反例：文件确实不存在（真拼错）→ 诊断保留供用户修正
+    #[test]
+    fn test_is_unopened_module_reference_pairing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let main_zh = tmp.path().join("主程序.zh");
+        std::fs::write(&main_zh, "").unwrap();
+        std::fs::write(tmp.path().join("日志设置.zh"), "").unwrap();
+        let entry = entry_for(main_zh.clone());
+        let mk = |msg: &str| serde_json::json!({ "message": msg, "severity": 1 });
+
+        // 正例：模块文件存在但未打开
+        assert!(is_unopened_module_reference(
+            &mk("cannot find module or crate `日志设置` in this scope"),
+            Some(&entry)
+        ));
+        assert!(is_unopened_module_reference(
+            &mk("unresolved import `crate::日志设置`"),
+            Some(&entry)
+        ));
+        // 反例 1：目标文件不存在（真错误）——必须保留
+        assert!(!is_unopened_module_reference(
+            &mk("cannot find module or crate `日志设置2` in this scope"),
+            Some(&entry)
+        ));
+        // 反例 2：同名词是 .rs 而非 .zh（扩展名隔离，不以其它类型文件为准）
+        std::fs::write(tmp.path().join("工具.rs"), "").unwrap();
+        assert!(!is_unopened_module_reference(
+            &mk("cannot find module or crate `工具` in this scope"),
+            Some(&entry)
+        ));
+        // 反例 3：无缓存条目（非代理托管文件）不过滤
+        assert!(!is_unopened_module_reference(
+            &mk("cannot find module or crate `日志设置` in this scope"),
+            None
+        ));
+    }
+
+    /// 正例：候选 crate 在用户 Cargo.toml 依赖表 → 虚拟项目缺失误报被滤；
+    /// 反例：不在依赖表（真拼错/真没加依赖）→ 保留并继续给 rzc add 提示
+    #[test]
+    fn test_is_missing_project_dependency_pairing() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("Cargo.toml"),
+            "[dependencies]\nserde = \"1\"\nserde_json = \"1\"\n",
+        )
+        .unwrap();
+        let main_zh = tmp.path().join("主程序.zh");
+        std::fs::write(&main_zh, "").unwrap();
+        let entry = entry_for(main_zh.clone());
+        let mk = |msg: &str| serde_json::json!({ "message": msg, "severity": 1 });
+
+        // 正例：已声明依赖在虚拟项目缺失
+        assert!(is_missing_project_dependency(
+            &mk("unresolved import `serde`"),
+            Some(&entry)
+        ));
+        assert!(is_missing_project_dependency(
+            &mk("use of undeclared crate or module `serde_json`"),
+            Some(&entry)
+        ));
+        // 反例 1：不在依赖表的名字是真错误，必须保留
+        assert!(!is_missing_project_dependency(
+            &mk("unresolved import `serde_mistyped`"),
+            Some(&entry)
+        ));
+        // 反例 2：非导入类消息不碰（即使含同名反引号段）
+        assert!(!is_missing_project_dependency(
+            &mk("no function or associated item named `serde` found"),
+            Some(&entry)
+        ));
+        // 反例 3：无 Cargo.toml 可寻（隔离目录上层无清单）时保持原样不过滤；
+        // 注：本断言依赖 tmp 目录祖先链无 Cargo.toml，tempdir 在系统临时区成立
+        let orphan_dir = tempfile::tempdir().unwrap();
+        let orphan = orphan_dir.path().join("x.zh");
+        std::fs::write(&orphan, "").unwrap();
+        let orphan_entry = entry_for(orphan);
+        assert!(!is_missing_project_dependency(
+            &mk("unresolved import `serde`"),
+            Some(&orphan_entry)
+        ));
+    }
+
+    /// 正例：资源文件在原目录存在（虚拟目录相对路径解析失败）被滤；
+    /// 反例：原项目真实缺资源 → 诊断必须保留
+    #[test]
+    fn test_is_missing_include_asset_pairing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let main_zh = tmp.path().join("主程序.zh");
+        std::fs::write(&main_zh, "").unwrap();
+        std::fs::write(tmp.path().join("界面.html"), "<html>").unwrap();
+        let entry = entry_for(main_zh);
+        let mk = |msg: &str| serde_json::json!({ "message": msg, "severity": 1 });
+
+        // 正例：虚拟根 src/ 前缀与无前缀两种形态
+        assert!(is_missing_include_asset(
+            &mk("couldn't read `src/界面.html`: 系统找不到指定的文件。 (os error 2)"),
+            Some(&entry)
+        ));
+        assert!(is_missing_include_asset(
+            &mk("couldn't read `界面.html`: No such file or directory (os error 2)"),
+            Some(&entry)
+        ));
+        // 反例 1：原目录也没有该资源——真错误，必须保留
+        assert!(!is_missing_include_asset(
+            &mk("couldn't read `src/不存在.html`: No such file or directory"),
+            Some(&entry)
+        ));
+        // 反例 2：路径穿越防御
+        assert!(!is_missing_include_asset(
+            &mk("couldn't read `../界面.html`"),
+            Some(&entry)
+        ));
+        // 反例 3：非 couldn't read 格式不命中
+        assert!(!is_missing_include_asset(
+            &mk("file not found: 界面.html"),
+            Some(&entry)
+        ));
+    }
 }
