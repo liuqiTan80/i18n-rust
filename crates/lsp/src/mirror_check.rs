@@ -1044,4 +1044,29 @@ mod tests {
         .unwrap();
         assert_eq!(sl2, 0);
     }
+
+    /// 全链路非 BMP 回译（列映射字符列 → UTF-16 列 的组合边界）：
+    /// 诊断列落在非 BMP 字符（emoji）之后时，回译必须先把 emoji 当作
+    /// 1 个字符参与列映射、再在转 UTF-16 时计为 2 个单元——两步口径不能混用。
+    /// zh「让😀x = 1;」→ 产物「let😀x = 1;」：x 在产物第 5 字符列，回译出
+    /// 方言字符列 3（让=1、😀=2、x=3），转 UTF-16 为 3（让占 1 单元 + 😀占 2）。
+    /// 与纯 BMP 基线同列只给 2 形对比——若误用字符数口径会少算 emoji 的额外
+    /// 单元（返回 2），本测试把模块文档「混用会在非 BMP 字符上产生偏移」钉死。
+    #[test]
+    fn test_map_span_range_non_bmp_before_column() {
+        let zh = "让😀x = 1;\n";
+        let edits = [i18n_rust_engine::cache::SourceMapEntry::new(
+            0, 3, "让", "let",
+        )];
+        let file = MirrorFile {
+            product_path: PathBuf::from("/mirror/src/main.rs"),
+            original_uri: "file:///proj/src/main.zh".to_string(),
+            zh_content: zh.to_string(),
+            column_map: i18n_rust_engine::column_map::ColumnMap::build(zh, &edits),
+            entry_line_map: None,
+        };
+        // 产物「let😀x」中 x 在第 5 字符列 → 方言 UTF-16 列 3
+        let span = serde_json::json!({"line_start": 1, "column_start": 5});
+        assert_eq!(map_span_range(&file, &span), Some((0, 3, 0, 3)));
+    }
 }
