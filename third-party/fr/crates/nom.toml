@@ -1,0 +1,10 @@
+["模块路径"]
+"nmc_combineurs_parseur" = "nom"
+
+["标识符"]
+"nmc_type_resultat" = "IResult"
+"nmc_enum_erreur" = "Err"
+"nmc_besoin_donnees" = "Needed"
+
+["解释"]
+"nmc_combineurs_parseur" = "nom — framework combineurs parseur: IResult/Err/Needed"

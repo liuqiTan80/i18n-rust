@@ -1,0 +1,10 @@
+["模块路径"]
+"nmc解析器组合子" = "nom"
+
+["标识符"]
+"nmc输入结果别名" = "IResult"
+"nmc解析错误枚举" = "Err"
+"nmc数据需求枚举" = "Needed"
+
+["解释"]
+"nmc解析器组合子" = "nom — 解析器组合子框架: IResult/Err/Needed"

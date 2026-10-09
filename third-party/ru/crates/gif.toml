@@ -1,0 +1,10 @@
+["模块路径"]
+"gif_гиф_аним" = "gif"
+
+["标识符"]
+"gif_декодер" = "Decoder"
+"gif_энкодер" = "Encoder"
+"gif_кадр_структ" = "Frame"
+
+["解释"]
+"gif_гиф_аним" = "gif — кодирование GIF анимации: Decoder/Encoder/Frame"

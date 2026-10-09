@@ -1,0 +1,10 @@
+["模块路径"]
+"gt幾何型" = "geo_types"
+
+["标识符"]
+"gt点" = "Point"
+"gt線分列" = "LineString"
+"gt多角形" = "Polygon"
+
+["解释"]
+"gt幾何型" = "geo-types — GeoRust 幾何型: Point/LineString/Polygon"

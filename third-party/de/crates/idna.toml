@@ -1,0 +1,10 @@
+["模块路径"]
+"idn_intl_domains" = "idna"
+
+["标识符"]
+"idn_domain_zu_ascii" = "domain_to_ascii"
+"idn_domain_zu_unicode" = "domain_to_unicode"
+"idn_fehler_typ" = "Errors"
+
+["解释"]
+"idn_intl_domains" = "idna — internationalisierteDomains WHATWG IDNA: domain_to_ascii/domain_to_unicode/Errors"

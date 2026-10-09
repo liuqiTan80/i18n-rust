@@ -1,0 +1,10 @@
+["模块路径"]
+"nmcパーサ Combinator" = "nom"
+
+["标识符"]
+"nmc結果型別名" = "IResult"
+"nmc解析エラー列挙" = "Err"
+"nmc必要データ列挙" = "Needed"
+
+["解释"]
+"nmcパーサ Combinator" = "nom — パーサ Combinator フレーム: IResult/Err/Needed"

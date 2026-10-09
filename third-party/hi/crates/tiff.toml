@@ -1,0 +1,10 @@
+["模块路径"]
+"tif_टिफ़_छवि" = "tiff"
+
+["标识符"]
+"tif_रंग_प्रकार_सूची" = "ColorType"
+"tif_त्रुटि_सूची" = "TiffError"
+"tif_परिणाम_प्रकार" = "TiffResult"
+
+["解释"]
+"tif_टिफ़_छवि" = "tiff — TIFF छवि कोडन: ColorType/TiffError/TiffResult"

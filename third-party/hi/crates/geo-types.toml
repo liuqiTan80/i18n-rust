@@ -1,0 +1,10 @@
+["模块路径"]
+"gt_ज्यामितीय_प्रकार" = "geo_types"
+
+["标识符"]
+"gt_बिंदु" = "Point"
+"gt_रेखा_श्रृंखला" = "LineString"
+"gt_बहुभुज" = "Polygon"
+
+["解释"]
+"gt_ज्यामितीय_प्रकार" = "geo-types — GeoRust ज्यामितीय प्रकार: Point/LineString/Polygon"

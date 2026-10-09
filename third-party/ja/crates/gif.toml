@@ -1,0 +1,10 @@
+["模块路径"]
+"gifGifアニメ" = "gif"
+
+["标识符"]
+"gifデコーダ" = "Decoder"
+"gifエンコーダ" = "Encoder"
+"gifフレーム構造体" = "Frame"
+
+["解释"]
+"gifGifアニメ" = "gif — GIF アニメ符号化: Decoder/Encoder/Frame"

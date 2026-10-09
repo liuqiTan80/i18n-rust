@@ -1,0 +1,10 @@
+["模块路径"]
+"gt_أنواع_هندسية" = "geo_types"
+
+["标识符"]
+"gt_نقطة" = "Point"
+"gt_سلسلة_خطوط" = "LineString"
+"gt_مضلع" = "Polygon"
+
+["解释"]
+"gt_أنواع_هندسية" = "geo-types — أنواع هندسية GeoRust: Point/LineString/Polygon"

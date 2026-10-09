@@ -1,0 +1,10 @@
+["模块路径"]
+"gt기하유형" = "geo_types"
+
+["标识符"]
+"gt점" = "Point"
+"gt선분열" = "LineString"
+"gt다각형" = "Polygon"
+
+["解释"]
+"gt기하유형" = "geo-types — GeoRust 기하 유형: Point/LineString/Polygon"

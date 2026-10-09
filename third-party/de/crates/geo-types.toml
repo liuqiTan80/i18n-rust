@@ -1,0 +1,10 @@
+["模块路径"]
+"gt_geometrietypen" = "geo_types"
+
+["标识符"]
+"gt_punkt" = "Point"
+"gt_linienzug" = "LineString"
+"gt_polygon" = "Polygon"
+
+["解释"]
+"gt_geometrietypen" = "geo-types — GeoRust Geometrietypen: Point/LineString/Polygon"

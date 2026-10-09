@@ -1,0 +1,10 @@
+["模块路径"]
+"tif_тифф_изобр" = "tiff"
+
+["标识符"]
+"tif_тип_цвета_переч" = "ColorType"
+"tif_шибк_тифф" = "TiffError"
+"tif_результ_тип" = "TiffResult"
+
+["解释"]
+"tif_тифф_изобр" = "tiff — кодирование TIFF: ColorType/TiffError/TiffResult"

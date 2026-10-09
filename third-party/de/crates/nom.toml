@@ -1,0 +1,10 @@
+["模块路径"]
+"nmc_parser_kombinator" = "nom"
+
+["标识符"]
+"nmc_ergebnis_typ" = "IResult"
+"nmc_fehler_enum" = "Err"
+"nmc_datenbedarf" = "Needed"
+
+["解释"]
+"nmc_parser_kombinator" = "nom — Parser-Kombinator-Framework: IResult/Err/Needed"

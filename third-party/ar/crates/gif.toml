@@ -1,0 +1,10 @@
+["模块路径"]
+"gif_رسوم_جيف" = "gif"
+
+["标识符"]
+"gif_مفكك_ترميز" = "Decoder"
+"gif_مشفر_رمز" = "Encoder"
+"gif_هيكل_إطار" = "Frame"
+
+["解释"]
+"gif_رسوم_جيف" = "gif — ترميز رسوم متحركة GIF: Decoder/Encoder/Frame"

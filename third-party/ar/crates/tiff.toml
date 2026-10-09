@@ -1,0 +1,10 @@
+["模块路径"]
+"tif_صورة_تيف" = "tiff"
+
+["标识符"]
+"tif_عداد_لون" = "ColorType"
+"tif_خطأ_تيف" = "TiffError"
+"tif_نوع_نتيجة" = "TiffResult"
+
+["解释"]
+"tif_صورة_تيف" = "tiff — ترميز صور TIFF: ColorType/TiffError/TiffResult"

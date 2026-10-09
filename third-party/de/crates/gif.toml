@@ -1,0 +1,10 @@
+["模块路径"]
+"gif_gif_animation" = "gif"
+
+["标识符"]
+"gif_decoder_struktor" = "Decoder"
+"gif_encoder_struktor" = "Encoder"
+"gif_frame_struktur" = "Frame"
+
+["解释"]
+"gif_gif_animation" = "gif — GIF Animationskodierung: Decoder/Encoder/Frame"

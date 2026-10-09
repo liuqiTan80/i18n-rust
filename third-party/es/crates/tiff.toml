@@ -1,0 +1,10 @@
+["模块路径"]
+"tif_imagen_tiff" = "tiff"
+
+["标识符"]
+"tif_enum_color" = "ColorType"
+"tif_error_tiff" = "TiffError"
+"tif_tipo_resultado" = "TiffResult"
+
+["解释"]
+"tif_imagen_tiff" = "tiff — codificacion imagen TIFF: ColorType/TiffError/TiffResult"

@@ -1,0 +1,10 @@
+["模块路径"]
+"tifTiff이미지" = "tiff"
+
+["标识符"]
+"tif색상종류열거" = "ColorType"
+"tif오류열거" = "TiffError"
+"tif결과별명" = "TiffResult"
+
+["解释"]
+"tifTiff이미지" = "tiff — TIFF 이미지 부호화: ColorType/TiffError/TiffResult"

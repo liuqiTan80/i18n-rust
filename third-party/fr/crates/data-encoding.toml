@@ -1,0 +1,10 @@
+["模块路径"]
+"denc_encodage_donnees" = "data_encoding"
+
+["标识符"]
+"denc_type_encodage" = "Encoding"
+"denc_specification_encodage" = "Specification"
+"denc_constante_base64" = "BASE64"
+
+["解释"]
+"denc_encodage_donnees" = "data-encoding — encodage Base64/Base32/Hex: Encoding/Specification/BASE64"

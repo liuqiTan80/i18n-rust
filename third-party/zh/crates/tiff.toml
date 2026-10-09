@@ -1,0 +1,10 @@
+["模块路径"]
+"tifTiff图像" = "tiff"
+
+["标识符"]
+"tif色彩类型枚举" = "ColorType"
+"tif解码错误枚举" = "TiffError"
+"tif结果别名" = "TiffResult"
+
+["解释"]
+"tifTiff图像" = "tiff — TIFF 图像编解码: ColorType/TiffError/TiffResult"
