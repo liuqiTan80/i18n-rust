@@ -3,6 +3,9 @@
 > 教程与文档多语言化的进度看板。翻译原则与管线说明见
 > [tutorials/en/README.md](../tutorials/en/README.md)。
 
+> **可视化总览**：各语言已翻译的库与 API（方言名/英文原名、大白话说明、翻译日期）
+> 可直接浏览 [`docs/library-index.html`](./library-index.html)；重生成：`make lib-index`。
+
 ## 教程（tutorials/，33 个文件）
 
 | 目标语言 | 目录 | 进度 | 说明 |

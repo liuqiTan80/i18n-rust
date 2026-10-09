@@ -10,6 +10,9 @@
 - `rzc crate search <关键词>` 发现社区已翻译的第三方库；
 - `rzc crate install <crate> --lang zh` 只拉取单个 crate 的映射，免去安装整包语言；
 - `rzc crate publish <crate> --lang zh` 把自译映射上传到注册中心，供他人复用。
+- **直接浏览**：打开仓库内的可视化索引 `docs/library-index.html`（用 `make lib-index`
+  或 `node tools/build-lib-index.mjs` 重生成），一览各语言已翻译的标准库与第三方库
+  API、大白话说明与翻译日期。
 
 ## 1. 设计原则
 
