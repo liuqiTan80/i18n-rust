@@ -1,0 +1,10 @@
+["模块路径"]
+"graph_datenstruktur" = "petgraph"
+
+["标识符"]
+"ungerichteter_Graph" = "Graph"
+"gerichteter_Graph" = "DiGraph"
+"Knoten_Index" = "NodeIndex"
+
+["解释"]
+"graph_datenstruktur" = "petgraph bietet allgemeine Graph-Datenstrukturen (Graph/DiGraph) und viele Algorithmen"

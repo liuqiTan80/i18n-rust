@@ -1,0 +1,10 @@
+["模块路径"]
+"operacion_archivo_temporal" = "tempfile"
+
+["标识符"]
+"directorio_temporal" = "TempDir"
+"archivo_temporal_nombrado" = "NamedTempFile"
+"crear_directorio_temporal" = "tempdir"
+
+["解释"]
+"operacion_archivo_temporal" = "tempfile crea de forma segura archivos y directorios temporales, limpieza automatica al salir"

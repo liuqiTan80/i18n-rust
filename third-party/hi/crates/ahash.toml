@@ -1,0 +1,10 @@
+["模块路径"]
+"ahash_तीव्र_हैश" = "ahash"
+
+["标识符"]
+"AHasher_हैशर" = "AHasher"
+"AHashMap_मानचित्र" = "AHashMap"
+"रैंडम_हैश_स्टेट" = "RandomState"
+
+["解释"]
+"ahash_तीव्र_हैश" = "ahash सबसे तेज़ सामान्य हैश लागत है, HashMap/HashSet के हैशर को प्रतिस्थापित करता है"

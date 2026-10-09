@@ -1,0 +1,10 @@
+["模块路径"]
+"cache_resultados_funcao" = "cached"
+
+["标识符"]
+"trait_cache" = "Cache"
+"cache_preguicoso" = "LazyCache"
+"cache_temporal" = "TimedCache"
+
+["解释"]
+"cache_resultados_funcao" = "cached oferece cache de resultados em nivel de funcao (LRU/preguicoso/temporal), reduz calculos repetidos"

@@ -1,0 +1,10 @@
+["模块路径"]
+"ahash高速ハッシュ" = "ahash"
+
+["标识符"]
+"AHasherハッシャー" = "AHasher"
+"AHashMapマップ" = "AHashMap"
+"ランダムハッシュシード" = "RandomState"
+
+["解释"]
+"ahash高速ハッシュ" = "ahash は最速の汎用ハッシュ実装で HashMap/HashSet のハッシュャーを置き換える"

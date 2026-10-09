@@ -1,0 +1,10 @@
+["模块路径"]
+"estrutura_de_dados_grafo" = "petgraph"
+
+["标识符"]
+"grafo_nao_dirigido" = "Graph"
+"grafo_dirigido" = "DiGraph"
+"indice_no" = "NodeIndex"
+
+["解释"]
+"estrutura_de_dados_grafo" = "petgraph fornece estruturas de dados de grafo gerais (Graph/DiGraph) e diversos algoritmos"

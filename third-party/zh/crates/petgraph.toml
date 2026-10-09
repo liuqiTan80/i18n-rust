@@ -1,0 +1,10 @@
+["模块路径"]
+"图数据结构" = "petgraph"
+
+["标识符"]
+"无向图" = "Graph"
+"有向图" = "DiGraph"
+"节点索引" = "NodeIndex"
+
+["解释"]
+"图数据结构" = "petgraph 提供通用图数据结构（Graph/DiGraph）及丰富的图算法"

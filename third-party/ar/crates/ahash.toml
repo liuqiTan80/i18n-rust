@@ -1,0 +1,10 @@
+["模块路径"]
+"تجزئة_سريعة_ahash" = "ahash"
+
+["标识符"]
+"مجزِّئ_AHasher" = "AHasher"
+"خريطة_AHashMap" = "AHashMap"
+"حالة_تجزئة_عشوائية" = "RandomState"
+
+["解释"]
+"تجزئة_سريعة_ahash" = "ahash هو أسرع تنفيذ تجزئة عام، يحل محل مجزِّئ HashMap/HashSet"

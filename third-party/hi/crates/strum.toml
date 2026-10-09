@@ -1,0 +1,10 @@
+["模块路径"]
+"एनम_सहायक_मैक्रो" = "strum"
+
+["标识符"]
+"एनम_इटर_डिवाइव" = "EnumIter"
+"एनम_स्ट्रिंग_डिवाइव" = "EnumString"
+"एनम_विवेचक_डिवाइव" = "EnumDiscriminants"
+
+["解释"]
+"एनम_सहायक_मैक्रो" = "strum derive मैक्रो द्वारा enum के लिए iterator, string conversion और discriminants स्वतः उत्पन्न करता है"

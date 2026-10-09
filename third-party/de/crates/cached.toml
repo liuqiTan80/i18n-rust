@@ -1,0 +1,10 @@
+["模块路径"]
+"funktions_Ergebnis_Cache" = "cached"
+
+["标识符"]
+"Cache_Trait" = "Cache"
+"Lazy_Cache" = "LazyCache"
+"Zeit_Cache" = "TimedCache"
+
+["解释"]
+"funktions_Ergebnis_Cache" = "cached liefert Funktionsergebnis-Cache (LRU/Lazy/Zeit), reduziert doppelte Berechnungen"

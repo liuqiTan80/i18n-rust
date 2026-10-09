@@ -1,0 +1,10 @@
+["模块路径"]
+"ahash快速哈希" = "ahash"
+
+["标识符"]
+"AHasher哈希器" = "AHasher"
+"AHashMap映射" = "AHashMap"
+"随机哈希种子" = "RandomState"
+
+["解释"]
+"ahash快速哈希" = "ahash 是最快的通用哈希实现，用于 HashMap/HashSet 的替代哈希器"

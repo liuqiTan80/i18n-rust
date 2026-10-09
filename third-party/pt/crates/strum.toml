@@ -1,0 +1,10 @@
+["模块路径"]
+"macros_auxiliares_enum" = "strum"
+
+["标识符"]
+"derivacao_iteracao_enum" = "EnumIter"
+"derivacao_string_enum" = "EnumString"
+"derivacao_discriminantes_enum" = "EnumDiscriminants"
+
+["解释"]
+"macros_auxiliares_enum" = "strum gera automaticamente via macros derive iterador, conversao para string e discriminantes para enum"

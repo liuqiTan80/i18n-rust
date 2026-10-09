@@ -1,0 +1,10 @@
+["模块路径"]
+"удобные_derive_макросы" = "derive_more"
+
+["标识符"]
+"формат_вывода_через_derive" = "Display"
+"преобразование_From_через_derive" = "From"
+"конструктор_через_derive" = "Constructor"
+
+["解释"]
+"удобные_derive_макросы" = "derive_more через #[derive(...)] быстро генерирует шаблонные реализации Display/From/Constructor"

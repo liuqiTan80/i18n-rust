@@ -1,0 +1,10 @@
+["模块路径"]
+"편의_파생_매크로" = "derive_more"
+
+["标识符"]
+"파생_표시_형식" = "Display"
+"파생_From_변환" = "From"
+"파생_생성자" = "Constructor"
+
+["解释"]
+"편의_파생_매크로" = "derive_more 는 #[derive(...)] 로 Display/From/Constructor 등 보일러플레이트 구현을 빠르게 생성"

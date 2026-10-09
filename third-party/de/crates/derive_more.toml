@@ -1,0 +1,10 @@
+["模块路径"]
+"praktische_Ableitungsmakros" = "derive_more"
+
+["标识符"]
+"Ableitung_Anzeige_Format" = "Display"
+"Ableitung_From_Wandlung" = "From"
+"Ableitung_Konstruktor" = "Constructor"
+
+["解释"]
+"praktische_Ableitungsmakros" = "derive_more erzeugt schnell ueber #[derive(...)] Boilerplate-Implementierungen fuer Display/From/Constructor"

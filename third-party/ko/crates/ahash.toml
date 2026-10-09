@@ -1,0 +1,10 @@
+["模块路径"]
+"ahash_고속_해시" = "ahash"
+
+["标识符"]
+"AHasher_해셔" = "AHasher"
+"AHashMap_맵" = "AHashMap"
+"랜덤_해시_씨앗" = "RandomState"
+
+["解释"]
+"ahash_고속_해시" = "ahash 은 가장 빠른 범용 해시 구현으로 HashMap/HashSet 의 해셔를 대체"

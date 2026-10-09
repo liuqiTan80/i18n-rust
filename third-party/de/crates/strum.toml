@@ -1,0 +1,10 @@
+["模块路径"]
+"enum_hilfsmakros" = "strum"
+
+["标识符"]
+"Enum_Iterable_Ableitung" = "EnumIter"
+"Enum_String_Ableitung" = "EnumString"
+"Enum_Diskriminanten_Ableitung" = "EnumDiscriminants"
+
+["解释"]
+"enum_hilfsmakros" = "strum erzeugt ueber Derive-Makros automatisch Iterator, String-Konvertierung und Diskriminanten fuer Enums"

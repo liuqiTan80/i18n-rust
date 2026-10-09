@@ -1,0 +1,10 @@
+["模块路径"]
+"macros_derive_praticas" = "derive_more"
+
+["标识符"]
+"derivacao_formato_exibicao" = "Display"
+"derivacao_conversao_From" = "From"
+"derivacao_construtor" = "Constructor"
+
+["解释"]
+"macros_derive_praticas" = "derive_more gera rapidamente via #[derive(...)] implementacoes boilerplate de Display/From/Constructor"

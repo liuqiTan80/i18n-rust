@@ -1,0 +1,10 @@
+["模块路径"]
+"便利派生宏" = "derive_more"
+
+["标识符"]
+"派生展示格式" = "Display"
+"派生From转换" = "From"
+"派生构造函数" = "Constructor"
+
+["解释"]
+"便利派生宏" = "derive_more 通过 #[derive(...)] 快速生成 Display/From/Constructor 等样板实现"

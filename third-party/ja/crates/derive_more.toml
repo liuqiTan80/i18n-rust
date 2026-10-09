@@ -1,0 +1,10 @@
+["模块路径"]
+"便利deriveマクロ" = "derive_more"
+
+["标识符"]
+"導出表示形式" = "Display"
+"導出From変換" = "From"
+"導出コンストラクタ" = "Constructor"
+
+["解释"]
+"便利deriveマクロ" = "derive_more は #[derive(...)] で Display/From/Constructor などの定型実装を素早く生成"

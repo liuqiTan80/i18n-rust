@@ -1,0 +1,10 @@
+["模块路径"]
+"ahash_schnelles_hashing" = "ahash"
+
+["标识符"]
+"AHasher_Hasher" = "AHasher"
+"AHashMap_Karte" = "AHashMap"
+"Zufalls_Hash_State" = "RandomState"
+
+["解释"]
+"ahash_schnelles_hashing" = "ahash ist die schnellste allgemeine Hash-Implementierung als Ersatz-Hasher fuer HashMap/HashSet"
