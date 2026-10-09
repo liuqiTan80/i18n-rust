@@ -1,0 +1,10 @@
+["模块路径"]
+"dir_प्लेटफ़ॉर्म_पथ" = "directories"
+
+["标识符"]
+"dir_आधार_निर्देशिकाएँ" = "BaseDirs"
+"dir_परियोजना_निर्देशिकाएँ" = "ProjectDirs"
+"dir_उपयोगकर्ता_निर्देशिकाएँ" = "UserDirs"
+
+["解释"]
+"dir_प्लेटफ़ॉर्म_पथ" = "directories — मंच मानक पथ: BaseDirs/ProjectDirs/UserDirs"

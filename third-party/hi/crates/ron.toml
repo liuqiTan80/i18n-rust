@@ -1,0 +1,10 @@
+["模块路径"]
+"ron_वस्तु_अंकन" = "ron"
+
+["标识符"]
+"ron_मान" = "Value"
+"ron_विकल्प" = "Options"
+"ron_त्रुटि" = "Error"
+
+["解释"]
+"ron_वस्तु_अंकन" = "ron — Rust Object Notation सीरियलाइज़ेशन: Value/Options/Error"

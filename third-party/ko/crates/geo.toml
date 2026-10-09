@@ -1,0 +1,10 @@
+["模块路径"]
+"geo지리형상" = "geo"
+
+["标识符"]
+"geo지점" = "Point"
+"geo선열" = "LineString"
+"geo다각형" = "Polygon"
+
+["解释"]
+"geo지리형상" = "geo — 지리 기하와 알고리즘: Point/LineString/Polygon"

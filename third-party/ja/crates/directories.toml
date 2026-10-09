@@ -1,0 +1,10 @@
+["模块路径"]
+"dirプラットフォームパス" = "directories"
+
+["标识符"]
+"dir基本パス群" = "BaseDirs"
+"dirプロジェクトパス" = "ProjectDirs"
+"dirユーザーパス" = "UserDirs"
+
+["解释"]
+"dirプラットフォームパス" = "directories — プラットフォーム標準パス: BaseDirs/ProjectDirs/UserDirs"

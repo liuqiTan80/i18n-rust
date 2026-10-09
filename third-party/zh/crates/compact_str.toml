@@ -1,0 +1,10 @@
+["模块路径"]
+"cmp紧凑字符串" = "compact_str"
+
+["标识符"]
+"cmp紧凑串类型" = "CompactString"
+"cmp排除迭代" = "Drain"
+"cmp容量错误" = "ReserveError"
+
+["解释"]
+"cmp紧凑字符串" = "compact_str — 栈上短字符串优化: CompactString/Drain/ReserveError"

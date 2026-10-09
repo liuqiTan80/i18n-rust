@@ -1,0 +1,10 @@
+["模块路径"]
+"ron対象表記" = "ron"
+
+["标识符"]
+"ron値型" = "Value"
+"ron設定項目" = "Options"
+"ron解析エラー" = "Error"
+
+["解释"]
+"ron対象表記" = "ron — Rust Object Notation シリアライズ: Value/Options/Error"

@@ -1,0 +1,10 @@
+["模块路径"]
+"byo_orden_bytes" = "byteorder"
+
+["标识符"]
+"byo_extremo_grande" = "BigEndian"
+"byo_extremo_pequeno" = "LittleEndian"
+"byo_extremo_nativo" = "NativeEndian"
+
+["解释"]
+"byo_orden_bytes" = "byteorder — codificacion big/little endian: BigEndian/LittleEndian/NativeEndian"

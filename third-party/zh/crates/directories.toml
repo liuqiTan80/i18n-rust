@@ -1,0 +1,10 @@
+["模块路径"]
+"dir平台目录" = "directories"
+
+["标识符"]
+"dir基础目录集" = "BaseDirs"
+"dir项目目录集" = "ProjectDirs"
+"dir用户目录集" = "UserDirs"
+
+["解释"]
+"dir平台目录" = "directories — 平台标准目录路径: BaseDirs/ProjectDirs/UserDirs"

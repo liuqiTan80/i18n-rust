@@ -1,0 +1,10 @@
+["模块路径"]
+"lib_biblioteca_dinamica_pt" = "libloading"
+
+["标识符"]
+"lib_biblioteca_obj" = "Library"
+"lib_simbolo_pt" = "Symbol"
+"lib_erro_carga" = "Error"
+
+["解释"]
+"lib_biblioteca_dinamica_pt" = "libloading — carregamento dinamico multiplataforma: Library/Symbol/Error"

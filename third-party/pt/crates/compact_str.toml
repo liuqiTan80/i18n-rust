@@ -1,0 +1,10 @@
+["模块路径"]
+"cmp_cadeia_compacta" = "compact_str"
+
+["标识符"]
+"cmp_tipo_cadeia_compacta" = "CompactString"
+"cmp_esvaziamento" = "Drain"
+"cmp_erro_reserva" = "ReserveError"
+
+["解释"]
+"cmp_cadeia_compacta" = "compact_str — otimizacao de cadeia na pilha: CompactString/Drain/ReserveError"

@@ -1,0 +1,10 @@
+["模块路径"]
+"dir플랫폼경로" = "directories"
+
+["标识符"]
+"dir기본경로집" = "BaseDirs"
+"dir프로젝트경로" = "ProjectDirs"
+"dir사용자경로" = "UserDirs"
+
+["解释"]
+"dir플랫폼경로" = "directories — 플랫폼 표준 경로: BaseDirs/ProjectDirs/UserDirs"

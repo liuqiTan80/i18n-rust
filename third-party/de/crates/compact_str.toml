@@ -1,0 +1,10 @@
+["模块路径"]
+"cmp_kompaktzeichenkette" = "compact_str"
+
+["标识符"]
+"cmp_kompaktstring" = "CompactString"
+"cmp_abfluss" = "Drain"
+"cmp_reservierungsfehler" = "ReserveError"
+
+["解释"]
+"cmp_kompaktzeichenkette" = "compact_str — String-Stackoptimierung: CompactString/Drain/ReserveError"

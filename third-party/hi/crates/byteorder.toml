@@ -1,0 +1,10 @@
+["模块路径"]
+"byo_बाइट_क्रम" = "byteorder"
+
+["标识符"]
+"byo_बड़ा_छोर" = "BigEndian"
+"byo_छोटा_छोर" = "LittleEndian"
+"byo_मूल_छोर" = "NativeEndian"
+
+["解释"]
+"byo_बाइट_क्रम" = "byteorder — बिग/लिटल एंडियान कोडन: BigEndian/LittleEndian/NativeEndian"

@@ -1,0 +1,10 @@
+["模块路径"]
+"dir_платформ_пути" = "directories"
+
+["标识符"]
+"dir_базов_папки" = "BaseDirs"
+"dir_проект_папки" = "ProjectDirs"
+"dir_польз_папки" = "UserDirs"
+
+["解释"]
+"dir_платформ_пути" = "directories — стандартные пути платформы: BaseDirs/ProjectDirs/UserDirs"

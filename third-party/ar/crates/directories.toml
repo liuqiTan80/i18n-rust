@@ -1,0 +1,10 @@
+["模块路径"]
+"dir_مسارات_منصة" = "directories"
+
+["标识符"]
+"dir_مجلدات_أساسية" = "BaseDirs"
+"dir_مجلدات_مشروع" = "ProjectDirs"
+"dir_مجلدات_مستخدم" = "UserDirs"
+
+["解释"]
+"dir_مسارات_منصة" = "directories — مسارات المنصة القياسية: BaseDirs/ProjectDirs/UserDirs"

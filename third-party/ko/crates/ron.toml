@@ -1,0 +1,10 @@
+["模块路径"]
+"ron객체표기" = "ron"
+
+["标识符"]
+"ron값형" = "Value"
+"ron설정항목" = "Options"
+"ron해석오류" = "Error"
+
+["解释"]
+"ron객체표기" = "ron — Rust Object Notation 직렬화: Value/Options/Error"

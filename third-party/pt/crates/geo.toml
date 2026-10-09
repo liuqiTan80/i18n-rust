@@ -1,0 +1,10 @@
+["模块路径"]
+"geo_geodesia" = "geo"
+
+["标识符"]
+"geo_ponto" = "Point"
+"geo_linha_multipla" = "LineString"
+"geo_area_poligono" = "Polygon"
+
+["解释"]
+"geo_geodesia" = "geo — geometria e algoritmos: Point/LineString/Polygon"

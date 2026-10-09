@@ -1,0 +1,10 @@
+["模块路径"]
+"geo_геометрия" = "geo"
+
+["标识符"]
+"geo_точка" = "Point"
+"geo_линия_ряд" = "LineString"
+"geo_полигон" = "Polygon"
+
+["解释"]
+"geo_геометрия" = "geo — геометрические алгоритмы: Point/LineString/Polygon"

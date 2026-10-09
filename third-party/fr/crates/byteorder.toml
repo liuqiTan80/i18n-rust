@@ -1,0 +1,10 @@
+["模块路径"]
+"byo_ordre_octets" = "byteorder"
+
+["标识符"]
+"byo_gros_boutiste" = "BigEndian"
+"byo_petit_boutiste" = "LittleEndian"
+"byo_boutiste_natif" = "NativeEndian"
+
+["解释"]
+"byo_ordre_octets" = "byteorder — codage gros/petit boutiste: BigEndian/LittleEndian/NativeEndian"

@@ -1,0 +1,10 @@
+["模块路径"]
+"dir_caminhos_plataforma" = "directories"
+
+["标识符"]
+"dir_dirs_basicos" = "BaseDirs"
+"dir_dirs_projeto" = "ProjectDirs"
+"dir_dirs_usuario" = "UserDirs"
+
+["解释"]
+"dir_caminhos_plataforma" = "directories — caminhos padrao plataforma: BaseDirs/ProjectDirs/UserDirs"

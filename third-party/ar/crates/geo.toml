@@ -1,0 +1,10 @@
+["模块路径"]
+"geo_شكل_أرضي" = "geo"
+
+["标识符"]
+"geo_نقطة" = "Point"
+"geo_سلسلة_خطوط" = "LineString"
+"geo_مضلع" = "Polygon"
+
+["解释"]
+"geo_شكل_أرضي" = "geo — شكل أرضي وخوارزميات: Point/LineString/Polygon"

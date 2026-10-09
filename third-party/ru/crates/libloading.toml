@@ -1,0 +1,10 @@
+["模块路径"]
+"lib_динам_библиотека" = "libloading"
+
+["标识符"]
+"lib_библиотека_тип" = "Library"
+"lib_символ" = "Symbol"
+"lib_ошибка_загрузки" = "Error"
+
+["解释"]
+"lib_динам_библиотека" = "libloading — Dynbib/ динамическая загрузка: Library/Symbol/Error"

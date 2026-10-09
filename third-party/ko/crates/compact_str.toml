@@ -1,0 +1,10 @@
+["模块路径"]
+"cmp압축문자열" = "compact_str"
+
+["标识符"]
+"cmp압축문자열형" = "CompactString"
+"cmp드레인" = "Drain"
+"cmp용량오류" = "ReserveError"
+
+["解释"]
+"cmp압축문자열" = "compact_str — 스택 문자열 최적화: CompactString/Drain/ReserveError"

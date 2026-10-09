@@ -1,0 +1,10 @@
+["模块路径"]
+"geo_geoforme" = "geo"
+
+["标识符"]
+"geo_point" = "Point"
+"geo_ligne_brisee" = "LineString"
+"geo_polygone" = "Polygon"
+
+["解释"]
+"geo_geoforme" = "geo — geometrie et algorithmes: Point/LineString/Polygon"

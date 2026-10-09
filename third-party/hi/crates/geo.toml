@@ -1,0 +1,10 @@
+["模块路径"]
+"geo_भू_आकृति" = "geo"
+
+["标识符"]
+"geo_बिंदु" = "Point"
+"geo_रेखा_श्रृंखला" = "LineString"
+"geo_बहुभुज" = "Polygon"
+
+["解释"]
+"geo_भू_आकृति" = "geo — भौगोलिक ज्यामिति: Point/LineString/Polygon"

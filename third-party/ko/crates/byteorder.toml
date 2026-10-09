@@ -1,0 +1,10 @@
+["模块路径"]
+"byo바이트순서" = "byteorder"
+
+["标识符"]
+"byo빅엔디언" = "BigEndian"
+"byo리틀엔디언" = "LittleEndian"
+"byo네이티브단" = "NativeEndian"
+
+["解释"]
+"byo바이트순서" = "byteorder — 빅/리틀 엔디언 인코딩: BigEndian/LittleEndian/NativeEndian"

@@ -1,0 +1,10 @@
+["模块路径"]
+"cmp_компакт_строка" = "compact_str"
+
+["标识符"]
+"cmp_компакт_тип" = "CompactString"
+"cmp_дренаж" = "Drain"
+"cmp_ошибк_резерва" = "ReserveError"
+
+["解释"]
+"cmp_компакт_строка" = "compact_str — оптимизация строк: CompactString/Drain/ReserveError"

@@ -1,0 +1,10 @@
+["模块路径"]
+"lib動的ライブラリ" = "libloading"
+
+["标识符"]
+"libライブラリ型" = "Library"
+"libシンボル" = "Symbol"
+"lib読込エラー" = "Error"
+
+["解释"]
+"lib動的ライブラリ" = "libloading — クロスプラットフォーム動的ロード: Library/Symbol/Error"

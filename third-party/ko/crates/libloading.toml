@@ -1,0 +1,10 @@
+["模块路径"]
+"lib동적라이브러리" = "libloading"
+
+["标识符"]
+"lib라이브러리형" = "Library"
+"lib심볼" = "Symbol"
+"lib로드오류" = "Error"
+
+["解释"]
+"lib동적라이브러리" = "libloading — 크로스플랫폼 동적 로딩: Library/Symbol/Error"

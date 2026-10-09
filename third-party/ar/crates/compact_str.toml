@@ -1,0 +1,10 @@
+["模块路径"]
+"cmp_سلسلة_مضغوطة" = "compact_str"
+
+["标识符"]
+"cmp_نوع_سلسلة_مضغوطة" = "CompactString"
+"cmp_تصريف" = "Drain"
+"cmp_خطأ_حجز" = "ReserveError"
+
+["解释"]
+"cmp_سلسلة_مضغوطة" = "compact_str — تحسين السلاسل على المكدس: CompactString/Drain/ReserveError"

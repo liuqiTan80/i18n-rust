@@ -1,0 +1,10 @@
+["模块路径"]
+"cmp圧縮文字列" = "compact_str"
+
+["标识符"]
+"cmp圧縮ストリング" = "CompactString"
+"cmpドレイナ" = "Drain"
+"cmp容量確保エラー" = "ReserveError"
+
+["解释"]
+"cmp圧縮文字列" = "compact_str — スタック文字列最適化: CompactString/Drain/ReserveError"

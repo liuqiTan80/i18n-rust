@@ -1,0 +1,10 @@
+["模块路径"]
+"cmp_संकुचित_अक्षरमाला" = "compact_str"
+
+["标识符"]
+"cmp_संकुचित_अक्षर_प्रकार" = "CompactString"
+"cmp_निकासी" = "Drain"
+"cmp_आरक्षण_त्रुटि" = "ReserveError"
+
+["解释"]
+"cmp_संकुचित_अक्षरमाला" = "compact_str — स्टैक स्ट्रिंग ऑप्टिमाइज़ेशन: CompactString/Drain/ReserveError"

@@ -1,0 +1,10 @@
+["模块路径"]
+"lib_مكتبة_ديناميكية" = "libloading"
+
+["标识符"]
+"lib_مكتبة_نوع" = "Library"
+"lib_رمز" = "Symbol"
+"lib_خطأ_تحميل" = "Error"
+
+["解释"]
+"lib_مكتبة_ديناميكية" = "libloading — تحميل ديناميكي متعدد المنصات: Library/Symbol/Error"

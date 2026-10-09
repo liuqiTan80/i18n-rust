@@ -1,0 +1,10 @@
+["模块路径"]
+"ron_объект_notation" = "ron"
+
+["标识符"]
+"ron_значение" = "Value"
+"ron_настройки" = "Options"
+"ron_ошибка" = "Error"
+
+["解释"]
+"ron_объект_notation" = "ron — Rust Object Notation: Value/Options/Error"

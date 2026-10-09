@@ -1,0 +1,10 @@
+["模块路径"]
+"geo地理形状" = "geo"
+
+["标识符"]
+"geo地点" = "Point"
+"geo線列" = "LineString"
+"geo多角形" = "Polygon"
+
+["解释"]
+"geo地理形状" = "geo — 地理幾何とアルゴリズム: Point/LineString/Polygon"

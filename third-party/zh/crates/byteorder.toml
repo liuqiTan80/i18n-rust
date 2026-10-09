@@ -1,0 +1,10 @@
+["模块路径"]
+"byo字节序" = "byteorder"
+
+["标识符"]
+"byo大端" = "BigEndian"
+"byo小端" = "LittleEndian"
+"byo本机序" = "NativeEndian"
+
+["解释"]
+"byo字节序" = "byteorder — 大端小端字节序编解码: BigEndian/LittleEndian/NativeEndian"
