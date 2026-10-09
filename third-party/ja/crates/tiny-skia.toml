@@ -1,0 +1,10 @@
+["模块路径"]
+"tsk二维描画" = "tiny_skia"
+
+["标识符"]
+"tskパス" = "Path"
+"tsk描画様式" = "Paint"
+"tskピクセルマップ" = "Pixmap"
+
+["解释"]
+"tsk二维描画" = "tiny-skia — Skia の2D描画部分: Path/Paint/Pixmap"

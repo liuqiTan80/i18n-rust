@@ -1,0 +1,10 @@
+["模块路径"]
+"snf오류정의" = "snafu"
+
+["标识符"]
+"snf만능오류" = "Whatever"
+"snf보고" = "Report"
+"snf백트레이스" = "Backtrace"
+
+["解释"]
+"snf오류정의" = "snafu — 파생 기반 오류 형식 생성: Whatever/Report/Backtrace"

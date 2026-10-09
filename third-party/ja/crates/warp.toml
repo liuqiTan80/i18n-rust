@@ -1,0 +1,10 @@
+["模块路径"]
+"wrpウェブサーバー" = "warp"
+
+["标识符"]
+"wrpフィルタ" = "Filter"
+"wrpサーバー" = "Server"
+"wrpエラー" = "Error"
+
+["解释"]
+"wrpウェブサーバー" = "warp — 合成可能フィルタのWeb枠組: Filter/Server/Error"

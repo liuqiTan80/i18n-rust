@@ -1,0 +1,10 @@
+["模块路径"]
+"tsk_2d_рисование" = "tiny_skia"
+
+["标识符"]
+"tsk_путь" = "Path"
+"tsk_закраска" = "Paint"
+"tsk_пикс_карта" = "Pixmap"
+
+["解释"]
+"tsk_2d_рисование" = "tiny-skia — растровая 2D-графика Skia: Path/Paint/Pixmap"

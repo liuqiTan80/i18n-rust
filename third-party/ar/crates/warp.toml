@@ -1,0 +1,10 @@
+["模块路径"]
+"wrp_خادم_ويب" = "warp"
+
+["标识符"]
+"wrp_مرشّح" = "Filter"
+"wrp_خادم" = "Server"
+"wrp_خطأ" = "Error"
+
+["解释"]
+"wrp_خادم_ويب" = "warp — إطار ويب بفلاتر قابلة للتركيب: Filter/Server/Error"

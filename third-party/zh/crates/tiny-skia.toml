@@ -1,0 +1,10 @@
+["模块路径"]
+"tsk二维绘制" = "tiny_skia"
+
+["标识符"]
+"tsk贝塞尔路径" = "Path"
+"tsk绘制样式" = "Paint"
+"tsk像素图" = "Pixmap"
+
+["解释"]
+"tsk二维绘制" = "tiny-skia — Skia 2D 光栅化子集: Path/Paint/Pixmap"

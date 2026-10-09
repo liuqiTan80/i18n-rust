@@ -1,0 +1,10 @@
+["模块路径"]
+"tsk2d그리기" = "tiny_skia"
+
+["标识符"]
+"tsk경로" = "Path"
+"tsk칠하기" = "Paint"
+"tsk픽셀지도" = "Pixmap"
+
+["解释"]
+"tsk2d그리기" = "tiny-skia — Skia 2D 래스터화 하위 집합: Path/Paint/Pixmap"

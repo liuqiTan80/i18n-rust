@@ -1,0 +1,10 @@
+["模块路径"]
+"snf_опр_ошибок" = "snafu"
+
+["标识符"]
+"snf_произволь" = "Whatever"
+"snf_отчёт" = "Report"
+"snf_трасса_стека" = "Backtrace"
+
+["解释"]
+"snf_опр_ошибок" = "snafu — генерация типов ошибок: Whatever/Report/Backtrace"

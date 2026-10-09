@@ -1,0 +1,10 @@
+["模块路径"]
+"bpfコマンドライン解析" = "bpaf"
+
+["标识符"]
+"bpfオプション解析" = "OptionParser"
+"bpf引き数" = "Args"
+"bpfパーサー" = "Parser"
+
+["解释"]
+"bpfコマンドライン解析" = "bpaf — 合成型の引数解析: OptionParser/Args/Parser"

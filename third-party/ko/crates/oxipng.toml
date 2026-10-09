@@ -1,0 +1,10 @@
+["模块路径"]
+"oxp이미지최적화" = "oxipng"
+
+["标识符"]
+"oxp최적화옵션" = "Options"
+"oxp원시이미지" = "RawImage"
+"oxp색상종류" = "ColorType"
+
+["解释"]
+"oxp이미지최적화" = "oxipng — PNG 무손실 최적화: Options/RawImage/ColorType"

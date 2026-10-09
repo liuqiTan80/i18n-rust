@@ -1,0 +1,10 @@
+["模块路径"]
+"bpf_linea_comandos" = "bpaf"
+
+["标识符"]
+"bpf_parser_opciones" = "OptionParser"
+"bpf_argumentos" = "Args"
+"bpf_parser" = "Parser"
+
+["解释"]
+"bpf_linea_comandos" = "bpaf — analizador de argumentos combinatorio: OptionParser/Args/Parser"

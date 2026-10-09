@@ -1,0 +1,10 @@
+["模块路径"]
+"wrp_web_server" = "warp"
+
+["标识符"]
+"wrp_filter" = "Filter"
+"wrp_server" = "Server"
+"wrp_fehler" = "Error"
+
+["解释"]
+"wrp_web_server" = "warp — komponierbares Web-Framework: Filter/Server/Error"

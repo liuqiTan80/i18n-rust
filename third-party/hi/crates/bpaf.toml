@@ -1,0 +1,10 @@
+["模块路径"]
+"bpf_कमांड_लाइन" = "bpaf"
+
+["标识符"]
+"bpf_विकल्प_पार्सर" = "OptionParser"
+"bpf_तर्क" = "Args"
+"bpf_पार्सर" = "Parser"
+
+["解释"]
+"bpf_कमांड_लाइन" = "bpaf — संयोजनात्मक तर्क पार्सर: OptionParser/Args/Parser"

@@ -1,0 +1,10 @@
+["模块路径"]
+"dfs_motor_consultas" = "datafusion"
+
+["标识符"]
+"dfs_bloque_datos" = "DataFrame"
+"dfs_contexto_sesion" = "SessionContext"
+"dfs_opciones_config" = "ConfigOptions"
+
+["解释"]
+"dfs_motor_consultas" = "datafusion — motor de consultas extensible: DataFrame/SessionContext/ConfigOptions"

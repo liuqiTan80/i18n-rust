@@ -1,0 +1,10 @@
+["模块路径"]
+"snf_تعريف_الخطأ" = "snafu"
+
+["标识符"]
+"snf_أي_خطأ" = "Whatever"
+"snf_تقرير" = "Report"
+"snf_تتبع_المكدس" = "Backtrace"
+
+["解释"]
+"snf_تعريف_الخطأ" = "snafu — توليد أنواع الأخطاء: Whatever/Report/Backtrace"

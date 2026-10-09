@@ -1,0 +1,10 @@
+["模块路径"]
+"dfs查询引擎" = "datafusion"
+
+["标识符"]
+"dfs数据帧" = "DataFrame"
+"dfs会话上下文" = "SessionContext"
+"dfs配置项" = "ConfigOptions"
+
+["解释"]
+"dfs查询引擎" = "datafusion — 可扩展查询引擎: DataFrame/SessionContext/ConfigOptions"

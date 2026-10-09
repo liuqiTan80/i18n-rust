@@ -1,0 +1,10 @@
+["模块路径"]
+"oxp画像最適化" = "oxipng"
+
+["标识符"]
+"oxp最適化設定" = "Options"
+"oxp生画像" = "RawImage"
+"oxp色型" = "ColorType"
+
+["解释"]
+"oxp画像最適化" = "oxipng — PNG 非可逆最適化: Options/RawImage/ColorType"

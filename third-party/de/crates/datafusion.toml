@@ -1,0 +1,10 @@
+["模块路径"]
+"dfs_abfrage_engine" = "datafusion"
+
+["标识符"]
+"dfs_datensatz" = "DataFrame"
+"dfs_sitzungskontext" = "SessionContext"
+"dfs_konfigurationsoptionen" = "ConfigOptions"
+
+["解释"]
+"dfs_abfrage_engine" = "datafusion — erweiterbare Abfrage-Engine: DataFrame/SessionContext/ConfigOptions"

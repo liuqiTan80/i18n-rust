@@ -1,0 +1,10 @@
+["模块路径"]
+"snf_definicao_erro" = "snafu"
+
+["标识符"]
+"snf_qualquer" = "Whatever"
+"snf_relatorio" = "Report"
+"snf_rastro_pilha" = "Backtrace"
+
+["解释"]
+"snf_definicao_erro" = "snafu — geracao de tipos de erro: Whatever/Report/Backtrace"

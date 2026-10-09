@@ -1,0 +1,10 @@
+["模块路径"]
+"dfsクエリエンジン" = "datafusion"
+
+["标识符"]
+"dfsデータフレーム" = "DataFrame"
+"dfsセッションコンテキスト" = "SessionContext"
+"dfs設定オプション" = "ConfigOptions"
+
+["解释"]
+"dfsクエリエンジン" = "datafusion — 拡張可能なクエリエンジン: DataFrame/SessionContext/ConfigOptions"

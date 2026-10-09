@@ -1,0 +1,10 @@
+["模块路径"]
+"oxp_bildoptimierung" = "oxipng"
+
+["标识符"]
+"oxp_optionen" = "Options"
+"oxp_rohbild" = "RawImage"
+"oxp_farbtyp" = "ColorType"
+
+["解释"]
+"oxp_bildoptimierung" = "oxipng — verlustfreie PNG-Optimierung: Options/RawImage/ColorType"

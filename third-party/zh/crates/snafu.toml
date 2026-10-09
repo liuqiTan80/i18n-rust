@@ -1,0 +1,10 @@
+["模块路径"]
+"snf错误定义" = "snafu"
+
+["标识符"]
+"snf任意错误" = "Whatever"
+"snf错误报告" = "Report"
+"snf回溯栈" = "Backtrace"
+
+["解释"]
+"snf错误定义" = "snafu — 派生式错误类型生成: Whatever/Report/Backtrace"

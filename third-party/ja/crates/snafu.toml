@@ -1,0 +1,10 @@
+["模块路径"]
+"snfエラー定義" = "snafu"
+
+["标识符"]
+"snf万能エラー" = "Whatever"
+"snf報告" = "Report"
+"snfバックトレース" = "Backtrace"
+
+["解释"]
+"snfエラー定義" = "snafu — 派生によるエラー型生成: Whatever/Report/Backtrace"

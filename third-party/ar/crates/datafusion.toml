@@ -1,0 +1,10 @@
+["模块路径"]
+"dfs_محرك_استعلام" = "datafusion"
+
+["标识符"]
+"dfs_إطار_بيانات" = "DataFrame"
+"dfs_سياق_الجلسة" = "SessionContext"
+"dfs_خيارات_الإعداد" = "ConfigOptions"
+
+["解释"]
+"dfs_محرك_استعلام" = "datafusion — محرك استعلام قابل للتوسيع: DataFrame/SessionContext/ConfigOptions"

@@ -1,0 +1,10 @@
+["模块路径"]
+"bpf命令行解析" = "bpaf"
+
+["标识符"]
+"bpf选项解析器" = "OptionParser"
+"bpf参数集" = "Args"
+"bpf解析器" = "Parser"
+
+["解释"]
+"bpf命令行解析" = "bpaf — 组合式命令行参数解析: OptionParser/Args/Parser"

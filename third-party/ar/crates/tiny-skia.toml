@@ -1,0 +1,10 @@
+["模块路径"]
+"tsk_رسم_ثنائي" = "tiny_skia"
+
+["标识符"]
+"tsk_مسار" = "Path"
+"tsk_طلاء" = "Paint"
+"tsk_خريطة_النقاط" = "Pixmap"
+
+["解释"]
+"tsk_رسم_ثنائي" = "tiny-skia — تحويل ثنائي الأبعاد من Skia: Path/Paint/Pixmap"

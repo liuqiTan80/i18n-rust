@@ -1,0 +1,10 @@
+["模块路径"]
+"wrp웹서버" = "warp"
+
+["标识符"]
+"wrp필터" = "Filter"
+"wrp서버" = "Server"
+"wrp오류" = "Error"
+
+["解释"]
+"wrp웹서버" = "warp — 조합형 필터 웹 서버 프레임워크: Filter/Server/Error"

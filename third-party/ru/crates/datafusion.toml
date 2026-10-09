@@ -1,0 +1,10 @@
+["模块路径"]
+"dfs_движок_запросов" = "datafusion"
+
+["标识符"]
+"dfs_фрейм_данных" = "DataFrame"
+"dfs_контекст_сессии" = "SessionContext"
+"dfs_опции_настр" = "ConfigOptions"
+
+["解释"]
+"dfs_движок_запросов" = "datafusion — расширяемый движок запросов: DataFrame/SessionContext/ConfigOptions"

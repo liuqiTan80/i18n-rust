@@ -1,0 +1,10 @@
+["模块路径"]
+"dfs질의엔진" = "datafusion"
+
+["标识符"]
+"dfs데이터프레임" = "DataFrame"
+"dfs세션컨텍스트" = "SessionContext"
+"dfs설정옵션" = "ConfigOptions"
+
+["解释"]
+"dfs질의엔진" = "datafusion — 확장 가능한 질의 엔진: DataFrame/SessionContext/ConfigOptions"

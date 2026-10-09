@@ -1,0 +1,10 @@
+["模块路径"]
+"tsk_zweidimensionales_zeichnen" = "tiny_skia"
+
+["标识符"]
+"tsk_pfad" = "Path"
+"tsk_anstrich" = "Paint"
+"tsk_pixelbild" = "Pixmap"
+
+["解释"]
+"tsk_zweidimensionales_zeichnen" = "tiny-skia — Skia-2D-Rasterisierung: Path/Paint/Pixmap"

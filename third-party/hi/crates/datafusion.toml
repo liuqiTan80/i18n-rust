@@ -1,0 +1,10 @@
+["模块路径"]
+"dfs_क्वेरी_इंजन" = "datafusion"
+
+["标识符"]
+"dfs_डेटा_फ़्रेम" = "DataFrame"
+"dfs_सत्र_प्रसंग" = "SessionContext"
+"dfs_विन्यास_विकल्प" = "ConfigOptions"
+
+["解释"]
+"dfs_क्वेरी_इंजन" = "datafusion — विस्तारयोग्य क्वेरी इंजन: DataFrame/SessionContext/ConfigOptions"

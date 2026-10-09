@@ -1,0 +1,10 @@
+["模块路径"]
+"bpf명령줄분석" = "bpaf"
+
+["标识符"]
+"bpf옵션분석기" = "OptionParser"
+"bpf인수목록" = "Args"
+"bpf분석기" = "Parser"
+
+["解释"]
+"bpf명령줄분석" = "bpaf — 조합형 명령줄 인수 분석: OptionParser/Args/Parser"

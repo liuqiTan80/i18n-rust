@@ -1,0 +1,10 @@
+["模块路径"]
+"bpf_سطر_الأوامر" = "bpaf"
+
+["标识符"]
+"bpf_محلل_الخيارات" = "OptionParser"
+"bpf_وسائط" = "Args"
+"bpf_محلل" = "Parser"
+
+["解释"]
+"bpf_سطر_الأوامر" = "bpaf — محلل وسائط تركيبية: OptionParser/Args/Parser"

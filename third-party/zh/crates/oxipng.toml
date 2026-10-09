@@ -1,0 +1,10 @@
+["模块路径"]
+"oxp图像优化" = "oxipng"
+
+["标识符"]
+"oxp优化选项" = "Options"
+"oxp原始图像" = "RawImage"
+"oxp色彩类型" = "ColorType"
+
+["解释"]
+"oxp图像优化" = "oxipng — PNG 无损优化压缩: Options/RawImage/ColorType"
