@@ -869,9 +869,20 @@ fn find_lang_in_extracted(extract_dir: &Path, lang_code: &str) -> Option<PathBuf
 }
 
 /// 将源语言包目录复制到全局目录
+///
+/// 复制前后维护一份 TOFU（trust-on-first-use）内容指纹：对本次取回的源码
+/// 目录计算确定性哈希，与该语言包上次安装时记录的指纹比对——
+/// - 首装（无记录）：直接信任并写入指纹；
+/// - 重装（`force`）且内容变化：向 stderr 打出显著告警（附新旧指纹）但**不
+///   阻断**——合法的内容更新是常态，硬失败不可用；此告警的价值在于把「同一
+///   源静默返回不同字节」（无论是上游迭代还是分发被篡改）从不可见变为可见。
+///
+/// 完整性/篡改类告警沿用 `install.rs` 惯例（硬编码中文、不走 `ui.f`）。
+/// 指纹以 sidecar 文件存于语言包目录内，卸载时随整目录一并清除，不留孤儿状态。
 fn copy_to_global_dir(source_dir: &Path, lang_code: &str, force: bool) -> anyhow::Result<()> {
     let ui = crate::ui::Ui::global();
     let target_dir = global_lang_dir().join(lang_code);
+    let incoming = content_fingerprint(source_dir)?;
     if target_dir.exists() {
         if !force {
             anyhow::bail!(
@@ -882,9 +893,17 @@ fn copy_to_global_dir(source_dir: &Path, lang_code: &str, force: bool) -> anyhow
                 )
             );
         }
+        if let Some(previous) = read_recorded_fingerprint(&target_dir)
+            && previous != incoming
+        {
+            eprintln!(
+                "⚠️ 语言包「{lang_code}」内容自上次安装后发生变化（可能源已更新或分发遭篡改）：上次指纹 {previous}，本次指纹 {incoming}。如非有意更新，请核实源仓库后再使用。"
+            );
+        }
         fs::remove_dir_all(&target_dir)?;
     }
     copy_dir_recursive(source_dir, &target_dir)?;
+    write_recorded_fingerprint(&target_dir, &incoming)?;
     println!(
         "{}",
         ui.f(
@@ -893,6 +912,80 @@ fn copy_to_global_dir(source_dir: &Path, lang_code: &str, force: bool) -> anyhow
         )
     );
     println!("{}", ui.t("lang_install_hint"));
+    Ok(())
+}
+
+/// 语言包内容指纹 sidecar 文件名（存于语言包目录内，卸载随目录一并清除）
+const INTEGRITY_FILE: &str = ".rzc-integrity";
+
+/// 计算语言包目录的内容指纹。
+///
+/// 对目录内全部文件递归求 SHA-256，按相对路径排序后逐项拼合
+/// 「相对路径\0文件哈希\n」再整体取 SHA-256（十六进制小写）。与文件
+/// 时间戳、磁盘遍历顺序无关，保证「内容相同→指纹相同、内容变动→指纹
+/// 变动」，是 TOFU 变更检测的基础。排除 sidecar 自身，避免记录动作污染后续计算。
+fn content_fingerprint(dir: &Path) -> anyhow::Result<String> {
+    use sha2::{Digest, Sha256};
+    let mut files: Vec<(String, String)> = Vec::new();
+    collect_fingerprint_files(dir, dir, &mut files)?;
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut hasher = Sha256::new();
+    for (rel, sha) in files {
+        hasher.update(rel.as_bytes());
+        hasher.update(b"\0");
+        hasher.update(sha.as_bytes());
+        hasher.update(b"\n");
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+/// 递归收集（相对路径，单文件 SHA-256），跳过 sidecar 文件。
+fn collect_fingerprint_files(
+    root: &Path,
+    cur: &Path,
+    out: &mut Vec<(String, String)>,
+) -> anyhow::Result<()> {
+    for entry in fs::read_dir(cur)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_fingerprint_files(root, &path, out)?;
+        } else if entry.file_name() != INTEGRITY_FILE {
+            let rel = path
+                .strip_prefix(root)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .replace('\\', "/");
+            out.push((rel, file_sha256(&path)?));
+        }
+    }
+    Ok(())
+}
+
+/// 单文件 SHA-256（十六进制小写）。
+fn file_sha256(path: &Path) -> anyhow::Result<String> {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    let mut file = fs::File::open(path)?;
+    std::io::copy(&mut file, &mut hasher)?;
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+/// 读取语言包目录中已记录的内容指纹；缺失或格式非法时返回 `None`
+///（`None` 视为「无历史可比较」——旧版本安装或首装，降级为静默记录，不误报）。
+fn read_recorded_fingerprint(target_dir: &Path) -> Option<String> {
+    let text = fs::read_to_string(target_dir.join(INTEGRITY_FILE)).ok()?;
+    let hex = text.trim().to_string();
+    if hex.len() == 64 && hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        Some(hex)
+    } else {
+        None
+    }
+}
+
+/// 将本次内容指纹写入语言包目录的 sidecar 文件。
+fn write_recorded_fingerprint(target_dir: &Path, fingerprint: &str) -> anyhow::Result<()> {
+    fs::write(target_dir.join(INTEGRITY_FILE), format!("{fingerprint}\n"))?;
     Ok(())
 }
 
@@ -1470,5 +1563,175 @@ pub(crate) mod tests {
         assert_eq!(filter_remote_langs(found.clone(), "  ").len(), 2);
         // 无匹配返回空
         assert!(filter_remote_langs(found, "英语").is_empty());
+    }
+
+    // ==================== 网络下载层回环 HTTP 集成测试 ====================
+    //
+    // 安装链路（curl 下载 → zip 解压 → 单层根目录下沉 → 源回退）是
+    // lang_manager 对外不确定性最大的面，此前仅有 file:// 形态与纯函数
+    // 单测，HTTP 传输段只能手动触达。以下用本机回环 HTTP 服务 + 内存 zip
+    // 复现真实链路（真 curl 子进程，无外网依赖）：HTTP 错误码必须响亮失败
+    // （--fail 语义，不得拿半坏文件继续）、成功路径下沉与解压精确、
+    // git clone 在 HTTP 源上失败时必须由 curl zip 回退兜底。
+
+    /// 制作带"单一顶层目录"的仓库归档 zip（GitHub/GitCode archive 布局）
+    fn make_repo_archive(top_dir: &str, lang_code: &str) -> Vec<u8> {
+        use std::io::Write as _;
+        use zip::write::FileOptions;
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let opts: FileOptions<'_, ()> =
+            FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        writer
+            .start_file(format!("{top_dir}/{lang_code}/keywords.toml"), opts)
+            .unwrap();
+        writer
+            .write_all("[\"声明\"]\n\"函数\" = \"fn\"\n".as_bytes())
+            .unwrap();
+        writer
+            .start_file(format!("{top_dir}/{lang_code}/errors.toml"), opts)
+            .unwrap();
+        writer
+            .write_all("[示例]\n\"a\" = \"b\"\n".as_bytes())
+            .unwrap();
+        writer.finish().unwrap().into_inner()
+    }
+
+    /// 启动回环 HTTP 服务：对至多 `count` 个连接应答固定状态码与 body 后退出
+    ///
+    /// 绑定 ephemeral 端口返回给调用方；GET 请求无 body，读一次即应答；
+    /// 应答完即关连接（Connection: close），git/curl 解析失败均为快速失败不会挂起。
+    fn start_mock_http(status: u16, body: Vec<u8>, count: usize) -> u16 {
+        use std::io::{Read as _, Write as _};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let reason = if status == 200 { "OK" } else { "Not Found" };
+        std::thread::spawn(move || {
+            for stream in listener.incoming().take(count) {
+                let Ok(mut stream) = stream else { continue };
+                let mut buf = [0u8; 4096];
+                let _ = stream.read(&mut buf);
+                let head = format!(
+                    "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = stream.write_all(head.as_bytes());
+                let _ = stream.write_all(&body);
+                let _ = stream.flush();
+            }
+        });
+        port
+    }
+
+    /// 成功路径：下载→解压→单一顶层目录自动下沉，语言包目录完整可见
+    #[test]
+    fn test_fetch_repo_zip_http_success_and_descent() {
+        let zip = make_repo_archive("i18n-rust-main", "xy");
+        let port = start_mock_http(200, zip, 1);
+        let source = RepoSource::from_url(&format!("http://127.0.0.1:{port}/repo"));
+        assert_eq!(
+            source.zip_url,
+            format!("http://127.0.0.1:{port}/repo/archive/refs/heads/main.zip")
+        );
+        let temp = TempDir::new().unwrap();
+        let root = fetch_repo_zip(&source, &temp).expect("回环 zip 下载解压应成功");
+        assert_eq!(root.file_name().unwrap(), "i18n-rust-main");
+        assert!(
+            root.join("xy/keywords.toml").is_file(),
+            "单一顶层目录应自动下沉：{:?}",
+            root
+        );
+    }
+
+    /// HTTP 错误码必须响亮失败：错误消息含失败 URL，不得留下半坏文件继续解压
+    #[test]
+    fn test_fetch_repo_zip_http_error_fails_loudly() {
+        let port = start_mock_http(404, Vec::new(), 1);
+        let source = RepoSource::from_url(&format!("http://127.0.0.1:{port}/repo"));
+        let temp = TempDir::new().unwrap();
+        let err = fetch_repo_zip(&source, &temp).expect_err("HTTP 404 必须失败");
+        assert!(
+            err.to_string().contains(&source.zip_url),
+            "错误应包含失败 URL：{err}"
+        );
+    }
+
+    /// 真实 HTTP 源的 git 失败→curl 兜底链路（file:// 形态已有测试，这里覆盖
+    /// HTTP 形态）：mock 服务对任何请求都回 zip 字节，git clone 必失败，
+    /// try_single_source 必须回退到 curl 下载并安装成功
+    #[test]
+    fn test_git_clone_http_failure_falls_back_to_curl_zip() {
+        let _lock = env_lock();
+        let temp_root = tempfile::tempdir().unwrap();
+        // Rust 2024：进程级环境变量读写为 unsafe，由 env_lock 串行化
+        unsafe {
+            std::env::set_var("RZ_LANG_DIR", temp_root.path().join("global"));
+        }
+        let zip = make_repo_archive("repo-main", "xy");
+        // 应答预算充裕：git 失败前可能发 1~2 个请求，curl 再取一次 zip
+        let port = start_mock_http(200, zip, 6);
+        let source = RepoSource::from_url(&format!("http://127.0.0.1:{port}/repo"));
+        let temp = TempDir::new().unwrap();
+        try_single_source("xy", &source, &temp, false)
+            .expect("git clone 失败应由 curl zip 回退兜底");
+        assert!(
+            global_lang_dir().join("xy/keywords.toml").is_file(),
+            "回退安装应落盘到全局语言目录"
+        );
+        unsafe {
+            std::env::remove_var("RZ_LANG_DIR");
+        }
+    }
+
+    // ==================== TOFU 内容指纹 ====================
+
+    #[test]
+    fn test_content_fingerprint_deterministic() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
+        fs::write(dir.join("keywords.toml"), "[a]\nb = 1\n").unwrap();
+        fs::create_dir_all(dir.join("crates")).unwrap();
+        fs::write(dir.join("crates/rand.toml"), "x = 2\n").unwrap();
+        let a = content_fingerprint(dir).unwrap();
+        let b = content_fingerprint(dir).unwrap();
+        assert_eq!(a, b, "same content must yield same fingerprint");
+        assert_eq!(a.len(), 64);
+        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_content_fingerprint_detects_change() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
+        fs::write(dir.join("keywords.toml"), "v = 1\n").unwrap();
+        let before = content_fingerprint(dir).unwrap();
+        fs::write(dir.join("keywords.toml"), "v = 2\n").unwrap();
+        let after = content_fingerprint(dir).unwrap();
+        assert_ne!(before, after, "content change must change fingerprint");
+    }
+
+    #[test]
+    fn test_content_fingerprint_ignores_sidecar() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
+        fs::write(dir.join("keywords.toml"), "v = 1\n").unwrap();
+        let without = content_fingerprint(dir).unwrap();
+        write_recorded_fingerprint(dir, &without).unwrap();
+        let with = content_fingerprint(dir).unwrap();
+        assert_eq!(without, with, "sidecar must not count into fingerprint");
+    }
+
+    #[test]
+    fn test_recorded_fingerprint_roundtrip_and_malformed() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
+        assert_eq!(read_recorded_fingerprint(dir), None, "missing -> None");
+        let valid = "a".repeat(64);
+        write_recorded_fingerprint(dir, &valid).unwrap();
+        assert_eq!(
+            read_recorded_fingerprint(dir).as_deref(),
+            Some(valid.as_str())
+        );
+        fs::write(dir.join(INTEGRITY_FILE), "not-a-hash\n").unwrap();
+        assert_eq!(read_recorded_fingerprint(dir), None, "malformed -> None");
     }
 }
