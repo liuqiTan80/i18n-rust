@@ -98,8 +98,43 @@ pub(crate) fn run_mirror_check(
 
     // 镜像目录：系统临时目录顶层、按 用户+PID+项目哈希 隔离；每次全量重建
     // （删除/改名等磁盘变化自动反映，无需增量跟踪）
+    //
+    // 安全：目录名可预测（用户名已知、PID 可枚举、path_hash 用确定性
+    // DefaultHasher），多用户共享 /tmp 下可被预创建为符号链接。remove_dir_all
+    // 与 create_dir_all 都会跟随末段链接——前者删任意目录、后者写任意位置，
+    // 故与 server.rs `virtual_temp_dir` 同一水位做“创建前 + 创建后 TOCTOU”
+    // 两道符号链接校验；任一命中即回退虚拟检查（复用 return false 降级契约），
+    // happy path（真实目录/不存在）行为不变。
     let mirror_dir = mirror_dir_for(&project_root);
+    if is_symlink(&mirror_dir) {
+        log::warn!(
+            "镜像目录已被符号链接占用，跳过镜像检查（回退虚拟检查）：{}",
+            mirror_dir.display()
+        );
+        return false;
+    }
     let _ = std::fs::remove_dir_all(&mirror_dir);
+    if is_symlink(&mirror_dir) {
+        log::warn!(
+            "镜像目录删除后仍为符号链接（疑似并发预占），回退虚拟检查：{}",
+            mirror_dir.display()
+        );
+        return false;
+    }
+    if let Err(e) = std::fs::create_dir_all(&mirror_dir) {
+        log::warn!(
+            "镜像目录创建失败（回退虚拟检查）：{}：{e}",
+            project_root.display()
+        );
+        return false;
+    }
+    if is_symlink(&mirror_dir) {
+        log::warn!(
+            "镜像目录创建后检测到符号链接（TOCTOU 竞态），回退虚拟检查：{}",
+            mirror_dir.display()
+        );
+        return false;
+    }
     if let Err(e) = copy_project_tree(&project_root, &mirror_dir) {
         log::warn!(
             "镜像复制失败（回退虚拟检查）：{}：{e}",
@@ -192,6 +227,14 @@ fn mirror_dir_for(project_root: &Path) -> PathBuf {
         std::process::id(),
         path_hash(project_root)
     ))
+}
+
+/// 路径自身是否为符号链接（lstat 语义，不跟随末段链接）——与 server.rs
+/// `virtual_temp_dir` 同一防御水位，供镜像目录预检与 TOCTOU 复查使用。
+fn is_symlink(path: &Path) -> bool {
+    path.symlink_metadata()
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false)
 }
 
 /// 递归复制项目树（排除构建产物/版本库；目录符号链接跳过防逃逸与循环，
@@ -916,6 +959,27 @@ mod tests {
                 None => std::env::remove_var("USER"),
             }
         }
+    }
+
+    /// is_symlink 识别符号链接（含悬空链接），非链接路径返回 false—与
+    /// server.rs 同名测试同风格，仅 Unix 跑（Windows 建符号链接需特权，避免 flaky）。
+    #[cfg(unix)]
+    #[test]
+    fn test_is_symlink_detects_link_and_regular() {
+        let temp = tempfile::tempdir().unwrap();
+        let file = temp.path().join("f");
+        std::fs::write(&file, b"x").unwrap();
+        assert!(!is_symlink(&file), "普通文件不是符号链接");
+        assert!(
+            !is_symlink(&temp.path().join("absent")),
+            "不存在路径不是符号链接"
+        );
+        let link = temp.path().join("link");
+        std::os::unix::fs::symlink(&file, &link).unwrap();
+        assert!(is_symlink(&link), "符号链接应被识别");
+        let dangling = temp.path().join("dangling");
+        std::os::unix::fs::symlink(temp.path().join("gone"), &dangling).unwrap();
+        assert!(is_symlink(&dangling), "悬空符号链接仍须识别为链接");
     }
 
     /// 项目树复制：源文件递归复制；target/.git/node_modules/dist 一律排除
