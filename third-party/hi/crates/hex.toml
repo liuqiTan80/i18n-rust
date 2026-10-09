@@ -1,0 +1,10 @@
+["模块路径"]
+"hxc_षोडश_कोडन" = "hex"
+
+["标识符"]
+"hxc_हैक्स_ट्रेट" = "ToHex"
+"hxc_से_हैक्स_ट्रेट" = "FromHex"
+"hxc_हैक्स_त्रुटि_सूची" = "FromHexError"
+
+["解释"]
+"hxc_षोडश_कोडन" = "hex — षोडश अक्षरमात्रा कोडन: ToHex/FromHex/FromHexError"

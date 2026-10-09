@@ -1,0 +1,10 @@
+["模块路径"]
+"tpttrait对象注册" = "typetag"
+
+["标识符"]
+"tptserde标注" = "serde"
+"tpt序列化标注" = "serialize"
+"tpt反序列化标注" = "deserialize"
+
+["解释"]
+"tpttrait对象注册" = "typetag — serde trait 对象注册: serde/serialize/deserialize"

@@ -1,0 +1,10 @@
+["模块路径"]
+"ndbファイルデバウンス" = "notify_debouncer_mini"
+
+["标识符"]
+"ndbデバウンサー" = "Debouncer"
+"ndbデバウンスイベント" = "DebouncedEvent"
+"ndb新規デバウンス関数" = "new_debouncer"
+
+["解释"]
+"ndbファイルデバウンス" = "notify-debouncer-mini — notify イベント デバウンス: Debouncer/DebouncedEvent/new_debouncer"

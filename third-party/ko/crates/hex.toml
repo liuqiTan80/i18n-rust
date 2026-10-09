@@ -1,0 +1,10 @@
+["模块路径"]
+"hxc십육진부호화" = "hex"
+
+["标识符"]
+"hxc십육진변환트레잇" = "ToHex"
+"hxc십육진출발트레잇" = "FromHex"
+"hxc디코딩오류열거" = "FromHexError"
+
+["解释"]
+"hxc십육진부호화" = "hex — 십육진 문자열 부호화: ToHex/FromHex/FromHexError"

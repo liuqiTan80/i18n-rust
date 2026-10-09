@@ -1,0 +1,10 @@
+["模块路径"]
+"byc字节校验" = "bytecheck"
+
+["标识符"]
+"byc字节校验特质" = "CheckBytes"
+"byc结构校验上下文" = "StructCheckContext"
+"byc校验字节函数" = "check_bytes"
+
+["解释"]
+"byc字节校验" = "bytecheck — 字节内存校验框架: CheckBytes/StructCheckContext/check_bytes"

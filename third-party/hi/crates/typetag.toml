@@ -1,0 +1,10 @@
+["模块路径"]
+"tpt_ट्रेट_पंजीकरण" = "typetag"
+
+["标识符"]
+"tpt_serde_गुण" = "serde"
+"tpt_क्रमन_गुण" = "serialize"
+"tpt_विलोम_क्रमन_गुण" = "deserialize"
+
+["解释"]
+"tpt_ट्रेट_पंजीकरण" = "typetag — serde ट्रेट वस्तु पंजीकरण: serde/serialize/deserialize"

@@ -1,0 +1,10 @@
+["模块路径"]
+"rkyゼロコピーアーカイブ" = "rkyv"
+
+["标识符"]
+"rkyアーカイブ型" = "Archive"
+"rky直列化型" = "Serialize"
+"rky逆直列化型" = "Deserialize"
+
+["解释"]
+"rkyゼロコピーアーカイブ" = "rkyv — ゼロコピー直列化: Archive/Serialize/Deserialize"

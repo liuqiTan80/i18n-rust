@@ -1,0 +1,10 @@
+["模块路径"]
+"fsx파일확장" = "fs2"
+
+["标识符"]
+"fsx파일통계" = "FsStats"
+"fsx파일확장트레잇" = "FileExt"
+"fsx총용량함수" = "total_space"
+
+["解释"]
+"fsx파일확장" = "fs2 — 파일 및 파일시스템 확장: FsStats/FileExt/total_space"

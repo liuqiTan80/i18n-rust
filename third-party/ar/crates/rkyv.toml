@@ -1,0 +1,10 @@
+["模块路径"]
+"rky_أرشفة_نسخ_صفر" = "rkyv"
+
+["标识符"]
+"rky_سمة_أرشفة" = "Archive"
+"rky_سمة_تسلسل" = "Serialize"
+"rky_سمة_إزالة_تسلسل" = "Deserialize"
+
+["解释"]
+"rky_أرشفة_نسخ_صفر" = "rkyv — تسلسل بنسخ صفر: Archive/Serialize/Deserialize"

@@ -1,0 +1,10 @@
+["模块路径"]
+"tptトレイト対象登録" = "typetag"
+
+["标识符"]
+"tptserde属性" = "serde"
+"tpt直列化属性" = "serialize"
+"tpt逆直列化属性" = "deserialize"
+
+["解释"]
+"tptトレイト対象登録" = "typetag — serde トレイト対象登録: serde/serialize/deserialize"

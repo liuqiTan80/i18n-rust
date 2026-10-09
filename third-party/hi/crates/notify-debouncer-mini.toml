@@ -1,0 +1,10 @@
+["模块路径"]
+"ndb_फ़ाइल_डिबाउंस" = "notify_debouncer_mini"
+
+["标识符"]
+"ndb_डिबाउंसर" = "Debouncer"
+"ndb_डिबाउंस_घटना" = "DebouncedEvent"
+"ndb_नया_डिबाउंस" = "new_debouncer"
+
+["解释"]
+"ndb_फ़ाइल_डिबाउंस" = "notify-debouncer-mini — notify डिबाउंस: Debouncer/DebouncedEvent/new_debouncer"

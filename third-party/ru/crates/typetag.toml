@@ -1,0 +1,10 @@
+["模块路径"]
+"tpt_регистрация_трейтов" = "typetag"
+
+["标识符"]
+"tpt_serde_атрибут" = "serde"
+"tpt_сериализ_атрибут" = "serialize"
+"tpt_десериализ_атрибут" = "deserialize"
+
+["解释"]
+"tpt_регистрация_трейтов" = "typetag — регистрация trait-объектов serde: serde/serialize/deserialize"

@@ -1,0 +1,10 @@
+["模块路径"]
+"hxc_codificacion_hex" = "hex"
+
+["标识符"]
+"hxc_trait_a_hex" = "ToHex"
+"hxc_trait_de_hex" = "FromHex"
+"hxc_enum_error_de_hex" = "FromHexError"
+
+["解释"]
+"hxc_codificacion_hex" = "hex — codificacion de cadenas hex: ToHex/FromHex/FromHexError"

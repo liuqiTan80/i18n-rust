@@ -1,0 +1,10 @@
+["模块路径"]
+"hxc十六进制编码" = "hex"
+
+["标识符"]
+"hxc转十六进制特质" = "ToHex"
+"hxc从十六进制特质" = "FromHex"
+"hxc解码错误枚举" = "FromHexError"
+
+["解释"]
+"hxc十六进制编码" = "hex — 十六进制字符串编解码: ToHex/FromHex/FromHexError"

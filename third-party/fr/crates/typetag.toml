@@ -1,0 +1,10 @@
+["模块路径"]
+"tpt_enregistrement_trait" = "typetag"
+
+["标识符"]
+"tpt_attribut_serde" = "serde"
+"tpt_attribut_serialiser" = "serialize"
+"tpt_attribut_deserialiser" = "deserialize"
+
+["解释"]
+"tpt_enregistrement_trait" = "typetag — enregistrement d objets trait serde: serde/serialize/deserialize"

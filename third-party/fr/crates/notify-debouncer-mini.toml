@@ -1,0 +1,10 @@
+["模块路径"]
+"ndb_anti_rebond_fichier" = "notify_debouncer_mini"
+
+["标识符"]
+"ndb_anti_rebond" = "Debouncer"
+"ndb_evenement_anti_rebond" = "DebouncedEvent"
+"ndb_nouvel_anti_rebond" = "new_debouncer"
+
+["解释"]
+"ndb_anti_rebond_fichier" = "notify-debouncer-mini — anti-rebond evenements notify: Debouncer/DebouncedEvent/new_debouncer"

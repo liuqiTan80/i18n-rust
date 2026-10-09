@@ -1,0 +1,10 @@
+["模块路径"]
+"fsx文件系统扩展" = "fs2"
+
+["标识符"]
+"fsx文件系统统计" = "FsStats"
+"fsx文件扩展特质" = "FileExt"
+"fsx总空间函数" = "total_space"
+
+["解释"]
+"fsx文件系统扩展" = "fs2 — 文件与文件系统扩展: FsStats/FileExt/total_space"

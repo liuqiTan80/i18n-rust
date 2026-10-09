@@ -1,0 +1,10 @@
+["模块路径"]
+"tpt트레잇대상등록" = "typetag"
+
+["标识符"]
+"tptserde속성" = "serde"
+"tpt직렬화속성" = "serialize"
+"tpt역직렬화속성" = "deserialize"
+
+["解释"]
+"tpt트레잇대상등록" = "typetag — serde 트레잇 대상 등록: serde/serialize/deserialize"

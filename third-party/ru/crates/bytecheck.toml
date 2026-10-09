@@ -1,0 +1,10 @@
+["模块路径"]
+"byc_проверка_байтов" = "bytecheck"
+
+["标识符"]
+"byc_трейт_провер_байт" = "CheckBytes"
+"byc_контекст_провер_стр" = "StructCheckContext"
+"byc_проверить_байты" = "check_bytes"
+
+["解释"]
+"byc_проверка_байтов" = "bytecheck — проверка байтовой памяти: CheckBytes/StructCheckContext/check_bytes"

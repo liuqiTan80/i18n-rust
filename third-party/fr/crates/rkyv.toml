@@ -1,0 +1,10 @@
+["模块路径"]
+"rky_zero_copie_archive" = "rkyv"
+
+["标识符"]
+"rky_trait_archive" = "Archive"
+"rky_trait_serialiser" = "Serialize"
+"rky_trait_deserialiser" = "Deserialize"
+
+["解释"]
+"rky_zero_copie_archive" = "rkyv — serialisation copie zero: Archive/Serialize/Deserialize"

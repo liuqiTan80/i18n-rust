@@ -1,0 +1,10 @@
+["模块路径"]
+"ndb文件去抖" = "notify_debouncer_mini"
+
+["标识符"]
+"ndb去抖器" = "Debouncer"
+"ndb去抖事件" = "DebouncedEvent"
+"ndb新建去抖函数" = "new_debouncer"
+
+["解释"]
+"ndb文件去抖" = "notify-debouncer-mini — notify 事件去抖: Debouncer/DebouncedEvent/new_debouncer"

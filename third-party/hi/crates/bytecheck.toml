@@ -1,0 +1,10 @@
+["模块路径"]
+"byc_बाइट_जाँच" = "bytecheck"
+
+["标识符"]
+"byc_बाइट_जाँच_ट्रेट" = "CheckBytes"
+"byc_संरचना_संदर्भ" = "StructCheckContext"
+"byc_बाइट_जाँच_फलन" = "check_bytes"
+
+["解释"]
+"byc_बाइट_जाँच" = "bytecheck — बाइट स्मृति जाँच: CheckBytes/StructCheckContext/check_bytes"

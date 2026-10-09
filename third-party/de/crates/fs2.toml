@@ -1,0 +1,10 @@
+["模块路径"]
+"fsx_dateisystem_erweiterung" = "fs2"
+
+["标识符"]
+"fsx_dateisystem_stats" = "FsStats"
+"fsx_datei_erweiterung_trait" = "FileExt"
+"fsx_gesamtspeicher" = "total_space"
+
+["解释"]
+"fsx_dateisystem_erweiterung" = "fs2 — Dateien und Dateisystem Erweiterungen: FsStats/FileExt/total_space"

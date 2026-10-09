@@ -1,0 +1,10 @@
+["模块路径"]
+"byc_verificacao_bytes" = "bytecheck"
+
+["标识符"]
+"byc_trait_verificar_bytes" = "CheckBytes"
+"byc_contexto_estrutura" = "StructCheckContext"
+"byc_verificar_bytes_fn" = "check_bytes"
+
+["解释"]
+"byc_verificacao_bytes" = "bytecheck — verificacao memoria de bytes: CheckBytes/StructCheckContext/check_bytes"

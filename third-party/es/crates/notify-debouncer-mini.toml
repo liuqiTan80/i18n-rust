@@ -1,0 +1,10 @@
+["模块路径"]
+"ndb_anti_temblor_arch" = "notify_debouncer_mini"
+
+["标识符"]
+"ndb_antitemblor" = "Debouncer"
+"ndb_evento_antitemblor" = "DebouncedEvent"
+"ndb_nuevo_antitemblor" = "new_debouncer"
+
+["解释"]
+"ndb_anti_temblor_arch" = "notify-debouncer-mini — anti-temblor de eventos notify: Debouncer/DebouncedEvent/new_debouncer"

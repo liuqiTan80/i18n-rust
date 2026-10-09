@@ -1,0 +1,10 @@
+["模块路径"]
+"byc_فحص_بايت" = "bytecheck"
+
+["标识符"]
+"byc_سمة_فحص_بايت" = "CheckBytes"
+"byc_سياق_هيكل" = "StructCheckContext"
+"byc_فحص_البايتات_دالة" = "check_bytes"
+
+["解释"]
+"byc_فحص_بايت" = "bytecheck — فحص ذاكرة البايتات: CheckBytes/StructCheckContext/check_bytes"

@@ -1,0 +1,10 @@
+["模块路径"]
+"tpt_تسجيل_سمة" = "typetag"
+
+["标识符"]
+"tpt_خاصية_serde" = "serde"
+"tpt_خاصية_تسلسل" = "serialize"
+"tpt_خاصية_إزالة_تسلسل" = "deserialize"
+
+["解释"]
+"tpt_تسجيل_سمة" = "typetag — تسجيل كائنات سمة serde: serde/serialize/deserialize"

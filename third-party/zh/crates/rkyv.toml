@@ -1,0 +1,10 @@
+["模块路径"]
+"rky零拷贝归档" = "rkyv"
+
+["标识符"]
+"rky归档特质" = "Archive"
+"rky序列化特质" = "Serialize"
+"rky反序列化特质" = "Deserialize"
+
+["解释"]
+"rky零拷贝归档" = "rkyv — 零拷贝序列化框架: Archive/Serialize/Deserialize"

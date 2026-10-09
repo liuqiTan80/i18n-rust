@@ -1,0 +1,10 @@
+["模块路径"]
+"byc_verification_octets" = "bytecheck"
+
+["标识符"]
+"byc_trait_verifier_octets" = "CheckBytes"
+"byc_contexte_structure" = "StructCheckContext"
+"byc_verifier_octets_fn" = "check_bytes"
+
+["解释"]
+"byc_verification_octets" = "bytecheck — verification memoire octets: CheckBytes/StructCheckContext/check_bytes"

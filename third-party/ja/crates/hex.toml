@@ -1,0 +1,10 @@
+["模块路径"]
+"hxc十六進符号化" = "hex"
+
+["标识符"]
+"hxc十六進変換型" = "ToHex"
+"hxc十六進由来型" = "FromHex"
+"hxc復号エラー列挙" = "FromHexError"
+
+["解释"]
+"hxc十六進符号化" = "hex — 十六進文字列符号化: ToHex/FromHex/FromHexError"

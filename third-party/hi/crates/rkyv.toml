@@ -1,0 +1,10 @@
+["模块路径"]
+"rky_शून्य_प्रति_अभिलेख" = "rkyv"
+
+["标识符"]
+"rky_अभिलेख_ट्रेट" = "Archive"
+"rky_क्रमन_ट्रेट" = "Serialize"
+"rky_विलोम_क्रमन_ट्रेट" = "Deserialize"
+
+["解释"]
+"rky_शून्य_प्रति_अभिलेख" = "rkyv — शून्य-प्रति क्रमन: Archive/Serialize/Deserialize"

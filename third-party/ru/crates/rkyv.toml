@@ -1,0 +1,10 @@
+["模块路径"]
+"rky_нуль_копия_архив" = "rkyv"
+
+["标识符"]
+"rky_трейт_архив" = "Archive"
+"rky_трейт_сериализ" = "Serialize"
+"rky_трейт_десериализ" = "Deserialize"
+
+["解释"]
+"rky_нуль_копия_архив" = "rkyv — сериализация без копирования: Archive/Serialize/Deserialize"

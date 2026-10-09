@@ -1,0 +1,10 @@
+["模块路径"]
+"rky제로복사아카이브" = "rkyv"
+
+["标识符"]
+"rky아카이브트레잇" = "Archive"
+"rky직렬화트레잇" = "Serialize"
+"rky역직렬화트레잇" = "Deserialize"
+
+["解释"]
+"rky제로복사아카이브" = "rkyv — 제로 복사 직렬화: Archive/Serialize/Deserialize"
