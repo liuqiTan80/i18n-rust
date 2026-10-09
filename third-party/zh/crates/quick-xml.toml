@@ -1,0 +1,10 @@
+["模块路径"]
+"XML读写" = "quick-xml"
+
+["标识符"]
+"XML读取器" = "Reader"
+"XML写入器" = "Writer"
+"XML事件" = "Event"
+
+["解释"]
+"XML读写" = "高性能 XML 读写器"

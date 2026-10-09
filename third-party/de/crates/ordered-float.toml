@@ -1,0 +1,10 @@
+["模块路径"]
+"float_gesamtordnung" = "ordered-float"
+
+["标识符"]
+"gesamtordnung_wrapper" = "OrderedFloat"
+"nan_freier_typ" = "NotNan"
+"anzeige_reihenfolge" = "DisplayOrdering"
+
+["解释"]
+"float_gesamtordnung" = "Totale Ordnung für Float-Vergleiche"

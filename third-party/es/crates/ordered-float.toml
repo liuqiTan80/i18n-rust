@@ -1,0 +1,10 @@
+["模块路径"]
+"orden_total_flotante" = "ordered-float"
+
+["标识符"]
+"envoltura_orden_total" = "OrderedFloat"
+"tipo_sin_nan" = "NotNan"
+"orden_visualizacion" = "DisplayOrdering"
+
+["解释"]
+"orden_total_flotante" = "Orden total para comparar flotantes"

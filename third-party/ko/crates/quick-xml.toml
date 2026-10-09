@@ -1,0 +1,10 @@
+["模块路径"]
+"XML_입출력" = "quick-xml"
+
+["标识符"]
+"XML_리더" = "Reader"
+"XML_라이터" = "Writer"
+"XML_이벤트" = "Event"
+
+["解释"]
+"XML_입출력" = "고성능 XML 입출력"

@@ -1,0 +1,10 @@
+["模块路径"]
+"crc32_pruefung" = "crc32fast"
+
+["标识符"]
+"crc32_hashierer" = "Hasher"
+"daten_ergaenzen" = "update"
+"pruefwert_erhalten" = "finalize"
+
+["解释"]
+"crc32_pruefung" = "CRC32-Prüfsumme mit SIMD-Beschleunigung"

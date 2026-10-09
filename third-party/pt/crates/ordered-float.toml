@@ -1,0 +1,10 @@
+["模块路径"]
+"ordem_total_flutuante" = "ordered-float"
+
+["标识符"]
+"involtro_ordem_total" = "OrderedFloat"
+"tipo_sem_nan" = "NotNan"
+"ordem_exibicao" = "DisplayOrdering"
+
+["解释"]
+"ordem_total_flutuante" = "Ordem total para comparar flutuantes"

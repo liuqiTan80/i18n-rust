@@ -1,0 +1,10 @@
+["模块路径"]
+"leitura_escrita_xml" = "quick-xml"
+
+["标识符"]
+"leitor_xml" = "Reader"
+"escritor_xml" = "Writer"
+"evento_xml" = "Event"
+
+["解释"]
+"leitura_escrita_xml" = "Leitor e escritor XML de alto desempenho"

@@ -1,0 +1,10 @@
+["模块路径"]
+"BLAKE3_해시" = "blake3"
+
+["标识符"]
+"BLAKE3_일회_해시" = "hash"
+"BLAKE3_해시_생성기" = "Hasher"
+"BLAKE3_다이제스트" = "Hash"
+
+["解释"]
+"BLAKE3_해시" = "BLAKE3 고속 암호화 해시"

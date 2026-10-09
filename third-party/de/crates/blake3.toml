@@ -1,0 +1,10 @@
+["模块路径"]
+"blake3_hash" = "blake3"
+
+["标识符"]
+"blake3_einmal_hash" = "hash"
+"blake3_hashierer" = "Hasher"
+"blake3_digest" = "Hash"
+
+["解释"]
+"blake3_hash" = "Schneller BLAKE3-Krypto-Hash"

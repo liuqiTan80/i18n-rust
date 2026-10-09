@@ -1,0 +1,10 @@
+["模块路径"]
+"浮点全序" = "ordered-float"
+
+["标识符"]
+"全序浮点包装" = "OrderedFloat"
+"非NaN浮点" = "NotNan"
+"显示顺序" = "DisplayOrdering"
+
+["解释"]
+"浮点全序" = "为浮点数提供全序比较"

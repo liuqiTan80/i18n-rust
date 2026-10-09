@@ -1,0 +1,10 @@
+["模块路径"]
+"async_ereignis_meldung" = "event-listener"
+
+["标识符"]
+"ereignis_quelle" = "Event"
+"ereignis_zehoerer" = "EventListener"
+"wecken" = "notify"
+
+["解释"]
+"async_ereignis_meldung" = "Asynchrone Tasks warten lassen und Benachrichtigungen empfangen"

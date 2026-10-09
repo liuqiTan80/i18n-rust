@@ -1,0 +1,10 @@
+["模块路径"]
+"verificacion_crc32" = "crc32fast"
+
+["标识符"]
+"hasher_crc32" = "Hasher"
+"acumular_datos" = "update"
+"obtener_verificacion" = "finalize"
+
+["解释"]
+"verificacion_crc32" = "Suma de verificación CRC32 acelerada con SIMD"

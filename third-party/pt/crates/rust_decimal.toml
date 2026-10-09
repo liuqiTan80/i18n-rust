@@ -1,0 +1,10 @@
+["模块路径"]
+"fracao_decimal" = "rust_decimal"
+
+["标识符"]
+"tipo_decimal" = "Decimal"
+"literal_decimal" = "dec!"
+"arredondar_decimal" = "round"
+
+["解释"]
+"fracao_decimal" = "Fração decimal de precisão fixa"

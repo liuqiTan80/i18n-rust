@@ -1,0 +1,10 @@
+["模块路径"]
+"XML入出力" = "quick-xml"
+
+["标识符"]
+"XMLリーダー" = "Reader"
+"XMLライター" = "Writer"
+"XMLイベント" = "Event"
+
+["解释"]
+"XML入出力" = "高性能 XML 入出力"

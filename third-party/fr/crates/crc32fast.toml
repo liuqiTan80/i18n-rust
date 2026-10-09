@@ -1,0 +1,10 @@
+["模块路径"]
+"controle_crc32" = "crc32fast"
+
+["标识符"]
+"hasher_crc32" = "Hasher"
+"ajouter_donnees" = "update"
+"obtenir_controle" = "finalize"
+
+["解释"]
+"controle_crc32" = "Somme de contrôle CRC32 accélérée par SIMD"

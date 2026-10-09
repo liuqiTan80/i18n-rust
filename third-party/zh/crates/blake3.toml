@@ -1,0 +1,10 @@
+["模块路径"]
+"BLAKE3哈希" = "blake3"
+
+["标识符"]
+"BLAKE3一键哈希" = "hash"
+"BLAKE3哈希器" = "Hasher"
+"BLAKE3摘要值" = "Hash"
+
+["解释"]
+"BLAKE3哈希" = "BLAKE3 快速加密哈希"

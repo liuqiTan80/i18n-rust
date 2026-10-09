@@ -1,0 +1,10 @@
+["模块路径"]
+"BLAKE3ハッシュ" = "blake3"
+
+["标识符"]
+"BLAKE3一括ハッシュ" = "hash"
+"BLAKE3ハッシャー" = "Hasher"
+"BLAKE3ダイジェスト" = "Hash"
+
+["解释"]
+"BLAKE3ハッシュ" = "BLAKE3 の高速暗号ハッシュ"

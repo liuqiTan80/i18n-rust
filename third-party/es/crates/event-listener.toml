@@ -1,0 +1,10 @@
+["模块路径"]
+"notificacion_evento_async" = "event-listener"
+
+["标识符"]
+"fuente_evento" = "Event"
+"oyente_evento" = "EventListener"
+"notificar_oyente" = "notify"
+
+["解释"]
+"notificacion_evento_async" = "Espera tareas asíncronas y recibe notificaciones"
