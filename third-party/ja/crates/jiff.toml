@@ -1,0 +1,10 @@
+["模块路径"]
+"jiff日付時刻" = "jiff"
+
+["标识符"]
+"jiffタイムスタンプ" = "Timestamp"
+"jiffタイムゾーン" = "Zoned"
+"jiffスパン" = "Span"
+
+["解释"]
+"jiff日付時刻" = "jiff はモダン日付時刻、Timestamp/Zoned/Span でタイムゾーン対応"

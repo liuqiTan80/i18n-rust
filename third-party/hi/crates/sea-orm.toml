@@ -1,0 +1,10 @@
+["模块路径"]
+"seaORM_फ्रेमवर्क" = "sea-orm"
+
+["标识符"]
+"sea_डेटाबेस" = "Database"
+"sea_कनेक्शन" = "DatabaseConnection"
+"sea_विकल्प" = "ConnectOptions"
+
+["解释"]
+"seaORM_फ्रेमवर्क" = "sea-orm एसिंक्रोनस ORM है: Database/DatabaseConnection/ConnectOptions"

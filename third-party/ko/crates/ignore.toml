@@ -1,0 +1,10 @@
+["模块路径"]
+"ignore_디렉터리_순회" = "ignore"
+
+["标识符"]
+"ig_순회_빌더" = "WalkBuilder"
+"ig_순회_이터레이터" = "Walk"
+"ig_디렉터리_항목" = "DirEntry"
+
+["解释"]
+"ignore_디렉터리_순회" = "ignore 는 gitignore 준수 재귀 디렉터리 순회, WalkBuilder/Walk/DirEntry"

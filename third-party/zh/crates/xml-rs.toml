@@ -1,0 +1,10 @@
+["模块路径"]
+"xmlrs解析写入" = "xml-rs"
+
+["标识符"]
+"xmlrs事件读取器" = "EventReader"
+"xmlrs事件写入器" = "EventWriter"
+"xmlrs解析配置" = "ParserConfig"
+
+["解释"]
+"xmlrs解析写入" = "xml-rs 提供 pull 式 XML 解析与事件写入：EventReader/EventWriter/ParserConfig"

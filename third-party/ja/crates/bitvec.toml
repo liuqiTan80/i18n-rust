@@ -1,0 +1,10 @@
+["模块路径"]
+"bitvecビット操作" = "bitvec"
+
+["标识符"]
+"bvビットベクター" = "BitVec"
+"bvビット配列" = "BitArray"
+"bvビットスライス" = "BitSlice"
+
+["解释"]
+"bitvecビット操作" = "bitvec はビット単位のデータ構造、BitVec/BitArray/BitSlice で省メモリ"

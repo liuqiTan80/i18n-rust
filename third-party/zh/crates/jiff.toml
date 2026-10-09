@@ -1,0 +1,10 @@
+["模块路径"]
+"jiff日期时间" = "jiff"
+
+["标识符"]
+"jiff时间戳" = "Timestamp"
+"jiff时区时间" = "Zoned"
+"jiff时间跨度" = "Span"
+
+["解释"]
+"jiff日期时间" = "jiff 现代日期时间库：Timestamp/Zoned/Span 处理时区与跨度"

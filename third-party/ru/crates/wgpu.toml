@@ -1,0 +1,10 @@
+["模块路径"]
+"графический_API_wgpu" = "wgpu"
+
+["标识符"]
+"экземпляр_wgpu" = "Instance"
+"устройство_wgpu" = "Device"
+"поверхность_wgpu" = "Surface"
+
+["解释"]
+"графический_API_wgpu" = "wgpu — кроссплатформенный GPU: Instance/Device/Surface для рендеринга"

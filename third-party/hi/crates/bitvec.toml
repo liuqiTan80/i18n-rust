@@ -1,0 +1,10 @@
+["模块路径"]
+"bitvec_बिट_संचालन" = "bitvec"
+
+["标识符"]
+"bv_बिट_वेक्टर" = "BitVec"
+"bv_बिट_एरे" = "BitArray"
+"bv_बिट_स्लाइस" = "BitSlice"
+
+["解释"]
+"bitvec_बिट_संचालन" = "bitvec बिट-स्तरीय डेटा संरचनाएं देता है: BitVec/BitArray/BitSlice"

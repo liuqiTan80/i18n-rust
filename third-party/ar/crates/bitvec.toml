@@ -1,0 +1,10 @@
+["模块路径"]
+"عمليات_البتات_bitvec" = "bitvec"
+
+["标识符"]
+"bv_متجه_بتات" = "BitVec"
+"bv_مصفوفة_بتات" = "BitArray"
+"bv_شريحة_بتات" = "BitSlice"
+
+["解释"]
+"عمليات_البتات_bitvec" = "bitvec يوفر هياكل بتية: BitVec/BitArray/BitSlice"

@@ -1,0 +1,10 @@
+["模块路径"]
+"تصفح_المجلدات_ignore" = "ignore"
+
+["标识符"]
+"ig_باني_التصفح" = "WalkBuilder"
+"ig_تصفح" = "Walk"
+"ig_مدخل_مجلد" = "DirEntry"
+
+["解释"]
+"تصفح_المجلدات_ignore" = "ignore تصفح دائري مع gitignore: WalkBuilder/Walk/DirEntry"

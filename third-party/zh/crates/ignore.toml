@@ -1,0 +1,10 @@
+["模块路径"]
+"ignore目录遍历" = "ignore"
+
+["标识符"]
+"ig遍历构建器" = "WalkBuilder"
+"ig迭代器" = "Walk"
+"ig目录项" = "DirEntry"
+
+["解释"]
+"ignore目录遍历" = "ignore 尊重 gitignore 的递归目录遍历：WalkBuilder/Walk/DirEntry"

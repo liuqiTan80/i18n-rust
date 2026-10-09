@@ -1,0 +1,10 @@
+["模块路径"]
+"ignore_डायरेक्ट्री_वॉक" = "ignore"
+
+["标识符"]
+"ig_वॉक_बिल्डर" = "WalkBuilder"
+"ig_वॉक" = "Walk"
+"ig_डायरेक्ट्री_प्रविष्टि" = "DirEntry"
+
+["解释"]
+"ignore_डायरेक्ट्री_वॉक" = "ignore gitignore-सम्मानित पुनरावृत्ति डायरेक्ट्री वॉक: WalkBuilder/Walk/DirEntry"

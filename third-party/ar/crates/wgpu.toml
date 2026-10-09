@@ -1,0 +1,10 @@
+["模块路径"]
+"واجهة_رسوميات_wgpu" = "wgpu"
+
+["标识符"]
+"wgpu_نسخة" = "Instance"
+"wgpu_جهاز" = "Device"
+"wgpu_سطح" = "Surface"
+
+["解释"]
+"واجهة_رسوميات_wgpu" = "wgpu واجهة GPU عبر المنصات: Instance/Device/Surface"

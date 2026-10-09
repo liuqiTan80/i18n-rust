@@ -1,0 +1,10 @@
+["模块路径"]
+"парсер_писатель_xmlrs" = "xml-rs"
+
+["标识符"]
+"читатель_событий_xmlrs" = "EventReader"
+"писатель_событий_xmlrs" = "EventWriter"
+"конфиг_парсера_xmlrs" = "ParserConfig"
+
+["解释"]
+"парсер_писатель_xmlrs" = "xml-rs — pull-парсер XML и запись событий: EventReader/EventWriter/ParserConfig"

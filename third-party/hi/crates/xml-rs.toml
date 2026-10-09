@@ -1,0 +1,10 @@
+["模块路径"]
+"xmlrs_पार्सर_राइटर" = "xml-rs"
+
+["标识符"]
+"xmlrs_इवेंट_रीडर" = "EventReader"
+"xmlrs_इवेंट_राइटर" = "EventWriter"
+"xmlrs_कॉन्फिग" = "ParserConfig"
+
+["解释"]
+"xmlrs_पार्सर_राइटर" = "xml-rs pull-आधारित XML पार्सर देता है: EventReader/EventWriter/ParserConfig"

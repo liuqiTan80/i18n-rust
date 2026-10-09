@@ -1,0 +1,10 @@
+["模块路径"]
+"wgpu图形接口" = "wgpu"
+
+["标识符"]
+"wgpu实例" = "Instance"
+"wgpu设备" = "Device"
+"wgpu表面" = "Surface"
+
+["解释"]
+"wgpu图形接口" = "wgpu 跨平台 GPU 抽象：Instance/Device/Surface 管理图形与计算管线"

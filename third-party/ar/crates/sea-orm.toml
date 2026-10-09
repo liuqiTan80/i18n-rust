@@ -1,0 +1,10 @@
+["模块路径"]
+"إطار_سي_ORM" = "sea-orm"
+
+["标识符"]
+"sea_قاعدة_بيانات" = "Database"
+"sea_اتصال_قاعدة" = "DatabaseConnection"
+"sea_خيارات" = "ConnectOptions"
+
+["解释"]
+"إطار_سي_ORM" = "sea-orm إطار ORM لا متزامن: Database/DatabaseConnection/ConnectOptions"

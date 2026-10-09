@@ -1,0 +1,10 @@
+["模块路径"]
+"operations_bits_bitvec" = "bitvec"
+
+["标识符"]
+"bv_bits_vecteur" = "BitVec"
+"bv_tableau_bits" = "BitArray"
+"bv_tranche_bits" = "BitSlice"
+
+["解释"]
+"operations_bits_bitvec" = "bitvec fournit des structures au niveau bit: BitVec/BitArray/BitSlice"

@@ -1,0 +1,10 @@
+["模块路径"]
+"seaORM_프레임워크" = "sea-orm"
+
+["标识符"]
+"sea_데이터베이스" = "Database"
+"sea_연결" = "DatabaseConnection"
+"sea_연결_옵션" = "ConnectOptions"
+
+["解释"]
+"seaORM_프레임워크" = "sea-orm 는 비동기 ORM, Database/DatabaseConnection/ConnectOptions"

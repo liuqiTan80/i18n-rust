@@ -1,0 +1,10 @@
+["模块路径"]
+"sea_ORM_Framework" = "sea-orm"
+
+["标识符"]
+"sea_Datenbank" = "Database"
+"sea_Datenbankverbindung" = "DatabaseConnection"
+"sea_Verbindungsoptionen" = "ConnectOptions"
+
+["解释"]
+"sea_ORM_Framework" = "sea-orm ist ein asynchrones ORM: Database/DatabaseConnection/ConnectOptions"

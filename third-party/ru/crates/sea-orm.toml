@@ -1,0 +1,10 @@
+["模块路径"]
+"orm_фреймворк_sea" = "sea-orm"
+
+["标识符"]
+"база_данных_sea" = "Database"
+"подключение_sea" = "DatabaseConnection"
+"опции_подключения_sea" = "ConnectOptions"
+
+["解释"]
+"orm_фреймворк_sea" = "sea-orm — асинхронная ORM: Database/DatabaseConnection/ConnectOptions"

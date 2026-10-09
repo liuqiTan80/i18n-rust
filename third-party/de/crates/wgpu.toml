@@ -1,0 +1,10 @@
+["模块路径"]
+"wgpu_Grafik_API" = "wgpu"
+
+["标识符"]
+"wgpu_Instance" = "Instance"
+"wgpu_Geraet" = "Device"
+"wgpu_Oberflaeche" = "Surface"
+
+["解释"]
+"wgpu_Grafik_API" = "wgpu ist plattformuebergreifende GPU-Abstraktion: Instance/Device/Surface"

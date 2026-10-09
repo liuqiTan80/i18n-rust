@@ -1,0 +1,10 @@
+["模块路径"]
+"محلل_كاتب_xmlrs" = "xml-rs"
+
+["标识符"]
+"xmlrs_قارئ_أحداث" = "EventReader"
+"xmlrs_كاتب_أحداث" = "EventWriter"
+"xmlrs_إعداد" = "ParserConfig"
+
+["解释"]
+"محلل_كاتب_xmlrs" = "xml-rs يوفر محلل XML بالسحب: EventReader/EventWriter/ParserConfig"

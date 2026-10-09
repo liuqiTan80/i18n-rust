@@ -1,0 +1,10 @@
+["模块路径"]
+"ignoreディレクトリ走査" = "ignore"
+
+["标识符"]
+"ig走査ビルダー" = "WalkBuilder"
+"igイテレータ" = "Walk"
+"igディレクトリエントリ" = "DirEntry"
+
+["解释"]
+"ignoreディレクトリ走査" = "ignore は gitignore 準拠の再帰ディレクトリ走査、WalkBuilder/Walk/DirEntry"

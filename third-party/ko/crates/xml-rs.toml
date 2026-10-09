@@ -1,0 +1,10 @@
+["模块路径"]
+"xmlrs_분석_쓰기" = "xml-rs"
+
+["标识符"]
+"xmlrs_이벤트_리더" = "EventReader"
+"xmlrs_이벤트_라이터" = "EventWriter"
+"xmlrs_파서_설정" = "ParserConfig"
+
+["解释"]
+"xmlrs_분석_쓰기" = "xml-rs 는 pull 방식 XML 분석·이벤트 쓰기, EventReader/EventWriter/ParserConfig"

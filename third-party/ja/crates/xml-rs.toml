@@ -1,0 +1,10 @@
+["模块路径"]
+"xmlrs解析書き込み" = "xml-rs"
+
+["标识符"]
+"xmlrsイベントリーダ" = "EventReader"
+"xmlrsイベントライタ" = "EventWriter"
+"xmlrsパーサ設定" = "ParserConfig"
+
+["解释"]
+"xmlrs解析書き込み" = "xml-rs は pull 型 XML 解析とイベント書き込み、EventReader/EventWriter/ParserConfig"

@@ -1,0 +1,10 @@
+["模块路径"]
+"jiff_Datum_Zeit" = "jiff"
+
+["标识符"]
+"jiff_Zeitstempel" = "Timestamp"
+"jiff_Zonenzeit" = "Zoned"
+"jiff_Span" = "Span"
+
+["解释"]
+"jiff_Datum_Zeit" = "jiff ist eine moderne Datum/Zeit-Bibliothek: Timestamp/Zoned/Span"

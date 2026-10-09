@@ -1,0 +1,10 @@
+["模块路径"]
+"wgpuグラフィクスAPI" = "wgpu"
+
+["标识符"]
+"wgpuインスタンス" = "Instance"
+"wgpuデバイス" = "Device"
+"wgpuサーフェス" = "Surface"
+
+["解释"]
+"wgpuグラフィクスAPI" = "wgpu はクロスプラットフォーム GPU、Instance/Device/Surface で描画・計算"

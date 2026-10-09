@@ -1,0 +1,10 @@
+["模块路径"]
+"обход_каталогов_ignore" = "ignore"
+
+["标识符"]
+"строитель_обхода_ig" = "WalkBuilder"
+"итератор_обхода_ig" = "Walk"
+"запись_каталога_ig" = "DirEntry"
+
+["解释"]
+"обход_каталогов_ignore" = "ignore — рекурсивный обход с учётом gitignore: WalkBuilder/Walk/DirEntry"

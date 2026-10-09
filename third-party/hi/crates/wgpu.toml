@@ -1,0 +1,10 @@
+["模块路径"]
+"wgpu_ग्राफिक्स_API" = "wgpu"
+
+["标识符"]
+"wgpu_इंस्टेंस" = "Instance"
+"wgpu_डिवाइस" = "Device"
+"wgpu_सतह" = "Surface"
+
+["解释"]
+"wgpu_ग्राफिक्स_API" = "wgpu क्रॉस-प्लेटफ़ॉर्म GPU है: Instance/Device/Surface रेंडरिंग"

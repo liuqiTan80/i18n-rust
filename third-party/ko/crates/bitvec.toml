@@ -1,0 +1,10 @@
+["模块路径"]
+"bitvec_비트_조작" = "bitvec"
+
+["标识符"]
+"bv_비트_벡터" = "BitVec"
+"bv_비트_배열" = "BitArray"
+"bv_비트_슬라이스" = "BitSlice"
+
+["解释"]
+"bitvec_비트_조작" = "bitvec 은 비트 단위 자료 구조, BitVec/BitArray/BitSlice 컴팩트 불린"

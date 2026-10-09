@@ -1,0 +1,10 @@
+["模块路径"]
+"seaORMフレームワーク" = "sea-orm"
+
+["标识符"]
+"seaデータベース" = "Database"
+"seaDB接続" = "DatabaseConnection"
+"sea接続オプション" = "ConnectOptions"
+
+["解释"]
+"seaORMフレームワーク" = "sea-orm は非同期 ORM、Database/DatabaseConnection/ConnectOptions"

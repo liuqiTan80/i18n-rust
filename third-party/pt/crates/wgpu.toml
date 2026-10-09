@@ -1,0 +1,10 @@
+["模块路径"]
+"apis_graficos_wgpu" = "wgpu"
+
+["标识符"]
+"wgpu_instancia" = "Instance"
+"wgpu_dispositivo" = "Device"
+"wgpu_superficie" = "Surface"
+
+["解释"]
+"apis_graficos_wgpu" = "wgpu e GPU multiplataforma: Instance/Device/Surface para renderizacao"

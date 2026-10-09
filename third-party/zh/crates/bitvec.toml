@@ -1,0 +1,10 @@
+["模块路径"]
+"bitvec位操作" = "bitvec"
+
+["标识符"]
+"bv位向量" = "BitVec"
+"bv位数组" = "BitArray"
+"bv位切片" = "BitSlice"
+
+["解释"]
+"bitvec位操作" = "bitvec 提供位级数据结构：BitVec/BitArray/BitSlice 紧凑布尔数组"

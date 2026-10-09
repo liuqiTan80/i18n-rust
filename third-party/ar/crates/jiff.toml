@@ -1,0 +1,10 @@
+["模块路径"]
+"تاريخ_وقت_jiff" = "jiff"
+
+["标识符"]
+"jiff_طابع_زمني" = "Timestamp"
+"jiff_منطقة_زمنية" = "Zoned"
+"jiff_مدة" = "Span"
+
+["解释"]
+"تاريخ_وقت_jiff" = "jiff مكتبة تاريخ ووقت حديثة: Timestamp/Zoned/Span"

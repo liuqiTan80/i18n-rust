@@ -1,0 +1,10 @@
+["模块路径"]
+"seaORM框架" = "sea-orm"
+
+["标识符"]
+"sea数据库" = "Database"
+"sea数据库连接" = "DatabaseConnection"
+"sea连接选项" = "ConnectOptions"
+
+["解释"]
+"seaORM框架" = "sea-orm 是异步关系型 ORM：Database/DatabaseConnection/ConnectOptions 操作数据库"

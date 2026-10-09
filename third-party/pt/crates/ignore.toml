@@ -1,0 +1,10 @@
+["模块路径"]
+"percorre_diretorios_ignore" = "ignore"
+
+["标识符"]
+"ig_construtor_percorre" = "WalkBuilder"
+"ig_percorre" = "Walk"
+"ig_entrada_diretorio" = "DirEntry"
+
+["解释"]
+"percorre_diretorios_ignore" = "ignore e percorre recursivo com gitignore: WalkBuilder/Walk/DirEntry"
