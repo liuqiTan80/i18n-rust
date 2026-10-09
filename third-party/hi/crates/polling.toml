@@ -1,0 +1,10 @@
+["模块路径"]
+"pll_पोल_इवेंट" = "polling"
+
+["标识符"]
+"pll_पोलर" = "Poller"
+"pll_इवेंट_प्रकार" = "Event"
+"pll_इवेंट_समूह" = "Events"
+
+["解释"]
+"pll_पोल_इवेंट" = "polling — प्लेटफ़ॉर्म-मुक्त IO लूप: Poller/Event/Events"

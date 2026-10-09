@@ -1,0 +1,10 @@
+["模块路径"]
+"pll_eventos_consulta" = "polling"
+
+["标识符"]
+"pll_consultor" = "Poller"
+"pll_tipo_evento" = "Event"
+"pll_lista_eventos" = "Events"
+
+["解释"]
+"pll_eventos_consulta" = "polling — bucle IO multiplataforma: Poller/Event/Events"

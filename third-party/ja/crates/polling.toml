@@ -1,0 +1,10 @@
+["模块路径"]
+"pllポーリングイベント" = "polling"
+
+["标识符"]
+"pllポーラ" = "Poller"
+"pllイベント型" = "Event"
+"pllイベント集" = "Events"
+
+["解释"]
+"pllポーリングイベント" = "polling — クロスプラット IO イベントループ: Poller/Event/Events"

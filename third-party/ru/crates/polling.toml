@@ -1,0 +1,10 @@
+["模块路径"]
+"pll_опрос_событий" = "polling"
+
+["标识符"]
+"pll_поллер" = "Poller"
+"pll_событие_тип" = "Event"
+"pll_событий_набор" = "Events"
+
+["解释"]
+"pll_опрос_событий" = "polling — IO sobytiy noos: Poller/Event/Events"

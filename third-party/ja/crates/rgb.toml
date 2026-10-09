@@ -1,0 +1,10 @@
+["模块路径"]
+"rgb画素色" = "rgb"
+
+["标识符"]
+"rgb三原色" = "Rgb"
+"rgb四原色" = "Rgba"
+"rgbAlpha先頭" = "Argb"
+
+["解释"]
+"rgb画素色" = "rgb — RGB/RGBA 画素型: Rgb/Rgba/Argb"

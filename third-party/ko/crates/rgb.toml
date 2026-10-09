@@ -1,0 +1,10 @@
+["模块路径"]
+"rgb픽셀색" = "rgb"
+
+["标识符"]
+"rgb세채널" = "Rgb"
+"rgb네채널" = "Rgba"
+"rgb알파선행" = "Argb"
+
+["解释"]
+"rgb픽셀색" = "rgb — RGB/RGBA 픽셀 구조: Rgb/Rgba/Argb"

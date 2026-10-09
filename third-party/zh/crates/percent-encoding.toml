@@ -1,0 +1,10 @@
+["模块路径"]
+"pct百分号编码" = "percent_encoding"
+
+["标识符"]
+"pctASCII集合" = "AsciiSet"
+"pct编码器" = "PercentEncode"
+"pct解码器" = "PercentDecode"
+
+["解释"]
+"pct百分号编码" = "percent-encoding — URL 百分号编解码: AsciiSet/PercentEncode/PercentDecode"

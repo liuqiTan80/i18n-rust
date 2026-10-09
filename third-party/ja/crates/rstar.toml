@@ -1,0 +1,10 @@
+["模块路径"]
+"rsx空間索引" = "rstar"
+
+["标识符"]
+"rsx空間木" = "RTree"
+"rsx軸平行バウンディング" = "AABB"
+"rsx点トレイト" = "Point"
+
+["解释"]
+"rsx空間索引" = "rstar — R*-tree 空間索引: RTree/AABB/Point"

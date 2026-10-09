@@ -1,0 +1,10 @@
+["模块路径"]
+"pst无标准序列化" = "postcard"
+
+["标识符"]
+"pst序列化器" = "Serializer"
+"pst反序列化器" = "Deserializer"
+"pst编码错误" = "Error"
+
+["解释"]
+"pst无标准序列化" = "postcard — no_std 环境 Serde 编解码: Serializer/Deserializer/Error"

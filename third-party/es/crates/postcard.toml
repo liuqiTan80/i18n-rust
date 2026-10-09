@@ -1,0 +1,10 @@
+["模块路径"]
+"pst_serializacion_no_std" = "postcard"
+
+["标识符"]
+"pst_serializador" = "Serializer"
+"pst_deserializador" = "Deserializer"
+"pst_error_codigo" = "Error"
+
+["解释"]
+"pst_serializacion_no_std" = "postcard — serializacion no_std: Serializer/Deserializer/Error"

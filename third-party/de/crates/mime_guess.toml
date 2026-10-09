@@ -1,0 +1,10 @@
+["模块路径"]
+"mig_typvermutung" = "mime_guess"
+
+["标识符"]
+"mig_medientyp" = "Mime"
+"mig_typvermueter" = "MimeGuess"
+"mig_typ_iterator" = "Iter"
+
+["解释"]
+"mig_typvermutung" = "mime_guess — MIME-Typ-Vermutung: Mime/MimeGuess/Iter"

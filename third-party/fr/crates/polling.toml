@@ -1,0 +1,10 @@
+["模块路径"]
+"pll_evenements_sondage" = "polling"
+
+["标识符"]
+"pll_sondeur" = "Poller"
+"pll_type_evenement" = "Event"
+"pll_liste_evenements" = "Events"
+
+["解释"]
+"pll_evenements_sondage" = "polling — boucle IO multiplateforme: Poller/Event/Events"

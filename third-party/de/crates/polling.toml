@@ -1,0 +1,10 @@
+["模块路径"]
+"pll_ereignisabfrage" = "polling"
+
+["标识符"]
+"pll_abfrager" = "Poller"
+"pll_ereignistyp" = "Event"
+"pll_ereignismenge" = "Events"
+
+["解释"]
+"pll_ereignisabfrage" = "polling — plattformubergreifende IO-loop: Poller/Event/Events"

@@ -1,0 +1,10 @@
+["模块路径"]
+"mig_تخمين_نوع" = "mime_guess"
+
+["标识符"]
+"mig_نوع_وسيط" = "Mime"
+"mig_مخمن_نوع" = "MimeGuess"
+"mig_مكرر_أنواع" = "Iter"
+
+["解释"]
+"mig_تخمين_نوع" = "mime_guess — تخمين MIME بالامتداد: Mime/MimeGuess/Iter"

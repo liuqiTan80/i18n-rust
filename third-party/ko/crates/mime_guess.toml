@@ -1,0 +1,10 @@
+["模块路径"]
+"mig종류추정" = "mime_guess"
+
+["标识符"]
+"mig미디어형" = "Mime"
+"mig종류추정치" = "MimeGuess"
+"mig반복자" = "Iter"
+
+["解释"]
+"mig종류추정" = "mime_guess — 확장자로 MIME 추정: Mime/MimeGuess/Iter"

@@ -1,0 +1,10 @@
+["模块路径"]
+"rsx공간색인" = "rstar"
+
+["标识符"]
+"rsx공간트리" = "RTree"
+"rsx축정렬감싸는상자" = "AABB"
+"rsx점특성" = "Point"
+
+["解释"]
+"rsx공간색인" = "rstar — R*-tree 공간 색인: RTree/AABB/Point"

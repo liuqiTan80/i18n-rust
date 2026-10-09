@@ -1,0 +1,10 @@
+["模块路径"]
+"rgb_пиксель_цвет" = "rgb"
+
+["标识符"]
+"rgb_три_канала" = "Rgb"
+"rgb_четыре_канала" = "Rgba"
+"rgb_алфа_впереди" = "Argb"
+
+["解释"]
+"rgb_пиксель_цвет" = "rgb — struktura pikselya RGB: Rgb/Rgba/Argb"

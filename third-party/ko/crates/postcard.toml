@@ -1,0 +1,10 @@
+["模块路径"]
+"pst무표준직렬화" = "postcard"
+
+["标识符"]
+"pst직렬화기" = "Serializer"
+"pst역직렬화기" = "Deserializer"
+"pst직렬화오류" = "Error"
+
+["解释"]
+"pst무표준직렬화" = "postcard — no_std 세로직렬화: Serializer/Deserializer/Error"

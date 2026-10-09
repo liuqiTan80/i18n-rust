@@ -1,0 +1,10 @@
+["模块路径"]
+"pct_ترميز_مئوية" = "percent_encoding"
+
+["标识符"]
+"pct_مجموعة_ASCII" = "AsciiSet"
+"pct_مُرمِز" = "PercentEncode"
+"pct_مفكك_الترميز" = "PercentDecode"
+
+["解释"]
+"pct_ترميز_مئوية" = "percent-encoding — ترميز مئوية URL: AsciiSet/PercentEncode/PercentDecode"

@@ -1,0 +1,10 @@
+["模块路径"]
+"rsx_indice_espacial" = "rstar"
+
+["标识符"]
+"rsx_arbol_r" = "RTree"
+"rsx_caja_ejes" = "AABB"
+"rsx_punto_trait" = "Point"
+
+["解释"]
+"rsx_indice_espacial" = "rstar — indice espacial R-tree: RTree/AABB/Point"

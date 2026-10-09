@@ -1,0 +1,10 @@
+["模块路径"]
+"pll轮询事件" = "polling"
+
+["标识符"]
+"pll轮询器" = "Poller"
+"pll事件对象" = "Event"
+"pll事件集合" = "Events"
+
+["解释"]
+"pll轮询事件" = "polling — 跨平台 IO 事件循环: Poller/Event/Events"

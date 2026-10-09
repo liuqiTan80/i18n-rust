@@ -1,0 +1,10 @@
+["模块路径"]
+"rgb像素颜色" = "rgb"
+
+["标识符"]
+"rgb三通道" = "Rgb"
+"rgb四通道" = "Rgba"
+"rgbAlpha前置" = "Argb"
+
+["解释"]
+"rgb像素颜色" = "rgb — RGB/RGBA 像素结构: Rgb/Rgba/Argb"

@@ -1,0 +1,10 @@
+["模块路径"]
+"pst非標準シリアライズ" = "postcard"
+
+["标识符"]
+"pstシリアライザ" = "Serializer"
+"pstデシリアライザ" = "Deserializer"
+"pstエンコードエラー" = "Error"
+
+["解释"]
+"pst非標準シリアライズ" = "postcard — no_std 向け Serde シリアライズ: Serializer/Deserializer/Error"

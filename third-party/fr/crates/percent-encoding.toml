@@ -1,0 +1,10 @@
+["模块路径"]
+"pct_encodage_pourcentage" = "percent_encoding"
+
+["标识符"]
+"pct_ensemble_ASCII" = "AsciiSet"
+"pct_encodeur" = "PercentEncode"
+"pct_decodeur" = "PercentDecode"
+
+["解释"]
+"pct_encodage_pourcentage" = "percent-encoding — encodage pourcentage URL: AsciiSet/PercentEncode/PercentDecode"

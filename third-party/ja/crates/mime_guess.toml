@@ -1,0 +1,10 @@
+["模块路径"]
+"mig種別推定" = "mime_guess"
+
+["标识符"]
+"migメディア型" = "Mime"
+"mig種別推定器" = "MimeGuess"
+"migイテレータ" = "Iter"
+
+["解释"]
+"mig種別推定" = "mime_guess — 拡張子から MIME 推定: Mime/MimeGuess/Iter"

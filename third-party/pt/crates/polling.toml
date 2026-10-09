@@ -1,0 +1,10 @@
+["模块路径"]
+"pll_eventos_sondagem" = "polling"
+
+["标识符"]
+"pll_monitor" = "Poller"
+"pll_tipo_evento" = "Event"
+"pll_lista_eventos" = "Events"
+
+["解释"]
+"pll_eventos_sondagem" = "polling — laco IO multiplataforma: Poller/Event/Events"

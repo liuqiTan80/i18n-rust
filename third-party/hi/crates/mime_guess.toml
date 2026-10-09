@@ -1,0 +1,10 @@
+["模块路径"]
+"mig_प्रकार_अनुमान" = "mime_guess"
+
+["标识符"]
+"mig_मीडिया_प्रकार" = "Mime"
+"mig_प्रकार_अनुमानक" = "MimeGuess"
+"mig_पुनरावृत्तक" = "Iter"
+
+["解释"]
+"mig_प्रकार_अनुमान" = "mime_guess — एक्सटेंशन से MIME अनुमान: Mime/MimeGuess/Iter"

@@ -1,0 +1,10 @@
+["模块路径"]
+"pll_استطلاع_أحداث" = "polling"
+
+["标识符"]
+"pll_مستطلع" = "Poller"
+"pll_نوع_حدث" = "Event"
+"pll_مجموعة_أحداث" = "Events"
+
+["解释"]
+"pll_استطلاع_أحداث" = "polling — حلقة IO متعددة المنصات: Poller/Event/Events"

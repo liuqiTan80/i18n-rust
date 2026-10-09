@@ -1,0 +1,10 @@
+["模块路径"]
+"rgb_cor_pixel" = "rgb"
+
+["标识符"]
+"rgb_tres_canais" = "Rgb"
+"rgb_quatro_canais" = "Rgba"
+"rgb_alpha_frente" = "Argb"
+
+["解释"]
+"rgb_cor_pixel" = "rgb — estrutura pixel RGB: Rgb/Rgba/Argb"

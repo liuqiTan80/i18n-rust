@@ -1,0 +1,10 @@
+["模块路径"]
+"pst_تسلسل_خارج_المعيار" = "postcard"
+
+["标识符"]
+"pst_مُسلسل" = "Serializer"
+"pst_فك_تسلسل" = "Deserializer"
+"pst_خطأ_ترميز" = "Error"
+
+["解释"]
+"pst_تسلسل_خارج_المعيار" = "postcard — ترميز no_std: Serializer/Deserializer/Error"

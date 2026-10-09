@@ -1,0 +1,10 @@
+["模块路径"]
+"rgb_pixelfarbe" = "rgb"
+
+["标识符"]
+"rgb_drei_kanal" = "Rgb"
+"rgb_vier_kanal" = "Rgba"
+"rgb_alpha_vorn" = "Argb"
+
+["解释"]
+"rgb_pixelfarbe" = "rgb — RGB-Pixelstruktur: Rgb/Rgba/Argb"

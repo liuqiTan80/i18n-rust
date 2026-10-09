@@ -1,0 +1,10 @@
+["模块路径"]
+"pst_गैर_मानक_सीरियलाइज़ेशन" = "postcard"
+
+["标识符"]
+"pst_सीरियलाइज़र" = "Serializer"
+"pst_डीसीरियलाइज़र" = "Deserializer"
+"pst_कोडन_त्रुटि" = "Error"
+
+["解释"]
+"pst_गैर_मानक_सीरियलाइज़ेशन" = "postcard — no_std सीरियलाइज़ेशन: Serializer/Deserializer/Error"

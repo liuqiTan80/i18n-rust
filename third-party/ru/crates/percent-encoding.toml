@@ -1,0 +1,10 @@
+["模块路径"]
+"pct_процент_кодирование" = "percent_encoding"
+
+["标识符"]
+"pct_набор_ASCII" = "AsciiSet"
+"pct_энкодер" = "PercentEncode"
+"pct_декодер" = "PercentDecode"
+
+["解释"]
+"pct_процент_кодирование" = "percent-encoding — URL procentnoe kodirovanie: AsciiSet/PercentEncode/PercentDecode"

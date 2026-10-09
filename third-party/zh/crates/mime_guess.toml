@@ -1,0 +1,10 @@
+["模块路径"]
+"mig类型猜测" = "mime_guess"
+
+["标识符"]
+"mig媒体类型" = "Mime"
+"mig类型猜测器" = "MimeGuess"
+"mig类型迭代器" = "Iter"
+
+["解释"]
+"mig类型猜测" = "mime_guess — 按扩展名猜 MIME 类型: Mime/MimeGuess/Iter"

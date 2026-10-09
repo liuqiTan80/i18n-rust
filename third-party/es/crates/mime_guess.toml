@@ -1,0 +1,10 @@
+["模块路径"]
+"mig_suposicion_tipo" = "mime_guess"
+
+["标识符"]
+"mig_tipo_medio" = "Mime"
+"mig_supositor_tipo" = "MimeGuess"
+"mig_iterador_tipo" = "Iter"
+
+["解释"]
+"mig_suposicion_tipo" = "mime_guess — conjetura MIME por extension: Mime/MimeGuess/Iter"

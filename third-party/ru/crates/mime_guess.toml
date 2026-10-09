@@ -1,0 +1,10 @@
+["模块路径"]
+"mig_тип_предположение" = "mime_guess"
+
+["标识符"]
+"mig_тип_медиа" = "Mime"
+"mig_predpolozhitel_tipa" = "MimeGuess"
+"mig_итератор_тип" = "Iter"
+
+["解释"]
+"mig_тип_предположение" = "mime_guess — opredelenie MIME po rasshireniyu: Mime/MimeGuess/Iter"
