@@ -36,6 +36,7 @@ import {
 } from './ai/config-manager';
 import { AIError, AIConfig, ChatMessage } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
+import { runDialectGenerate, DialectValidation } from './ai/dialect-generate';
 import { 选择光标诊断 } from './diagnostic-pick';
 import { 全角符号映射, 全角符号检测正则, 扫描词法状态, 扫描词法状态们, 计算插入字符位置们, 应转换全角 } from './fullwidth-convert';
 import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
@@ -714,6 +715,129 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
                 'AI 对话',
                 `问：${问题}\n`
             );
+        })
+    );
+
+    // AI 生成方言代码：生成 → rzc check 校验 → 回喂修正的闭环（最多 2 轮修正）
+    context.subscriptions.push(
+        vscode.commands.registerCommand('i18n-rust.aiGenerate', async () => {
+            const 配置 = await loadAIConfig();
+            // 云端服务需要密钥；Ollama / 自定义地址可无密钥
+            if (!配置.apiKey && 配置.provider !== 'ollama' && 配置.provider !== 'custom') {
+                const 操作 = await vscode.window.showWarningMessage(
+                    `尚未配置 API 密钥（提供商：${配置.provider}）。请在设置中填写 i18n-rust.ai.apiKey。`,
+                    '打开设置'
+                );
+                if (操作 === '打开设置') {
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'i18n-rust.ai');
+                }
+                return;
+            }
+
+            // 地面真值：闭环靠 rzc check 校验，缺失则中止（不降级为“未校验静默产出”）
+            const 工作区根们 = (vscode.workspace.workspaceFolders ?? []).map(f => f.uri.fsPath);
+            const rzc路径 = 解析可执行文件(
+                vscode.workspace.getConfiguration('i18n-rust').get<string>('rzcPath', 'rzc'),
+                工作区根们
+            );
+            if (!rzc路径) {
+                const 操作 = await vscode.window.showErrorMessage(
+                    'AI 生成闭环需要 rzc 命令行工具做校验。请安装 rzc（cargo install 或从 Releases 下载），或在设置 i18n-rust.rzcPath 中指定路径。',
+                    '打开设置'
+                );
+                if (操作 === '打开设置') {
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'i18n-rust.rzcPath');
+                }
+                return;
+            }
+
+            // 目标方言：优先当前编辑器语言，否则按语言包配置
+            const 编辑器 = vscode.window.activeTextEditor;
+            let 代码 = 语言代码(currentLanguageName());
+            if (编辑器 && 方言语言Id.includes(编辑器.document.languageId)) {
+                const 匹配 = 方言语言表.find(l => l.languageId === 编辑器.document.languageId);
+                if (匹配) {
+                    代码 = 匹配.code;
+                }
+            }
+            const languageId = 方言语言表.find(l => l.code === 代码)?.languageId ?? 'rust';
+
+            let 提供商: ProviderInterface;
+            try {
+                提供商 = createProvider(配置);
+            } catch (错误) {
+                vscode.window.showErrorMessage((错误 as Error).message);
+                return;
+            }
+
+            const 需求 = await vscode.window.showInputBox({
+                prompt: '描述要生成的代码（将以当前方言直接产出并校验）',
+                placeHolder: '例如：写一个函数，接收字符串切片并返回其字节长度'
+            });
+            if (!需求) {
+                return;
+            }
+
+            // 校验：写入 mkdtemp 安全临时目录（唯一随机名、不跟随已有符号链接）
+            // 里的 <code>.<code> 文件，跑 `rzc check`；退出码非零则取 stdout+stderr 回喂
+            const 校验 = async (待校验: string): Promise<DialectValidation> => {
+                if (!待校验.trim()) {
+                    return { ok: false, report: '未能从模型回复中解析出代码块，请用 ```rust 代码块输出。' };
+                }
+                const 目录 = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-rust-ai-'));
+                const 文件 = path.join(目录, `snippet.${代码}`);
+                try {
+                    fs.writeFileSync(文件, 待校验, 'utf8');
+                    await execFileAsync(rzc路径, ['check', 文件], { timeout: 30000 });
+                    return { ok: true, report: '' };
+                } catch (错误) {
+                    const e = 错误 as { stdout?: string; stderr?: string; message?: string };
+                    const 输出 = `${e.stdout ?? ''}\n${e.stderr ?? ''}`.trim();
+                    return { ok: false, report: 输出 || e.message || '校验未通过' };
+                } finally {
+                    fs.rmSync(目录, { recursive: true, force: true });
+                }
+            };
+
+            const 中止器 = new AbortController();
+            let 结果;
+            try {
+                结果 = await vscode.window.withProgress(
+                    {
+                        location: vscode.ProgressLocation.Notification,
+                        title: 'i18n-rust: AI 生成方言代码并校验…',
+                        cancellable: true
+                    },
+                    async (_进度, 取消令牌) => {
+                        取消令牌.onCancellationRequested(() => 中止器.abort());
+                        return runDialectGenerate({
+                            chat: (消息列表, 信号) => 提供商.sendChat(消息列表, 信号),
+                            validate: 校验,
+                            systemPrompt: getSystemPrompt(),
+                            userRequest: 需求,
+                            maxFixRounds: 2,
+                            signal: 中止器.signal,
+                            log: (消息) => AI输出.appendLine(消息)
+                        });
+                    }
+                );
+            } catch (错误) {
+                vscode.window.showErrorMessage(`AI 生成失败：${(错误 as Error).message}`);
+                return;
+            }
+
+            // 产物落入未命名文档（当前方言 languageId，非破坏性，用户自行保存）
+            const 文档 = await vscode.workspace.openTextDocument({ language: languageId, content: 结果.code });
+            await vscode.window.showTextDocument(文档, { preview: true });
+            if (结果.ok) {
+                void vscode.window.showInformationMessage(
+                    `i18n-rust：已生成方言代码，rzc check 通过（修正 ${结果.rounds} 轮）。`
+                );
+            } else {
+                void vscode.window.showWarningMessage(
+                    `i18n-rust：已生成方言代码，但 rzc check 仍未通过（已修正 ${结果.rounds} 轮），详见输出面板。`
+                );
+            }
         })
     );
 

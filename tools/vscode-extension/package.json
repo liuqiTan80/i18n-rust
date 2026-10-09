@@ -169,6 +169,11 @@
         "icon": "$(sparkle)"
       },
       {
+        "command": "i18n-rust.aiGenerate",
+        "title": "i18n: AI 生成方言代码（自动 rzc check 校验并修正）",
+        "icon": "$(wand)"
+      },
+      {
         "command": "i18n-rust.aiSelectProvider",
         "title": "i18n: 选择 AI 提供商",
         "icon": "$(account)"
