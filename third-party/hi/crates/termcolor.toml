@@ -1,0 +1,10 @@
+["模块路径"]
+"tmc_टर्म_रंग" = "termcolor"
+
+["标识符"]
+"tmc_रंग_सूची" = "Color"
+"tmc_रंग_चयन" = "ColorChoice"
+"tmc_मानक_प्रवाह" = "StandardStream"
+
+["解释"]
+"tmc_टर्म_रंग" = "termcolor — टर्म रंगीत आउटपुट: Color/ColorChoice/StandardStream"

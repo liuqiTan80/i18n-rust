@@ -1,0 +1,10 @@
+["模块路径"]
+"uelURL百分号编码" = "urlencoding"
+
+["标识符"]
+"uel编码函数" = "encode"
+"uel解码函数" = "decode"
+"uel编码包装" = "Encoded"
+
+["解释"]
+"uelURL百分号编码" = "urlencoding — URL 百分号编码: encode/decode/Encoded"

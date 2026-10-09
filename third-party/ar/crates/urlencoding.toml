@@ -1,0 +1,10 @@
+["模块路径"]
+"uel_ترميز_النسبة_المئوية" = "urlencoding"
+
+["标识符"]
+"uel_دالة_ترميز" = "encode"
+"uel_دالة_فك_الترميز" = "decode"
+"uel_غلاف_مرمز" = "Encoded"
+
+["解释"]
+"uel_ترميز_النسبة_المئوية" = "urlencoding — ترميز النسبة المئوية URL: encode/decode/Encoded"

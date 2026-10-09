@@ -1,0 +1,10 @@
+["模块路径"]
+"gls_набор_глобов" = "globset"
+
+["标识符"]
+"gls_один_глоб" = "Glob"
+"gls_множ_глобов" = "GlobSet"
+"gls_билдер_глоб" = "GlobBuilder"
+
+["解释"]
+"gls_набор_глобов" = "globset — кросс-платформенный glob: Glob/GlobSet/GlobBuilder"

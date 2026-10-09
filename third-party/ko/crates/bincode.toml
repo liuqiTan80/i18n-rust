@@ -1,0 +1,10 @@
+["模块路径"]
+"bnc이진부호화" = "bincode"
+
+["标识符"]
+"bnc구성선택" = "Options"
+"bnc직렬화기" = "Serializer"
+"bnc직렬화함수" = "serialize"
+
+["解释"]
+"bnc이진부호화" = "bincode — 압축 이진 직렬화: Options/Serializer/serialize"

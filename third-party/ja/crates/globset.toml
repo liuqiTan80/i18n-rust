@@ -1,0 +1,10 @@
+["模块路径"]
+"glsグロブ集合" = "globset"
+
+["标识符"]
+"gls単一グロブ" = "Glob"
+"glsグロブ集合体" = "GlobSet"
+"glsグロブ構築" = "GlobBuilder"
+
+["解释"]
+"glsグロブ集合" = "globset — プラットフォーム間グロブ照合: Glob/GlobSet/GlobBuilder"

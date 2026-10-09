@@ -1,0 +1,10 @@
+["模块路径"]
+"rcx_عشوائي_شاشا" = "rand_chacha"
+
+["标识符"]
+"rcx_مولد_شاشا8" = "ChaCha8Rng"
+"rcx_مولد_شاشا12" = "ChaCha12Rng"
+"rcx_مولد_شاشا20" = "ChaCha20Rng"
+
+["解释"]
+"rcx_عشوائي_شاشا" = "rand_chacha — مولد عشوائي تشفيري ChaCha: ChaCha8Rng/ChaCha12Rng/ChaCha20Rng"

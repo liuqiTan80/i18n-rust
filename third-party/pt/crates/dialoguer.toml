@@ -1,0 +1,10 @@
+["模块路径"]
+"dlg_dialogo_console" = "dialoguer"
+
+["标识符"]
+"dlg_confirmacao" = "Confirm"
+"dlg_entrada" = "Input"
+"dlg_selecao_simples" = "Select"
+
+["解释"]
+"dlg_dialogo_console" = "dialoguer — prompts interativos CLI: Confirm/Input/Select"

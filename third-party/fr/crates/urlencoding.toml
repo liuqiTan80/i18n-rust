@@ -1,0 +1,10 @@
+["模块路径"]
+"uel_encodage_pourcent_url" = "urlencoding"
+
+["标识符"]
+"uel_encoder_fn" = "encode"
+"uel_decoder_fn" = "decode"
+"uel_enveloppe_encodee" = "Encoded"
+
+["解释"]
+"uel_encodage_pourcent_url" = "urlencoding — encodage en pourcent URL: encode/decode/Encoded"

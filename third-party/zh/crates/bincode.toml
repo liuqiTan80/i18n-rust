@@ -1,0 +1,10 @@
+["模块路径"]
+"bnc二进制编解码" = "bincode"
+
+["标识符"]
+"bnc配置选项" = "Options"
+"bnc序列化器" = "Serializer"
+"bnc序列化函数" = "serialize"
+
+["解释"]
+"bnc二进制编解码" = "bincode — 紧凑二进制序列化: Options/Serializer/serialize"

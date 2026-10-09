@@ -1,0 +1,10 @@
+["模块路径"]
+"dlg対話プロンプト" = "dialoguer"
+
+["标识符"]
+"dlg確認プロンプト" = "Confirm"
+"dlg入力プロンプト" = "Input"
+"dlg選択プロンプト" = "Select"
+
+["解释"]
+"dlg対話プロンプト" = "dialoguer — 対話型コマンドライン: Confirm/Input/Select"

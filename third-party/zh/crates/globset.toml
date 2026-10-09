@@ -1,0 +1,10 @@
+["模块路径"]
+"gls通配符集合" = "globset"
+
+["标识符"]
+"gls单个通配符" = "Glob"
+"gls多通配符集合" = "GlobSet"
+"gls通配符构建" = "GlobBuilder"
+
+["解释"]
+"gls通配符集合" = "globset — 跨平台 glob 匹配: Glob/GlobSet/GlobBuilder"

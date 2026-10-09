@@ -1,0 +1,10 @@
+["模块路径"]
+"uel_URL_процент_код" = "urlencoding"
+
+["标识符"]
+"uel_закодировать" = "encode"
+"uel_раскодировать" = "decode"
+"uel_обёртк_кодир" = "Encoded"
+
+["解释"]
+"uel_URL_процент_код" = "urlencoding — процентное кодирование URL: encode/decode/Encoded"

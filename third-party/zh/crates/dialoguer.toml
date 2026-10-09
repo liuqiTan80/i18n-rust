@@ -1,0 +1,10 @@
+["模块路径"]
+"dlg命令行对话" = "dialoguer"
+
+["标识符"]
+"dlg确认提示" = "Confirm"
+"dlg输入提示" = "Input"
+"dlg单选提示" = "Select"
+
+["解释"]
+"dlg命令行对话" = "dialoguer — 命令行交互提示: Confirm/Input/Select"

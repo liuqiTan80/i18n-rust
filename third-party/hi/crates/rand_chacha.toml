@@ -1,0 +1,10 @@
+["模块路径"]
+"rcx_चाचा_यादृच्छ" = "rand_chacha"
+
+["标识符"]
+"rcx_आठ_चक्र_जनक" = "ChaCha8Rng"
+"rcx_बारह_चक्र_जनक" = "ChaCha12Rng"
+"rcx_बीस_चक्र_जनक" = "ChaCha20Rng"
+
+["解释"]
+"rcx_चाचा_यादृच्छ" = "rand_chacha — ChaCha क्रिप्टो यादृच्छ: ChaCha8Rng/ChaCha12Rng/ChaCha20Rng"

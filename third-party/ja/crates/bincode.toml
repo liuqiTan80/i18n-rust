@@ -1,0 +1,10 @@
+["模块路径"]
+"bncバイナリ符号化" = "bincode"
+
+["标识符"]
+"bnc設定オプション" = "Options"
+"bnc直列化器" = "Serializer"
+"bnc直列化函数" = "serialize"
+
+["解释"]
+"bncバイナリ符号化" = "bincode — コンパクトバイナリ直列化: Options/Serializer/serialize"

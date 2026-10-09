@@ -1,0 +1,10 @@
+["模块路径"]
+"rcx_шачча_рандом" = "rand_chacha"
+
+["标识符"]
+"rcx_шаха8_генер" = "ChaCha8Rng"
+"rcx_шаха12_генер" = "ChaCha12Rng"
+"rcx_шаха20_генер" = "ChaCha20Rng"
+
+["解释"]
+"rcx_шачча_рандом" = "rand_chacha — крипто-генератор ChaCha: ChaCha8Rng/ChaCha12Rng/ChaCha20Rng"

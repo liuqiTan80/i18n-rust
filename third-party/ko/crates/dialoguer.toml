@@ -1,0 +1,10 @@
+["模块路径"]
+"dlg대화프롬프트" = "dialoguer"
+
+["标识符"]
+"dlg확인프롬프트" = "Confirm"
+"dlg입력프롬프트" = "Input"
+"dlg선택프롬프트" = "Select"
+
+["解释"]
+"dlg대화프롬프트" = "dialoguer — 대화형 커맨드라인: Confirm/Input/Select"

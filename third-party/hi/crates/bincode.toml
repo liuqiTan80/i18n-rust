@@ -1,0 +1,10 @@
+["模块路径"]
+"bnc_द्वि_कोडन" = "bincode"
+
+["标识符"]
+"bnc_विन्यास_विकल्प" = "Options"
+"bnc_क्रमक" = "Serializer"
+"bnc_क्रमन_फलन" = "serialize"
+
+["解释"]
+"bnc_द्वि_कोडन" = "bincode — सघन द्विआधारी क्रमन: Options/Serializer/serialize"

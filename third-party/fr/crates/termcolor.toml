@@ -1,0 +1,10 @@
+["模块路径"]
+"tmc_couleur_terminal" = "termcolor"
+
+["标识符"]
+"tmc_enum_couleur" = "Color"
+"tmc_choix_couleur" = "ColorChoice"
+"tmc_flux_standard" = "StandardStream"
+
+["解释"]
+"tmc_couleur_terminal" = "termcolor — sortie couleur terminal: Color/ColorChoice/StandardStream"

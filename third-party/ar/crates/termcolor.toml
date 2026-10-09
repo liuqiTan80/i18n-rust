@@ -1,0 +1,10 @@
+["模块路径"]
+"tmc_لون_الطرفية" = "termcolor"
+
+["标识符"]
+"tmc_عداد_لون" = "Color"
+"tmc_اختيار_اللون" = "ColorChoice"
+"tmc_تدفقي_قياسي" = "StandardStream"
+
+["解释"]
+"tmc_لون_الطرفية" = "termcolor — إخراج ملون في الطرفية: Color/ColorChoice/StandardStream"

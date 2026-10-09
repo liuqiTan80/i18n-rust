@@ -1,0 +1,10 @@
+["模块路径"]
+"bnc_бинар_кодир" = "bincode"
+
+["标识符"]
+"bnc_опции_настр" = "Options"
+"bnc_сериализатор" = "Serializer"
+"bnc_сериализовать" = "serialize"
+
+["解释"]
+"bnc_бинар_кодир" = "bincode — компактная бинарная сериализация: Options/Serializer/serialize"

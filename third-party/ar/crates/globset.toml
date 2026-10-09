@@ -1,0 +1,10 @@
+["模块路径"]
+"gls_مجموعة_جلوب" = "globset"
+
+["标识符"]
+"gls_جلوب_منفرد" = "Glob"
+"gls_مجموعة_جلوبات" = "GlobSet"
+"gls_بان_جلوب" = "GlobBuilder"
+
+["解释"]
+"gls_مجموعة_جلوب" = "globset — غلوب متعدد المنصات: Glob/GlobSet/GlobBuilder"

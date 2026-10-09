@@ -1,0 +1,10 @@
+["模块路径"]
+"gls글롭집합" = "globset"
+
+["标识符"]
+"gls단일글롭" = "Glob"
+"gls글롭집합체" = "GlobSet"
+"gls글롭구축" = "GlobBuilder"
+
+["解释"]
+"gls글롭집합" = "globset — 크로스 플랫폼 글롭 매칭: Glob/GlobSet/GlobBuilder"

@@ -1,0 +1,10 @@
+["模块路径"]
+"rcxシャチャ乱数" = "rand_chacha"
+
+["标识符"]
+"rcx八輪生成器" = "ChaCha8Rng"
+"rcx十二輪生成器" = "ChaCha12Rng"
+"rcx二十輪生成器" = "ChaCha20Rng"
+
+["解释"]
+"rcxシャチャ乱数" = "rand_chacha — ChaCha 暗号乱数: ChaCha8Rng/ChaCha12Rng/ChaCha20Rng"

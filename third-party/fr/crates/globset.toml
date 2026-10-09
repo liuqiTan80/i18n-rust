@@ -1,0 +1,10 @@
+["模块路径"]
+"gls_ensemble_glob" = "globset"
+
+["标识符"]
+"gls_glob_unique" = "Glob"
+"gls_collection_globs" = "GlobSet"
+"gls_constructeur_glob" = "GlobBuilder"
+
+["解释"]
+"gls_ensemble_glob" = "globset — glob multi-plateforme: Glob/GlobSet/GlobBuilder"

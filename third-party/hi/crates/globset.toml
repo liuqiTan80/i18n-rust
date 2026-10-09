@@ -1,0 +1,10 @@
+["模块路径"]
+"gls_ग्लॉब_समुच्चय" = "globset"
+
+["标识符"]
+"gls_एक_ग्लॉब" = "Glob"
+"gls_अनेक_ग्लॉब" = "GlobSet"
+"gls_ग्लॉब_निर्माता" = "GlobBuilder"
+
+["解释"]
+"gls_ग्लॉब_समुच्चय" = "globset — क्रॉस-प्लेटफ़ॉर्म ग्लॉब: Glob/GlobSet/GlobBuilder"

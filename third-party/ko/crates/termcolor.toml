@@ -1,0 +1,10 @@
+["模块路径"]
+"tmc터미널색상" = "termcolor"
+
+["标识符"]
+"tmc색상열거" = "Color"
+"tmc색상선택" = "ColorChoice"
+"tmc표준스트림" = "StandardStream"
+
+["解释"]
+"tmc터미널색상" = "termcolor — 터미널 색상 출력: Color/ColorChoice/StandardStream"

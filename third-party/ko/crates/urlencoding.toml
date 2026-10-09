@@ -1,0 +1,10 @@
+["模块路径"]
+"uelURL백분부호화" = "urlencoding"
+
+["标识符"]
+"uel부호화함수" = "encode"
+"uel해독함수" = "decode"
+"uel부호화래퍼" = "Encoded"
+
+["解释"]
+"uelURL백분부호화" = "urlencoding — URL 백분율 부호화: encode/decode/Encoded"

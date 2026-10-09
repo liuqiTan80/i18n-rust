@@ -1,0 +1,10 @@
+["模块路径"]
+"tmc端末彩色" = "termcolor"
+
+["标识符"]
+"tmc色列挙" = "Color"
+"tmc色選択" = "ColorChoice"
+"tmc標準ストリーム" = "StandardStream"
+
+["解释"]
+"tmc端末彩色" = "termcolor — 端末色付き出力: Color/ColorChoice/StandardStream"

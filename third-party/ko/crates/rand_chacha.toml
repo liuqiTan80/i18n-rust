@@ -1,0 +1,10 @@
+["模块路径"]
+"rcx샤차난수" = "rand_chacha"
+
+["标识符"]
+"rcx팔라운드생성" = "ChaCha8Rng"
+"rcx열두라운드생성" = "ChaCha12Rng"
+"rcx이십라운드생성" = "ChaCha20Rng"
+
+["解释"]
+"rcx샤차난수" = "rand_chacha — ChaCha 암호 난수: ChaCha8Rng/ChaCha12Rng/ChaCha20Rng"

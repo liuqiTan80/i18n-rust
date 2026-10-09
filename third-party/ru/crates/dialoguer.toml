@@ -1,0 +1,10 @@
+["模块路径"]
+"dlg_диалог_консоль" = "dialoguer"
+
+["标识符"]
+"dlg_подтверд_вопрос" = "Confirm"
+"dlg_ввод_вопрос" = "Input"
+"dlg_выбор_один" = "Select"
+
+["解释"]
+"dlg_диалог_консоль" = "dialoguer — интерактивные промпты CLI: Confirm/Input/Select"

@@ -1,0 +1,10 @@
+["模块路径"]
+"dlg_कंसोल_संवाद" = "dialoguer"
+
+["标识符"]
+"dlg_पुष्टि_प्रेरक" = "Confirm"
+"dlg_इनपुट_प्रेरक" = "Input"
+"dlg_एक_चयन" = "Select"
+
+["解释"]
+"dlg_कंसोल_संवाद" = "dialoguer — इंटरैक्टिव CLI प्रॉम्प्ट: Confirm/Input/Select"

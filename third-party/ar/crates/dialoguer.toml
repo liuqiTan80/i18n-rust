@@ -1,0 +1,10 @@
+["模块路径"]
+"dlg_حوار_طرفية" = "dialoguer"
+
+["标识符"]
+"dlg_تأكيد_موجه" = "Confirm"
+"dlg_إدخال_موجه" = "Input"
+"dlg_اختيار_منفرد" = "Select"
+
+["解释"]
+"dlg_حوار_طرفية" = "dialoguer — موجهات تفاعلية CLI: Confirm/Input/Select"

@@ -1,0 +1,10 @@
+["模块路径"]
+"tmc_терм_цвет" = "termcolor"
+
+["标识符"]
+"tmc_цвет_переч" = "Color"
+"tmc_выбор_цвета" = "ColorChoice"
+"tmc_станд_поток" = "StandardStream"
+
+["解释"]
+"tmc_терм_цвет" = "termcolor — цветной вывод в терминал: Color/ColorChoice/StandardStream"

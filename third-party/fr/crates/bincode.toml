@@ -1,0 +1,10 @@
+["模块路径"]
+"bnc_encodage_binaire" = "bincode"
+
+["标识符"]
+"bnc_options_config" = "Options"
+"bnc_serialiseur" = "Serializer"
+"bnc_serialiser_fn" = "serialize"
+
+["解释"]
+"bnc_encodage_binaire" = "bincode — serialisation binaire compacte: Options/Serializer/serialize"

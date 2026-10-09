@@ -1,0 +1,10 @@
+["模块路径"]
+"dlg_dialogo_consola" = "dialoguer"
+
+["标识符"]
+"dlg_confirmacion" = "Confirm"
+"dlg_entrada" = "Input"
+"dlg_seleccion_simple" = "Select"
+
+["解释"]
+"dlg_dialogo_consola" = "dialoguer — prompts interactivos CLI: Confirm/Input/Select"

@@ -1,0 +1,10 @@
+["模块路径"]
+"rcx_chacha_zufall" = "rand_chacha"
+
+["标识符"]
+"rcx_chacha8_zufall" = "ChaCha8Rng"
+"rcx_chacha12_zufall" = "ChaCha12Rng"
+"rcx_chacha20_zufall" = "ChaCha20Rng"
+
+["解释"]
+"rcx_chacha_zufall" = "rand_chacha — ChaCha Krypto-Zufall: ChaCha8Rng/ChaCha12Rng/ChaCha20Rng"

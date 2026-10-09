@@ -1,0 +1,10 @@
+["模块路径"]
+"bnc_ترميز_ثنائي" = "bincode"
+
+["标识符"]
+"bnc_خيارات_إعداد" = "Options"
+"bnc_مسلسل" = "Serializer"
+"bnc_دالة_تسلسل" = "serialize"
+
+["解释"]
+"bnc_ترميز_ثنائي" = "bincode — تسلسل ثنائي مضغوط: Options/Serializer/serialize"

@@ -1,0 +1,10 @@
+["模块路径"]
+"uel_URL_प्रतिशत_कोडन" = "urlencoding"
+
+["标识符"]
+"uel_कोडन_फलन" = "encode"
+"uel_डिकोडन_फलन" = "decode"
+"uel_कोडित_रैपर" = "Encoded"
+
+["解释"]
+"uel_URL_प्रतिशत_कोडन" = "urlencoding — URL प्रतिशत कोडन: encode/decode/Encoded"
