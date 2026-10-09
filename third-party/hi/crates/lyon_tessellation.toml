@@ -1,0 +1,10 @@
+["模块路径"]
+"lyt_सदिश_विभाजन" = "lyon_tessellation"
+
+["标识符"]
+"lyt_भराव_विभाजक" = "FillTessellator"
+"lyt_स्ट्रोक_विभाजक" = "StrokeTessellator"
+"lyt_शीर्ष_बफ़र" = "VertexBuffers"
+
+["解释"]
+"lyt_सदिश_विभाजन" = "lyon_tessellation — 2D सदिश विभाजन: FillTessellator/StrokeTessellator/VertexBuffers"

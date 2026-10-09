@@ -1,0 +1,10 @@
+["模块路径"]
+"tsq异步任务" = "async_task"
+
+["标识符"]
+"tsq任务句柄" = "Task"
+"tsq可运行体" = "Runnable"
+"tsq任务构建器" = "Builder"
+
+["解释"]
+"tsq异步任务" = "async-task — 执行器任务原语: Task/Runnable/Builder"

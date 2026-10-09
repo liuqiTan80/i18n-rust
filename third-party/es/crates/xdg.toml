@@ -1,0 +1,10 @@
+["模块路径"]
+"xdg_directorios_estandar" = "xdg"
+
+["标识符"]
+"xdg_directorios_base" = "BaseDirectories"
+"xdg_error_base" = "BaseDirectoriesError"
+"xdg_iterador_busqueda" = "FileFindIterator"
+
+["解释"]
+"xdg_directorios_estandar" = "xdg — estandar XDG de directorios: BaseDirectories/BaseDirectoriesError/FileFindIterator"

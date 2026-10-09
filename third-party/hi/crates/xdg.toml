@@ -1,0 +1,10 @@
+["模块路径"]
+"xdg_मानक_निर्देशिका" = "xdg"
+
+["标识符"]
+"xdg_आधार_निर्देशिकाएँ" = "BaseDirectories"
+"xdg_आधार_त्रुटि" = "BaseDirectoriesError"
+"xdg_खोज_पुनरावृत्तक" = "FileFindIterator"
+
+["解释"]
+"xdg_मानक_निर्देशिका" = "xdg — XDG मानक निर्देशिकाएँ: BaseDirectories/BaseDirectoriesError/FileFindIterator"

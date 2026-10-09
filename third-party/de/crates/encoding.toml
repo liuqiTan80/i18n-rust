@@ -1,0 +1,10 @@
+["模块路径"]
+"enc_zeichensatzkodierung" = "encoding"
+
+["标识符"]
+"enc_kodierung_trait" = "Encoding"
+"enc_kodierungsfalle" = "EncoderTrap"
+"enc_dekodierungsfalle" = "DecoderTrap"
+
+["解释"]
+"enc_zeichensatzkodierung" = "encoding — Zeichensatz-Kodierung nach WHATWG: Encoding/EncoderTrap/DecoderTrap"

@@ -1,0 +1,10 @@
+["模块路径"]
+"xdg_standardverzeichnisse" = "xdg"
+
+["标识符"]
+"xdg_basisverzeichnis" = "BaseDirectories"
+"xdg_basisfehler" = "BaseDirectoriesError"
+"xdg_dateisucher" = "FileFindIterator"
+
+["解释"]
+"xdg_standardverzeichnisse" = "xdg — XDG-Standardverzeichnisse: BaseDirectories/BaseDirectoriesError/FileFindIterator"

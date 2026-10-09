@@ -1,0 +1,10 @@
+["模块路径"]
+"lyt_تجزئة_متجهية" = "lyon_tessellation"
+
+["标识符"]
+"lyt_مجزئ_التعبئة" = "FillTessellator"
+"lyt_مجزئ_الحدود" = "StrokeTessellator"
+"lyt_ناقل_رؤوس" = "VertexBuffers"
+
+["解释"]
+"lyt_تجزئة_متجهية" = "lyon_tessellation — تجزئة متجهية ثنائية الأبعاد: FillTessellator/StrokeTessellator/VertexBuffers"

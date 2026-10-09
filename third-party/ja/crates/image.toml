@@ -1,0 +1,10 @@
+["模块路径"]
+"img画像符号化" = "image"
+
+["标识符"]
+"img画像バッファ" = "ImageBuffer"
+"img動的画像" = "DynamicImage"
+"img画像読取器" = "ImageReader"
+
+["解释"]
+"img画像符号化" = "image — 汎用画像エンコード/デコード: ImageBuffer/DynamicImage/ImageReader"

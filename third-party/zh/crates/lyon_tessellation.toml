@@ -1,0 +1,10 @@
+["模块路径"]
+"lyt矢量细分" = "lyon_tessellation"
+
+["标识符"]
+"lyt填充细分器" = "FillTessellator"
+"lyt描边细分器" = "StrokeTessellator"
+"lyt顶点缓冲" = "VertexBuffers"
+
+["解释"]
+"lyt矢量细分" = "lyon_tessellation — 2D 矢量填充与描边细分: FillTessellator/StrokeTessellator/VertexBuffers"

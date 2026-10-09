@@ -1,0 +1,10 @@
+["模块路径"]
+"flit_مركب_المستقبل" = "futures_lite"
+
+["标识符"]
+"flit_تمديد_مستقبل" = "FutureExt"
+"flit_تمديد_تدفق" = "StreamExt"
+"flit_قراءة_لامتزامنة" = "AsyncRead"
+
+["解释"]
+"flit_مركب_المستقبل" = "futures-lite — مركبات Future/Stream خفيفة: FutureExt/StreamExt/AsyncRead"

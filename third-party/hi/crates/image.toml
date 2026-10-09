@@ -1,0 +1,10 @@
+["模块路径"]
+"img_छवि_एन्कोडिंग" = "image"
+
+["标识符"]
+"img_छवि_बफ़र" = "ImageBuffer"
+"img_गतिशील_छवि" = "DynamicImage"
+"img_छवि_वाचक" = "ImageReader"
+
+["解释"]
+"img_छवि_एन्कोडिंग" = "image — सार्वभौमिक छवि एन्कोडिंग: ImageBuffer/DynamicImage/ImageReader"

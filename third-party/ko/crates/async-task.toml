@@ -1,0 +1,10 @@
+["模块路径"]
+"tsq비동기태스크" = "async_task"
+
+["标识符"]
+"tsq태스크형" = "Task"
+"tsq실행가능핸들" = "Runnable"
+"tsq태스크구성기" = "Builder"
+
+["解释"]
+"tsq비동기태스크" = "async-task — executor 태스크 원시: Task/Runnable/Builder"

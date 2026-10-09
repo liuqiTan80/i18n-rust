@@ -1,0 +1,10 @@
+["模块路径"]
+"lyt_tesselacao_vetorial" = "lyon_tessellation"
+
+["标识符"]
+"lyt_teselador_preenchimento" = "FillTessellator"
+"lyt_teselador_traco" = "StrokeTessellator"
+"lyt_buffer_vertices" = "VertexBuffers"
+
+["解释"]
+"lyt_tesselacao_vetorial" = "lyon_tessellation — tesselacao vetorial 2D: FillTessellator/StrokeTessellator/VertexBuffers"

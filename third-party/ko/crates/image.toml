@@ -1,0 +1,10 @@
+["模块路径"]
+"img영상인코딩" = "image"
+
+["标识符"]
+"img영상버퍼" = "ImageBuffer"
+"img동적영상" = "DynamicImage"
+"img영상판독기" = "ImageReader"
+
+["解释"]
+"img영상인코딩" = "image — 범용 영상 인코딩/디코딩: ImageBuffer/DynamicImage/ImageReader"

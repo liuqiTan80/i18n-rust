@@ -1,0 +1,10 @@
+["模块路径"]
+"enc_кодировка_симв" = "encoding"
+
+["标识符"]
+"enc_кодировщик" = "Encoding"
+"enc_ловушк_кодировк" = "EncoderTrap"
+"enc_ловушк_декодир" = "DecoderTrap"
+
+["解释"]
+"enc_кодировка_симв" = "encoding — кодирование символов по WHATWG: Encoding/EncoderTrap/DecoderTrap"

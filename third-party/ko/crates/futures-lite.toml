@@ -1,0 +1,10 @@
+["模块路径"]
+"flit미래조합자" = "futures_lite"
+
+["标识符"]
+"flit미래확장" = "FutureExt"
+"flit스트림확장" = "StreamExt"
+"flit비동기읽기" = "AsyncRead"
+
+["解释"]
+"flit미래조합자" = "futures-lite — 경량 Future/Stream 조합자: FutureExt/StreamExt/AsyncRead"

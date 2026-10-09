@@ -1,0 +1,10 @@
+["模块路径"]
+"flit_combinateur_futur" = "futures_lite"
+
+["标识符"]
+"flit_extenseur_futur" = "FutureExt"
+"flit_extenseur_flux" = "StreamExt"
+"flit_lecture_asynchrone" = "AsyncRead"
+
+["解释"]
+"flit_combinateur_futur" = "futures-lite — combinateurs legers Future/Stream: FutureExt/StreamExt/AsyncRead"

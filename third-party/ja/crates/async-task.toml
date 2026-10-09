@@ -1,0 +1,10 @@
+["模块路径"]
+"tsq非同期タスク" = "async_task"
+
+["标识符"]
+"tsqタスク型" = "Task"
+"tsq実行可能ハンドル" = "Runnable"
+"tsqタスク構築器" = "Builder"
+
+["解释"]
+"tsq非同期タスク" = "async-task — エクスキュータのタスク機構: Task/Runnable/Builder"

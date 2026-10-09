@@ -1,0 +1,10 @@
+["模块路径"]
+"tsq_async_aufgabe" = "async_task"
+
+["标识符"]
+"tsq_aufgabe_typ" = "Task"
+"tsq_ausfuehrbar" = "Runnable"
+"tsq_aufgabenbauer" = "Builder"
+
+["解释"]
+"tsq_async_aufgabe" = "async-task — Executor-Task-Primitive: Task/Runnable/Builder"

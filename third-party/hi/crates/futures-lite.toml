@@ -1,0 +1,10 @@
+["模块路径"]
+"flit_भविष्य_संयोजक" = "futures_lite"
+
+["标识符"]
+"flit_भविष्य_विस्तार" = "FutureExt"
+"flit_स्ट्रीम_विस्तार" = "StreamExt"
+"flit_असिंक_पठन" = "AsyncRead"
+
+["解释"]
+"flit_भविष्य_संयोजक" = "futures-lite — हल्के Future/Stream संयोजक: FutureExt/StreamExt/AsyncRead"

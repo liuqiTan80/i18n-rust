@@ -1,0 +1,10 @@
+["模块路径"]
+"enc字符集编码" = "encoding"
+
+["标识符"]
+"enc编码协议" = "Encoding"
+"enc编码陷阱" = "EncoderTrap"
+"enc解码陷阱" = "DecoderTrap"
+
+["解释"]
+"enc字符集编码" = "encoding — WHATWG 字符集编解码: Encoding/EncoderTrap/DecoderTrap"

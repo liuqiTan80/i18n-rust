@@ -1,0 +1,10 @@
+["模块路径"]
+"xdg표준디렉터리" = "xdg"
+
+["标识符"]
+"xdg기본디렉터리" = "BaseDirectories"
+"xdg기본오류" = "BaseDirectoriesError"
+"xdg검색반복자" = "FileFindIterator"
+
+["解释"]
+"xdg표준디렉터리" = "xdg — XDG 기본 디렉터리 규격: BaseDirectories/BaseDirectoriesError/FileFindIterator"

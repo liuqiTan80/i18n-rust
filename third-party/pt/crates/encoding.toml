@@ -1,0 +1,10 @@
+["模块路径"]
+"enc_codificacao_charset" = "encoding"
+
+["标识符"]
+"enc_codificador_trait" = "Encoding"
+"enc_armadilha_codificador" = "EncoderTrap"
+"enc_armadilha_decodificador" = "DecoderTrap"
+
+["解释"]
+"enc_codificacao_charset" = "encoding — codificacao de caracteres WHATWG: Encoding/EncoderTrap/DecoderTrap"

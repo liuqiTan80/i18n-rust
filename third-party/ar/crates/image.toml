@@ -1,0 +1,10 @@
+["模块路径"]
+"img_ترميز_صور" = "image"
+
+["标识符"]
+"img_ناقل_صور" = "ImageBuffer"
+"img_صورة_ديناميكية" = "DynamicImage"
+"img_قارئ_صور" = "ImageReader"
+
+["解释"]
+"img_ترميز_صور" = "image — ترميز صور عام: ImageBuffer/DynamicImage/ImageReader"

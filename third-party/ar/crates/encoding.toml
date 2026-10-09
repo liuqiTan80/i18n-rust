@@ -1,0 +1,10 @@
+["模块路径"]
+"enc_ترميز_محارف" = "encoding"
+
+["标识符"]
+"enc_سمة_ترميز" = "Encoding"
+"enc_فخ_ترميز" = "EncoderTrap"
+"enc_فخ_فك_الترميز" = "DecoderTrap"
+
+["解释"]
+"enc_ترميز_محارف" = "encoding — ترميز المحارف حسب WHATWG: Encoding/EncoderTrap/DecoderTrap"

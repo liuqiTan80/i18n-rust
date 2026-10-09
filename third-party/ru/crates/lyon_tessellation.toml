@@ -1,0 +1,10 @@
+["模块路径"]
+"lyt_вектор_тесселяц" = "lyon_tessellation"
+
+["标识符"]
+"lyt_залив_тесселятор" = "FillTessellator"
+"lyt_штрих_тесселятор" = "StrokeTessellator"
+"lyt_вершин_буферы" = "VertexBuffers"
+
+["解释"]
+"lyt_вектор_тесселяц" = "lyon_tessellation — 2D векторная тесселяция: FillTessellator/StrokeTessellator/VertexBuffers"

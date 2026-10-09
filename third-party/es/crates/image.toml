@@ -1,0 +1,10 @@
+["模块路径"]
+"img_codificacion_imagen" = "image"
+
+["标识符"]
+"img_buffer_imagen" = "ImageBuffer"
+"img_imagen_dinamica" = "DynamicImage"
+"img_lector_imagen" = "ImageReader"
+
+["解释"]
+"img_codificacion_imagen" = "image — codificacion universal de imagenes: ImageBuffer/DynamicImage/ImageReader"

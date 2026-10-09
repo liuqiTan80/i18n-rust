@@ -1,0 +1,10 @@
+["模块路径"]
+"enc_encodage_jeu_caracteres" = "encoding"
+
+["标识符"]
+"enc_encodeur_trait" = "Encoding"
+"enc_piege_encodeur" = "EncoderTrap"
+"enc_piege_decodeur" = "DecoderTrap"
+
+["解释"]
+"enc_encodage_jeu_caracteres" = "encoding — encodage de caracteres WHATWG: Encoding/EncoderTrap/DecoderTrap"

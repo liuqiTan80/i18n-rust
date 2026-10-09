@@ -1,0 +1,10 @@
+["模块路径"]
+"enc文字コード" = "encoding"
+
+["标识符"]
+"encエンコーディング型" = "Encoding"
+"encエンコード罠" = "EncoderTrap"
+"encデコード罠" = "DecoderTrap"
+
+["解释"]
+"enc文字コード" = "encoding — WHATWG 文字コード変換: Encoding/EncoderTrap/DecoderTrap"

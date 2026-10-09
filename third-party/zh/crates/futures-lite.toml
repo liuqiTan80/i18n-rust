@@ -1,0 +1,10 @@
+["模块路径"]
+"flit未来组合子" = "futures_lite"
+
+["标识符"]
+"flit未来扩展" = "FutureExt"
+"flit流扩展" = "StreamExt"
+"flit异步读取" = "AsyncRead"
+
+["解释"]
+"flit未来组合子" = "futures-lite — 轻量 Future/Stream 组合子: FutureExt/StreamExt/AsyncRead"

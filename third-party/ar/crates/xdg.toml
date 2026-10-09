@@ -1,0 +1,10 @@
+["模块路径"]
+"xdg_مجلدات_قياسية" = "xdg"
+
+["标识符"]
+"xdg_مجلدات_أساسية" = "BaseDirectories"
+"xdg_خطأ_أساسي" = "BaseDirectoriesError"
+"xdg_مكرر_بحث_ملف" = "FileFindIterator"
+
+["解释"]
+"xdg_مجلدات_قياسية" = "xdg — معيار مجلدات XDG: BaseDirectories/BaseDirectoriesError/FileFindIterator"

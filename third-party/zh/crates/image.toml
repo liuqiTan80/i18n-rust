@@ -1,0 +1,10 @@
+["模块路径"]
+"img图像编解码" = "image"
+
+["标识符"]
+"img图像缓冲" = "ImageBuffer"
+"img动态图像" = "DynamicImage"
+"img图像读取器" = "ImageReader"
+
+["解释"]
+"img图像编解码" = "image — 通用图像编解码: ImageBuffer/DynamicImage/ImageReader"

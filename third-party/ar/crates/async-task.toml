@@ -1,0 +1,10 @@
+["模块路径"]
+"tsq_مهمة_لامتزامنة" = "async_task"
+
+["标识符"]
+"tsq_نوع_مهمة" = "Task"
+"tsq_قابل_للتشغيل" = "Runnable"
+"tsq_بان_المهمة" = "Builder"
+
+["解释"]
+"tsq_مهمة_لامتزامنة" = "async-task — بدائيات مهمة المنفذ: Task/Runnable/Builder"

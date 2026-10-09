@@ -1,0 +1,10 @@
+["模块路径"]
+"lyt벡터세분" = "lyon_tessellation"
+
+["标识符"]
+"lyt채우개세분기" = "FillTessellator"
+"lyt테두리세분기" = "StrokeTessellator"
+"lyt정점버퍼" = "VertexBuffers"
+
+["解释"]
+"lyt벡터세분" = "lyon_tessellation — 2D 벡터 채우개/테두리 세분: FillTessellator/StrokeTessellator/VertexBuffers"

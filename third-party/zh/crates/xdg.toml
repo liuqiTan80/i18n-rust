@@ -1,0 +1,10 @@
+["模块路径"]
+"xdg规范目录" = "xdg"
+
+["标识符"]
+"xdg基础目录集" = "BaseDirectories"
+"xdg基础错误" = "BaseDirectoriesError"
+"xdg查找迭代器" = "FileFindIterator"
+
+["解释"]
+"xdg规范目录" = "xdg — XDG Base Directory 规范: BaseDirectories/BaseDirectoriesError/FileFindIterator"

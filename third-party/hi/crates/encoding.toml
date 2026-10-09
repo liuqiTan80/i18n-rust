@@ -1,0 +1,10 @@
+["模块路径"]
+"enc_वर्णक्रम_एन्कोडिंग" = "encoding"
+
+["标识符"]
+"enc_एन्कोडिंग_ट्रेट" = "Encoding"
+"enc_एन्कोड_जाल" = "EncoderTrap"
+"enc_डिकोड_जाल" = "DecoderTrap"
+
+["解释"]
+"enc_वर्णक्रम_एन्कोडिंग" = "encoding — WHATWG वर्णक्रम एन्कोडिंग: Encoding/EncoderTrap/DecoderTrap"
