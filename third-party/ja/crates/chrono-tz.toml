@@ -1,0 +1,10 @@
+["模块路径"]
+"ctzタイムゾーンデータ" = "chrono_tz"
+
+["标识符"]
+"ctzタイムゾーンenum" = "Tz"
+"ctzオフセット" = "TzOffset"
+"ctz全ゾーン配列" = "TZ_VARIANTS"
+
+["解释"]
+"ctzタイムゾーンデータ" = "chrono-tz — IANA タイムゾーン: Tz/TzOffset/TZ_VARIANTS"

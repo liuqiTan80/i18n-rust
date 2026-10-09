@@ -1,0 +1,10 @@
+["模块路径"]
+"ctz时区数据" = "chrono_tz"
+
+["标识符"]
+"ctz时区枚举" = "Tz"
+"ctz时区偏移" = "TzOffset"
+"ctz全时区变体" = "TZ_VARIANTS"
+
+["解释"]
+"ctz时区数据" = "chrono-tz — IANA 时区库: Tz/TzOffset/TZ_VARIANTS"

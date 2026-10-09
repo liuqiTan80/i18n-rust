@@ -1,0 +1,10 @@
+["模块路径"]
+"fnv_त्वरित_हैश" = "fnv"
+
+["标识符"]
+"fnv_हैशर" = "FnvHasher"
+"fnv_मानचित्र" = "FnvHashMap"
+"fnv_समुच्चय" = "FnvHashSet"
+
+["解释"]
+"fnv_त्वरित_हैश" = "fnv — FNV त्वरित हैश: FnvHasher/FnvHashMap/FnvHashSet"

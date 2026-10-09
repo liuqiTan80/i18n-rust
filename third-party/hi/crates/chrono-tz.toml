@@ -1,0 +1,10 @@
+["模块路径"]
+"ctz_समय_मण्डल" = "chrono_tz"
+
+["标识符"]
+"ctz_तु_सूची" = "Tz"
+"ctz_ऑफसेट" = "TzOffset"
+"ctz_सभी_भेद" = "TZ_VARIANTS"
+
+["解释"]
+"ctz_समय_मण्डल" = "chrono-tz — IANA समयक्षेत्र डेटाबेस: Tz/TzOffset/TZ_VARIANTS"

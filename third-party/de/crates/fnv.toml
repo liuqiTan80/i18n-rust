@@ -1,0 +1,10 @@
+["模块路径"]
+"fnv_schneller_hash" = "fnv"
+
+["标识符"]
+"fnv_hashierer" = "FnvHasher"
+"fnv_karte" = "FnvHashMap"
+"fnv_menge" = "FnvHashSet"
+
+["解释"]
+"fnv_schneller_hash" = "fnv — FNV schneller Hash: FnvHasher/FnvHashMap/FnvHashSet"

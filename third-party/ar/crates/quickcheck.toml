@@ -1,0 +1,10 @@
+["模块路径"]
+"qck_اختبار_خاصية" = "quickcheck"
+
+["标识符"]
+"qck_منفذ" = "QuickCheck"
+"qck_مولد" = "Gen"
+"qck_سمة_اعتباطية" = "Arbitrary"
+
+["解释"]
+"qck_اختبار_خاصية" = "quickcheck — إطار اختبار الخصائص: QuickCheck/Gen/Arbitrary"

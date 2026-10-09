@@ -1,0 +1,10 @@
+["模块路径"]
+"usr사용자정보" = "users"
+
+["标识符"]
+"usr사용자구조" = "User"
+"usr그룹구조" = "Group"
+"usr캐시" = "UsersCache"
+
+["解释"]
+"usr사용자정보" = "users — Unix 사용자·그룹 조회: User/Group/UsersCache"

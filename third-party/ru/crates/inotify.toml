@@ -1,0 +1,10 @@
+["模块路径"]
+"ino_наблюд_файл" = "inotify"
+
+["标识符"]
+"ino_инотифи_инстанс" = "Inotify"
+"ino_событие" = "Event"
+"ino_маска_наблюд" = "WatchMask"
+
+["解释"]
+"ino_наблюд_файл" = "inotify — наблюдение за файлами Linux: Inotify/Event/WatchMask"

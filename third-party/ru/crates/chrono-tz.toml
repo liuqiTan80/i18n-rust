@@ -1,0 +1,10 @@
+["模块路径"]
+"ctz_часовые_пояса" = "chrono_tz"
+
+["标识符"]
+"ctz_тз_перечисл" = "Tz"
+"ctz_тз_сдвиг" = "TzOffset"
+"ctz_все_варианты" = "TZ_VARIANTS"
+
+["解释"]
+"ctz_часовые_пояса" = "chrono-tz — база IANA часовых поясов: Tz/TzOffset/TZ_VARIANTS"

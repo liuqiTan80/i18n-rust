@@ -1,0 +1,10 @@
+["模块路径"]
+"fnv고속해시" = "fnv"
+
+["标识符"]
+"fnv해셔" = "FnvHasher"
+"fnv해시맵" = "FnvHashMap"
+"fnv해시집합" = "FnvHashSet"
+
+["解释"]
+"fnv고속해시" = "fnv — FNV 고속 해시: FnvHasher/FnvHashMap/FnvHashSet"

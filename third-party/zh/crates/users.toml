@@ -1,0 +1,10 @@
+["模块路径"]
+"usr用户组信息" = "users"
+
+["标识符"]
+"usr用户结构" = "User"
+"usr组结构" = "Group"
+"usr用户缓存" = "UsersCache"
+
+["解释"]
+"usr用户组信息" = "users — Unix 用户与组查询: User/Group/UsersCache"

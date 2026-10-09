@@ -1,0 +1,10 @@
+["模块路径"]
+"qckプロパティ検査" = "quickcheck"
+
+["标识符"]
+"qckランナー" = "QuickCheck"
+"qckジェネレータ" = "Gen"
+"qck任意トレイト" = "Arbitrary"
+
+["解释"]
+"qckプロパティ検査" = "quickcheck — ランダム性質検査: QuickCheck/Gen/Arbitrary"

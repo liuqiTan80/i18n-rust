@@ -1,0 +1,10 @@
+["模块路径"]
+"qck_गुण_परीक्षण" = "quickcheck"
+
+["标识符"]
+"qck_वाहक" = "QuickCheck"
+"qck_जनरेटर" = "Gen"
+"qck_यादृच्छ_ट्रेट" = "Arbitrary"
+
+["解释"]
+"qck_गुण_परीक्षण" = "quickcheck — गुण परीक्षण फ्रेमवर्क: QuickCheck/Gen/Arbitrary"

@@ -1,0 +1,10 @@
+["模块路径"]
+"qck_eigenschaftstest" = "quickcheck"
+
+["标识符"]
+"qck_laeufer" = "QuickCheck"
+"qck_erzeuger" = "Gen"
+"qck_beliebig_trait" = "Arbitrary"
+
+["解释"]
+"qck_eigenschaftstest" = "quickcheck — Eigenschaftstest-Framework: QuickCheck/Gen/Arbitrary"

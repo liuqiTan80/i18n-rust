@@ -1,0 +1,10 @@
+["模块路径"]
+"sh2_sicherer_hash_2" = "sha2"
+
+["标识符"]
+"sh2_sha256" = "Sha256"
+"sh2_sha512" = "Sha512"
+"sh2_digest_trait" = "Digest"
+
+["解释"]
+"sh2_sicherer_hash_2" = "sha2 — SHA-2 kryptografischer Hash: Sha256/Sha512/Digest"

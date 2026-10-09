@@ -1,0 +1,10 @@
+["模块路径"]
+"usr_info_utilisateur" = "users"
+
+["标识符"]
+"usr_type_user" = "User"
+"usr_type_groupe" = "Group"
+"usr_cache" = "UsersCache"
+
+["解释"]
+"usr_info_utilisateur" = "users — requetes utilisateurs Unix: User/Group/UsersCache"

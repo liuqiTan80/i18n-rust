@@ -1,0 +1,10 @@
+["模块路径"]
+"ctz_zeitzone_daten" = "chrono_tz"
+
+["标识符"]
+"ctz_tz_enum" = "Tz"
+"ctz_versatz" = "TzOffset"
+"ctz_alle_varianten" = "TZ_VARIANTS"
+
+["解释"]
+"ctz_zeitzone_daten" = "chrono-tz — IANA-Zeitdatenbank: Tz/TzOffset/TZ_VARIANTS"

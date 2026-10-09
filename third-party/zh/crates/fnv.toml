@@ -1,0 +1,10 @@
+["模块路径"]
+"fnv快速哈希" = "fnv"
+
+["标识符"]
+"fnv哈希器" = "FnvHasher"
+"fnv映射" = "FnvHashMap"
+"fnv集合" = "FnvHashSet"
+
+["解释"]
+"fnv快速哈希" = "fnv — Fowler-Noll-Vo 快速哈希: FnvHasher/FnvHashMap/FnvHashSet"

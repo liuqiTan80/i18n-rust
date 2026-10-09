@@ -1,0 +1,10 @@
+["模块路径"]
+"ctz_مناطق_زمنية" = "chrono_tz"
+
+["标识符"]
+"ctz_كيان_المنطقة" = "Tz"
+"ctz_إزاحة" = "TzOffset"
+"ctz_كل_التنويعات" = "TZ_VARIANTS"
+
+["解释"]
+"ctz_مناطق_زمنية" = "chrono-tz — قاعدة بيانات IANA: Tz/TzOffset/TZ_VARIANTS"

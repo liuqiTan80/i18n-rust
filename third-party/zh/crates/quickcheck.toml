@@ -1,0 +1,10 @@
+["模块路径"]
+"qck随机属性测试" = "quickcheck"
+
+["标识符"]
+"qck配置运行器" = "QuickCheck"
+"qck生成器" = "Gen"
+"qck任意特质" = "Arbitrary"
+
+["解释"]
+"qck随机属性测试" = "quickcheck — 随机属性测试框架: QuickCheck/Gen/Arbitrary"

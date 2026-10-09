@@ -1,0 +1,10 @@
+["模块路径"]
+"fnv高速ハッシュ" = "fnv"
+
+["标识符"]
+"fnvハッシャ" = "FnvHasher"
+"fnvハッシュマップ" = "FnvHashMap"
+"fnvハッシュセット" = "FnvHashSet"
+
+["解释"]
+"fnv高速ハッシュ" = "fnv — FNV 高速ハッシュ: FnvHasher/FnvHashMap/FnvHashSet"

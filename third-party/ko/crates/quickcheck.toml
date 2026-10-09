@@ -1,0 +1,10 @@
+["模块路径"]
+"qck속성이검검" = "quickcheck"
+
+["标识符"]
+"qck실행기" = "QuickCheck"
+"qck생성자" = "Gen"
+"qck임의트레잇" = "Arbitrary"
+
+["解释"]
+"qck속성이검검" = "quickcheck — 임의 속성 테스트: QuickCheck/Gen/Arbitrary"

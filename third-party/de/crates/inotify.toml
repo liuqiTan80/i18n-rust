@@ -1,0 +1,10 @@
+["模块路径"]
+"ino_datei_beobachter" = "inotify"
+
+["标识符"]
+"ino_instanz" = "Inotify"
+"ino_ereignis" = "Event"
+"ino_maske" = "WatchMask"
+
+["解释"]
+"ino_datei_beobachter" = "inotify — Linux-Dateisystemueberwachung: Inotify/Event/WatchMask"

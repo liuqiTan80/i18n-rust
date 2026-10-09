@@ -1,0 +1,10 @@
+["模块路径"]
+"qck_свойств_тест" = "quickcheck"
+
+["标识符"]
+"qck_запускатор" = "QuickCheck"
+"qck_генератор" = "Gen"
+"qck_произвол_трет" = "Arbitrary"
+
+["解释"]
+"qck_свойств_тест" = "quickcheck — случайное тестирование свойств: QuickCheck/Gen/Arbitrary"

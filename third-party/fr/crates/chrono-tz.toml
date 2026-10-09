@@ -1,0 +1,10 @@
+["模块路径"]
+"ctz_fuseau_horaire" = "chrono_tz"
+
+["标识符"]
+"ctz_enum_tz" = "Tz"
+"ctz_decalage" = "TzOffset"
+"ctz_toutes_variantes" = "TZ_VARIANTS"
+
+["解释"]
+"ctz_fuseau_horaire" = "chrono-tz — base de donnees IANA: Tz/TzOffset/TZ_VARIANTS"

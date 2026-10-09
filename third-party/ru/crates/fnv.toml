@@ -1,0 +1,10 @@
+["模块路径"]
+"fnv_быстрый_хеш" = "fnv"
+
+["标识符"]
+"fnv_хеширатор" = "FnvHasher"
+"fnv_хешмап" = "FnvHashMap"
+"fnv_хешсет" = "FnvHashSet"
+
+["解释"]
+"fnv_быстрый_хеш" = "fnv — FNV быстрый хеш: FnvHasher/FnvHashMap/FnvHashSet"

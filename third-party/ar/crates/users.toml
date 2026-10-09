@@ -1,0 +1,10 @@
+["模块路径"]
+"usr_معلومات_المستخدم" = "users"
+
+["标识符"]
+"usr_نوع_مستخدم" = "User"
+"usr_نوع_مجموعة" = "Group"
+"usr_تخزين_مؤقت" = "UsersCache"
+
+["解释"]
+"usr_معلومات_المستخدم" = "users — استعلام مستخدمي Unix: User/Group/UsersCache"

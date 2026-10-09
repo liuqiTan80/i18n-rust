@@ -1,0 +1,10 @@
+["模块路径"]
+"fnv_تجزئة_سريعة" = "fnv"
+
+["标识符"]
+"fnv_المجزئ" = "FnvHasher"
+"fnv_خريطة" = "FnvHashMap"
+"fnv_مجموعة" = "FnvHashSet"
+
+["解释"]
+"fnv_تجزئة_سريعة" = "fnv — تجزئة FNV سريعة: FnvHasher/FnvHashMap/FnvHashSet"

@@ -1,0 +1,10 @@
+["模块路径"]
+"usr_उपयोगकर्ता_सूचना" = "users"
+
+["标识符"]
+"usr_प्रयोक्ता" = "User"
+"usr_समूह" = "Group"
+"usr_कैश" = "UsersCache"
+
+["解释"]
+"usr_उपयोगकर्ता_सूचना" = "users — Unix उपयोगकर्ता खोज: User/Group/UsersCache"

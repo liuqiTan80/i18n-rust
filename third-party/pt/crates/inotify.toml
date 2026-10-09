@@ -1,0 +1,10 @@
+["模块路径"]
+"ino_monitor_arquivos" = "inotify"
+
+["标识符"]
+"ino_instancia" = "Inotify"
+"ino_evento" = "Event"
+"ino_mascara" = "WatchMask"
+
+["解释"]
+"ino_monitor_arquivos" = "inotify — monitor de arquivos Linux: Inotify/Event/WatchMask"
