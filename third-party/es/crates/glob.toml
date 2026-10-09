@@ -1,0 +1,10 @@
+["模块路径"]
+"coincidencia_patron" = "glob"
+
+["标识符"]
+"ejecutar_glob" = "glob"
+"compilar_patron" = "Pattern"
+"glob_con_opciones" = "glob_with"
+
+["解释"]
+"coincidencia_patron" = "Coincidencia de rutas con comodines estilo Unix"

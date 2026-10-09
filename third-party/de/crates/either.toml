@@ -1,0 +1,10 @@
+["模块路径"]
+"entweder_oder" = "either"
+
+["标识符"]
+"entweder_typ" = "Either"
+"links" = "Left"
+"rechts" = "Right"
+
+["解释"]
+"entweder_oder" = "Allgemeines Enum für eine von zwei Typen"

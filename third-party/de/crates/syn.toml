@@ -1,0 +1,10 @@
+["模块路径"]
+"syntax_parsen" = "syn"
+
+["标识符"]
+"datei_parsen" = "parse_file"
+"quelltext_parsen" = "parse_str"
+"syntaxbaum" = "File"
+
+["解释"]
+"syntax_parsen" = "Bibliothek zum Parsen von Rust-Quellcode"

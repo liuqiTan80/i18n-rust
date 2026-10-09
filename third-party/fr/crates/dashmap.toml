@@ -1,0 +1,10 @@
+["模块路径"]
+"carte_parallele" = "dashmap"
+
+["标识符"]
+"carte_sharded" = "DashMap"
+"inserer" = "insert"
+"recuperer" = "get"
+
+["解释"]
+"carte_parallele" = "HashMap parallèle fragmenté ultra-rapide"

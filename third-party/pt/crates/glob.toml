@@ -1,0 +1,10 @@
+["模块路径"]
+"correspondencia_padrao" = "glob"
+
+["标识符"]
+"executar_glob" = "glob"
+"compilar_padrao" = "Pattern"
+"glob_com_opcoes" = "glob_with"
+
+["解释"]
+"correspondencia_padrao" = "Correspondência de caminhos com curingas estilo Unix"

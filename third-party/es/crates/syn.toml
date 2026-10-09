@@ -1,0 +1,10 @@
+["模块路径"]
+"analisis_sintactico" = "syn"
+
+["标识符"]
+"analizar_archivo" = "parse_file"
+"analizar_codigo" = "parse_str"
+"arbol_sintactico" = "File"
+
+["解释"]
+"analisis_sintactico" = "Biblioteca de análisis sintáctico de código Rust"

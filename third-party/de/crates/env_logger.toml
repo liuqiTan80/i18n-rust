@@ -1,0 +1,10 @@
+["模块路径"]
+"umgebung_logging" = "env_logger"
+
+["标识符"]
+"ersteller" = "Builder"
+"initialisieren" = "init"
+"versuche_initialisieren" = "try_init"
+
+["解释"]
+"umgebung_logging" = "Logging-Implementation über Umgebungsvariablen"

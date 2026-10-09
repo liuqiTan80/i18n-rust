@@ -1,0 +1,10 @@
+["模块路径"]
+"parallele_karte" = "dashmap"
+
+["标识符"]
+"sharded_karte" = "DashMap"
+"einfuegen" = "insert"
+"abrufen" = "get"
+
+["解释"]
+"parallele_karte" = "Blitzschnelle nebenläufige Sharded-HashMap"

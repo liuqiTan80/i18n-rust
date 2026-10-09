@@ -1,0 +1,10 @@
+["模块路径"]
+"registro_por_variaveis" = "env_logger"
+
+["标识符"]
+"construtor" = "Builder"
+"inicializar" = "init"
+"tentar_inicializar" = "try_init"
+
+["解释"]
+"registro_por_variaveis" = "Implementação de registro configurada por variáveis de ambiente"

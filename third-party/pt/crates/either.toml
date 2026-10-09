@@ -1,0 +1,10 @@
+["模块路径"]
+"um_ou_outro" = "either"
+
+["标识符"]
+"tipo_ou" = "Either"
+"esquerda" = "Left"
+"direita" = "Right"
+
+["解释"]
+"um_ou_outro" = "Enum geral para um de dois tipos"

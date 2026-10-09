@@ -1,0 +1,10 @@
+["模块路径"]
+"kleiner_vektor" = "smallvec"
+
+["标识符"]
+"kleiner_vektor_typ" = "SmallVec"
+"inline_groesse" = "InlineSize"
+"in_std_vektor" = "to_vec"
+
+["解释"]
+"kleiner_vektor" = "Optimierter Vektor mit Stapelspeicher für wenige Elemente"

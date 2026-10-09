@@ -1,0 +1,10 @@
+["模块路径"]
+"platzhalter_abgleich" = "glob"
+
+["标识符"]
+"glob_ausfuehren" = "glob"
+"muster_kompilieren" = "Pattern"
+"glob_mit_optionen" = "glob_with"
+
+["解释"]
+"platzhalter_abgleich" = "Unix-Art-Platzhalter-Pfadabgleich"

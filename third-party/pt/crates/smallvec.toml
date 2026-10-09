@@ -1,0 +1,10 @@
+["模块路径"]
+"vetor_pequeno" = "smallvec"
+
+["标识符"]
+"tipo_vetor_pequeno" = "SmallVec"
+"tamanho_inline" = "InlineSize"
+"em_vetor_std" = "to_vec"
+
+["解释"]
+"vetor_pequeno" = "Vetor otimizado que armazena poucos elementos na pilha"

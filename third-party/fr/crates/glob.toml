@@ -1,0 +1,10 @@
+["模块路径"]
+"correspondance_motif" = "glob"
+
+["标识符"]
+"executer_glob" = "glob"
+"compiler_motif" = "Pattern"
+"glob_avec_options" = "glob_with"
+
+["解释"]
+"correspondance_motif" = "Correspondance de chemins avec motifs style Unix"
