@@ -1,0 +1,10 @@
+["模块路径"]
+"mka_mock_test" = "mockall"
+
+["标识符"]
+"mka_sequenz" = "Sequence"
+"mka_pradikat_trait" = "Predicate"
+"mka_str_pradikat" = "PredicateStrExt"
+
+["解释"]
+"mka_mock_test" = "mockall — Mock-Framework fur Tests: Sequence/Predicate/PredicateStrExt"

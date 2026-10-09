@@ -1,0 +1,10 @@
+["模块路径"]
+"mka_اختبار_وهمي" = "mockall"
+
+["标识符"]
+"mka_تسلسل" = "Sequence"
+"mka_سمة_مسند" = "Predicate"
+"mka_مسند_نص" = "PredicateStrExt"
+
+["解释"]
+"mka_اختبار_وهمي" = "mockall — إطار محاكاة للاختبار: Sequence/Predicate/PredicateStrExt"

@@ -1,0 +1,10 @@
+["模块路径"]
+"afs_ملفات_غيرمتزامنة" = "async_fs"
+
+["标识符"]
+"afs_ملف" = "File"
+"afs_خيارات_فتح" = "OpenOptions"
+"afs_بان_مجلد" = "DirBuilder"
+
+["解释"]
+"afs_ملفات_غيرمتزامنة" = "async-fs — نظام ملفات غير متزامن: File/OpenOptions/DirBuilder"

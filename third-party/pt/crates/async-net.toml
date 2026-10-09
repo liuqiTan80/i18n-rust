@@ -1,0 +1,10 @@
+["模块路径"]
+"anet_rede_async" = "async_net"
+
+["标识符"]
+"anet_odidor_tcp" = "TcpListener"
+"anet_fluxo_tcp" = "TcpStream"
+"anet_socket_udp" = "UdpSocket"
+
+["解释"]
+"anet_rede_async" = "async-net — TCP/UDP/Unix assincrono: TcpListener/TcpStream/UdpSocket"

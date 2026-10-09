@@ -1,0 +1,10 @@
+["模块路径"]
+"mka목테스트" = "mockall"
+
+["标识符"]
+"mka순서제약" = "Sequence"
+"mka술트레잇" = "Predicate"
+"mka문자술확장" = "PredicateStrExt"
+
+["解释"]
+"mka목테스트" = "mockall — 단위 테스트 Mock 프레임: Sequence/Predicate/PredicateStrExt"

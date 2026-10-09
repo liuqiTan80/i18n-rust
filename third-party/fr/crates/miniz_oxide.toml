@@ -1,0 +1,10 @@
+["模块路径"]
+"mzo_compression_miniz" = "miniz_oxide"
+
+["标识符"]
+"mzo_resultat_flux" = "StreamResult"
+"mzo_format_donnees" = "DataFormat"
+"mzo_enum_statut" = "MZStatus"
+
+["解释"]
+"mzo_compression_miniz" = "miniz_oxide — DEFLATE en Rust pur: StreamResult/DataFormat/MZStatus"

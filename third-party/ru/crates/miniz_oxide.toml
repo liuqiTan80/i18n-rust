@@ -1,0 +1,10 @@
+["模块路径"]
+"mzo_миниз_оксид" = "miniz_oxide"
+
+["标识符"]
+"mzo_поток_результ" = "StreamResult"
+"mzo_формат_данных" = "DataFormat"
+"mzo_статус_переч" = "MZStatus"
+
+["解释"]
+"mzo_миниз_оксид" = "miniz_oxide — DEFLATE na chistom Rust: StreamResult/DataFormat/MZStatus"

@@ -1,0 +1,10 @@
+["模块路径"]
+"rpd영구조데이터" = "rpds"
+
+["标识符"]
+"rpd영구성벡터" = "Vector"
+"rpd해시트리영사" = "HashTrieMap"
+"rpd영구성목록" = "List"
+
+["解释"]
+"rpd영구조데이터" = "rpds — Rust 영구 데이터 구조: Vector/HashTrieMap/List"

@@ -1,0 +1,10 @@
+["模块路径"]
+"rpd持久数据结构" = "rpds"
+
+["标识符"]
+"rpd持久向量" = "Vector"
+"rpd哈希trie映射" = "HashTrieMap"
+"rpd持久列表" = "List"
+
+["解释"]
+"rpd持久数据结构" = "rpds — Rust 持久数据结构: Vector/HashTrieMap/List"

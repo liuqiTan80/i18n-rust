@@ -1,0 +1,10 @@
+["模块路径"]
+"rpd_स्थायी_संरचना" = "rpds"
+
+["标识符"]
+"rpd_स्थायी_सदिश" = "Vector"
+"rpd_हैश_ट्री_मानचित्र" = "HashTrieMap"
+"rpd_स्थायी_सूची" = "List"
+
+["解释"]
+"rpd_स्थायी_संरचना" = "rpds — Rust स्थायी संरचनाएँ: Vector/HashTrieMap/List"

@@ -1,0 +1,10 @@
+["模块路径"]
+"mka模拟测试" = "mockall"
+
+["标识符"]
+"mka顺序约束" = "Sequence"
+"mka谓词特质" = "Predicate"
+"mka字符串谓词" = "PredicateStrExt"
+
+["解释"]
+"mka模拟测试" = "mockall — 单元测试 Mock 框架: Sequence/Predicate/PredicateStrExt"

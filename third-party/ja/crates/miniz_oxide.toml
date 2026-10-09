@@ -1,0 +1,10 @@
+["模块路径"]
+"mzoミニズ酸圧縮" = "miniz_oxide"
+
+["标识符"]
+"mzoストリーム結果" = "StreamResult"
+"mzoデータ形式" = "DataFormat"
+"mzo状態enum" = "MZStatus"
+
+["解释"]
+"mzoミニズ酸圧縮" = "miniz_oxide — 純 Rust DEFLATE: StreamResult/DataFormat/MZStatus"

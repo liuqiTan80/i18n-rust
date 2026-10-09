@@ -1,0 +1,10 @@
+["模块路径"]
+"afs非同期ファイル" = "async_fs"
+
+["标识符"]
+"afsファイル" = "File"
+"afs開选项" = "OpenOptions"
+"afsディレクトリ構築" = "DirBuilder"
+
+["解释"]
+"afs非同期ファイル" = "async-fs — 非同期ファイルシステム: File/OpenOptions/DirBuilder"

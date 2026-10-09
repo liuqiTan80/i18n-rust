@@ -1,0 +1,10 @@
+["模块路径"]
+"anet비동기네트워크" = "async_net"
+
+["标识符"]
+"anetTcp청취자" = "TcpListener"
+"anetTcp흐름" = "TcpStream"
+"anetUdp소켓" = "UdpSocket"
+
+["解释"]
+"anet비동기네트워크" = "async-net — 비동기 TCP/UDP/Unix: TcpListener/TcpStream/UdpSocket"

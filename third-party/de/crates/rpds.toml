@@ -1,0 +1,10 @@
+["模块路径"]
+"rpd_persistente_strukturen" = "rpds"
+
+["标识符"]
+"rpd_vektor_persist" = "Vector"
+"rpd_hash_trie_karte" = "HashTrieMap"
+"rpd_liste_persist" = "List"
+
+["解释"]
+"rpd_persistente_strukturen" = "rpds — persistente Datenstrukturen: Vector/HashTrieMap/List"

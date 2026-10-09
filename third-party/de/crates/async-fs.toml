@@ -1,0 +1,10 @@
+["模块路径"]
+"afs_async_dateien" = "async_fs"
+
+["标识符"]
+"afs_datei" = "File"
+"afs_offnenoptionen" = "OpenOptions"
+"afs_verzeichnis_baukasten" = "DirBuilder"
+
+["解释"]
+"afs_async_dateien" = "async-fs — asynchrones Dateisystem: File/OpenOptions/DirBuilder"

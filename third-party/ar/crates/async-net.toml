@@ -1,0 +1,10 @@
+["模块路径"]
+"anet_شبكة_غيرمتزامنة" = "async_net"
+
+["标识符"]
+"anet_مستمع_tcp" = "TcpListener"
+"anet_تدفق_تيسيبي" = "TcpStream"
+"anet_مقبس_يوديببي" = "UdpSocket"
+
+["解释"]
+"anet_شبكة_غيرمتزامنة" = "async-net — شبكة غير متزامنة: TcpListener/TcpStream/UdpSocket"

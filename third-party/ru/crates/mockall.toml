@@ -1,0 +1,10 @@
+["模块路径"]
+"mka_мок_тест" = "mockall"
+
+["标识符"]
+"mka_послед_очеред" = "Sequence"
+"mka_предикат_трет" = "Predicate"
+"mka_стр_предикат" = "PredicateStrExt"
+
+["解释"]
+"mka_мок_тест" = "mockall — мок-фреймворк модульных тестов: Sequence/Predicate/PredicateStrExt"

@@ -1,0 +1,10 @@
+["模块路径"]
+"afs비동기파일" = "async_fs"
+
+["标识符"]
+"afs파일" = "File"
+"afs열기선택" = "OpenOptions"
+"afs디렉터리구축" = "DirBuilder"
+
+["解释"]
+"afs비동기파일" = "async-fs — 비동기 파일시스템: File/OpenOptions/DirBuilder"

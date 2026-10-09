@@ -1,0 +1,10 @@
+["模块路径"]
+"rpd_estruturas_persist" = "rpds"
+
+["标识符"]
+"rpd_vetor_persist" = "Vector"
+"rpd_mapa_hash_trie" = "HashTrieMap"
+"rpd_lista_persist" = "List"
+
+["解释"]
+"rpd_estruturas_persist" = "rpds — estruturas persistentes Rust: Vector/HashTrieMap/List"

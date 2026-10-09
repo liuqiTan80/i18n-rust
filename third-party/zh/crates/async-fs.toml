@@ -1,0 +1,10 @@
+["模块路径"]
+"afs异步文件" = "async_fs"
+
+["标识符"]
+"afs文件" = "File"
+"afs打开选项" = "OpenOptions"
+"afs目录构建" = "DirBuilder"
+
+["解释"]
+"afs异步文件" = "async-fs — 异步文件系统原语: File/OpenOptions/DirBuilder"

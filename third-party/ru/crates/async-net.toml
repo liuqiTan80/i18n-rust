@@ -1,0 +1,10 @@
+["模块路径"]
+"anet_асинх_сеть" = "async_net"
+
+["标识符"]
+"anet_слушатель" = "TcpListener"
+"anet_поток_тцп" = "TcpStream"
+"anet_юдрп_сокет" = "UdpSocket"
+
+["解释"]
+"anet_асинх_сеть" = "async-net — асинхронный TCP/UDP/Unix: TcpListener/TcpStream/UdpSocket"

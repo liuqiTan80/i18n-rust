@@ -1,0 +1,10 @@
+["模块路径"]
+"afs_एषिंक_फ़ाइलें" = "async_fs"
+
+["标识符"]
+"afs_फ़ाइल" = "File"
+"afs_खोलन_विकल्प" = "OpenOptions"
+"afs_निर्देशिका_निर्माता" = "DirBuilder"
+
+["解释"]
+"afs_एषिंक_फ़ाइलें" = "async-fs — एषिंक फ़ाइल तंत्र: File/OpenOptions/DirBuilder"

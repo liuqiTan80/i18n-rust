@@ -1,0 +1,10 @@
+["模块路径"]
+"mzo_मिनिज_संपीडन" = "miniz_oxide"
+
+["标识符"]
+"mzo_प्रवाह_परिणाम" = "StreamResult"
+"mzo_डेटा_स्वरूप" = "DataFormat"
+"mzo_स्थिति_सूची" = "MZStatus"
+
+["解释"]
+"mzo_मिनिज_संपीडन" = "miniz_oxide — शुद्ध Rust DEFLATE: StreamResult/DataFormat/MZStatus"

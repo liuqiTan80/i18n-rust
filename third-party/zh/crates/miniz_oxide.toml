@@ -1,0 +1,10 @@
+["模块路径"]
+"mzo迷你压缩纯锈" = "miniz_oxide"
+
+["标识符"]
+"mzo流结果" = "StreamResult"
+"mzo数据格式" = "DataFormat"
+"mzo状态枚举" = "MZStatus"
+
+["解释"]
+"mzo迷你压缩纯锈" = "miniz_oxide — 纯 Rust DEFLATE: StreamResult/DataFormat/MZStatus"

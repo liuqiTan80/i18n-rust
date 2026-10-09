@@ -1,0 +1,10 @@
+["模块路径"]
+"mka_नकल_परीक्षण" = "mockall"
+
+["标识符"]
+"mka_क्रम" = "Sequence"
+"mka_विधेय_ट्रेट" = "Predicate"
+"mka_स्ट्र_विधेय" = "PredicateStrExt"
+
+["解释"]
+"mka_नकल_परीक्षण" = "mockall — परीक्षण Mock फ्रेमवर्क: Sequence/Predicate/PredicateStrExt"

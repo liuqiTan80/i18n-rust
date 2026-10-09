@@ -1,0 +1,10 @@
+["模块路径"]
+"brt_ब्रोतली_संपीडन" = "brotli"
+
+["标识符"]
+"brt_विसंपीडक" = "Decompressor"
+"brt_अवस्था" = "BrotliState"
+"brt_परिणाम_सूची" = "BrotliResult"
+
+["解释"]
+"brt_ब्रोतली_संपीडन" = "brotli — Google Brotli संपीडन: Decompressor/BrotliState/BrotliResult"

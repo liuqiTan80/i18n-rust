@@ -1,0 +1,10 @@
+["模块路径"]
+"anet异步网络" = "async_net"
+
+["标识符"]
+"anet监听器" = "TcpListener"
+"anet连接流" = "TcpStream"
+"anet用户数据报套接字" = "UdpSocket"
+
+["解释"]
+"anet异步网络" = "async-net — 异步 TCP/UDP/Unix 网络: TcpListener/TcpStream/UdpSocket"

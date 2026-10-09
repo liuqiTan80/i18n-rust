@@ -1,0 +1,10 @@
+["模块路径"]
+"brt_brotli_kompression" = "brotli"
+
+["标识符"]
+"brt_dekompressor" = "Decompressor"
+"brt_zustand" = "BrotliState"
+"brt_ergebnis_enum" = "BrotliResult"
+
+["解释"]
+"brt_brotli_kompression" = "brotli — Google Brotli Kompression: Decompressor/BrotliState/BrotliResult"

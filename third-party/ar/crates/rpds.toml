@@ -1,0 +1,10 @@
+["模块路径"]
+"rpd_هياكل_دائمة" = "rpds"
+
+["标识符"]
+"rpd_متجه_دائم" = "Vector"
+"rpd_خريطة_تجزئة_دائمة" = "HashTrieMap"
+"rpd_قائمة_دائمة" = "List"
+
+["解释"]
+"rpd_هياكل_دائمة" = "rpds — هياكل دائمة Rust: Vector/HashTrieMap/List"

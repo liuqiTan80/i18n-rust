@@ -1,0 +1,10 @@
+["模块路径"]
+"brt_ضغط_بروتلي" = "brotli"
+
+["标识符"]
+"brt_مفسك_الضغط" = "Decompressor"
+"brt_حالة" = "BrotliState"
+"brt_عداد_نتيجة" = "BrotliResult"
+
+["解释"]
+"brt_ضغط_بروتلي" = "brotli — ضغط Google Brotli: Decompressor/BrotliState/BrotliResult"

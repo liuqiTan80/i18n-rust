@@ -1,0 +1,10 @@
+["模块路径"]
+"mkaモック検査" = "mockall"
+
+["标识符"]
+"mka順序制約" = "Sequence"
+"mka述語型" = "Predicate"
+"mka文字述語拡張" = "PredicateStrExt"
+
+["解释"]
+"mkaモック検査" = "mockall — 単体テスト Mock 枠: Sequence/Predicate/PredicateStrExt"

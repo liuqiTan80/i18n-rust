@@ -1,0 +1,10 @@
+["模块路径"]
+"mzo_ضغط_مينيز" = "miniz_oxide"
+
+["标识符"]
+"mzo_نتيجة_تدفق" = "StreamResult"
+"mzo_صيغة_بيانات" = "DataFormat"
+"mzo_عداد_حالة" = "MZStatus"
+
+["解释"]
+"mzo_ضغط_مينيز" = "miniz_oxide — DEFLATE بلغة Rust نقية: StreamResult/DataFormat/MZStatus"

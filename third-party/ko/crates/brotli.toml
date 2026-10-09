@@ -1,0 +1,10 @@
+["模块路径"]
+"brt브로틀리압축" = "brotli"
+
+["标识符"]
+"brt해압스트림" = "Decompressor"
+"brt상태객체" = "BrotliState"
+"brt결과열거" = "BrotliResult"
+
+["解释"]
+"brt브로틀리압축" = "brotli — Google Brotli 압축: Decompressor/BrotliState/BrotliResult"
