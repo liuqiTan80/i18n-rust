@@ -427,4 +427,16 @@ mod tests {
             "原始字符串应保留：{fixed}"
         );
     }
+
+    #[test]
+    fn fix_keeps_escaped_quote_string_untouched() {
+        // --fix 不得改写串内内容：源码含反斜杠转义引号，若被误判为字符串结束，
+        // 后半全角括号会被当代码位替换。断言只改代码位全角分号、串内逐字节原样。
+        // 补 escaped_quote_inside_string 只测检测、未测改写（破坏性更强）的缺口。
+        let source = r#"让 文本 = "含\"号（全角）"；"#;
+        let (fixed, count) = fix_fullwidth_punct(source);
+        assert_eq!(count, 1, "只有代码位全角分号应被替换：{fixed}");
+        assert!(fixed.contains("号（全角）"), "串内全角括号须原样：{fixed}");
+        assert_eq!(fixed, r#"让 文本 = "含\"号（全角）";"#);
+    }
 }
