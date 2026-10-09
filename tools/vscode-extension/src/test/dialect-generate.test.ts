@@ -8,6 +8,7 @@ import {
     extractDialectCode,
     buildFixFeedback,
     runDialectGenerate,
+    findEnglishKeywordTokens,
     DialectValidation
 } from '../ai/dialect-generate';
 import { ChatMessage } from '../ai/types';
@@ -141,4 +142,25 @@ test('runDialectGenerate：已取消时不进入修正循环', async () => {
     assert.equal(结果.ok, false);
     assert.equal(结果.rounds, 0);
     assert.equal(调用记录.length, 1); // 只有首轮生成
+});
+
+// ============================================================
+// findEnglishKeywordTokens：方言纯度闸
+// ============================================================
+
+test('findEnglishKeywordTokens：命中代码区的英文关键字/宏', () => {
+    const 保留 = new Set(['fn', 'let', 'println', 'mut']);
+    const hits = findEnglishKeywordTokens('fn main() { let x = 1; println!("hi"); }', 保留);
+    assert.deepEqual(hits, ['fn', 'let', 'println']);
+    assert.ok(!hits.includes('main'), '非保留词不应被拦');
+});
+
+test('findEnglishKeywordTokens：屏蔽字符串与注释中的英文', () => {
+    const 保留 = new Set(['fn', 'println']);
+    const code = '// fn 在注释里\nlet s = "println fn 在字符串里";\n';
+    assert.deepEqual(findEnglishKeywordTokens(code, 保留), [], '字符串/注释内的英文词不应被误判');
+});
+
+test('findEnglishKeywordTokens：保留集为空时直接返回空', () => {
+    assert.deepEqual(findEnglishKeywordTokens('fn main() {}', new Set()), []);
 });

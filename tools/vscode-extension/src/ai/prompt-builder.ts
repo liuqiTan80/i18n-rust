@@ -281,3 +281,33 @@ export function customPromptLacksPlaceholder(custom: string): boolean {
     const c = custom.trim();
     return c.length > 0 && !c.includes(DIALECT_TABLES_PLACEHOLDER);
 }
+
+/**
+ * 从语言包数据派生「方言纯度守卫」（供 aiGenerate 闭环使用）：
+ * - reservedEnglish：在方言代码里出现即视为不合格的英文词（关键字 + 宏；
+ *   跳过类型名如 i32/String 等，以减少误报）；
+ * - englishToDialect：英文词 → 方言词 的反查表，回喂时直接告诉模型该用哪个方言词。
+ */
+export function buildDialectGuard(data: LanguagePackData): {
+    reservedEnglish: Set<string>;
+    englishToDialect: Map<string, string>;
+} {
+    const reservedEnglish = new Set<string>();
+    const englishToDialect = new Map<string, string>();
+    for (const [tableName, entries] of data.keywordTables) {
+        if (tableName === '类型') {
+            continue; // 只守关键字与宏，跳过基本类型名以减少误报
+        }
+        for (const [dialect, english] of entries) {
+            const en = english.endsWith('!') ? english.slice(0, -1) : english;
+            if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(en)) {
+                continue;
+            }
+            reservedEnglish.add(en);
+            if (!englishToDialect.has(en)) {
+                englishToDialect.set(en, dialect);
+            }
+        }
+    }
+    return { reservedEnglish, englishToDialect };
+}

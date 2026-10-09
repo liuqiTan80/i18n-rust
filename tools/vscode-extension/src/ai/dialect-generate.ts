@@ -118,3 +118,65 @@ export async function runDialectGenerate(deps: GenerateDeps): Promise<GenerateRe
 
     return { code, ok: validation.ok, rounds };
 }
+
+/**
+ * 屏蔽代码中的行注释 / 块注释 / 字符串字面量（用空格替掉），
+ * 仅用于后续关键字扫描——避免字符串/注释里的英文被误判为“该用方言却用了英文”。
+ * 字符比较均用 charCode，避开 \n / \\ 在源码里书写的转义陷阱。
+ */
+function maskStringsAndComments(code: string): string {
+    let out = '';
+    let i = 0;
+    const n = code.length;
+    while (i < n) {
+        const c = code.charCodeAt(i);
+        const c2 = i + 1 < n ? code.charCodeAt(i + 1) : -1;
+        if (c === 47 && c2 === 47) { // // 行注释
+            while (i < n && code.charCodeAt(i) !== 10) { out += ' '; i++; }
+            continue;
+        }
+        if (c === 47 && c2 === 42) { // /* 块注释
+            out += '  ';
+            i += 2;
+            while (i < n && !(code.charCodeAt(i) === 42 && code.charCodeAt(i + 1) === 47)) { out += ' '; i++; }
+            i += 2;
+            out += '  ';
+            continue;
+        }
+        if (c === 34) { // " 字符串
+            out += ' ';
+            i++;
+            while (i < n && code.charCodeAt(i) !== 34) {
+                if (code.charCodeAt(i) === 92) { out += '  '; i += 2; continue; } // \\ 转义
+                out += ' ';
+                i++;
+            }
+            i++;
+            out += ' ';
+            continue;
+        }
+        out += code[i];
+        i++;
+    }
+    return out;
+}
+
+/**
+ * 扫描代码区，找出“本应有方言对应、却仍写成英文”的保留词（关键字/宏）。
+ * reservedEnglish 为空时直接返回空（无语言包时不强行拦截，rzc check 仍作为兜底）。
+ */
+export function findEnglishKeywordTokens(code: string, reservedEnglish: Set<string>): string[] {
+    if (reservedEnglish.size === 0) {
+        return [];
+    }
+    const masked = maskStringsAndComments(code);
+    const re = /[A-Za-z_][A-Za-z0-9_]*/g;
+    const hits = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(masked)) !== null) {
+        if (reservedEnglish.has(m[0])) {
+            hits.add(m[0]);
+        }
+    }
+    return [...hits].sort();
+}

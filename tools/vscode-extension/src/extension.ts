@@ -33,11 +33,13 @@ import {
     currentLanguageName,
     initAISecrets,
     检测AI设置作用域覆盖,
-    自定义提示词缺词表占位符
+    自定义提示词缺词表占位符,
+    findLanguagePackRoot
 } from './ai/config-manager';
 import { AIError, AIConfig, ChatMessage } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
-import { runDialectGenerate, DialectValidation } from './ai/dialect-generate';
+import { runDialectGenerate, DialectValidation, findEnglishKeywordTokens } from './ai/dialect-generate';
+import { loadLanguagePack, buildDialectGuard } from './ai/prompt-builder';
 import { 选择光标诊断 } from './diagnostic-pick';
 import { 全角符号映射, 全角符号检测正则, 扫描词法状态, 扫描词法状态们, 计算插入字符位置们, 应转换全角 } from './fullwidth-convert';
 import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
@@ -793,13 +795,66 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
                 return;
             }
 
+            // 方言纯度守卫：从当前语言包派生「本应有方言对应的英文词」+ 英→方反查表
+            const 包根 = findLanguagePackRoot();
+            const 包数据 = 包根 ? loadLanguagePack(包根, 代码) : null;
+            const 守卫 = 包数据
+                ? buildDialectGuard(包数据)
+                : { reservedEnglish: new Set<string>(), englishToDialect: new Map<string, string>() };
+
+            // 校验落点：rzc check 会向上找 Cargo.toml，临时文件必须落在 rzc 项目树内
+            const 向上有Cargo = (起始: string): boolean => {
+                let dir = path.resolve(起始);
+                for (;;) {
+                    if (fs.existsSync(path.join(dir, 'Cargo.toml'))) {
+                        return true;
+                    }
+                    const 父 = path.dirname(dir);
+                    if (父 === dir) {
+                        return false;
+                    }
+                    dir = 父;
+                }
+            };
+            const 基准候选: string[] = [];
+            if (编辑器 && 编辑器.document.uri.scheme === 'file') {
+                基准候选.push(path.dirname(编辑器.document.uri.fsPath));
+            }
+            for (const 文件夹 of vscode.workspace.workspaceFolders ?? []) {
+                基准候选.push(文件夹.uri.fsPath);
+            }
+            let 校验基准目录: string | undefined;
+            for (const d of 基准候选) {
+                if (向上有Cargo(d)) {
+                    校验基准目录 = d;
+                    break;
+                }
+            }
+            if (!校验基准目录) {
+                vscode.window.showErrorMessage(
+                    'AI 生成校验需在 rzc 项目内进行（当前文件/工作区向上找不到 Cargo.toml）。请在项目里打开方言文件，或先执行 rzc init。'
+                );
+                return;
+            }
+            const 校验根 = 校验基准目录;
+
             // 校验：写入 mkdtemp 安全临时目录（唯一随机名、不跟随已有符号链接）
             // 里的 <code>.<code> 文件，跑 `rzc check`；退出码非零则取 stdout+stderr 回喂
             const 校验 = async (待校验: string): Promise<DialectValidation> => {
                 if (!待校验.trim()) {
                     return { ok: false, report: '未能从模型回复中解析出代码块，请用 ```rust 代码块输出。' };
                 }
-                const 目录 = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-rust-ai-'));
+                // 1) 方言纯度闸：命中本应有方言对应的英文关键字/宏 → 不编译直接判失败并回喂
+                const 命中 = findEnglishKeywordTokens(待校验, 守卫.reservedEnglish);
+                if (命中.length > 0) {
+                    const 清单 = 命中.map(en => `${en} → ${守卫.englishToDialect.get(en) ?? '方言词'}`).join('；');
+                    return {
+                        ok: false,
+                        report: `检测到 ${命中.length} 个英文关键字/宏未使用方言词（它们在语言包中都有方言对应，必须改用方言）：${清单}。请只输出修正后的方言代码，不要输出英文原形。`
+                    };
+                }
+                // 2) 编译/类型/全角等：rzc check（临时文件落在含 Cargo.toml 的项目树内）
+                const 目录 = fs.mkdtempSync(path.join(校验根, '.i18n-rust-ai-'));
                 const 文件 = path.join(目录, `snippet.${代码}`);
                 try {
                     fs.writeFileSync(文件, 待校验, 'utf8');

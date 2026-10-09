@@ -10,7 +10,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { after, test } from 'node:test';
-import { parseToml, loadLanguagePack, buildSystemPrompt, resolveSystemPrompt, customPromptLacksPlaceholder } from '../ai/prompt-builder';
+import { parseToml, loadLanguagePack, buildSystemPrompt, resolveSystemPrompt, customPromptLacksPlaceholder, buildDialectGuard } from '../ai/prompt-builder';
 
 // ============================================================
 // TOML 解析
@@ -185,4 +185,16 @@ test('customPromptLacksPlaceholder：非空且无占位符为 true', () => {
     assert.equal(customPromptLacksPlaceholder('自定义'), true, '非空无占位符→有错配风险');
     assert.equal(customPromptLacksPlaceholder('含 {{dialect_tables}} 的自定义'), false, '含占位符→无风险');
     assert.equal(customPromptLacksPlaceholder(''), false, '空→不适用（不弹提醒）');
+});
+
+test('buildDialectGuard：只收关键字与宏、跳过类型名，并建英→方反查表', () => {
+    const root = 构造语言包(); // fixture：声明(函数=fn)、类型(整数=i32)、宏(打印行=println)
+    const data = loadLanguagePack(root, 'zh');
+    assert.ok(data);
+    const 守卫 = buildDialectGuard(data!);
+    assert.ok(守卫.reservedEnglish.has('fn'), '关键字 fn 应入保留集');
+    assert.ok(守卫.reservedEnglish.has('println'), '宏 println 应入保留集');
+    assert.ok(!守卫.reservedEnglish.has('i32'), '类型名 i32 不应入保留集（避免误报）');
+    assert.equal(守卫.englishToDialect.get('fn'), '函数');
+    assert.equal(守卫.englishToDialect.get('println'), '打印行');
 });
