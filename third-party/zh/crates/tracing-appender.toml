@@ -1,0 +1,10 @@
+["模块路径"]
+"跟踪日志输出器" = "tracing-appender"
+
+["标识符"]
+"跟踪滚动文件" = "RollingFileAppender"
+"跟踪非阻塞句柄" = "NonBlocking"
+"跟踪每日轮转函数" = "daily"
+
+["解释"]
+"跟踪日志输出器" = "tracing-appender 为 tracing 提供滚动文件与非阻塞输出：RollingFileAppender/NonBlocking/daily"

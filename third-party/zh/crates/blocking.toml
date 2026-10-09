@@ -1,0 +1,10 @@
+["模块路径"]
+"异步阻塞桥接" = "blocking"
+
+["标识符"]
+"blocking派生任务" = "spawn"
+"blocking运行带驱动" = "run_with"
+"blocking加入带驱动" = "join_with"
+
+["解释"]
+"异步阻塞桥接" = "blocking 在同步代码里桥接 Future，spawn/run_with/join_with 允许驱动 executor"

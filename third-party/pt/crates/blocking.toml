@@ -1,0 +1,10 @@
+["模块路径"]
+"ponte_bloqueio_assincrono" = "blocking"
+
+["标识符"]
+"iniciar_tarefa_blocking" = "spawn"
+"executar_com_motor_blocking" = "run_with"
+"unir_com_motor_blocking" = "join_with"
+
+["解释"]
+"ponte_bloqueio_assincrono" = "blocking faz ponte para Futures do codigo sincrono, spawn/run_with/join_with controlam executor"

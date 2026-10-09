@@ -1,0 +1,10 @@
+["模块路径"]
+"roaring_बिटमैप_संपीड़न" = "roaring"
+
+["标识符"]
+"roaring_32_बिटमैप" = "RoaringBitmap"
+"roaring_64_बिटमैप" = "RoaringTreemap"
+"roaring_बिटमैप_trait" = "Bitmap"
+
+["解释"]
+"roaring_बिटमैप_संपीड़न" = "roaring संपीडित Roaring Bitmap संरचना, RoaringBitmap/Treemap Bitmap trait लागू करते हैं"

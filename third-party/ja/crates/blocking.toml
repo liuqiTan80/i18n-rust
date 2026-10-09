@@ -1,0 +1,10 @@
+["模块路径"]
+"非同期ブロッキング橋" = "blocking"
+
+["标识符"]
+"blockingタスク生成" = "spawn"
+"blocking駆動付き実行" = "run_with"
+"blocking合流駆動" = "join_with"
+
+["解释"]
+"非同期ブロッキング橋" = "blocking は同期コードから Future を橋渡し、spawn/run_with/join_with で executor 駆動"

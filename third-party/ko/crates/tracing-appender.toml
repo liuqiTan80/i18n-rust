@@ -1,0 +1,10 @@
+["模块路径"]
+"추적_로그_출력" = "tracing-appender"
+
+["标识符"]
+"추적_롤링_파일" = "RollingFileAppender"
+"추적_비차단_핸들" = "NonBlocking"
+"추적_일일_회전" = "daily"
+
+["解释"]
+"추적_로그_출력" = "tracing-appender 는 tracing 에 롤링 파일과 비차단 출력 제공: RollingFileAppender/NonBlocking/daily"

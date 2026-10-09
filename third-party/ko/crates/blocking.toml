@@ -1,0 +1,10 @@
+["模块路径"]
+"비동기_차단_브리지" = "blocking"
+
+["标识符"]
+"blocking_작업_생성" = "spawn"
+"blocking_구동_실행" = "run_with"
+"blocking_합류_구동" = "join_with"
+
+["解释"]
+"비동기_차단_브리지" = "blocking 은 동기 코드에서 Future 를 브리지, spawn/run_with/join_with 로 executor 구동"

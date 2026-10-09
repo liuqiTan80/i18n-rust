@@ -1,0 +1,10 @@
+["模块路径"]
+"enumset_열거_집합" = "enumset"
+
+["标识符"]
+"enumset_집합_타입" = "EnumSet"
+"enumset_생성_매크로" = "enum_set"
+"enumset_타입_파생" = "EnumSetType"
+
+["解释"]
+"enumset_열거_집합" = "enumset 은 비트마스크로 열거 집합을 압축 표현, EnumSetType 파생 후 enum_set! 로 생성"

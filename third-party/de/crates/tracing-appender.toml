@@ -1,0 +1,10 @@
+["模块路径"]
+"Tracing_Ausgabe" = "tracing-appender"
+
+["标识符"]
+"Tracing_Rolling_File" = "RollingFileAppender"
+"Tracing_Nichtblockierend" = "NonBlocking"
+"Taegliche_Rotation_Tracing" = "daily"
+
+["解释"]
+"Tracing_Ausgabe" = "tracing-appender liefert Rollende Dateien und Nichtblockierend Ausgabe: RollingFileAppender/NonBlocking/daily"

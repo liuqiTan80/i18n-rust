@@ -1,0 +1,10 @@
+["模块路径"]
+"ضغط_الخريطة_النقطية_roaring" = "roaring"
+
+["标识符"]
+"خريطة_نقطية_32_roaring" = "RoaringBitmap"
+"خريطة_نقطية_64_roaring" = "RoaringTreemap"
+"سمة_الخريطة_النقطية_roaring" = "Bitmap"
+
+["解释"]
+"ضغط_الخريطة_النقطية_roaring" = "roaring خرائط نقطية مضغوطة Roaring Bitmap، RoaringBitmap/Treemap يطبِّقان سمة Bitmap"

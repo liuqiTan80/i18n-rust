@@ -1,0 +1,10 @@
+["模块路径"]
+"مجموعة_تعداد_enumset" = "enumset"
+
+["标识符"]
+"نوع_المجموعة_enumset" = "EnumSet"
+"ماكرو_البناء_enumset" = "enum_set"
+"اشتقاق_النوع_enumset" = "EnumSetType"
+
+["解释"]
+"مجموعة_تعداد_enumset" = "enumset يمثل مجموعات التعداد بقناع بتات مضغوط، بعد اشتقاق EnumSetType يستخدم enum_set!"

@@ -1,0 +1,10 @@
+["模块路径"]
+"winnow解析結合子" = "winnow"
+
+["标识符"]
+"winnowパーサtrait" = "Parser"
+"winnowバイト列型" = "BStr"
+"winnow部分入力" = "Partial"
+
+["解释"]
+"winnow解析結合子" = "winnow はゼロコピー パーサ 結合子フレームワーク、Parser trait に BStr/Partial 入力型"

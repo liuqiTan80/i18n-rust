@@ -1,0 +1,10 @@
+["模块路径"]
+"combinateurs_parseur_winnow" = "winnow"
+
+["标识符"]
+"trait_parseur_winnow" = "Parser"
+"type_chaine_octets_winnow" = "BStr"
+"entree_partielle_winnow" = "Partial"
+
+["解释"]
+"combinateurs_parseur_winnow" = "winnow est un framework de combinateurs sans copie, trait Parser avec BStr/Partial"

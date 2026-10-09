@@ -1,0 +1,10 @@
+["模块路径"]
+"جسر_الحجب_غير_متزامن" = "blocking"
+
+["标识符"]
+"إطلاق_مهمة_blocking" = "spawn"
+"تشغيل_مع_محرِّك_blocking" = "run_with"
+"انضمام_مع_محرِّك_blocking" = "join_with"
+
+["解释"]
+"جسر_الحجب_غير_متزامن" = "blocking يجسر Futures من الكود المتزامن، spawn/run_with/join_with يشغّلون المنفِّذ"

@@ -1,0 +1,10 @@
+["模块路径"]
+"сжатие_битовых_масок_roaring" = "roaring"
+
+["标识符"]
+"32_битовая_маска_roaring" = "RoaringBitmap"
+"64_битовая_маска_roaring" = "RoaringTreemap"
+"трет_битовой_маски_roaring" = "Bitmap"
+
+["解释"]
+"сжатие_битовых_масок_roaring" = "roaring реализует сжатые битовые маски Roaring Bitmap, RoaringBitmap/Treemap реализуют Bitmap trait"

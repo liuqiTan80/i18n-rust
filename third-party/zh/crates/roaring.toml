@@ -1,0 +1,10 @@
+["模块路径"]
+"roaring位图压缩" = "roaring"
+
+["标识符"]
+"roaring32位图" = "RoaringBitmap"
+"roaring64位图" = "RoaringTreemap"
+"roaring位图trait" = "Bitmap"
+
+["解释"]
+"roaring位图压缩" = "roaring 是 Roaring Bitmap 位图压缩结构，RoaringBitmap/Treemap 实现 Bitmap trait"

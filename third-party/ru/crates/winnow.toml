@@ -1,0 +1,10 @@
+["模块路径"]
+"комбинаторы_парсеров_winnow" = "winnow"
+
+["标识符"]
+"трет_парсера_winnow" = "Parser"
+"тип_байтовой_строки_winnow" = "BStr"
+"частичный_ввод_winnow" = "Partial"
+
+["解释"]
+"комбинаторы_парсеров_winnow" = "winnow — framework комбинаторов парсеров без копирования, trait Parser с BStr/Partial"

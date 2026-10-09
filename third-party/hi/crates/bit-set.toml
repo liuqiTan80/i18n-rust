@@ -1,0 +1,10 @@
+["模块路径"]
+"bitset_बिट_समुच्चय" = "bit-set"
+
+["标识符"]
+"bitset_समुच्चय_टाइप" = "BitSet"
+"bitset_लंबाई_मार्कर" = "BitSetLen"
+"bitset_मान_भरण" = "from_elem"
+
+["解释"]
+"bitset_बिट_समुच्चय" = "bit-set बिट-वार BitSet समुच्चय देता है, typenum लंबाई मार्कर व from_elem कंस्ट्रक्टर"

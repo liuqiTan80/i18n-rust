@@ -1,0 +1,10 @@
+["模块路径"]
+"ensemble_bits_bitset" = "bit-set"
+
+["标识符"]
+"type_ensemble_bitset" = "BitSet"
+"marqueur_longueur_bitset" = "BitSetLen"
+"remplir_par_valeur_bitset" = "from_elem"
+
+["解释"]
+"ensemble_bits_bitset" = "bit-set fournit BitSet par bits, avec marqueur de longueur typenum et constructeur from_elem"

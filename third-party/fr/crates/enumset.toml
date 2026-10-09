@@ -1,0 +1,10 @@
+["模块路径"]
+"ensemble_enum_enumset" = "enumset"
+
+["标识符"]
+"type_ensemble_enumset" = "EnumSet"
+"macro_construction_enumset" = "enum_set"
+"derivation_type_enumset" = "EnumSetType"
+
+["解释"]
+"ensemble_enum_enumset" = "enumset represente compactement ensembles enum par masque de bits, apres derive EnumSetType utilise enum_set!"

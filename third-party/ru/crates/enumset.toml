@@ -1,0 +1,10 @@
+["模块路径"]
+"множество_перечислений_enumset" = "enumset"
+
+["标识符"]
+"тип_множества_enumset" = "EnumSet"
+"макрос_создания_enumset" = "enum_set"
+"вывод_типа_enumset" = "EnumSetType"
+
+["解释"]
+"множество_перечислений_enumset" = "enumset компактно хранит множества перечислений битовой маской, derive EnumSetType + enum_set!"

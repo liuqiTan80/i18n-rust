@@ -1,0 +1,10 @@
+["模块路径"]
+"bitsetビット集合" = "bit-set"
+
+["标识符"]
+"bitset集合型" = "BitSet"
+"bitset長さマーカー" = "BitSetLen"
+"bitset値で初期化" = "from_elem"
+
+["解释"]
+"bitsetビット集合" = "bit-set はビット単位 BitSet 集合を提供し、typenum 長さマーカーと from_elem 構築で連携"

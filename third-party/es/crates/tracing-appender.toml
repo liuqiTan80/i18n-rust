@@ -1,0 +1,10 @@
+["模块路径"]
+"salida_trazas" = "tracing-appender"
+
+["标识符"]
+"archivo_rotativo_trazas" = "RollingFileAppender"
+"sin_bloqueo_trazas" = "NonBlocking"
+"rotacion_diaria_trazas" = "daily"
+
+["解释"]
+"salida_trazas" = "tracing-appender proporciona archivos rotativos y salida sin bloqueo: RollingFileAppender/NonBlocking/daily"

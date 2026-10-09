@@ -1,0 +1,10 @@
+["模块路径"]
+"winnow_파서_조합자" = "winnow"
+
+["标识符"]
+"winnow_파서_trait" = "Parser"
+"winnow_바이트열_타입" = "BStr"
+"winnow_부분_입력" = "Partial"
+
+["解释"]
+"winnow_파서_조합자" = "winnow 은 zero-copy 파서 조합자 프레임워크, Parser trait 와 BStr/Partial 입력 타입"

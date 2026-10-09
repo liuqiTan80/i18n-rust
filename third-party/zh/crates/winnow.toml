@@ -1,0 +1,10 @@
+["模块路径"]
+"winnow解析组合子" = "winnow"
+
+["标识符"]
+"winnow解析器trait" = "Parser"
+"winnow字节串类型" = "BStr"
+"winnow部分输入" = "Partial"
+
+["解释"]
+"winnow解析组合子" = "winnow 是零拷贝解析器组合子框架，Parser trait 搭配 BStr/Partial 输入类型"

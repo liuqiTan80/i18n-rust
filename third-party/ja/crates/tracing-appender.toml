@@ -1,0 +1,10 @@
+["模块路径"]
+"トレースログ出力" = "tracing-appender"
+
+["标识符"]
+"トレースローリングファイル" = "RollingFileAppender"
+"トレース非ブロッキング" = "NonBlocking"
+"トレース日次ローテーション" = "daily"
+
+["解释"]
+"トレースログ出力" = "tracing-appender は tracing にローリングファイルと非ブロッキング出力を提供: RollingFileAppender/NonBlocking/daily"

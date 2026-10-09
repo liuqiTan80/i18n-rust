@@ -1,0 +1,10 @@
+["模块路径"]
+"Async_Blockierung_Bruecke" = "blocking"
+
+["标识符"]
+"blocking_Task_Erzeugen" = "spawn"
+"blocking_Mit_Treiber_Laufen" = "run_with"
+"blocking_Beitritt_Mit_Treiber" = "join_with"
+
+["解释"]
+"Async_Blockierung_Bruecke" = "blocking ueberbrueckt Futures aus synchronem Code, spawn/run_with/join_with treiben Executor"

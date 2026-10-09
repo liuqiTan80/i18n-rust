@@ -1,0 +1,10 @@
+["模块路径"]
+"pont_blocage_asynchrone" = "blocking"
+
+["标识符"]
+"lancer_tache_blocking" = "spawn"
+"lancer_avec_moteur_blocking" = "run_with"
+"rejoindre_avec_moteur_blocking" = "join_with"
+
+["解释"]
+"pont_blocage_asynchrone" = "blocking fait pont vers Futures depuis code synchrone, spawn/run_with/join_with pilotent executor"

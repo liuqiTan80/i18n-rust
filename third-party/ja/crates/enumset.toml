@@ -1,0 +1,10 @@
+["模块路径"]
+"enumset列挙集合" = "enumset"
+
+["标识符"]
+"enumset集合型" = "EnumSet"
+"enumset構築マクロ" = "enum_set"
+"enumset型導出" = "EnumSetType"
+
+["解释"]
+"enumset列挙集合" = "enumset はビットマスクで列挙集合をコンパクト表現、EnumSetType 導出後 enum_set! で構築"

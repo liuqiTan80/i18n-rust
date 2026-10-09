@@ -1,0 +1,10 @@
+["模块路径"]
+"enumset枚举集合" = "enumset"
+
+["标识符"]
+"enumset集合类型" = "EnumSet"
+"enumset构造宏" = "enum_set"
+"enumset类型派生" = "EnumSetType"
+
+["解释"]
+"enumset枚举集合" = "enumset 用位掩码紧凑表示枚举集合，derive EnumSetType 后可用 enum_set! 构造"

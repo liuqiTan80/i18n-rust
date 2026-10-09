@@ -1,0 +1,10 @@
+["模块路径"]
+"enumset_एनम_समुच्चय" = "enumset"
+
+["标识符"]
+"enumset_समुच्चय_टाइप" = "EnumSet"
+"enumset_रचना_मैक्रो" = "enum_set"
+"enumset_टाइप_डिवाइव" = "EnumSetType"
+
+["解释"]
+"enumset_एनम_समुच्चय" = "enumset बिटमास्क से enum समुच्चय संपीडित, EnumSetType derive बाद enum_set! से बनाएं"

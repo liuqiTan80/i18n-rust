@@ -1,0 +1,10 @@
+["模块路径"]
+"roaringビットマップ圧縮" = "roaring"
+
+["标识符"]
+"roaring32ビットマップ" = "RoaringBitmap"
+"roaring64ビットマップ" = "RoaringTreemap"
+"roaringビットマップtrait" = "Bitmap"
+
+["解释"]
+"roaringビットマップ圧縮" = "roaring は Roaring Bitmap 圧縮構造、RoaringBitmap/RoaringTreemap が Bitmap trait を実装"

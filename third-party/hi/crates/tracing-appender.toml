@@ -1,0 +1,10 @@
+["模块路径"]
+"ट्रेसिंग_आउटपुट" = "tracing-appender"
+
+["标识符"]
+"ट्रेसिंग_रोलिंग_फ़ाइल" = "RollingFileAppender"
+"ट्रेसिंग_गैर_अवरोधक" = "NonBlocking"
+"ट्रेसिंग_दैनिक_रोटेशन" = "daily"
+
+["解释"]
+"ट्रेसिंग_आउटपुट" = "tracing-appender रोलिंग फ़ाइल व गैर-अवरोध आउटपुट देता है: RollingFileAppender/NonBlocking/daily"

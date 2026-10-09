@@ -1,0 +1,10 @@
+["模块路径"]
+"enumset_Aufzaehlung_Menge" = "enumset"
+
+["标识符"]
+"enumset_Menge_Typ" = "EnumSet"
+"enumset_Erzeugungs_Makro" = "enum_set"
+"enumset_Typ_Ableitung" = "EnumSetType"
+
+["解释"]
+"enumset_Aufzaehlung_Menge" = "enumset kompakt als Bitmaske fuer Enums, nach EnumSetType Ableitung enum_set! Makro"

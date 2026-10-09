@@ -1,0 +1,10 @@
+["模块路径"]
+"bitset_비트_집합" = "bit-set"
+
+["标识符"]
+"bitset_집합_타입" = "BitSet"
+"bitset_길이_마커" = "BitSetLen"
+"bitset_값으로_채우기" = "from_elem"
+
+["解释"]
+"bitset_비트_집합" = "bit-set 은 비트 단위 BitSet 집합을 제공하며 typenum 길이 마커와 from_elem 생성자 협동"

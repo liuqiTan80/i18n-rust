@@ -1,0 +1,10 @@
+["模块路径"]
+"compressao_bitmap_roaring" = "roaring"
+
+["标识符"]
+"bitmap_32_roaring" = "RoaringBitmap"
+"bitmap_64_roaring" = "RoaringTreemap"
+"trait_bitmap_roaring" = "Bitmap"
+
+["解释"]
+"compressao_bitmap_roaring" = "roaring sao mascaras comprimidas Roaring Bitmap, RoaringBitmap/Treemap implementam trait Bitmap"

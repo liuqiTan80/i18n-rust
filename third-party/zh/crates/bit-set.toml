@@ -1,0 +1,10 @@
+["模块路径"]
+"bitset位集合" = "bit-set"
+
+["标识符"]
+"bitset集合类型" = "BitSet"
+"bitset长度标记" = "BitSetLen"
+"bitset按值填充" = "from_elem"
+
+["解释"]
+"bitset位集合" = "bit-set 提供按位存储的 BitSet 集合，与 typenum 长度标记和 from_elem 构造协同"

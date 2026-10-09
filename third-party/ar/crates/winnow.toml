@@ -1,0 +1,10 @@
+["模块路径"]
+"مُركِّبات_المحلل_winnow" = "winnow"
+
+["标识符"]
+"سمة_المحلل_winnow" = "Parser"
+"نوع_سلسلة_البايت_winnow" = "BStr"
+"مدخل_جزئي_winnow" = "Partial"
+
+["解释"]
+"مُركِّبات_المحلل_winnow" = "winnow إطار مُركِّبات محلل بدون نسخ، سمة Parser مع BStr/Partial"

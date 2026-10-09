@@ -1,0 +1,10 @@
+["模块路径"]
+"bitset_Bitmenge" = "bit-set"
+
+["标识符"]
+"bitset_Menge_Typ" = "BitSet"
+"bitset_Laengen_Marker" = "BitSetLen"
+"bitset_Auffuellen_Mit" = "from_elem"
+
+["解释"]
+"bitset_Bitmenge" = "bit-set bietet bitweise BitSet Menge, mit typenum Laengen-Marker und from_elem Konstruktor"

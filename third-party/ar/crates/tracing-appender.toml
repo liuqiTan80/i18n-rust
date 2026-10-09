@@ -1,0 +1,10 @@
+["模块路径"]
+"إخراج_التتبع" = "tracing-appender"
+
+["标识符"]
+"ملف_دوراني_للتتبع" = "RollingFileAppender"
+"بدون_حجب_للتتبع" = "NonBlocking"
+"تدوير_يومي_للتتبع" = "daily"
+
+["解释"]
+"إخراج_التتبع" = "tracing-appender يوفر ملفات دوّارة وإخراج بدون حجب: RollingFileAppender/NonBlocking/daily"

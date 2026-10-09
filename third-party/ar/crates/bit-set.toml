@@ -1,0 +1,10 @@
+["模块路径"]
+"مجموعة_بتات_bitset" = "bit-set"
+
+["标识符"]
+"نوع_المجموعة_bitset" = "BitSet"
+"معلِّم_الطول_bitset" = "BitSetLen"
+"تعبئة_بالقيمة_bitset" = "from_elem"
+
+["解释"]
+"مجموعة_بتات_bitset" = "bit-set يوفر BitSet بالبتات، مع معلِّم طول typenum وبانِي from_elem"

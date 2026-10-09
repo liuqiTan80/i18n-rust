@@ -1,0 +1,10 @@
+["模块路径"]
+"roaring_비트맵_압축" = "roaring"
+
+["标识符"]
+"roaring_32_비트맵" = "RoaringBitmap"
+"roaring_64_비트맵" = "RoaringTreemap"
+"roaring_비트맵_trait" = "Bitmap"
+
+["解释"]
+"roaring_비트맵_압축" = "roaring 은 Roaring Bitmap 압축 구조, RoaringBitmap/Treemap 이 Bitmap trait 구현"

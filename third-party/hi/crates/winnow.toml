@@ -1,0 +1,10 @@
+["模块路径"]
+"winnow_पार्सर_संयोजक" = "winnow"
+
+["标识符"]
+"winnow_पार्सर_trait" = "Parser"
+"winnow_बाइट_स्ट्रिंग_टाइप" = "BStr"
+"winnow_आंशिक_इनपुट" = "Partial"
+
+["解释"]
+"winnow_पार्सर_संयोजक" = "winnow zero-copy parser संयोजक फ्रेमवर्क है, Parser trait BStr/Partial के साथ"

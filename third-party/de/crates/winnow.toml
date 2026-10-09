@@ -1,0 +1,10 @@
+["模块路径"]
+"winnow_Parser_Kombinatoren" = "winnow"
+
+["标识符"]
+"winnow_Parser_Trait" = "Parser"
+"winnow_Byte_String_Typ" = "BStr"
+"winnow_Teilweise_Eingabe" = "Partial"
+
+["解释"]
+"winnow_Parser_Kombinatoren" = "winnow ist ein Zero-Copy Parser-Kombinator Framework, Parser Trait mit BStr/Partial"

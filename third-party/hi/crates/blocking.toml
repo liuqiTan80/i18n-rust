@@ -1,0 +1,10 @@
+["模块路径"]
+"async_अवरोध_सेतु" = "blocking"
+
+["标识符"]
+"blocking_कार्य_उत्पत्ति" = "spawn"
+"blocking_सहि_ड्राइवर_चलाना" = "run_with"
+"blocking_ड्राइवर_सह_जॉइन" = "join_with"
+
+["解释"]
+"async_अवरोध_सेतु" = "blocking sync कोड से Future bridge देता है, spawn/run_with/join_with executor चलाते हैं"
