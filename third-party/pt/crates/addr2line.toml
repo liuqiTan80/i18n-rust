@@ -1,0 +1,10 @@
+["模块路径"]
+"addr2line_endereco_linha" = "addr2line"
+
+["标识符"]
+"addr2line_contexto" = "Context"
+"addr2line_carregador" = "Loader"
+"addr2line_local" = "Location"
+
+["解释"]
+"addr2line_endereco_linha" = "addr2line busca info de depuracao por endereco: Context/Loader/Location dao arquivo, linha e funcao"

@@ -1,0 +1,10 @@
+["模块路径"]
+"enummap枚举映射" = "enum-map"
+
+["标识符"]
+"enummap映射类型" = "EnumMap"
+"enummap构造宏" = "enum_map!"
+"enummap枚举标记" = "Enum"
+
+["解释"]
+"enummap枚举映射" = "enum-map 用数组实现枚举到值的映射，提供 EnumMap/enum_map!/Enum"

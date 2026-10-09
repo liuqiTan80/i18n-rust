@@ -1,0 +1,10 @@
+["模块路径"]
+"hash_twox" = "twox-hash"
+
+["标识符"]
+"twox_hash32" = "XxHash32"
+"twox_hash64" = "XxHash64"
+"twox_hash3_64" = "XxHash3_64"
+
+["解释"]
+"hash_twox" = "twox-hash implementa xxHash: hashes rapidos no criptograficos XxHash32/XxHash64/XxHash3_64"

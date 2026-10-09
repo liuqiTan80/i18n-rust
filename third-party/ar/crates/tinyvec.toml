@@ -1,0 +1,10 @@
+["模块路径"]
+"متجه_صغير_tinyvec" = "tinyvec"
+
+["标识符"]
+"متجه_tinyvec" = "TinyVec"
+"متجه_مصفوفة_tinyvec" = "ArrayVec"
+"متجه_شريحة_tinyvec" = "SliceVec"
+
+["解释"]
+"متجه_صغير_tinyvec" = "tinyvec يوفر أنواع متجه بلا unsafe: TinyVec/ArrayVec/SliceVec تنتقل من المكدس إلى الكومة"

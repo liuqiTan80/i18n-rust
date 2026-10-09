@@ -1,0 +1,10 @@
+["模块路径"]
+"tinyvec_작은_벡터" = "tinyvec"
+
+["标识符"]
+"tinyvec_벡터_타입" = "TinyVec"
+"tinyvec_배열_벡터" = "ArrayVec"
+"tinyvec_슬라이스_벡터" = "SliceVec"
+
+["解释"]
+"tinyvec_작은_벡터" = "tinyvec 은 unsafe 없는 벡터 타입, TinyVec/ArrayVec/SliceVec 인라인과 힙 전환"

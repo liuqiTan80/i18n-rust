@@ -1,0 +1,10 @@
+["模块路径"]
+"vetor_pequeno_tinyvec" = "tinyvec"
+
+["标识符"]
+"vetor_tinyvec" = "TinyVec"
+"vetor_array_tinyvec" = "ArrayVec"
+"vetor_fatia_tinyvec" = "SliceVec"
+
+["解释"]
+"vetor_pequeno_tinyvec" = "tinyvec oferece tipos vetor sem unsafe: TinyVec/ArrayVec/SliceVec passam da pilha para o heap"

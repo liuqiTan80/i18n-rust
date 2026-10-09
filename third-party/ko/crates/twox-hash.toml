@@ -1,0 +1,10 @@
+["模块路径"]
+"twox_해시" = "twox-hash"
+
+["标识符"]
+"twox_해시_32" = "XxHash32"
+"twox_해시_64" = "XxHash64"
+"twox_해시_3_64" = "XxHash3_64"
+
+["解释"]
+"twox_해시" = "twox-hash 는 xxHash 구현, XxHash32/XxHash64/XxHash3_64 고속 비암호 해시"

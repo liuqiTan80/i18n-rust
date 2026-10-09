@@ -1,0 +1,10 @@
+["模块路径"]
+"خريطة_تعداد_enummap" = "enum-map"
+
+["标识符"]
+"enummap_خريطة" = "EnumMap"
+"enummap_ماكرو_بناء" = "enum_map!"
+"enummap_سمة_تعداد" = "Enum"
+
+["解释"]
+"خريطة_تعداد_enummap" = "enum-map يبني خريطة تعداد عبر مصفوفة، يوفر EnumMap/enum_map/Enum"

@@ -1,0 +1,10 @@
+["模块路径"]
+"enummap_열거형_맵" = "enum-map"
+
+["标识符"]
+"enummap_맵_타입" = "EnumMap"
+"enummap_생성_매크로" = "enum_map!"
+"enummap_열거형_트레이트" = "Enum"
+
+["解释"]
+"enummap_열거형_맵" = "enum_map 은 배열로 열거형 맵 구현, EnumMap/enum_map/Enum 제공"

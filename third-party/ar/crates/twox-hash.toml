@@ -1,0 +1,10 @@
+["模块路径"]
+"تجزئة_twox" = "twox-hash"
+
+["标识符"]
+"twox_تجزئة_32" = "XxHash32"
+"twox_تجزئة_64" = "XxHash64"
+"twox_تجزئة_3_64" = "XxHash3_64"
+
+["解释"]
+"تجزئة_twox" = "twox-hash يطبّق خوارزمية xxHash: تجزئة سريعة غير تشفيرية XxHash32/XxHash64/XxHash3_64"

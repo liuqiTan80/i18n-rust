@@ -1,0 +1,10 @@
+["模块路径"]
+"addr2line_Adressaufloesung" = "addr2line"
+
+["标识符"]
+"addr2line_Kontext" = "Context"
+"addr2line_Lader" = "Loader"
+"addr2line_Ort" = "Location"
+
+["解释"]
+"addr2line_Adressaufloesung" = "addr2line schlaegt Debuginfos pro Adresse nach: Context/Loader/Location liefern Datei, Zeile, Funktion"

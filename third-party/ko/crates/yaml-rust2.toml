@@ -1,0 +1,10 @@
+["模块路径"]
+"yamlrust2_파서" = "yaml-rust2"
+
+["标识符"]
+"yaml_로더" = "YamlLoader"
+"yaml_노드" = "Yaml"
+"yaml_생성기" = "YamlEmitter"
+
+["解释"]
+"yamlrust2_파서" = "yaml-rust2 는 순수 Rust YAML1.2 구현, YamlLoader/Yaml/YamlEmitter 로 읽고 씀"

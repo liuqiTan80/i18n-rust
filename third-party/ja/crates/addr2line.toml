@@ -1,0 +1,10 @@
+["模块路径"]
+"addr2lineアドレス解決" = "addr2line"
+
+["标识符"]
+"addr2lineコンテキスト" = "Context"
+"addr2lineローダー" = "Loader"
+"addr2line位置情報" = "Location"
+
+["解释"]
+"addr2lineアドレス解決" = "addr2line はアドレスから debug 情報を引く、Context/Loader/Location がファイル・行・関数を返す"

@@ -1,0 +1,10 @@
+["模块路径"]
+"object_Objektdatei" = "object"
+
+["标识符"]
+"object_Architektur" = "Architecture"
+"object_Binaerformat" = "BinaryFormat"
+"object_Sektionsart" = "SectionKind"
+
+["解释"]
+"object_Objektdatei" = "object liest Objektdateien plattformuebergreifend: Architecture/BinaryFormat/SectionKind beschreiben Format"

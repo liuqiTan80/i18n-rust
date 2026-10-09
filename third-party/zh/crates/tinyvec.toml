@@ -1,0 +1,10 @@
+["模块路径"]
+"tinyvec栈上向量" = "tinyvec"
+
+["标识符"]
+"tinyvec向量" = "TinyVec"
+"tinyvec数组向量" = "ArrayVec"
+"tinyvec切片向量" = "SliceVec"
+
+["解释"]
+"tinyvec栈上向量" = "tinyvec 提供无 unsafe 的栈上向量：TinyVec/ArrayVec/SliceVec 支持内联与堆回退"

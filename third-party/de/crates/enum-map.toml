@@ -1,0 +1,10 @@
+["模块路径"]
+"enummap_Enum_Map" = "enum-map"
+
+["标识符"]
+"enummap_EnumMap" = "EnumMap"
+"enummap_Konstruktions_Makro" = "enum_map!"
+"enummap_Enum_Trait" = "Enum"
+
+["解释"]
+"enummap_Enum_Map" = "enum-map bildet Enums per Array ab, stellt EnumMap/enum_map/Enum bereit"

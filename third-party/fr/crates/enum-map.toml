@@ -1,0 +1,10 @@
+["模块路径"]
+"carte_enum_enummap" = "enum-map"
+
+["标识符"]
+"enummap_carte" = "EnumMap"
+"enummap_macro_construction" = "enum_map!"
+"enummap_trait_enum" = "Enum"
+
+["解释"]
+"carte_enum_enummap" = "enum-map associe les enums via tableau, fournit EnumMap/enum_map/Enum"

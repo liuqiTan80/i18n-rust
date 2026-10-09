@@ -1,0 +1,10 @@
+["模块路径"]
+"yamlrust2解析" = "yaml-rust2"
+
+["标识符"]
+"yaml加载器" = "YamlLoader"
+"yaml节点" = "Yaml"
+"yaml输出器" = "YamlEmitter"
+
+["解释"]
+"yamlrust2解析" = "yaml-rust2 是纯 Rust 的 YAML1.2 实现，YamlLoader/Yaml/YamlEmitter 负责读、表示与写出"

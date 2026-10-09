@@ -1,0 +1,10 @@
+["模块路径"]
+"object_객체_파일" = "object"
+
+["标识符"]
+"object_아키텍처" = "Architecture"
+"object_바이너리_형식" = "BinaryFormat"
+"object_구간_종류" = "SectionKind"
+
+["解释"]
+"object_객체_파일" = "object 는 크로스플랫폼 객체 파일 읽기, Architecture/BinaryFormat/SectionKind 로 형식 기술"

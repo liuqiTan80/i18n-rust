@@ -1,0 +1,10 @@
+["模块路径"]
+"yamlrust2パーサ" = "yaml-rust2"
+
+["标识符"]
+"yamlローダー" = "YamlLoader"
+"yamlノード" = "Yaml"
+"yamlエミッタ" = "YamlEmitter"
+
+["解释"]
+"yamlrust2パーサ" = "yaml-rust2 は純 Rust の YAML1.2 実装、YamlLoader/Yaml/YamlEmitter で読み書き"

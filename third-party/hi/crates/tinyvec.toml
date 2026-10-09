@@ -1,0 +1,10 @@
+["模块路径"]
+"tinyvec_छोटा_सदिश" = "tinyvec"
+
+["标识符"]
+"tinyvec_सदिश" = "TinyVec"
+"tinyvec_एरे_सदिश" = "ArrayVec"
+"tinyvec_स्लाइस_सदिश" = "SliceVec"
+
+["解释"]
+"tinyvec_छोटा_सदिश" = "tinyvec unsafe के बिना वेक्टर प्रकार देता है: TinyVec/ArrayVec/SliceVec स्टैक से हीप"

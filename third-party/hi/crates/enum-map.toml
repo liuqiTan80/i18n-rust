@@ -1,0 +1,10 @@
+["模块路径"]
+"enummap_एनम_मानचित्र" = "enum-map"
+
+["标识符"]
+"enummap_मानचित्र" = "EnumMap"
+"enummap_रचना_मैक्रो" = "enum_map!"
+"enummap_एनम_ट्रेट" = "Enum"
+
+["解释"]
+"enummap_एनम_मानचित्र" = "enum-map array से enum मानचित्र बनाता है, EnumMap/enum_map/Enum देता है"

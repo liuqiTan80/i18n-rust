@@ -1,0 +1,10 @@
+["模块路径"]
+"addr2line_주소_해석" = "addr2line"
+
+["标识符"]
+"addr2line_컨텍스트" = "Context"
+"addr2line_로더" = "Loader"
+"addr2line_위치" = "Location"
+
+["解释"]
+"addr2line_주소_해석" = "addr2line 은 주소로 디버그 정보 조회, Context/Loader/Location 이 파일·행·함수 반환"

@@ -1,0 +1,10 @@
+["模块路径"]
+"yamlrust2_पार्सर" = "yaml-rust2"
+
+["标识符"]
+"yaml_लोडर" = "YamlLoader"
+"yaml_नोड" = "Yaml"
+"yaml_उत्सर्जक" = "YamlEmitter"
+
+["解释"]
+"yamlrust2_पार्सर" = "yaml-rust2 शुद्ध Rust में YAML1.2, YamlLoader/Yaml/YamlEmitter पढ़ते और लिखते हैं"

@@ -1,0 +1,10 @@
+["模块路径"]
+"parser_yaml_rust2" = "yaml-rust2"
+
+["标识符"]
+"yaml_carregador" = "YamlLoader"
+"valor_yaml" = "Yaml"
+"emissor_yaml" = "YamlEmitter"
+
+["解释"]
+"parser_yaml_rust2" = "yaml-rust2 é YAML1.2 em Rust puro, YamlLoader/Yaml/YamlEmitter leem e escrevem"

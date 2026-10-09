@@ -1,0 +1,10 @@
+["模块路径"]
+"object_ऑब्जेक्ट_फ़ाइल" = "object"
+
+["标识符"]
+"object_आर्किटेक्चर" = "Architecture"
+"object_बाइनरी_प्रारूप" = "BinaryFormat"
+"object_सेक्शन_प्रकार" = "SectionKind"
+
+["解释"]
+"object_ऑब्जेक्ट_फ़ाइल" = "object प्लेटफ़ॉर्म-पार ऑब्जेक्ट फ़ाइल पढ़ता है: Architecture/BinaryFormat/SectionKind प्रारूप बताते हैं"

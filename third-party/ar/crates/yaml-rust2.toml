@@ -1,0 +1,10 @@
+["模块路径"]
+"محلل_yaml_rust2" = "yaml-rust2"
+
+["标识符"]
+"yaml_محمِّل" = "YamlLoader"
+"عقدة_yaml" = "Yaml"
+"مرسل_yaml" = "YamlEmitter"
+
+["解释"]
+"محلل_yaml_rust2" = "yaml-rust2 تطبيق YAML1.2 بلغة Rust نقية، YamlLoader/Yaml/YamlEmitter تقرأ وتكتب"

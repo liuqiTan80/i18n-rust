@@ -1,0 +1,10 @@
+["模块路径"]
+"arquivo_objeto_object" = "object"
+
+["标识符"]
+"object_arquitetura" = "Architecture"
+"object_formato_binario" = "BinaryFormat"
+"object_tipo_secao" = "SectionKind"
+
+["解释"]
+"arquivo_objeto_object" = "object le arquivos-objeto multiplataforma: Architecture/BinaryFormat/SectionKind descrevem o formato"

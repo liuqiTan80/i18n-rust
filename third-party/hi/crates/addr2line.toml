@@ -1,0 +1,10 @@
+["模块路径"]
+"addr2line_पता_समाधान" = "addr2line"
+
+["标识符"]
+"addr2line_संदर्भ" = "Context"
+"addr2line_लोडर" = "Loader"
+"addr2line_स्थान" = "Location"
+
+["解释"]
+"addr2line_पता_समाधान" = "addr2line पते से डीबग जानकारी ढूंढता है: Context/Loader/Location फ़ाइल, पंक्ति, फलन देते हैं"

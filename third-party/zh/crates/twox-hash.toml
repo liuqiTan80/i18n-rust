@@ -1,0 +1,10 @@
+["模块路径"]
+"twox哈希算法" = "twox-hash"
+
+["标识符"]
+"twox哈希32" = "XxHash32"
+"twox哈希64" = "XxHash64"
+"twox哈希3_64" = "XxHash3_64"
+
+["解释"]
+"twox哈希算法" = "twox-hash 实现 xxHash 算法，提供 XxHash32/XxHash64/XxHash3_64 高速非加密哈希"

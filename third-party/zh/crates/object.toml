@@ -1,0 +1,10 @@
+["模块路径"]
+"object目标文件" = "object"
+
+["标识符"]
+"object架构" = "Architecture"
+"object二进制格式" = "BinaryFormat"
+"object段类型" = "SectionKind"
+
+["解释"]
+"object目标文件" = "object 跨平台读写目标文件：Architecture/BinaryFormat/SectionKind 描述架构、格式与段类型"

@@ -1,0 +1,10 @@
+["模块路径"]
+"отображение_энума_enummap" = "enum-map"
+
+["标识符"]
+"тип_отображения_enummap" = "EnumMap"
+"макрос_создания_enummap" = "enum_map!"
+"трейт_энум_enummap" = "Enum"
+
+["解释"]
+"отображение_энума_enummap" = "enum-map строит отображение enum по массиву, даёт EnumMap/enum_map/Enum"

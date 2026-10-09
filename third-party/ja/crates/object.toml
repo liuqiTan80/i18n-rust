@@ -1,0 +1,10 @@
+["模块路径"]
+"objectオブジェクトファイル" = "object"
+
+["标识符"]
+"objectアーキテクチャ" = "Architecture"
+"objectバイナリ形式" = "BinaryFormat"
+"objectセクション種別" = "SectionKind"
+
+["解释"]
+"objectオブジェクトファイル" = "object はクロスプラットフォームな obj ファイル読取、Architecture/BinaryFormat/SectionKind で形式を記述"

@@ -1,0 +1,10 @@
+["模块路径"]
+"адрес_в_строку_addr2line" = "addr2line"
+
+["标识符"]
+"контекст_addr2line" = "Context"
+"загрузчик_addr2line" = "Loader"
+"локация_addr2line" = "Location"
+
+["解释"]
+"адрес_в_строку_addr2line" = "addr2line ищет отладочные данные по адресу: Context/Loader/Location дают файл, строку и функцию"

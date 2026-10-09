@@ -1,0 +1,10 @@
+["模块路径"]
+"крохотный_вектор_tinyvec" = "tinyvec"
+
+["标识符"]
+"вектор_tinyvec" = "TinyVec"
+"массив_вектор_tinyvec" = "ArrayVec"
+"срез_вектор_tinyvec" = "SliceVec"
+
+["解释"]
+"крохотный_вектор_tinyvec" = "tinyvec даёт векторы без unsafe: TinyVec/ArrayVec/SliceVec растут со стека в кучу"

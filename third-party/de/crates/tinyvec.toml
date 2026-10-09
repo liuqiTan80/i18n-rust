@@ -1,0 +1,10 @@
+["模块路径"]
+"tinyvec_Kleiner_Vektor" = "tinyvec"
+
+["标识符"]
+"tinyvec_Vektor" = "TinyVec"
+"tinyvec_Array_Vektor" = "ArrayVec"
+"tinyvec_Slice_Vektor" = "SliceVec"
+
+["解释"]
+"tinyvec_Kleiner_Vektor" = "tinyvec liefert Vektor-Typen ohne unsafe: TinyVec/ArrayVec/SliceVec wechseln von Stack zu Heap"

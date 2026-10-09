@@ -1,0 +1,10 @@
+["模块路径"]
+"enummap列挙写像" = "enum-map"
+
+["标识符"]
+"enummapマップ型" = "EnumMap"
+"enummap構築マクロ" = "enum_map!"
+"enummap列挙トレート" = "Enum"
+
+["解释"]
+"enummap列挙写像" = "enum-map は配列で列挙値のマップを実現、EnumMap/enum_map/Enum を提供"

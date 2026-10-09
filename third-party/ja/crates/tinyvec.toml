@@ -1,0 +1,10 @@
+["模块路径"]
+"tinyvec小さいベクトル" = "tinyvec"
+
+["标识符"]
+"tinyvecベクトル型" = "TinyVec"
+"tinyvec配列ベクトル" = "ArrayVec"
+"tinyvecスライスベクトル" = "SliceVec"
+
+["解释"]
+"tinyvec小さいベクトル" = "tinyvec は unsafe なしの vec 系型、TinyVec/ArrayVec/SliceVec がインラインからヒープへ"

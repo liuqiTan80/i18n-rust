@@ -1,0 +1,10 @@
+["模块路径"]
+"addr2line_adresse_ligne" = "addr2line"
+
+["标识符"]
+"addr2line_contexte" = "Context"
+"addr2line_chargeur" = "Loader"
+"addr2line_emplacement" = "Location"
+
+["解释"]
+"addr2line_adresse_ligne" = "addr2line recherche les infos de debug par adresse: Context/Loader/Location donnent fichier, ligne, fonction"

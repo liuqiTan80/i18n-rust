@@ -1,0 +1,10 @@
+["模块路径"]
+"addr2line地址定位" = "addr2line"
+
+["标识符"]
+"addr2line上下文" = "Context"
+"addr2line加载器" = "Loader"
+"addr2line位置" = "Location"
+
+["解释"]
+"addr2line地址定位" = "addr2line 由地址查调试信息：Context/Loader/Location 返回文件名、行号与函数"

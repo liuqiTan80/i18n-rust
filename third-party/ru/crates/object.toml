@@ -1,0 +1,10 @@
+["模块路径"]
+"объектный_файл_object" = "object"
+
+["标识符"]
+"архитектура_object" = "Architecture"
+"format_объекта_object" = "BinaryFormat"
+"вид_секции_object" = "SectionKind"
+
+["解释"]
+"объектный_файл_object" = "object читает объектныe файлы кроссплатформенно: Architecture/BinaryFormat/SectionKind описывают формат"

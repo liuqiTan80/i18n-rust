@@ -1,0 +1,10 @@
+["模块路径"]
+"vecteur_petit_tinyvec" = "tinyvec"
+
+["标识符"]
+"vecteur_tinyvec" = "TinyVec"
+"vecteur_tableau_tinyvec" = "ArrayVec"
+"vecteur_tranche_tinyvec" = "SliceVec"
+
+["解释"]
+"vecteur_petit_tinyvec" = "tinyvec fournit des types vecteur sans unsafe: TinyVec/ArrayVec/SliceVec passent de la pile au tas"

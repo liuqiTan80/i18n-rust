@@ -1,0 +1,10 @@
+["模块路径"]
+"addr2line_عنوان_سطر" = "addr2line"
+
+["标识符"]
+"addr2line_سياق" = "Context"
+"addr2line_محمِّل" = "Loader"
+"addr2line_موقع" = "Location"
+
+["解释"]
+"addr2line_عنوان_سطر" = "addr2line يبحث عن معلومات التنقيح حسب العنوان: Context/Loader/Location تعطي الملف والسطر والدالة"

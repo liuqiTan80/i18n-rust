@@ -1,0 +1,10 @@
+["模块路径"]
+"ملف_كائن_object" = "object"
+
+["标识符"]
+"object_معمارية" = "Architecture"
+"object_تنسيق_ثنائي" = "BinaryFormat"
+"object_نوع_مقطع" = "SectionKind"
+
+["解释"]
+"ملف_كائن_object" = "object يقرأ ملفات الكائن عبر المنصات: Architecture/BinaryFormat/SectionKind تصف التنسيق"
