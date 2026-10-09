@@ -55,6 +55,8 @@ function 构造语言包(): string {
         ''
     ].join('\n'), 'utf8');
     fs.writeFileSync(path.join(langDir, 'stdlib.toml'), [
+        '["模块路径"]',
+        '"标准库" = "std"',
         '["标识符"]',
         '"字符串" = "String"',
         ''
@@ -82,6 +84,7 @@ test('loadLanguagePack：按代码目录读取，显示名来自 lang_info', () 
     assert.equal(data.languageName, '中文');
     assert.equal(data.keywordTables.get('声明')?.get('函数'), 'fn');
     assert.equal(data.stdlibIdentifiers.get('字符串'), 'String');
+    assert.equal(data.stdlibModules.get('标准库'), 'std');
 });
 
 test('loadLanguagePack：目录不存在返回 null', () => {
@@ -101,4 +104,38 @@ test('buildSystemPrompt：真实映射进入提示词（回归：不再静默回
 test('buildSystemPrompt：语言包缺失回退英文', () => {
     const prompt = buildSystemPrompt('ru', undefined);
     assert.ok(prompt.includes('Rust programming teaching assistant'));
+});
+
+test('buildSystemPrompt：标准库模块路径进入提示词', () => {
+    const root = 构造语言包();
+    const prompt = buildSystemPrompt('zh', root);
+    assert.ok(prompt.includes('【标准库模块路径映射'), '应含模块路径小节');
+    assert.ok(prompt.includes('- 标准库 = std'), '标准库路径映射应进入提示词');
+});
+
+test('buildSystemPrompt：标识符不再被截断为 20 条（回归）', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-rust-test-'));
+    已建临时根目录.push(root);
+    const langDir = path.join(root, 'zh');
+    fs.mkdirSync(langDir);
+    fs.writeFileSync(path.join(langDir, 'keywords.toml'), '["声明"]\n"函数" = "fn"\n', 'utf8');
+    const ids = Array.from({ length: 30 }, (_unused, i) => `"标识${i}" = "Item${i}"`).join('\n');
+    fs.writeFileSync(path.join(langDir, 'stdlib.toml'), `["标识符"]\n${ids}\n`, 'utf8');
+    const prompt = buildSystemPrompt('zh', root);
+    assert.ok(prompt.includes('- 标识29 = Item29'), '第 30 条标识符也应进入提示词（旧实现截断为 20 会漏）');
+});
+
+test('buildSystemPrompt：含方言硬约束、缺词保留英文、围栏 rust-<code>', () => {
+    const root = 构造语言包();
+    const prompt = buildSystemPrompt('zh', root);
+    assert.ok(prompt.includes('禁止输出'), '应含禁止英文关键字硬约束');
+    assert.ok(prompt.includes('rust-zh'), '代码围栏标签应使用 rust-zh');
+    assert.ok(prompt.includes('切勿臆造'), '应含缺词不臆造的诚实约束');
+});
+
+test('buildSystemPrompt：语言包缺失时给出明确告警（不再静默）', () => {
+    const prompt = buildSystemPrompt('ru', undefined);
+    assert.ok(prompt.includes('未能加载'), '应含中文告警');
+    assert.ok(prompt.includes('could not be loaded'), '应含英文告警');
+    assert.ok(prompt.includes('Rust programming teaching assistant'), '仍附英文兜底提示');
 });

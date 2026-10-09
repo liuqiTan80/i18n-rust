@@ -23,6 +23,8 @@ export interface LanguagePackData {
     keywordTables: Map<string, Map<string, string>>;
     /** [标识符] table of stdlib.toml (types, methods, etc.) */
     stdlibIdentifiers: Map<string, string>;
+    /** [模块路径] table of stdlib.toml (std paths for use statements, e.g. 标准库 / 输入输出) */
+    stdlibModules: Map<string, string>;
 }
 
 /**
@@ -103,6 +105,7 @@ export function loadLanguagePack(rootDir: string, languageCode: string): Languag
         }
     }
     const stdlibIdentifiers = new Map<string, string>();
+    const stdlibModules = new Map<string, string>();
     const stdlibFile = path.join(langDir, 'stdlib.toml');
     if (fs.existsSync(stdlibFile)) {
         try {
@@ -113,16 +116,24 @@ export function loadLanguagePack(rootDir: string, languageCode: string): Languag
                     stdlibIdentifiers.set(zh, en);
                 }
             }
+            // 模块路径表（use 语句用的标准库路径，如 标准库 / 输入输出 / 集合）。
+            // 此前未加载，导致 AI 拿不到「标准库::输入输出::」这类路径映射——现补全。
+            const moduleTable = parsed.get('模块路径');
+            if (moduleTable) {
+                for (const [zh, en] of moduleTable) {
+                    stdlibModules.set(zh, en);
+                }
+            }
         } catch {
             // Treat as empty on parse failure
         }
     }
-    if (keywordTables.size === 0 && stdlibIdentifiers.size === 0) {
+    if (keywordTables.size === 0 && stdlibIdentifiers.size === 0 && stdlibModules.size === 0) {
         return null;
     }
     // 显示名从 lang_info.toml 的 ["语言包"] "名称" 读取，读不到时用代码兜底
     const languageName = readLanguageName(langDir) ?? languageCode;
-    return { languageName, keywordTables, stdlibIdentifiers };
+    return { languageName, keywordTables, stdlibIdentifiers, stdlibModules };
 }
 
 /**
@@ -153,7 +164,8 @@ function readLanguageName(langDir: string): string | null {
 export function buildSystemPrompt(languageCode: string, rootDir?: string): string {
     const data = rootDir ? loadLanguagePack(rootDir, languageCode) : null;
     if (!data) {
-        return fallbackEnglishPrompt();
+        // 语言包不可用时给出明确告警，避免「用户以为在写方言、实则拿到无词表的英文提示词」这一静默错配
+        return missingPackWarning(languageCode) + '\n\n' + fallbackEnglishPrompt();
     }
     const lines: string[] = [];
 
@@ -173,10 +185,10 @@ export function buildSystemPrompt(languageCode: string, rootDir?: string): strin
             }
         }
     }
-    // Stdlib identifiers supplement the type section (first 20 as examples)
-    const identifierLines = [...data.stdlibIdentifiers.entries()]
-        .slice(0, 20)
-        .map(([zh, en]) => `- ${zh} = ${en}`);
+    // 标准库标识符与模块路径全量进入提示词（此前标识符被截断为 20 条、模块路径完全缺失，
+    // 使 AI 看不到完整词表；现改为完整加载，词表随语言包切换自动更新）
+    const identifierLines = [...data.stdlibIdentifiers.entries()].map(([zh, en]) => `- ${zh} = ${en}`);
+    const moduleLines = [...data.stdlibModules.entries()].map(([zh, en]) => `- ${zh} = ${en}`);
 
     lines.push(`你是一位精通 Rust 编程的教学助手，正在辅导使用「${data.languageName}」方言编写 Rust 代码（扩展名 .${languageCode}）的学生。`);
     lines.push('');
@@ -186,13 +198,18 @@ export function buildSystemPrompt(languageCode: string, rootDir?: string): strin
     lines.push('【类型与标准库标识符映射】');
     lines.push(...(typeLines.length > 0 || identifierLines.length > 0 ? [...typeLines, ...identifierLines] : ['（无）']));
     lines.push('');
+    lines.push('【标准库模块路径映射（use 语句路径）】');
+    lines.push(...(moduleLines.length > 0 ? moduleLines : ['（无）']));
+    lines.push('');
     lines.push('【宏映射】');
     lines.push(...(macroLines.length > 0 ? macroLines : ['（无）']));
     lines.push('');
-    lines.push('【回答要求】');
+    lines.push('【回答要求（硬约束）】');
     lines.push(`1. 使用${data.languageName}回答用户的问题；`);
-    lines.push('2. 代码示例使用方言书写，并附等价的 Rust 对照代码；');
-    lines.push('3. 解释要通俗易懂，面向初学者。');
+    lines.push('2. 产出的代码必须直接以方言书写：凡是上方任一映射表中存在对应方言词的英文关键字、类型、宏或标准库路径（如 fn/let/mut/struct/enum/impl/use/pub/match 等），一律使用方言词，禁止输出这些词的英文原形；');
+    lines.push(`3. 代码围栏请使用 \`rust-${languageCode}\` 标注；若需给出等价标准 Rust 对照，可作为附注另列，但主代码块必须是方言；`);
+    lines.push('4. 诚实约束：映射表中查无对应的术语（新词汇、第三方库 API、需母语者定名的概念），一律保留英文原名，切勿臆造方言词，以免转译失败；不确定时说明缺口并建议补录语言包映射；');
+    lines.push('5. 解释要通俗易懂，面向初学者。');
     return lines.join('\n');
 }
 
@@ -205,6 +222,15 @@ function fallbackEnglishPrompt(): string {
         '1. Answer questions in the user\'s language when detectable, otherwise in English;',
         '2. When showing code, write examples in the user\'s language dialect and include the equivalent standard Rust code;',
         '3. Keep explanations simple and beginner-friendly.'
+    ].join('\n');
+}
+
+/** 语言包不可用时的明确告警（不再静默回退，避免语言与词表错配） */
+function missingPackWarning(languageCode: string): string {
+    return [
+        `【警告】未能加载「${languageCode}」语言包的方言词表，以下提示词不含任何关键字/标识符映射。`,
+        `[Warning] The dialect word tables for language "${languageCode}" could not be loaded; the prompt below contains no keyword/identifier mappings.`,
+        '此时请勿直接产出方言代码（缺少词表会导致转译失败）；请确认 i18n-rust.languagePackPath 或语言包目录存在。'
     ].join('\n');
 }
 

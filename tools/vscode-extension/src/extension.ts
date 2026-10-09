@@ -692,7 +692,7 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
             // 携带当前打开的方言文件内容作为上下文
             const 编辑器 = vscode.window.activeTextEditor;
             const 上下文 = 编辑器 && 方言语言Id.includes(编辑器.document.languageId)
-                ? `当前文件 ${编辑器.document.fileName}：\n\`\`\`rust\n${编辑器.document.getText()}\n\`\`\`\n\n`
+                ? `当前文件 ${编辑器.document.fileName}：\n\`\`\`${编辑器.document.languageId}\n${编辑器.document.getText()}\n\`\`\`\n\n`
                 : '';
 
             let 提供商: ProviderInterface;
@@ -823,7 +823,7 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
             const 问题 = `请讲解当前文件中的这条${严重程度}诊断：\n`
                 + `诊断消息：${诊断.message}\n`
                 + `位置：第 ${行号 + 1} 行 第 ${诊断.range.start.character + 1} 列\n`
-                + `相关代码：\n\`\`\`rust\n${代码上下文}\n\`\`\`\n\n`
+                + `相关代码：\n\`\`\`${编辑器.document.languageId}\n${代码上下文}\n\`\`\`\n\n`
                 + '请用通俗易懂的方式讲解：1) 这条诊断是什么意思；2) 为什么会发生；3) 如何修复（给出方言代码示例，并附等价的标准 Rust 对照）。';
 
             await 执行AI流式输出(
