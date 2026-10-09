@@ -1,0 +1,10 @@
+["模块路径"]
+"system_info" = "sysinfo"
+
+["标识符"]
+"system_snapshot_typ" = "System"
+"prozess_info" = "Process"
+"cpu_info" = "Cpu"
+
+["解释"]
+"system_info" = "Plattformübergreifende System- und Prozessüberwachung"

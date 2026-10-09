@@ -1,0 +1,10 @@
+["模块路径"]
+"festlaengen_behaelter" = "arrayvec"
+
+["标识符"]
+"festlaengen_vektor" = "ArrayVec"
+"festlaengen_string" = "ArrayString"
+"push_versuch" = "try_push"
+
+["解释"]
+"festlaengen_behaelter" = "Vektor ohne Heap innerhalb der Kapazität"

@@ -1,0 +1,10 @@
+["模块路径"]
+"mapa_paralelo_sin_bloqueos" = "scc"
+
+["标识符"]
+"contenedor_hash_concurrente" = "HashMap"
+"mapa_trie_paralelo" = "TrieMap"
+"leer_scc" = "get"
+
+["解释"]
+"mapa_paralelo_sin_bloqueos" = "Mapa hash sin bloqueos muy escalable"

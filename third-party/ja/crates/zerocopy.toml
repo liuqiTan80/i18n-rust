@@ -1,0 +1,10 @@
+["模块路径"]
+"ゼロコピー変換" = "zerocopy"
+
+["标识符"]
+"バイト解釈可能trait" = "FromBytes"
+"バイト書出可能trait" = "IntoBytes"
+"レイアウト既知trait" = "KnownLayout"
+
+["解释"]
+"ゼロコピー変換" = "バイトと型間のゼロコピー変換"

@@ -1,0 +1,10 @@
+["模块路径"]
+"conteneur_tableau_fixe" = "arrayvec"
+
+["标识符"]
+"tableau_fixe" = "ArrayVec"
+"chaine_fixe" = "ArrayString"
+"tentative_push" = "try_push"
+
+["解释"]
+"conteneur_tableau_fixe" = "Vecteur sans tas dans la capacité"

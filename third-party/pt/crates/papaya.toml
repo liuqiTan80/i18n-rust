@@ -1,0 +1,10 @@
+["模块路径"]
+"tabela_hash_paralela" = "papaya"
+
+["标识符"]
+"mapa_hash_paralelo" = "HashMap"
+"referencia_guarda" = "Guard"
+"fixar_guarda" = "pin"
+
+["解释"]
+"tabela_hash_paralela" = "Tabela hash paralela segura sem bloqueio"

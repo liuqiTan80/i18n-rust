@@ -1,0 +1,10 @@
+["模块路径"]
+"carte_parallele_sans_verrou" = "scc"
+
+["标识符"]
+"conteneur_hash_concurrent" = "HashMap"
+"carte_trie_parallele" = "TrieMap"
+"lire_scc" = "get"
+
+["解释"]
+"carte_parallele_sans_verrou" = "Carte hash sans verrou très évolutive"

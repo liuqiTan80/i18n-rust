@@ -1,0 +1,10 @@
+["模块路径"]
+"schnelle_hashtabelle" = "hashbrown"
+
+["标识符"]
+"hash_karte_typ" = "HashMap"
+"hash_menge_typ" = "HashSet"
+"hashtabelle_baukasten" = "Builder"
+
+["解释"]
+"schnelle_hashtabelle" = "Schnelle, std-kompatible Hashtabelle"

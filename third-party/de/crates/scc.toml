@@ -1,0 +1,10 @@
+["模块路径"]
+"lockfreie_parallelkarte" = "scc"
+
+["标识符"]
+"parallel_hash_behaelter" = "HashMap"
+"parallel_trie_karte" = "TrieMap"
+"scc_lesen" = "get"
+
+["解释"]
+"lockfreie_parallelkarte" = "Skalierbare lockfreie Parallel-Hashkarte"

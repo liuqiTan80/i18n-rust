@@ -1,0 +1,10 @@
+["模块路径"]
+"informacao_do_sistema" = "sysinfo"
+
+["标识符"]
+"tipo_sistema_instantaneo" = "System"
+"info_processo" = "Process"
+"info_cpu" = "Cpu"
+
+["解释"]
+"informacao_do_sistema" = "Monitoramento de sistema e processos multiplataforma"

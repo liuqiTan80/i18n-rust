@@ -1,0 +1,10 @@
+["模块路径"]
+"tabela_hash_rapida" = "hashbrown"
+
+["标识符"]
+"tipo_mapa_hash" = "HashMap"
+"tipo_conjunto_hash" = "HashSet"
+"construtor_tabela_hash" = "Builder"
+
+["解释"]
+"tabela_hash_rapida" = "Tabela hash rápida compatível com std"

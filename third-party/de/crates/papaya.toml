@@ -1,0 +1,10 @@
+["模块路径"]
+"parallel_hashtabelle" = "papaya"
+
+["标识符"]
+"parallel_hash_karte" = "HashMap"
+"guard_verweis" = "Guard"
+"guard_befestigen" = "pin"
+
+["解释"]
+"parallel_hashtabelle" = "Lockfreier sicherer paralleler Hashtabelle"

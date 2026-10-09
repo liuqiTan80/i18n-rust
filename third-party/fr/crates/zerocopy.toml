@@ -1,0 +1,10 @@
+["模块路径"]
+"conversion_zero_copie" = "zerocopy"
+
+["标识符"]
+"trait_depuis_bytes" = "FromBytes"
+"trait_vers_bytes" = "IntoBytes"
+"trait_disposition_connue" = "KnownLayout"
+
+["解释"]
+"conversion_zero_copie" = "Conversion sans copie entre bytes et types"

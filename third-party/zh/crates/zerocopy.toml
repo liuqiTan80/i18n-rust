@@ -1,0 +1,10 @@
+["模块路径"]
+"零拷贝转换" = "zerocopy"
+
+["标识符"]
+"字节可解释trait" = "FromBytes"
+"字节可写出trait" = "IntoBytes"
+"布局已知trait" = "KnownLayout"
+
+["解释"]
+"零拷贝转换" = "字节与类型间的零拷贝转换"

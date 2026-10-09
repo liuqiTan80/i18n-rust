@@ -1,0 +1,10 @@
+["模块路径"]
+"contenedor_arreglo_fijo" = "arrayvec"
+
+["标识符"]
+"arreglo_fijo" = "ArrayVec"
+"cadena_fija" = "ArrayString"
+"intentar_empujar" = "try_push"
+
+["解释"]
+"contenedor_arreglo_fijo" = "Vector sin heap dentro de la capacidad"

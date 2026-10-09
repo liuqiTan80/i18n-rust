@@ -1,0 +1,10 @@
+["模块路径"]
+"conversion_cero_copias" = "zerocopy"
+
+["标识符"]
+"rasgo_desde_bytes" = "FromBytes"
+"rasgo_hacia_bytes" = "IntoBytes"
+"rasgo_disposicion_conocida" = "KnownLayout"
+
+["解释"]
+"conversion_cero_copias" = "Conversión sin copias entre bytes y tipos"
