@@ -1,0 +1,10 @@
+["模块路径"]
+"乱数コア" = "rand_core"
+
+["标识符"]
+"乱数コアtrait" = "RngCore"
+"乱数生成trait" = "Rng"
+"シード可生成" = "SeedableRng"
+
+["解释"]
+"乱数コア" = "乱数生成器の中核 trait"

@@ -1,0 +1,10 @@
+["模块路径"]
+"hachage_blake2" = "blake2"
+
+["标识符"]
+"type_blake2b" = "Blake2b"
+"type_blake2s" = "Blake2s"
+"blake2_variable" = "VarBlake2"
+
+["解释"]
+"hachage_blake2" = "Fonctions de hachage cryptographiques de la famille BLAKE2"

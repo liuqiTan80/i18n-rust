@@ -1,0 +1,10 @@
+["模块路径"]
+"cache_lru" = "lru"
+
+["标识符"]
+"tipo_cache_lru" = "LruCache"
+"ler_chave" = "get"
+"gravar_chave" = "put"
+
+["解释"]
+"cache_lru" = "Cache menos recentemente usado"

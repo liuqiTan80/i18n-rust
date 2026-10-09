@@ -1,0 +1,10 @@
+["模块路径"]
+"sqlite_huelle" = "rusqlite"
+
+["标识符"]
+"datenbank_verbindung" = "Connection"
+"vorbereitete_anweisung" = "Statement"
+"ergebnis_zeile" = "Row"
+
+["解释"]
+"sqlite_huelle" = "Komfortable Hülle für die SQLite-Datenbank"

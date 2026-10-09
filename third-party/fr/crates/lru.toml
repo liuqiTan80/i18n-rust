@@ -1,0 +1,10 @@
+["模块路径"]
+"cache_lru" = "lru"
+
+["标识符"]
+"type_cache_lru" = "LruCache"
+"lire_cle" = "get"
+"ecrire_cle" = "put"
+
+["解释"]
+"cache_lru" = "Cache à éviction LRU"

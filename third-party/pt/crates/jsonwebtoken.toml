@@ -1,0 +1,10 @@
+["模块路径"]
+"token_jwt" = "jsonwebtoken"
+
+["标识符"]
+"codificar_token" = "encode"
+"decodificar_token" = "decode"
+"cabecalho_token" = "Header"
+
+["解释"]
+"token_jwt" = "Cria e decodifica JWT com tipagem forte"

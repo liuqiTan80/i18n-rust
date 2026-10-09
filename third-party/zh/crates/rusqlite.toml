@@ -1,0 +1,10 @@
+["模块路径"]
+"SQLite封装" = "rusqlite"
+
+["标识符"]
+"数据库连接" = "Connection"
+"预编译语句" = "Statement"
+"结果行" = "Row"
+
+["解释"]
+"SQLite封装" = "SQLite 数据库的人性化封装"

@@ -1,0 +1,10 @@
+["模块路径"]
+"随机核心" = "rand_core"
+
+["标识符"]
+"随机核心trait" = "RngCore"
+"随机数生成trait" = "Rng"
+"可播种生成" = "SeedableRng"
+
+["解释"]
+"随机核心" = "随机数生成器的核心 trait"

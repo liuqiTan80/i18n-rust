@@ -1,0 +1,10 @@
+["模块路径"]
+"lru_pufferspeicher" = "lru"
+
+["标识符"]
+"lru_puffer_typ" = "LruCache"
+"schluessel_lesen" = "get"
+"schluessel_setzen" = "put"
+
+["解释"]
+"lru_pufferspeicher" = "Cache mit Verdrängung am seltensten genutzter Einträge"

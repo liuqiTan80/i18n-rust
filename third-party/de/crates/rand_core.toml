@@ -1,0 +1,10 @@
+["模块路径"]
+"zufallskern" = "rand_core"
+
+["标识符"]
+"zufallskern_trait" = "RngCore"
+"zufall_trait" = "Rng"
+"seedbarer_generierer" = "SeedableRng"
+
+["解释"]
+"zufallskern" = "Kern-Traits für Zufallszahlengeneratoren"

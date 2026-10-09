@@ -1,0 +1,10 @@
+["模块路径"]
+"BLAKE2_해시" = "blake2"
+
+["标识符"]
+"BLAKE2b_형" = "Blake2b"
+"BLAKE2s_형" = "Blake2s"
+"가변_길이_BLAKE2" = "VarBlake2"
+
+["解释"]
+"BLAKE2_해시" = "BLAKE2 계열 암호화 해시 함수"

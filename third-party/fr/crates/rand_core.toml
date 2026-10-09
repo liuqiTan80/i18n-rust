@@ -1,0 +1,10 @@
+["模块路径"]
+"noyau_aleatoire" = "rand_core"
+
+["标识符"]
+"trait_noyau_aleatoire" = "RngCore"
+"trait_aleatoire" = "Rng"
+"generateur_avec_graine" = "SeedableRng"
+
+["解释"]
+"noyau_aleatoire" = "Traits centraux des générateurs aléatoires"

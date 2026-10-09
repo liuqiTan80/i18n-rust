@@ -1,0 +1,10 @@
+["模块路径"]
+"Redis客户端" = "redis"
+
+["标识符"]
+"连接客户端" = "Client"
+"执行连接" = "Connection"
+"命令集合" = "Commands"
+
+["解释"]
+"Redis客户端" = "Redis 键值数据库驱动"

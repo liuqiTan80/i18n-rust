@@ -1,0 +1,10 @@
+["模块路径"]
+"jeton_jwt" = "jsonwebtoken"
+
+["标识符"]
+"encoder_jeton" = "encode"
+"decoder_jeton" = "decode"
+"entete_jeton" = "Header"
+
+["解释"]
+"jeton_jwt" = "Crée et décode des JWT avec typage fort"

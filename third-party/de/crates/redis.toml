@@ -1,0 +1,10 @@
+["模块路径"]
+"redis_klient" = "redis"
+
+["标识符"]
+"verbindungsklient" = "Client"
+"ausfuehrungs_verbindung" = "Connection"
+"befehle_sammlung" = "Commands"
+
+["解释"]
+"redis_klient" = "Treiber für die Schlüssel-Wert-Datenbank Redis"

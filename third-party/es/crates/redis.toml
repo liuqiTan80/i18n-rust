@@ -1,0 +1,10 @@
+["模块路径"]
+"cliente_redis" = "redis"
+
+["标识符"]
+"cliente_conexion" = "Client"
+"conexion_ejecucion" = "Connection"
+"conjunto_comandos" = "Commands"
+
+["解释"]
+"cliente_redis" = "Controlador de la base de datos clave-valor Redis"

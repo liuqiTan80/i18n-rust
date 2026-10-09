@@ -1,0 +1,10 @@
+["模块路径"]
+"enveloppe_sqlite" = "rusqlite"
+
+["标识符"]
+"connexion_base_donnees" = "Connection"
+"requete_preparee" = "Statement"
+"ligne_resultat" = "Row"
+
+["解释"]
+"enveloppe_sqlite" = "Enveloppe pratique pour la base de données SQLite"

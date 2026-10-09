@@ -1,0 +1,10 @@
+["模块路径"]
+"nucleo_aleatorio" = "rand_core"
+
+["标识符"]
+"rasgo_nucleo_aleatorio" = "RngCore"
+"rasgo_aleatorio" = "Rng"
+"generador_con_semilla" = "SeedableRng"
+
+["解释"]
+"nucleo_aleatorio" = "Rasgos centrales de generadores aleatorios"

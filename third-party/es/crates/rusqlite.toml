@@ -1,0 +1,10 @@
+["模块路径"]
+"envoltorio_sqlite" = "rusqlite"
+
+["标识符"]
+"conexion_base_datos" = "Connection"
+"sentencia_preparada" = "Statement"
+"fila_resultado" = "Row"
+
+["解释"]
+"envoltorio_sqlite" = "Envoltorio cómodo para la base de datos SQLite"

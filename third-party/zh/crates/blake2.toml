@@ -1,0 +1,10 @@
+["模块路径"]
+"BLAKE2哈希" = "blake2"
+
+["标识符"]
+"BLAKE2b算法" = "Blake2b"
+"BLAKE2s算法" = "Blake2s"
+"可变长BLAKE2" = "VarBlake2"
+
+["解释"]
+"BLAKE2哈希" = "BLAKE2 系列加密哈希函数"

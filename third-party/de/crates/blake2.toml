@@ -1,0 +1,10 @@
+["模块路径"]
+"blake2_hash" = "blake2"
+
+["标识符"]
+"blake2b_typ" = "Blake2b"
+"blake2s_typ" = "Blake2s"
+"variabler_blake2" = "VarBlake2"
+
+["解释"]
+"blake2_hash" = "Kryptografische Hash-Funktionen der BLAKE2-Familie"
