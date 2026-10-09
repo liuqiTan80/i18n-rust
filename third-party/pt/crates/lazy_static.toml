@@ -1,0 +1,9 @@
+["模块路径"]
+"estatico_preguicoso" = "lazy_static"
+
+["标识符"]
+"macro_estatico_preguicoso" = "lazy_static"
+"tipo_preguicoso" = "Lazy"
+
+["解释"]
+"estatico_preguicoso" = "Variável estática avaliada no primeiro uso"

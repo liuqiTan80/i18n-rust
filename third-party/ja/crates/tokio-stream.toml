@@ -1,0 +1,10 @@
+["模块路径"]
+"Tokioストリーム" = "tokio-stream"
+
+["标识符"]
+"ストリーム拡張" = "StreamExt"
+"受信ストリーム" = "ReceiverStream"
+"展開生成" = "unfold"
+
+["解释"]
+"Tokioストリーム" = "Stream と tokio を組み合わせる道具"

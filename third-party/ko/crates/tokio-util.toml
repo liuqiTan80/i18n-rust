@@ -1,0 +1,10 @@
+["模块路径"]
+"tokio_유틸" = "tokio-util"
+
+["标识符"]
+"취소_토큰" = "CancellationToken"
+"줄_코덱" = "LinesCodec"
+"프레이밍_읽기" = "FramedRead"
+
+["解释"]
+"tokio_유틸" = "Tokio 보강 유틸 및 코덱"

@@ -1,0 +1,10 @@
+["模块路径"]
+"进度条" = "indicatif"
+
+["标识符"]
+"进度条对象" = "ProgressBar"
+"进度样式" = "ProgressStyle"
+"多进度管理" = "MultiProgress"
+
+["解释"]
+"进度条" = "命令行进度条与状态显示"

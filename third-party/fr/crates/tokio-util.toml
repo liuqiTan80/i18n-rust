@@ -1,0 +1,10 @@
+["模块路径"]
+"utilitaires_tokio" = "tokio-util"
+
+["标识符"]
+"jeton_d_annulation" = "CancellationToken"
+"codec_de_lignes" = "LinesCodec"
+"lecteur_de_trames" = "FramedRead"
+
+["解释"]
+"utilitaires_tokio" = "Utilitaires et codecs supplémentaires pour Tokio"

@@ -1,0 +1,10 @@
+["模块路径"]
+"書式保持TOML" = "toml_edit"
+
+["标识符"]
+"TOMLテーブル" = "Table"
+"TOML値" = "Value"
+"TOML項目" = "Item"
+
+["解释"]
+"書式保持TOML" = "元の書式を保つ TOML の解析と変更"

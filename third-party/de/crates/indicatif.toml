@@ -1,0 +1,10 @@
+["模块路径"]
+"fortschrittsbalken" = "indicatif"
+
+["标识符"]
+"fortschritt_objekt" = "ProgressBar"
+"fortschritt_stil" = "ProgressStyle"
+"mehrfach_fortschritt" = "MultiProgress"
+
+["解释"]
+"fortschrittsbalken" = "Fortschrittsbalken und Status für die Kommandozeile"

@@ -1,0 +1,10 @@
+["模块路径"]
+"保格式TOML" = "toml_edit"
+
+["标识符"]
+"TOML表格" = "Table"
+"TOML值" = "Value"
+"TOML条目" = "Item"
+
+["解释"]
+"保格式TOML" = "保留原始格式的 TOML 解析与修改"

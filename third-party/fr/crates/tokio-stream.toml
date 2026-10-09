@@ -1,0 +1,10 @@
+["模块路径"]
+"flux_tokio" = "tokio-stream"
+
+["标识符"]
+"extension_de_flux" = "StreamExt"
+"flux_recepteur" = "ReceiverStream"
+"deplier" = "unfold"
+
+["解释"]
+"flux_tokio" = "Outils combinant Stream avec tokio"

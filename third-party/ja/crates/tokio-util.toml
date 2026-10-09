@@ -1,0 +1,10 @@
+["模块路径"]
+"Tokioユーティリティ" = "tokio-util"
+
+["标识符"]
+"キャンセルトークン" = "CancellationToken"
+"行コーデック" = "LinesCodec"
+"フレーム読み" = "FramedRead"
+
+["解释"]
+"Tokioユーティリティ" = "Tokio の補足ユーティリティとコーデック"

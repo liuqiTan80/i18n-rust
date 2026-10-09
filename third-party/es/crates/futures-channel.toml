@@ -1,0 +1,10 @@
+["模块路径"]
+"canal_asincrono" = "futures-channel"
+
+["标识符"]
+"crear_canal" = "channel"
+"remitente" = "Sender"
+"receptor" = "Receiver"
+
+["解释"]
+"canal_asincrono" = "Canales de comunicación entre tareas asíncronas"

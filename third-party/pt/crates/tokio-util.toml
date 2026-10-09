@@ -1,0 +1,10 @@
+["模块路径"]
+"utilitarios_tokio" = "tokio-util"
+
+["标识符"]
+"token_de_cancelamento" = "CancellationToken"
+"codec_de_linhas" = "LinesCodec"
+"leitor_de_quadros" = "FramedRead"
+
+["解释"]
+"utilitarios_tokio" = "Utilitários e codecs adicionais para Tokio"

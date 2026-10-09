@@ -1,0 +1,10 @@
+["模块路径"]
+"toml_erhalt_format" = "toml_edit"
+
+["标识符"]
+"toml_tabelle" = "Table"
+"toml_wert" = "Value"
+"toml_element" = "Item"
+
+["解释"]
+"toml_erhalt_format" = "TOML-Parsen und Ändern mit erhaltendem Format"

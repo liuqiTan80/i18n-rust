@@ -1,0 +1,10 @@
+["模块路径"]
+"형식_유지_TOML" = "toml_edit"
+
+["标识符"]
+"TOML_표" = "Table"
+"TOML_값" = "Value"
+"TOML_항목" = "Item"
+
+["解释"]
+"형식_유지_TOML" = "원본 형식을 유지하는 TOML 분석 및 수정"

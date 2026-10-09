@@ -1,0 +1,10 @@
+["模块路径"]
+"barre_de_progression" = "indicatif"
+
+["标识符"]
+"objet_progression" = "ProgressBar"
+"style_progression" = "ProgressStyle"
+"progression_multiple" = "MultiProgress"
+
+["解释"]
+"barre_de_progression" = "Barres de progression et état pour la ligne de commande"

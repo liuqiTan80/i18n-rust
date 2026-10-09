@@ -1,0 +1,10 @@
+["模块路径"]
+"stream_tokio" = "tokio-stream"
+
+["标识符"]
+"extensao_de_stream" = "StreamExt"
+"stream_receptor" = "ReceiverStream"
+"desdobrar" = "unfold"
+
+["解释"]
+"stream_tokio" = "Ferramentas combinando Stream com tokio"

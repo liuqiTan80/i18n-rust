@@ -1,0 +1,9 @@
+["模块路径"]
+"spaet_statisch" = "lazy_static"
+
+["标识符"]
+"spaeter_statisch_makro" = "lazy_static"
+"spaeter_typ" = "Lazy"
+
+["解释"]
+"spaet_statisch" = "Statische Variable, die beim ersten Gebrauch berechnet wird"

@@ -1,0 +1,10 @@
+["模块路径"]
+"أدوات_tokio" = "tokio-util"
+
+["标识符"]
+"رمز_الإلغاء" = "CancellationToken"
+"مرمز_الأسطر" = "LinesCodec"
+"قارئ_الإطارات" = "FramedRead"
+
+["解释"]
+"أدوات_tokio" = "أدوات ورموز إضافية لـ Tokio"

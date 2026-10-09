@@ -1,0 +1,10 @@
+["模块路径"]
+"toml_avec_format" = "toml_edit"
+
+["标识符"]
+"table_toml" = "Table"
+"valeur_toml" = "Value"
+"element_toml" = "Item"
+
+["解释"]
+"toml_avec_format" = "Analyse et édition de TOML en conservant le format"

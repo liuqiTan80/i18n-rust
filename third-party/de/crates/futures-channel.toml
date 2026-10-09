@@ -1,0 +1,10 @@
+["模块路径"]
+"async_kanal" = "futures-channel"
+
+["标识符"]
+"kanal_erstellen" = "channel"
+"absender" = "Sender"
+"empfaenger" = "Receiver"
+
+["解释"]
+"async_kanal" = "Kanäle zur Kommunikation zwischen asynchronen Aufgaben"

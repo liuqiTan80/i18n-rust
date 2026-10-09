@@ -1,0 +1,10 @@
+["模块路径"]
+"tokio工具" = "tokio-util"
+
+["标识符"]
+"取消令牌" = "CancellationToken"
+"行编解码器" = "LinesCodec"
+"分帧读取" = "FramedRead"
+
+["解释"]
+"tokio工具" = "Tokio 的补充工具与编解码器"

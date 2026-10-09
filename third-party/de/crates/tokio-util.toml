@@ -1,0 +1,10 @@
+["模块路径"]
+"tokio_werkzeuge" = "tokio-util"
+
+["标识符"]
+"abbruch_token" = "CancellationToken"
+"zeilen_codec" = "LinesCodec"
+"rahmen_lesen" = "FramedRead"
+
+["解释"]
+"tokio_werkzeuge" = "Zusätzliche Werkzeuge und Codecs für Tokio"

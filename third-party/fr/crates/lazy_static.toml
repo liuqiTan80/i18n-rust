@@ -1,0 +1,9 @@
+["模块路径"]
+"statique_paresseux" = "lazy_static"
+
+["标识符"]
+"macro_statique_paresseux" = "lazy_static"
+"type_paresseux" = "Lazy"
+
+["解释"]
+"statique_paresseux" = "Variable statique évaluée à la première utilisation"
