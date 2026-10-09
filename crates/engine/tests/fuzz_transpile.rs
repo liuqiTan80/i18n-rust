@@ -264,3 +264,28 @@ fn test_dialect_words_in_string_comment_raw_preserved() {
         "原始字符串须原样：{out}"
     );
 }
+
+/// 回归（串/注释不变量 与 数字类型后缀状态机的交叉边界）：数字紧跟中文类型名
+/// （真实 zh 数据：keywords 表 `无符号微整数`→u8、stdlib 表 `无符号机器整数`→usize）
+/// 在代码位照常替换，但同形内容整体落在字符串内时必须逐字节不变。后缀替换只认
+/// Literal token 的真实后缀区（字符串的 suffix_start 等于全长、后缀为空），借此
+/// 锁死后缀状态机不误伤串内内容——弥补两条数字后缀单测仅用合成 map、未覆盖此交叉。
+#[test]
+fn test_number_type_suffix_in_string_preserved() {
+    let manager = zh_manager();
+    // 代码位：真实 zh 数据下数字+类型名应替换为 0u8 / 0usize
+    let code_src = "让 x = 0无符号微整数;\n让 y = 0无符号机器整数;";
+    let code_out = transpile_pipeline(code_src, &manager).output;
+    assert!(code_out.contains("0u8"), "代码位应替换为 0u8：{code_out}");
+    assert!(
+        code_out.contains("0usize"),
+        "代码位应替换为 0usize：{code_out}"
+    );
+    // 串内：同形的数字+类型名必须逐字节保留
+    let str_src = r#"让 s = "0无符号微整数 0无符号机器整数";"#;
+    let str_out = transpile_pipeline(str_src, &manager).output;
+    assert!(
+        str_out.contains(r#""0无符号微整数 0无符号机器整数""#),
+        "串内数字类型名须原样：{str_out}"
+    );
+}
