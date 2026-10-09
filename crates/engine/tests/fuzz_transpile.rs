@@ -72,6 +72,37 @@ fn source_strategy() -> impl Strategy<Value = String> {
     .prop_map(|parts| parts.concat())
 }
 
+/// 「方言词仅出现在串/注释内」的安全容器策略：每个片段整体是一个字符串
+/// 字面量或块注释，内含在代码位会被翻译的方言关键词。整段都是 Literal/Comment
+/// token，词法层绝不进入替换分支——锁死「串/注释内容不被误改」这一语义核心
+/// 不变量（其余 fuzz 用例只保证不 panic / 行结构 / 坐标 / 幂等，而幂等恰恰
+/// 察觉不了「串内被译成英文后二次仍不变」这类语义误改）。
+fn quoted_dialect_source() -> impl Strategy<Value = String> {
+    let 方言词 = prop::collection::vec(
+        prop_oneof![
+            Just("函数 ".to_string()),
+            Just("让 ".to_string()),
+            Just("使用 ".to_string()),
+            Just("返回 ".to_string()),
+            Just("类型 ".to_string()),
+            Just("整数".to_string()),
+            Just("布尔".to_string()),
+            Just("标准库::集合::映射".to_string()),
+            Just("打印行".to_string()),
+            Just("声明 ".to_string()),
+            Just("特征 ".to_string()),
+        ],
+        1..4,
+    );
+    let 容器 = prop_oneof![
+        方言词
+            .clone()
+            .prop_map(|ws| format!(r#""{s}""#, s = ws.concat())),
+        方言词.prop_map(|ws| format!("/* {s} */", s = ws.concat())),
+    ];
+    prop::collection::vec(容器, 1..12).prop_map(|v| v.join(" "))
+}
+
 proptest! {
     #![proptest_config(ProptestConfig {
         // 本地默认 256 用例；CI 全量测试中该文件同样执行（约 3-5 秒）
@@ -125,6 +156,15 @@ proptest! {
     fn fuzz_teaching_checks_never_panic(src in source_strategy()) {
         let _ = i18n_rust_engine::fullwidth::find_fullwidth_punct(&src);
         let _ = i18n_rust_engine::lint::lint_teaching(&src);
+    }
+
+    /// 方言词只要整体处于字符串/块注释内，转译输出必须逐字节不变
+    /// （语义核心不变量：串/注释内容不得被转译；弥补幂等断言的盲区）
+    #[test]
+    fn fuzz_dialect_words_in_strings_and_comments_untouched(src in quoted_dialect_source()) {
+        let manager = zh_manager();
+        let output = transpile_pipeline(&src, &manager).output;
+        prop_assert_eq!(&output, &src, "串/注释内的方言词不得被转译");
     }
 }
 
@@ -191,5 +231,36 @@ fn test_project_context_cross_file_declarations() {
     assert!(
         out_no_ctx.contains("crate::平台Linux::Linux内存源::new()"),
         "无上下文时保持旧行为：{out_no_ctx}"
+    );
+}
+
+/// 回归：串/行注释/块注释/原始字符串内的方言词一律不被转译，而代码位的
+/// `函数`→`fn` 照常翻译。独立于 proptest 随机用例的确定性锚点，
+/// 即使 fuzz 配置缩减也始终执行。
+#[test]
+fn test_dialect_words_in_string_comment_raw_preserved() {
+    let manager = zh_manager();
+    let src = r##"函数 主函数() {
+    // 让 使用 标准库::集合::映射 打印行
+    let 名字 = "函数 让 标准库::集合 类型";
+    /* 返回 特征 声明 */
+    let 原始 = r"串里的 函数 让 不变";
+}"##;
+    let out = transpile_pipeline(src, &manager).output;
+    // 代码位关键词正常翻译
+    assert!(out.contains("fn "), "代码位 函数 应翻译为 fn：{out}");
+    // 串/注释内容逐字节保留
+    assert!(
+        out.contains(r#""函数 让 标准库::集合 类型""#),
+        "字符串内容须原样：{out}"
+    );
+    assert!(
+        out.contains("// 让 使用 标准库::集合::映射 打印行"),
+        "行注释须原样：{out}"
+    );
+    assert!(out.contains("/* 返回 特征 声明 */"), "块注释须原样：{out}");
+    assert!(
+        out.contains(r#"r"串里的 函数 让 不变""#),
+        "原始字符串须原样：{out}"
     );
 }
