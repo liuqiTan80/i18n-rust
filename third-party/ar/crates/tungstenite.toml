@@ -1,0 +1,10 @@
+["模块路径"]
+"تنفيذ_WebSocket" = "tungstenite"
+
+["标识符"]
+"نوع_رسالة_WS" = "Message"
+"كائن_اتصال_WS" = "WebSocket"
+"بدء_اتصال_WS" = "connect"
+
+["解释"]
+"تنفيذ_WebSocket" = "تنفيذ WebSocket خفيف قائم على التدفق"

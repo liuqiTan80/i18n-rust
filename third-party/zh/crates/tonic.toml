@@ -1,0 +1,10 @@
+["模块路径"]
+"gRPC框架" = "tonic"
+
+["标识符"]
+"gRPC请求" = "Request"
+"gRPC响应" = "Response"
+"gRPC状态码" = "Status"
+
+["解释"]
+"gRPC框架" = "异步高效的 gRPC 实现"

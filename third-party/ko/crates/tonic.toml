@@ -1,0 +1,10 @@
+["模块路径"]
+"gRPC_프레임워크" = "tonic"
+
+["标识符"]
+"gRPC_요청" = "Request"
+"gRPC_응답" = "Response"
+"gRPC_상태_코드" = "Status"
+
+["解释"]
+"gRPC_프레임워크" = "비동기 고효율 gRPC 구현"

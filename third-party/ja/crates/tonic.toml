@@ -1,0 +1,10 @@
+["模块路径"]
+"gRPCフレームワーク" = "tonic"
+
+["标识符"]
+"gRPCリクエスト" = "Request"
+"gRPCレスポンス" = "Response"
+"gRPCステータス" = "Status"
+
+["解释"]
+"gRPCフレームワーク" = "非同期で効率的な gRPC 実装"

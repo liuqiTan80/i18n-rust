@@ -1,0 +1,10 @@
+["模块路径"]
+"WebSocket_구현" = "tungstenite"
+
+["标识符"]
+"WS_메시지_타입" = "Message"
+"WS_연결_객체" = "WebSocket"
+"WS_연결_시작" = "connect"
+
+["解释"]
+"WebSocket_구현" = "경량 스트림 기반 WebSocket 구현"

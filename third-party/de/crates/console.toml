@@ -1,0 +1,10 @@
+["模块路径"]
+"konsole_terminal" = "console"
+
+["标识符"]
+"terminal_griff" = "Term"
+"text_stil" = "Style"
+"textbreite_messen" = "measure_text_width"
+
+["解释"]
+"konsole_terminal" = "Plattformübergreifende Terminal- und Farbsteuerung"

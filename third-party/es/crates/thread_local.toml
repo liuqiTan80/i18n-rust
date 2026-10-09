@@ -1,0 +1,10 @@
+["模块路径"]
+"memoria_local_hilo" = "thread_local"
+
+["标识符"]
+"tipo_local_hilo" = "ThreadLocal"
+"leer_local_hilo" = "get"
+"recorrer_local_hilo" = "iter"
+
+["解释"]
+"memoria_local_hilo" = "Almacenamiento con copia independiente por hilo"

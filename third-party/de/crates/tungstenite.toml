@@ -1,0 +1,10 @@
+["模块路径"]
+"websocket_umsetzung" = "tungstenite"
+
+["标识符"]
+"ws_nachricht_typ" = "Message"
+"ws_verbindungsobjekt" = "WebSocket"
+"ws_verbindung_starten" = "connect"
+
+["解释"]
+"websocket_umsetzung" = "Leichte strombasierte WebSocket-Umsetzung"

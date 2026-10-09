@@ -1,0 +1,10 @@
+["模块路径"]
+"cadre_grpc" = "tonic"
+
+["标识符"]
+"requete_grpc" = "Request"
+"reponse_grpc" = "Response"
+"statut_grpc" = "Status"
+
+["解释"]
+"cadre_grpc" = "Implémentation gRPC asynchrone et efficace"

@@ -1,0 +1,10 @@
+["模块路径"]
+"estructuras_sin_heap" = "heapless"
+
+["标识符"]
+"vector_sin_heap" = "Vec"
+"cadena_sin_heap" = "String"
+"cola_doble_sin_heap" = "Deque"
+
+["解释"]
+"estructuras_sin_heap" = "Estructuras de datos estáticas sin heap"

@@ -1,0 +1,10 @@
+["模块路径"]
+"WebSocket実装" = "tungstenite"
+
+["标识符"]
+"WSメッセージ型" = "Message"
+"WS接続オブジェクト" = "WebSocket"
+"WS接続開始" = "connect"
+
+["解释"]
+"WebSocket実装" = "軽量ストリーム型 WebSocket 実装"

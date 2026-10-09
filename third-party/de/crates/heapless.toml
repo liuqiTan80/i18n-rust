@@ -1,0 +1,10 @@
+["模块路径"]
+"heaplose_strukturen" = "heapless"
+
+["标识符"]
+"heaploser_vektor" = "Vec"
+"heaploser_string" = "String"
+"heaplose_warteschlange" = "Deque"
+
+["解释"]
+"heaplose_strukturen" = "Statische Datenstrukturen ohne Heap"

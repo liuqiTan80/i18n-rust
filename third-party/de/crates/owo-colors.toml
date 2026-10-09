@@ -1,0 +1,10 @@
+["模块路径"]
+"terminal_faerbung" = "owo-colors"
+
+["标识符"]
+"faerbung_trait" = "OwoColorize"
+"farben_wrapper" = "Colorful"
+"farben_enum" = "Color"
+
+["解释"]
+"terminal_faerbung" = "Farbausgabe im Terminal ohne Alloktion"

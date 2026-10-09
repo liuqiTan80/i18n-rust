@@ -1,0 +1,10 @@
+["模块路径"]
+"tenido_terminal" = "owo-colors"
+
+["标识符"]
+"rasgo_tenido" = "OwoColorize"
+"envoltura_color" = "Colorful"
+"enum_colores" = "Color"
+
+["解释"]
+"tenido_terminal" = "Salida a color en terminal sin asignaciones"

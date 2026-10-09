@@ -1,0 +1,10 @@
+["模块路径"]
+"console_terminal" = "console"
+
+["标识符"]
+"poignee_terminal" = "Term"
+"style_texte" = "Style"
+"mesurer_largeur_texte" = "measure_text_width"
+
+["解释"]
+"console_terminal" = "Contrôle du terminal et des couleurs multiplateforme"

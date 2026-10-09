@@ -1,0 +1,10 @@
+["模块路径"]
+"implementacion_websocket" = "tungstenite"
+
+["标识符"]
+"tipo_mensaje_ws" = "Message"
+"objeto_conexion_ws" = "WebSocket"
+"iniciar_conexion_ws" = "connect"
+
+["解释"]
+"implementacion_websocket" = "Implementación ligera de WebSocket por flujo"

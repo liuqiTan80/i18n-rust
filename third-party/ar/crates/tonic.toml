@@ -1,0 +1,10 @@
+["模块路径"]
+"إطار_gRPC" = "tonic"
+
+["标识符"]
+"طلب_gRPC" = "Request"
+"رد_gRPC" = "Response"
+"حالة_gRPC" = "Status"
+
+["解释"]
+"إطار_gRPC" = "تنفيذ gRPC غير متزامن فعال"

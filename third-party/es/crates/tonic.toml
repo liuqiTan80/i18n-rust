@@ -1,0 +1,10 @@
+["模块路径"]
+"marco_grpc" = "tonic"
+
+["标识符"]
+"peticion_grpc" = "Request"
+"respuesta_grpc" = "Response"
+"estado_grpc" = "Status"
+
+["解释"]
+"marco_grpc" = "Implementación gRPC asíncrona y eficiente"

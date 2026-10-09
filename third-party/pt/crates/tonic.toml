@@ -1,0 +1,10 @@
+["模块路径"]
+"moldura_grpc" = "tonic"
+
+["标识符"]
+"requisicao_grpc" = "Request"
+"resposta_grpc" = "Response"
+"estado_grpc" = "Status"
+
+["解释"]
+"moldura_grpc" = "Implementação gRPC assíncrona e eficiente"

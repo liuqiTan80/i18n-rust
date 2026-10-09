@@ -1,0 +1,10 @@
+["模块路径"]
+"structures_sans_tas" = "heapless"
+
+["标识符"]
+"vecteur_sans_tas" = "Vec"
+"chaine_sans_tas" = "String"
+"file_double_sans_tas" = "Deque"
+
+["解释"]
+"structures_sans_tas" = "Structures de données statiques sans tas"

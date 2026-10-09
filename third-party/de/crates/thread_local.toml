@@ -1,0 +1,10 @@
+["模块路径"]
+"thread_speicher" = "thread_local"
+
+["标识符"]
+"thread_lokal_typ" = "ThreadLocal"
+"thread_lokal_lesen" = "get"
+"thread_lokal_iterieren" = "iter"
+
+["解释"]
+"thread_speicher" = "Speicher mit unabhängiger Kopie pro Thread"

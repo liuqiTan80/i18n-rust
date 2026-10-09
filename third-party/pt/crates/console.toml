@@ -1,0 +1,10 @@
+["模块路径"]
+"console_terminal" = "console"
+
+["标识符"]
+"alca_terminal" = "Term"
+"estilo_texto" = "Style"
+"medir_largura_texto" = "measure_text_width"
+
+["解释"]
+"console_terminal" = "Controle de terminal e cores multiplataforma"

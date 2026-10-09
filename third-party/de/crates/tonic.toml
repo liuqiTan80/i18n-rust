@@ -1,0 +1,10 @@
+["模块路径"]
+"grpc_rahmen" = "tonic"
+
+["标识符"]
+"grpc_anfrage" = "Request"
+"grpc_antwort" = "Response"
+"grpc_status" = "Status"
+
+["解释"]
+"grpc_rahmen" = "Asynchrone effiziente gRPC-Umsetzung"

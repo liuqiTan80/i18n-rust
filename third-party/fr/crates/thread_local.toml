@@ -1,0 +1,10 @@
+["模块路径"]
+"memoire_locale_fil" = "thread_local"
+
+["标识符"]
+"type_local_fil" = "ThreadLocal"
+"lire_local_fil" = "get"
+"parcourir_local_fil" = "iter"
+
+["解释"]
+"memoire_locale_fil" = "Stockage avec copie indépendante par fil"
