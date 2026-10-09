@@ -1,0 +1,10 @@
+["模块路径"]
+"chacha_인증_암호" = "chacha20poly1305"
+
+["标识符"]
+"chacha_표준_암호" = "ChaCha20Poly1305"
+"chacha_확장_난스" = "XChaCha20Poly1305"
+"chacha_일반_타입" = "ChaChaPoly1305"
+
+["解释"]
+"chacha_인증_암호" = "chacha20poly1305 는 ChaCha20Poly1305/XChaCha20Poly1305 AEAD, 제네릭 ChaChaPoly1305 제공"

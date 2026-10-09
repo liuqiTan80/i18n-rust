@@ -1,0 +1,10 @@
+["模块路径"]
+"comrak_парсер_markdown" = "comrak"
+
+["标识符"]
+"опции_comrak" = "Options"
+"узел_comrak" = "Node"
+"в_html_comrak" = "markdown_to_html"
+
+["解释"]
+"comrak_парсер_markdown" = "comrak — 100% CommonMark/GFM парсер Markdown: Options/Node/markdown_to_html"

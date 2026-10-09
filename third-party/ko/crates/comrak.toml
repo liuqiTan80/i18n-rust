@@ -1,0 +1,10 @@
+["模块路径"]
+"comrak_마크다운_분석" = "comrak"
+
+["标识符"]
+"comrak_옵션" = "Options"
+"comrak_노드" = "Node"
+"comrak_HTML_변환" = "markdown_to_html"
+
+["解释"]
+"comrak_마크다운_분석" = "comrak 은 100% CommonMark/GFM 마크다운 분석, Options/Node/markdown_to_html 제공"

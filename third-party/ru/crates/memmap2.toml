@@ -1,0 +1,10 @@
+["模块路径"]
+"отображение_в_память_memmap" = "memmap2"
+
+["标识符"]
+"только_чтение_memmap" = "Mmap"
+"запись_memmap" = "MmapMut"
+"опции_отображения_memmap" = "MmapOptions"
+
+["解释"]
+"отображение_в_память_memmap" = "memmap2 — кроссплатформенное отображение файлов в память: Mmap/MmapMut/MmapOptions"

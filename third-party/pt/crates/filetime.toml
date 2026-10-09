@@ -1,0 +1,10 @@
+["模块路径"]
+"carimbo_tempo_arquivo_filetime" = "filetime"
+
+["标识符"]
+"filetime_carimbo" = "FileTime"
+"filetime_definir_mtime" = "set_file_mtime"
+"filetime_definir_atime" = "set_file_atime"
+
+["解释"]
+"carimbo_tempo_arquivo_filetime" = "filetime le e escreve carimbos de tempo: FileTime, set_file_mtime/set_file_atime"

@@ -1,0 +1,10 @@
+["模块路径"]
+"tantivy搜索引擎" = "tantivy"
+
+["标识符"]
+"tantivy索引" = "Index"
+"tantivy搜索器" = "Searcher"
+"tantivy索引写入器" = "IndexWriter"
+
+["解释"]
+"tantivy搜索引擎" = "tantivy 是类 Lucene 全文搜索引擎：Index/Searcher/IndexWriter 建索引与检索"

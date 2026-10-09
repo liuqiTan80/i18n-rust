@@ -1,0 +1,10 @@
+["模块路径"]
+"memmap_स्मृति_मेपिंग" = "memmap2"
+
+["标识符"]
+"memmap_केवल_पठन" = "Mmap"
+"memmap_लेखन" = "MmapMut"
+"memmap_विकल्प" = "MmapOptions"
+
+["解释"]
+"memmap_स्मृति_मेपिंग" = "memmap2 क्रॉस-प्लेटफ़ॉर्म मेमोरी मैपिंग है: Mmap/MmapMut/MmapOptions"

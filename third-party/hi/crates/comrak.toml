@@ -1,0 +1,10 @@
+["模块路径"]
+"comrak_मार्कडाउन_पार्सर" = "comrak"
+
+["标识符"]
+"comrak_विकल्प" = "Options"
+"comrak_नोड" = "Node"
+"comrak_html_बदल" = "markdown_to_html"
+
+["解释"]
+"comrak_मार्कडाउन_पार्सर" = "comrak 100% CommonMark/GFM मार्कडाउन पार्सर है: Options/Node/markdown_to_html"

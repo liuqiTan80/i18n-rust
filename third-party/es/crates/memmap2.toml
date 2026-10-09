@@ -1,0 +1,10 @@
+["模块路径"]
+"mapeo_memoria_memmap" = "memmap2"
+
+["标识符"]
+"memmap_inmutable" = "Mmap"
+"memmap_mutable" = "MmapMut"
+"memmap_opciones" = "MmapOptions"
+
+["解释"]
+"mapeo_memoria_memmap" = "memmap2 es mapeo de memoria multiplataforma: Mmap/MmapMut/MmapOptions"

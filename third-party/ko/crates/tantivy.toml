@@ -1,0 +1,10 @@
+["模块路径"]
+"tantivy_검색_엔진" = "tantivy"
+
+["标识符"]
+"tantivy_인덱스" = "Index"
+"tantivy_검색기" = "Searcher"
+"tantivy_인덱스_기록기" = "IndexWriter"
+
+["解释"]
+"tantivy_검색_엔진" = "tantivy 는 Lucene 스타일 전문 검색, Index/Searcher/IndexWriter 로 구축 검색"

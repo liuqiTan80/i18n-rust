@@ -1,0 +1,10 @@
+["模块路径"]
+"filetime_파일_타임스탬프" = "filetime"
+
+["标识符"]
+"filetime_타임스탬프_타입" = "FileTime"
+"filetime_수정시각_설정" = "set_file_mtime"
+"filetime_접근시각_설정" = "set_file_atime"
+
+["解释"]
+"filetime_파일_타임스탬프" = "filetime 은 크로스플랫폼 파일 타임스탬프, FileTime/set_file_mtime/set_file_atime 설정"

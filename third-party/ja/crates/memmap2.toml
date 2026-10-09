@@ -1,0 +1,10 @@
+["模块路径"]
+"memmapメモリーマッピング" = "memmap2"
+
+["标识符"]
+"memmap不変マッピング" = "Mmap"
+"memmap可変マッピング" = "MmapMut"
+"memmapオプション" = "MmapOptions"
+
+["解释"]
+"memmapメモリーマッピング" = "memmap2 はクロスプラットフォームの mmap、Mmap/MmapMut/MmapOptions で読書込み設定"

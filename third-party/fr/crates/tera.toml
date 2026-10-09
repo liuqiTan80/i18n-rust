@@ -1,0 +1,10 @@
+["模块路径"]
+"moteur_montage_tera" = "tera"
+
+["标识符"]
+"tera_instance" = "Tera"
+"tera_contexte" = "Context"
+"tera_valeur" = "Value"
+
+["解释"]
+"moteur_montage_tera" = "tera est un moteur de montage facon Jinja2: Tera/Context/Value rendent les gabarits"

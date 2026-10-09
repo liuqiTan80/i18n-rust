@@ -1,0 +1,10 @@
+["模块路径"]
+"comrak_Markdown_Parser" = "comrak"
+
+["标识符"]
+"comrak_Optionen" = "Options"
+"comrak_Knoten" = "Node"
+"comrak_zu_html" = "markdown_to_html"
+
+["解释"]
+"comrak_Markdown_Parser" = "comrak ist ein 100% CommonMark/GFM Markdown-Parser: Options/Node/markdown_to_html"

@@ -1,0 +1,10 @@
+["模块路径"]
+"filetimeファイル時刻" = "filetime"
+
+["标识符"]
+"filetime時刻型" = "FileTime"
+"filetime更新時刻設定" = "set_file_mtime"
+"filetimeアクセス時刻設定" = "set_file_atime"
+
+["解释"]
+"filetimeファイル時刻" = "filetime はクロスプラットフォームのファイル時刻読取、FileTime/set_file_mtime/set_file_atime"

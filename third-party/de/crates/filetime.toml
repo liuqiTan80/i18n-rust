@@ -1,0 +1,10 @@
+["模块路径"]
+"filetime_Datei_Zeitstempel" = "filetime"
+
+["标识符"]
+"filetime_Zeitstempel" = "FileTime"
+"filetime_setze_MTime" = "set_file_mtime"
+"filetime_setze_ATime" = "set_file_atime"
+
+["解释"]
+"filetime_Datei_Zeitstempel" = "filetime liest und schreibt Datei-Zeitstempel: FileTime, set_file_mtime/set_file_atime"

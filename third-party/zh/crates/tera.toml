@@ -1,0 +1,10 @@
+["模块路径"]
+"tera模板引擎" = "tera"
+
+["标识符"]
+"tera主实例" = "Tera"
+"tera上下文" = "Context"
+"tera值类型" = "Value"
+
+["解释"]
+"tera模板引擎" = "tera 是受 Jinja2 启发的模板引擎：Tera/Context/Value 渲染模板"

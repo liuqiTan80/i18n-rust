@@ -1,0 +1,10 @@
+["模块路径"]
+"memmap_Speicher_Mapping" = "memmap2"
+
+["标识符"]
+"memmap_Unveraendert" = "Mmap"
+"memmap_Veraenderbar" = "MmapMut"
+"memmap_Optionen" = "MmapOptions"
+
+["解释"]
+"memmap_Speicher_Mapping" = "memmap2 ist plattformuebergreifendes Memory-Mapping: Mmap/MmapMut/MmapOptions"

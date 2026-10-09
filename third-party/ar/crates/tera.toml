@@ -1,0 +1,10 @@
+["模块路径"]
+"محرك_قوالب_tera" = "tera"
+
+["标识符"]
+"tera_نموذج" = "Tera"
+"tera_سياق" = "Context"
+"tera_قيمة" = "Value"
+
+["解释"]
+"محرك_قوالب_tera" = "tera محرك قوالب بأسلوب Jinja2: Tera/Context/Value يعرض القوالب"

@@ -1,0 +1,10 @@
+["模块路径"]
+"طابع_زمني_ملف_filetime" = "filetime"
+
+["标识符"]
+"filetime_طابع_زمني" = "FileTime"
+"filetime_ضبط_mtime" = "set_file_mtime"
+"filetime_ضبط_atime" = "set_file_atime"
+
+["解释"]
+"طابع_زمني_ملف_filetime" = "filetime يقرأ ويكتب الطوابع الزمنية للملفات: FileTime, set_file_mtime/set_file_atime"

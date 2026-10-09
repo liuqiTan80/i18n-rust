@@ -1,0 +1,10 @@
+["模块路径"]
+"chacha_प्रमाणीकृत_क्रिप्टो" = "chacha20poly1305"
+
+["标识符"]
+"chacha_मानक" = "ChaCha20Poly1305"
+"chacha_विस्तारित" = "XChaCha20Poly1305"
+"chacha_सामान्य" = "ChaChaPoly1305"
+
+["解释"]
+"chacha_प्रमाणीकृत_क्रिप्टो" = "chacha20poly1305 AEAD ChaCha20Poly1305/XChaCha20Poly1305 और सामान्य ChaChaPoly1305 देता है"

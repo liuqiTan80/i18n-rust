@@ -1,0 +1,10 @@
+["模块路径"]
+"memmap内存映射" = "memmap2"
+
+["标识符"]
+"memmap只读映射" = "Mmap"
+"memmap可写映射" = "MmapMut"
+"memmap映射选项" = "MmapOptions"
+
+["解释"]
+"memmap内存映射" = "memmap2 跨平台内存映射文件：Mmap/MmapMut 只读可写映射、MmapOptions 配置"

@@ -1,0 +1,10 @@
+["模块路径"]
+"motor_plantillas_tera" = "tera"
+
+["标识符"]
+"tera_instancia" = "Tera"
+"tera_contexto" = "Context"
+"tera_valor" = "Value"
+
+["解释"]
+"motor_plantillas_tera" = "tera es un motor de plantillas estilo Jinja2: Tera/Context/Value renderizan"

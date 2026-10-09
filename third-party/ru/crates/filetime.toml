@@ -1,0 +1,10 @@
+["模块路径"]
+"метка_времени_файла_filetime" = "filetime"
+
+["标识符"]
+"тип_времени_filetime" = "FileTime"
+"установить_mtime_filetime" = "set_file_mtime"
+"установить_atime_filetime" = "set_file_atime"
+
+["解释"]
+"метка_времени_файла_filetime" = "filetime читает и пишет метки времени файлов: FileTime, set_file_mtime/set_file_atime"

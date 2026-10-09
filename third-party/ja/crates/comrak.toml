@@ -1,0 +1,10 @@
+["模块路径"]
+"comrakマークダウン解析" = "comrak"
+
+["标识符"]
+"comrakオプション" = "Options"
+"comrakノード" = "Node"
+"comrakHTML変換関数" = "markdown_to_html"
+
+["解释"]
+"comrakマークダウン解析" = "comrak は 100% CommonMark/GFM マークダウン解析、Options/Node/markdown_to_html を提供"

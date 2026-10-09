@@ -1,0 +1,10 @@
+["模块路径"]
+"تعيين_الذاكرة_memmap" = "memmap2"
+
+["标识符"]
+"memmap_للقراءة" = "Mmap"
+"memmap_لكتابة" = "MmapMut"
+"memmap_خيارات" = "MmapOptions"
+
+["解释"]
+"تعيين_الذاكرة_memmap" = "memmap2 تعيين ذاكرة عبر المنصات: Mmap/MmapMut/MmapOptions"

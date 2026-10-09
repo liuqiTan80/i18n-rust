@@ -1,0 +1,10 @@
+["模块路径"]
+"teraテンプレート" = "tera"
+
+["标识符"]
+"teraメイン" = "Tera"
+"teraコンテキスト" = "Context"
+"tera値型" = "Value"
+
+["解释"]
+"teraテンプレート" = "tera は Jinja2 風のテンプレートエンジン、Tera/Context/Value で描画"

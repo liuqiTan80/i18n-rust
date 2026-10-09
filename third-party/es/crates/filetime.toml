@@ -1,0 +1,10 @@
+["模块路径"]
+"marca_tiempo_archivo_filetime" = "filetime"
+
+["标识符"]
+"filetime_marca_tiempo" = "FileTime"
+"filetime_fijar_mtime" = "set_file_mtime"
+"filetime_fijar_atime" = "set_file_atime"
+
+["解释"]
+"marca_tiempo_archivo_filetime" = "filetime lee y escribe marcas de tiempo: FileTime, set_file_mtime/set_file_atime"

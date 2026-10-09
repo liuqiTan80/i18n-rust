@@ -1,0 +1,10 @@
+["模块路径"]
+"تشفير_مصادق_chacha" = "chacha20poly1305"
+
+["标识符"]
+"chacha_قياسي" = "ChaCha20Poly1305"
+"chacha_ممتد" = "XChaCha20Poly1305"
+"chacha_عام" = "ChaChaPoly1305"
+
+["解释"]
+"تشفير_مصادق_chacha" = "chacha20poly1305 يوفر AEAD ChaCha20Poly1305/XChaCha20Poly1305 والعام ChaChaPoly1305"

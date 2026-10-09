@@ -1,0 +1,10 @@
+["模块路径"]
+"محرك_بحث_tantivy" = "tantivy"
+
+["标识符"]
+"tantivy_فهرس" = "Index"
+"tantivy_باحث" = "Searcher"
+"tantivy_كاتب" = "IndexWriter"
+
+["解释"]
+"محرك_بحث_tantivy" = "tantivy بحث كامل النص بأسلوب Lucene: Index/Searcher/IndexWriter"

@@ -1,0 +1,10 @@
+["模块路径"]
+"tera_템플릿_엔진" = "tera"
+
+["标识符"]
+"tera_인스턴스" = "Tera"
+"tera_컨텍스트" = "Context"
+"tera_값_타입" = "Value"
+
+["解释"]
+"tera_템플릿_엔진" = "tera 는 Jinja2 스타일 템플릿 엔진, Tera/Context/Value 로 렌더링"

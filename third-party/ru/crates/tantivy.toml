@@ -1,0 +1,10 @@
+["模块路径"]
+"поисковый_движок_tantivy" = "tantivy"
+
+["标识符"]
+"индекс_tantivy" = "Index"
+"поисковик_tantivy" = "Searcher"
+"писатель_индекса_tantivy" = "IndexWriter"
+
+["解释"]
+"поисковый_движок_tantivy" = "tantivy — полнотекстовый поиск в стиле Lucene: Index/Searcher/IndexWriter"

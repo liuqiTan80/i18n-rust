@@ -1,0 +1,10 @@
+["模块路径"]
+"memmap_메모리_매핑" = "memmap2"
+
+["标识符"]
+"memmap_읽기_매핑" = "Mmap"
+"memmap_쓰기_매핑" = "MmapMut"
+"memmap_옵션" = "MmapOptions"
+
+["解释"]
+"memmap_메모리_매핑" = "memmap2 는 크로스플랫폼 메모리 매핑, Mmap/MmapMut/MmapOptions 읽기쓰기 설정"

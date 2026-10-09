@@ -1,0 +1,10 @@
+["模块路径"]
+"tantivy_Such_Engine" = "tantivy"
+
+["标识符"]
+"tantivy_Index" = "Index"
+"tantivy_Sucher" = "Searcher"
+"tantivy_Schreiber" = "IndexWriter"
+
+["解释"]
+"tantivy_Such_Engine" = "tantivy ist Volltextsuche a la Lucene: Index/Searcher/IndexWriter fuer Aufbau und Suche"

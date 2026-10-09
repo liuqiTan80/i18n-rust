@@ -1,0 +1,10 @@
+["模块路径"]
+"filetime文件时间戳" = "filetime"
+
+["标识符"]
+"filetime时间类型" = "FileTime"
+"filetime设修改时间" = "set_file_mtime"
+"filetime设访问时间" = "set_file_atime"
+
+["解释"]
+"filetime文件时间戳" = "filetime 跨平台读写文件时间戳：FileTime 表示、set_file_mtime/set_file_atime 设置"

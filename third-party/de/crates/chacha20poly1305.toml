@@ -1,0 +1,10 @@
+["模块路径"]
+"chacha_Authentische_Verschluesselung" = "chacha20poly1305"
+
+["标识符"]
+"chacha_Standard" = "ChaCha20Poly1305"
+"chacha_Erweitert" = "XChaCha20Poly1305"
+"chacha_Generisch" = "ChaChaPoly1305"
+
+["解释"]
+"chacha_Authentische_Verschluesselung" = "chacha20poly1305 liefert AEAD ChaCha20Poly1305/XChaCha20Poly1305 und generisches ChaChaPoly1305"

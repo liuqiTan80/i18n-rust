@@ -1,0 +1,10 @@
+["模块路径"]
+"filetime_फ़ाइल_समय" = "filetime"
+
+["标识符"]
+"filetime_समय_प्रकार" = "FileTime"
+"filetime_mtime_सेट" = "set_file_mtime"
+"filetime_atime_सेट" = "set_file_atime"
+
+["解释"]
+"filetime_फ़ाइल_समय" = "filetime फ़ाइल समय-मुहरें पढ़ता और लिखता है: FileTime, set_file_mtime/set_file_atime"

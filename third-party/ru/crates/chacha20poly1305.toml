@@ -1,0 +1,10 @@
+["模块路径"]
+"chacha_аутентифицированное_шифрование" = "chacha20poly1305"
+
+["标识符"]
+"стандартный_chacha" = "ChaCha20Poly1305"
+"расширенный_chacha" = "XChaCha20Poly1305"
+"универсальный_chacha" = "ChaChaPoly1305"
+
+["解释"]
+"chacha_аутентифицированное_шифрование" = "chacha20poly1305 — AEAD ChaCha20Poly1305/XChaCha20Poly1305 и обобщённый ChaChaPoly1305"

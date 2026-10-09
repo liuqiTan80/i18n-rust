@@ -1,0 +1,10 @@
+["模块路径"]
+"chacha认证加密" = "chacha20poly1305"
+
+["标识符"]
+"chacha标准加密" = "ChaCha20Poly1305"
+"chacha扩展nonce" = "XChaCha20Poly1305"
+"chacha通用结构" = "ChaChaPoly1305"
+
+["解释"]
+"chacha认证加密" = "chacha20poly1305 提供 ChaCha20Poly1305/XChaCha20Poly1305 AEAD 加密与泛型 ChaChaPoly1305"

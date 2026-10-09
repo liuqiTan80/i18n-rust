@@ -1,0 +1,10 @@
+["模块路径"]
+"comrak标记解析" = "comrak"
+
+["标识符"]
+"comrak选项" = "Options"
+"comrak节点" = "Node"
+"comrak转HTML函数" = "markdown_to_html"
+
+["解释"]
+"comrak标记解析" = "comrak 是 100% CommonMark/GFM Markdown 解析器：Options 配置、Node AST、markdown_to_html 渲染"

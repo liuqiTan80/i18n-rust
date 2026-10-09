@@ -1,0 +1,10 @@
+["模块路径"]
+"tera_Template_Engine" = "tera"
+
+["标识符"]
+"tera_Tera" = "Tera"
+"tera_Kontext" = "Context"
+"tera_Wert" = "Value"
+
+["解释"]
+"tera_Template_Engine" = "tera ist eine Jinja2-ahnliche Template-Engine: Tera/Context/Value rendern Vorlagen"

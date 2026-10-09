@@ -1,0 +1,10 @@
+["模块路径"]
+"tantivy_खोज_इंजन" = "tantivy"
+
+["标识符"]
+"tantivy_इंडेक्स" = "Index"
+"tantivy_खोजक" = "Searcher"
+"tantivy_राइटर" = "IndexWriter"
+
+["解释"]
+"tantivy_खोज_इंजन" = "tantivy Lucene-शैली फुल-टेक्स्ट खोज है: Index/Searcher/IndexWriter"

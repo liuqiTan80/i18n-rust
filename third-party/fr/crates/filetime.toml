@@ -1,0 +1,10 @@
+["模块路径"]
+"horodatage_fichier_filetime" = "filetime"
+
+["标识符"]
+"filetime_horodatage" = "FileTime"
+"filetime_definir_mtime" = "set_file_mtime"
+"filetime_definir_atime" = "set_file_atime"
+
+["解释"]
+"horodatage_fichier_filetime" = "filetime lit et ecrit les horodatages de fichier: FileTime, set_file_mtime/set_file_atime"
