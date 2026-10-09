@@ -1,0 +1,10 @@
+["模块路径"]
+"acx_एसिंक_चैनल" = "async_channel"
+
+["标识符"]
+"acx_प्रेषक" = "Sender"
+"acx_प्रापक" = "Receiver"
+"acx_प्राप्ति_त्रुटि" = "RecvError"
+
+["解释"]
+"acx_एसिंक_चैनल" = "async-channel — बहु-उपयोक्ता अסיंक चैनल: Sender/Receiver/RecvError"

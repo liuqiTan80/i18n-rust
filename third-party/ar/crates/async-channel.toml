@@ -1,0 +1,10 @@
+["模块路径"]
+"acx_قناة_غير_متزامنة" = "async_channel"
+
+["标识符"]
+"acx_مرسل" = "Sender"
+"acx_مستلم" = "Receiver"
+"acx_خطأ_الاستلام" = "RecvError"
+
+["解释"]
+"acx_قناة_غير_متزامنة" = "async-channel — قناة غير متزامنة متعددة: Sender/Receiver/RecvError"

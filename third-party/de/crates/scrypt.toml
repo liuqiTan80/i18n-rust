@@ -1,0 +1,10 @@
+["模块路径"]
+"scr_passwortableitung" = "scrypt"
+
+["标识符"]
+"scr_hasher" = "Scrypt"
+"scr_parameter" = "Params"
+"scr_kdf_funktion" = "Kdf"
+
+["解释"]
+"scr_passwortableitung" = "scrypt — speicherhuertete Passwortableitung: Scrypt/Params/Kdf"

@@ -1,0 +1,10 @@
+["模块路径"]
+"scr비밀번호파생" = "scrypt"
+
+["标识符"]
+"scr해셔" = "Scrypt"
+"scr매개변수" = "Params"
+"scr키함수" = "Kdf"
+
+["解释"]
+"scr비밀번호파생" = "scrypt — 메모리 경화 비밀번호 파생: Scrypt/Params/Kdf"

@@ -1,0 +1,10 @@
+["模块路径"]
+"num_operacao_inteira" = "num_integer"
+
+["标识符"]
+"num_traco_inteiro" = "Integer"
+"num_raiz_traco" = "Roots"
+"num_mdc_estendido" = "ExtendedGcd"
+
+["解释"]
+"num_operacao_inteira" = "num-integer — extensao inteira: Integer/Roots/ExtendedGcd"

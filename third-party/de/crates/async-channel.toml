@@ -1,0 +1,10 @@
+["模块路径"]
+"acx_async_kanal" = "async_channel"
+
+["标识符"]
+"acx_sender" = "Sender"
+"acx_empfaenger" = "Receiver"
+"acx_empfangfehler" = "RecvError"
+
+["解释"]
+"acx_async_kanal" = "async-channel — multi-produzent-kanal: Sender/Receiver/RecvError"

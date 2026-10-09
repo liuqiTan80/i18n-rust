@@ -1,0 +1,10 @@
+["模块路径"]
+"ggz_गेम_इंजन" = "ggez"
+
+["标识符"]
+"ggz_संदर्भ" = "Context"
+"ggz_निर्माता" = "ContextBuilder"
+"ggz_कोरूटीन" = "Coroutine"
+
+["解释"]
+"ggz_गेम_इंजन" = "ggez — हल्का द्वि-आयामी ग इंजन: Context/ContextBuilder/Coroutine"

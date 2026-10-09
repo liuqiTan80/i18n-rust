@@ -1,0 +1,10 @@
+["模块路径"]
+"acx_асинх_канал" = "async_channel"
+
+["标识符"]
+"acx_отправитель" = "Sender"
+"acx_получатель" = "Receiver"
+"acx_ошибка_получ" = "RecvError"
+
+["解释"]
+"acx_асинх_канал" = "async-channel — многопоточный канал: Sender/Receiver/RecvError"

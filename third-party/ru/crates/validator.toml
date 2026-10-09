@@ -1,0 +1,10 @@
+["模块路径"]
+"val_проверка_данных" = "validator"
+
+["标识符"]
+"val_ошибка" = "ValidationError"
+"val_набор_ошибок" = "ValidationErrors"
+"val_валид" = "Validate"
+
+["解释"]
+"val_проверка_данных" = "validator — декларативная проверка данных: ValidationError/ValidationErrors/Validate"

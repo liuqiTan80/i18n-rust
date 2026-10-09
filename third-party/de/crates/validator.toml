@@ -1,0 +1,10 @@
+["模块路径"]
+"val Datenuberprufung" = "validator"
+
+["标识符"]
+"val_einzelfehler" = "ValidationError"
+"val_fehlermenge" = "ValidationErrors"
+"val_pruefung" = "Validate"
+
+["解释"]
+"val Datenuberprufung" = "validator — deklarative Datenpruefung: ValidationError/ValidationErrors/Validate"

@@ -1,0 +1,10 @@
+["模块路径"]
+"ggz_motor_juegos" = "ggez"
+
+["标识符"]
+"ggz_contexto" = "Context"
+"ggz_constructor" = "ContextBuilder"
+"ggz_corutina" = "Coroutine"
+
+["解释"]
+"ggz_motor_juegos" = "ggez — motor de juegos 2D ligero: Context/ContextBuilder/Coroutine"

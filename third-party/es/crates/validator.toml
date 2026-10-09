@@ -1,0 +1,10 @@
+["模块路径"]
+"val_validacion_datos" = "validator"
+
+["标识符"]
+"val_error_unico" = "ValidationError"
+"val_coleccion_errores" = "ValidationErrors"
+"val_validacion" = "Validate"
+
+["解释"]
+"val_validacion_datos" = "validator — validacion declarativa de datos: ValidationError/ValidationErrors/Validate"

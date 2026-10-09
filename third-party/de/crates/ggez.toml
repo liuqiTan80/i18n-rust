@@ -1,0 +1,10 @@
+["模块路径"]
+"ggz_spiel_engine" = "ggez"
+
+["标识符"]
+"ggz_kontext" = "Context"
+"ggz_bauhelfer" = "ContextBuilder"
+"ggz_coroutine" = "Coroutine"
+
+["解释"]
+"ggz_spiel_engine" = "ggez — leichte 2D-Spielengine: Context/ContextBuilder/Coroutine"

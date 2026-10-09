@@ -1,0 +1,10 @@
+["模块路径"]
+"num_पूर्णांक_गणना" = "num_integer"
+
+["标识符"]
+"num_पूर्णांक_लक्षण" = "Integer"
+"num_मूल_लक्षण" = "Roots"
+"num_विस्तार_महसाभा" = "ExtendedGcd"
+
+["解释"]
+"num_पूर्णांक_गणना" = "num-integer — पूर्णांक संचालन विस्तार: Integer/Roots/ExtendedGcd"

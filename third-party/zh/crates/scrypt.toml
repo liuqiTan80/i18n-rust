@@ -1,0 +1,10 @@
+["模块路径"]
+"scr口令派生" = "scrypt"
+
+["标识符"]
+"scr散列器" = "Scrypt"
+"scr参数" = "Params"
+"scr派生函数" = "Kdf"
+
+["解释"]
+"scr口令派生" = "scrypt — 内存硬化口令派生: Scrypt/Params/Kdf"

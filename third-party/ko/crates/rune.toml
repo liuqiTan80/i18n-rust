@@ -1,0 +1,10 @@
+["模块路径"]
+"run스크립트" = "rune"
+
+["标识符"]
+"run가상기계" = "Vm"
+"run컴파일단위" = "Unit"
+"run소스" = "Source"
+
+["解释"]
+"run스크립트" = "rune — 임베드 가능한 동적 언어: Vm/Unit/Source"

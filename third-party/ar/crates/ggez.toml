@@ -1,0 +1,10 @@
+["模块路径"]
+"ggz_محرك_العاب" = "ggez"
+
+["标识符"]
+"ggz_سياق" = "Context"
+"ggz_بانٍ" = "ContextBuilder"
+"ggz_روتين" = "Coroutine"
+
+["解释"]
+"ggz_محرك_العاب" = "ggez — محرك العاب خفيف: Context/ContextBuilder/Coroutine"

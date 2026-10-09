@@ -1,0 +1,10 @@
+["模块路径"]
+"acx비동기채널" = "async_channel"
+
+["标识符"]
+"acx보내는측" = "Sender"
+"acx받는측" = "Receiver"
+"acx받기오류" = "RecvError"
+
+["解释"]
+"acx비동기채널" = "async-channel — 다중 비동기 채널: Sender/Receiver/RecvError"

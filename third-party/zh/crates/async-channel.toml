@@ -1,0 +1,10 @@
+["模块路径"]
+"acx异步通道" = "async_channel"
+
+["标识符"]
+"acx发送端" = "Sender"
+"acx接收端" = "Receiver"
+"acx收取错误" = "RecvError"
+
+["解释"]
+"acx异步通道" = "async-channel — 多生产多消费异步通道: Sender/Receiver/RecvError"

@@ -1,0 +1,10 @@
+["模块路径"]
+"val数据校验" = "validator"
+
+["标识符"]
+"val单条错误" = "ValidationError"
+"val错误集合" = "ValidationErrors"
+"val校验逻辑" = "Validate"
+
+["解释"]
+"val数据校验" = "validator — 声明式数据校验: ValidationError/ValidationErrors/Validate"

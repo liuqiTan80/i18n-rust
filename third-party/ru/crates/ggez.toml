@@ -1,0 +1,10 @@
+["模块路径"]
+"ggz_игр_движок" = "ggez"
+
+["标识符"]
+"ggz_контекст" = "Context"
+"ggz_строитель" = "ContextBuilder"
+"ggz_корутина" = "Coroutine"
+
+["解释"]
+"ggz_игр_движок" = "ggez — лёгкий 2D игровой движок: Context/ContextBuilder/Coroutine"

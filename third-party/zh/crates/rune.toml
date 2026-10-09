@@ -1,0 +1,10 @@
+["模块路径"]
+"run脚本语言" = "rune"
+
+["标识符"]
+"run虚拟机" = "Vm"
+"run编译单元" = "Unit"
+"run源码" = "Source"
+
+["解释"]
+"run脚本语言" = "rune — 可嵌入动态脚本语言: Vm/Unit/Source"

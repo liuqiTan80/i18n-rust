@@ -1,0 +1,10 @@
+["模块路径"]
+"val_تحقق_البيانات" = "validator"
+
+["标识符"]
+"val_خطأ_مفرد" = "ValidationError"
+"val_مجموعة_أخطاء" = "ValidationErrors"
+"val_تحقق" = "Validate"
+
+["解释"]
+"val_تحقق_البيانات" = "validator — تحقق تصريحي من البيانات: ValidationError/ValidationErrors/Validate"

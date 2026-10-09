@@ -1,0 +1,10 @@
+["模块路径"]
+"ggz游戏引擎" = "ggez"
+
+["标识符"]
+"ggz游戏上下文" = "Context"
+"ggz上下文构建" = "ContextBuilder"
+"ggz协程" = "Coroutine"
+
+["解释"]
+"ggz游戏引擎" = "ggez — 轻量跨平台 2D 游戏框架: Context/ContextBuilder/Coroutine"

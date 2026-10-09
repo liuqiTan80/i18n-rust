@@ -1,0 +1,10 @@
+["模块路径"]
+"num_цел_арифм" = "num_integer"
+
+["标识符"]
+"num_тип_цел" = "Integer"
+"num_извл_корня" = "Roots"
+"num_расш_ннод" = "ExtendedGcd"
+
+["解释"]
+"num_цел_арифм" = "num-integer — расширение целочисленных операций: Integer/Roots/ExtendedGcd"

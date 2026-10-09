@@ -1,0 +1,10 @@
+["模块路径"]
+"num_حساب_صحيح" = "num_integer"
+
+["标识符"]
+"num_خاصية_صحيحة" = "Integer"
+"num_خاصية_جذر" = "Roots"
+"num_مقاسم_مشترك" = "ExtendedGcd"
+
+["解释"]
+"num_حساب_صحيح" = "num-integer — توسيع الأعداد الصحيحة: Integer/Roots/ExtendedGcd"

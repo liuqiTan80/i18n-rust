@@ -1,0 +1,10 @@
+["模块路径"]
+"valデータ検証" = "validator"
+
+["标识符"]
+"valエラー" = "ValidationError"
+"valエラー集" = "ValidationErrors"
+"val検証" = "Validate"
+
+["解释"]
+"valデータ検証" = "validator — データ検証の導出型: ValidationError/ValidationErrors/Validate"

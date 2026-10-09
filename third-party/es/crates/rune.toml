@@ -1,0 +1,10 @@
+["模块路径"]
+"run_lenguaje_script" = "rune"
+
+["标识符"]
+"run_maquina_virtual" = "Vm"
+"run_unidad_compilada" = "Unit"
+"run_fuente" = "Source"
+
+["解释"]
+"run_lenguaje_script" = "rune — lenguaje dinamico embebible: Vm/Unit/Source"

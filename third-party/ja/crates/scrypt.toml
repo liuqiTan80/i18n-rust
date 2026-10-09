@@ -1,0 +1,10 @@
+["模块路径"]
+"scr口令ハッシュ" = "scrypt"
+
+["标识符"]
+"scrハッシュ" = "Scrypt"
+"scrパラメータ" = "Params"
+"scr導出関数" = "Kdf"
+
+["解释"]
+"scr口令ハッシュ" = "scrypt — メモリ堅牢な口令導出: Scrypt/Params/Kdf"

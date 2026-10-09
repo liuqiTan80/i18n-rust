@@ -1,0 +1,10 @@
+["模块路径"]
+"num_ganzzahloperation" = "num_integer"
+
+["标识符"]
+"num_ganzzahl_merkmal" = "Integer"
+"num_wurzel_merkmal" = "Roots"
+"num_erweiteter_ggt" = "ExtendedGcd"
+
+["解释"]
+"num_ganzzahloperation" = "num-integer — Ganzzahl-Erweiterungen: Integer/Roots/ExtendedGcd"

@@ -1,0 +1,10 @@
+["模块路径"]
+"ggz게임엔진" = "ggez"
+
+["标识符"]
+"ggz문맥" = "Context"
+"ggz빌더" = "ContextBuilder"
+"ggz코루틴" = "Coroutine"
+
+["解释"]
+"ggz게임엔진" = "ggez — 경량 2D 게임 프레임워크: Context/ContextBuilder/Coroutine"

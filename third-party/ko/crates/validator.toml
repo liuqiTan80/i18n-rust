@@ -1,0 +1,10 @@
+["模块路径"]
+"val데이터검증" = "validator"
+
+["标识符"]
+"val오류" = "ValidationError"
+"val오류모음" = "ValidationErrors"
+"val검증" = "Validate"
+
+["解释"]
+"val데이터검증" = "validator — 선언형 데이터 검증: ValidationError/ValidationErrors/Validate"

@@ -1,0 +1,10 @@
+["模块路径"]
+"num정수연산" = "num_integer"
+
+["标识符"]
+"num정수형" = "Integer"
+"num근특성" = "Roots"
+"num확장최대공약" = "ExtendedGcd"
+
+["解释"]
+"num정수연산" = "num-integer — 정수 연산 확장: Integer/Roots/ExtendedGcd"

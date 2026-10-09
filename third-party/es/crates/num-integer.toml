@@ -1,0 +1,10 @@
+["模块路径"]
+"num_operacion_entera" = "num_integer"
+
+["标识符"]
+"num_rasgo_entero" = "Integer"
+"num_raiz_trait" = "Roots"
+"num_max_com_ext" = "ExtendedGcd"
+
+["解释"]
+"num_operacion_entera" = "num-integer — extension entera: Integer/Roots/ExtendedGcd"

@@ -1,0 +1,10 @@
+["模块路径"]
+"val_डेटा_सत्यापन" = "validator"
+
+["标识符"]
+"val_एकक_त्रुटि" = "ValidationError"
+"val_त्रुटि_समुच्चय" = "ValidationErrors"
+"val_सत्यापन" = "Validate"
+
+["解释"]
+"val_डेटा_सत्यापन" = "validator — घोषणात्मक डेटा सत्यापन: ValidationError/ValidationErrors/Validate"

@@ -1,0 +1,10 @@
+["模块路径"]
+"num_operation_entiere" = "num_integer"
+
+["标识符"]
+"num_critere_entier" = "Integer"
+"num_racine_caractere" = "Roots"
+"num_pgc_etendu" = "ExtendedGcd"
+
+["解释"]
+"num_operation_entiere" = "num-integer — extension des entiers: Integer/Roots/ExtendedGcd"

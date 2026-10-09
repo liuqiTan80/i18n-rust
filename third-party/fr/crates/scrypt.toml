@@ -1,0 +1,10 @@
+["模块路径"]
+"scr_derivation_motdepasse" = "scrypt"
+
+["标识符"]
+"scr_hasheur" = "Scrypt"
+"scr_parametres" = "Params"
+"scr_fonction_kdf" = "Kdf"
+
+["解释"]
+"scr_derivation_motdepasse" = "scrypt — derivation resistante a memoire: Scrypt/Params/Kdf"

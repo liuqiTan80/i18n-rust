@@ -1,0 +1,10 @@
+["模块路径"]
+"num整数运算" = "num_integer"
+
+["标识符"]
+"num整数特质" = "Integer"
+"num开根特质" = "Roots"
+"num扩展公约" = "ExtendedGcd"
+
+["解释"]
+"num整数运算" = "num-integer — 整数运算扩展 trait: Integer/Roots/ExtendedGcd"
