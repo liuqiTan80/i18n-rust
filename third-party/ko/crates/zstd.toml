@@ -1,0 +1,10 @@
+["模块路径"]
+"Zstd_압축" = "zstd"
+
+["标识符"]
+"Zstd_인코딩" = "encode"
+"Zstd_디코딩" = "decode"
+"Zstd_읽기_스트림" = "Decoder"
+
+["解释"]
+"Zstd_압축" = "Zstd 압축 라이브러리 바인딩"

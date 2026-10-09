@@ -1,0 +1,10 @@
+["模块路径"]
+"compression_zstd" = "zstd"
+
+["标识符"]
+"encoder_zstd" = "encode"
+"decoder_zstd" = "decode"
+"flux_lecture_zstd" = "Decoder"
+
+["解释"]
+"compression_zstd" = "Liens avec la bibliothèque de compression Zstandard"

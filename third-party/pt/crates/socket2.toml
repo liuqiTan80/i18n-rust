@@ -1,0 +1,10 @@
+["模块路径"]
+"socket_de_baixo_nivel" = "socket2"
+
+["标识符"]
+"objeto_socket" = "Socket"
+"dominio_endereco" = "Domain"
+"tipo_protocolo" = "Protocol"
+
+["解释"]
+"socket_de_baixo_nivel" = "Criação de sockets de baixo nível e opções multiplataforma"

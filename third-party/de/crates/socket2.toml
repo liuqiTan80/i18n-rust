@@ -1,0 +1,10 @@
+["模块路径"]
+"niedriger_socket" = "socket2"
+
+["标识符"]
+"socket_objekt" = "Socket"
+"adressebereich" = "Domain"
+"protokolltyp" = "Protocol"
+
+["解释"]
+"niedriger_socket" = "Plattformübergreifende Low-Level-Socket-Erstellung und Optionen"

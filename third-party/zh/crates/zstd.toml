@@ -1,0 +1,10 @@
+["模块路径"]
+"Zstd压缩" = "zstd"
+
+["标识符"]
+"Zstd编码" = "encode"
+"Zstd解码" = "decode"
+"Zstd读取流" = "Decoder"
+
+["解释"]
+"Zstd压缩" = "Zstandard 压缩库绑定"

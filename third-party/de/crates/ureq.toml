@@ -1,0 +1,10 @@
+["模块路径"]
+"leichter_http_klient" = "ureq"
+
+["标识符"]
+"http_agent" = "Agent"
+"ureq_anfrage" = "Request"
+"ureq_antwort" = "Response"
+
+["解释"]
+"leichter_http_klient" = "Einfacher sicherer blockierender HTTP-Client"

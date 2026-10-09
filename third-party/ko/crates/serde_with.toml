@@ -1,0 +1,10 @@
+["模块路径"]
+"직렬화_커스텀_속성" = "serde_with"
+
+["标识符"]
+"serde_as_속성" = "serde_as"
+"직렬화_형식" = "SerializeAs"
+"역직렬화_형식" = "DeserializeAs"
+
+["解释"]
+"직렬화_커스텀_속성" = "속성으로 serde 직렬화 형식을 맞춤"

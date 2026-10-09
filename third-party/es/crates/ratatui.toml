@@ -1,0 +1,10 @@
+["模块路径"]
+"marco_interfaz_terminal" = "ratatui"
+
+["标识符"]
+"instancia_terminal" = "Terminal"
+"cuadro_dibujado" = "Frame"
+"restruccion_diseno" = "Layout"
+
+["解释"]
+"marco_interfaz_terminal" = "Renderiza interfaces interactivas en la terminal"

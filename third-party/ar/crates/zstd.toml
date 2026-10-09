@@ -1,0 +1,10 @@
+["模块路径"]
+"ضغط_Zstd" = "zstd"
+
+["标识符"]
+"ترميز_Zstd" = "encode"
+"فك_ترميز_Zstd" = "decode"
+"تدفق_قراءة_Zstd" = "Decoder"
+
+["解释"]
+"ضغط_Zstd" = "ربط مكتبة الضغط Zstandard"

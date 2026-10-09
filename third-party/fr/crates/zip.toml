@@ -1,0 +1,10 @@
+["模块路径"]
+"archive_zip" = "zip"
+
+["标识符"]
+"ecrivain_zip" = "ZipWriter"
+"ballote_zip" = "ZipArchive"
+"resultat_zip" = "ZipResult"
+
+["解释"]
+"archive_zip" = "Lit et écrit des archives compressées ZIP"

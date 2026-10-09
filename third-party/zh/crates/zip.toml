@@ -1,0 +1,10 @@
+["模块路径"]
+"ZIP压缩包" = "zip"
+
+["标识符"]
+"ZIP写入器" = "ZipWriter"
+"ZIP归档" = "ZipArchive"
+"ZIP结果" = "ZipResult"
+
+["解释"]
+"ZIP压缩包" = "读写 ZIP 压缩档案"

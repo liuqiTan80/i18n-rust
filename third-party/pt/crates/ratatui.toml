@@ -1,0 +1,10 @@
+["模块路径"]
+"moldura_interface_terminal" = "ratatui"
+
+["标识符"]
+"instancia_terminal" = "Terminal"
+"quadro_desenho" = "Frame"
+"restricao_layout" = "Layout"
+
+["解释"]
+"moldura_interface_terminal" = "Renderiza interfaces interativas no terminal"

@@ -1,0 +1,10 @@
+["模块路径"]
+"ZIP圧縮" = "zip"
+
+["标识符"]
+"ZIP書き込み" = "ZipWriter"
+"ZIPアーカイブ" = "ZipArchive"
+"ZIP結果" = "ZipResult"
+
+["解释"]
+"ZIP圧縮" = "ZIP 圧縮アーカイブの読み書き"

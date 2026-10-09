@@ -1,0 +1,10 @@
+["模块路径"]
+"zip_archiv" = "zip"
+
+["标识符"]
+"zip_schreiber" = "ZipWriter"
+"zip_archivsatz" = "ZipArchive"
+"zip_ergebnis" = "ZipResult"
+
+["解释"]
+"zip_archiv" = "Lesen und Schreiben von ZIP-Archiven"

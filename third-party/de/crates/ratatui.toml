@@ -1,0 +1,10 @@
+["模块路径"]
+"terminal_ui_rahmen" = "ratatui"
+
+["标识符"]
+"terminal_instanz" = "Terminal"
+"zeichenrahmen" = "Frame"
+"layout_beschraenkung" = "Layout"
+
+["解释"]
+"terminal_ui_rahmen" = "Interaktive Oberflächen im Terminal rendern"

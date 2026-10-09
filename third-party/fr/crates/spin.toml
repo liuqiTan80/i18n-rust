@@ -1,0 +1,10 @@
+["模块路径"]
+"primitives_spin" = "spin"
+
+["标识符"]
+"mutex_spin" = "Mutex"
+"verrou_lecture_ecriture_spin" = "RwLock"
+"chargement_paresseux_spin" = "Lazy"
+
+["解释"]
+"primitives_spin" = "Primitives de synchronisation en rotation sans bloquer les fils"

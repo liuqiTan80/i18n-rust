@@ -1,0 +1,10 @@
+["模块路径"]
+"spin_sperren" = "spin"
+
+["标识符"]
+"spin_mutex" = "Mutex"
+"spin_lese_schreib_sperre" = "RwLock"
+"spin_verzoegert" = "Lazy"
+
+["解释"]
+"spin_sperren" = "Spin-Synchronisationsprimitives ohne Thread-Blockade"

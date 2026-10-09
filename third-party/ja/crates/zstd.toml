@@ -1,0 +1,10 @@
+["模块路径"]
+"Zstd圧縮" = "zstd"
+
+["标识符"]
+"Zstd符号化" = "encode"
+"Zstd復号" = "decode"
+"Zstd読み取りストリーム" = "Decoder"
+
+["解释"]
+"Zstd圧縮" = "Zstandard 圧縮ライブラリのバインディング"

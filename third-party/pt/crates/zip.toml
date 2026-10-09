@@ -1,0 +1,10 @@
+["模块路径"]
+"pacote_zip" = "zip"
+
+["标识符"]
+"escritor_zip" = "ZipWriter"
+"arquivo_zip" = "ZipArchive"
+"resultado_zip" = "ZipResult"
+
+["解释"]
+"pacote_zip" = "Lê e grava arquivos comprimidos ZIP"

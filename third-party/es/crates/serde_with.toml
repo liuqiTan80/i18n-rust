@@ -1,0 +1,10 @@
+["模块路径"]
+"atributos_serializacion" = "serde_with"
+
+["标识符"]
+"atributo_serde_as" = "serde_as"
+"formato_serializacion" = "SerializeAs"
+"formato_deserializacion" = "DeserializeAs"
+
+["解释"]
+"atributos_serializacion" = "Personaliza el formato de serialización de serde con atributos"

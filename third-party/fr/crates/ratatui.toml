@@ -1,0 +1,10 @@
+["模块路径"]
+"cadre_interface_terminal" = "ratatui"
+
+["标识符"]
+"instance_terminal" = "Terminal"
+"image_dessin" = "Frame"
+"contrainte_disposition" = "Layout"
+
+["解释"]
+"cadre_interface_terminal" = "Dessine des interfaces interactives dans le terminal"

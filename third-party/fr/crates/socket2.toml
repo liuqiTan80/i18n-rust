@@ -1,0 +1,10 @@
+["模块路径"]
+"socket_bas_niveau" = "socket2"
+
+["标识符"]
+"objet_socket" = "Socket"
+"domaine_adresse" = "Domain"
+"type_protocole" = "Protocol"
+
+["解释"]
+"socket_bas_niveau" = "Création de sockets bas niveau et options multiplateformes"
