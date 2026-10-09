@@ -1,0 +1,10 @@
+["模块路径"]
+"cpal_audio" = "cpal"
+
+["标识符"]
+"cpal_config_flujo" = "StreamConfig"
+"cpal_id_dispositivo" = "DeviceId"
+"cpal_config_soportada" = "SupportedStreamConfig"
+
+["解释"]
+"cpal_audio" = "cpal — entrada/salida de audio multiplataforma: StreamConfig/DeviceId/SupportedStreamConfig"

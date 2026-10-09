@@ -1,0 +1,10 @@
+["模块路径"]
+"wnc윈도우코어" = "windows_core"
+
+["标识符"]
+"wnc문자열" = "HSTRING"
+"wnc식별자" = "GUID"
+"wnc결과코드" = "HRESULT"
+
+["解释"]
+"wnc윈도우코어" = "windows-core — Windows COM/WinRT 핵심 형식: HSTRING/GUID/HRESULT"

@@ -1,0 +1,10 @@
+["模块路径"]
+"mq_graficos" = "miniquad"
+
+["标识符"]
+"mq_pipeline" = "Pipeline"
+"mq_layout_buffer" = "BufferLayout"
+"mq_attr_vertice" = "VertexAttribute"
+
+["解释"]
+"mq_graficos" = "miniquad — camada grafica leve multiplataforma: Pipeline/BufferLayout/VertexAttribute"

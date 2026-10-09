@@ -1,0 +1,10 @@
+["模块路径"]
+"wnc_विंडो_कोर" = "windows_core"
+
+["标识符"]
+"wnc_स्ट्रिंग" = "HSTRING"
+"wnc_जीयूआईडी" = "GUID"
+"wnc_परिणाम" = "HRESULT"
+
+["解释"]
+"wnc_विंडो_कोर" = "windows-core — Windows COM/WinRT मूल प्रकार: HSTRING/GUID/HRESULT"

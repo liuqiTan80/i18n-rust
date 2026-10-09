@@ -1,0 +1,10 @@
+["模块路径"]
+"x5c_شهادة" = "x509_cert"
+
+["标识符"]
+"x5c_شهادة_رقمية" = "Certificate"
+"x5c_موضوع_الشهادة" = "TbsCertificate"
+"x5c_إصدار" = "Version"
+
+["解释"]
+"x5c_شهادة" = "x509-cert — شهادات المفتاح العام X.509: Certificate/TbsCertificate/Version"

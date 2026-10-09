@@ -1,0 +1,10 @@
+["模块路径"]
+"wnc_ядро_окон" = "windows_core"
+
+["标识符"]
+"wnc_строка" = "HSTRING"
+"wnc_идентиф" = "GUID"
+"wnc_результат" = "HRESULT"
+
+["解释"]
+"wnc_ядро_окон" = "windows-core — базовые типы COM/WinRT: HSTRING/GUID/HRESULT"

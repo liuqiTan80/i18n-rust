@@ -1,0 +1,10 @@
+["模块路径"]
+"est_fehlerbericht" = "error_stack"
+
+["标识符"]
+"est_bericht" = "Report"
+"est_rahmen" = "Frame"
+"est_anhangsart" = "AttachmentKind"
+
+["解释"]
+"est_fehlerbericht" = "error-stack — strukturierte Fehlerberichte: Report/Frame/AttachmentKind"

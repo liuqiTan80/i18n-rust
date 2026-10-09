@@ -1,0 +1,10 @@
+["模块路径"]
+"mq_grafik" = "miniquad"
+
+["标识符"]
+"mq_pipeline" = "Pipeline"
+"mq_puffer_layout" = "BufferLayout"
+"mq_eck_attr" = "VertexAttribute"
+
+["解释"]
+"mq_grafik" = "miniquad — leichte plattformuebergreifende Grafik: Pipeline/BufferLayout/VertexAttribute"

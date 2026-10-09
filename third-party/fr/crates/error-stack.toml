@@ -1,0 +1,10 @@
+["模块路径"]
+"est_rapport_erreur" = "error_stack"
+
+["标识符"]
+"est_rapport" = "Report"
+"est_cadre" = "Frame"
+"est_type_jointure" = "AttachmentKind"
+
+["解释"]
+"est_rapport_erreur" = "error-stack — rapports derreur structure: Report/Frame/AttachmentKind"

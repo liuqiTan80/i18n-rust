@@ -1,0 +1,10 @@
+["模块路径"]
+"est_informe_error" = "error_stack"
+
+["标识符"]
+"est_informe" = "Report"
+"est_marco" = "Frame"
+"est_tipo_adjunto" = "AttachmentKind"
+
+["解释"]
+"est_informe_error" = "error-stack — informes de error estructurados: Report/Frame/AttachmentKind"

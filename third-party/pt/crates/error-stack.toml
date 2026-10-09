@@ -1,0 +1,10 @@
+["模块路径"]
+"est_relatorio_erro" = "error_stack"
+
+["标识符"]
+"est_relatorio" = "Report"
+"est_quadro" = "Frame"
+"est_tipo_anexo" = "AttachmentKind"
+
+["解释"]
+"est_relatorio_erro" = "error-stack — relatorios de erro estruturados: Report/Frame/AttachmentKind"

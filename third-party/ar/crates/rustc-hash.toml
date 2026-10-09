@@ -1,0 +1,10 @@
+["模块路径"]
+"rsh_هاش_سريع" = "rustc_hash"
+
+["标识符"]
+"rsh_هاشر" = "FxHasher"
+"rsh_باني_الهاشر" = "FxBuildHasher"
+"rsh_خريطة_هاش" = "FxHashMap"
+
+["解释"]
+"rsh_هاش_سريع" = "rustc-hash — هاش سريع من المترجم: FxHasher/FxBuildHasher/FxHashMap"

@@ -1,0 +1,10 @@
+["模块路径"]
+"mq_رسوم" = "miniquad"
+
+["标识符"]
+"mq_خط_الأنابيب" = "Pipeline"
+"mq_ترتيب_المخزن" = "BufferLayout"
+"mq_خاصية_رأس" = "VertexAttribute"
+
+["解释"]
+"mq_رسوم" = "miniquad — طبقة رسوميات خفيفة متعددة المنصات: Pipeline/BufferLayout/VertexAttribute"

@@ -1,0 +1,10 @@
+["模块路径"]
+"x5c_certificado" = "x509_cert"
+
+["标识符"]
+"x5c_cert" = "Certificate"
+"x5c_tbs_cert" = "TbsCertificate"
+"x5c_versao" = "Version"
+
+["解释"]
+"x5c_certificado" = "x509-cert — certificados de chave publica X.509: Certificate/TbsCertificate/Version"

@@ -1,0 +1,10 @@
+["模块路径"]
+"rsh고속해시" = "rustc_hash"
+
+["标识符"]
+"rsh해셔" = "FxHasher"
+"rsh빌더해셔" = "FxBuildHasher"
+"rsh해시맵" = "FxHashMap"
+
+["解释"]
+"rsh고속해시" = "rustc-hash — 컴파일러 기반 고속 해시: FxHasher/FxBuildHasher/FxHashMap"

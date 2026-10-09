@@ -1,0 +1,10 @@
+["模块路径"]
+"x5c_प्रमाणपत्र" = "x509_cert"
+
+["标识符"]
+"x5c_डिजिटल_प्रमाण" = "Certificate"
+"x5c_tbs_प्रमाण" = "TbsCertificate"
+"x5c_संस्करण" = "Version"
+
+["解释"]
+"x5c_प्रमाणपत्र" = "x509-cert — X.509 सार्वजनिक-कुंजी प्रमाणपत्र: Certificate/TbsCertificate/Version"

@@ -1,0 +1,10 @@
+["模块路径"]
+"rsh高速ハッシュ" = "rustc_hash"
+
+["标识符"]
+"rshハッシャー" = "FxHasher"
+"rsh構築ハッシャー" = "FxBuildHasher"
+"rshマップ" = "FxHashMap"
+
+["解释"]
+"rsh高速ハッシュ" = "rustc-hash — rustc由来の高速ハッシュ: FxHasher/FxBuildHasher/FxHashMap"

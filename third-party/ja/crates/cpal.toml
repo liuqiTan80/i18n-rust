@@ -1,0 +1,10 @@
+["模块路径"]
+"cpalオーディオ" = "cpal"
+
+["标识符"]
+"cpalストリーム設定" = "StreamConfig"
+"cpalデバイスID" = "DeviceId"
+"cpal対応設定" = "SupportedStreamConfig"
+
+["解释"]
+"cpalオーディオ" = "cpal — クロスプラットフォーム音声I/O: StreamConfig/DeviceId/SupportedStreamConfig"

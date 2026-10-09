@@ -1,0 +1,10 @@
+["模块路径"]
+"estエラー報告" = "error_stack"
+
+["标识符"]
+"estレポート" = "Report"
+"estフレーム" = "Frame"
+"est添付種類" = "AttachmentKind"
+
+["解释"]
+"estエラー報告" = "error-stack — 構造化エラー報告: Report/Frame/AttachmentKind"

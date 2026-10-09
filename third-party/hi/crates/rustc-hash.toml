@@ -1,0 +1,10 @@
+["模块路径"]
+"rsh_तेज़_हैश" = "rustc_hash"
+
+["标识符"]
+"rsh_हैसर" = "FxHasher"
+"rsh_बिल्ड_हैसर" = "FxBuildHasher"
+"rsh_हैश_मानचित्र" = "FxHashMap"
+
+["解释"]
+"rsh_तेज़_हैश" = "rustc-hash — कम्पाइलर-आधारित तेज़ हैश: FxHasher/FxBuildHasher/FxHashMap"

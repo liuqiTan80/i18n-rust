@@ -1,0 +1,10 @@
+["模块路径"]
+"wnc_nucleo_ventana" = "windows_core"
+
+["标识符"]
+"wnc_cadena" = "HSTRING"
+"wnc_guid" = "GUID"
+"wnc_resultado" = "HRESULT"
+
+["解释"]
+"wnc_nucleo_ventana" = "windows-core — tipos nucleares COM/WinRT: HSTRING/GUID/HRESULT"

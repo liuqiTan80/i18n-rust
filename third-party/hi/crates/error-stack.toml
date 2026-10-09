@@ -1,0 +1,10 @@
+["模块路径"]
+"est_त्रुटि_रिपोर्ट" = "error_stack"
+
+["标识符"]
+"est_रिपोर्ट" = "Report"
+"est_फ्रेम" = "Frame"
+"est_अटैचमेंट_प्रकार" = "AttachmentKind"
+
+["解释"]
+"est_त्रुटि_रिपोर्ट" = "error-stack — संरचित त्रुटि रिपोर्ट: Report/Frame/AttachmentKind"

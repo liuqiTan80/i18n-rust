@@ -1,0 +1,10 @@
+["模块路径"]
+"wnc_noyau_fenetre" = "windows_core"
+
+["标识符"]
+"wnc_chaine" = "HSTRING"
+"wnc_guid" = "GUID"
+"wnc_resultat" = "HRESULT"
+
+["解释"]
+"wnc_noyau_fenetre" = "windows-core — types noyau COM/WinRT: HSTRING/GUID/HRESULT"

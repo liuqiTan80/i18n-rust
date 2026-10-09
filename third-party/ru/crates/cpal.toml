@@ -1,0 +1,10 @@
+["模块路径"]
+"cpal_аудио" = "cpal"
+
+["标识符"]
+"cpal_настр_потока" = "StreamConfig"
+"cpal_ид_устройства" = "DeviceId"
+"cpal_поддерж_настр" = "SupportedStreamConfig"
+
+["解释"]
+"cpal_аудио" = "cpal — кроссплатформенный аудио ввод-вывод: StreamConfig/DeviceId/SupportedStreamConfig"

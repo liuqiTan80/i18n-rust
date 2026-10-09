@@ -1,0 +1,10 @@
+["模块路径"]
+"est_تقرير_خطأ" = "error_stack"
+
+["标识符"]
+"est_تقرير" = "Report"
+"est_إطار" = "Frame"
+"est_نوع_المرفق" = "AttachmentKind"
+
+["解释"]
+"est_تقرير_خطأ" = "error-stack — تقارير أخطاء منظمة: Report/Frame/AttachmentKind"

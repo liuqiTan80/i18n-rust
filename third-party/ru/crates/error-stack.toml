@@ -1,0 +1,10 @@
+["模块路径"]
+"est_отчёт_ошибок" = "error_stack"
+
+["标识符"]
+"est_отчёт" = "Report"
+"est_фрейм" = "Frame"
+"est_тип_вложений" = "AttachmentKind"
+
+["解释"]
+"est_отчёт_ошибок" = "error-stack — структурированные отчёты об ошибках: Report/Frame/AttachmentKind"

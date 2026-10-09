@@ -1,0 +1,10 @@
+["模块路径"]
+"rsh_hash_schnell" = "rustc_hash"
+
+["标识符"]
+"rsh_hasher" = "FxHasher"
+"rsh_build_hasher" = "FxBuildHasher"
+"rsh_hash_karte" = "FxHashMap"
+
+["解释"]
+"rsh_hash_schnell" = "rustc-hash — schneller Hash aus dem Compiler: FxHasher/FxBuildHasher/FxHashMap"

@@ -1,0 +1,10 @@
+["模块路径"]
+"wnc窗口核心" = "windows_core"
+
+["标识符"]
+"wnc宽字符串" = "HSTRING"
+"wnc全局标识" = "GUID"
+"wnc结果码" = "HRESULT"
+
+["解释"]
+"wnc窗口核心" = "windows-core — Windows COM/WinRT 核心类型: HSTRING/GUID/HRESULT"

@@ -1,0 +1,10 @@
+["模块路径"]
+"wnc_نواة_النافذة" = "windows_core"
+
+["标识符"]
+"wnc_سلسلة" = "HSTRING"
+"wnc_معرّف" = "GUID"
+"wnc_نتيجة" = "HRESULT"
+
+["解释"]
+"wnc_نواة_النافذة" = "windows-core — أنواع COM/WinRT الأساسية: HSTRING/GUID/HRESULT"

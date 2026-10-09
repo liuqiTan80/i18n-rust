@@ -1,0 +1,10 @@
+["模块路径"]
+"cpal_صوت" = "cpal"
+
+["标识符"]
+"cpal_إعداد_التدفق" = "StreamConfig"
+"cpal_معرّف_الجهاز" = "DeviceId"
+"cpal_إعداد_مدعوم" = "SupportedStreamConfig"
+
+["解释"]
+"cpal_صوت" = "cpal — إدخال/إخراج صوتي متعدد المنصات: StreamConfig/DeviceId/SupportedStreamConfig"

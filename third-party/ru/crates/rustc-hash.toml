@@ -1,0 +1,10 @@
+["模块路径"]
+"rsh_быстрый_хэш" = "rustc_hash"
+
+["标识符"]
+"rsh_хешер" = "FxHasher"
+"rsh_билдер_хешер" = "FxBuildHasher"
+"rsh_хеш_мапа" = "FxHashMap"
+
+["解释"]
+"rsh_быстрый_хэш" = "rustc-hash — быстрый хеш из компилятора: FxHasher/FxBuildHasher/FxHashMap"

@@ -1,0 +1,10 @@
+["模块路径"]
+"mq그래픽" = "miniquad"
+
+["标识符"]
+"mq파이프라인" = "Pipeline"
+"mq버퍼배치" = "BufferLayout"
+"mq정점속성" = "VertexAttribute"
+
+["解释"]
+"mq그래픽" = "miniquad — 경량 크로스플랫폼 그래픽: Pipeline/BufferLayout/VertexAttribute"

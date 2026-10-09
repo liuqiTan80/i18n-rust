@@ -1,0 +1,10 @@
+["模块路径"]
+"mq_графика" = "miniquad"
+
+["标识符"]
+"mq_конвейер" = "Pipeline"
+"mq_раскл_буфера" = "BufferLayout"
+"mq_атриб_вершин" = "VertexAttribute"
+
+["解释"]
+"mq_графика" = "miniquad — лёгкая графическая абстракция: Pipeline/BufferLayout/VertexAttribute"

@@ -1,0 +1,10 @@
+["模块路径"]
+"cpal_ऑडियो" = "cpal"
+
+["标识符"]
+"cpal_स्ट्रीम_विन्यास" = "StreamConfig"
+"cpal_डिवाइस_आईडी" = "DeviceId"
+"cpal_समर्थित_विन्यास" = "SupportedStreamConfig"
+
+["解释"]
+"cpal_ऑडियो" = "cpal — क्रॉस-प्लेटफ़ॉर्म ऑडियो I/O: StreamConfig/DeviceId/SupportedStreamConfig"

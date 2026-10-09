@@ -1,0 +1,10 @@
+["模块路径"]
+"wnc_fenster_kern" = "windows_core"
+
+["标识符"]
+"wnc_zeichenkette" = "HSTRING"
+"wnc_guid" = "GUID"
+"wnc_ergebnis" = "HRESULT"
+
+["解释"]
+"wnc_fenster_kern" = "windows-core — Windows-COM/WinRT-Kerntypen: HSTRING/GUID/HRESULT"
