@@ -1,0 +1,10 @@
+["模块路径"]
+"DWARF_디버그_정보" = "gimli"
+
+["标识符"]
+"dwarf_디버그_정보" = "DebugInfo"
+"dwarf_바이트열_단편" = "EndianSlice"
+"dwarf_약형_테이블" = "Abbreviations"
+
+["解释"]
+"DWARF_디버그_정보" = "gimli 는 DWARF 디버그 형식 분석, DebugInfo/EndianSlice/Abbreviations 로 정보 섹션 읽기"

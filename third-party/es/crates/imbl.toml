@@ -1,0 +1,10 @@
+["模块路径"]
+"estructuras_persistentes_imbl" = "imbl"
+
+["标识符"]
+"vector_persistente_imbl" = "Vector"
+"mapa_hash_persistente_imbl" = "HashMap"
+"conjunto_hash_persistente_imbl" = "HashSet"
+
+["解释"]
+"estructuras_persistentes_imbl" = "imbl ofrece contenedores persistentes Vector/HashMap/HashSet con estructura compartida"

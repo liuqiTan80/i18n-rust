@@ -1,0 +1,10 @@
+["模块路径"]
+"info_debug_dwarf" = "gimli"
+
+["标识符"]
+"section_info_debug_dwarf" = "DebugInfo"
+"tranche_ordre_octets_dwarf" = "EndianSlice"
+"abreviations_dwarf" = "Abbreviations"
+
+["解释"]
+"info_debug_dwarf" = "gimli analyse DWARF, DebugInfo/EndianSlice/Abbreviations lisent les segments de debug"

@@ -1,0 +1,10 @@
+["模块路径"]
+"imbl_영속_자료구조" = "imbl"
+
+["标识符"]
+"imbl_영속_벡터" = "Vector"
+"imbl_영속_해시_맵" = "HashMap"
+"imbl_영속_해시_셋" = "HashSet"
+
+["解释"]
+"imbl_영속_자료구조" = "imbl 은 구조 공유 영속 컨테이너 Vector/HashMap/HashSet 제공, 쓰기 시 분기 클론"

@@ -1,0 +1,10 @@
+["模块路径"]
+"allocateur_arena_bumpalo" = "bumpalo"
+
+["标识符"]
+"poignee_allocateur_bumpalo" = "Bump"
+"pointeur_boite_bumpalo" = "Box"
+"vecteur_bumpalo" = "Vec"
+
+["解释"]
+"allocateur_arena_bumpalo" = "bumpalo offre un allocateur arena, alloue Box/Vec rapidement sur Bump et libere globalement"

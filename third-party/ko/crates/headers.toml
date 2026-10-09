@@ -1,0 +1,10 @@
+["模块路径"]
+"HTTP_헤더_집합" = "headers"
+
+["标识符"]
+"인증_헤더" = "Authorization"
+"콘텐츠_유형_헤더" = "ContentType"
+"사용자_에이전트_헤더" = "UserAgent"
+
+["解释"]
+"HTTP_헤더_집합" = "headers 는 http crate 위에서 강타입 HTTP 헤더 제공: Authorization/ContentType/UserAgent"

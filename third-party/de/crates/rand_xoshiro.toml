@@ -1,0 +1,10 @@
+["模块路径"]
+"xoshiro_Zufallszahlen" = "rand_xoshiro"
+
+["标识符"]
+"xoshiro256plus_Generator" = "Xoshiro256Plus"
+"xoshiro256plusplus_Generator" = "Xoshiro256PlusPlus"
+"splitmix64_Seed_Erweiterung" = "SplitMix64"
+
+["解释"]
+"xoshiro_Zufallszahlen" = "rand_xoshiro implementiert xoshiro/xoroshiro Pseudozufall, Xoshiro256Plus/SplitMix64 sind Kern"

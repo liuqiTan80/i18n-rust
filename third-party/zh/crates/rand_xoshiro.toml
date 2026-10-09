@@ -1,0 +1,10 @@
+["模块路径"]
+"xoshiro随机数生成" = "rand_xoshiro"
+
+["标识符"]
+"xoshiro256加发生器" = "Xoshiro256Plus"
+"xoshiro256双加发生器" = "Xoshiro256PlusPlus"
+"splitmix64种子扩展" = "SplitMix64"
+
+["解释"]
+"xoshiro随机数生成" = "rand_xoshiro 实现 xoshiro/xoroshiro 伪随机发生器，Xoshiro256Plus/SplitMix64 是核心算法"

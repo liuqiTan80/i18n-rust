@@ -1,0 +1,10 @@
+["模块路径"]
+"HTTPヘッダー集合" = "headers"
+
+["标识符"]
+"認証ヘッダー" = "Authorization"
+"コンテンツ型ヘッダー" = "ContentType"
+"ユーザエージェントヘッダー" = "UserAgent"
+
+["解释"]
+"HTTPヘッダー集合" = "headers は http crate の上に強型 HTTP ヘッダーを提供: Authorization/ContentType/UserAgent"

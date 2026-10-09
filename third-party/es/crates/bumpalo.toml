@@ -1,0 +1,10 @@
+["模块路径"]
+"asignador_arena_bumpalo" = "bumpalo"
+
+["标识符"]
+"asa_allocador_bumpalo" = "Bump"
+"puntero_caja_bumpalo" = "Box"
+"vector_bumpalo" = "Vec"
+
+["解释"]
+"asignador_arena_bumpalo" = "bumpalo ofrece asignador de arena, asigna Box/Vec rapidamente en Bump y libera junto"

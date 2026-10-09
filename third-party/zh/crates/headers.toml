@@ -1,0 +1,10 @@
+["模块路径"]
+"HTTP头部集合" = "headers"
+
+["标识符"]
+"授权头部" = "Authorization"
+"内容类型头部" = "ContentType"
+"用户代理头部" = "UserAgent"
+
+["解释"]
+"HTTP头部集合" = "headers 在 http  crate 之上提供强类型 HTTP 头：Authorization/ContentType/UserAgent"

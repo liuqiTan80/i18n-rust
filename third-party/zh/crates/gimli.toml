@@ -1,0 +1,10 @@
+["模块路径"]
+"DWARF调试信息" = "gimli"
+
+["标识符"]
+"dwarf调试信息段" = "DebugInfo"
+"dwarf字节序切片" = "EndianSlice"
+"dwarf缩写表" = "Abbreviations"
+
+["解释"]
+"DWARF调试信息" = "gimli 解析 DWARF 调试格式，DebugInfo/EndianSlice/Abbreviations 读取调试段"

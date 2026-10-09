@@ -1,0 +1,10 @@
+["模块路径"]
+"conjunto_encabezados_http" = "headers"
+
+["标识符"]
+"encabezado_autorizacion" = "Authorization"
+"encabezado_tipo_contenido" = "ContentType"
+"encabezado_agente_usuario" = "UserAgent"
+
+["解释"]
+"conjunto_encabezados_http" = "headers ofrece encabezados HTTP tipados sobre http: Authorization/ContentType/UserAgent"

@@ -1,0 +1,10 @@
+["模块路径"]
+"generador_aleatorios_xoshiro" = "rand_xoshiro"
+
+["标识符"]
+"generador_xoshiro256plus" = "Xoshiro256Plus"
+"generador_xoshiro256plusplus" = "Xoshiro256PlusPlus"
+"expansion_semilla_splitmix64" = "SplitMix64"
+
+["解释"]
+"generador_aleatorios_xoshiro" = "rand_xoshiro implementa pseudoaleatorios xoshiro/xoroshiro, Xoshiro256Plus/SplitMix64 son nucleales"

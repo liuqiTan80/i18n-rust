@@ -1,0 +1,10 @@
+["模块路径"]
+"DWARF_डिबग_जानकारी" = "gimli"
+
+["标识符"]
+"dwarf_डिबग_सूचना" = "DebugInfo"
+"dwarf_एंडियन_स्लाइस" = "EndianSlice"
+"dwarf_संक्षेप" = "Abbreviations"
+
+["解释"]
+"DWARF_डिबग_जानकारी" = "gimli DWARF पार्स करता है, DebugInfo/EndianSlice/Abbreviations डिबग सेक्शन पढ़ते हैं"

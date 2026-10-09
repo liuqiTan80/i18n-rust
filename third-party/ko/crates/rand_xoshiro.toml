@@ -1,0 +1,10 @@
+["模块路径"]
+"xoshiro_난수_생성" = "rand_xoshiro"
+
+["标识符"]
+"xoshiro256plus_생성기" = "Xoshiro256Plus"
+"xoshiro256plusplus_생성기" = "Xoshiro256PlusPlus"
+"splitmix64_씨앗_확장" = "SplitMix64"
+
+["解释"]
+"xoshiro_난수_생성" = "rand_xoshiro 는 xoshiro/xoroshiro 유사난수 구현, Xoshiro256Plus/SplitMix64 핵심 알고리즘"

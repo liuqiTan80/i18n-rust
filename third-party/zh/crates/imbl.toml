@@ -1,0 +1,10 @@
+["模块路径"]
+"imbl持久化结构" = "imbl"
+
+["标识符"]
+"imbl持久向量" = "Vector"
+"imbl持久哈希映射" = "HashMap"
+"imbl持久哈希集合" = "HashSet"
+
+["解释"]
+"imbl持久化结构" = "imbl 提供结构共享的持久化容器 Vector/HashMap/HashSet，写时克隆分支"

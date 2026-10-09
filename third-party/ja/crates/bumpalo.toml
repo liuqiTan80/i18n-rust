@@ -1,0 +1,10 @@
+["模块路径"]
+"bumpaloアリーナ確保" = "bumpalo"
+
+["标识符"]
+"bumpalo確保ハンドル" = "Bump"
+"bumpaloボックスポインタ" = "Box"
+"bumpaloベクタ" = "Vec"
+
+["解释"]
+"bumpaloアリーナ確保" = "bumpalo はアリーナアロケータを提供、Bump 上で Box/Vec を高速確保し一括解放"

@@ -1,0 +1,10 @@
+["模块路径"]
+"imbl永続データ構造" = "imbl"
+
+["标识符"]
+"imbl永続ベクタ" = "Vector"
+"imbl永続ハッシュマップ" = "HashMap"
+"imbl永続ハッシュセット" = "HashSet"
+
+["解释"]
+"imbl永続データ構造" = "imbl は構造共有の永続コンテナ Vector/HashMap/HashSet を提供、書き込み時分岐クローン"

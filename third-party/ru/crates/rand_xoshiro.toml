@@ -1,0 +1,10 @@
+["模块路径"]
+"генератор_случайных_чисел_xoshiro" = "rand_xoshiro"
+
+["标识符"]
+"генератор_xoshiro256plus" = "Xoshiro256Plus"
+"генератор_xoshiro256plusplus" = "Xoshiro256PlusPlus"
+"расширение_семени_splitmix64" = "SplitMix64"
+
+["解释"]
+"генератор_случайных_чисел_xoshiro" = "rand_xoshiro реализует xoshiro/xoroshiro ГСЧ, Xoshiro256Plus/SplitMix64 — ядро алгоритмов"

@@ -1,0 +1,10 @@
+["模块路径"]
+"DWARFデバッグ情報" = "gimli"
+
+["标识符"]
+"dwarfデバッグ情報" = "DebugInfo"
+"dwarfバイト順スライス" = "EndianSlice"
+"dwarf省略形" = "Abbreviations"
+
+["解释"]
+"DWARFデバッグ情報" = "gimli は DWARF デバッグ形式を解析、DebugInfo/EndianSlice/Abbreviations で情報セクション読取"

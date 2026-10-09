@@ -1,0 +1,10 @@
+["模块路径"]
+"HTTP_Header_Menge" = "headers"
+
+["标识符"]
+"Authorization_Header" = "Authorization"
+"Content_Type_Header" = "ContentType"
+"User_Agent_Header" = "UserAgent"
+
+["解释"]
+"HTTP_Header_Menge" = "headers bietet stark typisierte HTTP-Header ueber http: Authorization/ContentType/UserAgent"

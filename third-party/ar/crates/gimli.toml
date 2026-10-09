@@ -1,0 +1,10 @@
+["模块路径"]
+"معلومات_تنقيح_DWARF" = "gimli"
+
+["标识符"]
+"مقطع_معلومات_التنقيح_dwarf" = "DebugInfo"
+"شريحة_ترتيب_البايت_dwarf" = "EndianSlice"
+"اختصارات_dwarf" = "Abbreviations"
+
+["解释"]
+"معلومات_تنقيح_DWARF" = "gimli يحلل DWARF، DebugInfo/EndianSlice/Abbreviations تقرأ مقاطع التنقيح"

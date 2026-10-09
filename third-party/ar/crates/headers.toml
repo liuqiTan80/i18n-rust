@@ -1,0 +1,10 @@
+["模块路径"]
+"مجموعة_ترويسات_HTTP" = "headers"
+
+["标识符"]
+"ترويسة_التفويض" = "Authorization"
+"ترويسة_نوع_المحتوى" = "ContentType"
+"ترويسة_وكيل_المستخدم" = "UserAgent"
+
+["解释"]
+"مجموعة_ترويسات_HTTP" = "headers يوفر ترويسات HTTP مقوَّمة فوق http: Authorization/ContentType/UserAgent"

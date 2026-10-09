@@ -1,0 +1,10 @@
+["模块路径"]
+"bumpalo_Arena_Allokator" = "bumpalo"
+
+["标识符"]
+"bumpalo_Allokator_Griff" = "Bump"
+"bumpalo_Box_Zeiger" = "Box"
+"bumpalo_Vektor" = "Vec"
+
+["解释"]
+"bumpalo_Arena_Allokator" = "bumpalo bietet Arena-Allokator, schnelle Box/Vec-Zuweisung auf Bump mit einheitlicher Freigabe"

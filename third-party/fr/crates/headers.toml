@@ -1,0 +1,10 @@
+["模块路径"]
+"ensemble_entetes_http" = "headers"
+
+["标识符"]
+"entete_authorisation" = "Authorization"
+"entete_type_contenu" = "ContentType"
+"entete_agent_utilisateur" = "UserAgent"
+
+["解释"]
+"ensemble_entetes_http" = "headers fournit des en-tetes HTTP typés au-dessus de http: Authorization/ContentType/UserAgent"

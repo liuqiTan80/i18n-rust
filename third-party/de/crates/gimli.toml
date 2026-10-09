@@ -1,0 +1,10 @@
+["模块路径"]
+"DWARF_Debug_Info" = "gimli"
+
+["标识符"]
+"dwarf_DebugInfo_Abschnitt" = "DebugInfo"
+"dwarf_Byteordnung_Slice" = "EndianSlice"
+"dwarf_Abkuerzungen" = "Abbreviations"
+
+["解释"]
+"DWARF_Debug_Info" = "gimli parst DWARF, DebugInfo/EndianSlice/Abbreviations lesen Debug-Segmente"

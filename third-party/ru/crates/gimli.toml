@@ -1,0 +1,10 @@
+["模块路径"]
+"отладочная_информация_DWARF" = "gimli"
+
+["标识符"]
+"сегмент_отладочной_информации_dwarf" = "DebugInfo"
+"срез_порядка_байтов_dwarf" = "EndianSlice"
+"аббревиатуры_dwarf" = "Abbreviations"
+
+["解释"]
+"отладочная_информация_DWARF" = "gimli разбирает DWARF, DebugInfo/EndianSlice/Abbreviations читают отладочные сегменты"

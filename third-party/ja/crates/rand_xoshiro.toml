@@ -1,0 +1,10 @@
+["模块路径"]
+"xoshiro乱数生成" = "rand_xoshiro"
+
+["标识符"]
+"xoshiro256plus生成器" = "Xoshiro256Plus"
+"xoshiro256plusplus生成器" = "Xoshiro256PlusPlus"
+"splitmix64シード拡張" = "SplitMix64"
+
+["解释"]
+"xoshiro乱数生成" = "rand_xoshiro は xoshiro/xoroshiro 疑似乱数を実装、Xoshiro256Plus/SplitMix64 が中核アルゴリズム"

@@ -1,0 +1,10 @@
+["模块路径"]
+"xoshiro_रैंडम_जनरेटर" = "rand_xoshiro"
+
+["标识符"]
+"xoshiro256plus_जनरेटर" = "Xoshiro256Plus"
+"xoshiro256plusplus_जनरेटर" = "Xoshiro256PlusPlus"
+"splitmix64_सीड_विस्तार" = "SplitMix64"
+
+["解释"]
+"xoshiro_रैंडम_जनरेटर" = "rand_xoshiro xoshiro/xoroshiro नकली-यादृच्छिक लागू, Xoshiro256Plus/SplitMix64 कोर एल्गोरिदम"

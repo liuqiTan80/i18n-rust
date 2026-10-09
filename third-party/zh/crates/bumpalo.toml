@@ -1,0 +1,10 @@
+["模块路径"]
+"bumpalo定界分配" = "bumpalo"
+
+["标识符"]
+"bumpalo分配器句柄" = "Bump"
+"bumpalo装箱引用" = "Box"
+"bumpalo增长向量" = "Vec"
+
+["解释"]
+"bumpalo定界分配" = "bumpalo 提供 arena 分配器，Bump 上快速分配 Box/Vec 并统一释放"

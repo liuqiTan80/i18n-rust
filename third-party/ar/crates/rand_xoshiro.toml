@@ -1,0 +1,10 @@
+["模块路径"]
+"مولِّد_أرقام_عشوائية_xoshiro" = "rand_xoshiro"
+
+["标识符"]
+"مولِّد_xoshiro256plus" = "Xoshiro256Plus"
+"مولِّد_xoshiro256plusplus" = "Xoshiro256PlusPlus"
+"توسيع_البذرة_splitmix64" = "SplitMix64"
+
+["解释"]
+"مولِّد_أرقام_عشوائية_xoshiro" = "rand_xoshiro يطبّق مولِّدات xoshiro/xoroshiro، Xoshiro256Plus/SplitMix64 خوارزميات أساسية"

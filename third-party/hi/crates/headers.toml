@@ -1,0 +1,10 @@
+["模块路径"]
+"HTTP_हेडर_समुच्चय" = "headers"
+
+["标识符"]
+"Authorization_हेडर" = "Authorization"
+"Content_Type_हेडर" = "ContentType"
+"User_Agent_हेडर" = "UserAgent"
+
+["解释"]
+"HTTP_हेडर_समुच्चय" = "headers http crate पर प्रकार-सुरक्षित HTTP हेडर देता है: Authorization/ContentType/UserAgent"

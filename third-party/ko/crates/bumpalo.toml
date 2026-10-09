@@ -1,0 +1,10 @@
+["模块路径"]
+"bumpalo_arena_할당" = "bumpalo"
+
+["标识符"]
+"bumpalo_할당_핸들" = "Bump"
+"bumpalo_상자_포인터" = "Box"
+"bumpalo_벡터" = "Vec"
+
+["解释"]
+"bumpalo_arena_할당" = "bumpalo 는 arena 할당자 제공, Bump 위에서 Box/Vec 를 고속 할당 후 일괄 해제"
