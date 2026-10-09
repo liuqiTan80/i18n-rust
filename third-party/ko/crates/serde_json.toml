@@ -1,0 +1,10 @@
+["模块路径"]
+"json_직렬화" = "serde_json"
+
+["标识符"]
+"json_값" = "Value"
+"문자열_파싱" = "from_str"
+"문자열_변환" = "to_string"
+
+["解释"]
+"json_직렬화" = "serde를 위한 JSON 인코딩 및 디코딩"

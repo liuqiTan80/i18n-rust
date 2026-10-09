@@ -1,0 +1,10 @@
+["模块路径"]
+"json序列化" = "serde_json"
+
+["标识符"]
+"json值" = "Value"
+"从文本解析" = "from_str"
+"转为文本" = "to_string"
+
+["解释"]
+"json序列化" = "serde 的 JSON 编解码实现"

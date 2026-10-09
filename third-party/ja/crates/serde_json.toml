@@ -1,0 +1,10 @@
+["模块路径"]
+"jsonシリアライズ" = "serde_json"
+
+["标识符"]
+"json値" = "Value"
+"文字列から解析" = "from_str"
+"文字列化" = "to_string"
+
+["解释"]
+"jsonシリアライズ" = "serde の JSON エンコード・デコード"
