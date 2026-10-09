@@ -1,0 +1,10 @@
+["模块路径"]
+"metrics_지표" = "metrics"
+
+["标识符"]
+"metrics_카운터" = "Counter"
+"metrics_게이지" = "Gauge"
+"metrics_히스토그램" = "Histogram"
+
+["解释"]
+"metrics_지표" = "metrics 은 Counter/Gauge/Histogram 등 앱 성능 지표 수집 추상 제공"

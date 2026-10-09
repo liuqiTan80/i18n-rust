@@ -1,0 +1,10 @@
+["模块路径"]
+"metrics指标采集" = "metrics"
+
+["标识符"]
+"metrics计数器" = "Counter"
+"metrics仪表盘" = "Gauge"
+"metrics直方图" = "Histogram"
+
+["解释"]
+"metrics指标采集" = "metrics 提供 Counter/Gauge/Histogram 等应用性能指标采集抽象"

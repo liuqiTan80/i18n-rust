@@ -1,0 +1,10 @@
+["模块路径"]
+"UTF8_Pfad_Verarbeitung" = "camino"
+
+["标识符"]
+"Utf8Path_entlehnter_Pfad" = "Utf8Path"
+"Utf8PathBuf_besitzender_Pfad" = "Utf8PathBuf"
+"UTF8_Pfad_Komponente" = "Utf8Component"
+
+["解释"]
+"UTF8_Pfad_Verarbeitung" = "camino bietet Utf8Path/Utf8PathBuf Pfadtypen mit UTF-8 Garantie"

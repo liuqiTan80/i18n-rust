@@ -1,0 +1,10 @@
+["模块路径"]
+"metricsメトリクス" = "metrics"
+
+["标识符"]
+"metricsカウンター" = "Counter"
+"metricsゲージ" = "Gauge"
+"metricsヒストグラム" = "Histogram"
+
+["解释"]
+"metricsメトリクス" = "metrics は Counter/Gauge/Histogram などのアプリ性能メトリクス収集抽象を提供"

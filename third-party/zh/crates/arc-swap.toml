@@ -1,0 +1,10 @@
+["模块路径"]
+"原子Arc交换" = "arc-swap"
+
+["标识符"]
+"ArcSwap原子指针" = "ArcSwap"
+"ArcSwapAny通用交换" = "ArcSwapAny"
+"ArcSwap读守卫" = "Guard"
+
+["解释"]
+"原子Arc交换" = "arc-swap 提供无锁原子替换的 Arc 指针包装，读端用 Guard 访问"

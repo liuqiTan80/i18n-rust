@@ -1,0 +1,10 @@
+["模块路径"]
+"UTF8パス処理" = "camino"
+
+["标识符"]
+"Utf8Path借用パス" = "Utf8Path"
+"Utf8PathBuf所有権パス" = "Utf8PathBuf"
+"Utf8パスコンポーネント" = "Utf8Component"
+
+["解释"]
+"UTF8パス処理" = "camino は UTF-8 保証の Utf8Path/Utf8PathBuf パス型を提供"

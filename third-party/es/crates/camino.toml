@@ -1,0 +1,10 @@
+["模块路径"]
+"procesamiento_ruta_utf8" = "camino"
+
+["标识符"]
+"ruta_prestada_Utf8Path" = "Utf8Path"
+"ruta_dueno_Utf8PathBuf" = "Utf8PathBuf"
+"componente_ruta_utf8" = "Utf8Component"
+
+["解释"]
+"procesamiento_ruta_utf8" = "camino ofrece tipos de ruta Utf8Path/Utf8PathBuf con garantia UTF-8"

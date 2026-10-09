@@ -1,0 +1,10 @@
+["模块路径"]
+"intercambio_arc_atomico" = "arc-swap"
+
+["标识符"]
+"puntero_atomico_ArcSwap" = "ArcSwap"
+"intercambio_generico_ArcSwapAny" = "ArcSwapAny"
+"guardia_lectura_ArcSwap" = "Guard"
+
+["解释"]
+"intercambio_arc_atomico" = "arc-swap ofrece reemplazo atomico sin bloqueos de Arc, lectura via Guard"

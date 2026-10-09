@@ -1,0 +1,10 @@
+["模块路径"]
+"ed25519_digitale_signatur" = "ed25519-dalek"
+
+["标识符"]
+"ed25519_Schluessel" = "SigningKey"
+"ed25519_Verifizierung" = "VerifyingKey"
+"ed25519_Signaturwert" = "Signature"
+
+["解释"]
+"ed25519_digitale_signatur" = "ed25519-dalek bietet Schluessel erzeugen, signieren und pruefen fuer Ed25519"

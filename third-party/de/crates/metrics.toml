@@ -1,0 +1,10 @@
+["模块路径"]
+"metrics_Erfassung" = "metrics"
+
+["标识符"]
+"metrics_Zaehler" = "Counter"
+"metrics_Gauge" = "Gauge"
+"metrics_Histogramm" = "Histogram"
+
+["解释"]
+"metrics_Erfassung" = "metrics bietet Abstraktionen zur Leistungsmessung: Counter/Gauge/Histogramm"

@@ -1,0 +1,10 @@
+["模块路径"]
+"operacao_documento_pdf" = "lopdf"
+
+["标识符"]
+"objeto_documento_pdf" = "Document"
+"objeto_dados_pdf" = "Object"
+"fluxo_conteudo_pdf" = "Stream"
+
+["解释"]
+"operacao_documento_pdf" = "lopdf oferece analise, modificacao e escrita de PDF: Document/Object/Stream"

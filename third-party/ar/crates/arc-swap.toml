@@ -1,0 +1,10 @@
+["模块路径"]
+"تبديل_Arc_ذري" = "arc-swap"
+
+["标识符"]
+"مؤشر_ذري_ArcSwap" = "ArcSwap"
+"تبديل_عام_ArcSwapAny" = "ArcSwapAny"
+"حارس_قراءة_ArcSwap" = "Guard"
+
+["解释"]
+"تبديل_Arc_ذري" = "arc-swap يوفر استبدالًا ذريًا بدون قفل لـ Arc، القراءة عبر Guard"

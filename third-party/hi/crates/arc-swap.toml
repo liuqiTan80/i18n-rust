@@ -1,0 +1,10 @@
+["模块路径"]
+"एटॉमिक_Arc_स्वैप" = "arc-swap"
+
+["标识符"]
+"ArcSwap_एटॉमिक_पॉइंटर" = "ArcSwap"
+"ArcSwapAny_सामान्य_स्वैप" = "ArcSwapAny"
+"ArcSwap_रक्षक" = "Guard"
+
+["解释"]
+"एटॉमिक_Arc_स्वैप" = "arc-swap लॉक-मुक्त Arc परमाणु प्रतिस्थापन देता है, पठन Guard से"

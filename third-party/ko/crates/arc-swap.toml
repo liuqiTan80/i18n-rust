@@ -1,0 +1,10 @@
+["模块路径"]
+"원자_Arc_스왑" = "arc-swap"
+
+["标识符"]
+"ArcSwap_원자_포인터" = "ArcSwap"
+"ArcSwapAny_범용_스왑" = "ArcSwapAny"
+"ArcSwap_읽기_가드" = "Guard"
+
+["解释"]
+"원자_Arc_스왑" = "arc-swap 은 락 없는 Arc 포인터 원자 교체를 제공하며 읽기는 Guard 로 접근"

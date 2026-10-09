@@ -1,0 +1,10 @@
+["模块路径"]
+"traitement_chemin_utf8" = "camino"
+
+["标识符"]
+"chemin_emprunte_Utf8Path" = "Utf8Path"
+"chemin_possede_Utf8PathBuf" = "Utf8PathBuf"
+"composant_chemin_utf8" = "Utf8Component"
+
+["解释"]
+"traitement_chemin_utf8" = "camino offre des types de chemin Utf8Path/Utf8PathBuf avec garantie UTF-8"

@@ -1,0 +1,10 @@
+["模块路径"]
+"сбор_метрик_metrics" = "metrics"
+
+["标识符"]
+"счетчик_metrics" = "Counter"
+"датчик_metrics" = "Gauge"
+"гистограмма_metrics" = "Histogram"
+
+["解释"]
+"сбор_метрик_metrics" = "metrics предоставляет абстракции сбора метрик: Counter/Gauge/Histogram"

@@ -1,0 +1,10 @@
+["模块路径"]
+"UTF8路径处理" = "camino"
+
+["标识符"]
+"Utf8Path借用路径" = "Utf8Path"
+"Utf8PathBuf所有权路径" = "Utf8PathBuf"
+"Utf8路径组件" = "Utf8Component"
+
+["解释"]
+"UTF8路径处理" = "camino 提供保证 UTF-8 编码的 Utf8Path/Utf8PathBuf 路径类型"

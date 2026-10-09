@@ -1,0 +1,10 @@
+["模块路径"]
+"collecte_metriques" = "metrics"
+
+["标识符"]
+"compteur_metrics" = "Counter"
+"jauge_metrics" = "Gauge"
+"histogramme_metrics" = "Histogram"
+
+["解释"]
+"collecte_metriques" = "metrics offre des abstractions de collecte de performances : Counter/Gauge/Histogramme"

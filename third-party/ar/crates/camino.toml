@@ -1,0 +1,10 @@
+["模块路径"]
+"معالجة_مسار_UTF8" = "camino"
+
+["标识符"]
+"مسار_مستعار_Utf8Path" = "Utf8Path"
+"مسار_مالك_Utf8PathBuf" = "Utf8PathBuf"
+"مكون_المسار_UTF8" = "Utf8Component"
+
+["解释"]
+"معالجة_مسار_UTF8" = "camino يوفر أنواع مسارات Utf8Path/Utf8PathBuf بضمان UTF-8"

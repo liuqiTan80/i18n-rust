@@ -1,0 +1,10 @@
+["模块路径"]
+"UTF8_पाथ_प्रसंस्करण" = "camino"
+
+["标识符"]
+"Utf8Path_उधार_पाथ" = "Utf8Path"
+"Utf8PathBuf_स्वामित्व_पाथ" = "Utf8PathBuf"
+"UTF8_पाथ_घटक" = "Utf8Component"
+
+["解释"]
+"UTF8_पाथ_प्रसंस्करण" = "camino UTF-8 गारंटी वाले Utf8Path/Utf8PathBuf पाथ प्रकार देता है"

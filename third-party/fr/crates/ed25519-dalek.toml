@@ -1,0 +1,10 @@
+["模块路径"]
+"signature_numerique_ed25519" = "ed25519-dalek"
+
+["标识符"]
+"cle_signature_ed25519" = "SigningKey"
+"cle_verification_ed25519" = "VerifyingKey"
+"valeur_signature_ed25519" = "Signature"
+
+["解释"]
+"signature_numerique_ed25519" = "ed25519-dalek fournit generation de cles, signature et verification pour Ed25519"

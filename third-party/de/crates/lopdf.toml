@@ -1,0 +1,10 @@
+["模块路径"]
+"PDF_Dokument_Bearbeitung" = "lopdf"
+
+["标识符"]
+"pdf_Dokument_Objekt" = "Document"
+"pdf_Daten_Objekt" = "Object"
+"pdf_Inhalt_Stream" = "Stream"
+
+["解释"]
+"PDF_Dokument_Bearbeitung" = "lopdf bietet Parsen, Aendern und Schreiben von PDF: Document/Object/Stream"

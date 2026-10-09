@@ -1,0 +1,10 @@
+["模块路径"]
+"PDFドキュメント操作" = "lopdf"
+
+["标识符"]
+"pdfドキュメントオブジェクト" = "Document"
+"pdfデータオブジェクト" = "Object"
+"pdfコンテンツストリーム" = "Stream"
+
+["解释"]
+"PDFドキュメント操作" = "lopdf は PDF ドキュメントの解析・修正・書き出し Document/Object/Stream を提供"

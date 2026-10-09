@@ -1,0 +1,10 @@
+["模块路径"]
+"atomares_Arc_Swap" = "arc-swap"
+
+["标识符"]
+"ArcSwap_atomarer_Zeiger" = "ArcSwap"
+"ArcSwapAny_allgemeiner_Swap" = "ArcSwapAny"
+"ArcSwap_Lese_Guard" = "Guard"
+
+["解释"]
+"atomares_Arc_Swap" = "arc-swap bietet lockfreies atomares Ersetzen von Arc, Lesen ueber Guard"

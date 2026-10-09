@@ -1,0 +1,10 @@
+["模块路径"]
+"原子的Arcスワップ" = "arc-swap"
+
+["标识符"]
+"ArcSwap原子ポインタ" = "ArcSwap"
+"ArcSwapAny汎用スワップ" = "ArcSwapAny"
+"ArcSwap読みガード" = "Guard"
+
+["解释"]
+"原子的Arcスワップ" = "arc-swap はロックフリーな Arc ポインタの原子置換を提供し、読取側は Guard でアクセス"

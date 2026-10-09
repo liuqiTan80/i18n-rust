@@ -1,0 +1,10 @@
+["模块路径"]
+"PDF文档操作" = "lopdf"
+
+["标识符"]
+"pdf文档对象" = "Document"
+"pdf数据对象" = "Object"
+"pdf内容流" = "Stream"
+
+["解释"]
+"PDF文档操作" = "lopdf 提供 PDF 文档的解析、修改与写出 Document/Object/Stream"

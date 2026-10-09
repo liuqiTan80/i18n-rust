@@ -1,0 +1,10 @@
+["模块路径"]
+"recopilacion_metricas" = "metrics"
+
+["标识符"]
+"contador_metrics" = "Counter"
+"medidor_metrics" = "Gauge"
+"histograma_metrics" = "Histogram"
+
+["解释"]
+"recopilacion_metricas" = "metrics ofrece abstracciones de medicion de rendimiento: Counter/Gauge/Histograma"

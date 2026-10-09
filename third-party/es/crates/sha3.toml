@@ -1,0 +1,10 @@
+["模块路径"]
+"algoritmo_hash_sha3" = "sha3"
+
+["标识符"]
+"digest_sha3_256" = "Sha3_256"
+"digest_sha3_512" = "Sha3_512"
+"salida_variable_shake256" = "Shake256"
+
+["解释"]
+"algoritmo_hash_sha3" = "sha3 implementa la familia SHA-3 y las funciones de salida variable SHAKE"

@@ -1,0 +1,10 @@
+["模块路径"]
+"UTF8_경로_처리" = "camino"
+
+["标识符"]
+"Utf8Path_참조_경로" = "Utf8Path"
+"Utf8PathBuf_소유_경로" = "Utf8PathBuf"
+"Utf8_경로_구성요소" = "Utf8Component"
+
+["解释"]
+"UTF8_경로_처리" = "camino 는 UTF-8 보장 Utf8Path/Utf8PathBuf 경로 타입을 제공"

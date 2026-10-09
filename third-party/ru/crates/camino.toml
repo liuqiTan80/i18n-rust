@@ -1,0 +1,10 @@
+["模块路径"]
+"обработка_путей_UTF8" = "camino"
+
+["标识符"]
+"заимствованный_путь_Utf8Path" = "Utf8Path"
+"владеющий_путь_Utf8PathBuf" = "Utf8PathBuf"
+"компонент_пути_UTF8" = "Utf8Component"
+
+["解释"]
+"обработка_путей_UTF8" = "camino предоставляет пути Utf8Path/Utf8PathBuf с гарантией UTF-8"

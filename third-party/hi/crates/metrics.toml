@@ -1,0 +1,10 @@
+["模块路径"]
+"metrics_मापन_संग्रह" = "metrics"
+
+["标识符"]
+"metrics_काउंटर" = "Counter"
+"metrics_गेज" = "Gauge"
+"metrics_हिस्टोग्राम" = "Histogram"
+
+["解释"]
+"metrics_मापन_संग्रह" = "metrics Counter/Gauge/Histogram जैसे प्रदर्शन मापन सार देता है"

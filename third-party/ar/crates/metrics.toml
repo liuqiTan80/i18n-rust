@@ -1,0 +1,10 @@
+["模块路径"]
+"جمع_مقاييس_metrics" = "metrics"
+
+["标识符"]
+"عدّاد_metrics" = "Counter"
+"مقياس_metrics" = "Gauge"
+"مدرج_ترددي_metrics" = "Histogram"
+
+["解释"]
+"جمع_مقاييس_metrics" = "metrics يوفر تجريدات لجمع مقاييس الأداء: Counter/Gauge/Histogram"

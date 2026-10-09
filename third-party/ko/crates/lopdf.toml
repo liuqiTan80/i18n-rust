@@ -1,0 +1,10 @@
+["模块路径"]
+"PDF_문서_조작" = "lopdf"
+
+["标识符"]
+"pdf_문서_객체" = "Document"
+"pdf_데이터_객체" = "Object"
+"pdf_콘텐츠_스트림" = "Stream"
+
+["解释"]
+"PDF_문서_조작" = "lopdf 는 PDF 문서 분석·수정·쓰기 Document/Object/Stream 을 제공"

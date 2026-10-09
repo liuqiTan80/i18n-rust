@@ -1,0 +1,10 @@
+["模块路径"]
+"firma_digital_ed25519" = "ed25519-dalek"
+
+["标识符"]
+"clave_firma_ed25519" = "SigningKey"
+"clave_verificacion_ed25519" = "VerifyingKey"
+"valor_firma_ed25519" = "Signature"
+
+["解释"]
+"firma_digital_ed25519" = "ed25519-dalek ofrece generacion de claves, firma y verificacion para Ed25519"
