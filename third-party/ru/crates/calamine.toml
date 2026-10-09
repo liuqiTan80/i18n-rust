@@ -1,0 +1,10 @@
+["模块路径"]
+"calamine_чтение_таблиц" = "calamine"
+
+["标识符"]
+"xlsx_формат_calamine" = "Xlsx"
+"диапазон_ячеек_calamine" = "Range"
+"данные_ячейки_calamine" = "Data"
+
+["解释"]
+"calamine_чтение_таблиц" = "calamine читает Excel/OpenDocument: Xlsx/Range/Data"

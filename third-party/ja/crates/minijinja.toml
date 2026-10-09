@@ -1,0 +1,10 @@
+["模块路径"]
+"minijinjaテンプレートエンジン" = "minijinja"
+
+["标识符"]
+"minijinja環境" = "Environment"
+"minijinjaテンプレート" = "Template"
+"minijinja値型" = "Value"
+
+["解释"]
+"minijinjaテンプレートエンジン" = "minijinja は軽量 Jinja2 風テンプレート、Environment/Template/Value で描画"

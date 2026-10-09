@@ -1,0 +1,10 @@
+["模块路径"]
+"h2_HTTP2_प्रोटोकॉल" = "h2"
+
+["标识符"]
+"h2_भेजने_धारा" = "SendStream"
+"h2_प्राप्ति_धारा" = "RecvStream"
+"h2_धारा_पहचान" = "StreamId"
+
+["解释"]
+"h2_HTTP2_प्रोटोकॉल" = "h2 एसिंक्रोनस HTTP/2 है: SendStream/RecvStream/StreamId"

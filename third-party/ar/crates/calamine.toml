@@ -1,0 +1,10 @@
+["模块路径"]
+"قارئ_جداول_كالامين" = "calamine"
+
+["标识符"]
+"calamine_صيغة_xlsx" = "Xlsx"
+"calamine_نطاق" = "Range"
+"calamine_بيانات" = "Data"
+
+["解释"]
+"قارئ_جداول_كالامين" = "calamine يقرأ جداول Excel/OpenDocument: Xlsx/Range/Data"

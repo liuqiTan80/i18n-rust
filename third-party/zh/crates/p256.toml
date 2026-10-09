@@ -1,0 +1,10 @@
+["模块路径"]
+"p256椭圆曲线" = "p256"
+
+["标识符"]
+"p256曲线参数" = "NistP256"
+"p256秘密密钥" = "SecretKey"
+"p256仿射点" = "AffinePoint"
+
+["解释"]
+"p256椭圆曲线" = "p256 实现 NIST P-256 椭圆曲线：NistP256/SecretKey/AffinePoint ECDH 与 ECDSA"

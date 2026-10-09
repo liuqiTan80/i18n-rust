@@ -1,0 +1,10 @@
+["模块路径"]
+"bigdecimal_Komma_Zahl" = "bigdecimal"
+
+["标识符"]
+"bigdec_Dezimal" = "BigDecimal"
+"bigdec_Rundungsmodus" = "RoundingMode"
+"bigdec_Kontext" = "Context"
+
+["解释"]
+"bigdecimal_Komma_Zahl" = "bigdecimal liefert beliebige Dezimal-Praezision: BigDecimal/RoundingMode/Context"

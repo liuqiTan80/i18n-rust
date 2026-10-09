@@ -1,0 +1,10 @@
+["模块路径"]
+"minijinja_Template_Engine" = "minijinja"
+
+["标识符"]
+"minijinja_Umgebung" = "Environment"
+"minijinja_Vorlage" = "Template"
+"minijinja_Wert" = "Value"
+
+["解释"]
+"minijinja_Template_Engine" = "minijinja ist eine leichte Jinja2-Template-Engine: Environment/Template/Value"

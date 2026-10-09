@@ -1,10 +1,10 @@
 ["模块路径"]
-"समवर्ती_निर्वाहक" = "futures-executor"
+"futures_एग्जीक्यूटर" = "futures-executor"
 
 ["标识符"]
-"अवरोध_पूर्ति" = "block_on"
-"थ्रेड_पूल" = "ThreadPool"
-"स्थानीय_पूल" = "LocalPool"
+"futexec_स्थानीय_पूल" = "LocalPool"
+"futexec_थ्रेड_पूल" = "ThreadPool"
+"futexec_ब्लॉक_रन" = "block_on"
 
 ["解释"]
-"समवर्ती_निर्वाहक" = "futures आधारित कार्य निर्वाहक"
+"futures_एग्जीक्यूटर" = "futures-executor अंतर्निहित एसिंक्रोनस एग्जीक्यूटर: LocalPool/ThreadPool/block_on"

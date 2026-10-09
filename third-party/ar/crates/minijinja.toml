@@ -1,0 +1,10 @@
+["模块路径"]
+"محرك_قوالب_minijinja" = "minijinja"
+
+["标识符"]
+"minijinja_بيئة" = "Environment"
+"minijinja_قالب" = "Template"
+"minijinja_قيمة" = "Value"
+
+["解释"]
+"محرك_قوالب_minijinja" = "minijinja محرك قوالب Jinja2 خفيف: Environment/Template/Value"

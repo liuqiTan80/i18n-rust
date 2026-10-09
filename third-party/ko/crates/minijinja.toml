@@ -1,0 +1,10 @@
+["模块路径"]
+"minijinja_템플릿_엔진" = "minijinja"
+
+["标识符"]
+"minijinja_환경" = "Environment"
+"minijinja_템플릿" = "Template"
+"minijinja_값" = "Value"
+
+["解释"]
+"minijinja_템플릿_엔진" = "minijinja 는 경량 Jinja2 스타일 템플릿, Environment/Template/Value 렌더링"

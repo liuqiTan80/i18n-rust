@@ -1,0 +1,10 @@
+["模块路径"]
+"bigdec_उच्च_परिशुद्धता_दशमलव" = "bigdecimal"
+
+["标识符"]
+"bigdec_दशमलव" = "BigDecimal"
+"bigdec_राउंडिंग_मोड" = "RoundingMode"
+"bigdec_संदर्भ" = "Context"
+
+["解释"]
+"bigdec_उच्च_परिशुद्धता_दशमलव" = "bigdecimal उच्च-परिशुद्धता दशमलव देता है: BigDecimal/RoundingMode/Context"

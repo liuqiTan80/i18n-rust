@@ -1,0 +1,10 @@
+["模块路径"]
+"تطبيق_بروتوكول_h2" = "h2"
+
+["标识符"]
+"h2_إرسال_دفق" = "SendStream"
+"h2_استلام_دفق" = "RecvStream"
+"h2_معرّف_دفق" = "StreamId"
+
+["解释"]
+"تطبيق_بروتوكول_h2" = "h2 تطبيق HTTP/2 لا متزامن: SendStream/RecvStream/StreamId"

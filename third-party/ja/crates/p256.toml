@@ -1,0 +1,10 @@
+["模块路径"]
+"p256楕円曲線" = "p256"
+
+["标识符"]
+"p256曲線マーカー" = "NistP256"
+"p256秘密鍵" = "SecretKey"
+"p256アフィン点" = "AffinePoint"
+
+["解释"]
+"p256楕円曲線" = "p256 は NIST P-256 楕円曲線、NistP256/SecretKey/AffinePoint で暗号化"

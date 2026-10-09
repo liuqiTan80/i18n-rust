@@ -1,0 +1,10 @@
+["模块路径"]
+"h2_HTTP2_Protokoll" = "h2"
+
+["标识符"]
+"h2_SendeStream" = "SendStream"
+"h2_EmpfangsStream" = "RecvStream"
+"h2_Stream_ID" = "StreamId"
+
+["解释"]
+"h2_HTTP2_Protokoll" = "h2 ist asynchrones HTTP/2: SendStream/RecvStream/StreamId"

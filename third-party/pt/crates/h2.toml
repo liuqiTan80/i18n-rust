@@ -1,0 +1,10 @@
+["模块路径"]
+"implementacao_http2_h2" = "h2"
+
+["标识符"]
+"h2_enviar_stream" = "SendStream"
+"h2_receber_stream" = "RecvStream"
+"h2_id_stream" = "StreamId"
+
+["解释"]
+"implementacao_http2_h2" = "h2 e HTTP/2 assincrono: SendStream/RecvStream/StreamId"

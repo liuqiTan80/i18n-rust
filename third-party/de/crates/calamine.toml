@@ -1,0 +1,10 @@
+["模块路径"]
+"calamine_Tabellen_Lesen" = "calamine"
+
+["标识符"]
+"calamine_Xlsx" = "Xlsx"
+"calamine_Bereich" = "Range"
+"calamine_Daten" = "Data"
+
+["解释"]
+"calamine_Tabellen_Lesen" = "calamine liest Excel/OpenDocument-Tabellen: Xlsx/Range/Data"

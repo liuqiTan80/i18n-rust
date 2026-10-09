@@ -1,0 +1,10 @@
+["模块路径"]
+"calamineスプレッドシート" = "calamine"
+
+["标识符"]
+"calamineXlsx形式" = "Xlsx"
+"calamine範囲" = "Range"
+"calamineデータ" = "Data"
+
+["解释"]
+"calamineスプレッドシート" = "calamine は Excel/OpenDocument スプレッドシート、Xlsx/Range/Data でセル解析"

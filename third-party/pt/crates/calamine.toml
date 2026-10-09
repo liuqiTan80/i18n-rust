@@ -1,0 +1,10 @@
+["模块路径"]
+"leitura_planilhas_calamine" = "calamine"
+
+["标识符"]
+"calamine_xlsx" = "Xlsx"
+"calamine_intervalo" = "Range"
+"calamine_dados" = "Data"
+
+["解释"]
+"leitura_planilhas_calamine" = "calamine le planilhas Excel/OpenDocument: Xlsx/Range/Data"

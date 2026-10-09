@@ -1,0 +1,10 @@
+["模块路径"]
+"minijinja_टेम्पलेट_इंजन" = "minijinja"
+
+["标识符"]
+"minijinja_वातावरण" = "Environment"
+"minijinja_टेम्पलेट" = "Template"
+"minijinja_मान" = "Value"
+
+["解释"]
+"minijinja_टेम्पलेट_इंजन" = "minijinja हल्का Jinja2-शैली टेम्पलेट इंजन है: Environment/Template/Value"

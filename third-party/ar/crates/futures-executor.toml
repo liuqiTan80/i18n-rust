@@ -1,10 +1,10 @@
 ["模块路径"]
-"منفذ_غير_متزامن" = "futures-executor"
+"منفذ_futures" = "futures-executor"
 
 ["标识符"]
-"تشغيل_بحجز" = "block_on"
-"مجمع_الخيوط" = "ThreadPool"
-"مجمع_محلي" = "LocalPool"
+"futexec_مجمع_محلي" = "LocalPool"
+"futexec_مجمع_خيوط" = "ThreadPool"
+"futexec_حظر_تشغيل" = "block_on"
 
 ["解释"]
-"منفذ_غير_متزامن" = "منفذ مهام قائم على futures"
+"منفذ_futures" = "futures-executor يوفر منفذات لا متزامنة: LocalPool/ThreadPool/block_on"

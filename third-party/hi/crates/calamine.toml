@@ -1,0 +1,10 @@
+["模块路径"]
+"calamine_स्प्रेडशीट_रीडर" = "calamine"
+
+["标识符"]
+"calamine_XLSX_प्रारूप" = "Xlsx"
+"calamine_रेंज" = "Range"
+"calamine_डेटा" = "Data"
+
+["解释"]
+"calamine_स्प्रेडशीट_रीडर" = "calamine Excel/OpenDocument स्प्रेडशीट पढ़ता है: Xlsx/Range/Data"

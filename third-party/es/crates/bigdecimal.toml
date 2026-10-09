@@ -1,0 +1,10 @@
+["模块路径"]
+"decimal_gran_precision_bigdec" = "bigdecimal"
+
+["标识符"]
+"bigdec_decimal" = "BigDecimal"
+"bigdec_modo_redondeo" = "RoundingMode"
+"bigdec_contexto" = "Context"
+
+["解释"]
+"decimal_gran_precision_bigdec" = "bigdecimal ofrece precision decimal arbitraria: BigDecimal/RoundingMode/Context"

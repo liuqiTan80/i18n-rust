@@ -1,0 +1,10 @@
+["模块路径"]
+"шаблонизатор_minijinja" = "minijinja"
+
+["标识符"]
+"окружение_minijinja" = "Environment"
+"шаблон_minijinja" = "Template"
+"значение_minijinja" = "Value"
+
+["解释"]
+"шаблонизатор_minijinja" = "minijinja — лёгкий шаблонизатор Jinja2: Environment/Template/Value"

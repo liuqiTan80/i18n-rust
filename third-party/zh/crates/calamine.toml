@@ -1,0 +1,10 @@
+["模块路径"]
+"calamine电子表格" = "calamine"
+
+["标识符"]
+"calamine_xlsx格式" = "Xlsx"
+"calamine单元格范围" = "Range"
+"calamine单元格数据" = "Data"
+
+["解释"]
+"calamine电子表格" = "calamine 读取 Excel/OpenDocument 电子表格：Xlsx/Range/Data 解析单元格"

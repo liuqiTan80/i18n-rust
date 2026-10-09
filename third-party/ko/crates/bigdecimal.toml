@@ -1,0 +1,10 @@
+["模块路径"]
+"bigdecimal_임의_정밀도_소수" = "bigdecimal"
+
+["标识符"]
+"bigdec_소수_타입" = "BigDecimal"
+"bigdec_반올림_모드" = "RoundingMode"
+"bigdec_연산_컨텍스트" = "Context"
+
+["解释"]
+"bigdecimal_임의_정밀도_소수" = "bigdecimal 은 임의 정밀도 10진수, BigDecimal/RoundingMode/Context"

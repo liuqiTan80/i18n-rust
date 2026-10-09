@@ -1,10 +1,10 @@
 ["模块路径"]
-"ejecutor_asincrono" = "futures-executor"
+"ejecutor_futures" = "futures-executor"
 
 ["标识符"]
-"bloquear_ejecucion" = "block_on"
-"charca_de_hilos" = "ThreadPool"
-"charca_local" = "LocalPool"
+"futexec_pool_local" = "LocalPool"
+"futexec_pool_hilos" = "ThreadPool"
+"futexec_bloquear" = "block_on"
 
 ["解释"]
-"ejecutor_asincrono" = "Ejecutor de tareas basado en futures"
+"ejecutor_futures" = "futures-executor provee executores asincronos: LocalPool/ThreadPool/block_on"

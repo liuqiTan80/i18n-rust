@@ -1,0 +1,10 @@
+["模块路径"]
+"h2プロトコル" = "h2"
+
+["标识符"]
+"h2送信ストリーム" = "SendStream"
+"h2受信ストリーム" = "RecvStream"
+"h2ストリームID" = "StreamId"
+
+["解释"]
+"h2プロトコル" = "h2 は非同期 HTTP/2、SendStream/RecvStream/StreamId でストリーム操作"

@@ -1,0 +1,10 @@
+["模块路径"]
+"h2_프로토콜" = "h2"
+
+["标识符"]
+"h2_전송_스트림" = "SendStream"
+"h2_수신_스트림" = "RecvStream"
+"h2_스트림_ID" = "StreamId"
+
+["解释"]
+"h2_프로토콜" = "h2 는 비동기 HTTP/2, SendStream/RecvStream/StreamId 스트림 조작"

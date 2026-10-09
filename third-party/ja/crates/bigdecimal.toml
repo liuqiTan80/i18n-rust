@@ -1,0 +1,10 @@
+["模块路径"]
+"bigdecimal任意精度小数" = "bigdecimal"
+
+["标识符"]
+"bigdec小数型" = "BigDecimal"
+"bigdec丸めモード" = "RoundingMode"
+"bigdec演算コンテキスト" = "Context"
+
+["解释"]
+"bigdecimal任意精度小数" = "bigdecimal は任意精度小数、BigDecimal/RoundingMode/Context で浮動誤回避"

@@ -1,0 +1,10 @@
+["模块路径"]
+"minijinja模板引擎" = "minijinja"
+
+["标识符"]
+"minijinja环境" = "Environment"
+"minijinja模板对象" = "Template"
+"minijinja动态值" = "Value"
+
+["解释"]
+"minijinja模板引擎" = "minijinja 是轻量 Jinja2 风模板引擎：Environment/Template/Value 配置渲染"

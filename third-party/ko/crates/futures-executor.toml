@@ -1,10 +1,10 @@
 ["模块路径"]
-"비동기_실행기" = "futures-executor"
+"futures_실행기" = "futures-executor"
 
 ["标识符"]
-"블록_실행" = "block_on"
-"스레드_풀" = "ThreadPool"
-"로컬_풀" = "LocalPool"
+"futexec_로컬_풀" = "LocalPool"
+"futexec_스레드_풀" = "ThreadPool"
+"futexec_블록_실행" = "block_on"
 
 ["解释"]
-"비동기_실행기" = "futures 기반 작업 실행기"
+"futures_실행기" = "futures-executor 는 내장 비동기 실행기, LocalPool/ThreadPool/block_on Future 실행"

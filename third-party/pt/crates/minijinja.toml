@@ -1,0 +1,10 @@
+["模块路径"]
+"motor_templates_minijinja" = "minijinja"
+
+["标识符"]
+"minijinja_ambiente" = "Environment"
+"minijinja_template" = "Template"
+"minijinja_valor" = "Value"
+
+["解释"]
+"motor_templates_minijinja" = "minijinja e um motor Jinja2 leve: Environment/Template/Value"

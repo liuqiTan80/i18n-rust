@@ -1,0 +1,10 @@
+["模块路径"]
+"p256_Elliptic_Curve" = "p256"
+
+["标识符"]
+"p256_Kurve" = "NistP256"
+"p256_Geheimer_Schluessel" = "SecretKey"
+"p256_Affiner_Punkt" = "AffinePoint"
+
+["解释"]
+"p256_Elliptic_Curve" = "p256 ist die NIST P-256 Elliptic Curve: NistP256/SecretKey/AffinePoint"

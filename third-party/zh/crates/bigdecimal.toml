@@ -1,0 +1,10 @@
+["模块路径"]
+"bigdecimal高精度小数" = "bigdecimal"
+
+["标识符"]
+"bigdec小数类型" = "BigDecimal"
+"bigdec舍入模式" = "RoundingMode"
+"bigdec运算上下文" = "Context"
+
+["解释"]
+"bigdecimal高精度小数" = "bigdecimal 提供任意精度十进制数：BigDecimal/RoundingMode/Context 避免浮点误差"

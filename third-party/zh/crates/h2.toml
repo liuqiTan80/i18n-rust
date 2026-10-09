@@ -1,0 +1,10 @@
+["模块路径"]
+"h2协议实现" = "h2"
+
+["标识符"]
+"h2发送流" = "SendStream"
+"h2接收流" = "RecvStream"
+"h2流标识" = "StreamId"
+
+["解释"]
+"h2协议实现" = "h2 实现异步 HTTP/2 协议：SendStream/RecvStream 发送接收流、StreamId 标识流"

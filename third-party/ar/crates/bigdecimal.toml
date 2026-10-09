@@ -1,0 +1,10 @@
+["模块路径"]
+"كسر_عشري_دقيق_bigdec" = "bigdecimal"
+
+["标识符"]
+"bigdec_عشري" = "BigDecimal"
+"bigdec_وضع_التقريب" = "RoundingMode"
+"bigdec_سياق" = "Context"
+
+["解释"]
+"كسر_عشري_دقيق_bigdec" = "bigdecimal يوفر دقة عشرية تعسفية: BigDecimal/RoundingMode/Context"

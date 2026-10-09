@@ -1,10 +1,10 @@
 ["模块路径"]
-"исполнитель_асинхронный" = "futures-executor"
+"исполнитель_futures" = "futures-executor"
 
 ["标识符"]
-"заблокировать_исполнение" = "block_on"
-"пул_потоков" = "ThreadPool"
-"локальный_пул" = "LocalPool"
+"локальный_пул_futexec" = "LocalPool"
+"пул_потоков_futexec" = "ThreadPool"
+"блокировать_запуск_futexec" = "block_on"
 
 ["解释"]
-"исполнитель_асинхронный" = "Исполнитель задач на основе futures"
+"исполнитель_futures" = "futures-executor — встроенные асинхронные исполнители: LocalPool/ThreadPool/block_on"

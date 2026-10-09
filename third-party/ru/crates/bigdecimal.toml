@@ -1,0 +1,10 @@
+["模块路径"]
+"дробь_высокой_точности_bigdec" = "bigdecimal"
+
+["标识符"]
+"тип_дробь_bigdec" = "BigDecimal"
+"режим_округления_bigdec" = "RoundingMode"
+"контекст_вычислений_bigdec" = "Context"
+
+["解释"]
+"дробь_высокой_точности_bigdec" = "bigdecimal — десятичные дроби произвольной точности: BigDecimal/RoundingMode/Context"

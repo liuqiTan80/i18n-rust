@@ -1,10 +1,10 @@
 ["模块路径"]
-"非同期エクゼクタ" = "futures-executor"
+"futuresエクセキュータ" = "futures-executor"
 
 ["标识符"]
-"ブロック実行" = "block_on"
-"スレッドプール" = "ThreadPool"
-"ローカルプール" = "LocalPool"
+"futexecローカルプール" = "LocalPool"
+"futexecスレッドプール" = "ThreadPool"
+"futexecブロック実行" = "block_on"
 
 ["解释"]
-"非同期エクゼクタ" = "futures ベースのタスク実行器"
+"futuresエクセキュータ" = "futures-executor は組み込み非同期実行器、LocalPool/ThreadPool/block_on で Future 実行"

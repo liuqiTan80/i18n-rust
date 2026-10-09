@@ -1,0 +1,10 @@
+["模块路径"]
+"реализация_http2_h2" = "h2"
+
+["标识符"]
+"поток_отправки_h2" = "SendStream"
+"поток_получения_h2" = "RecvStream"
+"идентификатор_потока_h2" = "StreamId"
+
+["解释"]
+"реализация_http2_h2" = "h2 — асинхронный HTTP/2: SendStream/RecvStream/StreamId"

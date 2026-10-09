@@ -1,0 +1,10 @@
+["模块路径"]
+"calamine_스프레드시트" = "calamine"
+
+["标识符"]
+"calamine_XLSX_형식" = "Xlsx"
+"calamine_범위" = "Range"
+"calamine_데이터" = "Data"
+
+["解释"]
+"calamine_스프레드시트" = "calamine 은 Excel/OpenDocument 스프레드시트, Xlsx/Range/Data 셀 파싱"

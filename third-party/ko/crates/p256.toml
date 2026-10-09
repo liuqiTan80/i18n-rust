@@ -1,0 +1,10 @@
+["模块路径"]
+"p256_타원곡선" = "p256"
+
+["标识符"]
+"p256_곡선_타입" = "NistP256"
+"p256_비밀_키" = "SecretKey"
+"p256_아핀_점" = "AffinePoint"
+
+["解释"]
+"p256_타원곡선" = "p256 은 NIST P-256 타원곡선, NistP256/SecretKey/AffinePoint 암호화"
