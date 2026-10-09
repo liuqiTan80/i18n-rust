@@ -25,6 +25,8 @@ export interface LanguagePackData {
     stdlibIdentifiers: Map<string, string>;
     /** [模块路径] table of stdlib.toml (std paths for use statements, e.g. 标准库 / 输入输出) */
     stdlibModules: Map<string, string>;
+    /** 可选的 few-shot 方言写法示例（<langDir>/ai-examples.md 原文，缺文件为空串） */
+    examplesText: string;
 }
 
 /**
@@ -133,7 +135,17 @@ export function loadLanguagePack(rootDir: string, languageCode: string): Languag
     }
     // 显示名从 lang_info.toml 的 ["语言包"] "名称" 读取，读不到时用代码兜底
     const languageName = readLanguageName(langDir) ?? languageCode;
-    return { languageName, keywordTables, stdlibIdentifiers, stdlibModules };
+    // few-shot 方言写法示例（可选）：<langDir>/ai-examples.md，缺文件则为空、不注入
+    const examplesFile = path.join(langDir, 'ai-examples.md');
+    let examplesText = '';
+    if (fs.existsSync(examplesFile)) {
+        try {
+            examplesText = fs.readFileSync(examplesFile, 'utf8');
+        } catch {
+            examplesText = '';
+        }
+    }
+    return { languageName, keywordTables, stdlibIdentifiers, stdlibModules, examplesText };
 }
 
 /**
@@ -203,6 +215,11 @@ export function buildSystemPrompt(languageCode: string, rootDir?: string): strin
     lines.push('');
     lines.push('【宏映射】');
     lines.push(...(macroLines.length > 0 ? macroLines : ['（无）']));
+    if (data.examplesText && data.examplesText.trim()) {
+        lines.push('');
+        lines.push('【方言写法示例（few-shot，请照此风格直接以方言书写代码，勿先写英文再翻）】');
+        lines.push(data.examplesText.trim());
+    }
     lines.push('');
     lines.push('【回答要求（硬约束）】');
     lines.push(`1. 使用${data.languageName}回答用户的问题；`);
@@ -237,4 +254,30 @@ function missingPackWarning(languageCode: string): string {
 /** Append an exclamation mark at the end (skip if already present) */
 function ensureExclamation(name: string): string {
     return name.endsWith('!') ? name : `${name}!`;
+}
+
+/** 自定义 system prompt 中的词表占位符：会被替换为按当前语言包自动生成的方言词表提示 */
+export const DIALECT_TABLES_PLACEHOLDER = '{{dialect_tables}}';
+
+/**
+ * 组合最终 system prompt（纯函数，便于单测）：
+ * - custom 为空 → 直接用语言包生成的 fromPack；
+ * - custom 含 {{dialect_tables}} → 用 fromPack 替换占位符（一份自定义指令即可随语言切换注入正确词表）；
+ * - custom 非空且不含占位符 → 完全覆盖（调用方另用 customPromptLacksPlaceholder 提示错配风险）。
+ */
+export function resolveSystemPrompt(custom: string, fromPack: string): string {
+    const c = custom.trim();
+    if (!c) {
+        return fromPack;
+    }
+    if (c.includes(DIALECT_TABLES_PLACEHOLDER)) {
+        return c.split(DIALECT_TABLES_PLACEHOLDER).join(fromPack);
+    }
+    return c;
+}
+
+/** custom 非空却不含占位符：该自定义 prompt 不会随语言包切换更新 */
+export function customPromptLacksPlaceholder(custom: string): boolean {
+    const c = custom.trim();
+    return c.length > 0 && !c.includes(DIALECT_TABLES_PLACEHOLDER);
 }

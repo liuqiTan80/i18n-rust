@@ -32,7 +32,8 @@ import {
     getSystemPrompt,
     currentLanguageName,
     initAISecrets,
-    检测AI设置作用域覆盖
+    检测AI设置作用域覆盖,
+    自定义提示词缺词表占位符
 } from './ai/config-manager';
 import { AIError, AIConfig, ChatMessage } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
@@ -666,9 +667,22 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
     const AI输出 = vscode.window.createOutputChannel('i18n-rust AI');
     context.subscriptions.push(AI输出);
 
+    // 自定义 systemPrompt 语言错配的一次性非阻断提醒（写入输出面板，不弹窗骚扰）
+    let 已提示词表风险 = false;
+    const 提示自定义词表风险 = (): void => {
+        if (!已提示词表风险 && 自定义提示词缺词表占位符()) {
+            已提示词表风险 = true;
+            AI输出.appendLine(
+                '【提示】你设置了自定义 i18n-rust.ai.systemPrompt 且未包含 {{dialect_tables}} 占位符，' +
+                '该提示词不会随语言包切换自动注入方言词表。若要多语言复用同一份自定义指令，请在其中插入 {{dialect_tables}}。'
+            );
+        }
+    };
+
     // AI 对话命令
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.aiChat', async () => {
+            提示自定义词表风险();
             const 配置 = await loadAIConfig();
             // 云端服务需要密钥；Ollama / 自定义地址可无密钥
             if (!配置.apiKey && 配置.provider !== 'ollama' && 配置.provider !== 'custom') {
@@ -721,6 +735,7 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
     // AI 生成方言代码：生成 → rzc check 校验 → 回喂修正的闭环（最多 2 轮修正）
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.aiGenerate', async () => {
+            提示自定义词表风险();
             const 配置 = await loadAIConfig();
             // 云端服务需要密钥；Ollama / 自定义地址可无密钥
             if (!配置.apiKey && 配置.provider !== 'ollama' && 配置.provider !== 'custom') {

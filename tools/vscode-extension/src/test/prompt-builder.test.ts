@@ -10,7 +10,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { after, test } from 'node:test';
-import { parseToml, loadLanguagePack, buildSystemPrompt } from '../ai/prompt-builder';
+import { parseToml, loadLanguagePack, buildSystemPrompt, resolveSystemPrompt, customPromptLacksPlaceholder } from '../ai/prompt-builder';
 
 // ============================================================
 // TOML 解析
@@ -138,4 +138,51 @@ test('buildSystemPrompt：语言包缺失时给出明确告警（不再静默）
     assert.ok(prompt.includes('未能加载'), '应含中文告警');
     assert.ok(prompt.includes('could not be loaded'), '应含英文告警');
     assert.ok(prompt.includes('Rust programming teaching assistant'), '仍附英文兜底提示');
+});
+
+// ============================================================
+// few-shot 示例注入 + 自定义 systemPrompt 占位符
+// ============================================================
+
+test('loadLanguagePack：读入 ai-examples.md 原文', () => {
+    const root = 构造语言包();
+    fs.writeFileSync(path.join(root, 'zh', 'ai-examples.md'), '示例正文', 'utf8');
+    const data = loadLanguagePack(root, 'zh');
+    assert.equal(data?.examplesText, '示例正文');
+});
+
+test('buildSystemPrompt：存在 ai-examples.md 时注入 few-shot 小节', () => {
+    const root = 构造语言包();
+    fs.writeFileSync(path.join(root, 'zh', 'ai-examples.md'), '示例正文：函数 主函数() {}', 'utf8');
+    const prompt = buildSystemPrompt('zh', root);
+    assert.ok(prompt.includes('【方言写法示例'), '应含 few-shot 小节标题');
+    assert.ok(prompt.includes('函数 主函数() {}'), 'few-shot 内容应进入提示词');
+});
+
+test('buildSystemPrompt：无 ai-examples.md 时不出现 few-shot 小节', () => {
+    const root = 构造语言包();
+    const prompt = buildSystemPrompt('zh', root);
+    assert.ok(!prompt.includes('【方言写法示例'), '缺示例文件应不注入该小节');
+});
+
+test('resolveSystemPrompt：自定义含占位符时注入当前语言包词表', () => {
+    const custom = '你是我的助手。\n{{dialect_tables}}\n请简洁作答。';
+    const out = resolveSystemPrompt(custom, '【方言关键字映射】…');
+    assert.ok(out.includes('你是我的助手。'), '自定义指令应保留');
+    assert.ok(out.includes('【方言关键字映射】…'), '占位符应被替换为语言包提示词');
+    assert.ok(!out.includes('{{dialect_tables}}'), '占位符应被替换掉');
+});
+
+test('resolveSystemPrompt：自定义不含占位符时完全覆盖', () => {
+    assert.equal(resolveSystemPrompt('只用英文回答', '词表'), '只用英文回答');
+});
+
+test('resolveSystemPrompt：自定义为空时使用语言包提示词', () => {
+    assert.equal(resolveSystemPrompt('   ', '词表'), '词表');
+});
+
+test('customPromptLacksPlaceholder：非空且无占位符为 true', () => {
+    assert.equal(customPromptLacksPlaceholder('自定义'), true, '非空无占位符→有错配风险');
+    assert.equal(customPromptLacksPlaceholder('含 {{dialect_tables}} 的自定义'), false, '含占位符→无风险');
+    assert.equal(customPromptLacksPlaceholder(''), false, '空→不适用（不弹提醒）');
 });

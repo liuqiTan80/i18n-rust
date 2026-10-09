@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { AIConfig, ProviderId } from './types';
-import { buildSystemPrompt } from './prompt-builder';
+import { buildSystemPrompt, resolveSystemPrompt, customPromptLacksPlaceholder } from './prompt-builder';
 import { 语言代码 } from '../languages';
 import { 探测语言包根 } from '../lang-pack-path';
 
@@ -163,15 +163,19 @@ export function findLanguagePackRoot(): string | undefined {
 
 /**
  * Get the final system prompt:
- * - Uses the custom systemPrompt when configured (full override)
- * - Otherwise generates one from the current language pack
- *   (falls back to English when the pack is unavailable)
+ * - Empty custom → generated from the current language pack
+ * - Custom containing {{dialect_tables}} → the placeholder is replaced with the
+ *   current language pack prompt (one custom instruction stays correct across switches)
+ * - Custom without placeholder → full override (call 自定义提示词缺词表占位符 to warn)
  */
 export function getSystemPrompt(): string {
     const config = vscode.workspace.getConfiguration('i18n-rust.ai');
-    const custom = config.get<string>('systemPrompt', '').trim();
-    if (custom) {
-        return custom;
-    }
-    return buildSystemPrompt(currentLanguageCode(), findLanguagePackRoot());
+    const custom = config.get<string>('systemPrompt', '');
+    return resolveSystemPrompt(custom, buildSystemPrompt(currentLanguageCode(), findLanguagePackRoot()));
+}
+
+/** 用户设了自定义 systemPrompt 却不含 {{dialect_tables}} 占位符：该 prompt 不会随语言包切换注入方言词表 */
+export function 自定义提示词缺词表占位符(): boolean {
+    const custom = vscode.workspace.getConfiguration('i18n-rust.ai').get<string>('systemPrompt', '');
+    return customPromptLacksPlaceholder(custom);
 }

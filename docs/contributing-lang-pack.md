@@ -17,6 +17,7 @@ crates/engine/lang-packs/vi/
 ├── errors.toml        # 编译错误消息翻译（教学用）
 ├── lang_info.toml     # 语言元信息（名称、代码、作者等）
 ├── ui.toml            # CLI 界面文案翻译
+├── ai-examples.md     # （可选）AI few-shot 方言写法示例，见 2.8
 └── crates/            # 第三方库映射（可选，可用工具自动生成）
     ├── salvo.toml
     └── ...
@@ -164,6 +165,22 @@ rzc check 反例.zh --lang-pack /tmp/pack
 ```bash
 python3 -c "import tomllib,pathlib;[print(d.name, len(tomllib.loads((d/'errors.toml').read_text(encoding='utf-8')).get('消息翻译', {}))) for d in sorted(pathlib.Path('crates/engine/lang-packs').iterdir()) if (d/'errors.toml').is_file()]"
 ```
+
+### 2.8 AI 方言生成的 few-shot 示例（ai-examples.md，可选）
+
+VS Code 扩展的 AI 命令（`i18n-rust.aiChat` / `i18n-rust.aiGenerate`）会把本文件原文注入系统
+提示词，作为“方言应该长这样”的范例，引导模型**直接用方言书写代码**而非先写英文 Rust 再翻译。约定：
+
+- 位置：`crates/engine/lang-packs/<码>/ai-examples.md`；缺失则不注入，不影响其它功能。
+- 内容：一个“需求 → 方言代码”的小例子即可，代码用 ` ```rust-<码> ``` ` 围栏；
+  可附一句等价标准 Rust 作对照（仅供核对结构）。
+- 真实性：示例里的方言词**必须来自本语言包 `keywords.toml` / `stdlib.toml`**，不得臆造
+  词表里没有的译法（与扩展硬约束一致：缺词保留英文）。
+- 目前 `zh` / `ja` / `ru` 已随官方演示样例（`docs/demo/samples/main.<码>`）提供本文件，可作为其它语言的模板。
+
+> 用户侧：若自定义了 `i18n-rust.ai.systemPrompt` 又希望方言词表随语言包切换自动更新，
+> 可在自定义文本中放置占位符 `{{dialect_tables}}`（运行时替换为按当前语言包生成的词表提示）；
+> 不含该占位符时，自定义提示词会完全覆盖内置词表，不随语言切换更新。
 
 ## 3. 分享给他人：两条路线
 
