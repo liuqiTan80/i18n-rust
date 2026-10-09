@@ -1,0 +1,10 @@
+["模块路径"]
+"sqlite_schnittstelle" = "sqlite"
+
+["标识符"]
+"sqlite_datenbank" = "Database"
+"sqlite_anweisung" = "Statement"
+"sqlite_zeile" = "Row"
+
+["解释"]
+"sqlite_schnittstelle" = "Leichte SQLite-Datenbankschnittstelle"

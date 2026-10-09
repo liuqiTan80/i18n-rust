@@ -1,0 +1,10 @@
+["模块路径"]
+"ORM_쿼리_빌더" = "diesel"
+
+["标识符"]
+"ORM_연결" = "Connection"
+"조회_가능_매핑" = "Queryable"
+"쿼리_DSL_실행" = "RunQueryDsl"
+
+["解释"]
+"ORM_쿼리_빌더" = "안전하고 확장 가능한 ORM 및 쿼리 빌더"

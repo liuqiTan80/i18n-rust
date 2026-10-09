@@ -1,0 +1,10 @@
+["模块路径"]
+"异步Postgres" = "tokio-postgres"
+
+["标识符"]
+"异步连接" = "Client"
+"异步配置" = "Config"
+"异步行" = "Row"
+
+["解释"]
+"异步Postgres" = "原生异步 PostgreSQL 客户端"

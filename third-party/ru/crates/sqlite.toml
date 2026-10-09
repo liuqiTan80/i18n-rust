@@ -1,0 +1,10 @@
+["模块路径"]
+"интерфейс_sqlite" = "sqlite"
+
+["标识符"]
+"база_sqlite" = "Database"
+"выражение_sqlite" = "Statement"
+"строка_sqlite" = "Row"
+
+["解释"]
+"интерфейс_sqlite" = "Лёгкий интерфейс к базе данных SQLite"

@@ -1,0 +1,10 @@
+["模块路径"]
+"MySQL客户端" = "mysql"
+
+["标识符"]
+"MySQL连接" = "Conn"
+"连接池" = "Pool"
+"MySQL行" = "Row"
+
+["解释"]
+"MySQL客户端" = "纯 Rust 实现的 MySQL 客户端"

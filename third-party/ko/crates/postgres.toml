@@ -1,0 +1,10 @@
+["模块路径"]
+"Postgres_클라이언트" = "postgres"
+
+["标识符"]
+"Postgres_연결" = "Client"
+"Postgres_설정" = "Config"
+"Postgres_행" = "Row"
+
+["解释"]
+"Postgres_클라이언트" = "네이티브 동기 PostgreSQL 클라이언트"

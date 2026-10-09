@@ -1,0 +1,10 @@
+["模块路径"]
+"비동기_Postgres" = "tokio-postgres"
+
+["标识符"]
+"비동기_연결" = "Client"
+"비동기_설정" = "Config"
+"비동기_행" = "Row"
+
+["解释"]
+"비동기_Postgres" = "네이티브 비동기 PostgreSQL 클라이언트"

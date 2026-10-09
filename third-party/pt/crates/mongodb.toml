@@ -1,0 +1,10 @@
+["模块路径"]
+"driver_mongo" = "mongodb"
+
+["标识符"]
+"conexao_mongo" = "Client"
+"base_dados_mongo" = "Database"
+"operacao_colecao" = "Collection"
+
+["解释"]
+"driver_mongo" = "Driver assíncrono oficial do MongoDB"

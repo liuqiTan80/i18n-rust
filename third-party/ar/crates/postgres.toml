@@ -1,0 +1,10 @@
+["模块路径"]
+"عميل_Postgres" = "postgres"
+
+["标识符"]
+"اتصال_Postgres" = "Client"
+"إعداد_Postgres" = "Config"
+"صف_Postgres" = "Row"
+
+["解释"]
+"عميل_Postgres" = "عميل PostgreSQL أصلي متزامن"

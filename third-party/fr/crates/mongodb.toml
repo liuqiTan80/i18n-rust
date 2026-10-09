@@ -1,0 +1,10 @@
+["模块路径"]
+"pilote_mongo" = "mongodb"
+
+["标识符"]
+"connexion_mongo" = "Client"
+"base_donnees_mongo" = "Database"
+"operation_collection" = "Collection"
+
+["解释"]
+"pilote_mongo" = "Pilote asynchrone officiel de MongoDB"

@@ -1,0 +1,10 @@
+["模块路径"]
+"Postgres_ग्राहक" = "postgres"
+
+["标识符"]
+"Postgres_संपर्क" = "Client"
+"Postgres_विन्यास" = "Config"
+"Postgres_पंक्ति" = "Row"
+
+["解释"]
+"Postgres_ग्राहक" = "स्वदेशी समकालिक PostgreSQL ग्राहक"

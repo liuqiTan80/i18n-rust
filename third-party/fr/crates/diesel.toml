@@ -1,0 +1,10 @@
+["模块路径"]
+"constructeur_requetes_orm" = "diesel"
+
+["标识符"]
+"connexion_orm" = "Connection"
+"mappage_requete" = "Queryable"
+"executer_dsl_requetes" = "RunQueryDsl"
+
+["解释"]
+"constructeur_requetes_orm" = "ORM sûr et extensible avec constructeur de requêtes"

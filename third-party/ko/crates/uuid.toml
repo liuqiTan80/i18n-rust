@@ -4,7 +4,7 @@
 ["标识符"]
 "UUID_타입" = "Uuid"
 "V4_생성" = "new_v4"
-"문자열_파싱" = "parse_str"
+"UUID_문자열_파싱" = "parse_str"
 
 ["解释"]
 "고유_식별자" = "UUID/GUID 생성 및 파싱 라이브러리"

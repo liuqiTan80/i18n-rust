@@ -1,0 +1,10 @@
+["模块路径"]
+"mongo_treiber" = "mongodb"
+
+["标识符"]
+"mongo_verbindung" = "Client"
+"mongo_datenbank" = "Database"
+"kollektion_operation" = "Collection"
+
+["解释"]
+"mongo_treiber" = "Offizieller asynchroner MongoDB-Treiber"

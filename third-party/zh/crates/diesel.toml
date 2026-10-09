@@ -1,0 +1,10 @@
+["模块路径"]
+"ORM查询构建" = "diesel"
+
+["标识符"]
+"ORM连接" = "Connection"
+"可查询映射" = "Queryable"
+"执行查询DSL" = "RunQueryDsl"
+
+["解释"]
+"ORM查询构建" = "安全可扩展的 ORM 与查询构建器"

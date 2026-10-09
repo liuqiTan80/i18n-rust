@@ -1,0 +1,10 @@
+["模块路径"]
+"非同期Postgres" = "tokio-postgres"
+
+["标识符"]
+"非同期接続" = "Client"
+"非同期設定" = "Config"
+"非同期行" = "Row"
+
+["解释"]
+"非同期Postgres" = "ネイティブな非同期 PostgreSQL クライアント"

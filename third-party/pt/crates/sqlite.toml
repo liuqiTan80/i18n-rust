@@ -1,0 +1,10 @@
+["模块路径"]
+"interface_sqlite" = "sqlite"
+
+["标识符"]
+"base_dados_sqlite" = "Database"
+"declaracao_sqlite" = "Statement"
+"linha_sqlite" = "Row"
+
+["解释"]
+"interface_sqlite" = "Interface leve de banco de dados SQLite"

@@ -1,0 +1,10 @@
+["模块路径"]
+"construtor_consultas_orm" = "diesel"
+
+["标识符"]
+"conexao_orm" = "Connection"
+"mapeamento_consulta" = "Queryable"
+"executar_dsl_consultas" = "RunQueryDsl"
+
+["解释"]
+"construtor_consultas_orm" = "ORM seguro e extensível com construtor de consultas"

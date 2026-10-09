@@ -1,0 +1,10 @@
+["模块路径"]
+"ORMクエリ構築" = "diesel"
+
+["标识符"]
+"ORM接続" = "Connection"
+"照会可能マッピング" = "Queryable"
+"クエリDSL実行" = "RunQueryDsl"
+
+["解释"]
+"ORMクエリ構築" = "安全で拡張可能な ORM とクエリビルダー"

@@ -1,0 +1,10 @@
+["模块路径"]
+"واجهة_SQLite" = "sqlite"
+
+["标识符"]
+"قاعدة_بيانات_SQLite" = "Database"
+"عبارة_SQLite" = "Statement"
+"صف_SQLite" = "Row"
+
+["解释"]
+"واجهة_SQLite" = "واجهة خفيفة لقاعدة بيانات SQLite"

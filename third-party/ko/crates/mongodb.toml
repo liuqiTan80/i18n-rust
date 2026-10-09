@@ -1,0 +1,10 @@
+["模块路径"]
+"Mongo_드라이버" = "mongodb"
+
+["标识符"]
+"Mongo_연결" = "Client"
+"Mongo_데이터베이스" = "Database"
+"컬렉션_조작" = "Collection"
+
+["解释"]
+"Mongo_드라이버" = "MongoDB 공식 비동기 드라이버"

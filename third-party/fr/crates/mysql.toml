@@ -1,0 +1,10 @@
+["模块路径"]
+"client_mysql" = "mysql"
+
+["标识符"]
+"connexion_mysql" = "Conn"
+"pool_de_connexions" = "Pool"
+"ligne_mysql" = "Row"
+
+["解释"]
+"client_mysql" = "Client MySQL implémenté en Rust pur"

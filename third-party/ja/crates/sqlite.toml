@@ -1,0 +1,10 @@
+["模块路径"]
+"SQLiteインターフェース" = "sqlite"
+
+["标识符"]
+"SQLiteデータベース" = "Database"
+"SQLite文" = "Statement"
+"SQLite行" = "Row"
+
+["解释"]
+"SQLiteインターフェース" = "軽量 SQLite データベースインターフェース"

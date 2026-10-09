@@ -1,0 +1,10 @@
+["模块路径"]
+"controlador_mongo" = "mongodb"
+
+["标识符"]
+"conexion_mongo" = "Client"
+"base_datos_mongo" = "Database"
+"operacion_coleccion" = "Collection"
+
+["解释"]
+"controlador_mongo" = "Controlador asíncrono oficial de MongoDB"

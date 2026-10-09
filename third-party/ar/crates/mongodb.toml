@@ -1,0 +1,10 @@
+["模块路径"]
+"سائق_Mongo" = "mongodb"
+
+["标识符"]
+"اتصال_Mongo" = "Client"
+"قاعدة_بيانات_Mongo" = "Database"
+"عمليات_المجموعة" = "Collection"
+
+["解释"]
+"سائق_Mongo" = "سائق MongoDB الرسمي غير المتزامن"

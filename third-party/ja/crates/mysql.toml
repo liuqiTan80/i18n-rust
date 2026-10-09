@@ -1,0 +1,10 @@
+["模块路径"]
+"MySQLクライアント" = "mysql"
+
+["标识符"]
+"MySQL接続" = "Conn"
+"接続プール" = "Pool"
+"MySQL行" = "Row"
+
+["解释"]
+"MySQLクライアント" = "Rust のみの MySQL クライアント"

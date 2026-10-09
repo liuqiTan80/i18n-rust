@@ -1,0 +1,10 @@
+["模块路径"]
+"Mongo驱动" = "mongodb"
+
+["标识符"]
+"Mongo连接" = "Client"
+"Mongo数据库" = "Database"
+"集合操作" = "Collection"
+
+["解释"]
+"Mongo驱动" = "MongoDB 官方异步驱动"

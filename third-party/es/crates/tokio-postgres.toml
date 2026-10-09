@@ -1,0 +1,10 @@
+["模块路径"]
+"postgres_async" = "tokio-postgres"
+
+["标识符"]
+"conexion_async" = "Client"
+"configuracion_async" = "Config"
+"fila_async" = "Row"
+
+["解释"]
+"postgres_async" = "Cliente PostgreSQL nativo y asíncrono"

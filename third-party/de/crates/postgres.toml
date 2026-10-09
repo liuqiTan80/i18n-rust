@@ -1,0 +1,10 @@
+["模块路径"]
+"postgres_klient" = "postgres"
+
+["标识符"]
+"postgres_verbindung" = "Client"
+"postgres_konfiguration" = "Config"
+"postgres_zeile" = "Row"
+
+["解释"]
+"postgres_klient" = "Nativer synchroner PostgreSQL-Client"

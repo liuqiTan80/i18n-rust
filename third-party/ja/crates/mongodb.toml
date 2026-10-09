@@ -1,0 +1,10 @@
+["模块路径"]
+"Mongoドライバ" = "mongodb"
+
+["标识符"]
+"Mongo接続" = "Client"
+"Mongoデータベース" = "Database"
+"コレクション操作" = "Collection"
+
+["解释"]
+"Mongoドライバ" = "MongoDB 公式非同期ドライバ"

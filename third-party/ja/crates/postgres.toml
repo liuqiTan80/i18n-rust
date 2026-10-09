@@ -1,0 +1,10 @@
+["模块路径"]
+"Postgresクライアント" = "postgres"
+
+["标识符"]
+"Postgres接続" = "Client"
+"Postgres設定" = "Config"
+"Postgres行" = "Row"
+
+["解释"]
+"Postgresクライアント" = "ネイティブな同期 PostgreSQL クライアント"

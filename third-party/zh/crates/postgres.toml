@@ -1,0 +1,10 @@
+["模块路径"]
+"Postgres客户端" = "postgres"
+
+["标识符"]
+"Postgres连接" = "Client"
+"Postgres配置" = "Config"
+"Postgres行" = "Row"
+
+["解释"]
+"Postgres客户端" = "原生同步 PostgreSQL 客户端"

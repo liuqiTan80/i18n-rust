@@ -1,0 +1,10 @@
+["模块路径"]
+"orm_abfrage_baukasten" = "diesel"
+
+["标识符"]
+"orm_verbindung" = "Connection"
+"abfrage_mapping" = "Queryable"
+"abfrage_dsl_ausfuehren" = "RunQueryDsl"
+
+["解释"]
+"orm_abfrage_baukasten" = "Sicherer, erweiterbarer ORM und Query-Builder"
