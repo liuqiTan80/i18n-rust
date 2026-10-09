@@ -13,6 +13,11 @@
  *   - 第三方库：index.json 的 updated 字段（逐 crate+语言）。
  *   - 标准库：该语言 stdlib.toml 的 git 最近提交日期（诚实反映"上次更新"）。
  *
+ * 展示：
+ *   - 第三方库：每张卡片默认收起，点击展开查看该 crate 的 API 明细（模块路径/标识符 + 大白话解释 + 元数据）。
+ *   - 标准库：按分类聚合为「卡片网格」，每张卡片显示分类名 + 条目数，展开可见「方言名 = 英文原名」。
+ *   - 覆盖核对：附「覆盖情况」面板，如实标注各 crate/语言的数据覆盖差异（不编造缺失库）。
+ *
  * 用法：node tools/build-lib-index.mjs [--out docs/library-index.html]
  */
 import fs from 'node:fs';
@@ -97,16 +102,19 @@ function gitDate(relPath) {
     }
 }
 
-/** 解析标准库：合并 [模块路径] + [标识符] 为带 kind/cat 的条目 */
+/**
+ * 解析标准库：泛化读取 stdlib.toml 的【全部映射表】（当前为 模块路径 + 标识符；
+ * 若将来新增其它表也自动纳入，避免漏读）。每条带 cat（分节分类）与 table（来源表名）。
+ */
 function loadStdlib(code) {
     const file = path.join(LANG_PACKS, code, 'stdlib.toml');
     const tables = parseToml(readIf(file));
     const entries = [];
-    const push = (rows, kind) => {
-        for (const r of rows ?? []) entries.push({ d: r.k, e: r.v, cat: r.cat, kind });
-    };
-    push(tables.get('模块路径'), 'module');
-    push(tables.get('标识符'), 'item');
+    for (const [tname, rows] of tables) {
+        for (const r of rows ?? []) {
+            entries.push({ d: r.k, e: r.v, cat: r.cat || tname, table: tname });
+        }
+    }
     return { entries, date: gitDate(path.relative(ROOT, file).replace(/\\/g, '/')) };
 }
 
@@ -159,6 +167,34 @@ function buildData() {
     });
 }
 
+/**
+ * 数据覆盖核对：从实际读取结果派生（严禁编造），供页面「覆盖情况」面板使用。
+ * - crates：每个 crate → 已提供其映射的语言 code 列表（跨语言覆盖差异，如 rand 仅 zh）。
+ * - langsNoCrate：完全没有第三方库映射的语言。
+ * - stdlibCounts：各语言标准库条目数（暴露条目多少差异）。
+ * - tableNames：stdlib.toml 实际读取到的映射表名（核对是否读全）。
+ */
+function buildCoverage(data) {
+    const crateLangs = new Map();
+    for (const l of data) {
+        for (const c of l.crates) {
+            if (!crateLangs.has(c.name)) crateLangs.set(c.name, new Set());
+            crateLangs.get(c.name).add(l.code);
+        }
+    }
+    const tableNames = new Set();
+    for (const l of data) for (const e of l.stdlib) if (e.table) tableNames.add(e.table);
+    return {
+        totalLangs: data.length,
+        crates: [...crateLangs.entries()]
+            .map(([name, set]) => ({ name, langs: [...set] }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        langsNoCrate: data.filter((l) => !l.crates.length).map((l) => l.code),
+        stdlibCounts: data.map((l) => ({ code: l.code, name: l.name, n: l.stdlib.length })),
+        tableNames: [...tableNames],
+    };
+}
+
 const HTML = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -166,8 +202,8 @@ const HTML = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>rzc 已翻译库索引 · 用母语写 Rust</title>
 <style>
-  :root { color-scheme: light dark; --bd:#d5d5d5; --mut:#888; --acc:#3b82f6; --bg:#fff; --fg:#1a1a1a; }
-  @media (prefers-color-scheme: dark){ :root{ --bd:#333; --mut:#9a9a9a; --bg:#1a1a1a; --fg:#eaeaea; } }
+  :root { color-scheme: light dark; --bd:#d5d5d5; --mut:#888; --acc:#3b82f6; --bg:#fff; --fg:#1a1a1a; --chip:rgba(128,128,128,.12); }
+  @media (prefers-color-scheme: dark){ :root{ --bd:#333; --mut:#9a9a9a; --bg:#1a1a1a; --fg:#eaeaea; --chip:rgba(160,160,160,.16); } }
   * { box-sizing: border-box; }
   body { font-family: system-ui,"Segoe UI","Noto Sans CJK SC","Noto Sans Arabic",sans-serif;
          max-width: 1000px; margin: 4vh auto 8vh; padding: 0 1rem; background:var(--bg); color:var(--fg); }
@@ -183,23 +219,47 @@ const HTML = `<!DOCTYPE html>
   .search { width:100%; padding:.5rem .7rem; border:1px solid var(--bd); border-radius:8px;
             font-size:.95rem; margin-bottom:1rem; background:var(--bg); color:var(--fg); }
   h2 { font-size:1.1rem; margin:1.4rem 0 .6rem; border-bottom:2px solid var(--bd); padding-bottom:.2rem; }
-  .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
-  .card { border:1px solid var(--bd); border-radius:10px; padding:.9rem 1rem; }
-  .card .cr { font-weight:700; font-size:1.05rem; }
-  .meta { color:var(--mut); font-size:.78rem; margin:.2rem 0 .6rem; }
-  .meta span{margin-right:.6rem;}
-  .cat { margin:.7rem 0 .3rem; font-size:.8rem; color:var(--acc); font-weight:600;
-         border-bottom:1px dashed var(--bd); }
+  h2 .cnt { color:var(--mut); font-weight:400; font-size:.85rem; }
+  /* 覆盖面板 */
+  .cover { border:1px solid var(--bd); border-radius:10px; margin-bottom:1rem; background:rgba(59,130,246,.05); }
+  .cover > summary { padding:.6rem .9rem; cursor:pointer; font-weight:600; font-size:.9rem; }
+  .coverbody { padding:.2rem .9rem .8rem; font-size:.85rem; }
+  .coverbody ul { margin:.3rem 0; padding-inline-start:1.2rem; }
+  .coverbody li { margin:.15rem 0; }
+  .frac { color:var(--mut); font-size:.8rem; }
+  .warn { color:#b45309; }
+  @media (prefers-color-scheme: dark){ .warn { color:#f0b429; } }
+  .stdtab { width:100%; border-collapse:collapse; margin-top:.4rem; font-size:.82rem; }
+  .stdtab td { border-bottom:1px solid var(--chip); padding:.2rem .4rem; }
+  /* 网格卡片 */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+  details { border:1px solid var(--bd); border-radius:10px; background:var(--bg); }
+  details > summary { list-style:none; cursor:pointer; padding:.7rem .9rem; display:flex;
+                      align-items:baseline; gap:.5rem; flex-wrap:wrap; }
+  details > summary::-webkit-details-marker { display:none; }
+  details > summary::before { content:"\\25B8"; color:var(--acc); font-size:.8rem; flex:0 0 auto; }
+  details[open] > summary::before { content:"\\25BE"; }
+  details[open] > summary { border-bottom:1px solid var(--bd); }
+  .gt { font-weight:600; font-size:.98rem; }
+  .gc { margin-inline-start:auto; color:var(--mut); font-size:.78rem; background:var(--chip);
+        border-radius:12px; padding:.05rem .55rem; }
+  .body { padding:.5rem .9rem .8rem; }
+  .cr { font-weight:700; font-size:1.05rem; }
+  .meta { color:var(--mut); font-size:.76rem; }
+  .meta span{margin-inline-end:.6rem;}
+  .sub-h { margin:.6rem 0 .3rem; font-size:.78rem; color:var(--acc); font-weight:600;
+           border-bottom:1px dashed var(--bd); }
   .row { display:flex; flex-wrap:wrap; align-items:baseline; gap:.5rem; padding:.28rem 0;
-         border-bottom:1px solid rgba(128,128,128,.12); }
+         border-bottom:1px solid var(--chip); }
   .row .d { font-weight:600; }
   .row .e { font-family:ui-monospace,Consolas,monospace; font-size:.8rem; color:var(--mut);
-            background:rgba(128,128,128,.12); padding:.05rem .4rem; border-radius:5px; }
+            background:var(--chip); padding:.05rem .4rem; border-radius:5px; }
   .row .desc { flex-basis:100%; color:var(--fg); font-size:.83rem; opacity:.85; }
   .empty { color:var(--mut); font-style:italic; padding:.4rem 0; }
   footer { margin-top:2rem; color:var(--mut); font-size:.8rem; border-top:1px solid var(--bd); padding-top:.8rem; }
   [dir=rtl] .row { text-align:right; }
-  [dir=rtl] .meta span{margin:0 .6rem 0 0;}
+  [dir=rtl] .meta span{margin:.05rem 0 .05rem .6rem;}
 </style>
 </head>
 <body>
@@ -208,10 +268,12 @@ const HTML = `<!DOCTYPE html>
 <div class="legend">
   <b>说明</b>：标准库条目无独立文字描述，故以「方言名本身」作见名知意的说明，右侧灰色徽章为其对应的<b>英文原名</b>；
   第三方库条目带作者撰写的<b>大白话解释</b>（若该条目未写解释，则同样以方言名 + 英文原名呈现）。
+  <br><b>交互</b>：卡片默认收起，<b>点击标题</b>即可展开查看明细；<b>搜索</b>时命中分组会自动展开。
   <br><b>日期</b>：第三方库取 <code>index.json</code> 的翻译日期；标准库取该语言包 <code>stdlib.toml</code> 的最近 Git 提交日期。
 </div>
 <div class="tabs" id="tabs"></div>
 <input class="search" id="search" type="search" placeholder="搜索方言名 / 英文名 / 描述 / 分类…" autocomplete="off">
+<div id="coverage"></div>
 <div id="content"></div>
 <footer>
   由 <code>tools/build-lib-index.mjs</code> 生成 · 生成时间 <span id="gen"></span> ·
@@ -219,9 +281,11 @@ const HTML = `<!DOCTYPE html>
 </footer>
 <script>
 const DATA = __DATA__;
+const COVERAGE = __COVERAGE__;
 let cur = "zh";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const NAME = {}; DATA.forEach(l => NAME[l.code] = l.name);
 
 function renderTabs(){
   $("#tabs").innerHTML = DATA.map(l =>
@@ -231,24 +295,37 @@ function renderTabs(){
 }
 function match(e, q){
   if(!q) return true;
-  return [e.d, e.e, e.desc, e.cat].some(x => x && x.toLowerCase().includes(q));
+  return [e.d, e.e, e.desc, e.cat, e.table].some(x => x && String(x).toLowerCase().includes(q));
 }
-function stdlibBlock(lang, q){
+function rowHtml(e){
+  return '<div class="row"><span class="d">'+esc(e.d)+'</span><span class="e">'+esc(e.e)+'</span>'+
+    (e.desc ? '<span class="desc">'+esc(e.desc)+'</span>' : '')+'</div>';
+}
+// 标准库：按分类聚合为卡片网格；每张卡片标题=分类名+条目数，展开见 方言名=英文原名
+function stdlibGrid(lang, q){
   const groups = new Map();
-  for(const e of lang.stdlib){ if(!match(e,q)) continue;
-    const g = e.cat || (e.kind==="module"?"模块路径":"标识符");
-    if(!groups.has(g)) groups.set(g, []); groups.get(g).push(e); }
-  if([...groups.values()].every(a=>!a.length)) return '<p class="empty">无匹配的标准库条目</p>';
-  let h = "";
-  for(const [g, rows] of groups){
-    if(!rows.length) continue;
-    h += '<div class="cat">'+esc(g)+' · '+rows.length+'</div>';
-    h += rows.map(e => '<div class="row"><span class="d">'+esc(e.d)+'</span><span class="e">'+esc(e.e)+'</span></div>').join("");
+  for(const e of lang.stdlib){
+    if(!match(e,q)) continue;
+    const g = e.cat || e.table || "其它";
+    if(!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(e);
   }
-  return h;
+  if(!groups.size) return '<p class="empty">无匹配的标准库条目</p>';
+  const open = q ? " open" : "";
+  const cards = [];
+  for(const [g, rows] of groups){
+    cards.push(
+      '<details class="gcard"'+open+'><summary><span class="gt">'+esc(g)+'</span>'+
+      '<span class="gc">'+rows.length+'</span></summary>'+
+      '<div class="body">'+rows.map(rowHtml).join("")+'</div></details>'
+    );
+  }
+  return '<div class="grid">'+cards.join("")+'</div>';
 }
+// 第三方库：每张卡片默认收起，展开显示 API 明细（模块路径 / 标识符 + 解释）与元数据
 function crateCards(lang, q){
-  if(!lang.crates || !lang.crates.length) return '<p class="empty">该语言暂无已登记的第三方库映射</p>';
+  if(!lang.crates || !lang.crates.length)
+    return '<p class="empty">该语言暂无已登记的第三方库映射（详见上方“覆盖情况”）</p>';
   const cards = [];
   for(const c of lang.crates){
     const items = c.items.filter(e => match(e,q));
@@ -257,13 +334,49 @@ function crateCards(lang, q){
     if(c.version) meta.push('<span>v'+esc(c.version)+'</span>');
     if(c.license) meta.push('<span>'+esc(c.license)+'</span>');
     if(c.author) meta.push('<span>作者 '+esc(c.author)+'</span>');
-    let body = items.map(e =>
-      '<div class="row"><span class="d">'+esc(e.d)+'</span><span class="e">'+esc(e.e)+'</span>'+
-      (e.desc?'<span class="desc">'+esc(e.desc)+'</span>':'')+'</div>'
-    ).join("") || '<div class="empty">（暂无条目）</div>';
-    cards.push('<div class="card"><div class="cr">'+esc(c.name)+'</div><div class="meta">'+meta.join("")+'</div>'+body+'</div>');
+    const mods = items.filter(e => e.kind==="module");
+    const its  = items.filter(e => e.kind==="item");
+    let body = "";
+    if(mods.length) body += '<div class="sub-h">模块路径 · '+mods.length+'</div>'+mods.map(rowHtml).join("");
+    if(its.length)  body += '<div class="sub-h">标识符 · '+its.length+'</div>'+its.map(rowHtml).join("");
+    if(!body) body = '<div class="empty">（暂无条目）</div>';
+    const open = q ? " open" : "";
+    cards.push(
+      '<details class="ccard"'+open+'><summary><span class="cr">'+esc(c.name)+'</span>'+
+      '<span class="gc">'+items.length+' API</span></summary>'+
+      '<div class="body"><div class="meta">'+meta.join("")+'</div>'+body+'</div></details>'
+    );
   }
-  return cards.length ? '<div class="cards">'+cards.join("")+'</div>' : '<p class="empty">无匹配的第三方库</p>';
+  return cards.length ? '<div class="cards">'+cards.join("")+'</div>'
+                      : '<p class="empty">无匹配的第三方库</p>';
+}
+// 覆盖核对面板（语言无关，静态渲染一次）
+function renderCoverage(){
+  let h = '<details class="cover"><summary>📊 覆盖情况与数据源核对</summary><div class="coverbody">';
+  h += '<p>标准库映射来自 <code>crates/engine/lang-packs/&lt;code&gt;/stdlib.toml</code>，';
+  h += '本页读取到映射表：<b>'+COVERAGE.tableNames.map(esc).join(' + ')+'</b>（'+COVERAGE.totalLangs+' 种语言全部纳入）。</p>';
+  h += '<p>第三方库映射来自 <code>third-party/index.json</code> 与 <code>third-party/&lt;lang&gt;/crates/*.toml</code>；';
+  h += '各 crate 的跨语言覆盖如下（差异如实标注，未提供者绝不臆造）：</p><ul>';
+  for(const c of COVERAGE.crates){
+    const names = c.langs.map(x => esc(NAME[x]||x)).join('、');
+    h += '<li><b>'+esc(c.name)+'</b>：'+names+' <span class="frac">'+c.langs.length+'/'+COVERAGE.totalLangs+'</span></li>';
+  }
+  h += '</ul>';
+  if(COVERAGE.langsNoCrate.length){
+    h += '<p class="warn">尚无第三方库映射的语言：'+COVERAGE.langsNoCrate.map(x => esc(NAME[x]||x)).join('、')+
+         '（共 '+COVERAGE.langsNoCrate.length+' 种）。</p>';
+  }
+  const cnts = COVERAGE.stdlibCounts.map(x => x.n);
+  const min = Math.min.apply(null, cnts), max = Math.max.apply(null, cnts);
+  if(min !== max){
+    h += '<p class="warn">各语言标准库条目数存在差异（最少 '+min+'、最多 '+max+'），';
+    h += '反映各语言包翻译进度不同，非页面漏读。</p>';
+  }
+  h += '<table class="stdtab"><tbody>';
+  for(const s of COVERAGE.stdlibCounts) h += '<tr><td>'+esc(s.name)+'</td><td>'+s.n+' 条</td></tr>';
+  h += '</tbody></table>';
+  h += '</div></details>';
+  $("#coverage").innerHTML = h;
 }
 function render(){
   const lang = DATA.find(l => l.code===cur);
@@ -273,12 +386,13 @@ function render(){
   c.setAttribute("lang", cur);
   const date = lang.stdlibDate || "—";
   c.innerHTML =
-    '<h2>第三方库 · '+(lang.crates?lang.crates.length:0)+' 个</h2>' + crateCards(lang, q) +
-    '<h2>标准库（stdlib.toml，更新于 '+esc(date)+'，共 '+lang.stdlib.length+' 条）</h2>' + stdlibBlock(lang, q);
+    '<h2>第三方库 <span class="cnt">'+(lang.crates?lang.crates.length:0)+' 个 · 点击卡片展开 API</span></h2>' + crateCards(lang, q) +
+    '<h2>标准库 <span class="cnt">更新于 '+esc(date)+'，共 '+lang.stdlib.length+' 条 · 点击分类展开 方言名 = 英文原名</span></h2>' + stdlibGrid(lang, q);
 }
 $("#gen").textContent = "__GEN__";
 $("#search").addEventListener("input", render);
 renderTabs();
+renderCoverage();
 render();
 </script>
 </body>
@@ -291,13 +405,24 @@ function main() {
     const outRel = outIdx >= 0 ? args[outIdx + 1] : path.join('docs', 'library-index.html');
     const outPath = path.resolve(ROOT, outRel);
     const data = buildData();
+    const coverage = buildCoverage(data);
     const gen = new Date().toISOString().slice(0, 10);
-    const html = HTML.replace('__DATA__', JSON.stringify(data)).replace('__GEN__', gen);
+    const html = HTML
+        .replace('__DATA__', JSON.stringify(data))
+        .replace('__COVERAGE__', JSON.stringify(coverage))
+        .replace('__GEN__', gen);
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, html, 'utf8');
     const totalStd = data.reduce((n, l) => n + l.stdlib.length, 0);
     const totalCr = data.reduce((n, l) => n + (l.crates ? l.crates.length : 0), 0);
     console.log(`已生成 ${path.relative(ROOT, outPath)}：`);
+    console.log(`  标准库映射表：${coverage.tableNames.join(' + ')}`);
+    for (const c of coverage.crates) {
+        console.log(`  crate ${c.name.padEnd(8)} 覆盖语言 ${c.langs.length}/${coverage.totalLangs}：${c.langs.join(', ')}`);
+    }
+    if (coverage.langsNoCrate.length) {
+        console.log(`  无第三方库映射的语言：${coverage.langsNoCrate.join(', ')}`);
+    }
     for (const l of data) {
         console.log(`  ${l.code.padEnd(3)} ${l.name.padEnd(10)} 标准库 ${String(l.stdlib.length).padStart(4)} 条 · 第三方 ${l.crates.length} 库  (stdlib 更新 ${l.stdlibDate || '—'})`);
     }
