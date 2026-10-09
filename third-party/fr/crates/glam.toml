@@ -1,0 +1,10 @@
+["模块路径"]
+"mathematique_vecteur_glam" = "glam"
+
+["标识符"]
+"glam_vecteur2" = "Vec2"
+"glam_vecteur3" = "Vec3"
+"glam_matrice4" = "Mat4"
+
+["解释"]
+"mathematique_vecteur_glam" = "glam fournit de l algebre lineaire SIMD pour le jeu: types Vec2/Vec3/Mat4"

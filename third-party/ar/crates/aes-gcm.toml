@@ -1,0 +1,10 @@
+["模块路径"]
+"تشفير_مصادق_aesgcm" = "aes-gcm"
+
+["标识符"]
+"aesgcm_تشفير_128" = "Aes128Gcm"
+"aesgcm_تشفير_256" = "Aes256Gcm"
+"aesgcm_عام" = "AesGcm"
+
+["解释"]
+"تشفير_مصادق_aesgcm" = "aes-gcm تشفير مصادق AES-GCM: الاسمـان Aes128Gcm/Aes256Gcm والعام AesGcm"

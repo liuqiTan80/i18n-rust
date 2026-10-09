@@ -1,0 +1,10 @@
+["模块路径"]
+"sistema_ecs_hecs" = "hecs"
+
+["标识符"]
+"hecs_mundo" = "World"
+"hecs_entidade" = "Entity"
+"hecs_arquetipo" = "Archetype"
+
+["解释"]
+"sistema_ecs_hecs" = "hecs e um ECS minimalista: World/Entity/Archetype gerenciam entidades com componentes"

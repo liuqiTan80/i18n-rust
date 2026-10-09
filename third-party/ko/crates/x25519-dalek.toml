@@ -1,0 +1,10 @@
+["模块路径"]
+"x25519_키_교환" = "x25519-dalek"
+
+["标识符"]
+"x25519_임시_비밀키" = "EphemeralSecret"
+"x25519_공개키" = "PublicKey"
+"x25519_공유_비밀" = "SharedSecret"
+
+["解释"]
+"x25519_키_교환" = "x25519-dalek 은 X25519 타원곡선 키 교환, EphemeralSecret/PublicKey/SharedSecret 제공"

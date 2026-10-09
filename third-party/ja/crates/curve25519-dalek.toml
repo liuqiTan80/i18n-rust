@@ -1,0 +1,10 @@
+["模块路径"]
+"curve25519楕円曲線" = "curve25519-dalek"
+
+["标识符"]
+"curve25519スカラー" = "Scalar"
+"curve25519リストレット点" = "RistrettoPoint"
+"curve25519エドワーズ点" = "EdwardsPoint"
+
+["解释"]
+"curve25519楕円曲線" = "curve25519-dalek は Curve25519 群演算、Scalar/RistrettoPoint/EdwardsPoint を提供"

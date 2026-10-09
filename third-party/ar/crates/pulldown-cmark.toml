@@ -1,0 +1,10 @@
+["模块路径"]
+"محلل_ماركداون_pulldown" = "pulldown-cmark"
+
+["标识符"]
+"pulldown_محلل" = "Parser"
+"pulldown_وسم" = "Tag"
+"pulldown_حدث" = "Event"
+
+["解释"]
+"محلل_ماركداون_pulldown" = "pulldown-cmark محلّل CommonMark سحب: Parser/Tag/Event تمرّ على أحداث ماركداون"

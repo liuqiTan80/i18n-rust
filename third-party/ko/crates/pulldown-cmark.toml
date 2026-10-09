@@ -1,0 +1,10 @@
+["模块路径"]
+"pulldown_마크다운_파싱" = "pulldown-cmark"
+
+["标识符"]
+"pulldown_파서" = "Parser"
+"pulldown_태그" = "Tag"
+"pulldown_이벤트" = "Event"
+
+["解释"]
+"pulldown_마크다운_파싱" = "pulldown-cmark 은 CommonMark 풀 파서, Parser/Tag/Event 로 마크다운 이벤트 순회"

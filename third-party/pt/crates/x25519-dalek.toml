@@ -1,0 +1,10 @@
+["模块路径"]
+"troca_chaves_x25519" = "x25519-dalek"
+
+["标识符"]
+"x25519_segredo_efimero" = "EphemeralSecret"
+"x25519_chave_publica" = "PublicKey"
+"x25519_segredo_compartilhado" = "SharedSecret"
+
+["解释"]
+"troca_chaves_x25519" = "x25519-dalek implementa troca de chaves X25519: EphemeralSecret/PublicKey/SharedSecret"

@@ -1,0 +1,10 @@
+["模块路径"]
+"эллиптическая_кривая_curve25519" = "curve25519-dalek"
+
+["标识符"]
+"скаляр_curve25519" = "Scalar"
+"точка_Ristretto_curve25519" = "RistrettoPoint"
+"точка_Edwards_curve25519" = "EdwardsPoint"
+
+["解释"]
+"эллиптическая_кривая_curve25519" = "curve25519-dalek даёт группы Curve25519: Scalar/RistrettoPoint/EdwardsPoint"

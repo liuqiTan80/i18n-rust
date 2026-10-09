@@ -1,0 +1,10 @@
+["模块路径"]
+"aesgcm_प्रमाणीकृत_क्रिप्टो" = "aes-gcm"
+
+["标识符"]
+"aesgcm_128_क्रिप्टो" = "Aes128Gcm"
+"aesgcm_256_क्रिप्टो" = "Aes256Gcm"
+"aesgcm_सामान्य" = "AesGcm"
+
+["解释"]
+"aesgcm_प्रमाणीकृत_क्रिप्टो" = "aes-gcm AES-GCM प्रमाणीकृत क्रिप्टो है: Aes128Gcm/Aes256Gcm उपनाम और सामान्य AesGcm"

@@ -1,0 +1,10 @@
+["模块路径"]
+"courbe_elliptique_curve25519" = "curve25519-dalek"
+
+["标识符"]
+"curve25519_scalaire" = "Scalar"
+"curve25519_point_ristretto" = "RistrettoPoint"
+"curve25519_point_edwards" = "EdwardsPoint"
+
+["解释"]
+"courbe_elliptique_curve25519" = "curve25519-dalek fournit les operations du groupe Curve25519: Scalar/RistrettoPoint/EdwardsPoint"

@@ -1,0 +1,10 @@
+["模块路径"]
+"تبادل_المفاتيح_x25519" = "x25519-dalek"
+
+["标识符"]
+"x25519_سر_عابر" = "EphemeralSecret"
+"x25519_مفتاح_عام" = "PublicKey"
+"x25519_سر_مشترك" = "SharedSecret"
+
+["解释"]
+"تبادل_المفاتيح_x25519" = "x25519-dalek يطبّق تبادل مفاتيح X25519: EphemeralSecret/PublicKey/SharedSecret"

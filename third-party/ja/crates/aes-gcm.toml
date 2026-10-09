@@ -1,0 +1,10 @@
+["模块路径"]
+"aesgcm認証暗号" = "aes-gcm"
+
+["标识符"]
+"aesgcm128bit暗号" = "Aes128Gcm"
+"aesgcm256bit暗号" = "Aes256Gcm"
+"aesgcm汎用構造" = "AesGcm"
+
+["解释"]
+"aesgcm認証暗号" = "aes-gcm は AES-GCM 認証暗号、Aes128Gcm/Aes256Gcm 型別名と汎型 AesGcm"

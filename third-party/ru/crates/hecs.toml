@@ -1,0 +1,10 @@
+["模块路径"]
+"ecs_мир_сущностей_hecs" = "hecs"
+
+["标识符"]
+"мир_hecs" = "World"
+"сущность_hecs" = "Entity"
+"архетип_hecs" = "Archetype"
+
+["解释"]
+"ecs_мир_сущностей_hecs" = "hecs — минимальный ECS: World/Entity/Archetype управляют сущностями с компонентами"

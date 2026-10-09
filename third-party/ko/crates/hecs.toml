@@ -1,0 +1,10 @@
+["模块路径"]
+"hecs_컴포넌트_시스템" = "hecs"
+
+["标识符"]
+"hecs_월드" = "World"
+"hecs_엔티티" = "Entity"
+"hecs_아키타입" = "Archetype"
+
+["解释"]
+"hecs_컴포넌트_시스템" = "hecs 는 미니멀 ECS, World/Entity/Archetype 로 컴포넌트 엔티티 관리"

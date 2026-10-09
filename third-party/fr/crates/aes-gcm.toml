@@ -1,0 +1,10 @@
+["模块路径"]
+"chiffre_authente_aesgcm" = "aes-gcm"
+
+["标识符"]
+"aesgcm_aes128gcm" = "Aes128Gcm"
+"aesgcm_aes256gcm" = "Aes256Gcm"
+"aesgcm_generique" = "AesGcm"
+
+["解释"]
+"chiffre_authente_aesgcm" = "aes-gcm est un chiffure AEAD AES-GCM: alias Aes128Gcm/Aes256Gcm et generique AesGcm"

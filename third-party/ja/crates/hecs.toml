@@ -1,0 +1,10 @@
+["模块路径"]
+"hecsエンティティ" = "hecs"
+
+["标识符"]
+"hecsワールド" = "World"
+"hecs実体" = "Entity"
+"hecsアーキタイプ" = "Archetype"
+
+["解释"]
+"hecsエンティティ" = "hecs はミニマルな ECS、World/Entity/Archetype でコンポーネント付き実体を管理"

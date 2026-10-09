@@ -1,0 +1,10 @@
+["模块路径"]
+"x25519鍵交換" = "x25519-dalek"
+
+["标识符"]
+"x25519エフェメラル秘密" = "EphemeralSecret"
+"x25519公開鍵" = "PublicKey"
+"x25519共有秘密" = "SharedSecret"
+
+["解释"]
+"x25519鍵交換" = "x25519-dalek は X25519 鍵交換、EphemeralSecret/PublicKey/SharedSecret を提供"

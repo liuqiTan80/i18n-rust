@@ -1,0 +1,10 @@
+["模块路径"]
+"hecs_इकाई_संघटक" = "hecs"
+
+["标识符"]
+"hecs_संसार" = "World"
+"hecs_इकाई" = "Entity"
+"hecs_आर्किटाइप" = "Archetype"
+
+["解释"]
+"hecs_इकाई_संघटक" = "hecs एक न्यूनतम ECS है: World/Entity/Archetype घटक वाली इकाइयाँ संभालते हैं"

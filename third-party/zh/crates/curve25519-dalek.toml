@@ -1,0 +1,10 @@
+["模块路径"]
+"curve25519椭圆曲线" = "curve25519-dalek"
+
+["标识符"]
+"curve25519标量" = "Scalar"
+"curve25519Ristretto点" = "RistrettoPoint"
+"curve25519Edwards点" = "EdwardsPoint"
+
+["解释"]
+"curve25519椭圆曲线" = "curve25519-dalek 提供 Curve25519 群运算：Scalar/RistrettoPoint/EdwardsPoint"

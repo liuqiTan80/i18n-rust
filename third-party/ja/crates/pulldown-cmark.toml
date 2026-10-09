@@ -1,0 +1,10 @@
+["模块路径"]
+"pulldownマークダウン解析" = "pulldown-cmark"
+
+["标识符"]
+"pulldownパーサ" = "Parser"
+"pulldownタグ" = "Tag"
+"pulldownイベント" = "Event"
+
+["解释"]
+"pulldownマークダウン解析" = "pulldown-cmark は CommonMark プルパース、Parser/Tag/Event で Markdown イベントを走査"

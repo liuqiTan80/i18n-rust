@@ -1,0 +1,10 @@
+["模块路径"]
+"aesgcm_Authentische_Verschluesselung" = "aes-gcm"
+
+["标识符"]
+"aesgcm_Aes128Gcm" = "Aes128Gcm"
+"aesgcm_Aes256Gcm" = "Aes256Gcm"
+"aesgcm_AesGcm" = "AesGcm"
+
+["解释"]
+"aesgcm_Authentische_Verschluesselung" = "aes-gcm ist AES-GCM AEAD: Typaliase Aes128Gcm/Aes256Gcm und generisches AesGcm"

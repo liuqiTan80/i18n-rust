@@ -1,0 +1,10 @@
+["模块路径"]
+"pulldown_मार्कडाउन_पार्सर" = "pulldown-cmark"
+
+["标识符"]
+"pulldown_पार्सर" = "Parser"
+"pulldown_टैग" = "Tag"
+"pulldown_इवेंट" = "Event"
+
+["解释"]
+"pulldown_मार्कडाउन_पार्सर" = "pulldown-cmark CommonMark पुल पार्सर है: Parser/Tag/Event मार्कडाउन इवेंट घूमते हैं"

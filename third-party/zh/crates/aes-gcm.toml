@@ -1,0 +1,10 @@
+["模块路径"]
+"aesgcm认证加密" = "aes-gcm"
+
+["标识符"]
+"aesgcm128加密" = "Aes128Gcm"
+"aesgcm256加密" = "Aes256Gcm"
+"aesgcm通用结构" = "AesGcm"
+
+["解释"]
+"aesgcm认证加密" = "aes-gcm 是 AES-GCM 认证加密：Aes128Gcm/Aes256Gcm 别名与泛型 AesGcm"

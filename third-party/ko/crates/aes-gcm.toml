@@ -1,0 +1,10 @@
+["模块路径"]
+"aesgcm_인증_암호" = "aes-gcm"
+
+["标识符"]
+"aesgcm_128_암호" = "Aes128Gcm"
+"aesgcm_256_암호" = "Aes256Gcm"
+"aesgcm_일반_구조" = "AesGcm"
+
+["解释"]
+"aesgcm_인증_암호" = "aes-gcm 은 AES-GCM 인증 암호, Aes128Gcm/Aes256Gcm 별칭과 제네릭 AesGcm"

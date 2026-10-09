@@ -1,0 +1,10 @@
+["模块路径"]
+"parser_markdown_pulldown" = "pulldown-cmark"
+
+["标识符"]
+"pulldown_parser" = "Parser"
+"pulldown_etiqueta" = "Tag"
+"pulldown_evento" = "Event"
+
+["解释"]
+"parser_markdown_pulldown" = "pulldown-cmark es un parser pull de CommonMark: Parser/Tag/Event recorren eventos Markdown"

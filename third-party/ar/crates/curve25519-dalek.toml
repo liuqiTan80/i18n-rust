@@ -1,0 +1,10 @@
+["模块路径"]
+"منحنى_إهليلجي_curve25519" = "curve25519-dalek"
+
+["标识符"]
+"curve25519_عددي" = "Scalar"
+"curve25519_نقطة_رستريتو" = "RistrettoPoint"
+"curve25519_نقطة_إدواردز" = "EdwardsPoint"
+
+["解释"]
+"منحنى_إهليلجي_curve25519" = "curve25519-dalek يوفر عمليات زمرة Curve25519: Scalar/RistrettoPoint/EdwardsPoint"

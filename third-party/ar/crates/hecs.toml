@@ -1,0 +1,10 @@
+["模块路径"]
+"نظام_كيان_hecs" = "hecs"
+
+["标识符"]
+"hecs_عالم" = "World"
+"hecs_كيان" = "Entity"
+"hecs_نموذج_أصلي" = "Archetype"
+
+["解释"]
+"نظام_كيان_hecs" = "hecs نظام ECS مبسّط: World/Entity/Archetype تدير الكيانات بالمكوّنات"

@@ -1,0 +1,10 @@
+["模块路径"]
+"x25519密钥交换" = "x25519-dalek"
+
+["标识符"]
+"x25519临时私钥" = "EphemeralSecret"
+"x25519公钥" = "PublicKey"
+"x25519共享密钥" = "SharedSecret"
+
+["解释"]
+"x25519密钥交换" = "x25519-dalek 实现 X25519 椭圆曲线密钥交换：EphemeralSecret/PublicKey/SharedSecret"

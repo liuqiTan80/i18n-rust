@@ -1,0 +1,10 @@
+["模块路径"]
+"обмен_ключами_x25519" = "x25519-dalek"
+
+["标识符"]
+"эфемерный_секрет_x25519" = "EphemeralSecret"
+"открытый_ключ_x25519" = "PublicKey"
+"общий_секрет_x25519" = "SharedSecret"
+
+["解释"]
+"обмен_ключами_x25519" = "x25519-dalek реализует обмен ключами X25519: EphemeralSecret/PublicKey/SharedSecret"

@@ -1,0 +1,10 @@
+["模块路径"]
+"curve25519_दीर्घवृत्त_वक्र" = "curve25519-dalek"
+
+["标识符"]
+"curve25519_अदिश" = "Scalar"
+"curve25519_रिस्त्रेटो_बिंदु" = "RistrettoPoint"
+"curve25519_एडवर्ड्स_बिंदु" = "EdwardsPoint"
+
+["解释"]
+"curve25519_दीर्घवृत्त_वक्र" = "curve25519-dalek Curve25519 समूह संचालन देता है: Scalar/RistrettoPoint/EdwardsPoint"

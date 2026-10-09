@@ -1,0 +1,10 @@
+["模块路径"]
+"curve25519_타원곡선" = "curve25519-dalek"
+
+["标识符"]
+"curve25519_스칼라" = "Scalar"
+"curve25519_리스레토_점" = "RistrettoPoint"
+"curve25519_에드워즈_점" = "EdwardsPoint"
+
+["解释"]
+"curve25519_타원곡선" = "curve25519-dalek 은 Curve25519 군 연산, Scalar/RistrettoPoint/EdwardsPoint 제공"

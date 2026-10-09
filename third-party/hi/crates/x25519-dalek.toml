@@ -1,0 +1,10 @@
+["模块路径"]
+"x25519_कुंजी_विनिमय" = "x25519-dalek"
+
+["标识符"]
+"x25519_अस्थायी_रहस्य" = "EphemeralSecret"
+"x25519_सार्वजनिक_कुंजी" = "PublicKey"
+"x25519_साझा_रहस्य" = "SharedSecret"
+
+["解释"]
+"x25519_कुंजी_विनिमय" = "x25519-dalek X25519 कुंजी विनिमय लागू करता है: EphemeralSecret/PublicKey/SharedSecret"

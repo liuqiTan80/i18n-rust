@@ -1,0 +1,10 @@
+["模块路径"]
+"hecs实体组件" = "hecs"
+
+["标识符"]
+"hecs世界" = "World"
+"hecs实体" = "Entity"
+"hecs原型" = "Archetype"
+
+["解释"]
+"hecs实体组件" = "hecs 是极简 ECS：World/Entity/Archetype 管理带组件的实体世界"
