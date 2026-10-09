@@ -701,7 +701,7 @@
 "非同期生成" = "spawn"
 "ブロック実行" = "block_on"
 
-# zh 基准补齐（英语原名恒等映射）
+# 同一マッピング補完
 "from" = "from"
 "set" = "set"
 "contains_key" = "contains_key"

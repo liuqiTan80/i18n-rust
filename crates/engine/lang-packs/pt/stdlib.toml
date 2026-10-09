@@ -1,8 +1,8 @@
-# i18n-rust tabela de correspondencia de la biblioteca padrao (portugues)
+# i18n-rust tabela de correspondencia da biblioteca padrao (portugues)
 # Formato: nome portugues = "nome ingles"
 
 # ============================================
-# Caminhos de modulos de la biblioteca padrao (para use)
+# Caminhos de modulos da biblioteca padrao (para use)
 # ============================================
 ["模块路径"]
 "atomic" = "atomic"
@@ -34,7 +34,7 @@
 "marcador" = "marker"
 
 # ============================================
-# Identificadores de la biblioteca padrao
+# Identificadores da biblioteca padrao
 # ============================================
 ["标识符"]
 "padrao" = "std"
@@ -703,7 +703,7 @@
 "lancar_assincrono" = "spawn"
 "bloquear_execucao" = "block_on"
 
-# zh 基准补齐（英语原名恒等映射）
+# Complementos de identidade
 "set" = "set"
 "contains_key" = "contains_key"
 "contains_value" = "contains_value"

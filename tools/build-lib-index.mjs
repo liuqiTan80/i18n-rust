@@ -286,6 +286,22 @@ let cur = "zh";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const NAME = {}; DATA.forEach(l => NAME[l.code] = l.name);
+// 两张 TOML 表名（模块路径/标识符）是引擎规定的跨语言统一数据键，绝不可改；
+// 但在非中文语言的展示层给它们一个母语标签，避免页面出现未翻译的中文分类名。
+const TABLE_LABEL = {
+  en: { "模块路径": "Module paths", "标识符": "Identifiers" },
+  ja: { "模块路径": "モジュールパス", "标识符": "識別子" },
+  ko: { "模块路径": "모듈 경로", "标识符": "식별자" },
+  ru: { "模块路径": "Пути модулей", "标识符": "Идентификаторы" },
+  de: { "模块路径": "Modulpfade", "标识符": "Bezeichner" },
+  es: { "模块路径": "Rutas de módulos", "标识符": "Identificadores" },
+  fr: { "模块路径": "Chemins de modules", "标识符": "Identifiants" },
+  pt: { "模块路径": "Caminhos de módulos", "标识符": "Identificadores" },
+  hi: { "模块路径": "मॉड्यूल पथ", "标识符": "पहचानकर्ता" },
+  ar: { "模块路径": "مسارات الوحدات", "标识符": "المعرفات" },
+};
+const dispCat = (code, cat) =>
+  (code !== "zh" && TABLE_LABEL[code] && TABLE_LABEL[code][cat]) ? TABLE_LABEL[code][cat] : cat;
 
 function renderTabs(){
   $("#tabs").innerHTML = DATA.map(l =>
@@ -305,8 +321,8 @@ function rowHtml(e){
 function stdlibGrid(lang, q){
   const groups = new Map();
   for(const e of lang.stdlib){
-    if(!match(e,q)) continue;
     const g = e.cat || e.table || "其它";
+    if(!match(e,q) && !dispCat(lang.code, g).toLowerCase().includes(q)) continue;
     if(!groups.has(g)) groups.set(g, []);
     groups.get(g).push(e);
   }
@@ -315,7 +331,7 @@ function stdlibGrid(lang, q){
   const cards = [];
   for(const [g, rows] of groups){
     cards.push(
-      '<details class="gcard"'+open+'><summary><span class="gt">'+esc(g)+'</span>'+
+      '<details class="gcard"'+open+'><summary><span class="gt">'+esc(dispCat(lang.code, g))+'</span>'+
       '<span class="gc">'+rows.length+'</span></summary>'+
       '<div class="body">'+rows.map(rowHtml).join("")+'</div></details>'
     );
@@ -337,8 +353,8 @@ function crateCards(lang, q){
     const mods = items.filter(e => e.kind==="module");
     const its  = items.filter(e => e.kind==="item");
     let body = "";
-    if(mods.length) body += '<div class="sub-h">模块路径 · '+mods.length+'</div>'+mods.map(rowHtml).join("");
-    if(its.length)  body += '<div class="sub-h">标识符 · '+its.length+'</div>'+its.map(rowHtml).join("");
+    if(mods.length) body += '<div class="sub-h">'+esc(dispCat(lang.code, "模块路径"))+' · '+mods.length+'</div>'+mods.map(rowHtml).join("");
+    if(its.length)  body += '<div class="sub-h">'+esc(dispCat(lang.code, "标识符"))+' · '+its.length+'</div>'+its.map(rowHtml).join("");
     if(!body) body = '<div class="empty">（暂无条目）</div>';
     const open = q ? " open" : "";
     cards.push(

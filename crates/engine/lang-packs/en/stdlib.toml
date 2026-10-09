@@ -146,7 +146,7 @@
 "unimplemented" = "unimplemented"
 "unreachable" = "unreachable"
 
-# zh 基准补齐（英语原名恒等映射）
+# Identity mappings
 "i128" = "i128"
 "u128" = "u128"
 "isize" = "isize"
@@ -617,7 +617,7 @@
 "allow" = "allow"
 "unix" = "unix"
 
-# zh 基准补齐（英语原名恒等映射）
+# Identity mappings
 "wrapping_add" = "wrapping_add"
 "len" = "len"
 "open" = "open"

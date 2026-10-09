@@ -702,7 +702,7 @@
 "lancer_asynchrone" = "spawn"
 "bloquer_execution" = "block_on"
 
-# zh 基准补齐（英语原名恒等映射）
+# Compléments d'identité
 "set" = "set"
 "contains_key" = "contains_key"
 "contains_value" = "contains_value"

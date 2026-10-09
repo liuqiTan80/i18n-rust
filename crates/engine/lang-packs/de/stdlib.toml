@@ -705,7 +705,7 @@
 "starteAsync" = "spawn"
 "blockiereAuf" = "block_on"
 
-# zh 基准补齐（英语原名恒等映射）
+# Identitäts-Ergänzung
 "set" = "set"
 "contains_key" = "contains_key"
 "contains_value" = "contains_value"
