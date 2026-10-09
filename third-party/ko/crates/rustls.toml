@@ -1,0 +1,10 @@
+["模块路径"]
+"TLS_라이브러리" = "rustls"
+
+["标识符"]
+"클라이언트_설정" = "ClientConfig"
+"서버_설정" = "ServerConfig"
+"루트_인증_저장소" = "RootCertStore"
+
+["解释"]
+"TLS_라이브러리" = "Rust 로만 구현된 현대적 TLS"

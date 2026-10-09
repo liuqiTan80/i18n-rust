@@ -1,0 +1,10 @@
+["模块路径"]
+"bit_vektor" = "bit-vec"
+
+["标识符"]
+"bit_vektor_typ" = "BitVec"
+"bit_menge" = "BitSet"
+"aus_element" = "from_elem"
+
+["解释"]
+"bit_vektor" = "Kompakter Bit-Array-Vektor"

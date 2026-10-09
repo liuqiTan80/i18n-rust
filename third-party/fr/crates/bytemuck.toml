@@ -1,0 +1,10 @@
+["模块路径"]
+"reinterpreter_octets" = "bytemuck"
+
+["标识符"]
+"convertir_type" = "cast"
+"convertir_tranche" = "cast_slice"
+"type_donnees_planes" = "Pod"
+
+["解释"]
+"reinterpreter_octets" = "Réinterprete sûrement octets bruts et types"

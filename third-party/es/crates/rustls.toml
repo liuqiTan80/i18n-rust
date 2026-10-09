@@ -1,0 +1,10 @@
+["模块路径"]
+"biblioteca_tls" = "rustls"
+
+["标识符"]
+"configuracion_cliente" = "ClientConfig"
+"configuracion_servidor" = "ServerConfig"
+"almacen_certificados_raiz" = "RootCertStore"
+
+["解释"]
+"biblioteca_tls" = "TLS moderno implementado en Rust puro"

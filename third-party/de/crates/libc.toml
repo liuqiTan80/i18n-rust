@@ -1,0 +1,10 @@
+["模块路径"]
+"system_ffi_bindungen" = "libc"
+
+["标识符"]
+"leerer_typ" = "c_void"
+"c_zeichen" = "c_char"
+"groessen_typ" = "size_t"
+
+["解释"]
+"system_ffi_bindungen" = "Rohe FFI-Bindungen des plattform-libc"

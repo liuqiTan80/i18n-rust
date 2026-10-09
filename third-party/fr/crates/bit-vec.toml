@@ -1,0 +1,10 @@
+["模块路径"]
+"vecteur_de_bits" = "bit-vec"
+
+["标识符"]
+"type_vecteur_bits" = "BitVec"
+"ensemble_de_bits" = "BitSet"
+"depuis_element" = "from_elem"
+
+["解释"]
+"vecteur_de_bits" = "Vecteur compact de tableau de bits"

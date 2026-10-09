@@ -1,0 +1,10 @@
+["模块路径"]
+"coleta_concorrente" = "crossbeam-epoch"
+
+["标识符"]
+"guardiao" = "Guard"
+"coletor" = "Collector"
+"ponteiro_atomico" = "Atomic"
+
+["解释"]
+"coleta_concorrente" = "Coleta de memória sem bloqueio baseada em epoch"

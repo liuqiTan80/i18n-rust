@@ -1,0 +1,10 @@
+["模块路径"]
+"TLS安全库" = "rustls"
+
+["标识符"]
+"客户端配置" = "ClientConfig"
+"服务器配置" = "ServerConfig"
+"根证书存储" = "RootCertStore"
+
+["解释"]
+"TLS安全库" = "纯 Rust 实现的现代 TLS"

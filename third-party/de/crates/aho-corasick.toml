@@ -1,0 +1,10 @@
+["模块路径"]
+"mehrere_teilstrings" = "aho-corasick"
+
+["标识符"]
+"such_automat" = "AhoCorasick"
+"such_baukasten" = "AhoCorasickBuilder"
+"uebereinstimmung" = "Match"
+
+["解释"]
+"mehrere_teilstrings" = "Schnelle Suche mehrerer Teilstrings zugleich"

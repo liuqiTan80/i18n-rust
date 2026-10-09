@@ -1,0 +1,10 @@
+["模块路径"]
+"recoleccion_concurrente" = "crossbeam-epoch"
+
+["标识符"]
+"guardian" = "Guard"
+"recolector" = "Collector"
+"puntero_atomico" = "Atomic"
+
+["解释"]
+"recoleccion_concurrente" = "Recolección de memoria sin bloqueos basada en epoch"

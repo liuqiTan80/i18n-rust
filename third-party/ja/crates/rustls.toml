@@ -1,0 +1,10 @@
+["模块路径"]
+"TLSライブラリ" = "rustls"
+
+["标识符"]
+"クライアント設定" = "ClientConfig"
+"サーバー設定" = "ServerConfig"
+"ルート証明ストア" = "RootCertStore"
+
+["解释"]
+"TLSライブラリ" = "Rust のみで実装された現代的 TLS"

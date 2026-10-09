@@ -1,0 +1,10 @@
+["模块路径"]
+"paralleler_speicher" = "crossbeam-epoch"
+
+["标识符"]
+"schutz" = "Guard"
+"sammler" = "Collector"
+"atomarer_zeiger" = "Atomic"
+
+["解释"]
+"paralleler_speicher" = "Blockadefreier Speicherschutz per Epoch"

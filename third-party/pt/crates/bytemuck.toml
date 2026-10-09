@@ -1,0 +1,10 @@
+["模块路径"]
+"reinterpretar_bytes" = "bytemuck"
+
+["标识符"]
+"converter_tipo" = "cast"
+"converter_fatia" = "cast_slice"
+"tipo_dados_planos" = "Pod"
+
+["解释"]
+"reinterpretar_bytes" = "Reinterpreta com segurança bytes brutos e tipos"

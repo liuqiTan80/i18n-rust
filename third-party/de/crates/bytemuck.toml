@@ -1,0 +1,10 @@
+["模块路径"]
+"bytes_umschichten" = "bytemuck"
+
+["标识符"]
+"typ_umschalten" = "cast"
+"slice_umschalten" = "cast_slice"
+"flachdaten_typ" = "Pod"
+
+["解释"]
+"bytes_umschichten" = "Rohe Bytes und Typen sicher umdeuten"

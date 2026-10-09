@@ -1,0 +1,10 @@
+["模块路径"]
+"liens_ffi_du_systeme" = "libc"
+
+["标识符"]
+"type_vide" = "c_void"
+"caractere_c" = "c_char"
+"type_taille" = "size_t"
+
+["解释"]
+"liens_ffi_du_systeme" = "Liens FFI bruts du libc de la plateforme"

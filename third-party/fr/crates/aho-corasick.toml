@@ -1,0 +1,10 @@
+["模块路径"]
+"recherche_de_sous_chaines" = "aho-corasick"
+
+["标识符"]
+"automate_de_recherche" = "AhoCorasick"
+"constructeur_automate" = "AhoCorasickBuilder"
+"resultat_correspondance" = "Match"
+
+["解释"]
+"recherche_de_sous_chaines" = "Algorithme rapide recherchant plusieurs sous-chaînes à la fois"

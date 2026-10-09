@@ -1,0 +1,10 @@
+["模块路径"]
+"ramasse_miettes_concurrent" = "crossbeam-epoch"
+
+["标识符"]
+"garde" = "Guard"
+"ramasseur" = "Collector"
+"pointeur_atomique" = "Atomic"
+
+["解释"]
+"ramasse_miettes_concurrent" = "Ramasse-miettes sans verrou basé sur epoch"

@@ -1,0 +1,10 @@
+["模块路径"]
+"busca_de_subcadeias" = "aho-corasick"
+
+["标识符"]
+"automato_de_busca" = "AhoCorasick"
+"construtor_automato" = "AhoCorasickBuilder"
+"resultado_correspondencia" = "Match"
+
+["解释"]
+"busca_de_subcadeias" = "Algoritmo rápido que busca várias subcadeias ao mesmo tempo"
