@@ -1,0 +1,10 @@
+["模块路径"]
+"rmwhttp中間処理" = "reqwest_middleware"
+
+["标识符"]
+"rmwクライアント構築" = "ClientBuilder"
+"rmw付きクライアント" = "ClientWithMiddleware"
+"rmw中間処理型" = "Middleware"
+
+["解释"]
+"rmwhttp中間処理" = "reqwest-middleware — HTTPクライアント中間処理枠: ClientBuilder/ClientWithMiddleware/Middleware"

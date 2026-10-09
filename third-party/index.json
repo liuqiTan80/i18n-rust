@@ -1,6 +1,6 @@
 {
   "registry": "zrRust-crate-mappings",
-  "updated": "2026-10-09",
+  "updated": "2026-10-10",
   "mappings": [
     {
       "crate_name": "addr2line",
@@ -3301,6 +3301,116 @@
       "downloads": 0,
       "file": "zh/crates/bytes.toml",
       "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bzip2",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/bzip2.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "bzip2",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/bzip2.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "bzip2",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/bzip2.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "bzip2",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/bzip2.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "bzip2",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/bzip2.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "bzip2",
+      "lang": "ja",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ja/crates/bzip2.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "bzip2",
+      "lang": "ko",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ko/crates/bzip2.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "bzip2",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/bzip2.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "bzip2",
+      "lang": "ru",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ru/crates/bzip2.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "bzip2",
+      "lang": "zh",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "zh/crates/bzip2.toml",
+      "updated": "2026-10-10"
     },
     {
       "crate_name": "cached",
@@ -10013,6 +10123,116 @@
       "updated": "2026-10-09"
     },
     {
+      "crate_name": "hmac",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/hmac.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "hmac",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/hmac.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "hmac",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/hmac.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "hmac",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/hmac.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "hmac",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/hmac.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "hmac",
+      "lang": "ja",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ja/crates/hmac.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "hmac",
+      "lang": "ko",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ko/crates/hmac.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "hmac",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/hmac.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "hmac",
+      "lang": "ru",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ru/crates/hmac.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "hmac",
+      "lang": "zh",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "zh/crates/hmac.toml",
+      "updated": "2026-10-10"
+    },
+    {
       "crate_name": "http",
       "lang": "ar",
       "version": "1.0",
@@ -10121,6 +10341,116 @@
       "downloads": 0,
       "file": "zh/crates/http.toml",
       "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "humantime",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/humantime.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "humantime",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/humantime.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "humantime",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/humantime.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "humantime",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/humantime.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "humantime",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/humantime.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "humantime",
+      "lang": "ja",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ja/crates/humantime.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "humantime",
+      "lang": "ko",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ko/crates/humantime.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "humantime",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/humantime.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "humantime",
+      "lang": "ru",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ru/crates/humantime.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "humantime",
+      "lang": "zh",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "zh/crates/humantime.toml",
+      "updated": "2026-10-10"
     },
     {
       "crate_name": "ignore",
@@ -17713,6 +18043,116 @@
       "updated": "2026-10-09"
     },
     {
+      "crate_name": "reqwest-middleware",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/reqwest-middleware.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "reqwest-middleware",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/reqwest-middleware.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "reqwest-middleware",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/reqwest-middleware.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "reqwest-middleware",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/reqwest-middleware.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "reqwest-middleware",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/reqwest-middleware.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "reqwest-middleware",
+      "lang": "ja",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ja/crates/reqwest-middleware.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "reqwest-middleware",
+      "lang": "ko",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ko/crates/reqwest-middleware.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "reqwest-middleware",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/reqwest-middleware.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "reqwest-middleware",
+      "lang": "ru",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ru/crates/reqwest-middleware.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "reqwest-middleware",
+      "lang": "zh",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "zh/crates/reqwest-middleware.toml",
+      "updated": "2026-10-10"
+    },
+    {
       "crate_name": "rgb",
       "lang": "ar",
       "version": "1.0",
@@ -19033,6 +19473,116 @@
       "updated": "2026-10-09"
     },
     {
+      "crate_name": "schemars",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/schemars.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "schemars",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/schemars.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "schemars",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/schemars.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "schemars",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/schemars.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "schemars",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/schemars.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "schemars",
+      "lang": "ja",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ja/crates/schemars.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "schemars",
+      "lang": "ko",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ko/crates/schemars.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "schemars",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/schemars.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "schemars",
+      "lang": "ru",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ru/crates/schemars.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "schemars",
+      "lang": "zh",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "zh/crates/schemars.toml",
+      "updated": "2026-10-10"
+    },
+    {
       "crate_name": "scraper",
       "lang": "ar",
       "version": "1.0",
@@ -20131,6 +20681,116 @@
       "downloads": 0,
       "file": "zh/crates/signature.toml",
       "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "similar",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/similar.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "similar",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/similar.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "similar",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/similar.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "similar",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/similar.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "similar",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/similar.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "similar",
+      "lang": "ja",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ja/crates/similar.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "similar",
+      "lang": "ko",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ko/crates/similar.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "similar",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/similar.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "similar",
+      "lang": "ru",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ru/crates/similar.toml",
+      "updated": "2026-10-10"
+    },
+    {
+      "crate_name": "similar",
+      "lang": "zh",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "zh/crates/similar.toml",
+      "updated": "2026-10-10"
     },
     {
       "crate_name": "slint",

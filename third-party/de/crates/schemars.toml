@@ -1,0 +1,10 @@
+["模块路径"]
+"jsch_schema_gener" = "schemars"
+
+["标识符"]
+"jsch_schema_typ" = "Schema"
+"jsch_generator" = "SchemaGenerator"
+"jsch_json_schema_trait" = "JsonSchema"
+
+["解释"]
+"jsch_schema_gener" = "schemars — JSON Schema aus Rust-Typen: Schema/SchemaGenerator/JsonSchema"

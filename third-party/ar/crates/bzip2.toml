@@ -1,0 +1,10 @@
+["模块路径"]
+"bzp_ضغط_2" = "bzip2"
+
+["标识符"]
+"bzp_ضاغط" = "Compress"
+"bzp_مفسك_ضغط" = "Decompress"
+"bzp_مستوى_ضغط" = "Compression"
+
+["解释"]
+"bzp_ضغط_2" = "bzip2 — ارتباط ضغط Bzip2: Compress/Decompress/Compression"

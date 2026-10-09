@@ -1,0 +1,10 @@
+["模块路径"]
+"smr_مقارنة_فروق" = "similar"
+
+["标识符"]
+"smr_فارق_نص" = "TextDiff"
+"smr_تغيير" = "Change"
+"smr_خوارزمية_معداد" = "Algorithm"
+
+["解释"]
+"smr_مقارنة_فروق" = "similar — مقارنة الفروق النصية: TextDiff/Change/Algorithm"

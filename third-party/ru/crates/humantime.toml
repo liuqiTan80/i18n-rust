@@ -1,0 +1,10 @@
+["模块路径"]
+"hmt_человек_время" = "humantime"
+
+["标识符"]
+"hmt_длит_структ" = "Duration"
+"hmt_форм_длит" = "FormattedDuration"
+"hmt_метка_времени" = "Timestamp"
+
+["解释"]
+"hmt_человек_время" = "humantime — человекочитаемое время: Duration/FormattedDuration/Timestamp"

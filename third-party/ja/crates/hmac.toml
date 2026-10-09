@@ -1,0 +1,10 @@
+["模块路径"]
+"hmcハッシュ認証符号" = "hmac"
+
+["标识符"]
+"hmc_hmac構造" = "Hmac"
+"hmc認証型" = "Mac"
+"hmc鍵初期化" = "KeyInit"
+
+["解释"]
+"hmcハッシュ認証符号" = "hmac — ハッシュベース認証符号: Hmac/Mac/KeyInit"

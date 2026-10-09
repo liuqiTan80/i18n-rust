@@ -1,0 +1,10 @@
+["模块路径"]
+"hmc哈希消息认证" = "hmac"
+
+["标识符"]
+"hmc认证结构" = "Hmac"
+"hmc认证特质" = "Mac"
+"hmc密钥初始化" = "KeyInit"
+
+["解释"]
+"hmc哈希消息认证" = "hmac — 基于哈希的消息认证码: Hmac/Mac/KeyInit"

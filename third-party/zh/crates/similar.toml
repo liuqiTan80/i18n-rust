@@ -1,0 +1,10 @@
+["模块路径"]
+"smr差异比较" = "similar"
+
+["标识符"]
+"smr文本差异" = "TextDiff"
+"smr变化项" = "Change"
+"smr算法枚举" = "Algorithm"
+
+["解释"]
+"smr差异比较" = "similar — 文本与序列差异比较: TextDiff/Change/Algorithm"

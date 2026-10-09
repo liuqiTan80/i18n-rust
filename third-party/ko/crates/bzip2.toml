@@ -1,0 +1,10 @@
+["模块路径"]
+"bzp압축이대" = "bzip2"
+
+["标识符"]
+"bzp압축기" = "Compress"
+"bzp해압기" = "Decompress"
+"bzp압축도" = "Compression"
+
+["解释"]
+"bzp압축이대" = "bzip2 — Bzip2 압축 바인딩: Compress/Decompress/Compression"

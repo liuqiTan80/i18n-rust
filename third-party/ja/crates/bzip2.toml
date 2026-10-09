@@ -1,0 +1,10 @@
+["模块路径"]
+"bzp圧縮二代" = "bzip2"
+
+["标识符"]
+"bzp圧縮器" = "Compress"
+"bzp解圧器" = "Decompress"
+"bzp圧縮度" = "Compression"
+
+["解释"]
+"bzp圧縮二代" = "bzip2 — Bzip2 圧縮バインディング: Compress/Decompress/Compression"

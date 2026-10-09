@@ -1,0 +1,10 @@
+["模块路径"]
+"hmc해시인증코드" = "hmac"
+
+["标识符"]
+"hmc_hmac구조" = "Hmac"
+"hmc인증트레잇" = "Mac"
+"hmc열초기화" = "KeyInit"
+
+["解释"]
+"hmc해시인증코드" = "hmac — 해시 기반 메시지 인증: Hmac/Mac/KeyInit"

@@ -1,0 +1,10 @@
+["模块路径"]
+"jsch_स्कीमा_जनरेटर" = "schemars"
+
+["标识符"]
+"jsch_स्कीमा_प्रकार" = "Schema"
+"jsch_जनरेटर" = "SchemaGenerator"
+"jsch_json_स्कीमा_ट्रेट" = "JsonSchema"
+
+["解释"]
+"jsch_स्कीमा_जनरेटर" = "schemars — Rust से JSON Schema: Schema/SchemaGenerator/JsonSchema"

@@ -1,0 +1,10 @@
+["模块路径"]
+"smr_diff_vergleich" = "similar"
+
+["标识符"]
+"smr_text_diff" = "TextDiff"
+"smr_aenderung" = "Change"
+"smr_algorithm_enum" = "Algorithm"
+
+["解释"]
+"smr_diff_vergleich" = "similar — Text-Diff-Vergleich: TextDiff/Change/Algorithm"

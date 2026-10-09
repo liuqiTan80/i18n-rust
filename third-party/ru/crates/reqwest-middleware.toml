@@ -1,0 +1,10 @@
+["模块路径"]
+"rmw_http_прослойка" = "reqwest_middleware"
+
+["标识符"]
+"rmw_билдер_клиента" = "ClientBuilder"
+"rmw_клиент_с_просл" = "ClientWithMiddleware"
+"rmw_просл_трет" = "Middleware"
+
+["解释"]
+"rmw_http_прослойка" = "reqwest-middleware — HTTP клиент прослойки: ClientBuilder/ClientWithMiddleware/Middleware"

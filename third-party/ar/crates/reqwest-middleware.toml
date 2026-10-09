@@ -1,0 +1,10 @@
+["模块路径"]
+"rmw_برمجيات_وسط_http" = "reqwest_middleware"
+
+["标识符"]
+"rmw_بان" = "ClientBuilder"
+"rmw_عميل_وسط" = "ClientWithMiddleware"
+"rmw_سمة_وسط" = "Middleware"
+
+["解释"]
+"rmw_برمجيات_وسط_http" = "reqwest-middleware — برمجيات وسط لعميل HTTP: ClientBuilder/ClientWithMiddleware/Middleware"

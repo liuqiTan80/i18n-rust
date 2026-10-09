@@ -1,0 +1,10 @@
+["模块路径"]
+"hmt_وقت_بشري" = "humantime"
+
+["标识符"]
+"hmt_نوع_مدة" = "Duration"
+"hmt_مدة_منسقة" = "FormattedDuration"
+"hmt_ختم_وقت" = "Timestamp"
+
+["解释"]
+"hmt_وقت_بشري" = "humantime — وقت مقروء للبشر: Duration/FormattedDuration/Timestamp"

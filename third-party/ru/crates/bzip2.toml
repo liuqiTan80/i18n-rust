@@ -1,0 +1,10 @@
+["模块路径"]
+"bzp_сжатие_2" = "bzip2"
+
+["标识符"]
+"bzp_компрессор" = "Compress"
+"bzp_декомпрессор" = "Decompress"
+"bzp_ур_сжатия" = "Compression"
+
+["解释"]
+"bzp_сжатие_2" = "bzip2 — привязка Bzip2 сжатия: Compress/Decompress/Compression"

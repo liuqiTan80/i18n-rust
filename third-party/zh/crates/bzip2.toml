@@ -1,0 +1,10 @@
+["模块路径"]
+"bzp压缩二代" = "bzip2"
+
+["标识符"]
+"bzp压缩器" = "Compress"
+"bzp解压器" = "Decompress"
+"bzp压缩级别" = "Compression"
+
+["解释"]
+"bzp压缩二代" = "bzip2 — Bzip2 压缩算法绑定: Compress/Decompress/Compression"

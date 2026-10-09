@@ -1,0 +1,10 @@
+["模块路径"]
+"rmw_http_मध्यवर्ती" = "reqwest_middleware"
+
+["标识符"]
+"rmw_निर्माता" = "ClientBuilder"
+"rmw_क्लाइंट_मध्य" = "ClientWithMiddleware"
+"rmw_मध्यवर्ती_ट्रेट" = "Middleware"
+
+["解释"]
+"rmw_http_मध्यवर्ती" = "reqwest-middleware — HTTP क्लाइंट मध्यवर्ती: ClientBuilder/ClientWithMiddleware/Middleware"

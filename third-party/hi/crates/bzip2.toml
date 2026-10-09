@@ -1,0 +1,10 @@
+["模块路径"]
+"bzp_संपीडन_२" = "bzip2"
+
+["标识符"]
+"bzp_संपीडक" = "Compress"
+"bzp_विसंपीडक" = "Decompress"
+"bzp_संपीडन_स्तर" = "Compression"
+
+["解释"]
+"bzp_संपीडन_२" = "bzip2 — Bzip2 संपीडन बाइंडिंग: Compress/Decompress/Compression"

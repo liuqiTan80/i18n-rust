@@ -1,0 +1,10 @@
+["模块路径"]
+"hmt人間可読時間" = "humantime"
+
+["标识符"]
+"hmt時間幅構造" = "Duration"
+"hmt整形時間幅" = "FormattedDuration"
+"hmtタイムスタンプ" = "Timestamp"
+
+["解释"]
+"hmt人間可読時間" = "humantime — 可読時間とタイムスタンプ: Duration/FormattedDuration/Timestamp"

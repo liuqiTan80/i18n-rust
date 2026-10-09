@@ -1,0 +1,10 @@
+["模块路径"]
+"rmw_intermediario_http" = "reqwest_middleware"
+
+["标识符"]
+"rmw_construtor" = "ClientBuilder"
+"rmw_cliente_mw" = "ClientWithMiddleware"
+"rmw_trait_mw" = "Middleware"
+
+["解释"]
+"rmw_intermediario_http" = "reqwest-middleware — middleware de cliente HTTP: ClientBuilder/ClientWithMiddleware/Middleware"

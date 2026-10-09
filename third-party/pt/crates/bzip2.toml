@@ -1,0 +1,10 @@
+["模块路径"]
+"bzp_compressao_2" = "bzip2"
+
+["标识符"]
+"bzp_compressador" = "Compress"
+"bzp_descompressor" = "Decompress"
+"bzp_nivel_comp" = "Compression"
+
+["解释"]
+"bzp_compressao_2" = "bzip2 — vinculacao de compressao Bzip2: Compress/Decompress/Compression"

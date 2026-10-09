@@ -1,0 +1,10 @@
+["模块路径"]
+"jsch_منشئ_المخطط" = "schemars"
+
+["标识符"]
+"jsch_نوع_مخطط" = "Schema"
+"jsch_مولد" = "SchemaGenerator"
+"jsch_سمة_json_مخطط" = "JsonSchema"
+
+["解释"]
+"jsch_منشئ_المخطط" = "schemars — JSON Schema من Rust: Schema/SchemaGenerator/JsonSchema"

@@ -1,0 +1,10 @@
+["模块路径"]
+"hmt_tempo_humano" = "humantime"
+
+["标识符"]
+"hmt_duracao_tipo" = "Duration"
+"hmt_duracao_formatada" = "FormattedDuration"
+"hmt_marcador_tempo" = "Timestamp"
+
+["解释"]
+"hmt_tempo_humano" = "humantime — tempo legivel por humanos: Duration/FormattedDuration/Timestamp"

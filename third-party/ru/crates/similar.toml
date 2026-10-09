@@ -1,0 +1,10 @@
+["模块路径"]
+"smr_сравн_разницы" = "similar"
+
+["标识符"]
+"smr_текст_разница" = "TextDiff"
+"smr_изменен" = "Change"
+"smr_алгоритм_переч" = "Algorithm"
+
+["解释"]
+"smr_сравн_разницы" = "similar — сравнение текстов: TextDiff/Change/Algorithm"

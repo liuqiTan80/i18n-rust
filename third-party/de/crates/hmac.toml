@@ -1,0 +1,10 @@
+["模块路径"]
+"hmc_hash_auth_code" = "hmac"
+
+["标识符"]
+"hmc_hmac_typ" = "Hmac"
+"hmc_mac_trait" = "Mac"
+"hmc_schluessel_init" = "KeyInit"
+
+["解释"]
+"hmc_hash_auth_code" = "hmac — Hash-basierte Nachrichtensignatur: Hmac/Mac/KeyInit"

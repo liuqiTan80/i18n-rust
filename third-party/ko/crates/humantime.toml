@@ -1,0 +1,10 @@
+["模块路径"]
+"hmt인간가독시간" = "humantime"
+
+["标识符"]
+"hmt지속구조" = "Duration"
+"hmt형식화지속" = "FormattedDuration"
+"hmt타임스탬프" = "Timestamp"
+
+["解释"]
+"hmt인간가독시간" = "humantime — 사람이 읽는 시간: Duration/FormattedDuration/Timestamp"

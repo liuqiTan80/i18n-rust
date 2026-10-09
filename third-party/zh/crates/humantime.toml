@@ -1,0 +1,10 @@
+["模块路径"]
+"hmt人性化时间" = "humantime"
+
+["标识符"]
+"hmt时长结构" = "Duration"
+"hmt格式化时长" = "FormattedDuration"
+"hmt时间戳" = "Timestamp"
+
+["解释"]
+"hmt人性化时间" = "humantime — 人性化时长与时间戳: Duration/FormattedDuration/Timestamp"
