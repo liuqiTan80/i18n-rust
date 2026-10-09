@@ -1,0 +1,10 @@
+["模块路径"]
+"aex_executeur_asynchrone" = "async_executor"
+
+["标识符"]
+"aex_executeur" = "Executor"
+"aex_executeur_local" = "LocalExecutor"
+"aex_tache" = "Task"
+
+["解释"]
+"aex_executeur_asynchrone" = "async-executor — executeur asynchrone leger: Executor/LocalExecutor/Task"

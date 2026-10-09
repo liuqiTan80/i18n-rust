@@ -1,0 +1,10 @@
+["模块路径"]
+"ncx복소수연산" = "num_complex"
+
+["标识符"]
+"ncx복소수" = "Complex"
+"ncx복소부동트레잇" = "ComplexFloat"
+"ncx복소64" = "Complex64"
+
+["解释"]
+"ncx복소수연산" = "num-complex — 복소수 제네릭 연산: Complex/ComplexFloat/Complex64"

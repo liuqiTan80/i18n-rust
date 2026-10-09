@@ -1,0 +1,10 @@
+["模块路径"]
+"trc_noyau_trace" = "tracing_core"
+
+["标识符"]
+"trc_dispatcheur" = "Dispatch"
+"trc_abonne" = "Subscriber"
+"trc_niveau" = "Level"
+
+["解释"]
+"trc_noyau_trace" = "tracing-core — primitives centrales du framework tracing: Dispatch/Subscriber/Level"

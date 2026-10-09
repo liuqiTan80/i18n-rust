@@ -1,0 +1,10 @@
+["模块路径"]
+"slm_carte_fente" = "slotmap"
+
+["标识符"]
+"slm_carte_slot" = "SlotMap"
+"slm_cle_unique" = "Key"
+"slm_second_carte" = "SecondaryMap"
+
+["解释"]
+"slm_carte_fente" = "slotmap — stockage a cles uniques persistantes: SlotMap/Key/SecondaryMap"

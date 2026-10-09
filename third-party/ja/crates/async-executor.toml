@@ -1,0 +1,10 @@
+["模块路径"]
+"aex非同期エグゼキュタ" = "async_executor"
+
+["标识符"]
+"aexエグゼキュタ" = "Executor"
+"aexローカルエグゼキュタ" = "LocalExecutor"
+"aexタスク" = "Task"
+
+["解释"]
+"aex非同期エグゼキュタ" = "async-executor — 軽量非同期エグゼキュタ: Executor/LocalExecutor/Task"

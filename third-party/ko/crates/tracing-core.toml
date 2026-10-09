@@ -1,0 +1,10 @@
+["模块路径"]
+"trc추적핵심" = "tracing_core"
+
+["标识符"]
+"trc분배자" = "Dispatch"
+"trc구독자" = "Subscriber"
+"trc로그레벨" = "Level"
+
+["解释"]
+"trc추적핵심" = "tracing-core — tracing 프레임워크 핵심: Dispatch/Subscriber/Level"

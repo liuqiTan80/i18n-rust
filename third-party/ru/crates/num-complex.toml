@@ -1,0 +1,10 @@
+["模块路径"]
+"ncx_комплекс_числа" = "num_complex"
+
+["标识符"]
+"ncx_комплекс" = "Complex"
+"ncx_трет_комплекс_флот" = "ComplexFloat"
+"ncx_комплекс64" = "Complex64"
+
+["解释"]
+"ncx_комплекс_числа" = "num-complex — комплексная арифметика: Complex/ComplexFloat/Complex64"

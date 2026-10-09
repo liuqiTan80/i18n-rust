@@ -1,0 +1,10 @@
+["模块路径"]
+"aex_асинх_исполнитель" = "async_executor"
+
+["标识符"]
+"aex_исполнитель" = "Executor"
+"aex_локал_исполнитель" = "LocalExecutor"
+"aex_задача" = "Task"
+
+["解释"]
+"aex_асинх_исполнитель" = "async-executor — лёгкий асинхронный исполнитель: Executor/LocalExecutor/Task"

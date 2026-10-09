@@ -1,0 +1,10 @@
+["模块路径"]
+"ncx复数运算" = "num_complex"
+
+["标识符"]
+"ncx复数" = "Complex"
+"ncx复浮特质" = "ComplexFloat"
+"ncx复64" = "Complex64"
+
+["解释"]
+"ncx复数运算" = "num-complex — 复数泛型运算库: Complex/ComplexFloat/Complex64"

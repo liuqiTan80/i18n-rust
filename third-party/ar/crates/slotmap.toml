@@ -1,0 +1,10 @@
+["模块路径"]
+"slm_خريطة_فتحة" = "slotmap"
+
+["标识符"]
+"slm_نوع_خريطة_فتحة" = "SlotMap"
+"slm_مفتاح_فريد" = "Key"
+"slm_خريطة_ثانوية" = "SecondaryMap"
+
+["解释"]
+"slm_خريطة_فتحة" = "slotmap — تخزين بمفاتيح فريدة دائمة: SlotMap/Key/SecondaryMap"

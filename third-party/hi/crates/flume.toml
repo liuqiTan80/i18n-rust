@@ -1,0 +1,10 @@
+["模块路径"]
+"flm_बहु_नहर" = "flume"
+
+["标识符"]
+"flm_प्रेषक" = "Sender"
+"flm_प्राप्तकर्ता" = "Receiver"
+"flm_सीमित_नहर" = "bounded"
+
+["解释"]
+"flm_बहु_नहर" = "flume — उच्च-प्रदर्शन MPMC नहर: Sender/Receiver/bounded"

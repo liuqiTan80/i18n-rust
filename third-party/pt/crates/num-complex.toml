@@ -1,0 +1,10 @@
+["模块路径"]
+"ncx_numero_completo" = "num_complex"
+
+["标识符"]
+"ncx_complexo" = "Complex"
+"ncx_trait_complexo_flutuante" = "ComplexFloat"
+"ncx_complexo64" = "Complex64"
+
+["解释"]
+"ncx_numero_completo" = "num-complex — biblioteca aritmetica complexa: Complex/ComplexFloat/Complex64"

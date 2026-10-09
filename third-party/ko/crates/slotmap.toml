@@ -1,0 +1,10 @@
+["模块路径"]
+"slm슬롯지도" = "slotmap"
+
+["标识符"]
+"slm슬롯영사" = "SlotMap"
+"slm고유열쇠" = "Key"
+"slm이차영사" = "SecondaryMap"
+
+["解释"]
+"slm슬롯지도" = "slotmap — 영구 고유 키 저장소: SlotMap/Key/SecondaryMap"

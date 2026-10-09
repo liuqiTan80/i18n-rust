@@ -1,0 +1,10 @@
+["模块路径"]
+"slm_slot_karte" = "slotmap"
+
+["标识符"]
+"slm_slot_map" = "SlotMap"
+"slm_einzig_schluessel" = "Key"
+"slm_zweite_karte" = "SecondaryMap"
+
+["解释"]
+"slm_slot_karte" = "slotmap — Speicher mitpersistenten Schluesseln: SlotMap/Key/SecondaryMap"

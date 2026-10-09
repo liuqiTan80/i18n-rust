@@ -1,0 +1,10 @@
+["模块路径"]
+"alk异步锁" = "async_lock"
+
+["标识符"]
+"alk异步互斥锁" = "Mutex"
+"alk异步读写锁" = "RwLock"
+"alk异步信号量" = "Semaphore"
+
+["解释"]
+"alk异步锁" = "async-lock — 异步同步原语: Mutex/RwLock/Semaphore"

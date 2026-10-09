@@ -1,0 +1,10 @@
+["模块路径"]
+"alk_एषिंक_ताला" = "async_lock"
+
+["标识符"]
+"alk_एषिंक_म्यूटेक्स" = "Mutex"
+"alk_एषिंक_पठनलेखन_ताला" = "RwLock"
+"alk_एषिंक_संकेतक" = "Semaphore"
+
+["解释"]
+"alk_एषिंक_ताला" = "async-lock — एषिंक तुल्यकालन मूलभूत: Mutex/RwLock/Semaphore"

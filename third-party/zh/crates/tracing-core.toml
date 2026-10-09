@@ -1,0 +1,10 @@
+["模块路径"]
+"trc跟踪核心" = "tracing_core"
+
+["标识符"]
+"trc分发器" = "Dispatch"
+"trc订阅者" = "Subscriber"
+"trc日志级别" = "Level"
+
+["解释"]
+"trc跟踪核心" = "tracing-core — tracing框架核心原语: Dispatch/Subscriber/Level"

@@ -1,0 +1,10 @@
+["模块路径"]
+"flmマルチチャネル" = "flume"
+
+["标识符"]
+"flm送信側" = "Sender"
+"flm受信側" = "Receiver"
+"flm有界チャネル" = "bounded"
+
+["解释"]
+"flmマルチチャネル" = "flume — 高性能 MPMC チャネル: Sender/Receiver/bounded"

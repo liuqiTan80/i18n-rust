@@ -1,0 +1,10 @@
+["模块路径"]
+"trc_نواة_التتبع" = "tracing_core"
+
+["标识符"]
+"trc_موزع" = "Dispatch"
+"trc_مشترك" = "Subscriber"
+"trc_مستوى" = "Level"
+
+["解释"]
+"trc_نواة_التتبع" = "tracing-core — أساسيات إطار التتبع: Dispatch/Subscriber/Level"

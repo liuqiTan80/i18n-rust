@@ -1,0 +1,10 @@
+["模块路径"]
+"trc_nucleo_rastreo" = "tracing_core"
+
+["标识符"]
+"trc_despachador" = "Dispatch"
+"trc_suscriptor" = "Subscriber"
+"trc_nivel" = "Level"
+
+["解释"]
+"trc_nucleo_rastreo" = "tracing-core — primitivas nucleares de tracing: Dispatch/Subscriber/Level"

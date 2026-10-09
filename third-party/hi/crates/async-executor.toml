@@ -1,0 +1,10 @@
+["模块路径"]
+"aex_एषिंक_वाहक" = "async_executor"
+
+["标识符"]
+"aex_वाहक" = "Executor"
+"aex_स्थानीय_वाहक" = "LocalExecutor"
+"aex_कार्य" = "Task"
+
+["解释"]
+"aex_एषिंक_वाहक" = "async-executor — हलका एषिंक वाहक: Executor/LocalExecutor/Task"

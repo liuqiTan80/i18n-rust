@@ -1,0 +1,10 @@
+["模块路径"]
+"alk非同期ロック" = "async_lock"
+
+["标识符"]
+"alk非同期ミューテックス" = "Mutex"
+"alk非同期読写ロック" = "RwLock"
+"alk非同期セマフォ" = "Semaphore"
+
+["解释"]
+"alk非同期ロック" = "async-lock — 非同期同期プリミティブ: Mutex/RwLock/Semaphore"

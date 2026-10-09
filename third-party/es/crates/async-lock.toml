@@ -1,0 +1,10 @@
+["模块路径"]
+"alk_candado_async" = "async_lock"
+
+["标识符"]
+"alk_mutex_async" = "Mutex"
+"alk_candado_rw_async" = "RwLock"
+"alk_semaforo_async" = "Semaphore"
+
+["解释"]
+"alk_candado_async" = "async-lock — primitivas de sincronizacion asincrona: Mutex/RwLock/Semaphore"

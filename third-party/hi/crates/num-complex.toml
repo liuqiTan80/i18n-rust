@@ -1,0 +1,10 @@
+["模块路径"]
+"ncx_सम्मिश्र_संख्या" = "num_complex"
+
+["标识符"]
+"ncx_सम्मिश्र" = "Complex"
+"ncx_सम्मिश्र_फ्लोट_ट्रेट" = "ComplexFloat"
+"ncx_सम्मिश्र64" = "Complex64"
+
+["解释"]
+"ncx_सम्मिश्र_संख्या" = "num-complex — सम्मिश्र अंकगणित पुस्तकालय: Complex/ComplexFloat/Complex64"

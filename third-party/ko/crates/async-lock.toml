@@ -1,0 +1,10 @@
+["模块路径"]
+"alk비동기잠금" = "async_lock"
+
+["标识符"]
+"alk비동기뮤텍스" = "Mutex"
+"alk비동기읽기쓰기잠금" = "RwLock"
+"alk비동기세마포" = "Semaphore"
+
+["解释"]
+"alk비동기잠금" = "async-lock — 비동기 동기화 원시: Mutex/RwLock/Semaphore"

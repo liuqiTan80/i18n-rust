@@ -1,0 +1,10 @@
+["模块路径"]
+"slm槽位映射" = "slotmap"
+
+["标识符"]
+"slm槽映射表" = "SlotMap"
+"slm唯一键" = "Key"
+"slm次级映射" = "SecondaryMap"
+
+["解释"]
+"slm槽位映射" = "slotmap — 持久唯一键槽位存储: SlotMap/Key/SecondaryMap"

@@ -1,0 +1,10 @@
+["模块路径"]
+"trcトレース中核" = "tracing_core"
+
+["标识符"]
+"trcディスパッチ" = "Dispatch"
+"trcサブスクライバ" = "Subscriber"
+"trcレベル" = "Level"
+
+["解释"]
+"trcトレース中核" = "tracing-core — tracingフレームワーク中核: Dispatch/Subscriber/Level"

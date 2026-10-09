@@ -1,0 +1,10 @@
+["模块路径"]
+"ncx複素数計算" = "num_complex"
+
+["标识符"]
+"ncx複素数" = "Complex"
+"ncx複素浮trait" = "ComplexFloat"
+"ncx複素64" = "Complex64"
+
+["解释"]
+"ncx複素数計算" = "num-complex — 複素数ジェネリクス演算: Complex/ComplexFloat/Complex64"

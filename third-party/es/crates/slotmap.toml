@@ -1,0 +1,10 @@
+["模块路径"]
+"slm_mapa_ranura" = "slotmap"
+
+["标识符"]
+"slm_mapa_slot" = "SlotMap"
+"slm_clave_unica" = "Key"
+"slm_sec_mapa" = "SecondaryMap"
+
+["解释"]
+"slm_mapa_ranura" = "slotmap — almacenamiento con claves unicas: SlotMap/Key/SecondaryMap"

@@ -1,0 +1,10 @@
+["模块路径"]
+"slm_mapa_entrada" = "slotmap"
+
+["标识符"]
+"slm_mapa_slot" = "SlotMap"
+"slm_chave_unica" = "Key"
+"slm_sec_mapa" = "SecondaryMap"
+
+["解释"]
+"slm_mapa_entrada" = "slotmap — armazenamento com chaves unicas persistentes: SlotMap/Key/SecondaryMap"

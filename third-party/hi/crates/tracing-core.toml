@@ -1,0 +1,10 @@
+["模块路径"]
+"trc_ट्रेसिंग_कोर" = "tracing_core"
+
+["标识符"]
+"trc_डिस्पैच" = "Dispatch"
+"trc_सदस्य" = "Subscriber"
+"trc_स्तर" = "Level"
+
+["解释"]
+"trc_ट्रेसिंग_कोर" = "tracing-core — tracing फ्रेमवर्क मूलभूत: Dispatch/Subscriber/Level"

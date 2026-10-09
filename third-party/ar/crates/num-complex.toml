@@ -1,0 +1,10 @@
+["模块路径"]
+"ncx_أعداد_مركبة" = "num_complex"
+
+["标识符"]
+"ncx_مركب" = "Complex"
+"ncx_سمة_مركبة_عائمة" = "ComplexFloat"
+"ncx_مركب64" = "Complex64"
+
+["解释"]
+"ncx_أعداد_مركبة" = "num-complex — مكتبة حساب المركبات: Complex/ComplexFloat/Complex64"

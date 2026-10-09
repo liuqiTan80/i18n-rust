@@ -1,0 +1,10 @@
+["模块路径"]
+"flm멀티채널" = "flume"
+
+["标识符"]
+"flm발신측" = "Sender"
+"flm수신측" = "Receiver"
+"flm유한채널" = "bounded"
+
+["解释"]
+"flm멀티채널" = "flume — 고성능 MPMC 채널: Sender/Receiver/bounded"

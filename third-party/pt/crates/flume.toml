@@ -1,0 +1,10 @@
+["模块路径"]
+"flm_canal_mpmc" = "flume"
+
+["标识符"]
+"flm_remetente" = "Sender"
+"flm_receptor" = "Receiver"
+"flm_canal_limitado" = "bounded"
+
+["解释"]
+"flm_canal_mpmc" = "flume — canal MPMC de alto desempenho: Sender/Receiver/bounded"

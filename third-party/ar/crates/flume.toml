@@ -1,0 +1,10 @@
+["模块路径"]
+"flm_قناة_متعددة" = "flume"
+
+["标识符"]
+"flm_مرسل" = "Sender"
+"flm_مستقبل" = "Receiver"
+"flm_قناة_محدودة" = "bounded"
+
+["解释"]
+"flm_قناة_متعددة" = "flume — قناة MPMC عالية الأداء: Sender/Receiver/bounded"

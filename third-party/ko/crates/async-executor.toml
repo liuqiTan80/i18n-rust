@@ -1,0 +1,10 @@
+["模块路径"]
+"aex비동기실행기" = "async_executor"
+
+["标识符"]
+"aex실행기" = "Executor"
+"aex로컬실행기" = "LocalExecutor"
+"aex태스크" = "Task"
+
+["解释"]
+"aex비동기실행기" = "async-executor — 경량 비동기 실행기: Executor/LocalExecutor/Task"

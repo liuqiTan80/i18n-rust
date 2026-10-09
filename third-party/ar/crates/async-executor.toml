@@ -1,0 +1,10 @@
+["模块路径"]
+"aex_منفذ_غيرمتزامن" = "async_executor"
+
+["标识符"]
+"aex_منفذ" = "Executor"
+"aex_منفذ_محلي" = "LocalExecutor"
+"aex_مهمة" = "Task"
+
+["解释"]
+"aex_منفذ_غيرمتزامن" = "async-executor — منفذ غير متزامن خفيف: Executor/LocalExecutor/Task"

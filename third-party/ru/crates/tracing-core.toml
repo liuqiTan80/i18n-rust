@@ -1,0 +1,10 @@
+["模块路径"]
+"trc_ядро_трассировки" = "tracing_core"
+
+["标识符"]
+"trc_диспетчер" = "Dispatch"
+"trc_подписчик" = "Subscriber"
+"trc_уровень" = "Level"
+
+["解释"]
+"trc_ядро_трассировки" = "tracing-core — ядро фреймворка tracing: Dispatch/Subscriber/Level"

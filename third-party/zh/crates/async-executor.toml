@@ -1,0 +1,10 @@
+["模块路径"]
+"aex异步执行器" = "async_executor"
+
+["标识符"]
+"aex执行器" = "Executor"
+"aex本地执行器" = "LocalExecutor"
+"aex任务" = "Task"
+
+["解释"]
+"aex异步执行器" = "async-executor — 轻量异步执行器: Executor/LocalExecutor/Task"

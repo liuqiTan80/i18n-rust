@@ -1,0 +1,10 @@
+["模块路径"]
+"slmスロットマップ" = "slotmap"
+
+["标识符"]
+"slmスロット写像" = "SlotMap"
+"slm一意キー" = "Key"
+"slm二次写像" = "SecondaryMap"
+
+["解释"]
+"slmスロットマップ" = "slotmap — 永続的一意キー格納: SlotMap/Key/SecondaryMap"

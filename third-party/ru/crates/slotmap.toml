@@ -1,0 +1,10 @@
+["模块路径"]
+"slm_слот_карта" = "slotmap"
+
+["标识符"]
+"slm_слот_мап" = "SlotMap"
+"slm_уник_ключ" = "Key"
+"slm_втор_карта" = "SecondaryMap"
+
+["解释"]
+"slm_слот_карта" = "slotmap — хранилище с уникальными ключами: SlotMap/Key/SecondaryMap"
