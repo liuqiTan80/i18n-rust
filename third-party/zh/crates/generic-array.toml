@@ -1,0 +1,10 @@
+["模块路径"]
+"泛型长度数组" = "generic-array"
+
+["标识符"]
+"泛型数组类型" = "GenericArray"
+"数组长度标记" = "ArrayLength"
+"泛型数组构造宏" = "arr"
+
+["解释"]
+"泛型长度数组" = "generic-array 提供编译期长度固定的泛型数组 GenericArray 及配套宏和标记trait"

@@ -1,0 +1,10 @@
+["模块路径"]
+"vetor_generico_comprimento" = "generic-array"
+
+["标识符"]
+"vetor_generico" = "GenericArray"
+"marcador_comprimento_vetor" = "ArrayLength"
+"macro_vetor_generico" = "arr"
+
+["解释"]
+"vetor_generico_comprimento" = "generic-array oferece GenericArray de comprimento fixo em compilacao com macro e trait marcador"

@@ -1,0 +1,10 @@
+["模块路径"]
+"набор_инструментов_crossbeam" = "crossbeam"
+
+["标识符"]
+"область_видимости_crossbeam" = "scope"
+"атомарная_ячейка_crossbeam" = "AtomicCell"
+"сегментная_очередь_crossbeam" = "SegQueue"
+
+["解释"]
+"набор_инструментов_crossbeam" = "crossbeam — набор примитивов параллелизма: scope/AtomicCell/SegQueue без блокировок"

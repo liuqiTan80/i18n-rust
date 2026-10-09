@@ -1,0 +1,10 @@
+["模块路径"]
+"进程文件系统解析" = "procfs"
+
+["标识符"]
+"procfs进程" = "Process"
+"procfs内存信息" = "Meminfo"
+"procfs处理器信息" = "CpuInfo"
+
+["解释"]
+"进程文件系统解析" = "procfs 解析 /proc 文件系统，提供 Process/Meminfo/CpuInfo 等结构体"

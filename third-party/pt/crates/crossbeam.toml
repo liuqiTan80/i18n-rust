@@ -1,0 +1,10 @@
+["模块路径"]
+"ferramentas_concorrencia_crossbeam" = "crossbeam"
+
+["标识符"]
+"scope_crossbeam" = "scope"
+"celula_atonica_crossbeam" = "AtomicCell"
+"fila_segmentada_crossbeam" = "SegQueue"
+
+["解释"]
+"ferramentas_concorrencia_crossbeam" = "crossbeam e um pacote de primitivas de concorrencia com scope/AtomicCell/SegQueue sem bloqueios"

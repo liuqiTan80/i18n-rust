@@ -1,0 +1,10 @@
+["模块路径"]
+"Crossbeam_Nebenlaeufigkeit" = "crossbeam"
+
+["标识符"]
+"Crossbeam_Scope" = "scope"
+"Crossbeam_AtomicCell" = "AtomicCell"
+"Crossbeam_SegQueue" = "SegQueue"
+
+["解释"]
+"Crossbeam_Nebenlaeufigkeit" = "crossbeam ist ein Parallelitaets-Framework mit scope/AtomicCell/SegQueue Lock-freien Strukturen"

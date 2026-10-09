@@ -1,0 +1,10 @@
+["模块路径"]
+"generisches_Festlaengen_Array" = "generic-array"
+
+["标识符"]
+"Generisches_Array" = "GenericArray"
+"Array_Laengen_Marker" = "ArrayLength"
+"Generic_Array_Makro" = "arr"
+
+["解释"]
+"generisches_Festlaengen_Array" = "generic-array bietet GenericArray mit编译-fester Laenge samt Makro und Marker-Trait"

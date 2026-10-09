@@ -1,0 +1,10 @@
+["模块路径"]
+"汎用長さ配列" = "generic-array"
+
+["标识符"]
+"汎用配列型" = "GenericArray"
+"配列長マーカー" = "ArrayLength"
+"汎用配列構築マクロ" = "arr"
+
+["解释"]
+"汎用長さ配列" = "generic-array はコンパイル時固定長の汎用配列 GenericArray と対応マクロ・マーカーtraitを提供"

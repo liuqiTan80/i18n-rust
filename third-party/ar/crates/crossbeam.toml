@@ -1,0 +1,10 @@
+["模块路径"]
+"أدوات_تزامن_crossbeam" = "crossbeam"
+
+["标识符"]
+"نطاق_crossbeam" = "scope"
+"خلية_ذرية_crossbeam" = "AtomicCell"
+"طابور_مقسَّم_crossbeam" = "SegQueue"
+
+["解释"]
+"أدوات_تزامن_crossbeam" = "crossbeam حزمة بدائيات التزامن، يوفر scope/AtomicCell/SegQueue تراكيب بدون قفل"

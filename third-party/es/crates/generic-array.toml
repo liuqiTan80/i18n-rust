@@ -1,0 +1,10 @@
+["模块路径"]
+"arreglo_generico_longitud" = "generic-array"
+
+["标识符"]
+"arreglo_generico" = "GenericArray"
+"marcardor_longitud_arreglo" = "ArrayLength"
+"macro_arreglo_generico" = "arr"
+
+["解释"]
+"arreglo_generico_longitud" = "generic-array ofrece GenericArray de longitud fija en compilacion con macro y trait marcador"

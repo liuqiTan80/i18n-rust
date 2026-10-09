@@ -1,0 +1,10 @@
+["模块路径"]
+"tracing_registro" = "tracing"
+
+["标识符"]
+"suscriptor_tracing" = "Subscriber"
+"span_tracing" = "Span"
+"nivel_tracing" = "Level"
+
+["解释"]
+"tracing_registro" = "tracing es un framework de registro estructurado y diagnostico con Span/Subscriber/Level"

@@ -1,0 +1,10 @@
+["模块路径"]
+"procfs_Parsing" = "procfs"
+
+["标识符"]
+"Procfs_Prozess" = "Process"
+"Procfs_Speicherinfo" = "Meminfo"
+"Procfs_CPU_Info" = "CpuInfo"
+
+["解释"]
+"procfs_Parsing" = "procfs parst das /proc-Dateisystem und bietet Process/Meminfo/CpuInfo Structs"

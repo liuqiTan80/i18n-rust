@@ -1,0 +1,10 @@
+["模块路径"]
+"crossbeam_동시성_도구" = "crossbeam"
+
+["标识符"]
+"crossbeam_스코프" = "scope"
+"crossbeam_원자_셀" = "AtomicCell"
+"crossbeam_분할_큐" = "SegQueue"
+
+["解释"]
+"crossbeam_동시성_도구" = "crossbeam 은 동시성 프리미티브 종합 패키지로 scope/AtomicCell/SegQueue 등 락프리 구조 제공"

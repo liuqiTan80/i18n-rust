@@ -1,0 +1,10 @@
+["模块路径"]
+"トレース購読実装" = "tracing-subscriber"
+
+["标识符"]
+"トレースレジストリ" = "Registry"
+"フォーマット購読者" = "FmtSubscriber"
+"環境フィルタ" = "EnvFilter"
+
+["解释"]
+"トレース購読実装" = "tracing-subscriber は Registry/FmtSubscriber/EnvFilter などのプリセット購読者実装を提供"

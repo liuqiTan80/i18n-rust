@@ -1,0 +1,10 @@
+["模块路径"]
+"analyse_procfs" = "procfs"
+
+["标识符"]
+"processus_procfs" = "Process"
+"info_memoire_procfs" = "Meminfo"
+"info_cpu_procfs" = "CpuInfo"
+
+["解释"]
+"analyse_procfs" = "procfs analyse le systeme de fichiers /proc et fournit Process/Meminfo/CpuInfo"

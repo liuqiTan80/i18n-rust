@@ -1,0 +1,10 @@
+["模块路径"]
+"tableau_generique_longueur" = "generic-array"
+
+["标识符"]
+"tableau_generique" = "GenericArray"
+"marqueur_longueur_tableau" = "ArrayLength"
+"macro_tableau_generique" = "arr"
+
+["解释"]
+"tableau_generique_longueur" = "generic-array fournit GenericArray de longueur fixe a la compilation avec macro et trait marqueur"

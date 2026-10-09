@@ -1,0 +1,10 @@
+["模块路径"]
+"tracing_journalisation" = "tracing"
+
+["标识符"]
+"abonne_tracing" = "Subscriber"
+"span_tracing" = "Span"
+"niveau_tracing" = "Level"
+
+["解释"]
+"tracing_journalisation" = "tracing est un framework de journalisation structuree et de diagnostic avec Span/Subscriber/Level"

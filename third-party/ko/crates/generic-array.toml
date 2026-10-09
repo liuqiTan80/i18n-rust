@@ -1,0 +1,10 @@
+["模块路径"]
+"제네릭_길이_배열" = "generic-array"
+
+["标识符"]
+"제네릭_배열_타입" = "GenericArray"
+"배열_길이_마커" = "ArrayLength"
+"제네릭_배열_생성_매크로" = "arr"
+
+["解释"]
+"제네릭_길이_배열" = "generic-array 는 컴파일 타임 고정 길이 범용 배열 GenericArray 및 관련 매크로·마커 trait 제공"

@@ -1,0 +1,10 @@
+["模块路径"]
+"跨束并发工具集" = "crossbeam"
+
+["标识符"]
+"跨束作用域" = "scope"
+"跨束原子单元" = "AtomicCell"
+"跨束分段队列" = "SegQueue"
+
+["解释"]
+"跨束并发工具集" = "crossbeam 是并发原语综合包，提供 scope/AtomicCell/SegQueue 等无锁结构"

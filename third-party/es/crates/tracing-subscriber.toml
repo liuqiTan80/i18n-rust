@@ -1,0 +1,10 @@
+["模块路径"]
+"implementacion_suscriptor_tracing" = "tracing-subscriber"
+
+["标识符"]
+"registro_tracing" = "Registry"
+"suscriptor_fmt" = "FmtSubscriber"
+"filtro_env" = "EnvFilter"
+
+["解释"]
+"implementacion_suscriptor_tracing" = "tracing-subscriber ofrece implementaciones preparadas Registry/FmtSubscriber/EnvFilter"

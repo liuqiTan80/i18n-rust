@@ -1,0 +1,10 @@
+["模块路径"]
+"procfs_विश्लेषण" = "procfs"
+
+["标识符"]
+"procfs_प्रक्रिया" = "Process"
+"procfs_मेमोरी_जानकारी" = "Meminfo"
+"procfs_CPU_जानकारी" = "CpuInfo"
+
+["解释"]
+"procfs_विश्लेषण" = "procfs /proc फाइलसिस्टम का विश्लेषण करता है, Process/Meminfo/CpuInfo संरचनाएं देता है"

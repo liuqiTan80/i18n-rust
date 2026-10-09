@@ -1,0 +1,10 @@
+["模块路径"]
+"ट्रेसिंग_सब्सक्राइबर_कार्यान्वयन" = "tracing-subscriber"
+
+["标识符"]
+"ट्रेसिंग_रजिस्ट्री" = "Registry"
+"Fmt_सब्सक्राइबर" = "FmtSubscriber"
+"Env_फ़िल्टर" = "EnvFilter"
+
+["解释"]
+"ट्रेसिंग_सब्सक्राइबर_कार्यान्वयन" = "tracing-subscriber Registry/FmtSubscriber/EnvFilter आदि पूर्व-निर्मित सब्सक्राइबर देता है"

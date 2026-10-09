@@ -1,0 +1,10 @@
+["模块路径"]
+"无标准库数学" = "libm"
+
+["标识符"]
+"libm正弦" = "sin"
+"libm余弦" = "cos"
+"libm平方根" = "sqrt"
+
+["解释"]
+"无标准库数学" = "libm 提供 notzero 环境下可用的数学函数 sin/cos/sqrt 等"

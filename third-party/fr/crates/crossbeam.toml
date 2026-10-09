@@ -1,0 +1,10 @@
+["模块路径"]
+"outils_concurrence_crossbeam" = "crossbeam"
+
+["标识符"]
+"scope_crossbeam" = "scope"
+"cellule_atomique_crossbeam" = "AtomicCell"
+"queue_segmentee_crossbeam" = "SegQueue"
+
+["解释"]
+"outils_concurrence_crossbeam" = "crossbeam est un pack de primitives de concurrence avec scope/AtomicCell/SegQueue sans verrou"

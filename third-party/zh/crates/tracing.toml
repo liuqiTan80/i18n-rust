@@ -1,0 +1,10 @@
+["模块路径"]
+"跟踪日志" = "tracing"
+
+["标识符"]
+"跟踪订阅器" = "Subscriber"
+"跟踪跨度" = "Span"
+"跟踪级别" = "Level"
+
+["解释"]
+"跟踪日志" = "tracing 是结构化日志与性能诊断框架，提供 Span/Subscriber/Level 等核心抽象"

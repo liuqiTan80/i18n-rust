@@ -1,0 +1,10 @@
+["模块路径"]
+"tracing_추적" = "tracing"
+
+["标识符"]
+"추적_구독자" = "Subscriber"
+"추적_스팬" = "Span"
+"추적_레벨" = "Level"
+
+["解释"]
+"tracing_추적" = "tracing 은 구조화 로그 및 성능 진단 프레임워크로 Span/Subscriber/Level 핵심 추상 제공"

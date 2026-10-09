@@ -1,0 +1,10 @@
+["模块路径"]
+"跟踪订阅实现" = "tracing-subscriber"
+
+["标识符"]
+"跟踪注册表" = "Registry"
+"格式化订阅器" = "FmtSubscriber"
+"环境过滤器" = "EnvFilter"
+
+["解释"]
+"跟踪订阅实现" = "tracing-subscriber 提供 Registry/FmtSubscriber/EnvFilter 等预置订阅器实现"

@@ -1,0 +1,10 @@
+["模块路径"]
+"tracing_Protokollierung" = "tracing"
+
+["标识符"]
+"Tracing_Subscriber" = "Subscriber"
+"Tracing_Span" = "Span"
+"Tracing_Level" = "Level"
+
+["解释"]
+"tracing_Protokollierung" = "tracing ist ein strukturiertes Logging- und Diagnose-Framework mit Span/Subscriber/Level"

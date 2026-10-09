@@ -1,0 +1,10 @@
+["模块路径"]
+"crossbeam_समांतर_उपकरण" = "crossbeam"
+
+["标识符"]
+"crossbeam_स्कोप" = "scope"
+"crossbeam_एटॉमिक_सेल" = "AtomicCell"
+"crossbeam_सेग_क्यू" = "SegQueue"
+
+["解释"]
+"crossbeam_समांतर_उपकरण" = "crossbeam समांतरता प्रिमिटिव पैकेज है, scope/AtomicCell/SegQueue लॉक-मुक्त संरचनाएं देता है"

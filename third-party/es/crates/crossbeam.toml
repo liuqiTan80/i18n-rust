@@ -1,0 +1,10 @@
+["模块路径"]
+"herramientas_paralelas_crossbeam" = "crossbeam"
+
+["标识符"]
+"scope_crossbeam" = "scope"
+"celda_atomica_crossbeam" = "AtomicCell"
+"cola_segmentada_crossbeam" = "SegQueue"
+
+["解释"]
+"herramientas_paralelas_crossbeam" = "crossbeam es un paquete de primitivas de concurrencia con scope/AtomicCell/SegQueue sin bloqueos"

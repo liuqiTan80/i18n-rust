@@ -1,0 +1,10 @@
+["模块路径"]
+"추적_구독_구현" = "tracing-subscriber"
+
+["标识符"]
+"추적_레지스트리" = "Registry"
+"형식_구독자" = "FmtSubscriber"
+"환경_필터" = "EnvFilter"
+
+["解释"]
+"추적_구독_구현" = "tracing-subscriber 는 Registry/FmtSubscriber/EnvFilter 등 프리셋 구독자 구현 제공"

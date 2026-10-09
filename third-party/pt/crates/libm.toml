@@ -1,0 +1,10 @@
+["模块路径"]
+"matematica_sem_std" = "libm"
+
+["标识符"]
+"sen_libm" = "sin"
+"cos_libm" = "cos"
+"raiz_quadrada_libm" = "sqrt"
+
+["解释"]
+"matematica_sem_std" = "libm fornece funcoes matematicas sin/cos/sqrt para ambientes no_std"

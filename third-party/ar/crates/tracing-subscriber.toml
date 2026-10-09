@@ -1,0 +1,10 @@
+["模块路径"]
+"تنفيذ_مشترك_التتبع" = "tracing-subscriber"
+
+["标识符"]
+"سجل_التتبع" = "Registry"
+"مشترك_منسق" = "FmtSubscriber"
+"مرشِّح_البيئة" = "EnvFilter"
+
+["解释"]
+"تنفيذ_مشترك_التتبع" = "tracing-subscriber يوفر تنفيذات جاهزة Registry/FmtSubscriber/EnvFilter"

@@ -1,0 +1,10 @@
+["模块路径"]
+"tracingトレース" = "tracing"
+
+["标识符"]
+"トレース購読者" = "Subscriber"
+"トレーススパン" = "Span"
+"トレースレベル" = "Level"
+
+["解释"]
+"tracingトレース" = "tracing は構造化ログと性能診断フレームワークで Span/Subscriber/Level の中核抽象を提供"
