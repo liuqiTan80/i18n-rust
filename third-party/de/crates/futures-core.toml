@@ -1,0 +1,10 @@
+["模块路径"]
+"async_kern" = "futures-core"
+
+["标识符"]
+"strom_trait" = "Stream"
+"poll_ergebnis" = "Poll"
+"wecker" = "Waker"
+
+["解释"]
+"async_kern" = "Kern-Traits und Typen von futures"

@@ -1,0 +1,10 @@
+["模块路径"]
+"directorios_habituales" = "dirs"
+
+["标识符"]
+"directorio_personal" = "home_dir"
+"directorio_configuracion" = "config_dir"
+"directorio_cache" = "cache_dir"
+
+["解释"]
+"directorios_habituales" = "Obtiene directorios estándar de la plataforma"

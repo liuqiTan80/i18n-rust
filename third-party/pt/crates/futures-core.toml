@@ -1,0 +1,10 @@
+["模块路径"]
+"nucleo_assincrono" = "futures-core"
+
+["标识符"]
+"trait_stream" = "Stream"
+"resultado_poll" = "Poll"
+"despertador" = "Waker"
+
+["解释"]
+"nucleo_assincrono" = "Traits e tipos centrais do futures"

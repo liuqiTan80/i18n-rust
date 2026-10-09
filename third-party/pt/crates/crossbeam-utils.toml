@@ -1,0 +1,10 @@
+["模块路径"]
+"utilitarios_concorrencia" = "crossbeam-utils"
+
+["标识符"]
+"celula_atomica" = "AtomicCell"
+"retrocesso" = "Backoff"
+"preenchimento_cache" = "cache_padded"
+
+["解释"]
+"utilitarios_concorrencia" = "Utilitários básicos para programação concorrente"

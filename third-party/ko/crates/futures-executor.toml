@@ -1,0 +1,10 @@
+["模块路径"]
+"비동기_실행기" = "futures-executor"
+
+["标识符"]
+"블록_실행" = "block_on"
+"스레드_풀" = "ThreadPool"
+"로컬_풀" = "LocalPool"
+
+["解释"]
+"비동기_실행기" = "futures 기반 작업 실행기"

@@ -1,0 +1,10 @@
+["模块路径"]
+"async_ausfuehrer" = "futures-executor"
+
+["标识符"]
+"blockiert_ausfuehren" = "block_on"
+"thread_pool" = "ThreadPool"
+"lokaler_pool" = "LocalPool"
+
+["解释"]
+"async_ausfuehrer" = "Task-Ausführer auf futures-Basis"

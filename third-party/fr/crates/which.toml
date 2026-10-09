@@ -1,0 +1,10 @@
+["模块路径"]
+"localiser_executable" = "which"
+
+["标识符"]
+"chercher_commande" = "which"
+"chercher_tous" = "which_all"
+"avec_repertoire_courant" = "which_cwd"
+
+["解释"]
+"localiser_executable" = "Localise les exécutables via PATH"

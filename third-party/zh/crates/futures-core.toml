@@ -1,0 +1,10 @@
+["模块路径"]
+"异步核心" = "futures-core"
+
+["标识符"]
+"流trait" = "Stream"
+"轮询结果" = "Poll"
+"唤醒器" = "Waker"
+
+["解释"]
+"异步核心" = "futures 的核心 trait 与类型"

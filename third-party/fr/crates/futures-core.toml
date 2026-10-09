@@ -1,0 +1,10 @@
+["模块路径"]
+"noyau_asynchrone" = "futures-core"
+
+["标识符"]
+"trait_flux" = "Stream"
+"resultat_poll" = "Poll"
+"reveilleur" = "Waker"
+
+["解释"]
+"noyau_asynchrone" = "Traits et types centraux de futures"

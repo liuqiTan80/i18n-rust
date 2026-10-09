@@ -1,0 +1,10 @@
+["模块路径"]
+"parallelwerkzeuge" = "crossbeam-utils"
+
+["标识符"]
+"atomare_zelle" = "AtomicCell"
+"backoff" = "Backoff"
+"cache_polsterung" = "cache_padded"
+
+["解释"]
+"parallelwerkzeuge" = "Grundlegende Werkzeuge für nebenläufige Programmierung"

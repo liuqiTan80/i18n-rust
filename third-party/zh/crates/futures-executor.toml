@@ -1,0 +1,10 @@
+["模块路径"]
+"异步执行器" = "futures-executor"
+
+["标识符"]
+"阻塞运行" = "block_on"
+"线程池" = "ThreadPool"
+"本地池" = "LocalPool"
+
+["解释"]
+"异步执行器" = "基于 futures 的任务执行器"

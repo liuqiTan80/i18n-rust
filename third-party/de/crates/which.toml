@@ -1,0 +1,10 @@
+["模块路径"]
+"programm_auffinden" = "which"
+
+["标识符"]
+"befehl_finden" = "which"
+"alle_finden" = "which_all"
+"mit_aktuellem_ordner" = "which_cwd"
+
+["解释"]
+"programm_auffinden" = "Programme über PATH finden"

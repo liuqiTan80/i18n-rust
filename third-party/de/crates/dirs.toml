@@ -1,0 +1,10 @@
+["模块路径"]
+"uebliche_verzeichnisse" = "dirs"
+
+["标识符"]
+"home_verzeichnis" = "home_dir"
+"konfig_verzeichnis" = "config_dir"
+"cache_verzeichnis" = "cache_dir"
+
+["解释"]
+"uebliche_verzeichnisse" = "Standardverzeichnisse der Plattform abrufen"

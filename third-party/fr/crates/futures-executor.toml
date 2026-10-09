@@ -1,0 +1,10 @@
+["模块路径"]
+"executeur_asynchrone" = "futures-executor"
+
+["标识符"]
+"bloquer_execution" = "block_on"
+"pool_de_fils" = "ThreadPool"
+"pool_local" = "LocalPool"
+
+["解释"]
+"executeur_asynchrone" = "Exécuteur de tâches basé sur futures"

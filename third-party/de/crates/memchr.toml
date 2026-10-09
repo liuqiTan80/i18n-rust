@@ -1,0 +1,10 @@
+["模块路径"]
+"suche_im_speicher" = "memchr"
+
+["标识符"]
+"byte_finden" = "memchr"
+"byte_rueckwaerts" = "memrchr"
+"zwei_bytes_finden" = "memchr2"
+
+["解释"]
+"suche_im_speicher" = "Schnelle Byte-Suche im Speicher"

@@ -1,0 +1,10 @@
+["模块路径"]
+"recherche_en_memoire" = "memchr"
+
+["标识符"]
+"chercher_octet" = "memchr"
+"chercher_octet_inverse" = "memrchr"
+"chercher_deux_octets" = "memchr2"
+
+["解释"]
+"recherche_en_memoire" = "Recherche rapide d’octets en mémoire"
