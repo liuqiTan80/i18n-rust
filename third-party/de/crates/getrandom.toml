@@ -1,0 +1,10 @@
+["模块路径"]
+"systemzufall" = "getrandom"
+
+["标识符"]
+"zufall_holen" = "getrandom"
+"puffer_fillen" = "fill"
+"zufall_fehler" = "Error"
+
+["解释"]
+"systemzufall" = "Zufallsbytes vom System holen"

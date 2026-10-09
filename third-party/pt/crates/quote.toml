@@ -1,0 +1,10 @@
+["模块路径"]
+"quasi_referencia" = "quote"
+
+["标识符"]
+"citar" = "quote"
+"em_tokens" = "ToTokens"
+"fluxo_de_tokens" = "TokenStream"
+
+["解释"]
+"quasi_referencia" = "Converte fragmentos da árvore sintática Rust em fluxo de tokens"

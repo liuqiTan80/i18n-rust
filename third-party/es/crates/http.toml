@@ -1,0 +1,10 @@
+["模块路径"]
+"tipos_de_http" = "http"
+
+["标识符"]
+"tipo_solicitud" = "Request"
+"tipo_respuesta" = "Response"
+"codigo_de_estado" = "StatusCode"
+
+["解释"]
+"tipos_de_http" = "Tipos principales para representar solicitudes y respuestas HTTP"

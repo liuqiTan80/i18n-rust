@@ -1,0 +1,10 @@
+["模块路径"]
+"cuasi_referencia" = "quote"
+
+["标识符"]
+"citar" = "quote"
+"a_tokens" = "ToTokens"
+"flujo_de_tokens" = "TokenStream"
+
+["解释"]
+"cuasi_referencia" = "Convierte fragmentos del árbol sintáctico Rust en un flujo de tokens"

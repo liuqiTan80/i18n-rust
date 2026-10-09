@@ -1,0 +1,10 @@
+["模块路径"]
+"futur_werkzeuge" = "futures-util"
+
+["标识符"]
+"strom_erweiterung" = "StreamExt"
+"futur_erweiterung" = "FutureExt"
+"naechstes_glied" = "next"
+
+["解释"]
+"futur_werkzeuge" = "Gängige Erweiterungen und Werkzeuge für Futures"

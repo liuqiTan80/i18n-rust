@@ -1,0 +1,10 @@
+["模块路径"]
+"geordnete_karte" = "indexmap"
+
+["标识符"]
+"index_map_typ" = "IndexMap"
+"index_menge_typ" = "IndexSet"
+"austausch_entfernen" = "swap_remove"
+
+["解释"]
+"geordnete_karte" = "Hash-Tabelle, die Einfügereihenfolge erhält"

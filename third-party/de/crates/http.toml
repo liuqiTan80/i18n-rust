@@ -1,0 +1,10 @@
+["模块路径"]
+"http_typen" = "http"
+
+["标识符"]
+"anfrage_typ" = "Request"
+"antwort_typ" = "Response"
+"status_code" = "StatusCode"
+
+["解释"]
+"http_typen" = "Kerntypen für HTTP-Anfragen und -Antworten"

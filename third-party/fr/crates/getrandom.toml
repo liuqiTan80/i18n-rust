@@ -1,0 +1,10 @@
+["模块路径"]
+"aleatoire_systeme" = "getrandom"
+
+["标识符"]
+"obtenir_aleatoire" = "getrandom"
+"remplir_tampon" = "fill"
+"erreur_aleatoire" = "Error"
+
+["解释"]
+"aleatoire_systeme" = "Obtient des octets aléatoires du système"

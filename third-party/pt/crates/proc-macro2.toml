@@ -1,0 +1,10 @@
+["模块路径"]
+"tokens_de_macro" = "proc-macro2"
+
+["标识符"]
+"fluxo_de_tokens" = "TokenStream"
+"abrangencia_de_codigo" = "Span"
+"identificador" = "Ident"
+
+["解释"]
+"tokens_de_macro" = "Implementação substituta do proc_macro do compilador"

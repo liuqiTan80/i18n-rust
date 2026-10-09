@@ -1,0 +1,10 @@
+["模块路径"]
+"mapa_ordenado" = "indexmap"
+
+["标识符"]
+"tipo_mapa_index" = "IndexMap"
+"tipo_conjunto_index" = "IndexSet"
+"trocar_remover" = "swap_remove"
+
+["解释"]
+"mapa_ordenado" = "Tabela hash que mantém a ordem de inserção"

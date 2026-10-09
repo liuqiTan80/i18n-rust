@@ -1,0 +1,10 @@
+["模块路径"]
+"aleatoriedad_sistema" = "getrandom"
+
+["标识符"]
+"obtener_aleatorio" = "getrandom"
+"llenar_bufer" = "fill"
+"error_aleatorio" = "Error"
+
+["解释"]
+"aleatoriedad_sistema" = "Obtiene bytes aleatorios del sistema"

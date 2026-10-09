@@ -1,0 +1,10 @@
+["模块路径"]
+"carte_ordonnee" = "indexmap"
+
+["标识符"]
+"type_carte_index" = "IndexMap"
+"type_ensemble_index" = "IndexSet"
+"echanger_supprimer" = "swap_remove"
+
+["解释"]
+"carte_ordonnee" = "Table de hachage conservant l’ordre d’insertion"

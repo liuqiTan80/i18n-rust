@@ -1,0 +1,10 @@
+["模块路径"]
+"quasi_zitieren" = "quote"
+
+["标识符"]
+"zitieren" = "quote"
+"in_tokens" = "ToTokens"
+"token_strom" = "TokenStream"
+
+["解释"]
+"quasi_zitieren" = "Wandelt Rust-Syntaxbaumteile in Tokenstrom um"

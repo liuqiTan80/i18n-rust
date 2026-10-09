@@ -1,0 +1,10 @@
+["模块路径"]
+"makro_token" = "proc-macro2"
+
+["标识符"]
+"token_strom" = "TokenStream"
+"quelltext_spann" = "Span"
+"bezeichner" = "Ident"
+
+["解释"]
+"makro_token" = "Ersatzimplementierung des Compiler-proc_macro"

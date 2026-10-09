@@ -1,0 +1,10 @@
+["模块路径"]
+"quasi_citation" = "quote"
+
+["标识符"]
+"citer" = "quote"
+"en_jetons" = "ToTokens"
+"flux_de_jetons" = "TokenStream"
+
+["解释"]
+"quasi_citation" = "Convertit des fragments de l’arbre syntaxique Rust en flux de jetons"

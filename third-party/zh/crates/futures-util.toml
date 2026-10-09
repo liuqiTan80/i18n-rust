@@ -1,0 +1,10 @@
+["模块路径"]
+"future工具" = "futures-util"
+
+["标识符"]
+"流扩展" = "StreamExt"
+"未来扩展" = "FutureExt"
+"取下一项" = "next"
+
+["解释"]
+"future工具" = "futures 的常用扩展与工具"

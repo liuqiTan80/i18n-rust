@@ -1,0 +1,10 @@
+["模块路径"]
+"順序マップ" = "indexmap"
+
+["标识符"]
+"IndexMap型" = "IndexMap"
+"IndexSet型" = "IndexSet"
+"スワップ削除" = "swap_remove"
+
+["解释"]
+"順序マップ" = "挿入順を保つハッシュテーブル"

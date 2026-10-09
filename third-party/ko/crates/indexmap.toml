@@ -1,0 +1,10 @@
+["模块路径"]
+"순서_맵" = "indexmap"
+
+["标识符"]
+"IndexMap_타입" = "IndexMap"
+"IndexSet_집합" = "IndexSet"
+"교체_제거" = "swap_remove"
+
+["解释"]
+"순서_맵" = "삽입 순서를 유지하는 해시 테이블"

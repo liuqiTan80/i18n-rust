@@ -1,0 +1,10 @@
+["模块路径"]
+"jetons_de_macro" = "proc-macro2"
+
+["标识符"]
+"flux_de_jetons" = "TokenStream"
+"portee_de_code" = "Span"
+"identificateur" = "Ident"
+
+["解释"]
+"jetons_de_macro" = "Implémentation de substitution du proc_macro du compilateur"
