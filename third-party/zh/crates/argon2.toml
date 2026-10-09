@@ -1,0 +1,10 @@
+["模块路径"]
+"Argon2密码哈希" = "argon2"
+
+["标识符"]
+"Argon2实例" = "Argon2"
+"哈希参数" = "Params"
+"算法版本" = "Algorithm"
+
+["解释"]
+"Argon2密码哈希" = "Argon2 内存密集型密码哈希"

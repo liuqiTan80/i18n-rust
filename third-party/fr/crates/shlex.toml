@@ -1,0 +1,10 @@
+["模块路径"]
+"decoupage_commande" = "shlex"
+
+["标识符"]
+"diviser_mots" = "split"
+"citer_securise" = "quote"
+"diviser_avec_erreur" = "try_split"
+
+["解释"]
+"decoupage_commande" = "Découpage et citation de commande style POSIX"

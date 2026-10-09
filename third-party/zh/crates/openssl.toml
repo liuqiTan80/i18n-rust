@@ -1,0 +1,10 @@
+["模块路径"]
+"OpenSSL加密库" = "openssl"
+
+["标识符"]
+"SSL连接器" = "SslConnector"
+"X509证书" = "X509"
+"SHA256摘要" = "sha256"
+
+["解释"]
+"OpenSSL加密库" = "OpenSSL 绑定加密库"

@@ -1,0 +1,10 @@
+["模块路径"]
+"biblioteca_openssl" = "openssl"
+
+["标识符"]
+"conector_ssl" = "SslConnector"
+"certificado_x509" = "X509"
+"digest_sha256" = "sha256"
+
+["解释"]
+"biblioteca_openssl" = "Vínculos de la biblioteca OpenSSL"

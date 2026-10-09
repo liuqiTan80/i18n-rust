@@ -1,0 +1,10 @@
+["模块路径"]
+"befehlswort_zerlegung" = "shlex"
+
+["标识符"]
+"woerter_zerlegen" = "split"
+"sicher_quoten" = "quote"
+"zerlegen_mit_fehler" = "try_split"
+
+["解释"]
+"befehlswort_zerlegung" = "Befehlszeilenaufteilung und Quoting im POSIX-Stil"

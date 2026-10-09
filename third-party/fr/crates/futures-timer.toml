@@ -1,0 +1,10 @@
+["模块路径"]
+"minuteur_async" = "futures-timer"
+
+["标识符"]
+"retard" = "Delay"
+"intervalle" = "Interval"
+"echeance" = "Deadline"
+
+["解释"]
+"minuteur_async" = "Minuteur asynchrone de retard et intervalle"

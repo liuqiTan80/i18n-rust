@@ -1,0 +1,10 @@
+["模块路径"]
+"temporizador_async" = "futures-timer"
+
+["标识符"]
+"atraso" = "Delay"
+"intervalo" = "Interval"
+"prazo_limite" = "Deadline"
+
+["解释"]
+"temporizador_async" = "Temporizadores assíncronos de atraso e intervalo"

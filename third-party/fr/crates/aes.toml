@@ -1,0 +1,10 @@
+["模块路径"]
+"chiffrement_symetrique_aes" = "aes"
+
+["标识符"]
+"type_aes128" = "Aes128"
+"type_aes192" = "Aes192"
+"type_aes256" = "Aes256"
+
+["解释"]
+"chiffrement_symetrique_aes" = "Implémentation du chiffrement par blocs AES"

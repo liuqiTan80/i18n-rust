@@ -1,0 +1,10 @@
+["模块路径"]
+"firma_digital" = "signature"
+
+["标识符"]
+"rasgo_signatario" = "Signer"
+"rasgo_verificador" = "Verifier"
+"valor_firma" = "Signature"
+
+["解释"]
+"firma_digital" = "Abstracción de rasgos para firmar y verificar"

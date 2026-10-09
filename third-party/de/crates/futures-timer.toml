@@ -1,0 +1,10 @@
+["模块路径"]
+"async_timer" = "futures-timer"
+
+["标识符"]
+"zeitverzogerung" = "Delay"
+"intervall" = "Interval"
+"ablauf_frist" = "Deadline"
+
+["解释"]
+"async_timer" = "Asynchrone Verzögerungs- und Intervall-Timer"

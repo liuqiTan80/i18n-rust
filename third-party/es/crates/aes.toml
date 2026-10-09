@@ -1,0 +1,10 @@
+["模块路径"]
+"cifrado_simetrico_aes" = "aes"
+
+["标识符"]
+"tipo_aes128" = "Aes128"
+"tipo_aes192" = "Aes192"
+"tipo_aes256" = "Aes256"
+
+["解释"]
+"cifrado_simetrico_aes" = "Implementación del cifrado por bloques AES"

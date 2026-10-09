@@ -1,0 +1,10 @@
+["模块路径"]
+"openssl_bibliothek" = "openssl"
+
+["标识符"]
+"ssl_verbinder" = "SslConnector"
+"x509_zertifikat" = "X509"
+"sha256_digest" = "sha256"
+
+["解释"]
+"openssl_bibliothek" = "OpenSSL-Bindungen für Krypto"

@@ -1,0 +1,10 @@
+["模块路径"]
+"数字签名" = "signature"
+
+["标识符"]
+"签名者trait" = "Signer"
+"验证者trait" = "Verifier"
+"签名值" = "Signature"
+
+["解释"]
+"数字签名" = "数字签名与验证 trait 抽象"

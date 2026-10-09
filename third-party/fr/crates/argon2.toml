@@ -1,0 +1,10 @@
+["模块路径"]
+"hachage_mot_de_passe_argon2" = "argon2"
+
+["标识符"]
+"instance_argon2" = "Argon2"
+"parametres_hash" = "Params"
+"algorithme" = "Algorithm"
+
+["解释"]
+"hachage_mot_de_passe_argon2" = "Hachage de mot de passe intensif en mémoire Argon2"

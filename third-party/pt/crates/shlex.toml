@@ -1,0 +1,10 @@
+["模块路径"]
+"divisao_de_comandos" = "shlex"
+
+["标识符"]
+"dividir_palavras" = "split"
+"citar_seguro" = "quote"
+"dividir_com_erro" = "try_split"
+
+["解释"]
+"divisao_de_comandos" = "Divisão e citação de linha de comando estilo POSIX"

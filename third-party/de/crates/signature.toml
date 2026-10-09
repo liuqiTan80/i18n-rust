@@ -1,0 +1,10 @@
+["模块路径"]
+"digitale_signatur" = "signature"
+
+["标识符"]
+"signierer_trait" = "Signer"
+"pruefer_trait" = "Verifier"
+"signatur_wert" = "Signature"
+
+["解释"]
+"digitale_signatur" = "Trait-Abstraktion für Signieren und Prüfen"

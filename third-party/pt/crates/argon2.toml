@@ -1,0 +1,10 @@
+["模块路径"]
+"hash_senha_argon2" = "argon2"
+
+["标识符"]
+"instancia_argon2" = "Argon2"
+"parametros_hash" = "Params"
+"algoritmo" = "Algorithm"
+
+["解释"]
+"hash_senha_argon2" = "Hash de senha intensivo em memória Argon2"

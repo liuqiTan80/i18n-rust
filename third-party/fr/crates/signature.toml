@@ -1,0 +1,10 @@
+["模块路径"]
+"signature_numerique" = "signature"
+
+["标识符"]
+"trait_signataire" = "Signer"
+"trait_verificateur" = "Verifier"
+"valeur_signature" = "Signature"
+
+["解释"]
+"signature_numerique" = "Abstraction de traits pour signer et vérifier"

@@ -1,0 +1,10 @@
+["模块路径"]
+"aes_symmetrisch" = "aes"
+
+["标识符"]
+"aes128_typ" = "Aes128"
+"aes192_typ" = "Aes192"
+"aes256_typ" = "Aes256"
+
+["解释"]
+"aes_symmetrisch" = "AES-Blockchiffre-Implementierung"
