@@ -1,0 +1,9 @@
+["模块路径"]
+"asynchrones_runtime" = "tokio"
+
+["标识符"]
+"asynchrone_aufgabe" = "spawn"
+"asynchroner_block" = "async"
+
+["解释"]
+"asynchrones_runtime" = "Rusts gängige asynchrone Runtime: Scheduling, IO, Timer"

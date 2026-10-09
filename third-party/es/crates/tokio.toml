@@ -1,0 +1,9 @@
+["模块路径"]
+"runtime_asincrono" = "tokio"
+
+["标识符"]
+"tarea_asincrona" = "spawn"
+"bloque_asincrono" = "async"
+
+["解释"]
+"runtime_asincrono" = "Runtime asíncrono principal de Rust: planificación, IO, temporizadores"

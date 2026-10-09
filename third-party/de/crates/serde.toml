@@ -1,0 +1,9 @@
+["模块路径"]
+"serialisierung" = "serde"
+
+["标识符"]
+"serialisierer" = "Serializer"
+"deserialisierer" = "Deserializer"
+
+["解释"]
+"serialisierung" = "Kern-Trait von serde: Umwandlung zwischen Typen und Byte-Darstellung"
