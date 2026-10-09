@@ -4,6 +4,61 @@
   "mappings": [
     {
       "crate_name": "anyhow",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/anyhow.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "anyhow",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/anyhow.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "anyhow",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/anyhow.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "anyhow",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/anyhow.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "anyhow",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/anyhow.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "anyhow",
       "lang": "ja",
       "version": "1.0",
       "author": "tan80",
@@ -22,6 +77,17 @@
       "quality": 1,
       "downloads": 0,
       "file": "ko/crates/anyhow.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "anyhow",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/anyhow.toml",
       "updated": "2026-10-09"
     },
     {
@@ -48,6 +114,61 @@
     },
     {
       "crate_name": "bitflags",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/bitflags.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bitflags",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/bitflags.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bitflags",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/bitflags.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bitflags",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/bitflags.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bitflags",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/bitflags.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bitflags",
       "lang": "ja",
       "version": "1.0",
       "author": "tan80",
@@ -66,6 +187,17 @@
       "quality": 1,
       "downloads": 0,
       "file": "ko/crates/bitflags.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bitflags",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/bitflags.toml",
       "updated": "2026-10-09"
     },
     {
@@ -92,6 +224,61 @@
     },
     {
       "crate_name": "bytes",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/bytes.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bytes",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/bytes.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bytes",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/bytes.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bytes",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/bytes.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bytes",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/bytes.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bytes",
       "lang": "ja",
       "version": "1.0",
       "author": "tan80",
@@ -110,6 +297,17 @@
       "quality": 1,
       "downloads": 0,
       "file": "ko/crates/bytes.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "bytes",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/bytes.toml",
       "updated": "2026-10-09"
     },
     {
@@ -136,6 +334,61 @@
     },
     {
       "crate_name": "clap",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/clap.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "clap",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/clap.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "clap",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/clap.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "clap",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/clap.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "clap",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/clap.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "clap",
       "lang": "ja",
       "version": "1.0",
       "author": "tan80",
@@ -154,6 +407,17 @@
       "quality": 1,
       "downloads": 0,
       "file": "ko/crates/clap.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "clap",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/clap.toml",
       "updated": "2026-10-09"
     },
     {
@@ -180,6 +444,61 @@
     },
     {
       "crate_name": "futures",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/futures.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "futures",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/futures.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "futures",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/futures.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "futures",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/futures.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "futures",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/futures.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "futures",
       "lang": "ja",
       "version": "1.0",
       "author": "tan80",
@@ -198,6 +517,17 @@
       "quality": 1,
       "downloads": 0,
       "file": "ko/crates/futures.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "futures",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/futures.toml",
       "updated": "2026-10-09"
     },
     {
@@ -235,6 +565,61 @@
     },
     {
       "crate_name": "regex",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/regex.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "regex",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/regex.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "regex",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/regex.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "regex",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/regex.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "regex",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/regex.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "regex",
       "lang": "ja",
       "version": "1.0",
       "author": "tan80",
@@ -253,6 +638,17 @@
       "quality": 1,
       "downloads": 0,
       "file": "ko/crates/regex.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "regex",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/regex.toml",
       "updated": "2026-10-09"
     },
     {
@@ -323,6 +719,61 @@
     },
     {
       "crate_name": "serde_json",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/serde_json.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "serde_json",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/serde_json.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "serde_json",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/serde_json.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "serde_json",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/serde_json.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "serde_json",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/serde_json.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "serde_json",
       "lang": "ja",
       "version": "1.0",
       "author": "tan80",
@@ -341,6 +792,17 @@
       "quality": 1,
       "downloads": 0,
       "file": "ko/crates/serde_json.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "serde_json",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/serde_json.toml",
       "updated": "2026-10-09"
     },
     {
@@ -367,6 +829,61 @@
     },
     {
       "crate_name": "thiserror",
+      "lang": "ar",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "ar/crates/thiserror.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "thiserror",
+      "lang": "de",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "de/crates/thiserror.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "thiserror",
+      "lang": "es",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "es/crates/thiserror.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "thiserror",
+      "lang": "fr",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "fr/crates/thiserror.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "thiserror",
+      "lang": "hi",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "hi/crates/thiserror.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "thiserror",
       "lang": "ja",
       "version": "1.0",
       "author": "tan80",
@@ -385,6 +902,17 @@
       "quality": 1,
       "downloads": 0,
       "file": "ko/crates/thiserror.toml",
+      "updated": "2026-10-09"
+    },
+    {
+      "crate_name": "thiserror",
+      "lang": "pt",
+      "version": "1.0",
+      "author": "tan80",
+      "license": "MIT",
+      "quality": 1,
+      "downloads": 0,
+      "file": "pt/crates/thiserror.toml",
       "updated": "2026-10-09"
     },
     {

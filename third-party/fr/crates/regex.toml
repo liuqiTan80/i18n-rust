@@ -1,0 +1,10 @@
+["模块路径"]
+"expression_reguliere" = "regex"
+
+["标识符"]
+"objet_regex" = "Regex"
+"captures" = "Captures"
+"correspond" = "is_match"
+
+["解释"]
+"expression_reguliere" = "Correspondance et remplacement par expressions régulières"

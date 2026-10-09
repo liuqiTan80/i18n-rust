@@ -1,0 +1,10 @@
+["模块路径"]
+"sinalizadores_de_bits" = "bitflags"
+
+["标识符"]
+"contem" = "contains"
+"insere" = "insert"
+"de_bits" = "from_bits"
+
+["解释"]
+"sinalizadores_de_bits" = "Conjunto de sinalizadores de bits com tipo seguro"

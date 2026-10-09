@@ -1,0 +1,8 @@
+["模块路径"]
+"abgeleitete_fehler" = "thiserror"
+
+["标识符"]
+"fehler_impl" = "Error"
+
+["解释"]
+"abgeleitete_fehler" = "Automatische Error-Ableitung für Enums"

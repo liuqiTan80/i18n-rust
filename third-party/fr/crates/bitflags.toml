@@ -1,0 +1,10 @@
+["模块路径"]
+"indicateurs_bits" = "bitflags"
+
+["标识符"]
+"contient" = "contains"
+"insere" = "insert"
+"depuis_bits" = "from_bits"
+
+["解释"]
+"indicateurs_bits" = "Ensemble d'indicateurs de bits typé"

@@ -1,0 +1,8 @@
+["模块路径"]
+"error_derivado" = "thiserror"
+
+["标识符"]
+"implementacion_error" = "Error"
+
+["解释"]
+"error_derivado" = "Derivación automática de Error para enums"

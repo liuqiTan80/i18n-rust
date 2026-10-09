@@ -1,0 +1,10 @@
+["模块路径"]
+"json_serialisierung" = "serde_json"
+
+["标识符"]
+"json_wert" = "Value"
+"aus_text" = "from_str"
+"zu_text" = "to_string"
+
+["解释"]
+"json_serialisierung" = "JSON-Kodierung und -Dekodierung für serde"

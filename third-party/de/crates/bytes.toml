@@ -1,0 +1,10 @@
+["模块路径"]
+"byte_puffer" = "bytes"
+
+["标识符"]
+"bytes" = "Bytes"
+"bytes_mut" = "BytesMut"
+"puffer" = "Buf"
+
+["解释"]
+"byte_puffer" = "Byte-Folge und Puffer ohne Kopieren"

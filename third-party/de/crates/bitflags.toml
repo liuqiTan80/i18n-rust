@@ -1,0 +1,10 @@
+["模块路径"]
+"bit_flags" = "bitflags"
+
+["标识符"]
+"enthaelt" = "contains"
+"fuegt_ein" = "insert"
+"aus_bits" = "from_bits"
+
+["解释"]
+"bit_flags" = "Typsicherer Satz von Bit-Flags"

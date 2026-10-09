@@ -1,0 +1,10 @@
+["模块路径"]
+"buffer_de_bytes" = "bytes"
+
+["标识符"]
+"bytes" = "Bytes"
+"bytes_mutaveis" = "BytesMut"
+"buffer" = "Buf"
+
+["解释"]
+"buffer_de_bytes" = "Sequência de bytes e buffer sem cópia"

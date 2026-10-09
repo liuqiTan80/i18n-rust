@@ -1,0 +1,10 @@
+["模块路径"]
+"تسلسل_json" = "serde_json"
+
+["标识符"]
+"قيمة_json" = "Value"
+"من_نص" = "from_str"
+"إلى_نص" = "to_string"
+
+["解释"]
+"تسلسل_json" = "ترميز وفك ترميز JSON لـ serde"

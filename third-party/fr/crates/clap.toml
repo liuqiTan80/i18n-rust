@@ -1,0 +1,10 @@
+["模块路径"]
+"ligne_de_commande" = "clap"
+
+["标识符"]
+"analyseur" = "Parser"
+"arguments" = "Args"
+"sous_commande" = "Subcommand"
+
+["解释"]
+"ligne_de_commande" = "Analyseur d'arguments de ligne de commande"

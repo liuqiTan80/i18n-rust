@@ -1,0 +1,10 @@
+["模块路径"]
+"tampon_octets" = "bytes"
+
+["标识符"]
+"octets" = "Bytes"
+"octets_mutables" = "BytesMut"
+"tampon" = "Buf"
+
+["解释"]
+"tampon_octets" = "Séquence d'octets et tampon sans copie"

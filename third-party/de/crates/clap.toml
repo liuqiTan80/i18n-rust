@@ -1,0 +1,10 @@
+["模块路径"]
+"kommandozeile" = "clap"
+
+["标识符"]
+"parser" = "Parser"
+"argumente" = "Args"
+"unterbefehl" = "Subcommand"
+
+["解释"]
+"kommandozeile" = "Parser für Kommandozeilenargumente"

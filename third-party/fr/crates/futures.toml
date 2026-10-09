@@ -1,0 +1,10 @@
+["模块路径"]
+"outils_asynchrones" = "futures"
+
+["标识符"]
+"flux" = "Stream"
+"sink" = "Sink"
+"joint" = "join"
+
+["解释"]
+"outils_asynchrones" = "Combinateurs asynchrones et exécuteur pour Future/Stream"

@@ -1,0 +1,10 @@
+["模块路径"]
+"erro_flexivel" = "anyhow"
+
+["标识符"]
+"erro" = "Error"
+"contexto" = "Context"
+"lancar_erro" = "bail"
+
+["解释"]
+"erro_flexivel" = "Tipo de erro flexível e propagação de contexto"

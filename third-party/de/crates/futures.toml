@@ -1,0 +1,10 @@
+["模块路径"]
+"asynchrone_werkzeuge" = "futures"
+
+["标识符"]
+"strom" = "Stream"
+"senke" = "Sink"
+"verbinde" = "join"
+
+["解释"]
+"asynchrone_werkzeuge" = "Asynchrone Combinateurs und Ausführer für Future/Stream"

@@ -1,0 +1,10 @@
+["模块路径"]
+"expresion_regular" = "regex"
+
+["标识符"]
+"objeto_regex" = "Regex"
+"capturas" = "Captures"
+"coincide" = "is_match"
+
+["解释"]
+"expresion_regular" = "Coincidencia y reemplazo con expresiones regulares"

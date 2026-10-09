@@ -1,0 +1,10 @@
+["模块路径"]
+"regularausdruck" = "regex"
+
+["标识符"]
+"regex_objekt" = "Regex"
+"captures" = "Captures"
+"ist_match" = "is_match"
+
+["解释"]
+"regularausdruck" = "Übereinstimmung und Ersetzung mit regulären Ausdrücken"

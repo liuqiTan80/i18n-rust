@@ -1,0 +1,10 @@
+["模块路径"]
+"marcas_de_bits" = "bitflags"
+
+["标识符"]
+"contiene" = "contains"
+"inserta" = "insert"
+"desde_bits" = "from_bits"
+
+["解释"]
+"marcas_de_bits" = "Conjunto de marcas de bits con tipos seguros"
