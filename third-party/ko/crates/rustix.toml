@@ -1,0 +1,10 @@
+["模块路径"]
+"rustix_시스템_콜" = "rustix"
+
+["标识符"]
+"rustix_파일_열기" = "open"
+"rustix_열기_옵션" = "OFlags"
+"rustix_권한_모드" = "Mode"
+
+["解释"]
+"rustix_시스템_콜" = "현대적 저오버헤드 시스템 콜"

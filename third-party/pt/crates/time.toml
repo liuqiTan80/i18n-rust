@@ -1,0 +1,10 @@
+["模块路径"]
+"data_hora_time" = "time"
+
+["标识符"]
+"time_data" = "Date"
+"time_hora" = "Time"
+"time_duracao" = "Duration"
+
+["解释"]
+"data_hora_time" = "Biblioteca moderna de data e hora"

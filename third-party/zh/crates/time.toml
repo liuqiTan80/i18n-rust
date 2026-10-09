@@ -1,0 +1,10 @@
+["模块路径"]
+"time日期时间" = "time"
+
+["标识符"]
+"time日期" = "Date"
+"time时刻" = "Time"
+"time时长" = "Duration"
+
+["解释"]
+"time日期时间" = "现代日期时间库"

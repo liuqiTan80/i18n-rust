@@ -1,0 +1,10 @@
+["模块路径"]
+"Protobuf_인코딩" = "prost"
+
+["标识符"]
+"protobuf_메시지_트레이트" = "Message"
+"protobuf_디코딩_오류" = "DecodeError"
+"protobuf_인코딩_오류" = "EncodeError"
+
+["解释"]
+"Protobuf_인코딩" = "간결하고 빠른 Protobuf 구현"

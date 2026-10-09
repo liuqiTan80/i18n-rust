@@ -1,0 +1,10 @@
+["模块路径"]
+"regex_avanzado" = "fancy-regex"
+
+["标识符"]
+"objeto_regex_avanzado" = "Regex"
+"grupos_regex_avanzado" = "Captures"
+"error_regex_avanzado" = "Error"
+
+["解释"]
+"regex_avanzado" = "Motor de regex con aserciones de búsqueda"

@@ -1,0 +1,10 @@
+["模块路径"]
+"ترميز_Protobuf" = "prost"
+
+["标识符"]
+"سمة_رسالة_Protobuf" = "Message"
+"خطأ_فك_ترميز_Protobuf" = "DecodeError"
+"خطأ_ترميز_Protobuf" = "EncodeError"
+
+["解释"]
+"ترميز_Protobuf" = "تنفيذ Protobuf بسيط سريع"

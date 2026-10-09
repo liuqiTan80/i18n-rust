@@ -1,0 +1,10 @@
+["模块路径"]
+"rustix系统调用" = "rustix"
+
+["标识符"]
+"rustix打开文件" = "open"
+"rustix打开选项" = "OFlags"
+"rustix权限模式" = "Mode"
+
+["解释"]
+"rustix系统调用" = "现代化低成本系统调用"

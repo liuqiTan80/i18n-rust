@@ -1,0 +1,10 @@
+["模块路径"]
+"cadeia_bytes" = "bstr"
+
+["标识符"]
+"referencia_bytes" = "ByteStr"
+"cadeia_bytes_propria" = "ByteString"
+"extensao_slice_bytes" = "ByteSlice"
+
+["解释"]
+"cadeia_bytes" = "Operações de string para bytes"

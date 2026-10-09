@@ -1,0 +1,10 @@
+["模块路径"]
+"кодирование_protobuf" = "prost"
+
+["标识符"]
+"трит_сообщения_protobuf" = "Message"
+"ошибка_декодирования_protobuf" = "DecodeError"
+"ошибка_кодирования_protobuf" = "EncodeError"
+
+["解释"]
+"кодирование_protobuf" = "Лаконичная быстрая реализация Protobuf"

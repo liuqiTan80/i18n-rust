@@ -1,0 +1,10 @@
+["模块路径"]
+"vigilancia_archivos" = "notify"
+
+["标识符"]
+"observador_archivos" = "Watcher"
+"observador_recomendado" = "RecommendedWatcher"
+"evento_cambio_archivo" = "Event"
+
+["解释"]
+"vigilancia_archivos" = "Vigilancia del sistema de archivos multiplataforma"

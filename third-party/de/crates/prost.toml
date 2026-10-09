@@ -1,0 +1,10 @@
+["模块路径"]
+"protobuf_coding" = "prost"
+
+["标识符"]
+"protobuf_nachricht_trait" = "Message"
+"protobuf_decodefehler" = "DecodeError"
+"protobuf_encodefehler" = "EncodeError"
+
+["解释"]
+"protobuf_coding" = "Schlanke schnelle Protobuf-Umsetzung"

@@ -1,0 +1,10 @@
+["模块路径"]
+"rustix_syscalls" = "rustix"
+
+["标识符"]
+"rustix_datei_oeffnen" = "open"
+"rustix_open_optionen" = "OFlags"
+"rustix_rechte_modus" = "Mode"
+
+["解释"]
+"rustix_syscalls" = "Moderne Systemaufrufe mit geringem Overhead"

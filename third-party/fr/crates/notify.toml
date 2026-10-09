@@ -1,0 +1,10 @@
+["模块路径"]
+"surveillance_fichiers" = "notify"
+
+["标识符"]
+"observateur_fichiers" = "Watcher"
+"observateur_recommande" = "RecommendedWatcher"
+"evenement_changement_fichier" = "Event"
+
+["解释"]
+"surveillance_fichiers" = "Surveillance du système de fichiers multiplateforme"

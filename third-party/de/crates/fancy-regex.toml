@@ -1,0 +1,10 @@
+["模块路径"]
+"erweiterte_regex" = "fancy-regex"
+
+["标识符"]
+"erweiterte_regex_objekt" = "Regex"
+"erweiterte_regex_gruppen" = "Captures"
+"erweiterte_regex_fehler" = "Error"
+
+["解释"]
+"erweiterte_regex" = "Regex-Engine mit Lookaround-Assertions"

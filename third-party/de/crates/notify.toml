@@ -1,0 +1,10 @@
+["模块路径"]
+"datei_ueberwachung" = "notify"
+
+["标识符"]
+"datei_beoachter" = "Watcher"
+"empfohlener_beoachter" = "RecommendedWatcher"
+"datei_aenderungs_ereignis" = "Event"
+
+["解释"]
+"datei_ueberwachung" = "Plattformübergreifende Dateiüberwachung"

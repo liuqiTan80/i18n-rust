@@ -1,0 +1,10 @@
+["模块路径"]
+"time日時" = "time"
+
+["标识符"]
+"time日付" = "Date"
+"time時刻" = "Time"
+"time期間" = "Duration"
+
+["解释"]
+"time日時" = "モダンな日付時刻ライブラリ"

@@ -1,0 +1,10 @@
+["模块路径"]
+"appels_systeme_rustix" = "rustix"
+
+["标识符"]
+"ouvrir_fichier_rustix" = "open"
+"options_ouverture_rustix" = "OFlags"
+"mode_permissions_rustix" = "Mode"
+
+["解释"]
+"appels_systeme_rustix" = "Appels système modernes à faible coût"

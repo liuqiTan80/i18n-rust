@@ -1,0 +1,10 @@
+["模块路径"]
+"codificacao_protobuf" = "prost"
+
+["标识符"]
+"rasgo_mensagem_protobuf" = "Message"
+"erro_decodificacao_protobuf" = "DecodeError"
+"erro_codificacao_protobuf" = "EncodeError"
+
+["解释"]
+"codificacao_protobuf" = "Implementação Protobuf simples e rápida"

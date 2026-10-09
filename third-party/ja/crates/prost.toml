@@ -1,0 +1,10 @@
+["模块路径"]
+"Protobufエンコード" = "prost"
+
+["标识符"]
+"protobufメッセージtrait" = "Message"
+"protobufデコードエラー" = "DecodeError"
+"protobufエンコードエラー" = "EncodeError"
+
+["解释"]
+"Protobufエンコード" = "簡潔で高速な Protobuf 実装"
