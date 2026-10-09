@@ -1,0 +1,10 @@
+["模块路径"]
+"hb_قالب" = "handlebars"
+
+["标识符"]
+"hb_عارض" = "Handlebars"
+"hb_سياق" = "Context"
+"hb_مساعد" = "Helper"
+
+["解释"]
+"hb_قالب" = "handlebars — محرك قالب Handlebars: Handlebars/Context/Helper"

@@ -1,0 +1,10 @@
+["模块路径"]
+"p384_curva" = "p384"
+
+["标识符"]
+"p384_nist" = "NistP384"
+"p384_chave_secreta" = "SecretKey"
+"p384_ponto_afim" = "AffinePoint"
+
+["解释"]
+"p384_curva" = "p384 — curva eliptica NIST P-384: NistP384/SecretKey/AffinePoint"

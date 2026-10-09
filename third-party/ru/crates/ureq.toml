@@ -1,10 +1,10 @@
 ["模块路径"]
-"лёгкий_http_клиент" = "ureq"
+"ureq_клиент" = "ureq"
 
 ["标识符"]
-"agent_http" = "Agent"
-"запрос_ureq" = "Request"
-"ответ_ureq" = "Response"
+"ureq_агент" = "Agent"
+"ureq_прокси" = "Proxy"
+"ureq_куки" = "Cookie"
 
 ["解释"]
-"лёгкий_http_клиент" = "Простой и безопасный блокирующий HTTP-клиент"
+"ureq_клиент" = "ureq — простой синхронный HTTP-клиент: Agent/Proxy/Cookie"

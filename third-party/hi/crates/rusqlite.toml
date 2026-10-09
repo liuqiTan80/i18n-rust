@@ -1,10 +1,10 @@
 ["模块路径"]
-"SQLite_रैपर" = "rusqlite"
+"rlq_डेटाबेस" = "rusqlite"
 
 ["标识符"]
-"डेटाबेस_संपर्क" = "Connection"
-"तैयार_कथन" = "Statement"
-"परिणाम_पंक्ति" = "Row"
+"rlq_कनेक्शन" = "Connection"
+"rlq_कथन" = "Statement"
+"rlq_लेनदेन" = "Transaction"
 
 ["解释"]
-"SQLite_रैपर" = "SQLite डेटाबेस हेतु सुगम रैपर"
+"rlq_डेटाबेस" = "rusqlite — सुरक्षित SQLite बाइंडिंग: Connection/Statement/Transaction"

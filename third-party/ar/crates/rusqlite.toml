@@ -1,10 +1,10 @@
 ["模块路径"]
-"غلاف_SQLite" = "rusqlite"
+"rlq_قاعدة_بيانات" = "rusqlite"
 
 ["标识符"]
-"اتصال_قاعدة_البيانات" = "Connection"
-"عبارة_مجهزة" = "Statement"
-"صف_النتيجة" = "Row"
+"rlq_اتصال" = "Connection"
+"rlq_عبارة" = "Statement"
+"rlq_معاملة" = "Transaction"
 
 ["解释"]
-"غلاف_SQLite" = "غلاف مريح لقاعدة بيانات SQLite"
+"rlq_قاعدة_بيانات" = "rusqlite — ربط آمن لقاعدة بيانات SQLite: Connection/Statement/Transaction"

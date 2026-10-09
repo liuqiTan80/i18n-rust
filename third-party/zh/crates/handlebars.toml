@@ -1,0 +1,10 @@
+["模块路径"]
+"hb模板" = "handlebars"
+
+["标识符"]
+"hb渲染器" = "Handlebars"
+"hb数据上下文" = "Context"
+"hb辅助函数" = "Helper"
+
+["解释"]
+"hb模板" = "handlebars — Handlebars模板引擎: Handlebars/Context/Helper"

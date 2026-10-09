@@ -1,10 +1,10 @@
 ["模块路径"]
-"عميل_HTTP_خفيف" = "ureq"
+"ureq_عميل" = "ureq"
 
 ["标识符"]
-"وكيل_HTTP" = "Agent"
-"طلب_ureq" = "Request"
-"رد_ureq" = "Response"
+"ureq_جلسة" = "Agent"
+"ureq_وسيط" = "Proxy"
+"ureq_كوكي" = "Cookie"
 
 ["解释"]
-"عميل_HTTP_خفيف" = "عميل HTTP محجّب بسيط وآمن"
+"ureq_عميل" = "ureq — عميل HTTP متزامن بسيط: Agent/Proxy/Cookie"

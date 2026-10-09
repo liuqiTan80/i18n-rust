@@ -1,10 +1,10 @@
 ["模块路径"]
-"BLAKE2哈希" = "blake2"
+"blk2哈希函数" = "blake2"
 
 ["标识符"]
-"BLAKE2b算法" = "Blake2b"
-"BLAKE2s算法" = "Blake2s"
-"可变长BLAKE2" = "VarBlake2"
+"blk2长哈希" = "Blake2b"
+"blk2短哈希" = "Blake2s"
+"blk2_512位" = "Blake2b512"
 
 ["解释"]
-"BLAKE2哈希" = "BLAKE2 系列加密哈希函数"
+"blk2哈希函数" = "blake2 — BLAKE2哈希函数族: Blake2b/Blake2s/Blake2b512"

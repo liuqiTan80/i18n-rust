@@ -1,0 +1,10 @@
+["模块路径"]
+"dct_عملية" = "duct"
+
+["标识符"]
+"dct_تعبير" = "Expression"
+"dct_مقبض" = "Handle"
+"dct_قارئ" = "ReaderHandle"
+
+["解释"]
+"dct_عملية" = "duct — تشغيل بسيط للعمليات الفرعية: Expression/Handle/ReaderHandle"

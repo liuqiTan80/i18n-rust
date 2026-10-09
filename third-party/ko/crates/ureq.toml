@@ -1,10 +1,10 @@
 ["模块路径"]
-"경량_HTTP_클라이언트" = "ureq"
+"ureq클라이언트" = "ureq"
 
 ["标识符"]
-"HTTP_에이전트" = "Agent"
-"ureq_요청" = "Request"
-"ureq_응답" = "Response"
+"ureq세션" = "Agent"
+"ureq프록시" = "Proxy"
+"ureq쿠키" = "Cookie"
 
 ["解释"]
-"경량_HTTP_클라이언트" = "간단하고 안전한 블로킹 HTTP 클라이언트"
+"ureq클라이언트" = "ureq — 심플 동기 HTTP 클라이언트: Agent/Proxy/Cookie"

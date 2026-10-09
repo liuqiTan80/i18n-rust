@@ -1,0 +1,10 @@
+["模块路径"]
+"p384椭圆曲线" = "p384"
+
+["标识符"]
+"p384曲线" = "NistP384"
+"p384密钥" = "SecretKey"
+"p384射影点" = "AffinePoint"
+
+["解释"]
+"p384椭圆曲线" = "p384 — NIST P-384椭圆曲线: NistP384/SecretKey/AffinePoint"

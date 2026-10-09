@@ -1,10 +1,10 @@
 ["模块路径"]
-"hachage_blake2" = "blake2"
+"blk2_hash_fonction" = "blake2"
 
 ["标识符"]
-"type_blake2b" = "Blake2b"
-"type_blake2s" = "Blake2s"
-"blake2_variable" = "VarBlake2"
+"blk2_long" = "Blake2b"
+"blk2_court" = "Blake2s"
+"blk2_512" = "Blake2b512"
 
 ["解释"]
-"hachage_blake2" = "Fonctions de hachage cryptographiques de la famille BLAKE2"
+"blk2_hash_fonction" = "blake2 — famille de hashes BLAKE2: Blake2b/Blake2s/Blake2b512"

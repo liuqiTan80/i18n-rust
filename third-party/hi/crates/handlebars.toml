@@ -1,0 +1,10 @@
+["模块路径"]
+"hb_टेम्पलेट" = "handlebars"
+
+["标识符"]
+"hb_रेंडरर" = "Handlebars"
+"hb_संदर्भ" = "Context"
+"hb_सहायक" = "Helper"
+
+["解释"]
+"hb_टेम्पलेट" = "handlebars — Handlebars टेम्पलेट इंजन: Handlebars/Context/Helper"

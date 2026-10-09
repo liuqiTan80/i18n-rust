@@ -1,10 +1,10 @@
 ["模块路径"]
-"SQLite_감싸기" = "rusqlite"
+"rlq데이터베이스" = "rusqlite"
 
 ["标识符"]
-"데이터베이스_연결" = "Connection"
-"프리페어드_문장" = "Statement"
-"결과_행" = "Row"
+"rlq연결" = "Connection"
+"rlq구문" = "Statement"
+"rlq트랜잭션" = "Transaction"
 
 ["解释"]
-"SQLite_감싸기" = "SQLite 데이터베이스의 쓰기 쉬운 래퍼"
+"rlq데이터베이스" = "rusqlite — SQLite 안전 바인딩: Connection/Statement/Transaction"

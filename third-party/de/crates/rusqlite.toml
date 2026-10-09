@@ -1,10 +1,10 @@
 ["模块路径"]
-"sqlite_huelle" = "rusqlite"
+"rlq_datenbank" = "rusqlite"
 
 ["标识符"]
-"datenbank_verbindung" = "Connection"
-"vorbereitete_anweisung" = "Statement"
-"ergebnis_zeile" = "Row"
+"rlq_verbindung" = "Connection"
+"rlq_statement" = "Statement"
+"rlq_transaktion" = "Transaction"
 
 ["解释"]
-"sqlite_huelle" = "Komfortable Hülle für die SQLite-Datenbank"
+"rlq_datenbank" = "rusqlite — sichere SQLite-Bindung: Connection/Statement/Transaction"

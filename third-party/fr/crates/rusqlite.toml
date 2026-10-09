@@ -1,10 +1,10 @@
 ["模块路径"]
-"enveloppe_sqlite" = "rusqlite"
+"rlq_base_donnees" = "rusqlite"
 
 ["标识符"]
-"connexion_base_donnees" = "Connection"
-"requete_preparee" = "Statement"
-"ligne_resultat" = "Row"
+"rlq_connexion" = "Connection"
+"rlq_requete" = "Statement"
+"rlq_transaction" = "Transaction"
 
 ["解释"]
-"enveloppe_sqlite" = "Enveloppe pratique pour la base de données SQLite"
+"rlq_base_donnees" = "rusqlite — liaison SQLite sure: Connection/Statement/Transaction"

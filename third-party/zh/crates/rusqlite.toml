@@ -1,10 +1,10 @@
 ["模块路径"]
-"SQLite封装" = "rusqlite"
+"rlq数据库" = "rusqlite"
 
 ["标识符"]
-"数据库连接" = "Connection"
-"预编译语句" = "Statement"
-"结果行" = "Row"
+"rlq连接" = "Connection"
+"rlq语句" = "Statement"
+"rlq事务" = "Transaction"
 
 ["解释"]
-"SQLite封装" = "SQLite 数据库的人性化封装"
+"rlq数据库" = "rusqlite — SQLite安全绑定: Connection/Statement/Transaction"

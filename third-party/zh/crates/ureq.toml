@@ -1,10 +1,10 @@
 ["模块路径"]
-"轻量HTTP客户端" = "ureq"
+"ureq客户端" = "ureq"
 
 ["标识符"]
-"HTTP代理句柄" = "Agent"
-"ureq请求" = "Request"
-"ureq响应" = "Response"
+"ureq会话" = "Agent"
+"ureq代理" = "Proxy"
+"ureq饼干" = "Cookie"
 
 ["解释"]
-"轻量HTTP客户端" = "简单安全的阻塞式 HTTP 客户端"
+"ureq客户端" = "ureq — 简洁同步HTTP客户端: Agent/Proxy/Cookie"

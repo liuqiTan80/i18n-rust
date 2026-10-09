@@ -1,10 +1,10 @@
 ["模块路径"]
-"cliente_http_leve" = "ureq"
+"ureq_cliente" = "ureq"
 
 ["标识符"]
-"agente_http" = "Agent"
-"requisicao_ureq" = "Request"
-"resposta_ureq" = "Response"
+"ureq_agente" = "Agent"
+"ureq_proxy" = "Proxy"
+"ureq_cookie" = "Cookie"
 
 ["解释"]
-"cliente_http_leve" = "Cliente HTTP bloqueante simples e seguro"
+"ureq_cliente" = "ureq — cliente HTTP sincrono simples: Agent/Proxy/Cookie"

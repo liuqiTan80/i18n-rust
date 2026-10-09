@@ -1,10 +1,10 @@
 ["模块路径"]
-"хеш_blake2" = "blake2"
+"blk2_хеш_функция" = "blake2"
 
 ["标识符"]
-"blake2b_тип" = "Blake2b"
-"blake2s_тип" = "Blake2s"
-"переменный_blake2" = "VarBlake2"
+"blk2_длинный" = "Blake2b"
+"blk2_короткий" = "Blake2s"
+"blk2_512_бит" = "Blake2b512"
 
 ["解释"]
-"хеш_blake2" = "Криптографические хеш-функции семейства BLAKE2"
+"blk2_хеш_функция" = "blake2 — семейство хешей BLAKE2: Blake2b/Blake2s/Blake2b512"

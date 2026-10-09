@@ -1,0 +1,10 @@
+["模块路径"]
+"dct_proceso" = "duct"
+
+["标识符"]
+"dct_expresion" = "Expression"
+"dct_mango" = "Handle"
+"dct_lector" = "ReaderHandle"
+
+["解释"]
+"dct_proceso" = "duct — ejecucion simple de subprocesos: Expression/Handle/ReaderHandle"

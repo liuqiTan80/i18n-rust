@@ -1,10 +1,10 @@
 ["模块路径"]
-"BLAKE2_हैश" = "blake2"
+"blk2_हैश" = "blake2"
 
 ["标识符"]
-"BLAKE2b_प्रकार" = "Blake2b"
-"BLAKE2s_प्रकार" = "Blake2s"
-"चर_लंबाई_BLAKE2" = "VarBlake2"
+"blk2_लंबा" = "Blake2b"
+"blk2_छोटा" = "Blake2s"
+"blk2_512_बिट" = "Blake2b512"
 
 ["解释"]
-"BLAKE2_हैश" = "BLAKE2 परिवार की क्रिप्टो हैश फलन"
+"blk2_हैश" = "blake2 — BLAKE2 हैश परिवार: Blake2b/Blake2s/Blake2b512"

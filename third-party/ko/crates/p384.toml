@@ -1,0 +1,10 @@
+["模块路径"]
+"p384타원곡선" = "p384"
+
+["标识符"]
+"p384니스트" = "NistP384"
+"p384비밀키" = "SecretKey"
+"p384아핀점" = "AffinePoint"
+
+["解释"]
+"p384타원곡선" = "p384 — NIST P-384 타원 곡선: NistP384/SecretKey/AffinePoint"

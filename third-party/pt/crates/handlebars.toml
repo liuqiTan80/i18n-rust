@@ -1,0 +1,10 @@
+["模块路径"]
+"hb_modelo" = "handlebars"
+
+["标识符"]
+"hb_renderizador" = "Handlebars"
+"hb_contexto" = "Context"
+"hb_ajudante" = "Helper"
+
+["解释"]
+"hb_modelo" = "handlebars — motor de templates Handlebars: Handlebars/Context/Helper"

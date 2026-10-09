@@ -1,10 +1,10 @@
 ["模块路径"]
-"involtro_sqlite" = "rusqlite"
+"rlq_base_dados" = "rusqlite"
 
 ["标识符"]
-"conexao_base_dados" = "Connection"
-"declaracao_preparada" = "Statement"
-"linha_resultado" = "Row"
+"rlq_conexao" = "Connection"
+"rlq_sentenca" = "Statement"
+"rlq_transacao" = "Transaction"
 
 ["解释"]
-"involtro_sqlite" = "Invólucro prático para o banco de dados SQLite"
+"rlq_base_dados" = "rusqlite — ligacao segura de SQLite: Connection/Statement/Transaction"

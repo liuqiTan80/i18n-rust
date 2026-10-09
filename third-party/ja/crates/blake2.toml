@@ -1,10 +1,10 @@
 ["模块路径"]
-"BLAKE2ハッシュ" = "blake2"
+"blk2ハッシュ" = "blake2"
 
 ["标识符"]
-"BLAKE2b型" = "Blake2b"
-"BLAKE2s型" = "Blake2s"
-"可変長BLAKE2" = "VarBlake2"
+"blk2ロング" = "Blake2b"
+"blk2ショート" = "Blake2s"
+"blk2_512ビット" = "Blake2b512"
 
 ["解释"]
-"BLAKE2ハッシュ" = "BLAKE2 シリーズの暗号ハッシュ関数"
+"blk2ハッシュ" = "blake2 — BLAKE2ハッシュ族: Blake2b/Blake2s/Blake2b512"

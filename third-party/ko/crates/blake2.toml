@@ -1,10 +1,10 @@
 ["模块路径"]
-"BLAKE2_해시" = "blake2"
+"blk2해시" = "blake2"
 
 ["标识符"]
-"BLAKE2b_형" = "Blake2b"
-"BLAKE2s_형" = "Blake2s"
-"가변_길이_BLAKE2" = "VarBlake2"
+"blk2긴해시" = "Blake2b"
+"blk2짧은해시" = "Blake2s"
+"blk2_512비트" = "Blake2b512"
 
 ["解释"]
-"BLAKE2_해시" = "BLAKE2 계열 암호화 해시 함수"
+"blk2해시" = "blake2 — BLAKE2 해시 함수 가족: Blake2b/Blake2s/Blake2b512"

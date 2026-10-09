@@ -1,10 +1,10 @@
 ["模块路径"]
-"تجزئة_BLAKE2" = "blake2"
+"blk2_تجزئة" = "blake2"
 
 ["标识符"]
-"نوع_BLAKE2b" = "Blake2b"
-"نوع_BLAKE2s" = "Blake2s"
-"BLAKE2_متغير_الطول" = "VarBlake2"
+"blk2_طويل" = "Blake2b"
+"blk2_قصير" = "Blake2s"
+"blk2_512_بت" = "Blake2b512"
 
 ["解释"]
-"تجزئة_BLAKE2" = "دوال تجزئة تشفيرية من عائلة BLAKE2"
+"blk2_تجزئة" = "blake2 — عائلة تجزئة BLAKE2: Blake2b/Blake2s/Blake2b512"

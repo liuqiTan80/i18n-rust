@@ -1,0 +1,10 @@
+["模块路径"]
+"dct_процесс" = "duct"
+
+["标识符"]
+"dct_выражение" = "Expression"
+"dct_дескриптор" = "Handle"
+"dct_читатель" = "ReaderHandle"
+
+["解释"]
+"dct_процесс" = "duct — простая запуск дочерних процессов: Expression/Handle/ReaderHandle"

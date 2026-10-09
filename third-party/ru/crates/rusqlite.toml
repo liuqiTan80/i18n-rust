@@ -1,10 +1,10 @@
 ["模块路径"]
-"обертка_sqlite" = "rusqlite"
+"rlq_база_данных" = "rusqlite"
 
 ["标识符"]
-"соединение_базы" = "Connection"
-"подготовленное_выражение" = "Statement"
-"строка_результата" = "Row"
+"rlq_соединение" = "Connection"
+"rlq_оператор" = "Statement"
+"rlq_транзакция" = "Transaction"
 
 ["解释"]
-"обертка_sqlite" = "Удобная обёртка для базы данных SQLite"
+"rlq_база_данных" = "rusqlite — безопасная привязка SQLite: Connection/Statement/Transaction"

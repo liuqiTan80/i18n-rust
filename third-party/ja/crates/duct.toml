@@ -1,0 +1,10 @@
+["模块路径"]
+"dctプロセス" = "duct"
+
+["标识符"]
+"dct式" = "Expression"
+"dctハンドル" = "Handle"
+"dct読み取りハンドル" = "ReaderHandle"
+
+["解释"]
+"dctプロセス" = "duct — 簡易サブプロセス実行: Expression/Handle/ReaderHandle"

@@ -1,10 +1,10 @@
 ["模块路径"]
-"SQLiteラッパ" = "rusqlite"
+"rlqデータベース" = "rusqlite"
 
 ["标识符"]
-"データベース接続" = "Connection"
-"プリペアドステートメント" = "Statement"
-"結果行" = "Row"
+"rlq接続" = "Connection"
+"rlqステートメント" = "Statement"
+"rlqトランザクション" = "Transaction"
 
 ["解释"]
-"SQLiteラッパ" = "SQLite データベースの使いやすいラッパー"
+"rlqデータベース" = "rusqlite — SQLiteセーフバインディング: Connection/Statement/Transaction"
