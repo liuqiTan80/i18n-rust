@@ -1,0 +1,10 @@
+["模块路径"]
+"lap_طابور_رسائل" = "lapin"
+
+["标识符"]
+"lap_اتصال" = "Connection"
+"lap_قناة" = "Channel"
+"lap_مستهلك" = "Consumer"
+
+["解释"]
+"lap_طابور_رسائل" = "lapin — عميل AMQP غير متزامن لـRabbitMQ: Connection/Channel/Consumer"

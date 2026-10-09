@@ -1,0 +1,10 @@
+["模块路径"]
+"boa引擎库" = "boa_engine"
+
+["标识符"]
+"boa执行上下文" = "Context"
+"boa值" = "JsValue"
+"boa对象" = "JsObject"
+
+["解释"]
+"boa引擎库" = "boa_engine — ECMAScript JS引擎: Context/JsValue/JsObject"

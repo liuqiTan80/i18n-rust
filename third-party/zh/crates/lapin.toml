@@ -1,0 +1,10 @@
+["模块路径"]
+"lap消息队列" = "lapin"
+
+["标识符"]
+"lap连接" = "Connection"
+"lap通道" = "Channel"
+"lap消费者" = "Consumer"
+
+["解释"]
+"lap消息队列" = "lapin — 异步AMQP RabbitMQ客户端: Connection/Channel/Consumer"

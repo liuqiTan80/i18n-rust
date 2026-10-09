@@ -1,0 +1,10 @@
+["模块路径"]
+"reg_वर्चुअल_मेमोरी" = "region"
+
+["标识符"]
+"reg_आवंटन" = "Allocation"
+"reg_सुरक्षा" = "Protection"
+"reg_लॉक_गार्ड" = "LockGuard"
+
+["解释"]
+"reg_वर्चुअल_मेमोरी" = "region — क्रॉस-प्लैटफ़ॉर्म मेमोरी संचालन: Allocation/Protection/LockGuard"

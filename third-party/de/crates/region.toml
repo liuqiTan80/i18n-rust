@@ -1,0 +1,10 @@
+["模块路径"]
+"reg_speicher" = "region"
+
+["标识符"]
+"reg_zuweisung" = "Allocation"
+"reg_schutz" = "Protection"
+"reg_lock_guard" = "LockGuard"
+
+["解释"]
+"reg_speicher" = "region — plattformuebergreifende Speicherfunktionen: Allocation/Protection/LockGuard"

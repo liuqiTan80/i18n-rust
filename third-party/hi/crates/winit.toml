@@ -1,0 +1,10 @@
+["模块路径"]
+"win_खिड़की_तंत्र" = "winit"
+
+["标识符"]
+"win_इवेंट_लूप" = "EventLoop"
+"win_खिड़की" = "Window"
+"win_नियंत्रण_प्रवाह" = "ControlFlow"
+
+["解释"]
+"win_खिड़की_तंत्र" = "winit — क्रॉस-प्लैटफ़ॉर्म विंडो और इवेंट: EventLoop/Window/ControlFlow"

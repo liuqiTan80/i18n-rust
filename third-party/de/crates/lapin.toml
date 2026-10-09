@@ -1,0 +1,10 @@
+["模块路径"]
+"lap_messaging" = "lapin"
+
+["标识符"]
+"lap_verbindung" = "Connection"
+"lap_kanal" = "Channel"
+"lap_verbraucher" = "Consumer"
+
+["解释"]
+"lap_messaging" = "lapin — asynchroner AMQP-Client fuer RabbitMQ: Connection/Channel/Consumer"

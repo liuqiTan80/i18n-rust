@@ -1,0 +1,10 @@
+["模块路径"]
+"wt_runtime" = "wasmtime"
+
+["标识符"]
+"wt_moteur" = "Engine"
+"wt_magasin" = "Store"
+"wt_module" = "Module"
+
+["解释"]
+"wt_runtime" = "wasmtime — executaire JIT de WebAssembly: Engine/Store/Module"

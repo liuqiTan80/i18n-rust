@@ -1,0 +1,10 @@
+["模块路径"]
+"win_fenetres" = "winit"
+
+["标识符"]
+"win_boucle_evenements" = "EventLoop"
+"win_fenetre" = "Window"
+"win_flux_controle" = "ControlFlow"
+
+["解释"]
+"win_fenetres" = "winit — fenetres et evenements multiplateformes: EventLoop/Window/ControlFlow"

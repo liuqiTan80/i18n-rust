@@ -1,0 +1,10 @@
+["模块路径"]
+"boa_محرك_جافاسكربت" = "boa_engine"
+
+["标识符"]
+"boa_سياق" = "Context"
+"boa_قيمة" = "JsValue"
+"boa_كائن" = "JsObject"
+
+["解释"]
+"boa_محرك_جافاسكربت" = "boa_engine — محرك جافاسكربت ECMAScript: Context/JsValue/JsObject"

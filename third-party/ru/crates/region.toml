@@ -1,0 +1,10 @@
+["模块路径"]
+"reg_виртуальная_память" = "region"
+
+["标识符"]
+"reg_выделение" = "Allocation"
+"reg_защита" = "Protection"
+"reg_замок" = "LockGuard"
+
+["解释"]
+"reg_виртуальная_память" = "region — кроссплатформенные операции с памятью: Allocation/Protection/LockGuard"

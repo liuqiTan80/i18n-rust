@@ -1,0 +1,10 @@
+["模块路径"]
+"reg_ذاكرة" = "region"
+
+["标识符"]
+"reg_تخصيص" = "Allocation"
+"reg_حماية" = "Protection"
+"reg_حارس_قفل" = "LockGuard"
+
+["解释"]
+"reg_ذاكرة" = "region — عمليات ذاكرة عبر المنصات: Allocation/Protection/LockGuard"

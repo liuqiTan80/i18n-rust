@@ -1,0 +1,10 @@
+["模块路径"]
+"reg虚拟内存" = "region"
+
+["标识符"]
+"reg分配句柄" = "Allocation"
+"reg保护标志" = "Protection"
+"reg锁守卫" = "LockGuard"
+
+["解释"]
+"reg虚拟内存" = "region — 跨平台虚拟内存操作: Allocation/Protection/LockGuard"

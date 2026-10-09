@@ -1,0 +1,10 @@
+["模块路径"]
+"sln_gui_bibliothek" = "slint"
+
+["标识符"]
+"sln_fenster" = "Window"
+"sln_shared_string" = "SharedString"
+"sln_timer" = "Timer"
+
+["解释"]
+"sln_gui_bibliothek" = "slint — deklaratives GUI-Toolkit: Window/SharedString/Timer"

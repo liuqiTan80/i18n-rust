@@ -1,0 +1,10 @@
+["模块路径"]
+"reg가상메모리" = "region"
+
+["标识符"]
+"reg할당" = "Allocation"
+"reg보호" = "Protection"
+"reg잠금가드" = "LockGuard"
+
+["解释"]
+"reg가상메모리" = "region — 크로스플랫폼 가상 메모리 작업: Allocation/Protection/LockGuard"

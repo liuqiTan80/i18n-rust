@@ -1,0 +1,10 @@
+["模块路径"]
+"reg仮想メモリ" = "region"
+
+["标识符"]
+"regアロケーション" = "Allocation"
+"reg保護" = "Protection"
+"regロックガード" = "LockGuard"
+
+["解释"]
+"reg仮想メモリ" = "region — クロスプラットフォーム仮想メモリ操作: Allocation/Protection/LockGuard"

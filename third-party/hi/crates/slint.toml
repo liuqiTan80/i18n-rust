@@ -1,0 +1,10 @@
+["模块路径"]
+"sln_इंटरफेस" = "slint"
+
+["标识符"]
+"sln_खिड़की" = "Window"
+"sln_साझा_स्ट्रिंग" = "SharedString"
+"sln_टाइमर" = "Timer"
+
+["解释"]
+"sln_इंटरफेस" = "slint — घोषणात्मक GUI टूलकिट: Window/SharedString/Timer"

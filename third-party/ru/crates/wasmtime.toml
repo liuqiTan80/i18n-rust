@@ -1,0 +1,10 @@
+["模块路径"]
+"wt_рантайм" = "wasmtime"
+
+["标识符"]
+"wt_движок" = "Engine"
+"wt_хранилище" = "Store"
+"wt_модуль" = "Module"
+
+["解释"]
+"wt_рантайм" = "wasmtime — среда исполнения Wasm с JIT: Engine/Store/Module"

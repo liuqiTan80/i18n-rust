@@ -1,0 +1,10 @@
+["模块路径"]
+"wt_وقت_التشغيل" = "wasmtime"
+
+["标识符"]
+"wt_محرك" = "Engine"
+"wt_مخزن" = "Store"
+"wt_وحدة" = "Module"
+
+["解释"]
+"wt_وقت_التشغيل" = "wasmtime — بيئة تشغيل Wasm JIT: Engine/Store/Module"

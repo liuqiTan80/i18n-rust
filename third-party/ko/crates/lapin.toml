@@ -1,0 +1,10 @@
+["模块路径"]
+"lap메시지큐" = "lapin"
+
+["标识符"]
+"lap연결" = "Connection"
+"lap채널" = "Channel"
+"lap소비자" = "Consumer"
+
+["解释"]
+"lap메시지큐" = "lapin — 비동기 AMQP RabbitMQ 클라이언트: Connection/Channel/Consumer"

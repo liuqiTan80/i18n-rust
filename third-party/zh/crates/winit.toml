@@ -1,0 +1,10 @@
+["模块路径"]
+"win窗口系统" = "winit"
+
+["标识符"]
+"win事件循环" = "EventLoop"
+"win窗口句柄" = "Window"
+"win控制流" = "ControlFlow"
+
+["解释"]
+"win窗口系统" = "winit — 跨平台窗口与事件循环: EventLoop/Window/ControlFlow"

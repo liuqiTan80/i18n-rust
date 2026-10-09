@@ -1,0 +1,10 @@
+["模块路径"]
+"lap_очередь" = "lapin"
+
+["标识符"]
+"lap_соединение" = "Connection"
+"lap_канал" = "Channel"
+"lap_потребитель" = "Consumer"
+
+["解释"]
+"lap_очередь" = "lapin — асинхронный AMQP-клиент RabbitMQ: Connection/Channel/Consumer"

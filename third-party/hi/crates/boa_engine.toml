@@ -1,0 +1,10 @@
+["模块路径"]
+"boa_जावास्क्रिप्ट_इंजन" = "boa_engine"
+
+["标识符"]
+"boa_संदर्भ" = "Context"
+"boa_मान" = "JsValue"
+"boa_वस्तु" = "JsObject"
+
+["解释"]
+"boa_जावास्क्रिप्ट_इंजन" = "boa_engine — ECMAScript जावास्क्रिप्ट इंजन: Context/JsValue/JsObject"

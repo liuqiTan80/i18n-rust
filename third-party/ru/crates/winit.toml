@@ -1,0 +1,10 @@
+["模块路径"]
+"win_оконная_система" = "winit"
+
+["标识符"]
+"win_цикл_событий" = "EventLoop"
+"win_окно" = "Window"
+"win_поток_управления" = "ControlFlow"
+
+["解释"]
+"win_оконная_система" = "winit — кроссплатформенные окна и события: EventLoop/Window/ControlFlow"

@@ -1,0 +1,10 @@
+["模块路径"]
+"sln_biblioteca_ui" = "slint"
+
+["标识符"]
+"sln_janela" = "Window"
+"sln_cadeia_compartilhada" = "SharedString"
+"sln_temporizador" = "Timer"
+
+["解释"]
+"sln_biblioteca_ui" = "slint — kit GUI declarativo: Window/SharedString/Timer"

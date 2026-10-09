@@ -1,0 +1,10 @@
+["模块路径"]
+"reg_memoire" = "region"
+
+["标识符"]
+"reg_allocation" = "Allocation"
+"reg_protection" = "Protection"
+"reg_verrou_garde" = "LockGuard"
+
+["解释"]
+"reg_memoire" = "region — operations memoire multiplateformes: Allocation/Protection/LockGuard"

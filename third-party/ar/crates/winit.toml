@@ -1,0 +1,10 @@
+["模块路径"]
+"win_نظام_النوافذ" = "winit"
+
+["标识符"]
+"win_حلقة_أحداث" = "EventLoop"
+"win_نافذة" = "Window"
+"win_تدفق_التحكم" = "ControlFlow"
+
+["解释"]
+"win_نظام_النوافذ" = "winit — نوافذ وأحداث عبر المنصات: EventLoop/Window/ControlFlow"

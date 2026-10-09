@@ -1,0 +1,10 @@
+["模块路径"]
+"lap_संदेश_कतार" = "lapin"
+
+["标识符"]
+"lap_कनेक्शन" = "Connection"
+"lap_चैनल" = "Channel"
+"lap_उपभोक्ता" = "Consumer"
+
+["解释"]
+"lap_संदेश_कतार" = "lapin — एसिंक्रोनस AMQP RabbitMQ क्लाइंट: Connection/Channel/Consumer"

@@ -1,0 +1,10 @@
+["模块路径"]
+"boa_moteur_js" = "boa_engine"
+
+["标识符"]
+"boa_contexte" = "Context"
+"boa_valeur_js" = "JsValue"
+"boa_objet_js" = "JsObject"
+
+["解释"]
+"boa_moteur_js" = "boa_engine — moteur JavaScript ECMAScript: Context/JsValue/JsObject"

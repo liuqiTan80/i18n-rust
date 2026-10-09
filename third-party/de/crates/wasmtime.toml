@@ -1,0 +1,10 @@
+["模块路径"]
+"wt_runtime" = "wasmtime"
+
+["标识符"]
+"wt_engine" = "Engine"
+"wt_store" = "Store"
+"wt_modul" = "Module"
+
+["解释"]
+"wt_runtime" = "wasmtime — WebAssembly-JIT-Laufzeit: Engine/Store/Module"

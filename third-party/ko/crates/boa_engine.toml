@@ -1,0 +1,10 @@
+["模块路径"]
+"boa_JS엔진" = "boa_engine"
+
+["标识符"]
+"boa컨텍스트" = "Context"
+"boa값" = "JsValue"
+"boa객체" = "JsObject"
+
+["解释"]
+"boa_JS엔진" = "boa_engine — ECMAScript JS 엔진: Context/JsValue/JsObject"

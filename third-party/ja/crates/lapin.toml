@@ -1,0 +1,10 @@
+["模块路径"]
+"lap_AMQPクライアント" = "lapin"
+
+["标识符"]
+"lap接続" = "Connection"
+"lapチャネル" = "Channel"
+"lapコンシューマ" = "Consumer"
+
+["解释"]
+"lap_AMQPクライアント" = "lapin — 非同期AMQP RabbitMQクライアント: Connection/Channel/Consumer"

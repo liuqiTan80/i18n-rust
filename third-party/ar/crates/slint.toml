@@ -1,0 +1,10 @@
+["模块路径"]
+"sln_مكتبة_الواجهة" = "slint"
+
+["标识符"]
+"sln_نافذة" = "Window"
+"sln_سلسلة_مشتركة" = "SharedString"
+"sln_مؤقت" = "Timer"
+
+["解释"]
+"sln_مكتبة_الواجهة" = "slint — مجموعة أدوات واجهة تصريحية: Window/SharedString/Timer"

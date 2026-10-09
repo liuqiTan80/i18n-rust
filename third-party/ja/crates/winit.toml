@@ -1,0 +1,10 @@
+["模块路径"]
+"winウィンドウ" = "winit"
+
+["标识符"]
+"winイベントループ" = "EventLoop"
+"win窓" = "Window"
+"win制御フロー" = "ControlFlow"
+
+["解释"]
+"winウィンドウ" = "winit — クロスプラットフォーム窓とイベントループ: EventLoop/Window/ControlFlow"
