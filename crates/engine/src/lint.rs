@@ -1060,4 +1060,50 @@ mod tests {
             "{warnings:?}"
         );
     }
+
+    /// 原始字符串与字符字面量内的数字/易混方法名不参与判定：模块文档称扫描器与
+    /// fullwidth 同构、跳过 字符串/字符/原始字符串/注释，但既有 lint 负例只测了
+    /// 普通双引号串与行/块注释，未覆盖 literal 状态 2（字符）与 3（原始串）
+    /// ——而 fullwidth 对此两类有专测。先以代码位同名方法确证会提示（排除“全局
+    /// 静音”假象），再断言同样的内容落进原始串/字符字面量即被状态机跳过。
+    #[test]
+    fn test_raw_and_char_literal_ignored() {
+        let known: HashSet<String> = ["展平".to_string()].into_iter().collect();
+        let amb = zh_ambiguous();
+        // 正例锚点：.拉平() 在代码位应触发易混提示（与 known 里的 展平 编辑距离 1）
+        let code = r#"函数 主函数() {
+    让 x = 项们.拉平();
+}"#;
+        let code_warns = lint_teaching_with_words(code, &known, &amb);
+        assert!(
+            code_warns
+                .iter()
+                .any(|w| w.kind == LintKind::ConfusableMethod),
+            "代码位 .拉平() 应提示：{code_warns:?}"
+        );
+        // 原始串 r#"..."# 内的数字与易混方法名均被状态机(3)跳过
+        let raw = r##"函数 主函数() {
+    让 s = r#"42 项们.拉平()"#;
+}"##;
+        let raw_warns = lint_teaching_with_words(raw, &known, &amb);
+        assert!(
+            !raw_warns.iter().any(|w| w.kind == LintKind::MagicNumber),
+            "原始串内 42 不应报魔法数字：{raw_warns:?}"
+        );
+        assert!(
+            !raw_warns
+                .iter()
+                .any(|w| w.kind == LintKind::ConfusableMethod),
+            "原始串内 .拉平() 不应报易混方法：{raw_warns:?}"
+        );
+        // 字符字面量 '5' 内的数字被状态机(2)跳过
+        let ch_lit = r#"函数 主函数() {
+    让 c = '5';
+}"#;
+        let ch_warns = lint_teaching(ch_lit);
+        assert!(
+            !ch_warns.iter().any(|w| w.kind == LintKind::MagicNumber),
+            "字符字面量内 5 不应报魔法数字：{ch_warns:?}"
+        );
+    }
 }
