@@ -1,0 +1,10 @@
+["模块路径"]
+"calculo_paralelo" = "rayon"
+
+["标识符"]
+"iterar_paralelo" = "par_iter"
+"lancar_tarefa" = "spawn"
+"threads_atuais" = "current_num_threads"
+
+["解释"]
+"calculo_paralelo" = "Biblioteca simples de paralelismo com roubo de trabalho"

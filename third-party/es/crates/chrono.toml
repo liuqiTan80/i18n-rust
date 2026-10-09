@@ -1,0 +1,10 @@
+["模块路径"]
+"fecha_y_hora" = "chrono"
+
+["标识符"]
+"tiempo_utc" = "Utc"
+"fecha_simple" = "NaiveDate"
+"duracion" = "Duration"
+
+["解释"]
+"fecha_y_hora" = "Biblioteca de fecha y hora para Rust"

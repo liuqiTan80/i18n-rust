@@ -1,0 +1,10 @@
+["模块路径"]
+"parallelnye_iteratory" = "rayon"
+
+["标识符"]
+"parallelnyi_iteraciya" = "par_iter"
+"zapustit_zadachu" = "spawn"
+"tekushhee_chilo_potokov" = "current_num_threads"
+
+["解释"]
+"parallelnye_iteratory" = "Prostaya biblioteka parallelizma s work-stealing"

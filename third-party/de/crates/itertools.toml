@@ -1,0 +1,10 @@
+["模块路径"]
+"iterator_helfer" = "itertools"
+
+["标识符"]
+"paarweise" = "zip"
+"blockweise" = "chunks"
+"sortieren" = "sorted"
+
+["解释"]
+"iterator_helfer" = "Zusätzliche Iterator-Adapter und Helfer"

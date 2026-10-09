@@ -1,0 +1,9 @@
+["模块路径"]
+"numero_aleatorio" = "rand"
+
+["标识符"]
+"aleatorio_thread" = "thread_rng"
+"gerar" = "gen"
+
+["解释"]
+"numero_aleatorio" = "Biblioteca de números aleatórios e distribuições"

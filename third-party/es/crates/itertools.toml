@@ -1,0 +1,10 @@
+["模块路径"]
+"utilidades_iterador" = "itertools"
+
+["标识符"]
+"emparejar" = "zip"
+"trocear" = "chunks"
+"ordenar" = "sorted"
+
+["解释"]
+"utilidades_iterador" = "Adaptadores de iterador adicionales y utilidades"

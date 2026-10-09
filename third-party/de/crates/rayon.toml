@@ -1,0 +1,10 @@
+["模块路径"]
+"parallele_berechnung" = "rayon"
+
+["标识符"]
+"parallel_iterieren" = "par_iter"
+"aufgabe_starten" = "spawn"
+"aktuelle_thread_anzahl" = "current_num_threads"
+
+["解释"]
+"parallele_berechnung" = "Einfache Parallelbibliothek mit Work-Stealing"

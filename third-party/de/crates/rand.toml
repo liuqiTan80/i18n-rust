@@ -1,0 +1,9 @@
+["模块路径"]
+"zufallszahlen" = "rand"
+
+["标识符"]
+"thread_zufall" = "thread_rng"
+"erzeugen" = "gen"
+
+["解释"]
+"zufallszahlen" = "Bibliothek für Zufallszahlen und Verteilungen"

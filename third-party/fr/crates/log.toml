@@ -1,0 +1,10 @@
+["模块路径"]
+"journalisation" = "log"
+
+["标识符"]
+"niveau_journal" = "Level"
+"message_info" = "info"
+"avertissement" = "warn"
+
+["解释"]
+"journalisation" = "Façade de journalisation légère pour Rust"

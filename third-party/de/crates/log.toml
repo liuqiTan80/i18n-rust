@@ -1,0 +1,10 @@
+["模块路径"]
+"protokoll" = "log"
+
+["标识符"]
+"protokoll_stufe" = "Level"
+"info_meldung" = "info"
+"warnung" = "warn"
+
+["解释"]
+"protokoll" = "Leichtgewichtiges Logging-Frontend für Rust"

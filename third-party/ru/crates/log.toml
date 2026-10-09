@@ -1,0 +1,10 @@
+["模块路径"]
+"логирование" = "log"
+
+["标识符"]
+"уровень_лога" = "Level"
+"informacionnoe_soobshchenie" = "info"
+"preduprezhdenie" = "warn"
+
+["解释"]
+"логирование" = "Лёгкий фасад логирования для Rust"

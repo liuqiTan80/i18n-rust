@@ -1,0 +1,10 @@
+["模块路径"]
+"registro" = "log"
+
+["标识符"]
+"nivel_registro" = "Level"
+"mensaje_info" = "info"
+"advertencia" = "warn"
+
+["解释"]
+"registro" = "Fachada ligera de registro para Rust"
