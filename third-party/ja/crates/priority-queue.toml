@@ -1,0 +1,10 @@
+["模块路径"]
+"prq優先キュー" = "priority_queue"
+
+["标识符"]
+"prq優先キュー型" = "PriorityQueue"
+"prq双頭優先キュー" = "DoublePriorityQueue"
+"prq予約失敗エラー" = "TryReserveError"
+
+["解释"]
+"prq優先キュー" = "priority-queue — 優先度変更可能な両頭キュー: PriorityQueue/DoublePriorityQueue/TryReserveError"

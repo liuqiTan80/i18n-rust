@@ -1,0 +1,10 @@
+["模块路径"]
+"nmr_numeros_racionales" = "num_rational"
+
+["标识符"]
+"nmr_razon" = "Ratio"
+"nmr_racional32" = "Rational32"
+"nmr_racional64" = "Rational64"
+
+["解释"]
+"nmr_numeros_racionales" = "num-rational — numeros racionales: Ratio/Rational32/Rational64"

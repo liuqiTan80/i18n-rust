@@ -1,0 +1,10 @@
+["模块路径"]
+"nmt_zahlen_traits" = "num_traits"
+
+["标识符"]
+"nmt_null_trait" = "Zero"
+"nmt_eins_trait" = "One"
+"nmt_zahl_trait" = "Num"
+
+["解释"]
+"nmt_zahlen_traits" = "num-traits — generische Zahlen-Traits: Zero/One/Num"

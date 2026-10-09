@@ -1,0 +1,10 @@
+["模块路径"]
+"prq_طابور_أولوية" = "priority_queue"
+
+["标识符"]
+"prq_نوع_طابور_أولوية" = "PriorityQueue"
+"prq_طابور_مزدوج_الأولوية" = "DoublePriorityQueue"
+"prq_خطأ_تخزين" = "TryReserveError"
+
+["解释"]
+"prq_طابور_أولوية" = "priority-queue — طابور أولوية قابل للتعديل: PriorityQueue/DoublePriorityQueue/TryReserveError"

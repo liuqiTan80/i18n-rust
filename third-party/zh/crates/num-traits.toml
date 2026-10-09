@@ -1,0 +1,10 @@
+["模块路径"]
+"nmt数字特质" = "num_traits"
+
+["标识符"]
+"nmt零特质" = "Zero"
+"nmt一特质" = "One"
+"nmt数字基特质" = "Num"
+
+["解释"]
+"nmt数字特质" = "num-traits — 泛型数值特质: Zero/One/Num"

@@ -1,0 +1,10 @@
+["模块路径"]
+"prq_приор_очередь" = "priority_queue"
+
+["标识符"]
+"prq_приор_очер_тип" = "PriorityQueue"
+"prq_двойн_приор_очер" = "DoublePriorityQueue"
+"prq_ошибк_резерв" = "TryReserveError"
+
+["解释"]
+"prq_приор_очередь" = "priority-queue — приоритетная очередь с изменением: PriorityQueue/DoublePriorityQueue/TryReserveError"

@@ -1,0 +1,10 @@
+["模块路径"]
+"stq_similaridade_cadeias" = "strsim"
+
+["标识符"]
+"stq_distancia_hamming" = "hamming"
+"stq_distancia_levenshtein" = "levenshtein"
+"stq_jaro_winkler_sim" = "jaro_winkler"
+
+["解释"]
+"stq_similaridade_cadeias" = "strsim — similaridade de cadeias: hamming/levenshtein/jaro_winkler"

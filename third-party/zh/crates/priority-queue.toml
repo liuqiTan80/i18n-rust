@@ -1,0 +1,10 @@
+["模块路径"]
+"prq优先队列" = "priority_queue"
+
+["标识符"]
+"prq优先队列型" = "PriorityQueue"
+"prq双端优先队列" = "DoublePriorityQueue"
+"prq预留失败错误" = "TryReserveError"
+
+["解释"]
+"prq优先队列" = "priority-queue — 可改优先级的双端队列: PriorityQueue/DoublePriorityQueue/TryReserveError"

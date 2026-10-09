@@ -1,0 +1,10 @@
+["模块路径"]
+"prq_file_prioritaire" = "priority_queue"
+
+["标识符"]
+"prq_type_file_prio" = "PriorityQueue"
+"prq_file_prio_double" = "DoublePriorityQueue"
+"prq_err_reserve" = "TryReserveError"
+
+["解释"]
+"prq_file_prioritaire" = "priority-queue — file de priorite modifiable: PriorityQueue/DoublePriorityQueue/TryReserveError"

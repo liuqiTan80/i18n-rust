@@ -1,0 +1,10 @@
+["模块路径"]
+"stq_समानता_माप" = "strsim"
+
+["标识符"]
+"stq_हैमिंग_दूरी" = "hamming"
+"stq_लेवेनस्टीन_दूरी" = "levenshtein"
+"stq_जारो_विंकलर" = "jaro_winkler"
+
+["解释"]
+"stq_समानता_माप" = "strsim — समानता मापन: hamming/levenshtein/jaro_winkler"

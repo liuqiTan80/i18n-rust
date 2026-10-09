@@ -1,0 +1,10 @@
+["模块路径"]
+"prq_prioritaets_schlange" = "priority_queue"
+
+["标识符"]
+"prq_prio_schlange_typ" = "PriorityQueue"
+"prq_doppelte_prio_schlange" = "DoublePriorityQueue"
+"prq_reservierungsfehler" = "TryReserveError"
+
+["解释"]
+"prq_prioritaets_schlange" = "priority-queue — Prioritaetswarteschlange mit Aenderung: PriorityQueue/DoublePriorityQueue/TryReserveError"

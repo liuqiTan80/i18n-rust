@@ -1,0 +1,10 @@
+["模块路径"]
+"prq_cola_prioridad" = "priority_queue"
+
+["标识符"]
+"prq_tipo_cola_prio" = "PriorityQueue"
+"prq_cola_prio_doble" = "DoublePriorityQueue"
+"prq_error_reserva" = "TryReserveError"
+
+["解释"]
+"prq_cola_prioridad" = "priority-queue — cola de prioridad modificable: PriorityQueue/DoublePriorityQueue/TryReserveError"

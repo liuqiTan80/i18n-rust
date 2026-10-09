@@ -1,0 +1,10 @@
+["模块路径"]
+"tpp_extension_cadena_puntos" = "tap"
+
+["标识符"]
+"tpp_trait_tap" = "Tap"
+"tpp_trait_pipe" = "Pipe"
+"tpp_trait_conv" = "Conv"
+
+["解释"]
+"tpp_extension_cadena_puntos" = "tap — extension de metodos encadenados: Tap/Pipe/Conv"

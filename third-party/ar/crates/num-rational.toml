@@ -1,0 +1,10 @@
+["模块路径"]
+"nmr_أعداد_نسبية" = "num_rational"
+
+["标识符"]
+"nmr_نسبة" = "Ratio"
+"nmr_نسبي32" = "Rational32"
+"nmr_نسبي64" = "Rational64"
+
+["解释"]
+"nmr_أعداد_نسبية" = "num-rational — أعداد نسبية: Ratio/Rational32/Rational64"

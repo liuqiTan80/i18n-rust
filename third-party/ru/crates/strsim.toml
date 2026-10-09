@@ -1,0 +1,10 @@
+["模块路径"]
+"stq_сходство_строк" = "strsim"
+
+["标识符"]
+"stq_хэмминг_расст" = "hamming"
+"stq_левенштейн_расст" = "levenshtein"
+"stq_жаро_винклер" = "jaro_winkler"
+
+["解释"]
+"stq_сходство_строк" = "strsim — сходство строк: hamming/levenshtein/jaro_winkler"

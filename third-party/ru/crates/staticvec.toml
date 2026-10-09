@@ -1,0 +1,10 @@
+["模块路径"]
+"stv_стат_вектор" = "staticvec"
+
+["标识符"]
+"stv_стат_вектор_тип" = "StaticVec"
+"stv_стат_строка" = "StaticString"
+"stv_стат_куча" = "StaticHeap"
+
+["解释"]
+"stv_стат_вектор" = "staticvec — const-контейнеры: StaticVec/StaticString/StaticHeap"

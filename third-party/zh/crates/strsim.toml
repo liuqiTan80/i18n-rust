@@ -1,0 +1,10 @@
+["模块路径"]
+"stq字符串相似度" = "strsim"
+
+["标识符"]
+"stq汉明距离" = "hamming"
+"stq莱文斯坦距离" = "levenshtein"
+"stq贾罗温克勒相似度" = "jaro_winkler"
+
+["解释"]
+"stq字符串相似度" = "strsim — 字符串相似度算法: hamming/levenshtein/jaro_winkler"

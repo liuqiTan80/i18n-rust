@@ -1,0 +1,10 @@
+["模块路径"]
+"stv_स्थिर_सदिश" = "staticvec"
+
+["标识符"]
+"stv_स्थिर_सदिश_प्रकार" = "StaticVec"
+"stv_स्थिर_स्ट्रिंग" = "StaticString"
+"stv_स्थिर_हीप" = "StaticHeap"
+
+["解释"]
+"stv_स्थिर_सदिश" = "staticvec — const स्थिर कंटेनर: StaticVec/StaticString/StaticHeap"

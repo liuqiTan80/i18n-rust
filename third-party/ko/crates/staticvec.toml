@@ -1,0 +1,10 @@
+["模块路径"]
+"stv정적벡터" = "staticvec"
+
+["标识符"]
+"stv정적벡터형" = "StaticVec"
+"stv정적문자열" = "StaticString"
+"stv정적힙" = "StaticHeap"
+
+["解释"]
+"stv정적벡터" = "staticvec — const 정적 컨테이너: StaticVec/StaticString/StaticHeap"

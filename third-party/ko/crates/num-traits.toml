@@ -1,0 +1,10 @@
+["模块路径"]
+"nmt숫자트레잇" = "num_traits"
+
+["标识符"]
+"nmt영트레잇" = "Zero"
+"nmt일트레잇" = "One"
+"nmt숫자기본트레잇" = "Num"
+
+["解释"]
+"nmt숫자트레잇" = "num-traits — 범용 숫자 트레잇: Zero/One/Num"

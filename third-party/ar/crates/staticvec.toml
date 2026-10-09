@@ -1,0 +1,10 @@
+["模块路径"]
+"stv_متجه_ثابت" = "staticvec"
+
+["标识符"]
+"stv_نوع_ستاتك_فيك" = "StaticVec"
+"stv_سلسلة_ثابتة" = "StaticString"
+"stv_فهرس_ثابت" = "StaticHeap"
+
+["解释"]
+"stv_متجه_ثابت" = "staticvec — حاويات ثابتة: StaticVec/StaticString/StaticHeap"

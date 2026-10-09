@@ -1,0 +1,10 @@
+["模块路径"]
+"tpp_ketten_methoden" = "tap"
+
+["标识符"]
+"tpp_tap_trait" = "Tap"
+"tpp_pipe_trait" = "Pipe"
+"tpp_conv_trait" = "Conv"
+
+["解释"]
+"tpp_ketten_methoden" = "tap — Kettenmethoden-Erweiterung: Tap/Pipe/Conv"

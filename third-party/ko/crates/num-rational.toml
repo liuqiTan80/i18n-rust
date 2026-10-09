@@ -1,0 +1,10 @@
+["模块路径"]
+"nmr유리수" = "num_rational"
+
+["标识符"]
+"nmr비율유형" = "Ratio"
+"nmr유리32" = "Rational32"
+"nmr유리64" = "Rational64"
+
+["解释"]
+"nmr유리수" = "num-rational — 유리수와 비율: Ratio/Rational32/Rational64"

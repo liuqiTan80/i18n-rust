@@ -1,0 +1,10 @@
+["模块路径"]
+"nmr_рац_числа" = "num_rational"
+
+["标识符"]
+"nmr_отношение" = "Ratio"
+"nmr_рац32" = "Rational32"
+"nmr_рац64" = "Rational64"
+
+["解释"]
+"nmr_рац_числа" = "num-rational — рациональные числа: Ratio/Rational32/Rational64"

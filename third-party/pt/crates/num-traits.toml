@@ -1,0 +1,10 @@
+["模块路径"]
+"nmt_traits_numericos" = "num_traits"
+
+["标识符"]
+"nmt_trait_zero" = "Zero"
+"nmt_trait_um" = "One"
+"nmt_trait_num" = "Num"
+
+["解释"]
+"nmt_traits_numericos" = "num-traits — traits numericos genericos: Zero/One/Num"

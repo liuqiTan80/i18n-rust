@@ -1,0 +1,10 @@
+["模块路径"]
+"prq_प्राथमिक_कतार" = "priority_queue"
+
+["标识符"]
+"prq_प्राथमिक_कतार_प्रकार" = "PriorityQueue"
+"prq_द्वि_प्राथमिक_कतार" = "DoublePriorityQueue"
+"prq_आरक्षण_त्रुटि" = "TryReserveError"
+
+["解释"]
+"prq_प्राथमिक_कतार" = "priority-queue — प्राथमिकता बदलने योग्य कतार: PriorityQueue/DoublePriorityQueue/TryReserveError"

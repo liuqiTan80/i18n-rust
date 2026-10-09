@@ -1,0 +1,10 @@
+["模块路径"]
+"nmr有理数" = "num_rational"
+
+["标识符"]
+"nmr比值类型" = "Ratio"
+"nmr有理三二" = "Rational32"
+"nmr有理六四" = "Rational64"
+
+["解释"]
+"nmr有理数" = "num-rational — 有理数与比值: Ratio/Rational32/Rational64"

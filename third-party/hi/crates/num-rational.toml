@@ -1,0 +1,10 @@
+["模块路径"]
+"nmr_परिमेय_संख्या" = "num_rational"
+
+["标识符"]
+"nmr_अनुपात" = "Ratio"
+"nmr_परिमेय32" = "Rational32"
+"nmr_परिमेय64" = "Rational64"
+
+["解释"]
+"nmr_परिमेय_संख्या" = "num-rational — परिमेय संख्याएँ: Ratio/Rational32/Rational64"

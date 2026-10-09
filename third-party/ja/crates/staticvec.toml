@@ -1,0 +1,10 @@
+["模块路径"]
+"stv静的ベクタ" = "staticvec"
+
+["标识符"]
+"stv静的ベクタ型" = "StaticVec"
+"stv静的文字列" = "StaticString"
+"stv静的ヒープ" = "StaticHeap"
+
+["解释"]
+"stv静的ベクタ" = "staticvec — const 静的コンテナ: StaticVec/StaticString/StaticHeap"

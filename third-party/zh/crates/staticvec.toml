@@ -1,0 +1,10 @@
+["模块路径"]
+"stv静态向量" = "staticvec"
+
+["标识符"]
+"stv静态向量类型" = "StaticVec"
+"stv静态字符串" = "StaticString"
+"stv静态堆" = "StaticHeap"
+
+["解释"]
+"stv静态向量" = "staticvec — const 泛型静态容器: StaticVec/StaticString/StaticHeap"
