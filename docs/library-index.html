@@ -109,6 +109,7 @@ function render(){
   const q = ($("#search").value||"").trim().toLowerCase();
   const c = $("#content");
   c.setAttribute("dir", lang.dir);
+  c.setAttribute("lang", cur);
   const date = lang.stdlibDate || "—";
   c.innerHTML =
     '<h2>第三方库 · '+(lang.crates?lang.crates.length:0)+' 个</h2>' + crateCards(lang, q) +
