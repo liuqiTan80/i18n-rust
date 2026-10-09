@@ -1,0 +1,88 @@
+# =============================================================
+# rustc 诊断语料漂移预警（定时门禁，非阻塞发布链路）
+#
+# 背景：errors.toml「消息翻译」节按 rustc 英文句子模板匹配，而
+# rust-toolchain.toml 钉的是滚动 stable——每次 rustc 升级都可能新增/改写
+# 消息句型，语言包对新句子的覆盖会静默退化（用户端表现为诊断忽然是英文，
+# 常规 CI 全绿无感）。语料 data/diag-corpus.tsv 的刷新原本依赖人工
+# "重跑采集器"，本工作流把该动作事件化：每周对 stable 与 beta 各实跑一次
+# 采集（tools/diag-corpus/collect.py），与入库语料逐行比对。
+#
+# 判定策略：
+#   - stable 漂移 → job 失败（红 × + 维护者邮件）：当前发行工具链吐出的
+#     新句子必须处理（刷语料 + 补各语言翻译），处理完本 job 自然转绿；
+#   - beta 漂移 → 仅 ::warning:: 注解不失败：提前一个版本看到将到的句子，
+#     给补译留缓冲期（beta 反复失败会造成告警疲劳，故降级为提示）。
+#
+# 触发：每周一 01:00 UTC；可随时 workflow_dispatch 手动跑（两通道全检）。
+# =============================================================
+name: 诊断语料漂移预警
+
+on:
+  schedule:
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rustc-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: 语料漂移检测（rustc ${{ matrix.channel }}）
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.channel == 'beta' }}
+    # 仓库 rust-toolchain.toml 钉住 channel=stable：不加 RUSTUP_TOOLCHAIN 覆盖时，
+    # collect.py 里的 rustc 会经 rustup shim 解析回 stable，beta 检查形同虚设
+    # （与 ci.yml msrv job 显式 +1.88 覆盖同一防模式）
+    env:
+      RUSTUP_TOOLCHAIN: ${{ matrix.channel }}
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: ['stable', 'beta']
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链（${{ matrix.channel }}）
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.channel }}
+
+      - name: 以当前工具链实跑采集器生成新语料
+        # collect.py 把 fixtures/*.rs 逐个喂给真实 rustc，产出 LEVEL\tCODE\t消息原文
+        # 的去重清单——与入库语料同格式，可直接逐行 diff
+        run: |
+          python3 tools/diag-corpus/collect.py --out /tmp/diag-msgs-new.tsv
+
+      - name: 与入库语料比对（stable 漂移即失败，beta 仅警告）
+        run: |
+          echo "=== rustc ${{ matrix.channel }} 版本 ==="
+          rustc --version
+          NEW=/tmp/diag-msgs-new.tsv
+          OLD=crates/engine/tests/data/diag-corpus.tsv
+          # 只关心内容差异；行序两侧均为采集器/入库时的稳定序
+          if diff -u "$OLD" "$NEW" > /tmp/corpus.diff; then
+            echo "✅ 语料无漂移：rustc ${{ matrix.channel }} 诊断句子与入库语料一致"
+            exit 0
+          fi
+          echo "⚠️ 检测到语料漂移，差异如下（+ 为 rustc 新吐出的句子，- 为已消失的句子）："
+          cat /tmp/corpus.diff
+          {
+            echo '### rustc '"${{ matrix.channel }}"' 诊断语料漂移'
+            echo '```diff'
+            cat /tmp/corpus.diff
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ matrix.channel }}" = "stable" ]; then
+            echo "::error title=rustc stable 诊断语料漂移::新增/变更句子需刷新语料并补各语言 errors.toml 翻译（流程见 crates/engine/tests/diag_corpus_gate.rs 头注释）"
+            exit 1
+          else
+            echo "::warning title=rustc beta 诊断语料将漂移::下一个 stable 升级前请刷新语料并补各语言 errors.toml 翻译"
+            # beta 失败由 continue-on-error 兜底，不阻塞整体
+            exit 1
+          fi

@@ -1,0 +1,27 @@
+# =============================================================
+# 全仓换行策略：仓库对象层存 LF，工作区一律 LF（不随个人
+# core.autocrlf 漂移）。对确定性转译链是硬需求：
+#   - zh 自举的「eject 产物逐字节自比」安全闸（CRLF 造成假漂移）；
+#   - 引擎对 .zh 源字符串续行（反斜杠+换行）的位置掩码（CRLF 曾致误判）；
+#   - diag-corpus.tsv / 教程代码块等文本精确匹配门禁。
+# CI 的 Linux runner 天然是 LF，本文件主要保护 Windows 贡献者。
+# 首次生效：新克隆/新检出即为 LF；存量工作区执行
+#   git add --renormalize . && git status
+# 确认无实质 diff 后随下一次常规提交落库（不要单独造空提交）。
+# =============================================================
+
+* text=auto eol=lf
+
+# 二进制产物：不做换行转换、不做 diff 文本化
+*.gif binary
+*.png binary
+*.ico binary
+*.jpg binary
+*.woff binary
+*.vsix binary
+
+# Shell 脚本必须是 LF（Git Bash/Dash 对 CRLF 的 \r 敏感）
+*.sh text eol=lf
+
+# PowerShell 脚本按 Windows 惯例保留 CRLF 亦可工作，统一 LF 同样安全
+*.ps1 text eol=lf

@@ -6,6 +6,9 @@
 ## 开发环境
 
 - **Rust stable**：`rust-toolchain.toml` 已锁定 channel 与组件（clippy/rustfmt）；MSRV 为 1.88；
+- **换行符**：仓库由 `.gitattributes` 钉住全仓 LF，请勿本地改配置绕过（转译链对 CRLF 敏感，
+  如 `.zh` 字符串续行判定与 eject 逐字节自比）；旧工作区切回后执行一次
+  `git add --renormalize .` 归一化；
 - **Python 3**：教程与术语表校验脚本（`tools/`）；
 - **Node.js 18+**：仅 VS Code 扩展开发与打包需要（`tools/vscode-extension/`）。
 

@@ -69,8 +69,41 @@ jobs:
           cargo test --workspace --locked
           cargo test --workspace --release --locked
 
+      - name: 生产代码 panic 面门禁
+        # 与 ci.yml test job 同口径：src/ 生产路径不得出现 unwrap/expect/panic!
+        run: python3 tools/check-prod-panics.py
+
       - name: 第三方库映射质量门禁
-        run: cargo run --quiet --bin rzc -- mapping check
+        # 与 ci.yml 同链：rzc mapping check + 告警基线（只减不增）/重复键/
+        # 关键字避让/跨文件冲突/跨语言条目数一致性
+        run: |
+          cargo build --quiet --bin rzc
+          python3 tools/check-mapping-warnings.py
+
+      - name: ui.toml 键完备性检查
+        # 以 zh 为基准逐语言比对界面消息键与 {} 占位符数量（与 ci.yml 同源）
+        run: python3 tools/check-ui-keys.py
+
+      - name: 语言包 errors.toml 完整性检查
+        # 逐语言包回读校验：键数齐平/占位符形态/模板不回落英文/lang_info 版本（与 ci.yml 同源）
+        run: python3 tools/check-lang-packs.py
+
+      - name: README 结构 parity 检查
+        # 9 份翻译 README vs en 基准：章节数/锚点有效性/围栏配对（与 ci.yml 同源）
+        run: python3 tools/check-readme-parity.py
+
+      - name: 教程代码块验证（zh/en/ja/ru，与 ci.yml 同链）
+        # 发布版本对应的教程必须逐块可编译：防止发出去的版本与教程内容漂移
+        run: |
+          python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json
+          for lang in en ja ru; do
+            python3 tools/verify-tutorials.py --dir "tutorials/$lang" --lang "$lang" \
+              --allowlist tools/expected-failures.json
+          done
+
+      - name: 术语表与语言包一致性检查
+        # 术语表引用必须能在 zh 语言包找到对应键（与 ci.yml 同源）
+        run: python3 tools/verify-glossary.py
 
       - name: 版本一致性校验（三 crate == 扩展 == tag，CHANGELOG 有对应条目）
         run: |

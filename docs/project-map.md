@@ -71,8 +71,13 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | `make site` | pages.yml 构建步骤 | 动 `book/` 或教程结构后 |
 
 流水线：**ci.yml** 七个 job（test / msrv / coverage / audit / bench / build / vsix）·
-**release.yml** 四个 job（check / vsix / publish 三平台产物 + 双平台 Release / crates crates.io 发布）·
-**pages.yml** 文档站构建与部署。
+**release.yml** 五个 job（check 全链门禁（与 ci test 同口径）/ vsix / publish 三平台产物 + 双平台 Release / publish-extension 双商店 / crates crates.io 发布）·
+**pages.yml** 文档站构建与部署 ·
+**rustc-drift.yml** 诊断语料漂移预警（每周 stable+beta 实跑采集器比对入库语料；stable 漂移失败、beta 仅警告）。
+
+仓库换行策略由 [.gitattributes](../.gitattributes) 钉住全仓 LF：转译链对 CRLF 敏感
+（.zh 字符串续行掩码、eject 逐字节自比、语料/教程文本匹配），不得随个人
+ core.autocrlf 漂移；二进制产物（gif/png/vsix 等）已标记不转换。
 
 **教程白名单**：`tools/expected-failures.json` 只登记结构性噪音（跨块依赖等无法单独编译的块）；
 新增条目须随教程改动并说明原因；验证失败时先判断"内容错"还是"需要白名单"。
