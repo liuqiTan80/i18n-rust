@@ -1,0 +1,10 @@
+["模块路径"]
+"arquivo_tar" = "tar"
+
+["标识符"]
+"arquivo_leitura_tar" = "Archive"
+"construtor_tar" = "Builder"
+"entradas_tar" = "Entries"
+
+["解释"]
+"arquivo_tar" = "Leitura e escrita de arquivos tar"

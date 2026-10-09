@@ -1,0 +1,10 @@
+["模块路径"]
+"HTML_파싱" = "scraper"
+
+["标识符"]
+"HTML_문서_트리" = "Html"
+"CSS_선택자" = "Selector"
+"요소_참조" = "ElementRef"
+
+["解释"]
+"HTML_파싱" = "경량 CSS 선택자 HTML 파싱"

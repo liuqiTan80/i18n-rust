@@ -1,0 +1,10 @@
+["模块路径"]
+"tipo_red_ip" = "ipnet"
+
+["标识符"]
+"red_ip" = "IpNet"
+"red_ipv4" = "Ipv4Net"
+"red_ipv6" = "Ipv6Net"
+
+["解释"]
+"tipo_red_ip" = "Tipos de dirección y red IP"

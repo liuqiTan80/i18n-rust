@@ -1,0 +1,10 @@
+["模块路径"]
+"zeichenkodierung_umwandlung" = "encoding_rs"
+
+["标识符"]
+"kodierung_typ" = "Encoding"
+"utf8_kodierung" = "UTF_8"
+"windows1252_kodierung" = "windows_1252"
+
+["解释"]
+"zeichenkodierung_umwandlung" = "Zeichenkodierungswandlung nach WHATWG"

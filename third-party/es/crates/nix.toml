@@ -1,0 +1,10 @@
+["模块路径"]
+"interfaz_unix" = "nix"
+
+["标识符"]
+"obtener_euid" = "geteuid"
+"tipo_uid" = "Uid"
+"marca_apertura" = "OFlag"
+
+["解释"]
+"interfaz_unix" = "Vínculos seguros de llamadas al sistema Unix"

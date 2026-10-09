@@ -1,0 +1,10 @@
+["模块路径"]
+"grosszahlen" = "num-bigint"
+
+["标识符"]
+"vorzeichen_grosszahl" = "BigInt"
+"vorzeichenlos_grosszahl" = "BigUint"
+"grosszahl_vorzeichen" = "Sign"
+
+["解释"]
+"grosszahlen" = "Großzahlen-Arithmetik beliebiger Genauigkeit"

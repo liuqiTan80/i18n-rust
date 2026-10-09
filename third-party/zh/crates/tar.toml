@@ -1,0 +1,10 @@
+["模块路径"]
+"tar归档" = "tar"
+
+["标识符"]
+"tar读取归档" = "Archive"
+"tar写入构建" = "Builder"
+"tar条目迭代" = "Entries"
+
+["解释"]
+"tar归档" = "tar 归档读写"

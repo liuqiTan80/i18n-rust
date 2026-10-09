@@ -1,0 +1,10 @@
+["模块路径"]
+"grands_entiers" = "num-bigint"
+
+["标识符"]
+"grand_entier_signe" = "BigInt"
+"grand_entier_non_signe" = "BigUint"
+"signe_grand_entier" = "Sign"
+
+["解释"]
+"grands_entiers" = "Arithmétique de grands entiers de précision arbitraire"

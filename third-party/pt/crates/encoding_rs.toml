@@ -1,0 +1,10 @@
+["模块路径"]
+"conversao_codificacao" = "encoding_rs"
+
+["标识符"]
+"tipo_codificacao" = "Encoding"
+"codificacao_utf8" = "UTF_8"
+"codificacao_windows1252" = "windows_1252"
+
+["解释"]
+"conversao_codificacao" = "Conversão de codificação segundo WHATWG"

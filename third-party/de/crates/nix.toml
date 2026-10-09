@@ -1,0 +1,10 @@
+["模块路径"]
+"unix_systemschnittstelle" = "nix"
+
+["标识符"]
+"euid_holen" = "geteuid"
+"uid_typ" = "Uid"
+"open_flag" = "OFlag"
+
+["解释"]
+"unix_systemschnittstelle" = "Sichere Unix-Systemaufruf-Bindungen"

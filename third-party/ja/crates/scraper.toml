@@ -1,0 +1,10 @@
+["模块路径"]
+"HTML解析" = "scraper"
+
+["标识符"]
+"HTMLドキュメントツリー" = "Html"
+"CSSセレクタ" = "Selector"
+"要素参照" = "ElementRef"
+
+["解释"]
+"HTML解析" = "軽量 CSS セレクタ付き HTML 解析"

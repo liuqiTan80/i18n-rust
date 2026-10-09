@@ -1,0 +1,10 @@
+["模块路径"]
+"تحليل_HTML" = "scraper"
+
+["标识符"]
+"شجرة_HTML" = "Html"
+"محدد_CSS" = "Selector"
+"مرجع_العنصر" = "ElementRef"
+
+["解释"]
+"تحليل_HTML" = "محلل HTML خفيف بمحددات CSS"

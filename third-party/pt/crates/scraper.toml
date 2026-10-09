@@ -1,0 +1,10 @@
+["模块路径"]
+"analise_html" = "scraper"
+
+["标识符"]
+"arvore_html" = "Html"
+"seletor_css" = "Selector"
+"referencia_elemento" = "ElementRef"
+
+["解释"]
+"analise_html" = "Analisador HTML leve com seletores CSS"

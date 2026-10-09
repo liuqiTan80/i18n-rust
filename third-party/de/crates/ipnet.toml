@@ -1,0 +1,10 @@
+["模块路径"]
+"ip_netztyp" = "ipnet"
+
+["标识符"]
+"ip_netz" = "IpNet"
+"ipv4_netz" = "Ipv4Net"
+"ipv6_netz" = "Ipv6Net"
+
+["解释"]
+"ip_netztyp" = "IP-Adress- und Netztypen"

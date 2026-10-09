@@ -1,0 +1,10 @@
+["模块路径"]
+"html_parsen" = "scraper"
+
+["标识符"]
+"html_dokumentbaum" = "Html"
+"css_selektor" = "Selector"
+"element_referenz" = "ElementRef"
+
+["解释"]
+"html_parsen" = "Leichtgewichtiger HTML-Parser mit CSS-Selektoren"
