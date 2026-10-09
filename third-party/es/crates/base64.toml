@@ -1,0 +1,10 @@
+["模块路径"]
+"codificacion_base64" = "base64"
+
+["标识符"]
+"tabla_estandar" = "STANDARD"
+"motor_codificacion" = "Engine"
+"codificar" = "encode"
+
+["解释"]
+"codificacion_base64" = "Biblioteca de codificación y decodificación Base64"

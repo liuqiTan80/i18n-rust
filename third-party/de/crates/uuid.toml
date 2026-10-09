@@ -1,0 +1,10 @@
+["模块路径"]
+"eindeutige_kennung" = "uuid"
+
+["标识符"]
+"uuid_typ" = "Uuid"
+"erzeugen_v4" = "new_v4"
+"text_parsen" = "parse_str"
+
+["解释"]
+"eindeutige_kennung" = "Bibliothek zum Erzeugen und Parsen von UUID/GUID"

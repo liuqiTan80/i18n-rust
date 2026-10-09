@@ -1,0 +1,10 @@
+["模块路径"]
+"identificador_unico" = "uuid"
+
+["标识符"]
+"tipo_uuid" = "Uuid"
+"criar_v4" = "new_v4"
+"analisar_cadeia" = "parse_str"
+
+["解释"]
+"identificador_unico" = "Biblioteca para gerar e analisar UUID/GUID"

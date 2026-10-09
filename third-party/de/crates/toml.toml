@@ -1,0 +1,10 @@
+["模块路径"]
+"toml_parsen" = "toml"
+
+["标识符"]
+"aus_text_lesen" = "from_str"
+"als_text" = "to_string"
+"toml_wert" = "Value"
+
+["解释"]
+"toml_parsen" = "Parsen und Serialisieren von TOML-Dateien"

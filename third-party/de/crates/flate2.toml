@@ -1,0 +1,10 @@
+["模块路径"]
+"daten_kompression" = "flate2"
+
+["标识符"]
+"gz_encoder" = "GzEncoder"
+"gz_decoder" = "GzDecoder"
+"kompressionsstufe" = "Compression"
+
+["解释"]
+"daten_kompression" = "DEFLATE-Komprimierungs- und Dekomprimierungsströme"

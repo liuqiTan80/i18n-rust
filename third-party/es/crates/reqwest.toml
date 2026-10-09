@@ -1,0 +1,10 @@
+["模块路径"]
+"peticion_http" = "reqwest"
+
+["标识符"]
+"cliente" = "Client"
+"obtener" = "get"
+"respuesta" = "Response"
+
+["解释"]
+"peticion_http" = "Cliente HTTP asíncrono de alto nivel"

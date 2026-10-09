@@ -1,0 +1,10 @@
+["模块路径"]
+"canal_messages" = "crossbeam-channel"
+
+["标识符"]
+"creer_canal" = "channel"
+"canal_limite" = "bounded"
+"expediteur" = "Sender"
+
+["解释"]
+"canal_messages" = "Canal multi-producteur multi-consommateur"

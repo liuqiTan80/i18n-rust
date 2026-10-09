@@ -1,0 +1,10 @@
+["模块路径"]
+"数据压缩" = "flate2"
+
+["标识符"]
+"Gzip编码器" = "GzEncoder"
+"Gzip解码器" = "GzDecoder"
+"压缩级别" = "Compression"
+
+["解释"]
+"数据压缩" = "DEFLATE 压缩与解压流库"

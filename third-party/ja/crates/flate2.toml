@@ -1,0 +1,10 @@
+["模块路径"]
+"データ圧縮" = "flate2"
+
+["标识符"]
+"Gzipエンコーダ" = "GzEncoder"
+"Gzipデコーダ" = "GzDecoder"
+"圧縮レベル" = "Compression"
+
+["解释"]
+"データ圧縮" = "DEFLATE圧縮と展開のRead/Writeストリーム"

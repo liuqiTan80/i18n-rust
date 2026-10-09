@@ -1,0 +1,10 @@
+["模块路径"]
+"데이터_압축" = "flate2"
+
+["标识符"]
+"Gzip_인코더" = "GzEncoder"
+"Gzip_디코더" = "GzDecoder"
+"압축_레벨" = "Compression"
+
+["解释"]
+"데이터_압축" = "DEFLATE 압축 및 해제 스트림 라이브러리"

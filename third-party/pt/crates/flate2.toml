@@ -1,0 +1,10 @@
+["模块路径"]
+"compressao_dados" = "flate2"
+
+["标识符"]
+"codificador_gz" = "GzEncoder"
+"decodificador_gz" = "GzDecoder"
+"nivel_compressao" = "Compression"
+
+["解释"]
+"compressao_dados" = "Fluxos de compressão e descompressão DEFLATE"

@@ -1,0 +1,10 @@
+["模块路径"]
+"analyse_toml" = "toml"
+
+["标识符"]
+"depuis_chaine" = "from_str"
+"en_chaine" = "to_string"
+"valeur_toml" = "Value"
+
+["解释"]
+"analyse_toml" = "Analyse et sérialisation de fichiers TOML"

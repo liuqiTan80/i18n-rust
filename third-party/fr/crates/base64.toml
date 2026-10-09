@@ -1,0 +1,10 @@
+["模块路径"]
+"encodage_base64" = "base64"
+
+["标识符"]
+"tableau_standard" = "STANDARD"
+"moteur_encodage" = "Engine"
+"encoder" = "encode"
+
+["解释"]
+"encodage_base64" = "Bibliothèque d'encodage et décodage Base64"
