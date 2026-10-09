@@ -220,6 +220,18 @@ pub fn search(keyword: Option<&str>) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// 将 index.json 中（第三方可控）的映射相对路径安全解析到注册中心根下。
+///
+/// 复用 `lang_manager::safe_zip_entry_path`（拒空/绝对/`..` 上跳/Windows 盘符，
+/// 与 zip 条目名同一已审清洗器），并二次确认结果仍在 `reg` 子树内——防恶意
+/// index 的 `file` 字段（如 `../../x`，或 `C:/…`：带盘符会让 `Path::join`
+/// 整体替换 base）借 `fs::copy` 把仓库外的任意本地文件读入安装位。非法即 None。
+fn resolve_mapping_src(reg: &Path, file: &str) -> Option<PathBuf> {
+    let rel = crate::lang_manager::safe_zip_entry_path(file)?;
+    let src = reg.join(rel);
+    src.starts_with(reg).then_some(src)
+}
+
 /// `rzc crate install <crate> --lang <语言> [--force]`：拉取单个映射
 pub fn install(crate_name: &str, lang: &str, force: bool) -> anyhow::Result<()> {
     let ui = crate::ui::Ui::global();
@@ -231,7 +243,8 @@ pub fn install(crate_name: &str, lang: &str, force: bool) -> anyhow::Result<()> 
         .iter()
         .find(|m| m.crate_name == crate_name && m.lang == lang)
         .ok_or_else(|| anyhow::anyhow!("{}", ui.f("crate_not_found", &[crate_name, lang])))?;
-    let src = reg.join(&entry.file);
+    let src = resolve_mapping_src(&reg, &entry.file)
+        .ok_or_else(|| anyhow::anyhow!("{}", ui.f("crate_file_missing", &[&entry.file])))?;
     if !src.is_file() {
         anyhow::bail!("{}", ui.f("crate_file_missing", &[&entry.file]));
     }
@@ -317,7 +330,9 @@ pub fn update() -> anyhow::Result<()> {
             .iter()
             .find(|m| &m.crate_name == crate_name && &m.lang == lang)
         {
-            let src = reg.join(&entry.file);
+            let Some(src) = resolve_mapping_src(&reg, &entry.file) else {
+                continue;
+            };
             if src.is_file() {
                 let dest_dir = crate::lang_manager::global_lang_dir()
                     .join(lang)
@@ -628,6 +643,34 @@ mod tests {
         assert!(s.starts_with("20")); // 21 世纪
         assert_eq!(s.as_bytes()[4], b'-');
         assert_eq!(s.as_bytes()[7], b'-');
+    }
+
+    /// index.json 的 `file` 字段是第三方可控数据：合法相对路径解析到 reg 下，
+    /// 上跳/绝对/盘符均拒绝（防 fs::copy 读仓库外任意本地文件）。
+    #[test]
+    fn test_resolve_mapping_src_rejects_traversal() {
+        let reg = Path::new("/repo/third-party");
+        let ok = resolve_mapping_src(reg, "zh/crates/foo.toml");
+        let ok = ok.expect("合法相对路径应解析成功");
+        assert!(ok.starts_with(reg), "解析结果应在 reg 子树内：{ok:?}");
+        assert!(
+            ok.ends_with(Path::new("zh").join("crates").join("foo.toml")),
+            "应保留完整相对段：{ok:?}"
+        );
+        assert!(resolve_mapping_src(reg, "../secret").is_none(), "上跳应拒");
+        assert!(
+            resolve_mapping_src(reg, "a/../../b").is_none(),
+            "内嵌上跳应拒"
+        );
+        assert!(
+            resolve_mapping_src(reg, "/etc/passwd").is_none(),
+            "绝对路径应拒"
+        );
+        assert!(
+            resolve_mapping_src(reg, "C:/Windows/x").is_none(),
+            "Windows 盘符应拒（join 会整体替换 base）"
+        );
+        assert!(resolve_mapping_src(reg, "").is_none(), "空名应拒");
     }
 
     #[test]

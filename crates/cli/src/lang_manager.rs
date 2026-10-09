@@ -833,7 +833,7 @@ fn extract_zip(archive_path: &Path, extract_dir: &Path) -> anyhow::Result<()> {
 ///   **整体替换** base（而非拼接），解压会写到 `extract_dir` 之外；该前缀
 ///   在 Unix 上不被 `Path::components` 识别为 `Prefix`，故必须显式判断，
 ///   仅检查 `..` 会完全漏掉这一向量。
-fn safe_zip_entry_path(name: &str) -> Option<PathBuf> {
+pub(crate) fn safe_zip_entry_path(name: &str) -> Option<PathBuf> {
     let 归一化 = name.replace('\\', "/");
     if 归一化.is_empty() || 归一化.starts_with('/') {
         return None;
