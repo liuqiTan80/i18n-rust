@@ -167,7 +167,9 @@ def offset_to_line(offsets, offset):
 def main():
     violations = []
     for path in iter_src_files():
-        rel = str(path.relative_to(REPO_ROOT))
+        # 统一正斜杠：ALLOW 中的相对路径按正斜杠书写，Windows 的
+        # str(Path) 产出反斜杠会导致白名单比对永远失败
+        rel = path.relative_to(REPO_ROOT).as_posix()
         text = path.read_text(encoding="utf-8")
         offsets = line_offsets(text)
         regions = find_test_region_offsets(text)
@@ -221,6 +223,15 @@ def main():
         sys.exit(1)
     scanned = sum(1 for _ in iter_src_files())
     print(f"✅ 生产 panic 面门禁通过（扫描 {scanned} 个 src/ Rust 文件，白名单 {len(ALLOW)} 条）")
+
+
+# Windows 控制台/管道默认 GBK：输出里的 ✅/❌ 无法编码会触发
+# UnicodeEncodeError，把「检查通过」变成崩溃；保留终端本地编码、
+# 仅在不支持时替换字符（中文可读，emoji 退化为 ?）
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(errors="replace")
 
 
 if __name__ == "__main__":

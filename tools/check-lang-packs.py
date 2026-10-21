@@ -221,5 +221,14 @@ def main() -> int:
     return 0
 
 
+# Windows 控制台/管道默认 GBK：输出里的 ✅/❌ 无法编码会触发
+# UnicodeEncodeError，把「检查通过」变成崩溃；保留终端本地编码、
+# 仅在不支持时替换字符（中文可读，emoji 退化为 ?）
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(errors="replace")
+
+
 if __name__ == "__main__":
     sys.exit(main())

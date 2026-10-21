@@ -34,7 +34,8 @@ def main() -> int:
                     help="告警基线文件（默认 tools/mapping-baseline.json）")
     args = ap.parse_args()
 
-    rzc = args.rzc or os.path.join(repo_root, "target", "debug", "rzc")
+    exe = ".exe" if os.name == "nt" else ""
+    rzc = args.rzc or os.path.join(repo_root, "target", "debug", "rzc" + exe)
     if not os.path.exists(rzc):
         print(f"❌ 未找到 {rzc}，请先 cargo build --bin rzc")
         return 1
@@ -67,6 +68,15 @@ def main() -> int:
         return 0
     print(f"✅ 告警数 {len(warnings)} 与基线一致（只减不增）")
     return 0
+
+
+# Windows 控制台/管道默认 GBK：输出里的 ✅/❌ 无法编码会触发
+# UnicodeEncodeError，把「检查通过」变成崩溃；保留终端本地编码、
+# 仅在不支持时替换字符（中文可读，emoji 退化为 ?）
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(errors="replace")
 
 
 if __name__ == "__main__":

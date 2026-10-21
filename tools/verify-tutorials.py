@@ -638,12 +638,14 @@ def main():
 
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     tut_dir = args.dir or os.path.join(repo, "tutorials")
-    rzc = args.rzc or os.path.join(repo, "target", "debug", "rzc")
-    # 规范化绝对路径：check_one 在 /tmp 临时项目目录下以 cwd 运行 rzc，
-    # 相对路径（如 --rzc target/debug/rzc）在子进程 cwd 下找不到可执行文件
-    rzc = os.path.abspath(rzc)
-    if not os.path.isfile(rzc):
-        rzc = os.path.join(repo, "target", "release", "rzc")
+    # 候选可执行文件：依次探测 debug / release（Windows 产物带 .exe）
+    exe = ".exe" if os.name == "nt" else ""
+    if args.rzc:
+        rzc = os.path.abspath(args.rzc)
+    else:
+        candidates = [os.path.join(repo, "target", p, "rzc" + exe)
+                      for p in ("debug", "release")]
+        rzc = next((c for c in candidates if os.path.isfile(c)), candidates[0])
     if not os.path.isfile(rzc):
         print(f"❌ 找不到 rzc 可执行文件（先运行 cargo build）：{rzc}", file=sys.stderr)
         return 2
@@ -765,6 +767,15 @@ def main():
                       f, ensure_ascii=False, indent=1)
 
     return 1 if fails or sfails else 0
+
+
+# Windows 控制台/管道默认 GBK：输出里的 ✅/❌ 无法编码会触发
+# UnicodeEncodeError，把「检查通过」变成崩溃；保留终端本地编码、
+# 仅在不支持时替换字符（中文可读，emoji 退化为 ?）
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(errors="replace")
 
 
 if __name__ == "__main__":
