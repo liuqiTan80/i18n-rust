@@ -6,6 +6,41 @@
 ## [Unreleased]
 
 ### 修复
+- CLI：`rzc eject` 支持目录批量导出（递归全部方言文件、共用项目上下文），
+  修复目录直接 `fs::read_to_string` 在 Windows 报「拒绝访问 (os error 5)」；
+  eject 与 transpile 改为与 run/check 同一条「项目上下文 + 缓存」管线，
+  修复中文模块名/结构体字段撞 lang-pack 别名时声明（`mod 版本;`、字段定义）
+  与引用（use 路径段、字段访问）错位（`版本`→version、`主机`→host 等）——
+  eject 产出的多文件项目现可直接通过 rustc/cargo 编译
+- 引擎：`#[path]` 注解插入前剥离并前置文件 BOM，修复首行 `mod` 声明时
+  rustc 报 `unknown start of token: \u{feff}`
+- CLI：`run`/`check`/`transpile` 传目录时给出可操作提示并指向 `rzc eject`
+  （原先直接暴露 OS 层「拒绝访问 (os error 5)」；11 语言包新增
+  `input_is_directory` 键）
+- CLI：四个子命令路径校验统一——`run`/`check`/`transpile` 缺失文件改为
+  母语「不存在」提示（原先暴露 OS 层 `No such file or directory`），
+  `rzc eject` 不存在路径不再报无关的「无法识别源文件扩展名」
+  （11 语言包新增 `input_missing` 键）
+- CLI：`rzc eject` 写盘改走 `write_transpiled`——已有同名 `.rs` 且内容不同
+  时先备份为 `.rs.bak`（与 run/check 同口径），避免渐进迁移中手写产物被
+  静默覆盖
+- CLI：单文件 `transpile`/`eject` 的上下文补齐只扫同目录直接子文件（原先
+  递归扫描父目录整棵子树，在用户主目录等大目录下会无谓遍历；目录导出
+  仍保持递归）
+- CLI：`rzc run` 传非默认入口（`examples/`、`src/` 下非 main 文件、根目录脚本）
+  时明确报错并给出 `cargo run --bin` / `--example` 运行方式——此前产物写到
+  自身路径，无参数的 `cargo run` 会静默运行 src/main 的另一个程序
+  （11 语言包新增 `run_not_default_entry` 键）
+- CLI：`rzc eject <目录>` 支持混合语言目录——按扩展名分组、每组用自身
+  语言包与上下文转译（此前用首个文件的语言包处理全部文件，其他语言的
+  关键字如日文 `関数` 原样留在产物里）；显式 `--lang-pack` 时统一使用
+  指定语言包
+- 门禁脚本：`check-prod-panics.py` 白名单路径改用 POSIX 分隔符；
+  `verify-tutorials.py` / `check-mapping-warnings.py` 默认探测 Windows 下的
+  `rzc.exe`（此前在 Windows 上白名单误报/找不到可执行文件）
+- 门禁脚本：7 个 Python 门禁在 Windows GBK 控制台下输出 ✅/❌ 触发
+  `UnicodeEncodeError`（检查通过却以崩溃退出）；统一启用 `errors="replace"`
+  （中文可读，emoji 退化为 `?`）
 - 测试：修五处 **Windows 专有测试缺陷**（CI 的 `cargo test` 只跑 ubuntu-latest，
   所以一直没被发现）——现 `cargo test --workspace` 在 Windows 上首次可完整跑通：
   - `rzc::test_entry_output_path` 用合成路径 `/proj` 作项目根，而 Windows 上

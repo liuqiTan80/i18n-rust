@@ -227,6 +227,42 @@ fn test_run_executes_transpiled_program() {
         .stdout(predicates::str::contains("输出：42"));
 }
 
+/// `rzc run <非默认入口>`：多文件项目下 cargo 只会运行 src/main，
+/// 非默认入口（examples/ 等）必须明确报错，而不是静默运行另一个程序
+#[test]
+fn test_run_non_entry_file_fails_with_hint() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    let root = work.path().join("demo");
+    std::fs::create_dir_all(root.join("src")).expect("创建 src 失败");
+    std::fs::create_dir_all(root.join("examples")).expect("创建 examples 失败");
+    std::fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname=\"demo\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("src/main.zh"), GOOD_PROGRAM).unwrap();
+    std::fs::write(root.join("examples/示例.zh"), GOOD_PROGRAM).unwrap();
+
+    let output = rzc()
+        .env("HOME", home.path())
+        .env_remove("RZ_LOG")
+        .current_dir(&root)
+        .args(["run", "examples/示例.zh"])
+        .assert()
+        .failure();
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
+    assert!(stderr.starts_with("Error:"), "{stderr}");
+    assert!(
+        stderr.contains("不是项目默认入口"),
+        "应提示非默认入口：{stderr}"
+    );
+    assert!(
+        stderr.contains("cargo run --example"),
+        "应给出 cargo 运行方式：{stderr}"
+    );
+}
+
 /// `rzc check` 好程序：退出码 0
 #[test]
 fn test_check_good_program_succeeds() {
@@ -355,6 +391,134 @@ fn test_eject_writes_standard_rust_file() {
     assert!(rs.contains("println!"), "宏应还原为标准 Rust：{rs}");
 }
 
+/// `rzc eject` 覆盖已有同名 `.rs`：与 run/check 同口径先备份为 `.rs.bak`，
+/// 避免渐进迁移中手写产物被静默覆盖
+#[test]
+fn test_eject_backs_up_existing_output() {
+    let dir = tempfile::tempdir().expect("创建临时目录失败");
+    let zh = dir.path().join("main.zh");
+    std::fs::write(&zh, GOOD_PROGRAM).unwrap();
+    let handwritten = "fn main() { println!(\"手写\"); }\n";
+    std::fs::write(dir.path().join("main.rs"), handwritten).unwrap();
+
+    rzc().args(["eject"]).arg(&zh).assert().success();
+
+    let bak = dir.path().join("main.rs.bak");
+    assert!(bak.is_file(), "旧产物应备份为 main.rs.bak");
+    assert_eq!(
+        std::fs::read_to_string(&bak).unwrap(),
+        handwritten,
+        "备份内容应为被覆盖前的手写产物"
+    );
+    let rs = std::fs::read_to_string(dir.path().join("main.rs")).unwrap();
+    assert!(rs.contains("fn main()"), "新产物应已写入：{rs}");
+}
+
+/// `rzc eject <目录>`：递归导出全部方言文件（P-02 回归：目录直接交给
+/// `fs::read_to_string` 在 Windows 报「拒绝访问 (os error 5)」）
+///
+/// 同时覆盖声明与引用一致性（P-01/P-05/P-07/P-08 同源）：模块名（版本/
+/// 连接设置）与结构体字段（主机/状态）撞 lang-pack 别名时，`mod` 声明、
+/// use 路径段与字段访问必须同名保留（有项目上下文时整体豁免）。
+#[test]
+fn test_eject_directory_transpiles_all_files_consistently() {
+    let dir = tempfile::tempdir().expect("创建临时目录失败");
+    let src = dir.path().join("src");
+    std::fs::create_dir_all(src.join("领域")).unwrap();
+    std::fs::write(
+        src.join("main.zh"),
+        "模块 版本;\n模块 连接设置;\n模块 领域;\n\
+         使用 包::版本::程序版本;\n使用 包::连接设置::数据库连接配置;\n\
+         使用 包::领域::工具::问候;\n\n\
+         函数 主函数() {\n\
+         让 当前配置 = 数据库连接配置 { 主机: 字符串::从(\"本地\"), 状态: 字符串::从(\"正常\") };\n\
+         打印行!(\"{} {} {}\", 程序版本(), 当前配置.主机, 当前配置.状态);\n\
+         问候();\n}",
+    )
+    .unwrap();
+    std::fs::write(
+        src.join("版本.zh"),
+        "公开 函数 程序版本() -> 字符串 {\n    字符串::从(\"1.0.0\")\n}",
+    )
+    .unwrap();
+    std::fs::write(
+        src.join("连接设置.zh"),
+        "公开 结构体 数据库连接配置 {\n    公开 主机: 字符串,\n    公开 状态: 字符串,\n}",
+    )
+    .unwrap();
+    std::fs::write(src.join("领域.zh"), "公开 模块 工具;").unwrap();
+    std::fs::write(
+        src.join("领域/工具.zh"),
+        "公开 函数 问候() {\n    打印行!(\"你好\");\n}",
+    )
+    .unwrap();
+
+    rzc().args(["eject"]).arg(&src).assert().success();
+
+    let main_rs = std::fs::read_to_string(src.join("main.rs")).expect("main.rs 应已导出");
+    // 声明与引用同名（P-05/P-07）：不得出现 crate::version / crate::Permissions
+    assert!(main_rs.contains("mod 版本;"), "{main_rs}");
+    assert!(main_rs.contains("use crate::版本::程序版本;"), "{main_rs}");
+    assert!(
+        main_rs.contains("use crate::连接设置::数据库连接配置;"),
+        "{main_rs}"
+    );
+    assert!(!main_rs.contains("crate::version"), "{main_rs}");
+    // 字段定义与访问同名（P-01/P-08）
+    assert!(main_rs.contains("当前配置.主机"), "{main_rs}");
+    assert!(main_rs.contains("当前配置.状态"), "{main_rs}");
+    assert!(!main_rs.contains(".host"), "{main_rs}");
+    // crate 根的非 ASCII 模块注解
+    assert!(main_rs.contains("#[path = \"版本.rs\"]"), "{main_rs}");
+
+    let field_rs = std::fs::read_to_string(src.join("连接设置.rs")).expect("连接设置.rs 应已导出");
+    assert!(field_rs.contains("pub 主机: String"), "{field_rs}");
+    assert!(field_rs.contains("pub 状态: String"), "{field_rs}");
+
+    let version_rs = std::fs::read_to_string(src.join("版本.rs")).expect("版本.rs 应已导出");
+    assert!(version_rs.contains("pub fn 程序版本()"), "{version_rs}");
+
+    // 多层目录：子模块注解相对当前目录带自身词干前缀（rustc 默认查找规则）
+    let domain_rs = std::fs::read_to_string(src.join("领域.rs")).expect("领域.rs 应已导出");
+    assert!(
+        domain_rs.contains("#[path = \"领域/工具.rs\"]") && domain_rs.contains("pub mod 工具;"),
+        "{domain_rs}"
+    );
+    assert!(src.join("领域/工具.rs").is_file(), "嵌套模块应已导出");
+}
+
+/// 混合语言目录（`.zh` + `.ja`）：按扩展名分组、每组用自身语言包转译，
+/// 否则日文关键字（関数/主関数）会被中文包原样保留在产物里
+#[test]
+fn test_eject_mixed_language_directory_uses_each_pack() {
+    let dir = tempfile::tempdir().expect("创建临时目录失败");
+    std::fs::write(dir.path().join("main.zh"), "函数 主函数() {\n}\n").unwrap();
+    std::fs::write(dir.path().join("tool.ja"), "関数 主関数() {\n}\n").unwrap();
+
+    rzc().args(["eject"]).arg(dir.path()).assert().success();
+
+    let main_rs = std::fs::read_to_string(dir.path().join("main.rs")).expect("main.rs 应已导出");
+    let tool_rs = std::fs::read_to_string(dir.path().join("tool.rs")).expect("tool.rs 应已导出");
+    assert!(main_rs.contains("fn main()"), "{main_rs}");
+    assert!(tool_rs.contains("fn main()"), "{tool_rs}");
+    assert!(
+        !tool_rs.contains("関数"),
+        "ja 文件必须用 ja 语言包转译：{tool_rs}"
+    );
+}
+
+/// `rzc eject <空目录>`：无方言源文件时干净报错，不 panic
+#[test]
+fn test_eject_empty_directory_fails_cleanly() {
+    let dir = tempfile::tempdir().expect("创建临时目录失败");
+    rzc()
+        .args(["eject"])
+        .arg(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicates::str::starts_with("Error:"));
+}
+
 /// `rzc doctor`：组件体检始终退出 0 并输出工具链/语言包分区
 #[test]
 fn test_doctor_prints_health_report() {
@@ -386,13 +550,72 @@ fn test_mapping_check_clean_lang_pack() {
 fn test_missing_source_file_fails_cleanly() {
     let home = isolated_home();
     let missing = std::env::temp_dir().join(format!("rzc-missing-{}.zh", std::process::id()));
-    rzc()
+    let output = rzc()
         .env("HOME", home.path())
         .arg("transpile")
         .arg(&missing)
         .assert()
-        .failure()
-        .stderr(predicates::str::starts_with("Error:"));
+        .failure();
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
+    assert!(stderr.starts_with("Error:"), "{stderr}");
+    assert!(
+        stderr.contains("不存在"),
+        "应给出母语「不存在」提示：{stderr}"
+    );
+    assert!(
+        !stderr.to_lowercase().contains("os error"),
+        "不应暴露 OS 错误：{stderr}"
+    );
+}
+
+/// `rzc eject <不存在的路径>`：给出「不存在」提示，而不是无关的
+/// 「无法识别源文件扩展名」（与 `run`/`check`/`transpile` 的缺失校验同口径）
+#[test]
+fn test_eject_missing_path_fails_with_hint() {
+    let home = isolated_home();
+    let missing = std::env::temp_dir().join(format!("rzc-eject-missing-{}.zh", std::process::id()));
+    let output = rzc()
+        .env("HOME", home.path())
+        .args(["eject"])
+        .arg(&missing)
+        .assert()
+        .failure();
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
+    assert!(stderr.starts_with("Error:"), "{stderr}");
+    assert!(stderr.contains("不存在"), "应提示路径不存在：{stderr}");
+    assert!(
+        !stderr.contains("无法识别源文件扩展名"),
+        "不应报无关的扩展名错误：{stderr}"
+    );
+}
+
+/// `run`/`check`/`transpile` 传目录：给出可操作提示（P-02 同类面统一收口），
+/// 不得暴露 OS 原始错误（Windows「拒绝访问 (os error 5)」）
+#[test]
+fn test_directory_input_fails_with_actionable_hint() {
+    let home = isolated_home();
+    let dir = tempfile::tempdir().expect("创建临时目录失败");
+    for sub in ["run", "check", "transpile"] {
+        let output = rzc()
+            .env("HOME", home.path())
+            .arg(sub)
+            .arg(dir.path())
+            .assert()
+            .failure();
+        let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
+        assert!(
+            stderr.starts_with("Error:"),
+            "{sub} 应以 Error: 开头：{stderr}"
+        );
+        assert!(
+            stderr.contains("rzc eject"),
+            "{sub} 应把目录导出指向 eject：{stderr}"
+        );
+        assert!(
+            !stderr.to_lowercase().contains("os error"),
+            "{sub} 不应暴露 OS 错误：{stderr}"
+        );
+    }
 }
 
 /// `rzc mapping check`（无参数）：全内置语言校验 + 跨语言条目对比 +

@@ -95,6 +95,10 @@
 # ---- compilar y ejecutar ----
 "success_compile" = "✅ Compilacion exitosa, sin errores."
 "exported_to" = "Exportado a {}"
+"eject_no_source" = "No hay archivos fuente del dialecto para exportar en el directorio {}"
+"input_is_directory" = "{} es un directorio: `rzc run` / `rzc check` / `rzc transpile` aceptan un solo archivo fuente; para exportar un directorio completo use `rzc eject <directorio>`"
+"input_missing" = "{} no existe: compruebe la ruta (archivo o directorio)"
+"run_not_default_entry" = "{} no es el punto de entrada predeterminado del proyecto: `rzc run` vía cargo solo ejecuta src/main (artefacto actual {}). Use `cargo run --bin <nombre>` o `cargo run --example <nombre>` para el artefacto generado, o `rzc check` solo para validar"
 "cargo_run_failed" = "Fallo al ejecutar cargo run, raiz del proyecto: {}, error: {}"
 "cargo_check_failed" = "Fallo al ejecutar cargo check, raiz del proyecto: {}, error: {}"
 "add_no_project" = "No se encontró un proyecto Cargo (no hay Cargo.toml en este directorio ni en sus padres); ejecútelo dentro de un proyecto"

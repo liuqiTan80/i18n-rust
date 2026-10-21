@@ -93,6 +93,10 @@
 # ---- compile & run ----
 "success_compile" = "✅ Compilation succeeded, no errors."
 "exported_to" = "Exported to {}"
+"eject_no_source" = "No dialect source files to export under directory {}"
+"input_is_directory" = "{} is a directory: `rzc run` / `rzc check` / `rzc transpile` accept a single source file; use `rzc eject <dir>` to export a whole directory"
+"input_missing" = "{} does not exist: check the path (file or directory)"
+"run_not_default_entry" = "{} is not the project default entry: `rzc run` only runs src/main via cargo (current output: {}). Use `cargo run --bin <name>` or `cargo run --example <name>` for the generated output, or `rzc check` to validate only"
 "cargo_run_failed" = "Failed to run cargo run, project root: {}, error: {}"
 "cargo_check_failed" = "Failed to run cargo check, project root: {}, error: {}"
 "add_no_project" = "No Cargo project found (no Cargo.toml in this directory or its parents); run inside a project"

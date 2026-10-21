@@ -6,7 +6,7 @@
 use clap::{FromArgMatches, Parser, Subcommand};
 use i18n_rust_engine::cache::TranslationCache;
 use i18n_rust_engine::mapping_manager::MappingManager;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -317,6 +317,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
         }
         CliCommand::Run { file, lang_pack } => {
             let ui = ui_for_file(&file, &lang_pack);
+            ensure_source_file(&ui, &file)?;
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack.clone(), Some(&file))?;
             let project_root = find_project_root(&file)?;
@@ -327,6 +328,22 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // 入口文件写入 src/main.rs 作为编译目标；会话缓存贯穿入口文件与
             // 项目内其他文件（并行转译共享命中，见 transpile_project_files）
             let source_path = entry_output_path(&project_root, &file, &manager);
+            // 经 cargo 运行时只能运行 Cargo 默认入口 src/main.rs：非默认入口
+            // （examples/、src/ 下其他文件、根目录脚本）的产物写在自身路径，
+            // 无参数的 `cargo run` 会静默运行另一个程序，必须先明确提示
+            let use_direct_rustc = can_use_direct_rustc(&project_root, &file);
+            if !use_direct_rustc && source_path != project_root.join("src/main.rs") {
+                anyhow::bail!(
+                    "{}",
+                    ui.f(
+                        "run_not_default_entry",
+                        &[
+                            &file.display().to_string(),
+                            &source_path.display().to_string()
+                        ]
+                    )
+                );
+            }
             let cache = std::sync::Mutex::new(
                 i18n_rust_engine::cache::TranslationCache::persistent_default(),
             );
@@ -350,7 +367,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
 
             // 单文件项目直调 rustc：绕开 cargo 的索引/项目结构（教学单文件
             // 场景编译更快、无网络索引问题）；多文件/有依赖项目回退 cargo
-            if can_use_direct_rustc(&project_root, &file) {
+            if use_direct_rustc {
                 return run_direct_rustc(
                     &ui,
                     &project_root,
@@ -476,6 +493,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             fix,
         } => {
             let ui = ui_for_file(&file, &lang_pack);
+            ensure_source_file(&ui, &file)?;
             let mut source = fs::read_to_string(&file)?;
             // 全角标点教学修复：中文输入法下最常见的编译错误来源之一。
             // --fix 时自动将代码位置（字符串/注释内除外）的全角标点改写为半角，
@@ -593,24 +611,46 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             Ok(exit_code)
         }
         CliCommand::Eject { file, lang_pack } => {
-            let ui = ui_for_file(&file, &lang_pack);
-            let source = fs::read_to_string(&file)?;
-            let manager = load_mapping(lang_pack, Some(&file))?;
-            let english_code = transpile_to_english(&source, &manager);
-            let output_path = file.with_extension("rs");
-            fs::write(&output_path, english_code)?;
-            println!(
-                "{}",
-                ui.f("exported_to", &[&output_path.display().to_string()])
-            );
+            // 路径不存在时直接给可操作提示：否则 anchor 落到无扩展名路径，
+            // load_mapping 会报「无法识别源文件扩展名」这类无关错误
+            if !file.exists() {
+                let ui = ui_for_file(&file, &lang_pack);
+                anyhow::bail!("{}", ui.f("input_missing", &[&file.display().to_string()]));
+            }
+            // 目录模式的语言包解析锚点：目录内第一个方言文件（目录本身无
+            // 扩展名，直接用于 load_mapping 会报「无法识别源文件扩展名」）
+            let anchor = if file.is_dir() {
+                let extensions = lang_manager::all_available_extensions();
+                collect_dialect_files(&file, &extensions)
+                    .into_iter()
+                    .next()
+                    .unwrap_or_else(|| file.clone())
+            } else {
+                file.clone()
+            };
+            let ui = ui_for_file(&anchor, &lang_pack);
+            // 目录可能混有多种方言：eject_sources 内按扩展名分组、每组用
+            // 自身语言包（单锚点 manager 会把其他语言的关键字原样留在
+            // 产物里）；显式 --lang-pack 时统一使用指定语言包目录
+            for output_path in eject_sources(&ui, &file, lang_pack.as_deref())? {
+                println!(
+                    "{}",
+                    ui.f("exported_to", &[&output_path.display().to_string()])
+                );
+            }
             Ok(std::process::ExitCode::SUCCESS)
         }
         CliCommand::Transpile { file, lang_pack } => {
             // 转译预览：仅输出到 stdout，不产生任何文件（与 eject 互补）
             let ui = ui_for_file(&file, &lang_pack);
+            ensure_source_file(&ui, &file)?;
             let source = fs::read_to_string(&file)?;
             let manager = load_mapping(lang_pack, Some(&file))?;
-            let english_code = transpile_to_english(&source, &manager);
+            // 与 eject 同一管线（项目上下文 + 模块注解）：预览产物即导出产物
+            let project = collect_export_context(&file, &manager);
+            let mut cache = TranslationCache::persistent_default();
+            let english_code =
+                transpile_for_export(&file, &source, &manager, &project, &mut cache, false);
             print!("{english_code}");
             let _ = ui; // stdout 模式无需额外提示
             Ok(std::process::ExitCode::SUCCESS)
@@ -1112,49 +1152,207 @@ pub(crate) fn lang_pack_root_of(base: &Path) -> PathBuf {
     }
 }
 
-/// 统一转译管线（复用 engine）：Unicode 检查 → 关键字/宏转译 → 模块路径替换 → 别名替换 → 非 ASCII 模块注解
-///
-/// 使用磁盘持久化增量缓存（~/.rz/cache/transpile-v1.json）：上次运行转译过
-/// 且内容未变的文件直接命中，省去整条转译管线；语言包变化时语境指纹失效。
+/// 测试辅助：无项目上下文的单文件转译（关键字/别名管线 + 非 ASCII 模块注解）
+#[cfg(test)]
 fn transpile_to_english(source: &str, manager: &MappingManager) -> String {
-    let mut cache = i18n_rust_engine::cache::TranslationCache::persistent_default();
-    transpile_to_english_cached(source, manager, &mut cache)
+    annotate_non_ascii_mods(&i18n_rust_engine::transpile_pipeline(source, manager).output)
 }
 
-/// 同 [`transpile_to_english`]，复用调用方提供的缓存实例
+/// 收集待导出源文件所在范围的声明上下文（eject / transpile 共用）
 ///
-/// 多文件场景（run/check 命令）共享同一会话缓存：入口文件与项目内其他
-/// 方言文件内容指纹一致时直接命中，避免每次调用重建缓存、反复读写磁盘。
-fn transpile_to_english_cached(
+/// 单文件且能定位 Cargo 项目根时复用 [`collect_project_context`]（扫描整个
+/// src/，跨文件声明豁免与 run/check 一致）；目录或项目外文件按「待导出文件
+/// 集合」收集——`rzc eject` 的契约是零锁定毕业，可在任意目录导出教材示例，
+/// 不要求目标位于 Cargo 项目内。
+fn collect_export_context(
+    file: &Path,
+    manager: &MappingManager,
+) -> i18n_rust_engine::alias::ProjectContext {
+    let extensions = lang_manager::all_available_extensions();
+    if file.is_dir() {
+        return collect_context_for_files(collect_dialect_files(file, &extensions), manager);
+    }
+    if let Ok(project_root) = find_project_root(file) {
+        let mut context = collect_project_context(&project_root, file, manager);
+        // eject 可在 src/ 之外（examples/、项目根）：项目扫描只覆盖 src/，
+        // 用文件所在目录补齐兄弟文件（模块名 + 声明名，否则跨文件字段
+        // 访问仍会被别名改写）
+        let scan_root = file.parent().unwrap_or_else(|| Path::new("."));
+        if !scan_root.starts_with(project_root.join("src")) {
+            // 单文件补齐只扫同目录兄弟（不递归），避免遍历大目录子树
+            let extra = collect_context_for_files(
+                collect_sibling_dialect_files(scan_root, &extensions),
+                manager,
+            );
+            context.modules.extend(extra.modules);
+            context.names.extend(extra.names);
+            context.items.extend(extra.items);
+        }
+        return context;
+    }
+    let scan_root = file.parent().unwrap_or_else(|| Path::new("."));
+    // 项目外单文件：上下文只看同目录兄弟（不递归整个父目录子树）
+    let mut files = collect_sibling_dialect_files(scan_root, &extensions);
+    // 目标文件必须纳入（父目录无方言文件等边界）
+    if !files.iter().any(|p| p == file) {
+        files.push(file.to_path_buf());
+    }
+    collect_context_for_files(files, manager)
+}
+
+/// 从给定源文件集合收集项目级声明上下文
+///
+/// 模块名取文件词干（路径段豁免的保守近似），声明名由引擎扫描各文件内容。
+fn collect_context_for_files(
+    files: impl IntoIterator<Item = PathBuf>,
+    manager: &MappingManager,
+) -> i18n_rust_engine::alias::ProjectContext {
+    let mut modules = HashSet::new();
+    let mut sources: Vec<String> = Vec::new();
+    for path in files {
+        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+            modules.insert(stem.to_string());
+        }
+        if let Ok(source) = fs::read_to_string(&path) {
+            sources.push(source);
+        }
+    }
+    i18n_rust_engine::alias::ProjectContext::from_sources(
+        modules,
+        sources.iter().map(String::as_str),
+        manager,
+    )
+}
+
+/// 转译单个源文件为可导出的标准 Rust（项目上下文 + 模块路径注解）
+///
+/// `dir_mode` 区分导出形态：目录批量导出时非入口文件的子模块位于
+/// `<自身词干>/` 下（rustc 默认查找规则），注解须带词干前缀；单文件导出
+/// 按 crate 根处理（与既有 eject 产物一致）。
+fn transpile_for_export(
+    path: &Path,
     source: &str,
     manager: &MappingManager,
-    cache: &mut i18n_rust_engine::cache::TranslationCache,
+    project: &i18n_rust_engine::alias::ProjectContext,
+    cache: &mut TranslationCache,
+    dir_mode: bool,
 ) -> String {
-    annotate_non_ascii_mods(&transpile_with_map_cached(source, manager, cache).output)
+    let transpiled = transpile_with_map_cached_in_project(source, manager, cache, Some(project));
+    annotate_exported_mods(&transpiled.output, path, manager, dir_mode)
 }
 
-/// 同 [`transpile_to_english_cached`]，但保留转译产物的源映射
+/// 给导出产物的非 ASCII 模块名补 `#[path]` 注解
 ///
-/// 源映射（`pipeline_map`）是诊断列号回译的唯一依据：rustc 报的是英文产物
-/// 的列号，须据此回放替换过程才能还原母语源码列号。
-/// 缓存命中时映射表随产物一并复用，无需重算。
-fn transpile_with_map_cached(
-    source: &str,
+/// 仅 crate 根（`main`/`lib`/语言包入口词）与单文件导出按当前目录解析；
+/// 目录模式的其他文件是子模块，须按 `<自身词干>/子名.rs` 注解。
+fn annotate_exported_mods(
+    code: &str,
+    path: &Path,
     manager: &MappingManager,
-    cache: &mut i18n_rust_engine::cache::TranslationCache,
-) -> i18n_rust_engine::cache::TranspileOutput {
-    i18n_rust_engine::transpile_source_with_map(source, manager, cache).unwrap_or_else(|_e| {
-        // 缓存失败不阻断转译：回退无缓存管线（与旧行为一致）
-        i18n_rust_engine::log_warn!(
-            "cli",
-            "{}",
-            i18n_rust_engine::语言::t("log_transpile_cache_fallback")
-        );
-        i18n_rust_engine::transpile_pipeline(source, manager)
-    })
+    dir_mode: bool,
+) -> String {
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    if !dir_mode || stem == "lib" || is_entry_stem(stem, manager) {
+        annotate_non_ascii_mods(code)
+    } else {
+        i18n_rust_engine::module_path::annotate_nested_mods_with_lines(code, stem).0
+    }
 }
 
-/// 同 [`transpile_with_map_cached`]，附项目级声明上下文（跨文件声明豁免）
+/// 校验输入是单个源文件（`run` / `check` / `transpile` 共用）
+///
+/// 目录输入在这三个子命令里无意义，且 Windows 上直接
+/// `fs::read_to_string(目录)` 只会报「拒绝访问 (os error 5)」；路径不存在
+/// 时则只暴露 OS 层「No such file」错误。两者都给出可操作提示，把目录
+/// 批量导出指向 `eject`（P-02 同类面统一收口）。
+fn ensure_source_file(ui: &crate::ui::Ui, file: &Path) -> anyhow::Result<()> {
+    if !file.exists() {
+        anyhow::bail!("{}", ui.f("input_missing", &[&file.display().to_string()]));
+    }
+    if file.is_dir() {
+        anyhow::bail!(
+            "{}",
+            ui.f("input_is_directory", &[&file.display().to_string()])
+        );
+    }
+    Ok(())
+}
+
+/// 按语言分组待导出文件（组与组内均保持排序稳定）
+///
+/// 目录可能混有多种方言（如 `.zh` + `.ja`）：按扩展名检测语言并分组，
+/// 每组用自身语言包转译——单锚点 manager 会把其他语言的关键字原样留在
+/// 产物里（`関数` 不被 zh 映射，rustc 报错）。显式 `--lang-pack` 时尊重
+/// 用户指定的语言包目录，不分组。
+fn group_files_by_lang<'a>(
+    files: &'a [PathBuf],
+    explicit_pack: Option<&Path>,
+) -> Vec<Vec<&'a PathBuf>> {
+    if explicit_pack.is_some() {
+        return vec![files.iter().collect()];
+    }
+    let mut groups: BTreeMap<String, Vec<&PathBuf>> = BTreeMap::new();
+    for path in files {
+        let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let code = get_lang_code_from_extension(extension).unwrap_or_else(|| extension.to_string());
+        groups.entry(code).or_default().push(path);
+    }
+    groups.into_values().collect()
+}
+
+/// 导出一处方言源码为标准 Rust 文件，返回全部产物路径
+///
+/// 目录模式：递归导出目录下全部方言文件（P-02：直接
+/// `fs::read_to_string(目录)` 在 Windows 报「拒绝访问 (os error 5)」，
+/// 必须先按文件/目录分流）。单文件与目录共用项目级声明上下文：否则
+/// `mod 中文名;` 声明位受保护而 use 路径段/字段访问被别名改写，声明与
+/// 引用错位（P-01/P-05/P-07/P-08）。
+///
+/// 混合语言目录按扩展名分组，每组独立加载语言包与上下文。写盘统一走
+/// [`write_transpiled`]：已有同名 `.rs` 且内容不同时先备份为 `.rs.bak`
+/// （与 run/check 同口径），避免渐进迁移中手写产物被静默覆盖。
+fn eject_sources(
+    ui: &crate::ui::Ui,
+    file: &Path,
+    explicit_pack: Option<&Path>,
+) -> anyhow::Result<Vec<PathBuf>> {
+    let dir_mode = file.is_dir();
+    let files = if dir_mode {
+        let extensions = lang_manager::all_available_extensions();
+        collect_dialect_files(file, &extensions)
+    } else {
+        vec![file.to_path_buf()]
+    };
+    if files.is_empty() {
+        anyhow::bail!(
+            "{}",
+            ui.f("eject_no_source", &[&file.display().to_string()])
+        );
+    }
+    let mut cache = TranslationCache::persistent_default();
+    let mut outputs = Vec::with_capacity(files.len());
+    for group in group_files_by_lang(&files, explicit_pack) {
+        let anchor: &Path = group.first().map(|p| p.as_path()).unwrap_or(file);
+        let manager = load_mapping(explicit_pack.map(Path::to_path_buf), Some(anchor))?;
+        // 目录模式：组内文件共享上下文；单文件：项目级上下文（含 Cargo 根探测）
+        let project = if dir_mode {
+            collect_context_for_files(group.iter().map(|p| (*p).to_path_buf()), &manager)
+        } else {
+            collect_export_context(file, &manager)
+        };
+        for path in group {
+            let source = fs::read_to_string(path)?;
+            let code =
+                transpile_for_export(path, &source, &manager, &project, &mut cache, dir_mode);
+            let output_path = path.with_extension("rs");
+            write_transpiled(&output_path, &code, ui)?;
+            outputs.push(output_path);
+        }
+    }
+    Ok(outputs)
+}
+
+/// 同 [`transpile_source_with_project`]，附项目级声明上下文（跨文件声明豁免）
 ///
 /// 缓存语境指纹由引擎并入项目上下文指纹（[`transpile_source_with_project`]）：
 /// 项目声明集合变化时相关缓存自动失效。
@@ -1241,19 +1439,42 @@ fn collect_dialect_files_recursive(dir: &Path, extensions: &[String], out: &mut 
         if ft.is_dir() {
             // target 等构建产物目录不会出现在 src 树内；无特殊排除
             collect_dialect_files_recursive(&path, extensions, out);
-        } else if ft.is_file()
-            && path
-                .extension()
-                .and_then(|e| e.to_str())
-                .is_some_and(|ext| {
-                    extensions
-                        .iter()
-                        .any(|e| e == ext || e == &format!(".{ext}"))
-                })
-        {
+        } else if ft.is_file() && is_dialect_file(&path, extensions) {
             out.push(path);
         }
     }
+}
+
+/// 判断路径是否是已注册的方言源文件（扩展名可带点或不带点）
+fn is_dialect_file(path: &Path, extensions: &[String]) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|ext| {
+            extensions
+                .iter()
+                .any(|e| e == ext || e == &format!(".{ext}"))
+        })
+}
+
+/// 收集目录**直接子文件**中的方言源文件（不递归，路径排序保证确定性）
+///
+/// 单文件导出的上下文补齐只关心同目录兄弟模块；若沿用递归收集，在用户
+/// 主目录等大目录下会无谓遍历整棵子树（`rzc transpile ~/示例.zh` 的
+/// 常见场景）。
+fn collect_sibling_dialect_files(dir: &Path, extensions: &[String]) -> Vec<PathBuf> {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut out: Vec<PathBuf> = entries
+        .flatten()
+        .filter_map(|dent| {
+            let path = dent.path();
+            let ft = dent.file_type().ok()?;
+            (ft.is_file() && is_dialect_file(&path, extensions)).then_some(path)
+        })
+        .collect();
+    out.sort();
+    out
 }
 
 /// 收集项目级声明上下文（跨文件声明豁免）
@@ -1966,9 +2187,10 @@ fn get_lang_code_from_extension(extension: &str) -> Option<String> {
 mod tests {
     use super::{
         annotate_non_ascii_mods, annotate_non_ascii_mods_with_lines, collect_project_context,
-        detect_toolchain_channel, entry_output_path, find_alias_in_toml,
-        get_lang_code_from_extension, transpile_project_files, transpile_to_english,
-        transpile_with_map_cached_in_project, write_transpiled,
+        collect_sibling_dialect_files, detect_toolchain_channel, entry_output_path,
+        find_alias_in_toml, get_lang_code_from_extension, group_files_by_lang,
+        transpile_project_files, transpile_to_english, transpile_with_map_cached_in_project,
+        write_transpiled,
     };
 
     /// 加载内置中文映射管理器（测试转译管线用）
@@ -1981,6 +2203,47 @@ mod tests {
             builtin.crates_data,
         )
         .expect("内置中文语言包应可加载")
+    }
+
+    /// 混合语言目录按扩展名分组：同语言文件归组，显式语言包不再分组
+    #[test]
+    fn test_group_files_by_lang() {
+        use std::path::{Path, PathBuf};
+        let files = vec![
+            PathBuf::from("a.zh"),
+            PathBuf::from("b.ja"),
+            PathBuf::from("c.zh"),
+        ];
+        let groups = group_files_by_lang(&files, None);
+        // BTreeMap 按语言码排序：ja 组在前，zh 组保留文件顺序
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].len(), 1);
+        assert!(groups[0][0].ends_with("b.ja"));
+        assert_eq!(groups[1].len(), 2);
+        assert!(groups[1][0].ends_with("a.zh"));
+        assert!(groups[1][1].ends_with("c.zh"));
+        // 显式 --lang-pack：不分组，全部文件交给指定语言包
+        let explicit = group_files_by_lang(&files, Some(Path::new("lang-packs/ja")));
+        assert_eq!(explicit.len(), 1);
+        assert_eq!(explicit[0].len(), 3);
+    }
+
+    /// 单文件上下文补齐只扫同目录直接子文件：不递归子目录
+    #[test]
+    fn test_collect_sibling_files_not_recursive() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        std::fs::write(dir.path().join("a.zh"), "").unwrap();
+        std::fs::write(dir.path().join("b.ja"), "").unwrap();
+        std::fs::write(dir.path().join("c.rs"), "").unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("sub/d.zh"), "").unwrap();
+        let extensions = ["zh".to_string(), "ja".to_string()];
+        let files = collect_sibling_dialect_files(dir.path(), &extensions);
+        let names: Vec<String> = files
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(names, vec!["a.zh".to_string(), "b.ja".to_string()]);
     }
 
     /// 入口产物路径：入口词干（main / 语言包主函数词）写入 src/main.rs，

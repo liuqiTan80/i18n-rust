@@ -41,9 +41,9 @@ rzc run src/main.zh
 | 命令 | 说明 |
 |------|------|
 | `rzc init <项目名>` | 创建新项目 |
-| `rzc run <文件>` | 翻译并运行方言源码 |
+| `rzc run <文件>` | 翻译并运行方言源码（须为项目默认入口 `src/main`） |
 | `rzc check <文件>` | 类型检查，输出中文教学诊断 |
-| `rzc eject <文件>` | 导出为标准 Rust 代码 |
+| `rzc eject <文件或目录>` | 导出为标准 Rust 代码（目录递归批量导出；混合语言目录按扩展名分组） |
 | `rzc lang` | 语言包管理（list / install / remove） |
 | `rzc mapping auto <crate>` | 自动生成第三方库映射 |
 

@@ -95,6 +95,10 @@
 # ---- コンパイルと実行 ----
 "success_compile" = "✅ コンパイル成功、エラーはありません。"
 "exported_to" = "{} にエクスポートしました"
+"eject_no_source" = "ディレクトリ {} にエクスポートできる方言ソースファイルがありません"
+"input_is_directory" = "{} はディレクトリです：`rzc run` / `rzc check` / `rzc transpile` は単一のソースファイルのみ受け付けます。ディレクトリの一括エクスポートには `rzc eject <ディレクトリ>` を使用してください"
+"input_missing" = "{} が存在しません：パス（ファイルまたはディレクトリ）を確認してください"
+"run_not_default_entry" = "{} はプロジェクトの既定エントリではありません：cargo 経由の `rzc run` は src/main のみ実行します（現在の生成物 {}）。生成済みの生成物は `cargo run --bin <名前>` / `cargo run --example <名前>` で実行するか、`rzc check` で検証のみ行ってください"
 "cargo_run_failed" = "cargo run の実行に失敗しました。プロジェクトルート: {}、エラー: {}"
 "cargo_check_failed" = "cargo check の実行に失敗しました。プロジェクトルート: {}、エラー: {}"
 "add_no_project" = "Cargo プロジェクトが見つかりません（このディレクトリと上位に Cargo.toml がありません）。プロジェクト内で実行してください"

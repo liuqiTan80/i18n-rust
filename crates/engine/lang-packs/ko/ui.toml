@@ -95,6 +95,10 @@
 # ---- 컴파일 및 실행 ----
 "success_compile" = "✅ 컴파일 성공, 오류가 없습니다."
 "exported_to" = "{} 로 내보냈습니다"
+"eject_no_source" = "디렉터리 {}에 내보낼 방언 소스 파일이 없습니다"
+"input_is_directory" = "{}은(는) 디렉터리입니다: `rzc run` / `rzc check` / `rzc transpile`은 단일 소스 파일만 허용합니다. 디렉터리 전체를 내보내려면 `rzc eject <디렉터리>`를 사용하세요"
+"input_missing" = "{}이(가) 존재하지 않습니다: 경로(파일 또는 디렉터리)를 확인하세요"
+"run_not_default_entry" = "{}은(는) 프로젝트 기본 진입점이 아닙니다: cargo를 통한 `rzc run`은 src/main만 실행합니다(현재 산출물 {}). 생성된 산출물은 `cargo run --bin <이름>` 또는 `cargo run --example <이름>`으로 실행하거나, 검증만 하려면 `rzc check`를 사용하세요"
 "cargo_run_failed" = "cargo run 실행 실패, 프로젝트 루트: {}, 오류: {}"
 "cargo_check_failed" = "cargo check 실행 실패, 프로젝트 루트: {}, 오류: {}"
 "add_no_project" = "Cargo 프로젝트를 찾을 수 없습니다 (이 디렉터리와 상위 디렉터리에 Cargo.toml 없음). 프로젝트 안에서 실행하세요"

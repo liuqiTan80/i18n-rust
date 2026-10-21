@@ -95,6 +95,10 @@
 # ---- الترجمة والتشغيل ----
 "success_compile" = "✅ الترجمة نجحت، لا توجد أخطاء."
 "exported_to" = "تم التصدير إلى {}"
+"eject_no_source" = "لا توجد ملفات مصدر للهجة قابلة للتصدير في الدليل {}"
+"input_is_directory" = "{} دليل: تقبل `rzc run` / `rzc check` / `rzc transpile` ملف مصدر واحدًا فقط؛ لتصدير الدليل كاملًا استخدم `rzc eject <الدليل>`"
+"input_missing" = "{} غير موجود: تحقق من المسار (ملف أو دليل)"
+"run_not_default_entry" = "{} ليس نقطة الدخول الافتراضية للمشروع: عبر cargo يشغّل `rzc run` فقط src/main (الناتج الحالي {}). استخدم `cargo run --bin <الاسم>` أو `cargo run --example <الاسم>` للناتج المُنشأ، أو `rzc check` للتحقق فقط"
 "cargo_run_failed" = "فشل تنفيذ cargo run، جذر المشروع: {}، خطأ: {}"
 "cargo_check_failed" = "فشل تنفيذ cargo check، جذر المشروع: {}، خطأ: {}"
 "add_no_project" = "لم يُعثر على مشروع Cargo (لا يوجد Cargo.toml في هذا المجلد أو المجلدات الأعلى)؛ شغّل داخل مشروع"
