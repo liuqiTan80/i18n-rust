@@ -7,6 +7,7 @@
 #
 # 任务：
 #   1. 测试与质量：cargo test（全部 crate）+ cargo clippy 代码质量检查
+#   1.5 Windows 门禁：Windows 上复跑单元测试与静态门禁，拦截平台专有缺陷
 #   2. MSRV 门禁：声明的最低 Rust 版本（1.88）下工作区可编译
 #   3. LSP 端到端测试：安装 rust-analyzer 后验证真实诊断的中文翻译链路
 #   4. 基准回归对比：转译管线基准与入库基线对比，超阈值时失败
@@ -121,6 +122,52 @@ jobs:
         # 术语表「对应关键字/宏/方法/…」引用必须能在 zh 语言包找到对应键，
         # 防止教程索引与转译事实来源漂移（学习者按术语表写代码却无法转译）
         run: python3 tools/verify-glossary.py
+
+  # ---------- 1.5 Windows 门禁（补齐 ubuntu-only 的平台覆盖） ----------
+  # `test` job 只在 ubuntu-latest 运行；Windows 专有的路径 / 可执行文件 /
+  # 控制台编码缺陷（白名单反斜杠误报、找不到 rzc.exe、GBK 下 ✅ 崩溃）
+  # 曾只能靠开发者本机发现。本 job 在 Windows 上复跑单元测试与全部静态
+  # 门禁，确保修复不回归。教程代码块验证仍留在 ubuntu（内容验证与平台
+  # 无关，Windows 上逐块编译成本过高）。
+  windows-gates:
+    name: Windows 门禁
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 启用 Rust 构建缓存
+        uses: Swatinem/rust-cache@v2
+
+      - name: 运行单元测试（debug，锁定依赖）
+        run: cargo test --workspace --locked
+
+      - name: 构建 rzc（供门禁脚本调用）
+        run: cargo build --quiet --bin rzc
+
+      - name: 生产代码 panic 面门禁
+        run: python tools/check-prod-panics.py
+
+      - name: ui.toml 键完备性检查
+        run: python tools/check-ui-keys.py
+
+      - name: 语言包 errors.toml 完整性检查
+        run: python tools/check-lang-packs.py
+
+      - name: 第三方库映射质量门禁
+        run: python tools/check-mapping-warnings.py
+
+      - name: README 结构 parity 检查
+        run: python tools/check-readme-parity.py
+
+      - name: 术语表与语言包一致性检查
+        run: python tools/verify-glossary.py
 
   # ---------- 2. MSRV 门禁（声明的最低 Rust 版本可编译） ----------
   msrv:
