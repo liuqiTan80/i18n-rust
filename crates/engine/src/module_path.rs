@@ -597,6 +597,14 @@ fn annotate_mod_paths_impl(
     code: &str,
     resolve: &dyn Fn(&str) -> Option<String>,
 ) -> (String, Vec<usize>) {
+    // 文件首部 BOM：rustc 仅接受文件第一个字符位置的 BOM。首行恰好是
+    // `mod 名;` 时，注解行插在 `mod` 前会把 BOM 挤到行内（
+    // 「unknown start of token: \u{feff}」，编译失败）。剥离后统一前置，
+    // BOM 不占行，行映射不受影响。
+    let (bom, code) = match code.strip_prefix('\u{FEFF}') {
+        Some(rest) => ("\u{FEFF}", rest),
+        None => ("", code),
+    };
     let tokens: Vec<_> = tokenize(code).collect();
     // 逐 token 的字节偏移（rustc_lexer 词法流覆盖全源，偏移连续）
     let mut offsets: Vec<usize> = Vec::with_capacity(tokens.len());
@@ -696,6 +704,7 @@ fn annotate_mod_paths_impl(
     // 的换行不推进（插入行仍归属其所在 `mod` 声明行）
     let mut result =
         String::with_capacity(code.len() + insertions.iter().map(|(_, t)| t.len()).sum::<usize>());
+    result.push_str(bom);
     let mut line_map: Vec<usize> = vec![0];
     let mut engine_line = 0usize;
     let mut last = 0usize;
@@ -1115,5 +1124,23 @@ mod tests {
             "#[path = \"数学.rs\"]\nmod 数学;\n#[path = \"物理.rs\"]\nmod 物理;\nfn main() {}"
         );
         assert_eq!(line_map, vec![0, 0, 1, 1, 2]);
+    }
+
+    /// 首部 BOM 回归：首行恰为 `mod 名;` 时注解行不得把 BOM 挤到行内
+    /// （rustc 仅接受文件第一个字符位置的 BOM，否则 unknown start of token）
+    #[test]
+    fn test_annotate_preserves_leading_bom() {
+        let (out, line_map) = annotate_non_ascii_mods_with_lines("\u{FEFF}mod 数学;\nfn main() {}");
+        assert!(
+            out.starts_with("\u{FEFF}#[path = \"数学.rs\"]\nmod 数学;"),
+            "{out}"
+        );
+        // BOM 不占行：行映射与无 BOM 时一致
+        assert_eq!(line_map, vec![0, 0, 1]);
+        // 无 BOM 时行为不变
+        assert_eq!(
+            annotate_non_ascii_mods_with_lines("mod 数学;"),
+            ("#[path = \"数学.rs\"]\nmod 数学;".to_string(), vec![0, 0])
+        );
     }
 }
