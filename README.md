@@ -234,9 +234,9 @@ rzc run src/main.zh      # 翻译 → 编译 → 运行
 | `rzc init <项目名>`                | 创建新项目（工具链版本锁定到本机当前版本，IDE 开箱可用） |
 | `rzc run <文件>`                   | 翻译并运行；警告/错误/构建进度全部母语化 |
 | `rzc check <文件>`                 | 类型检查，输出母语教学诊断 |
-| `rzc eject <文件>`                 | 导出为标准 Rust 代码（渐进过渡） |
+| `rzc eject <文件>…`                | 导出为标准 Rust 代码（渐进过渡；可一次传多个文件/目录，逐项汇总、失败非零退出） |
 | `rzc transpile <文件>`             | 只转译不编译，标准 Rust 输出到屏幕 |
-| `rzc cheat <语言>`                 | 母语 ↔ Rust 映射速查表（`--markdown` 可嵌入文档） |
+| `rzc cheat <语言>`                 | 母语 ↔ Rust 映射速查表（逐条标注危险等级：会 panic / 会改写标识符 / 纯安全） |
 | `rzc add <库名>[@版本]`            | 添加第三方依赖（封装 `cargo add`，附母语映射提示） |
 | `rzc doctor`                       | 诊断工具链环境（内置 / PATH / 版本对比） |
 | `rzc lang list`                    | 列出已安装语言包 |

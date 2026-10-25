@@ -20,7 +20,7 @@
 
 ## 2. 映射文件格式
 
-每个 crate 一个文件：`crates/engine/lang-packs/<语言>/crates/<文件>.toml`，三个可选节：
+每个 crate 一个文件：`crates/engine/lang-packs/<语言>/crates/<文件>.toml`，五个可选节：
 
 ```toml
 # ["模块路径"]：use 路径段替换（use 方言名::子模块 → use 英文路径）
@@ -34,7 +34,20 @@
 # ["解释"]：教学用说明（可选，仅 rzc 展示，不参与转译）
 ["解释"]
 "服务器" = "HTTP 服务器主体。"
+
+# ["危险等级"] / ["危险备注"]：词条表逐条标注（不参与转译）
+["危险等级"]
+"取列" = "safe"           # 取值：panic / rewrite / safe，多风险用 + 连接
+"取列或崩溃" = "panic"
+["危险备注"]
+"取列或崩溃" = "Row::get 列越界会 panic；默认请用「取列」（get_opt）"
 ```
+
+危险等级给 `rzc cheat` 表和图例供数据，也是「**要 panic 必须显式写**」的落地点：
+默认词条本身就要安全（`取列` → `get_opt`，编译期强制处理 `Option`），
+会 panic 的 API 另起一条名字（`取列或崩溃` → `get`）。未标注时按默认归类
+（关键字/宏 → `rewrite`；目标为 `unwrap`/`expect` 等必 panic 项 → `panic`）；
+标注只能升高风险。细节见 [missing-mapping-guide.md](./missing-mapping-guide.md) 第 3.5 节。
 
 硬性约束：
 
@@ -91,6 +104,7 @@ rzc mapping check           # 校验全部内置语言 + 跨语言条目数一�
 | error | TOML 解析失败 | 含重复键 |
 | error | 关键字避让 | crates 键与 keywords 键相撞且**值不同**（同值视为安全冗余） |
 | error | 跨文件同键不同值 | crates 文件之间标识符键冲突，合并非确定 |
+| error | 危险等级标注 | 取值非法、标注了本文件不存在的词条、目标必 panic 却未标 `panic`、关键字未标 `rewrite` |
 | warning | stdlib 覆盖 | crates 键与 stdlib 标识符同键不同值，crates 条目失效 |
 
 存在 error 时退出码非零（已接入 CI 门禁）。另有**告警数基线**：

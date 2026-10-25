@@ -3,6 +3,8 @@ members = [
     "crates/engine",
     "crates/cli",
     "crates/lsp",
+    # 纯函数方言测试样例（不发布）：tests-zh/*.zh 由 build.rs 转译后随 cargo test 执行
+    "crates/zh-pure",
 ]
 resolver = "2"
 

@@ -1,0 +1,16 @@
+[package]
+name = "zh-pure"
+version = "0.8.4"
+edition = "2024"
+rust-version.workspace = true
+description = "纯函数方言测试样例：用 .zh 方言写测试，cargo test 自动发现"
+publish = false
+
+# 构建期把 tests-zh/*.zh 转译为标准 Rust（cargo 只识别 .rs 测试文件）
+build = "build.rs"
+
+[build-dependencies]
+i18n-rust-engine = { path = "../engine" }
+
+[lints]
+workspace = true

@@ -65,7 +65,9 @@ enum CliCommand {
         fix: bool,
     },
     Eject {
-        file: PathBuf,
+        /// Dialect source files or directories to export; repeatable (batch export, failures summarized)
+        #[arg(required = true, num_args = 1..)]
+        files: Vec<PathBuf>,
         #[arg(short, long)]
         lang_pack: Option<PathBuf>,
     },
@@ -610,36 +612,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             );
             Ok(exit_code)
         }
-        CliCommand::Eject { file, lang_pack } => {
-            // 路径不存在时直接给可操作提示：否则 anchor 落到无扩展名路径，
-            // load_mapping 会报「无法识别源文件扩展名」这类无关错误
-            if !file.exists() {
-                let ui = ui_for_file(&file, &lang_pack);
-                anyhow::bail!("{}", ui.f("input_missing", &[&file.display().to_string()]));
-            }
-            // 目录模式的语言包解析锚点：目录内第一个方言文件（目录本身无
-            // 扩展名，直接用于 load_mapping 会报「无法识别源文件扩展名」）
-            let anchor = if file.is_dir() {
-                let extensions = lang_manager::all_available_extensions();
-                collect_dialect_files(&file, &extensions)
-                    .into_iter()
-                    .next()
-                    .unwrap_or_else(|| file.clone())
-            } else {
-                file.clone()
-            };
-            let ui = ui_for_file(&anchor, &lang_pack);
-            // 目录可能混有多种方言：eject_sources 内按扩展名分组、每组用
-            // 自身语言包（单锚点 manager 会把其他语言的关键字原样留在
-            // 产物里）；显式 --lang-pack 时统一使用指定语言包目录
-            for output_path in eject_sources(&ui, &file, lang_pack.as_deref())? {
-                println!(
-                    "{}",
-                    ui.f("exported_to", &[&output_path.display().to_string()])
-                );
-            }
-            Ok(std::process::ExitCode::SUCCESS)
-        }
+        CliCommand::Eject { files, lang_pack } => eject_targets(&files, &lang_pack),
         CliCommand::Transpile { file, lang_pack } => {
             // 转译预览：仅输出到 stdout，不产生任何文件（与 eject 互补）
             let ui = ui_for_file(&file, &lang_pack);
@@ -1300,6 +1273,109 @@ fn group_files_by_lang<'a>(
     groups.into_values().collect()
 }
 
+/// 导出单处方言源码（`rzc eject` 单目标与批量共用的唯一入口）
+///
+/// 路径不存在时直接给可操作提示：否则 anchor 落到无扩展名路径，
+/// load_mapping 会报「无法识别源文件扩展名」这类无关错误。
+fn eject_one(file: &Path, lang_pack: Option<&Path>) -> anyhow::Result<Vec<PathBuf>> {
+    if !file.exists() {
+        let ui = ui_for_file(file, &lang_pack.map(Path::to_path_buf));
+        anyhow::bail!("{}", ui.f("input_missing", &[&file.display().to_string()]));
+    }
+    // 目录模式的语言包解析锚点：目录内第一个方言文件（目录本身无
+    // 扩展名，直接用于 load_mapping 会报「无法识别源文件扩展名」）
+    let anchor = if file.is_dir() {
+        let extensions = lang_manager::all_available_extensions();
+        collect_dialect_files(file, &extensions)
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| file.to_path_buf())
+    } else {
+        file.to_path_buf()
+    };
+    let ui = ui_for_file(&anchor, &lang_pack.map(Path::to_path_buf));
+    // 目录可能混有多种方言：eject_sources 内按扩展名分组、每组用
+    // 自身语言包（单锚点 manager 会把其他语言的关键字原样留在
+    // 产物里）；显式 --lang-pack 时统一使用指定语言包目录
+    eject_sources(&ui, file, lang_pack)
+}
+
+/// `rzc eject` 入口：单目标保持历史行为，多目标批量导出并汇总
+///
+/// 批量模式复用 [`eject_one`] 逐目标导出：单个目标失败不中断其余目标，
+/// 最后打印成功/失败汇总并以非零码退出，减少逐个手动 eject 造成的遗漏
+/// 与滞后事故。单目标失败仍直接冒泡为 `Error:`（与历史行为一致）。
+fn eject_targets(
+    files: &[PathBuf],
+    lang_pack: &Option<PathBuf>,
+) -> anyhow::Result<std::process::ExitCode> {
+    let ui = files
+        .first()
+        .map(|file| ui_for_file(file, lang_pack))
+        .unwrap_or_else(ui::Ui::global);
+    // 参数校验：同一目标重复出现只会重复写同一份产物（后写覆盖前写），
+    // 多半是命令拼写失误，直接报错而非静默去重
+    let mut seen = HashSet::new();
+    if let Some(dup) = files
+        .iter()
+        .find(|file| !seen.insert(file.as_os_str().to_owned()))
+    {
+        anyhow::bail!(
+            "{}",
+            ui.f("eject_args_duplicate", &[&dup.display().to_string()])
+        );
+    }
+
+    if let Some(only) = files.first().filter(|_| files.len() == 1) {
+        for output_path in eject_one(only, lang_pack.as_deref())? {
+            println!(
+                "{}",
+                ui.f("exported_to", &[&output_path.display().to_string()])
+            );
+        }
+        return Ok(std::process::ExitCode::SUCCESS);
+    }
+
+    let mut succeeded = 0usize;
+    let mut failed = 0usize;
+    for file in files {
+        match eject_one(file, lang_pack.as_deref()) {
+            Ok(outputs) => {
+                succeeded += 1;
+                for output_path in outputs {
+                    println!(
+                        "{}",
+                        ui.f("exported_to", &[&output_path.display().to_string()])
+                    );
+                }
+            }
+            Err(err) => {
+                failed += 1;
+                eprintln!(
+                    "{}",
+                    ui.f(
+                        "eject_failed",
+                        &[&file.display().to_string(), &format!("{err:#}")]
+                    )
+                );
+            }
+        }
+    }
+    if failed == 0 {
+        println!("{}", ui.f("eject_summary_ok", &[&succeeded.to_string()]));
+        Ok(std::process::ExitCode::SUCCESS)
+    } else {
+        eprintln!(
+            "{}",
+            ui.f(
+                "eject_summary_partial",
+                &[&succeeded.to_string(), &failed.to_string()]
+            )
+        );
+        Ok(std::process::ExitCode::FAILURE)
+    }
+}
+
 /// 导出一处方言源码为标准 Rust 文件，返回全部产物路径
 ///
 /// 目录模式：递归导出目录下全部方言文件（P-02：直接
@@ -1342,6 +1418,18 @@ fn eject_sources(
         };
         for path in group {
             let source = fs::read_to_string(path)?;
+            // 导出前扫一遍冲突（--no-lint 一并关闭）：字段名/声明名命中词条会被改写、
+            // 会 panic 的词条被当文本用——只提示不阻断，避免导出后才发现语义已变
+            if i18n_rust_engine::lint::teaching_lint_enabled() {
+                for hint in i18n_rust_engine::eject_hints::eject_hints(&source, &manager) {
+                    i18n_rust_engine::log_warn!(
+                        "eject_hint",
+                        "{}：{}",
+                        path.display(),
+                        hint.format()
+                    );
+                }
+            }
             let code =
                 transpile_for_export(path, &source, &manager, &project, &mut cache, dir_mode);
             let output_path = path.with_extension("rs");
@@ -1815,6 +1903,7 @@ fn print_cheat(manager: &MappingManager, lang_code: &str, markdown: bool) {
         println!("rzc cheat — {lang_code} ↔ Rust（共 {total} 条）");
     }
     println!();
+    print_danger_legend(markdown);
     for (title, rows) in &sections {
         if rows.is_empty() {
             continue;
@@ -1822,10 +1911,15 @@ fn print_cheat(manager: &MappingManager, lang_code: &str, markdown: bool) {
         if markdown {
             println!("## {title}");
             println!();
-            println!("| {lang_code} | Rust |");
-            println!("|---|---|");
+            println!("| {lang_code} | Rust | 危险等级 | 备注 |");
+            println!("|---|---|---|---|");
             for (native, en) in rows {
-                println!("| {native} | `{en}` |");
+                let danger = manager.danger_of(native);
+                println!(
+                    "| {native} | `{en}` | {} | {} |",
+                    danger.level.label(),
+                    markdown_cell(&danger.note)
+                );
             }
             println!();
         } else {
@@ -1836,8 +1930,18 @@ fn print_cheat(manager: &MappingManager, lang_code: &str, markdown: bool) {
                 .unwrap_or(0);
             println!("── {title} ──");
             for (native, en) in rows {
+                let danger = manager.danger_of(native);
                 let pad = width - native.chars().count();
-                println!("  {native}{}  {en}", " ".repeat(pad));
+                let note = if danger.note.is_empty() {
+                    String::new()
+                } else {
+                    format!("  // {}", danger.note)
+                };
+                println!(
+                    "  {native}{}  {en}  [{}]{note}",
+                    " ".repeat(pad),
+                    danger.level.label()
+                );
             }
             println!();
         }
@@ -1845,6 +1949,32 @@ fn print_cheat(manager: &MappingManager, lang_code: &str, markdown: bool) {
     if markdown {
         println!("> Generated by `rzc cheat {lang_code} --markdown`.");
     }
+}
+
+/// 词条表危险等级图例：三类含义必须与逐条标注同时出现，避免误读
+fn print_danger_legend(markdown: bool) {
+    if markdown {
+        println!("> **危险等级图例**：");
+        println!(
+            "> - `纯安全`：只在受保护位置（声明位/方法调用位/use 路径段）替换，不改写自定义标识符；"
+        );
+        println!("> - `会改写标识符`：词法层任意位置替换，同名自定义标识符也会被改写；");
+        println!(
+            "> - `会 panic`：运行时可能 panic，默认请选安全同义条目，仅调用处显式选择时使用；"
+        );
+        println!("> - 同一词条同时涉及多种风险时以 `+` 连接，并在「备注」列说明。");
+        println!();
+    } else {
+        println!(
+            "危险等级：纯安全 = 受保护位置替换｜会改写标识符 = 任意位置替换（同名标识符会被改写）｜会 panic = 运行时可能 panic（仅显式选择）"
+        );
+        println!();
+    }
+}
+
+/// Markdown 表格单元转义：竖线与换行会破坏表格结构
+fn markdown_cell(text: &str) -> String {
+    text.replace('|', "\\|").replace(['\n', '\r'], " ")
 }
 
 fn create_project(project_name: &str, lang: &str) -> anyhow::Result<()> {
@@ -2058,7 +2188,10 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
             cmd.about(ui.t("cmd_check_about"))
                 .mut_arg("fix", |arg| arg.help(ui.t("arg_check_fix_help")))
         })
-        .mut_subcommand("eject", |cmd| cmd.about(ui.t("cmd_eject_about")))
+        .mut_subcommand("eject", |cmd| {
+            cmd.about(ui.t("cmd_eject_about"))
+                .mut_arg("files", |arg| arg.help(ui.t("arg_eject_files_help")))
+        })
         .mut_subcommand("transpile", |cmd| cmd.about(ui.t("cmd_transpile_about")))
         .mut_subcommand("add", |cmd| {
             cmd.about(ui.t("cmd_add_about"))

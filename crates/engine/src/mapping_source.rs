@@ -14,6 +14,163 @@ use crate::error::{LoadError, LoadTarget};
 /// 节（section）组织的映射表：节名 → (母语词 → 英文)
 pub type SectionMap = HashMap<String, HashMap<String, String>>;
 
+/// 危险等级元数据节：词条 → panic / rewrite / safe（不参与转译映射）
+pub const DANGER_LEVEL_SECTION: &str = "危险等级";
+/// 危险备注元数据节：词条 → 人类可读的风险说明（不参与转译映射）
+pub const DANGER_NOTE_SECTION: &str = "危险备注";
+
+/// 元数据节不进入关键字/别名映射（否则 `"取列" = "panic"` 会被当成词条）
+pub fn is_metadata_section(name: &str) -> bool {
+    name == DANGER_LEVEL_SECTION || name == DANGER_NOTE_SECTION
+}
+
+/// 词条危险等级：两类风险可同时存在，均为 false 即「纯安全」
+///
+/// - `panic`：映射目标在运行时可能 panic（越界、类型不符、unwrap/expect 等）；
+/// - `rewrite`：词法层任意位置替换，同名自定义标识符也会被改写（关键字/宏类词条）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
+pub struct DangerLevel {
+    /// 会 panic
+    pub panic: bool,
+    /// 会改写标识符
+    pub rewrite: bool,
+}
+
+impl DangerLevel {
+    /// 纯安全
+    pub const SAFE: Self = Self {
+        panic: false,
+        rewrite: false,
+    };
+    /// 会 panic
+    pub const PANIC: Self = Self {
+        panic: true,
+        rewrite: false,
+    };
+    /// 会改写标识符
+    pub const REWRITE: Self = Self {
+        panic: false,
+        rewrite: true,
+    };
+    /// 两种风险并存
+    pub const PANIC_REWRITE: Self = Self {
+        panic: true,
+        rewrite: true,
+    };
+
+    /// 解析标注值：`panic` / `rewrite` / `safe`，多风险用 `+`（也接受 `,` `|`）连接
+    pub fn parse(text: &str) -> Option<Self> {
+        let mut level = Self::SAFE;
+        for part in text.split(['+', ',', '|']).map(str::trim) {
+            if part.is_empty() {
+                continue;
+            }
+            match part {
+                "panic" => level.panic = true,
+                "rewrite" => level.rewrite = true,
+                "safe" => {}
+                _ => return None,
+            }
+        }
+        Some(level)
+    }
+
+    /// 是否纯安全
+    pub fn is_safe(self) -> bool {
+        self == Self::SAFE
+    }
+
+    /// 稳定标识（Markdown/校验输出用）
+    pub fn code(self) -> &'static str {
+        match (self.panic, self.rewrite) {
+            (false, false) => "safe",
+            (true, false) => "panic",
+            (false, true) => "rewrite",
+            (true, true) => "panic+rewrite",
+        }
+    }
+
+    /// 词条表显示标签（与表头图例一致）
+    pub fn label(self) -> &'static str {
+        match (self.panic, self.rewrite) {
+            (false, false) => "纯安全",
+            (true, false) => "会 panic",
+            (false, true) => "会改写标识符",
+            (true, true) => "会 panic + 会改写标识符",
+        }
+    }
+}
+
+/// 词条危险信息：等级 + 可选备注（多风险时必须写明）
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DangerInfo {
+    /// 危险等级
+    pub level: DangerLevel,
+    /// 备注（空串表示无额外说明）
+    pub note: String,
+}
+
+/// 命中即视为一定会 panic 的映射目标（与接收者无关，如 Option/Result 的解包）
+///
+/// `get` / `remove` / `insert` 等是否 panic 取决于接收者类型，不在此自动判定，
+/// 须由映射表在 `["危险等级"]` 中显式标注（见 docs/third-party-mapping.md）。
+pub const ALWAYS_PANIC_TARGETS: &[&str] = &[
+    "unwrap",
+    "expect",
+    "unwrap_err",
+    "expect_err",
+    "get_unwrap",
+    "get_ref_unwrap",
+    "panic",
+    "todo",
+    "unimplemented",
+    "unreachable",
+];
+
+/// 映射目标是否属于「一定 panic」集合
+pub fn is_always_panic_target(target: &str) -> bool {
+    ALWAYS_PANIC_TARGETS.contains(&target)
+}
+
+/// 从已解析的节表中提取危险元数据（`["危险等级"]` + `["危险备注"]`）
+///
+/// 非法等级值按「会 panic」处理并记录警告：宁可高估风险，也不能把
+/// 会 panic 的词条静默标成纯安全。
+pub fn danger_from_sections(sections: &SectionMap) -> HashMap<String, DangerInfo> {
+    let mut result: HashMap<String, DangerInfo> = HashMap::new();
+    if let Some(levels) = sections.get(DANGER_LEVEL_SECTION) {
+        for (word, raw) in levels {
+            let level = match DangerLevel::parse(raw) {
+                Some(level) => level,
+                None => {
+                    crate::log_warn!(
+                        "映射源",
+                        "危险等级 [{}] 的值 {:?} 无法识别，按会 panic 处理",
+                        word,
+                        raw
+                    );
+                    DangerLevel::PANIC
+                }
+            };
+            result.entry(word.clone()).or_default().level = level;
+        }
+    }
+    if let Some(notes) = sections.get(DANGER_NOTE_SECTION) {
+        for (word, note) in notes {
+            result.entry(word.clone()).or_default().note = note.clone();
+        }
+    }
+    result
+}
+
+/// 解析 TOML 内容中的危险元数据（供加载器与校验工具共用）
+pub fn parse_danger_sections(
+    content: &str,
+) -> Result<HashMap<String, DangerInfo>, toml::de::Error> {
+    let sections = parse_toml_sections(content)?;
+    Ok(danger_from_sections(&sections))
+}
+
 /// 解析 TOML 内容为“节 → (母语词 → 英文)”二级表（两个加载器共用的单一解析实现）
 ///
 /// 非表节与非字符串条目记录警告后跳过（数据格式错误不再完全静默，
@@ -53,7 +210,10 @@ pub fn parse_toml_sections(content: &str) -> Result<SectionMap, toml::de::Error>
 /// （HashMap 遍历顺序随机会导致多次加载结果不一致）
 pub fn flatten_sections(sections: &SectionMap) -> HashMap<String, String> {
     let mut result = HashMap::new();
-    let mut names: Vec<&String> = sections.keys().collect();
+    let mut names: Vec<&String> = sections
+        .keys()
+        .filter(|name| !is_metadata_section(name))
+        .collect();
     names.sort();
     for name in names {
         for (zh, en) in &sections[name] {

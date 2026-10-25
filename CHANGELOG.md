@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-25
+
 ### 修复
 - CLI：`rzc eject` 支持目录批量导出（递归全部方言文件、共用项目上下文），
   修复目录直接 `fs::read_to_string` 在 Windows 报「拒绝访问 (os error 5)」；
@@ -83,6 +85,34 @@
   （en 无「消息翻译」节，回退 rustc 原文，属设计）；端到端实测命中精确键而非
   `expected ` 前缀兜底（zh：「缺少分号：期望 `;`，却发现 …」＋「修复建议：
   在此处添加 `;`」；ja 同构）
+- 词条表危险等级：`rzc cheat` 新增「危险等级」列与图例，逐条区分
+  **会 panic**（`get`/`unwrap`/`expect` 等）、**会改写标识符**（关键字/宏词条）
+  与**纯安全**；语言包新增 `["危险等级"]`/`["危险备注"]` 元数据节，引擎按
+  「默认归类 + 显式标注只升不降」合并，同一词条多风险用 `+` 标注并在备注说明
+- 词条表危险等级落实「要 panic 必须显式写」：`数据库.toml` 把**默认词条本身**
+  改成安全路径——`取列` → `get_opt`（编译期强制处理 `Option`）、同名同义词
+  `取列或空` 保留，会 panic 的 `get` 拆成新词条 `取列或崩溃` 并标注 + 给备注；
+  `mapping check` 新增四类校验（非法等级 / 孤立危险条目 /
+  目标必 panic 却未标 / 关键字未标改写），`mapping gen` 自动为 panic 目标写入
+  `["危险等级"]`——两侧夹住，防止被改回隐式 panic
+- CLI：`rzc eject` 支持一次传入多个导出目标（`rzc eject a.zh b.zh src/`），
+  复用单目标导出逻辑：重复目标在参数校验阶段拒绝，逐项导出并汇总
+  「成功 N 个 / 失败 M 个」，任一项失败即返回非零退出码；单目标用法与输出
+  保持不变（11 语言包新增 `arg_eject_files_help`、`eject_summary_ok`、
+  `eject_summary_partial`、`eject_failed`、`eject_args_duplicate` 键）
+- `rzc eject` 导出前新增冲突扫描（新模块 `engine::eject_hints`，按母语源文件
+  报 `.zh` 行列，只提示不阻断、`--no-lint` 一并关闭）：① 结构体字段名命中
+  关键字/宏词条（`类型:` → `type:`，serde 键随之改名）；② 声明的名字命中词条
+  （`让 自身` → `let Self`、`结构体 配置` → `struct cfg!`，`主函数` → `main`
+  除外）；③ 会 panic 的词条被当文本用（`打印行!("{}", 解包(甲))`、
+  结果直接接 `.转字符串()`）——别名词条在声明位有豁免，不会误报
+  （11 语言包新增 `eject_hint_field_shadowed`、`eject_hint_declared_name`、
+  `eject_hint_panic_as_text` 键）
+- 新增 `crates/zh-pure`（不发布）作为纯函数方言测试目录：`tests-zh/*.zh` 用
+  项目方言与 `#[测试]` 编写，`build.rs` 以编译期嵌入的内置 zh 语言包转译到
+  `$OUT_DIR`，`tests/zh_pure_tests.rs` 以 `include!` 展开，`cargo test` 自动发现；
+  当前覆盖判色 / 拆分词表 / 播报解析，每个函数含正常、边界、错误输入场景，
+  用例只用字面量作输入，不依赖文件 / 网络 / 环境变量
 
 ## [0.8.3] - 2026-09-29
 

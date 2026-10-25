@@ -34,6 +34,7 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | `crates/engine/lang-packs/<lang>/` | 语言包（数据非代码）：`keywords/stdlib/module_paths/errors/ui/lang_info.toml` + `crates/`（第三方映射） | 补词条、改文案 |
 | `crates/cli` | rzc：`main.rs` 命令层、`diagnostics.rs` 诊断翻译、`mapping_*` 子命令 | 命令与行为 |
 | `crates/lsp` | 代理 rust-analyzer：`response_map/` 反向翻译、`ui.rs` 界面消息本地化 | IDE 侧翻译 |
+| `crates/zh-pure` | 纯函数方言测试样例（不发布）：`tests-zh/*.zh` 用方言与 `#[测试]` 写用例，`build.rs` 转译后随 `cargo test` 执行 | 方言测试写法示例 |
 | `tools/vscode-extension` | 扩展（TypeScript） | 高亮 / 补全 / 诊断 UI |
 | `tools/` | 验证与构建脚本（索引见 [tools/README.md](../tools/README.md)） | 门禁逻辑 |
 | `tutorials/` | 中文教程母本；`tutorials/<lang>/` 译本 | 章节内容 |
@@ -52,6 +53,7 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | 改界面 / 教学文案 | CLI 侧 `lang-packs/<lang>/ui.toml`；LSP 侧 `crates/lsp/src/ui.rs`（读同一 `ui.toml`） | `make test` + 实机复现 |
 | 改转译管线 | `crates/engine/src/` | `make gate`；热路径配套 `make bench-check` |
 | 加 / 改 rzc 命令 | `crates/cli/src/main.rs`（诊断区 `diagnostics.rs`） | `make test` + 手动跑通 |
+| 用方言写测试（`.zh`） | `crates/zh-pure/tests-zh/*.zh` | `cargo test -p zh-pure` |
 | 改 IDE 体验 | `crates/lsp/` + `tools/vscode-extension/` | 扩展 `npm test`；LSP `make test` |
 | 调文档站 | `book/` + `tools/build-site.py` | `make site` · `make site-serve` |
 | 发教程到飞书（国内阅读入口） | `tools/publish-feishu.py` | `make feishu`（平台侧配置见[发布准备清单](strategy/发布准备清单.md)第 5 节） |

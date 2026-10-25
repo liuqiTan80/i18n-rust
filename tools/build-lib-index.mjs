@@ -88,6 +88,8 @@ function loadStdlib(code) {
     const tables = parseToml(readIf(file));
     const entries = [];
     for (const [tname, rows] of tables) {
+        // 危险等级/危险备注是元数据节，不是词条（与引擎 is_metadata_section 对齐）
+        if (tname === '危险等级' || tname === '危险备注') continue;
         for (const r of rows ?? []) {
             entries.push({ d: r.k, e: r.v, cat: r.cat || tname, table: tname });
         }

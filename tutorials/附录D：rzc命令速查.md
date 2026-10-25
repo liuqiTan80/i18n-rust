@@ -11,9 +11,9 @@
 | `rzc init 名字` | 新建中文项目（生成 Cargo.toml + main.zh） | `rzc init 我的项目` |
 | `rzc run 文件.zh` | 转译 + 编译 + 运行 | `rzc run src/main.zh` |
 | `rzc check 文件.zh` | 只检查，不生成可执行文件（更快） | `rzc check src/main.zh` |
-| `rzc eject 文件.zh` | 导出为标准 Rust（生成 .rs） | `rzc eject src/main.zh` |
+| `rzc eject 文件.zh [更多目标…]` | 导出为标准 Rust（生成 .rs）；可一次传多个文件/目录，逐项导出并汇总成功与失败 | `rzc eject src/main.zh src/工具.zh` |
 | `rzc transpile 文件.zh` | 只转译不编译，标准 Rust 输出到屏幕 | `rzc transpile src/main.zh` |
-| `rzc cheat 语言` | 母语 ↔ Rust 映射速查表（--markdown 可嵌入文档） | `rzc cheat zh --markdown` |
+| `rzc cheat 语言` | 母语 ↔ Rust 映射速查表（带危险等级与备注，`--markdown` 可嵌入文档） | `rzc cheat zh --markdown` |
 | `rzc lang list` | 查看可用语言包 | |
 | `rzc lang install 语言` | 安装语言包 | `rzc lang install ja` |
 | `rzc mapping auto 库名` | 用 AI 或规则自动生成第三方库映射 | `rzc mapping auto rand --provider rule` |
@@ -36,8 +36,17 @@ rzc init 练习簿 && cd 练习簿    # 造项目
 rzc run src/main.zh              # 写一点，跑一点
 rzc check src/main.zh            # 改完快速检查
 rzc eject src/main.zh && cargo test   # 跑测试（第二十一章）
+rzc eject src/main.zh src/工具.zh     # 多个目标一次导出，失败会汇总并非零退出
 cargo build --release            # 发布优化版（第十八章）
 ```
+
+### 看编译报错时去哪行找
+
+- 用 `rzc run` / `rzc check` / `rzc transpile` 编译：报错直接给**母语文件行列**
+  （`main.zh:3:15`），不用反查；
+- 用 `rzc eject` 导出后裸跑 `cargo build`：转译是词条级替换、不重排版，
+  **行号与 `.zh` 一一对应**（列号会随词条长短偏移）——按行号回原文件即可；
+  需要精确列号时改用 `rzc check 原文件.zh`。
 
 ---
 

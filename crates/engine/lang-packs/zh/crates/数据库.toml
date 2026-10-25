@@ -35,7 +35,9 @@
 "准备" = "prepare"
 "绑定参数" = "params"  # rusqlite::params! 宏（「参数」已被 env::args 占用）
 "数据行" = "Row"  # rusqlite::Row 行数据（「行」已被 line 占用）
-"取列" = "get"  # Row::get 按列号取值（「取值」已被 take 占用）
+"取列" = "get_opt"  # Row::get_opt 缺失列返回 None：默认路径不 panic，编译期强制处理「无」
+"取列或空" = "get_opt"  # 同义词（旧写法保留）：语义更直白，同样返回 Option
+"取列或崩溃" = "get"  # Row::get 列越界/类型不符会 panic：要 panic 必须显式写
 "查询映射" = "query_map"  # Statement::query_map 行迭代
 "单行查询" = "query_row"  # Connection::query_row 取单行
 "执行批处理" = "execute_batch"  # Connection::execute_batch 建表等多语句
@@ -50,6 +52,22 @@
 "空值" = "Null"
 "文本值" = "Text"  # 「文本」已被 str 占用
 "字节块" = "Blob"
-"取列引用" = "get_ref"  # Row::get_ref 按列号取 ValueRef（文本/字节块等原样引用）
+"取列引用" = "get_ref"  # Row::get_ref 按列号取 ValueRef（文本/字节块等原样引用；越界/类型不符会 panic）
 "整数值" = "Integer"
 "浮点值" = "Real"
+
+# ============================================================
+# 危险等级（词条表逐条标注的数据源；不参与转译）
+# 取值：panic / rewrite / safe，多风险用 + 连接
+# ============================================================
+["危险等级"]
+"取列" = "safe"  # get_opt：缺失列返回「无」，不 panic
+"取列或空" = "safe"
+"取列或崩溃" = "panic"
+"取列引用" = "panic"
+
+["危险备注"]
+"取列" = "安全默认：get_opt 缺失列返回「无」（None），编译期强制处理；确需 panic 请显式写「取列或崩溃」"
+"取列或崩溃" = "Row::get 列号越界/类型不符会 panic；仅在显式选择时使用（要 panic 必须显式写）"
+"取列或空" = "安全默认：缺失列返回「无」（None），不 panic"
+"取列引用" = "Row::get_ref 列号越界/类型不符会 panic；仅在显式需要列值引用时使用"

@@ -942,3 +942,32 @@
 "移除环境" = "env_remove"
 "创建文件" = "create"
 "接收超时" = "recv_timeout"
+
+# ============================================================
+# 危险等级（词条表逐条标注的数据源；不参与转译）
+# 取值：panic / rewrite / safe，多风险用 + 连接；未列出的词条按默认归类：
+# 关键字/宏 → rewrite，std/第三方别名 → safe（目标为 unwrap/expect 等时自动 panic）。
+# ============================================================
+["危险等级"]
+# 解包/期望类：与接收者无关，任何情况下调用即 panic
+"解包" = "panic"
+"取成功值" = "panic"
+"取错误值" = "panic"
+"期望" = "panic"
+"期望错误" = "panic"
+# 索引类：在 Vec/String/Slice 上越界会 panic（HashMap 上的同名方法安全，故备注说明）
+"移除" = "panic"
+"插入" = "panic"
+"截断" = "panic"
+"分割点" = "panic"
+
+["危险备注"]
+"解包" = "Option/Result::unwrap 在「无」/「错误」时 panic；默认请用「取值或」等安全组合子"
+"取成功值" = "Result::unwrap 在错误时 panic；默认请用「取成功值或」"
+"取错误值" = "Result::unwrap_err 在成功时 panic；仅在确实需要错误值时显式使用"
+"期望" = "Option/Result::expect 在「无」/「错误」时 panic，并输出自定义消息"
+"期望错误" = "Result::expect_err 在成功时 panic；仅在确实需要错误值时显式使用"
+"移除" = "Vec/String::remove 越界会 panic（HashMap::remove 返回 Option，安全）；默认先判断下标/键"
+"插入" = "Vec/String::insert 越界会 panic（HashMap::insert 安全）；默认先校验长度"
+"截断" = "String::truncate 落在非字符边界会 panic；默认用字符边界安全的截取"
+"分割点" = "slice::split_at 越界会 panic；默认先比较长度"

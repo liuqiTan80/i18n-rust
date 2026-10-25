@@ -12,7 +12,8 @@ use std::sync::OnceLock;
 // 避免两个加载器对同一 TOML 格式的理解漂移
 use crate::error::{LoadError, LoadTarget};
 use crate::mapping_source::{
-    flatten_sections, merge_module_and_ident_sections, parse_toml_sections,
+    DangerInfo, DangerLevel, danger_from_sections, flatten_sections, is_always_panic_target,
+    merge_module_and_ident_sections, parse_danger_sections, parse_toml_sections,
 };
 
 /// 映射管理器：统一管理关键字映射、模块路径映射、标识符别名映射
@@ -58,6 +59,8 @@ pub struct MappingManager {
     ambiguous_constructors_cache: OnceLock<HashSet<String>>,
     /// 宏映射缓存（`["宏"]` 节的物化副本）：见 [`Self::get_macro_map`]
     macro_map_cache: OnceLock<HashMap<String, String>>,
+    /// 危险元数据（`["危险等级"]` / `["危险备注"]` 节）：词条 → 风险声明
+    danger_map: HashMap<String, DangerInfo>,
 }
 
 impl MappingManager {
@@ -90,6 +93,8 @@ impl MappingManager {
                 path: None,
                 detail: e.to_string(),
             })?;
+        // 危险等级与关键字同文件（`["危险等级"]` / `["危险备注"]`）
+        let mut danger_map = danger_from_sections(&section_map);
         // 派生特征节单独存放（不并入关键字表，避免与方法名别名冲突），
         // 并从扁平化关键字表中移除对应键
         let derive_map = section_map.get("派生特征").cloned().unwrap_or_default();
@@ -116,6 +121,7 @@ impl MappingManager {
             if let Some(entries) = sections.get("模块路径") {
                 module_path_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
             }
+            danger_map.extend(danger_from_sections(&sections));
         }
 
         // 3. 扫描第三方库目录（crates/）
@@ -152,6 +158,9 @@ impl MappingManager {
                         path: Some(file_path.display().to_string()),
                         detail: e.to_string(),
                     })?;
+                if let Ok(info) = parse_danger_sections(&content) {
+                    danger_map.extend(info);
+                }
             }
         }
 
@@ -172,6 +181,9 @@ impl MappingManager {
                     path: Some(stdlib_file.display().to_string()),
                     detail: e.to_string(),
                 })?;
+            if let Ok(info) = parse_danger_sections(&content) {
+                danger_map.extend(info);
+            }
         }
 
         let use_defer_words = Self::build_use_defer_words(&module_path_map, &alias_map);
@@ -188,6 +200,7 @@ impl MappingManager {
             lint_words_cache: OnceLock::new(),
             ambiguous_constructors_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
+            danger_map,
         })
     }
 
@@ -217,6 +230,7 @@ impl MappingManager {
         for key in derive_map.keys() {
             keyword_map.remove(key);
         }
+        let mut danger_map = danger_from_sections(&section_map);
 
         // 2. 解析模块路径映射
         let mut module_path_map = HashMap::new();
@@ -229,6 +243,7 @@ impl MappingManager {
         if let Some(entries) = sections.get("模块路径") {
             module_path_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
         }
+        danger_map.extend(danger_from_sections(&sections));
 
         // 3. 解析标准库映射（模块路径 + 标识符别名）
         let mut alias_map = HashMap::new();
@@ -243,6 +258,7 @@ impl MappingManager {
         if let Some(entries) = sections.get("标识符") {
             alias_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
         }
+        danger_map.extend(danger_from_sections(&sections));
 
         // 4. 解析第三方库映射（按文件名排序合并，与 load_from_dir 行为一致）
         let mut sorted: Vec<&(&str, &str)> = third_party_data.iter().collect();
@@ -254,6 +270,9 @@ impl MappingManager {
                     path: Some((*file_name).to_string()),
                     detail: e.to_string(),
                 })?;
+            if let Ok(info) = parse_danger_sections(content) {
+                danger_map.extend(info);
+            }
         }
 
         let use_defer_words = Self::build_use_defer_words(&module_path_map, &alias_map);
@@ -270,6 +289,7 @@ impl MappingManager {
             lint_words_cache: OnceLock::new(),
             ambiguous_constructors_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
+            danger_map,
         })
     }
 
@@ -302,6 +322,7 @@ impl MappingManager {
             lint_words_cache: OnceLock::new(),
             ambiguous_constructors_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
+            danger_map: HashMap::new(),
         }
     }
 
@@ -519,6 +540,39 @@ impl MappingManager {
     /// 返回引用而非副本：`derive_map` 本身已是字段，克隆纯属浪费。
     pub fn get_derive_map(&self) -> &HashMap<String, String> {
         &self.derive_map
+    }
+
+    /// 查询词条危险等级与备注（词条表逐条标注的唯一入口）
+    ///
+    /// 默认归类：关键字/宏词条 → 会改写标识符（词法层无位置保护）；
+    /// 映射目标属于 [`ALWAYS_PANIC_TARGETS`] → 会 panic（如 `解包`→unwrap）；
+    /// 其余 → 纯安全。显式 `["危险等级"]` 只能**提高**风险，不能降低自动判定：
+    /// 即使标注 `safe`，自动识别出的 panic/rewrite 仍会保留（防漏标）。
+    pub fn danger_of(&self, word: &str) -> DangerInfo {
+        let target = self
+            .alias_map
+            .get(word)
+            .or_else(|| self.module_path_map.get(word))
+            .or_else(|| self.keyword_map.get(word))
+            .or_else(|| self.derive_map.get(word));
+        let mut level = DangerLevel {
+            panic: target.is_some_and(|value| is_always_panic_target(value)),
+            rewrite: self.keyword_map.contains_key(word),
+        };
+        let explicit_note = match self.danger_map.get(word) {
+            Some(info) => {
+                level.panic |= info.level.panic;
+                level.rewrite |= info.level.rewrite;
+                info.note.clone()
+            }
+            None => String::new(),
+        };
+        let note = if explicit_note.is_empty() && level.panic {
+            "运行时可能 panic：仅在调用处显式选择时使用".to_string()
+        } else {
+            explicit_note
+        };
+        DangerInfo { level, note }
     }
 
     /// 检测映射表中的循环引用（A→B 且 B→A 的互指对）
@@ -826,5 +880,106 @@ mod tests {
             HashMap::from([("字符串".to_string(), "String".to_string())]),
         );
         assert!(manager.find_mapping_cycles().is_empty());
+    }
+
+    /// 危险等级：显式标注、默认归类与「自动判定不可被降级」三条规则
+    #[test]
+    fn test_danger_levels_metadata_and_defaults() {
+        let keywords = concat!(
+            "[\"声明\"]\n",
+            "\"函数\" = \"fn\"\n",
+            "[\"宏\"]\n",
+            "\"恐慌\" = \"panic\"\n",
+            "[\"危险等级\"]\n",
+            "\"恐慌\" = \"panic+rewrite\"\n",
+            "\"函数\" = \"safe\"\n",
+        );
+        let stdlib = concat!(
+            "[\"标识符\"]\n",
+            "\"解包\" = \"unwrap\"\n",
+            "\"末尾\" = \"last\"\n",
+            "[\"危险等级\"]\n",
+            "\"末尾\" = \"panic\"\n",
+            "[\"危险备注\"]\n",
+            "\"末尾\" = \"显式选择才使用\"\n",
+        );
+        let manager = MappingManager::load_from_builtin(keywords, "", stdlib, &[]).unwrap();
+
+        // 关键字默认「会改写标识符」；显式 safe 不能降低自动判定
+        let keyword = manager.danger_of("函数");
+        assert!(keyword.level.rewrite, "关键字词条默认标记会改写标识符");
+        assert!(!keyword.level.panic);
+
+        // 多风险词条：panic + rewrite，且备注不为空
+        let panic_macro = manager.danger_of("恐慌");
+        assert!(panic_macro.level.panic && panic_macro.level.rewrite);
+        assert!(!panic_macro.note.is_empty());
+
+        // 目标为 unwrap：即使没有显式标注也自动判为会 panic
+        let unwrap = manager.danger_of("解包");
+        assert!(unwrap.level.panic);
+        assert!(!unwrap.level.rewrite);
+        assert!(!unwrap.note.is_empty(), "panic 词条应有默认提醒备注");
+
+        // 显式标注 panic 的安全目标 + 备注透传
+        let explicit = manager.danger_of("末尾");
+        assert!(explicit.level.panic);
+        assert_eq!(explicit.note, "显式选择才使用");
+
+        // 未登记者默认纯安全；元数据节不得污染映射表
+        assert!(manager.danger_of("不存在的词").level.is_safe());
+        assert!(!manager.keyword_map.contains_key("危险等级"));
+        assert!(!manager.alias_map.contains_key("危险备注"));
+    }
+
+    /// 回归：「取列」必须是安全默认（get_opt，编译期强制处理 Option），
+    /// 会 panic 的 get 只能由「取列或崩溃」显式写出（防被改回隐式 panic）
+    #[test]
+    fn test_zh_database_get_requires_explicit_panic() {
+        let lang_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
+        let manager = MappingManager::load_from_dir(&lang_dir).expect("内置语言包应可加载");
+
+        // 默认路径：取列 本身就走 get_opt，缺失列返回「无」，不隐式 panic
+        assert_eq!(
+            manager.alias_map.get("取列").map(String::as_str),
+            Some("get_opt")
+        );
+        assert!(
+            manager.danger_of("取列").level.is_safe(),
+            "取列 应为纯安全默认路径"
+        );
+        // 旧写法 取列或空 保留为同义词
+        assert_eq!(
+            manager.alias_map.get("取列或空").map(String::as_str),
+            Some("get_opt")
+        );
+
+        // 会 panic 的 get 拆成独立词条，只能显式写，且必须标注 + 给备注
+        assert_eq!(
+            manager.alias_map.get("取列或崩溃").map(String::as_str),
+            Some("get")
+        );
+        let panic_word = manager.danger_of("取列或崩溃");
+        assert!(panic_word.level.panic, "取列或崩溃 必须标注会 panic");
+        assert!(!panic_word.note.is_empty(), "会 panic 的词条必须有备注说明");
+    }
+
+    /// 等级标注解析：三类基础值、多风险连接符与非法值
+    #[test]
+    fn test_danger_level_parse() {
+        assert_eq!(DangerLevel::parse("safe"), Some(DangerLevel::SAFE));
+        assert_eq!(DangerLevel::parse("panic"), Some(DangerLevel::PANIC));
+        assert_eq!(DangerLevel::parse("rewrite"), Some(DangerLevel::REWRITE));
+        assert_eq!(
+            DangerLevel::parse("panic + rewrite"),
+            Some(DangerLevel::PANIC_REWRITE)
+        );
+        assert_eq!(
+            DangerLevel::parse("rewrite|panic"),
+            Some(DangerLevel::PANIC_REWRITE)
+        );
+        assert_eq!(DangerLevel::parse("boom"), None);
+        assert_eq!(DangerLevel::PANIC_REWRITE.code(), "panic+rewrite");
+        assert!(DangerLevel::SAFE.is_safe());
     }
 }

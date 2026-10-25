@@ -123,6 +123,23 @@ pub fn build_mapping_toml(
             escape_toml(explanation)
         ));
     }
+
+    // 危险等级：unwrap/expect 等目标调用即 panic，必须显式写进映射文件，
+    // 否则调用方会把它当纯安全接口（词条表也据此逐条标注）
+    let mut panic_entries: Vec<&str> = Vec::new();
+    for (chinese_name, english_name) in chinese_name_table {
+        if i18n_rust_engine::mapping_source::is_always_panic_target(english_name)
+            && !panic_entries.contains(&chinese_name.as_str())
+        {
+            panic_entries.push(chinese_name.as_str());
+        }
+    }
+    if !panic_entries.is_empty() {
+        output.push_str("\n[\"危险等级\"]\n");
+        for name in panic_entries {
+            output.push_str(&format!("\"{}\" = \"panic\"\n", escape_toml(name)));
+        }
+    }
     output
 }
 
@@ -169,6 +186,35 @@ mod tests {
         assert_eq!(value["标识符"]["新建"].as_str(), Some("new"));
         assert_eq!(value["标识符"]["状态"].as_str(), Some("State"));
         assert_eq!(value["解释"]["新建"].as_str(), Some("创建新的值"));
+    }
+
+    #[test]
+    fn test_toml_output_marks_panic_targets() {
+        let entries = extract_public_api(&sample_json()).unwrap();
+        // 生成物里的 unwrap 类目标（调用即 panic）必须显式标注危险等级
+        let chinese_name_table = vec![
+            ("解包".to_string(), "unwrap".to_string()),
+            ("新建".to_string(), "new".to_string()),
+        ];
+        let toml = build_mapping_toml(
+            "zh",
+            "示例",
+            "示例库",
+            None,
+            &entries,
+            &chinese_name_table,
+            &HashMap::new(),
+        );
+        let value: toml::Value = toml::from_str(&toml).expect("TOML 应可解析");
+        assert_eq!(
+            value["危险等级"]["解包"].as_str(),
+            Some("panic"),
+            "会 panic 的目标必须显式标注: {toml}"
+        );
+        assert!(
+            value["危险等级"].get("新建").is_none(),
+            "安全目标不应被标注危险: {toml}"
+        );
     }
 
     #[test]

@@ -194,6 +194,68 @@ const 必需关键字节: &[&str] = &[
     "标准库成员",
 ];
 
+/// 校验单个映射文件的危险等级元数据
+///
+/// 规则（均为 error，防止回归为「隐式 panic / 误标纯安全」）：
+/// - 等级值只允许 panic / rewrite / safe（多风险用 `+` 连接）；
+/// - 元数据键必须对应本文件已声明的词条（防止改名后元数据失效）；
+/// - 映射目标属于一定会 panic 的集合时，显式标注不得漏掉 panic；
+/// - 关键字/宏词条带 rewrite 风险，显式标注不得漏掉 rewrite。
+fn check_danger_metadata(
+    report: &mut CheckReport,
+    file_name: &str,
+    content: &str,
+    targets: &NameMap,
+    keyword: bool,
+) {
+    use i18n_rust_engine::mapping_source::{
+        DANGER_LEVEL_SECTION, DANGER_NOTE_SECTION, DangerLevel, is_always_panic_target,
+    };
+
+    let Ok(sections) = i18n_rust_engine::mapping_source::parse_toml_sections(content) else {
+        return; // TOML 解析错误已由其他检查项报告
+    };
+    let mut declared = HashSet::new();
+    for (word, raw) in sections.get(DANGER_LEVEL_SECTION).into_iter().flatten() {
+        declared.insert(word.as_str());
+        let Some(level) = DangerLevel::parse(raw) else {
+            report
+                .errors
+                .push(format!("mc_danger_invalid|{file_name}|{word}|{raw}"));
+            continue;
+        };
+        let Some(target) = targets.get(word) else {
+            report
+                .errors
+                .push(format!("mc_danger_orphan|{file_name}|{word}"));
+            continue;
+        };
+        if is_always_panic_target(target) && !level.panic {
+            report
+                .errors
+                .push(format!("mc_danger_understated|{file_name}|{word}|{target}"));
+        }
+        if keyword && !level.rewrite {
+            report
+                .errors
+                .push(format!("mc_danger_understated_rewrite|{file_name}|{word}"));
+        }
+    }
+    // 只写备注不写等级同样算孤立元数据（两节必须成对维护）
+    for word in sections
+        .get(DANGER_NOTE_SECTION)
+        .into_iter()
+        .flatten()
+        .map(|(word, _)| word)
+    {
+        if !declared.contains(word.as_str()) && !targets.contains_key(word) {
+            report
+                .errors
+                .push(format!("mc_danger_orphan|{file_name}|{word}"));
+        }
+    }
+}
+
 /// 校验单个语言包的 crates 映射质量
 ///
 /// 检查项（按严重级别）：
@@ -241,6 +303,35 @@ pub fn check_lang_pack(view: &LangPackView) -> CheckReport {
         }
     };
 
+    // 危险等级元数据：值合法性 / 孤立键 / 漏标 panic 与 rewrite
+    // （关键字默认 rewrite、unwrap 类目标默认 panic，显式标注不得降级）
+    {
+        let mut keyword_targets = keyword_map.clone();
+        if let Ok(sections) =
+            i18n_rust_engine::mapping_source::parse_toml_sections(&view.keywords_toml)
+            && let Some(derive) = sections.get("派生特征")
+        {
+            keyword_targets.extend(derive.iter().map(|(k, v)| (k.clone(), v.clone())));
+        }
+        check_danger_metadata(
+            &mut report,
+            "keywords.toml",
+            &view.keywords_toml,
+            &keyword_targets,
+            true,
+        );
+        let (mut stdlib_targets, stdlib_ident_targets) =
+            extract_sections(&view.stdlib_toml).unwrap_or_default();
+        stdlib_targets.extend(stdlib_ident_targets);
+        check_danger_metadata(
+            &mut report,
+            "stdlib.toml",
+            &view.stdlib_toml,
+            &stdlib_targets,
+            false,
+        );
+    }
+
     // 跨文件键追踪（模块路径与标识符分别维护）：键 -> (值, 首次出现的文件)
     let mut seen_module_paths: HashMap<String, (String, String)> = HashMap::new();
     let mut seen_idents: HashMap<String, (String, String)> = HashMap::new();
@@ -259,6 +350,10 @@ pub fn check_lang_pack(view: &LangPackView) -> CheckReport {
         };
         report.stats.module_path_entries += module_paths.len();
         report.stats.ident_entries += idents.len();
+        // 危险等级元数据：键必须对应本文件词条，且不得漏标 panic
+        let mut danger_targets = module_paths.clone();
+        danger_targets.extend(idents.iter().map(|(k, v)| (k.clone(), v.clone())));
+        check_danger_metadata(&mut report, file_name, content, &danger_targets, false);
 
         // 2. 关键字避让（对模块路径节与标识符节的键都检查）
         // 3. 跨文件同键不同值（两节对称：合并结果由文件名排序决定，
@@ -493,6 +588,11 @@ fn keyword_value_sets(content: &str) -> (HashSet<String>, HashSet<String>) {
             let mut keyword = HashSet::new();
             let mut derive = HashSet::new();
             for (section, table) in &sections {
+                // 危险等级/备注是元数据节（值不是 Rust 名称），
+                // 并入值集合会把 panic 等标记当成缺失词条误报
+                if i18n_rust_engine::mapping_source::is_metadata_section(section) {
+                    continue;
+                }
                 let target = if section == "派生特征" {
                     &mut derive
                 } else {
@@ -1194,6 +1294,107 @@ mod tests {
         assert!(report.passed(), "干净映射应通过: {:?}", report.errors);
         assert_eq!(report.stats.ident_entries, 2);
         assert_eq!(report.stats.crate_files, 1);
+    }
+
+    /// 危险等级校验：会 panic 的目标标成 safe 必须报错
+    ///
+    /// 回归保护（「要 panic 必须显式写」）：映射到 unwrap 类目标的词条
+    /// 若标成纯安全，调用方会当默认路径使用，运行即崩。
+    #[test]
+    fn test_danger_understated_panic_detected() {
+        let view = view_with_crates(vec![(
+            "a.toml",
+            r#"
+["标识符"]
+"取列" = "get_unwrap"
+
+["危险等级"]
+"取列" = "safe"
+"#,
+        )]);
+        let report = check_lang_pack(&view);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_danger_understated|a.toml|取列")),
+            "panic 目标标成 safe 必须报错: {:?}",
+            report.errors
+        );
+    }
+
+    /// 危险等级校验：关键字/宏词条默认 rewrite，显式标 safe 也不得降级
+    #[test]
+    fn test_danger_keyword_understated_rewrite_detected() {
+        let view = LangPackView {
+            lang: "zh".to_string(),
+            keywords_toml: r#"
+["声明"]
+"函数" = "fn"
+["控制流"]
+["类型"]
+["逻辑值"]
+["特殊值"]
+["内存"]
+["不安全"]
+["错误处理"]
+["宏"]
+["派生特征"]
+["标准库成员"]
+
+["危险等级"]
+"函数" = "safe"
+"#
+            .to_string(),
+            stdlib_toml: String::new(),
+            errors_toml: String::new(),
+            crates: Vec::new(),
+        };
+        let report = check_lang_pack(&view);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_danger_understated_rewrite|keywords.toml|函数")),
+            "关键字标成纯安全必须报错: {:?}",
+            report.errors
+        );
+    }
+
+    /// 危险等级校验：非法值与孤立元数据都要报错
+    ///
+    /// 拼写错误（如 panik）会让整条标注静默失效；词条改名后旧标注同样
+    /// 静默失效——两者都不能只靠人工审查。
+    #[test]
+    fn test_danger_invalid_and_orphan_detected() {
+        let view = view_with_crates(vec![(
+            "a.toml",
+            r#"
+["标识符"]
+"服务器" = "Server"
+
+["危险等级"]
+"服务器" = "panik"
+"已改名" = "panic"
+"#,
+        )]);
+        let report = check_lang_pack(&view);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_danger_invalid|a.toml|服务器|panik")),
+            "非法等级值应报错: {:?}",
+            report.errors
+        );
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("mc_danger_orphan|a.toml|已改名")),
+            "孤立元数据应报错: {:?}",
+            report.errors
+        );
     }
 
     /// 缺少必需节报 error（缺节不报错但整类词条静默失效）

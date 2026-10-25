@@ -589,6 +589,152 @@ fn test_eject_missing_path_fails_with_hint() {
     );
 }
 
+/// `rzc eject <a.zh> <b.zh>`：一次传多个目标批量导出（复用单目标逻辑）
+///
+/// 逐个手动 eject 容易遗漏，批量模式必须：成功项逐个提示、末尾输出汇总、
+/// 退出码为 0。
+#[test]
+fn test_eject_batch_multiple_targets() {
+    let dir = tempfile::tempdir().expect("创建临时目录失败");
+    let main = dir.path().join("main.zh");
+    let tool = dir.path().join("工具.zh");
+    std::fs::write(&main, GOOD_PROGRAM).unwrap();
+    std::fs::write(&tool, "公开 函数 问候() {\n}\n").unwrap();
+
+    let output = rzc()
+        .args(["eject"])
+        .arg(&main)
+        .arg(&tool)
+        .assert()
+        .success();
+    let stdout = String::from_utf8_lossy(&output.get_output().stdout).to_string();
+    assert!(
+        stdout.contains("main.rs"),
+        "应提示 main.rs 已导出：{stdout}"
+    );
+    assert!(
+        stdout.contains("工具.rs"),
+        "应提示 工具.rs 已导出：{stdout}"
+    );
+    assert_eq!(
+        stdout.matches("已导出到").count(),
+        2,
+        "每个目标都应单独提示：{stdout}"
+    );
+    assert!(stdout.contains("共导出 2 个目标"), "应有成功汇总：{stdout}");
+    assert!(dir.path().join("main.rs").is_file(), "main.rs 应已导出");
+    assert!(dir.path().join("工具.rs").is_file(), "工具.rs 应已导出");
+}
+
+/// `rzc eject` 批量部分失败：成功项照常导出，失败项单独汇总，退出码非零
+///
+/// 不能因一个目标失败就中断其余目标（那反而更容易漏导出），
+/// 也不能以 0 退出（否则 CI 会放过遗漏）。
+#[test]
+fn test_eject_batch_partial_failure_is_nonzero() {
+    let dir = tempfile::tempdir().expect("创建临时目录失败");
+    let present = dir.path().join("main.zh");
+    std::fs::write(&present, GOOD_PROGRAM).unwrap();
+    let missing = dir.path().join("缺失.zh");
+
+    let output = rzc()
+        .args(["eject"])
+        .arg(&present)
+        .arg(&missing)
+        .assert()
+        .failure();
+    let stdout = String::from_utf8_lossy(&output.get_output().stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
+    assert!(stdout.contains("main.rs"), "成功项应照常导出：{stdout}");
+    assert!(stderr.contains("导出失败"), "应列出失败项：{stderr}");
+    assert!(stderr.contains("缺失.zh"), "失败项应带目标路径：{stderr}");
+    assert!(
+        stderr.contains("成功 1 个，失败 1 个"),
+        "应有成功/失败汇总：{stderr}"
+    );
+    assert!(
+        dir.path().join("main.rs").is_file(),
+        "部分失败不应影响成功项的产物"
+    );
+}
+
+/// `rzc eject` 重复目标：参数校验直接报错（避免同一文件被写两次）
+#[test]
+fn test_eject_duplicate_target_rejected() {
+    let dir = tempfile::tempdir().expect("创建临时目录失败");
+    let main = dir.path().join("main.zh");
+    std::fs::write(&main, GOOD_PROGRAM).unwrap();
+
+    let output = rzc()
+        .args(["eject"])
+        .arg(&main)
+        .arg(&main)
+        .assert()
+        .failure();
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
+    assert!(
+        stderr.contains("重复"),
+        "应在参数校验阶段报重复目标：{stderr}"
+    );
+}
+
+/// `rzc eject` 导出前冲突扫描：字段名/声明名命中词条、会 panic 的词条被当文本用
+///
+/// 三类静默改语义的位置必须在导出前报出来（按 `.zh` 行列），且**只提示不阻断**：
+/// 产物照常写出、退出码为 0；`--no-lint` 一并关闭（与教学 lint 同口径）。
+#[test]
+fn test_eject_reports_conflict_hints() {
+    let dir = tempfile::tempdir().expect("创建临时目录失败");
+    let zh = dir.path().join("main.zh");
+    // 原始字符串：源码本身含 「"」 与换行，避免层层转义
+    std::fs::write(
+        &zh,
+        r#"结构体 甲 {
+    类型: 字符串,
+}
+
+函数 主函数() {
+    让 自身 = 1;
+    打印行!("{}", 解包(有值(3)));
+}
+"#,
+    )
+    .unwrap();
+
+    let output = rzc().args(["eject"]).arg(&zh).assert().success();
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
+    assert!(stderr.contains("[eject_hint]"), "应有冲突提示：{stderr}");
+    assert!(
+        stderr.contains("第 2 行第 5 列") && stderr.contains("类型"),
+        "字段名命中词条应报行列：{stderr}"
+    );
+    assert!(
+        stderr.contains("第 6 行第 7 列") && stderr.contains("自身"),
+        "声明名命中词条应报行列：{stderr}"
+    );
+    assert!(
+        stderr.contains("解包") && stderr.contains("panic"),
+        "panic 被当文本用应报出来：{stderr}"
+    );
+    assert!(
+        stderr.matches("[eject_hint]").count() == 3,
+        "三类位置各报一次：{stderr}"
+    );
+    assert!(dir.path().join("main.rs").is_file(), "提示不得阻断导出");
+
+    // --no-lint：教学提示一并关闭，导出行为不变
+    let output = rzc()
+        .args(["--no-lint", "eject"])
+        .arg(&zh)
+        .assert()
+        .success();
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
+    assert!(
+        !stderr.contains("[eject_hint]"),
+        "--no-lint 应关闭冲突提示：{stderr}"
+    );
+}
+
 /// `run`/`check`/`transpile` 传目录：给出可操作提示（P-02 同类面统一收口），
 /// 不得暴露 OS 原始错误（Windows「拒绝访问 (os error 5)」）
 #[test]
