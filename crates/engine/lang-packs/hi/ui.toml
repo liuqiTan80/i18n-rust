@@ -569,6 +569,27 @@
 "mc_cov_all_ok" = "🏁 सभी भाषाओं में कीवर्ड कवरेज उत्तीर्ण"
 "mc_cov_no_repo" = "❌ कॉर्पस कवरेज के लिए स्रोत रिपॉजिटरी चाहिए: zrRust रिपॉजिटरी रूट में चलाएँ"
 
+# ---- 待译清单与 cargo 纯文本错误本地化 ----
+"cmd_gaps_about" = "अनुवादित न किए संदेशों की सूची देखें/निर्यात करें; अनुवाद के बाद साफ़ करें"
+"translation_gap_notice" = "सूचना: {} संदेश बिना अनुवाद के मूल रूप में दिखाए गए और सूची में दर्ज हुए: {} (`rzc gaps` देखें)"
+"tool_prefix_warning" = "चेतावनी: {}"
+"tool_prefix_note" = "टिप्पणी: {}"
+"tool_prefix_help" = "सहायता: {}"
+"tool_prefix_caused_by" = "कारण: {}"
+"manifest_parse_error" = "Cargo.toml पढ़ने में विफल: {} ({})"
+"manifest_no_target" = "मैनिफ़ेस्ट में कोई संकलन लक्ष्य घोषित नहीं है, और न src/main.rs मौजूद है न src/lib.rs। अपना कार्यक्रम src/main.rs में लिखें या Cargo.toml में [[bin]]/lib घोषित करें।"
+"gaps_none" = "कोई अनुवाद-प्रतीक्षित संदेश नहीं: {}"
+"gaps_written" = "अनुवाद-प्रतीक्षित सूची निर्यातित हुई: {} ({} प्रविष्टियाँ)"
+"gaps_cleared" = "{} के लिए अनुवाद-प्रतीक्षित सूची हटाई गई: {}"
+
+# ---- 顶层错误前缀 ----
+"cli_error_prefix" = "त्रुटि: {}"
+"legacy_product_moved" = "पुराने लेआउट से बनाई गई फ़ाइल {} अब .rz/gen/ में है (मूल सामग्री {} के रूप में बैकअप की गई)"
+"stale_products_pruned" = "{} अप्रासंगिक जनित फ़ाइलें हटाई गईं (उनकी मातृभाषा स्रोत फ़ाइल हटाई गई या नामांतरित की गई)"
+"arg_gaps_lang_help" = "भाषा कोड; अनिष्टित होने पर इंटरफ़ेस की भाषा पहचानी जाती है"
+"arg_gaps_export_help" = "सूची को TSV के रूप में निर्यात करें (स्तंभ: LEVEL/CODE/संदेश, टैब से विभाजित) दिए पथ पर"
+"arg_gaps_clear_help" = "सूची साफ़ करें; संदेश-सारणी भरने के बाद उपयोग करें"
+
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

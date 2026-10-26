@@ -10,13 +10,19 @@
 //! - [`teaching`]：教学诊断结构与所有权叙事化详情
 //! - [`translator`]：诊断翻译器（类型映射支持）
 //! - [`output`]：JSON 解析、格式化输出与未解析导入检测
+//! - [`gaps`]：英文残留兜底与待译清单（未译消息登记/落盘/读取）
 
+pub mod gaps;
 mod message;
 mod model;
 mod output;
 mod teaching;
 mod translator;
 
+pub use gaps::{
+    LEVEL_HELP, LEVEL_MAIN, LEVEL_TOOL, TranslationGap, clear_gaps, drain_gaps, flush_gaps,
+    flush_gaps_to_dir, gap_file, gaps_dir, parse_gap_lines, peek_gaps, read_gaps, record_gap,
+};
 pub use message::{
     ErrorTranslationManager, MessageAudit, MessageRest, audit_message, fill_dynamic_placeholders,
 };

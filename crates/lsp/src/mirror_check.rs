@@ -36,7 +36,7 @@ use crate::response_map::diag_text::{
 use crate::translation_cache::{TranslationCache, path_to_uri};
 
 /// 镜像树复制时排除的目录名（构建产物/版本库/依赖缓存）
-const EXCLUDED_DIRS: [&str; 4] = ["target", ".git", "node_modules", "dist"];
+const EXCLUDED_DIRS: [&str; 5] = ["target", ".git", "node_modules", "dist", ".rz"];
 
 /// 镜像检查轮询超时：600s（含真实依赖编译，首轮可能数分钟）
 const CHECK_TIMEOUT_MS: u64 = 600_000;
@@ -384,27 +384,38 @@ fn transpile_into_mirror(
             .map(|e| e.original_uri.clone())
             .unwrap_or_else(|| path_to_uri(&source_path));
         let is_entry = entry_path.as_deref() == Some(p.mirror_path.as_path());
-        let (content, product_path, entry_line_map) = if is_entry {
-            // 入口：补 #[path] 注解（rustc 拒绝非 ASCII 模块名的文件式
-            // 声明，E0754），产物固定写入 src/main.rs
-            let (annotated, line_map) =
-                i18n_rust_engine::module_path::annotate_non_ascii_mods_with_lines(&p.output);
-            (annotated, mirror_src.join("main.rs"), Some(line_map))
-        } else if let Some(stem) = p.mirror_path.file_stem().and_then(|s| s.to_str()) {
-            // 非入口模块（含多层）：按自身词干目录补 #[path]，
-            // 与 rzc transpile_project_files 同规则（src/领域.rs 的
-            // `mod 工具;` → #[path = "领域/工具.rs"]）；行映射同样
-            // 供诊断行号回译
-            let (annotated, line_map) =
-                i18n_rust_engine::module_path::annotate_nested_mods_with_lines(&p.output, stem);
-            (
-                annotated,
-                p.mirror_path.with_extension("rs"),
-                Some(line_map),
-            )
+        // 产物落点与 rzc 同规则：入口固定写镜像的 src/main.rs（Cargo 只认这一
+        // 默认发现位置），其余进托管目录 `.rz/gen/` 并镜像源码布局——真实
+        // 项目与镜像同构，`#[path]` 解析与诊断归位才能共用一套逻辑
+        let product_path = if is_entry {
+            mirror_src.join("main.rs")
         } else {
-            (p.output.clone(), p.mirror_path.with_extension("rs"), None)
+            i18n_rust_engine::product_layout::gen_product_path(mirror_dir, &p.mirror_path)
         };
+        // 子模块源文件所在目录：crate 根与源文件同目录，非根文件位于
+        // `<自身词干>/`（rustc 文件式布局）
+        let child_src_dir = match p.mirror_path.parent() {
+            Some(parent) if is_entry => parent.to_path_buf(),
+            Some(parent) => match p.mirror_path.file_stem().and_then(|s| s.to_str()) {
+                Some(stem) => parent.join(stem),
+                None => parent.to_path_buf(),
+            },
+            None => std::path::PathBuf::new(),
+        };
+        // `#[path]` 注解按托管布局解析落点（方言子模块 → 托管产物，
+        // 手写 `.rs` 子模块 → 跨出托管目录指回 src/）；行映射供诊断行号回译
+        let (content, line_map) =
+            i18n_rust_engine::product_layout::annotate_product_mod_paths_with_lines(
+                &p.output,
+                &child_src_dir,
+                product_path.parent().unwrap_or(&mirror_src),
+                mirror_dir,
+                extensions,
+            );
+        if let Some(parent) = product_path.parent() {
+            // 托管目录随首个非入口产物创建（镜像复制时已排除 `.rz`）
+            let _ = std::fs::create_dir_all(parent);
+        }
         if let Err(e) = std::fs::write(&product_path, &content) {
             log::warn!("镜像产物写入失败：{}：{e}", product_path.display());
             continue;
@@ -414,7 +425,7 @@ fn transpile_into_mirror(
             original_uri,
             zh_content: p.zh_content,
             column_map: p.column_map,
-            entry_line_map,
+            entry_line_map: Some(line_map),
         });
     }
     if files.is_empty() { None } else { Some(files) }
@@ -982,7 +993,7 @@ mod tests {
         assert!(is_symlink(&dangling), "悬空符号链接仍须识别为链接");
     }
 
-    /// 项目树复制：源文件递归复制；target/.git/node_modules/dist 一律排除
+    /// 项目树复制：源文件递归复制；target/.git/node_modules/dist/.rz 一律排除
     #[test]
     fn test_copy_project_tree_filters_excluded_dirs() {
         let temp = tempfile::tempdir().unwrap();
@@ -996,6 +1007,8 @@ mod tests {
             ".git/config",
             "node_modules/lib/a",
             "dist/bundle",
+            // 托管生成物不镜像：镜像里由转译重新产出，带上旧产物只会多余字节
+            ".rz/gen/src/数学.rs",
         ] {
             let p = from.join(excluded);
             std::fs::create_dir_all(p.parent().unwrap()).unwrap();
@@ -1010,6 +1023,7 @@ mod tests {
         assert!(!to.join(".git").exists());
         assert!(!to.join("node_modules").exists());
         assert!(!to.join("dist").exists());
+        assert!(!to.join(".rz").exists());
     }
 
     /// 方言源收集：递归、仅匹配给定扩展名

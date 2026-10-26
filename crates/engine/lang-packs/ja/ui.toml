@@ -569,6 +569,27 @@
 "mc_cov_all_ok" = "🏁 全言語のキーワード網羅合格"
 "mc_cov_no_repo" = "❌ コーパス網羅にはソースリポジトリが必要: zrRust リポジトリルートで実行してください"
 
+# ---- 待译清单与 cargo 纯文本错误本地化 ----
+"cmd_gaps_about" = "未翻訳メッセージの一覧を表示・エクスポートし、翻訳後にクリアします"
+"translation_gap_notice" = "参考：{} 件のメッセージに翻訳がないため原文のまま表示し、未翻訳リストに記録しました：{}（`rzc gaps` で確認できます）"
+"tool_prefix_warning" = "警告：{}"
+"tool_prefix_note" = "注意：{}"
+"tool_prefix_help" = "ヒント：{}"
+"tool_prefix_caused_by" = "原因：{}"
+"manifest_parse_error" = "Cargo.toml の解析に失敗しました：{}（{}）"
+"manifest_no_target" = "Cargo.toml にビルド対象が宣言されておらず、src/main.rs も src/lib.rs も存在しません。src/main.rs にプログラムを書くか、Cargo.toml で [[bin]]/lib を宣言してください。"
+"gaps_none" = "未翻訳のメッセージはありません：{}"
+"gaps_written" = "未翻訳リストをエクスポートしました：{}（{} 件）"
+"gaps_cleared" = "{} 言語の未翻訳リストを削除しました：{}"
+
+# ---- 顶层错误前缀 ----
+"cli_error_prefix" = "エラー：{}"
+"legacy_product_moved" = "旧レイアウトの生成ファイル {} を .rz/gen/ に移動しました（元の内容は {} にバックアップしました）"
+"stale_products_pruned" = "失効した生成ファイル {} 件を整理しました（対応する母語ソースは削除または改名されています）"
+"arg_gaps_lang_help" = "言語コード；省略時は UI 言語を検出"
+"arg_gaps_export_help" = "リストを TSV（列：LEVEL/CODE/メッセージ、タブ区切り）で指定パスにエクスポート"
+"arg_gaps_clear_help" = "リストを削除します（翻訳表を補った後に使用）"
+
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

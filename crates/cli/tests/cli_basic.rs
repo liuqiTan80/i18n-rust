@@ -15,6 +15,9 @@ use std::sync::OnceLock;
 /// `lang list` 的计数（断言「11」失真），`~/.rz` 缓存会影响转译告警输出。
 /// 统一把 HOME / USERPROFILE / RZ_LANG_DIR 指向空沙箱，使结果仅取决于
 /// 编译期嵌入的内置语言包与源码本身。
+///
+/// 失败输出的行首前缀同样按界面语言生成（本文件未定 RZ_LANG 时解析为 zh →
+/// 「错误：」），因此错误类断言匹配母语前缀而非旧的硬编码 "Error:"。
 fn 沙箱根() -> &'static PathBuf {
     static 根: OnceLock<PathBuf> = OnceLock::new();
     根.get_or_init(|| {
@@ -200,6 +203,16 @@ fn test_init_creates_project_skeleton() {
         work.path().join("demo/src/main.zh").is_file(),
         "应生成 src/main.zh 入口样板"
     );
+    assert!(
+        work.path().join("demo/.gitignore").is_file(),
+        "应生成 .gitignore（托管生成物不入库）"
+    );
+    let gitignore =
+        std::fs::read_to_string(work.path().join("demo/.gitignore")).unwrap_or_default();
+    assert!(
+        gitignore.contains(".rz/gen/"),
+        ".gitignore 应忽略托管生成目录，实际内容：{gitignore}"
+    );
 }
 
 /// `rzc run`：无依赖教学项目走 rustc 直调路径，程序 stdout 原样透传
@@ -252,7 +265,7 @@ fn test_run_non_entry_file_fails_with_hint() {
         .assert()
         .failure();
     let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
-    assert!(stderr.starts_with("Error:"), "{stderr}");
+    assert!(stderr.starts_with("错误："), "{stderr}");
     assert!(
         stderr.contains("不是项目默认入口"),
         "应提示非默认入口：{stderr}"
@@ -318,9 +331,9 @@ fn test_check_nested_module_project_succeeds() {
         .assert()
         .success();
 
-    // 产物原位写回且嵌套路径注解指向「父词干/子词干.rs」
-    let domain_rs =
-        std::fs::read_to_string(work.path().join("src/领域.rs")).expect("领域.rs 应已转译");
+    // 托管布局：非入口产物在 `.rz/gen/` 镜像目录下，嵌套路径注解仍指「父词干/子词干.rs」
+    let domain_rs = std::fs::read_to_string(work.path().join(".rz/gen/src/领域.rs"))
+        .expect(".rz/gen/src/领域.rs 应已转译");
     assert!(
         domain_rs.contains("#[path") && domain_rs.contains("领域/工具.rs"),
         "非入口文件应按层级注解嵌套子模块：{domain_rs}"
@@ -329,10 +342,75 @@ fn test_check_nested_module_project_succeeds() {
         domain_rs.contains("pub mod 工具"),
         "嵌套子模块应保持 pub（防 E0603）：{domain_rs}"
     );
+    assert!(
+        work.path().join(".rz/gen/src/领域/工具.rs").is_file(),
+        "最深层产物也应镜像源码布局落在托管目录"
+    );
+    assert!(
+        !work.path().join("src/领域.rs").exists(),
+        "旧布局产物应已从 src/ 清走（src/ 只留母语源文件与入口产物）"
+    );
     let main_rs = std::fs::read_to_string(work.path().join("src/main.rs")).expect("main.rs 应存在");
     assert!(
-        main_rs.contains("#[path") && main_rs.contains("领域.rs"),
-        "入口应注解顶层模块路径：{main_rs}"
+        main_rs.contains("#[path") && main_rs.contains("../.rz/gen/src/领域.rs"),
+        "入口应跨目录注解托管产物：{main_rs}"
+    );
+}
+
+/// 托管目录自愈：源文件被删除/改名后，失去源的产物被清走并告知数量
+///
+/// 旧布局不敢做这种清理（src/ 混着手写 `.rs`）；托管后 `.rz/gen/` 只存机器
+/// 产物，残留会让 rustc 按默认模块查找命中旧文件（被删掉的代码仍在参与
+/// 编译），因此删除必须与转译同处一条链路。
+#[test]
+fn test_check_prunes_products_without_source() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    std::fs::create_dir_all(work.path().join("src")).expect("创建 src 失败");
+    std::fs::write(
+        work.path().join("Cargo.toml"),
+        "[package]\nname=\"prune\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        work.path().join("src/main.zh"),
+        "模块 数学;\n\n函数 主函数() {\n    打印行!(\"{}\", 数学::加一(1));\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        work.path().join("src/数学.zh"),
+        "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
+    )
+    .unwrap();
+    rzc()
+        .env("HOME", home.path())
+        .env_remove("RZ_LOG")
+        .current_dir(work.path())
+        .args(["check", "src/main.zh"])
+        .assert()
+        .success();
+    let 产物 = work.path().join(".rz/gen/src/数学.rs");
+    assert!(产物.is_file(), "首轮应在托管目录生成模块产物");
+
+    // 删除源文件并去掉 `模块` 声明（项目仍可编译）
+    std::fs::remove_file(work.path().join("src/数学.zh")).unwrap();
+    std::fs::write(
+        work.path().join("src/main.zh"),
+        "函数 主函数() {\n    打印行!(\"ok\");\n}\n",
+    )
+    .unwrap();
+    rzc()
+        .env("HOME", home.path())
+        .env_remove("RZ_LOG")
+        .current_dir(work.path())
+        .args(["check", "src/main.zh"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("已清理"));
+    assert!(!产物.exists(), "失去源文件的产物应已被清走");
+    assert!(
+        !work.path().join(".rz/gen/src/数学.rs.bak").exists(),
+        "托管目录不应留下备份文件"
     );
 }
 
@@ -516,7 +594,7 @@ fn test_eject_empty_directory_fails_cleanly() {
         .arg(dir.path())
         .assert()
         .failure()
-        .stderr(predicates::str::starts_with("Error:"));
+        .stderr(predicates::str::starts_with("错误："));
 }
 
 /// `rzc doctor`：组件体检始终退出 0 并输出工具链/语言包分区
@@ -545,7 +623,7 @@ fn test_mapping_check_clean_lang_pack() {
         .success();
 }
 
-/// 输入文件不存在：以非零退出码与 Error 行失败，而非 panic 堆栈
+/// 输入文件不存在：以非零退出码与母语错误行失败，而非 panic 堆栈
 #[test]
 fn test_missing_source_file_fails_cleanly() {
     let home = isolated_home();
@@ -557,7 +635,7 @@ fn test_missing_source_file_fails_cleanly() {
         .assert()
         .failure();
     let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
-    assert!(stderr.starts_with("Error:"), "{stderr}");
+    assert!(stderr.starts_with("错误："), "{stderr}");
     assert!(
         stderr.contains("不存在"),
         "应给出母语「不存在」提示：{stderr}"
@@ -581,7 +659,7 @@ fn test_eject_missing_path_fails_with_hint() {
         .assert()
         .failure();
     let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
-    assert!(stderr.starts_with("Error:"), "{stderr}");
+    assert!(stderr.starts_with("错误："), "{stderr}");
     assert!(stderr.contains("不存在"), "应提示路径不存在：{stderr}");
     assert!(
         !stderr.contains("无法识别源文件扩展名"),
@@ -750,8 +828,8 @@ fn test_directory_input_fails_with_actionable_hint() {
             .failure();
         let stderr = String::from_utf8_lossy(&output.get_output().stderr).to_string();
         assert!(
-            stderr.starts_with("Error:"),
-            "{sub} 应以 Error: 开头：{stderr}"
+            stderr.starts_with("错误："),
+            "{sub} 应以 错误：开头：{stderr}"
         );
         assert!(
             stderr.contains("rzc eject"),
@@ -776,7 +854,7 @@ fn test_mapping_check_all_builtin_and_cross_lang() {
         .success();
 }
 
-/// `rzc mapping check <未知目标>`：非目录非内置代码 → 非零退出 + Error
+/// `rzc mapping check <未知目标>`：非目录非内置代码 → 非零退出 + 母语错误行
 #[test]
 fn test_mapping_check_unknown_target_fails() {
     let home = isolated_home();
@@ -785,7 +863,7 @@ fn test_mapping_check_unknown_target_fails() {
         .args(["mapping", "check", "no-such-lang-xyz"])
         .assert()
         .failure()
-        .stderr(predicates::str::starts_with("Error:"));
+        .stderr(predicates::str::starts_with("错误："));
 }
 
 /// `rzc mapping check <坏语言包目录>`：crates TOML 重复键 → 校验失败，
@@ -846,7 +924,7 @@ fn test_lang_local_install_list_remove_lifecycle() {
         .arg(&bad)
         .assert()
         .failure()
-        .stderr(predicates::str::starts_with("Error:"));
+        .stderr(predicates::str::starts_with("错误："));
 
     // 合法目录安装成功
     rzc()
@@ -940,7 +1018,7 @@ fn test_mapping_scaffold_rule_local() {
         .arg(out.path())
         .assert()
         .failure()
-        .stderr(predicates::str::starts_with("Error:"));
+        .stderr(predicates::str::starts_with("错误："));
 }
 
 /// 递归列出目录内文件（测试小工具）

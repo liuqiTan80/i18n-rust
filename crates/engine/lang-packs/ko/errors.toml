@@ -2563,3 +2563,49 @@
 
 ["消息翻译"."remove the whole `?` item"]
 "消息模板" = "「{q0}」 항목 전체를 제거하세요"
+
+# ---- cargo 自身错误（纯文本通道，rzc 逐行本地化）----
+
+["消息翻译"."failed to parse manifest at `?`"]
+"消息模板" = "매니페스트 구문 분석 실패: {q0}"
+
+["消息翻译"."could not find `Cargo.toml` in `?` or any parent directory"]
+"消息模板" = "{q0} 및 상위 디렉터리에서 `Cargo.toml`을(를) 찾을 수 없습니다"
+
+["消息翻译"."no targets specified in the manifest"]
+"消息模板" = "매니페스트에 빌드 대상이 지정되지 않았습니다"
+
+["消息翻译"."either src/main.rs or src/lib.rs, a [[bin]], or an [[example]] is required"]
+"消息模板" = "src/main.rs 또는 src/lib.rs, 혹은 [[bin]]이나 [[example]]이 필요합니다"
+
+["消息翻译"."no matching package named `?` found"]
+"消息模板" = "{q0} 이름의 패키지를 찾을 수 없습니다"
+
+["消息翻译"."failed to select a version for the requirement `?`"]
+"消息模板" = "요구 사항 {q0}에 쓸 버전을 선택할 수 없습니다"
+
+["消息翻译"."current package believes it's in a workspace when it's not:"]
+"消息模板" = "이 패키지는 워크스페이스에 속한다고 판단하지만 실제로는 아닙니다:"
+
+# ---- cargo 依赖错误链（Caused by: 缩进续行）----
+
+["消息翻译"."failed to get `?` as a dependency of package `?`"]
+"消息模板" = "패키지 {q1}의 의존성 {q0}을(를) 가져오지 못했습니다"
+
+["消息翻译"."failed to load source for dependency `?`"]
+"消息模板" = "의존성 {q0}의 소스를 로드하지 못했습니다"
+
+["消息翻译"."unable to update ?"]
+"消息模板" = "{q0}을(를) 업데이트할 수 없습니다"
+
+["消息翻译"."failed to read `?`"]
+"消息模板" = "{q0}을(를) 읽지 못했습니다"
+
+["消息翻译"."No such file or directory (os error ?)"]
+"消息模板" = "해당 파일이나 디렉터리가 없습니다 (OS 오류 {q0})"
+
+["消息翻译"."rustup could not choose a version of ? to run, because one wasn't specified explicitly, and no default is configured."]
+"消息模板" = "rustup이 실행할 {q0} 버전을 선택할 수 없습니다. 명시적으로 지정되지 않았고 기본 툴체인도 구성되어 있지 않습니다."
+
+["消息翻译"."run 'rustup default stable' to download the latest stable release of Rust and set it as your default toolchain."]
+"消息模板" = "최신 Rust 안정 버전을 다운로드하여 기본 툴체인으로 설정하려면 「rustup default stable」을 실행하세요."

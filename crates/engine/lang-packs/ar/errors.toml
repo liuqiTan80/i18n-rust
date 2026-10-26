@@ -2557,3 +2557,49 @@
 
 ["消息翻译"."remove the whole `?` item"]
 "消息模板" = "أزل العنصر «{q0}» بالكامل"
+
+# ---- cargo 自身错误（纯文本通道，rzc 逐行本地化）----
+
+["消息翻译"."failed to parse manifest at `?`"]
+"消息模板" = "تعذّر تحليل البيان: {q0}"
+
+["消息翻译"."could not find `Cargo.toml` in `?` or any parent directory"]
+"消息模板" = "لم يُعثر على `Cargo.toml` في {q0} ولا في الأدلة الأعلى"
+
+["消息翻译"."no targets specified in the manifest"]
+"消息模板" = "لم تُحدَّد أهداف البناء في البيان"
+
+["消息翻译"."either src/main.rs or src/lib.rs, a [[bin]], or an [[example]] is required"]
+"消息模板" = "يلزم وجود src/main.rs أو src/lib.rs، أو قسم [[bin]] أو [[example]]"
+
+["消息翻译"."no matching package named `?` found"]
+"消息模板" = "لم يُعثر على حزمة باسم {q0}"
+
+["消息翻译"."failed to select a version for the requirement `?`"]
+"消息模板" = "تعذّر اختيار إصدار للمتطلب {q0}"
+
+["消息翻译"."current package believes it's in a workspace when it's not:"]
+"消息模板" = "الحزمة تظن أنها ضمن مساحة عمل، لكنها ليست كذلك:"
+
+# ---- cargo 依赖错误链（Caused by: 缩进续行）----
+
+["消息翻译"."failed to get `?` as a dependency of package `?`"]
+"消息模板" = "تعذّر جلب {q0} كاعتمادية للحزمة {q1}"
+
+["消息翻译"."failed to load source for dependency `?`"]
+"消息模板" = "تعذّر تحميل مصدر الاعتمادية {q0}"
+
+["消息翻译"."unable to update ?"]
+"消息模板" = "تعذّر تحديث {q0}"
+
+["消息翻译"."failed to read `?`"]
+"消息模板" = "تعذّر قراءة {q0}"
+
+["消息翻译"."No such file or directory (os error ?)"]
+"消息模板" = "لا يوجد ملف أو مجلد بهذا الاسم (خطأ نظام التشغيل {q0})"
+
+["消息翻译"."rustup could not choose a version of ? to run, because one wasn't specified explicitly, and no default is configured."]
+"消息模板" = "لا يستطيع rustup اختيار إصدار من {q0} لتشغيله، لأنه لم يُحدَّد أي إصدار صراحةً ولا توجد سلسلة أدوات افتراضية مُهيَّأة."
+
+["消息翻译"."run 'rustup default stable' to download the latest stable release of Rust and set it as your default toolchain."]
+"消息模板" = "شغّل «rustup default stable» لتنزيل أحدث إصدار مستقر من Rust وجعله سلسلة الأدوات الافتراضية."

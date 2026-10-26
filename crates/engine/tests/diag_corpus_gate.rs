@@ -90,3 +90,28 @@ fn 诊断反例语料在全部内置语言包中译文无残留() {
         failures.join("\n")
     );
 }
+
+/// 语料必须同时覆盖 `main`（主消息）与 `help`（修复建议子诊断）两级
+///
+/// help 行是用户实际看到的中英夹杂重灾区（`did you mean`/`consider …` 全在
+/// 子诊断里），但静态检查看不到它。采集器或语料一旦被重写，最容易整段丢掉
+/// help 行而主消息检查仍然全绿——这里钉住两级下限，删光 help 就红。
+#[test]
+fn 语料同时覆盖主消息与help建议两级() {
+    let raw = include_str!("data/diag-corpus.tsv");
+    let corpus = parse_corpus(raw);
+    let count = |level: &str| corpus.iter().filter(|(l, _, _)| l == level).count();
+    let (main, help) = (count("main"), count("help"));
+    assert!(
+        main >= 50,
+        "主消息语料不应少于 50 条，实际 {main} 条（疑似采集异常）"
+    );
+    assert!(help >= 30, "help 子诊断语料不应少于 30 条，实际 {help} 条");
+    // 通道集合限定为已定义三种（main/help 来自 rustc 实跑，tool 为 cargo 纯文本），
+    // 新通道必须同时在采集器与待译机制两侧登记，不能让语料默默长出无人审计的级别
+    let known = ["main", "help", "tool"];
+    assert!(
+        corpus.iter().all(|(l, _, _)| known.contains(&l.as_str())),
+        "语料出现未知通道，采集器与门禁需同步"
+    );
+}

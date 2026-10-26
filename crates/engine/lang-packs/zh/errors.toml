@@ -2590,3 +2590,49 @@
 
 ["消息翻译"."remove the whole `?` item"]
 "消息模板" = "移除整个「{q0}」项"
+
+# ---- cargo 自身错误（纯文本通道，rzc 逐行本地化）----
+
+["消息翻译"."failed to parse manifest at `?`"]
+"消息模板" = "解析清单文件失败：「{q0}」"
+
+["消息翻译"."could not find `Cargo.toml` in `?` or any parent directory"]
+"消息模板" = "在「{q0}」及其上级目录中都未找到 `Cargo.toml`"
+
+["消息翻译"."no targets specified in the manifest"]
+"消息模板" = "清单中没有指定编译目标"
+
+["消息翻译"."either src/main.rs or src/lib.rs, a [[bin]], or an [[example]] is required"]
+"消息模板" = "需要 src/main.rs 或 src/lib.rs，或声明 [[bin]]／[[example]]"
+
+["消息翻译"."no matching package named `?` found"]
+"消息模板" = "找不到名为「{q0}」的包"
+
+["消息翻译"."failed to select a version for the requirement `?`"]
+"消息模板" = "无法为依赖要求「{q0}」选出可用版本"
+
+["消息翻译"."current package believes it's in a workspace when it's not:"]
+"消息模板" = "当前包以为自己在某个工作空间内，但实际不是："
+
+# ---- cargo 依赖错误链（Caused by: 缩进续行）----
+
+["消息翻译"."failed to get `?` as a dependency of package `?`"]
+"消息模板" = "获取包「{q1}」的依赖「{q0}」失败"
+
+["消息翻译"."failed to load source for dependency `?`"]
+"消息模板" = "加载依赖「{q0}」的源失败"
+
+["消息翻译"."unable to update ?"]
+"消息模板" = "无法更新「{q0}」"
+
+["消息翻译"."failed to read `?`"]
+"消息模板" = "读取「{q0}」失败"
+
+["消息翻译"."No such file or directory (os error ?)"]
+"消息模板" = "没有那个文件或目录（系统错误 {q0}）"
+
+["消息翻译"."rustup could not choose a version of ? to run, because one wasn't specified explicitly, and no default is configured."]
+"消息模板" = "rustup 无法为「{q0}」选出要运行的版本：未显式指定，且没有配置默认工具链。"
+
+["消息翻译"."run 'rustup default stable' to download the latest stable release of Rust and set it as your default toolchain."]
+"消息模板" = "运行「rustup default stable」下载最新的 Rust 稳定版，并把它设为默认工具链。"

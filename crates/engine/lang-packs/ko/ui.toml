@@ -569,6 +569,27 @@
 "mc_cov_all_ok" = "🏁 모든 언어 키워드 커버리지 통과"
 "mc_cov_no_repo" = "❌ 코퍼스 커버리지는 소스 저장소 필요: zrRust 저장소 루트에서 실행"
 
+# ---- 待译清单与 cargo 纯文本错误本地化 ----
+"cmd_gaps_about" = "번역되지 않은 메시지 목록을 보거나 내보내고, 번역 후 초기화합니다"
+"translation_gap_notice" = "참고: {}개의 메시지에 번역이 없어 원문으로 표시하고 대기 목록에 기록했습니다: {} (`rzc gaps`로 확인)"
+"tool_prefix_warning" = "경고: {}"
+"tool_prefix_note" = "참고: {}"
+"tool_prefix_help" = "도움말: {}"
+"tool_prefix_caused_by" = "원인: {}"
+"manifest_parse_error" = "Cargo.toml 구문 분석 실패: {} ({})"
+"manifest_no_target" = "매니페스트에 빌드 대상이 선언되지 않았고 src/main.rs와 src/lib.rs 모두 없습니다. src/main.rs에 프로그램을 작성하거나 Cargo.toml에 [[bin]]/lib을 선언하세요."
+"gaps_none" = "번역 대기 중인 메시지가 없습니다: {}"
+"gaps_written" = "번역 대기 목록을 내보냈습니다: {} ({}건)"
+"gaps_cleared" = "{} 언어의 번역 대기 목록을 삭제했습니다: {}"
+
+# ---- 顶层错误前缀 ----
+"cli_error_prefix" = "오류: {}"
+"legacy_product_moved" = "이전 레이아웃으로 생성된 파일 {}을(를) .rz/gen/(으)로 이동했습니다(원본 내용은 {}로 백업했습니다)"
+"stale_products_pruned" = "오래된 생성 파일 {}개를 정리했습니다 (해당 모국어 소스 파일이 삭제되거나 이름이 바뀌었습니다)"
+"arg_gaps_lang_help" = "언어 코드; 생략 시 UI 언어를 자동 감지"
+"arg_gaps_export_help" = "목록을 지정 경로에 TSV(열: LEVEL/CODE/메시지, 탭 구분)로 내보냅니다"
+"arg_gaps_clear_help" = "목록을 삭제합니다. 메시지 표를 채운 뒤에 사용하세요"
+
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

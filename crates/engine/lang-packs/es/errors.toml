@@ -2178,3 +2178,49 @@
 
 ["消息翻译"."remove the whole `?` item"]
 "消息模板" = "elimine todo el elemento «{q0}»"
+
+# ---- cargo 自身错误（纯文本通道，rzc 逐行本地化）----
+
+["消息翻译"."failed to parse manifest at `?`"]
+"消息模板" = "No se pudo analizar el manifiesto: {q0}"
+
+["消息翻译"."could not find `Cargo.toml` in `?` or any parent directory"]
+"消息模板" = "No se encontró `Cargo.toml` en {q0} ni en sus directorios padre"
+
+["消息翻译"."no targets specified in the manifest"]
+"消息模板" = "El manifiesto no especifica objetivos de compilación"
+
+["消息翻译"."either src/main.rs or src/lib.rs, a [[bin]], or an [[example]] is required"]
+"消息模板" = "Se requiere src/main.rs o src/lib.rs, un [[bin]] o un [[example]]"
+
+["消息翻译"."no matching package named `?` found"]
+"消息模板" = "No se encontró ningún paquete llamado {q0}"
+
+["消息翻译"."failed to select a version for the requirement `?`"]
+"消息模板" = "No se pudo seleccionar una versión para el requisito {q0}"
+
+["消息翻译"."current package believes it's in a workspace when it's not:"]
+"消息模板" = "El paquete cree que está en un workspace, pero no es así:"
+
+# ---- cargo 依赖错误链（Caused by: 缩进续行）----
+
+["消息翻译"."failed to get `?` as a dependency of package `?`"]
+"消息模板" = "No se pudo obtener {q0} como dependencia del paquete {q1}"
+
+["消息翻译"."failed to load source for dependency `?`"]
+"消息模板" = "No se pudo cargar la fuente de la dependencia {q0}"
+
+["消息翻译"."unable to update ?"]
+"消息模板" = "No se pudo actualizar {q0}"
+
+["消息翻译"."failed to read `?`"]
+"消息模板" = "No se pudo leer {q0}"
+
+["消息翻译"."No such file or directory (os error ?)"]
+"消息模板" = "Ese archivo o directorio no existe (error del sistema {q0})"
+
+["消息翻译"."rustup could not choose a version of ? to run, because one wasn't specified explicitly, and no default is configured."]
+"消息模板" = "rustup no puede elegir una versión de {q0} para ejecutar: no se especificó ninguna de forma explícita y no hay cadena de herramientas predeterminada."
+
+["消息翻译"."run 'rustup default stable' to download the latest stable release of Rust and set it as your default toolchain."]
+"消息模板" = "Ejecute «rustup default stable» para descargar la última versión estable de Rust y establecerla como cadena de herramientas predeterminada."

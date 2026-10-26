@@ -569,6 +569,27 @@
 "mc_cov_all_ok" = "🏁 Cobertura de palavras-chave aprovada em todos os idiomas"
 "mc_cov_no_repo" = "❌ A cobertura do corpus requer o repositório-fonte: execute na raiz do repositório zrRust"
 
+# ---- 待译清单与 cargo 纯文本错误本地化 ----
+"cmd_gaps_about" = "Mostra ou exporta as mensagens não traduzidas; limpe após traduzir"
+"translation_gap_notice" = "Aviso: {} mensagem(ns) sem tradução foram exibidas como estão e registradas em: {} (veja `rzc gaps`)"
+"tool_prefix_warning" = "aviso: {}"
+"tool_prefix_note" = "nota: {}"
+"tool_prefix_help" = "dica: {}"
+"tool_prefix_caused_by" = "causa: {}"
+"manifest_parse_error" = "Falha ao analisar o Cargo.toml: {} ({})"
+"manifest_no_target" = "O manifesto não declara nenhum alvo de compilação, e não existe src/main.rs nem src/lib.rs. Escreva seu programa em src/main.rs ou declare [[bin]]/lib no Cargo.toml."
+"gaps_none" = "Nenhuma mensagem pendente de tradução: {}"
+"gaps_written" = "Lista de mensagens não traduzidas exportada: {} ({} itens)"
+"gaps_cleared" = "Lista de mensagens não traduzidas de {} removida: {}"
+
+# ---- 顶层错误前缀 ----
+"cli_error_prefix" = "Erro: {}"
+"legacy_product_moved" = "o arquivo {} gerado pelo esquema anterior foi movido para .rz/gen/ (o conteúdo original foi copiado como {})"
+"stale_products_pruned" = "{} arquivo(s) gerado(s) obsoleto(s) removido(s) (o arquivo-fonte em língua materna não existe mais)"
+"arg_gaps_lang_help" = "Código do idioma; por padrão detecta o do idioma da interface"
+"arg_gaps_export_help" = "Exporta a lista como TSV (colunas LEVEL/CODE/mensagem, separadas por tabulação) para o caminho indicado"
+"arg_gaps_clear_help" = "Limpa a lista; use após completar a tabela de mensagens"
+
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

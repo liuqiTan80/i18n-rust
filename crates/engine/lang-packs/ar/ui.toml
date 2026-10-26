@@ -569,6 +569,27 @@
 "mc_cov_all_ok" = "🏁 تغطية الكلمات المفتاحية لجميع اللغات ناجحة"
 "mc_cov_no_repo" = "❌ تغطية المجموعة تتطلب مستودع المصدر: نفّذ في جذر مستودع zrRust"
 
+# ---- 待译清单与 cargo 纯文本错误本地化 ----
+"cmd_gaps_about" = "عرض أو تصدير الرسائل غير المترجمة؛ وتصفيرها بعد الترجمة"
+"translation_gap_notice" = "تنبيه: {} رسالة بلا ترجمة عُرضت كما هي وسُجِّلت في القائمة: {} (انظر `rzc gaps`)"
+"tool_prefix_warning" = "تحذير: {}"
+"tool_prefix_note" = "ملاحظة: {}"
+"tool_prefix_help" = "مساعدة: {}"
+"tool_prefix_caused_by" = "السبب: {}"
+"manifest_parse_error" = "تعذّر تحليل Cargo.toml: {} ({})"
+"manifest_no_target" = "البيان لا يحدد أي هدف بناء، ولا يوجد src/main.rs ولا src/lib.rs. اكتب برنامجك في src/main.rs أو أعلن [[bin]]/lib في Cargo.toml."
+"gaps_none" = "لا رسائل بانتظار الترجمة: {}"
+"gaps_written" = "تم تصدير قائمة الرسائل غير المترجمة: {} ({} مدخلًا)"
+"gaps_cleared" = "تمت تصفية قائمة الرسائل غير المترجمة للغة {}: {}"
+
+# ---- 顶层错误前缀 ----
+"cli_error_prefix" = "خطأ: {}"
+"legacy_product_moved" = "تم نقل الملف {} المُنشأ بالتنسيق القديم إلى .rz/gen/ (تم نسخ المحتوى الأصلي باسم {})"
+"stale_products_pruned" = "تمت إزالة {} ملفًا مُولَّدًا بصيغة قديمة (ملف المصدر باللغة الأم لم يعد موجودًا)"
+"arg_gaps_lang_help" = "رمز اللغة؛ عند الغياب تُكشف لغة الواجهة"
+"arg_gaps_export_help" = "تصدير القائمة كـ TSV (الأعمدة LEVEL/CODE/الرسالة، مفصولة بتبويب) إلى المسار المحدد"
+"arg_gaps_clear_help" = "تصفير القائمة؛ تُستخدم بعد إكمال جدول الرسائل"
+
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

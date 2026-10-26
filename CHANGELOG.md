@@ -5,6 +5,77 @@
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-10-26
+
+### 新增
+- 诊断：英文残留「兜底 + 待译清单」机制——消息表未命中的编译器/cargo 句子
+  照旧按原文显示（绝不吞诊断），同时登记到 `~/.rz/gaps/<语言>.tsv`
+  （`语言\t通道\t错误码\t消息原文`，与语料门禁 `diag-corpus.tsv` 同构可直接并入），
+  本轮结束时统一提示一次「N 条消息暂无译文」——不再让用户以为中英夹杂是产品
+  行为，维护者也有了「哪句漏了」的反馈通路（引擎新模块
+  `diagnostic::gaps`，通道取 `main`/`help`/`tool`）
+- CLI：`rzc gaps` 子命令——查看 / `--export` 导出 / `--clear` 清零待译清单
+  （`--lang` 缺省按界面语言）；11 语言包新增 `cmd_gaps_about`、
+  `translation_gap_notice`、`gaps_none`、`gaps_written`、`gaps_cleared`、
+  `tool_prefix_warning`、`tool_prefix_note`、`tool_prefix_caused_by`、
+  `manifest_parse_error`、`manifest_no_target` 键，并为 `--lang`/`--export`/`--clear`
+  三个参数补 `arg_gaps_*_help`（接进 clap 本地化，避免 `rzc gaps --help` 在
+  中文界面下仍留英文参数说明）
+- 诊断：Cargo 自身错误本地化（非 JSON 纯文本通道）——`run`/`check` 的 stderr
+  逐行再过一遍消息表，manifest 解析失败、找不到 `Cargo.toml`、
+  `no targets specified`、依赖拉取/版本选择失败及其 `Caused by:` 续行等
+  12 条高频新手句子进入 10 语言 `errors.toml`（en 无「消息翻译」节，按设计
+  回退原文）；消息翻译键 152→164
+- 诊断：cargo/rustup 纯文本通道的 `help:` 前缀本地化——工具给出的下一步行动
+  指引正是最该读懂的一行，不接就会在母语输出里留一句光杆英文
+  （`TOOL_LINE_MARKERS` 4→5，11 语言包新增 `tool_prefix_help`）；同时补上
+  新手装完 Rust 后撞上的第一组句子——rustup 未配置默认工具链的 `error:` 行
+  （工具名走通配段捕获）与它的 `help: run 'rustup default stable' …` 指引行
+  译文，消息翻译键 164→166
+- CLI：调用 cargo 前先做清单预检——`Cargo.toml` 不是合法 TOML、或未声明
+  编译目标且 `src/main.rs`/`src/lib.rs` 都不存在这两种「cargo 必失败」形态
+  直接用母语报出并给出下一步命令，不再等 cargo 吐英文栈；顶层错误出口的
+  `Error:` 前缀同步本地化（11 语言包新增 `cli_error_prefix` 键——正文各处
+  已按界面语言生成，硬编码前缀会是教学输出里最后一处英文）
+- 门禁：语料新增两级下限——`diag-corpus.tsv` 的 `main` 不少于 50 条、`help`
+  不少于 30 条，且通道限定 `main`/`help`/`tool`；help 子诊断（`did you mean` /
+  `consider …`）是中英夹杂重灾区但静态检查看不见，采集器一旦被重写整段丢掉
+  help 行时主消息仍全绿，这里钉住下限
+
+### 变更
+- **生成物布局**：非入口方言文件的 `.rs` 产物不再平铺在源文件旁边，改写
+  项目内托管目录 `.rz/gen/`（镜像源码树：`src/数学.zh` → `.rz/gen/src/数学.rs`），
+  `src/` 只剩母语源文件与 Cargo 固定入口产物 `src/main.rs`（入口必须留在
+  Cargo 默认发现位置，无法移出）。入口产物以 `../.rz/gen/src/…` 指向子模块，
+  托管目录内部相对路径与旧布局逐字一致；旧布局遗留的 `src/数学.rs` 自动清走
+  （内容与本次产物相同→静默删除，不同→备份 `.rs.bak` 后删除并提示，
+  11 语言包新增 `legacy_product_moved` 键）；手写 `.rs` 子模块留在原地被
+  反向注解。布局与落点解析下沉到引擎新模块 `product_layout`，CLI 写盘、
+  诊断行映射重算与 LSP 镜像检查共用同一实现（镜像 `EXCLUDED_DIRS` 增 `.rz`），
+  避免两侧规则漂移
+- 托管目录自愈：`rzc run`/`check` 每轮转译后清走 `.rz/gen/` 里已无对应母语
+  源文件的产物（源文件被删/改名后的残留），并移除旧写入语义留下的
+  `.rs.bak`；残留并非只是占地方——rustc 按默认规则解析 `mod 工具;` 时会在产物
+  同级目录命中它，被删掉的代码仍在参与编译（报错指向一个没有源文件的生成
+  物）。旧布局不敢这么删（`src/` 混着手写 `.rs`），托管后判定只看源文件在不
+  在，且不触碰 `.rz/gen/` 以外任何路径；托管目录内同时改为直接覆盖（机器
+  产物无用户数据），`src/main.rs` 与项目外源文件旁的产物仍走「内容不同先备份」
+  护栏（11 语言包新增 `stale_products_pruned` 键，界面消息键 544→545）
+- CLI：`rzc init` 生成 `.gitignore`（`/target`、`.rz/gen/`、`*.rs.bak`），
+  托管生成物与迁移备份不再污染版本库；入口 `src/main.rs` 不忽略，
+  克隆后不改方言直接 `cargo build` 仍可用
+
+### 修复
+- 诊断：位置回译的「入口产物」判定改为**本次请求文件的产物**
+  （`DiagContext::entry_product` + 规范路径比较），不再硬编码 `src/main.rs`——
+  此前 `rzc check src/工具.zh` 时工具产物的诊断被当成「非入口」按子模块规则
+  重解析，行列落到别的文件上
+- 诊断：托管布局下 rustc 报的 `.rz/gen/…` 路径先剥托管前缀再找同名方言
+  源文件；rustc 把父目录与 `#[path]` 值直接拼接、不做规整
+  （`src/../.rz/gen/src/数学.rs`），故比对前先词法规整——否则子模块诊断
+  停在英文坐标与英文源码行；子模块产物的 `#[path]` 插入行数随文件而异，
+  行映射按产物自身重算而非复用入口映射
+
 ## [0.8.4] - 2026-10-25
 
 ### 修复

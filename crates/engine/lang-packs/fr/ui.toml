@@ -569,6 +569,27 @@
 "mc_cov_all_ok" = "🏁 Couverture des mots-clés réussie pour toutes les langues"
 "mc_cov_no_repo" = "❌ La couverture du corpus nécessite le dépôt source : exécutez à la racine du dépôt zrRust"
 
+# ---- 待译清单与 cargo 纯文本错误本地化 ----
+"cmd_gaps_about" = "Afficher ou exporter les messages non traduits ; réinitialiser après traduction"
+"translation_gap_notice" = "Note : {} message(s) sans traduction affichés en original et journalisés dans : {} (voir `rzc gaps`)"
+"tool_prefix_warning" = "avertissement : {}"
+"tool_prefix_note" = "note : {}"
+"tool_prefix_help" = "conseil : {}"
+"tool_prefix_caused_by" = "cause : {}"
+"manifest_parse_error" = "Échec de l'analyse de Cargo.toml : {} ({})"
+"manifest_no_target" = "Le manifeste ne déclare aucune cible de compilation, et ni src/main.rs ni src/lib.rs n'existe. Écris ton programme dans src/main.rs ou déclare [[bin]]/lib dans le Cargo.toml."
+"gaps_none" = "Aucun message en attente de traduction : {}"
+"gaps_written" = "Liste des messages non traduits exportée : {} ({} entrées)"
+"gaps_cleared" = "Liste des messages non traduits pour {} supprimée : {}"
+
+# ---- 顶层错误前缀 ----
+"cli_error_prefix" = "Erreur : {}"
+"legacy_product_moved" = "le fichier {} généré selon l'ancien schéma a été déplacé vers .rz/gen/ (le contenu d'origine a été sauvegardé en tant que {})"
+"stale_products_pruned" = "Nettoyage de {} fichier(s) généré(s) obsolète(s) (la source en langue maternelle correspondante a été supprimée ou renommée)"
+"arg_gaps_lang_help" = "Code de langue ; par défaut la langue de l'interface détectée"
+"arg_gaps_export_help" = "Exporter la liste en TSV (colonnes LEVEL/CODE/message, séparées par des tabulations) vers le chemin indiqué"
+"arg_gaps_clear_help" = "Vider la liste ; à utiliser après avoir complété la table des messages"
+
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

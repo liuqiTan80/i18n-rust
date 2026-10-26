@@ -569,6 +569,27 @@
 "panic_msg_borrow" = "引用单元格已被借用"
 "panic_msg_borrow_mut" = "引用单元格已被可变借用"
 
+# ---- 待译清单与 cargo 纯文本错误本地化 ----
+"cmd_gaps_about" = "查看/导出未翻译消息清单（英文残留），补译后可清零"
+"translation_gap_notice" = "提示：{} 条消息暂无译文，已按原文显示并记入待译清单：{}（可用 `rzc gaps` 查看）"
+"tool_prefix_warning" = "警告：{}"
+"tool_prefix_note" = "说明：{}"
+"tool_prefix_help" = "提示：{}"
+"tool_prefix_caused_by" = "原因：{}"
+"manifest_parse_error" = "Cargo.toml 解析失败：{}（{}）"
+"manifest_no_target" = "Cargo.toml 没有声明编译目标，项目中也找不到 src/main.rs 或 src/lib.rs。请先在 src/main.rs 编写主程序，或在 Cargo.toml 中声明 [[bin]]/lib。"
+"gaps_none" = "没有待译消息：{}"
+"gaps_written" = "待译清单已导出：{}（{} 条）"
+"gaps_cleared" = "已清空 {} 语言的待译清单：{}"
+
+# ---- 顶层错误前缀 ----
+"cli_error_prefix" = "错误：{}"
+"legacy_product_moved" = "旧布局生成文件 {} 已迁到 .rz/gen/（原内容备份为 {}）"
+"stale_products_pruned" = "已清理 {} 个失效生成文件（对应母语源文件已删除或改名）"
+"arg_gaps_lang_help" = "语言代码（缺省时按当前界面语言）"
+"arg_gaps_export_help" = "把清单导出为 TSV（列：LEVEL/CODE/消息，制表符分隔）到指定路径"
+"arg_gaps_clear_help" = "清空清单（补完消息表后使用）"
+
 ["解释"]
 "Option::unwrap" = "直接取出里面的值；如果没有值（None），程序直接崩溃"
 "Option::expect" = "取出里面的值；如果没有值，就带着你写的提示信息崩溃"

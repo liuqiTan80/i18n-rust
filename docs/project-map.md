@@ -30,9 +30,9 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 
 | 目录 | 是什么 | 常见改动 |
 |---|---|---|
-| `crates/engine` | 语言无关核心：转译管线、映射管理、诊断翻译、增量缓存 | 转译规则、诊断翻译 |
+| `crates/engine` | 语言无关核心：转译管线、映射管理、诊断翻译（含 `diagnostic::gaps` 待译清单）、`product_layout` 产物托管布局（`.rz/gen/`）、增量缓存 | 转译规则、诊断翻译、产物落点 |
 | `crates/engine/lang-packs/<lang>/` | 语言包（数据非代码）：`keywords/stdlib/module_paths/errors/ui/lang_info.toml` + `crates/`（第三方映射） | 补词条、改文案 |
-| `crates/cli` | rzc：`main.rs` 命令层、`diagnostics.rs` 诊断翻译、`mapping_*` 子命令 | 命令与行为 |
+| `crates/cli` | rzc：`main.rs` 命令层、`diagnostics.rs` 诊断翻译、`translation_gaps.rs`（`rzc gaps`）、`mapping_*` 子命令 | 命令与行为 |
 | `crates/lsp` | 代理 rust-analyzer：`response_map/` 反向翻译、`ui.rs` 界面消息本地化 | IDE 侧翻译 |
 | `crates/zh-pure` | 纯函数方言测试样例（不发布）：`tests-zh/*.zh` 用方言与 `#[测试]` 写用例，`build.rs` 转译后随 `cargo test` 执行 | 方言测试写法示例 |
 | `tools/vscode-extension` | 扩展（TypeScript） | 高亮 / 补全 / 诊断 UI |
@@ -52,6 +52,8 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | 补错误翻译 | `lang-packs/<lang>/errors.toml` | 带错误码的实机复现 + `make test` |
 | 改界面 / 教学文案 | CLI 侧 `lang-packs/<lang>/ui.toml`；LSP 侧 `crates/lsp/src/ui.rs`（读同一 `ui.toml`） | `make test` + 实机复现 |
 | 改转译管线 | `crates/engine/src/` | `make gate`；热路径配套 `make bench-check` |
+| 改产物落点（`.rz/gen/` 布局） | `crates/engine/src/product_layout.rs`（CLI 与 LSP 镜像共用） | `make test`（`cli_basic` 嵌套模块用例）+ 实机 `rzc check` 看 `.rz/gen/` 与诊断回译 |
+| 补「暂无译文」的消息 | `rzc gaps --export` 取清单 → `lang-packs/<lang>/errors.toml` | 清单能清零 + `make test`（语料门禁含 main/help 两级下限） |
 | 加 / 改 rzc 命令 | `crates/cli/src/main.rs`（诊断区 `diagnostics.rs`） | `make test` + 手动跑通 |
 | 用方言写测试（`.zh`） | `crates/zh-pure/tests-zh/*.zh` | `cargo test -p zh-pure` |
 | 改 IDE 体验 | `crates/lsp/` + `tools/vscode-extension/` | 扩展 `npm test`；LSP `make test` |

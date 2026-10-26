@@ -17,6 +17,8 @@ use crate::mapping_manager::MappingManager;
 pub struct DiagnosticTranslator {
     translation_manager: ErrorTranslationManager,
     type_map: HashMap<String, String>, // 来自关键字映射表，用于替换消息中的英文类型
+    /// 待译清单登记用语言代码（`None` 取当前界面语言，见 [`super::gaps`]）
+    gap_lang: Option<String>,
 }
 
 /// 对带模块路径的类型名做最长后缀匹配
@@ -269,7 +271,29 @@ impl DiagnosticTranslator {
         Self {
             translation_manager,
             type_map,
+            gap_lang: None,
         }
+    }
+
+    /// 指定待译清单登记语言（CLI 按源文件扩展名传入，避免把 ja 的漏译记到 zh）
+    pub fn with_gap_lang(mut self, lang: impl Into<String>) -> Self {
+        self.gap_lang = Some(lang.into());
+        self
+    }
+
+    /// 消息表本体（供 cargo 纯文本错误行等**非 JSON 通道**复用同一张表）
+    pub fn translation_manager(&self) -> &ErrorTranslationManager {
+        &self.translation_manager
+    }
+
+    /// 登记一条英文残留（兜底照旧输出原文，仅记录待补线索）
+    fn note_gap(&self, level: &str, code: Option<&str>, message: &str) {
+        super::gaps::record_gap(
+            self.gap_lang.as_deref().unwrap_or(""),
+            level,
+            code.unwrap_or(""),
+            message,
+        );
     }
 
     /// 仅凭 (错误码, 消息原文, 主 span 标签) 渲染主消息——CLI/LSP 同口径共享入口。
@@ -342,6 +366,8 @@ impl DiagnosticTranslator {
                 text = filled;
                 if !consumed {
                     text.push_str(rest.text());
+                    // 残段未被模板消费 → 英文拼回尾巴（兜底），登记待译
+                    self.note_gap(super::gaps::LEVEL_MAIN, code, message);
                 }
             }
             return Some(RenderedMessage {
@@ -350,6 +376,8 @@ impl DiagnosticTranslator {
             });
         }
 
+        // 两表皆未命中：调用方兜底显示英文原文 → 登记待译清单
+        self.note_gap(super::gaps::LEVEL_MAIN, code, message);
         None
     }
 
@@ -392,6 +420,11 @@ impl DiagnosticTranslator {
             } else if template.contains("{期望}") || template.contains("{实际}") {
                 // 无法提取期望/实际类型时回退 rustc 原文，避免输出裸占位符
                 template = diagnostic.message.clone();
+                self.note_gap(
+                    super::gaps::LEVEL_MAIN,
+                    error_code.as_deref(),
+                    &diagnostic.message,
+                );
             }
             // 动态部分回填仅对消息表条目生效（前缀/后缀键匹配时保留动态名，
             // 如 "did you mean " → "你是否想用 `foo`?"）；错误码条目是完整桩，
@@ -405,11 +438,22 @@ impl DiagnosticTranslator {
                 template = filled;
                 if !consumed {
                     template.push_str(rest.text());
+                    self.note_gap(
+                        super::gaps::LEVEL_MAIN,
+                        error_code.as_deref(),
+                        &diagnostic.message,
+                    );
                 }
             }
             // 对模板中的类型名进行中文化替换
             self.replace_type_names(template)
         } else {
+            // 错误码表与消息表均未命中：原样显示英文（兜底），登记待译清单
+            self.note_gap(
+                super::gaps::LEVEL_MAIN,
+                error_code.as_deref(),
+                &diagnostic.message,
+            );
             self.replace_type_names(diagnostic.message.clone())
         };
 
@@ -442,11 +486,24 @@ impl DiagnosticTranslator {
                             text = filled;
                             if !consumed {
                                 text.push_str(rest.text());
+                                self.note_gap(
+                                    super::gaps::LEVEL_HELP,
+                                    error_code.as_deref(),
+                                    &child.message,
+                                );
                             }
                         }
                         text
                     })
-                    .unwrap_or_else(|| child.message.clone());
+                    .unwrap_or_else(|| {
+                        // help 通道未译：英文原样进建议行，登记待译清单
+                        self.note_gap(
+                            super::gaps::LEVEL_HELP,
+                            error_code.as_deref(),
+                            &child.message,
+                        );
+                        child.message.clone()
+                    });
                 teaching_hints.push(crate::语言::f("diag_fix_suggestion", &[&hint]));
             }
         }

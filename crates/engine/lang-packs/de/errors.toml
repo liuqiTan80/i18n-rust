@@ -2563,3 +2563,49 @@
 
 ["消息翻译"."remove the whole `?` item"]
 "消息模板" = "entfernen Sie das gesamte »{q0}«-Item"
+
+# ---- cargo 自身错误（纯文本通道，rzc 逐行本地化）----
+
+["消息翻译"."failed to parse manifest at `?`"]
+"消息模板" = "Manifest konnte nicht gelesen werden: {q0}"
+
+["消息翻译"."could not find `Cargo.toml` in `?` or any parent directory"]
+"消息模板" = "In {q0} und den übergeordneten Verzeichnissen wurde keine `Cargo.toml` gefunden"
+
+["消息翻译"."no targets specified in the manifest"]
+"消息模板" = "Das Manifest legt kein Build-Ziel fest"
+
+["消息翻译"."either src/main.rs or src/lib.rs, a [[bin]], or an [[example]] is required"]
+"消息模板" = "src/main.rs oder src/lib.rs, ein [[bin]] oder ein [[example]] ist erforderlich"
+
+["消息翻译"."no matching package named `?` found"]
+"消息模板" = "Kein Paket mit dem Namen {q0} gefunden"
+
+["消息翻译"."failed to select a version for the requirement `?`"]
+"消息模板" = "Für die Anforderung {q0} konnte keine Version gewählt werden"
+
+["消息翻译"."current package believes it's in a workspace when it's not:"]
+"消息模板" = "Das Paket hält sich für Teil eines Workspace, ist es aber nicht:"
+
+# ---- cargo 依赖错误链（Caused by: 缩进续行）----
+
+["消息翻译"."failed to get `?` as a dependency of package `?`"]
+"消息模板" = "Abruf von {q0} als Abhängigkeit des Pakets {q1} fehlgeschlagen"
+
+["消息翻译"."failed to load source for dependency `?`"]
+"消息模板" = "Quelle der Abhängigkeit {q0} konnte nicht geladen werden"
+
+["消息翻译"."unable to update ?"]
+"消息模板" = "{q0} konnte nicht aktualisiert werden"
+
+["消息翻译"."failed to read `?`"]
+"消息模板" = "{q0} konnte nicht gelesen werden"
+
+["消息翻译"."No such file or directory (os error ?)"]
+"消息模板" = "Keine solche Datei oder kein solches Verzeichnis (Systemfehler {q0})"
+
+["消息翻译"."rustup could not choose a version of ? to run, because one wasn't specified explicitly, and no default is configured."]
+"消息模板" = "rustup kann keine auszuführende {q0}-Version wählen, weil keine explizit angegeben ist und kein Standard-Toolchain konfiguriert ist."
+
+["消息翻译"."run 'rustup default stable' to download the latest stable release of Rust and set it as your default toolchain."]
+"消息模板" = "Führen Sie »rustup default stable« aus, um die neueste Stable-Version von Rust herunterzuladen und als Standard-Toolchain festzulegen."

@@ -21,6 +21,7 @@ mod mapping_check;
 mod mapping_coverage;
 mod mapping_gen;
 mod temp_guard;
+mod translation_gaps;
 mod ui;
 
 use diagnostics::{
@@ -29,7 +30,7 @@ use diagnostics::{
 };
 use lang_manager::Source;
 // 非 ASCII 模块名 #[path] 注解：CLI 与 LSP 镜像共享同一引擎实现
-use i18n_rust_engine::module_path::{annotate_non_ascii_mods, annotate_non_ascii_mods_with_lines};
+use i18n_rust_engine::module_path::annotate_non_ascii_mods;
 
 #[derive(Parser)]
 #[command(name = "rzc", version)]
@@ -105,6 +106,18 @@ enum CliCommand {
     },
     /// Diagnose the toolchain environment: bundled toolchain / PATH / version comparison
     Doctor,
+    /// Show / export / clear the to-translate list (compiler & cargo messages with no native translation yet)
+    Gaps {
+        /// Language code (defaults to the detected UI language)
+        #[arg(long)]
+        lang: Option<String>,
+        /// Export the list as a three-column TSV (LEVEL\tCODE\tmessage) to the given path
+        #[arg(long)]
+        export: Option<PathBuf>,
+        /// Clear the list (use it after filling the message table)
+        #[arg(long)]
+        clear: bool,
+    },
     /// Native-language ↔ Rust mapping cheat sheet (keywords / module paths / aliases / derive traits)
     Cheat {
         /// Built-in language code (e.g. zh) or a language-pack directory path; auto-detected from the system language when omitted
@@ -277,7 +290,12 @@ fn main() -> std::process::ExitCode {
     match run() {
         Ok(code) => code,
         Err(err) => {
-            eprintln!("Error: {err:#}");
+            // 错误正文已由各处按界面语言生成，硬编码 "Error: " 前缀会是教学
+            // 输出里最后一处英文（清单预检等走的就是这条出口）
+            eprintln!(
+                "{}",
+                ui::Ui::global().f("cli_error_prefix", &[&format!("{err:#}")])
+            );
             std::process::ExitCode::FAILURE
         }
     }
@@ -361,9 +379,23 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let column_map =
                 i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
             // 写盘产物含 `#[path]` 注解插入行：保留行映射供诊断回译先行换算
-            let (annotated, entry_line_map) =
-                annotate_non_ascii_mods_with_lines(&transpiled.output);
-            write_transpiled(&source_path, &annotated, &ui)?;
+            //（注解落点按托管布局解析：子模块产物在 `.rz/gen/` 镜像目录下）
+            let entry_extensions = lang_manager::all_available_extensions();
+            let is_entry = is_entry_source(&file, &project_root, &manager);
+            let (annotated, entry_line_map) = annotate_product(
+                &transpiled.output,
+                &project_root,
+                &file,
+                &source_path,
+                is_entry,
+                &entry_extensions,
+            );
+            write_product(&project_root, &source_path, &annotated, &ui)?;
+            // 请求文件非入口时其产物已从源文件旁迁到托管目录：清掉旧布局遗留
+            let legacy_product = file.with_extension("rs");
+            if !is_entry {
+                relocate_legacy_product(&legacy_product, &source_path, &annotated, &ui);
+            }
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
             transpile_project_files(&project_root, &file, &manager, &cache, &project_ctx)?;
 
@@ -387,6 +419,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // --message-format=json：编译诊断（warning/error）走 JSON 行翻译，
             // 程序自身 stdout/stderr 原样透传（cargo 不包装子进程输出），
             // 避免英文警告与程序输出混淆，也无需二次编译。
+            preflight_manifest(&project_root, &ui)?;
             let mut child = Command::new(resolve_cargo())
                 .args(["run", "--message-format=json"])
                 .current_dir(&project_root)
@@ -413,9 +446,19 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 .stderr
                 .take()
                 .ok_or_else(|| anyhow::anyhow!("cargo run stderr 管道不可用"))?;
+            // cargo 自身错误（manifest、无 target、依赖拉不到等）是纯文本，
+            // 逐行过消息表本地化；未命中行仍走原有进度行翻译，行为不劣于旧版
+            let tool_root = project_root.clone();
+            let tool_pack = lang_pack.clone();
+            let gap_lang = diagnostics::diag_lang_code(&file);
             let stderr_handle = std::thread::spawn(move || {
                 let ui = ui::Ui::global();
-                let mut translator = StreamTranslator::new();
+                let base = StreamTranslator::new();
+                let mut translator =
+                    match diagnostics::load_error_manager(&ui, &tool_pack, &tool_root, &gap_lang) {
+                        Some(manager) => base.with_tool_text(manager, gap_lang),
+                        None => base,
+                    };
                 let reader = BufReader::new(stderr_pipe);
                 for line in reader.lines() {
                     match line {
@@ -423,6 +466,8 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                         Err(_) => break,
                     }
                 }
+                // 流式线程里登记的英文残留也要落盘：无 JSON 诊断时主链路不报告
+                diagnostics::report_translation_gaps(&ui);
             });
             let reader = BufReader::new(stdout);
             // 收集 cargo JSON 诊断行（含 reason 字段），其余行视为程序输出原样透传
@@ -471,6 +516,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                         manager: &manager,
                         source: &source,
                         file: &file,
+                        entry_product: source_path.clone(),
                         column_map: Some(&column_map),
                         entry_line_map: Some(&entry_line_map),
                         project: Some(&project_ctx),
@@ -542,9 +588,23 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let column_map =
                 i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
             // 写盘产物含 `#[path]` 注解插入行：保留行映射供诊断回译先行换算
-            let (annotated, entry_line_map) =
-                annotate_non_ascii_mods_with_lines(&transpiled.output);
-            write_transpiled(&source_path, &annotated, &ui)?;
+            //（注解落点按托管布局解析：子模块产物在 `.rz/gen/` 镜像目录下）
+            let entry_extensions = lang_manager::all_available_extensions();
+            let is_entry = is_entry_source(&file, &project_root, &manager);
+            let (annotated, entry_line_map) = annotate_product(
+                &transpiled.output,
+                &project_root,
+                &file,
+                &source_path,
+                is_entry,
+                &entry_extensions,
+            );
+            write_product(&project_root, &source_path, &annotated, &ui)?;
+            // 请求文件非入口时其产物已从源文件旁迁到托管目录：清掉旧布局遗留
+            let legacy_product = file.with_extension("rs");
+            if !is_entry {
+                relocate_legacy_product(&legacy_product, &source_path, &annotated, &ui);
+            }
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
             transpile_project_files(&project_root, &file, &manager, &cache, &project_ctx)?;
 
@@ -564,6 +624,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 );
             }
 
+            preflight_manifest(&project_root, &ui)?;
             let output = Command::new(resolve_cargo())
                 .arg("check")
                 .arg("--message-format=json")
@@ -602,6 +663,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     manager: &manager,
                     source: &source,
                     file: &file,
+                    entry_product: source_path.clone(),
                     column_map: Some(&column_map),
                     entry_line_map: Some(&entry_line_map),
                     project: Some(&project_ctx),
@@ -642,6 +704,17 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             Ok(std::process::ExitCode::SUCCESS)
         }
         CliCommand::Doctor => install::doctor().map(|()| std::process::ExitCode::SUCCESS),
+        CliCommand::Gaps {
+            lang,
+            export,
+            clear,
+        } => {
+            // 待译清单（未译全的编译器/构建工具消息）查看·导出·清零：
+            // 参数文案保持英文（维护者命令，不占用语言包界面键）
+            let ui = ui::Ui::global();
+            translation_gaps::command(&ui, lang, export, clear)?;
+            Ok(std::process::ExitCode::SUCCESS)
+        }
         CliCommand::Cheat { lang, markdown } => {
             let lang_code = lang
                 .clone()
@@ -1050,17 +1123,87 @@ fn find_project_root(file: &Path) -> anyhow::Result<PathBuf> {
 ///
 /// 仅当源文件确为**项目 src 直属**入口（父目录恰为 `project_root/src`，且词干为
 /// [`is_entry_stem`]，即 `main` 或语言包主函数词，如 `src/main.zh`、旧项目里的
-/// `src/主函数.zh`）时才写入 Cargo 固定编译目标 `src/main.rs`；其余文件产物跟随
-/// 自身扩展名（`file.with_extension("rs")`），绝不占用 `src/main.rs`：
-/// - 项目根的 `build.zh` → `build.rs`，不把 build 脚本覆盖为入口（weix 工具异常 #4）；
+/// `src/主函数.zh`）时才写入 Cargo 固定编译目标 `src/main.rs`——Cargo 只认这个
+/// 默认发现位置，入口产物无法移出 `src/`：
+/// - 项目根的 `build.zh` → `.rz/gen/build.rs`，不把 build 脚本覆盖为入口（weix 工具异常 #4）；
 /// - 子目录/示例里恰好名为 `main` 的文件（`src/sub/main.zh`、`examples/main.zh`）→
-///   产物留在自身目录，不越界覆盖宿主 `src/main.rs`（越界写出坑）。
+///   产物进托管目录，不越界覆盖宿主 `src/main.rs`（越界写出坑）；
+/// - 其余非入口文件一律进 [`GEN_DIR`](i18n_rust_engine::product_layout::GEN_DIR)
+///   镜像源码布局（`src/数学.zh` → `.rz/gen/src/数学.rs`），教学目录 `src/` 里
+///   只留母语源文件与入口产物；源文件在 project 之外时退回旧行为（产物写在
+///   自身旁边）。
 fn entry_output_path(project_root: &Path, file: &Path, manager: &MappingManager) -> PathBuf {
-    let stem = file.file_stem().and_then(|s| s.to_str());
-    if stem.is_some_and(|s| is_entry_stem(s, manager)) && directly_under_src(file, project_root) {
+    if is_entry_source(file, project_root, manager) {
         project_root.join("src/main.rs")
     } else {
-        file.with_extension("rs")
+        i18n_rust_engine::product_layout::gen_product_path(project_root, file)
+    }
+}
+
+/// 源文件是否为项目的 Cargo 固定入口（[`entry_output_path`] 的判定条件，
+/// 产物注解需按同一条件选择子模块目录，故单独暴露）
+fn is_entry_source(file: &Path, project_root: &Path, manager: &MappingManager) -> bool {
+    let stem = file.file_stem().and_then(|s| s.to_str());
+    stem.is_some_and(|s| is_entry_stem(s, manager)) && directly_under_src(file, project_root)
+}
+
+/// 按托管布局为方言源文件的产物补 `#[path]` 注解，并返回磁盘行 → 引擎直行映射
+///
+/// `is_crate_root` 取 [`is_entry_source`]：crate 根的子模块与源文件同目录
+/// （`src/数学.zh`），非根文件的子模块位于 `<自身词干>/`（rustc 文件式布局）。
+/// 落点解析（方言子模块 → 托管产物、手写 `.rs` 子模块 → 原地）由引擎统一
+/// 实现，CLI 写盘与诊断行映射重算必须走同一函数，否则注解行数不同、行号回译错位。
+pub(crate) fn annotate_product(
+    code: &str,
+    project_root: &Path,
+    source: &Path,
+    product: &Path,
+    is_crate_root: bool,
+    extensions: &[String],
+) -> (String, Vec<usize>) {
+    let parent = source.parent().unwrap_or(Path::new("."));
+    let child_dir = if is_crate_root {
+        parent.to_path_buf()
+    } else {
+        match source.file_stem().and_then(|s| s.to_str()) {
+            Some(stem) => parent.join(stem),
+            None => parent.to_path_buf(),
+        }
+    };
+    let product_dir = product.parent().unwrap_or(Path::new("."));
+    i18n_rust_engine::product_layout::annotate_product_mod_paths_with_lines(
+        code,
+        &child_dir,
+        product_dir,
+        project_root,
+        extensions,
+    )
+}
+
+/// 旧布局遗留在源文件旁边的产物迁走后，清理同目录同名 `.rs`
+///
+/// 升级到托管布局后，`src/数学.rs` 这类旧产物已无人引用：留在母语目录里
+/// 正是本次要解决的问题。安全口径与 [`write_transpiled`] 一致——内容与本次
+/// 产物相同（就是我们的生成物）才删；不同则可能是用户手改过，备份为 `.rs.bak`
+/// 再删，绝不静默丢弃。
+fn relocate_legacy_product(legacy: &Path, product: &Path, content: &str, ui: &crate::ui::Ui) {
+    if legacy == product || !legacy.is_file() {
+        return;
+    }
+    let same = fs::read_to_string(legacy).is_ok_and(|old| old == content);
+    if same {
+        let _ = fs::remove_file(legacy);
+        return;
+    }
+    let backup = legacy.with_extension("rs.bak");
+    if fs::rename(legacy, &backup).is_ok() {
+        println!(
+            "{}",
+            ui.f(
+                "legacy_product_moved",
+                &[&legacy.display().to_string(), &backup.display().to_string()]
+            )
+        );
     }
 }
 
@@ -1111,6 +1254,50 @@ fn find_project_root_upward(start: &Path) -> Option<PathBuf> {
         }
         current = current.parent()?.to_path_buf();
     }
+}
+
+/// 调用 cargo 前的清单预检：把 cargo 自身高频新手错误（非 JSON 通道）拦在
+/// 本地，用母语报出并给出下一步命令。
+///
+/// 只拦「cargo 一定会失败」且原因确定的两种形态：
+/// - Cargo.toml 不是合法 TOML（括号/引号/缩进写坏）；
+/// - 未声明编译目标且 src/main.rs、src/lib.rs 都不存在（`rzc init` 被跳过、
+///   或入口文件不在 src 直属时最常见）。
+///
+/// 其余 cargo 错误（依赖解析、workspace 等）仍由翻译链处理。
+fn preflight_manifest(project_root: &Path, ui: &ui::Ui) -> anyhow::Result<()> {
+    let path = project_root.join("Cargo.toml");
+    let text = fs::read_to_string(&path)?;
+    let manifest: toml::Value = toml::from_str(&text).map_err(|e| {
+        anyhow::anyhow!(
+            "{}",
+            ui.f(
+                "manifest_parse_error",
+                &[&path.display().to_string(), &e.to_string()]
+            )
+        )
+    })?;
+    // 目标声明：[lib] / [[bin]] / [[example]] 任一存在，或 Cargo 默认发现位置有内容
+    let declared = manifest.get("lib").is_some()
+        || manifest.get("bin").is_some()
+        || manifest.get("example").is_some();
+    // 默认发现：src/main.rs / src/lib.rs，或 src/bin・tests・benches 目录非空
+    //（里面可能是子目录入口如 src/bin/工具/main.rs，故只判空不判后缀：
+    // 误报会阻断正常项目，漏报仅退化为翻译链处理 cargo 英文错）
+    let default_exists = ["src/main.rs", "src/lib.rs"]
+        .iter()
+        .any(|rel| project_root.join(rel).exists())
+        || ["src/bin", "tests", "benches"].iter().any(|dir| {
+            let path = project_root.join(dir);
+            path.is_dir()
+                && std::fs::read_dir(&path)
+                    .ok()
+                    .is_some_and(|mut entries| entries.next().is_some())
+        });
+    if !declared && !default_exists {
+        anyhow::bail!("{}", ui.t("manifest_no_target"));
+    }
+    Ok(())
 }
 
 /// 项目内语言包根目录：主仓库 zrRust 为单副本结构 `crates/engine/lang-packs/`
@@ -1631,11 +1818,13 @@ fn transpile_project_files(
 ) -> anyhow::Result<()> {
     let ui = ui::Ui::global();
     let src_dir = project_root.join("src");
-    // 无 src 目录时不处理，由 cargo 自行报错
+    let extensions = lang_manager::all_available_extensions();
+    // 无 src 目录时没有项目内模块要转译（由 cargo 自行报错），但根目录方言文件
+    // 的产物也写在 `.rz/gen/`，失效残留的清理照旧要跑
     if !src_dir.is_dir() {
+        prune_stale_products(project_root, &extensions, &ui);
         return Ok(());
     }
-    let extensions = lang_manager::all_available_extensions();
     // 入口产物固定写入 src/main.rs：src/ 顶层任何入口词干的方言文件
     // （main.zh、旧项目的 主函数.zh 等）转译后都会覆盖入口产物，必须跳过；
     // 嵌套层级中的同名文件不是入口（rustc 模块树按路径区分），照常转译。
@@ -1679,6 +1868,7 @@ fn transpile_project_files(
             // ui/first_error 遮蔽为引用：move 闭包捕获的是 Copy 的共享引用
             let ui = &ui;
             let first_error = &first_error;
+            let extensions: &[String] = &extensions;
             // 相对 src 的显示名在闭包外算好（避免 PathBuf 被 move 进线程）
             let display_name = path
                 .strip_prefix(&src_dir)
@@ -1740,22 +1930,35 @@ fn transpile_project_files(
                         output
                     }
                 };
-                // 非入口模块按多层布局补 `#[path]`：src/领域.rs 中的
-                // `mod 工具;` 需指向 src/领域/工具.rs（#[path] 相对当前
-                // 文件目录解析，前缀为当前文件词干细胞目录）。
-                let product = if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                    i18n_rust_engine::module_path::annotate_nested_mods_with_lines(
-                        &output.output,
-                        stem,
-                    )
-                    .0
-                } else {
-                    output.output.clone()
-                };
-                if let Err(e) = write_transpiled(&path.with_extension("rs"), &product, ui) {
+                // 非入口产物写入托管目录并镜像源码布局（src/领域/工具.zh →
+                // .rz/gen/src/领域/工具.rs）：`#[path]` 落点按同一布局解析，
+                // 托管树内的相对位置与旧布局逐字一致（子模块在 `<自身词干>/`
+                // 下，`#[path]` 相对当前文件所在目录解析），手写 `.rs` 子模块
+                // 则跨出托管目录指回 src/。
+                let product_path =
+                    i18n_rust_engine::product_layout::gen_product_path(project_root, &path);
+                let product = annotate_product(
+                    &output.output,
+                    project_root,
+                    &path,
+                    &product_path,
+                    false,
+                    extensions,
+                )
+                .0;
+                if let Err(e) = write_product(project_root, &product_path, &product, ui) {
                     *first_error
                         .lock()
                         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(e);
+                } else {
+                    // 旧布局把产物写在源文件旁（src/领域/工具.rs）：已迁走，
+                    // 同目录遗留文件删掉后 src/ 才真的只剩母语源文件
+                    relocate_legacy_product(
+                        &path.with_extension("rs"),
+                        &product_path,
+                        &product,
+                        ui,
+                    );
                 }
             });
             handles.push(handle);
@@ -1766,7 +1969,26 @@ fn transpile_project_files(
     });
     match first_error.into_inner().unwrap_or(None) {
         Some(err) => Err(err),
-        None => Ok(()),
+        None => {
+            // 全部产物写入完成后清失效残留
+            prune_stale_products(project_root, &extensions, &ui);
+            Ok(())
+        }
+    }
+}
+
+/// 清走托管目录中失去源文件的产物，有清理时向用户报一句数量
+///
+/// 判定只看源文件在不在（且不碰 `.rz/gen/` 以外路径），实现见引擎
+/// [`prune_orphan_products`](i18n_rust_engine::product_layout::prune_orphan_products)：
+/// 残留会让 rustc 按默认模块查找命中旧产物，被删掉的代码仍在参与编译。
+fn prune_stale_products(project_root: &Path, extensions: &[String], ui: &ui::Ui) {
+    let pruned = i18n_rust_engine::product_layout::prune_orphan_products(project_root, extensions);
+    if !pruned.is_empty() {
+        println!(
+            "{}",
+            ui.f("stale_products_pruned", &[&pruned.len().to_string()])
+        );
     }
 }
 
@@ -1801,6 +2023,28 @@ fn emit_teaching_warnings_for_file(
             i18n_rust_engine::log_warn!("lint", "{}：{}", display_name, warning.format());
         }
     }
+}
+
+/// 写转译产物，写入语义按落点分道
+///
+/// `.rz/gen/` 是 rzc 专属地盘（用户在此无手写内容，`src/` 的手写 `.rs` 也
+/// 不会被复制进来），改版覆盖就是正常状态，备份只会在托管目录里留下
+/// 无人认领的 `.rs.bak`；而 `src/main.rs`（Cargo 固定入口，可能是学习者手写
+/// 英文 Rust）与项目外源文件旁的产物仍走 [`write_transpiled`] 的
+/// 「内容不同先备份」护栏。
+fn write_product(
+    project_root: &Path,
+    path: &Path,
+    content: &str,
+    ui: &crate::ui::Ui,
+) -> anyhow::Result<()> {
+    if i18n_rust_engine::product_layout::is_managed_product(project_root, path) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        return Ok(fs::write(path, content)?);
+    }
+    write_transpiled(path, content, ui)
 }
 
 /// 写转译产物：目标已存在且内容不同时先备份为 `.rs.bak`，绝不静默覆盖用户文件。
@@ -2028,6 +2272,13 @@ fn create_project(project_name: &str, lang: &str) -> anyhow::Result<()> {
         project_path.join("README.md"),
         ui.f("readme_template", &[project_name, lang]),
     )?;
+    // 生成物不入库：`.rz/gen/` 收托管产物（模块转译结果），`.rs.bak` 是旧布局
+    // 产物迁移时的安全备份——两者都是机器产物而非源码；入口 `src/main.rs`
+    // 不列（Cargo 标准目标，让克隆后不改方言直接 `cargo build` 也能跑）
+    fs::write(
+        project_path.join(".gitignore"),
+        "/target\n.rz/gen/\n*.rs.bak\n",
+    )?;
     println!("{}", ui.f("project_created", &[project_name]));
     println!("{}", ui.f("project_created_hint", &[lang]));
     println!("{}", ui.f("project_run_hint", &[lang]));
@@ -2212,6 +2463,12 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
                 })
         })
         .mut_subcommand("doctor", |cmd| cmd.about(ui.t("tc_doctor_help")))
+        .mut_subcommand("gaps", |cmd| {
+            cmd.about(ui.t("cmd_gaps_about"))
+                .mut_arg("lang", |arg| arg.help(ui.t("arg_gaps_lang_help")))
+                .mut_arg("export", |arg| arg.help(ui.t("arg_gaps_export_help")))
+                .mut_arg("clear", |arg| arg.help(ui.t("arg_gaps_clear_help")))
+        })
         .mut_subcommand("cheat", |cmd| {
             cmd.about(ui.t("cmd_cheat_about"))
                 .mut_arg("lang", |arg| arg.help(ui.t("arg_cheat_lang_help")))
@@ -2319,12 +2576,13 @@ fn get_lang_code_from_extension(extension: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        annotate_non_ascii_mods, annotate_non_ascii_mods_with_lines, collect_project_context,
-        collect_sibling_dialect_files, detect_toolchain_channel, entry_output_path,
-        find_alias_in_toml, get_lang_code_from_extension, group_files_by_lang,
-        transpile_project_files, transpile_to_english, transpile_with_map_cached_in_project,
-        write_transpiled,
+        annotate_non_ascii_mods, collect_project_context, collect_sibling_dialect_files,
+        detect_toolchain_channel, entry_output_path, find_alias_in_toml,
+        get_lang_code_from_extension, group_files_by_lang, transpile_project_files,
+        transpile_to_english, transpile_with_map_cached_in_project, write_transpiled,
     };
+    // 引擎注解器直测（产物写盘已改走 product_layout 的托管布局版）
+    use i18n_rust_engine::module_path::annotate_non_ascii_mods_with_lines;
 
     /// 加载内置中文映射管理器（测试转译管线用）
     fn zh_manager() -> i18n_rust_engine::mapping_manager::MappingManager {
@@ -2380,7 +2638,7 @@ mod tests {
     }
 
     /// 入口产物路径：入口词干（main / 语言包主函数词）写入 src/main.rs，
-    /// 非入口文件跟随自身扩展名，不占用 src/main.rs
+    /// 非入口文件进托管目录 `.rz/gen/`（镜像源码布局），不占用 src/main.rs
     /// （weix 工具异常 #4：build.zh 不得覆盖入口产物）
     ///
     /// 项目根必须是**真实落盘目录**：合成路径（`/proj`）在 Windows 上不具
@@ -2404,20 +2662,20 @@ mod tests {
             entry_output_path(&root, &root.join("src/主函数.zh"), &m),
             root.join("src/main.rs")
         );
-        // 项目根的 build.zh（词干非入口）→ 同目录 build.rs，绝不触碰 src/main.rs
+        // 项目根的 build.zh（词干非入口）→ 托管目录，绝不触碰 src/main.rs
         assert_eq!(
             entry_output_path(&root, &root.join("build.zh"), &m),
-            root.join("build.rs")
+            root.join(".rz/gen/build.rs")
         );
-        // src 下非入口模块（如 helper.zh）→ src/helper.rs
+        // src 下非入口模块（如 helper.zh）→ .rz/gen/src/helper.rs
         assert_eq!(
             entry_output_path(&root, &root.join("src/helper.zh"), &m),
-            root.join("src/helper.rs")
+            root.join(".rz/gen/src/helper.rs")
         );
     }
 
     /// 越界写出回归：入口词干但**不在 project_root/src 直属**的文件（子目录/示例
-    /// 里恰好名为 main）不得聚合覆盖宿主 src/main.rs，产物须留在自身目录。
+    /// 里恰好名为 main）不得聚合覆盖宿主 src/main.rs，产物进托管目录的同名镜像路径。
     /// 对照：同时断言 src 直属入口确实聚合（证明本测试真的在区分“直属”与
     /// “子目录”，而非因目录不存在而两边都不聚合、造成假通过）。
     #[test]
@@ -2435,17 +2693,17 @@ mod tests {
         // src/sub/main.zh（词干 main 但在子目录）→ src/sub/main.rs，不覆盖 src/main.rs
         assert_eq!(
             entry_output_path(&root, &root.join("src/sub/main.zh"), &m),
-            root.join("src/sub/main.rs")
+            root.join(".rz/gen/src/sub/main.rs")
         );
-        // examples/main.zh（示例入口）→ examples/main.rs，不占用宿主 src/main.rs
+        // examples/main.zh（示例入口）→ .rz/gen/examples/main.rs，不占用宿主 src/main.rs
         assert_eq!(
             entry_output_path(&root, &root.join("examples/main.zh"), &m),
-            root.join("examples/main.rs")
+            root.join(".rz/gen/examples/main.rs")
         );
         // 母语主函数词但位于子目录（src/sub/主函数.zh）同样不越界
         assert_eq!(
             entry_output_path(&root, &root.join("src/sub/主函数.zh"), &m),
-            root.join("src/sub/主函数.rs")
+            root.join(".rz/gen/src/sub/主函数.rs")
         );
     }
 
@@ -2467,10 +2725,10 @@ mod tests {
             entry_output_path(&root, &root.join("src/主函数.zh"), &m),
             root.join("src/main.rs")
         );
-        // 同目录的非入口模块不聚合
+        // 同目录的非入口模块不聚合，且产物进托管目录
         assert_eq!(
             entry_output_path(&root, &root.join("src/工具.zh"), &m),
-            root.join("src/工具.rs")
+            root.join(".rz/gen/src/工具.rs")
         );
 
         // 未落盘：root/src 尚不存在，canonicalize 双双失败退回词法路径，
@@ -2482,7 +2740,7 @@ mod tests {
         );
         assert_eq!(
             entry_output_path(&ghost, &ghost.join("src/sub/main.zh"), &m),
-            ghost.join("src/sub/main.rs")
+            ghost.join(".rz/gen/src/sub/main.rs")
         );
     }
 
@@ -2528,7 +2786,8 @@ mod tests {
         assert!(out.contains("pub fn help()"), "实际输出：{out}");
     }
 
-    /// 多文件转译：src/ 下的其他方言文件生成同名 .rs，入口与手写 .rs 不受影响；
+    /// 多文件转译：src/ 下的其他方言文件转译到托管目录 `.rz/gen/src/`，
+    /// 入口与手写 .rs 不受影响；旧布局遗留在源文件旁的产物被清走；
     /// 跨文件声明豁免（#8）：其他文件声明的与映射词同名的成员不被替换
     #[test]
     fn test_transpile_project_files() {
@@ -2545,6 +2804,8 @@ mod tests {
         .unwrap();
         std::fs::write(root.join("src/辅助.zh"), "公开 函数 新建() {}\n").unwrap();
         std::fs::write(root.join("src/manual.rs"), "// 手写文件不覆盖\n").unwrap();
+        // 旧布局遗留：本次已迁到托管目录，内容不同的同目录产物得备份后删除
+        std::fs::write(root.join("src/辅助.rs"), "// 上一版旧产物\n").unwrap();
 
         let manager = zh_manager();
         let cache = std::sync::Mutex::new(i18n_rust_engine::cache::TranslationCache::new(8));
@@ -2554,9 +2815,19 @@ mod tests {
         assert!(ctx.names.contains("新建"), "声明名应含其他文件的函数名");
         transpile_project_files(root, &entry, &manager, &cache, &ctx).unwrap();
 
-        // 其他方言文件已转译为同名 .rs
-        let helper_rs = std::fs::read_to_string(root.join("src/辅助.rs")).unwrap();
+        // 其他方言文件已转译到托管目录（镜像 src/ 布局）
+        let helper_rs = std::fs::read_to_string(root.join(".rz/gen/src/辅助.rs")).unwrap();
         assert!(helper_rs.contains("pub fn 新建()"), "实际输出：{helper_rs}");
+        // 旧布局遗留产物已从 src/ 清走，旧内容备份为 .rs.bak
+        assert!(
+            !root.join("src/辅助.rs").exists(),
+            "旧布局遗留产物应已从 src/ 迁走"
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join("src/辅助.rs.bak")).unwrap(),
+            "// 上一版旧产物\n",
+            "内容与本次产物不同时得先备份"
+        );
         // 手写 .rs 不被触碰
         let manual_rs = std::fs::read_to_string(root.join("src/manual.rs")).unwrap();
         assert!(manual_rs.contains("手写文件不覆盖"));

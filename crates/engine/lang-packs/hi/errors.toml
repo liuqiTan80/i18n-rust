@@ -2478,3 +2478,49 @@
 
 ["消息翻译"."remove the whole `?` item"]
 "消息模板" = "पूरा «{q0}» आइटम हटाएँ"
+
+# ---- cargo 自身错误（纯文本通道，rzc 逐行本地化）----
+
+["消息翻译"."failed to parse manifest at `?`"]
+"消息模板" = "मैनिफ़ेस्ट पढ़ने में विफल: {q0}"
+
+["消息翻译"."could not find `Cargo.toml` in `?` or any parent directory"]
+"消息模板" = "{q0} और उसकी ऊपरी डायरेक्ट्रियों में `Cargo.toml` नहीं मिला"
+
+["消息翻译"."no targets specified in the manifest"]
+"消息模板" = "मैनिफ़ेस्ट में कोई संकलन लक्ष्य निर्दिष्ट नहीं है"
+
+["消息翻译"."either src/main.rs or src/lib.rs, a [[bin]], or an [[example]] is required"]
+"消息模板" = "src/main.rs या src/lib.rs, अथवा [[bin]] या [[example]] आवश्यक है"
+
+["消息翻译"."no matching package named `?` found"]
+"消息模板" = "{q0} नाम का कोई पैकेज नहीं मिला"
+
+["消息翻译"."failed to select a version for the requirement `?`"]
+"消息模板" = "आवश्यकता {q0} के लिए संस्करण चुना नहीं जा सका"
+
+["消息翻译"."current package believes it's in a workspace when it's not:"]
+"消息模板" = "पैकेज को लगता है कि यह वर्कस्पेस में है, पर है नहीं:"
+
+# ---- cargo 依赖错误链（Caused by: 缩进续行）----
+
+["消息翻译"."failed to get `?` as a dependency of package `?`"]
+"消息模板" = "पैकेज {q1} की निर्भरता {q0} प्राप्त करने में विफल"
+
+["消息翻译"."failed to load source for dependency `?`"]
+"消息模板" = "निर्भरता {q0} का स्रोत लोड करने में विफल"
+
+["消息翻译"."unable to update ?"]
+"消息模板" = "{q0} को अद्यतन करने में विफल"
+
+["消息翻译"."failed to read `?`"]
+"消息模板" = "{q0} पढ़ने में विफल"
+
+["消息翻译"."No such file or directory (os error ?)"]
+"消息模板" = "ऐसी कोई फ़ाइल या डायरेक्टरी नहीं (OS त्रुटि {q0})"
+
+["消息翻译"."rustup could not choose a version of ? to run, because one wasn't specified explicitly, and no default is configured."]
+"消息模板" = "rustup चलाने के लिए {q0} का संस्करण चुन नहीं सका, क्योंकि कोई स्पष्ट रूप से निर्दिष्ट नहीं है और कोई डिफ़ॉल्ट टूलचेन कॉन्फ़िगर नहीं है।"
+
+["消息翻译"."run 'rustup default stable' to download the latest stable release of Rust and set it as your default toolchain."]
+"消息模板" = "Rust का नवीनतम स्थिर संस्करण डाउनलोड करने और उसे डिफ़ॉल्ट टूलचेन बनाने के लिए «rustup default stable» चलाएँ।"

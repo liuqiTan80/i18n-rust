@@ -122,7 +122,18 @@ rzc doctor
 ```
 
 这类缺口静态检查（TOML 解析、键数齐平、覆盖度对比）**一律看不见**，只能实跑采样。
-补键方法：
+好消息是采样不再靠人肉撞：**rzc 会把每次实跑里未命中的句子自动登记**到
+`~/.rz/gaps/<语言>.tsv`（`语言\t通道\t错误码\t消息原文`，通道取 `main`/`help`/`tool`），
+终端只统一提示一次「N 条消息暂无译文」，诊断本身照旧按原文输出（绝不吞）。
+清单与语料门禁的 `crates/engine/tests/data/diag-corpus.tsv` 同构，去掉首列即可并入。
+
+```bash
+rzc gaps                                  # 看本机累积的待译清单（按当前界面语言）
+rzc gaps --lang ja --export /tmp/ja.tsv   # 导出成补表素材
+rzc gaps --clear                          # 补完表后清零
+```
+
+尚未被触发的句子仍需手工采样，补键方法：
 
 ```bash
 # 1. 取 help / note 子消息原文（JSON 不会因首个错误提前中止）
