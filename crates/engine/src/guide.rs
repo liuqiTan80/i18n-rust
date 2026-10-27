@@ -172,7 +172,7 @@ pub fn render_cheat_tables_markdown(manager: &MappingManager, lang_code: &str) -
 
 /// 渲染面向学习者与 AI 助手的母语编程指南（markdown）
 ///
-/// 结构：标题 → 引言语 → 书写规则（标识符/标点/危险等级/工作流/实测坑/待译清单）
+/// 结构：标题 → 引言语 → 书写规则（标识符/保留字转义/标点/危险等级/工作流/实测坑/待译清单）
 /// → 入口示例（语言包 `template_main`）→ 全量词条表 → 尾注。
 /// 全部文案来自 `ui.toml` 的 `guide_*` 键，随 `set_language` 切换。
 pub fn render_agent_guide(manager: &MappingManager, lang_code: &str) -> String {
@@ -186,6 +186,7 @@ pub fn render_agent_guide(manager: &MappingManager, lang_code: &str) -> String {
     for key in [
         "guide_rule_keywords",
         "guide_rule_ident",
+        "guide_rule_raw_ident",
         "guide_rule_punct",
         "guide_rule_danger",
     ] {

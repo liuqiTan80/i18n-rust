@@ -12,6 +12,10 @@
 //! - 嵌套过深：代码行缩进过深（重构教学，每文件仅首个）
 //! - 易混方法名：方法调用位未命中映射表且与表内词近似的长中文串
 //!   （如 `.拉平()` 应为 `.展平()`，编辑距离 ≤1 才提示以降噪）
+//! - 英文回落：结构词写成英文（`fn`/`Vec`/`.collect()`）而语言包有母语词条
+//!   （`lint_english_fallback`）
+//! - 保留字撞名：声明位的名字经映射后是 Rust 保留字（`函数 匹配` → `fn match`），
+//!   产物非法或语义被静默改写（`lint_reserved_name_collision`）
 //!
 //! 行注释含「教学忽略」时整行跳过（教师可标注故意不修的示例）：
 //! `让 x = 5;  // 教学忽略` 不产生任何教学警告。
@@ -630,27 +634,16 @@ pub fn lint_english_fallback(
 ///
 /// `keyword_map`：母语 → 英文的关键字映射（见
 /// [`crate::mapping_manager::MappingManager::get_keyword_map`]）。声明引导词
-/// 与撞名候选均从该表派生（只提示真实存在的词条）；`可变`(mut) 作为 `让` 的
+/// 与撞名候选均直接从该表查（不派生临时集合：本函数在 LSP 每次变更都会
+/// 跑一遍，过早建 HashSet 会白付 600+ 次哈希）；`可变`(mut) 作为 `让` 的
 /// 修饰词可跨过后再判定名字。判定要求名字后紧跟声明定界符
 /// （`(` `{` `;` `=` `<` `:` `,`），`返回`/`匹配` 作普通语句词时不提示。
-/// 字符串/字符/原始串/注释内的内容由状态机跳过；含「教学忽略」的行整行跳过。
+/// 字符串/字符/原始串/注释内容由状态机跳过；含「教学忽略」的行整行跳过。
 pub fn lint_reserved_name_collision(
     source: &str,
     keyword_map: &HashMap<String, String>,
 ) -> Vec<LintWarning> {
-    // 声明引导词的原生写法（值 ∈ DECL_INTRODUCER_VALUES）
-    let decl_words: HashSet<&str> = keyword_map
-        .iter()
-        .filter(|(_, en)| DECL_INTRODUCER_VALUES.contains(&en.as_str()))
-        .map(|(zh, _)| zh.as_str())
-        .collect();
-    // 撞名候选：原生写法 → Rust 保留关键字；排除 mut（`让` 修饰词，非名字）
-    let reserved: HashMap<&str, &str> = keyword_map
-        .iter()
-        .filter(|(_, en)| RUST_KEYWORDS.contains(&en.as_str()) && en.as_str() != "mut")
-        .map(|(zh, en)| (zh.as_str(), en.as_str()))
-        .collect();
-    if reserved.is_empty() || decl_words.is_empty() {
+    if keyword_map.is_empty() {
         return Vec::new();
     }
 
@@ -665,6 +658,8 @@ pub fn lint_reserved_name_collision(
     let mut prev_char = '\0';
     // 刚读到声明引导词（或 `让 可变` 的修饰词），等待其后的名字
     let mut expect_name = false;
+    // 单词缓冲：复用避免每个标识符都分配一个 String（大文件扫描热点）
+    let mut word = String::with_capacity(16);
 
     let mut i = 0usize;
     while i < chars.len() {
@@ -737,14 +732,15 @@ pub fn lint_reserved_name_collision(
                     expect_name = false;
                     continue;
                 }
-                c if (c.is_alphanumeric() || c == '_') && is_ident_boundary(prev_char) => {
+                c if is_ident_continue(c) && is_ident_boundary(prev_char) => {
                     let start_line = line;
                     let start_col = col;
                     let mut j = i;
-                    while j < chars.len() && (chars[j].is_alphanumeric() || chars[j] == '_') {
+                    while j < chars.len() && is_ident_continue(chars[j]) {
                         j += 1;
                     }
-                    let word: String = chars[i..j].iter().collect();
+                    word.clear();
+                    word.extend(chars[i..j].iter());
                     // 原始串前缀（r"/b"/br"）：转入字面量状态，不参与判定
                     if matches!(word.as_str(), "r" | "b" | "br") {
                         let mut h = 0usize;
@@ -773,15 +769,15 @@ pub fn lint_reserved_name_collision(
                         k += 1;
                     }
                     let next = chars.get(k).copied();
+                    // 单次查表同时服务三种判定（不派生临时集合）：
+                    // `可变` 修饰词 / 撞名候选 / 声明引导词
+                    let mapped = keyword_map.get(word.as_str()).map(String::as_str);
                     if expect_name {
-                        let is_mut_modifier = keyword_map
-                            .get(word.as_str())
-                            .map(|v| v == "mut")
-                            .unwrap_or(false);
-                        if is_mut_modifier {
+                        if mapped == Some("mut") {
                             // `让 可变 名字`：跨过修饰词，继续等待名字
                         } else {
-                            if let Some(en) = reserved.get(word.as_str())
+                            if let Some(en) = mapped
+                                && RUST_KEYWORDS.contains(&en)
                                 && matches!(next, Some('(' | '{' | ';' | '=' | '<' | ':' | ','))
                             {
                                 warnings.push(LintWarning {
@@ -789,12 +785,14 @@ pub fn lint_reserved_name_collision(
                                     column: start_col,
                                     kind: LintKind::ReservedNameCollision,
                                     text: word.clone(),
-                                    extra: (*en).to_string(),
+                                    extra: en.to_string(),
                                 });
                             }
                             expect_name = false;
                         }
-                    } else if decl_words.contains(word.as_str()) {
+                    } else if let Some(en) = mapped
+                        && DECL_INTRODUCER_VALUES.contains(&en)
+                    {
                         expect_name = true;
                     }
                     let last = chars[j - 1];
@@ -825,7 +823,7 @@ const DEEP_INDENT_THRESHOLD: usize = 24;
 
 /// 判定字符是否可作为标识符边界（非字母/数字/下划线即边界）
 fn is_ident_boundary(c: char) -> bool {
-    !(c.is_alphanumeric() || c == '_')
+    !is_ident_continue(c)
 }
 
 /// 判定前一字符是否可作为原始字符串前缀（r#/br#：前一字为行首/空白/运算符）
@@ -855,12 +853,12 @@ fn is_simple_let_binding(chars: &[char], from: usize) -> bool {
         }
     }
     // 绑定首字符须为标识符字符：`(`/`[`/`{` 等模式起始一律排除
-    if j >= chars.len() || !(chars[j].is_alphanumeric() || chars[j] == '_') {
+    if j >= chars.len() || !is_ident_continue(chars[j]) {
         return false;
     }
     // 收集标识符（到名字结束），再跳过名字与后续符号之间的空白
     let mut k = j;
-    while k < chars.len() && (chars[k].is_alphanumeric() || chars[k] == '_') {
+    while k < chars.len() && is_ident_continue(chars[k]) {
         k += 1;
     }
     while k < chars.len() && chars[k].is_whitespace() {
@@ -883,7 +881,7 @@ fn starts_with_word(chars: &[char], j: usize, word: &str) -> bool {
     if j + w.len() > chars.len() || chars[j..j + w.len()] != w[..] {
         return false;
     }
-    !matches!(chars.get(j + w.len()), Some(c) if c.is_alphanumeric() || *c == '_')
+    !matches!(chars.get(j + w.len()), Some(c) if is_ident_continue(*c))
 }
 
 /// 收尾进行中的 `让` 扫描：无类型注解且初始化式类型无法自行推导时报告
@@ -1020,8 +1018,17 @@ fn scan_number(
 }
 
 /// 标识符续字符（数字后跟这些字符视为同一标识符）
+///
+/// 快路径：ASCII 与 CJK 统一表意文字直接判定——`char::is_alphanumeric`
+/// 要走 Unicode 通用类别查询，在教学扫描里占单字符开销的大头；这两类
+/// 字符已占方言源码绝大多数。其余文字（假名/谚文/西里尔/阿拉伯…）回落
+/// 标准判定，语义与 `c.is_alphanumeric() || c == '_'` 完全一致。
 fn is_ident_continue(c: char) -> bool {
-    c.is_alphanumeric() || c == '_'
+    if c.is_ascii() {
+        c.is_ascii_alphanumeric() || c == '_'
+    } else {
+        is_cjk(c) || c.is_alphanumeric()
+    }
 }
 
 /// 判定字符是否属于 CJK 统一表意文字（基本区 + 扩展 A）
@@ -1656,6 +1663,15 @@ mod tests {
             !flagged.contains(&"String"),
             "声明的结构体名不应提示：{warns:?}"
         );
+    }
+
+    /// 用 `r#` 转义后的声明名字不再提示（转译产物本就合法）
+    #[test]
+    fn test_reserved_collision_raw_identifier_escape_silent() {
+        let map = zh_keyword_map();
+        let src = "函数 r#匹配(值: 整数) -> 整数 {\n    返回 值\n}\n\n函数 主函数() {\n    让 r#循环 = r#匹配(3);\n}";
+        let warns = lint_reserved_name_collision(src, &map);
+        assert!(warns.is_empty(), "r# 转义后不应提示：{warns:?}");
     }
 
     /// 母语 → 英文关键字表（仅收撞名相关词条）

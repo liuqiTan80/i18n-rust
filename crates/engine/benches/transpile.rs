@@ -19,7 +19,7 @@ use std::path::Path;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use i18n_rust_engine::cache::TranslationCache;
 use i18n_rust_engine::fullwidth::find_fullwidth_punct;
-use i18n_rust_engine::lint::lint_teaching;
+use i18n_rust_engine::lint::{lint_reserved_name_collision, lint_teaching};
 use i18n_rust_engine::mapping_manager::MappingManager;
 use i18n_rust_engine::{transpile_pipeline, transpile_source};
 
@@ -97,25 +97,26 @@ fn bench_transpile(c: &mut Criterion) {
     group.finish();
 }
 
-/// 教学检查单独计费（LSP 每次变更都会执行全角扫描与教学 lint）
+/// 教学检查单独计费（LSP 每次变更都会执行全角扫描、教学 lint 与保留字撞名扫描）
 fn bench_teaching_checks(c: &mut Criterion) {
+    let manager = zh_manager();
     let source = teaching_source();
+    let keyword_map = manager.get_keyword_map();
     let mut group = c.benchmark_group("teaching_checks");
     group.sample_size(50);
 
     for (名称, 代码) in [
         ("fullwidth_scan", black_box(&source) as &str),
         ("lint_scan", black_box(source.as_str())),
+        ("collision_scan", black_box(source.as_str())),
     ] {
         group.bench_with_input(
             BenchmarkId::new(名称, source.len()),
             &代码,
-            |b, 源码| {
-                if 名称 == "fullwidth_scan" {
-                    b.iter(|| find_fullwidth_punct(源码));
-                } else {
-                    b.iter(|| lint_teaching(源码));
-                }
+            |b, 源码| match 名称 {
+                "fullwidth_scan" => b.iter(|| find_fullwidth_punct(源码)),
+                "collision_scan" => b.iter(|| lint_reserved_name_collision(源码, keyword_map)),
+                _ => b.iter(|| lint_teaching(源码)),
             },
         );
     }
