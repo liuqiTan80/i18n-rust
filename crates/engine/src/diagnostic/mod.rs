@@ -40,7 +40,7 @@ pub use translator::{DiagnosticTranslator, RenderedMessage, build_type_map};
 // 内部辅助函数：仅测试直接引用（见下方 tests 模块）
 #[cfg(test)]
 pub(crate) use translator::{
-    count_ref_prefix, localize_ref_type, localize_type_token, replace_type_token,
+    count_ref_prefix, localize_ref_type, localize_type_token, ref_base_type, replace_type_token,
     replace_whole_word,
 };
 
@@ -192,6 +192,44 @@ mod tests {
             "无引用时不应追加提示，实际提示：{:?}",
             teaching.teaching_hints
         );
+    }
+
+    #[test]
+    fn test_ref_base_type() {
+        assert_eq!(ref_base_type("String"), "String");
+        assert_eq!(ref_base_type("&String"), "String");
+        assert_eq!(ref_base_type("&&i32"), "i32");
+        // &mut 是单层可变引用，剥后为 String
+        assert_eq!(ref_base_type("&mut String"), "String");
+        assert_eq!(ref_base_type("&&mut String"), "String");
+        // &str 的核心类型是 str（与 String 不同，不可相互以增减 & 得到）
+        assert_eq!(ref_base_type("&str"), "str");
+    }
+
+    /// 核心类型不同（标量 vs 字符串等）时：引用层数提示为假阳性，不应追加
+    #[test]
+    fn test_e0308_different_base_types_no_ref_hint() {
+        let _guard = crate::语言::test_language("zh");
+        for label in [
+            "expected `&str`, found `String`",
+            "expected `i32`, found `&str`",
+            "expected `&String`, found `i32`",
+        ] {
+            let diagnostic = create_e0308_with_label(label);
+            let translator = DiagnosticTranslator::new(
+                ErrorTranslationManager::load_from_string("").unwrap(),
+                create_test_type_map(),
+            );
+            let teaching = translator.translate_diagnostic(&diagnostic);
+            assert!(
+                !teaching
+                    .teaching_hints
+                    .iter()
+                    .any(|h| h.contains("引用层数不匹配")),
+                "核心类型不同不应追加引用层数提示（{label}）：{:?}",
+                teaching.teaching_hints
+            );
+        }
     }
 
     #[test]

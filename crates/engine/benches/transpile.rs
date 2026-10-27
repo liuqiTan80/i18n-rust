@@ -1,12 +1,14 @@
 //! 转译管线性能基准（criterion）
 //!
-//! 覆盖教学工具的三大热点：
+//! 覆盖教学工具的四类热点：
 //! - `pipeline_no_cache`：无缓存全量转译（Unicode/全角/lint 检查 + 词法 +
 //!   模块路径 + 别名替换），即 CLI / LSP 冷启动单文件转译的真实开销；
 //! - `pipeline_cache_hit`：带增量缓存的转译（编辑器反复输入同一文件的场景，
 //!   内容哈希未变时直接复用翻译结果）；
 //! - `teaching_checks`：全角标点扫描与教学 lint 单独计费（LSP 诊断发布前
-//!   每次变更都会执行，单独量化便于发现回归）。
+//!   每次变更都会执行，单独量化便于发现回归）；
+//! - `pipeline_*_2000`：约 2000 行大文件输入的冷转译与缓存命中，守住
+//!   transpile 的线性低延迟（由 `tools/bench-check.sh` 阈值守卫）。
 //!
 //! 运行：`cargo bench -p i18n-rust-engine`
 //! CI 快速模式：`cargo bench -p i18n-rust-engine --bench transpile -- --quick`
@@ -51,6 +53,26 @@ fn teaching_source() -> String {
          \x20   打印行!(\"总计：{{:?}}\", 全部);\n\
          }\n",
     );
+    src
+}
+
+/// 大规模源码：约 2000 行（280 个函数 × ~7 行 + 入口），模拟大文件输入。
+/// 冷转译成本随行数近线性增长；本基准由 bench-check 阈值守卫，防止在
+/// 语言包/管线演进中丢掉 transpile 的低延迟优势。
+fn large_source() -> String {
+    let mut src = String::with_capacity(2000 * 40);
+    src.push_str("使用 标准库::集合::映射;\n\n");
+    for i in 0..280 {
+        src.push_str(&format!(
+            "函数 函数_{i}(数量: 整数, 名称: 字符串) -> 整数 {{\n\
+             \x20   让 结果 = 数量 * 2;\n\
+             \x20   // 计算注释：{i}\n\
+             \x20   打印行!(\"处理第 {i} 个：{{}}\", 名称);\n\
+             \x20   返回 结果;\n\
+             }}\n\n",
+        ));
+    }
+    src.push_str("函数 主函数() {\n    让 全部 = 向量::新建();\n}\n");
     src
 }
 
@@ -100,5 +122,32 @@ fn bench_teaching_checks(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_transpile, bench_teaching_checks);
+/// 约 2000 行大文件：冷转译与缓存命中，守住 transpile 的线性低延迟
+fn bench_transpile_large(c: &mut Criterion) {
+    let manager = zh_manager();
+    let source = large_source();
+    let mut group = c.benchmark_group("transpile");
+    // 大输入每次迭代约数毫秒，降低样本数以免 CI 过长（仍满足阈值判定）
+    group.sample_size(30);
+
+    group.bench_function("pipeline_no_cache_2000", |b| {
+        b.iter(|| transpile_pipeline(black_box(&source), &manager))
+    });
+
+    // 缓存命中场景：预热后内容哈希不变全命中
+    let mut cache = TranslationCache::with_default_capacity();
+    transpile_source(&source, &manager, &mut cache).expect("预热转译失败");
+    group.bench_function("pipeline_cache_hit_2000", |b| {
+        b.iter(|| transpile_source(black_box(&source), &manager, &mut cache).expect("缓存转译失败"))
+    });
+
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_transpile,
+    bench_teaching_checks,
+    bench_transpile_large
+);
 criterion_main!(benches);

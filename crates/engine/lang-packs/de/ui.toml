@@ -658,6 +658,7 @@
 "guide_example_head" = "## Beispiel: so schreibt man die Einstiegsdatei richtig"
 "guide_footer" = "Erzeugt von `rzc guide`; nach Sprachpaket-Updates erneut ausführen."
 "lint_english_fallback" = "Zeile {} Spalte {}: `{}` hat einen Muttersprachen-Begriff `{}` — bevorzugen Sie die muttersprachliche Schreibweise (Lernhinweis)"
+"lint_reserved_name_collision" = "Zeile {}, Spalte {}: Der deklarierte Name „{}“ wird zum Rust-Schlüsselwort „{}“ umgeschrieben – ungültiger Code oder stille Bedeutungsänderung; bitte umbenennen oder mit dem r#-Rohbezeichner escapen (Lernhinweis)"
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

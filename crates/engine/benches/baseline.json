@@ -1,12 +1,14 @@
 {
   "benchmark": "i18n-rust-engine/transpile",
-  "created": "2026-08-31",
-  "unit": "ns（mean point_estimate）",
+  "created": "2026-10-27",
+  "unit": "ns（mean point_estimate；BENCH_RUNS 多样本取最小值）",
   "threshold_pct": 30,
   "results": {
-    "teaching_checks/fullwidth_scan": 16145.869341899093,
-    "teaching_checks/lint_scan": 23870.731441513286,
-    "transpile/pipeline_cache_hit": 66915.43924063514,
-    "transpile/pipeline_no_cache": 505173.67324604356
+    "teaching_checks/fullwidth_scan": 26535.4523439824,
+    "teaching_checks/lint_scan": 57007.162815432595,
+    "transpile/pipeline_cache_hit": 108696.14664055682,
+    "transpile/pipeline_cache_hit_2000": 622345.7173420544,
+    "transpile/pipeline_no_cache": 1131734.8637566364,
+    "transpile/pipeline_no_cache_2000": 5242942.623344555
   }
 }

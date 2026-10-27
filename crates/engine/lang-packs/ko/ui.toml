@@ -658,6 +658,7 @@
 "guide_example_head" = "## 예시: 진입 파일의 올바른 작성법"
 "guide_footer" = "`rzc guide`가 생성. 언어 팩 업데이트 후 재실행하면 갱신됩니다."
 "lint_english_fallback" = "{}행 {}열: `{}`에는 모국어 용어 `{}`가 있습니다. 모국어로 작성하세요(학습 경고)"
+"lint_reserved_name_collision" = "{}행 {}열: 선언한 이름 \"{}\"이(가) Rust 예약어 \"{}\"(으)로 변환되어 잘못된 코드 또는 조용한 의미 변경이 발생합니다. 이름을 바꾸거나 r# 원시 식별자로 이스케이프하세요 (학습 힌트)"
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

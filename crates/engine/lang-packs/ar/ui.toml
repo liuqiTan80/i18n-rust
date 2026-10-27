@@ -658,6 +658,7 @@
 "guide_example_head" = "## مثال: الطريقة الصحيحة لكتابة ملف الدخول"
 "guide_footer" = "أُنشئ بواسطة `rzc guide`؛ أعِد التشغيل بعد تحديث حزمة اللغة."
 "lint_english_fallback" = "السطر {} العمود {}: لـ `{}` مصطلح أصلي `{}` — فضّل الكتابة بلغة الأم (تلميح تعليمي)"
+"lint_reserved_name_collision" = "السطر {}، العمود {}: الاسم المعلَن «{}» يُحوَّل إلى كلمة Rust المحجوزة «{}»، مما يُنتج شيفرة غير صالحة أو تغييرًا صامتًا للمعنى؛ أعد تسميته أو اهربه كمعرّف خام r# (تلميح تعليمي)"
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

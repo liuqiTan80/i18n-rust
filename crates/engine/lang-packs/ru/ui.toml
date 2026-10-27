@@ -658,6 +658,7 @@
 "guide_example_head" = "## Пример: как правильно писать входной файл"
 "guide_footer" = "Сформировано `rzc guide`; после обновления языкового пакета перезапустите для обновления."
 "lint_english_fallback" = "строка {} столбец {}: у `{}` есть родной термин `{}` — предпочтите запись на родном языке (обучающая подсказка)"
+"lint_reserved_name_collision" = "Строка {}, столбец {}: объявленное имя «{}» преобразуется в зарезервированное слово Rust «{}», что даёт недопустимый код или незаметное изменение смысла; переименуйте его или экранируйте как сырой идентификатор r# (учебная подсказка)"
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

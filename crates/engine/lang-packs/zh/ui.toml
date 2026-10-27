@@ -658,6 +658,7 @@
 "guide_example_head" = "## 示例：入口文件的正确写法"
 "guide_footer" = "由 `rzc guide` 生成；语言包更新后重跑以刷新。"
 "lint_english_fallback" = "第 {} 行第 {} 列：`{}` 有母语词条 `{}`，建议使用母语写法（教学提示）"
+"lint_reserved_name_collision" = "第 {} 行第 {} 列：声明的名字「{}」转译后是 Rust 保留字「{}」，产物非法或语义被静默改写；请改名，或用 r# 原始标识符转义（教学提示）"
 ["解释"]
 "Option::unwrap" = "直接取出里面的值；如果没有值（None），程序直接崩溃"
 "Option::expect" = "取出里面的值；如果没有值，就带着你写的提示信息崩溃"

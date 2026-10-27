@@ -658,6 +658,7 @@
 "guide_example_head" = "## Exemple : la bonne façon d'écrire le fichier d'entrée"
 "guide_footer" = "Généré par `rzc guide` ; relancer après les mises à jour du pack linguistique."
 "lint_english_fallback" = "ligne {} col. {} : `{}` a un terme natif `{}` — préférez l'écriture en langue maternelle (indication pédagogique)"
+"lint_reserved_name_collision" = "Ligne {}, colonne {} : le nom déclaré « {} » est converti en mot-clé Rust « {} », produisant du code invalide ou un changement de sens silencieux ; renommez-le ou échappez-le avec l'identifiant brut r# (astuce pédagogique)"
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

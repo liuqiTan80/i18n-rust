@@ -209,6 +209,11 @@ fn transpile_pipeline_inner(
             for warning in lint::lint_english_fallback(source, manager.english_fallback_map()) {
                 crate::log_warn!("lint", "{}", warning.format());
             }
+            // 保留字撞名：声明位名字命中 keywords 词条且映射为 Rust 保留关键字时，
+            // 提示改名或 `r#` 转义（消除转译管线唯一的静默语义改写路径）
+            for warning in lint::lint_reserved_name_collision(source, manager.get_keyword_map()) {
+                crate::log_warn!("lint", "{}", warning.format());
+            }
         }
     }
 

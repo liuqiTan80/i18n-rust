@@ -84,6 +84,12 @@ impl ResponseMapper {
         self.cache.english_fallback_map()
     }
 
+    /// 获取关键字映射表（转发 TranslationCache，
+    /// 保留字撞名提示：声明名字转译后是否为 Rust 保留字）
+    pub fn keyword_map(&self) -> &std::collections::HashMap<String, String> {
+        self.cache.keyword_map()
+    }
+
     /// 将虚拟 URI 替换为原始 URI
     pub fn restore_uri(&self, uri: &str) -> String {
         if let Some(entry) = self.cache.query_by_virtual_uri(uri) {

@@ -166,6 +166,9 @@ pub fn transpile_with_map(
                     && !is_preceded_by_dot(&token_stream, i)
                     && !is_attribute_name(&token_stream, i)
                     && !(in_use_stmt && defer_in_use.contains(raw_name))
+                    // 声明位豁免：声明关键字后的名字不是宏调用（`模块 测试 {` 的
+                    // `测试` 不得补 `!`），修复 `mod test!` 一类非法产物。
+                    && !is_preceded_by_decl_introducer(&token_stream, &token_texts, i, keyword_map)
                     && let Some(next_kind) = find_next_non_ws_kind(&token_stream, i + 1)
                 {
                     let is_bang = matches!(next_kind, TokenKind::Not);
@@ -379,6 +382,30 @@ fn prev_ident_is(
         return false;
     }
     false
+}
+
+/// 声明引导词（对应母语词条的英文映射值）：其后紧跟的名字是「被声明的标识符」，
+/// 不是宏调用——即便该名字恰好也是宏名（如 `测试` = `test`），也不得补 `!`。
+///
+/// 覆盖 `模块 X {` / `结构体 X {` / `函数 X(` 等「声明关键字 + 名字」形态；
+/// 修复 `模块 测试 { … }` 被误转译为非法 `mod test! { … }` 的缺陷（`{` 被
+/// 当作宏调用的花括号定界符）。
+const DECL_INTRODUCER_VALUES: &[&str] = &[
+    "fn", "let", "const", "static", "struct", "enum", "union", "type", "trait", "impl", "mod",
+];
+
+/// 判断指定位置的标识符是否紧跟声明引导词（如 `函数 测试` 中的 `测试`）。
+///
+/// 命中时该标识符处于声明位，应跳过宏感叹号自动补充，交由关键字映射照常替换。
+fn is_preceded_by_decl_introducer(
+    token_stream: &[rustc_lexer::Token],
+    token_texts: &[&str],
+    current: usize,
+    keyword_map: &HashMap<String, String>,
+) -> bool {
+    DECL_INTRODUCER_VALUES
+        .iter()
+        .any(|en| prev_ident_is(token_stream, token_texts, current, keyword_map, en))
 }
 
 /// 将标准 Rust 源码反向转译为母语源码
@@ -861,6 +888,30 @@ mod tests {
         assert_eq!(
             transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
             expected
+        );
+    }
+
+    #[test]
+    fn test_macro_word_at_declaration_position_not_exclamation() {
+        // 声明位豁免：`模块 测试 {` 的 `测试` 是模块名（恰为宏名 test），
+        // 不得补 `!` 产出非法的 `mod test! {`；`函数 测试(` 同理。
+        let mut map = create_test_map();
+        map.insert("模块".to_string(), "mod".to_string());
+        map.insert("测试".to_string(), "test".to_string());
+        let mut macros = create_macro_map();
+        macros.insert("测试".to_string(), "test".to_string());
+
+        let source = "模块 测试 {\n    函数 f() {}\n}";
+        let expected = "mod test {\n    fn f() {}\n}";
+        assert_eq!(
+            transpile_source_with_macro_map(source, &map, &macros, &HashMap::new()),
+            expected
+        );
+
+        // 非声明位的同名宏调用仍照常补 `!`（不误伤）
+        assert_eq!(
+            transpile_source_with_macro_map("让 x = 测试();", &map, &macros, &HashMap::new()),
+            "let x = test!();"
         );
     }
 

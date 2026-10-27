@@ -658,6 +658,7 @@
 "guide_example_head" = "## उदाहरण: एंट्री फ़ाइल लिखने का सही तरीका"
 "guide_footer" = "`rzc guide` द्वारा रचित; भाषा-पैक अद्यतन के बाद दोबारा चलाकर ताज़ा करें।"
 "lint_english_fallback" = "पंक्ति {} स्तंभ {}: `{}` का मातृभाषा-शब्द `{}` है, मातृभाषा में लिखना प्राथमिकता दें (शिक्षण संकेत)"
+"lint_reserved_name_collision" = "पंक्ति {}, स्तंभ {}: घोषित नाम \"{}\" Rust आरक्षित शब्द \"{}\" में बदल जाता है, जिससे अमान्य कोड या मौन अर्थ परिवर्तन होता है; इसे नाम बदलें या r# कच्चे पहचानकर्ता से एस्केप करें (शिक्षण संकेत)"
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

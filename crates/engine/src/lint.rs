@@ -53,6 +53,8 @@ pub enum LintKind {
     ConfusableMethod,
     /// 母语方言源码里把有母语词条的结构词写成英文（`fn`/`Vec`/`.collect()`…）
     EnglishFallback,
+    /// 声明位名字命中 keywords 词条且映射为 Rust 保留关键字（撞名，会静默改写语义）
+    ReservedNameCollision,
 }
 
 /// 单个教学 lint 警告：位置（1 起行/列）+ 规则 + 相关文本
@@ -96,6 +98,15 @@ impl LintWarning {
             ),
             LintKind::EnglishFallback => crate::语言::f(
                 "lint_english_fallback",
+                &[
+                    &self.line.to_string(),
+                    &self.column.to_string(),
+                    &self.text,
+                    &self.extra,
+                ],
+            ),
+            LintKind::ReservedNameCollision => crate::语言::f(
+                "lint_reserved_name_collision",
                 &[
                     &self.line.to_string(),
                     &self.column.to_string(),
@@ -401,6 +412,12 @@ const RUST_KEYWORDS: &[&str] = &[
     "unsafe", "use", "where", "while", "yield",
 ];
 
+/// 声明引导词的英文映射值：其后紧跟的名字是「被声明的标识符」，
+/// 而非语句词（`返回`/`匹配` 作普通语句时不按撞名判定）。
+const DECL_INTRODUCER_VALUES: &[&str] = &[
+    "fn", "let", "const", "static", "struct", "enum", "union", "type", "trait", "impl", "mod",
+];
+
 /// 英文回落 lint：在母语方言源码中提示「有母语词条却写成英文」的结构词
 ///
 /// `fallback_map`：英文原词 → 母语词条（见
@@ -596,6 +613,201 @@ pub fn lint_english_fallback(
             after_decl = false;
             prev_prev_plain = prev_plain;
             prev_plain = ch;
+        }
+        prev_char = ch;
+        i += 1;
+        col += 1;
+    }
+    warnings.retain(|w| !ignored_lines.contains(&w.line));
+    warnings
+}
+
+/// 保留字撞名 lint：声明位（`函数`/`让`/`结构体`… 之后的名字）若命中 keywords
+/// 词条且其英文映射是 Rust 保留关键字，转译会把用户名字改写成保留字，产物
+/// 非法（`fn match`）或语义改写（`让 循环`→`let loop`）——这是转译管线唯一
+/// 的静默语义改写路径。此处提示并给出修复方向：改名，或将产物中的该名字
+/// 用 `r#` 原始标识符转义。
+///
+/// `keyword_map`：母语 → 英文的关键字映射（见
+/// [`crate::mapping_manager::MappingManager::get_keyword_map`]）。声明引导词
+/// 与撞名候选均从该表派生（只提示真实存在的词条）；`可变`(mut) 作为 `让` 的
+/// 修饰词可跨过后再判定名字。判定要求名字后紧跟声明定界符
+/// （`(` `{` `;` `=` `<` `:` `,`），`返回`/`匹配` 作普通语句词时不提示。
+/// 字符串/字符/原始串/注释内的内容由状态机跳过；含「教学忽略」的行整行跳过。
+pub fn lint_reserved_name_collision(
+    source: &str,
+    keyword_map: &HashMap<String, String>,
+) -> Vec<LintWarning> {
+    // 声明引导词的原生写法（值 ∈ DECL_INTRODUCER_VALUES）
+    let decl_words: HashSet<&str> = keyword_map
+        .iter()
+        .filter(|(_, en)| DECL_INTRODUCER_VALUES.contains(&en.as_str()))
+        .map(|(zh, _)| zh.as_str())
+        .collect();
+    // 撞名候选：原生写法 → Rust 保留关键字；排除 mut（`让` 修饰词，非名字）
+    let reserved: HashMap<&str, &str> = keyword_map
+        .iter()
+        .filter(|(_, en)| RUST_KEYWORDS.contains(&en.as_str()) && en.as_str() != "mut")
+        .map(|(zh, en)| (zh.as_str(), en.as_str()))
+        .collect();
+    if reserved.is_empty() || decl_words.is_empty() {
+        return Vec::new();
+    }
+
+    let chars: Vec<char> = source.chars().collect();
+    let mut warnings = Vec::new();
+    let mut ignored_lines: HashSet<usize> = HashSet::new();
+    let mut line = 1usize;
+    let mut col = 1usize;
+    // 字面量状态：0=代码 1=双引号串 2=字符 3=原始串
+    let mut literal: u8 = 0;
+    let mut raw_hashes = 0usize;
+    let mut prev_char = '\0';
+    // 刚读到声明引导词（或 `让 可变` 的修饰词），等待其后的名字
+    let mut expect_name = false;
+
+    let mut i = 0usize;
+    while i < chars.len() {
+        let ch = chars[i];
+        if ch == '\n' {
+            line += 1;
+            col = 1;
+            if literal == 2 || literal == 3 {
+                literal = 0;
+            }
+            prev_char = '\n';
+            i += 1;
+            continue;
+        }
+        match literal {
+            1 | 2 => {
+                if ch == '\\' {
+                    i += 2;
+                    col += 1;
+                    prev_char = '\\';
+                    continue;
+                }
+                let closing = if literal == 1 { '"' } else { '\'' };
+                if ch == closing {
+                    literal = 0;
+                }
+            }
+            3 => {
+                if ch == '"' {
+                    let hashes = chars[i + 1..].iter().take_while(|c| **c == '#').count();
+                    if hashes >= raw_hashes {
+                        literal = 0;
+                        raw_hashes = 0;
+                    }
+                }
+            }
+            _ => match ch {
+                '"' => literal = 1,
+                '\'' => literal = 2,
+                '/' if prev_char == '/' => {
+                    let start = i;
+                    while i < chars.len() && chars[i] != '\n' {
+                        i += 1;
+                        col += 1;
+                    }
+                    let comment: String = chars[start..i].iter().collect();
+                    if comment.contains(IGNORE_MARK) {
+                        ignored_lines.insert(line);
+                    }
+                    prev_char = '\0';
+                    expect_name = false;
+                    continue;
+                }
+                '*' if prev_char == '/' => {
+                    while i < chars.len() {
+                        let c2 = chars[i];
+                        i += 1;
+                        if c2 == '\n' {
+                            line += 1;
+                            col = 1;
+                        } else if c2 == '*' && i < chars.len() && chars[i] == '/' {
+                            i += 1;
+                            col += 2;
+                            break;
+                        } else {
+                            col += 1;
+                        }
+                    }
+                    prev_char = '\0';
+                    expect_name = false;
+                    continue;
+                }
+                c if (c.is_alphanumeric() || c == '_') && is_ident_boundary(prev_char) => {
+                    let start_line = line;
+                    let start_col = col;
+                    let mut j = i;
+                    while j < chars.len() && (chars[j].is_alphanumeric() || chars[j] == '_') {
+                        j += 1;
+                    }
+                    let word: String = chars[i..j].iter().collect();
+                    // 原始串前缀（r"/b"/br"）：转入字面量状态，不参与判定
+                    if matches!(word.as_str(), "r" | "b" | "br") {
+                        let mut h = 0usize;
+                        let mut q = j;
+                        while q < chars.len() && chars[q] == '#' {
+                            h += 1;
+                            q += 1;
+                        }
+                        if q < chars.len() && chars[q] == '"' {
+                            if word == "b" && h == 0 {
+                                literal = 1;
+                            } else {
+                                literal = 3;
+                                raw_hashes = h;
+                            }
+                            col += q + 1 - i;
+                            i = q + 1;
+                            prev_char = '"';
+                            expect_name = false;
+                            continue;
+                        }
+                    }
+                    // 名字后首个非空白字符（须为声明定界符，降低误报）
+                    let mut k = j;
+                    while k < chars.len() && chars[k].is_whitespace() {
+                        k += 1;
+                    }
+                    let next = chars.get(k).copied();
+                    if expect_name {
+                        let is_mut_modifier = keyword_map
+                            .get(word.as_str())
+                            .map(|v| v == "mut")
+                            .unwrap_or(false);
+                        if is_mut_modifier {
+                            // `让 可变 名字`：跨过修饰词，继续等待名字
+                        } else {
+                            if let Some(en) = reserved.get(word.as_str())
+                                && matches!(next, Some('(' | '{' | ';' | '=' | '<' | ':' | ','))
+                            {
+                                warnings.push(LintWarning {
+                                    line: start_line,
+                                    column: start_col,
+                                    kind: LintKind::ReservedNameCollision,
+                                    text: word.clone(),
+                                    extra: (*en).to_string(),
+                                });
+                            }
+                            expect_name = false;
+                        }
+                    } else if decl_words.contains(word.as_str()) {
+                        expect_name = true;
+                    }
+                    let last = chars[j - 1];
+                    col += j - i;
+                    i = j;
+                    prev_char = last;
+                    continue;
+                }
+                _ => {}
+            },
+        }
+        if !ch.is_whitespace() {
+            expect_name = false;
         }
         prev_char = ch;
         i += 1;
@@ -1443,6 +1655,86 @@ mod tests {
         assert!(
             !flagged.contains(&"String"),
             "声明的结构体名不应提示：{warns:?}"
+        );
+    }
+
+    /// 母语 → 英文关键字表（仅收撞名相关词条）
+    fn zh_keyword_map() -> HashMap<String, String> {
+        [
+            ("函数", "fn"),
+            ("让", "let"),
+            ("可变", "mut"),
+            ("结构体", "struct"),
+            ("枚举", "enum"),
+            ("特征", "trait"),
+            ("模块", "mod"),
+            ("实现", "impl"),
+            ("类型", "type"),
+            ("常量", "const"),
+            ("匹配", "match"),
+            ("循环", "loop"),
+            ("返回", "return"),
+            ("如果", "if"),
+        ]
+        .into_iter()
+        .map(|(zh, en)| (zh.to_string(), en.to_string()))
+        .collect()
+    }
+
+    /// 声明位命中保留字时提示（函数名/结构体名/let 绑定），并带出目标保留字
+    #[test]
+    fn test_reserved_collision_flags_declaration_names() {
+        let map = zh_keyword_map();
+        let src = "函数 匹配(x: 整数) -> 整数 {\n    返回 x\n}\n\n结构体 类型 {\n    字段: 整数,\n}\n\n函数 主函数() {\n    让 循环 = 5;\n}";
+        let warns = lint_reserved_name_collision(src, &map);
+        let texts: Vec<&str> = warns.iter().map(|w| w.text.as_str()).collect();
+        assert!(texts.contains(&"匹配"), "函数名撞名应提示：{warns:?}");
+        assert!(texts.contains(&"类型"), "结构体名撞名应提示：{warns:?}");
+        assert!(texts.contains(&"循环"), "let 绑定撞名应提示：{warns:?}");
+        // 带出目标保留字（extra）
+        assert!(
+            warns.iter().any(|w| w.text == "循环" && w.extra == "loop"),
+            "应报告目标保留字 loop：{warns:?}"
+        );
+        // 普通语句词（`返回 x`）不是名字位，不提示
+        assert!(!texts.contains(&"返回"), "返回作语句词不应提示：{warns:?}");
+    }
+
+    /// 语句词/模式位不误报；`让 可变` 跨过修饰词后仍能命中真正的名字
+    #[test]
+    fn test_reserved_collision_statement_words_and_mut_modifier() {
+        let map = zh_keyword_map();
+        // 匹配 作 match 表达式、返回 作语句：均非声明名字位
+        let src = "函数 f(值: 整数) -> 整数 {\n    让 r = 匹配 值 {\n        _ => 1,\n    };\n    返回 r\n}";
+        let warns = lint_reserved_name_collision(src, &map);
+        assert!(
+            warns.is_empty(),
+            "语句/表达式位的匹配与返回不应提示：{warns:?}"
+        );
+        // `让 可变 循环`：可变 是修饰词，真正的名字 循环 撞 loop
+        let with_mut = lint_reserved_name_collision("让 可变 循环 = 5;", &map);
+        assert_eq!(with_mut.len(), 1, "应只报 循环 一条：{with_mut:?}");
+        assert_eq!(with_mut[0].text, "循环");
+        // `让 可变 x`：名字正常，不报
+        assert!(lint_reserved_name_collision("让 可变 x = 5;", &map).is_empty());
+    }
+
+    /// 空表静默；“教学忽略”行整行跳过；字符串/注释内的名字不参与判定
+    #[test]
+    fn test_reserved_collision_silence_and_ignore() {
+        assert!(lint_reserved_name_collision("函数 匹配() {}", &HashMap::new()).is_empty());
+        let map = zh_keyword_map();
+        // 教学忽略标记跳过整行
+        assert!(
+            lint_reserved_name_collision("函数 匹配() {} // 教学忽略", &map).is_empty(),
+            "教学忽略行不应提示"
+        );
+        // 字符串/注释内的名字不参与判定
+        let src = "函数 f() {\n    让 s = \"匹配 循环\"; // 匹配 类型\n}";
+        assert!(
+            lint_reserved_name_collision(src, &map).is_empty(),
+            "字符串/注释内不应提示：{:?}",
+            lint_reserved_name_collision(src, &map)
         );
     }
 }

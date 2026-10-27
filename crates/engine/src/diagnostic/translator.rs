@@ -96,6 +96,27 @@ pub(crate) fn count_ref_prefix(ty: &str) -> usize {
     count
 }
 
+/// 去掉全部前导 `&` 与 `mut ` 后的核心类型
+///
+/// 用于判定两侧差异是否**仅为引用层数**：仅当剥去引用后的核心类型相同
+/// （`&String` vs `String`、`&&i32` vs `i32`）时，提示「检查 `&` 数量」才
+/// 成立；核心类型不同（`&str` vs `String`、`i32` vs `&str`）是真实类型不
+/// 匹配，此时提示引用层数是假阳性。
+/// 示例：`&&mut String` → `String`，`&str` → `str`，`i32` → `i32`。
+pub(crate) fn ref_base_type(ty: &str) -> &str {
+    let mut rest = ty;
+    loop {
+        if let Some(after) = rest.strip_prefix('&') {
+            rest = after;
+        } else if let Some(after) = rest.strip_prefix("mut ") {
+            rest = after;
+        } else {
+            break;
+        }
+    }
+    rest.trim()
+}
+
 /// 本地化引用类型：先整体查 type_map（如 `&str` → `字符串引用`），
 /// 未命中时拆开 `&` 前缀，对本体做类型本地化后拼回
 /// （如 `&String` → `&字符串`、`&&i32` → `&&整数`）。
@@ -508,13 +529,18 @@ impl DiagnosticTranslator {
             }
         }
 
-        // E0308 引用层数教学提示：期望/实际类型均为引用或其中之一为引用、
-        // 但引用层数不同（如 `expected `&String`, found `String``）时，
-        // 追加一条检查 `&` 数量的提示，覆盖初学者最常见的借用错误之一。
+        // E0308 引用层数教学提示：两侧引用层数不同（如 `expected `&String`,
+        // found `String``）且**剥去引用后的核心类型相同**时，追加一条检查
+        // `&` 数量的提示，覆盖初学者最常见的借用错误之一。核心类型不同
+        //（`&str` vs `String`、`i32` vs `&str`）是真实类型不匹配，不追加——
+        // 否则建议「调整 & 数量」会误导（加/去 `&` 变不出另一种核心类型）。
         if error_code.as_deref() == Some("E0308") && !expected.is_empty() && !found.is_empty() {
             let exp_refs = count_ref_prefix(&expected);
             let fnd_refs = count_ref_prefix(&found);
-            if exp_refs != fnd_refs && (exp_refs > 0 || fnd_refs > 0) {
+            if exp_refs != fnd_refs
+                && (exp_refs > 0 || fnd_refs > 0)
+                && ref_base_type(&expected) == ref_base_type(&found)
+            {
                 teaching_hints.push(crate::语言::f(
                     "diag_ref_depth_hint",
                     &[

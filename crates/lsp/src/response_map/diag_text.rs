@@ -730,12 +730,14 @@ pub(crate) fn fullwidth_diagnostics(entry: &TranslationEntry) -> Vec<Value> {
 /// 字符计数，中文代码在 BMP 内 char 列即 UTF-16 列，直接转换即可。
 /// `known_words` 为映射表键集合，供易混方法名提示判定（#14）；
 /// `ambiguous_constructors` 为推导歧义构造器被调名集（new/default 及其
-/// 方言词），仅类型无法自行推导的初始化式才提示未标注类型。
+/// 方言词），仅类型无法自行推导的初始化式才提示未标注类型；
+/// `keyword_map` 供保留字撞名提示（声明名字转译后是否为 Rust 保留字）。
 pub(crate) fn lint_teaching_diagnostics(
     entry: &TranslationEntry,
     known_words: &HashSet<String>,
     ambiguous_constructors: &HashSet<String>,
     fallback_map: &HashMap<String, String>,
+    keyword_map: &HashMap<String, String>,
 ) -> Vec<Value> {
     let mut warnings = i18n_rust_engine::lint::lint_teaching_with_words(
         &entry.zh_content,
@@ -746,6 +748,11 @@ pub(crate) fn lint_teaching_diagnostics(
     warnings.extend(i18n_rust_engine::lint::lint_english_fallback(
         &entry.zh_content,
         fallback_map,
+    ));
+    // 保留字撞名：声明名字转译后是 Rust 保留字（`函数 匹配` → `fn match`）
+    warnings.extend(i18n_rust_engine::lint::lint_reserved_name_collision(
+        &entry.zh_content,
+        keyword_map,
     ));
     warnings
         .iter()
@@ -779,6 +786,7 @@ pub(crate) fn inject_teaching_diags(
     known_words: &HashSet<String>,
     ambiguous_constructors: &HashSet<String>,
     fallback_map: &HashMap<String, String>,
+    keyword_map: &HashMap<String, String>,
 ) {
     diags.retain(|d| !(is_teaching_diag(d) && d["source"].as_str() == Some("i18n-rust")));
     diags.extend(fullwidth_diagnostics(entry));
@@ -788,6 +796,7 @@ pub(crate) fn inject_teaching_diags(
             known_words,
             ambiguous_constructors,
             fallback_map,
+            keyword_map,
         ));
     }
 }
@@ -815,6 +824,7 @@ fn lint_code(kind: i18n_rust_engine::lint::LintKind) -> &'static str {
         i18n_rust_engine::lint::LintKind::DeepIndent => "lint-deep-indent",
         i18n_rust_engine::lint::LintKind::ConfusableMethod => "lint-confusable-method",
         i18n_rust_engine::lint::LintKind::EnglishFallback => "lint-english-fallback",
+        i18n_rust_engine::lint::LintKind::ReservedNameCollision => "lint-reserved-name-collision",
     }
 }
 

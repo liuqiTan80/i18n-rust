@@ -1099,6 +1099,43 @@ fn test_inject_teaching_actions() {
     assert_eq!(injected.as_array().unwrap().len(), 0);
 }
 
+/// 保留字撞名：声明名字转译后是 Rust 保留字时出 Hint 诊断
+/// （code 为 `lint-reserved-name-collision`，与其它教学 lint 同一发布链）
+#[test]
+fn test_lint_teaching_diagnostics_reserved_name_collision() {
+    let manager = i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+        HashMap::from([
+            ("函数".into(), "fn".into()),
+            ("让".into(), "let".into()),
+            ("匹配".into(), "match".into()),
+        ]),
+        HashMap::new(),
+        HashMap::new(),
+    );
+    let temp = tempfile::tempdir().unwrap();
+    let cache = TranslationCache::new(manager, temp.path().to_path_buf());
+    let (entry, _) = cache
+        .update_document("file:///test/main.zh", "函数 匹配(数量: 整数) {}", 1)
+        .unwrap();
+
+    let diags = super::diag_text::lint_teaching_diagnostics(
+        &entry,
+        cache.lint_words(),
+        &cache.ambiguous_constructor_words(),
+        cache.english_fallback_map(),
+        cache.keyword_map(),
+    );
+    let hit = diags
+        .iter()
+        .find(|d| d["code"] == "lint-reserved-name-collision")
+        .unwrap_or_else(|| panic!("应产生保留字撞名诊断：{diags:?}"));
+    assert_eq!(hit["severity"], 3);
+    assert!(hit["message"].as_str().unwrap().contains("match"));
+    // 行列指向声明名字（第 1 行第 4 列，LSP 0-based → character 3）
+    assert_eq!(hit["range"]["start"]["line"], 0);
+    assert_eq!(hit["range"]["start"]["character"], 3);
+}
+
 /// 未解析导入诊断追加依赖提示（内置 zh 回退含 lsp_hint_add_dependency 键）
 #[test]
 fn test_translate_diagnostic_unresolved_import_hint() {

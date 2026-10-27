@@ -658,6 +658,7 @@
 "guide_example_head" = "## 例：エントリーファイルの正しい書き方"
 "guide_footer" = "`rzc guide` で生成。言語パック更新後は再実行して更新してください。"
 "lint_english_fallback" = "{} 行目 {} 列：`{}` には母語用語 `{}` があります。母語での記述を推奨（教学ヒント）"
+"lint_reserved_name_collision" = "{} 行 {} 列：宣言した名前「{}」は Rust の予約語「{}」に変換され、不正なコードまたは暗黙の意味変更になります。名前を変更するか、r# 生識別子でエスケープしてください（学習ヒント）"
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

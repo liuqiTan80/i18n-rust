@@ -153,7 +153,10 @@ PYEOF
 write_baseline() { # $1=聚合文件 $2=基线文件 $3=标签
     "${PYTHON}" - "$1" "$2" "$3" <<'PYEOF'
 import json, pathlib, sys, time
-agg_file, baseline_file, label = map(pathlib.Path, sys.argv[1:4])
+# label 是纯文本标签（如 i18n-rust-engine/transpile），不能转 Path——
+# 否则 json.dumps 遇到 PosixPath 报 “Object of type PosixPath is not JSON serializable”。
+agg_file, baseline_file = map(pathlib.Path, sys.argv[1:3])
+label = sys.argv[3]
 results = json.loads(agg_file.read_text(encoding="utf-8"))
 if not results:
     print("❌ 聚合结果为空，无法刷新基线")

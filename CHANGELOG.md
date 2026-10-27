@@ -5,6 +5,42 @@
 
 ## [Unreleased]
 
+## [0.8.9] - 2026-10-27
+
+### 新增
+- 保留字撞名诊断（教学 lint `reserved-name-collision`）：声明位命中 `keywords.toml` 词条且映射值
+  是 Rust 保留字时报警——`函数 匹配` → `fn match`、`结构体 类型` → `struct type`、`让 循环 = 5`
+  → `let loop = 5` 一类产物非法或语义被静默改写，此前无任何提示。消息给出两种修复方向
+  （改名，或用 `r#` 原始标识符转义），CLI 走 `lint` 警告通道、LSP 以 Hint 诊断发布
+  （`code = lint-reserved-name-collision`，与其它教学 lint 同一发布链）。
+- 判定覆盖 `fn/let/const/static/struct/enum/union/type/trait/impl/mod` 引导词后的声明名字；
+  要求名字后紧跟 `(`/`{`/`;`/`=`/`<`/`:`/`,` 才判定（避免把语句词当声明），跨过 `可变`（`mut`）
+  修饰词，跳过字符串/注释、「教学忽略」行；`mut` 本身不参与撞名判定。
+- 基准：`transpile` 新增约 2000 行大文件用例（`pipeline_no_cache_2000` /
+  `pipeline_cache_hit_2000`），由 `tools/bench-check.sh` 阈值守卫，防止在语言包/管线演进中
+  丢掉 transpile 的线性低延迟。
+
+### 修复
+- `模块 测试 { … }` 被误转译为非法的 `mod test! { … }`：`测试` 同时是宏名（`test`），宏糖
+  规则把模块体的 `{` 当成宏调用的花括号定界符而补 `!`。词法层新增「声明引导词之后不补 `!`」
+  豁免，`模块/结构体/函数 测试` 均正常转译，非声明位的 `测试()` 仍按宏处理（`test!()`）。
+- E0308「引用层数」提示假阳性：`&str` vs `String`、`i32` vs `&str` 这类核心类型不同的失配
+  也会提示「检查 `&` 数量」。现在先剥掉前导 `&`/`mut ` 比基类型是否一致，不一致不再提示。
+- `tools/bench-check.sh --update` 此前不可用：`label` 被误转成 `pathlib.Path`，`json.dumps`
+  抛 `Object of type PosixPath is not JSON serializable`；改为纯文本标签后基线可正常刷新。
+
+### 变更
+- 界面消息键 612 → 613（11 语言 `ui.toml` 同步新增 `lint_reserved_name_collision`）。
+- 版本号 0.8.8 → 0.8.9（四 crate + cli/lsp 对 engine 依赖范围 + 扩展 `package.json`/lock + `Cargo.lock`）。
+
+### 说明与取舍
+- 撞名诊断只提示、不改写：改名涉及用户命名空间、`r#` 转义会改变源码外观，由作者决定；
+  保持转译结果对同一输入确定。
+- 只有「声明位 + 紧跟声明定界符」才判定，`返回 输入` 这类语句词不误报；代价是
+  `函数 匹配 <T>(…)` 之外的极少数非常规写法可能漏报。
+- LSP 侧暂不提供自动改名/`r#` 的 quickfix（仍可一键「教学忽略」），改名跨文件引用安全
+  应由重命名而非文本替换完成。
+
 ## [0.8.8] - 2026-10-27
 
 ### 新增
