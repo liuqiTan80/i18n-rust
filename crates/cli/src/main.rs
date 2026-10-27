@@ -48,9 +48,11 @@ struct CliArgs {
 enum CliCommand {
     Init {
         project_name: String,
-        // 缺省跟随系统 locale（LC_ALL/LANG）：全球用户的第一个项目应是自己的母语
-        #[arg(short, long, default_value_t = mapping_gen::detect_system_language())]
-        lang: String,
+        // 缺省跟随系统 locale（LC_ALL/LANG）：全球用户的第一个项目应是自己的母语。
+        // 不用 `default_value_t`：需要区分“用户显式指定”与“自动检测失败”，
+        // 后者要提示回退或在终端里列出菜单（见 resolve_init_lang）
+        #[arg(short, long)]
+        lang: Option<String>,
         /// Also generate AGENTS.md (native-language coding guide for AI assistants, rendered from the current language pack)
         #[arg(long)]
         ai: bool,
@@ -370,6 +372,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             lang,
             ai,
         } => {
+            let lang = resolve_init_lang(lang)?;
             i18n_rust_engine::语言::set_language(&lang);
             create_project(&project_name, &lang, ai)?;
             Ok(std::process::ExitCode::SUCCESS)
@@ -2295,6 +2298,116 @@ fn detect_toolchain_channel() -> Option<String> {
     } else {
         None
     }
+}
+
+/// `rzc init` 无法识别系统语言时的回退语言（也是语言菜单的回车默认值）
+const INIT_DEFAULT_LANG: &str = "zh";
+
+/// 解析 `rzc init` 的目标语言
+///
+/// 显式 `--lang` 必须对应可用语言包：内置、项目内 `lang-packs/<代码>/`
+/// 或全局安装包；否则直接报错——静默回退会生成 `main.<未知扩展>`，
+/// 而用户已经看到“创建成功”，首次 `rzc run` 才报“未知扩展名”。
+///
+/// 未显式指定时跟随系统 locale；locale 不在已支持列表时，终端交互
+/// 场景列出菜单让用户自选（回车默认中文），非交互场景（CI / 管道）
+/// 打印回退提示后使用中文，不再静默降级。
+fn resolve_init_lang(explicit: Option<String>) -> anyhow::Result<String> {
+    let ui = ui::Ui::global();
+    if let Some(code) = explicit {
+        let code = code.trim().to_lowercase();
+        if !code.is_empty() {
+            if lang_pack_available(&code) {
+                return Ok(code);
+            }
+            anyhow::bail!(
+                "{}",
+                ui.f("init_unknown_lang", &[&code, &available_lang_codes_text()])
+            );
+        }
+    }
+    if let Some(code) = ui::detect_system_language_tag() {
+        return Ok(code);
+    }
+    if let Some(code) = prompt_lang_menu(&ui) {
+        return Ok(code);
+    }
+    let raw = ui::system_locale_tag().unwrap_or_else(|| "-".to_string());
+    println!("{}", ui.f("init_lang_fallback", &[&raw, INIT_DEFAULT_LANG]));
+    Ok(INIT_DEFAULT_LANG.to_string())
+}
+
+/// `--lang` 是否可用：内置 / 全局安装 / 当前目录的项目内覆盖包
+fn lang_pack_available(code: &str) -> bool {
+    if builtin_lang::has_builtin_lang(code) {
+        return true;
+    }
+    if lang_manager::global_pack_subdir_names()
+        .iter()
+        .any(|name| name == code)
+    {
+        return true;
+    }
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    lang_pack_root_of(&cwd)
+        .join(code)
+        .join("keywords.toml")
+        .is_file()
+}
+
+/// 错误提示里的候选语言列表（内置 + 已安装，按字母序）
+fn available_lang_codes_text() -> String {
+    let mut codes: Vec<String> = builtin_lang::builtin_lang_codes()
+        .iter()
+        .map(|code| code.to_string())
+        .collect();
+    for name in lang_manager::global_pack_subdir_names() {
+        if !codes.contains(&name) {
+            codes.push(name);
+        }
+    }
+    codes.sort();
+    codes.join(", ")
+}
+
+/// 交互式语言菜单：序号 / 语言代码 / 空行（默认中文），最多重试 3 次
+///
+/// 仅在 stdin 与 stdout 都是终端时调用（非交互场景下读不到输入）
+fn prompt_lang_menu(ui: &ui::Ui) -> Option<String> {
+    use std::io::{IsTerminal, Write};
+    if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
+        return None;
+    }
+    let codes: Vec<String> = builtin_lang::builtin_lang_codes()
+        .iter()
+        .map(|code| code.to_string())
+        .collect();
+    println!();
+    println!("{}", ui.t("init_lang_menu_title"));
+    for (index, code) in codes.iter().enumerate() {
+        let name = ui::native_language_name(code).unwrap_or(code);
+        println!("  {:>2}) {} ({})", index + 1, name, code);
+    }
+    for _ in 0..3 {
+        let default_hint = format!(
+            "{} ({})",
+            ui::native_language_name(INIT_DEFAULT_LANG).unwrap_or(INIT_DEFAULT_LANG),
+            INIT_DEFAULT_LANG
+        );
+        print!("{}", ui.f("init_lang_menu_prompt", &[&default_hint]));
+        let _ = std::io::stdout().flush();
+        let mut line = String::new();
+        if std::io::stdin().read_line(&mut line).unwrap_or(0) == 0 {
+            // EOF（Ctrl-D）：交给调用方回退，不再重复提问
+            println!();
+            return None;
+        }
+        if let Some(code) = ui::parse_lang_choice(&line, &codes, INIT_DEFAULT_LANG) {
+            return Some(code);
+        }
+        println!("{}", ui.t("init_lang_menu_invalid"));
+    }
+    None
 }
 
 fn create_project(project_name: &str, lang: &str, ai: bool) -> anyhow::Result<()> {

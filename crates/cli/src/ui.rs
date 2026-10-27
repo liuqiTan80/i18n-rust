@@ -143,6 +143,14 @@ pub fn detect_ui_lang() -> String {
 /// （如 `zh_CN.UTF-8` → `zh`）匹配已支持语言；无法识别时默认中文。
 /// 语言集合来自引擎 lang-packs 目录（单一事实源），不在此处维护匹配表。
 pub fn detect_system_language() -> String {
+    detect_system_language_tag().unwrap_or_else(|| "zh".to_string())
+}
+
+/// 检测系统语言标签：命中已支持语言时返回语言代码，无法识别时返回 `None`
+///
+/// 与 [`detect_system_language`] 的唯一区别是不吞掉「未识别」这一事实：
+/// `rzc init` 需要据此决定是提示回退、还是列出菜单让用户自选语言。
+pub fn detect_system_language_tag() -> Option<String> {
     for var in ["LC_ALL", "LC_MESSAGES", "LANG"] {
         if let Ok(val) = std::env::var(var) {
             let lower = val.to_lowercase();
@@ -150,11 +158,67 @@ pub fn detect_system_language() -> String {
             // 普通话标签 cmn 归入中文（其余标签按内置语言代码集合精确匹配）
             let code = if tag == "cmn" { "zh" } else { tag };
             if i18n_rust_engine::语言::builtin_language_codes().contains(&code) {
-                return code.to_string();
+                return Some(code.to_string());
             }
         }
     }
-    "zh".to_string()
+    None
+}
+
+/// 读取系统 locale 的语言标签原文（LC_ALL > LC_MESSAGES > LANG 的首段）
+///
+/// 只做语法拆分（`it_IT.UTF-8` → `it`），不判断是否为已支持语言；
+/// 供「未识别系统语言」提示回显用户实际的 locale。
+pub fn system_locale_tag() -> Option<String> {
+    for var in ["LC_ALL", "LC_MESSAGES", "LANG"] {
+        if let Ok(val) = std::env::var(var) {
+            let lower = val.to_lowercase();
+            let tag = lower.split(['_', '-', '.']).next().unwrap_or("").trim();
+            if !tag.is_empty() {
+                return Some(tag.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// 语言代码 → 该语言的自称（交互式菜单里每种语言以自身文字呈现）
+///
+/// 未收录的代码返回 `None`，调用方直接回退显示代码本身；
+/// 新增语言包时 `test_native_language_name_covers_builtin` 会失败提醒补表。
+pub fn native_language_name(code: &str) -> Option<&'static str> {
+    Some(match code {
+        "ar" => "العربية",
+        "de" => "Deutsch",
+        "en" => "English",
+        "es" => "Español",
+        "fr" => "Français",
+        "hi" => "हिन्दी",
+        "ja" => "日本語",
+        "ko" => "한국어",
+        "pt" => "Português",
+        "ru" => "Русский",
+        "zh" => "中文",
+        _ => return None,
+    })
+}
+
+/// 解析交互式语言菜单的选择
+///
+/// 接受序号（`3`）、语言代码（`ja` / `JA`）或空行（取默认值）；
+/// 其余输入返回 `None`，由调用方提示重新输入。
+pub fn parse_lang_choice(input: &str, codes: &[String], default: &str) -> Option<String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Some(default.to_string());
+    }
+    if let Ok(index) = trimmed.parse::<usize>()
+        && (1..=codes.len()).contains(&index)
+    {
+        return Some(codes[index - 1].clone());
+    }
+    let lowered = trimmed.to_lowercase();
+    codes.iter().find(|code| code.as_str() == lowered).cloned()
 }
 
 #[cfg(test)]
@@ -245,6 +309,50 @@ mod tests {
             std::env::remove_var("LANG");
         }
         assert_eq!(detect_system_language(), "zh");
+    }
+
+    /// 新增内置语言包时菜单自称表必须同步（否则菜单里显示裸代码）
+    #[test]
+    fn test_native_language_name_covers_builtin() {
+        for code in crate::builtin_lang::builtin_lang_codes() {
+            assert!(
+                native_language_name(code).is_some(),
+                "语言包 {code} 缺少菜单自称，请补 native_language_name"
+            );
+        }
+        assert_eq!(native_language_name("xx"), None);
+    }
+
+    /// 菜单输入：序号 / 语言代码（大小写不敏感）/ 空行取默认 / 其余拒绝
+    #[test]
+    fn test_parse_lang_choice() {
+        let codes: Vec<String> = ["de", "ja", "zh"].iter().map(|c| c.to_string()).collect();
+        assert_eq!(
+            parse_lang_choice("2\n", &codes, "zh").as_deref(),
+            Some("ja")
+        );
+        assert_eq!(
+            parse_lang_choice(" 3 ", &codes, "zh").as_deref(),
+            Some("zh")
+        );
+        assert_eq!(parse_lang_choice("JA", &codes, "zh").as_deref(), Some("ja"));
+        assert_eq!(parse_lang_choice("", &codes, "zh").as_deref(), Some("zh"));
+        // 越界序号 / 未支持代码 / 乱输入都交给调用方重试
+        assert_eq!(parse_lang_choice("0", &codes, "zh"), None);
+        assert_eq!(parse_lang_choice("4", &codes, "zh"), None);
+        assert_eq!(parse_lang_choice("it", &codes, "zh"), None);
+    }
+
+    /// 未识别 locale 时保留原文标签，供回退提示回显
+    #[test]
+    fn test_system_locale_tag_keeps_raw() {
+        let _lock = crate::lang_manager::tests::env_lock();
+        let _env = crate::lang_manager::tests::EnvRestore::take(&["LC_ALL", "LC_MESSAGES", "LANG"]);
+        unsafe {
+            std::env::set_var("LANG", "it_IT.UTF-8");
+        }
+        assert_eq!(detect_system_language_tag(), None);
+        assert_eq!(system_locale_tag().as_deref(), Some("it"));
     }
 
     #[test]

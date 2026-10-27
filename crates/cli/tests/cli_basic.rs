@@ -112,16 +112,69 @@ fn test_cheat_ja_outputs_mapping_table() {
         .stdout(predicates::str::contains("Keywords"));
 }
 
-/// `rzc init --lang` 缺省跟随系统 locale：de_DE 环境下缺省 de（全球用户第一个项目是母语）
+/// `rzc init` 缺省跟随系统 locale：de_DE 环境下生成 `src/main.de`（全球用户第一个项目是母语）
 #[test]
 fn test_init_default_lang_follows_locale() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
     rzc()
-        .args(["init", "--help"])
+        .env("HOME", home.path())
         .env("LC_ALL", "de_DE.UTF-8")
         .env("LANG", "de_DE.UTF-8")
+        .current_dir(work.path())
+        .args(["init", "demo"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("[default: de]"));
+        .stdout(predicates::str::contains("demo"));
+    assert!(
+        work.path().join("demo/src/main.de").is_file(),
+        "系统语言为 de 时缺省应生成 src/main.de"
+    );
+}
+
+/// 回归：`--lang` 指向没有语言包的代码（如 `it`）必须立即报错
+///
+/// 旧行为是“创建成功”但只生成 `src/main.it`，等到首次 `rzc run` 才报未知扩展名。
+#[test]
+fn test_init_rejects_unknown_lang() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    rzc()
+        .env("HOME", home.path())
+        .current_dir(work.path())
+        .args(["init", "demo", "--lang", "it"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("'it'"))
+        // 报错同时给出可用语言代码，用户不用去翻文档
+        .stderr(predicates::str::contains("ja"));
+    assert!(
+        !work.path().join("demo").exists(),
+        "拒绝时应不留下半成品项目目录"
+    );
+}
+
+/// 系统 locale 没有对应语言包且非交互（管道/CI）：提示已回退中文，不再静默降级
+#[test]
+fn test_init_unknown_locale_reports_fallback() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    rzc()
+        .env("HOME", home.path())
+        .env("LC_ALL", "it_IT.UTF-8")
+        .env_remove("LANG")
+        .env_remove("LC_MESSAGES")
+        .env_remove("RZ_LANG")
+        .current_dir(work.path())
+        .write_stdin("")
+        .args(["init", "demo"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("未识别系统语言 'it'"));
+    assert!(
+        work.path().join("demo/src/main.zh").is_file(),
+        "回退后应生成 src/main.zh"
+    );
 }
 
 /// 回归（#7）：`--no-lint` 静默教学 lint 提示

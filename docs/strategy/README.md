@@ -32,7 +32,6 @@
 - 教程滚动：en 第十四章《生命周期》起继续（复用既有翻译 + 门禁流程）；ja/ru 保持节奏
 - CLI 侧 OpenAI 兼容 provider（`base_url / key / model` 三环境变量与扩展侧对齐）
 - `ui.toml` 键英文字典（第 11 种语言贡献者参考）+ 贡献 SOP 英文化
-- `rzc init` 交互式语言选择（locale 不在 10 语言集合时列出菜单而非静默回退）
 - 文档站增强：en/ja/ru 书接入参考文档（依赖翻译进度）；en 书开启 Playground 评估
 
 ## 本目录
