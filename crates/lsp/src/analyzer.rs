@@ -32,11 +32,20 @@ pub struct AnalyzerConnection {
     /// 当前进程的主动停止抑制标志：每次 spawn 新建并替换（stop() 置位当前
     /// 标志，reader 线程持各自标志），避免重启后旧进程 EOF 与新标志竞态
     stop_flag: Mutex<Arc<AtomicBool>>,
+    /// 启动阶段失败原因（rust-analyzer 未安装/不可执行）
+    ///
+    /// 启动失败不能直接让进程退出：代理必须先完成 LSP 握手才能把原因告知
+    /// 客户端，否则编辑器只显示 “Server initialization failed.”，用户无从
+    /// 得知到底是缺 rust-analyzer 还是语言包坏了。
+    start_error: Mutex<Option<String>>,
 }
 
 impl AnalyzerConnection {
     /// 启动 rust-analyzer 子进程
-    pub fn start() -> anyhow::Result<Self> {
+    ///
+    /// 启动失败不返回错误（见 [`Self::startup_error`]）：失败原因先存入
+    /// `start_error`，由代理在握手后转给客户端。
+    pub fn start() -> Self {
         let (events, receiver) = crossbeam_channel::unbounded();
         let conn = Self {
             child: Mutex::new(None),
@@ -45,9 +54,23 @@ impl AnalyzerConnection {
             receiver,
             crashed: Arc::new(AtomicBool::new(false)),
             stop_flag: Mutex::new(Arc::new(AtomicBool::new(false))),
+            start_error: Mutex::new(None),
         };
-        conn.spawn_child()?;
-        Ok(conn)
+        if let Err(err) = conn.spawn_child() {
+            log::error!("{err}");
+            if let Ok(mut slot) = conn.start_error.lock() {
+                *slot = Some(err.to_string());
+            }
+        }
+        conn
+    }
+
+    /// 启动阶段是否失败（返回失败原因）
+    ///
+    /// 非 `None` 时子进程从未就续，代理应立即把原因报给客户端并退出，
+    /// 而不是在主循环里继续转发消息。
+    pub fn startup_error(&self) -> Option<String> {
+        self.start_error.lock().ok().and_then(|slot| slot.clone())
     }
 
     /// 启动（或崩溃后重新启动）rust-analyzer 子进程并挂接消息管道
@@ -469,6 +492,7 @@ mod tests {
             receiver,
             crashed: Arc::new(AtomicBool::new(false)),
             stop_flag: Mutex::new(Arc::new(AtomicBool::new(false))),
+            start_error: Mutex::new(None),
         }
     }
 

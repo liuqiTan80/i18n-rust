@@ -1,6 +1,6 @@
 [package]
 name = "zh-pure"
-version = "0.8.10"
+version = "0.8.11"
 edition = "2024"
 rust-version.workspace = true
 description = "纯函数方言测试样例：用 .zh 方言写测试，cargo test 自动发现"

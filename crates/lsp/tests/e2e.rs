@@ -280,6 +280,43 @@ fn send_request(
     })
 }
 
+/// 发送请求并在等待响应期间收集 `window/showMessage` 通知
+///
+/// 返回（收到的最后一条通知, 响应）。用于验证“启动失败先告知原因”的顺序：
+/// 通知必须在错误响应前到达（客户端收到错误响应即处置连接）。
+fn request_collecting_notice(
+    stdin: &mut BufWriter<ChildStdin>,
+    rx: &mpsc::Receiver<Value>,
+    id: u64,
+    method: &str,
+    params: Value,
+    timeout: Duration,
+) -> (Option<Value>, Option<Value>) {
+    let msg = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
+    stdin
+        .write_all(&encode_message(&msg))
+        .expect("写入请求失败");
+    stdin.flush().expect("刷新请求失败");
+    let deadline = Instant::now() + timeout;
+    let mut notice = None;
+    loop {
+        let remain = deadline.saturating_duration_since(Instant::now());
+        if remain.is_zero() {
+            return (notice, None);
+        }
+        let Ok(msg) = rx.recv_timeout(remain) else {
+            return (notice, None);
+        };
+        if msg.get("method").and_then(Value::as_str) == Some("window/showMessage") {
+            notice = Some(msg);
+            continue;
+        }
+        if msg.get("id").and_then(Value::as_u64) == Some(id) && msg.get("method").is_none() {
+            return (notice, Some(msg));
+        }
+    }
+}
+
 /// 发送 initialize 请求，验证响应成功
 fn initialize(
     stdin: &mut BufWriter<ChildStdin>,
@@ -468,6 +505,65 @@ fn e2e_ru_diagnostics_translated() {
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_ar_diagnostics_translated() {
     run_e2e_lang("ar", lang_keyword("ar"));
+}
+
+/// 启动失败必须自解释
+///
+/// rust-analyzer 不可用时（未安装/不可执行/初始化超时），代理过去直接退出，
+/// 编辑器只显示 “Server initialization failed.” 与 “Pending response rejected
+/// since connection got disposed”，用户无从得知该装什么。现在必须先推
+/// `window/showMessage`（带具体原因）再回 initialize 错误响应。
+#[test]
+fn e2e_startup_failure_reports_reason() {
+    let manifest_dir =
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
+    // 用目录充当 rust-analyzer 路径：存在但不可执行，稳定复现“启动失败”
+    let fake_ra = tempfile::tempdir().expect("创建临时目录失败");
+    let (mut child, mut stdin, rx) = spawn_lsp(fake_ra.path(), &lang_pack);
+
+    let (notice, resp) = request_collecting_notice(
+        &mut stdin,
+        &rx,
+        1,
+        "initialize",
+        json!({
+            "processId": std::process::id(),
+            "rootUri": null,
+            "capabilities": {}
+        }),
+        Duration::from_secs(30),
+    );
+
+    let notice = notice.expect("启动失败应先收到 window/showMessage 通知");
+    let text = notice
+        .pointer("/params/message")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    assert!(
+        text.contains("rust-analyzer"),
+        "通知应说明失败原因（含 rust-analyzer）：{text}"
+    );
+    assert_eq!(
+        notice.pointer("/params/type").and_then(Value::as_u64),
+        Some(1),
+        "通知应为 Error 级别（type=1）"
+    );
+
+    let resp = resp.expect("应收到 initialize 错误响应");
+    let err = resp
+        .pointer("/error/message")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    assert!(resp.get("error").is_some(), "initialize 应回错误：{resp}");
+    assert!(err.contains("rust-analyzer"), "错误消息应含原因：{err}");
+
+    // 不能挂在半初始化状态：进程应自行以非零码退出
+    assert_eq!(
+        child.wait().expect("等待进程退出失败").code(),
+        Some(1),
+        "启动失败应以退出码 1 结束"
+    );
 }
 
 /// 全角标点教学诊断注入：代码位置的全角标点以 Hint 级诊断在 IDE 内联提示

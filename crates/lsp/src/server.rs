@@ -111,7 +111,11 @@ impl ProxyServer {
         let cache = TranslationCache::new(manager, temp_dir);
 
         // 3. 启动 rust-analyzer
-        let analyzer = AnalyzerConnection::start()?;
+        //
+        // 启动失败（未安装/不可执行）不在此处返回错误：此刻尚未收到客户端
+        // 的 initialize，进程一旦退出，编辑器只能显示 “Server initialization
+        // failed.”。失败原因先记入连接，由 `run` 在握手后告知客户端。
+        let analyzer = AnalyzerConnection::start();
 
         // 4. 创建响应映射器
         let mapper = Arc::new(ResponseMapper::new(cache.clone()));
@@ -148,7 +152,16 @@ impl ProxyServer {
         log::info!("{}", crate::ui::global().t("lsp_log_client_init"));
 
         // 2. 初始化 rust-analyzer
-        self.initialize_analyzer(&init_params)?;
+        //
+        // 失败必须先把原因作为 `window/showMessage` 推给客户端，否则用户
+        // 只看到 “Server initialization failed.” 与 “Pending response
+        // rejected since connection got disposed” 两条无法行动的提示。
+        if let Some(reason) = self.analyzer.startup_error() {
+            return self.fail_initialize(init_id, &reason);
+        }
+        if let Err(err) = self.initialize_analyzer(&init_params) {
+            return self.fail_initialize(init_id, &err.to_string());
+        }
 
         // 3. 回复客户端 initialize
         self.reply_initialize(init_id)?;
@@ -172,6 +185,34 @@ impl ProxyServer {
         io_threads.join()?;
 
         Ok(())
+    }
+
+    /// 初始化失败时告知客户端并终止
+    ///
+    /// 顺序必须是「先通知、后错误响应」：客户端收到 initialize 错误响应会
+    /// 立即 dispose 连接（对应 “Pending response rejected since connection
+    /// got disposed”），之后再发的任何消息均不可达。
+    ///
+    /// 返回 Err 让 `main` 以非零码退出，并把原因留在 stderr（输出面板可见）。
+    fn fail_initialize(&self, id: lsp_server::RequestId, reason: &str) -> anyhow::Result<()> {
+        let message = crate::ui::global().f("lsp_fail_notify", &[reason]);
+        log::error!("{message}");
+        // 失败时可能已经拉起子进程（如初始化超时），先收尾避免孤儿进程
+        self.analyzer.stop();
+        let notice = lsp_server::Notification::new(
+            "window/showMessage".to_string(),
+            json!({ "type": 1, "message": message }),
+        );
+        let _ = self.connection.sender.send(Message::Notification(notice));
+        let _ = self
+            .connection
+            .sender
+            .send(Message::Response(lsp_server::Response::new_err(
+                id,
+                lsp_server::ErrorCode::InternalError as i32,
+                reason.to_string(),
+            )));
+        anyhow::bail!("{reason}")
     }
 
     /// 握手：接收 initialize 请求并回复

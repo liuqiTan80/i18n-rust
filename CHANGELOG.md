@@ -5,6 +5,38 @@
 
 ## [Unreleased]
 
+## [0.8.11] - 2026-10-27
+
+### 修复
+- LSP 启动失败不再是“无声猝死”：编辑器里只看到 `Server initialization failed.` 与
+  `Pending response rejected since connection got disposed`，根因是 rust-analyzer
+  未安装 / 不可执行 / 初始化超时时，代理在 LSP 握手**之前**就退出了
+  （`ProxyServer::new` 直接 `?` 掉 `AnalyzerConnection::start()`），客户端拿不到任何原因。
+  现在启动失败先记入连接（`AnalyzerConnection::startup_error`），握手完成后以
+  `window/showMessage`（Error 级）把具体原因推给客户端（如“未找到 rust-analyzer。请安装或
+  设置 RUST_ANALYZER_PATH”），**再**回 initialize 错误响应。顺序不能反：客户端收到
+  错误响应后会立即 dispose 连接，之后发出的消息全部不可达（这正是那条 “Pending response
+  rejected” 的来源）。
+- 初始化失败（如超时）时回收已拉起的子进程，不再遗留孤儿 rust-analyzer。
+- “未找到 rust-analyzer”提示附上安装命令（`rustup component add rust-analyzer`，11 语言同步）。
+  典型场景：只装了 rust-analyzer 编辑器扩展、没装 rustup 组件，LSP 找不到独立二进制。
+- 扩展侧启动失败提示追加「查看日志」「打开设置」两个按钮（日志内含服务器 stderr
+  与握手细节，可直接定位是二进制缺失、语言包路径还是 rust-analyzer 问题）。
+
+### 测试
+- 新增 e2e `e2e_startup_failure_reports_reason`（不依赖 rust-analyzer，默认执行）：
+  把目录当作 `RUST_ANALYZER_PATH` 稳定复现启动失败，断言先收到 Error 级 showMessage、
+  再收到 initialize 错误响应、进程以退出码 1 结束。
+
+### 变更
+- 界面消息键 619 → 620（`lsp_fail_notify`），11 语言同步；非 zh 为机翻，**待母语者复核**。
+- 版本号 0.8.10 → 0.8.11（四 crate + cli/lsp 对 engine 依赖范围 +
+  扩展 `package.json`/lock + `Cargo.lock`）。
+
+### 说明与取舍
+- 启动失败仍会退出，不做“无 rust-analyzer 降级运行”：补全/诊断/跳转全部依赖它，空壳服务器
+  只会让编辑器挂在“请求无响应”上；明确失败 + 可操作提示比静默降级更诚实。
+
 ## [0.8.10] - 2026-10-27
 
 ### 新增

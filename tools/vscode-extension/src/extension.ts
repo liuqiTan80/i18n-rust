@@ -1216,11 +1216,27 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
     );
 
     // 启动客户端
+    //
+    // 失败原因有两层：协议层的 err.message（如 “Server initialization failed.”）
+    // 与服务器自己推的 window/showMessage（带具体原因，如缺 rust-analyzer）。
+    // 这里补一条可操作的提示：→ 查看日志（服务器 stderr 与握手细节都在里面）、
+    // 打开设置（serverPath 配错时改路径）。
+    const 客户端 = client;
     client.start().catch(err => {
         日志(`LSP 启动失败: ${err.message}`);
-        vscode.window.showErrorMessage(
-            `i18n-rust LSP 启动失败: ${err.message}。请确保 i18n-rust-lsp 已安装并可用。`
-        );
+        vscode.window
+            .showErrorMessage(
+                `i18n-rust 语言服务器启动失败：${err.message}`,
+                '查看日志',
+                '打开设置'
+            )
+            .then(操作 => {
+                if (操作 === '查看日志') {
+                    客户端?.outputChannel?.show(true);
+                } else if (操作 === '打开设置') {
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'i18n-rust.serverPath');
+                }
+            });
     });
 
     context.subscriptions.push(client);
