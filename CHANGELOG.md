@@ -5,6 +5,34 @@
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-10-27
+
+### 新增
+- 扩展 contributes 文案 i18n（阶段一）：`package.json` 硬编码中文的命令面板 / 设置界面 /
+  语言别名改用 VS Code 原生 `%placeholder%` nls 机制，本地化到 11 语言——非中文用户在命令
+  面板、设置项、语言模式选择器不再看到中文。共 **36 个键**：16 命令标题（`i18n:` 前缀移入
+  新增 `"category": "i18n"`，去掉冗余英文注释如 `(Run)`）+ 16 配置描述（`apiKey`/`systemPrompt`
+  的 `description`+`markdownDescription` 共用同一键，取 markdown 全文）+ 1 `deprecationMessage`
+  （`ai.apiKey`）+ 3 语言别名（`Rust (中文)`/`中文 Rust`/`Rust (日本語)`，保留品牌词 Rust）。
+- 单一真值：36 条以 `ext_` 前缀键入各语言 `crates/engine/lang-packs/<lang>/ui.toml` 的
+  `["界面消息"]` 节（界面消息键数 **576 → 612**）；`zh` 复用原硬编码中文、`en` 据原英文注释补齐、
+  其余 9 语言由机翻填译（**待母语者复核**）。命令 id、配置项 id、`languages` 结构一律不改，零行为变更。
+- 生成器 `tools/vscode-extension/scripts/gen-nls.mjs`（复用 `toml-parse.mjs`）：以 `package.json` 中
+  出现的 `%ext_…%` 占位符为准，从 11 语言 ui.toml 取同名词条，产出默认 `package.nls.json`（英文回落）
+  + 各 locale `package.nls.<loc>.json`（`zh`→`zh-cn`、`pt`→`pt-br`、`ar/de/es/fr/ja/ko/ru/hi` 同名；
+  `en` 仅走默认文件）；内置双向自校验——每个 `%key%` 必落进每份 nls、每份 nls 键集必等于引用集，
+  缺失/多余即非零退出。已并入 `npm run gen:all` 与 CI 生成物同步守卫（pathspec 追加 `package.nls*.json`）。
+
+### 变更
+- 版本号 0.8.7 → 0.8.8（四 crate + cli/lsp 对 engine 依赖范围 + 扩展 `package.json`/lock + `Cargo.lock`）。
+
+### 说明与取舍
+- `i18n-rust.languagePack` 的 `enum` 值（`中文`/`日本語`/`Deutsch`…）为**语言自称词（endonym）**且是持久化
+  设置值，按语言选择器惯例保持原样、不本地化（改了会破坏已存配置或造成 10 项只译 3 项的割裂）。
+- `hi` 生成 `package.nls.hi.json`，但 VS Code 无 Hindi 显示语言，实际回落默认英文；`zh-tw` 不发（避免向
+  繁体用户显示简体），自动回落默认英文。`keywords` 中的 `中文` 为 Marketplace 搜索词，非界面串，保留。
+- 运行时消息（`extension.ts` 等约 33 处 `vscode.l10n.t()` + `l10n/bundle.l10n.json`）留待阶段二。
+
 ## [0.8.7] - 2026-10-27
 
 ### 新增

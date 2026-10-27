@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 0.8.8
+
+### 新增
+- **contributes 文案本地化（阶段一）**：命令面板、设置界面、语言模式选择器的硬编码
+  中文改用 VS Code 原生 `%placeholder%` + `package.nls*.json` 机制，覆盖 11 语言。共 36 键：
+  16 命令标题（`i18n:` 前缀改为 `"category": "i18n"`）+ 16 配置描述 + 1 `deprecationMessage`
+  + 3 语言别名。命令/配置 id 与 `languages` 结构不变，零行为变更。
+- **单一真值生成器** `scripts/gen-nls.mjs`：从 `crates/engine/lang-packs/<lang>/ui.toml` 的 `ext_*` 键
+  生成 `package.nls.json`（默认英文）+ 各 locale nls；内置双向自校验（占位符↔键全配对，否则非零退出）。
+  已加入 `gen:nls` 并并入 `gen:all`。
+
+### 变更
+- 版本号跟随 CLI 0.8.8 对齐发布。
+
+### 说明
+- 9 非中英语言为机翻填译，**待母语者复核**；`languagePack` 枚举值为语言自称词（endonym）且是
+  持久化值，不本地化；`zh-tw` 不发（回落英文）。运行时消息（`extension.ts` 等）留待阶段二。
+
 ## 0.8.7
 
 ### 新增

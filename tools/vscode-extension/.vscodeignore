@@ -12,6 +12,8 @@ out/*.map
 tsconfig.json
 .eslintrc.json
 package-lock.json
+# 注意：package.nls.json 与 package.nls.*.json 是 contributes 本地化运行时必需，
+# 绝不能在此排除（vsce 默认打包，此处亦不匹配任何排除规则）。
 package-vsix.sh
 package-vsix.ps1
 release/**

@@ -444,20 +444,21 @@ jobs:
           npm test
 
       - name: 生成物与语言包同步检查
-        # 重新生成 10 份 tmLanguage + 10 份 snippets + 扩展界面文案后检查 diff：
+        # 重新生成 10 份 tmLanguage + 10 份 snippets + 扩展界面文案 + contributes nls 后检查 diff：
         # keywords.toml / lang_info.toml / ui.toml 的改动必须同步反映到
-        # syntaxes/ · snippets/ · src/generated/（单一真值守卫，漂移即拦截）
+        # syntaxes/ · snippets/ · src/generated/ · package.nls*.json（单一真值守卫，漂移即拦截）
         working-directory: tools/vscode-extension
         run: |
           npm run gen:grammars
           npm run gen:snippets
           npm run gen:ui
-          if ! git diff --exit-code --quiet -- syntaxes/ snippets/ src/generated/; then
-            echo "❌ 生成物与语言包不同步：请运行 npm run gen:all 并提交生成的 syntaxes/ · snippets/ · src/generated/"
-            git diff --stat -- syntaxes/ snippets/ src/generated/
+          npm run gen:nls
+          if ! git diff --exit-code --quiet -- syntaxes/ snippets/ src/generated/ package.nls.json 'package.nls.*.json'; then
+            echo "❌ 生成物与语言包不同步：请运行 npm run gen:all 并提交生成的 syntaxes/ · snippets/ · src/generated/ · package.nls*.json"
+            git diff --stat -- syntaxes/ snippets/ src/generated/ package.nls.json 'package.nls.*.json'
             exit 1
           fi
-          echo "✅ 语法/片段/界面文案生成物与语言包同步"
+          echo "✅ 语法/片段/界面文案/nls 生成物与语言包同步"
 
       - name: 编译 TypeScript
         working-directory: tools/vscode-extension
