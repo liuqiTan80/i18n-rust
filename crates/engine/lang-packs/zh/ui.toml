@@ -3,6 +3,12 @@
 # 占位符 {参数} 由程序在运行时格式化替换。
 
 ["界面消息"]
+"ext_need_dialect_file" = "请打开一个方言源码文件（.zh/.ja 等）"
+"ext_lsp_restarted" = "语言服务器已重启"
+"ext_explain_need_file" = "请先打开一个文件，再使用诊断讲解"
+"ext_explain_no_diag" = "当前文件没有错误或警告，无需讲解"
+"ext_explain_no_diag_nearby" = "未找到光标附近的诊断"
+"ext_add_dep_no_workspace" = "未打开工作区，无法添加依赖"
 # ---- clap 帮助 ----
 "cli_about" = "多语言 Rust 教学方言编译器"
 "cmd_init_about" = "创建新项目（生成对应语言的主文件模板）"
@@ -590,6 +596,32 @@
 "arg_gaps_export_help" = "把清单导出为 TSV（列：LEVEL/CODE/消息，制表符分隔）到指定路径"
 "arg_gaps_clear_help" = "清空清单（补完消息表后使用）"
 
+
+"cmd_guide_about" = "母语编程指南（全量词条表 + 书写规则，供学习者与 AI 助手使用）"
+"cmd_relocalize_about" = "跨母语阅读：把方言 / 标准 Rust 工程反译重生为目标方言（逐文件正向转译到标准 Rust 再反译，产物结构忠实、可再次 rzc build）"
+"arg_relocalize_to_help" = "目标方言语言代码（必填，如 ja）；决定输出工程所用语言"
+"arg_relocalize_from_help" = "源方言语言代码；省略时按各文件扩展名自动检测"
+"arg_relocalize_out_dir_help" = "输出目录（镜像源结构、扩展名换为目标语言）；默认为源工程根旁的 relocalized.<to>"
+"relocalize_done" = "已反译重生 {} 个文件到：{}"
+"relocalize_no_module_entry" = "未在输出工程中发现入口文件（main / 主函数词），产物可能无法直接 rzc build"
+"arg_guide_lang_help" = "内置语言代码（如 zh）；省略时按系统语言自动检测"
+"arg_guide_out_help" = "把指南写入指定文件（如 AGENTS.md）"
+"cmd_init_ai_help" = "同时在项目内生成 AGENTS.md（AI 编程指南，由当前语言包渲染）"
+"agents_generated" = "AI 编程指南已生成：{}（语言包更新后重跑 rzc guide 可刷新）"
+"guide_title" = "# rzc 母语编程指南 —— {} ↔ Rust"
+"guide_intro" = "本项目用{}编写 Rust 代码：语言结构（关键字/宏）与标准库调用都使用母语词条，rzc 会自动转译为标准 Rust 交给官方工具链编译。生成或修改本项目代码时，请遵循下方书写规则与全量词条表。"
+"guide_rules_head" = "## 书写规则"
+"guide_rule_keywords" = "- 语言关键字、宏、标准库类型与方法一律使用下方词条表中的母语词条（如写 `函数` 而非 `fn`、`打印行!` 而非 `println!`）：英文写法虽能编译，但会触发「英文回落」教学提示。"
+"guide_rule_ident" = "- 自定义函数名、变量名、类型名可用母语或英文，转译保留原样；注意危险等级为「会改写标识符」的词条会连带改写同名自定义标识符，命名时避开这类词。"
+"guide_rule_punct" = "- 代码位置使用半角标点（逗号、分号、括号、引号等）；全角标点只允许出现在字符串与注释内，否则 rzc 会给出全角标点告警。"
+"guide_rule_danger" = "- 词条表「危险等级」列含义：`纯安全` 只在受保护位置替换；`会改写标识符` 在任意位置替换（同名自定义标识符会被改写）；`会 panic` 运行时可能 panic，仅显式选用，优先用安全同义词条；多风险以 `+` 连接并在「备注」列说明。"
+"guide_rule_workflow" = "- 工作方式：`rzc run src/main.{}` 运行项目，`rzc check <文件>` 只做检查；诊断的行列与源码位置自动回译到母语源文件。IDE 中安装 i18n-rust VS Code 扩展获得实时诊断与母语补全。"
+"guide_rule_pitfalls" = "- 两个实测坑：标准 Rust 没有 `\"\"\"` 三引号多行字符串，写出即报「期望 . ; ? }」——跨行文本用原始字符串 `r#\"…\"#`（内部 `\"` 免转义）或逐行拼接 `向量![行1, 行2].连接(\"\\n\")`（每行普通字符串、内部引号须 `\\\"` 转义）；`父目录()`（`Path::parent()`）返回借用 `Option<&路径>`，需要拥有者 `路径缓冲`（`PathBuf`）处（如函数返回）补一步 `.转路径缓冲()`（`to_path_buf()`）把借用变拥有。"
+"guide_rule_gaps" = "- 若输出中出现未翻译的英文消息，`rzc gaps` 查看待译清单（不影响运行）；补齐词条表是社区贡献的一部分。"
+"guide_table_head" = "## 全量词条表（{} 条）"
+"guide_example_head" = "## 示例：入口文件的正确写法"
+"guide_footer" = "由 `rzc guide` 生成；语言包更新后重跑以刷新。"
+"lint_english_fallback" = "第 {} 行第 {} 列：`{}` 有母语词条 `{}`，建议使用母语写法（教学提示）"
 ["解释"]
 "Option::unwrap" = "直接取出里面的值；如果没有值（None），程序直接崩溃"
 "Option::expect" = "取出里面的值；如果没有值，就带着你写的提示信息崩溃"

@@ -715,6 +715,7 @@ fn publish_rustc_diagnostics(
                 &entry,
                 known_words,
                 &cache.ambiguous_constructor_words(),
+                cache.english_fallback_map(),
             );
         }
         let notification = lsp_server::Notification {

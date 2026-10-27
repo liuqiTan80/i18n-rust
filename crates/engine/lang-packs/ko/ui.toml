@@ -3,6 +3,12 @@
 # 자리표시자 {인자}는 실행 시 프로그램이 치환합니다.
 
 ["界面消息"]
+"ext_need_dialect_file" = "방언 소스 파일(.zh/.ja 등)을 열어 주세요"
+"ext_lsp_restarted" = "언어 서버가 재시작되었습니다"
+"ext_explain_need_file" = "진단 설명을 사용하려면 먼저 파일을 열어 주세요"
+"ext_explain_no_diag" = "현재 파일에 오류나 경고가 없어 설명이 필요 없습니다"
+"ext_explain_no_diag_nearby" = "커서 근처의 진단을 찾을 수 없습니다"
+"ext_add_dep_no_workspace" = "작업 공간이 열려 있지 않아 의존성을 추가할 수 없습니다"
 
 # ---- Unicode character names (confusable-character warnings) ----
 "unicode_name_00AD" = "­ (Soft Hyphen)"
@@ -590,6 +596,32 @@
 "arg_gaps_export_help" = "목록을 지정 경로에 TSV(열: LEVEL/CODE/메시지, 탭 구분)로 내보냅니다"
 "arg_gaps_clear_help" = "목록을 삭제합니다. 메시지 표를 채운 뒤에 사용하세요"
 
+
+"cmd_guide_about" = "모국어 프로그래밍 가이드 (전체 용어 표 + 작성 규칙, 학 습자와 AI 어시스턴트용)"
+"cmd_relocalize_about" = "모국어 간 읽기: 방언 / 표준 Rust 프로젝트를 대상 방언으로 재현지화(파일별 순방향 변환으로 표준 Rust 만든 뒤 역변환; 출력은 구조를 유지하고 rzc build로 다시 빌드 가능)"
+"arg_relocalize_to_help" = "대상 방언 언어 코드(필수, 예: ja); 출력 프로젝트의 언어를 결정"
+"arg_relocalize_from_help" = "원본 방언 언어 코드; 생략 시 각 파일 확장자에서 자동 감지"
+"arg_relocalize_out_dir_help" = "출력 디렉터리(원본 구조를 미러하며 확장자를 대상으로 변경); 기본값은 소스 프로젝트 루트 옆 relocalized.<to>"
+"relocalize_done" = "{}개 파일을 재현지화했습니다: {}"
+"relocalize_no_module_entry" = "출력 프로젝트에서 진입 파일(main / 모국어 main 단어)을 찾지 못했습니다. rzc build로 바로 빌드되지 않을 수 있습니다"
+"arg_guide_lang_help" = "내장 언어 코드(예: zh); 생략 시 시스템 언어로 자동 감지"
+"arg_guide_out_help" = "가이드를 지정 파일에 기록(예: AGENTS.md)"
+"cmd_init_ai_help" = "프로젝트에 AGENTS.md도 생성(AI 프로그래밍 가이드, 현재 언어 팩으로 렌더링)"
+"agents_generated" = "AI 프로그래밍 가이드 생성 완료: {}(언어 팩 업데이트 후 rzc guide 재실행으로 갱신 가능)"
+"guide_title" = "# rzc 모국어 프로그래밍 가이드 — {} ↔ Rust"
+"guide_intro" = "이 프로젝트는 {}로 Rust를 씁니다: 언어 구조(키워드/매크로)와 표준 라이브러리 호출은 모국어 용어를 사용하며, rzc가 표준 Rust로 변환해 공식 툴체인으로 컴파일합니다. 코드 생성·수정 시 아래 작성 규칙과 전체 용어 표를 따르세요."
+"guide_rules_head" = "## 작성 규칙"
+"guide_rule_keywords" = "- 언어 키워드, 매크로, 표준 라이브러리 타입/메서드에는 아래 표의 모국어 용어를 반드시 사용하세요(`fn` 대신 모국어 키워드, `println!` 대신 모국어 매크로 등): 영어 형태도 컴파일되지만 「영어 폴백」 학습 경고가 표시됩니다."
+"guide_rule_ident" = "- 직접 만든 함수/변수/타입 이름은 모국어 또는 영어로 쓸 수 있고 변환 시 그대로 보존됩니다. 단 「식별자 재작성」 등급 용어는 동명의 사용자 식별자도 함께 재작성하므로 작명 시 피하세요."
+"guide_rule_punct" = "- 코드 위치에서는 반각 구두점(쉼표, 세미콜론, 괄호, 따옴표)을 사용하세요. 전각 구두점은 문자열과 주석 안에서만 허용되며, 그렇지 않으면 rzc가 전각 구두점 경고를 출력합니다."
+"guide_rule_danger" = "- 용어 표의 「위험 등급」 열: 순수안정은 보호된 위치에서만 치환, 식별자 재작성은 임의 위치에서 치환(동명의 사용자 식별자도 재작성됨), panic 가능은 런타임 panic 가능성이 있어 명시적으로 선택할 때만 사용하고 안전한 동의어를 우선하세요. 복합 위험은 `+`로 연결되고 비고 열에 설명됩니다."
+"guide_rule_workflow" = "- 작업 흐름: 실행은 `rzc run src/main.{}`, 검사만 하려면 `rzc check <파일>`; 진단의 행·열은 모국어 소스 좌표로 자동 역변환됩니다. IDE에서는 i18n-rust VS Code 확장 설치로 실시간 진단과 모국어 자동완성을 사용할 수 있습니다."
+"guide_rule_pitfalls" = "- 실측으로 확인된 두 가지 함정: 표준 Rust에는 `\"\"\"` 삼중 따옴표 다중 줄 문자열이 없어 작성 시 파싱 오류가 남 — 여러 줄 텍스트는 원시 문자열 `r#\"…\"#`(내부 `\"` 이스케이프 불필요) 또는 줄별 연결 `벡터![줄1, 줄2].연결(\"\\n\")`(각 줄은 일반 문자열, 내부 따옴표는 `\\\"`로 이스케이프). 또한 `부모()`(`Path::parent()`)는 빌린 `Option<&경로>`를 반환하므로 소유 값 `경로_버퍼`(`PathBuf`)가 필요한 위치(함수 반환 등)에는 `.to_path_buf()`(모국어 항목 미등록이라 영어 표기)로 소유 값 변환합니다."
+"guide_rule_gaps" = "- 출력에 미번역 영어 메시지가 나타나면 `rzc gaps`로 미번역 목록을 확인하세요(실행에는 영향 없음). 용어 표를 채우는 것은 커뮤니티 기여의 일부입니다."
+"guide_table_head" = "## 전체 용어 표 ({}항)"
+"guide_example_head" = "## 예시: 진입 파일의 올바른 작성법"
+"guide_footer" = "`rzc guide`가 생성. 언어 팩 업데이트 후 재실행하면 갱신됩니다."
+"lint_english_fallback" = "{}행 {}열: `{}`에는 모국어 용어 `{}`가 있습니다. 모국어로 작성하세요(학습 경고)"
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

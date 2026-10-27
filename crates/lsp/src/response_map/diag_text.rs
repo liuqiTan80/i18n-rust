@@ -735,28 +735,35 @@ pub(crate) fn lint_teaching_diagnostics(
     entry: &TranslationEntry,
     known_words: &HashSet<String>,
     ambiguous_constructors: &HashSet<String>,
+    fallback_map: &HashMap<String, String>,
 ) -> Vec<Value> {
-    i18n_rust_engine::lint::lint_teaching_with_words(
+    let mut warnings = i18n_rust_engine::lint::lint_teaching_with_words(
         &entry.zh_content,
         known_words,
         ambiguous_constructors,
-    )
-    .iter()
-    .map(|w| {
-        let line = (w.line - 1) as u32;
-        let col = (w.column - 1) as u32;
-        json!({
-            "range": {
-                "start": { "line": line, "character": col },
-                "end": { "line": line, "character": col + 1 }
-            },
-            "severity": 3,
-            "code": lint_code(w.kind),
-            "source": "i18n-rust",
-            "message": w.format()
+    );
+    // 英文回落提示：母语方言源码里把有母语词条的结构词写成英文（`fn`/`Vec`/.collect()…）
+    warnings.extend(i18n_rust_engine::lint::lint_english_fallback(
+        &entry.zh_content,
+        fallback_map,
+    ));
+    warnings
+        .iter()
+        .map(|w| {
+            let line = (w.line - 1) as u32;
+            let col = (w.column - 1) as u32;
+            json!({
+                "range": {
+                    "start": { "line": line, "character": col },
+                    "end": { "line": line, "character": col + 1 }
+                },
+                "severity": 3,
+                "code": lint_code(w.kind),
+                "source": "i18n-rust",
+                "message": w.format()
+            })
         })
-    })
-    .collect()
+        .collect()
 }
 
 /// 注入教学诊断（全角标点 + 教学 lint）到方言坐标的诊断列表
@@ -771,6 +778,7 @@ pub(crate) fn inject_teaching_diags(
     entry: &TranslationEntry,
     known_words: &HashSet<String>,
     ambiguous_constructors: &HashSet<String>,
+    fallback_map: &HashMap<String, String>,
 ) {
     diags.retain(|d| !(is_teaching_diag(d) && d["source"].as_str() == Some("i18n-rust")));
     diags.extend(fullwidth_diagnostics(entry));
@@ -779,6 +787,7 @@ pub(crate) fn inject_teaching_diags(
             entry,
             known_words,
             ambiguous_constructors,
+            fallback_map,
         ));
     }
 }
@@ -805,6 +814,7 @@ fn lint_code(kind: i18n_rust_engine::lint::LintKind) -> &'static str {
         i18n_rust_engine::lint::LintKind::MagicNumber => "lint-magic-number",
         i18n_rust_engine::lint::LintKind::DeepIndent => "lint-deep-indent",
         i18n_rust_engine::lint::LintKind::ConfusableMethod => "lint-confusable-method",
+        i18n_rust_engine::lint::LintKind::EnglishFallback => "lint-english-fallback",
     }
 }
 

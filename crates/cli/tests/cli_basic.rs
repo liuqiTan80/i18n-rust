@@ -1058,3 +1058,62 @@ fn test_mapping_coverage_on_real_backend_corpus() {
         .stdout(predicates::str::contains("语料"))
         .stdout(predicates::str::contains("覆盖通过"));
 }
+
+/// `relocalize` 端到端：zh 工程 → 反译重生为 ja 方言工程（可再转译回 fn main）
+///
+/// 验证镜像写出、清单复制、AGENTS.md 生成，以及入口 `main` 取核心关键字（`主関数`）
+/// 而非第三方 crate 别名——保证产物 `rzc transpile` 回标准 Rust 时得到 `fn main`。
+#[test]
+fn test_relocalize_zh_project_to_ja_dialect() {
+    let dir = tempfile::tempdir().expect("创建临时目录失败");
+    let src_dir = dir.path().join("src");
+    std::fs::create_dir_all(&src_dir).expect("创建 src 失败");
+    std::fs::write(
+        dir.path().join("Cargo.toml"),
+        "[package]\nname = \"rlz\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n\n[workspace]\n",
+    )
+    .expect("写入 Cargo.toml 失败");
+    std::fs::write(
+        src_dir.join("main.zh"),
+        "函数 主函数() {\n    打印行!(\"你好\");\n}\n",
+    )
+    .expect("写入 main.zh 失败");
+
+    rzc()
+        .args(["relocalize", "--to", "ja"])
+        .arg(dir.path())
+        .assert()
+        .success();
+
+    let out_main = dir.path().join("relocalized.ja/src/main.ja");
+    assert!(out_main.is_file(), "应镜像写出 {}", out_main.display());
+    let ja = std::fs::read_to_string(&out_main).expect("读取 main.ja 失败");
+    assert!(ja.contains("関数"), "产物应含 ja `関数`: {ja}");
+    assert!(ja.contains("主関数"), "入口应为 `主関数`: {ja}");
+    assert!(
+        dir.path().join("relocalized.ja/Cargo.toml").is_file(),
+        "应复制 Cargo.toml"
+    );
+    assert!(
+        dir.path().join("relocalized.ja/AGENTS.md").is_file(),
+        "应生成 AGENTS.md"
+    );
+
+    // 反译产物再正向转译应回到 `fn main`（可编译性探针）
+    rzc()
+        .arg("transpile")
+        .arg(&out_main)
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("fn main"));
+}
+
+/// `relocalize` 缺 `--to` 时报错退出（必填参数）
+#[test]
+fn test_relocalize_requires_to() {
+    rzc()
+        .args(["relocalize", "/tmp"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("--to"));
+}

@@ -2,7 +2,7 @@
   "name": "i18n-rust",
   "displayName": "i18n-rust - Write Rust in Any Language",
   "description": "Write Rust code in your native language, with support for syntax highlighting, intelligent code completion, and error hints.",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "publisher": "i18n-rust",
   "license": "MIT",
   "repository": {
@@ -418,18 +418,27 @@
       }
     ],
     "snippets": [
-      {
-        "language": "rust-zh",
-        "path": "./snippets/rust-zh.json"
-      }
+      { "language": "rust-zh", "path": "./snippets/rust-zh.json" },
+      { "language": "rust-ja", "path": "./snippets/rust-ja.json" },
+      { "language": "rust-de", "path": "./snippets/rust-de.json" },
+      { "language": "rust-es", "path": "./snippets/rust-es.json" },
+      { "language": "rust-fr", "path": "./snippets/rust-fr.json" },
+      { "language": "rust-pt", "path": "./snippets/rust-pt.json" },
+      { "language": "rust-ru", "path": "./snippets/rust-ru.json" },
+      { "language": "rust-ko", "path": "./snippets/rust-ko.json" },
+      { "language": "rust-hi", "path": "./snippets/rust-hi.json" },
+      { "language": "rust-ar", "path": "./snippets/rust-ar.json" }
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run gen:grammars && npm run esbuild:min",
+    "vscode:prepublish": "npm run gen:all && npm run esbuild:min",
     "gen:grammars": "node scripts/gen-grammars.mjs",
+    "gen:snippets": "node scripts/gen-snippets.mjs",
+    "gen:ui": "node scripts/gen-ui-strings.mjs",
+    "gen:all": "npm run gen:grammars && npm run gen:snippets && npm run gen:ui",
     "esbuild": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
     "esbuild:min": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
-    "build": "npm run gen:grammars && npm run compile && npm run esbuild",
+    "build": "npm run gen:all && npm run compile && npm run esbuild",
     "compile": "tsc -p ./",
     "typecheck": "tsc -noEmit -p ./",
     "watch": "tsc -watch -p ./",

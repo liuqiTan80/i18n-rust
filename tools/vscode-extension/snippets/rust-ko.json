@@ -1,0 +1,172 @@
+{
+  "메인": {
+    "prefix": "메인",
+    "body": [
+      "함수 메인() {",
+      "    $0",
+      "}"
+    ],
+    "description": "main function entry"
+  },
+  "출력_줄": {
+    "prefix": "출력_줄",
+    "body": [
+      "출력_줄!(${1:msg});"
+    ],
+    "description": "print a line of text"
+  },
+  "출력_줄fmt": {
+    "prefix": "출력_줄fmt",
+    "body": [
+      "출력_줄!(\"${1:format}\", ${2:args});"
+    ],
+    "description": "print formatted text"
+  },
+  "선언": {
+    "prefix": "선언",
+    "body": [
+      "선언 ${1:name} = ${2:value};"
+    ],
+    "description": "declare an immutable binding"
+  },
+  "선언가변": {
+    "prefix": "선언가변",
+    "body": [
+      "선언 가변 ${1:name} = ${2:value};"
+    ],
+    "description": "declare a mutable binding"
+  },
+  "만약": {
+    "prefix": "만약",
+    "body": [
+      "만약 ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "if statement"
+  },
+  "만약그렇지_않으면": {
+    "prefix": "만약그렇지_않으면",
+    "body": [
+      "만약 ${1:cond} {",
+      "    $2",
+      "} 그렇지_않으면 {",
+      "    $0",
+      "}"
+    ],
+    "description": "if/else statement"
+  },
+  "각각": {
+    "prefix": "각각",
+    "body": [
+      "각각 ${1:item} 안에 ${2:iter} {",
+      "    $0",
+      "}"
+    ],
+    "description": "for loop"
+  },
+  "동안": {
+    "prefix": "동안",
+    "body": [
+      "동안 ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "while loop"
+  },
+  "루프": {
+    "prefix": "루프",
+    "body": [
+      "루프 {",
+      "    $0",
+      "}"
+    ],
+    "description": "infinite loop"
+  },
+  "매치": {
+    "prefix": "매치",
+    "body": [
+      "매치 ${1:expr} {",
+      "    ${2:pattern} => ${3:result},",
+      "    $0",
+      "}"
+    ],
+    "description": "match expression"
+  },
+  "구조체": {
+    "prefix": "구조체",
+    "body": [
+      "구조체 ${1:Name} {",
+      "    ${2:field}: ${3:Type},",
+      "    $0",
+      "}"
+    ],
+    "description": "struct definition"
+  },
+  "열거형": {
+    "prefix": "열거형",
+    "body": [
+      "열거형 ${1:Name} {",
+      "    ${2:Variant},",
+      "    $0",
+      "}"
+    ],
+    "description": "enum definition"
+  },
+  "트레이트": {
+    "prefix": "트레이트",
+    "body": [
+      "트레이트 ${1:Name} {",
+      "    함수 ${2:method}(${3:args}) -> ${4:Ret};",
+      "    $0",
+      "}"
+    ],
+    "description": "trait definition"
+  },
+  "구현": {
+    "prefix": "구현",
+    "body": [
+      "구현 ${1:Type} {",
+      "    함수 ${2:method}(${3:args}) -> ${4:Ret} {",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "impl block"
+  },
+  "벡터": {
+    "prefix": "벡터",
+    "body": [
+      "벡터![${1:elem}]"
+    ],
+    "description": "create a vector"
+  },
+  "일부": {
+    "prefix": "일부",
+    "body": [
+      "일부(${1:value})"
+    ],
+    "description": "Option::Some"
+  },
+  "없음": {
+    "prefix": "없음",
+    "body": [
+      "없음"
+    ],
+    "description": "Option::None"
+  },
+  "성공": {
+    "prefix": "성공",
+    "body": [
+      "성공(${1:value})"
+    ],
+    "description": "Result::Ok"
+  },
+  "오류": {
+    "prefix": "오류",
+    "body": [
+      "오류(${1:msg})"
+    ],
+    "description": "Result::Err"
+  }
+}

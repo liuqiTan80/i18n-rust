@@ -51,6 +51,9 @@ enum CliCommand {
         // 缺省跟随系统 locale（LC_ALL/LANG）：全球用户的第一个项目应是自己的母语
         #[arg(short, long, default_value_t = mapping_gen::detect_system_language())]
         lang: String,
+        /// Also generate AGENTS.md (native-language coding guide for AI assistants, rendered from the current language pack)
+        #[arg(long)]
+        ai: bool,
     },
     Run {
         file: PathBuf,
@@ -125,6 +128,38 @@ enum CliCommand {
         /// Output as a Markdown table for embedding into docs
         #[arg(long)]
         markdown: bool,
+    },
+    /// Native-language coding guide: writing rules + full term tables for learners and AI assistants
+    Guide {
+        /// Built-in language code (e.g. zh); auto-detected from the system language when omitted
+        #[arg(short, long)]
+        lang: Option<String>,
+        /// Write the guide to the given file (e.g. AGENTS.md) instead of stdout
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
+    /// Cross-native reading: re-transpile a dialect / standard Rust project into another dialect
+    /// (transpile each source to standard Rust, then relocalize it to the target dialect; the
+    /// mirrored project stays structurally faithful and can be built again with `rzc build`). Missing
+    /// target-term entries keep their English text (registered as gaps); one-to-many reverse lookups
+    /// pick a deterministic candidate, so cross-native "reading" need not byte-match the original word.
+    Relocalize {
+        /// Target dialect language code (required, e.g. ja); becomes the output project's language
+        #[arg(long)]
+        to: String,
+        /// Source dialect language code; auto-detected per file from its extension when omitted
+        #[arg(long)]
+        from: Option<String>,
+        /// Output directory (mirrors the source layout with the target extension); defaults to a
+        /// sibling `relocalized.<to>` directory next to the source project root
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        /// Override the source language pack directory (target always resolves from `--to`)
+        #[arg(short, long)]
+        lang_pack: Option<PathBuf>,
+        /// Project directory or source files to convert; defaults to the current directory
+        #[arg(num_args = 0..)]
+        files: Vec<PathBuf>,
     },
 }
 
@@ -330,9 +365,13 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
     }
 
     match args.command {
-        CliCommand::Init { project_name, lang } => {
+        CliCommand::Init {
+            project_name,
+            lang,
+            ai,
+        } => {
             i18n_rust_engine::语言::set_language(&lang);
-            create_project(&project_name, &lang)?;
+            create_project(&project_name, &lang, ai)?;
             Ok(std::process::ExitCode::SUCCESS)
         }
         CliCommand::Run { file, lang_pack } => {
@@ -690,6 +729,13 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let _ = ui; // stdout 模式无需额外提示
             Ok(std::process::ExitCode::SUCCESS)
         }
+        CliCommand::Relocalize {
+            to,
+            from,
+            out_dir,
+            lang_pack,
+            files,
+        } => relocalize_targets(&to, &from, &out_dir, &lang_pack, &files),
         CliCommand::Install { subcommand } => {
             // 省略子命令时默认安装全部组件（当前仅语言服务器）
             match subcommand.unwrap_or(InstallCommand::Lsp { force: false }) {
@@ -724,7 +770,32 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let fake_source = PathBuf::from(format!("main.{lang_code}"));
             // 借虚拟扩展名让 load_mapping 走既有解析链（项目内 → 全局 → 内置语言包）
             let manager = load_mapping(None, Some(&fake_source))?;
-            print_cheat(&manager, &lang_code, markdown);
+            print!(
+                "{}",
+                i18n_rust_engine::guide::render_cheat(&manager, &lang_code, markdown)
+            );
+            Ok(std::process::ExitCode::SUCCESS)
+        }
+        CliCommand::Guide { lang, out } => {
+            let lang_code = lang
+                .clone()
+                .unwrap_or_else(mapping_gen::detect_system_language);
+            // 指南正文随语言包界面消息切换（guide_* 键），先同步引擎全局语言
+            i18n_rust_engine::语言::set_language(&lang_code);
+            let fake_source = PathBuf::from(format!("main.{lang_code}"));
+            let manager = load_mapping(None, Some(&fake_source))?;
+            let guide = i18n_rust_engine::guide::render_agent_guide(&manager, &lang_code);
+            match out {
+                Some(path) => {
+                    // 写盘成功才报「已生成」：失败时让异常冒泡到顶层母语错误出口
+                    fs::write(&path, guide)?;
+                    println!(
+                        "{}",
+                        ui::Ui::global().f("agents_generated", &[&path.display().to_string()])
+                    );
+                }
+                None => print!("{guide}"),
+            }
             Ok(std::process::ExitCode::SUCCESS)
         }
         CliCommand::Lang { subcommand } => {
@@ -1627,6 +1698,127 @@ fn eject_sources(
     Ok(outputs)
 }
 
+/// `rzc relocalize`：把方言 / 标准 Rust 工程反译重生为目标方言（跨母语阅读）
+///
+/// 逐文件管线与 [`eject`] 同源但更纯粹：源方言 →（正向 [`transpile_pipeline`]）
+/// 标准 Rust →（引擎 [`relocalize`]）目标方言；镜像写出到 `out_dir`（默认源工程
+/// 根旁的 `relocalized.<to>`），复制 `Cargo.toml` 与 `rust-toolchain`，并用目标
+/// 语言包渲染 `AGENTS.md`。
+///
+/// 产物是纯方言源（不含 `#[path]` 产物注解——那些由 rzc 正向构建时按托管布局
+/// 再补），结构随源保持一致，可再次 `rzc build` 编译。保真边界：目标语言包缺该
+/// 词条（尤其带 `::` 的多段模块路径）时该段保留英文；一词多母语反查取排序最小
+/// 的确定候选，故跨母语「阅读」不保证逐字节还原某一种子方言的原词。
+fn relocalize_targets(
+    to: &str,
+    from: &Option<String>,
+    out_dir: &Option<PathBuf>,
+    lang_pack: &Option<PathBuf>,
+    files: &[PathBuf],
+) -> anyhow::Result<std::process::ExitCode> {
+    // 锚点：优先显式路径，否则当前目录（默认整目录遍历）
+    let anchor = files
+        .first()
+        .cloned()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    let ui = ui_for_file(&PathBuf::from(format!("main.{to}")), &None);
+    if !anchor.exists() {
+        anyhow::bail!(
+            "{}",
+            ui.f("input_missing", &[&anchor.display().to_string()])
+        );
+    }
+    // 源工程根：目录即扫描根（并向上定位 Cargo 根），文件则定位其 Cargo 根
+    let (scan_root, project_root) = if anchor.is_dir() {
+        let root = find_project_root_upward(&anchor).unwrap_or_else(|| anchor.clone());
+        (anchor.clone(), root)
+    } else {
+        let root = find_project_root(&anchor)?;
+        (root.clone(), root)
+    };
+    // 目标语言包 manager（英文 → 目标母语反查），借虚拟扩展名走既有解析链
+    let target_manager = load_mapping(None, Some(&PathBuf::from(format!("main.{to}"))))?;
+    // 输出目录：显式优先，否则源工程根旁 `relocalized.<to>`
+    let out_root = out_dir
+        .clone()
+        .unwrap_or_else(|| project_root.join(format!("relocalized.{to}")));
+
+    // 收集候选源文件：方言文件 + 标准 .rs（把 rs 临时登记为“方言”扩展名以复用遍历）
+    let mut extensions = lang_manager::all_available_extensions();
+    extensions.push("rs".to_string());
+    let sources = collect_dialect_files(&scan_root, &extensions);
+    if sources.is_empty() {
+        anyhow::bail!(
+            "{}",
+            ui.f("eject_no_source", &[&scan_root.display().to_string()])
+        );
+    }
+
+    // 源语言 manager 缓存（按语言代码）；--from 显式时统一用该语言
+    let mut manager_cache: HashMap<String, MappingManager> = HashMap::new();
+    let mut count = 0usize;
+    let mut wrote_entry = false;
+    for path in &sources {
+        if out_root.is_absolute() && path.starts_with(&out_root) {
+            continue; // 跳过上一次运行写出的目录（幂等重跑不自我吞噬）
+        }
+        let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let source = fs::read_to_string(path)?;
+        let english = if extension == "rs" {
+            source // 已是标准 Rust：正向不转译，直接反译
+        } else {
+            // 方言源：按其语言（或 --from 指定）正向转译到标准 Rust
+            let lang = from.clone().unwrap_or_else(|| {
+                get_lang_code_from_extension(extension).unwrap_or_else(|| extension.to_string())
+            });
+            if !manager_cache.contains_key(&lang) {
+                let fake = PathBuf::from(format!("main.{lang}"));
+                let m = load_mapping(lang_pack.clone(), Some(&fake))?;
+                manager_cache.insert(lang.clone(), m);
+            }
+            i18n_rust_engine::transpile_pipeline(&source, &manager_cache[&lang]).output
+        };
+        let dialect = i18n_rust_engine::relocalize::relocalize(&english, &target_manager);
+        // 镜像写出：相对扫描根的路径，扩展名换为目标语言代码
+        let rel = path.strip_prefix(&scan_root).unwrap_or(path.as_path());
+        let out_path = out_root.join(rel).with_extension(to);
+        if let Some(parent) = out_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(&out_path, dialect)?;
+        count += 1;
+        let stem = out_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        if is_entry_stem(stem, &target_manager) {
+            wrote_entry = true;
+        }
+    }
+
+    // 复制清单与工具链锁定（源工程根存在才复制）
+    for name in ["Cargo.toml", "rust-toolchain.toml", "rust-toolchain"] {
+        let src = project_root.join(name);
+        if src.is_file() {
+            let _ = fs::copy(&src, out_root.join(name));
+        }
+    }
+    // 目标方言 AGENTS.md（与 guide 打通，复用引擎渲染；失败不阻断产物写出）
+    let _ = fs::write(
+        out_root.join("AGENTS.md"),
+        i18n_rust_engine::guide::render_agent_guide(&target_manager, to),
+    );
+
+    if !wrote_entry {
+        i18n_rust_engine::log_warn!("relocalize", "{}", ui.t("relocalize_no_module_entry"));
+    }
+    println!(
+        "{}",
+        ui.f(
+            "relocalize_done",
+            &[&count.to_string(), &out_root.display().to_string()]
+        )
+    );
+    Ok(std::process::ExitCode::SUCCESS)
+}
+
 /// 同 [`transpile_source_with_project`]，附项目级声明上下文（跨文件声明豁免）
 ///
 /// 缓存语境指纹由引擎并入项目上下文指纹（[`transpile_source_with_project`]）：
@@ -2105,123 +2297,7 @@ fn detect_toolchain_channel() -> Option<String> {
     }
 }
 
-/// 输出母语 ↔ Rust 映射速查表（`rzc cheat`）
-///
-/// 四张表（关键字/模块路径/别名/派生特征）逐节输出，母语词按显示宽度对齐；
-/// 母语词与英文原词相同的恒等条目不输出（如 en 语言包整表恒等，仅提示）。
-/// `markdown` 模式输出可嵌入教程/README 的表格。
-fn print_cheat(manager: &MappingManager, lang_code: &str, markdown: bool) {
-    let derive_map = manager.get_derive_map();
-    let sections: [(&str, &HashMap<String, String>); 4] = [
-        ("Keywords / 关键字", manager.get_keyword_map()),
-        ("Module paths / 模块路径", manager.get_module_path_map()),
-        ("Aliases / 别名", manager.get_alias_map()),
-        ("Derives / 派生特征", derive_map),
-    ];
-
-    // 过滤恒等条目（native == english）后统计剩余量：全恒等则无需速查
-    let sections: Vec<(&str, Vec<(String, String)>)> = sections
-        .into_iter()
-        .map(|(title, map)| {
-            let rows: Vec<(String, String)> = map
-                .iter()
-                .filter(|(native, en)| native != en)
-                .map(|(native, en)| (native.clone(), en.clone()))
-                .collect();
-            (title, rows)
-        })
-        .collect();
-
-    let total: usize = sections.iter().map(|(_, rows)| rows.len()).sum();
-    if total == 0 {
-        println!("rzc cheat — {lang_code} ↔ Rust");
-        println!();
-        println!("This language pack maps every identifier to itself (identity mapping).");
-        println!("No cheat sheet is needed — write Rust as usual.");
-        return;
-    }
-
-    if markdown {
-        println!("# rzc cheat — {lang_code} ↔ Rust ({total})");
-    } else {
-        println!("rzc cheat — {lang_code} ↔ Rust（共 {total} 条）");
-    }
-    println!();
-    print_danger_legend(markdown);
-    for (title, rows) in &sections {
-        if rows.is_empty() {
-            continue;
-        }
-        if markdown {
-            println!("## {title}");
-            println!();
-            println!("| {lang_code} | Rust | 危险等级 | 备注 |");
-            println!("|---|---|---|---|");
-            for (native, en) in rows {
-                let danger = manager.danger_of(native);
-                println!(
-                    "| {native} | `{en}` | {} | {} |",
-                    danger.level.label(),
-                    markdown_cell(&danger.note)
-                );
-            }
-            println!();
-        } else {
-            let width = rows
-                .iter()
-                .map(|(n, _)| n.chars().count())
-                .max()
-                .unwrap_or(0);
-            println!("── {title} ──");
-            for (native, en) in rows {
-                let danger = manager.danger_of(native);
-                let pad = width - native.chars().count();
-                let note = if danger.note.is_empty() {
-                    String::new()
-                } else {
-                    format!("  // {}", danger.note)
-                };
-                println!(
-                    "  {native}{}  {en}  [{}]{note}",
-                    " ".repeat(pad),
-                    danger.level.label()
-                );
-            }
-            println!();
-        }
-    }
-    if markdown {
-        println!("> Generated by `rzc cheat {lang_code} --markdown`.");
-    }
-}
-
-/// 词条表危险等级图例：三类含义必须与逐条标注同时出现，避免误读
-fn print_danger_legend(markdown: bool) {
-    if markdown {
-        println!("> **危险等级图例**：");
-        println!(
-            "> - `纯安全`：只在受保护位置（声明位/方法调用位/use 路径段）替换，不改写自定义标识符；"
-        );
-        println!("> - `会改写标识符`：词法层任意位置替换，同名自定义标识符也会被改写；");
-        println!(
-            "> - `会 panic`：运行时可能 panic，默认请选安全同义条目，仅调用处显式选择时使用；"
-        );
-        println!("> - 同一词条同时涉及多种风险时以 `+` 连接，并在「备注」列说明。");
-        println!();
-    } else {
-        println!(
-            "危险等级：纯安全 = 受保护位置替换｜会改写标识符 = 任意位置替换（同名标识符会被改写）｜会 panic = 运行时可能 panic（仅显式选择）"
-        );
-        println!();
-    }
-}
-
-/// Markdown 表格单元转义：竖线与换行会破坏表格结构
-fn markdown_cell(text: &str) -> String {
-    text.replace('|', "\\|").replace(['\n', '\r'], " ")
-}
-
-fn create_project(project_name: &str, lang: &str) -> anyhow::Result<()> {
+fn create_project(project_name: &str, lang: &str, ai: bool) -> anyhow::Result<()> {
     let ui = ui::Ui::for_lang(lang);
     i18n_rust_engine::语言::set_language(lang);
     let project_path = PathBuf::from(project_name);
@@ -2279,6 +2355,17 @@ fn create_project(project_name: &str, lang: &str) -> anyhow::Result<()> {
         project_path.join(".gitignore"),
         "/target\n.rz/gen/\n*.rs.bak\n",
     )?;
+    // AI 协作说明书：由当前语言包实时渲染（书写规则 + 全量词条表），
+    // 不是一次性静态文案——语言包更新后 `rzc guide --out AGENTS.md` 可刷新；
+    // 主流 AI 编程助手（含本仓库贡献者工作流）会阅读 AGENTS.md 作为项目上下文
+    if ai {
+        let manager = load_mapping(None, Some(&PathBuf::from(format!("main.{lang}"))))?;
+        fs::write(
+            project_path.join("AGENTS.md"),
+            i18n_rust_engine::guide::render_agent_guide(&manager, lang),
+        )?;
+        println!("{}", ui.f("agents_generated", &["AGENTS.md"]));
+    }
     println!("{}", ui.f("project_created", &[project_name]));
     println!("{}", ui.f("project_created_hint", &[lang]));
     println!("{}", ui.f("project_run_hint", &[lang]));
@@ -2433,6 +2520,7 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
         .mut_subcommand("init", |cmd| {
             cmd.about(ui.t("cmd_init_about"))
                 .mut_arg("lang", |arg| arg.help(ui.t("arg_lang_help")))
+                .mut_arg("ai", |arg| arg.help(ui.t("cmd_init_ai_help")))
         })
         .mut_subcommand("run", |cmd| cmd.about(ui.t("cmd_run_about")))
         .mut_subcommand("check", |cmd| {
@@ -2473,6 +2561,19 @@ fn localize_clap(ui: &ui::Ui) -> clap::Command {
             cmd.about(ui.t("cmd_cheat_about"))
                 .mut_arg("lang", |arg| arg.help(ui.t("arg_cheat_lang_help")))
                 .mut_arg("markdown", |arg| arg.help(ui.t("arg_markdown_help")))
+        })
+        .mut_subcommand("guide", |cmd| {
+            cmd.about(ui.t("cmd_guide_about"))
+                .mut_arg("lang", |arg| arg.help(ui.t("arg_guide_lang_help")))
+                .mut_arg("out", |arg| arg.help(ui.t("arg_guide_out_help")))
+        })
+        .mut_subcommand("relocalize", |cmd| {
+            cmd.about(ui.t("cmd_relocalize_about"))
+                .mut_arg("to", |arg| arg.help(ui.t("arg_relocalize_to_help")))
+                .mut_arg("from", |arg| arg.help(ui.t("arg_relocalize_from_help")))
+                .mut_arg("out_dir", |arg| {
+                    arg.help(ui.t("arg_relocalize_out_dir_help"))
+                })
         })
         .mut_subcommand("lang", |cmd| {
             cmd.about(ui.t("cmd_lang_about"))

@@ -222,6 +222,7 @@ rzc run src/main.ja              # 翻訳 → コンパイル → 実行
 | `rzc check <ファイル>` | 型チェック、母語の教学診断を出力 |
 | `rzc eject <ファイル>` | 標準 Rust コードとしてエクスポート（段階的移行） |
 | `rzc transpile <ファイル>` | 翻訳のみ——標準 Rust を標準出力へ |
+| `rzc relocalize --to <言語>` | 母語間閲覧：方言 / 標準 Rust プロジェクトを別方言へ再ローカル化（成果物は rzc build で再ビルド可） |
 | `rzc cheat <言語>` | 母語 ↔ Rust 対応早見表（`--markdown` でドキュメント埋め込み可） |
 | `rzc add <crate名>[@バージョン]` | 依存クレートを追加（`cargo add` のラッパー、母語マッピングのヒント付き） |
 | `rzc doctor` | ツールチェーン環境を診断（内蔵 / PATH / バージョン比較） |

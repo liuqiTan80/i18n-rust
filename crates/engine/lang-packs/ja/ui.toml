@@ -3,6 +3,12 @@
 # プレースホルダ {引数} は実行時にプログラムが置き換える。
 
 ["界面消息"]
+"ext_need_dialect_file" = "方言ソースファイル（.zh/.ja など）を開いてください"
+"ext_lsp_restarted" = "言語サーバーを再起動しました"
+"ext_explain_need_file" = "診断の説明を使う前にファイルを開いてください"
+"ext_explain_no_diag" = "現在のファイルにエラーや警告はなく、説明は不要です"
+"ext_explain_no_diag_nearby" = "カーソル付近の診断が見つかりません"
+"ext_add_dep_no_workspace" = "ワークスペースが開かれていないため、依存追加できません"
 
 # ---- Unicode character names (confusable-character warnings) ----
 "unicode_name_00AD" = "­ (Soft Hyphen)"
@@ -590,6 +596,32 @@
 "arg_gaps_export_help" = "リストを TSV（列：LEVEL/CODE/メッセージ、タブ区切り）で指定パスにエクスポート"
 "arg_gaps_clear_help" = "リストを削除します（翻訳表を補った後に使用）"
 
+
+"cmd_guide_about" = "母語プログラミングガイド（全用語表＋記述ルール、学習者 とAIアシスタント向け）"
+"cmd_relocalize_about" = "母語間閲覧：方言 / 標準 Rust プロジェクトをターゲット方言へ再ローカル化（ファイルごとに標準 Rust へ正向変換してから逆変換、構造は忠実で rzc build で再ビルド可）"
+"arg_relocalize_to_help" = "ターゲット方言の言語コード（必須、例 ja）；出力プロジェクトの言語を決めます"
+"arg_relocalize_from_help" = "ソース方言の言語コード；省略時は各ファイルの拡張子から自動検出"
+"arg_relocalize_out_dir_help" = "出力ディレクトリ（ソース構造をミラーし拡張子をターゲット言語に変更）；既定はソース プロジェクト ルート横の relocalized.<to>"
+"relocalize_done" = "{} 個のファイルを再ローカル化しました：{}"
+"relocalize_no_module_entry" = "出力プロジェクトにエントリファイル（main / 主関数語）が見つかりません。rzc build で直接ビルドできない可能性があります"
+"arg_guide_lang_help" = "内蔵言語コード（例 zh）；省略時はシステム言語から自動検出"
+"arg_guide_out_help" = "ガイドを指定ファイルに書き出す（例 AGENTS.md）"
+"cmd_init_ai_help" = "プロジェクト内に AGENTS.md も生成する（AI プログラミングガイド、現在の言語パックからレンダリング）"
+"agents_generated" = "AI プログラミングガイドを生成しました：{}（言語パック更新後は rzc guide の再実行で更新できます）"
+"guide_title" = "# rzc 母語プログラミングガイド —— {} ↔ Rust"
+"guide_intro" = "このプロジェクトは{}で Rust を書きます：言語構造（キーワード／マクロ）と標準ライブラリ呼び出しは母語の用語を使い、rzc が標準 Rust に変換して公式ツールチェーンでコンパイルします。コード生成・変更時は以下の記述ルールと全用語表に従ってください。"
+"guide_rules_head" = "## 記述ルール"
+"guide_rule_keywords" = "- 言語キーワード・マクロ・標準ライブラリの型／メソッドは必ず下の用語表の母語用語を使う（`fn` ではなく母語の関数キーワード、`println!` ではなく母語のマクロ用語など）：英語形はコンパイルできるが「英語フォールバック」教学ヒントが出ます。"
+"guide_rule_ident" = "- 自作の関数名・変数名・型名は母語でも英語でもよく、変換時にそのまま保持されます。ただし「識別子を書き換える」級の用語は同名のカスタム識別子も書き換えるため、命名時に避けてください。"
+"guide_rule_punct" = "- コード位置では半角句読点（カンマ・セミコロン・括弧・引用符）を使用：全角句読点は文字列とコメント内のみ許可され、それ以外は rzc が警告します。"
+"guide_rule_danger" = "- 用語表の「危険等級」列：`純安全` は保護された位置でのみ置換／`識別子を書き換える` は任意の位置で置換（同名カスタム識別子も書き換わる）／`panic する` は実行時 panic の可能性があるため明示選択時のみ使用、安全な同義語を優先。複数リスクは `+` で連結し備考列に説明。"
+"guide_rule_workflow" = "- 作業フロー：`rzc run src/main.{}` で実行、`rzc check <ファイル>` で検証のみ。診断の行／列は母語ソースの位置へ自動で逆変換されます。IDE では i18n-rust VS Code 拡張でライブ診断と母語補完が利用できます。"
+"guide_rule_pitfalls" = "- 実測で分かった2つの落とし穴：標準 Rust に `\"\"\"` のトリプルクォート多行文字列はなく、書くとパースエラーになります——多行テキストは raw 文字列 `r#\"…\"#`（内の `\"` はエスケープ不要）または行単位連結 `ベクタ![行1, 行2].連結(\"\\n\")`（各行は通常の文字列、内の引用符は `\\\"` にエスケープ）。また `親()`（`Path::parent()`）は借用 `Option<&パス>` を返すため、所有値 `パスバッファ`（`PathBuf`）が必要な箇所（関数の戻り値など）では `.to_path_buf()`（母語用語未登録のため英語表記）で所有値に変換します。"
+"guide_rule_gaps" = "- 出力に未翻訳の英語メッセージが現れたら `rzc gaps` で未翻訳リストを確認できます（実行には影響なし）。翻訳表の充実はコミュニティ貢献の一部です。"
+"guide_table_head" = "## 全用語表（{} 件）"
+"guide_example_head" = "## 例：エントリーファイルの正しい書き方"
+"guide_footer" = "`rzc guide` で生成。言語パック更新後は再実行して更新してください。"
+"lint_english_fallback" = "{} 行目 {} 列：`{}` には母語用語 `{}` があります。母語での記述を推奨（教学ヒント）"
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

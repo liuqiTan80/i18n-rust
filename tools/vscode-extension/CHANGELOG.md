@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.8.6
+
+### 新增
+- **10 方言代码片段**：`snippets/rust-<code>.json` 由 `scripts/gen-snippets.mjs` 从各语言包
+  keywords.toml 生成（此前仅手工维护 `rust-zh.json`），`contributes.snippets` 扩为 10 方言。
+- **单一真值守卫**：新增共享 TOML 解析 `scripts/toml-parse.mjs`（gen-grammars/snippets/ui
+  三脚本共用）；快捷反馈文案从 `lang-packs/zh/ui.toml` 的 `ext_*` 键生成
+  `src/generated/ui-strings.ts`，`extension.ts` 改为从生成常量取用。`npm run gen:all` 一键
+  重生成，CI 「生成物与语言包同步检查」对 syntaxes/ snippets/ src/generated/ 漂移即失败。
+
+### 变更
+- 版本号跟随 CLI 0.8.6 对齐发布；本轮 CLI 新增的 `rzc guide` / `rzc init --ai`（AGENTS.md）
+  与 `rzc relocalize`（跨母语阅读）为命令侧能力，不改变扩展交互。
+
 ## 0.8.5
 
 ### 变更

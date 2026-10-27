@@ -222,6 +222,7 @@ En trois étapes, votre premier programme Rust en langue maternelle tourne.
 | `rzc check <fichier>` | Vérification de types avec diagnostic pédagogique localisé |
 | `rzc eject <fichier>` | Exporter en code Rust standard (transition progressive) |
 | `rzc transpile <fichier>` | Traduire seulement — Rust standard sur stdout |
+| `rzc relocalize --to <langue>` | Lecture interlangues : relocaliser un projet dialecte / Rust standard vers un autre dialecte (la sortie se reconstruit avec rzc build) |
 | `rzc cheat <langue>` | Aide-mémoire langue ↔ Rust (`--markdown` pour l'intégrer dans la documentation) |
 | `rzc add <crate>[@version]` | Ajouter une dépendance (enveloppe `cargo add`, avec conseils de mappage natif) |
 | `rzc doctor` | Diagnostiquer l'environnement de la toolchain (intégré / PATH / comparaison de versions) |

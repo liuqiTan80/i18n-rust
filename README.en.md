@@ -218,6 +218,7 @@ rzc run src/main.zh      # translate → compile → run
 | `rzc check <file>` | Type-check with localized teaching diagnostics |
 | `rzc eject <file>` | Export to standard Rust code (gradual transition) |
 | `rzc transpile <file>` | Translate only — print standard Rust to stdout |
+| `rzc relocalize --to <lang>` | Cross-native reading: relocalize a dialect / standard Rust project into another dialect (output rebuilds with `rzc build`) |
 | `rzc cheat <lang>` | Native ↔ Rust mapping cheat sheet (`--markdown` for embedding) |
 | `rzc add <crate>[@version]` | Add a dependency (wraps `cargo add`, with localized mapping hints) |
 | `rzc doctor` | Diagnose the toolchain environment (embedded / PATH / version diff) |

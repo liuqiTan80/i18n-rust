@@ -1066,6 +1066,7 @@ impl ProxyServer {
                     &entry,
                     mapper.lint_words(),
                     &mapper.ambiguous_constructor_words(),
+                    mapper.english_fallback_map(),
                 );
                 mapped["diagnostics"] = Value::Array(final_diags);
             }
@@ -1749,6 +1750,7 @@ fn handle_analyzer_message(
                             &entry,
                             mapper.lint_words(),
                             &mapper.ambiguous_constructor_words(),
+                            mapper.english_fallback_map(),
                         );
                         mapped["diagnostics"] = Value::Array(merged_diags.clone());
                     }

@@ -40,6 +40,7 @@ import { AIError, AIConfig, ChatMessage } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
 import { runDialectGenerate, DialectValidation, findEnglishKeywordTokens } from './ai/dialect-generate';
 import { loadLanguagePack, buildDialectGuard } from './ai/prompt-builder';
+import { 界面文案 } from './generated/ui-strings';
 import { 选择光标诊断 } from './diagnostic-pick';
 import { 全角符号映射, 全角符号检测正则, 扫描词法状态, 扫描词法状态们, 计算插入字符位置们, 应转换全角 } from './fullwidth-convert';
 import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
@@ -582,7 +583,7 @@ function 注册命令(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('i18n-rust.run', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
             if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
-                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.ja 等）');
+                vscode.window.showWarningMessage(界面文案['ext_need_dialect_file']);
                 return;
             }
 
@@ -596,7 +597,7 @@ function 注册命令(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('i18n-rust.check', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
             if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
-                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.ja 等）');
+                vscode.window.showWarningMessage(界面文案['ext_need_dialect_file']);
                 return;
             }
 
@@ -610,7 +611,7 @@ function 注册命令(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('i18n-rust.eject', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
             if (!编辑器 || !方言语言Id.includes(编辑器.document.languageId)) {
-                vscode.window.showWarningMessage('请打开一个方言源码文件（.zh/.ja 等）');
+                vscode.window.showWarningMessage(界面文案['ext_need_dialect_file']);
                 return;
             }
 
@@ -644,7 +645,7 @@ function 注册命令(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('i18n-rust.restartServer', async () => {
             await 重启服务器(context);
-            vscode.window.showInformationMessage('语言服务器已重启');
+            vscode.window.showInformationMessage(界面文案['ext_lsp_restarted']);
         })
     );
 
@@ -968,18 +969,18 @@ function 注册AI命令(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('i18n-rust.explainDiagnostic', async () => {
             const 编辑器 = vscode.window.activeTextEditor;
             if (!编辑器) {
-                vscode.window.showWarningMessage('请先打开一个文件，再使用诊断讲解');
+                vscode.window.showWarningMessage(界面文案['ext_explain_need_file']);
                 return;
             }
             const 诊断们 = vscode.languages.getDiagnostics(编辑器.document.uri);
             if (诊断们.length === 0) {
-                vscode.window.showInformationMessage('当前文件没有错误或警告，无需讲解');
+                vscode.window.showInformationMessage(界面文案['ext_explain_no_diag']);
                 return;
             }
             const 光标 = 编辑器.selection.active;
             const 诊断 = 选择光标诊断(诊断们, { line: 光标.line, character: 光标.character });
             if (!诊断) {
-                vscode.window.showWarningMessage('未找到光标附近的诊断');
+                vscode.window.showWarningMessage(界面文案['ext_explain_no_diag_nearby']);
                 return;
             }
 
@@ -1355,7 +1356,7 @@ function 注册映射工具命令(context: vscode.ExtensionContext): void {
             }
             const 工作区根 = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
             if (!工作区根) {
-                vscode.window.showWarningMessage('未打开工作区，无法添加依赖');
+                vscode.window.showWarningMessage(界面文案['ext_add_dep_no_workspace']);
                 return;
             }
             const 终端 = 获取命令终端(工作区根);

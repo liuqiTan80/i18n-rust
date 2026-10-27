@@ -19,7 +19,7 @@
 //! 扫描器与 fullwidth 模块同构：状态机跳过字符串/字符/原始字符串与
 //! 注释，仅在代码位置判定，避免把字符串内容误判为代码问题。
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// 教学 lint 全局开关（默认开启，进程级）
@@ -51,6 +51,8 @@ pub enum LintKind {
     DeepIndent,
     /// 方法调用位的长中文串未命中映射表且与表内词近似（疑似笔误）
     ConfusableMethod,
+    /// 母语方言源码里把有母语词条的结构词写成英文（`fn`/`Vec`/`.collect()`…）
+    EnglishFallback,
 }
 
 /// 单个教学 lint 警告：位置（1 起行/列）+ 规则 + 相关文本
@@ -85,6 +87,15 @@ impl LintWarning {
             }
             LintKind::ConfusableMethod => crate::语言::f(
                 "lint_confusable_method",
+                &[
+                    &self.line.to_string(),
+                    &self.column.to_string(),
+                    &self.text,
+                    &self.extra,
+                ],
+            ),
+            LintKind::EnglishFallback => crate::语言::f(
+                "lint_english_fallback",
                 &[
                     &self.line.to_string(),
                     &self.column.to_string(),
@@ -373,6 +384,223 @@ pub fn lint_teaching_with_words(
     }
     finish_let_scan(&mut let_scan, &mut warnings, ambiguous_constructors);
     // 过滤被「教学忽略」标记的行（三种规则统一按行过滤）
+    warnings.retain(|w| !ignored_lines.contains(&w.line));
+    warnings
+}
+
+/// 声明关键字：其后紧跟的名字视为用户命名，回落 lint 豁免不提示
+const DECL_KEYWORDS: &[&str] = &[
+    "fn", "let", "struct", "enum", "union", "trait", "type", "mod", "impl", "const", "static",
+];
+
+/// Rust 保留关键字：不可能作为自定义标识符，出现英文且有母语词条即回落提示
+const RUST_KEYWORDS: &[&str] = &[
+    "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern",
+    "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub",
+    "ref", "return", "self", "Self", "static", "struct", "super", "trait", "true", "type",
+    "unsafe", "use", "where", "while", "yield",
+];
+
+/// 英文回落 lint：在母语方言源码中提示「有母语词条却写成英文」的结构词
+///
+/// `fallback_map`：英文原词 → 母语词条（见
+/// [`crate::mapping_manager::MappingManager::english_fallback_map`]）；恒等映射的
+/// 英文语言包传入空表，本函数直接返回空（自动静默，不误伤英文原生写法）。
+///
+/// 只在**结构位置**判定以降噪（避免把同名自定义变量/字段误报）：
+/// - Rust 保留关键字（`fn`/`let`/`match`…）任意代码位出现即提示（保留字不可能是自定义名）；
+/// - 宏调用 `词!`、方法/关联函数调用 `.词(` / `::词(`、路径头 `词::`、泛型 `词<`——
+///   这些位置的英文词有母语词条时提示。
+///
+/// 声明关键字（`fn`/`let`/`struct`…）后紧跟的名字视为用户命名，豁免不提示；
+/// 同一英文词每文件只在首个命中处提示一次（避免 `fn`×50 刷屏）。字符串/字符/
+/// 原始串/注释内的英文由状态机跳过，与其余教学 lint 同构；行注释含「教学忽略」跳过整行。
+pub fn lint_english_fallback(
+    source: &str,
+    fallback_map: &HashMap<String, String>,
+) -> Vec<LintWarning> {
+    if fallback_map.is_empty() {
+        return Vec::new();
+    }
+    let chars: Vec<char> = source.chars().collect();
+    let mut warnings = Vec::new();
+    let mut reported: HashSet<String> = HashSet::new();
+    let mut ignored_lines: HashSet<usize> = HashSet::new();
+    let mut line = 1usize;
+    let mut col = 1usize;
+    // 字面量状态：0=代码 1=双引号串 2=字符 3=原始串
+    let mut literal: u8 = 0;
+    let mut raw_hashes = 0usize;
+    let mut prev_char = '\0'; // 紧邻前一个字符（含空白），用于标识符边界判定
+    let mut prev_plain = '\0'; // 上一个非空白代码字符
+    let mut prev_prev_plain = '\0'; // prev_plain 前一个非空白代码字符
+    let mut after_decl = false; // 上一标识符是声明关键字：其后的名字豁免
+
+    let mut i = 0usize;
+    while i < chars.len() {
+        let ch = chars[i];
+        if ch == '\n' {
+            line += 1;
+            col = 1;
+            if literal == 2 || literal == 3 {
+                // 字符/原始串内未闭合引号：行尾强制退出，避免状态污染后续行
+                literal = 0;
+            }
+            prev_char = '\n';
+            i += 1;
+            continue;
+        }
+        match literal {
+            1 | 2 => {
+                if ch == '\\' {
+                    i += 2;
+                    col += 1;
+                    prev_char = '\\';
+                    continue;
+                }
+                let closing = if literal == 1 { '"' } else { '\'' };
+                if ch == closing {
+                    literal = 0;
+                }
+            }
+            3 => {
+                // 原始串 r#"..."#：遇 " 后跟等量 # 退出
+                if ch == '"' {
+                    let hashes = chars[i + 1..].iter().take_while(|c| **c == '#').count();
+                    if hashes >= raw_hashes {
+                        literal = 0;
+                        raw_hashes = 0;
+                    }
+                }
+            }
+            _ => match ch {
+                '"' => literal = 1,
+                '\'' => literal = 2,
+                '/' if prev_plain == '/' => {
+                    // 行注释：吞到行尾；含「教学忽略」标记整行
+                    let comment_start = i;
+                    while i < chars.len() && chars[i] != '\n' {
+                        i += 1;
+                        col += 1;
+                    }
+                    let comment: String = chars[comment_start..i].iter().collect();
+                    if comment.contains(IGNORE_MARK) {
+                        ignored_lines.insert(line);
+                    }
+                    prev_char = '\0';
+                    prev_plain = '\0';
+                    prev_prev_plain = '\0';
+                    continue;
+                }
+                '*' if prev_plain == '/' => {
+                    // 块注释（不处理嵌套，够用）
+                    while i < chars.len() {
+                        let c2 = chars[i];
+                        i += 1;
+                        if c2 == '\n' {
+                            line += 1;
+                            col = 1;
+                        } else if c2 == '*' && i < chars.len() && chars[i] == '/' {
+                            i += 1;
+                            col += 2;
+                            break;
+                        } else {
+                            col += 1;
+                        }
+                    }
+                    prev_char = '\0';
+                    prev_plain = '\0';
+                    prev_prev_plain = '\0';
+                    continue;
+                }
+                c if (c.is_ascii_alphabetic() || c == '_') && is_ident_boundary(prev_char) => {
+                    // 提取连续 ASCII 标识符 token
+                    let start_line = line;
+                    let start_col = col;
+                    let mut j = i;
+                    while j < chars.len() && (chars[j].is_ascii_alphanumeric() || chars[j] == '_') {
+                        j += 1;
+                    }
+                    let token: String = chars[i..j].iter().collect();
+                    // 字节/原始字符串前缀（r / b / br 后紧跟 # 或 ")：转入字面量状态
+                    if matches!(token.as_str(), "r" | "b" | "br") {
+                        let mut h = 0usize;
+                        let mut q = j;
+                        while q < chars.len() && chars[q] == '#' {
+                            h += 1;
+                            q += 1;
+                        }
+                        if q < chars.len() && chars[q] == '"' {
+                            if token == "b" && h == 0 {
+                                literal = 1; // 字节串 b"..."：转义规则同普通串
+                            } else {
+                                literal = 3;
+                                raw_hashes = h;
+                            }
+                            col += q + 1 - i;
+                            i = q + 1;
+                            prev_char = '"';
+                            prev_plain = '"';
+                            prev_prev_plain = '\0';
+                            after_decl = false;
+                            continue;
+                        }
+                    }
+                    // token 后首个非空白字符及其后继（判定结构位置）
+                    let mut k = j;
+                    while k < chars.len() && chars[k].is_whitespace() {
+                        k += 1;
+                    }
+                    let next = chars.get(k).copied();
+                    let next2 = chars.get(k + 1).copied();
+                    let followed_call = next == Some('(');
+                    let followed_generic = next == Some('<');
+                    let followed_path = next == Some(':') && next2 == Some(':');
+                    let followed_macro = next == Some('!');
+                    let preceded_dot = prev_plain == '.';
+                    let preceded_colons = prev_plain == ':' && prev_prev_plain == ':';
+                    let is_decl_kw = DECL_KEYWORDS.contains(&token.as_str());
+                    // 声明关键字后的用户命名（after_decl）豁免不提示；其余按结构位置判定
+                    if !after_decl && fallback_map.contains_key(token.as_str()) {
+                        let structural = RUST_KEYWORDS.contains(&token.as_str())
+                            || followed_macro
+                            || (followed_call && (preceded_dot || preceded_colons))
+                            || followed_path
+                            || followed_generic;
+                        if structural && reported.insert(token.clone()) {
+                            let native = fallback_map[&token].clone();
+                            warnings.push(LintWarning {
+                                line: start_line,
+                                column: start_col,
+                                kind: LintKind::EnglishFallback,
+                                text: token.clone(),
+                                extra: native,
+                            });
+                        }
+                    }
+                    after_decl = is_decl_kw;
+                    // 推进到 token 末尾
+                    let last = chars[j - 1];
+                    col += j - i;
+                    i = j;
+                    prev_char = last;
+                    prev_prev_plain = prev_plain;
+                    prev_plain = last;
+                    continue;
+                }
+                _ => {}
+            },
+        }
+        // 普通字符推进：非空白才更新 prev_plain（用于 . 与 :: 判定）并清除命名豁免
+        if !(ch == ' ' || ch == '\t' || ch == '\r') {
+            after_decl = false;
+            prev_prev_plain = prev_plain;
+            prev_plain = ch;
+        }
+        prev_char = ch;
+        i += 1;
+        col += 1;
+    }
     warnings.retain(|w| !ignored_lines.contains(&w.line));
     warnings
 }
@@ -1104,6 +1332,117 @@ mod tests {
         assert!(
             !ch_warns.iter().any(|w| w.kind == LintKind::MagicNumber),
             "字符字面量内 5 不应报魔法数字：{ch_warns:?}"
+        );
+    }
+
+    /// 回落测试用反向索引（英文 → 母语），模拟 zh 语言包的一批常见词
+    fn zh_fallback() -> HashMap<String, String> {
+        [
+            ("fn", "函数"),
+            ("let", "让"),
+            ("struct", "结构体"),
+            ("match", "匹配"),
+            ("pub", "公开"),
+            ("mut", "可变"),
+            ("Vec", "向量"),
+            ("String", "字符串"),
+            ("new", "新建"),
+            ("collect", "收集"),
+            ("clone", "克隆"),
+            ("println", "打印行"),
+            ("sum", "求和"),
+        ]
+        .into_iter()
+        .map(|(en, zh)| (en.to_string(), zh.to_string()))
+        .collect()
+    }
+
+    /// 结构位置的英文被提示；恒等空表自动静默
+    #[test]
+    fn test_english_fallback_flags_structural_positions() {
+        let map = zh_fallback();
+        let src = "fn main() {\n    let v = Vec::new();\n}";
+        let warns = lint_english_fallback(src, &map);
+        let flagged: Vec<&str> = warns.iter().map(|w| w.text.as_str()).collect();
+        // fn/let 保留字、Vec 路径头、new 关联函数调用 均应提示
+        assert!(flagged.contains(&"fn"), "fn 应提示：{warns:?}");
+        assert!(flagged.contains(&"let"), "let 应提示：{warns:?}");
+        assert!(flagged.contains(&"Vec"), "Vec:: 应提示：{warns:?}");
+        assert!(flagged.contains(&"new"), "::new() 应提示：{warns:?}");
+        // main（fn 后的函数名）与 v（let 后的变量名）为用户命名，豁免
+        assert!(!flagged.contains(&"main"), "函数名不应提示：{warns:?}");
+        assert!(!flagged.contains(&"v"), "变量名不应提示：{warns:?}");
+        // 空表（英文恒等映射语言包）静默
+        assert!(lint_english_fallback(src, &HashMap::new()).is_empty());
+    }
+
+    /// 方法调用位 `.collect()` / 宏 `println!` / 泛型 `Vec<` 被提示
+    #[test]
+    fn test_english_fallback_method_macro_generic() {
+        let map = zh_fallback();
+        let warns = lint_english_fallback("让 和 = 数们.iter().map(|x| x).collect();", &map);
+        assert!(
+            warns.iter().any(|w| w.text == "collect"),
+            ".collect() 应提示：{warns:?}"
+        );
+        let macro_warns = lint_english_fallback("println!(\"hi\");", &map);
+        assert!(
+            macro_warns.iter().any(|w| w.text == "println"),
+            "println! 应提示：{warns:?}"
+        );
+        let generic = lint_english_fallback("让 a: Vec<i32> = 向量::新建();", &map);
+        assert!(
+            generic.iter().any(|w| w.text == "Vec"),
+            "Vec< 泛型位应提示：{generic:?}"
+        );
+    }
+
+    /// 降噪：字符串/注释内英文跳过；同一英文词每文件仅首个命中提示一次；
+    /// 非结构位的裸标识符（变量名恰好等于映射词）不误报
+    #[test]
+    fn test_english_fallback_dedup_and_noise() {
+        let map = zh_fallback();
+        // 多个 fn 只报一次
+        let many = lint_english_fallback("fn a() {}\nfn b() {}\nfn c() {}", &map);
+        assert_eq!(
+            many.iter().filter(|w| w.text == "fn").count(),
+            1,
+            "fn 应去重为一条：{many:?}"
+        );
+        // 字符串与行注释内的 collect 不提示
+        let in_str = lint_english_fallback("让 s = \"collect\"; // collect\n让 变量 = 5;", &map);
+        assert!(
+            !in_str.iter().any(|w| w.text == "collect"),
+            "字符串/注释内 collect 不应提示：{in_str:?}"
+        );
+        // 裸标识符（无 ( < :: ! 结构位）不误报：sum 作为变量名
+        let bare = lint_english_fallback("让 求和值 = 总和 + 统计;", &map);
+        assert!(bare.is_empty(), "纯母语写法不应提示：{bare:?}");
+        // 「教学忽略」行整行跳过
+        let ignored = lint_english_fallback("fn x() {} // 教学忽略", &map);
+        assert!(
+            !ignored.iter().any(|w| w.text == "fn"),
+            "教学忽略行不应提示：{ignored:?}"
+        );
+    }
+
+    /// 声明关键字后的用户命名豁免：`fn collect()` 的 collect、`struct String` 的 String 不提示
+    #[test]
+    fn test_english_fallback_exempts_declared_names() {
+        let map = zh_fallback();
+        let warns = lint_english_fallback("fn collect() {}\nstruct String;", &map);
+        let flagged: Vec<&str> = warns.iter().map(|w| w.text.as_str()).collect();
+        // fn/struct 关键字自身提示
+        assert!(flagged.contains(&"fn"), "fn 应提示：{warns:?}");
+        assert!(flagged.contains(&"struct"), "struct 应提示：{warns:?}");
+        // 但其后的函数名/结构体名（恰与映射词同名）豁免
+        assert!(
+            !flagged.contains(&"collect"),
+            "声明的函数名不应提示：{warns:?}"
+        );
+        assert!(
+            !flagged.contains(&"String"),
+            "声明的结构体名不应提示：{warns:?}"
         );
     }
 }

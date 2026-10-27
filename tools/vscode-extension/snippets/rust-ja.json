@@ -1,0 +1,172 @@
+{
+  "主関数": {
+    "prefix": "主関数",
+    "body": [
+      "関数 主関数() {",
+      "    $0",
+      "}"
+    ],
+    "description": "main function entry"
+  },
+  "表示行": {
+    "prefix": "表示行",
+    "body": [
+      "表示行!(${1:msg});"
+    ],
+    "description": "print a line of text"
+  },
+  "表示行fmt": {
+    "prefix": "表示行fmt",
+    "body": [
+      "表示行!(\"${1:format}\", ${2:args});"
+    ],
+    "description": "print formatted text"
+  },
+  "宣言": {
+    "prefix": "宣言",
+    "body": [
+      "宣言 ${1:name} = ${2:value};"
+    ],
+    "description": "declare an immutable binding"
+  },
+  "宣言可変": {
+    "prefix": "宣言可変",
+    "body": [
+      "宣言 可変 ${1:name} = ${2:value};"
+    ],
+    "description": "declare a mutable binding"
+  },
+  "もし": {
+    "prefix": "もし",
+    "body": [
+      "もし ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "if statement"
+  },
+  "もしそうでなければ": {
+    "prefix": "もしそうでなければ",
+    "body": [
+      "もし ${1:cond} {",
+      "    $2",
+      "} そうでなければ {",
+      "    $0",
+      "}"
+    ],
+    "description": "if/else statement"
+  },
+  "各": {
+    "prefix": "各",
+    "body": [
+      "各 ${1:item} 中 ${2:iter} {",
+      "    $0",
+      "}"
+    ],
+    "description": "for loop"
+  },
+  "間": {
+    "prefix": "間",
+    "body": [
+      "間 ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "while loop"
+  },
+  "ループ": {
+    "prefix": "ループ",
+    "body": [
+      "ループ {",
+      "    $0",
+      "}"
+    ],
+    "description": "infinite loop"
+  },
+  "マッチ": {
+    "prefix": "マッチ",
+    "body": [
+      "マッチ ${1:expr} {",
+      "    ${2:pattern} => ${3:result},",
+      "    $0",
+      "}"
+    ],
+    "description": "match expression"
+  },
+  "構造体": {
+    "prefix": "構造体",
+    "body": [
+      "構造体 ${1:Name} {",
+      "    ${2:field}: ${3:Type},",
+      "    $0",
+      "}"
+    ],
+    "description": "struct definition"
+  },
+  "列挙型": {
+    "prefix": "列挙型",
+    "body": [
+      "列挙型 ${1:Name} {",
+      "    ${2:Variant},",
+      "    $0",
+      "}"
+    ],
+    "description": "enum definition"
+  },
+  "トレイト": {
+    "prefix": "トレイト",
+    "body": [
+      "トレイト ${1:Name} {",
+      "    関数 ${2:method}(${3:args}) -> ${4:Ret};",
+      "    $0",
+      "}"
+    ],
+    "description": "trait definition"
+  },
+  "実装": {
+    "prefix": "実装",
+    "body": [
+      "実装 ${1:Type} {",
+      "    関数 ${2:method}(${3:args}) -> ${4:Ret} {",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "impl block"
+  },
+  "ベクタ": {
+    "prefix": "ベクタ",
+    "body": [
+      "ベクタ![${1:elem}]"
+    ],
+    "description": "create a vector"
+  },
+  "あり": {
+    "prefix": "あり",
+    "body": [
+      "あり(${1:value})"
+    ],
+    "description": "Option::Some"
+  },
+  "なし": {
+    "prefix": "なし",
+    "body": [
+      "なし"
+    ],
+    "description": "Option::None"
+  },
+  "成功": {
+    "prefix": "成功",
+    "body": [
+      "成功(${1:value})"
+    ],
+    "description": "Result::Ok"
+  },
+  "エラー": {
+    "prefix": "エラー",
+    "body": [
+      "エラー(${1:msg})"
+    ],
+    "description": "Result::Err"
+  }
+}

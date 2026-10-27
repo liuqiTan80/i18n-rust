@@ -6,73 +6,73 @@
       "    $0",
       "}"
     ],
-    "description": "中文 Rust 主函数入口"
+    "description": "main function entry"
   },
   "打印行": {
     "prefix": "打印行",
     "body": [
-      "打印行!(\"${1:消息}\");"
+      "打印行!(${1:msg});"
     ],
-    "description": "打印一行文本"
+    "description": "print a line of text"
   },
-  "打印格式化": {
-    "prefix": "打印格式化",
+  "打印行fmt": {
+    "prefix": "打印行fmt",
     "body": [
-      "打印行!(\"${1:格式}\", ${2:参数});"
+      "打印行!(\"${1:format}\", ${2:args});"
     ],
-    "description": "打印格式化文本"
+    "description": "print formatted text"
   },
-  "让变量": {
+  "让": {
     "prefix": "让",
     "body": [
-      "让 ${1:变量名} = ${2:值};"
+      "让 ${1:name} = ${2:value};"
     ],
-    "description": "声明不可变变量"
+    "description": "declare an immutable binding"
   },
-  "让可变变量": {
+  "让可变": {
     "prefix": "让可变",
     "body": [
-      "让 可变 ${1:变量名} = ${2:值};"
+      "让 可变 ${1:name} = ${2:value};"
     ],
-    "description": "声明可变变量"
+    "description": "declare a mutable binding"
   },
-  "如果表达式": {
+  "如果": {
     "prefix": "如果",
     "body": [
-      "如果 ${1:条件} {",
+      "如果 ${1:cond} {",
       "    $0",
       "}"
     ],
-    "description": "条件语句"
+    "description": "if statement"
   },
   "如果否则": {
     "prefix": "如果否则",
     "body": [
-      "如果 ${1:条件} {",
+      "如果 ${1:cond} {",
       "    $2",
       "} 否则 {",
       "    $0",
       "}"
     ],
-    "description": "条件语句带否则分支"
+    "description": "if/else statement"
   },
-  "对于循环": {
+  "对于": {
     "prefix": "对于",
     "body": [
-      "对于 ${1:元素} 在 ${2:迭代器} {",
+      "对于 ${1:item} 在 ${2:iter} {",
       "    $0",
       "}"
     ],
-    "description": "对于循环"
+    "description": "for loop"
   },
-  "当循环": {
+  "当": {
     "prefix": "当",
     "body": [
-      "当 ${1:条件} {",
+      "当 ${1:cond} {",
       "    $0",
       "}"
     ],
-    "description": "当循环"
+    "description": "while loop"
   },
   "循环": {
     "prefix": "循环",
@@ -81,92 +81,92 @@
       "    $0",
       "}"
     ],
-    "description": "无限循环"
+    "description": "infinite loop"
   },
-  "匹配表达式": {
+  "匹配": {
     "prefix": "匹配",
     "body": [
-      "匹配 ${1:表达式} {",
-      "    ${2:模式} => ${3:结果},",
+      "匹配 ${1:expr} {",
+      "    ${2:pattern} => ${3:result},",
       "    $0",
       "}"
     ],
-    "description": "匹配表达式"
+    "description": "match expression"
   },
-  "结构体定义": {
+  "结构体": {
     "prefix": "结构体",
     "body": [
-      "结构体 ${1:名称} {",
-      "    ${2:字段}: ${3:类型},",
+      "结构体 ${1:Name} {",
+      "    ${2:field}: ${3:Type},",
       "    $0",
       "}"
     ],
-    "description": "结构体定义"
+    "description": "struct definition"
   },
-  "枚举定义": {
+  "枚举": {
     "prefix": "枚举",
     "body": [
-      "枚举 ${1:名称} {",
-      "    ${2:变体},",
+      "枚举 ${1:Name} {",
+      "    ${2:Variant},",
       "    $0",
       "}"
     ],
-    "description": "枚举定义"
+    "description": "enum definition"
   },
-  "特征定义": {
+  "特征": {
     "prefix": "特征",
     "body": [
-      "特征 ${1:名称} {",
-      "    函数 ${2:方法名}(${3:参数}) -> ${4:返回类型};",
+      "特征 ${1:Name} {",
+      "    函数 ${2:method}(${3:args}) -> ${4:Ret};",
       "    $0",
       "}"
     ],
-    "description": "特征定义"
+    "description": "trait definition"
   },
-  "实现块": {
+  "实现": {
     "prefix": "实现",
     "body": [
-      "实现 ${1:类型} {",
-      "    函数 ${2:方法名}(${3:参数}) -> ${4:返回类型} {",
+      "实现 ${1:Type} {",
+      "    函数 ${2:method}(${3:args}) -> ${4:Ret} {",
       "        $0",
       "    }",
       "}"
     ],
-    "description": "实现块"
+    "description": "impl block"
   },
-  "向量创建": {
+  "向量": {
     "prefix": "向量",
     "body": [
-      "向量![${1:元素}]"
+      "向量![${1:elem}]"
     ],
-    "description": "创建向量"
+    "description": "create a vector"
   },
-  "选项有值": {
+  "有值": {
     "prefix": "有值",
     "body": [
-      "有值(${1:值})"
+      "有值(${1:value})"
     ],
-    "description": "选项::有值"
+    "description": "Option::Some"
   },
-  "选项无": {
+  "无": {
     "prefix": "无",
     "body": [
       "无"
     ],
-    "description": "选项::无"
+    "description": "Option::None"
   },
-  "结果成功": {
+  "成功": {
     "prefix": "成功",
     "body": [
-      "成功(${1:值})"
+      "成功(${1:value})"
     ],
-    "description": "结果::成功"
+    "description": "Result::Ok"
   },
-  "结果错误": {
+  "错误": {
     "prefix": "错误",
     "body": [
-      "错误(${1:错误信息})"
+      "错误(${1:msg})"
     ],
-    "description": "结果::错误"
+    "description": "Result::Err"
   }
 }

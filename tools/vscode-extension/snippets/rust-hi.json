@@ -1,0 +1,172 @@
+{
+  "मुख्य": {
+    "prefix": "मुख्य",
+    "body": [
+      "फंक्शन मुख्य() {",
+      "    $0",
+      "}"
+    ],
+    "description": "main function entry"
+  },
+  "पंक्ति_छापो": {
+    "prefix": "पंक्ति_छापो",
+    "body": [
+      "पंक्ति_छापो!(${1:msg});"
+    ],
+    "description": "print a line of text"
+  },
+  "पंक्ति_छापोfmt": {
+    "prefix": "पंक्ति_छापोfmt",
+    "body": [
+      "पंक्ति_छापो!(\"${1:format}\", ${2:args});"
+    ],
+    "description": "print formatted text"
+  },
+  "मानो": {
+    "prefix": "मानो",
+    "body": [
+      "मानो ${1:name} = ${2:value};"
+    ],
+    "description": "declare an immutable binding"
+  },
+  "मानोपरिवर्तनीय": {
+    "prefix": "मानोपरिवर्तनीय",
+    "body": [
+      "मानो परिवर्तनीय ${1:name} = ${2:value};"
+    ],
+    "description": "declare a mutable binding"
+  },
+  "यदि": {
+    "prefix": "यदि",
+    "body": [
+      "यदि ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "if statement"
+  },
+  "यदिअन्यथा": {
+    "prefix": "यदिअन्यथा",
+    "body": [
+      "यदि ${1:cond} {",
+      "    $2",
+      "} अन्यथा {",
+      "    $0",
+      "}"
+    ],
+    "description": "if/else statement"
+  },
+  "के_लिए": {
+    "prefix": "के_लिए",
+    "body": [
+      "के_लिए ${1:item} में ${2:iter} {",
+      "    $0",
+      "}"
+    ],
+    "description": "for loop"
+  },
+  "जबकि": {
+    "prefix": "जबकि",
+    "body": [
+      "जबकि ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "while loop"
+  },
+  "लूप": {
+    "prefix": "लूप",
+    "body": [
+      "लूप {",
+      "    $0",
+      "}"
+    ],
+    "description": "infinite loop"
+  },
+  "मिलान": {
+    "prefix": "मिलान",
+    "body": [
+      "मिलान ${1:expr} {",
+      "    ${2:pattern} => ${3:result},",
+      "    $0",
+      "}"
+    ],
+    "description": "match expression"
+  },
+  "संरचना": {
+    "prefix": "संरचना",
+    "body": [
+      "संरचना ${1:Name} {",
+      "    ${2:field}: ${3:Type},",
+      "    $0",
+      "}"
+    ],
+    "description": "struct definition"
+  },
+  "गणना": {
+    "prefix": "गणना",
+    "body": [
+      "गणना ${1:Name} {",
+      "    ${2:Variant},",
+      "    $0",
+      "}"
+    ],
+    "description": "enum definition"
+  },
+  "लक्षण": {
+    "prefix": "लक्षण",
+    "body": [
+      "लक्षण ${1:Name} {",
+      "    फंक्शन ${2:method}(${3:args}) -> ${4:Ret};",
+      "    $0",
+      "}"
+    ],
+    "description": "trait definition"
+  },
+  "कार्यान्वयन": {
+    "prefix": "कार्यान्वयन",
+    "body": [
+      "कार्यान्वयन ${1:Type} {",
+      "    फंक्शन ${2:method}(${3:args}) -> ${4:Ret} {",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "impl block"
+  },
+  "वेक्टर_बनाओ": {
+    "prefix": "वेक्टर_बनाओ",
+    "body": [
+      "वेक्टर_बनाओ![${1:elem}]"
+    ],
+    "description": "create a vector"
+  },
+  "कुछ": {
+    "prefix": "कुछ",
+    "body": [
+      "कुछ(${1:value})"
+    ],
+    "description": "Option::Some"
+  },
+  "कुछ_नहीं": {
+    "prefix": "कुछ_नहीं",
+    "body": [
+      "कुछ_नहीं"
+    ],
+    "description": "Option::None"
+  },
+  "सफल": {
+    "prefix": "सफल",
+    "body": [
+      "सफल(${1:value})"
+    ],
+    "description": "Result::Ok"
+  },
+  "त्रुटि": {
+    "prefix": "त्रुटि",
+    "body": [
+      "त्रुटि(${1:msg})"
+    ],
+    "description": "Result::Err"
+  }
+}

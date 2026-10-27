@@ -222,6 +222,7 @@ In drei Schritten läuft dein erstes Muttersprach-Rust-Programm.
 | `rzc check <Datei>` | Typprüfung mit lokalisierter Lehrdiagnose |
 | `rzc eject <Datei>` | Als Standard-Rust-Code exportieren (schrittweiser Übergang) |
 | `rzc transpile <Datei>` | Nur übersetzen — Standard-Rust auf stdout |
+| `rzc relocalize --to <sprache>` | Sprachübergreifendes Lesen: ein Dialekt-/Standard-Rust-Projekt in einen anderen Dialekt rückübersetzen (Ausgabe baut erneut mit rzc build) |
 | `rzc cheat <Sprache>` | Muttersprache ↔ Rust-Spickzettel (`--markdown` zum Einbetten) |
 | `rzc add <Crate>[@Version]` | Abhängigkeit hinzufügen (wrappt `cargo add`, mit Hinweisen zu Muttersprach-Mappings) |
 | `rzc doctor` | Toolchain-Umgebung diagnostizieren (eingebaut / PATH / Versionsvergleich) |

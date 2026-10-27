@@ -1,0 +1,172 @@
+{
+  "hauptfunktion": {
+    "prefix": "hauptfunktion",
+    "body": [
+      "funktion hauptfunktion() {",
+      "    $0",
+      "}"
+    ],
+    "description": "main function entry"
+  },
+  "druckeZeile": {
+    "prefix": "druckeZeile",
+    "body": [
+      "druckeZeile!(${1:msg});"
+    ],
+    "description": "print a line of text"
+  },
+  "druckeZeilefmt": {
+    "prefix": "druckeZeilefmt",
+    "body": [
+      "druckeZeile!(\"${1:format}\", ${2:args});"
+    ],
+    "description": "print formatted text"
+  },
+  "lass": {
+    "prefix": "lass",
+    "body": [
+      "lass ${1:name} = ${2:value};"
+    ],
+    "description": "declare an immutable binding"
+  },
+  "lassmutabel": {
+    "prefix": "lassmutabel",
+    "body": [
+      "lass mutabel ${1:name} = ${2:value};"
+    ],
+    "description": "declare a mutable binding"
+  },
+  "wenn": {
+    "prefix": "wenn",
+    "body": [
+      "wenn ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "if statement"
+  },
+  "wennsonst": {
+    "prefix": "wennsonst",
+    "body": [
+      "wenn ${1:cond} {",
+      "    $2",
+      "} sonst {",
+      "    $0",
+      "}"
+    ],
+    "description": "if/else statement"
+  },
+  "fuer": {
+    "prefix": "fuer",
+    "body": [
+      "fuer ${1:item} in ${2:iter} {",
+      "    $0",
+      "}"
+    ],
+    "description": "for loop"
+  },
+  "solange": {
+    "prefix": "solange",
+    "body": [
+      "solange ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "while loop"
+  },
+  "schleife": {
+    "prefix": "schleife",
+    "body": [
+      "schleife {",
+      "    $0",
+      "}"
+    ],
+    "description": "infinite loop"
+  },
+  "abgleich": {
+    "prefix": "abgleich",
+    "body": [
+      "abgleich ${1:expr} {",
+      "    ${2:pattern} => ${3:result},",
+      "    $0",
+      "}"
+    ],
+    "description": "match expression"
+  },
+  "struktur": {
+    "prefix": "struktur",
+    "body": [
+      "struktur ${1:Name} {",
+      "    ${2:field}: ${3:Type},",
+      "    $0",
+      "}"
+    ],
+    "description": "struct definition"
+  },
+  "aufzaehlung": {
+    "prefix": "aufzaehlung",
+    "body": [
+      "aufzaehlung ${1:Name} {",
+      "    ${2:Variant},",
+      "    $0",
+      "}"
+    ],
+    "description": "enum definition"
+  },
+  "merkmal": {
+    "prefix": "merkmal",
+    "body": [
+      "merkmal ${1:Name} {",
+      "    funktion ${2:method}(${3:args}) -> ${4:Ret};",
+      "    $0",
+      "}"
+    ],
+    "description": "trait definition"
+  },
+  "implement": {
+    "prefix": "implement",
+    "body": [
+      "implement ${1:Type} {",
+      "    funktion ${2:method}(${3:args}) -> ${4:Ret} {",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "impl block"
+  },
+  "vektor": {
+    "prefix": "vektor",
+    "body": [
+      "vektor![${1:elem}]"
+    ],
+    "description": "create a vector"
+  },
+  "etwas": {
+    "prefix": "etwas",
+    "body": [
+      "etwas(${1:value})"
+    ],
+    "description": "Option::Some"
+  },
+  "nichts": {
+    "prefix": "nichts",
+    "body": [
+      "nichts"
+    ],
+    "description": "Option::None"
+  },
+  "ok": {
+    "prefix": "ok",
+    "body": [
+      "ok(${1:value})"
+    ],
+    "description": "Result::Ok"
+  },
+  "fehler": {
+    "prefix": "fehler",
+    "body": [
+      "fehler(${1:msg})"
+    ],
+    "description": "Result::Err"
+  }
+}

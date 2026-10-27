@@ -57,6 +57,8 @@ pub struct MappingManager {
     lint_words_cache: OnceLock<HashSet<String>>,
     /// 教学 lint 歧义构造器被调名集缓存（见 [`Self::ambiguous_constructor_words`]）
     ambiguous_constructors_cache: OnceLock<HashSet<String>>,
+    /// 英文回落反向索引缓存（英文原词 → 母语词条）：见 [`Self::english_fallback_map`]
+    english_fallback_cache: OnceLock<HashMap<String, String>>,
     /// 宏映射缓存（`["宏"]` 节的物化副本）：见 [`Self::get_macro_map`]
     macro_map_cache: OnceLock<HashMap<String, String>>,
     /// 危险元数据（`["危险等级"]` / `["危险备注"]` 节）：词条 → 风险声明
@@ -199,6 +201,7 @@ impl MappingManager {
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
             ambiguous_constructors_cache: OnceLock::new(),
+            english_fallback_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
             danger_map,
         })
@@ -288,6 +291,7 @@ impl MappingManager {
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
             ambiguous_constructors_cache: OnceLock::new(),
+            english_fallback_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
             danger_map,
         })
@@ -321,6 +325,7 @@ impl MappingManager {
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
             ambiguous_constructors_cache: OnceLock::new(),
+            english_fallback_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
             danger_map: HashMap::new(),
         }
@@ -398,6 +403,43 @@ impl MappingManager {
                 words
             })
             .clone()
+    }
+
+    /// 英文回落反向索引（英文原词 → 母语词条）：供教学 lint 提示「方言
+    /// 文件里写了英文 `fn`，它有母语词条 `函数`」。
+    ///
+    /// 取全部映射表（关键字/模块路径/别名/派生/宏）中**值恰为单个 Rust
+    /// 标识符**且与键不同（非恒等）的条目反转。同一英文词命中多个母语词时，
+    /// 按「更短 → 字典序更小」确定性选一个（提示只需一个建议词）。
+    /// 惰性计算一次后复用（映射表构造后不可变）；恒等映射的英文语言包
+    /// 得到空表 → 回落 lint 自动静默，不误伤英文原生写法。
+    pub fn english_fallback_map(&self) -> &HashMap<String, String> {
+        self.english_fallback_cache.get_or_init(|| {
+            let mut map: HashMap<String, String> = HashMap::new();
+            let tables = [
+                &self.keyword_map,
+                &self.module_path_map,
+                &self.alias_map,
+                &self.derive_map,
+                self.get_macro_map(),
+            ];
+            for table in tables {
+                for (native, en) in table {
+                    if native == en || !is_single_rust_ident(en) {
+                        continue;
+                    }
+                    // 同英文词多母语候选：取更短、再字典序更小者（结果确定）
+                    let replace = match map.get(en) {
+                        Some(cur) => prefer_native(native, cur),
+                        None => true,
+                    };
+                    if replace {
+                        map.insert(en.clone(), native.clone());
+                    }
+                }
+            }
+            map
+        })
     }
 
     /// 构建 use 段让位词集合：模块路径与别名映射键的并集
@@ -601,6 +643,25 @@ impl MappingManager {
         }
         cycles
     }
+}
+
+/// 判定字符串是否为单个 ASCII Rust 标识符（首字符字母/下划线、余下字母数字/下划线）。
+/// 排除含 `::`、空格、`<` 等的复合值（如模块路径 `std::fs`），
+/// 仅这些单标识符值才能作为回落 lint 的反转键。
+fn is_single_rust_ident(s: &str) -> bool {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() || c == '_' => {}
+        _ => return false,
+    }
+    s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// 同一英文词的多个母语候选中，`candidate` 是否优于 `current`（更短、
+/// 同长取字典序更小），保证反向索引结果确定（HashMap 迭代序无关）。
+fn prefer_native(candidate: &str, current: &str) -> bool {
+    let (cc, cu) = (candidate.chars().count(), current.chars().count());
+    cc < cu || (cc == cu && candidate < current)
 }
 
 #[cfg(test)]
@@ -981,5 +1042,36 @@ mod tests {
         assert_eq!(DangerLevel::parse("boom"), None);
         assert_eq!(DangerLevel::PANIC_REWRITE.code(), "panic+rewrite");
         assert!(DangerLevel::SAFE.is_safe());
+    }
+
+    /// 英文回落反向索引：英文原词→母语词条；恒等映射/复合值被过滤
+    #[test]
+    fn test_english_fallback_map() {
+        let lang_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
+        let manager = MappingManager::load_from_dir(&lang_dir).expect("内置语言包应可加载");
+        let fb = manager.english_fallback_map();
+        // 关键字/类型/方法常见英文词均能反查到某个母语词
+        for en in ["fn", "let", "Vec", "new", "collect"] {
+            assert!(fb.contains_key(en), "回落表应含 `{en}`：{fb:?}");
+            let native = &fb[en];
+            assert_ne!(native, en, "反向索引应过滤恒等条目");
+            assert!(
+                !native.is_ascii(),
+                "zh 回落建议词应为母语（含非 ASCII）：{en}→{native}"
+            );
+        }
+        // 含 `::` 的模块路径值不进入反向索引（非单标识符）
+        assert!(
+            !fb.keys().any(|k| k.contains("::")),
+            "反向索引键应为单标识符"
+        );
+
+        // 英文语言包（恒等映射）得到空表 → 回落 lint 自动静默
+        let en_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/en");
+        let en_manager = MappingManager::load_from_dir(&en_dir).expect("英文包应可加载");
+        assert!(
+            en_manager.english_fallback_map().is_empty(),
+            "英文恒等包回落反向索引应为空"
+        );
     }
 }

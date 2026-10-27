@@ -698,6 +698,11 @@ impl TranslationCache {
         self.manager.ambiguous_constructor_words()
     }
 
+    /// 英文回落 lint 反向索引（英文原词 → 母语词条）：manager 内惰性缓存一次
+    pub fn english_fallback_map(&self) -> &HashMap<String, String> {
+        self.manager.english_fallback_map()
+    }
+
     /// 获取合并反向表的引用（英文 → 母语，关键字优先于别名）
     ///
     /// 构造时预构建，供 ResponseMapper 共用，避免重复构建。

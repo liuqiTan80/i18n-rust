@@ -1,0 +1,172 @@
+{
+  "principal": {
+    "prefix": "principal",
+    "body": [
+      "funcion principal() {",
+      "    $0",
+      "}"
+    ],
+    "description": "main function entry"
+  },
+  "imprimir_linea": {
+    "prefix": "imprimir_linea",
+    "body": [
+      "imprimir_linea!(${1:msg});"
+    ],
+    "description": "print a line of text"
+  },
+  "imprimir_lineafmt": {
+    "prefix": "imprimir_lineafmt",
+    "body": [
+      "imprimir_linea!(\"${1:format}\", ${2:args});"
+    ],
+    "description": "print formatted text"
+  },
+  "dejar": {
+    "prefix": "dejar",
+    "body": [
+      "dejar ${1:name} = ${2:value};"
+    ],
+    "description": "declare an immutable binding"
+  },
+  "dejarmutable": {
+    "prefix": "dejarmutable",
+    "body": [
+      "dejar mutable ${1:name} = ${2:value};"
+    ],
+    "description": "declare a mutable binding"
+  },
+  "si": {
+    "prefix": "si",
+    "body": [
+      "si ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "if statement"
+  },
+  "sisino": {
+    "prefix": "sisino",
+    "body": [
+      "si ${1:cond} {",
+      "    $2",
+      "} sino {",
+      "    $0",
+      "}"
+    ],
+    "description": "if/else statement"
+  },
+  "para": {
+    "prefix": "para",
+    "body": [
+      "para ${1:item} en ${2:iter} {",
+      "    $0",
+      "}"
+    ],
+    "description": "for loop"
+  },
+  "mientras": {
+    "prefix": "mientras",
+    "body": [
+      "mientras ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "while loop"
+  },
+  "bucle": {
+    "prefix": "bucle",
+    "body": [
+      "bucle {",
+      "    $0",
+      "}"
+    ],
+    "description": "infinite loop"
+  },
+  "coincidir": {
+    "prefix": "coincidir",
+    "body": [
+      "coincidir ${1:expr} {",
+      "    ${2:pattern} => ${3:result},",
+      "    $0",
+      "}"
+    ],
+    "description": "match expression"
+  },
+  "estructura": {
+    "prefix": "estructura",
+    "body": [
+      "estructura ${1:Name} {",
+      "    ${2:field}: ${3:Type},",
+      "    $0",
+      "}"
+    ],
+    "description": "struct definition"
+  },
+  "enumeracion": {
+    "prefix": "enumeracion",
+    "body": [
+      "enumeracion ${1:Name} {",
+      "    ${2:Variant},",
+      "    $0",
+      "}"
+    ],
+    "description": "enum definition"
+  },
+  "rasgo": {
+    "prefix": "rasgo",
+    "body": [
+      "rasgo ${1:Name} {",
+      "    funcion ${2:method}(${3:args}) -> ${4:Ret};",
+      "    $0",
+      "}"
+    ],
+    "description": "trait definition"
+  },
+  "implementacion": {
+    "prefix": "implementacion",
+    "body": [
+      "implementacion ${1:Type} {",
+      "    funcion ${2:method}(${3:args}) -> ${4:Ret} {",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "impl block"
+  },
+  "vector": {
+    "prefix": "vector",
+    "body": [
+      "vector![${1:elem}]"
+    ],
+    "description": "create a vector"
+  },
+  "alguno": {
+    "prefix": "alguno",
+    "body": [
+      "alguno(${1:value})"
+    ],
+    "description": "Option::Some"
+  },
+  "ninguno": {
+    "prefix": "ninguno",
+    "body": [
+      "ninguno"
+    ],
+    "description": "Option::None"
+  },
+  "exito": {
+    "prefix": "exito",
+    "body": [
+      "exito(${1:value})"
+    ],
+    "description": "Result::Ok"
+  },
+  "error": {
+    "prefix": "error",
+    "body": [
+      "error(${1:msg})"
+    ],
+    "description": "Result::Err"
+  }
+}

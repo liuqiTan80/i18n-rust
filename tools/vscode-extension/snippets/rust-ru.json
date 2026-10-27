@@ -1,0 +1,172 @@
+{
+  "главная": {
+    "prefix": "главная",
+    "body": [
+      "функция главная() {",
+      "    $0",
+      "}"
+    ],
+    "description": "main function entry"
+  },
+  "печатай_строку": {
+    "prefix": "печатай_строку",
+    "body": [
+      "печатай_строку!(${1:msg});"
+    ],
+    "description": "print a line of text"
+  },
+  "печатай_строкуfmt": {
+    "prefix": "печатай_строкуfmt",
+    "body": [
+      "печатай_строку!(\"${1:format}\", ${2:args});"
+    ],
+    "description": "print formatted text"
+  },
+  "пусть": {
+    "prefix": "пусть",
+    "body": [
+      "пусть ${1:name} = ${2:value};"
+    ],
+    "description": "declare an immutable binding"
+  },
+  "пустьизменяемый": {
+    "prefix": "пустьизменяемый",
+    "body": [
+      "пусть изменяемый ${1:name} = ${2:value};"
+    ],
+    "description": "declare a mutable binding"
+  },
+  "если": {
+    "prefix": "если",
+    "body": [
+      "если ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "if statement"
+  },
+  "еслииначе": {
+    "prefix": "еслииначе",
+    "body": [
+      "если ${1:cond} {",
+      "    $2",
+      "} иначе {",
+      "    $0",
+      "}"
+    ],
+    "description": "if/else statement"
+  },
+  "для": {
+    "prefix": "для",
+    "body": [
+      "для ${1:item} в ${2:iter} {",
+      "    $0",
+      "}"
+    ],
+    "description": "for loop"
+  },
+  "пока": {
+    "prefix": "пока",
+    "body": [
+      "пока ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "while loop"
+  },
+  "цикл": {
+    "prefix": "цикл",
+    "body": [
+      "цикл {",
+      "    $0",
+      "}"
+    ],
+    "description": "infinite loop"
+  },
+  "матч": {
+    "prefix": "матч",
+    "body": [
+      "матч ${1:expr} {",
+      "    ${2:pattern} => ${3:result},",
+      "    $0",
+      "}"
+    ],
+    "description": "match expression"
+  },
+  "структура": {
+    "prefix": "структура",
+    "body": [
+      "структура ${1:Name} {",
+      "    ${2:field}: ${3:Type},",
+      "    $0",
+      "}"
+    ],
+    "description": "struct definition"
+  },
+  "перечисление": {
+    "prefix": "перечисление",
+    "body": [
+      "перечисление ${1:Name} {",
+      "    ${2:Variant},",
+      "    $0",
+      "}"
+    ],
+    "description": "enum definition"
+  },
+  "трейт": {
+    "prefix": "трейт",
+    "body": [
+      "трейт ${1:Name} {",
+      "    функция ${2:method}(${3:args}) -> ${4:Ret};",
+      "    $0",
+      "}"
+    ],
+    "description": "trait definition"
+  },
+  "реализация": {
+    "prefix": "реализация",
+    "body": [
+      "реализация ${1:Type} {",
+      "    функция ${2:method}(${3:args}) -> ${4:Ret} {",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "impl block"
+  },
+  "вектор": {
+    "prefix": "вектор",
+    "body": [
+      "вектор![${1:elem}]"
+    ],
+    "description": "create a vector"
+  },
+  "некоторое": {
+    "prefix": "некоторое",
+    "body": [
+      "некоторое(${1:value})"
+    ],
+    "description": "Option::Some"
+  },
+  "ничто": {
+    "prefix": "ничто",
+    "body": [
+      "ничто"
+    ],
+    "description": "Option::None"
+  },
+  "успех": {
+    "prefix": "успех",
+    "body": [
+      "успех(${1:value})"
+    ],
+    "description": "Result::Ok"
+  },
+  "ошибка": {
+    "prefix": "ошибка",
+    "body": [
+      "ошибка(${1:msg})"
+    ],
+    "description": "Result::Err"
+  }
+}

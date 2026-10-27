@@ -21,6 +21,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseToml } from './toml-parse.mjs';
 
 const 脚本目录 = path.dirname(fileURLToPath(import.meta.url));
 const 扩展目录 = path.resolve(脚本目录, '..');
@@ -45,39 +46,8 @@ const 表分类映射 = {
 };
 
 /**
- * 轻量 TOML 解析（与扩展内 prompt-builder 同规则）：
- * 仅处理 ["表名"] / "键" = "值" / 裸键表头与键，忽略其余行
+ * 轻量 TOML 解析见 ./toml-parse.mjs（与 gen-snippets / gen-ui-strings 共享同一实现）
  */
-function parseToml(content) {
-    const tables = new Map();
-    let current;
-    for (const rawLine of content.split('\n')) {
-        const line = stripComment(rawLine).trim();
-        if (!line) { continue; }
-        const header = /^\[\s*(?:"(.+?)"|([A-Za-z0-9_-]+))\s*\]$/.exec(line);
-        if (header) {
-            current = new Map();
-            tables.set(header[1] ?? header[2], current);
-            continue;
-        }
-        const kv = /^(?:"(.+?)"|([A-Za-z0-9_-]+))\s*=\s*"(.+?)"\s*$/.exec(line);
-        if (kv && current) {
-            current.set(kv[1] ?? kv[2], kv[3]);
-        }
-    }
-    return tables;
-}
-
-/** 去掉行尾注释（引号内的 # 不是注释） */
-function stripComment(line) {
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') { inQuotes = !inQuotes; }
-        else if (ch === '#' && !inQuotes) { return line.slice(0, i); }
-    }
-    return line;
-}
 
 /** 正则转义 */
 function 转义(文本) {

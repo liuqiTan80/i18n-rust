@@ -5,6 +5,94 @@
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-10-27
+
+### 新增
+- 母语书写引导三件套（针对「AI 用 rzc 写项目仍大量英文、只把几个关键字写成中文」
+  的体验落差，用最科学的方式纠偏非母语写法）：
+  - CLI：`rzc guide` 子命令——实时从当前语言包渲染《母语编程指南》（书写规则 +
+    入口示例 + 全量词条表），`--out AGENTS.md` 直接落盘；语言包更新后重跑即刷新，
+    不是一次性静态文案。
+  - CLI：`rzc init --ai` 建项目时同步写出 `AGENTS.md`（复用 `guide` 渲染）——主流 AI
+    编程助手读取该文件作为项目上下文，从源头减少英文回落。
+  - 教学 lint：英文回落提示——母语方言源码里把「有母语词条的结构词」写成英文时纠偏
+    （保留关键字 `fn`/`let`/`match`…、宏 `println!`、方法/关联函数 `.collect()`/`::new()`、
+    路径头 `Vec::`、泛型 `Vec<`）。只在结构位判定以降噪、声明名（`fn`/`let` 后的用户命名）
+    豁免、同一英文词每文件只在首个命中提示一次、字符串/注释由状态机跳过、行注释
+    「教学忽略」整行跳过；恒等映射的英文语言包得到空反向索引 → 自动静默。CLI 转译
+    管线与 LSP 诊断（`lint-english-fallback`，severity Hint）双通道一致，
+    `--no-lint` / `RZ_LSP_TEACHING_LINT=off` 可关闭。
+- 引擎：新增 `guide` 模块，把词条表渲染从 CLI 下沉到引擎，`rzc cheat` / `rzc guide` /
+  `rzc init --ai` 共用同一数据源与版式（分类/表头/危险等级标签/内容与历史一致，同一
+  分类内行序沿用 HashMap 迭代序）；`MappingManager::english_fallback_map` 提供英文→母语
+  反向索引（`OnceLock` 惰性缓存，过滤恒等条目与含 `::` 的复合值，多候选按「更短→字典序」确定）。
+- 语言包：11 语言新增 `cmd_guide_about`、`arg_guide_lang_help`、`arg_guide_out_help`、
+  `cmd_init_ai_help`、`agents_generated`、`guide_title`、`guide_intro`、`guide_rules_head`、
+  `guide_rule_keywords`、`guide_rule_ident`、`guide_rule_punct`、`guide_rule_danger`、
+  `guide_rule_workflow`、`guide_rule_gaps`、`guide_table_head`、`guide_example_head`、
+  `guide_footer`、`lint_english_fallback` 键（接进 clap 本地化），界面消息 545→563。
+- 语言包：`rzc guide` / `init --ai` 生成的 AGENTS.md 新增「实测坑」书写规则（新键
+  `guide_rule_pitfalls`，11 语言均按各自词表取名）——真实项目跑出来的两个坑：① 标准
+  Rust 无 `"""` 三引号多行字符串（写出报「期望 . ; ? }」），跨行文本用原始字符串
+  `r#"…"#` 或 `向量![..].连接("\n")` 逐行拼接；② `父目录()`（`Path::parent()`）返回借用
+  `Option<&Path>`，需拥有者 `PathBuf` 处补 `.转路径缓冲()`（`to_path_buf()`），界面消息 575→576；
+  `docs/missing-mapping-guide.md`「新手常见坑」同步这两条。
+- 反译重生 `relocalize`（跨母语阅读）：把此前只在 LSP/`dialect-convert.py` 原型里出现的
+  反译能力产品化为引擎级 + CLI 级全项目命令，任一母语方言 / 标准 Rust 工程可反译重生为
+  另一母语方言的可编译工程。
+  - 引擎：新增 `relocalize` 模块，`relocalize(standard_rust, target)` 复用
+    `lexer::reverse_transpile`（token 感知、注释/字符串原样）做正向管线的逆序反译；
+    `reverse_map_of` 合并目标语言包关键字/宏/派生特征/别名四表为「英文→母语」反查表，
+    按**表优先级** `关键字 > 宏 > 派生特征 > 别名` 依次填充、表内「排序最小者优先」——
+    保证核心词（如 `main`）取关键字词条而非第三方 crate 别名（tokio `メイン関数`），
+    产物不含该 crate 时仍可 `rzc build`。
+  - CLI：`rzc relocalize --to <lang>` 子命令——逐文件正向转译到标准 Rust 再反译为目标
+    方言，镜像写出源结构（扩展名换为目标语言），复制 `Cargo.toml`/`rust-toolchain` 并用
+    目标语言包渲染 `AGENTS.md`；`--from` 覆盖源方言（缺省按各文件扩展名自动检测）、
+    `--out-dir` 指定输出目录（默认为源工程根旁 `relocalized.<to>`）、`--lang-pack` 覆盖源
+    语言包目录。诚实标注边界：目标语言包缺该词条（尤其带 `::` 的多段模块路径）时该段
+    保留英文；一词多母语反查取确定候选，跨母语「阅读」不保证逐字节还原原词。
+  - 语言包：11 语言新增 `cmd_relocalize_about`、`arg_relocalize_to_help`、
+    `arg_relocalize_from_help`、`arg_relocalize_out_dir_help`、`relocalize_done`、
+    `relocalize_no_module_entry` 键（接进 clap 本地化），界面消息 569→575。
+
+### 测试
+- 反译重生：新增 `crates/engine/tests/relocalize.rs`（固定 zh 样例 → `relocalize(en, ja)`
+  产出含日文核心词条且入口取 `主関数` 而非 crate 别名 `メイン関数`、产物可转译回
+  `fn main`、正向/反译往返幂等、空输入与纯英文标准 Rust 不 panic）；`crates/cli/tests`
+  新增端到端：fixture zh 工程 `rzc relocalize --to ja` 镜像写出 `main.ja`、复制 Cargo.toml、
+  生成 AGENTS.md，产物 `rzc transpile` 回 `fn main`。
+- 引擎：新增词法差分测试 `crates/engine/tests/differential_lex.rs`（proptest +
+  `rustc_lexer`），把 `alias`/`lint` 的「声明位启发式」从经验规则升级为有 oracle 的规格：
+  随机生成语法良好-ish 的母语方言 token 流（覆盖 `fn`/`let`/`struct`/`enum`/`trait`/
+  `impl`/`const`/`static`/`type`/`mod` 声明位、普通标识符、`.method()`、`path::Segment`、
+  `宏!`、`::<T>` turbofish、字符串/字符/原始串、行/块注释），正向转译后用 `rustc_lexer`
+  重新词法化，断言四类不变量——① token 流结构同构（标点/字面量文本序列守恒，`!` 净增
+  恰等于省略感叹号的宏调用数、标识符数守恒）；② 空白与注释 token 逐一原样保留；③ 声明位
+  命名逐字节保真（取自别名表、在非声明位本会被改写的词，位于声明关键字后必须原样出现）；
+  ④ 幂等（英文产物再转译不变）。另含反向 oracle：对不含模块路径、宏一律带感叹号的子集，
+  `lexer::reverse_transpile` 精确还原母语源（把既有回环测试泛化到随机输入）。真 oracle，
+  不引入 `expected-failures` 放水；失败样本可被 proptest shrink。
+
+### 变更
+- VS Code 扩展：单一真值守卫补齐——新增 `scripts/toml-parse.mjs`（与 gen-grammars
+  同规则的轻量 TOML 解析，三个生成脚本共享，避免解析漂移）。
+  - `scripts/gen-snippets.mjs`：以英文关键字为唯一真值、从各语言包 keywords.toml
+    反查母语词，为 10 方言生成 `snippets/rust-<code>.json`（此前仅 `rust-zh.json`
+    手工维护、其余 9 方言缺失）；`package.json` 的 `contributes.snippets` 扩为 10 条。
+  - `scripts/gen-ui-strings.mjs`：从 `lang-packs/zh/ui.toml` 的 `[界面消息]` `ext_*` 键
+    生成 `src/generated/ui-strings.ts`，`extension.ts` 内联的快捷反馈文案（需开方言
+    文件/语言服务器已重启/诊断讲解前置提示/无工作区不可加依赖等）改为从生成常量取用；
+    11 语言 ui.toml 新增 6 个 `ext_*` 键（界面消息 563→569）。
+  - CI 守卫块 `语法文件与语言包同步检查` 扩为 `生成物与语言包同步检查`：
+    `npm run gen:all`（grammars+snippets+ui）后 `git diff --exit-code -- syntaxes/ snippets/ src/generated/`，
+    漂移即失败并提示「运行 npm run gen:all 并提交」；生成物入库（与 syntaxes/ 同策略）。
+
+### 杂务
+- chore：版本号 0.8.5 → 0.8.6（engine/cli/lsp/zh-pure + 扩展 package.json），cli/lsp 对
+  engine 的发布版本依赖范围 0.8.4 → 0.8.6 收齐；Cargo.lock 同步；门禁全链复跑通过
+  （fmt/clippy/test debug+release/静态门禁/四语言教程/术语表）。
+
 ## [0.8.5] - 2026-10-26
 
 ### 新增

@@ -222,6 +222,7 @@ rzc run src/main.ko         # 번역 → 컴파일 → 실행
 | `rzc check <파일>` | 현지화된 교육 진단과 함께 타입 검사 |
 | `rzc eject <파일>` | 표준 Rust 코드로 내보내기 (점진적 전환) |
 | `rzc transpile <파일>` | 번역만 수행 — 표준 출력으로 표준 Rust 출력 |
+| `rzc relocalize --to <언어>` | 모국어 간 읽기: 방언 / 표준 Rust 프로젝트를 다른 방언으로 재현지화(결과는 rzc build로 다시 빌드 가능) |
 | `rzc cheat <언어>` | 언어 ↔ Rust 대조표 (`--markdown`으로 문서 삽입용) |
 | `rzc add <crate>[@버전]` | 의존성 추가 (`cargo add` 래핑, 모국어 매핑 힌트 제공) |
 | `rzc doctor` | 툴체인 환경 진단 (내장/PATH/버전 비교) |

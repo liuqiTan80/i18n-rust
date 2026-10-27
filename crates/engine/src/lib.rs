@@ -8,6 +8,7 @@ pub mod diagnostic;
 pub mod eject_hints;
 pub mod error;
 pub mod fullwidth;
+pub mod guide;
 pub mod lexer;
 pub mod lint;
 pub mod logger;
@@ -15,6 +16,7 @@ pub mod mapping_manager;
 pub mod mapping_source;
 pub mod module_path;
 pub mod product_layout;
+pub mod relocalize;
 pub mod toolchain;
 pub mod unicode_confusion;
 #[path = "语言.rs"]
@@ -200,6 +202,11 @@ fn transpile_pipeline_inner(
                 manager.get_lint_words(),
                 &manager.ambiguous_constructor_words(),
             ) {
+                crate::log_warn!("lint", "{}", warning.format());
+            }
+            // 英文回落提示：母语方言源码里把有母语词条的结构词写成英文（`fn`/`Vec`/
+            // `.collect()`…）时纠偏；恒等映射的英文语言包回落表为空，自动静默
+            for warning in lint::lint_english_fallback(source, manager.english_fallback_map()) {
                 crate::log_warn!("lint", "{}", warning.format());
             }
         }

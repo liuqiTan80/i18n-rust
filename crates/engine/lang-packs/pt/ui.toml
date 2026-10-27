@@ -3,6 +3,12 @@
 # Os marcadores {argumento} sao substituidos pelo programa em tempo de execucao.
 
 ["界面消息"]
+"ext_need_dialect_file" = "Abra um arquivo-fonte de dialeto (.zh/.ja …)"
+"ext_lsp_restarted" = "Servidor de linguagem reiniciado"
+"ext_explain_need_file" = "Abra um arquivo primeiro antes de usar a explicação de diagnósticos"
+"ext_explain_no_diag" = "O arquivo atual não tem erros nem avisos; nada a explicar"
+"ext_explain_no_diag_nearby" = "Nenhum diagnóstico encontrado perto do cursor"
+"ext_add_dep_no_workspace" = "Nenhum espaço de trabalho aberto; não é possível adicionar dependência"
 
 # ---- Unicode character names (confusable-character warnings) ----
 "unicode_name_00AD" = "­ (Soft Hyphen)"
@@ -590,6 +596,32 @@
 "arg_gaps_export_help" = "Exporta a lista como TSV (colunas LEVEL/CODE/mensagem, separadas por tabulação) para o caminho indicado"
 "arg_gaps_clear_help" = "Limpa a lista; use após completar a tabela de mensagens"
 
+
+"cmd_guide_about" = "Guia de programação em língua materna (tabelas completas de termos + regras de escrita, para aprendizes e assistentes de IA)"
+"cmd_relocalize_about" = "Leitura entre línguas maternas: relocalizar um projeto dialeto/padrão Rust para um dialeto de destino (transpilação direta para Rust padrão por arquivo e depois relocalização; a saída mantém a estrutura e recompila com rzc build)"
+"arg_relocalize_to_help" = "Código de idioma do dialeto de destino (obrigatório, ex. ja); define o idioma do projeto de saída"
+"arg_relocalize_from_help" = "Código de idioma do dialeto de origem; auto-detectado por arquivo a partir da extensão quando omitido"
+"arg_relocalize_out_dir_help" = "Diretório de saída (espelha a estrutura de origem com a extensão de destino); padrão relocalized.<to> ao lado da raiz do projeto"
+"relocalize_done" = "{} arquivo(s) relocalizado(s) para: {}"
+"relocalize_no_module_entry" = "Nenhum arquivo de entrada (main / palavra main nativa) no projeto de saída; ele talvez não compile diretamente com rzc build"
+"arg_guide_lang_help" = "Código de idioma integrado (p. ex. zh); detectado automaticamente do idioma do sistema quando omitido"
+"arg_guide_out_help" = "Gravar o guia no arquivo indicado (p. ex. AGENTS.md)"
+"cmd_init_ai_help" = "Gerar também AGENTS.md no projeto (guia de IA renderizado do pacote de idioma atual)"
+"agents_generated" = "Guia de IA gerado: {} (execute rzc guide novamente após atualizações do pacote de idioma)"
+"guide_title" = "# rzc guia de programação em língua materna — {} ↔ Rust"
+"guide_intro" = "Este projeto escreve Rust em {}: construções da linguagem (palavras-chave/macro) e chamadas da biblioteca padrão usam termos em língua materna; o rzc os transpila para Rust padrão para a toolchain oficial. Ao gerar ou modificar código, siga as regras de escrita e as tabelas completas de termos abaixo."
+"guide_rules_head" = "## Regras de escrita"
+"guide_rule_keywords" = "- Use sempre termos em língua materna das tabelas abaixo para palavras-chave, macros e tipos/métodos da biblioteca padrão (p. ex. o termo nativo em vez de `fn`, a macro nativa em vez de `println!`): formas em inglês compilam, mas disparam a dica pedagógica de «recurso ao inglês»."
+"guide_rule_ident" = "- Nomes personalizados de funções/variáveis/tipos podem ser nativos ou em inglês; a transpilação os mantém como estão. Atenção: termos da classe «regrava identificadores» também regravam identificadores personalizados homônimos — evite tais nomes."
+"guide_rule_punct" = "- Use pontuação de meia-largura no código (vírgulas, ponto e vírgula, colchetes, aspas): pontuação de largura inteira só é permitida dentro de strings e comentários; caso contrário o rzc emite um aviso."
+"guide_rule_danger" = "- Coluna nível de perigo: «puramente seguro» substitui apenas em posições protegidas; «regrava identificadores» substitui em qualquer lugar (identificadores homônimos próprios também são regravados); «pode entrar em panic» — use apenas quando explicitamente escolhido, prefira sinônimos seguros; riscos combinados unidos com `+` e explicados na coluna de notas."
+"guide_rule_workflow" = "- Fluxo de trabalho: `rzc run src/main.{}` para executar, `rzc check <arquivo>` apenas para verificar; as posições dos diagnósticos são retrotraduzidas automaticamente para os fontes nativos. Instale a extensão i18n-rust para VS Code para obter diagnósticos ao vivo e complementação nativa na IDE."
+"guide_rule_pitfalls" = "- Duas armadilhas comprovadas na prática: o Rust padrão não tem strings multilinha entre três aspas `\"\"\"` — falham na análise; para texto multilinha use strings brutas `r#\"…\"#` (aspas `\"` internas sem escape) ou concatenação linha a linha `vetor![linha1, linha2].juntar(\"\\n\")` (strings normais, aspas internas escapadas como `\\\"`). Além disso, `pai()` (`Path::parent()`) devolve o empréstimo `Option<&caminho>`; onde for necessário o valor próprio `caminho_buffer` (`PathBuf`) (ex.: retorno de função), converta com `.to_path_buf()` (termo nativo ainda não registrado: escreva em inglês)."
+"guide_rule_gaps" = "- Se mensagens em inglês não traduzidas aparecerem na saída, `rzc gaps` lista o pendente de tradução (a execução não é afetada); preencher a tabela de mensagens faz parte da contribuição da comunidade."
+"guide_table_head" = "## Tabelas completas de termos ({} entradas)"
+"guide_example_head" = "## Exemplo: a maneira correta de escrever o arquivo de entrada"
+"guide_footer" = "Gerado por `rzc guide`; reexecute após atualizações do pacote de idioma."
+"lint_english_fallback" = "linha {} col {}: `{}` tem um termo nativo `{}` — prefira escrevê-lo na língua materna (dica pedagógica)"
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

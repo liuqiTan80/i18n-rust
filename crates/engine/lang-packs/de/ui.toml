@@ -3,6 +3,12 @@
 # Platzhalter {arg} werden zur Laufzeit vom Programm ersetzt.
 
 ["界面消息"]
+"ext_need_dialect_file" = "Bitte öffnen Sie eine Dialekt-Quelldatei (.zh/.ja …)"
+"ext_lsp_restarted" = "Sprachserver neu gestartet"
+"ext_explain_need_file" = "Bitte öffnen Sie zuerst eine Datei, bevor Sie die Diagnoseerklärung verwenden"
+"ext_explain_no_diag" = "In der aktuellen Datei gibt es keine Fehler oder Warnungen; nichts zu erklären"
+"ext_explain_no_diag_nearby" = "Keine Diagnose in der Nähe des Cursors gefunden"
+"ext_add_dep_no_workspace" = "Kein Arbeitsbereich geöffnet; Abhängigkeit kann nicht hinzugefügt werden"
 
 # ---- Unicode character names (confusable-character warnings) ----
 "unicode_name_00AD" = "­ (Soft Hyphen)"
@@ -590,6 +596,32 @@
 "arg_gaps_export_help" = "Liste als TSV (Spalten LEVEL/CODE/Meldung, tabulatorgetrennt) in den angegebenen Pfad exportieren"
 "arg_gaps_clear_help" = "Liste löschen; nach dem Ergänzen der Meldungstabelle verwenden"
 
+
+"cmd_guide_about" = "Muttersprachlicher Programmier-Leitfaden (vollständige Begriffstabellen + Schreibregeln, für Lernende und KI-Assistenten)"
+"cmd_relocalize_about" = "Sprachübergreifendes Lesen: ein Dialekt-/Standard-Rust-Projekt in den Zieldialekt rückübersetzen (dateiweise Vorwärtstranspilation nach Standard-Rust, dann Rückübersetzung; Ausgabe bleibt strukturtreu und baut erneut mit rzc build)"
+"arg_relocalize_to_help" = "Sprachcode des Zieldialekts (erforderlich, z. B. ja); bestimmt die Sprache des Ausgabeprojekts"
+"arg_relocalize_from_help" = "Sprachcode des Quelldialekts; ohne Angabe je Datei aus der Erweiterung erkannt"
+"arg_relocalize_out_dir_help" = "Ausgabeverzeichnis (spiegelt die Quellstruktur mit Ziel-Erweiterung); standardmäßig relocalized.<to> neben dem Projektstamm"
+"relocalize_done" = "{} Datei(en) rückübersetzt nach: {}"
+"relocalize_no_module_entry" = "Keine Einstiegsdatei (main / muttersprachliches main-Wort) im Ausgabeprojekt; es lässt sich möglicherweise nicht direkt mit rzc build bauen"
+"arg_guide_lang_help" = "Eingebetteter Sprachcode (z. B. zh); bei Wegfall automatische Erkennung über die Systemsprache"
+"arg_guide_out_help" = "Leitfaden in die angegebene Datei schreiben (z. B. AGENTS.md)"
+"cmd_init_ai_help" = "Zusätzlich AGENTS.md im Projekt erzeugen (KI-Programmierrichtlinie aus dem aktuellen Sprachpaket)"
+"agents_generated" = "KI-Programmierrichtlinie erstellt: {} (nach Sprachpaket-Updates mit rzc guide neu erzeugen)"
+"guide_title" = "# rzc Muttersprachlicher Programmier-Leitfaden — {} ↔ Rust"
+"guide_intro" = "Dieses Projekt schreibt Rust auf {}: Sprachkonstrukte (Schlüsselwörter/Makros) und Standardbibliotheks-Aufrufe verwenden Muttersprachen-Begriffe; rzc transpiliert sie zu Standard-Rust für die offizielle Toolchain. Folgen Sie beim Erzeugen und Ändern von Code den Schreibregeln und den vollständigen Begriffstabellen unten."
+"guide_rules_head" = "## Schreibregeln"
+"guide_rule_keywords" = "- Verwenden Sie für Sprachschlüsselwörter, Makros sowie Typen/Methoden der Standardbibliothek stets die Muttersprachen-Begriffe aus den Tabellen unten (z. B. muttersprachliches Funktionswort statt `fn`, muttersprachliches Makro statt `println!`): englische Formen kompilieren, lösen aber den Lernhinweis „Englisch-Rückfall“ aus."
+"guide_rule_ident" = "- Eigene Funktions-/Variablen-/Typnamen dürfen muttersprachlich oder englisch sein; die Transpilation lässt sie unverändert. Achtung: Begriffe der Klasse »Bezeichner-umschreibend« überschreiben auch gleichnamige eigene Bezeichner — bei der Benennung vermeiden."
+"guide_rule_punct" = "- In Code-Positionen Halbbereich-Zeichensetzung verwenden (Kommas, Semikolons, Klammern, Anführungszeichen): Vollbreit-Zeichen sind nur in Strings/Kommentaren erlaubt, sonst meldet rzc eine Warnung."
+"guide_rule_danger" = "Spalte Gefahrengrad: »rein sicher« ersetzt nur an geschützten Positionen; »Bezeichner-umschreibend« ersetzt überall (gleichnamige eigene Bezeichner werden umgeschrieben); »kann panic« kann zur Laufzeit panics auslösen — nur explizit wählen, sichere Synonyme bevorzugen; kombinierte Risiken werden mit `+` verbunden und in der Notizspalte erklärt."
+"guide_rule_workflow" = "- Arbeitsablauf: `rzc run src/main.{}` zum Ausführen, `rzc check <Datei>` nur zur Prüfung; Diagnosepositionen werden automatisch zurück auf die Muttersprachen-Quelldatei abgebildet. Für Live-Diagnose und Muttersprachen-Vervollständigung in der IDE die i18n-rust VS-Code-Erweiterung installieren."
+"guide_rule_pitfalls" = "- Zwei praxiserprobte Fallstricke: Standard-Rust kennt keine `\"\"\"` Triple-Quote-Mehrzeilenstrings — sie schlagen bei der Analyse fehl; verwenden Sie Rohe Strings `r#\"…\"#` (innere `\"` ohne Escaping) oder zeilenweise Verkettung `vektor![zeile1, zeile2].verbinde(\"\\n\")` (normale Strings, Anführungszeichen als `\\\"` escapiert). Außerdem gibt `eltern()` (`Path::parent()`) die Entlehnung `Option<&pfad>` zurück; wo ein besitzender `pfadpuffer` (`PathBuf`) nötig ist (z. B. Rückgabewert), per `.to_path_buf()` (Muttersprache-Begriff noch nicht erfasst — englisch schreiben) umwandeln."
+"guide_rule_gaps" = "- Falls unübersetzte englische Meldungen im Output erscheinen, zeigt `rzc gaps` die Nachübersetzungsliste (die Ausführung ist nicht betroffen); die Meldungstabelle zu füllen ist Teil des Community-Beitrags."
+"guide_table_head" = "## Vollständige Begriffstabellen ({} Einträge)"
+"guide_example_head" = "## Beispiel: so schreibt man die Einstiegsdatei richtig"
+"guide_footer" = "Erzeugt von `rzc guide`; nach Sprachpaket-Updates erneut ausführen."
+"lint_english_fallback" = "Zeile {} Spalte {}: `{}` hat einen Muttersprachen-Begriff `{}` — bevorzugen Sie die muttersprachliche Schreibweise (Lernhinweis)"
 ["解释"]
 "Option::unwrap" = "Takes the inner value directly; panics if it is None."
 "Option::expect" = "Takes the inner value; panics with your custom message if it is None."

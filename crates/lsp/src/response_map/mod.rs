@@ -78,6 +78,12 @@ impl ResponseMapper {
         self.cache.ambiguous_constructor_words()
     }
 
+    /// 获取英文回落 lint 反向索引（转发 TranslationCache，
+    /// 方言源码里写成英文且有母语词条的结构词提示用）
+    pub fn english_fallback_map(&self) -> &std::collections::HashMap<String, String> {
+        self.cache.english_fallback_map()
+    }
+
     /// 将虚拟 URI 替换为原始 URI
     pub fn restore_uri(&self, uri: &str) -> String {
         if let Some(entry) = self.cache.query_by_virtual_uri(uri) {

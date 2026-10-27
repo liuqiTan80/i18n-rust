@@ -1,0 +1,172 @@
+{
+  "رئيسي": {
+    "prefix": "رئيسي",
+    "body": [
+      "دالة رئيسي() {",
+      "    $0",
+      "}"
+    ],
+    "description": "main function entry"
+  },
+  "اطبع_سطرا": {
+    "prefix": "اطبع_سطرا",
+    "body": [
+      "اطبع_سطرا!(${1:msg});"
+    ],
+    "description": "print a line of text"
+  },
+  "اطبع_سطراfmt": {
+    "prefix": "اطبع_سطراfmt",
+    "body": [
+      "اطبع_سطرا!(\"${1:format}\", ${2:args});"
+    ],
+    "description": "print formatted text"
+  },
+  "دع": {
+    "prefix": "دع",
+    "body": [
+      "دع ${1:name} = ${2:value};"
+    ],
+    "description": "declare an immutable binding"
+  },
+  "دعمتغير": {
+    "prefix": "دعمتغير",
+    "body": [
+      "دع متغير ${1:name} = ${2:value};"
+    ],
+    "description": "declare a mutable binding"
+  },
+  "إذا": {
+    "prefix": "إذا",
+    "body": [
+      "إذا ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "if statement"
+  },
+  "إذاوإلا": {
+    "prefix": "إذاوإلا",
+    "body": [
+      "إذا ${1:cond} {",
+      "    $2",
+      "} وإلا {",
+      "    $0",
+      "}"
+    ],
+    "description": "if/else statement"
+  },
+  "لكل": {
+    "prefix": "لكل",
+    "body": [
+      "لكل ${1:item} في ${2:iter} {",
+      "    $0",
+      "}"
+    ],
+    "description": "for loop"
+  },
+  "بينما": {
+    "prefix": "بينما",
+    "body": [
+      "بينما ${1:cond} {",
+      "    $0",
+      "}"
+    ],
+    "description": "while loop"
+  },
+  "حلقة": {
+    "prefix": "حلقة",
+    "body": [
+      "حلقة {",
+      "    $0",
+      "}"
+    ],
+    "description": "infinite loop"
+  },
+  "طابق": {
+    "prefix": "طابق",
+    "body": [
+      "طابق ${1:expr} {",
+      "    ${2:pattern} => ${3:result},",
+      "    $0",
+      "}"
+    ],
+    "description": "match expression"
+  },
+  "هيكل": {
+    "prefix": "هيكل",
+    "body": [
+      "هيكل ${1:Name} {",
+      "    ${2:field}: ${3:Type},",
+      "    $0",
+      "}"
+    ],
+    "description": "struct definition"
+  },
+  "تعداد": {
+    "prefix": "تعداد",
+    "body": [
+      "تعداد ${1:Name} {",
+      "    ${2:Variant},",
+      "    $0",
+      "}"
+    ],
+    "description": "enum definition"
+  },
+  "سمة": {
+    "prefix": "سمة",
+    "body": [
+      "سمة ${1:Name} {",
+      "    دالة ${2:method}(${3:args}) -> ${4:Ret};",
+      "    $0",
+      "}"
+    ],
+    "description": "trait definition"
+  },
+  "تنفيذ": {
+    "prefix": "تنفيذ",
+    "body": [
+      "تنفيذ ${1:Type} {",
+      "    دالة ${2:method}(${3:args}) -> ${4:Ret} {",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "impl block"
+  },
+  "مصفوفة": {
+    "prefix": "مصفوفة",
+    "body": [
+      "مصفوفة![${1:elem}]"
+    ],
+    "description": "create a vector"
+  },
+  "بعض": {
+    "prefix": "بعض",
+    "body": [
+      "بعض(${1:value})"
+    ],
+    "description": "Option::Some"
+  },
+  "لا_شيء": {
+    "prefix": "لا_شيء",
+    "body": [
+      "لا_شيء"
+    ],
+    "description": "Option::None"
+  },
+  "نجاح": {
+    "prefix": "نجاح",
+    "body": [
+      "نجاح(${1:value})"
+    ],
+    "description": "Result::Ok"
+  },
+  "خطأ": {
+    "prefix": "خطأ",
+    "body": [
+      "خطأ(${1:msg})"
+    ],
+    "description": "Result::Err"
+  }
+}
