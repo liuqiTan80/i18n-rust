@@ -343,6 +343,7 @@
 "eh_digito_ascii" = "is_ascii_digit"
 "byte" = "u8"
 "caminho_buffer" = "PathBuf"
+"para_caminho_buffer" = "to_path_buf"
 "entrada_diretorio" = "DirEntry"
 "ler_diretorio" = "read_dir"
 "criar_diretorio" = "create_dir"

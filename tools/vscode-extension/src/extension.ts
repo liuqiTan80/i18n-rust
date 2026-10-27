@@ -40,7 +40,7 @@ import { AIError, AIConfig, ChatMessage } from './ai/types';
 import { ProviderInterface } from './ai/provider-interface';
 import { runDialectGenerate, DialectValidation, findEnglishKeywordTokens } from './ai/dialect-generate';
 import { loadLanguagePack, buildDialectGuard } from './ai/prompt-builder';
-import { 界面文案 } from './generated/ui-strings';
+import { 界面文案表, 回退语言 } from './generated/ui-strings';
 import { 选择光标诊断 } from './diagnostic-pick';
 import { 全角符号映射, 全角符号检测正则, 扫描词法状态, 扫描词法状态们, 计算插入字符位置们, 应转换全角 } from './fullwidth-convert';
 import { 方言语言Id, 方言语言表, 语言代码 } from './languages';
@@ -53,6 +53,17 @@ import { 注册更新检查 } from './update-checker';
 import { 注册产物隐藏 } from './artifact-hide';
 
 const execFileAsync = promisify(cp.execFile);
+
+/**
+ * 按 VS Code 显示语言（vscode.env.language，如 'zh-cn'/'pt-br'/'ja'）挑对应语言包的
+ * 快捷反馈文案：去掉地区后缀取基础语言码精确匹配，命中不了回退英文。显示语言在窗口
+ * 生命周期内不变，故模块加载时解析一次即可。此前只出中文，非中文用户会看到中文提示。
+ */
+function 解析当前文案(): Readonly<Record<string, string>> {
+    const 基础 = vscode.env.language.toLowerCase().split('-')[0];
+    return 界面文案表[基础] ?? 界面文案表[回退语言];
+}
+const 界面文案 = 解析当前文案();
 
 /** 全部方言源码扩展名（用于 eject 输出路径推导） */
 const 方言扩展名正则 = /\.(zh|ja|de|es|fr|pt|ru|ko|hi|ar)$/;

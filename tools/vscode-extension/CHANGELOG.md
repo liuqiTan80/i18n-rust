@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.8.7
+
+### 新增
+- **界面文案多语言**：快捷反馈通知不再只出中文。`scripts/gen-ui-strings.mjs` 由只读
+  `lang-packs/zh/ui.toml` 改为读全部 11 语言，生成 `src/generated/ui-strings.ts` 的「语言码 →
+  (键 → 文案)」表（导出由单一 `界面文案` 常量改为 `界面文案表` + `回退语言`）；`extension.ts`
+  依 `vscode.env.language` 去地区后缀取基础码精确匹配、无匹配回退 `en`（修正 0.8.6 时仅接键、
+  生成仍写死 zh 的遗留）。
+
+### 变更
+- 版本号跟随 CLI 0.8.7 对齐发布；本轮 CLI 侧 `to_path_buf` 母语词条补齐为词表能力，不改变扩展交互。
+
 ## 0.8.6
 
 ### 新增

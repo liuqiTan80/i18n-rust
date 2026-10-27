@@ -5,6 +5,31 @@
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-10-27
+
+### 新增
+- 语言包：11 语言 `stdlib.toml` 补齐 `to_path_buf` 母语词条——彻底解决「实测坑②」。
+  此前仅 `zh` 有 `转路径缓冲`，其余语言在 `父目录()`（`Path::parent()`，返回借用）
+  之后需拥有者 `PathBuf` 处只能写英文 `.to_path_buf()`；现各语言均有母语方法别名
+  （命名严格沿用各包既有 `to_vec` 构词法 + 本包 `PathBuf` 词条，非主观臆造：
+  `ja` `パスバッファへ変換` / `ko` `경로_버퍼로_변환` / `ru` `в_путь_буфер` /
+  `de` `zuPfadpuffer` / `es` `a_ruta_buffer` / `fr` `vers_chemin_tampon` /
+  `pt` `para_caminho_buffer` / `hi` `बफ़र_पथ_में` / `ar` `إلى_مسار_مخزن` /
+  `en` 恒等）。`rzc transpile` 冒烟：`.親()?.パスバッファへ変換()` → `parent()?.to_path_buf()`。
+
+### 变更
+- 扩展：界面文案按 VS Code 显示语言本地化。`gen-ui-strings.mjs` 由只读 `zh/ui.toml`
+  改为读全部 11 语言、生成「语言码 → (键 → 文案)」表（生成物由单一 `界面文案` 常量改为
+  `界面文案表` + `回退语言`），`extension.ts` 依 `vscode.env.language` 去地区后缀取基础语言码
+  精确匹配、无匹配回退 `en`——非中文用户不再看到中文快捷反馈（需开方言文件 / LSP 已重启 /
+  诊断讲解前置 / 未打开工作区等）。复用 F2 已在 11 语言落地的 `ext_*` 键，无新增翻译。
+- 语言包：9 语言 `guide_rule_pitfalls` 同步更新——旧「母语术语未登记故写英文 `to_path_buf`」
+  子句改为母语方法调用（括号内保留 Rust 原名 `to_path_buf()`）；`en` 恒等无需改。
+
+### 杂务
+- chore：版本号 0.8.6→0.8.7（engine/cli/lsp/zh-pure 四 crate + cli/lsp 对 engine 依赖范围 +
+  扩展 `package.json` 及 `package-lock.json` 根版本位点），`Cargo.lock` 经 `cargo update --workspace` 同步。
+
 ## [0.8.6] - 2026-10-27
 
 ### 新增

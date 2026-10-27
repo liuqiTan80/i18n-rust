@@ -342,6 +342,7 @@
 "ASCII数字か" = "is_ascii_digit"
 "バイト" = "u8"
 "パスバッファ" = "PathBuf"
+"パスバッファへ変換" = "to_path_buf"
 "ディレクトリ項目" = "DirEntry"
 "ディレクトリ読取" = "read_dir"
 "ディレクトリ作成" = "create_dir"

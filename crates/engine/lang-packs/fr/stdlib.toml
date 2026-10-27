@@ -342,6 +342,7 @@
 "est_chiffre_ascii" = "is_ascii_digit"
 "octet" = "u8"
 "chemin_tampon" = "PathBuf"
+"vers_chemin_tampon" = "to_path_buf"
 "entree_dossier" = "DirEntry"
 "lire_dossier" = "read_dir"
 "creer_dossier" = "create_dir"

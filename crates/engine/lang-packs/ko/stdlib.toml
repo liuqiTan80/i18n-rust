@@ -343,6 +343,7 @@
 "아스키_숫자_인가" = "is_ascii_digit"
 "바이트" = "u8"
 "경로_버퍼" = "PathBuf"
+"경로_버퍼로_변환" = "to_path_buf"
 "디렉토리_항목" = "DirEntry"
 "디렉토리_읽기" = "read_dir"
 "디렉토리_생성" = "create_dir"

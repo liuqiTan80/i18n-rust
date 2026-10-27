@@ -345,6 +345,7 @@
 "istAsciiZiffer" = "is_ascii_digit"
 "byte" = "u8"
 "pfadpuffer" = "PathBuf"
+"zuPfadpuffer" = "to_path_buf"
 "verzeichniseintrag" = "DirEntry"
 "liesVerzeichnis" = "read_dir"
 "erstelleVerzeichnis" = "create_dir"

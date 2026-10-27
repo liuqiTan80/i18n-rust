@@ -115,6 +115,7 @@
 "is_ascii_digit" = "is_ascii_digit"
 "u8" = "u8"
 "PathBuf" = "PathBuf"
+"to_path_buf" = "to_path_buf"
 "File" = "File"
 "Command" = "Command"
 "thread" = "thread"
