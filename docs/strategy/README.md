@@ -38,12 +38,24 @@
   '--lib' found`），但造方言库已经零配置：`lib` 纳入入口名集合，`src/lib.<ext>` 的产物直写
   `src/lib.rs`，Cargo 自动认出库目标；`[lib] path` 有显式声明时照声明写。剩下的可选做法是给
   `rzc init` 加 `--lib`（生成 `src/lib.<ext>` 骨架 + 库版 README），属易用性增强而非墙
-- bin+lib 同项目还有两处墙（原第 ② 条已修，见下一条；教程 18.5 已按实机写明）：
-  ① ``crate name `计算器` passed to `--extern` is not a valid ASCII identifier`` 无母语译文
-  （记入 `.rz/gaps`），而 `rzc init 中文名` 是官方鼓励的写法——只有库或只有主程序时中文包名
-  能编，两者同存必撞；③ 入口产物只由被请求的文件写，所以「先 check 库再 check 主程序」是读者
+- bin+lib 同项目还剩一处墙（原第 ② 条已修、第 ① 条已补译文，均见下两条；教程 18.5 已按实机写明）：
+  ③ 入口产物只由被请求的文件写，所以「先 check 库再 check 主程序」是读者
   必须知道的一步——修法候选：`has_cargo_target` 之外再加一条库目标自检（`rzc doctor`），或让
-  项目级转译在检测到 `[lib] path`/src/lib.rs 时一并刷新库产物
+  项目级转译在检测到 `[lib] path`/src/lib.rs 时一并刷新库产物；而 `rzc init 中文名` 是官方鼓励的
+  写法，跟非 ASCII 包名这道墙直接冲突（本轮实测：主程序**完全不引用库**也一样撞，只有库或
+  只有主程序都能编），真正的根治方向是让入口产物以一个 ASCII crate 名递交给 Cargo
+- **（2026-10-28 已落地）** bin+lib 的第 ① 条墙：``crate name `计算器` passed to `--extern` is not a
+  valid ASCII identifier`` 已补 10 语言译文（消息翻译键 166 → 167，en 是恒等语言不携带该节）。因为
+  工具通道只渲染 `消息模板`、不渲染 `教学提示`，可执行动作写进了模板本身；墙本身未拆，只是读者
+  现在看得懂该改什么
+- en 恒等语言在工具通道上会假报「有消息未译」（本轮实机看到）：en 不携带 `消息翻译` 节，
+  所以 `render_tool_detail` 在 en 下永远未命中，于是英语用户跑 `rzc check` 会多看到一行
+  `Note: 1 message(s) have no translation, shown as-is`，同时在 `~/.rz/gaps/en.tsv` 里堆
+  英文原句（该文件已 44KB）。修向候选：en 走工具通道时不记 gap、也不提示（它本来就没有译文可用）
+- 消息模板里**作者手写的**反引号英文词会被 `replace_type_names` 按类型映射改写（zh stdlib 表里
+  `线程名` = `name`，本轮第一版 zh 模板因此输出「请把 Cargo.toml 里的 `线程名` 改成 ASCII 名」）。
+  本轮靠改措辞 + 用例绕开，没动机制。可选修法：只对 `{qN}` 回填进来的 token 做中文化，模板字面
+  文本不参与；先把存量模板里同类误改写梳一遍再动手，否则可能把已经「错得习惯」的文案改红
 - **（2026-10-28 已修）** bin+lib 的第 ② 条墙：主程序 `使用 calc::翻倍;` 报 E0432 时，rustc 的
   `cargo add calc` 建议与 rzc 追加提示都把**自有 crate**说成第三方库，而 Cargo 拒绝包依赖自己
   （`cannot add ... to itself`）。现在按本地包名（`[package] name` 的 `-`→`_` + `[lib] name`）

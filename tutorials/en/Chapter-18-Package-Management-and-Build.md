@@ -300,12 +300,17 @@ That layout is common in Rust, but in a dialect project it has three traps, in o
    `rzc run src/main.en` prints `42` normally.
 3. **The package name must be ASCII.** A name like `name = "计算器"` compiles fine as
    long as the package has only a library or only an executable. Once it has both, Cargo
-   passes the library to the binary with `--extern`, and rustc refuses outright (this
-   message has no native translation yet and is shown as-is):
+   passes the library to the binary with `--extern`, and rustc refuses outright — and it
+   refuses even when the executable never mentions the library (measured: the failure is
+   in how Cargo hands over the arguments, not in your code). English shows rustc's own
+   wording; the other ten languages get a single sentence that names the fix:
 
 ```text
 error: crate name `计算器` passed to `--extern` is not a valid ASCII identifier
 ```
+
+Rename the package in `Cargo.toml` to an ASCII name and rewrite the import to match
+(`use 计算器::double;` → `use calculator::double;`).
 
 What Cargo ultimately reads is always the standard-Rust product, which is why any Cargo
 command only works after one `rzc check` (error two in 18.10).

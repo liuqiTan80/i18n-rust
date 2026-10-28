@@ -2603,3 +2603,7 @@
 
 ["消息翻译"."run 'rustup default stable' to download the latest stable release of Rust and set it as your default toolchain."]
 "消息模板" = "شغّل «rustup default stable» لتنزيل أحدث إصدار مستقر من Rust وجعله سلسلة الأدوات الافتراضية."
+
+# ---- cargo 工具通道补键（bin+lib 项目的非 ASCII 包名，实机采集）----
+["消息翻译"."crate name `?` passed to `?` is not a valid ASCII identifier"]
+"消息模板" = "اسم الحزمة «{q0}» الممرَّر إلى `{q1}` ليس معرِّف ASCII صالحًا. اسم الحزمة في Rust لا يحوي إلا حروف ASCII وأرقامًا وشرطات سفلية؛ إذا كان المشروع يحتوي على مكتبة وبرنامج تنفيذي معًا، فإن Cargo يسلّم الحزمة بهذا الاسم — فغيّر اسم الحزمة في Cargo.toml إلى اسم ASCII (مثل `calculator`) وحدّث مسارات `use`"

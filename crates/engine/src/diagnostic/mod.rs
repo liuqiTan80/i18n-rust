@@ -1280,6 +1280,70 @@ mod tests {
         }
     }
 
+    /// 门禁：rustc 的「`--extern` 收到非 ASCII 包名」硬错必须在 10 语言都有译文。
+    ///
+    /// 起因：bin+lib 方言项目（`src/lib.zh` + `src/main.zh`）用中文包名时，Cargo 要用
+    /// `--extern 计算器=…` 把库交给主程序，rustc 立刻拒绝（实测触发条件只是「两种目标
+    /// 共存 + 非 ASCII 包名」，主程序**完全不引用库**也撞；只有库或只有主程序都能编）。
+    /// 这条无错误码的消息此前 11 语言全都没有条目：终端喷英文原句，还被刷进待译清单，
+    /// 新手从 `is not a valid ASCII identifier` 读不出「该改 Cargo.toml 的包名」。
+    ///
+    /// 断言用实机采集的原文，锁住通配段键命中与 `{q0}`/`{q1}` 回填；顺带锁一条渲染陷阱：
+    /// `replace_type_names` 会按类型映射改写译文里**任何**反引号英文 token（zh 的
+    /// stdlib 表里 `线程名` = `name`），模板若写「把 `name` 改成 ASCII 名」会被改成
+    /// 「把 `线程名` 改成 ASCII 名」——故 zh 模板不加反引号，末尾按 CLI 同口径复现一次。
+    #[test]
+    fn non_ascii_extern_crate_name_is_localized_in_all_lang_packs() {
+        use crate::mapping_manager::MappingManager;
+        // `rzc check src/main.zh`（包名 `计算器`，同时有 src/lib.zh）实机原文
+        let raw = "crate name `计算器` passed to `--extern` is not a valid ASCII identifier";
+        for lang in ["zh", "ja", "ru", "de", "es", "fr", "pt", "hi", "ko", "ar"] {
+            let files = crate::语言::builtin_lang_files(lang);
+            let errors_toml = files
+                .iter()
+                .find(|(name, _)| *name == "errors.toml")
+                .map(|(_, content)| *content)
+                .unwrap_or_else(|| panic!("{lang} 语言包缺少 errors.toml"));
+            let manager = ErrorTranslationManager::load_from_string(errors_toml)
+                .unwrap_or_else(|e| panic!("{lang} errors.toml 解析失败：{e}"));
+            let translator = DiagnosticTranslator::new(manager, HashMap::new());
+            let rendered = translator
+                .render_main_message(None, raw, None)
+                .unwrap_or_else(|| panic!("{lang} 包应命中 `--extern` 非 ASCII 包名的消息表"));
+            assert!(
+                rendered.text.contains("计算器"),
+                "{lang} 译文丢了包名：{}",
+                rendered.text
+            );
+            assert!(
+                !rendered.text.contains("is not a valid ASCII identifier"),
+                "{lang} 译文残留英文原句：{}",
+                rendered.text
+            );
+        }
+
+        // zh 走 CLI 真实渲染口径（带类型映射）：译文不得被改成「`线程名`」
+        let lang_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
+        let type_map = build_type_map(
+            &MappingManager::load_from_dir(&lang_dir).expect("内置 zh 语言包应可加载"),
+        );
+        let files = crate::语言::builtin_lang_files("zh");
+        let errors_toml = files
+            .iter()
+            .find(|(name, _)| *name == "errors.toml")
+            .map(|(_, content)| *content)
+            .expect("zh 语言包缺少 errors.toml");
+        let manager = ErrorTranslationManager::load_from_string(errors_toml).expect("zh 应可解析");
+        let rendered = DiagnosticTranslator::new(manager, type_map)
+            .render_main_message(None, raw, None)
+            .expect("zh 应命中消息表");
+        assert!(
+            !rendered.text.contains("线程名"),
+            "zh 模板里的反引号英文词被类型映射改写了，读者会被告知去改一个不存在的东西：{}",
+            rendered.text
+        );
+    }
+
     /// 门禁：语言包的教学提示不得残留引擎占位符。
     ///
     /// 占位符回填（`translator::CODE_TEMPLATE_PLACEHOLDERS`）只作用于 `消息模板`，

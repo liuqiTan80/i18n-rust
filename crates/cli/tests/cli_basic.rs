@@ -825,6 +825,65 @@ fn test_third_party_hint_still_fires_for_unknown_crate() {
     assert!(!text.contains("是本项目的包名"), "{text}");
 }
 
+/// bin+lib 项目的非 ASCII 包名硬错给母语译文（不再喷英文、不再刷待译清单）
+///
+/// 实机测清的触发条件：**两种目标共存 + 非 ASCII 包名**——主程序完全不引用库也撞
+/// （Cargo 要用 `--extern 计算器=…` 把库交给主程序），而只有库或只有主程序都能编。
+/// 这条无错误码的 rustc 消息此前 11 语言全都没有条目，终端只剩英文原句 +
+/// 「暂无译文，已记入待译清单」。本用例钉住译文到位（诊断走 stdout）。
+#[test]
+fn test_non_ascii_package_name_bin_lib_prints_localized_extern_error() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    let root = work.path();
+    std::fs::create_dir_all(root.join("src")).expect("创建 src 失败");
+    std::fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname=\"计算器\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("src/lib.zh"), GOOD_LIB).unwrap();
+    std::fs::write(root.join("src/main.zh"), GOOD_PROGRAM).unwrap();
+
+    let run_check = |arg: &str| {
+        rzc()
+            .env("HOME", home.path())
+            .env_remove("RZ_LOG")
+            .current_dir(root)
+            .args(["check", arg])
+            .output()
+            .expect("运行 rzc 失败")
+    };
+
+    // 只有库时中文包名能编（先确认这一步不是已经挂了）
+    let lib_only = run_check("src/lib.zh");
+    assert!(
+        lib_only.status.success(),
+        "纯库项目应能编译：{}",
+        String::from_utf8_lossy(&lib_only.stderr)
+    );
+
+    let main_out = run_check("src/main.zh");
+    assert!(!main_out.status.success(), "bin+lib + 非 ASCII 包名应失败");
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&main_out.stdout),
+        String::from_utf8_lossy(&main_out.stderr)
+    );
+    assert!(
+        text.contains("不是合法的 ASCII 标识符") && text.contains("计算器"),
+        "应给母语译文并保留包名：{text}"
+    );
+    assert!(
+        !text.contains("is not a valid ASCII identifier"),
+        "不该再看到英文原句：{text}"
+    );
+    assert!(!text.contains("暂无译文"), "该消息已不再待译：{text}");
+    // zh 模板写的是“Cargo.toml 里的包名”（不带反引号）：加了反引号会被类型
+    // 映射改写成 `线程名`（stdlib 表里 线程名 = name），变成误导指引
+    assert!(!text.contains("线程名"), "译文被类型映射误改写：{text}");
+}
+
 /// `rzc check` 多层模块项目：递归收集 + 非入口文件按层级补 `#[path]`
 ///
 /// 布局：src/main.zh → src/领域.zh → src/领域/工具.zh。此前非入口方言文件

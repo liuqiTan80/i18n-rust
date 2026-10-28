@@ -2609,3 +2609,7 @@
 
 ["消息翻译"."run 'rustup default stable' to download the latest stable release of Rust and set it as your default toolchain."]
 "消息模板" = "최신 Rust 안정 버전을 다운로드하여 기본 툴체인으로 설정하려면 「rustup default stable」을 실행하세요."
+
+# ---- cargo 工具通道补键（bin+lib 项目的非 ASCII 包名，实机采集）----
+["消息翻译"."crate name `?` passed to `?` is not a valid ASCII identifier"]
+"消息模板" = "`{q1}`에 전달된 crate 이름「{q0}」은 유효한 ASCII 식별자가 아닙니다. Rust의 crate 이름은 ASCII 문자, 숫자, 밑줄만 쓸 수 있습니다. 프로젝트에 라이브러리와 메인 프로그램이 모두 있으면 Cargo가 이 이름으로 라이브러리를 넘기므로 Cargo.toml의 패키지 이름을 ASCII 이름(예: `calculator`)으로 바꾸고 `use` 경로도 고치세요"
