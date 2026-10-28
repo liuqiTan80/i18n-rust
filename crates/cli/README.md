@@ -53,6 +53,36 @@ rzc run src/main.zh
 | `rzc doctor` | 环境体检：rustc / cargo / rust-analyzer / 语言服务器是否就位、版本与 rzc 是否一致 |
 | `rzc mapping auto <crate>` | 自动生成第三方库映射 |
 
+## AI 映射生成的服务商配置
+
+`rzc mapping auto <crate>` 与 `rzc mapping scaffold <源> <目标> --provider <ai>`
+默认走 DeepSeek，`--provider` 也可以写 `openai` / `compatible`——三者是同一条
+OpenAI 兼容链路，区别只在环境变量里填的端点与模型。
+
+| 环境变量 | 作用 | 未设置时 |
+|------|------|------|
+| `RZ_AI_BASE_URL` | chat/completions 的基础 URL（带 `/v1` 或不带后缀都能跑） | `https://api.deepseek.com` |
+| `RZ_AI_API_KEY` | Bearer 密钥 | 默认端点回退 `DEEPSEEK_API_KEY`；自定义端点还可用 `OPENAI_API_KEY` |
+| `RZ_AI_MODEL` | 请求体的 model 字段 | `deepseek-chat` |
+
+```bash
+# OpenAI
+export RZ_AI_BASE_URL=https://api.openai.com/v1 RZ_AI_API_KEY=sk-... RZ_AI_MODEL=gpt-4o-mini
+# 本地 Ollama（不校验密钥，给个占位值即可通过前置检查）
+export RZ_AI_BASE_URL=http://127.0.0.1:11434/v1 RZ_AI_API_KEY=ollama RZ_AI_MODEL=qwen2.5-coder
+# 通义千问兼容模式（密钥仍用 RZ_AI_API_KEY 提供）
+export RZ_AI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1 RZ_AI_MODEL=qwen-plus
+```
+
+两条行为约定：
+
+- **密钥不跨站发送**：端点保持默认（DeepSeek）时只读 `RZ_AI_API_KEY` /
+  `DEEPSEEK_API_KEY`，即使机器上已有 `OPENAI_API_KEY` 也不会被发到 DeepSeek；
+  只有显式改了 `RZ_AI_BASE_URL` 才启用该回退。
+- **参数问题在动手前报**：`--provider` 拼写未知立即报错；scaffold 的 AI 模式在
+  写第一个文件前就检查密钥，失败不会留下一堆半成品映射。`mapping auto` 不同，
+  AI 调用失败时回退规则模式（映射仍生成，解释为空）。
+
 ## 功能特性
 
 - **母语编程**：用中文关键字（`函数`、`让`、`如果`、`返回`…）编写完整 Rust 程序

@@ -1,4 +1,4 @@
-//! AI 驱动的映射生成（DeepSeek，OpenAI 兼容接口）：
+//! AI 驱动的映射生成（OpenAI 兼容接口，默认端点 DeepSeek）：
 //! 只发送 API 英文名与类型签名（法律合规约束，见 mod.rs 模块文档）。
 
 use anyhow::{anyhow, bail};
@@ -34,22 +34,138 @@ const AI_PROMPT_EN: &str = "You are a teaching translation expert for Rust begin
 const AI_READ_TIMEOUT: u64 = 120;
 const AI_WRITE_TIMEOUT: u64 = 60;
 
-/// 调用 DeepSeek chat 接口的通用底层：发送 system+user 提示词，返回模型文本
+/// 默认端点与模型（DeepSeek，OpenAI 兼容协议）
+const DEFAULT_BASE_URL: &str = "https://api.deepseek.com";
+const DEFAULT_MODEL: &str = "deepseek-chat";
+
+/// AI 端点配置：三项与 VS Code 扩展的 `i18n-rust.ai.baseUrl / apiKey / model`
+/// 设置一一对应，CLI 侧走环境变量（无图形界面与 CI 场景要能脚本化）
+#[derive(Debug, PartialEq, Eq)]
+pub struct AiEndpoint {
+    /// chat/completions 的基础 URL（不含 `/chat/completions` 后缀）
+    pub base_url: String,
+    /// Bearer 密钥，只用于请求头，绝不输出
+    pub api_key: String,
+    /// 请求体的 model 字段
+    pub model: String,
+    /// 实际生效的密钥环境变量名（诊断文案回显，避免用户查错变量）
+    pub key_var: &'static str,
+    /// 端点是否被用户改成自定义地址（决定密钥回退链）
+    pub custom: bool,
+}
+
+/// 解析 AI 端点配置（`get` 注入环境变量读取，单测不碰真实环境）
 ///
-/// 供映射生成（call_ai_generate_mapping）与脚手架翻译
-/// （mapping_check::run_scaffold --provider deepseek）共用。
-pub fn deepseek_chat(system_prompt: &str, user_prompt: &str) -> anyhow::Result<String> {
+/// 首选 `RZ_AI_BASE_URL / RZ_AI_API_KEY / RZ_AI_MODEL`，未设置时回退历史
+/// DeepSeek 专用变量。密钥回退有一条安全约束：默认端点是 DeepSeek，只有当用户
+/// 显式改成自定义端点时才考虑 `OPENAI_API_KEY`——否则会把用户的 OpenAI 密钥
+/// 发往另一台主机（拿到一个 401，账单却可能记在 OpenAI 侧）。
+fn resolve_endpoint(get: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<AiEndpoint> {
     let ui = crate::ui::Ui::global();
-    let api_key =
-        std::env::var("DEEPSEEK_API_KEY").map_err(|_| anyhow!("{}", ui.t("mg_err_no_api_key")))?;
-    if api_key.is_empty() {
-        bail!("{}", ui.t("mg_err_api_key_empty"));
+    // 空串视为未设置：CI 里 `export RZ_AI_BASE_URL=` 不应把端点变成空 URL
+    let read = |name: &str| {
+        get(name)
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+    };
+    let base_url = read("RZ_AI_BASE_URL")
+        .or_else(|| read("DEEPSEEK_BASE_URL"))
+        .unwrap_or_else(|| DEFAULT_BASE_URL.to_string());
+    let custom = base_url != DEFAULT_BASE_URL;
+    let model = read("RZ_AI_MODEL").unwrap_or_else(|| DEFAULT_MODEL.to_string());
+    let chain: &[&'static str] = if custom {
+        &["RZ_AI_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY"]
+    } else {
+        &["RZ_AI_API_KEY", "DEEPSEEK_API_KEY"]
+    };
+    let mut empty_var: Option<&'static str> = None;
+    for &name in chain {
+        match get(name) {
+            Some(value) if value.trim().is_empty() => {
+                empty_var.get_or_insert(name);
+            }
+            Some(value) => {
+                return Ok(AiEndpoint {
+                    base_url,
+                    api_key: value.trim().to_string(),
+                    model,
+                    key_var: name,
+                    custom,
+                });
+            }
+            None => {}
+        }
     }
-    let base_url = std::env::var("DEEPSEEK_BASE_URL")
-        .unwrap_or_else(|_| "https://api.deepseek.com".to_string());
-    let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+    match empty_var {
+        // 密钥存在但为空串：点名是哪个变量，不让用户逐个试
+        Some(name) => bail!("{}", ui.f("mg_err_api_key_empty", &[name])),
+        None => bail!("{}", ui.f("mg_err_no_api_key", &[chain[0]])),
+    }
+}
+
+/// 拼出 chat/completions 完整 URL
+///
+/// 扩展侧 `i18n-rust.ai.baseUrl` 习惯写 `https://…/v1`，而 CLI 沿用的默认值
+/// 是不带 `/v1` 的裸主机名；这里统一为“已带后缀就原样用，否则补一段”，
+/// 两侧粘同一个 URL 都能跑。
+pub fn chat_url(base: &str) -> String {
+    let trimmed = base.trim_end_matches('/');
+    if trimmed.ends_with("/chat/completions") {
+        trimmed.to_string()
+    } else {
+        format!("{trimmed}/chat/completions")
+    }
+}
+
+/// AI 模式的前置凭据检查：在写任何文件之前确认密钥可用
+///
+/// `mapping scaffold --provider <ai>` 是「生成骨架 + AI 填充」两步，但没配密钥时
+/// 不该先留下几十个待手工翻译的骨架文件——那会让「命令失败」与「文件已被改动」
+/// 同时成立。只跑 [`resolve_endpoint`]，不发网络请求。
+pub fn ensure_credentials() -> anyhow::Result<()> {
+    resolve_endpoint(&|name| std::env::var(name).ok()).map(|_| ())
+}
+
+/// `--provider` 参数的归一化结果
+#[derive(Debug, PartialEq, Eq)]
+pub enum Provider {
+    /// 调用 OpenAI 兼容端点翻译
+    Ai,
+    /// 离线规则模式（不联网）
+    Rule,
+}
+
+/// 解析 `--provider`：`deepseek` / `openai` / `compatible` 走同一条 OpenAI
+/// 兼容链路（区别只在环境变量里的端点与模型），`rule` 为离线模式。
+///
+/// 保留 `deepseek` 作为默认写法（已有脚本与文档都在用），但名字不再绑死厂商。
+pub fn parse_provider(value: &str) -> Option<Provider> {
+    match value {
+        "deepseek" | "openai" | "compatible" => Some(Provider::Ai),
+        "rule" => Some(Provider::Rule),
+        _ => None,
+    }
+}
+
+/// 调用 OpenAI 兼容 chat/completions 接口的通用底层：发送 system+user 提示词，返回模型文本
+///
+/// 端点、密钥、模型由 [`resolve_endpoint`] 决定。供映射生成
+/// （call_ai_generate_mapping）与脚手架翻译
+/// （mapping_check::run_scaffold --provider）共用。
+pub fn ai_chat(system_prompt: &str, user_prompt: &str) -> anyhow::Result<String> {
+    let ui = crate::ui::Ui::global();
+    let endpoint = resolve_endpoint(&|name| std::env::var(name).ok())?;
+    let url = chat_url(&endpoint.base_url);
+    // 端点只回显一次：分批调用逐批打印会淹没进度；只回显密钥变量名，不碰密钥本身
+    static ENDPOINT_REPORTED: std::sync::Once = std::sync::Once::new();
+    ENDPOINT_REPORTED.call_once(|| {
+        println!(
+            "{}",
+            ui.f("mg_ai_endpoint", &[&url, &endpoint.model, endpoint.key_var])
+        );
+    });
     let request_body = serde_json::json!({
-        "model": "deepseek-chat",
+        "model": endpoint.model,
         "messages": [
             { "role": "system", "content": system_prompt },
             { "role": "user", "content": user_prompt }
@@ -69,7 +185,7 @@ pub fn deepseek_chat(system_prompt: &str, user_prompt: &str) -> anyhow::Result<S
     let resp = agent
         .post(&url)
         .header("Content-Type", "application/json")
-        .header("Authorization", &format!("Bearer {}", api_key))
+        .header("Authorization", &format!("Bearer {}", endpoint.api_key))
         .send(request_body.to_string())
         .map_err(|e| anyhow!("{}", ui.f("mg_err_ai_request", &[&e.to_string()])))?;
     if resp.status() != 200 {
@@ -120,7 +236,7 @@ fn build_user_prompt(crate_name: &str, lang: &str, batch: &[ApiEntry]) -> String
     }
 }
 
-/// 调用 DeepSeek 生成中文名与解释，返回 (中文名→英文名, 中文名→解释)
+/// 调用 OpenAI 兼容端点生成中文名与解释，返回 (中文名→英文名, 中文名→解释)
 ///
 /// 只发送 API 英文名与类型签名；长映射按 [`AI_BATCH_SIZE`] 分批调用后合并
 /// （单次调用的输出会超模型上限）；任一批失败整体返回 Err，由上层回退规则模式。
@@ -147,7 +263,7 @@ pub fn call_ai_generate_mapping(
             )
         );
         let user_prompt = build_user_prompt(crate_name, lang, batch);
-        let content = deepseek_chat(system_prompt, &user_prompt)?;
+        let content = ai_chat(system_prompt, &user_prompt)?;
         // 只接受本批条目中的英文名（防止 AI 幻觉改名）
         let valid_english_names: HashSet<String> =
             batch.iter().map(|e| e.english_name.clone()).collect();
@@ -308,6 +424,120 @@ pub fn detect_system_language() -> String {
 mod tests {
     use super::*;
     use crate::mapping_gen::ApiKind;
+
+    /// 环境变量假象器：把键值表包成 `get` 闭包，单测不碰真实进程环境
+    /// （进程级 env 改动会与并行其它测试互相干扰）
+    fn 假环境(条目: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
+        let 表: std::collections::HashMap<String, String> = 条目
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        move |键| 表.get(键).cloned()
+    }
+
+    /// 默认端点下的配置与密钥回退链
+    #[test]
+    fn test_resolve_endpoint_default_deepseek() {
+        let 端点 = resolve_endpoint(&假环境(&[("DEEPSEEK_API_KEY", "sk-d")])).unwrap();
+        assert_eq!(端点.base_url, DEFAULT_BASE_URL);
+        assert_eq!(端点.model, DEFAULT_MODEL);
+        assert_eq!(端点.api_key, "sk-d");
+        assert_eq!(端点.key_var, "DEEPSEEK_API_KEY");
+        assert!(!端点.custom);
+
+        // RZ_AI_* 优先于历史变量
+        let 端点 = resolve_endpoint(&假环境(&[
+            ("RZ_AI_API_KEY", "sk-rz"),
+            ("DEEPSEEK_API_KEY", "sk-d"),
+            ("RZ_AI_MODEL", "deepseek-reasoner"),
+        ]))
+        .unwrap();
+        assert_eq!(端点.api_key, "sk-rz");
+        assert_eq!(端点.key_var, "RZ_AI_API_KEY");
+        assert_eq!(端点.model, "deepseek-reasoner");
+
+        // 用旧变量名配的自定义端点同样算自定义（custom 按最终 URL 判定，不按变量名）
+        let 端点 = resolve_endpoint(&假环境(&[
+            ("DEEPSEEK_BASE_URL", "https://mirror.example/v1"),
+            ("OPENAI_API_KEY", "sk-o"),
+        ]))
+        .unwrap();
+        assert!(端点.custom);
+        assert_eq!(端点.key_var, "OPENAI_API_KEY");
+    }
+
+    /// 安全约束：默认端点绝不读 OPENAI_API_KEY（不把别家密钥发往 DeepSeek）
+    #[test]
+    fn test_resolve_endpoint_does_not_leak_openai_key() {
+        let 错 = resolve_endpoint(&假环境(&[("OPENAI_API_KEY", "sk-o")])).unwrap_err();
+        assert!(
+            错.to_string().contains("RZ_AI_API_KEY"),
+            "应提示主密钥变量：{错}"
+        );
+        // 自定义端点才启用 OPENAI_API_KEY，且优先于 DEEPSEEK_API_KEY
+        let 端点 = resolve_endpoint(&假环境(&[
+            ("RZ_AI_BASE_URL", "https://api.openai.com/v1"),
+            ("OPENAI_API_KEY", "sk-o"),
+            ("DEEPSEEK_API_KEY", "sk-d"),
+        ]))
+        .unwrap();
+        assert!(端点.custom);
+        assert_eq!(端点.api_key, "sk-o");
+        assert_eq!(端点.key_var, "OPENAI_API_KEY");
+        assert_eq!(
+            chat_url(&端点.base_url),
+            "https://api.openai.com/v1/chat/completions"
+        );
+    }
+
+    /// 密钥/端点为空串时点名变量，不拿空值去请求
+    #[test]
+    fn test_resolve_endpoint_names_offending_var() {
+        let 错 = resolve_endpoint(&假环境(&[("RZ_AI_API_KEY", "")])).unwrap_err();
+        assert!(错.to_string().contains("RZ_AI_API_KEY"), "{错}");
+        // 空串不阻断回退：主变量为空、历史变量可用时照旧能跑
+        let 端点 = resolve_endpoint(&假环境(&[
+            ("RZ_AI_API_KEY", ""),
+            ("DEEPSEEK_API_KEY", "sk-d"),
+        ]))
+        .unwrap();
+        assert_eq!(端点.key_var, "DEEPSEEK_API_KEY");
+        // 空白端点视为未设置，不拼出只补后缀的废 URL
+        let 端点 = resolve_endpoint(&假环境(&[
+            ("RZ_AI_BASE_URL", "   "),
+            ("DEEPSEEK_API_KEY", "sk-d"),
+        ]))
+        .unwrap();
+        assert_eq!(端点.base_url, DEFAULT_BASE_URL);
+    }
+
+    /// chat/completions 拼接：带 /v1 与不带、已带后缀、结尾斜杠均能跑
+    #[test]
+    fn test_chat_url_forms() {
+        assert_eq!(
+            chat_url("https://api.deepseek.com"),
+            "https://api.deepseek.com/chat/completions"
+        );
+        assert_eq!(
+            chat_url("http://localhost:11434/v1/"),
+            "http://localhost:11434/v1/chat/completions"
+        );
+        assert_eq!(
+            chat_url("https://x.example/v1/chat/completions"),
+            "https://x.example/v1/chat/completions"
+        );
+    }
+
+    /// --provider 别名归一：三种写法同一条链路，rule 离线，其余报 None
+    #[test]
+    fn test_parse_provider_aliases() {
+        for 别名 in ["deepseek", "openai", "compatible"] {
+            assert_eq!(parse_provider(别名), Some(Provider::Ai), "{别名}");
+        }
+        assert_eq!(parse_provider("rule"), Some(Provider::Rule));
+        assert_eq!(parse_provider("deeepseek"), None);
+        assert_eq!(parse_provider(""), None);
+    }
 
     #[test]
     fn test_parse_ai_result() {

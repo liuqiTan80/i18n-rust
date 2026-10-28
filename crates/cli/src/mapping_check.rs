@@ -783,7 +783,7 @@ fn print_cross_lang_counts() {
 /// 项目语言包根 `<target>/crates/`（主仓库内为 crates/engine/lang-packs/，
 /// 用户项目为 lang-packs/）。
 /// provider：`rule`（默认，生成 TODO 骨架待人工翻译）或
-/// `deepseek`（AI 自动翻译键名，需 DEEPSEEK_API_KEY）。
+/// `deepseek` / `openai` / `compatible`（AI 自动翻译键名，需配好密钥环境变量）。
 pub fn run_scaffold(
     source: &str,
     target: &str,
@@ -794,6 +794,16 @@ pub fn run_scaffold(
     if !crate::builtin_lang::has_builtin_lang(source) {
         anyhow::bail!(ui.f("mc_unknown_source", &[source]));
     }
+    // 先判定服务商与凭据再动手：拼错的 --provider、没配的密钥都不该
+    // 先生成一堆骨架文件再报错
+    let use_ai = match crate::mapping_gen::parse_provider(provider) {
+        Some(crate::mapping_gen::Provider::Ai) => {
+            crate::mapping_gen::ensure_credentials()?;
+            true
+        }
+        Some(crate::mapping_gen::Provider::Rule) => false,
+        None => anyhow::bail!("{}", ui.f("mapping_unknown_provider", &[provider])),
+    };
     let view = LangPackView::from_builtin(source);
     if view.crates.is_empty() {
         anyhow::bail!(ui.f("mc_no_crates", &[source]));
@@ -824,7 +834,7 @@ pub fn run_scaffold(
             ui.f("mc_scaffold_skip_existing", &[&skipped.to_string()])
         );
     }
-    if provider == "deepseek" {
+    if use_ai {
         ai_translate_scaffold(&view, source, target, &output_dir)?;
     } else {
         println!("{}", ui.f("mc_scaffold_hint", &[target]));
@@ -832,7 +842,7 @@ pub fn run_scaffold(
     Ok(())
 }
 
-// ==================== AI 翻译（--provider deepseek） ====================
+// ==================== AI 翻译（--provider deepseek / openai / compatible） ====================
 
 /// 每批送 AI 的键数上限
 const AI_BATCH_SIZE: usize = 60;
@@ -1043,7 +1053,7 @@ used words: {}\nkeys to translate (key = its English API):\n{}",
         used.join(", "),
         key_list
     );
-    let content = crate::mapping_gen::deepseek_chat(system_prompt, &user_prompt)?;
+    let content = crate::mapping_gen::ai_chat(system_prompt, &user_prompt)?;
     parse_json_map(&content)
 }
 
@@ -1100,7 +1110,7 @@ conflicting entries (file|key) to rename:\n{}",
         forbidden.join(", "),
         list
     );
-    let content = crate::mapping_gen::deepseek_chat(system_prompt, &user_prompt)?;
+    let content = crate::mapping_gen::ai_chat(system_prompt, &user_prompt)?;
     let raw = parse_json_map(&content)?;
     let mut renames = HashMap::new();
     for (composite, new_key) in raw {

@@ -199,7 +199,7 @@ enum MappingCommand {
         /// Target language (language-pack directory name, e.g. zh, ru; auto-detected from the system language by default)
         #[arg(long)]
         lang: Option<String>,
-        /// AI provider: deepseek (default; requires the DEEPSEEK_API_KEY environment variable) or rule (offline rule mode)
+        /// AI provider: deepseek (default) / openai / compatible - all speak the OpenAI protocol, with endpoint, key and model set via RZ_AI_BASE_URL / RZ_AI_API_KEY / RZ_AI_MODEL - or rule (offline rule mode)
         #[arg(long, default_value = "deepseek")]
         provider: String,
         /// Pin the target crate version (e.g. 2.11.5 exact; 2.11 / 2 = latest in that line); uses the latest when omitted (not reproducible)
@@ -232,7 +232,7 @@ enum MappingCommand {
         /// Output directory (defaults to the project language-pack root: <target>/crates/)
         #[arg(long)]
         output: Option<PathBuf>,
-        /// Translation mode: rule (default; generates a TODO skeleton for manual translation) or deepseek (AI translates keys; requires DEEPSEEK_API_KEY)
+        /// Translation mode: rule (default; generates a TODO skeleton for manual translation) or deepseek / openai / compatible (AI translates keys; endpoint, key and model come from the RZ_AI_* environment variables)
         #[arg(long, default_value = "rule")]
         provider: String,
     },

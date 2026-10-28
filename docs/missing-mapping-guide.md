@@ -108,7 +108,7 @@ rzc check src/main.zh              # 编译验证
 
 ```bash
 rzc add rand@0.8.5                                       # 添加依赖
-rzc mapping auto rand --lang zh --target-version 0.8.5   # AI 生成（默认 deepseek，需 DEEPSEEK_API_KEY）
+rzc mapping auto rand --lang zh --target-version 0.8.5   # AI 生成（默认 deepseek，需 RZ_AI_API_KEY）
 rzc mapping auto rand --lang zh --provider rule          # 离线规则模式：只翻能推断的词，其余保留英文
 ```
 

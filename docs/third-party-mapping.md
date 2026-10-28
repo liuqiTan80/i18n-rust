@@ -61,8 +61,14 @@
 
 ```bash
 rzc mapping auto salvo --lang zh --provider rule    # 离线规则模式
-rzc mapping auto salvo --lang zh                    # AI 模式（需 DEEPSEEK_API_KEY）
+rzc mapping auto salvo --lang zh                    # AI 模式（需 RZ_AI_API_KEY）
 ```
+
+AI 模式走 OpenAI 兼容协议：`--provider` 可写 `deepseek`（默认）/ `openai` / `compatible`，
+三者是同一条链路，连哪台主机、用哪个模型全由环境变量决定——`RZ_AI_BASE_URL`（默认
+`https://api.deepseek.com`）、`RZ_AI_API_KEY`、`RZ_AI_MODEL`（默认 `deepseek-chat`）。
+接 OpenAI / Ollama / 通义等兼容端点的完整示例见
+[crates/cli/README.md](../crates/cli/README.md)。
 
 提取目标 crate 公开 API 生成映射骨架，默认写入项目语言包根
 `<项目语言包根>/<lang>/crates/<crate>.toml`（主仓库内为 crates/engine/lang-packs/，
@@ -116,7 +122,7 @@ rzc mapping check           # 校验全部内置语言 + 跨语言条目数一�
 
 ```bash
 rzc mapping scaffold zh vi                              # 默认：生成 TODO 骨架待人工翻译
-rzc mapping scaffold zh vi --provider deepseek          # AI 自动翻译键名（需 DEEPSEEK_API_KEY）
+rzc mapping scaffold zh vi --provider deepseek          # AI 自动翻译键名（需 RZ_AI_API_KEY）
 rzc mapping scaffold zh vi --output 自定义目录           # 指定输出目录
 ```
 

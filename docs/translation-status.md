@@ -86,7 +86,7 @@ zh 共享 10 表另比其他语言多 121 条标识符与 13 条模块路径（�
 
 ```bash
 rzc mapping scaffold zh <lang>                      # 生成 TODO 骨架，人工翻译键名
-rzc mapping scaffold zh <lang> --provider deepseek  # AI 翻译（需 DEEPSEEK_API_KEY）
+rzc mapping scaffold zh <lang> --provider deepseek  # AI 翻译（需 RZ_AI_API_KEY）
 rzc mapping check <lang>                            # 冲突校验（告警数回归基线）
 ```
 

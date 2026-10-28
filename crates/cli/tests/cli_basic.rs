@@ -1074,6 +1074,57 @@ fn test_mapping_scaffold_rule_local() {
         .stderr(predicates::str::starts_with("错误："));
 }
 
+/// AI 模式的失败判定必须发生在写文件之前：拼错的 `--provider` 与缺失的密钥
+/// 都不该留下一堆待翻译文件；`--provider openai` 需被识别为 AI 链路，而不是
+/// 静默按 rule 跑完（可选值与变量名在任何界面语言下都是英文字面）
+#[test]
+fn test_mapping_scaffold_ai_validation_precedes_writes() {
+    let home = isolated_home();
+
+    // 未知服务商：失败 + 列出可选值 + 不产生任何文件
+    let out = tempfile::tempdir().expect("创建输出目录失败");
+    rzc()
+        .env("HOME", home.path())
+        .args([
+            "mapping",
+            "scaffold",
+            "zh",
+            "xx",
+            "--provider",
+            "zzz",
+            "--output",
+        ])
+        .arg(out.path())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "deepseek / openai / compatible / rule",
+        ));
+    assert!(walkdir(out.path()).is_empty(), "未知服务商不应写入任何文件");
+
+    // openai 别名走 AI 链路：无密钥时失败并点名 RZ_AI_API_KEY，同样不落文件
+    let out = tempfile::tempdir().expect("创建输出目录失败");
+    let mut cmd = rzc();
+    cmd.env("HOME", home.path())
+        .args([
+            "mapping",
+            "scaffold",
+            "zh",
+            "xx",
+            "--provider",
+            "openai",
+            "--output",
+        ])
+        .arg(out.path());
+    for 密钥 in ["DEEPSEEK_API_KEY", "RZ_AI_API_KEY", "OPENAI_API_KEY"] {
+        cmd.env_remove(密钥);
+    }
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("RZ_AI_API_KEY"));
+    assert!(walkdir(out.path()).is_empty(), "缺少密钥不应写入任何文件");
+}
+
 /// 递归列出目录内文件（测试小工具）
 fn walkdir(root: &std::path::Path) -> Vec<std::path::PathBuf> {
     let mut out = Vec::new();

@@ -42,7 +42,7 @@ cp -r crates/engine/lang-packs/zh crates/engine/lang-packs/vi
 ### 2.2 第三方库映射（crates/）
 
 ```bash
-# 方式一：AI 自动翻译键名（需设置 DEEPSEEK_API_KEY）
+# 方式一：AI 自动翻译键名（需设置 RZ_AI_API_KEY）
 rzc mapping scaffold zh vi --provider deepseek
 
 # 方式二：生成 TODO 骨架，人工翻译键名

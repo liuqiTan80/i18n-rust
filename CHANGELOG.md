@@ -5,6 +5,46 @@
 
 ## [Unreleased]
 
+### 新增
+- `rzc mapping auto` / `rzc mapping scaffold` 的 AI 链路不再绑死 DeepSeek：`--provider`
+  接受 `openai` / `compatible`（与 `deepseek` 同走 OpenAI 兼容协议），端点、密钥、模型由
+  `RZ_AI_BASE_URL` / `RZ_AI_API_KEY` / `RZ_AI_MODEL` 指定，未设置时回退 `DEEPSEEK_BASE_URL` /
+  `DEEPSEEK_API_KEY` 与内置默认值。三项与 VS Code 扩展的 `i18n-rust.ai.baseUrl / apiKey /
+  model` 一一对应，同一个 URL 两侧都能直接粘。
+- AI 请求前回显一次实际生效的端点、模型与密钥变量名（`mg_ai_endpoint`）：调用失败时最常见
+  的疑问是“打的究竟是哪台主机、用的哪个 key”。只报变量名不报密钥值，分批调用只报一次。
+
+### 变更
+- **密钥不跨站**：端点为默认 DeepSeek 时不读 `OPENAI_API_KEY`——否则会把别家密钥发往
+  DeepSeek（拿到 401，账单却可能记在 OpenAI 侧），只有显式设置自定义端点才启用该回退。
+- `--provider` 未知值立即报错（`mapping_unknown_provider`），不再静默按规则模式跑完；校验
+  前移到任何文件写入与 rustdoc 提取之前。scaffold 的 AI 模式在生成待翻译文件前先验密钥，
+  避免“命令失败”与“目录已被改动”同时成立。
+- 变量存在但为空串时点名是哪个变量为空（`mg_err_api_key_empty`），不让用户逐个试。
+- `chat_url` 归一：`https://x/v1`、`https://x/v1/`、`https://x/v1/chat/completions` 三种
+  写法等价，与扩展侧 baseUrl 的常见写法保持一致。
+
+### 测试
+- 5 个单测覆盖端点解析（默认回退链、不泄露 `OPENAI_API_KEY`、空串点名）、URL 拼接、
+  `--provider` 别名归一；env 读取以闭包注入，不改真实进程环境，与并行测试无互扰。
+- 1 个 CLI 集成测试：未知服务商与缺密钥两条路径均断言“失败且不写入任何文件”，
+  `--provider openai` 必须被识别为 AI 链路而非静默走 rule。
+
+### 界面消息
+- 界面消息键 622 → 623（新增 `mg_ai_endpoint`），并覆写 `mg_err_no_api_key` /
+  `mg_err_api_key_empty` / `mapping_unknown_provider` / `arg_provider_help` /
+  `cmd_mapping_scaffold_provider_help`；11 语言同步，非 zh 为机翻，**待母语者复核**。
+
+### 说明与取舍
+- 此前 `base_url` 已可经 `DEEPSEEK_BASE_URL` 覆盖，但模型与密钥变量名仍绑死 DeepSeek，
+  “改用 OpenAI”实际做不到；本轮解绑的是这三项，没有新增网络能力。
+- `mapping auto` 的 AI 调用失败仍回退规则模式（无密钥也能产出映射，解释留空），只有
+  scaffold 做前置密钥检查——那里 AI 是用户显式请求的翻译方式，静默降级只会留下一堆
+  没有翻译的文件。
+- 扩展侧未改动：它已有独立的三设置项与 provider 实现，本轮只对齐 URL 约定与变量语义。
+- 文档侧 4 处「需 `DEEPSEEK_API_KEY`」写法统一为 `RZ_AI_API_KEY`（旧变量仍可用作回退），
+  并在 `docs/third-party-mapping.md` 补一段服务商与三变量说明。
+
 ## [0.8.12] - 2026-10-28
 
 ### 新增

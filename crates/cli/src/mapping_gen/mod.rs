@@ -24,7 +24,10 @@ mod rules;
 mod rustdoc_extract;
 mod toml_output;
 
-pub use ai::{call_ai_generate_mapping, deepseek_chat, detect_system_language};
+pub use ai::{
+    Provider, ai_chat, call_ai_generate_mapping, detect_system_language, ensure_credentials,
+    parse_provider,
+};
 pub use rules::{
     detect_keyword_conflicts, generate_crate_localized_name, rule_generate_localized_name,
 };
@@ -156,7 +159,8 @@ fn explanation_coverage(
 ///
 /// - `crate_name`：目标 crate（已安装或可从 crates.io 拉取）
 /// - `lang`：语言包目录名（如 zh、ru），用于冲突检测与默认输出位置
-/// - `provider`：`deepseek`（调用 AI）或 `rule`（离线规则模式）
+/// - `provider`：`deepseek` / `openai` / `compatible`（均走 OpenAI 兼容链路，调用 AI）
+///   或 `rule`（离线规则模式）
 /// - `output_path`：输出文件路径
 /// - `target_version`：锁定提取基准版本（`2.11.5` → `=2.11.5` 精确锁定；
 ///   `2.11` / `2` → 该线最新）；`None` 时解析最新版（结果不可复现，打印提示）
@@ -187,6 +191,11 @@ pub fn run_auto_generate(
             eprintln!("{}", ui.t("mapping_version_unlocked"));
             None
         }
+    };
+
+    // 服务商参数早校验：拼错的 --provider 不该先跑完 rustdoc 提取再报错
+    let Some(mode) = parse_provider(provider) else {
+        bail!("{}", ui.f("mapping_unknown_provider", &[provider]));
     };
 
     println!("{}", ui.f("mapping_extracting", &[crate_name]));
@@ -265,8 +274,8 @@ pub fn run_auto_generate(
 
     // 2. 解释：AI 模式调用服务商，失败或无配置回退规则模式（解释留空）
     let mut explanation_table: HashMap<String, String> = HashMap::new();
-    match provider {
-        "deepseek" => {
+    match mode {
+        Provider::Ai => {
             match call_ai_generate_mapping(crate_name, lang, &entries) {
                 Ok((ai_identifiers, ai_explanations)) => {
                     // AI 中文名覆盖规则名（校验英文名合法性，防止 AI 幻觉改名）
@@ -321,15 +330,17 @@ pub fn run_auto_generate(
                 Err(e) => {
                     eprintln!(
                         "{}",
-                        ui.f("mapping_ai_fallback", &["DEEPSEEK_API_KEY", &e.to_string()])
+                        ui.f(
+                            "mapping_ai_fallback",
+                            &["RZ_AI_API_KEY / DEEPSEEK_API_KEY", &e.to_string()]
+                        )
                     );
                 }
             }
         }
-        "rule" => {
+        Provider::Rule => {
             eprintln!("{}", ui.t("mapping_rule_mode"));
         }
-        other => bail!("{}", ui.f("mapping_unknown_provider", &[other])),
     }
 
     // 3. 输出 TOML
