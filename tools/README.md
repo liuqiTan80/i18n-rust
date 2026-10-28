@@ -12,6 +12,7 @@
 | `verify-glossary.py` | 术语表 ↔ zh 语言包一致性（术语表引用的词须能在语言包中找到） | `make glossary` |
 | `check-ui-keys.py` | ui.toml 键完备性（11 语言与 zh 对齐 + `{}` 占位符一致性） | `make ui-keys` |
 | `check-extension-ui-keys.py` | 扩展文案三方一致：`extension.ts` 消费的 `ext_` 键 = `gen-ui-strings.mjs` 白名单 = `src/generated/ui-strings.ts`，并校验生成物未陈落于 ui.toml；纯 Python，免 npm/node_modules | `make ext-ui-keys` |
+| `ui-keys-index.py` | 生成/校验 `docs/ui-keys.en.md`（界面消息键 → 消费点 + `{}` 实参表达式 + zh 原文）：索引陈旧或新增无调用点的死键即失败；动态取键前缀需在此显式登记 | `make ui-index` / `make ui-index-write` |
 | `check-mapping-warnings.py` | 映射告警数基线（只减不增）：运行 `rzc mapping check` 对照 `tools/mapping-baseline.json` | `make mapping-check` |
 | `bench-check.sh` | 基准回归门禁：engine + lsp 双基准集与入库基线对比（阈值默认 30%） | `make bench-check` · `make bench-update`（刷新基线） |
 | `build-site.py` | 文档站装配：从 `tutorials/`、`docs/` 原位组装四语言 mdBook 到 `_site/` | `make site` · `make site-serve` |

@@ -168,7 +168,6 @@
 "warn_builtin_errors_failed" = "Advertencia: fallo al cargar los mensajes de error integrados: {}"
 "no_project_root" = "No se encontro la raiz del proyecto (no hay Cargo.toml en los directorios superiores). Archivo fuente: {}. Cree primero un proyecto con `rzc init`."
 "transpile_file_failed" = "Fallo al transpilar {}: {}"
-"run_program_failed" = "El programa termino con error ({}):\n{}"
 
 # ---- creacion de proyecto ----
 "dir_exists" = "El directorio {} ya existe"
@@ -200,7 +199,6 @@
 "lang_already_installed" = "El paquete de idioma '{}' ya esta instalado ({}). Para sobrescribirlo use `rzc lang install {} --force`."
 "remote_lang_not_found" = "El paquete de idioma '{}' no existe en el repositorio remoto. Compruebe el codigo o use `rzc lang list`."
 "remote_install_failed" = "Fallo la instalacion remota del paquete de idioma '{}' tras probar {} fuentes:\n{}\nCompruebe la conexion de red; o defina la variable de entorno RZ_LANG_REPO con un repositorio propio."
-"lang_install_help_list" = "Use `rzc lang list` para ver los paquetes de idioma instalados."
 "lang_list_display" = "  [{}] {} (extension: {}, version: {}) {}"
 
 # ---- cargar paquetes de idioma ----
@@ -215,7 +213,6 @@
 "mapping_source_global" = "Fuente de asignaciones: paquete de idioma global del usuario {} (anula incorporado; RZ_LANG_DIR cambia la ruta)"
 "mapping_source_builtin" = "Fuente de asignaciones: paquete de idioma incorporado {} (embebido en tiempo de compilación; recompilar tras modificarlo; personalizado con rzc lang install)"
 "lang_not_builtin" = "El paquete de idioma '{}' no esta integrado; instalelo con `rzc lang install {}`."
-"unrecognized_ext" = "No se puede reconocer la extension del archivo"
 
 # ---- Instalación de componentes ----
 "cmd_install_about" = "Instalar componentes complementarios (servidor de lenguaje i18n-rust-lsp)"
@@ -316,7 +313,6 @@
 "mc_scaffold_ai_retry" = "🔄 se encontraron {} claves en conflicto, la IA las renombra (ronda {}/{})..."
 "mc_scaffold_ai_retry_left" = "⚠️ persisten conflictos tras renombrar; ejecute rzc mapping check {} y corríjalos manualmente"
 "cmd_mapping_scaffold_provider_help" = "modo de traducción: rule (predeterminado, esqueleto TODO para traducción manual) o deepseek / openai / compatible (la IA traduce las claves; endpoint, clave y modelo mediante variables RZ_AI_*)"
-"mapping_explain_too_long" = "Advertencia: la explicación de IA supera los {} caracteres ({} caracteres): {}"
 # ---- Localización de mensajes del motor/LSP/CLI (añadido) ----
 "err_line_col" = "Línea {}, columna {}"
 "err_input_invalid" = "Entrada no válida: {}"
@@ -372,7 +368,6 @@
 "load_read_map_failed" = "Error al leer la tabla de asignación: {}"
 "load_parse_map_failed" = "Error al analizar la tabla de asignación: {}"
 "load_read_dir_failed" = "Error al leer el directorio de crates de terceros: {}"
-"load_read_entry_failed" = "Error al leer la entrada del directorio: {}"
 "load_read_map_path_failed" = "Error al leer la tabla de asignación {}: {}"
 "load_parse_map_path_failed" = "Error al analizar la tabla de asignación {}: {}"
 "load_keywords_missing" = "El archivo de palabras clave no existe: {}"
@@ -396,7 +391,6 @@
 "log_level_info" = "INFO"
 "log_level_warn" = "ADVERTENCIA"
 "log_level_error" = "ERROR"
-"cli_err_cwd" = "No se puede determinar la raíz del proyecto: {}"
 "mapping_disclaimer" = "Las explicaciones de este archivo las genera automáticamente la IA a partir de nombres y firmas de API; no son una traducción oficial de la documentación del crate y son solo para aprendizaje. El crate original tiene copyright de sus autores."
 "mapping_kind_function" = "función"
 "mapping_kind_struct" = "estructura"

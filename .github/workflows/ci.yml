@@ -98,6 +98,11 @@ jobs:
         # 纯 Python 实现，不依赖 npm/node_modules
         run: python3 tools/check-extension-ui-keys.py
 
+      - name: ui.toml 键索引检查
+        # docs/ui-keys.en.md 由 tools/ui-keys-index.py 生成：改了界面消息键或其调用点
+        # 却没重跑 --write（索引陈旧），或新增没有任何调用点的死键时退出码非零
+        run: python3 tools/ui-keys-index.py
+
       - name: 语言包 errors.toml 完整性检查
         # 逐语言包回读全部 errors.toml（含撇号/反引号键必须为双引号字面量，
         # 否则整包静默炸掉）、错误码表/消息表键数与 zh 齐平、通配段/前缀/后缀
@@ -165,6 +170,9 @@ jobs:
 
       - name: 扩展界面文案一致性检查
         run: python tools/check-extension-ui-keys.py
+
+      - name: ui.toml 键索引检查
+        run: python tools/ui-keys-index.py
 
       - name: 语言包 errors.toml 完整性检查
         run: python tools/check-lang-packs.py

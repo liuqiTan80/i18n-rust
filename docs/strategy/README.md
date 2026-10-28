@@ -31,7 +31,8 @@
 
 - 教程滚动：en 第十四章《生命周期》起继续（复用既有翻译 + 门禁流程）；ja/ru 保持节奏
 - AI provider 真实端点联调：OpenAI / Ollama / 通义各跑一次 `rzc mapping auto`，验证超时与分批上限（`RZ_AI_*` 改造目前只有离线测试，未联网验证）
-- `ui.toml` 键英文字典（第 11 种语言贡献者参考）+ 贡献 SOP 英文化
+- 贡献 SOP 英文化：`docs/contributing-lang-pack.md` / `missing-mapping-guide.md` 出 en 版
+  （键字典部分已由生成物 `docs/ui-keys.en.md` 覆盖，2026-10-28；剩正文翻译）
 - 文档站增强：en/ja/ru 书接入参考文档（依赖翻译进度）；en 书开启 Playground 评估
 - 扩展剩余内联中文文案入 `ext_` 键表（含按钮标签「查看日志 / 打开设置」等 9 处）：
   需先把按钮的展示文案与返回值解耦（现在靠中文字符串比对用户点了哪个），门禁

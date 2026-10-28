@@ -110,7 +110,6 @@
 "warn_builtin_errors_failed" = "警告: 加载内置错误消息失败: {}"
 "no_project_root" = "未找到项目根目录（向上未找到 Cargo.toml）。源文件: {}。请先使用 `rzc init` 创建项目。"
 "transpile_file_failed" = "转译 {} 失败: {}"
-"run_program_failed" = "程序运行失败（{}）：\n{}"
 
 # ---- 项目创建 ----
 "dir_exists" = "目录 {} 已存在"
@@ -169,7 +168,6 @@
 "lang_already_installed" = "语言包 '{}' 已安装（{}）。如需覆盖，请使用 `rzc lang install {} --force`。"
 "remote_lang_not_found" = "远程仓库中不存在语言包 '{}'。请检查语言代码，或使用 `rzc lang list` 查看已安装的语言包。"
 "remote_install_failed" = "远程安装语言包 '{}' 失败，已依次尝试 {} 个源：\n{}\n请检查网络连接；或通过环境变量 RZ_LANG_REPO 指定自定义仓库地址。"
-"lang_install_help_list" = "可用 `rzc lang list` 查看已安装的语言包。"
 "lang_list_display" = "  [{}] {}（扩展名：{}，版本：{}）{}"
 
 # ---- 加载语言包 ----
@@ -184,7 +182,6 @@
 "mapping_source_global" = "映射数据来源: 全局用户语言包 {}（覆盖内置；RZ_LANG_DIR 可改目录）"
 "mapping_source_builtin" = "映射数据来源: 内置语言包 {}（编译期嵌入，修改语言包后需重新编译；自定义请用 rzc lang install）"
 "lang_not_builtin" = "语言包 '{}' 未内置，请通过 `rzc lang install {}` 下载安装。"
-"unrecognized_ext" = "无法识别源文件扩展名"
 
 # ---- 组件安装 ----
 "cmd_install_about" = "安装配套组件（语言服务器 i18n-rust-lsp）"
@@ -297,7 +294,6 @@
 "mc_scaffold_ai_retry" = "🔄 检出 {} 个冲突键，AI 改名中（第 {}/{} 轮）..."
 "mc_scaffold_ai_retry_left" = "⚠️ 改名后仍有冲突残留，请运行 rzc mapping check {} 人工处理"
 "cmd_mapping_scaffold_provider_help" = "翻译方式：rule（默认，生成 TODO 骨架待人工翻译）或 deepseek / openai / compatible（AI 翻译键名，端点、密钥、模型由 RZ_AI_* 环境变量指定）"
-"mapping_explain_too_long" = "警告: AI 解释超过 {} 字（{} 字）：{}"
 # ---- mapping coverage（语料覆盖矩阵） ----
 "mc_cov_header" = "🔬 语料覆盖矩阵: {}"
 "mc_cov_corpus_intro" = "📖 语料：后端真实源码（crates/engine + cli + lsp 的 src/*.rs）"
@@ -365,7 +361,6 @@
 "load_read_map_failed" = "读取映射表失败: {}"
 "load_parse_map_failed" = "解析映射表失败: {}"
 "load_read_dir_failed" = "读取第三方库目录失败: {}"
-"load_read_entry_failed" = "读取目录项失败: {}"
 "load_read_map_path_failed" = "读取映射表 {} 失败: {}"
 "load_parse_map_path_failed" = "解析映射表 {} 失败: {}"
 "load_keywords_missing" = "关键字文件不存在: {}"
@@ -389,7 +384,6 @@
 "log_level_info" = "信息"
 "log_level_warn" = "警告"
 "log_level_error" = "错误"
-"cli_err_cwd" = "无法确定项目根: {}"
 "mapping_disclaimer" = "本文件中的解释由 AI 根据 API 名称和签名自动生成，不是原 crate 的官方文档翻译，仅供学习参考。原 crate 的版权归其作者所有。"
 "mapping_kind_function" = "函数"
 "mapping_kind_struct" = "结构体"

@@ -6,6 +6,35 @@
 ## [Unreleased]
 
 ### 新增
+- `tools/ui-keys-index.py` 与其生成物 `docs/ui-keys.en.md`：界面消息键索引。逐键列出
+  渲染它的代码位置（文件:行）、`{}` 占位符个数、从调用处提取的**实参表达式**，以及 zh
+  原文。新增第 12 种语言的贡献者此前只能对着 `mg_` / `mc_` / `arg_` 这类内部缩写盲翻
+  600+ 条——不知道某条是错误还是提示（语气不同），也不知道每个 `{}` 填的是路径、计数还是
+  键名。索引由代码推导，不引入第二份需要人工同步的真相。
+- 同一脚本的 `--check` 模式已入 `make ui-index` / `make gate`、ci.yml（unix + windows）
+  与 release.yml：① 索引陈旧（改了文案键或其调用点却没重跑 `--write`）即失败；② 新增
+  **没有任何调用点**的界面消息键即失败——死键会被之后每一门语言白译一遍。
+
+### 修复
+- 清理 6 个无人消费的遗留键（`cli_err_cwd`、`lang_install_help_list`、
+  `load_read_entry_failed`、`mapping_explain_too_long`、`run_program_failed`、
+  `unrecognized_ext`），11 语言同步删除，界面消息键 623 → 617。其中两条早已被同义键
+  替代（`run_program_failed` → `cargo_run_failed`、`mapping_explain_too_long` →
+  `mg_warn_ai_explain_long`），属改名后的残留。
+
+### 测试
+- 门禁两类反向用例本地验证均 exit=1：把生成表的一处标题改坏（索引陈旧）、往 zh 插入
+  探针键（死键）。动态取键前缀在生成器里显式登记并附出处——`unicode_name_*`（引擎按码点
+  `format!` 拼键）与 `mc_danger_*`（`mapping check` 的 `code|args` 协议经 `render_issue()`
+  取文案）共 63 个键静态搜索查不到，若不登记就会被审计误判为死键，这是本次最大的坑。
+
+### 说明与取舍
+- 索引正文用英文、zh 原文照录：贡献者要读的是「这条文案在哪、占位符是什么」，不是把
+  文案再翻译一遍。
+- `ui.toml` 的 `["解释"]` 段（191 键，LSP hover 专用）不在索引范围：引擎 `parse_ui` 只读
+  界面消息段，误放已有 `check-ui-keys.py` 拦截。
+
+### 新增
 - `rzc mapping auto` / `rzc mapping scaffold` 的 AI 链路不再绑死 DeepSeek：`--provider`
   接受 `openai` / `compatible`（与 `deepseek` 同走 OpenAI 兼容协议），端点、密钥、模型由
   `RZ_AI_BASE_URL` / `RZ_AI_API_KEY` / `RZ_AI_MODEL` 指定，未设置时回退 `DEEPSEEK_BASE_URL` /

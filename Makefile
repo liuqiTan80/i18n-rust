@@ -31,7 +31,7 @@ test: ## 全部单元测试（debug + release，锁定依赖；CI 同款）
 	$(CARGO) test --workspace --locked
 	$(CARGO) test --workspace --release --locked
 
-gate: fmt-check clippy test prod-panics ui-keys ext-ui-keys lang-packs readme-parity mapping-check tutorials-all glossary ## 提交前完整门禁（= CI test job 全链）
+gate: fmt-check clippy test prod-panics ui-keys ui-index ext-ui-keys lang-packs readme-parity mapping-check tutorials-all glossary ## 提交前完整门禁（= CI test job 全链）
 
 prod-panics: ## 生产代码 panic 面门禁（unwrap/expect/panic! 仅限测试区或白名单）
 	$(PYTHON) tools/check-prod-panics.py
@@ -41,6 +41,12 @@ ui-keys: ## ui.toml 键完备性检查（11 语言与 zh 对齐，含占位符�
 
 ext-ui-keys: ## 扩展界面文案一致性（代码消费 = 生成器白名单 = 生成表，且生成物未陈旧；免 npm）
 	$(PYTHON) tools/check-extension-ui-keys.py
+
+ui-index: ## ui.toml 键索引门禁（docs/ui-keys.en.md 未陈旧 + 无无人消费的界面消息键）
+	$(PYTHON) tools/ui-keys-index.py
+
+ui-index-write: ## 重新生成 docs/ui-keys.en.md（新增或改动界面消息键后必跑）
+	$(PYTHON) tools/ui-keys-index.py --write
 
 lang-packs: ## 语言包完整性门禁（errors.toml 回读/键数齐平/占位符形态/版本一致/通配段特异度）
 	$(PYTHON) tools/check-lang-packs.py

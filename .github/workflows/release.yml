@@ -88,6 +88,11 @@ jobs:
         # extension.ts 消费键 / 生成器白名单 / 生成表三方一致且生成物未陈旧（与 ci.yml 同源）
         run: python3 tools/check-extension-ui-keys.py
 
+      - name: ui.toml 键索引检查
+        # docs/ui-keys.en.md 由 tools/ui-keys-index.py 生成：改了界面消息键或其调用点
+        # 却没重跑 --write（索引陈旧），或新增没有任何调用点的死键时退出码非零
+        run: python3 tools/ui-keys-index.py
+
       - name: 语言包 errors.toml 完整性检查
         # 逐语言包回读校验：键数齐平/占位符形态/模板不回落英文/lang_info 版本（与 ci.yml 同源）
         run: python3 tools/check-lang-packs.py

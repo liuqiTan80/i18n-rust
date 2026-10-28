@@ -197,7 +197,6 @@
 "lang_already_installed" = "भाषा पैक '{}' पहले से स्थापित है ({}). अधिलेखित करने के लिए `rzc lang install {} --force` उपयोग करें।"
 "remote_lang_not_found" = "दूरस्थ रिपॉजिटरी में भाषा पैक '{}' मौजूद नहीं है। कोड जाँचें या `rzc lang list` उपयोग करें।"
 "remote_install_failed" = "भाषा पैक '{}' की दूरस्थ स्थापना {} स्रोतों के प्रयास के बाद विफल:\n{}\nनेटवर्क कनेक्शन जाँचें; या RZ_LANG_REPO पर्यावरण चर को अपने रिपॉजिटरी पर सेट करें।"
-"lang_install_help_list" = "स्थापित भाषा पैक देखने के लिए `rzc lang list` उपयोग करें।"
 "lang_list_display" = "  [{}] {} (एक्सटेंशन: {}, संस्करण: {}) {}"
 
 # ---- भाषा पैक लोड करना ----
@@ -212,7 +211,6 @@
 "mapping_source_global" = "मैपिंग स्रोत: वैश्विक उपयोगकर्ता भाषा पैक {} (अंतर्निहित को ओवरराइड करता है; RZ_LANG_DIR पथ बदलता है)"
 "mapping_source_builtin" = "मैपिंग स्रोत: अंतर्निहित भाषा पैक {} (संकलन समय पर एम्बेडेड; संशोधन के बाद पुनः संकलित करें; rzc lang install से अनुकूलित)"
 "lang_not_builtin" = "भाषा पैक '{}' अंतर्निहित नहीं है; `rzc lang install {}` से स्थापित करें।"
-"unrecognized_ext" = "स्रोत फ़ाइल एक्सटेंशन पहचाना नहीं जा सका"
 
 # ---- घटक स्थापना ----
 "cmd_install_about" = "सहायक घटक स्थापित करें (भाषा सर्वर i18n-rust-lsp)"
@@ -313,7 +311,6 @@
 "mc_scaffold_ai_retry" = "🔄 {} टकराव वाली कुंजियाँ मिलीं, AI नाम बदल रहा है (राउंड {}/{})..."
 "mc_scaffold_ai_retry_left" = "⚠️ नाम बदलने के बाद भी टकराव शेष हैं; rzc mapping check {} चलाकर मैन्युअल रूप से ठीक करें"
 "cmd_mapping_scaffold_provider_help" = "अनुवाद विधि: rule (डिफ़ॉल्ट, मैन्युअल अनुवाद के लिए TODO ढाँचा) या deepseek / openai / compatible (AI कुंजियों का अनुवाद करता है; एंडपॉइंट, कुंजी, मॉडल RZ_AI_* चरों से)"
-"mapping_explain_too_long" = "चेतावनी: AI स्पष्टीकरण {} वर्णों से अधिक है ({} वर्ण): {}"
 # ---- इंजन/LSP/CLI संदेश स्थानीयकरण (परिशिष्ट) ----
 "err_line_col" = "पंक्ति {}, स्तंभ {}"
 "err_input_invalid" = "अमान्य इनपुट: {}"
@@ -369,7 +366,6 @@
 "load_read_map_failed" = "मैपिंग तालिका पढ़ी नहीं जा सकी: {}"
 "load_parse_map_failed" = "मैपिंग तालिका का विश्लेषण विफल: {}"
 "load_read_dir_failed" = "तृतीय-पक्ष क्रेट्स निर्देशिका पढ़ी नहीं जा सकी: {}"
-"load_read_entry_failed" = "निर्देशिका प्रविष्टि पढ़ी नहीं जा सकी: {}"
 "load_read_map_path_failed" = "मैपिंग तालिका {} पढ़ी नहीं जा सकी: {}"
 "load_parse_map_path_failed" = "मैपिंग तालिका {} का विश्लेषण विफल: {}"
 "load_keywords_missing" = "कीवर्ड फ़ाइल मौजूद नहीं है: {}"
@@ -393,7 +389,6 @@
 "log_level_info" = "सूचना"
 "log_level_warn" = "चेतावनी"
 "log_level_error" = "त्रुटि"
-"cli_err_cwd" = "प्रोजेक्ट रूट निर्धारित नहीं किया जा सका: {}"
 "mapping_disclaimer" = "इस फ़ाइल में स्पष्टीकरण API नामों और हस्ताक्षरों से AI द्वारा स्वतः उत्पन्न किए गए हैं; ये क्रेट के आधिकारिक दस्तावेज़ के अनुवाद नहीं हैं और केवल सीखने के लिए हैं। मूल क्रेट का कॉपीराइट उसके लेखकों के पास है।"
 "mapping_kind_function" = "फ़ंक्शन"
 "mapping_kind_struct" = "स्ट्रक्चर"
@@ -522,7 +517,6 @@
 "lsp_err_load_keywords" = "Failed to load keywords: {}"
 "no_project_root" = "प्रोजेक्ट रूट नहीं मिला (ऊपरी डायरेक्टरी में Cargo.toml नहीं)। स्रोत फ़ाइल: {}। पहले `rzc init` से प्रोजेक्ट बनाएं।"
 "transpile_file_failed" = "{} का ट्रांसपाइल विफल: {}"
-"run_program_failed" = "प्रोग्राम विफल रहा ({}):\n{}"
 "lsp_warn_builtin_fallback" = "No language pack file found, using built-in keyword mapping"
 "lsp_err_ra_init_timeout" = "rust-analyzer के initialize उत्तर की प्रतीक्षा की समय सीमा समाप्त, प्रारंभ रद्द किया गया"
 "lsp_err_handle_request" = "क्लाइंट अनुरोध संसाधित करने में विफल: {}"

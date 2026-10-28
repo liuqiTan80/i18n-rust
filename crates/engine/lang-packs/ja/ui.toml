@@ -168,7 +168,6 @@
 "warn_builtin_errors_failed" = "警告: 組み込みエラーメッセージの読み込みに失敗: {}"
 "no_project_root" = "プロジェクトルートが見つかりません（上位ディレクトリに Cargo.toml がありません）。ソースファイル: {}。先に `rzc init` でプロジェクトを作成してください。"
 "transpile_file_failed" = "{} のトランスパイルに失敗: {}"
-"run_program_failed" = "プログラムの実行に失敗しました（{}）：\n{}"
 
 # ---- プロジェクト作成 ----
 "dir_exists" = "ディレクトリ {} は既に存在します"
@@ -200,7 +199,6 @@
 "lang_already_installed" = "言語パック '{}' はインストール済みです（{}）。上書きするには `rzc lang install {} --force` を使用してください。"
 "remote_lang_not_found" = "リモートリポジトリに言語パック '{}' は存在しません。言語コードを確認するか、`rzc lang list` で確認してください。"
 "remote_install_failed" = "言語パック '{}' のリモートインストールは {} 個のソースを試行して失敗しました：\n{}\nネットワーク接続を確認するか、環境変数 RZ_LANG_REPO で独自リポジトリを指定してください。"
-"lang_install_help_list" = "`rzc lang list` でインストール済みの言語パックを確認できます。"
 "lang_list_display" = "  [{}] {}（拡張子: {}、バージョン: {}）{}"
 
 # ---- 言語パックの読み込み ----
@@ -215,7 +213,6 @@
 "mapping_source_global" = "マッピングデータの出所: グローバルユーザー言語パック {}（組み込みを上書き。RZ_LANG_DIR でパス変更可）"
 "mapping_source_builtin" = "マッピングデータの出所: 組み込み言語パック {}（コンパイル時に埋め込み。変更後は再コンパイルが必要。カスタムは rzc lang install）"
 "lang_not_builtin" = "言語パック '{}' は組み込まれていません。`rzc lang install {}` でインストールしてください。"
-"unrecognized_ext" = "ソースファイルの拡張子を認識できません"
 
 # ---- コンポーネントのインストール ----
 "cmd_install_about" = "付属コンポーネントをインストール（言語サーバー i18n-rust-lsp）"
@@ -316,7 +313,6 @@
 "mc_scaffold_ai_retry" = "🔄 {} 個の衝突キーを検出、AI が改名中（第 {}/{} ラウンド）..."
 "mc_scaffold_ai_retry_left" = "⚠️ 改名後も衝突が残存、rzc mapping check {} を実行し手動処理してください"
 "cmd_mapping_scaffold_provider_help" = "翻訳方式: rule（デフォルト、TODO 雛形を手動翻訳）または deepseek / openai / compatible（AI がキーを自動翻訳、エンドポイント・鍵・モデルは RZ_AI_* 環境変数で指定）"
-"mapping_explain_too_long" = "警告: AI の説明が {} 文字を超えています（{} 文字）: {}"
 # ---- エンジン/LSP/CLI メッセージのローカライズ（追記） ----
 "err_line_col" = "{} 行目 {} 列目"
 "err_input_invalid" = "無効な入力: {}"
@@ -372,7 +368,6 @@
 "load_read_map_failed" = "対応付けテーブルの読み取りに失敗: {}"
 "load_parse_map_failed" = "対応付けテーブルの解析に失敗: {}"
 "load_read_dir_failed" = "サードパーティクレートディレクトリの読み取りに失敗: {}"
-"load_read_entry_failed" = "ディレクトリ項目の読み取りに失敗: {}"
 "load_read_map_path_failed" = "対応付けテーブル {} の読み取りに失敗: {}"
 "load_parse_map_path_failed" = "対応付けテーブル {} の解析に失敗: {}"
 "load_keywords_missing" = "キーワードファイルが存在しません: {}"
@@ -396,7 +391,6 @@
 "log_level_info" = "情報"
 "log_level_warn" = "警告"
 "log_level_error" = "エラー"
-"cli_err_cwd" = "プロジェクトルートを特定できません: {}"
 "mapping_disclaimer" = "このファイルの説明は API 名とシグネチャに基づいて AI が自動生成したもので、元のクレートの公式ドキュメントの翻訳ではなく、学習用です。元のクレートの著作権はその作者に帰属します。"
 "mapping_kind_function" = "関数"
 "mapping_kind_struct" = "構造体"

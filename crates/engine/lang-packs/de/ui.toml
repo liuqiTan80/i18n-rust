@@ -168,7 +168,6 @@
 "warn_builtin_errors_failed" = "Warnung: Eingebaute Fehlermeldungen konnten nicht geladen werden: {}"
 "no_project_root" = "Projekt-Root nicht gefunden (kein Cargo.toml in den uebergeordneten Verzeichnissen). Quelldatei: {}. Bitte zuerst mit `rzc init` ein Projekt erstellen."
 "transpile_file_failed" = "Transpilieren von {} fehlgeschlagen: {}"
-"run_program_failed" = "Programm fehlgeschlagen ({}):\n{}"
 
 # ---- Projekt erstellen ----
 "dir_exists" = "Verzeichnis {} existiert bereits"
@@ -200,7 +199,6 @@
 "lang_already_installed" = "Sprachpaket '{}' ist bereits installiert ({}). Zum Ueberschreiben `rzc lang install {} --force` verwenden."
 "remote_lang_not_found" = "Sprachpaket '{}' existiert nicht im entfernten Repository. Sprachcode pruefen oder `rzc lang list` verwenden."
 "remote_install_failed" = "Remote-Installation von Sprachpaket '{}' nach {} Quelle(n) fehlgeschlagen:\n{}\nNetzwerkverbindung pruefen; oder die Umgebungsvariable RZ_LANG_REPO auf ein eigenes Repository setzen."
-"lang_install_help_list" = "Mit `rzc lang list` installierte Sprachpakete anzeigen."
 "lang_list_display" = "  [{}] {} (Erweiterung: {}, Version: {}) {}"
 
 # ---- Sprachpakete laden ----
@@ -215,7 +213,6 @@
 "mapping_source_global" = "Mapping-Quelle: globales Benutzer-Sprachpaket {} (überschreibt Eingebettet; RZ_LANG_DIR ändert den Pfad)"
 "mapping_source_builtin" = "Mapping-Quelle: eingebettetes Sprachpaket {} (zur Kompilierzeit eingebettet; nach Änderungen neu kompilieren; benutzerdefiniert via rzc lang install)"
 "lang_not_builtin" = "Sprachpaket '{}' ist nicht eingebaut; installieren mit `rzc lang install {}`."
-"unrecognized_ext" = "Dateierweiterung nicht erkennbar"
 
 # ---- Komponenteninstallation ----
 "cmd_install_about" = "Zusatzkomponenten installieren (Sprachserver i18n-rust-lsp)"
@@ -316,7 +313,6 @@
 "mc_scaffold_ai_retry" = "🔄 {} Konfliktschlüssel gefunden, KI benennt um (Runde {}/{})..."
 "mc_scaffold_ai_retry_left" = "⚠️ nach dem Umbenennen bleiben Konflikte; bitte rzc mapping check {} ausführen und manuell beheben"
 "cmd_mapping_scaffold_provider_help" = "Übersetzungsmodus: rule (Standard, TODO-Gerüst für manuelle Übersetzung) oder deepseek / openai / compatible (KI übersetzt Schlüssel; Endpunkt, Schlüssel und Modell über RZ_AI_*)"
-"mapping_explain_too_long" = "Warnung: KI-Erklärung überschreitet {} Zeichen ({} Zeichen): {}"
 # ---- Lokalisierung der Engine/LSP/CLI-Meldungen (ergaenzt) ----
 "err_line_col" = "Zeile {}, Spalte {}"
 "err_input_invalid" = "Ungueltige Eingabe: {}"
@@ -372,7 +368,6 @@
 "load_read_map_failed" = "Zuordnungsdatei konnte nicht gelesen werden: {}"
 "load_parse_map_failed" = "Zuordnungsdatei konnte nicht geparst werden: {}"
 "load_read_dir_failed" = "Drittanbieter-Verzeichnis konnte nicht gelesen werden: {}"
-"load_read_entry_failed" = "Verzeichniseintrag konnte nicht gelesen werden: {}"
 "load_read_map_path_failed" = "Zuordnungsdatei {} konnte nicht gelesen werden: {}"
 "load_parse_map_path_failed" = "Zuordnungsdatei {} konnte nicht geparst werden: {}"
 "load_keywords_missing" = "Schluesselwortdatei existiert nicht: {}"
@@ -396,7 +391,6 @@
 "log_level_info" = "INFO"
 "log_level_warn" = "WARNUNG"
 "log_level_error" = "FEHLER"
-"cli_err_cwd" = "Projektwurzel konnte nicht bestimmt werden: {}"
 "mapping_disclaimer" = "Die Erklaerungen in dieser Datei wurden von KI anhand von API-Namen und Signaturen automatisch erzeugt; sie sind keine offizielle Uebersetzung der Crate-Dokumentation und dienen nur zu Lernzwecken. Das urspruengliche Crate ist durch seine Autoren urheberrechtlich geschuetzt."
 "mapping_kind_function" = "Funktion"
 "mapping_kind_struct" = "Struktur"
