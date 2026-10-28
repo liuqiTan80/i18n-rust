@@ -27,12 +27,13 @@ block.
 | [Chapter 15: Collection Types](Chapter-15-Collection-Types.md) | 第十五章：集合类型 | ✅ done |
 | [Chapter 16: Error Handling](Chapter-16-Error-Handling.md) | 第十六章：错误处理 | ✅ done |
 | [Chapter 17: Modules](Chapter-17-Modules.md) | 第十七章：模块系统 | ✅ done |
-| Chapter 18–26, Appendices A–C & E | 第十八章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
+| [Chapter 18: Package Management and Build](Chapter-18-Package-Management-and-Build.md) | 第十八章：包管理与构建 | ✅ done |
+| Chapter 19–26, Appendices A–C & E | 第十九章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
-Gate status (2026-10-28): 315 blocks extracted, 311 verified — 282 pass +
+Gate status (2026-10-28): 317 blocks extracted, 313 verified — 284 pass +
 29 cross-block deps allowlisted, 0 failures (allowlist keyed by file+line
-in `tools/expected-failures.json`). Chapters 14, 15, 16 and 17 needed no new
-allowlist entry; Chapter 17 asserts runtime output for 10 blocks and real
+in `tools/expected-failures.json`). Chapters 14, 15, 16, 17 and 18 needed no
+new allowlist entry; Chapter 17 asserts runtime output for 10 blocks and real
 error codes for 3 (E0603 / E0425 / E0616).
 
 Translation principles (revised 2026-09-06):
@@ -48,8 +49,8 @@ Translation principles (revised 2026-09-06):
 - **Every code block is still compile-verified** with
   `tools/verify-tutorials.py --dir tutorials/en` — standard Rust passes
   through rzc unchanged, and the gate still catches broken examples.
-- Conversion status: **Chapters 1–17 are complete** — Chapter 2 is the
-  reference template; Chapter 18+ are in progress, and the multilingual gate
+- Conversion status: **Chapters 1–18 are complete** — Chapter 2 is the
+  reference template; Chapter 19+ are in progress, and the multilingual gate
   (zh/en/ja/ru) passes with 0 failures (see translation-status.md).
 - **Diagnostics are quoted as the en pack actually renders them**, so an error
   message printed in the book matches what the reader sees in the terminal; the

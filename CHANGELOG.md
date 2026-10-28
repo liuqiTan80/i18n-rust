@@ -127,6 +127,28 @@
   的 P1，不在本轮动核心优先级与快路径。
 
 ### 新增
+- 英文教程第 18 章《Package Management and Build》（`tutorials/en/Chapter-18-Package-Management-and-Build.md`）：
+  en 进度 19/33 → 20/33，621 行。本章是工具链章，正文引用的**每一条命令输出都来自实机采集**：
+  `rzc init` 的成功播报与生成的五文件清单、真实 `Cargo.toml`（`edition = "2024"` + 空
+  `[workspace]`）、`rzc add rand` 写入的 `rand = "0.10.3"`、debug/release 的 `Finished`
+  两行与 4514376 / 457952 字节体积对比、`cargo clean` 的 `Removed 184 files, 55.8MiB total`、
+  `cargo add serde@99.0` 的注册表报错、空 `name` 字段的 `package name cannot be empty`。
+  门禁内 2 个 rust 块全部通过（最小可运行程序 + E0432 错误示例），0 条新增预期失败白名单。
+
+### 说明与取舍
+- 采集时确认三处事实与 zh 版不一致，**en 版按实机改写，不用 zh 的错误说法**：① zh 18.5 声称
+  `rzc init 名字 --lib` 可造库，实机 `error: unexpected argument '--lib' found`；② zh 18.7 的
+  `rzc init → 写代码 → rzc run → cargo build --release` 少关键一步——`rzc init` 只生成方言入口，
+  Cargo 只认 `src/main.rs`，新建项目里**第一条 Cargo 命令必然失败**（`rzc add rand` 与
+  `cargo build` 都原样吐 `no targets specified in the manifest`）；en 版把「先 `rzc check` 一次
+  再交给 Cargo」写进主流程并列为本章头号常见错误；③ `rzc init` 不带 `-l` 时按系统语言生成入口
+  文件（中文 locale 下 `RZ_LANG=en` 仍生成 `src/主函数.zh`），正文提醒英语读者固定加 `-l en`。
+  三项均登记 `docs/strategy/README.md` 的 P1，其中「无 target 错误没人话」涉及新用户必经路径，
+  建议下一轮优先修；zh/ja/ru 第十八章的流程缺步同步也一并登记（属教程正确性，高于常规滚动）。
+- 两处对读者友好的实机行为写进正文：手写 `src/main.rs` 被转译覆盖前先备份为 `.rs.bak`；
+  `use` 未声明的第三方库时 rzc 追加 `Hint: ... run `rzc add serde` to add the dependency`。
+
+### 新增
 - 英文教程第 17 章《Modules》（`tutorials/en/Chapter-17-Modules.md`）：en 进度
   18/33 → 19/33。14 个代码块全部实机验证（10 块逐行断言真实运行输出、3 块断言真实错误码
   E0603/E0425/E0616），0 条新增预期失败白名单。zh 版的两个示意片段（裸路径语句、裸

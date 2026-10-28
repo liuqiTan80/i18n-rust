@@ -29,7 +29,27 @@
 
 ## 候选下一步（P1，按需启动）
 
-- 教程滚动：en 第十八章《包管理与构建》起继续（en 19/33，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
+- 教程滚动：en 第十九章《智能指针》起继续（en 20/33，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
+- **方言项目的「无 target」错误没人话（en 第 18 章实机确认，用户必经之路）**：`rzc init demo -l en`
+  只生成 `src/main.en`，而 Cargo 只认 `src/main.rs`，于是**新建项目里第一条 Cargo 命令一定失败**：
+  `rzc add rand` 与 `cargo build` 都原样吐出 `error: failed to parse manifest at .../Cargo.toml
+  Caused by: no targets specified in the manifest / either src/lib.rs, src/main.rs, a [lib]
+  section, or [[bin]] section must be present`（`handle_add_command` 直接 spawn cargo 并传播
+  退出码，未做任何前置判定）。中文读者看到一堆英文构建器内部术语，且**修复动作（先跑一次
+  `rzc check`）完全看不出来**。修法：`rzc add` 在 spawn 前判定项目有无 target（Cargo.toml 无
+  `[lib]`/`[[bin]]` 且 src/ 下无 `.rs` 入口），命中就用界面消息键给出「先 `rzc check src/main.<ext>`
+  生成标准 Rust 入口」；`cargo build` 侧无法拦截，可在失败后追加同样的提示行。需 11 语言新键 +
+  `check-ui-keys.py`，并用 `rzc init` 实机回归
+- `rzc init --lib` 不存在（en 第 18 章实机确认，**zh 教程第十八章 18.5 声称存在**）：
+  `rzc init booklib --lib` 报 `error: unexpected argument '--lib' found`。当前造库的唯一办法是
+  手写 `src/lib.en`（`rzc check src/lib.en` 实测通过）。修法二选一：① 给 init 加 `--lib`
+  （生成 lib 骨架 + Cargo.toml 注释说明产物仍需 rzc 转译）；② 不加参数，改教程与
+  `rzc init --help` 的说法。无论哪种，zh 第十八章正文都要同步
+- zh 教程第十八章的构建流程对**所有语言读者都少了一步**：18.7 直接给
+  `rzc init → 写代码 → rzc run → cargo build --release`，而 `cargo build --release` 在从未跑过
+  `rzc check`/`rzc run` 的项目里必然报「no targets」（见上条）。en 第 18 章已改为「先 check
+  一次，再交给 Cargo」并把该错误列为本章头号常见错误；zh/ja/ru 三语需要同步这一步骤，属教程
+  正确性修复，优先级高于常规滚动
 - AI provider 真实端点联调：OpenAI / Ollama / 通义各跑一次 `rzc mapping auto`，验证超时与分批上限（`RZ_AI_*` 改造目前只有离线测试，未联网验证）
 - 贡献 SOP 英文化：`docs/contributing-lang-pack.md` / `missing-mapping-guide.md` 出 en 版
   （键字典部分已由生成物 `docs/ui-keys.en.md` 覆盖，2026-10-28；剩正文翻译）
@@ -68,6 +88,12 @@
   可运行的两文件例子。修法：给验证器加 `// 附带文件: cutlery.en` 协议——按声明顺序在
   `src/` 下多写几个文件再整体 `rzc check`/`rzc run`，注意与既有 file+line 白名单键共存、
   四语言（zh/en/ja/ru）同时生效，属工具扩展，先在 en 上验证再回灌 zh 白名单
+- `rzc lang list` 相关测试 `test_lang_list_lists_builtin_packs` 在全量并行下偶发失败
+  （en 第 18 章收尾时观测到一次：单跑与 `--test-threads=1` 稳定通过，其后 3 轮全量 release
+  + 1 轮 debug 全绿，未再复现）。该测试直接断言 `rzc lang list` 输出含 "11"，而
+  `test_lang_local_install_list_remove_lifecycle` 同一批次里在**改全局状态**
+  （`~/.rz/lang-packs/` 安装/移除语言包），两者并发即竞争。修法：让 list 类断言走
+  `RZ_HOME`/临时目录隔离（或给这两个测试加同一把文件锁），否则 CI 会间歇性红灯且难以归因
 - E0502 的所有权叙事语序歧义：`diag_ownership_borrowed_in_use`（"变量 `{}` 在第 {}
   行被借用，第 {} 行仍在被使用"）本是给 E0382 类"先借后用"写的，E0502 复用后两个行号
   先后颠倒——en 教程第十五章实机捕获到 "borrowed on line 5 and is still in use on
