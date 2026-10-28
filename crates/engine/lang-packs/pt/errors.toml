@@ -80,7 +80,7 @@
 
 [E0309]
 "消息模板" = "O parametro generico nao atende a restricao do trait"
-"教学提示" = "O parametro generico deve atender a restricao `{特征}` para usar os metodos correspondentes. Adicione a restricao na declaracao do generico."
+"教学提示" = "O parametro generico deve atender a restricao de trait para usar os metodos correspondentes. Adicione a restricao de trait na declaracao do generico."
 
 [E0310]
 "消息模板" = "O parametro generico nao atende a restricao Sized"

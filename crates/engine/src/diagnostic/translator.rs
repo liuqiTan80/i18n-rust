@@ -259,7 +259,10 @@ pub fn build_type_map(manager: &MappingManager) -> HashMap<String, String> {
 /// `{类型}` 先于 `{字段名}`、E0027 的 `{结构名}` 先于 `{字段名}`）；
 /// 模板不含某占位符时不消费 token，故跨模板共用一份列表不会串位。
 /// `{期望}`/`{实际}` 另有专门的 expected/found 提取逻辑，不在此列。
-const CODE_TEMPLATE_PLACEHOLDERS: &[&str] = &[
+///
+/// `pub(super)`：语言包门禁（`mod tests`）要用同一份清单校验教学提示，
+/// 新增占位符时自动纳入检查，不必两处维护。
+pub(super) const CODE_TEMPLATE_PLACEHOLDERS: &[&str] = &[
     "{变量名}",
     "{名称}",
     "{类型}",

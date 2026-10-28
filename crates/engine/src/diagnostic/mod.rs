@@ -1212,4 +1212,66 @@ mod tests {
             assert!(rendered.hint.is_some(), "[{code}] 缺少教学提示");
         }
     }
+
+    /// 门禁：语言包的教学提示不得残留引擎占位符。
+    ///
+    /// 占位符回填（`translator::CODE_TEMPLATE_PLACEHOLDERS`）只作用于 `消息模板`，
+    /// `教学提示` 是从 errors.toml 原样送到终端的——提示里写 `{名称}` 这类占位符
+    /// 不会被替换，读者就会在自己的母语指引中看到一串中文花括号。
+    /// 起因：en 包 [E0596] 的提示是 "Add `mut` to the variable binding:
+    /// `let mut {名称} = ...;`"，ar/es/fr/hi/ko/pt/ru 的 [E0309] 含 `{特征}`；
+    /// 第十五章《集合类型》引用 E0596 的英文提示做实机核对时才暴露。
+    #[test]
+    fn pack_teaching_hints_never_leak_engine_placeholders() {
+        fn collect_hints<'a>(value: &'a toml::Value, out: &mut Vec<&'a str>) {
+            match value {
+                toml::Value::Table(map) => {
+                    for (key, child) in map.iter() {
+                        if key == "教学提示" {
+                            if let toml::Value::String(text) = child {
+                                out.push(text);
+                            }
+                        } else {
+                            collect_hints(child, out);
+                        }
+                    }
+                }
+                toml::Value::Array(items) => {
+                    for item in items {
+                        collect_hints(item, out);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let mut total = 0;
+        for lang in crate::语言::builtin_language_codes() {
+            let files = crate::语言::builtin_lang_files(lang);
+            let errors_toml = files
+                .iter()
+                .find(|(name, _)| *name == "errors.toml")
+                .map(|(_, content)| *content)
+                .unwrap_or_else(|| panic!("{lang} 语言包缺少 errors.toml"));
+            let parsed: toml::Value = toml::from_str(errors_toml)
+                .unwrap_or_else(|e| panic!("{lang} errors.toml 解析失败：{e}"));
+            let mut hints = Vec::new();
+            collect_hints(&parsed, &mut hints);
+            assert!(
+                hints.len() >= 20,
+                "{lang} 包只取到 {} 条教学提示，清单提取可能有误",
+                hints.len()
+            );
+            for hint in &hints {
+                for placeholder in super::translator::CODE_TEMPLATE_PLACEHOLDERS {
+                    assert!(
+                        !hint.contains(placeholder),
+                        "{lang} 包的教学提示残留占位符 {placeholder}，会原样输出给读者：{hint}"
+                    );
+                }
+            }
+            total += hints.len();
+        }
+        assert!(total > 0, "应至少检查一条教学提示");
+    }
 }

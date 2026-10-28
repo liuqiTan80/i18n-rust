@@ -447,7 +447,7 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `diag_fix_suggestion` | 1 | `crates/engine/src/diagnostic/translator.rs:528` | &hint | 修复建议：{} |
+| `diag_fix_suggestion` | 1 | `crates/engine/src/diagnostic/translator.rs:531` | &hint | 修复建议：{} |
 | `diag_kind_error` | 0 | `crates/engine/src/语言.rs:309`<br>`crates/engine/src/diagnostic/teaching.rs:47` | — | 错误 |
 | `diag_kind_help` | 0 | `crates/engine/src/diagnostic/teaching.rs:50` | — | 帮助 |
 | `diag_kind_ice` | 0 | `crates/engine/src/diagnostic/teaching.rs:51` | — | 内部编译器错误 |
@@ -458,9 +458,9 @@ no substitution at all.
 | `diag_ownership_conflict` | 1 | `crates/engine/src/diagnostic/teaching.rs:143` | var | 变量 `{}` 存在所有权冲突。 |
 | `diag_ownership_moved` | 2 | `crates/engine/src/diagnostic/teaching.rs:137` | var / &mv.line_start.to_string() | 变量 `{}` 在第 {} 行被移动。 |
 | `diag_ownership_moved_reused` | 3 | `crates/engine/src/diagnostic/teaching.rs:121` | var / &mv.line_start.to_string() / &reuse.line_start.to_string() | 变量 `{}` 在第 {} 行被移动，第 {} 行尝试再次使用。 |
-| `diag_ref_depth_hint` | 2 | `crates/engine/src/diagnostic/translator.rs:545` | &localize_ref_type(&expected, &se… / &localize_ref_type(&found, &self.… | 引用层数不匹配：期望 `{}`，实际是 `{}`。检查 `&` 的数量：实参前补 `&`，或让参数类型去掉多余的 `&`。 |
-| `diag_rustc_float` | 0 | `crates/lsp/src/response_map/diag_text.rs:118`<br>`crates/lsp/src/response_map/diag_text.rs:121`<br>`crates/engine/src/diagnostic/translator.rs:619` | — | 浮点数 |
-| `diag_rustc_integer` | 0 | `crates/lsp/src/response_map/diag_text.rs:117`<br>`crates/lsp/src/response_map/diag_text.rs:123`<br>`crates/engine/src/diagnostic/translator.rs:618` | — | 整数 |
+| `diag_ref_depth_hint` | 2 | `crates/engine/src/diagnostic/translator.rs:548` | &localize_ref_type(&expected, &se… / &localize_ref_type(&found, &self.… | 引用层数不匹配：期望 `{}`，实际是 `{}`。检查 `&` 的数量：实参前补 `&`，或让参数类型去掉多余的 `&`。 |
+| `diag_rustc_float` | 0 | `crates/lsp/src/response_map/diag_text.rs:118`<br>`crates/lsp/src/response_map/diag_text.rs:121`<br>`crates/engine/src/diagnostic/translator.rs:622` | — | 浮点数 |
+| `diag_rustc_integer` | 0 | `crates/lsp/src/response_map/diag_text.rs:117`<br>`crates/lsp/src/response_map/diag_text.rs:123`<br>`crates/engine/src/diagnostic/translator.rs:621` | — | 整数 |
 
 ## Engine: Unicode character names (dynamic, by codepoint)
 

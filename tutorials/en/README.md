@@ -24,11 +24,14 @@ block.
 | [Chapter 12: Generics](Chapter-12-Generics.md) | 第十二章：泛型 | ✅ done |
 | [Chapter 13: Traits](Chapter-13-Traits.md) | 第十三章：特征 | ✅ done |
 | [Chapter 14: Lifetimes](Chapter-14-Lifetimes.md) | 第十四章：生命周期 | ✅ done |
-| Chapter 15–26, Appendices A–C & E | 第十五章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
+| [Chapter 15: Collection Types](Chapter-15-Collection-Types.md) | 第十五章：集合类型 | ✅ done |
+| Chapter 16–26, Appendices A–C & E | 第十五章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
-Gate status (2026-10-28): 256 blocks extracted, 253 verified — 224 pass +
+Gate status (2026-10-28): 281 blocks extracted, 278 verified — 249 pass +
 29 cross-block deps allowlisted, 0 failures (allowlist keyed by file+line
-in `tools/expected-failures.json`). Chapter 14 needed no new allowlist entry.
+in `tools/expected-failures.json`). Chapters 14 and 15 needed no new
+allowlist entry; Chapter 15 asserts runtime output for 15 blocks and real
+error codes for 5 more.
 
 Translation principles (revised 2026-09-06):
 
@@ -43,8 +46,8 @@ Translation principles (revised 2026-09-06):
 - **Every code block is still compile-verified** with
   `tools/verify-tutorials.py --dir tutorials/en` — standard Rust passes
   through rzc unchanged, and the gate still catches broken examples.
-- Conversion status: **Chapters 1–14 are complete** — Chapter 2 is the
-  reference template; Chapter 15+ are in progress, and the multilingual gate
+- Conversion status: **Chapters 1–15 are complete** — Chapter 2 is the
+  reference template; Chapter 16+ are in progress, and the multilingual gate
   (zh/en/ja/ru) passes with 0 failures (see translation-status.md).
 - **Diagnostics are quoted as the en pack actually renders them**, so an error
   message printed in the book matches what the reader sees in the terminal; the

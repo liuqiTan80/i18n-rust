@@ -80,7 +80,7 @@
 
 [E0309]
 "消息模板" = "Le paramètre générique ne satisfait pas la contrainte du trait"
-"教学提示" = "Le paramètre générique doit satisfaire la contrainte `{特征}` pour utiliser les méthodes correspondantes. Ajoutez la contrainte dans la déclaration du générique."
+"教学提示" = "Le paramètre générique doit satisfaire la contrainte de trait pour utiliser les méthodes correspondantes. Ajoutez la contrainte de trait dans la déclaration du générique."
 
 [E0310]
 "消息模板" = "Le paramètre générique ne satisfait pas la contrainte Sized"

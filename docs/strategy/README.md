@@ -29,7 +29,7 @@
 
 ## 候选下一步（P1，按需启动）
 
-- 教程滚动：en 第十五章《集合类型》起继续（en 16/33，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
+- 教程滚动：en 第十六章《错误处理》起继续（en 17/33，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
 - AI provider 真实端点联调：OpenAI / Ollama / 通义各跑一次 `rzc mapping auto`，验证超时与分批上限（`RZ_AI_*` 改造目前只有离线测试，未联网验证）
 - 贡献 SOP 英文化：`docs/contributing-lang-pack.md` / `missing-mapping-guide.md` 出 en 版
   （键字典部分已由生成物 `docs/ui-keys.en.md` 覆盖，2026-10-28；剩正文翻译）
@@ -37,6 +37,14 @@
 - 扩展剩余内联中文文案入 `ext_` 键表（含按钮标签「查看日志 / 打开设置」等 9 处）：
   需先把按钮的展示文案与返回值解耦（现在靠中文字符串比对用户点了哪个），门禁
   `tools/check-extension-ui-keys.py` 已就位，新键一律走它
+
+- E0502 的所有权叙事语序歧义：`diag_ownership_borrowed_in_use`（"变量 `{}` 在第 {}
+  行被借用，第 {} 行仍在被使用"）本是给 E0382 类"先借后用"写的，E0502 复用后两个行号
+  先后颠倒——en 教程第十五章实机捕获到 "borrowed on line 5 and is still in use on
+  line 3"（5 是新的可变借用、3 是仍在结束的不可变借用），初学者会读反。修法：给
+  E0502 单独一条键（"第 3 行的不可变借用还没结束，第 5 行又要可变借用"），
+  11 语言同步并走 `tools/check-ui-keys.py` 门禁
+
 
 ## 本目录
 

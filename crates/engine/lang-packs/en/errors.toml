@@ -59,7 +59,7 @@
 
 [E0596]
 "消息模板" = "cannot borrow `{名称}` as mutable, as it is not declared as mutable"
-"教学提示" = "Add `mut` to the variable binding: `let mut {名称} = ...;`"
+"教学提示" = "Only a mutable binding can be borrowed mutably. Add `mut` to the declaration, turning `let value = ...;` into `let mut value = ...;`"
 
 [E0597]
 "消息模板" = "`{名称}` does not live long enough"

@@ -80,7 +80,7 @@
 
 [E0309]
 "消息模板" = "El parámetro genérico no cumple la restricción del rasgo"
-"教学提示" = "El parámetro genérico debe cumplir la restricción `{特征}` para usar los métodos correspondientes. Añada la restricción en la declaración del genérico."
+"教学提示" = "El parámetro genérico debe cumplir la restricción de rasgo para usar los métodos correspondientes. Añada la restricción de rasgo en la declaración del genérico."
 
 [E0310]
 "消息模板" = "El parámetro genérico no cumple la restricción Sized"
