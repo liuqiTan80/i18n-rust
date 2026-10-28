@@ -9,6 +9,8 @@
 "ext_explain_no_diag" = "現在のファイルにエラーや警告はなく、説明は不要です"
 "ext_explain_no_diag_nearby" = "カーソル付近の診断が見つかりません"
 "ext_add_dep_no_workspace" = "ワークスペースが開かれていないため、依存追加できません"
+"ext_lsp_binary_missing" = "i18n-rust-lsp 実行ファイルが見つかりません。`rzc install lsp` で言語サーバーをインストールするか（環境の自己診断は `rzc doctor`）、設定 i18n-rust.serverPath でバイナリパスを指定してください（強調表示・補完・診断は一時的に利用できません）。"
+"ext_lsp_start_failed" = "i18n-rust 言語サーバーの起動に失敗しました：{}（出力パネル「i18n-rust LSP」を参照。環境の自己診断は `rzc doctor`）"
 "ext_cmd_run" = "実行"
 "ext_cmd_check" = "型チェック"
 "ext_cmd_eject" = "Rust ソースとしてエクスポート"

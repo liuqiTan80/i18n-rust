@@ -451,6 +451,18 @@ pub fn doctor() -> anyhow::Result<()> {
         println!("{line}");
     }
 
+    // 编辑器链路：语言服务器版本可能落后于 rzc（旧 crates.io 版本或旧拷贝）
+    if let Some(source) = locate_component(LSP_BIN, &bin_dir) {
+        let version = Command::new(source.path())
+            .arg("--version")
+            .output()
+            .ok()
+            .map(|out| String::from_utf8_lossy(&out.stdout).to_string());
+        if let Some(line) = lsp_version_line(version.as_deref(), env!("CARGO_PKG_VERSION")) {
+            println!("{line}");
+        }
+    }
+
     // 语言包健康检查：遮蔽/备份遗留/身份不符只在用户环境发生，静态门检查不出
     let lang_root = crate::lang_manager::global_lang_dir();
     let health = lang_pack_health_lines(
@@ -575,25 +587,83 @@ fn pack_extension(pack: &crate::lang_manager::GlobalLangPack) -> Option<String> 
         })
 }
 
-/// 各组件来源状态行（纯函数，便于测试）：`rustc: 内置（路径）` / `cargo: PATH（路径）` 等
-fn component_status_lines(bin_dir: &std::path::Path) -> Vec<String> {
-    use i18n_rust_engine::toolchain::find_toolchain_bin;
+/// 组件来源：内置工具链目录优先，其次 PATH
+enum ComponentSource {
+    Builtin(PathBuf),
+    Path(PathBuf),
+}
 
-    ["rustc", "cargo", "rust-analyzer"]
-        .iter()
-        .map(|name| {
-            let builtin = bin_dir.join(format!("{name}{EXE_SUFFIX}"));
-            let via = if builtin.is_file() {
-                format!("内置（{}）", builtin.display())
-            } else {
-                match find_toolchain_bin(name) {
-                    Some(p) => format!("PATH（{}）", p.display()),
-                    None => "未找到".to_string(),
-                }
-            };
-            format!("{name}: {via}")
-        })
-        .collect()
+impl ComponentSource {
+    fn path(&self) -> &Path {
+        match self {
+            Self::Builtin(p) | Self::Path(p) => p,
+        }
+    }
+}
+
+/// 定位组件实际使用的二进制（内置目录优先，其次 PATH）
+fn locate_component(name: &str, bin_dir: &std::path::Path) -> Option<ComponentSource> {
+    let builtin = bin_dir.join(format!("{name}{EXE_SUFFIX}"));
+    if builtin.is_file() {
+        return Some(ComponentSource::Builtin(builtin));
+    }
+    i18n_rust_engine::toolchain::find_toolchain_bin(name).map(ComponentSource::Path)
+}
+
+/// 各组件来源状态行（纯函数，便于测试）：`rustc: 内置（路径）` / `cargo: PATH（路径）` 等
+///
+/// 除编译链路外，还覆盖编辑器链路的两个必需件：`rust-analyzer`（LSP 代理
+/// 转发目标）与 `i18n-rust-lsp`（VS Code 扩展启动的语言服务器）。两者缺失
+/// 在编辑器里只表现为 “Server initialization failed.” 而拿不到原因，
+/// `rzc doctor` 是唯一的自查入口，因此缺失时必须给出可直接复制的安装命令。
+fn component_status_lines(bin_dir: &std::path::Path) -> Vec<String> {
+    const COMPONENTS: [(&str, &str); 4] = [
+        ("rustc", "rzc install toolchain（或 rustup default stable）"),
+        ("cargo", "rzc install toolchain（或 rustup default stable）"),
+        (
+            "rust-analyzer",
+            "rustup component add rust-analyzer（或 rzc install toolchain 装内置工具链）",
+        ),
+        (
+            "i18n-rust-lsp",
+            "rzc install lsp（或 cargo install i18n-rust-lsp）",
+        ),
+    ];
+    let mut lines = Vec::new();
+    for (name, fix) in COMPONENTS {
+        let status = match locate_component(name, bin_dir) {
+            Some(ComponentSource::Builtin(p)) => format!("内置（{}）", p.display()),
+            Some(ComponentSource::Path(p)) => format!("PATH（{}）", p.display()),
+            None => {
+                lines.push(format!("{name}: 未找到"));
+                lines.push(format!("  → 安装：{fix}"));
+                continue;
+            }
+        };
+        lines.push(format!("{name}: {status}"));
+    }
+    lines
+}
+
+/// 语言服务器与 rzc 的版本一致性行（纯函数，便于测试）
+///
+/// 两者是两条独立安装链路：服务器二进制可能来自更早的 crates.io 版本或
+/// 手动拷贝的旧文件，转译规则与诊断文案都是旧的。版本拿不到时不给结论
+/// （返回 `None`，避免在旧版无 `--version` 时误报）。
+fn lsp_version_line(lsp_version: Option<&str>, rzc_version: &str) -> Option<String> {
+    // clap 风格输出可能是 “i18n-rust-lsp 0.8.11”，取末个字段作版本号
+    let version = lsp_version
+        .map(str::trim)
+        .filter(|v| !v.is_empty())?
+        .split_whitespace()
+        .next_back()?;
+    if version == rzc_version {
+        Some(format!("  ✓ 语言服务器与 rzc 版本一致（{version}）"))
+    } else {
+        Some(format!(
+            "  ⚠ 语言服务器 {version} 与 rzc {rzc_version} 不一致：转译规则与诊断文案仍是旧的 → rzc install lsp --force 更新"
+        ))
+    }
 }
 
 /// 双击 rzc.exe（或终端无参数运行）时的环境安装向导：
@@ -728,6 +798,42 @@ mod tests {
         // 其余组件未内置时标记 PATH 或未找到（不 panic）
         assert!(lines.iter().any(|l| l.starts_with("cargo:")));
         assert!(lines.iter().any(|l| l.starts_with("rust-analyzer:")));
+    }
+
+    /// 诊断覆盖编辑器链路：`i18n-rust-lsp` 必须有状态行，
+    /// 且任何「未找到」行后面紧跟一条可复制的安装命令
+    #[test]
+    fn test_component_status_lines_covers_editor_chain() {
+        let dir = tempfile::tempdir().unwrap();
+        let lines = component_status_lines(dir.path());
+        assert!(
+            lines.iter().any(|l| l.starts_with("i18n-rust-lsp:")),
+            "{lines:?}"
+        );
+        for (i, line) in lines.iter().enumerate() {
+            if line.contains("未找到") {
+                // 下一行必须是可直接复制的安装命令（rustup / rzc / cargo 三种来源）
+                let next = lines.get(i + 1).map(String::as_str).unwrap_or_default();
+                assert!(
+                    next.starts_with("  → 安装：") && next.contains("install"),
+                    "「{line}」后缺少安装提示：{next:?}"
+                );
+            }
+        }
+    }
+
+    /// 语言服务器版本漂移提示：一致时无警告，落后时给 `--force` 更新命令
+    #[test]
+    fn test_lsp_version_line_flags_drift() {
+        let same = lsp_version_line(Some("0.8.11"), "0.8.11").unwrap();
+        assert_eq!(same, "  ✓ 语言服务器与 rzc 版本一致（0.8.11）");
+        // clap 风格带包名前缀同样能比对
+        let drift = lsp_version_line(Some("i18n-rust-lsp 0.8.2"), "0.8.11").unwrap();
+        assert!(drift.contains("0.8.2"), "{drift}");
+        assert!(drift.contains("rzc install lsp --force"), "{drift}");
+        // 旧版无 `--version`：不给结论，避免误报
+        assert!(lsp_version_line(None, "0.8.11").is_none());
+        assert!(lsp_version_line(Some("  \n"), "0.8.11").is_none());
     }
 
     /// 构造全局语言包候选条目（测试辅助）

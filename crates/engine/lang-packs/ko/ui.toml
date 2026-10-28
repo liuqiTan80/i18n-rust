@@ -9,6 +9,8 @@
 "ext_explain_no_diag" = "현재 파일에 오류나 경고가 없어 설명이 필요 없습니다"
 "ext_explain_no_diag_nearby" = "커서 근처의 진단을 찾을 수 없습니다"
 "ext_add_dep_no_workspace" = "작업 공간이 열려 있지 않아 의존성을 추가할 수 없습니다"
+"ext_lsp_binary_missing" = "i18n-rust-lsp 실행 파일을 찾을 수 없습니다. `rzc install lsp`를 실행해 언어 서버를 설치하거나(환경 점검은 `rzc doctor`), 설정 i18n-rust.serverPath에서 바이너리 경로를 지정하세요(구문 강조·자동 완성·진단 사용 불가)."
+"ext_lsp_start_failed" = "i18n-rust 언어 서버 시작 실패: {}(출력 패널 'i18n-rust LSP' 참조. 환경 점검은 `rzc doctor`)"
 "ext_cmd_run" = "실행"
 "ext_cmd_check" = "타입 검사"
 "ext_cmd_eject" = "Rust 소스로 내보내기"

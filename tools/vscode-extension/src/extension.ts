@@ -1126,7 +1126,8 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
         工作区根们()
     );
     if (!服务器路径) {
-        const 消息 = '未找到 i18n-rust-lsp 可执行文件。请运行 `rzc install lsp`（或 `cargo install i18n-rust-lsp`）安装语言服务器，或在设置 i18n-rust.serverPath 中指定二进制路径（高亮/补全/诊断功能暂不可用）。';
+        // 文案走 ui.toml 的 ext_ 键（gen:ui 生成 11 语言），不再内联中文
+        const 消息 = 界面文案['ext_lsp_binary_missing'];
         日志(消息);
         vscode.window.showErrorMessage(消息, '打开设置').then(操作 => {
             if (操作 === '打开设置') {
@@ -1226,7 +1227,8 @@ function 启动语言服务器(context: vscode.ExtensionContext): void {
         日志(`LSP 启动失败: ${err.message}`);
         vscode.window
             .showErrorMessage(
-                `i18n-rust 语言服务器启动失败：${err.message}`,
+                // ext_lsp_start_failed 的 {} 占位为协议层失败原因
+                界面文案['ext_lsp_start_failed'].replace('{}', err.message),
                 '查看日志',
                 '打开设置'
             )

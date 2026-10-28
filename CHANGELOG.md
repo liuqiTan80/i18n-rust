@@ -5,6 +5,45 @@
 
 ## [Unreleased]
 
+## [0.8.12] - 2026-10-28
+
+### 新增
+- `rzc doctor` 把编辑器链路纳入体检：新增 `i18n-rust-lsp` 状态行（内置目录 → PATH），
+  缺失时直接给出可复制的安装命令；`rustc` / `cargo` / `rust-analyzer` 缺失也补上
+  安装命令（此前只印“未找到”，用户不知道下一步做什么）。两者缺失在编辑器里
+  只体现为 `Server initialization failed.`，`rzc doctor` 是唯一能自查的入口。
+- `rzc doctor` 比对语言服务器与 rzc 的版本：不一致时提醒 `rzc install lsp --force` 更新。
+  转译规则与诊断文案都出自服务器二进制，“扩展新、服务器旧”会让用户拿着旧规则排错，
+  而此前无处可查（实测 crates.io 最新仍是 0.8.4，此类漂移客观存在）。
+
+### 变更
+- 扩展两条启动失败文案改走 ui.toml 的 `ext_` 键（11 语言，`npm run gen:ui` 生成）：
+  `ext_lsp_binary_missing`（二进制未找到）与 `ext_lsp_start_failed`（服务器启动失败，
+  `{}` 为协议层原因占位）。此前为 `extension.ts` 内联中文，非中文界面用户看到的是中文提示。
+- “未找到 i18n-rust-lsp”的提示不再推荐裸 `cargo install i18n-rust-lsp`：它装的是 registry
+  最新版（现为 0.8.4），与 rzc 版本不一致；`rzc install lsp` 会按当前 rzc 版本精确安装。
+
+### 测试
+- 新增门禁 `tools/check-extension-ui-keys.py`（已入 `make gate` 与 ci.yml/release.yml）：
+  校验 `extension.ts` 消费的 `ext_` 键 = 生成器「消费的键」= 生成表，并逐字比对生成表
+  与 ui.toml——漏跑 `gen:ui` 或白名单忘同步时直接报错，而不是运行时拿到 `undefined`
+  只显示空弹窗。纯 Python 实现（本地无 npm 也能跑），已用生成物陈旧/白名单缺键/
+  语言块缺失三类反向用例验证能报错。
+- `install.rs` 新增 2 个单测：状态行必须覆盖 `i18n-rust-lsp` 且任何“未找到”行后紧跟安装命令；
+  版本行的一致/漂移/拿不到版本三分支。
+- 生成器可用裸 node 执行（无 npm 依赖），本次已实跑 `node scripts/gen-ui-strings.mjs`：
+  生成物仅 +22 行（11 语言 × 2 键），无格式噪声。
+
+### 界面消息
+- 界面消息键 620 → 622（上两项 `ext_*`），11 语言同步；非 zh 为机翻，**待母语者复核**。
+
+### 说明与取舍
+- 按钮标签（查看日志 / 打开设置）仍为硬编码中文，与扩展内现有 8 处一致；要纳入 `ext_`
+  键表需同时改造按钮 ID 与文案的映射（按钮字符串既作展示又作返回值比对），另列任务。
+- 版本探测在无法执行或旧版无 `--version` 时不给结论（宁可不报，不误报“版本不一致”）。
+- 未做“自动升级语言服务器”：`rzc install lsp` 需联网且会覆盖正被编辑器使用的二进制，
+  只在 doctor 里报出漂移并给出命令，不替用户动手。
+
 ## [0.8.11] - 2026-10-27
 
 ### 修复

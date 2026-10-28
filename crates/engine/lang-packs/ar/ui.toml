@@ -9,6 +9,8 @@
 "ext_explain_no_diag" = "لا توجد أخطاء أو تحذيرات في الملف الحالي؛ لا شيء للشرح"
 "ext_explain_no_diag_nearby" = "لم يتم العثور على تشخيصات بالقرب من المؤشر"
 "ext_add_dep_no_workspace" = "لا توجد مساحة عمل مفتوحة؛ تعذّر إضافة اعتمادية"
+"ext_lsp_binary_missing" = "لم يتم العثور على الملف القابل للتنفيذ i18n-rust-lsp. شغّل `rzc install lsp` لتثبيت خادم اللغة (وللفحص الذاتي شغّل `rzc doctor`)، أو حدّد مسار الملف التنفيذي في الإعداد i18n-rust.serverPath (الإبراز والإكمال والتشخيصات غير متاحة)."
+"ext_lsp_start_failed" = "تعذّر بدء تشغيل خادم اللغة i18n-rust: {} (راجع لوحة الإخراج «i18n-rust LSP»؛ وللفحص الذاتي شغّل `rzc doctor`)"
 "ext_cmd_run" = "تشغيل"
 "ext_cmd_check" = "فحص الأنواع"
 "ext_cmd_eject" = "تصدير ككود Rust مصدري"

@@ -35,6 +35,8 @@ const 消费的键 = [
     'ext_explain_no_diag',
     'ext_explain_no_diag_nearby',
     'ext_add_dep_no_workspace',
+    'ext_lsp_binary_missing',
+    'ext_lsp_start_failed',
 ];
 
 function 读取语言文案(语言) {

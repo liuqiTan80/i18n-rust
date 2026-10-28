@@ -92,6 +92,12 @@ jobs:
         # 共有键 {} 占位符数量不一致时退出码非零（防止新增键只补部分语言）
         run: python3 tools/check-ui-keys.py
 
+      - name: 扩展界面文案一致性检查
+        # 校验 extension.ts 消费的 ext_ 键 == 生成器「消费的键」== 生成表，并确认
+        # src/generated/ui-strings.ts 与 ui.toml 逐字相等（漏跑 gen:ui 即失败）。
+        # 纯 Python 实现，不依赖 npm/node_modules
+        run: python3 tools/check-extension-ui-keys.py
+
       - name: 语言包 errors.toml 完整性检查
         # 逐语言包回读全部 errors.toml（含撇号/反引号键必须为双引号字面量，
         # 否则整包静默炸掉）、错误码表/消息表键数与 zh 齐平、通配段/前缀/后缀
@@ -156,6 +162,9 @@ jobs:
 
       - name: ui.toml 键完备性检查
         run: python tools/check-ui-keys.py
+
+      - name: 扩展界面文案一致性检查
+        run: python tools/check-extension-ui-keys.py
 
       - name: 语言包 errors.toml 完整性检查
         run: python tools/check-lang-packs.py

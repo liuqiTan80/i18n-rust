@@ -11,6 +11,7 @@
 | `expected-failures.json` | 教程验证白名单：登记结构性噪音（跨块依赖等无法单独编译的块），键为 `文件:行号` | 随教程改动维护，须写明原因 |
 | `verify-glossary.py` | 术语表 ↔ zh 语言包一致性（术语表引用的词须能在语言包中找到） | `make glossary` |
 | `check-ui-keys.py` | ui.toml 键完备性（11 语言与 zh 对齐 + `{}` 占位符一致性） | `make ui-keys` |
+| `check-extension-ui-keys.py` | 扩展文案三方一致：`extension.ts` 消费的 `ext_` 键 = `gen-ui-strings.mjs` 白名单 = `src/generated/ui-strings.ts`，并校验生成物未陈落于 ui.toml；纯 Python，免 npm/node_modules | `make ext-ui-keys` |
 | `check-mapping-warnings.py` | 映射告警数基线（只减不增）：运行 `rzc mapping check` 对照 `tools/mapping-baseline.json` | `make mapping-check` |
 | `bench-check.sh` | 基准回归门禁：engine + lsp 双基准集与入库基线对比（阈值默认 30%） | `make bench-check` · `make bench-update`（刷新基线） |
 | `build-site.py` | 文档站装配：从 `tutorials/`、`docs/` 原位组装四语言 mdBook 到 `_site/` | `make site` · `make site-serve` |

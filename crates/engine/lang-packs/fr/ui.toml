@@ -9,6 +9,8 @@
 "ext_explain_no_diag" = "Le fichier actuel n'a aucune erreur ni avertissement ; rien à expliquer"
 "ext_explain_no_diag_nearby" = "Aucun diagnostic trouvé près du curseur"
 "ext_add_dep_no_workspace" = "Aucun espace de travail ouvert ; impossible d'ajouter une dépendance"
+"ext_lsp_binary_missing" = "Exécutable i18n-rust-lsp introuvable. Exécutez `rzc install lsp` pour installer le serveur de langage (lancez `rzc doctor` pour vérifier l’environnement) ou indiquez le chemin du binaire dans le paramètre i18n-rust.serverPath (coloration, completion et diagnostics indisponibles)."
+"ext_lsp_start_failed" = "Échec du démarrage du serveur de langage i18n-rust : {} (voir le panneau de sortie « i18n-rust LSP » ; lancez `rzc doctor` pour vérifier l’environnement)"
 "ext_cmd_run" = "Exécuter"
 "ext_cmd_check" = "Vérification des types"
 "ext_cmd_eject" = "Exporter en source Rust"

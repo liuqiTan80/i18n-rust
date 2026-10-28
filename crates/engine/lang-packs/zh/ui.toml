@@ -9,6 +9,8 @@
 "ext_explain_no_diag" = "当前文件没有错误或警告，无需讲解"
 "ext_explain_no_diag_nearby" = "未找到光标附近的诊断"
 "ext_add_dep_no_workspace" = "未打开工作区，无法添加依赖"
+"ext_lsp_binary_missing" = "未找到 i18n-rust-lsp 可执行文件。请运行 `rzc install lsp` 安装语言服务器（环境自查请运行 `rzc doctor`），或在设置 i18n-rust.serverPath 中指定二进制路径（高亮/补全/诊断功能暂不可用）。"
+"ext_lsp_start_failed" = "i18n-rust 语言服务器启动失败：{}（详见输出面板「i18n-rust LSP」，环境自查请运行 `rzc doctor`）"
 "ext_cmd_run" = "运行"
 "ext_cmd_check" = "类型检查"
 "ext_cmd_eject" = "导出为 Rust 源码"

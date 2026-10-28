@@ -14,6 +14,8 @@ export const 界面文案表: Readonly<Record<string, Readonly<Record<string, st
         ext_explain_no_diag: "لا توجد أخطاء أو تحذيرات في الملف الحالي؛ لا شيء للشرح",
         ext_explain_no_diag_nearby: "لم يتم العثور على تشخيصات بالقرب من المؤشر",
         ext_add_dep_no_workspace: "لا توجد مساحة عمل مفتوحة؛ تعذّر إضافة اعتمادية",
+        ext_lsp_binary_missing: "لم يتم العثور على الملف القابل للتنفيذ i18n-rust-lsp. شغّل `rzc install lsp` لتثبيت خادم اللغة (وللفحص الذاتي شغّل `rzc doctor`)، أو حدّد مسار الملف التنفيذي في الإعداد i18n-rust.serverPath (الإبراز والإكمال والتشخيصات غير متاحة).",
+        ext_lsp_start_failed: "تعذّر بدء تشغيل خادم اللغة i18n-rust: {} (راجع لوحة الإخراج «i18n-rust LSP»؛ وللفحص الذاتي شغّل `rzc doctor`)",
     },
     de: {
         ext_need_dialect_file: "Bitte öffnen Sie eine Dialekt-Quelldatei (.zh/.ja …)",
@@ -22,6 +24,8 @@ export const 界面文案表: Readonly<Record<string, Readonly<Record<string, st
         ext_explain_no_diag: "In der aktuellen Datei gibt es keine Fehler oder Warnungen; nichts zu erklären",
         ext_explain_no_diag_nearby: "Keine Diagnose in der Nähe des Cursors gefunden",
         ext_add_dep_no_workspace: "Kein Arbeitsbereich geöffnet; Abhängigkeit kann nicht hinzugefügt werden",
+        ext_lsp_binary_missing: "Ausführbare Datei i18n-rust-lsp nicht gefunden. Führe `rzc install lsp` aus, um den Sprachserver zu installieren (Umgebungsprüfung mit `rzc doctor`), oder lege den Binärpfad in der Einstellung i18n-rust.serverPath fest (Hervorhebung, Vervollständigung und Diagnosen nicht verfügbar).",
+        ext_lsp_start_failed: "i18n-rust-Sprachserver konnte nicht starten: {} (siehe Ausgabepanel „i18n-rust LSP“; Umgebungsprüfung mit `rzc doctor`)",
     },
     en: {
         ext_need_dialect_file: "Please open a dialect source file (.zh/.ja …)",
@@ -30,6 +34,8 @@ export const 界面文案表: Readonly<Record<string, Readonly<Record<string, st
         ext_explain_no_diag: "The current file has no errors or warnings; nothing to explain",
         ext_explain_no_diag_nearby: "No diagnostic found near the cursor",
         ext_add_dep_no_workspace: "No workspace open; cannot add dependency",
+        ext_lsp_binary_missing: "i18n-rust-lsp executable not found. Run `rzc install lsp` to install the language server (run `rzc doctor` to check your environment), or set the binary path in the i18n-rust.serverPath setting (highlighting, completion and diagnostics unavailable).",
+        ext_lsp_start_failed: "i18n-rust language server failed to start: {} (see the “i18n-rust LSP” output panel; run `rzc doctor` to check your environment)",
     },
     es: {
         ext_need_dialect_file: "Abra un archivo fuente de dialecto (.zh/.ja …)",
@@ -38,6 +44,8 @@ export const 界面文案表: Readonly<Record<string, Readonly<Record<string, st
         ext_explain_no_diag: "El archivo actual no tiene errores ni advertencias; no hay nada que explicar",
         ext_explain_no_diag_nearby: "No se encontraron diagnósticos cerca del cursor",
         ext_add_dep_no_workspace: "No hay espacio de trabajo abierto; no se puede agregar una dependencia",
+        ext_lsp_binary_missing: "No se encontró el ejecutable i18n-rust-lsp. Ejecuta `rzc install lsp` para instalar el servidor de lenguaje (ejecuta `rzc doctor` para revisar el entorno) o indica la ruta del binario en el ajuste i18n-rust.serverPath (resaltado, autocompletado y diagnósticos no disponibles).",
+        ext_lsp_start_failed: "El servidor de lenguaje i18n-rust no pudo iniciarse: {} (consulta el panel de salida «i18n-rust LSP»; ejecuta `rzc doctor` para revisar el entorno)",
     },
     fr: {
         ext_need_dialect_file: "Veuillez ouvrir un fichier source de dialecte (.zh/.ja …)",
@@ -46,6 +54,8 @@ export const 界面文案表: Readonly<Record<string, Readonly<Record<string, st
         ext_explain_no_diag: "Le fichier actuel n'a aucune erreur ni avertissement ; rien à expliquer",
         ext_explain_no_diag_nearby: "Aucun diagnostic trouvé près du curseur",
         ext_add_dep_no_workspace: "Aucun espace de travail ouvert ; impossible d'ajouter une dépendance",
+        ext_lsp_binary_missing: "Exécutable i18n-rust-lsp introuvable. Exécutez `rzc install lsp` pour installer le serveur de langage (lancez `rzc doctor` pour vérifier l’environnement) ou indiquez le chemin du binaire dans le paramètre i18n-rust.serverPath (coloration, completion et diagnostics indisponibles).",
+        ext_lsp_start_failed: "Échec du démarrage du serveur de langage i18n-rust : {} (voir le panneau de sortie « i18n-rust LSP » ; lancez `rzc doctor` pour vérifier l’environnement)",
     },
     hi: {
         ext_need_dialect_file: "कृपया एक बोली स्रोत फ़ाइल (.zh/.ja …) खोलें",
@@ -54,6 +64,8 @@ export const 界面文案表: Readonly<Record<string, Readonly<Record<string, st
         ext_explain_no_diag: "वर्तमान फ़ाइल में कोई त्रुटि या चेतावनी नहीं; व्याख्या की ज़रूरत नहीं",
         ext_explain_no_diag_nearby: "कर्सर के पास कोई निदान नहीं मिला",
         ext_add_dep_no_workspace: "कार्यक्षेत्र खुला नहीं है; निर्भरता जोड़ने में असमर्थ",
+        ext_lsp_binary_missing: "i18n-rust-lsp निष्पादन योग्य फ़ाइल नहीं मिली। भाषा सर्वर इंस्टॉल करने के लिए `rzc install lsp` चलाएँ (वातावरण जाँचने हेतु `rzc doctor` चलाएँ), या सेटिंग i18n-rust.serverPath में बाइनरी पथ दें (हाइलाइटिंग/पूर्वपूर्णता/डायग्नोस्टिक्स उपलब्ध नहीं)।",
+        ext_lsp_start_failed: "i18n-rust भाषा सर्वर शुरू नहीं हो सका: {} (आउटपुट पैनल «i18n-rust LSP» देखें; वातावरण जाँचने हेतु `rzc doctor` चलाएँ)",
     },
     ja: {
         ext_need_dialect_file: "方言ソースファイル（.zh/.ja など）を開いてください",
@@ -62,6 +74,8 @@ export const 界面文案表: Readonly<Record<string, Readonly<Record<string, st
         ext_explain_no_diag: "現在のファイルにエラーや警告はなく、説明は不要です",
         ext_explain_no_diag_nearby: "カーソル付近の診断が見つかりません",
         ext_add_dep_no_workspace: "ワークスペースが開かれていないため、依存追加できません",
+        ext_lsp_binary_missing: "i18n-rust-lsp 実行ファイルが見つかりません。`rzc install lsp` で言語サーバーをインストールするか（環境の自己診断は `rzc doctor`）、設定 i18n-rust.serverPath でバイナリパスを指定してください（強調表示・補完・診断は一時的に利用できません）。",
+        ext_lsp_start_failed: "i18n-rust 言語サーバーの起動に失敗しました：{}（出力パネル「i18n-rust LSP」を参照。環境の自己診断は `rzc doctor`）",
     },
     ko: {
         ext_need_dialect_file: "방언 소스 파일(.zh/.ja 등)을 열어 주세요",
@@ -70,6 +84,8 @@ export const 界面文案表: Readonly<Record<string, Readonly<Record<string, st
         ext_explain_no_diag: "현재 파일에 오류나 경고가 없어 설명이 필요 없습니다",
         ext_explain_no_diag_nearby: "커서 근처의 진단을 찾을 수 없습니다",
         ext_add_dep_no_workspace: "작업 공간이 열려 있지 않아 의존성을 추가할 수 없습니다",
+        ext_lsp_binary_missing: "i18n-rust-lsp 실행 파일을 찾을 수 없습니다. `rzc install lsp`를 실행해 언어 서버를 설치하거나(환경 점검은 `rzc doctor`), 설정 i18n-rust.serverPath에서 바이너리 경로를 지정하세요(구문 강조·자동 완성·진단 사용 불가).",
+        ext_lsp_start_failed: "i18n-rust 언어 서버 시작 실패: {}(출력 패널 'i18n-rust LSP' 참조. 환경 점검은 `rzc doctor`)",
     },
     pt: {
         ext_need_dialect_file: "Abra um arquivo-fonte de dialeto (.zh/.ja …)",
@@ -78,6 +94,8 @@ export const 界面文案表: Readonly<Record<string, Readonly<Record<string, st
         ext_explain_no_diag: "O arquivo atual não tem erros nem avisos; nada a explicar",
         ext_explain_no_diag_nearby: "Nenhum diagnóstico encontrado perto do cursor",
         ext_add_dep_no_workspace: "Nenhum espaço de trabalho aberto; não é possível adicionar dependência",
+        ext_lsp_binary_missing: "Executável i18n-rust-lsp não encontrado. Execute `rzc install lsp` para instalar o servidor de linguagem (execute `rzc doctor` para verificar o ambiente) ou defina o caminho do binário na configuração i18n-rust.serverPath (realce, conclusão e diagnósticos indisponíveis).",
+        ext_lsp_start_failed: "Falha ao iniciar o servidor de linguagem i18n-rust: {} (veja o painel de saída “i18n-rust LSP”; execute `rzc doctor` para verificar o ambiente)",
     },
     ru: {
         ext_need_dialect_file: "Откройте файл исходного кода диалекта (.zh/.ja …)",
@@ -86,6 +104,8 @@ export const 界面文案表: Readonly<Record<string, Readonly<Record<string, st
         ext_explain_no_diag: "В текущем файле нет ошибок или предупреждений; объяснение не требуется",
         ext_explain_no_diag_nearby: "Диагностики возле курсора не найдены",
         ext_add_dep_no_workspace: "Рабочая область не открыта; невозможно добавить зависимость",
+        ext_lsp_binary_missing: "Исполняемый файл i18n-rust-lsp не найден. Выполните `rzc install lsp`, чтобы установить языковой сервер (самодиагностика — `rzc doctor`), или укажите путь к бинарному файлу в параметре i18n-rust.serverPath (подсветка, автодополнение и диагностика недоступны).",
+        ext_lsp_start_failed: "Не удалось запустить языковой сервер i18n-rust: {} (см. панель вывода «i18n-rust LSP»; для самодиагностики выполните `rzc doctor`)",
     },
     zh: {
         ext_need_dialect_file: "请打开一个方言源码文件（.zh/.ja 等）",
@@ -94,6 +114,8 @@ export const 界面文案表: Readonly<Record<string, Readonly<Record<string, st
         ext_explain_no_diag: "当前文件没有错误或警告，无需讲解",
         ext_explain_no_diag_nearby: "未找到光标附近的诊断",
         ext_add_dep_no_workspace: "未打开工作区，无法添加依赖",
+        ext_lsp_binary_missing: "未找到 i18n-rust-lsp 可执行文件。请运行 `rzc install lsp` 安装语言服务器（环境自查请运行 `rzc doctor`），或在设置 i18n-rust.serverPath 中指定二进制路径（高亮/补全/诊断功能暂不可用）。",
+        ext_lsp_start_failed: "i18n-rust 语言服务器启动失败：{}（详见输出面板「i18n-rust LSP」，环境自查请运行 `rzc doctor`）",
     },
 };
 

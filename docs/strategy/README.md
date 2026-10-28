@@ -9,7 +9,7 @@
 | 能力 | 说明 |
 |---|---|
 | 全球品牌与双平台 | GitHub / GitCode 同名 `i18n-rust`，双平台同步推送；语言包安装源自动回退 |
-| 发布链路 | **crates.io 三 crate 0.8.2 已发布（2026-09-21）**；`vsce package` 本机一次通过（0.8.2）；release.yml 三平台产物 + SHA256SUMS |
+| 发布链路 | **crates.io 三 crate 最新 0.8.4（2026-10-28 `cargo search` 实测；0.8.2 首发 2026-09-21），已落后源码版本**；`vsce package` 本机一次通过；release.yml 三平台产物 + SHA256SUMS |
 | 教程资产 | zh 全量（26 章 + 术语表 + 5 附录，逐块编译门禁）；en 15/33；ja/ru 滚动中（[translation-status](../translation-status.md)） |
 | 文档站 | `book/` 装配源 + `tools/build-site.py` 四语言组装 + [pages.yml](../../.github/workflows/pages.yml) 自动部署（[book/README.md](../../book/README.md)） |
 | 演示素材 | `docs/demo/` 三语言 vhs 脚本 + 演示样本（zh/ja/ru），差一次录屏 |
@@ -33,6 +33,9 @@
 - CLI 侧 OpenAI 兼容 provider（`base_url / key / model` 三环境变量与扩展侧对齐）
 - `ui.toml` 键英文字典（第 11 种语言贡献者参考）+ 贡献 SOP 英文化
 - 文档站增强：en/ja/ru 书接入参考文档（依赖翻译进度）；en 书开启 Playground 评估
+- 扩展剩余内联中文文案入 `ext_` 键表（含按钮标签「查看日志 / 打开设置」等 9 处）：
+  需先把按钮的展示文案与返回值解耦（现在靠中文字符串比对用户点了哪个），门禁
+  `tools/check-extension-ui-keys.py` 已就位，新键一律走它
 
 ## 本目录
 
