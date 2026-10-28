@@ -34,12 +34,12 @@
 "教学提示" = "You cannot move a value out of a shared reference. Consider cloning the value or using a mutable reference."
 
 [E0425]
-"消息模板" = "cannot find value `{名称}` in this scope"
-"教学提示" = "Make sure the variable is declared in the current scope. Check for typos in the variable name."
+"消息模板" = "cannot find `{名称}` in this scope"
+"教学提示" = "Make sure the name is declared in the current scope and check its spelling. Functions, structs and constants also need to be in scope or reached by a path."
 
 [E0603]
-"消息模板" = "function `{名称}` is private"
-"教学提示" = "The function is not accessible from outside its module. Use `pub` to make it public."
+"消息模板" = "`{名称}` is private"
+"教学提示" = "Everything is private by default: modules, functions, constants, struct fields. Walk the path left to right and add `pub` at the level the compiler points at."
 
 [E0119]
 "消息模板" = "conflicting implementations of trait `{特征}` for type `{类型}`"

@@ -31,7 +31,7 @@
 "教学提示" = "Implementieren Sie das erforderliche Trait für diesen Typ oder verwenden Sie einen Typ, der es bereits implementiert."
 
 [E0425]
-"消息模板" = "Wert `{名称}` kann in diesem Gültigkeitsbereich nicht gefunden werden"
+"消息模板" = "`{名称}` kann in diesem Gültigkeitsbereich nicht gefunden werden"
 "教学提示" = "Stellen Sie sicher, dass die Variable im aktuellen Gültigkeitsbereich deklariert ist. Prüfen Sie die Schreibweise des Variablennamens."
 
 [E0282]

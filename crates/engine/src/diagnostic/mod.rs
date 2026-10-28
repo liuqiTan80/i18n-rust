@@ -1213,6 +1213,73 @@ mod tests {
         }
     }
 
+    /// 门禁：错误码模板不得替 rustc 断言「成员种类」。
+    ///
+    /// 起因：en 包 `[E0603]` 写死 "function `{名称}` is private"，而 rustc 按实际
+    /// 种类输出 module / constant / function——`mod shelf` 少了 `pub` 时读者看到的是
+    /// 「函数 shelf 是私有的」，第十七章《模块系统》正好教「沿路径逐层补 `pub`」，
+    /// 答错种类会把读者往错误的一层引。`[E0425]` 同型：rustc 有
+    /// "cannot find value/function ..." 多种形式，en/ja/de 的模板写死「值」，
+    /// 遇到函数名、结构体名一律说错。
+    ///
+    /// 一份模板对多种原文，种类名词无法从码表还原，故统一改为**不点名种类**的
+    /// 中立措辞——丢一个名词好过给一个错名词。条目名（`{名称}`）必须保留，
+    /// 否则读者不知道路径上哪一层断了。
+    #[test]
+    fn code_templates_do_not_misname_item_kind() {
+        // (语言, 错误码, rustc 原文, 模板里写死的种类词)
+        let cases = [
+            ("en", "E0603", "module `shelf` is private", "function"),
+            ("en", "E0603", "constant `SECRET` is private", "function"),
+            (
+                "en",
+                "E0425",
+                "cannot find function `wash_veg` in this scope",
+                "value",
+            ),
+            (
+                "ja",
+                "E0425",
+                "cannot find function `wash_veg` in this scope",
+                "値",
+            ),
+            (
+                "de",
+                "E0425",
+                "cannot find function `wash_veg` in this scope",
+                "Wert",
+            ),
+        ];
+        for (lang, code, rustc_message, wrong_noun) in cases {
+            let files = crate::语言::builtin_lang_files(lang);
+            let errors_toml = files
+                .iter()
+                .find(|(name, _)| *name == "errors.toml")
+                .map(|(_, content)| *content)
+                .unwrap_or_else(|| panic!("{lang} 语言包缺少 errors.toml"));
+            let manager = ErrorTranslationManager::load_from_string(errors_toml)
+                .unwrap_or_else(|e| panic!("{lang} errors.toml 解析失败：{e}"));
+            let translator = DiagnosticTranslator::new(manager, HashMap::new());
+            let rendered = translator
+                .render_main_message(Some(code), rustc_message, None)
+                .unwrap_or_else(|| panic!("{lang} 包应命中 [{code}] 错误码模板"));
+            assert!(
+                !rendered.text.contains(wrong_noun),
+                "{lang} 包 [{code}] 对 {rustc_message:?} 输出了错误的成员种类 {wrong_noun:?}：{}",
+                rendered.text
+            );
+            let name = rustc_message
+                .split('`')
+                .nth(1)
+                .expect("样例消息应含反引号内的条目名");
+            assert!(
+                rendered.text.contains(name),
+                "{lang} 包 [{code}] 丢失了条目名 {name:?}：{}",
+                rendered.text
+            );
+        }
+    }
+
     /// 门禁：语言包的教学提示不得残留引擎占位符。
     ///
     /// 占位符回填（`translator::CODE_TEMPLATE_PLACEHOLDERS`）只作用于 `消息模板`，

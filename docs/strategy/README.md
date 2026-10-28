@@ -29,7 +29,7 @@
 
 ## 候选下一步（P1，按需启动）
 
-- 教程滚动：en 第十七章《模块系统》起继续（en 18/33，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
+- 教程滚动：en 第十八章《包管理与构建》起继续（en 19/33，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
 - AI provider 真实端点联调：OpenAI / Ollama / 通义各跑一次 `rzc mapping auto`，验证超时与分批上限（`RZ_AI_*` 改造目前只有离线测试，未联网验证）
 - 贡献 SOP 英文化：`docs/contributing-lang-pack.md` / `missing-mapping-guide.md` 出 en 版
   （键字典部分已由生成物 `docs/ui-keys.en.md` 覆盖，2026-10-28；剩正文翻译）
@@ -54,6 +54,20 @@
   二选一：① check 路径额外做一次 const-eval 级检查；② 接受差异，但在 CLI 中注明这类
   「仅 run 可见」的诊断，并同步各语言教程措辞。涉及快路径延迟，动手前先量
   `tools/bench-check.sh` 基线
+- 其余 10 语言的 `[E0603]` 不给出条目名（en 第 17 章采集时发现）：zh/ja/ru/de/es/fr/pt/
+  ko/hi/ar 的模板写作「模块是私有的」一类措辞，不带 `{名称}`。它本就不像 en 那样把种类
+  说错（种类名词缺位），但读者拿到「是私有的」却不知**路径上哪一层**断了，只能回头对照
+  源码。en/ja/de 本轮已改为「不点名种类 + 保留条目名」的中立措辞（见引擎门禁
+  `code_templates_do_not_misname_item_kind`）；其余语言要按各自性/数/格改写「模块」这一
+  名词，或改用完全不含种类的句式，属逐语言文案工作，建议配合 `tools/check-lang-packs.py`
+  一次性做完并扩测覆盖
+- 教程门禁只支持单文件（en 第 17 章采集时确认）：`make_project` 每块只生成
+  `src/main.<ext>` 一个源文件，`mod cutlery;` 这类文件模块必然 E0583/E0601，于是各语言
+  第十七章的多文件示例只能进 `tools/expected-failures.json` 白名单（zh 现有 61 条里含
+  同类）。en 第 17 章改写为自包含程序 + ` ```text ` 展示文件形态，绕开了限制但读者看不到
+  可运行的两文件例子。修法：给验证器加 `// 附带文件: cutlery.en` 协议——按声明顺序在
+  `src/` 下多写几个文件再整体 `rzc check`/`rzc run`，注意与既有 file+line 白名单键共存、
+  四语言（zh/en/ja/ru）同时生效，属工具扩展，先在 en 上验证再回灌 zh 白名单
 - E0502 的所有权叙事语序歧义：`diag_ownership_borrowed_in_use`（"变量 `{}` 在第 {}
   行被借用，第 {} 行仍在被使用"）本是给 E0382 类"先借后用"写的，E0502 复用后两个行号
   先后颠倒——en 教程第十五章实机捕获到 "borrowed on line 5 and is still in use on

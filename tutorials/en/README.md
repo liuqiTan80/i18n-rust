@@ -26,13 +26,14 @@ block.
 | [Chapter 14: Lifetimes](Chapter-14-Lifetimes.md) | 第十四章：生命周期 | ✅ done |
 | [Chapter 15: Collection Types](Chapter-15-Collection-Types.md) | 第十五章：集合类型 | ✅ done |
 | [Chapter 16: Error Handling](Chapter-16-Error-Handling.md) | 第十六章：错误处理 | ✅ done |
-| Chapter 17–26, Appendices A–C & E | 第十七章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
+| [Chapter 17: Modules](Chapter-17-Modules.md) | 第十七章：模块系统 | ✅ done |
+| Chapter 18–26, Appendices A–C & E | 第十八章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
-Gate status (2026-10-28): 300 blocks extracted, 297 verified — 268 pass +
+Gate status (2026-10-28): 315 blocks extracted, 311 verified — 282 pass +
 29 cross-block deps allowlisted, 0 failures (allowlist keyed by file+line
-in `tools/expected-failures.json`). Chapters 14, 15 and 16 needed no new
-allowlist entry; Chapter 16 asserts runtime output for 10 blocks, real
-error codes for 3 (E0277 / E0308 / E0531) and runtime failure for 4.
+in `tools/expected-failures.json`). Chapters 14, 15, 16 and 17 needed no new
+allowlist entry; Chapter 17 asserts runtime output for 10 blocks and real
+error codes for 3 (E0603 / E0425 / E0616).
 
 Translation principles (revised 2026-09-06):
 
@@ -47,10 +48,15 @@ Translation principles (revised 2026-09-06):
 - **Every code block is still compile-verified** with
   `tools/verify-tutorials.py --dir tutorials/en` — standard Rust passes
   through rzc unchanged, and the gate still catches broken examples.
-- Conversion status: **Chapters 1–16 are complete** — Chapter 2 is the
-  reference template; Chapter 17+ are in progress, and the multilingual gate
+- Conversion status: **Chapters 1–17 are complete** — Chapter 2 is the
+  reference template; Chapter 18+ are in progress, and the multilingual gate
   (zh/en/ja/ru) passes with 0 failures (see translation-status.md).
 - **Diagnostics are quoted as the en pack actually renders them**, so an error
   message printed in the book matches what the reader sees in the terminal; the
   engine test `en_pack_code_templates_reproduce_rustc_own_wording` keeps the en
-  `errors.toml` templates aligned with rustc's own English wording.
+  `errors.toml` templates aligned with rustc's own English wording, and
+  `code_templates_do_not_misname_item_kind` keeps them from asserting an item's
+  kind (module / constant / function) that rustc never settled that way.
+- **The verifier builds one file per block**, so a real two-file program
+  (`mod cutlery;` + `src/cutlery.en`) is shown as ` ```text ` and its one-file
+  equivalent is the asserted block; the two-file shape was still run for real.
