@@ -110,6 +110,22 @@
   断言不含 `CODE_TEMPLATE_PLACEHOLDERS` 中任何占位符；该清单改为 `pub(super)` 供测试
   复用，将来新增占位符自动纳入检查。反向验证过：把 en 的旧文案抄回去该测试立即失败。
 
+### 新增
+- 英文教程第 16 章《Error Handling》（`tutorials/en/Chapter-16-Error-Handling.md`）：
+  en 进度 17/33 → 18/33。19 个代码块全部实机验证（10 块逐行断言真实运行输出、3 块断言
+  真实错误码 E0277/E0308/E0531、4 块断言运行失败——下标越界、`panic!`、`unwrap()` 撞上
+  `Err`、练习三的恐慌实验），0 条新增预期失败白名单。zh 独有的「方言变量名撞上标准库
+  类型」一节对标准 Rust 读者无意义，en 版删除；`impl From` 由 zh 的裸片段补成完整程序，
+  手调一次转换让 `?` 背后的自动翻译可见。
+
+### 说明与取舍
+- 本章采集时实机确认两处工具能力差异，**写进正文而不改写正文回避**：`rzc check` 走
+  `--emit=metadata` 快路径，不跑 `unconditional_panic` 这类 MIR 级 lint，故「编译器会
+  提前拦截必然 panic 的常量下标」只在完整编译（`rzc run`）成立；`?` 相关诊断被 `[E0277]`
+  通用码模板套成语义不通的句子（`the trait bound `?`: `Result` is not satisfied`），
+  正文因此只引用 rustc 自己的原句并加一句终端措辞说明。两项均登记 `docs/strategy/README.md`
+  的 P1，不在本轮动核心优先级与快路径。
+
 ## [0.8.12] - 2026-10-28
 
 ### 新增

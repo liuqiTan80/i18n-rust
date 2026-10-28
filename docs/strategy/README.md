@@ -29,7 +29,7 @@
 
 ## 候选下一步（P1，按需启动）
 
-- 教程滚动：en 第十六章《错误处理》起继续（en 17/33，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
+- 教程滚动：en 第十七章《模块系统》起继续（en 18/33，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
 - AI provider 真实端点联调：OpenAI / Ollama / 通义各跑一次 `rzc mapping auto`，验证超时与分批上限（`RZ_AI_*` 改造目前只有离线测试，未联网验证）
 - 贡献 SOP 英文化：`docs/contributing-lang-pack.md` / `missing-mapping-guide.md` 出 en 版
   （键字典部分已由生成物 `docs/ui-keys.en.md` 覆盖，2026-10-28；剩正文翻译）
@@ -38,6 +38,22 @@
   需先把按钮的展示文案与返回值解耦（现在靠中文字符串比对用户点了哪个），门禁
   `tools/check-extension-ui-keys.py` 已就位，新键一律走它
 
+- E0277 通用码模板套坏 `?` 的专用消息（en 第 16 章采集时发现）：rustc 关于 `?` 的
+  两条消息（"the `?` operator can only be used in a function that returns
+  `Result` or `Option`" 与 "`?` couldn't convert the error to `X`"）本身就带 E0277 码，
+  `render_main_message` 却让错误码表优先，并按反引号 token 顺序回填 `{类型}`/`{特征}`
+  ——前者把 `?` 本身当成「类型」，渲染出 "the trait bound `?`: `Result` is not
+  satisfied"（语义不通），后者渲染出 "the trait bound `?`: `SignupError` is not
+  satisfied"。修法：给 `[消息翻译]` 增两条 `?` 专用键，并把「消息表**精确命中**」提到
+  码表模板之前（前缀/通配命中仍走码表优先），11 语言同步；动的是核心优先级，须与既有
+  `en_pack_code_templates_reproduce_rustc_own_wording` 一并验证
+- `rzc check` 快路径漏 MIR 级 lint：`--emit=metadata` 不跑 `unconditional_panic`，于是
+  `let scores = [1,2,3]; scores[9]` 被判为「✅ Compilation succeeded」，要到 `rzc run`
+  才报 `error[unconditional_panic]: this operation will panic at runtime`（且不翻译）。
+  check 与 run 口径不一致，会让学习者对「编译器会提前拦截」这类正文承诺失去信任。修法
+  二选一：① check 路径额外做一次 const-eval 级检查；② 接受差异，但在 CLI 中注明这类
+  「仅 run 可见」的诊断，并同步各语言教程措辞。涉及快路径延迟，动手前先量
+  `tools/bench-check.sh` 基线
 - E0502 的所有权叙事语序歧义：`diag_ownership_borrowed_in_use`（"变量 `{}` 在第 {}
   行被借用，第 {} 行仍在被使用"）本是给 E0382 类"先借后用"写的，E0502 复用后两个行号
   先后颠倒——en 教程第十五章实机捕获到 "borrowed on line 5 and is still in use on
