@@ -159,6 +159,7 @@
 "add_cargo_failed" = "No se pudo ejecutar cargo add: {}"
 "add_mapping_ready" = "✅ {} añadido. Este crate tiene el alias nativo «{}», que puede usarse directamente en el código fuente nativo"
 "add_mapping_missing" = "✅ {} añadido. Este crate aún no tiene mapeo nativo; use el nombre en inglés {} en el código fuente (o genere uno con rzc mapping auto)"
+"add_no_targets_hint" = "Este proyecto no tiene ningún objetivo de compilación que Cargo pueda leer: `Cargo.toml` no declara [lib]/[[bin]] y `src/` no tiene ningún archivo .rs para {}. Ejecute primero `rzc check {}` para generar la entrada estándar de Rust y vuelva a intentarlo"
 "hint_add_dependency" = "Pista: \"{}\" parece una biblioteca de terceros no declarada; ejecute `rzc add {}` para añadir la dependencia"
 "mapping_auto_installed" = "✅ La dependencia {} se añadió automáticamente al proyecto actual"
 "mapping_auto_install_failed" = "No se pudo añadir automáticamente la dependencia {}: {}"

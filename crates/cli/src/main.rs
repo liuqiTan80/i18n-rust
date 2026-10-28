@@ -1038,21 +1038,44 @@ fn handle_lang_command(subcommand: LangCommand) -> anyhow::Result<()> {
 }
 
 /// 处理 `rzc add` 子命令：封装 cargo add，成功后提示母语映射可用性
+///
+/// 失败时捕获 cargo 的 stderr 而非直接透传：`rzc init` 只生成方言入口
+/// （`src/main.<ext>`），而 Cargo 只认标准 Rust 入口与 manifest 里的目标声明，
+/// 于是新建项目后**第一条 `rzc add` 必然**在 manifest 解析阶段失败，原文是构建器
+/// 内部术语（`no targets specified in the manifest`）且不含任何可执行动作。
+///
+/// 命中提示要同时满足两个条件：项目确实无 target（[`has_cargo_target`]，与
+/// `rzc run`/`check` 的阻断同源）+ cargo 确实报在 manifest 解析上
+/// （[`cargo_error_on_manifest`]）。缺后半个条件，包名为空这类真 manifest 错误也会被
+/// 指向 `rzc check`；缺前半个条件，网络失败、库名拼错都会多出一句无关指引。命中后
+/// 先打母语指引，再把 cargo 的 stdout/stderr 原样回显——不隐藏它的信息，退出码不变。
 fn handle_add_command(crates: &[String]) -> anyhow::Result<std::process::ExitCode> {
     let ui = ui::Ui::global();
     let cwd = std::env::current_dir()?;
     let project_root = find_project_root_upward(&cwd)
         .ok_or_else(|| anyhow::anyhow!("{}", ui.t("add_no_project")))?;
-    let status = Command::new(resolve_cargo())
+    let output = Command::new(resolve_cargo())
         .arg("add")
         .args(crates)
         .current_dir(&project_root)
-        .status()
+        .output()
         .map_err(|e| anyhow::anyhow!("{}", ui.f("add_cargo_failed", &[&e.to_string()])))?;
-    if !status.success() {
-        // cargo add 自身已输出错误详情，直接传播退出码
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !has_cargo_target(&project_root) && cargo_error_on_manifest(&stderr) {
+            let entry = entry_hint_name(&project_root);
+            // 模板里入口名出现两次（「缺哪个 .rs」+「该 check 哪个文件」），
+            // 故同一实参传两次，与 add_mapping_missing 的写法一致
+            eprintln!("{}", ui.f("add_no_targets_hint", &[&entry, &entry]));
+        }
+        // cargo 自身的错误详情原样回显，保持既有输出可见
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        print!("{stdout}");
+        eprint!("{stderr}");
         return Ok(std::process::ExitCode::FAILURE);
     }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    print!("{stdout}");
     let lang_code = ui::detect_ui_lang();
     for spec in crates {
         // 依赖名取 @版本 前段，并将 - 归一为 _（代码中 use 路径用下划线）
@@ -1066,6 +1089,45 @@ fn handle_add_command(crates: &[String]) -> anyhow::Result<std::process::ExitCod
         }
     }
     Ok(std::process::ExitCode::SUCCESS)
+}
+
+/// cargo 的失败是否报在 manifest 解析上（其输出不随界面语言本地化，故按英文特征）
+fn cargo_error_on_manifest(stderr: &str) -> bool {
+    stderr.contains("no targets specified in the manifest")
+        || stderr.contains("failed to parse manifest")
+}
+
+/// 面向读者的方言入口名（`src/main.zh` 之类），仅用于提示文案
+///
+/// 优先 `src/main.<ext>`（Cargo 固定入口对应的方言文件），其次按文件名排序取
+/// `src/` 直属的第一个方言文件——不能依赖 `read_dir` 的任意顺序，否则同一项目
+/// 两次失败可能指向不同文件。母语入口别名（`src/主函数.zh`）需要映射表才能识别，
+/// 此处按排序结果给一个确定值，读者照着跑同样会生成 `src/main.rs`。
+fn entry_hint_name(project_root: &Path) -> String {
+    let extensions = lang_manager::all_available_extensions();
+    let src = project_root.join("src");
+    let Ok(entries) = fs::read_dir(&src) else {
+        return "src/main.rs".to_string();
+    };
+    let mut candidates: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file() && is_dialect_file(path, &extensions))
+        .collect();
+    candidates.sort();
+    let preferred = candidates
+        .iter()
+        .find(|path| path.file_stem().and_then(|s| s.to_str()) == Some("main"))
+        .or_else(|| candidates.first());
+    match preferred {
+        Some(path) => path
+            .strip_prefix(project_root)
+            .unwrap_or(path.as_path())
+            .display()
+            .to_string()
+            .replace('\\', "/"),
+        None => "src/main.rs".to_string(),
+    }
 }
 
 /// 查找 crate 在当前语言映射中的母语别名（项目/全局语言包 > 内置）
@@ -1342,7 +1404,7 @@ fn find_project_root_upward(start: &Path) -> Option<PathBuf> {
 fn preflight_manifest(project_root: &Path, ui: &ui::Ui) -> anyhow::Result<()> {
     let path = project_root.join("Cargo.toml");
     let text = fs::read_to_string(&path)?;
-    let manifest: toml::Value = toml::from_str(&text).map_err(|e| {
+    toml::from_str::<toml::Value>(&text).map_err(|e| {
         anyhow::anyhow!(
             "{}",
             ui.f(
@@ -1351,27 +1413,43 @@ fn preflight_manifest(project_root: &Path, ui: &ui::Ui) -> anyhow::Result<()> {
             )
         )
     })?;
-    // 目标声明：[lib] / [[bin]] / [[example]] 任一存在，或 Cargo 默认发现位置有内容
+    if !has_cargo_target(project_root) {
+        anyhow::bail!("{}", ui.t("manifest_no_target"));
+    }
+    Ok(())
+}
+
+/// 项目是否有 Cargo 能读取的构建 target（[`preflight_manifest`] 的判定核心）
+///
+/// 判定规则的唯一来源：`rzc run`/`check` 的阻断与 `rzc add` 的「先跑一次 rzc
+/// check」提示都走这里，两处语义不许分叉。
+///
+/// 目标声明：`[lib]` / `[[bin]]` / `[[example]]` 任一存在；或 Cargo 默认发现位置
+/// 有内容——`src/main.rs` / `src/lib.rs`，或 `src/bin`・`tests`・`benches` 目录非空
+///（里面可能是子目录入口如 `src/bin/工具/main.rs`，故只判空不判后缀：误报会阻断
+/// 正常项目，漏报仅退化为翻译链处理 cargo 英文错）。manifest 读不到或不是合法
+/// TOML 时按「有 target」返回，让调用方去报各自更准确的错（解析失败 ≠ 无 target）。
+fn has_cargo_target(project_root: &Path) -> bool {
+    let Ok(text) = fs::read_to_string(project_root.join("Cargo.toml")) else {
+        return true;
+    };
+    let Ok(manifest) = toml::from_str::<toml::Value>(&text) else {
+        return true;
+    };
     let declared = manifest.get("lib").is_some()
         || manifest.get("bin").is_some()
         || manifest.get("example").is_some();
-    // 默认发现：src/main.rs / src/lib.rs，或 src/bin・tests・benches 目录非空
-    //（里面可能是子目录入口如 src/bin/工具/main.rs，故只判空不判后缀：
-    // 误报会阻断正常项目，漏报仅退化为翻译链处理 cargo 英文错）
-    let default_exists = ["src/main.rs", "src/lib.rs"]
-        .iter()
-        .any(|rel| project_root.join(rel).exists())
+    declared
+        || ["src/main.rs", "src/lib.rs"]
+            .iter()
+            .any(|rel| project_root.join(rel).exists())
         || ["src/bin", "tests", "benches"].iter().any(|dir| {
             let path = project_root.join(dir);
             path.is_dir()
                 && std::fs::read_dir(&path)
                     .ok()
                     .is_some_and(|mut entries| entries.next().is_some())
-        });
-    if !declared && !default_exists {
-        anyhow::bail!("{}", ui.t("manifest_no_target"));
-    }
-    Ok(())
+        })
 }
 
 /// 项目内语言包根目录：主仓库 zrRust 为单副本结构 `crates/engine/lang-packs/`

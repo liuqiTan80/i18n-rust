@@ -101,6 +101,7 @@
 "add_cargo_failed" = "执行 cargo add 失败：{}"
 "add_mapping_ready" = "✅ 已添加 {}。该 crate 有母语别名「{}」，母语源码中可直接使用"
 "add_mapping_missing" = "✅ 已添加 {}。该 crate 暂无母语映射，源码中请使用英文名 {}（可用 rzc mapping auto 生成映射）"
+"add_no_targets_hint" = "这个项目还没有 Cargo 能读取的构建入口：`Cargo.toml` 未声明 [lib]/[[bin]]，`src/` 下也没有 {} 对应的 .rs 文件。先运行 `rzc check {}` 生成标准 Rust 入口，再重试本命令"
 "hint_add_dependency" = "提示: \"{}\" 疑似未声明的第三方库，运行 `rzc add {}` 添加依赖"
 "mapping_auto_installed" = "✅ 依赖 {} 已自动加入当前项目"
 "mapping_auto_install_failed" = "自动添加依赖 {} 失败：{}"

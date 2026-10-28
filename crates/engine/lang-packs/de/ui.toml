@@ -159,6 +159,7 @@
 "add_cargo_failed" = "Ausführen von cargo add fehlgeschlagen: {}"
 "add_mapping_ready" = "✅ {} hinzugefügt. Diese Crate hat den nativen Alias „{}“, der direkt im muttersprachlichen Quellcode verwendet werden kann"
 "add_mapping_missing" = "✅ {} hinzugefügt. Für diese Crate gibt es noch kein natives Mapping; verwenden Sie im Quellcode den englischen Namen {} (Mapping mit rzc mapping auto erzeugen)"
+"add_no_targets_hint" = "Dieses Projekt hat kein Build-Ziel, das Cargo lesen kann: `Cargo.toml` deklariert kein [lib]/[[bin]], und in `src/` fehlt die .rs-Datei zu {}. Führen Sie zuerst `rzc check {}` aus, um den Standard-Rust-Eintrag zu erzeugen, und wiederholen Sie dann den Befehl"
 "hint_add_dependency" = "Hinweis: \"{}\" scheint eine nicht deklarierte Drittanbieter-Bibliothek zu sein; führen Sie `rzc add {}` aus, um die Abhängigkeit hinzuzufügen"
 "mapping_auto_installed" = "✅ Abhängigkeit {} wurde automatisch zum aktuellen Projekt hinzugefügt"
 "mapping_auto_install_failed" = "Automatisches Hinzufügen der Abhängigkeit {} fehlgeschlagen: {}"

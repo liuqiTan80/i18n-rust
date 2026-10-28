@@ -146,10 +146,15 @@ is told, verbatim, 该 crate 有母语别名「随机数」，母语源码中可
 `serde_json` is JSON序列化.)
 
 > 🔒 **A real trap**: run `rzc add` in a project you just created and it fails before
-> Cargo reaches the registry:
+> Cargo reaches the registry. rzc notices the cause and puts a line of its own in front of
+> Cargo's text (this is a real session in an English project; a Chinese project is told
+> 这个项目还没有 Cargo 能读取的构建入口 … 先运行 `rzc check src/main.en` …):
 >
 > ```text
-> error: failed to parse manifest at `.../greeter/Cargo.toml`
+> This project has no build target Cargo can read: `Cargo.toml` declares no [lib]/[[bin]]
+> and `src/` has no .rs file for src/main.en. Run `rzc check src/main.en` first to produce
+> the standard-Rust entry, then retry
+> error: failed to parse manifest at `demo2/Cargo.toml`
 >
 > Caused by:
 >   no targets specified in the manifest
@@ -159,7 +164,7 @@ is told, verbatim, 该 crate 有母语别名「随机数」，母语源码中可
 > Nothing is wrong with your `Cargo.toml`. `rzc init` wrote `src/main.en`, and Cargo only
 > recognises `src/main.rs` — the standard-Rust file that `rzc check` or `rzc run` produces.
 > **Run `rzc check src/main.en` once, then `rzc add rand` again.** (Section 18.10, error
-> two, is the same story.)
+> two, is the same story, including when it comes straight from Cargo.)
 
 ## 18.4 Building: two flavours
 
@@ -213,22 +218,37 @@ One project can produce two kinds of output:
 | executable | `src/main.en` | a program you can run |
 | library | `src/lib.en` | code for other people to use |
 
-`rzc init` always builds you an executable. A library project is the same folder with
-`src/lib.en` in it instead — the transpiler treats it like any other file:
-
-```bash
-rzc check src/lib.en
-```
+`rzc init` always builds you an executable, because the only file rzc hands to Cargo as a
+fixed entry is `src/main.<ext>` (or its native keyword alias, `src/主函数.zh`). `lib.en`
+gets no special treatment: it transpiles to `.rz/gen/src/lib.rs` like any other file, so a
+folder holding *only* a dialect library still has nothing for Cargo to read:
 
 ```text
-✅ Compilation succeeded, no errors.
+Error: The manifest declares no build target, and neither src/main.rs nor src/lib.rs exists.
+Write your program in src/main.rs, or declare [[bin]]/lib in Cargo.toml.
 ```
 
-What Cargo ultimately reads is still the standard-Rust product, which is why a Cargo
-command only works after one `rzc check` (error two in 18.10).
+To ship a library written in the dialect, tell Cargo where the product lands — one extra
+section in `Cargo.toml`, then one `rzc check` to create the file it points at (this is the
+real session, `src/lib.en` holding `pub fn greet() -> i32 { 3 }`):
+
+```toml
+[lib]
+path = ".rz/gen/src/lib.rs"
+```
+
+```bash
+rzc check src/lib.en   # ✅ Compilation succeeded, no errors.
+cargo build            # Compiling greetlib v0.1.0 … Finished `dev` profile
+```
 
 Many real projects do both: the library holds the logic, and a thin `main.en` is the
-command-line front door.
+command-line front door. In practice, though, most dialect code that is *meant to be
+reused* simply lives in a module file (`src/utils.en`) reached with `mod utils;` from
+`main.en` — Chapter 17 — and no `[lib]` section is needed at all.
+
+What Cargo ultimately reads is always the standard-Rust product, which is why any Cargo
+command only works after one `rzc check` (error two in 18.10).
 
 Two programs from one project is a manifest question, and it works with dialect paths —
 this is the real session:
@@ -386,8 +406,13 @@ Caused by:
 
 Cargo has never heard of `.en` files. It wants `src/main.rs`, which only exists after rzc
 transpiles. **Fix**: run `rzc check src/main.en` once — it writes the standard-Rust
-product — then repeat the Cargo command. (Making this failure explain itself instead of
-quoting Cargo's internals is on the project's list.)
+product — then repeat the Cargo command.
+
+`rzc add` says this in your own language before Cargo's text appears, because this is the
+first thing a fresh project runs into (the sentence is 18.3's trap, same in every UI
+language). Cargo itself is not localised, so `cargo build` straight from the shell still
+quotes the internals above — read the two lines under **Caused by** as "no `.rs` entry yet",
+and reach for `rzc check`.
 
 ### Error three: the library is used but never declared
 

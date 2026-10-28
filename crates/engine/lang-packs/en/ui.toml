@@ -157,6 +157,7 @@
 "add_cargo_failed" = "Failed to run cargo add: {}"
 "add_mapping_ready" = "✅ Added {}. This crate has the native alias \"{}\" you can use directly in native source code"
 "add_mapping_missing" = "✅ Added {}. No native mapping for this crate yet; use the English name {} in source code (or generate one with rzc mapping auto)"
+"add_no_targets_hint" = "This project has no build target Cargo can read: `Cargo.toml` declares no [lib]/[[bin]] and `src/` has no .rs file for {}. Run `rzc check {}` first to produce the standard-Rust entry, then retry"
 "hint_add_dependency" = "Hint: \"{}\" looks like an undeclared third-party library; run `rzc add {}` to add the dependency"
 "mapping_auto_installed" = "✅ Dependency {} was automatically added to the current project"
 "mapping_auto_install_failed" = "Failed to automatically add dependency {}: {}"

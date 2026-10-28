@@ -178,6 +178,65 @@
 - 其余 10 语言的 `[E0603]` 本就不点名种类，但也不给条目名，读者无从定位断在哪一层；
   改「模块」这个名词涉及各语言的性/数/格变化，属逐语言文案工作，登记 P1 不在本轮动。
 
+### 新增
+- `rzc add` 现在会给「项目还没有 Cargo 能读取的构建入口」一句母语指引（新键
+  `add_no_targets_hint`，11 语言同步，界面消息键 617 → 618）。此前 `rzc init demo` 之后
+  第一条 `rzc add` **必然**失败——`rzc init` 只生成 `src/main.en`，Cargo 只认
+  `src/main.rs`——而 `handle_add_command` 直接 spawn cargo 并透传退出码，中文读者面对的
+  是一堆构建器内部术语（`error: failed to parse manifest` / `no targets specified in the
+  manifest`），且**修复动作完全看不出来**。现在命中时先打一句母语（点名缺的是哪个 `.rs`、
+  该 `rzc check` 哪个文件），随后原样回显 cargo 的 stdout/stderr，不吞信息、不改退出码：
+
+  ```text
+  这个项目还没有 Cargo 能读取的构建入口：`Cargo.toml` 未声明 [lib]/[[bin]]，`src/` 下也没有 src/main.zh 对应的 .rs 文件。先运行 `rzc check src/main.zh` 生成标准 Rust 入口，再重试本命令
+  ```
+
+### 修复
+- 「项目有无 Cargo target」的判定收成一个函数（`has_cargo_target`）：`rzc run`/`check`
+  的阻断（`preflight_manifest` → `manifest_no_target`）与 `rzc add` 的新提示共用同一规则，
+  顺带补上此前字符串级判断漏掉的 `[[example]]`、`tests/`、`benches/`、`src/bin/` 四种
+  合法形态。提示还要求 cargo 确实报在 manifest 上（`no targets specified` /
+  `failed to parse manifest`）——两个条件缺一不可，否则包名为空这类**真** manifest 错误也会
+  被指向 `rzc check`，把读者引向无关动作。
+
+- 界面消息键索引 `docs/ui-keys.en.md` **此前漏了 120 个键**（`tools/ui-keys-index.py`
+  的渲染循环只遍历登记过的前缀，`group_of` 兜底归入的 "Other UI messages" 一节从未被输出）。
+  受影响的是 `add_*` / `cargo_*` / `hint_*` / `manifest_*` / `eject_*` 这类无前缀约定的键，
+  它们都有真实调用点，却在索引里一行不出现——而本页开头写着 "Every entry under
+  `["界面消息"]` … is listed below"，等于让贡献者对这些键回到盲翻状态。生成器补上该分组
+  （表头同时列出其数量），索引行数 579 → 699；顺带接受正文承诺过、argparse 却不认的
+  `--check` 写法（默认行为本就是检查）。
+
+### 教程
+- zh 第十八章《包管理与构建》按实机同步（上一轮 en 版采集时查出的三处事实错误，本轮落回
+  源语言正文）：18.3 增「新手第一道墙」陷阱框（真实输出）、18.5 删除不存在的
+  `rzc init 名字 --lib` 说法、18.6 速查表补 `rzc add 库名`（此前只有 `cargo add`，与扩展
+  行为不符）、18.8 点明 `rzc run`/`rzc check` 顺带生成 `src/main.rs` 才让后续
+  `cargo build` 有的可读、18.10 新增错误五（no targets）并把错误一/二里**我拟造的中文
+  cargo 报错**换成实机原文（`error: the crate `serde@99.0` could not be found in registry
+  index.`；网络类错误明确写「由 Cargo 产出、不随界面语言翻译」，不再假造本地化字符串）。
+- en 第 18 章一处**上一轮我自己写进去的事实错误**已纠正：18.5 原写「库项目就是同一个目录
+  换成 `src/lib.en`，`rzc check src/lib.en` 通过」——实机复现发现那是环境假设（当时目录里
+  还留着 `src/main.rs`）。真相是 `is_entry_stem` 只认 `main` 及其母语别名（`src/主函数.zh`
+  实测生成了 `src/main.rs`），`lib.<ext>` 走普通文件布局落 `.rz/gen/src/lib.rs`，纯库目录
+  `rzc check` 会报「没有声明编译目标」；可用配方是 Cargo.toml 加
+  `[lib] path = ".rz/gen/src/lib.rs"` 再 check + build（zh/en 两版都按实测改写，en 18.3
+  的陷阱框与 18.10 错误二同步反映新提示）。
+
+### 测试
+- 新增 3 个 `rzc add` 集成测试：无 target 时 zh/en 两种界面语言都要出现母语指引且
+  cargo 原文可见；manifest 真错误时**不得**出现该指引；项目里另有字典序更靠前的方言文件
+  （`src/api.zh`）时提示必须仍点名 `src/main.zh`。三条都做过反向验证：把双条件削成单条件，
+  第二条立即红；去掉「优先 `main`」分支，第三条立即红。占位符个数也被钉住——文案里两个
+  `{}` 都要填入口名，实参只传一次的话 `rzc check src/main.en` 这一串就拼不出来。
+  三个用例全离线：cargo 先解析 manifest 再访问注册表，实测无 `Updating crates.io index`。
+- `test_lang_list_lists_builtin_packs` 的偶发红灯根因查明并修复：`rzc()` 把 `RZ_LANG_DIR`
+  预设为**进程内共享**的沙箱子目录，而 `global_lang_dir()` 优先读它、其次才看 `HOME`，
+  于是只覆盖 `HOME` 的 `lang install/remove` 生命周期测试仍把 `zz` 装进共享目录，与
+  「内置 11 包」的计数断言并发相撞。新增 `rzc_in_private_home()` 把 HOME 与语言包目录
+  一起私有化，两个测试都改用它；改后 release 全量并行重跑三轮无红灯。全量
+  debug/release 均 **778 passed / 0 failed**（上轮基线 775）。
+
 ## [0.8.12] - 2026-10-28
 
 ### 新增

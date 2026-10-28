@@ -159,6 +159,7 @@
 "add_cargo_failed" = "cargo add の実行に失敗しました: {}"
 "add_mapping_ready" = "✅ {} を追加しました。この crate には母語エイリアス「{}」があり、母語ソースコードで直接使えます"
 "add_mapping_missing" = "✅ {} を追加しました。この crate の母語マッピングはまだありません。ソースコードでは英語名 {} を使ってください（rzc mapping auto で生成可能）"
+"add_no_targets_hint" = "このプロジェクトには Cargo が読み取れるビルド対象がありません（`Cargo.toml` に [lib]/[[bin]] がなく、`src/` に {} に対応する .rs もありません）。先に `rzc check {}` を実行して標準 Rust のエントリを生成してから、もう一度お試しください"
 "hint_add_dependency" = "ヒント: \"{}\" は未宣言のサードパーティライブラリの可能性があります。`rzc add {}` で依存を追加してください"
 "mapping_auto_installed" = "✅ 依存 {} を現在のプロジェクトに自動追加しました"
 "mapping_auto_install_failed" = "依存 {} の自動追加に失敗しました: {}"

@@ -17,7 +17,7 @@
 
 动态取键（静态扫描看不见、但确实在用）以前缀白名单显式登记，见 DYNAMIC_PREFIXES。
 
-用法：python3 tools/ui-keys-index.py [--write] [--quiet]
+用法：python3 tools/ui-keys-index.py [--write | --check] [--quiet]（默认即 --check）
 """
 
 import argparse
@@ -213,11 +213,14 @@ def one_line(text: str, limit: int = 120) -> str:
     return flat if len(flat) <= limit else flat[: limit - 1] + "…"
 
 
+OTHER_GROUP = "Other UI messages"
+
+
 def group_of(key: str) -> str:
     for prefix, label in GROUP_LABELS:
         if key.startswith(prefix):
             return label
-    return "Other UI messages"
+    return OTHER_GROUP
 
 
 def render(hits: dict, messages: dict) -> str:
@@ -250,6 +253,9 @@ def render(hits: dict, messages: dict) -> str:
         n = sum(1 for k in messages if k.startswith(prefix))
         if n:
             out.append(f"| `{prefix}*` | {label} ({n}) |")
+    other_n = len(groups.get(OTHER_GROUP, []))
+    if other_n:
+        out.append(f"| _其余_ | {OTHER_GROUP} ({other_n}) |")
     out += [
         "",
         "Placeholder arguments are shown as they appear in source, e.g. `&[&created.to_string(),",
@@ -257,7 +263,12 @@ def render(hits: dict, messages: dict) -> str:
         "no substitution at all.",
         "",
     ]
-    for _prefix, label in GROUP_LABELS:
+    # 必须包含 OTHER_GROUP：只遍历 GROUP_LABELS 会把没登记前缀的键整段吞掉。
+    # 本页开头写着 "Every entry under [\"界面消息\"] ... is listed below"，而实测
+    # 618 键里有 120 个不落任何登记前缀（add_*、cargo_*、hint_*、manifest_*、
+    # eject_* 等，全都有真实调用点），它们此前**一行都不出现**在索引里——新贡献者
+    # 排查这些键时依旧只能盲翻，正是本工具要消灭的那种事。
+    for label in [label for _prefix, label in GROUP_LABELS] + [OTHER_GROUP]:
         keys = sorted(groups.get(label, []))
         if not keys:
             continue
@@ -325,6 +336,11 @@ def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):  # Windows GBK 控制台兜底
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="生成/校验 ui.toml 界面消息键索引")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="与默认行为相同：只做一致性检查（正文与 CI 用这个写法）",
+    )
     parser.add_argument("--write", action="store_true", help="写入 docs/ui-keys.en.md")
     parser.add_argument("--quiet", action="store_true", help="只在失败时输出")
     args = parser.parse_args()

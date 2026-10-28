@@ -6,7 +6,7 @@
 //! 教程验证（tools/verify-tutorials.py）覆盖。
 
 use assert_cmd::Command;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 /// 测试沙箱根目录（进程内唯一，仅创建一次）
@@ -25,6 +25,19 @@ fn 沙箱根() -> &'static PathBuf {
         std::fs::create_dir_all(&dir).expect("创建测试沙箱目录失败");
         dir
     })
+}
+
+/// 指向**私有** HOME 与私有语言包目录的命令构造器
+///
+/// `rzc()` 把 `RZ_LANG_DIR` 预设为进程内**共享**的沙箱子目录，而
+/// `global_lang_dir()` 优先读该变量、其次才看 `HOME`；因此只覆盖 `HOME` 的测试
+/// 仍会写进共享目录，与 `lang list` 的内置包计数断言相撞（并行时偶发 12 ≠ 11）。
+/// 凡读写全局语言包目录的测试都用本函数，两个位置一起私有化。
+fn rzc_in_private_home(home: &Path) -> Command {
+    let mut cmd = rzc();
+    cmd.env("HOME", home)
+        .env("RZ_LANG_DIR", home.join("lang-packs"));
+    cmd
 }
 
 fn rzc() -> Command {
@@ -48,11 +61,13 @@ fn test_version_outputs_name_and_version() {
         .stdout(predicates::str::contains(env!("CARGO_PKG_VERSION")));
 }
 
-/// `lang list` 无需网络：内置 11 语言包编译期嵌入；沙箱内无用户安装包，
-/// 计数稳定为 11（不随开发者机器上的 `~/.rz/lang-packs` 变化）
+/// `lang list` 无需网络：内置 11 语言包编译期嵌入；私有 HOME 与私有语言包目录
+/// 双保险，计数既不随开发者机器上的 `~/.rz/lang-packs` 变化，也不随同批次
+/// 安装/卸载语言包的测试变化
 #[test]
 fn test_lang_list_lists_builtin_packs() {
-    rzc()
+    let home = isolated_home();
+    rzc_in_private_home(home.path())
         .args(["lang", "list"])
         .assert()
         .success()
@@ -348,6 +363,144 @@ fn test_check_good_program_succeeds() {
         .args(["check", "src/main.zh"])
         .assert()
         .success();
+}
+
+/// 项目里还没有 Cargo 能读取的构建 target 时，`rzc add` 必须补母语指引
+///
+/// `rzc init` 只生成方言入口（`src/main.en`），Cargo 认不到 target，于是新建项目
+/// 后**第一条 `rzc add` 必然失败**，原文是构建器内部术语
+/// （`no targets specified in the manifest`）且不含任何可执行动作。cargo 先解析
+/// manifest、后访问 registry，故本用例离线即复现失败路径（实测无
+/// "Updating crates.io index"）。断言同时覆盖 zh/en 两种界面语言，并确认 cargo
+/// 原文未被吞掉。
+#[test]
+fn test_add_without_cargo_target_prints_native_hint() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    std::fs::create_dir_all(work.path().join("src")).expect("创建 src 失败");
+    std::fs::write(
+        work.path().join("Cargo.toml"),
+        "[package]\nname=\"t\"\nversion=\"0.1.0\"\nedition=\"2021\"\n\n[dependencies]\n",
+    )
+    .unwrap();
+    std::fs::write(work.path().join("src/main.en"), "fn main() {}\n").unwrap();
+
+    let run = |lang: &str| {
+        let out = rzc()
+            .env("HOME", home.path())
+            .env("RZ_LANG", lang)
+            .env_remove("RZ_LOG")
+            .current_dir(work.path())
+            .args(["add", "any-crate"])
+            .assert()
+            .failure()
+            .get_output()
+            .stderr
+            .clone();
+        String::from_utf8_lossy(&out).to_string()
+    };
+
+    let zh = run("zh");
+    assert!(
+        zh.contains("还没有 Cargo 能读取的构建入口"),
+        "应有母语指引：{zh}"
+    );
+    assert!(
+        zh.contains("rzc check src/main.en"),
+        "指引须含可执行动作：{zh}"
+    );
+    assert!(zh.contains("no targets"), "cargo 原文须原样可见：{zh}");
+
+    let en = run("en");
+    assert!(
+        en.contains("no build target Cargo can read"),
+        "应有英文指引：{en}"
+    );
+    assert!(en.contains("Run `rzc check src/main.en` first"), "{en}");
+    assert!(en.contains("no targets"), "cargo 原文须原样可见：{en}");
+}
+
+/// 提示里的入口名取 `main.<ext>`，不受 `read_dir` 顺序影响
+///
+/// 项目里除入口外还有别的方言文件时，随便挑一个会让读者去 check 一个**模块文件**
+/// ——那不是入口，生成不了 `src/main.rs`，墙照旧撞第二次。兄弟文件特意取 `api.zh`：
+/// 它字典序在 `main.zh` 之前，所以「排序后取第一个」的实现会在这里露馅，
+/// 只有显式优先 `main` 才通过。
+#[test]
+fn test_add_hint_prefers_main_entry() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    std::fs::create_dir_all(work.path().join("src")).expect("创建 src 失败");
+    std::fs::write(
+        work.path().join("Cargo.toml"),
+        "[package]\nname=\"t\"\nversion=\"0.1.0\"\nedition=\"2021\"\n\n[dependencies]\n",
+    )
+    .unwrap();
+    std::fs::write(work.path().join("src/main.zh"), GOOD_PROGRAM).unwrap();
+    std::fs::write(work.path().join("src/api.zh"), "fn helper() {}\n").unwrap();
+    std::fs::write(work.path().join("src/工具.zh"), "fn helper2() {}\n").unwrap();
+
+    for _ in 0..3 {
+        let out = rzc()
+            .env("HOME", home.path())
+            .env("RZ_LANG", "zh")
+            .env_remove("RZ_LOG")
+            .current_dir(work.path())
+            .args(["add", "any-crate"])
+            .assert()
+            .failure()
+            .get_output()
+            .stderr
+            .clone();
+        let stderr = String::from_utf8_lossy(&out).to_string();
+        assert!(
+            stderr.contains("rzc check src/main.zh"),
+            "应点名入口文件：{stderr}"
+        );
+        assert!(
+            !stderr.contains("rzc check src/api.zh"),
+            "不该把排序靠前的模块文件当入口：{stderr}"
+        );
+    }
+}
+
+/// manifest 自身有问题时**不得**套用「无 target」指引
+///
+/// 命中判定要求两个条件同时成立（项目确实无 target + cargo 确实报在无 target
+/// 上）。少了后半个条件，包名为空这类真 manifest 错误也会被指向 `rzc check`，
+/// 把读者引向无关动作；本用例锁定不误报。
+#[test]
+fn test_add_manifest_error_does_not_claim_missing_target() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    std::fs::create_dir_all(work.path().join("src")).expect("创建 src 失败");
+    std::fs::write(
+        work.path().join("Cargo.toml"),
+        "[package]\nname=\"\"\nversion=\"0.1.0\"\nedition=\"2021\"\n\n[dependencies]\n",
+    )
+    .unwrap();
+    std::fs::write(work.path().join("src/main.en"), "fn main() {}\n").unwrap();
+
+    let out = rzc()
+        .env("HOME", home.path())
+        .env("RZ_LANG", "zh")
+        .env_remove("RZ_LOG")
+        .current_dir(work.path())
+        .args(["add", "any-crate"])
+        .assert()
+        .failure()
+        .get_output()
+        .stderr
+        .clone();
+    let stderr = String::from_utf8_lossy(&out).to_string();
+    assert!(
+        !stderr.contains("还没有 Cargo 能读取的构建入口"),
+        "真 manifest 错误不该给无 target 指引：{stderr}"
+    );
+    assert!(
+        stderr.contains("package name cannot be empty"),
+        "cargo 原文可见：{stderr}"
+    );
 }
 
 /// `rzc check` 多层模块项目：递归收集 + 非入口文件按层级补 `#[path]`
@@ -971,8 +1124,7 @@ fn test_lang_local_install_list_remove_lifecycle() {
     // 非法目录（无 keywords.toml）安装失败
     let bad = staging.path().join("yy");
     std::fs::create_dir_all(&bad).unwrap();
-    rzc()
-        .env("HOME", home.path())
+    rzc_in_private_home(home.path())
         .args(["lang", "install"])
         .arg(&bad)
         .assert()
@@ -980,48 +1132,41 @@ fn test_lang_local_install_list_remove_lifecycle() {
         .stderr(predicates::str::starts_with("错误："));
 
     // 合法目录安装成功
-    rzc()
-        .env("HOME", home.path())
+    rzc_in_private_home(home.path())
         .args(["lang", "install"])
         .arg(&pack)
         .assert()
         .success();
     // list 中可见 zz（用户安装标记）
-    rzc()
-        .env("HOME", home.path())
+    rzc_in_private_home(home.path())
         .args(["lang", "list"])
         .assert()
         .success()
         .stdout(predicates::str::contains("zz"));
     // 重复安装（无 --force）失败
-    rzc()
-        .env("HOME", home.path())
+    rzc_in_private_home(home.path())
         .args(["lang", "install"])
         .arg(&pack)
         .assert()
         .failure();
     // --force 重装成功
-    rzc()
-        .env("HOME", home.path())
+    rzc_in_private_home(home.path())
         .args(["lang", "install", "--force"])
         .arg(&pack)
         .assert()
         .success();
     // 删除成功
-    rzc()
-        .env("HOME", home.path())
+    rzc_in_private_home(home.path())
         .args(["lang", "remove", "zz"])
         .assert()
         .success();
     // 再删：已不存在 → 失败
-    rzc()
-        .env("HOME", home.path())
+    rzc_in_private_home(home.path())
         .args(["lang", "remove", "zz"])
         .assert()
         .failure();
     // 路径穿越代码被拒绝
-    rzc()
-        .env("HOME", home.path())
+    rzc_in_private_home(home.path())
         .args(["lang", "remove", "../evil"])
         .assert()
         .failure();
