@@ -288,10 +288,16 @@ That layout is common in Rust, but in a dialect project it has three traps, in o
 2. **Check the library before the executable.** `rzc check src/main.en` does transpile
    `src/lib.en`, but that sibling product lands in `.rz/gen/`, where Cargo cannot see it.
    While `src/lib.rs` is still missing, `use calc::double;` fails with
-   `error[E0432]: the import path cannot be resolved`, and the hint it adds sends you the
-   wrong way: "if you wanted to use a crate named `calc`, use `cargo add calc`" — `calc`
-   is *your own* crate, not a third-party dependency. After one `rzc check src/lib.en`,
-   `cargo run` prints `42` normally.
+   `error[E0432]: the import path cannot be resolved`. rustc's own suggestion points you
+   the wrong way — "if you wanted to use a crate named `calc`, use `cargo add calc`" —
+   because `calc` is *your own* crate, and Cargo will not let a package depend on itself
+   (measured: ``error: cannot add `calc` as a dependency to itself``). So rzc replaces that
+   suggestion with the step that actually works:
+
+   ``"calc" is this project's own package name, not a third-party crate — Cargo does not let a package depend on itself, so `rzc add calc` always fails. To use your own library code, run `rzc check src/lib.en` first to generate Cargo's src/lib.rs, then check again``
+
+   After one `rzc check src/lib.en` and a second check of the executable,
+   `rzc run src/main.en` prints `42` normally.
 3. **The package name must be ASCII.** A name like `name = "计算器"` compiles fine as
    long as the package has only a library or only an executable. Once it has both, Cargo
    passes the library to the binary with `--extern`, and rustc refuses outright (this

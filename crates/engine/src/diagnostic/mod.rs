@@ -35,7 +35,7 @@ pub use teaching::{
     DiagnosticLevel, DiagnosticLocation, OWNERSHIP_ERROR_CODES, OwnershipDetails,
     TeachingDiagnostic, extract_ownership_details,
 };
-pub use translator::{DiagnosticTranslator, RenderedMessage, build_type_map};
+pub use translator::{DiagnosticTranslator, RenderedMessage, build_type_map, suggested_crate_name};
 
 // 内部辅助函数：仅测试直接引用（见下方 tests 模块）
 #[cfg(test)]

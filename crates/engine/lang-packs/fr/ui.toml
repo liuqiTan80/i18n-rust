@@ -162,6 +162,8 @@
 "add_mapping_missing" = "✅ {} ajouté. Ce crate n'a pas encore de mapping natif ; utilisez le nom anglais {} dans le code source (ou générez-en un avec rzc mapping auto)"
 "add_no_targets_hint" = "Ce projet ne contient aucune cible de compilation lisible par Cargo : `Cargo.toml` ne déclare ni [lib] ni [[bin]] et `src/` ne comporte pas de fichier .rs pour {}. Exécutez d'abord `rzc check {}` pour produire l'entrée Rust standard, puis réessayez"
 "hint_add_dependency" = "Astuce : \"{}\" semble être une bibliothèque tierce non déclarée ; exécutez `rzc add {}` pour ajouter la dépendance"
+"hint_own_crate_lib" = "\"{}\" est le nom de paquetage de ce projet lui-même, et non une bibliothèque tierce ; Cargo ne permet pas à un paquetage de dépendre de lui-même, donc `rzc add {}` échoue toujours. Pour utiliser votre propre code de bibliothèque, exécutez d'abord `rzc check {}` afin de générer src/lib.rs de Cargo, puis revérifiez"
+"hint_own_crate_no_lib" = "\"{}\" est le nom de paquetage de ce projet lui-même, et non une bibliothèque tierce ; Cargo ne permet pas à un paquetage de dépendre de lui-même, donc `rzc add {}` échoue toujours. Ce projet n'a pas encore de point d'entrée de bibliothèque {}; `use <nom-du-paquetage>::…` désigne la bibliothèque compilée depuis ce fichier : écrivez-y le code réutilisable puis exécutez `rzc check {}`"
 "mapping_auto_installed" = "✅ La dépendance {} a été ajoutée automatiquement au projet actuel"
 "mapping_auto_install_failed" = "Échec de l'ajout automatique de la dépendance {} : {}"
 "mapping_auto_install_no_project" = "Aucun projet Cargo trouvé ; installation automatique de la dépendance ignorée"

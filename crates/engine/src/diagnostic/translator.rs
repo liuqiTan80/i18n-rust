@@ -146,7 +146,10 @@ pub(crate) fn localize_ref_type(ty: &str, map: &HashMap<String, String>) -> Stri
 }
 
 /// 提取 rustc "if you wanted to use a crate named `X`" 建议中的 crate 名
-fn suggested_crate_name(message: &str) -> Option<&str> {
+///
+/// 公开给 CLI 侧复用：加依赖提示需要认出这条建议里的名字是否与包名相同，
+/// 复制一份解析会造成两侧漂移（引擎已按此形状过滤非 ASCII 名）。
+pub fn suggested_crate_name(message: &str) -> Option<&str> {
     message
         .strip_prefix("if you wanted to use a crate named `")
         .and_then(|rest| rest.split('`').next())

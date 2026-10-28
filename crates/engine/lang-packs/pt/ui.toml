@@ -162,6 +162,8 @@
 "add_mapping_missing" = "✅ {} adicionado. Este crate ainda não tem mapeamento nativo; use o nome em inglês {} no código-fonte (ou gere um com rzc mapping auto)"
 "add_no_targets_hint" = "Este projeto não tem um alvo de compilação que o Cargo consiga ler: o `Cargo.toml` não declara [lib]/[[bin]] e `src/` não tem arquivo .rs para {}. Execute primeiro `rzc check {}` para gerar a entrada padrão em Rust e tente de novo"
 "hint_add_dependency" = "Dica: \"{}\" parece ser uma biblioteca de terceiros não declarada; execute `rzc add {}` para adicionar a dependência"
+"hint_own_crate_lib" = "\"{}\" é o nome do pacote deste próprio projeto, não uma biblioteca de terceiros; o Cargo não permite que um pacote dependa de si mesmo, então `rzc add {}` sempre falha. Para usar seu próprio código de biblioteca, execute primeiro `rzc check {}` para gerar o src/lib.rs do Cargo e verifique novamente"
+"hint_own_crate_no_lib" = "\"{}\" é o nome do pacote deste próprio projeto, não uma biblioteca de terceiros; o Cargo não permite que um pacote dependa de si mesmo, então `rzc add {}` sempre falha. Este projeto ainda não tem entrada de biblioteca {}; `use <nome-do-pacote>::…` refere-se à biblioteca compilada desse arquivo: escreva nele o código reutilizável e execute `rzc check {}`"
 "mapping_auto_installed" = "✅ A dependência {} foi adicionada automaticamente ao projeto atual"
 "mapping_auto_install_failed" = "Falha ao adicionar automaticamente a dependência {}: {}"
 "mapping_auto_install_no_project" = "Nenhum projeto Cargo encontrado; ignorando a instalação automática da dependência"

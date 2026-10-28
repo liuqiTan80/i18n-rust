@@ -162,6 +162,8 @@
 "add_mapping_missing" = "✅ {}을(를) 추가했습니다. 이 crate는 아직 모국어 매핑이 없습니다. 소스 코드에서는 영어 이름 {}을(를) 사용하세요 (rzc mapping auto로 생성 가능)"
 "add_no_targets_hint" = "이 프로젝트에는 Cargo가 읽을 수 있는 빌드 대상이 없습니다: `Cargo.toml`에 [lib]/[[bin]]이 없고 `src/`에 {}에 대응하는 .rs 파일이 없습니다. 먼저 `rzc check {}`를 실행해 표준 Rust 진입 파일을 만든 뒤 다시 시도하세요"
 "hint_add_dependency" = "힌트: \"{}\"은(는) 선언되지 않은 서드파티 라이브러리로 보입니다. `rzc add {}`로 의존성을 추가하세요"
+"hint_own_crate_lib" = "\"{}\"은(는) 이 프로젝트 자신의 패키지 이름이며 서드파티 라이브러리가 아닙니다. Cargo는 패키지가 자기 자신에 의존하는 것을 허용하지 않으므로 `rzc add {}`는 반드시 실패합니다. 자신의 라이브러리 코드를 사용하려면 먼저 `rzc check {}`를 실행해 Cargo의 src/lib.rs를 생성한 다음 다시 검사하세요"
+"hint_own_crate_no_lib" = "\"{}\"은(는) 이 프로젝트 자신의 패키지 이름이며 서드파티 라이브러리가 아닙니다. Cargo는 패키지가 자기 자신에 의존하는 것을 허용하지 않으므로 `rzc add {}`는 반드시 실패합니다. 이 프로젝트에는 아직 라이브러리 진입 파일 {}이(가) 없습니다. `use <패키지명>::…`은 해당 파일로 빌드되는 라이브러리를 가리키므로, 그 파일에 재사용 코드를 작성한 뒤 `rzc check {}`를 실행하세요"
 "mapping_auto_installed" = "✅ 의존성 {}이(가) 현재 프로젝트에 자동으로 추가되었습니다"
 "mapping_auto_install_failed" = "의존성 {} 자동 추가 실패: {}"
 "mapping_auto_install_no_project" = "Cargo 프로젝트를 찾을 수 없어 의존성 자동 설치를 건너뜁니다"

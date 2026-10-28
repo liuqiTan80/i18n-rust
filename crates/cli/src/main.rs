@@ -2295,10 +2295,10 @@ fn transpile_project_files(
                 // 托管树内的相对位置与旧布局逐字一致（子模块在 `<自身词干>/`
                 // 下，`#[path]` 相对当前文件所在目录解析），手写 `.rs` 子模块
                 // 则跨出托管目录指回 src/。
-                // 这里**不**按入口规则落 crate 根：src 直属入口词干（main、lib）
-                // 已在收集阶段跳过，只有本次请求的文件走 [`entry_output_path`]。
-                // 兄弟入口若也落 crate 根，等于替用户凭空造出一个编译目标
-                // （见 [`transpile_project_files`] 的坑记录）。
+                // 这里**不**按入口规则落 crate 根：兄弟入口若也落 crate 根，等于
+                // 替用户凭空造出一个编译目标（见 [`transpile_project_files`] 的坑记录）。
+                // 主函数词干已在收集阶段跳过；库词干**没**跳过，产物照旧落托管目录，
+                // 声明 `[lib] path` 的老项目靠它拿新鲜产物。
                 let product_path =
                     i18n_rust_engine::product_layout::gen_product_path(project_root, &path);
                 let product = annotate_product(
@@ -2314,9 +2314,14 @@ fn transpile_project_files(
                     *first_error
                         .lock()
                         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(e);
-                } else {
+                } else if entry_product_default(&path, project_root, manager).is_none() {
                     // 旧布局把产物写在源文件旁（src/领域/工具.rs）：已迁走，
-                    // 同目录遗留文件删掉后 src/ 才真的只剩母语源文件
+                    // 同目录遗留文件删掉后 src/ 才真的只剩母语源文件。
+                    // **入口源文件除外**：`src/lib.zh` 旁边的 `src/lib.rs` 不是旧布局
+                    // 遗留，而是 Cargo 的 crate 根产物（`rzc check src/lib.zh` 写的）。
+                    // 当兄弟文件顺带清理会把库产物删掉，bin+lib 项目于是变成
+                    // 「先 check 库、再 check 主程序 → 库产物消失 → 主程序 E0432」，
+                    // 恰好废掉库入口指的那条路（实机复现过）。
                     relocate_legacy_product(
                         &path.with_extension("rs"),
                         &product_path,

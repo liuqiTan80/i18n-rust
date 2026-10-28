@@ -250,6 +250,13 @@ const GOOD_PROGRAM: &str = "函数 主函数() {\n    打印行!(\"输出：{}\"
 /// 中文方言库入口样例（`src/lib.zh` 用）：只有公开函数，没有主函数
 const GOOD_LIB: &str = "公开 函数 答案() -> 整数 {\n    6 * 7\n}\n";
 
+/// 兄弟库入口样例（`src/lib.zh` 用，bin+lib 配方）：库里的函数供主程序 `use 包名::`
+const LIB_DOUBLE: &str = "公开 函数 翻倍(x: 整数) -> 整数 {\n    x * 2\n}\n";
+
+/// 引用**本项目自己的库 crate** 的主程序（`rzc check src/lib.<ext>` 之后才可解析）
+const MAIN_USES_OWN_LIB: &str =
+    "使用 calc::翻倍;\n\n函数 主函数() {\n    打印行!(\"{}\", 翻倍(21));\n}\n";
+
 /// 坏程序：E0384（不可变变量重复赋值），CLI 须翻译成母语教学诊断
 const BAD_PROGRAM: &str =
     "函数 主函数() {\n    让 数量 = 10;\n    数量 = 数量 + 1;\n    打印行!(\"{}\", 数量);\n}\n";
@@ -680,6 +687,142 @@ fn test_sibling_lib_refreshes_declared_gen_product() {
     );
     // 请求的是主程序，库产物不得被当成入口挪走
     assert!(!work.path().join("src/lib.rs").exists());
+}
+
+/// bin+lib 项目里，check 主程序**不得**清掉兄弟库已生成的 crate 根产物
+///
+/// 库配方是「先 `rzc check src/lib.zh` 生成 src/lib.rs，再 check 主程序」。项目级
+/// 转译把兄弟 `src/lib.zh` 也走一遍时，会按旧布局规则清理「源文件旁边的同名 .rs」——
+/// 而 `src/lib.rs` 恰恰是 Cargo 的库目标产物，不是旧布局遗留。清掉之后第二次 check
+/// 立刻 E0432，等于这条配方自己把自己拆了（本轮实机复现，先前四个用例都没覆盖到
+/// 「两次 check 的先后顺序」这一维度）。反向验证：恢复无条件清理，第二步失败。
+#[test]
+fn test_check_main_keeps_sibling_lib_crate_product() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    let root = work.path();
+    std::fs::create_dir_all(root.join("src")).expect("创建 src 失败");
+    std::fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname=\"calc\"\nversion=\"0.1.0\"\nedition=\"2021\"\n\n[dependencies]\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("src/lib.zh"), LIB_DOUBLE).unwrap();
+    std::fs::write(root.join("src/main.zh"), MAIN_USES_OWN_LIB).unwrap();
+
+    let check = |arg: &str| {
+        rzc()
+            .env("HOME", home.path())
+            .env_remove("RZ_LOG")
+            .current_dir(root)
+            .args(["check", arg])
+            .assert()
+            .success();
+    };
+
+    check("src/lib.zh");
+    assert!(root.join("src/lib.rs").is_file(), "库入口应写出 src/lib.rs");
+    check("src/main.zh");
+    assert!(
+        root.join("src/lib.rs").is_file(),
+        "check 主程序不得清掉兄弟库的 crate 根产物"
+    );
+}
+
+/// 主程序引用**自己的库 crate** 时不得建议 `rzc add 包名`
+///
+/// rustc 分不出「自己的库还没生成产物」和「没声明的第三方库」，两种都报 E0432 并
+/// 建议 `cargo add`；而 Cargo 明确拒绝包依赖自己（实测 `error: cannot add `calc`
+/// as a dependency to itself`）。此前 rzc 把这条建议原样译成母语、又追加一条同款
+/// 提示，读者照着做一定白跑一趟。现在两处都换成能走通的动作：先 check 库入口。
+#[test]
+fn test_own_crate_hint_points_at_lib_entry_not_rzc_add() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    let root = work.path();
+    std::fs::create_dir_all(root.join("src")).expect("创建 src 失败");
+    std::fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname=\"calc\"\nversion=\"0.1.0\"\nedition=\"2021\"\n\n[dependencies]\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("src/lib.zh"), LIB_DOUBLE).unwrap();
+    std::fs::write(root.join("src/main.zh"), MAIN_USES_OWN_LIB).unwrap();
+
+    let out = rzc()
+        .env("HOME", home.path())
+        .env_remove("RZ_LOG")
+        .current_dir(root)
+        .args(["check", "src/main.zh"])
+        .assert()
+        .failure()
+        .get_output()
+        .clone();
+    // 诊断正文走 stdout、加依赖提示走 stderr，断言要覆盖两条流
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    assert!(
+        text.contains("是本项目的包名"),
+        "应点明是自己的包名：{text}"
+    );
+    assert!(
+        text.contains("rzc check src/lib.zh"),
+        "须给出能走通的动作：{text}"
+    );
+    assert!(
+        !text.contains("疑似未声明的第三方库"),
+        "不该把自有 crate 说成第三方库：{text}"
+    );
+    assert!(
+        !text.contains("若要使用名为 calc 的第三方库"),
+        "rustc 的 `cargo add` 建议应被剔除：{text}"
+    );
+}
+
+/// 真正没声明的第三方库照旧给 `rzc add` 提示（别把正确提示一起吞了）
+///
+/// 本地包名判定只在名字命中 `[package] name` / `[lib] name` 时接管提示；这里包名
+/// 故意取 `notserde`，导入的是注册表上的真库名，旧行为必须原样保留。
+#[test]
+fn test_third_party_hint_still_fires_for_unknown_crate() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    let root = work.path();
+    std::fs::create_dir_all(root.join("src")).expect("创建 src 失败");
+    std::fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname=\"notserde\"\nversion=\"0.1.0\"\nedition=\"2021\"\n\n[dependencies]\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("src/main.zh"),
+        "使用 serde::序列化;\n\n函数 主函数() {\n    打印行!(\"ok\");\n}\n",
+    )
+    .unwrap();
+
+    let out = rzc()
+        .env("HOME", home.path())
+        .env_remove("RZ_LOG")
+        .current_dir(root)
+        .args(["check", "src/main.zh"])
+        .assert()
+        .failure()
+        .get_output()
+        .clone();
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        text.contains("rzc add serde"),
+        "第三方库仍应给 rzc add 提示：{text}"
+    );
+    assert!(!text.contains("是本项目的包名"), "{text}");
 }
 
 /// `rzc check` 多层模块项目：递归收集 + 非入口文件按层级补 `#[path]`

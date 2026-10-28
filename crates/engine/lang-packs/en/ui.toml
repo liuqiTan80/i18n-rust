@@ -160,6 +160,8 @@
 "add_mapping_missing" = "✅ Added {}. No native mapping for this crate yet; use the English name {} in source code (or generate one with rzc mapping auto)"
 "add_no_targets_hint" = "This project has no build target Cargo can read: `Cargo.toml` declares no [lib]/[[bin]] and `src/` has no .rs file for {}. Run `rzc check {}` first to produce the standard-Rust entry, then retry"
 "hint_add_dependency" = "Hint: \"{}\" looks like an undeclared third-party library; run `rzc add {}` to add the dependency"
+"hint_own_crate_lib" = "\"{}\" is this project's own package name, not a third-party crate — Cargo does not let a package depend on itself, so `rzc add {}` always fails. To use your own library code, run `rzc check {}` first to generate Cargo's src/lib.rs, then check again"
+"hint_own_crate_no_lib" = "\"{}\" is this project's own package name, not a third-party crate — Cargo does not let a package depend on itself, so `rzc add {}` always fails. This project has no library entry {} yet: `use <package>::…` refers to the library built from that file, so put the reusable code in it and run `rzc check {}`"
 "mapping_auto_installed" = "✅ Dependency {} was automatically added to the current project"
 "mapping_auto_install_failed" = "Failed to automatically add dependency {}: {}"
 "mapping_auto_install_no_project" = "No Cargo project found; skipping automatic dependency install"

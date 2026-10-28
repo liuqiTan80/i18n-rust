@@ -162,6 +162,8 @@
 "add_mapping_missing" = "✅ {} hinzugefügt. Für diese Crate gibt es noch kein natives Mapping; verwenden Sie im Quellcode den englischen Namen {} (Mapping mit rzc mapping auto erzeugen)"
 "add_no_targets_hint" = "Dieses Projekt hat kein Build-Ziel, das Cargo lesen kann: `Cargo.toml` deklariert kein [lib]/[[bin]], und in `src/` fehlt die .rs-Datei zu {}. Führen Sie zuerst `rzc check {}` aus, um den Standard-Rust-Eintrag zu erzeugen, und wiederholen Sie dann den Befehl"
 "hint_add_dependency" = "Hinweis: \"{}\" scheint eine nicht deklarierte Drittanbieter-Bibliothek zu sein; führen Sie `rzc add {}` aus, um die Abhängigkeit hinzuzufügen"
+"hint_own_crate_lib" = "\"{}\" ist der Paketname des Projekts selbst, keine Drittanbieter-Bibliothek – Cargo erlaubt nicht, dass ein Paket von sich selbst abhängt, daher schlägt `rzc add {}` immer fehl. Um eigenen Bibliothekscode zu nutzen, führen Sie zuerst `rzc check {}` aus, um Cargos src/lib.rs zu erzeugen, und prüfen Sie dann erneut"
+"hint_own_crate_no_lib" = "\"{}\" ist der Paketname des Projekts selbst, keine Drittanbieter-Bibliothek – Cargo erlaubt nicht, dass ein Paket von sich selbst abhängt, daher schlägt `rzc add {}` immer fehl. Dieses Projekt hat noch keinen Bibliothekseinstieg {}; `use <Paketname>::…` verweist auf die aus dieser Datei gebaute Bibliothek – legen Sie den wiederverwendbaren Code dort ab und führen Sie `rzc check {}` aus"
 "mapping_auto_installed" = "✅ Abhängigkeit {} wurde automatisch zum aktuellen Projekt hinzugefügt"
 "mapping_auto_install_failed" = "Automatisches Hinzufügen der Abhängigkeit {} fehlgeschlagen: {}"
 "mapping_auto_install_no_project" = "Kein Cargo-Projekt gefunden; automatische Installation der Abhängigkeit wird übersprungen"

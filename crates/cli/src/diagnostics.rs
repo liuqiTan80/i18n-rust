@@ -715,7 +715,7 @@ fn translate_cargo_diagnostics_impl(
     streamed_output: bool,
 ) -> bool {
     use i18n_rust_engine::diagnostic::{
-        DiagnosticTranslator, build_type_map, parse_diagnostic_output,
+        DiagnosticTranslator, build_type_map, parse_diagnostic_output, suggested_crate_name,
     };
     let ui = ctx.ui;
     let lang_pack = ctx.lang_pack;
@@ -725,6 +725,25 @@ fn translate_cargo_diagnostics_impl(
 
     // 未解析导入提取：诊断展示后附带 `rzc add` 加依赖提示（教学化引导）
     let unresolved_crates = extract_unresolved_crates(rustc_output);
+    // 本项目自身可 `use` 的 crate 名（包名 / `[lib] name`）：命中它的候选不能
+    // 建议 `rzc add`（Cargo 拒绝包依赖自己），见 [`print_dependency_hints`]
+    let local_names = local_crate_names(project_root);
+    // 库入口源文件按请求文件的扩展名推断（`src/main.zh` → `src/lib.zh`）：
+    // 同项目内的方言文件通常同一种语言，且 `lib` 正是方言入口名之一
+    let lib_entry = file.extension().and_then(|e| e.to_str()).map(|ext| {
+        let lib_src = project_root.join("src").join(format!("lib.{ext}"));
+        (format!("src/lib.{ext}"), lib_src.is_file())
+    });
+    let dep_hints = || {
+        print_dependency_hints(
+            &unresolved_crates,
+            ui,
+            &local_names,
+            lib_entry
+                .as_ref()
+                .map(|(path, exists)| (path.as_str(), *exists)),
+        )
+    };
 
     // 按语言代码选择错误消息表（与 cargo 纯文本通道共用同一张表）
     let lang_code = diag_lang_code(file);
@@ -767,6 +786,21 @@ fn translate_cargo_diagnostics_impl(
         }
     });
 
+    // rustc 的「若要使用名为 X 的第三方库，请 `cargo add X`」建议：X 命中本项目
+    // 包名时是**错建议**——Cargo 不允许一个包依赖自己，读者照着做只会撞
+    // `cannot add `calc` as a dependency to itself`。引擎侧没有项目上下文（不知道
+    // 包名），故在 CLI 按本地 crate 名剔除这条子诊断；真能走通的动作由
+    // `dep_hints()` 给出。引擎已按同一形状丢弃非 ASCII 名（母语模块误提取），
+    // 这里复用它的提取函数，不另写一套解析。
+    if !local_names.is_empty() {
+        for diag in &mut diagnostics {
+            diag.children.retain(|child| {
+                !suggested_crate_name(&child.message)
+                    .is_some_and(|name| local_names.iter().any(|local| local == name))
+            });
+        }
+    }
+
     if diagnostics.is_empty() {
         if cargo_ok {
             if !silent_success {
@@ -778,7 +812,7 @@ fn translate_cargo_diagnostics_impl(
             // streamed_output 场景跳过（见函数文档，避免运行时失败被误标）
             eprintln!("{}", ui.f("compile_error", &[&cargo_error_text()]));
         }
-        print_dependency_hints(&unresolved_crates, ui);
+        dep_hints();
         return false;
     }
 
@@ -807,14 +841,14 @@ fn translate_cargo_diagnostics_impl(
             } else if !streamed_output {
                 eprintln!("{}", ui.f("compile_error", &[&cargo_error_text()]));
             }
-            print_dependency_hints(&unresolved_crates, ui);
+            dep_hints();
             return false;
         }
         println!(
             "{}",
             i18n_rust_engine::diagnostic::TeachingDiagnostic::batch_format_as_text(&teaching_list)
         );
-        print_dependency_hints(&unresolved_crates, ui);
+        dep_hints();
         true
     } else {
         // 无翻译表：输出 JSON 中的原始 message，保证诊断不丢失
@@ -827,7 +861,7 @@ fn translate_cargo_diagnostics_impl(
                 println!("{}", line);
             }
         }
-        print_dependency_hints(&unresolved_crates, ui);
+        dep_hints();
         false
     }
 }
@@ -1104,10 +1138,70 @@ pub(crate) fn extract_unresolved_crates(rustc_output: &str) -> Vec<String> {
     result
 }
 
-/// 输出未声明依赖的 `rzc add` 提示（无候选时静默）
-fn print_dependency_hints(crates: &[String], ui: &ui::Ui) {
+/// 本项目自身可被 `use` 的 crate 名（`[package] name` 与 `[lib] name`）
+///
+/// Cargo 把包名里的 `-` 换成 `_` 当作 crate 名，`[lib] name` 可再覆盖一次。
+/// rustc 分不出「自己的库还没生成产物」和「没声明的第三方库」，两种情况都报
+/// E0432 并建议 `cargo add`——拿包名去加依赖会被 Cargo 直接拒绝
+/// （实测 `error: cannot add `calc` as a dependency to itself`），所以这条建议
+/// 在本地包名上**必然失败**。无 Cargo.toml 或 TOML 非法时返回空，不改任何行为。
+fn local_crate_names(project_root: &Path) -> Vec<String> {
+    let mut names = Vec::new();
+    let Ok(text) = fs::read_to_string(project_root.join("Cargo.toml")) else {
+        return names;
+    };
+    let Ok(manifest) = toml::from_str::<toml::Value>(&text) else {
+        return names;
+    };
+    let raw = [
+        manifest
+            .get("package")
+            .and_then(|p| p.get("name"))
+            .and_then(|v| v.as_str()),
+        manifest
+            .get("lib")
+            .and_then(|l| l.get("name"))
+            .and_then(|v| v.as_str()),
+    ];
+    for name in raw.into_iter().flatten() {
+        let crate_name = name.replace('-', "_");
+        if !names.contains(&crate_name) {
+            names.push(crate_name);
+        }
+    }
+    names
+}
+
+/// 输出未解析导入的加依赖提示（无候选时静默）
+///
+/// 候选命中本项目包名时**不能**建议 `rzc add`（见 [`local_crate_names`]）：
+/// 那样只会把读者引向一条 Cargo 必然拒绝的命令。此时按库入口在不在分两种说法——
+/// 有 `src/lib.<扩展名>` 就指向「先 check 它生成 src/lib.rs」，没有就点明这个文件
+/// 还不存在、`use 包名::…` 引用的正是它编译出的库。其余候选照旧走第三方库提示。
+fn print_dependency_hints(
+    crates: &[String],
+    ui: &ui::Ui,
+    local_names: &[String],
+    lib_entry: Option<(&str, bool)>,
+) {
     for name in crates {
-        eprintln!("{}", ui.f("hint_add_dependency", &[name, name]));
+        if !local_names.iter().any(|local| local == name) {
+            eprintln!("{}", ui.f("hint_add_dependency", &[name, name]));
+            continue;
+        }
+        // 本地包名：只给「生成/新建库入口」这一条真能走通的路。拿不到扩展名
+        // （无从推断 `src/lib.<ext>`）时宁可不说话，也不给一条 Cargo 会拒绝的命令。
+        let Some((path, exists)) = lib_entry else {
+            continue;
+        };
+        if exists {
+            eprintln!("{}", ui.f("hint_own_crate_lib", &[name, name, path]));
+        } else {
+            eprintln!(
+                "{}",
+                ui.f("hint_own_crate_no_lib", &[name, name, path, path])
+            );
+        }
     }
 }
 
@@ -1346,6 +1440,42 @@ mod tests {
         assert_eq!(
             extract_unresolved_crates(&output),
             vec!["serde_json", "tokio"]
+        );
+    }
+
+    /// 本项目可 `use` 的 crate 名：包名按 Cargo 规则把 `-` 换成 `_`，`[lib] name` 另计
+    ///
+    /// 这组名决定「`use X::…` 解析失败」该不该建议 `rzc add X`：Cargo 不允许一个包
+    /// 依赖自己，命中本地名时那条命令必然失败。清单读不出来（无 Cargo.toml、TOML
+    /// 非法）时返回空，等于不改任何既有行为，而不是猜一个名字去压制正确提示。
+    #[test]
+    fn test_local_crate_names() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"my-calc\"\nversion = \"0.1.0\"\n\n[lib]\nname = \"calc_lib\"\n",
+        )
+        .unwrap();
+        assert_eq!(local_crate_names(root), vec!["my_calc", "calc_lib"]);
+
+        // 无 [lib] 时只有包名一种叫法
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"calc\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        assert_eq!(local_crate_names(root), vec!["calc"]);
+
+        std::fs::write(root.join("Cargo.toml"), "[package]\nname = ").unwrap();
+        assert!(
+            local_crate_names(root).is_empty(),
+            "非法 TOML 不该给出任何名字"
+        );
+        assert!(
+            local_crate_names(&root.join("nope")).is_empty(),
+            "无清单不该报错"
         );
     }
 

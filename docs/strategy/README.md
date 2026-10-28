@@ -38,14 +38,21 @@
   '--lib' found`），但造方言库已经零配置：`lib` 纳入入口名集合，`src/lib.<ext>` 的产物直写
   `src/lib.rs`，Cargo 自动认出库目标；`[lib] path` 有显式声明时照声明写。剩下的可选做法是给
   `rzc init` 加 `--lib`（生成 `src/lib.<ext>` 骨架 + 库版 README），属易用性增强而非墙
-- bin+lib 同项目还有三处墙（本轮实机采集，教程 18.5 已如实写明，未动代码）：
+- bin+lib 同项目还有两处墙（原第 ② 条已修，见下一条；教程 18.5 已按实机写明）：
   ① ``crate name `计算器` passed to `--extern` is not a valid ASCII identifier`` 无母语译文
   （记入 `.rz/gaps`），而 `rzc init 中文名` 是官方鼓励的写法——只有库或只有主程序时中文包名
-  能编，两者同存必撞；② `rzc check src/main.zh` 时兄弟 `src/lib.zh` 只转译到托管目录，
-  `src/lib.rs` 还没生成 → 主程序 `使用 calc::翻倍;` 报 E0432，并附一条把**自有 crate**
-  当成未声明第三方库的 `rzc add calc` 提示；③ 入口产物只由被请求的文件写，所以「先 check 库
-  再 check 主程序」是读者必须知道的一步。修法候选：`has_cargo_target` 之外再加一条库目标自检
-  （`rzc doctor`），或让项目级转译在检测到 `[lib] path`/src/lib.rs 时一并刷新库产物
+  能编，两者同存必撞；③ 入口产物只由被请求的文件写，所以「先 check 库再 check 主程序」是读者
+  必须知道的一步——修法候选：`has_cargo_target` 之外再加一条库目标自检（`rzc doctor`），或让
+  项目级转译在检测到 `[lib] path`/src/lib.rs 时一并刷新库产物
+- **（2026-10-28 已修）** bin+lib 的第 ② 条墙：主程序 `使用 calc::翻倍;` 报 E0432 时，rustc 的
+  `cargo add calc` 建议与 rzc 追加提示都把**自有 crate**说成第三方库，而 Cargo 拒绝包依赖自己
+  （`cannot add ... to itself`）。现在按本地包名（`[package] name` 的 `-`→`_` + `[lib] name`）
+  剔除该建议并给 `hint_own_crate_lib` / `hint_own_crate_no_lib`。同轮还查出一个真缺陷：项目级
+  转译把兄弟 `src/lib.zh` 旁边的 `src/lib.rs` 当旧布局残留清掉，正好废掉「先 check 库」这条配方
+- LSP 未建模 bin+lib 项目（本轮登记，未动代码）：编辑器的虚拟聚合项目写死
+  `name = "i18n-virtual"` 的单 `[[bin]]`，没有库目标，于是用户项目里明明合法的
+  `使用 calc::翻倍;` 在编辑器里恒报 E0432，`lsp_hint_add_dependency` 还会跟着建议 `rzc add calc`。
+  要修的是虚拟项目本身：为 src/lib.<ext> 生成 `[lib] path` + 用真实包名，而不是只改提示文案
 - `错误：` 前缀取自界面语言（`Ui::global()`），消息正文取自文件扩展名（`ui_for_file`）：
   中文系统下 `rzc run examples/demo.en` 渲染出 `错误：<英文正文>`（`run_not_default_entry`、
   本轮新增的 `run_lib_no_bin` 都如此）。要么让顶层错误打印复用 per-file 的 ui，要么让
