@@ -153,6 +153,7 @@
 "eject_failed" = "エクスポート失敗：{}（{}）"
 "eject_args_duplicate" = "エクスポート対象が重複しています：{}（同じ対象は 1 回だけ指定してください）"
 "run_not_default_entry" = "{} はプロジェクトの既定エントリではありません：cargo 経由の `rzc run` は src/main のみ実行します（現在の生成物 {}）。生成済みの生成物は `cargo run --bin <名前>` / `cargo run --example <名前>` で実行するか、`rzc check` で検証のみ行ってください"
+"run_lib_no_bin" = "{} はライブラリの入口（生成物は Cargo の src/lib.rs）です。ライブラリには実行可能な main がなく、`rzc run` では実行できません。コードの検証は `rzc check {}`、実際に実行するにはこのライブラリを呼び出す方言の main 入口を追加するか、`cargo test` でライブラリのテストを実行してください"
 "cargo_run_failed" = "cargo run の実行に失敗しました。プロジェクトルート: {}、エラー: {}"
 "cargo_check_failed" = "cargo check の実行に失敗しました。プロジェクトルート: {}、エラー: {}"
 "add_no_project" = "Cargo プロジェクトが見つかりません（このディレクトリと上位に Cargo.toml がありません）。プロジェクト内で実行してください"

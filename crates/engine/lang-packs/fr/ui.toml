@@ -153,6 +153,7 @@
 "eject_failed" = "Échec de l'export : {} ({})"
 "eject_args_duplicate" = "Cible d'export en double : {} (indiquez chaque cible une seule fois)"
 "run_not_default_entry" = "{} n'est pas le point d'entrée par défaut du projet : `rzc run` via cargo n'exécute que src/main (artefact actuel {}). Utilisez `cargo run --bin <nom>` ou `cargo run --example <nom>` pour l'artefact généré, ou `rzc check` pour la vérification seule"
+"run_lib_no_bin" = "{} est le point d'entrée de la bibliothèque (son artefact est src/lib.rs de Cargo) : une bibliothèque n'a pas de main exécutable et `rzc run` ne peut pas la lancer. Vérifiez le code avec `rzc check {}` ; pour exécuter quelque chose, ajoutez un point d'entrée main en dialecte appelant cette bibliothèque, ou utilisez `cargo test` pour ses tests"
 "cargo_run_failed" = "Echec de cargo run, racine du projet : {}, erreur : {}"
 "cargo_check_failed" = "Echec de cargo check, racine du projet : {}, erreur : {}"
 "add_no_project" = "Aucun projet Cargo trouvé (pas de Cargo.toml dans ce répertoire ni ses parents) ; exécutez dans un projet"

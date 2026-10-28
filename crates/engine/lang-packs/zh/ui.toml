@@ -95,6 +95,7 @@
 "eject_failed" = "导出失败：{}（{}）"
 "eject_args_duplicate" = "导出目标重复：{}（同一目标只需传一次）"
 "run_not_default_entry" = "{} 不是项目默认入口：经 cargo 运行时 `rzc run` 只运行 src/main（当前产物 {}）。请改用 `cargo run --bin <名称>` / `cargo run --example <名称>` 运行已生成的产物，或 `rzc check` 只做校验"
+"run_lib_no_bin" = "{} 是库入口（产物是 Cargo 的 src/lib.rs）：库里没有可执行的主程序，`rzc run` 运行不了它。校验代码用 `rzc check {}`；要让程序跑起来，请另写一个方言主程序入口来调用这个库，或用 `cargo test` 运行库里的测试"
 "cargo_run_failed" = "执行 cargo run 失败，项目根: {}，错误: {}"
 "cargo_check_failed" = "执行 cargo check 失败，项目根: {}，错误: {}"
 "add_no_project" = "未找到 Cargo 项目（当前目录及上级均无 Cargo.toml），请在项目内运行"

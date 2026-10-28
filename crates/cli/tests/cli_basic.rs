@@ -247,6 +247,9 @@ fn isolated_home() -> tempfile::TempDir {
 /// 好程序：编译运行必过、无警告
 const GOOD_PROGRAM: &str = "函数 主函数() {\n    打印行!(\"输出：{}\", 42);\n}\n";
 
+/// 中文方言库入口样例（`src/lib.zh` 用）：只有公开函数，没有主函数
+const GOOD_LIB: &str = "公开 函数 答案() -> 整数 {\n    6 * 7\n}\n";
+
 /// 坏程序：E0384（不可变变量重复赋值），CLI 须翻译成母语教学诊断
 const BAD_PROGRAM: &str =
     "函数 主函数() {\n    让 数量 = 10;\n    数量 = 数量 + 1;\n    打印行!(\"{}\", 数量);\n}\n";
@@ -501,6 +504,182 @@ fn test_add_manifest_error_does_not_claim_missing_target() {
         stderr.contains("package name cannot be empty"),
         "cargo 原文可见：{stderr}"
     );
+}
+
+/// 方言库入口 `src/lib.<ext>` 落 Cargo 自动发现的库 crate 根，造库零配置
+///
+/// 此前 `lib` 不在入口名集合里：纯库目录里 `rzc check src/lib.zh` 被清单预检拦下
+/// （「Cargo.toml 没有声明编译目标」），唯一的可用配方是在 Cargo.toml 手写
+/// `[lib] path = ".rz/gen/src/lib.rs"`——把「造一个方言库」变成一段要背的配置。
+/// 现在产物直写 `src/lib.rs`，Cargo 认得它，`rzc check` 与 `cargo build` 都过。
+#[test]
+fn test_check_lib_entry_writes_src_lib_rs() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    std::fs::create_dir_all(work.path().join("src")).expect("创建 src 失败");
+    std::fs::write(
+        work.path().join("Cargo.toml"),
+        "[package]\nname=\"greetlib\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+    )
+    .unwrap();
+    std::fs::write(work.path().join("src/lib.zh"), GOOD_LIB).unwrap();
+    // 升级前 lib 不是入口，产物写在托管目录；那份残留现在没人引用了
+    std::fs::create_dir_all(work.path().join(".rz/gen/src")).unwrap();
+    std::fs::write(work.path().join(".rz/gen/src/lib.rs"), "陈旧产物").unwrap();
+
+    rzc()
+        .env("HOME", home.path())
+        .env_remove("RZ_LOG")
+        .current_dir(work.path())
+        .args(["check", "src/lib.zh"])
+        .assert()
+        .success();
+
+    let lib_rs = work.path().join("src/lib.rs");
+    let product = std::fs::read_to_string(&lib_rs).expect("应生成 src/lib.rs（库 crate 根）");
+    // 母语函数名不翻译（只有关键字与类型有映射），断言产物形态即可
+    assert!(
+        product.contains("pub fn") && product.contains("-> i32"),
+        "{product}"
+    );
+    // 托管目录不该再留一份同源的旧产物：留着会被 rustc 默认模块查找命中
+    assert!(
+        !work.path().join(".rz/gen/src/lib.rs").exists(),
+        "入口产物落 crate 根后托管副本应清掉"
+    );
+}
+
+/// `rzc run` 库入口给母语指引，而不是让人去找一个不存在的 bin
+///
+/// 库 crate 没有可执行程序，cargo 此时报 `a bin target must be available for
+/// cargo run`。`run_not_default_entry` 那条（指向 `cargo run --bin <名称>`）在这
+/// 里是误导：项目里根本没有 bin。故库入口单列一条消息，给出的动作只有「校验」
+/// 与「补主程序」。界面语言跟随文件扩展名（`.zh` → zh，`.en` → en）。
+#[test]
+fn test_run_lib_entry_explains_no_executable() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    std::fs::create_dir_all(work.path().join("src")).expect("创建 src 失败");
+    std::fs::write(
+        work.path().join("Cargo.toml"),
+        "[package]\nname=\"greetlib\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+    )
+    .unwrap();
+    std::fs::write(work.path().join("src/lib.zh"), GOOD_LIB).unwrap();
+    std::fs::write(
+        work.path().join("src/lib.en"),
+        "pub fn answer() -> i32 { 6 * 7 }\n",
+    )
+    .unwrap();
+
+    let run = |file: &str| {
+        let out = rzc()
+            .env("HOME", home.path())
+            .env_remove("RZ_LOG")
+            .current_dir(work.path())
+            .args(["run", file])
+            .assert()
+            .failure()
+            .get_output()
+            .stderr
+            .clone();
+        String::from_utf8_lossy(&out).to_string()
+    };
+
+    let zh = run("src/lib.zh");
+    assert!(zh.contains("库里没有可执行的主程序"), "应有母语说明：{zh}");
+    assert!(
+        zh.contains("rzc check src/lib.zh"),
+        "须给出可执行动作：{zh}"
+    );
+    assert!(
+        !zh.contains("不是项目默认入口"),
+        "不该套用非默认入口那条消息：{zh}"
+    );
+
+    let en = run("src/lib.en");
+    assert!(
+        en.contains("library has no executable main"),
+        "应有英文说明：{en}"
+    );
+    assert!(
+        en.contains("rzc check src/lib.en"),
+        "须给出可执行动作：{en}"
+    );
+}
+
+/// 兄弟库文件不得被顺带写成 crate 根：`rzc check src/main.zh` 不造 lib 目标
+///
+/// 项目里同时有 `src/main.zh` 与 `src/lib.zh` 时，若项目级转译把两者都按入口规则
+/// 落 crate 根，就等于替用户凭空加出一个编译目标——实测非 ASCII 包名立刻撞上
+/// rustc 硬错 `crate name ... passed to --extern is not a valid ASCII identifier`
+/// （bin 链接 lib 必须 --extern），原先不参与编译的 lib 还会把陈年错误一起报出来。
+/// 入口产物只由**本次请求的文件**写，这条边界靠本用例钉住。
+#[test]
+fn test_check_main_does_not_materialize_sibling_lib() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    std::fs::create_dir_all(work.path().join("src")).expect("创建 src 失败");
+    std::fs::write(
+        work.path().join("Cargo.toml"),
+        "[package]\nname=\"双入口\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+    )
+    .unwrap();
+    std::fs::write(work.path().join("src/main.zh"), GOOD_PROGRAM).unwrap();
+    std::fs::write(work.path().join("src/lib.zh"), GOOD_LIB).unwrap();
+
+    rzc()
+        .env("HOME", home.path())
+        .env_remove("RZ_LOG")
+        .current_dir(work.path())
+        .args(["check", "src/main.zh"])
+        .assert()
+        .success();
+
+    assert!(work.path().join("src/main.rs").exists());
+    assert!(
+        !work.path().join("src/lib.rs").exists(),
+        "未请求的兄弟库文件不该被写成库 crate 根"
+    );
+}
+
+/// 老配方项目里，未请求的兄弟库文件仍要被项目级转译刷新
+///
+/// `[lib] path` 指着托管目录的项目（纳管 lib 之前的唯一造库配方）靠的是
+/// `rzc check src/main.zh` 顺带把 `src/lib.zh` 转译到那份声明路径。若因为
+/// 「lib 现在也是入口」就把它加进兄弟跳过名单，cargo 会编译一份不再更新的产物
+/// ——代码改了却不报错，比报错更糟。故 lib 只在**被请求**时落 crate 根。
+#[test]
+fn test_sibling_lib_refreshes_declared_gen_product() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    std::fs::create_dir_all(work.path().join(".rz/gen/src")).unwrap();
+    std::fs::create_dir_all(work.path().join("src")).expect("创建 src 失败");
+    std::fs::write(
+        work.path().join("Cargo.toml"),
+        "[package]\nname=\"mixlib\"\nversion=\"0.1.0\"\nedition=\"2021\"\n\n[lib]\npath=\".rz/gen/src/lib.rs\"\n",
+    )
+    .unwrap();
+    std::fs::write(work.path().join("src/main.zh"), GOOD_PROGRAM).unwrap();
+    std::fs::write(work.path().join("src/lib.zh"), GOOD_LIB).unwrap();
+    let gen_lib = work.path().join(".rz/gen/src/lib.rs");
+    std::fs::write(&gen_lib, "陈旧产物").unwrap();
+
+    rzc()
+        .env("HOME", home.path())
+        .env_remove("RZ_LOG")
+        .current_dir(work.path())
+        .args(["check", "src/main.zh"])
+        .assert()
+        .success();
+
+    let refreshed = std::fs::read_to_string(&gen_lib).expect("声明的库产物应被刷新");
+    assert!(
+        refreshed.contains("pub fn"),
+        "陈旧产物应被覆盖：{refreshed}"
+    );
+    // 请求的是主程序，库产物不得被当成入口挪走
+    assert!(!work.path().join("src/lib.rs").exists());
 }
 
 /// `rzc check` 多层模块项目：递归收集 + 非入口文件按层级补 `#[path]`

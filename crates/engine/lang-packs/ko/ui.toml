@@ -153,6 +153,7 @@
 "eject_failed" = "내보내기 실패: {} ({})"
 "eject_args_duplicate" = "내보내기 대상이 중복되었습니다: {} (같은 대상은 한 번만 지정하세요)"
 "run_not_default_entry" = "{}은(는) 프로젝트 기본 진입점이 아닙니다: cargo를 통한 `rzc run`은 src/main만 실행합니다(현재 산출물 {}). 생성된 산출물은 `cargo run --bin <이름>` 또는 `cargo run --example <이름>`으로 실행하거나, 검증만 하려면 `rzc check`를 사용하세요"
+"run_lib_no_bin" = "{}은(는) 라이브러리 진입점입니다(산출물은 Cargo의 src/lib.rs). 라이브러리에는 실행 가능한 main이 없어 `rzc run`으로 실행할 수 없습니다. 코드는 `rzc check {}`로 검증하고, 실제로 실행하려면 이 라이브러리를 호출하는 방언 main 진입점을 추가하거나 `cargo test`로 라이브러리 테스트를 실행하세요"
 "cargo_run_failed" = "cargo run 실행 실패, 프로젝트 루트: {}, 오류: {}"
 "cargo_check_failed" = "cargo check 실행 실패, 프로젝트 루트: {}, 오류: {}"
 "add_no_project" = "Cargo 프로젝트를 찾을 수 없습니다 (이 디렉터리와 상위 디렉터리에 Cargo.toml 없음). 프로젝트 안에서 실행하세요"

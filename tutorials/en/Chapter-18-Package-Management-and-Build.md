@@ -211,41 +211,95 @@ has already compiled the dependencies are not a fair comparison; the size gap is
 
 ## 18.5 An executable or a library?
 
-One project can produce two kinds of output:
+One project can produce two kinds of output, and rzc recognises both entry names:
 
-| Kind | Entry file | Result |
-|---|---|---|
-| executable | `src/main.en` | a program you can run |
-| library | `src/lib.en` | code for other people to use |
+| Kind | Entry file | Transpiled product | What you can run |
+|---|---|---|---|
+| executable | `src/main.en` (native alias `src/主函数.zh` also works) | `src/main.rs` | `rzc run` / `rzc check` |
+| library | `src/lib.en` | `src/lib.rs` | `rzc check` only (a library has no main to run) |
 
-`rzc init` always builds you an executable, because the only file rzc hands to Cargo as a
-fixed entry is `src/main.<ext>` (or its native keyword alias, `src/主函数.zh`). `lib.en`
-gets no special treatment: it transpiles to `.rz/gen/src/lib.rs` like any other file, so a
-folder holding *only* a dialect library still has nothing for Cargo to read:
+Both names come from Cargo's own discovery rules, which rzc simply follows — so
+**building a dialect library needs no configuration**. Write `src/lib.en`, and `rzc check`
+puts the standard-Rust product at `src/lib.rs`, where Cargo finds the library target by
+itself. Real session, with `src/lib.en` holding:
 
 ```text
-Error: The manifest declares no build target, and neither src/main.rs nor src/lib.rs exists.
-Write your program in src/main.rs, or declare [[bin]]/lib in Cargo.toml.
-```
-
-To ship a library written in the dialect, tell Cargo where the product lands — one extra
-section in `Cargo.toml`, then one `rzc check` to create the file it points at (this is the
-real session, `src/lib.en` holding `pub fn greet() -> i32 { 3 }`):
-
-```toml
-[lib]
-path = ".rz/gen/src/lib.rs"
+pub fn greet() -> i32 {
+    3
+}
 ```
 
 ```bash
-rzc check src/lib.en   # ✅ Compilation succeeded, no errors.
-cargo build            # Compiling greetlib v0.1.0 … Finished `dev` profile
+rzc check src/lib.en
 ```
+
+```text
+✅ Compilation succeeded, no errors.
+```
+
+```bash
+cargo build
+```
+
+```text
+   Compiling greetlib v0.1.0 (/tmp/en185/greetlib)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
+```
+
+Two edges worth remembering:
+
+- **`lib` has no native alias.** `lib` is not a Rust keyword and no language pack
+  translates it, so a library entry is always `src/lib.<ext>` — `src/库.zh` is just an
+  ordinary module. That asymmetry with `main` is deliberate: shipping a library should
+  cost you zero configuration, not a localised file name.
+- **You don't need `[lib]`, but if you declared it, rzc obeys it.** Older projects may
+  carry `[lib] path = ".rz/gen/src/lib.rs"`, which was the only way to build a dialect
+  library before `lib` became an entry name. rzc keeps writing to the declared path
+  instead of opening a second copy at `src/lib.rs`.
+
+A library cannot be run — that is not a restriction, it is a fact: there is no executable
+main in it.
+
+```bash
+rzc run src/lib.en
+```
+
+```text
+Error: src/lib.en is a library entry (its output is Cargo's src/lib.rs): a library has no
+executable main, so `rzc run` cannot run it. Use `rzc check src/lib.en` to validate the
+code; to actually run something, add a dialect main entry that calls this library, or use
+`cargo test` to run its tests
+```
+
+> ❌ There is no `rzc init myproject --lib` flag; passing it is rejected:
+> `error: unexpected argument '--lib' found`. `rzc init` always gives you an executable
+> project — create the library file yourself.
 
 Many real projects do both: the library holds the logic, and a thin `main.en` is the
 command-line front door. In practice, though, most dialect code that is *meant to be
 reused* simply lives in a module file (`src/utils.en`) reached with `mod utils;` from
 `main.en` — Chapter 17 — and no `[lib]` section is needed at all.
+
+That layout is common in Rust, but in a dialect project it has three traps, in order:
+
+1. The library and the executable are **two crates**, so `main.en` reaches into the
+   library with `use <package_name>::double;` — the identifier from `name` in
+   `Cargo.toml`, not the file you wrote.
+2. **Check the library before the executable.** `rzc check src/main.en` does transpile
+   `src/lib.en`, but that sibling product lands in `.rz/gen/`, where Cargo cannot see it.
+   While `src/lib.rs` is still missing, `use calc::double;` fails with
+   `error[E0432]: the import path cannot be resolved`, and the hint it adds sends you the
+   wrong way: "if you wanted to use a crate named `calc`, use `cargo add calc`" — `calc`
+   is *your own* crate, not a third-party dependency. After one `rzc check src/lib.en`,
+   `cargo run` prints `42` normally.
+3. **The package name must be ASCII.** A name like `name = "计算器"` compiles fine as
+   long as the package has only a library or only an executable. Once it has both, Cargo
+   passes the library to the binary with `--extern`, and rustc refuses outright (this
+   message has no native translation yet and is shown as-is):
+
+```text
+error: crate name `计算器` passed to `--extern` is not a valid ASCII identifier
+```
 
 What Cargo ultimately reads is always the standard-Rust product, which is why any Cargo
 command only works after one `rzc check` (error two in 18.10).

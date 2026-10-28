@@ -34,15 +34,22 @@
   时用户依旧看到 `no targets specified in the manifest` 原文）。教程已教会读者把 `Caused by`
   两行读成「还没有 `.rs` 入口」，但 rzc 无法拦截外部 cargo 进程。可选做法：`rzc doctor`
   增加一项「项目是否已有 Cargo 可读入口」的自检，把这条墙从「读得懂」降级为「提前看得见」
-- `rzc init --lib` 不存在（0.8.12 教程同步时实机确认）：`rzc init booklib --lib` 报
-  `error: unexpected argument '--lib' found`，zh/en 第十八章正文已按事实改写（不再有 `--lib`
-  的说法）。**注意**：造方言库不是「手写 `src/lib.en` 再 `rzc check`」那么简单——`lib.<ext>`
-  不在入口名集合里（`is_entry_stem` 只认 `main` 及其母语别名），纯库目录里 `rzc check
-  src/lib.en` 会报「没有声明编译目标」；实测可用配方是 Cargo.toml 加
-  `[lib] path = ".rz/gen/src/lib.rs"` 后 check + build。剩下的决定：① 给 init 加 `--lib`
-  （生成 lib 骨架并把 `[lib] path` 写进 Cargo.toml）；② 不加参数，改 `rzc init --help` 与
-  文档措辞；③ 把 `lib` 也纳入入口名集合，产物直写 `src/lib.rs`（改动最小、对读者最直观，
-  但要同步 `is_entry_source` 的产物布局与 `#[path]` 注解层级）
+- **（2026-10-28 已按方案 ③ 落地）** `rzc init --lib` 仍不存在（`error: unexpected argument
+  '--lib' found`），但造方言库已经零配置：`lib` 纳入入口名集合，`src/lib.<ext>` 的产物直写
+  `src/lib.rs`，Cargo 自动认出库目标；`[lib] path` 有显式声明时照声明写。剩下的可选做法是给
+  `rzc init` 加 `--lib`（生成 `src/lib.<ext>` 骨架 + 库版 README），属易用性增强而非墙
+- bin+lib 同项目还有三处墙（本轮实机采集，教程 18.5 已如实写明，未动代码）：
+  ① ``crate name `计算器` passed to `--extern` is not a valid ASCII identifier`` 无母语译文
+  （记入 `.rz/gaps`），而 `rzc init 中文名` 是官方鼓励的写法——只有库或只有主程序时中文包名
+  能编，两者同存必撞；② `rzc check src/main.zh` 时兄弟 `src/lib.zh` 只转译到托管目录，
+  `src/lib.rs` 还没生成 → 主程序 `使用 calc::翻倍;` 报 E0432，并附一条把**自有 crate**
+  当成未声明第三方库的 `rzc add calc` 提示；③ 入口产物只由被请求的文件写，所以「先 check 库
+  再 check 主程序」是读者必须知道的一步。修法候选：`has_cargo_target` 之外再加一条库目标自检
+  （`rzc doctor`），或让项目级转译在检测到 `[lib] path`/src/lib.rs 时一并刷新库产物
+- `错误：` 前缀取自界面语言（`Ui::global()`），消息正文取自文件扩展名（`ui_for_file`）：
+  中文系统下 `rzc run examples/demo.en` 渲染出 `错误：<英文正文>`（`run_not_default_entry`、
+  本轮新增的 `run_lib_no_bin` 都如此）。要么让顶层错误打印复用 per-file 的 ui，要么让
+  `ui_for_file` 只在消息内部使用而前缀统一走 global——涉及所有 `bail!` 出口，改动小但面广
 - AI provider 真实端点联调：OpenAI / Ollama / 通义各跑一次 `rzc mapping auto`，验证超时与分批上限（`RZ_AI_*` 改造目前只有离线测试，未联网验证）
 - 贡献 SOP 英文化：`docs/contributing-lang-pack.md` / `missing-mapping-guide.md` 出 en 版
   （键字典部分已由生成物 `docs/ui-keys.en.md` 覆盖，2026-10-28；剩正文翻译）

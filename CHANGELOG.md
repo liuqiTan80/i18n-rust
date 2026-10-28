@@ -237,6 +237,53 @@
   一起私有化，两个测试都改用它；改后 release 全量并行重跑三轮无红灯。全量
   debug/release 均 **778 passed / 0 failed**（上轮基线 775）。
 
+### 新增
+- `lib` 进入方言入口名集合：`src/lib.<扩展名>` 的产物现在直写 `src/lib.rs`，Cargo 自动
+  认出库目标，**造一个方言库不再需要任何配置**。此前 `is_entry_stem` 只认 `main` 及其母语
+  别名，纯库目录里 `rzc check src/lib.zh` 必被清单预检拦下（「Cargo.toml 没有声明编译目标」），
+  唯一可用配方是在 Cargo.toml 手写 `[lib] path = ".rz/gen/src/lib.rs"`——把一个本该三行的
+  动作变成一段要背的配置。判定收口为一个函数（`entry_product_name`：`main`/主函数词 →
+  `src/main.rs`，字面 `lib` → `src/lib.rs`），产物落点、注解层级、项目扫描跳过三处不再各写一套。
+- `rzc run src/lib.zh` 给母语说明（新键 `run_lib_no_bin`，11 语言同步，界面消息键 618 → 619）。
+  库里没有可执行程序，cargo 此时报 `a bin target must be available for `cargo run``；原先复用的
+  `run_not_default_entry` 会让人去 `cargo run --bin <名称>` 找一个不存在的 bin。新消息给出的
+  动作只有「`rzc check` 校验」与「另写主程序 / `cargo test`」。
+
+### 修复
+- Cargo.toml 显式声明 `[lib] path` 的项目**照声明写产物**，不另开一份 `src/lib.rs`。入口集合
+  纳入 `lib` 后若只认默认位置，那些项目会静默编译一份不再被更新的托管产物——代码改了却不报错，
+  比报错更糟。声明指向项目外时不猜意图，回退默认位置（顺带暴露一个真陷阱：`starts_with` 不消解
+  `..`，`proj/../outside.rs` 看起来在项目内，实际写到了项目外；改用词法归一后的相对路径判定）。
+- 入口产物落 crate 根后，清掉托管目录里同一源文件的旧产物（`.rz/gen/src/lib.rs`）。它已无任何
+  `#[path]` 引用，却仍可能被 rustc 的默认模块查找命中；落点本身就在托管目录时（上一条的声明
+  情形）不删。
+
+### 教程
+- zh/en 第十八章 18.5 重写：造库零配置（真实 `rzc check src/lib.zh` + `cargo build` 输出）、
+  `lib` 为什么没有母语别名、库不能 `run` 的母语消息全文，以及「一个包既是库又有程序」的三个坑
+  ——库和主程序是两个 crate（`main.zh` 要 `使用 包名::翻倍;`）、**先 check 库再 check 主程序**
+  （否则 E0432 还会附带一条把自有 crate 误判成第三方库的 `rzc add calc` 提示）、包名必须是 ASCII
+  （bin+lib 时 Cargo 用 `--extern` 传库，`name = "计算器"` 立刻撞上
+  `crate name ... is not a valid ASCII identifier`）。所有引文均来自实机采集。
+
+### 测试
+- 新增 6 个用例（2 单测 + 4 集成），全量 debug/release 均 **784 passed / 0 failed**（上轮基线 778）：
+  库入口落点（含子目录/项目根的 `lib.zh` 不算入口、`src/库.zh` 只是模块）、托管残留清理、
+  `rzc check src/lib.zh` 全链路绿且不留托管副本、`rzc run` 库入口的 zh/en 消息、
+  `rzc check src/main.zh` **不得**凭空造出 `src/lib.rs`、老配方项目里未请求的兄弟库文件仍要刷新
+  声明路径。每条都做过反向变异：把 `lib` 从入口集合摘掉、去掉声明的项目内检查、不删托管残留、
+  不给库入口单独消息、把兄弟 `lib` 也加进跳过名单——各自都有对应用例立即变红。
+- 引擎 `product_layout::relative_to_root` 转为公开（CLI 侧需要同一套词法归一判定，不再复制一份）。
+
+### 说明与取舍
+- 入口产物只由**本次请求的文件**写：兄弟 `src/lib.zh` 不被顺带写成 `src/lib.rs`。实测若把两个
+  入口都落 crate 根，非 ASCII 包名项目立刻从「绿」变成 rustc 硬错（`--extern` 那条），原先不参与
+  编译的库还会把陈年错误一起报出来——把老项目弄红不是本轮的目的。兄弟库文件照旧转译到托管目录，
+  因为声明了 `[lib] path` 的老项目靠这条路径拿新鲜产物（有测试钉住）。
+- 本轮采集时撞到三处与「库」无关的既有墙，登记 `docs/strategy/README.md` 的 P1：`错误：` 前缀
+  取自界面语言、消息正文取自文件扩展名，中文系统下 check 一个 `.en` 文件会渲染出
+  `错误：<English>`；自有 crate 被当成未声明第三方库的误导提示；`--extern` 那条 rustc 消息无译文。
+
 ## [0.8.12] - 2026-10-28
 
 ### 新增

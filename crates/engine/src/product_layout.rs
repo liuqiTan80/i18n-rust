@@ -227,7 +227,7 @@ fn has_source(project_root: &Path, product: &Path, gen_root: &Path, extensions: 
 }
 
 /// 项目根相对路径（源文件/产物可能是相对路径，先按当前目录补齐）
-fn relative_to_root(project_root: &Path, path: &Path) -> Option<PathBuf> {
+pub fn relative_to_root(project_root: &Path, path: &Path) -> Option<PathBuf> {
     let root = normalize_abs(project_root);
     let abs = normalize_abs(path);
     abs.strip_prefix(&root).ok().map(PathBuf::from)

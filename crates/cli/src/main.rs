@@ -394,7 +394,15 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // （examples/、src/ 下其他文件、根目录脚本）的产物写在自身路径，
             // 无参数的 `cargo run` 会静默运行另一个程序，必须先明确提示
             let use_direct_rustc = can_use_direct_rustc(&project_root, &file);
-            if !use_direct_rustc && source_path != project_root.join("src/main.rs") {
+            if !use_direct_rustc && source_path != project_root.join(MAIN_PRODUCT_PATH) {
+                // 库入口单列一条消息：它不是「入口文件认错了吧」，而是库 crate
+                // 压根没有可执行程序（cargo 此时报 `a bin target must be available
+                // for cargo run`）。指人家用 `cargo run --bin <名称>` 是让人去找一个
+                // 不存在的 bin，故这里给的实际动作只有「校验」与「补主程序」。
+                if entry_product_default(&file, &project_root, &manager) == Some(LIB_PRODUCT_PATH) {
+                    let path = file.display().to_string();
+                    anyhow::bail!("{}", ui.f("run_lib_no_bin", &[&path, &path]));
+                }
                 anyhow::bail!(
                     "{}",
                     ui.f(
@@ -433,9 +441,12 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 &entry_extensions,
             );
             write_product(&project_root, &source_path, &annotated, &ui)?;
-            // 请求文件非入口时其产物已从源文件旁迁到托管目录：清掉旧布局遗留
+            // 入口产物落 Cargo crate 根，清托管目录里的旧布局残留；非入口产物已从
+            // 源文件旁迁到托管目录，清掉迁走后同目录的遗留文件
             let legacy_product = file.with_extension("rs");
-            if !is_entry {
+            if is_entry {
+                prune_entry_gen_copy(&project_root, &file, &source_path);
+            } else {
                 relocate_legacy_product(&legacy_product, &source_path, &annotated, &ui);
             }
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
@@ -642,9 +653,12 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 &entry_extensions,
             );
             write_product(&project_root, &source_path, &annotated, &ui)?;
-            // 请求文件非入口时其产物已从源文件旁迁到托管目录：清掉旧布局遗留
+            // 入口产物落 Cargo crate 根，清托管目录里的旧布局残留；非入口产物已从
+            // 源文件旁迁到托管目录，清掉迁走后同目录的遗留文件
             let legacy_product = file.with_extension("rs");
-            if !is_entry {
+            if is_entry {
+                prune_entry_gen_copy(&project_root, &file, &source_path);
+            } else {
                 relocate_legacy_product(&legacy_product, &source_path, &annotated, &ui);
             }
             // 同步转译项目内其他方言文件，保证多文件项目的 mod 引用链可用
@@ -1258,9 +1272,8 @@ fn find_project_root(file: &Path) -> anyhow::Result<PathBuf> {
 /// 计算 `run`/`check` 的入口产物路径。
 ///
 /// 仅当源文件确为**项目 src 直属**入口（父目录恰为 `project_root/src`，且词干为
-/// [`is_entry_stem`]，即 `main` 或语言包主函数词，如 `src/main.zh`、旧项目里的
-/// `src/主函数.zh`）时才写入 Cargo 固定编译目标 `src/main.rs`——Cargo 只认这个
-/// 默认发现位置，入口产物无法移出 `src/`：
+/// [`entry_product_name`]，即 `main`／语言包主函数词或 `lib`）时才写入 Cargo 自动
+/// 发现的 crate 根——Cargo 只认这两个默认位置，入口产物无法移出 `src/`：
 /// - 项目根的 `build.zh` → `.rz/gen/build.rs`，不把 build 脚本覆盖为入口（weix 工具异常 #4）；
 /// - 子目录/示例里恰好名为 `main` 的文件（`src/sub/main.zh`、`examples/main.zh`）→
 ///   产物进托管目录，不越界覆盖宿主 `src/main.rs`（越界写出坑）；
@@ -1268,19 +1281,23 @@ fn find_project_root(file: &Path) -> anyhow::Result<PathBuf> {
 ///   镜像源码布局（`src/数学.zh` → `.rz/gen/src/数学.rs`），教学目录 `src/` 里
 ///   只留母语源文件与入口产物；源文件在 project 之外时退回旧行为（产物写在
 ///   自身旁边）。
+///
+/// 库入口有一个例外：Cargo.toml 里显式声明了 `[lib] path` 时以声明为准
+/// （[`declared_lib_path`]），否则升级后那些项目会静默编译一份不再更新的托管产物。
 fn entry_output_path(project_root: &Path, file: &Path, manager: &MappingManager) -> PathBuf {
-    if is_entry_source(file, project_root, manager) {
-        project_root.join("src/main.rs")
-    } else {
-        i18n_rust_engine::product_layout::gen_product_path(project_root, file)
+    match entry_product_default(file, project_root, manager) {
+        Some(LIB_PRODUCT_PATH) => {
+            declared_lib_path(project_root).unwrap_or_else(|| project_root.join(LIB_PRODUCT_PATH))
+        }
+        Some(name) => project_root.join(name),
+        None => i18n_rust_engine::product_layout::gen_product_path(project_root, file),
     }
 }
 
 /// 源文件是否为项目的 Cargo 固定入口（[`entry_output_path`] 的判定条件，
 /// 产物注解需按同一条件选择子模块目录，故单独暴露）
 fn is_entry_source(file: &Path, project_root: &Path, manager: &MappingManager) -> bool {
-    let stem = file.file_stem().and_then(|s| s.to_str());
-    stem.is_some_and(|s| is_entry_stem(s, manager)) && directly_under_src(file, project_root)
+    entry_product_default(file, project_root, manager).is_some()
 }
 
 /// 按托管布局为方言源文件的产物补 `#[path]` 注解，并返回磁盘行 → 引擎直行映射
@@ -1343,6 +1360,19 @@ fn relocate_legacy_product(legacy: &Path, product: &Path, content: &str, ui: &cr
     }
 }
 
+/// 入口文件写完后，清掉托管目录里同一源文件的旧产物
+///
+/// `src/lib.<ext>` 被纳入入口集合之前，产物落在 `.rz/gen/src/lib.rs`；入口规则改后
+/// 它写到 `src/lib.rs`，托管目录里那份残留已无任何 `#[path]` 引用，却仍可能被 rustc
+/// 的默认模块查找命中——代码改了却不报错，比报错更糟。只删托管目录内、且不等于本次
+/// 落点的那一个文件：Cargo.toml 用 `[lib] path` 指着托管路径时两者相同，不能删。
+fn prune_entry_gen_copy(project_root: &Path, source: &Path, product: &Path) {
+    let stale = i18n_rust_engine::product_layout::gen_product_path(project_root, source);
+    if stale != product && stale.is_file() {
+        let _ = fs::remove_file(stale);
+    }
+}
+
 /// 文件父目录（规范化为绝对路径，纯比较不依赖文件必已存在）是否恰为
 /// `project_root/src`——即该文件是否为项目真正的 src 直属入口，用于防止子目录
 /// 里恰好名为 `main` 的文件越界聚合、覆盖宿主入口产物。
@@ -1367,6 +1397,10 @@ fn directly_under_src(file: &Path, project_root: &Path) -> bool {
     canon_parent == canon_src
 }
 
+/// Cargo 自动发现的两个 crate 根产物路径（相对项目根）
+const MAIN_PRODUCT_PATH: &str = "src/main.rs";
+const LIB_PRODUCT_PATH: &str = "src/lib.rs";
+
 /// 词干是否为项目入口主函数名：字面 `main`，或语言包中映射到 `main` 的
 /// 母语词（zh「主函数」、ja「主関数」、ru「главная」等）。
 ///
@@ -1379,6 +1413,53 @@ fn is_entry_stem(stem: &str, manager: &MappingManager) -> bool {
             .get_keyword_map()
             .iter()
             .any(|(母语词, 英文)| 英文 == "main" && 母语词 == stem)
+}
+
+/// 入口词干对应的 Cargo 默认 crate 根产物路径（相对项目根）；非入口词干返回 `None`
+///
+/// Cargo 只自动发现两个 crate 根：`src/main.rs`（可执行程序）与 `src/lib.rs`
+/// （库）。方言侧对应两组词干：`main` 及其语言包主函数词，和字面 `lib`。
+/// `lib` 不是 Rust 关键字、各语言包都不翻译它，因此它没有母语别名——写
+/// `src/库.zh` 仍然只是普通模块，这一点与 `main` 不对称，但正是 Cargo 的
+/// 命名要求，造库要的是零配置而不是文件名本地化。
+fn entry_product_name(stem: &str, manager: &MappingManager) -> Option<&'static str> {
+    if is_entry_stem(stem, manager) {
+        Some(MAIN_PRODUCT_PATH)
+    } else if stem == "lib" {
+        Some(LIB_PRODUCT_PATH)
+    } else {
+        None
+    }
+}
+
+/// 源文件按其词干应落到的 Cargo 默认 crate 根路径（[`entry_product_name`] +
+/// [`directly_under_src`] 两级判定合一）；非入口返回 `None`
+fn entry_product_default(
+    file: &Path,
+    project_root: &Path,
+    manager: &MappingManager,
+) -> Option<&'static str> {
+    let stem = file.file_stem().and_then(|s| s.to_str())?;
+    entry_product_name(stem, manager).filter(|_| directly_under_src(file, project_root))
+}
+
+/// Cargo.toml 中 `[lib] path` 显式声明的库产物路径（绝对形式，项目内才返回）
+///
+/// 纳管 `lib` 入口之前，造方言库的唯一配方是在 Cargo.toml 手写
+/// `[lib] path = ".rz/gen/src/lib.rs"`（当时 `src/lib.<ext>` 的产物落在托管目录）。
+/// 入口集合纳入 `lib` 后 rzc 默认改写 `src/lib.rs`，若无视既有声明，那些项目会
+/// 继续编译一份不再被更新的托管产物——代码改了却不报错，比报错更糟。声明是用户
+/// 意图的唯一来源，故以它为准；无声明、TOML 非法、或声明指向项目外时返回 `None`
+/// 回退默认位置，不猜意图、不往项目外写文件。
+fn declared_lib_path(project_root: &Path) -> Option<PathBuf> {
+    let text = fs::read_to_string(project_root.join("Cargo.toml")).ok()?;
+    let manifest = toml::from_str::<toml::Value>(&text).ok()?;
+    let rel = manifest.get("lib")?.get("path")?.as_str()?;
+    // 词法归一后仍要在项目根内：`starts_with` 不消解 `..`，`proj/../outside.rs`
+    // 这种字面拼接看起来像在项目里，实际写到了项目外
+    let joined = project_root.join(rel);
+    let inside = i18n_rust_engine::product_layout::relative_to_root(project_root, &joined)?;
+    Some(project_root.join(inside))
 }
 
 /// 从指定目录向上查找项目根（含 Cargo.toml 的目录），未找到返回 None
@@ -1564,7 +1645,9 @@ fn annotate_exported_mods(
     dir_mode: bool,
 ) -> String {
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-    if !dir_mode || stem == "lib" || is_entry_stem(stem, manager) {
+    // crate 根词干（main／主函数词／lib）按当前目录解析子模块，口径与
+    // [`entry_product_name`] 统一，不在注解侧另立一套入口判定
+    if !dir_mode || entry_product_name(stem, manager).is_some() {
         annotate_non_ascii_mods(code)
     } else {
         i18n_rust_engine::module_path::annotate_nested_mods_with_lines(code, stem).0
@@ -2098,8 +2181,12 @@ fn transpile_project_files(
         prune_stale_products(project_root, &extensions, &ui);
         return Ok(());
     }
-    // 入口产物固定写入 src/main.rs：src/ 顶层任何入口词干的方言文件
-    // （main.zh、旧项目的 主函数.zh 等）转译后都会覆盖入口产物，必须跳过；
+    // src 顶层的**主函数入口**词干（main.zh、旧项目的 主函数.zh 等）在这里跳过：
+    // 入口产物只由本次请求的文件写到 Cargo 自动发现的 crate 根，而所有主函数入口
+    // 共用同一份 src/main.rs——兄弟入口也走一遍会互相覆盖刚写好的那份。
+    // 库入口 `lib.<ext>` **不**跳过：它的产物是托管目录里自己那份，与 src/main.rs
+    // 无冲突；纳管 lib 之前它就是这么转译的，而 Cargo.toml 用 `[lib] path` 指着托管
+    // 路径的老项目仍要靠这条路径拿到新鲜产物（跳过的话 cargo 会编译一份陈旧的）。
     // 嵌套层级中的同名文件不是入口（rustc 模块树按路径区分），照常转译。
     let entry_abs = entry_file.canonicalize().ok();
     let mut files = Vec::new();
@@ -2208,6 +2295,10 @@ fn transpile_project_files(
                 // 托管树内的相对位置与旧布局逐字一致（子模块在 `<自身词干>/`
                 // 下，`#[path]` 相对当前文件所在目录解析），手写 `.rs` 子模块
                 // 则跨出托管目录指回 src/。
+                // 这里**不**按入口规则落 crate 根：src 直属入口词干（main、lib）
+                // 已在收集阶段跳过，只有本次请求的文件走 [`entry_output_path`]。
+                // 兄弟入口若也落 crate 根，等于替用户凭空造出一个编译目标
+                // （见 [`transpile_project_files`] 的坑记录）。
                 let product_path =
                     i18n_rust_engine::product_layout::gen_product_path(project_root, &path);
                 let product = annotate_product(
@@ -2870,8 +2961,9 @@ mod tests {
     use super::{
         annotate_non_ascii_mods, collect_project_context, collect_sibling_dialect_files,
         detect_toolchain_channel, entry_output_path, find_alias_in_toml,
-        get_lang_code_from_extension, group_files_by_lang, transpile_project_files,
-        transpile_to_english, transpile_with_map_cached_in_project, write_transpiled,
+        get_lang_code_from_extension, group_files_by_lang, is_entry_source, prune_entry_gen_copy,
+        transpile_project_files, transpile_to_english, transpile_with_map_cached_in_project,
+        write_transpiled,
     };
     // 引擎注解器直测（产物写盘已改走 product_layout 的托管布局版）
     use i18n_rust_engine::module_path::annotate_non_ascii_mods_with_lines;
@@ -2964,6 +3056,91 @@ mod tests {
             entry_output_path(&root, &root.join("src/helper.zh"), &m),
             root.join(".rz/gen/src/helper.rs")
         );
+    }
+
+    /// 库入口产物路径：`src/lib.<ext>` 落 Cargo 自动发现的库 crate 根 `src/lib.rs`，
+    /// 让「造方言库」不再需要手写 `[lib] path`（方案 ③）。
+    ///
+    /// 三条边界都要钉住：① 只有 src 直属的 `lib` 才是入口（子目录/项目根的 lib.zh
+    /// 是普通模块，落点若错到 src/lib.rs 会凭空给项目加一个编译目标）；② Cargo.toml
+    /// 显式声明 `[lib] path` 时以声明为准（纳管 lib 之前那是造库的唯一配方，改指
+    /// 默认位置会让老项目静默编译一份不再更新的产物）；③ 声明指向项目外时不猜意图。
+    #[test]
+    fn test_entry_output_path_lib_entry() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("proj");
+        std::fs::create_dir_all(root.join("src/sub")).unwrap();
+        let m = zh_manager();
+        // 无 Cargo.toml = 无声明 = 默认 crate 根
+        assert_eq!(
+            entry_output_path(&root, &root.join("src/lib.zh"), &m),
+            root.join("src/lib.rs")
+        );
+        assert!(is_entry_source(&root.join("src/lib.zh"), &root, &m));
+        // 子目录与项目根的 lib 不是入口（与 main 同规则，越界写出防护）
+        assert_eq!(
+            entry_output_path(&root, &root.join("src/sub/lib.zh"), &m),
+            root.join(".rz/gen/src/sub/lib.rs")
+        );
+        assert_eq!(
+            entry_output_path(&root, &root.join("lib.zh"), &m),
+            root.join(".rz/gen/lib.rs")
+        );
+        assert!(!is_entry_source(&root.join("src/sub/lib.zh"), &root, &m));
+        // 「库」不是 lib 的母语别名（lib 非 Rust 关键字，各语言包都不翻译它）：
+        // 写成 src/库.zh 只是普通模块，不会变成 crate 根
+        assert_eq!(
+            entry_output_path(&root, &root.join("src/库.zh"), &m),
+            root.join(".rz/gen/src/库.rs")
+        );
+
+        // 旧配方：[lib] path 指向托管目录 → 产物跟着声明走，不再另写 src/lib.rs
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"x\"\nversion = \"0.1.0\"\n\n[lib]\npath = \".rz/gen/src/lib.rs\"\n",
+        )
+        .unwrap();
+        assert_eq!(
+            entry_output_path(&root, &root.join("src/lib.zh"), &m),
+            root.join(".rz/gen/src/lib.rs")
+        );
+        // 声明指向项目外（.. 逃逸）时回退默认位置，不往项目外写文件
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"x\"\nversion = \"0.1.0\"\n\n[lib]\npath = \"../outside.rs\"\n",
+        )
+        .unwrap();
+        assert_eq!(
+            entry_output_path(&root, &root.join("src/lib.zh"), &m),
+            root.join("src/lib.rs")
+        );
+        // 主入口不受 [lib] path 影响（声明的是库，不是 bin）
+        assert_eq!(
+            entry_output_path(&root, &root.join("src/main.zh"), &m),
+            root.join("src/main.rs")
+        );
+    }
+
+    /// 入口产物落 crate 根后，托管目录里同一源文件的旧产物要清掉
+    ///
+    /// 只清「本次请求的入口文件」那一份：兄弟模块的托管产物仍在被 `#[path]` 引用。
+    #[test]
+    fn test_prune_entry_gen_copy() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("proj");
+        std::fs::create_dir_all(root.join(".rz/gen/src")).unwrap();
+        let gen_lib = root.join(".rz/gen/src/lib.rs");
+        let gen_module = root.join(".rz/gen/src/数学.rs");
+        std::fs::write(&gen_lib, "陈旧产物").unwrap();
+        std::fs::write(&gen_module, "仍被引用").unwrap();
+        prune_entry_gen_copy(&root, &root.join("src/lib.zh"), &root.join("src/lib.rs"));
+        assert!(!gen_lib.exists());
+        assert!(gen_module.exists());
+        // 落点就是托管路径时（Cargo.toml 声明了 [lib] path）不能删——那是本次产物
+        prune_entry_gen_copy(&root, &root.join("src/lib.zh"), &gen_lib);
+        std::fs::write(&gen_lib, "本次产物").unwrap();
+        prune_entry_gen_copy(&root, &root.join("src/lib.zh"), &gen_lib);
+        assert!(gen_lib.exists());
     }
 
     /// 越界写出回归：入口词干但**不在 project_root/src 直属**的文件（子目录/示例
