@@ -74,6 +74,23 @@
 - 文档侧 4 处「需 `DEEPSEEK_API_KEY`」写法统一为 `RZ_AI_API_KEY`（旧变量仍可用作回退），
   并在 `docs/third-party-mapping.md` 补一段服务商与三变量说明。
 
+### 新增
+- 英文教程第 14 章《Lifetimes》（`tutorials/en/Chapter-14-Lifetimes.md`）：en 进度
+  15/33 → 16/33。14 个代码块全部实机验证，0 条新增预期失败白名单；沿用第八章的
+  borrow slip / original / iron rule 与第九章的 stone / notebook 术语，不另起比喻。
+
+### 修复
+- en 语言包的 `[E0597]` 消息模板抄的却是 `[E0596]` 的英文文案（"cannot borrow
+  `{名称}` as mutable"）：英语读者遇到「引用比原值活得久」时看到一句答非所问的
+  可变借用报错，与英文教程第八、十四两章引用的 "`s` does not live long enough"
+  直接矛盾。模板已改为 rustc 原文，教学提示一并重写。
+
+### 测试
+- 新增引擎测试 `en_pack_code_templates_reproduce_rustc_own_wording`：en 是身份语言，
+  其错误码模板必须逐字复现 rustc 自己的英文消息——以实机捕获的 (错误码, 原文) 成对
+  断言「渲染结果 == 输入原文」。诊断检索按错误码命中，模板抄错不会被任何既有测试
+  发现，故须单独上锁；反向验证过：把旧文案抄回去该测试立即失败。
+
 ## [0.8.12] - 2026-10-28
 
 ### 新增

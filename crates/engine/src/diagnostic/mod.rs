@@ -1172,4 +1172,44 @@ mod tests {
             "CLI 路径应回填模块名：{cli}"
         );
     }
+
+    /// 门禁：en 是身份语言，它的错误码模板必须逐字复现 rustc 自己的英文消息。
+    ///
+    /// 起因：en 包的 `[E0597]` 抄了 `[E0596]` 的文案（"cannot borrow `{名称}` as
+    /// mutable"），于是"引用比原值活得久"在英语读者面前显示成一句无关的可变借用
+    /// 报错，而第十四章《生命周期》正要把这条诊断原样印进书里。检索按错误码命中，
+    /// 模板与原文不符不会让任何既有测试失败，因此用实机捕获的
+    /// (错误码, rustc 原文) 断言"渲染结果 == 输入原文"来锁住这类抄写错误。
+    #[test]
+    fn en_pack_code_templates_reproduce_rustc_own_wording() {
+        // 消息取自 `rustc --edition 2021` 实机输出；反引号内的变量名随源程序变化
+        let cases = [
+            ("E0106", "missing lifetime specifier"),
+            (
+                "E0596",
+                "cannot borrow `s` as mutable, as it is not declared as mutable",
+            ),
+            ("E0597", "`s` does not live long enough"),
+        ];
+        let files = crate::语言::builtin_lang_files("en");
+        let errors_toml = files
+            .iter()
+            .find(|(name, _)| *name == "errors.toml")
+            .map(|(_, content)| *content)
+            .expect("en 语言包缺少 errors.toml");
+        let manager = ErrorTranslationManager::load_from_string(errors_toml)
+            .expect("en errors.toml 应能解析");
+        // 空类型表：en 不做类型名中文化，渲染结果应与 rustc 原文逐字相同
+        let translator = DiagnosticTranslator::new(manager, HashMap::new());
+        for (code, rustc_message) in cases {
+            let rendered = translator
+                .render_main_message(Some(code), rustc_message, None)
+                .unwrap_or_else(|| panic!("en 包应命中 [{code}] 错误码模板"));
+            assert_eq!(
+                rendered.text, rustc_message,
+                "[{code}] 模板与 rustc 英文原文不一致，英语读者会看到答非所问的诊断"
+            );
+            assert!(rendered.hint.is_some(), "[{code}] 缺少教学提示");
+        }
+    }
 }

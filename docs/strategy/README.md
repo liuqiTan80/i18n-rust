@@ -29,7 +29,7 @@
 
 ## 候选下一步（P1，按需启动）
 
-- 教程滚动：en 第十四章《生命周期》起继续（复用既有翻译 + 门禁流程）；ja/ru 保持节奏
+- 教程滚动：en 第十五章《集合类型》起继续（en 16/33，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
 - AI provider 真实端点联调：OpenAI / Ollama / 通义各跑一次 `rzc mapping auto`，验证超时与分批上限（`RZ_AI_*` 改造目前只有离线测试，未联网验证）
 - 贡献 SOP 英文化：`docs/contributing-lang-pack.md` / `missing-mapping-guide.md` 出 en 版
   （键字典部分已由生成物 `docs/ui-keys.en.md` 覆盖，2026-10-28；剩正文翻译）

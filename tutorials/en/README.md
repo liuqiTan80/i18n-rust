@@ -23,11 +23,12 @@ block.
 | [Chapter 11: Enums and Pattern Matching](Chapter-11-Enums-and-Pattern-Matching.md) | 第十一章：枚举与模式匹配 | ✅ done |
 | [Chapter 12: Generics](Chapter-12-Generics.md) | 第十二章：泛型 | ✅ done |
 | [Chapter 13: Traits](Chapter-13-Traits.md) | 第十三章：特征 | ✅ done |
-| Chapter 14–26, Appendices A–C & E | 第十四章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
+| [Chapter 14: Lifetimes](Chapter-14-Lifetimes.md) | 第十四章：生命周期 | ✅ done |
+| Chapter 15–26, Appendices A–C & E | 第十五章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
-Gate status (2026-09-26): 242 blocks extracted, 239 verified — 210 pass +
+Gate status (2026-10-28): 256 blocks extracted, 253 verified — 224 pass +
 29 cross-block deps allowlisted, 0 failures (allowlist keyed by file+line
-in `tools/expected-failures.json`).
+in `tools/expected-failures.json`). Chapter 14 needed no new allowlist entry.
 
 Translation principles (revised 2026-09-06):
 
@@ -42,6 +43,10 @@ Translation principles (revised 2026-09-06):
 - **Every code block is still compile-verified** with
   `tools/verify-tutorials.py --dir tutorials/en` — standard Rust passes
   through rzc unchanged, and the gate still catches broken examples.
-- Conversion status: **Chapters 1–13 are complete** — Chapter 2 is the
-  reference template; Chapters 14+ are in progress, and the multilingual gate
+- Conversion status: **Chapters 1–14 are complete** — Chapter 2 is the
+  reference template; Chapter 15+ are in progress, and the multilingual gate
   (zh/en/ja/ru) passes with 0 failures (see translation-status.md).
+- **Diagnostics are quoted as the en pack actually renders them**, so an error
+  message printed in the book matches what the reader sees in the terminal; the
+  engine test `en_pack_code_templates_reproduce_rustc_own_wording` keeps the en
+  `errors.toml` templates aligned with rustc's own English wording.

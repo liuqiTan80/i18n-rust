@@ -62,8 +62,8 @@
 "教学提示" = "Add `mut` to the variable binding: `let mut {名称} = ...;`"
 
 [E0597]
-"消息模板" = "cannot borrow `{名称}` as mutable"
-"教学提示" = "The variable may be immutably borrowed at this point. Check the borrow scope."
+"消息模板" = "`{名称}` does not live long enough"
+"教学提示" = "The reference outlives the value it points at. Move the borrowed value into a wider scope, or clone it so each side owns its own data."
 
 [E0716]
 "消息模板" = "temporary value dropped while borrowed"
