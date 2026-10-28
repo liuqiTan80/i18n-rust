@@ -174,6 +174,17 @@ pub fn uses_cyrillic_script(lang_code: &str) -> bool {
     matches!(lang_code, "ru" | "uk" | "bg" | "sr" | "mk" | "be")
 }
 
+/// 判断语言代码是否为**恒等语言**（译文与原文同语，不存在「未译」可言）
+///
+/// 英语是本项目唯一的恒等语言：rustc / cargo 的诊断本身就是英文，en 语言包因此
+/// 不携带「消息翻译」节（`tools/check-lang-packs.py` 亦视之为预期），命中不了
+/// 消息表时按原句显示已经是最终形态。供待译清单（[`crate::diagnostic::gaps`]）
+/// 判定「这句英文算不算缺失」——给恒等语言登记待译，会把正常输出谎报成
+/// 「有 N 条消息暂无译文」，并刷出一份永远补不动的清单。
+pub fn is_identity_language(code: &str) -> bool {
+    code == "en"
+}
+
 /// 判断语言代码是否有对应的内置语言包
 pub fn has_builtin_language(code: &str) -> bool {
     BUILTIN_FILES.iter().any(|(l, _, _)| *l == code)

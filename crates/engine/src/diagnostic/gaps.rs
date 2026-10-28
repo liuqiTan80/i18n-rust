@@ -17,6 +17,11 @@
 //!
 //! 通道（level）取值与语料门禁一致：`main` 主消息、`help` 建议子诊断，
 //! 以及 `tool`（cargo 等非 JSON 通道的纯文本错误行）。
+//!
+//! 恒等语言例外：en 的「原文」就是母语输出，所以 [`record_gap`] 对
+//! [`crate::语言::is_identity_language`] 直接返回，不登记也不落盘。否则英语用户
+//! 每次报错都会多一行「有 N 条消息暂无译文」（它在 en 下永远为真），
+//! `~/.rz/gaps/en.tsv` 也会积成一份无法补表的清单（实测曾积 1000+ 行）。
 
 use std::collections::BTreeSet;
 use std::io::Write;
@@ -42,6 +47,8 @@ fn registry() -> &'static Mutex<BTreeSet<TranslationGap>> {
 /// 登记一条未译消息（英文原文照旧显示，仅记录待补线索）
 ///
 /// 空消息不记（无补表价值）。`lang` 为空时取当前界面语言。
+/// 恒等语言（en）不记：它在消息表未命中时拿到的原句就是目标语输出，
+/// 登记它只会把正常结果谎报成「暂无译文」（见模块文档的恒等语言例外）。
 pub fn record_gap(lang: &str, level: &str, code: &str, message: &str) {
     let message = message.trim();
     if message.is_empty() {
@@ -52,6 +59,9 @@ pub fn record_gap(lang: &str, level: &str, code: &str, message: &str) {
     } else {
         lang.to_string()
     };
+    if crate::语言::is_identity_language(&lang) {
+        return;
+    }
     let gap = (
         lang,
         level.to_string(),
@@ -204,9 +214,20 @@ pub fn clear_gaps(lang: &str) -> bool {
 mod tests {
     use super::*;
 
+    /// 登记表是进程全局的：凡 record / peek / drain 的用例统一持本锁串行跑，
+    /// 否则并行的 `drain_gaps` 会拿走兄弟用例刚登记的记录，表现为随机红。
+    static GAPS_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn serialise_gaps() -> std::sync::MutexGuard<'static, ()> {
+        GAPS_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     /// 兜底记录与取出：drain 后登记清空，peek 不改变状态
     #[test]
     fn record_drain_and_peek_round_trip() {
+        let _serial = serialise_gaps();
         let gap = (
             "tstlang".to_string(),
             LEVEL_MAIN.to_string(),
@@ -224,10 +245,51 @@ mod tests {
     /// 空消息不登记（无补表价值）——用独占语言隔离并行测试对全局登记的干扰
     #[test]
     fn empty_message_is_not_recorded() {
+        let _serial = serialise_gaps();
         record_gap("tstempty", LEVEL_HELP, "", "   ");
         assert!(
             !peek_gaps().iter().any(|g| g.0 == "tstempty"),
             "空白消息不应进入待译登记"
+        );
+    }
+
+    /// 恒等语言（en）不登记，其余语言同消息照记
+    ///
+    /// 起因：en 不携带「消息翻译」节，所以工具通道 `query_by_message` 在 en 下
+    /// 永远未命中 → 旧行为是每句都记一条 gap，于是英语用户每次报错都被告知
+    /// 「有 N 条消息暂无译文」（而 en 拿到的原句已是最终形态），
+    /// `~/.rz/gaps/en.tsv` 积到 1000+ 行且永远补不完。
+    /// 对照分支锁住「不登记」只源于语言判定：换非恒等语言后同一消息必须入库。
+    #[test]
+    fn identity_language_records_no_gap() {
+        let _serial = serialise_gaps();
+        let 消息 = "crate name `计算器` passed to `--extern` is not a valid ASCII identifier";
+        record_gap("en", LEVEL_TOOL, "", 消息);
+        assert!(
+            !peek_gaps().iter().any(|g| g.0 == "en" && g.3 == 消息),
+            "en 是恒等语言，未命中消息表不算待译"
+        );
+        // 同一条消息交给非恒等语言：必须登记（证明上面的例外不是消息本身被过滤）
+        record_gap("de", LEVEL_TOOL, "", 消息);
+        assert!(
+            peek_gaps().iter().any(|g| g.0 == "de" && g.3 == 消息),
+            "de 不是恒等语言，同一句应照常登记待译"
+        );
+    }
+
+    /// 界面语言为 en 时，空 `lang` 回退到当前语言后仍然不登记
+    ///
+    /// 判定必须发生在「解析出实际语言」之后，否则 `record_gap("", …)` 在英语
+    /// 环境下会绕过恒等语言例外。
+    #[test]
+    fn identity_language_applies_to_current_language_fallback() {
+        let _serial = serialise_gaps();
+        let _guard = crate::语言::test_language("en");
+        let 消息 = "an english message with no entry in the identity pack";
+        record_gap("", LEVEL_MAIN, "", 消息);
+        assert!(
+            !peek_gaps().iter().any(|g| g.3 == 消息),
+            "界面语言为 en 时也不得登记待译"
         );
     }
 

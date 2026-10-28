@@ -1984,6 +1984,59 @@ mod tests {
         );
     }
 
+    /// en（恒等语言）未命中消息表：原句就是母语输出，不得登记待译
+    ///
+    /// 起因：en 包不携带「消息翻译」节，`query_by_message` 在 en 下永远未命中。
+    /// 旧行为于是给每句英文都记一条 gap：英语用户每次报错都多看到一行
+    /// `Note: N message(s) have no translation, shown as-is`（它在 en 下恒为真），
+    /// 同时往 `~/.rz/gaps/en.tsv` 堆英文原句（实测积到 1000+ 行且永远补不动）。
+    /// 对照分支拿同一个 en 消息表只换 `gap_lang`：非恒等语言必须照记，
+    /// 证明「不登记」只源于语言判定，不是这句消息本身被过滤。
+    #[test]
+    fn test_localize_tool_line_in_identity_lang_shows_original_without_gap() {
+        use i18n_rust_engine::diagnostic::gaps;
+        let en_manager = i18n_rust_engine::diagnostic::ErrorTranslationManager::load_from_string(
+            crate::builtin_lang::get_builtin_data("en").errors_toml,
+        )
+        .expect("内置 en 错误消息表应可加载");
+        let ui = ui_for_test("en");
+        let line =
+            "error: crate name `计算器` passed to `--extern` is not a valid ASCII identifier";
+
+        let got = localize_tool_line(line, Some(&en_manager), &ui, "en").expect("标记行应被处理");
+        // 正文逐字保留 rustc 原句；行首前缀按 en 的 `cargo_progress_error` 渲染，
+        // 而该键写的是 `Error:`（大写），与 cargo 自己的 `error:` 不统一——
+        // 属另一条已登记的一致性缺口，此处按现状钉住，改动它时会提醒同步。
+        assert_eq!(
+            got, "Error: crate name `计算器` passed to `--extern` is not a valid ASCII identifier",
+            "en 下应只换前缀、不动正文"
+        );
+        assert!(
+            !gaps::peek_gaps()
+                .iter()
+                .any(|(lang, _, _, message)| lang == "en" && message.contains("--extern")),
+            "恒等语言未命中不算待译，否则英语用户被告知去补一份不存在的译文"
+        );
+
+        // 对照：同一张表、同一句，只把登记语言换成非恒等→必须入库
+        let 对照语言 = "tool-identity-contrast";
+        localize_tool_line(line, Some(&en_manager), &ui, 对照语言).expect("标记行应被处理");
+        assert!(
+            gaps::peek_gaps()
+                .iter()
+                .any(|(lang, level, _, _)| lang == 对照语言 && level == gaps::LEVEL_TOOL),
+            "非恒等语言未命中仍应登记 tool 通道待译清单"
+        );
+
+        // zh 已补该条译文：命中消息表，既不回退原文也不记待译
+        let zh = localize_tool_line(line, Some(&zh_error_manager()), &ui_for_test("zh"), "zh")
+            .expect("zh 应命中消息表");
+        assert!(
+            zh.contains("不是合法的 ASCII 标识符"),
+            "zh 应给母语译文：{zh}"
+        );
+    }
+
     /// cargo 错误链：`Caused by:` 标签行与缩进续行都要换译
     ///
     /// cargo 把因由拆成「标记行 + 缩进行」两行输出，只处理标记行会留下

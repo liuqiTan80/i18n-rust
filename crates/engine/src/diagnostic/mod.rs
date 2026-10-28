@@ -1344,6 +1344,51 @@ mod tests {
         );
     }
 
+    /// 门禁：恒等语言判定必须与语言包内容同锁（en 不得携带「消息翻译」节）。
+    ///
+    /// 起因：`gaps::record_gap` 对恒等语言不登记待译，它的前提就是「en 没有消息表
+    /// 可用」（命中不了就原句显示，而原句已是最终形态）。谁哪天给 en 补了
+    /// `消息翻译` 节（例如为了把 11 语言的键数对齐），这条前提就不再成立——
+    /// 英语用户会退回「漏译却不说明」的黑箱，而 `check-lang-packs.py` 不会报。
+    /// 故把两侧钉在一起：要么去掉该节，要么把 en 从 `is_identity_language` 移出。
+    ///
+    /// 反向也钉：其余 10 语言都必须有非空消息表，否则它们会沾恒等语言的光
+    /// 而静默失去待译反馈。
+    #[test]
+    fn identity_language_packs_carry_no_message_table() {
+        for lang in crate::语言::builtin_language_codes() {
+            let files = crate::语言::builtin_lang_files(lang);
+            let errors_toml = files
+                .iter()
+                .find(|(name, _)| *name == "errors.toml")
+                .unwrap_or_else(|| panic!("{lang} 语言包缺少 errors.toml"))
+                .1;
+            let value: toml::Value = toml::from_str(errors_toml)
+                .unwrap_or_else(|e| panic!("{lang} errors.toml 解析失败：{e}"));
+            let 消息表条目 = value
+                .as_table()
+                .and_then(|t| t.get("消息翻译"))
+                .and_then(|v| v.as_table())
+                .map(|t| t.len())
+                .unwrap_or(0);
+            let 恒等 = crate::语言::is_identity_language(lang);
+            if 恒等 {
+                assert_eq!(
+                    消息表条目, 0,
+                    "{lang} 被当作恒等语言（待译清单不登记），却带着 {} 条「消息翻译」条目：\
+                     要么删掉该节，要么把它从 is_identity_language 移出，否则漏译会重新变成静默黑箱",
+                    消息表条目
+                );
+            } else {
+                assert!(
+                    消息表条目 > 0,
+                    "{lang} 不是恒等语言，却没有任何「消息翻译」条目：\
+                     待译清单会把它当成无需补表，母语读者的英文残留再也得不到反馈"
+                );
+            }
+        }
+    }
+
     /// 门禁：语言包的教学提示不得残留引擎占位符。
     ///
     /// 占位符回填（`translator::CODE_TEMPLATE_PLACEHOLDERS`）只作用于 `消息模板`，

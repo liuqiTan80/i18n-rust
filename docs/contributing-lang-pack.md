@@ -133,6 +133,8 @@ rzc doctor
 终端只统一提示一次「N 条消息暂无译文」，诊断本身照旧按原文输出（绝不吞）。
 清单与语料门禁的 `crates/engine/tests/data/diag-corpus.tsv` 同构，去掉首列即可并入。
 
+**en 不参与登记**：它是恒等语言（`语言::is_identity_language`），本身不携带「消息翻译」节，命中不了表时拿到的原句就是最终形态。因此 en 既不写清单也不提示；否则英语用户每次报错都会多一行「有消息未译」（它在 en 下恒为真），而那份清单永远补不完（修复前曾积 1000+ 行）。引擎门禁 `identity_language_packs_carry_no_message_table` 负责钉住这件事：谁给 en 补了「消息翻译」节、或把某个非恒等语言的消息表清空，都会立刻变红。历史遗留的 `~/.rz/gaps/en.tsv` 已无补表价值，`rzc gaps --lang en --clear` 可直接清掉。
+
 ```bash
 rzc gaps                                  # 看本机累积的待译清单（按当前界面语言）
 rzc gaps --lang ja --export /tmp/ja.tsv   # 导出成补表素材

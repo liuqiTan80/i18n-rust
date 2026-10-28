@@ -275,7 +275,7 @@ no substitution at all.
 | `mapping_auto_install_failed` | 2 | `crates/cli/src/main.rs:1237`<br>`crates/cli/src/main.rs:1243` | crate_name / &status.to_string() / &e.to_string() | 自动添加依赖 {} 失败：{} |
 | `mapping_auto_install_no_project` | 0 | `crates/cli/src/main.rs:1218` | — | 未找到 Cargo 项目，跳过自动安装依赖 |
 | `mapping_auto_installed` | 1 | `crates/cli/src/main.rs:1232` | crate_name | ✅ 依赖 {} 已自动加入当前项目 |
-| `mapping_cat_keywords` | 0 | `crates/engine/src/mapping_source.rs:312`<br>`crates/engine/src/语言.rs:309` | — | 关键字 |
+| `mapping_cat_keywords` | 0 | `crates/engine/src/mapping_source.rs:312`<br>`crates/engine/src/语言.rs:320` | — | 关键字 |
 | `mapping_cat_stdlib` | 0 | `crates/engine/src/mapping_source.rs:313` | — | 标准库 |
 | `mapping_cat_third_party` | 0 | `crates/engine/src/mapping_source.rs:314` | — | 第三方库 |
 | `mapping_crate_empty` | 0 | `crates/cli/src/mapping_gen/mod.rs:176` | — | crate 名不能为空 |
@@ -449,7 +449,7 @@ no substitution at all.
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
 | `diag_fix_suggestion` | 1 | `crates/engine/src/diagnostic/translator.rs:534` | &hint | 修复建议：{} |
-| `diag_kind_error` | 0 | `crates/engine/src/语言.rs:309`<br>`crates/engine/src/diagnostic/teaching.rs:47` | — | 错误 |
+| `diag_kind_error` | 0 | `crates/engine/src/语言.rs:320`<br>`crates/engine/src/diagnostic/teaching.rs:47` | — | 错误 |
 | `diag_kind_help` | 0 | `crates/engine/src/diagnostic/teaching.rs:50` | — | 帮助 |
 | `diag_kind_ice` | 0 | `crates/engine/src/diagnostic/teaching.rs:51` | — | 内部编译器错误 |
 | `diag_kind_note` | 0 | `crates/engine/src/diagnostic/teaching.rs:49` | — | 注释 |
@@ -604,7 +604,7 @@ no substitution at all.
 | `err_confusion_char` | 3 | `crates/engine/src/error.rs:103` | &location.describe() / &codepoint / detail | 检测到可疑 Unicode 字符（{}）：U+{}（{}） |
 | `err_input_invalid` | 1 | `crates/engine/src/error.rs:71` | reason | 输入无效：{} |
 | `err_lex_error` | 2 | `crates/engine/src/error.rs:76` | &location.describe() / detail | 词法错误（{}）：{} |
-| `err_line_col` | 2 | `crates/engine/src/error.rs:26`<br>`crates/engine/src/语言.rs:264`<br>`crates/engine/src/语言.rs:273` | &self.line.to_string() / &self.column.to_string() / "1" / "2" | 第 {} 行第 {} 列 |
+| `err_line_col` | 2 | `crates/engine/src/error.rs:26`<br>`crates/engine/src/语言.rs:275`<br>`crates/engine/src/语言.rs:284` | &self.line.to_string() / &self.column.to_string() / "1" / "2" | 第 {} 行第 {} 列 |
 | `err_mapping_missing` | 1 | `crates/engine/src/error.rs:90` | name | 映射缺失：找不到 `{}` 的翻译映射 |
 | `err_mapping_missing_at` | 2 | `crates/engine/src/error.rs:84` | &loc.describe() / name | 映射缺失（{}）：找不到 `{}` 的翻译映射 |
 | `err_parse_error_messages` | 1 | `crates/engine/src/error.rs:240` | detail | 解析错误消息 TOML 失败: {} |

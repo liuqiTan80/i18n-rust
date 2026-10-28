@@ -884,6 +884,85 @@ fn test_non_ascii_package_name_bin_lib_prints_localized_extern_error() {
     assert!(!text.contains("线程名"), "译文被类型映射误改写：{text}");
 }
 
+/// 恒等语言（en）不得谎报「有消息未译」，而母语侧的待译反馈必须原样保留
+///
+/// 起因：en 包不携带「消息翻译」节，所以每条 cargo/rustc 消息在 en 下都「未命中」。
+/// 旧实现据此在英语输出末尾加一行 `Note: N message(s) have no translation, shown
+/// as-is`（它在 en 下恒为真），并往 `~/.rz/gaps/en.tsv` 堆英文原句（实测积到
+/// 1000+ 行且永远补不完——英语本就不需要译文）。
+///
+/// 同一个「未使用变量」程序跑两种语言作对照：zh 侧仍提示并落盘（那是真漏译的
+/// 唯一反馈渠道，不能删），en 侧诊断照旧显示但不提示、不落盘。
+#[test]
+fn test_english_identity_lang_does_not_report_untranslated_gaps() {
+    let run = |home: &Path, ext: &str, src: &str| {
+        let work = tempfile::tempdir().expect("创建工作目录失败");
+        let root = work.path();
+        std::fs::create_dir_all(root.join("src")).expect("创建 src 失败");
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname=\"gapcheck\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join(format!("src/main.{ext}")), src).unwrap();
+        let out = rzc()
+            .env("HOME", home)
+            .env_remove("RZ_LOG")
+            .current_dir(root)
+            .args(["check", &format!("src/main.{ext}")])
+            .output()
+            .expect("运行 rzc 失败");
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let gap_file = home.join(".rz").join("gaps").join(format!("{ext}.tsv"));
+        (text, gap_file)
+    };
+
+    // 两个 HOME 由测试作用域持有（写进闭包会随闭包返回被删，清单永远验不到）
+    let zh_home = isolated_home();
+    let en_home = isolated_home();
+
+    // zh：该条诊断的残段与汇总句仍不在消息表里，因此必须提示 + 落盘——
+    // 它是维护者发现漏译的唯一途径
+    let (zh_text, zh_gaps) = run(
+        zh_home.path(),
+        "zh",
+        "函数 主函数() {\n    让 未用变量 = 1;\n    打印行!(\"ok\");\n}\n",
+    );
+    assert!(
+        zh_text.contains("未使用的变量"),
+        "zh 侧诊断不应被吞：{zh_text}"
+    );
+    assert!(
+        zh_text.contains("暂无译文"),
+        "zh 命中不了消息表时应提示并邀请 `rzc gaps`：{zh_text}"
+    );
+    assert!(zh_gaps.exists(), "zh 侧漏译应落盘到 {}", zh_gaps.display());
+
+    // en：同一句话在恒等语言下不是损失，不得提示也不得落盘
+    let (en_text, en_gaps) = run(
+        en_home.path(),
+        "en",
+        "fn main() {\n    let unused_var = 1;\n    println!(\"ok\");\n}\n",
+    );
+    assert!(
+        en_text.contains("unused variable"),
+        "en 侧诊断必须照旧可见（绝不吞诊断）：{en_text}"
+    );
+    assert!(
+        !en_text.contains("have no translation") && !en_text.contains("暂无译文"),
+        "en 是恒等语言，原句已是最终形态，不该被告知「有消息未译」：{en_text}"
+    );
+    assert!(
+        !en_gaps.exists(),
+        "en 侧不应落盘待译清单（它永远补不完）：{}",
+        en_gaps.display()
+    );
+}
+
 /// `rzc check` 多层模块项目：递归收集 + 非入口文件按层级补 `#[path]`
 ///
 /// 布局：src/main.zh → src/领域.zh → src/领域/工具.zh。此前非入口方言文件
