@@ -182,7 +182,8 @@ fn translate_diagnostic_message_single(
     let ui = crate::ui::global();
 
     // 1. 引擎同口径渲染（与 CLI 完全同源）：错误码表优先→消息表（精确/前缀/
-    //    后缀/通配段）→ {qN}/占位符回填→ type_map 类型中文化。命中任一表即返回。
+    //    后缀/通配段）→ {qN}/占位符回填，回填进来的值走 type_map 类型中文化
+    //（模板字面里作者手写的 `main`/`Box` 之类不参与改写）。命中任一表即返回。
     if let Some(translator) = DIAGNOSTIC_TRANSLATOR.get().and_then(|opt| opt.as_ref())
         && let Some(rendered) = translator.render_main_message(code, message, primary_label)
     {

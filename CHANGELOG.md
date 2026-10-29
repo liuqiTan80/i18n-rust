@@ -403,6 +403,57 @@
   `test_gaps_migrates_legacy_multiline_file_on_next_run`（真实实跑触发迁移）；
   CLI 单元用例 1 条：`render_escapes_multiline_message`。基线 795 → 801。
 
+### 修复
+- **语言包模板里作者手写的反引号英文词不再被双重翻译**：`replace_type_names` 原先在渲染
+  完成后对全文反引号包裹的 token 查 `type_map` 改写，它分不清两类同名反引号词——rustc 填进
+  占位符的类型名（该译）与贡献者写在模板里的源代码语法（不该译）。实机对比（沙箱
+  方言项目 `rzc check src/main.zh`，zh 语言包）：
+
+  ```text
+  修复前：错误[E0601]: 找不到 `主函数` 函数
+  修复后：错误[E0601]: 找不到 `main` 函数
+  ```
+
+  `主函数` 是方言写法，而模板这句话指的是 rustc 原句里的 `main`：双重翻译后读者拿它去搜
+  rustc 文档也搜不到。现按「注入前本地化」收窄：`replace_type_names` 拆成
+  `localize_rustc_literals`（rustc 的 `{integer}`/`{float}` 字面量显示名）、
+  `localize_all_backticks`（全文反引号）与 `localize_token`（单值），模板渲染路径只在写入
+  `{期望}`/`{实际}`、`{变量名}`、`CODE_TEMPLATE_PLACEHOLDERS` 与 `{qN}` 之前对**值**做本地化
+  （`{qN}` 走新增的 `fill_dynamic_placeholders_with`），全文改写只留给「整段就是 rustc 英文
+  原文」的兜底路径（两表未命中、占位符无法回填、英文残段回拼），主链上的双次调用一并取消。
+- 存量已逐条清账：扫描口径为**各语言真实的 `type_map`**（keywords 的 `[类型]` 节 + 模块路径/
+  别名表，只收含非 ASCII 的母语键），11 语言的 `消息模板` 里共 17 处模板字面会被旧机制改写
+  （ar 2 / hi 3 / ja 4 / ko 3 / ru 2 / zh 3），涉词只有 `main`/`Box`/`Rc`/`clone`/`await`。全部是
+  「指认源代码语法」，修复后保持英文即正确，**语言包 TOML 一行未改**。help 通道（`修复建议`）
+  与 CLI 工具通道本就不走该函数，输出不变。
+- 实机反向确认注入值的本地化未降级（同一沙箱项目）：rustc 的 expected/found 原文仍渲染为
+  「期望 `字符串`，实际得到 `字符串引用`」、`{integer}` 仍渲染为「整数」。
+
+### 测试
+- 新增引擎门禁 2 条（成对）：`template_literal_identifiers_survive_localization` 用**真实** `type_map`
+  钉住码表桩与消息表两条路径的模板字面（`main`/`Box`/`Rc`/`&`）原样输出；
+  `injected_rustc_types_are_still_localized` 反向钉住 `{期望}`/`{实际}`、`CODE_TEMPLATE_PLACEHOLDERS`
+  与 `{qN}` 三类注入点仍必须本地化，防止把功能改没。存量 17 处按 `(语言, 错误码, rustc 原文,
+  token)` 四元组逐行进入常量 `TEMPLATE_LITERAL_INVENTORY`，两条门禁各自遍历这张表（正面：译文仍含
+  `` `token` `` 且不含母语改写；反面：同名的注入值必须被译成母语名），并以 `checked` 计数守住「清单
+  里的行没被跑到」。清单的完整性用同口径的一次性扫描核对过（输出总计 17，与表逐行对应）。
+  两条各自带反证（互不重叠，钉的是两个独立方向）：把 `translator.rs`/`message.rs` 退回
+  6339734（或只把渲染收尾改回全文改写）→ 正面门禁转红、反面绿；把 `localize_token` 改成恒等
+  （注入值不本地化）→ 反面门禁转红（译文变成「期望 `String`，实际得到 `&str`」）、正面绿。
+  基线 801 → 803，无既有用例回红。同义词二义确实会咬人：期望值硬写 `可显示` 的初版在 15 轮
+  里翻 7 轮，改为从本进程真表反查后，12 轮 debug + 3 轮 release 的全量门禁逐轮绿。
+  实机侧的反证：把 `translator.rs` 与 `message.rs` 退回 6339734 重跑，正面门禁立即转红
+  （zh 的 E0601 桩回到「找不到 `主函数` 函数」，而实机输出正是上面那行修复前）。
+
+### 说明与取舍
+- 写反向门禁时撞上另一条**独立缺陷**（已登记为 P1 于 [docs/strategy/README.md](docs/strategy/README.md)，
+  本轮不混在一起修）：`build_type_map` 的反查按 `HashMap` 遍历顺序取舍同义词，而真表里
+  同一英文值可有多个母语名（zh 的 `String` ← 字符串/字符串值、`Display` ← 可显示/显示；
+  按引擎自身口径：二义英文值 zh 99 / hi 70 / ar 65 / ja 64 / ko 62 / ru 61），于是 E0277 一类
+  译文**跨进程随机**（同一沙箱项目实机各跑 10 轮：修复前 7:3、修复后 5:5，两版都翻）。
+  两个后果：① 本轮不拿 E0277 作修复前后的对比依据（只销 E0601 那对）；② 门禁用例的期望值
+  从本进程真表反查，否则用例就是在掷随机数。拆同义词胜出（确定序 + 告警）归入那条 P1。
+
 ## [0.8.12] - 2026-10-28
 
 ### 新增

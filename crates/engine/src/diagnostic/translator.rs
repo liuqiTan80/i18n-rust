@@ -1,9 +1,21 @@
 //! 诊断翻译器：结合错误消息翻译表与类型映射，将 rustc 的英文诊断
 //! 转化为面向母语学习者的教学诊断信息。
+//!
+//! ## 类型名本地化只作用于「注入值」
+//!
+//! 语言包 `消息模板` 里同时存在两类反引号英文词：一类是 rustc 填进来的类型名
+//! （`{期望}`/`{实际}`/`{类型}`/`{qN}` 等占位符的值，该按 `type_map` 中文化），
+//! 另一类是作者手写的源代码语法（如 zh `[E0601]` 的「找不到 `main` 函数」、
+//! 「插入一层间接引用（如 `Box`、`Rc` 或 `&`）」，必须保持英文。两者名字相同、
+//! 只能按位置区分，所以本模块把本地化做在**写入模板之前**（`localize_token`），
+//! 模板字面不再参与全文改写；只有「整段文本就是 rustc 英文原文」的兜底路径
+//!（两表未命中、占位符无法回填、英文残段回拼）才走 `replace_type_names` 全文改写。
 
 use std::collections::HashMap;
 
-use super::message::{ErrorTranslationManager, fill_dynamic_placeholders};
+use super::message::{
+    ErrorTranslationManager, fill_dynamic_placeholders, fill_dynamic_placeholders_with,
+};
 use super::model::CompilerDiagnostic;
 use super::teaching::{
     DiagnosticLevel, DiagnosticLocation, TeachingDiagnostic, extract_ownership_details,
@@ -327,7 +339,8 @@ impl DiagnosticTranslator {
     ///
     /// 渲染链与 [`DiagnosticTranslator::translate_diagnostic`] 的主消息分支一致：
     /// 错误码表优先（完整桩/静态模板）→ 消息表（精确/前缀/后缀/通配段 + `{qN}`
-    /// 回填）→ 占位符按序回填 → `type_map` 类型中文化。区别在于不依赖完整
+    /// 回填）→ 占位符按序回填；类型中文化只作用于回填进来的**值**，
+    /// 模板字面不参与（见模块文档）。区别在于不依赖完整
     /// `CompilerDiagnostic`：期望/实际取自 `primary_label`（rustc 主 span 标签），
     /// 其次从消息原文 `expected X, found Y`/前两个反引号类型提取；
     /// `{变量名}`/`{名称}`/`{类型}`/`{特征}` 按序取消息反引号内容。
@@ -358,16 +371,21 @@ impl DiagnosticTranslator {
                 && !expected.is_empty()
                 && !found.is_empty()
             {
+                // 注入前本地化：只有 rustc 报出的类型名进类型映射，模板字面
+                // 里的英文标识符不参与（见 `replace_type_names` 说明）
                 template = template
-                    .replace("{期望}", &expected)
-                    .replace("{实际}", &found);
+                    .replace("{期望}", &self.localize_token(&expected))
+                    .replace("{实际}", &self.localize_token(&found));
             }
             // 其余占位符按出现顺序从消息反引号内容回退填充
             let mut tokens = extract_backtick_tokens(message).into_iter();
             for placeholder in CODE_TEMPLATE_PLACEHOLDERS {
                 if template.contains(placeholder) {
                     match tokens.next() {
-                        Some(token) => template = template.replace(placeholder, &token),
+                        Some(token) => {
+                            let token = self.localize_token(&token);
+                            template = template.replace(placeholder, &token);
+                        }
                         None => break,
                     }
                 }
@@ -379,26 +397,31 @@ impl DiagnosticTranslator {
                 .any(|p| template.contains(p));
             if !unresolved {
                 return Some(RenderedMessage {
-                    text: self.replace_type_names(template),
+                    text: template,
                     hint: entry.teaching_hint.clone(),
                 });
             }
         }
 
-        // 2. 消息表（精确/前缀/后缀/通配段）+ `{qN}` 回填，额外补 type_map 类型中文化
+        // 2. 消息表（精确/前缀/后缀/通配段）+ `{qN}` 回填，注入值额外做类型中文化
         if let Some((entry, rest)) = message_query {
             let mut text = entry.message_template.clone();
             if let Some(rest) = rest {
-                let (filled, consumed) = fill_dynamic_placeholders(&text, &rest);
+                let (filled, consumed) =
+                    fill_dynamic_placeholders_with(&text, &rest, &mut |token| {
+                        self.localize_token(token)
+                    });
                 text = filled;
                 if !consumed {
-                    text.push_str(rest.text());
                     // 残段未被模板消费 → 英文拼回尾巴（兜底），登记待译
+                    //（残段整段是 rustc 原文，按全文口径中文化）
+                    let tail = self.replace_type_names(rest.text().to_string());
+                    text.push_str(&tail);
                     self.note_gap(super::gaps::LEVEL_MAIN, code, message);
                 }
             }
             return Some(RenderedMessage {
-                text: self.replace_type_names(text),
+                text,
                 hint: entry.teaching_hint.clone(),
             });
         }
@@ -437,16 +460,21 @@ impl DiagnosticTranslator {
             .or_else(|| extract_types_from_message(&diagnostic.message))
             .unwrap_or_default();
 
-        // 构建翻译消息
-        let translated_message = if let Some(entry) = matched_entry {
+        // 构建翻译消息。第二个布尔位标记「文本就是 rustc 英文原文」：这类文本
+        // 里的反引号 token 全是 rustc 报出的类型，收尾要统一中文化；模板渲染
+        // 出的文本已在注入点本地化，不能再全文改写（那会把模板字面里指源代码
+        // 语法的 `main`/`Box`/`Rc` 二次翻译）。
+        let (mut translated_message, mut raw_rustc_text) = if let Some(entry) = matched_entry {
             let mut template = entry.message_template.clone();
+            let mut raw = false;
             if !expected.is_empty() && !found.is_empty() {
                 template = template
-                    .replace("{期望}", &expected)
-                    .replace("{实际}", &found);
+                    .replace("{期望}", &self.localize_token(&expected))
+                    .replace("{实际}", &self.localize_token(&found));
             } else if template.contains("{期望}") || template.contains("{实际}") {
                 // 无法提取期望/实际类型时回退 rustc 原文，避免输出裸占位符
                 template = diagnostic.message.clone();
+                raw = true;
                 self.note_gap(
                     super::gaps::LEVEL_MAIN,
                     error_code.as_deref(),
@@ -461,10 +489,15 @@ impl DiagnosticTranslator {
             if code_entry.is_none()
                 && let Some((_, Some(rest))) = message_query
             {
-                let (filled, consumed) = fill_dynamic_placeholders(&template, &rest);
+                let (filled, consumed) =
+                    fill_dynamic_placeholders_with(&template, &rest, &mut |token| {
+                        self.localize_token(token)
+                    });
                 template = filled;
                 if !consumed {
-                    template.push_str(rest.text());
+                    // 残段是 rustc 原文：整段按全文口径中文化后再拼回
+                    let tail = self.replace_type_names(rest.text().to_string());
+                    template.push_str(&tail);
                     self.note_gap(
                         super::gaps::LEVEL_MAIN,
                         error_code.as_deref(),
@@ -472,8 +505,7 @@ impl DiagnosticTranslator {
                     );
                 }
             }
-            // 对模板中的类型名进行中文化替换
-            self.replace_type_names(template)
+            (template, raw)
         } else {
             // 错误码表与消息表均未命中：原样显示英文（兜底），登记待译清单
             self.note_gap(
@@ -481,7 +513,7 @@ impl DiagnosticTranslator {
                 error_code.as_deref(),
                 &diagnostic.message,
             );
-            self.replace_type_names(diagnostic.message.clone())
+            (diagnostic.message.clone(), true)
         };
 
         let mut teaching_hints = Vec::new();
@@ -568,10 +600,10 @@ impl DiagnosticTranslator {
             .as_deref()
             .and_then(|code| extract_ownership_details(code, diagnostic));
 
-        // 翻译消息中含 {变量名} 占位符时，用提取到的变量名填充
-        let mut translated_message = translated_message;
+        // 翻译消息中含 {变量名} 占位符时，用提取到的变量名填充（同上面注入点口径）
         if let Some(details) = &ownership_details {
-            translated_message = translated_message.replace("{变量名}", &details.var_name);
+            let var = self.localize_token(&details.var_name);
+            translated_message = translated_message.replace("{变量名}", &var);
         }
 
         // 其余占位符（{变量名}/{名称}/{类型}/{特征}/{模块名}/{字段名} 等）
@@ -583,18 +615,24 @@ impl DiagnosticTranslator {
             if translated_message.contains(placeholder) {
                 match tokens.next() {
                     Some(token) => {
+                        let token = self.localize_token(&token);
                         translated_message = translated_message.replace(placeholder, &token);
                     }
                     None => {
                         translated_message = diagnostic.message.clone();
+                        raw_rustc_text = true;
                         break;
                     }
                 }
             }
         }
-        // 占位符填充的才是运行时实际类型名，需再次中文化
-        //（如 E0277 的 `std::fmt::Display` → `std::fmt::显示`、`{integer}` → `整数`）
-        translated_message = self.replace_type_names(translated_message);
+        // rustc 原文兜底路径（两表未命中、占位符无法回填）里的反引号 token
+        // 就是 rustc 报出的类型名，在此统一中文化（如 `std::fmt::Display` →
+        // `标准库::格式化::可显示`、`{integer}` → `整数`）；模板路径已在注入点
+        // 本地化，不能再跑一遍——那会改写模板字面里作者手写的英文标识符。
+        if raw_rustc_text {
+            translated_message = self.replace_type_names(translated_message);
+        }
 
         let children = diagnostic
             .children
@@ -614,19 +652,38 @@ impl DiagnosticTranslator {
         }
     }
 
-    /// 使用类型映射替换消息中的英文类型名
+    /// 使用类型映射替换消息中的英文类型名（**全文改写**）
+    ///
+    /// 只用于「整段文本就是 rustc 英文原文」的兜底路径（两表未命中、无法提取
+    /// 期望/实际而回拼原句）：原文里的每个反引号 token 都是 rustc 报出的类型，
+    /// 该译的就译。模板渲染路径**不得**调用本函数——那里的反引号 token 混着
+    /// 作者写的源代码语法（`main`/`Box`/`Rc`），会被双重翻译；模板路径改为在
+    /// 注入前用 [`localize_token`](Self::localize_token) 处理 rustc 的实际值。
     fn replace_type_names(&self, message: String) -> String {
+        let result = self.localize_rustc_literals(message);
+        self.localize_all_backticks(result)
+    }
+
+    /// rustc 自身对数字字面量的占位显示名按全局语言替换
+    ///
+    /// rustc 未推断字面量占位符（`{integer}`/`{float}`）及 1.97+ 裸显示名
+    /// （`integer`/`floating-point number`）；裸 integer 用整词匹配，避免误伤
+    /// to_integer/integer_count 等标识符。
+    fn localize_rustc_literals(&self, message: String) -> String {
         let mut result = message;
-        // rustc 未推断字面量占位符（`{integer}`/`{float}`）及 1.97+ 裸显示名
-        // （`integer`/`floating-point number`）按全局语言翻译；
-        // 裸 integer 用整词匹配，避免误伤 to_integer/integer_count 等标识符
         result = result
             .replace("{integer}", &crate::语言::t("diag_rustc_integer"))
             .replace("{float}", &crate::语言::t("diag_rustc_float"))
             .replace("floating-point number", &crate::语言::t("diag_rustc_float"));
-        result = replace_whole_word(&result, "integer", &crate::语言::t("diag_rustc_integer"));
-        // 类型映射：仅替换反引号包裹的完整类型名（rustc 诊断中的类型均在反引号内），
-        // 避免 "str"→"文本" 等短条目把消息中的 "string" 部分替换成 "文本ing"
+        replace_whole_word(&result, "integer", &crate::语言::t("diag_rustc_integer"))
+    }
+
+    /// 对文本里**所有**反引号 token 做类型中文化（供 rustc 英文残段兜底使用）
+    ///
+    /// 仅替换反引号包裹的完整类型名（rustc 诊断中的类型均在反引号内），
+    /// 避免 "str"→"文本" 等短条目把消息中的 "string" 部分替换成 "文本ing"。
+    fn localize_all_backticks(&self, text: String) -> String {
+        let mut result = text;
         for token in extract_backtick_tokens(&result) {
             if let Some(zh) = self.type_map.get(&token) {
                 result = result.replace(&format!("`{}`", token), &format!("`{}`", zh));
@@ -637,6 +694,19 @@ impl DiagnosticTranslator {
             }
         }
         result
+    }
+
+    /// 本地化**单个**由 rustc 注入模板的值（类型名、条目名、变量名等）
+    ///
+    /// 解析顺序与 [`localize_all_backticks`](Self::localize_all_backticks) 内的
+    /// 循环完全一致（字面量显示名 → `type_map` 整项 → 三段式路径 → 原样），
+    /// 保证「注入前本地化」与旧的「全文改写」对同一 rustc 值给出同一结果。
+    fn localize_token(&self, token: &str) -> String {
+        let literal = self.localize_rustc_literals(token.to_string());
+        if let Some(localized) = self.type_map.get(&literal) {
+            return localized.clone();
+        }
+        localize_type_token(&literal, &self.type_map).unwrap_or(literal)
     }
 
     /// 批量翻译诊断列表

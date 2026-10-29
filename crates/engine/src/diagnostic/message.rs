@@ -252,6 +252,22 @@ fn match_segments<'b>(key: &str, message: &'b str) -> Option<Vec<&'b str>> {
 /// 返回 (填充后的模板, 是否发生了填充)；捕获不足时原样返回模板，
 /// 由调用方决定是否拼接动态原文，避免中英文混排或信息凭空丢失。
 pub fn fill_dynamic_placeholders(template: &str, rest: &MessageRest<'_>) -> (String, bool) {
+    fill_dynamic_placeholders_with(template, rest, &mut |token| token.to_string())
+}
+
+/// [`fill_dynamic_placeholders`] 的可注入本地化版本
+///
+/// `localize` 作用在**每个即将写进模板的动态捕获值**上（`{q0}`/`{q1}`/`{q2}`
+/// 的原文内容），一次一处：调用方因此能区分「rustc 注入的类型名」与
+/// 「作者写在模板字面里的英文标识符」——后者不该被类型映射改写（如 zh 模板
+/// 「插入一层间接引用（如 `Box`、`Rc` 或 `&`）」里的 `Box` 指源代码语法，
+/// 改成 `盒子` 反而让读者找不到该写什么）。JSON 主消息走此入口，help 通道与
+/// 审计/工具通道继续用 [`fill_dynamic_placeholders`]（恒等闭包），行为不变。
+pub fn fill_dynamic_placeholders_with(
+    template: &str,
+    rest: &MessageRest<'_>,
+    localize: &mut dyn FnMut(&str) -> String,
+) -> (String, bool) {
     let mut result = template.to_string();
     let mut consumed_any = false;
     // 占位符编号上界：前缀/后缀键的启发式只区分 q0/q1；q2 仅对通配段键
@@ -289,7 +305,7 @@ pub fn fill_dynamic_placeholders(template: &str, rest: &MessageRest<'_>) -> (Str
             };
             match content {
                 Some(content) if !content.is_empty() => {
-                    result = result.replace(&placeholder, content);
+                    result = result.replace(&placeholder, &localize(content));
                     consumed_any = true;
                 }
                 // 捕获为空或失败：原样回退，交由调用方拼接原文

@@ -378,10 +378,10 @@ no substitution at all.
 | `lsp_gen_lib_comment` | 0 | `crates/lsp/src/translation_cache.rs:1119` | — | // 由 i18n-rust LSP 代理自动生成，请勿手动修改。 |
 | `lsp_gen_module_fallback` | 0 | `crates/lsp/src/translation_cache.rs:1135` | — | 模块 |
 | `lsp_help_opt` | 0 | `crates/lsp/src/main.rs:113` | — | --help, -h 显示帮助信息 |
-| `lsp_hint_add_dependency` | 1 | `crates/lsp/src/response_map/diag_text.rs:213` | crate_name | 💡 教学提示：若这是未声明的第三方库，运行 `rzc add {}` 添加依赖。 |
-| `lsp_hint_cannot_find` | 0 | `crates/lsp/src/response_map/diag_text.rs:205` | — | 💡 教学提示：请检查名称拼写是否正确，以及是否已通过 use 导入。 |
-| `lsp_hint_mismatched_types` | 0 | `crates/lsp/src/response_map/diag_text.rs:203` | — | 💡 教学提示：Rust 是强类型语言，请确保赋值和函数参数的类型一致。 |
-| `lsp_hint_unused` | 0 | `crates/lsp/src/response_map/diag_text.rs:207` | — | 💡 教学提示：未使用的变量可以用下划线 _ 前缀标记，如 _变量名。 |
+| `lsp_hint_add_dependency` | 1 | `crates/lsp/src/response_map/diag_text.rs:214` | crate_name | 💡 教学提示：若这是未声明的第三方库，运行 `rzc add {}` 添加依赖。 |
+| `lsp_hint_cannot_find` | 0 | `crates/lsp/src/response_map/diag_text.rs:206` | — | 💡 教学提示：请检查名称拼写是否正确，以及是否已通过 use 导入。 |
+| `lsp_hint_mismatched_types` | 0 | `crates/lsp/src/response_map/diag_text.rs:204` | — | 💡 教学提示：Rust 是强类型语言，请确保赋值和函数参数的类型一致。 |
+| `lsp_hint_unused` | 0 | `crates/lsp/src/response_map/diag_text.rs:208` | — | 💡 教学提示：未使用的变量可以用下划线 _ 前缀标记，如 _变量名。 |
 | `lsp_install_already` | 1 | `crates/cli/src/install.rs:52` | &target.display().to_string() | ✅ 语言服务器 i18n-rust-lsp 已安装：{}（如需重装请加 --force） |
 | `lsp_install_cargo` | 1 | `crates/cli/src/install.rs:112` | version | 正在通过 cargo 从 crates.io 安装 i18n-rust-lsp {} ... |
 | `lsp_install_done` | 1 | `crates/cli/src/install.rs:124` | version | ✅ 语言服务器 i18n-rust-lsp {} 安装完成。 |
@@ -448,7 +448,7 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `diag_fix_suggestion` | 1 | `crates/engine/src/diagnostic/translator.rs:534` | &hint | 修复建议：{} |
+| `diag_fix_suggestion` | 1 | `crates/engine/src/diagnostic/translator.rs:566` | &hint | 修复建议：{} |
 | `diag_kind_error` | 0 | `crates/engine/src/语言.rs:320`<br>`crates/engine/src/diagnostic/teaching.rs:47` | — | 错误 |
 | `diag_kind_help` | 0 | `crates/engine/src/diagnostic/teaching.rs:50` | — | 帮助 |
 | `diag_kind_ice` | 0 | `crates/engine/src/diagnostic/teaching.rs:51` | — | 内部编译器错误 |
@@ -459,9 +459,9 @@ no substitution at all.
 | `diag_ownership_conflict` | 1 | `crates/engine/src/diagnostic/teaching.rs:143` | var | 变量 `{}` 存在所有权冲突。 |
 | `diag_ownership_moved` | 2 | `crates/engine/src/diagnostic/teaching.rs:137` | var / &mv.line_start.to_string() | 变量 `{}` 在第 {} 行被移动。 |
 | `diag_ownership_moved_reused` | 3 | `crates/engine/src/diagnostic/teaching.rs:121` | var / &mv.line_start.to_string() / &reuse.line_start.to_string() | 变量 `{}` 在第 {} 行被移动，第 {} 行尝试再次使用。 |
-| `diag_ref_depth_hint` | 2 | `crates/engine/src/diagnostic/translator.rs:551` | &localize_ref_type(&expected, &se… / &localize_ref_type(&found, &self.… | 引用层数不匹配：期望 `{}`，实际是 `{}`。检查 `&` 的数量：实参前补 `&`，或让参数类型去掉多余的 `&`。 |
-| `diag_rustc_float` | 0 | `crates/lsp/src/response_map/diag_text.rs:118`<br>`crates/lsp/src/response_map/diag_text.rs:121`<br>`crates/engine/src/diagnostic/translator.rs:625` | — | 浮点数 |
-| `diag_rustc_integer` | 0 | `crates/lsp/src/response_map/diag_text.rs:117`<br>`crates/lsp/src/response_map/diag_text.rs:123`<br>`crates/engine/src/diagnostic/translator.rs:624` | — | 整数 |
+| `diag_ref_depth_hint` | 2 | `crates/engine/src/diagnostic/translator.rs:583` | &localize_ref_type(&expected, &se… / &localize_ref_type(&found, &self.… | 引用层数不匹配：期望 `{}`，实际是 `{}`。检查 `&` 的数量：实参前补 `&`，或让参数类型去掉多余的 `&`。 |
+| `diag_rustc_float` | 0 | `crates/lsp/src/response_map/diag_text.rs:118`<br>`crates/lsp/src/response_map/diag_text.rs:121`<br>`crates/engine/src/diagnostic/translator.rs:676` | — | 浮点数 |
+| `diag_rustc_integer` | 0 | `crates/lsp/src/response_map/diag_text.rs:117`<br>`crates/lsp/src/response_map/diag_text.rs:123`<br>`crates/engine/src/diagnostic/translator.rs:675` | — | 整数 |
 
 ## Engine: Unicode character names (dynamic, by codepoint)
 

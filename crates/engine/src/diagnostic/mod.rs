@@ -1290,9 +1290,11 @@ mod tests {
     /// 新手从 `is not a valid ASCII identifier` 读不出「该改 Cargo.toml 的包名」。
     ///
     /// 断言用实机采集的原文，锁住通配段键命中与 `{q0}`/`{q1}` 回填；顺带锁一条渲染陷阱：
-    /// `replace_type_names` 会按类型映射改写译文里**任何**反引号英文 token（zh 的
-    /// stdlib 表里 `线程名` = `name`），模板若写「把 `name` 改成 ASCII 名」会被改成
-    /// 「把 `线程名` 改成 ASCII 名」——故 zh 模板不加反引号，末尾按 CLI 同口径复现一次。
+    /// 主消息曾在渲染完成后对全文反引号 token 查类型映射（zh 的 stdlib 表里 `线程名` =
+    /// `name`），模板若写「把 `name` 改成 ASCII 名」会被改成「把 `线程名` 改成 ASCII 名」。
+    /// 现在类型中文化只作用于 rustc **注入**的值，模板字面标识符原样保留（见
+    /// `template_literal_identifiers_survive_localization`）；zh 模板当年为规避旧机制写的
+    /// 不带反引号措辞保留不动，断言继续钉住「读者不会被告知去改一个不存在的东西」。
     #[test]
     fn non_ascii_extern_crate_name_is_localized_in_all_lang_packs() {
         use crate::mapping_manager::MappingManager;
@@ -1342,6 +1344,240 @@ mod tests {
             !rendered.text.contains("线程名"),
             "zh 模板里的反引号英文词被类型映射改写了，读者会被告知去改一个不存在的东西：{}",
             rendered.text
+        );
+    }
+
+    /// 存量清单：用各语言**真实** `type_map` 扫出的「`消息模板` 字面里会被旧机制
+    /// 改写」的反引号 token，共 17 处（ar 2 / hi 3 / ja 4 / ko 3 / ru 2 / zh 3），
+    /// 涉词只有 `main`/`Box`/`Rc`/`clone`/`await`。
+    ///
+    /// 每行为 `(语言, 错误码或 None, 送进渲染的 rustc 原文（或消息表键）, 模板字面 token)`：
+    /// 扫描口径与渲染同构（先 `type_map` 整项命中、再走三段式路径），故清单外的模板
+    /// 字面本来就不会被改写，不需列入。`crate::...` 这类路径字面已验证不命中。
+    const INDIRECTION: &str =
+        "insert some indirection (e.g., a `Box`, `Rc`, or `&`) to break the cycle";
+    const CLONE_AND_CONSUME: &str =
+        "you can `clone` the value and consume it, but this might not be your desired behavior";
+    const NO_MAIN_FUNCTION: &str = "`main` function not found in crate `demo`";
+    const AWAIT_OUTSIDE_ASYNC: &str = "`await` is only allowed inside `async` functions and blocks";
+
+    const TEMPLATE_LITERAL_INVENTORY: &[(&str, Option<&str>, &str, &str)] = &[
+        ("ar", None, INDIRECTION, "Box"),
+        ("ar", None, INDIRECTION, "Rc"),
+        ("hi", Some("E0728"), AWAIT_OUTSIDE_ASYNC, "await"),
+        ("hi", None, INDIRECTION, "Box"),
+        ("hi", None, INDIRECTION, "Rc"),
+        ("ja", Some("E0601"), NO_MAIN_FUNCTION, "main"),
+        ("ja", None, INDIRECTION, "Box"),
+        ("ja", None, INDIRECTION, "Rc"),
+        ("ja", None, CLONE_AND_CONSUME, "clone"),
+        ("ko", None, INDIRECTION, "Box"),
+        ("ko", None, INDIRECTION, "Rc"),
+        ("ko", None, CLONE_AND_CONSUME, "clone"),
+        ("ru", None, INDIRECTION, "Box"),
+        ("ru", None, INDIRECTION, "Rc"),
+        ("zh", Some("E0601"), NO_MAIN_FUNCTION, "main"),
+        ("zh", None, INDIRECTION, "Box"),
+        ("zh", None, INDIRECTION, "Rc"),
+    ];
+
+    /// 用指定语言的**内置语言包**与真实 `type_map` 构建翻译器（两条注入点门禁共用）。
+    ///
+    /// 同时返回该语言的 `type_map`：断言里的「该译成什么」从真表反查，不靠人背；
+    /// 也不造合成映射——要钉住的恰好是「哪些词在真表里会被改写」。
+    fn lang_pack_with_real_type_map(lang: &str) -> (DiagnosticTranslator, HashMap<String, String>) {
+        use crate::mapping_manager::MappingManager;
+        let lang_dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("lang-packs/{lang}"));
+        let type_map = build_type_map(
+            &MappingManager::load_from_dir(&lang_dir)
+                .unwrap_or_else(|e| panic!("{lang} 语言包应可加载：{e}")),
+        );
+        let files = crate::语言::builtin_lang_files(lang);
+        let errors_toml = files
+            .iter()
+            .find(|(name, _)| *name == "errors.toml")
+            .map(|(_, content)| *content)
+            .unwrap_or_else(|| panic!("{lang} 语言包缺少 errors.toml"));
+        let manager = ErrorTranslationManager::load_from_string(errors_toml)
+            .unwrap_or_else(|e| panic!("{lang} errors.toml 解析失败：{e}"));
+        (
+            DiagnosticTranslator::new(manager, type_map.clone()),
+            type_map,
+        )
+    }
+
+    /// 门禁：语言包模板里**作者手写**的反引号英文标识符不得被类型映射改写。
+    ///
+    /// 起因：`replace_type_names` 原先对渲染结果全文扫反引号 token 并查 `type_map`，
+    /// 于是 zh `[E0601]` 的模板「找不到 `main` 函数」在终端显示成「找不到 `主函数` 函数」
+    /// （`主函数` 是方言写法，而这里指的是 rustc 原句里的函数名）：双重翻译后与
+    /// rustc 原句对不上，读者拿 `主函数` 去搜 rustc 文档也搜不到。同类模板字面按真实
+    /// `type_map` 扫出 17 处（见 `TEMPLATE_LITERAL_INVENTORY`），全部是「指认源代码语法」，
+    /// 必须保持英文——清单逐行钉住，新增同类模板会红。
+    #[test]
+    fn template_literal_identifiers_survive_localization() {
+        let _guard = crate::语言::test_language("zh");
+
+        // 码表桩路径：模板字面原样送达终端（实机 E0601 的 rustc 原文）
+        let (translator, _) = lang_pack_with_real_type_map("zh");
+        let rendered = translator
+            .render_main_message(Some("E0601"), NO_MAIN_FUNCTION, None)
+            .expect("zh 应命中 [E0601] 码表桩");
+        assert_eq!(rendered.text, "找不到 `main` 函数");
+
+        // 消息表路径：`Box`/`Rc` 不被改成「盒子/引用计数」（`&` 不在真表里，本来就不改）
+        let rendered = translator
+            .render_main_message(None, INDIRECTION, None)
+            .expect("zh 应命中该消息表条目");
+        assert_eq!(
+            rendered.text,
+            "插入一层间接引用（如 `Box`、`Rc` 或 `&`）以打破递归环"
+        );
+
+        // 存量清单逐行：模板字面的英文 token 保留原样，母语改写不得出现在译文里
+        let mut checked = 0;
+        for lang in ["ar", "hi", "ja", "ko", "ru", "zh"] {
+            let (translator, type_map) = lang_pack_with_real_type_map(lang);
+            for (row_lang, code, message, token) in TEMPLATE_LITERAL_INVENTORY {
+                if *row_lang != lang {
+                    continue;
+                }
+                let rendered = translator
+                    .render_main_message(*code, message, None)
+                    .unwrap_or_else(|| {
+                        panic!("{lang} 应命中含模板字面 `{token}` 的条目：{message}")
+                    });
+                let localized = &type_map[*token];
+                assert!(
+                    rendered.text.contains(&format!("`{token}`")),
+                    "{lang} 的模板字面 `{token}` 丢失，读者按它去搜 rustc/源码就找不到：{}",
+                    rendered.text
+                );
+                assert!(
+                    !rendered.text.contains(localized),
+                    "{lang} 的模板字面 `{token}` 又被改写成 `{localized}`，双重翻译会让读者被告知去搜一个 rustc 从不写出的词：{}",
+                    rendered.text
+                );
+                checked += 1;
+            }
+        }
+        assert_eq!(
+            checked,
+            TEMPLATE_LITERAL_INVENTORY.len(),
+            "清单里的行没被执行到（改了清单要同步上面的语言列表）"
+        );
+    }
+
+    /// 门禁（反向）：rustc **注入**模板的值仍必须被本地化。
+    ///
+    /// 与 `template_literal_identifiers_survive_localization` 成对：本轮只收窄
+    /// 「全文改写」的作用域，不能把功能一并改没——`type_map` 对真实类型名
+    /// （`String`/`&str`/`std::fmt::Display`/`{integer}`）的本地化必须照旧生效，
+    /// 三类注入点（`{期望}`/`{实际}`、`CODE_TEMPLATE_PLACEHOLDERS`、`{qN}`）任一漏
+    /// 做本地化，母语读者就会在母语句子里看到夹着的英文类型名。
+    /// 下半段拿存量 17 处清单的同名 token 反向跑一遍：这些词「写在模板里」要保留
+    /// 英文，「由 rustc 填进来」则必须译成母语名——两侧共用一张表，防的是只改一边。
+    ///
+    /// 期望值一律从**本进程的 `type_map`** 反查，不硬写母语名：真表里同一个英文值可以
+    /// 被多个母语同义词映射（zh 的 `String` ← 字符串/字符串值、`Display` ← 可显示/显示），
+    /// 而 `build_type_map` 的反查是 `HashMap` 遍历顺序上的 `entry().or_insert()`，谁胜出
+    /// 跨进程不稳定（已登记为 strategy P1）。本门禁钉的是「注入值必须被本地化」，
+    /// 不是「哪个同义词胜出」；硬写具体词会让用例变成掷随机数（实测 15 轮翻 7 轮）。
+    #[test]
+    fn injected_rustc_types_are_still_localized() {
+        let _guard = crate::语言::test_language("zh");
+        let (translator, type_map) = lang_pack_with_real_type_map("zh");
+
+        // {期望}/{实际}：取自 span label 与消息原文的裸类型串
+        let rendered = translator
+            .render_main_message(Some("E0308"), "expected `String`, found `&str`", None)
+            .expect("zh 应命中 [E0308]");
+        assert_eq!(
+            rendered.text,
+            format!(
+                "类型不匹配：期望 `{}`，实际得到 `{}`",
+                type_map["String"], type_map["&str"]
+            ),
+            "{{期望}}/{{实际}} 的注入值未按本进程真表本地化"
+        );
+
+        // CODE_TEMPLATE_PLACEHOLDERS：{类型}/{特征} 按序取消息反引号内容，
+        // 带模块路径的类型走三段式本地化（std::fmt::Display → 逐段换成母语名）
+        let rendered = translator
+            .render_main_message(
+                Some("E0277"),
+                "`点` doesn't implement `std::fmt::Display`",
+                None,
+            )
+            .expect("zh 应命中 [E0277]");
+        assert_eq!(
+            rendered.text,
+            format!(
+                "类型 `点` 未实现特征 `{}::{}::{}`",
+                type_map["std"], type_map["fmt"], type_map["Display"]
+            ),
+            "带路径的注入值未走三段式本地化（本进程真表为准）"
+        );
+
+        // rustc 的字面量占位符 {integer}：注入值同样要走字面量显示名替换
+        let rendered = translator
+            .render_main_message(Some("E0369"), "cannot add `{integer}` to `&str`", None)
+            .expect("zh 应命中 [E0369]");
+        assert_eq!(
+            rendered.text,
+            // 本用例已跑在 `test_language("zh")` 下，模板与 `{integer}` 显示名
+            // 都取 zh 字面（不在此引 `diag_rustc_integer` 键，以免把生产代码的
+            // 引用位从 docs/ui-keys.en.md 的前三角里挤掉）
+            format!(
+                "类型不匹配：无法对 `整数` 和 `{}` 执行运算",
+                type_map["&str"]
+            ),
+            "{{integer}} 字面量或 `&str` 未按本进程真表本地化"
+        );
+
+        // {qN} 通配段捕获：注入的 crate 名保留、参数标识符 `--extern` 不被当成类型改写
+        let rendered = translator
+            .render_main_message(
+                None,
+                "crate name `计算器` passed to `--extern` is not a valid ASCII identifier",
+                None,
+            )
+            .expect("zh 应命中 --extern 非 ASCII 包名的消息表条目");
+        assert!(
+            rendered.text.contains("计算器") && rendered.text.contains("--extern"),
+            "{{qN}} 注入值渲染异常：{}",
+            rendered.text
+        );
+
+        // 存量清单的同一批 token，换成 rustc 注入值（填进 `{期望}`）后必须被本地化：
+        // 「写在模板里」与「由 rustc 填进来」走的是两套口径，只改一边就算不上修好。
+        // E0308 的 11 语言模板都写 `{期望}`/`{实际}`，拿它做载体；另一端填一个表里
+        // 没有的 `ZzQq`，保证只有被检 token 这一侧发生替换。
+        let mut checked = 0;
+        for lang in ["ar", "hi", "ja", "ko", "ru", "zh"] {
+            let (translator, type_map) = lang_pack_with_real_type_map(lang);
+            for (row_lang, _, _, token) in TEMPLATE_LITERAL_INVENTORY {
+                if *row_lang != lang {
+                    continue;
+                }
+                let localized = &type_map[*token];
+                let message = format!("expected `{token}`, found `ZzQq`");
+                let rendered = translator
+                    .render_main_message(Some("E0308"), &message, None)
+                    .unwrap_or_else(|| panic!("{lang} 应命中 [E0308] 码表桩"));
+                assert!(
+                    rendered.text.contains(&format!("`{localized}`")),
+                    "{lang} 下 rustc 注入的 `{token}` 未本地化成 `{localized}`（注入点漏做中文化，读者会在母语句子里看到英文）：{}",
+                    rendered.text
+                );
+                checked += 1;
+            }
+        }
+        assert_eq!(
+            checked,
+            TEMPLATE_LITERAL_INVENTORY.len(),
+            "清单里的行没被执行到（改了清单要同步上面的语言列表）"
         );
     }
 

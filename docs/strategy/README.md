@@ -66,10 +66,33 @@
   因此偏大。已修：`gap_line` 写入前转义 `\n`/`\r`/`\t`/`\\`，`parse_gap_lines` 读取时还原，
   并拼回历史裸续行到上一条记录；`flush_gaps_to_dir` 整档重写（而非追加）触发格式迁移；
   `rzc gaps --export` 也走转义。一致性由 3 条新测试 + 1 条 CLI 集成用例钉住
-- 消息模板里**作者手写的**反引号英文词会被 `replace_type_names` 按类型映射改写（zh stdlib 表里
-  `线程名` = `name`，本轮第一版 zh 模板因此输出「请把 Cargo.toml 里的 `线程名` 改成 ASCII 名」）。
-  本轮靠改措辞 + 用例绕开，没动机制。可选修法：只对 `{qN}` 回填进来的 token 做中文化，模板字面
-  文本不参与；先把存量模板里同类误改写梳一遍再动手，否则可能把已经「错得习惯」的文案改红
+- **（已落地）** 消息模板里**作者手写的**反引号英文词会被 `replace_type_names` 按类型映射改写（zh stdlib 表里
+  `线程名` = `name`，当时第一版 zh 模板因此输出「请把 Cargo.toml 里的 `线程名` 改成 ASCII 名」）。
+  当时靠改措辞 + 用例绕开，没动机制。现已按「注入前本地化」根治：`replace_type_names` 拆成
+  `localize_rustc_literals`/`localize_all_backticks`/`localize_token` 三层，模板渲染路径只在写入
+  `{期望}`/`{实际}`/`CODE_TEMPLATE_PLACEHOLDERS`/`{qN}` 前对**值**做中文化（`{qN}` 走新增的
+  `fill_dynamic_placeholders_with`），全文改写只留给「整段就是 rustc 英文原文」的兜底（两表未命中、
+  占位符无法回填、英文残段回拼），也顺带消除了主链上的双次调用。按各语言**真实** `type_map` 扫出的
+  存量 17 处模板字面（ar 2 / hi 3 / ja 4 / ko 3 / ru 2 / zh 3，涉词仅 `main`/`Box`/`Rc`/`clone`/`await`）
+  逐条复核均为「指认源代码语法」，修复后保持英文即正确，故 TOML 一行未改。help 通道与工具通道
+  本就不走该函数，行为不变。
+  一致性由 `template_literal_identifiers_survive_localization`（E0601 实机输出从「找不到 `主函数` 函数」
+  回到「找不到 `main` 函数」，并把 17 处清单 `TEMPLATE_LITERAL_INVENTORY` 逐行钉住）与反向门禁
+  `injected_rustc_types_are_still_localized`（同表同名 token 作为注入值时仍必须被译成母语名，
+  `{期望}`/`{实际}`/带路径类型/`{integer}` 同样照旧）成对钉住；两条各带自己的反证：退回旧实现（或
+  只把渲染收尾改回全文改写）正面红、退回反面（`localize_token` 改恒等）反面红
+- 诊断译文的「同义名胜出」跨进程不稳定（本轮写反向门禁时撞上，已登记而非本轮修）：
+  `build_type_map` 把语言包正表反转为「英文名 → 母语名」时，用 `HashMap` 遍历顺序上的
+  `entry(英文).or_insert(母语)` / `insert` 取舍，而真表允许同一英文值被多个母语同义词映射——
+  按引擎自身的加载口径统计，二义英文值 zh 99 / hi 70 / ar 65 / ja 64 / ko 62 / ru 61（共 421），
+  含 `String` ← 字符串/字符串值、`Display` ← 可显示/显示、`clone` ← 克隆/克隆值、`fmt` ←
+  格式化/格式化层/格式化模块。后果是同一份代码两次 `rzc check` 可能给出
+  「`标准库::格式化::可显示`」与「`标准库::格式化::显示`」两种译文（实机各跑 10 轮：
+  修复前 7:3、修复后 5:5，两版都翻）——读者拿译文去搜文档时会偶尔搜不到，且任何拿字面串
+  做期望的用例都会变成掷随机数。修法候选：反转时先按确定序（语言包文件内出现序或母语名
+  字典序）取首，并考虑给 `check-lang-packs.py` 加一条「同英文值多母语名」告警（归入现有
+  告警基线）；本轮先把 `injected_rustc_types_are_still_localized` 的期望值改为从**本进程真表**
+  反查，不再硬写具体同义词
 - **（2026-10-28 已修）** bin+lib 的第 ② 条墙：主程序 `使用 calc::翻倍;` 报 E0432 时，rustc 的
   `cargo add calc` 建议与 rzc 追加提示都把**自有 crate**说成第三方库，而 Cargo 拒绝包依赖自己
   （`cannot add ... to itself`）。现在按本地包名（`[package] name` 的 `-`→`_` + `[lib] name`）

@@ -186,6 +186,13 @@ rzc check 反例.zh --lang-pack /tmp/pack
 python3 -c "import tomllib,pathlib;[print(d.name, len(tomllib.loads((d/'errors.toml').read_text(encoding='utf-8')).get('消息翻译', {}))) for d in sorted(pathlib.Path('crates/engine/lang-packs').iterdir()) if (d/'errors.toml').is_file()]"
 ```
 
+模板里的反引号还有一条写入规则：**只有 `{qN}`（及其他占位符）填进来的值会被类型映射中文化**，
+你写在模板字面里的英文标识符按原样呈现。rustc 报出的 `std::fmt::Display` 因此会变成
+`标准库::格式化::可显示`，而模板里的 `Box`、`Rc`、`main` 这类（指源代码语法，不是用户的类型）
+不会被改写成 `盒子`、`引用计数`、`主函数`。早先引擎在渲染完成后对全文反引号 token 查表改写，
+按各语言真实映射表共 17 处模板字面会被误改写（ar 2 / hi 3 / ja 4 / ko 3 / ru 2 / zh 3，已逐行钉进
+引擎门禁 `TEMPLATE_LITERAL_INVENTORY`）。需要显示母语名，就直接在模板里写母语名。
+
 ### 2.8 AI 方言生成的 few-shot 示例（ai-examples.md，可选）
 
 VS Code 扩展的 AI 命令（`i18n-rust.aiChat` / `i18n-rust.aiGenerate`）会把本文件原文注入系统
