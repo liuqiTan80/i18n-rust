@@ -28,6 +28,16 @@
   勿误判为回归。
 
 ### 修复
+- `[E0603]` 的 10 语言模板收口为「不点名种类 + 保留条目名」。zh/ja/ru/de/es/fr/pt/ko/
+  hi/ar 原写作「模块是私有的」：rustc 对 E0603 按实际种类输出 module / constant /
+  function，遇到常量或函数私有就答错种类，且不给条目名，读者不知路径上哪一层断了。
+  现统一为「`{名称}` + 私有」句式（ru「Доступ к `{}` закрыт」、es「es de acceso
+  privado」、fr「`: accès privé`」、pt「`: acesso privado`」、ar「الوصول إلى … غير
+  مسموح」等中性述语避开名词性数格），教学提示同步改为「默认全私有：模块、函数、常量、
+  结构体字段；沿路径从左到右在编译器指向的层加 `公开`」。门禁
+  `code_templates_do_not_misname_item_kind` 扩到 11 语言 × E0603（用 `constant
+  SECRET` 反证，zh 抄回旧文案实测转红），zh 第十七章与附录 C 的示例输出已换成实机
+  结果「`药品柜` 是私有的」。
 - E0502 的所有权叙事不再把两个行号读反。rustc 对 E0502 的主 span 是**被拒绝的那次可变
   借用**（"mutable borrow occurs here"），子 span 才是 "immutable borrow occurs here" /
   "immutable borrow later used here"；旧实现把主 span 当「借用发生」、later-used 当「仍在

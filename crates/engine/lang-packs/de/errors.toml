@@ -191,8 +191,8 @@
 "教学提示" = "Die aufgerufene Methode existiert nicht auf diesem Typ. Prüfen Sie die Schreibweise des Methodennamens oder importieren Sie das Trait, das sie bereitstellt."
 
 [E0603]
-"消息模板" = "Modul ist privat"
-"教学提示" = "Module sind standardmäßig privat. Für den Zugriff von außen deklarieren Sie es mit `offen modul xxx;`."
+"消息模板" = "`{名称}` ist privat"
+"教学提示" = "In Rust ist standardmäßig alles privat: Module, Funktionen, Konstanten, Strukturfelder. Gehen Sie den Pfad von links nach rechts und setzen Sie `offen` auf der Ebene, die der Compiler nennt."
 
 [E0610]
 "消息模板" = "Typ hat keine Felder"

@@ -191,8 +191,8 @@
 "教学提示" = "O metodo chamado nao existe neste tipo. Revise a ortografia ou importe o trait que fornece o metodo."
 
 [E0603]
-"消息模板" = "O modulo e privado"
-"教学提示" = "Por padrao, os modulos sao privados. Para acessar de fora, declare-o com `publico modulo xxx;`."
+"消息模板" = "`{名称}`: acesso privado"
+"教学提示" = "Em Rust tudo e privado por padrao: modulos, funcoes, constantes e campos de struct. Percorra o caminho da esquerda para a direita e adicione `publico` no nivel apontado pelo compilador."
 
 [E0610]
 "消息模板" = "O tipo nao possui campos"

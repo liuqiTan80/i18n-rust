@@ -1457,13 +1457,26 @@ mod tests {
     ///
     /// 一份模板对多种原文，种类名词无法从码表还原，故统一改为**不点名种类**的
     /// 中立措辞——丢一个名词好过给一个错名词。条目名（`{名称}`）必须保留，
-    /// 否则读者不知道路径上哪一层断了。
+    /// 否则读者不知道路径上哪一层断了。11 语言现已全部收口：zh/ja/ru/de/es/fr/
+    /// pt/ko/hi/ar 曾写作「模块是私有的」且不带条目名，同样会答错种类、
+    /// 也指不出断点，现与 en 同形（「不点名种类 + 保留条目名」）。
     #[test]
     fn code_templates_do_not_misname_item_kind() {
         // (语言, 错误码, rustc 原文, 模板里写死的种类词)
         let cases = [
             ("en", "E0603", "module `shelf` is private", "function"),
             ("en", "E0603", "constant `SECRET` is private", "function"),
+            // 10 语言用常量名反证：模板不得再说「模块」，且必须保留 SECRET
+            ("zh", "E0603", "constant `SECRET` is private", "模块"),
+            ("ja", "E0603", "constant `SECRET` is private", "モジュール"),
+            ("ru", "E0603", "constant `SECRET` is private", "модул"),
+            ("de", "E0603", "constant `SECRET` is private", "Modul"),
+            ("es", "E0603", "constant `SECRET` is private", "módulo"),
+            ("fr", "E0603", "constant `SECRET` is private", "module"),
+            ("pt", "E0603", "constant `SECRET` is private", "modulo"),
+            ("ko", "E0603", "constant `SECRET` is private", "모듈"),
+            ("hi", "E0603", "constant `SECRET` is private", "मॉड्यूल"),
+            ("ar", "E0603", "constant `SECRET` is private", "وحدة"),
             (
                 "en",
                 "E0425",
