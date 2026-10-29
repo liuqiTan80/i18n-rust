@@ -234,37 +234,24 @@ fn extract_types_from_message(message: &str) -> Option<(String, String)> {
 
 /// 由映射管理器构建诊断类型反查表（英文类型名 → 母语名），CLI 与 LSP 共用。
 ///
-/// 数据来源与优先级（与历史 CLI 内联逻辑完全一致，抽出以消除两处漂移）：
-/// keywords `[类型]` 节反转为主，stdlib/别名表仅补充缺失条目（不覆盖），
-/// 模块路径映射（std → 标准库 等）覆盖同名第三方条目以稳定标准库路径翻译。
-/// 仅收录「母语键」（含非 ASCII 字符）的反向项，避免把 `format`→`fmt` 之类
-/// 纯英文修正项引入诊断译文（会让译文出现英文值）。
+/// 数据来源与优先级：`MappingManager` 在加载时已把候选按「模块路径 → keywords
+/// `[类型]` 节 → 标准库标识符 → 第三方标识符」与各来源的 **TOML 书写序**排好
+/// （见其 `ReverseCandidateSources`），这里只按「同一英文名取首个命中」落表；
+/// 「只收母语键（含非 ASCII 字符）」的过滤也在候选汇总时完成，避免把
+/// `format`→`fmt` 之类纯英文修正项引入诊断译文（会让译文出现英文值）。
+///
+/// 为什么需要确定序：语言包允许同一英文值有多个母语同义词（zh 的 `Display`
+/// 既写在特征区作 `可显示`、又写在格式化区作 `显示`，两种方言写法都合法），
+/// 早期实现直接遍历 HashMap 做 `entry().or_insert()`，胜出者取决于随机哈希
+/// 种子——同一份代码两次 `rzc check` 的译文会翻转（实机 15 轮翻 7 轮），读者拿
+/// 译文去搜 rustc 文档时偶尔搜不到。现在取书写序最前的主词条，译文与进程
+/// 无关，门禁用例也能硬写期望值。
 pub fn build_type_map(manager: &MappingManager) -> HashMap<String, String> {
-    let 是母语键 = |键: &str| {
-        !键.chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-    };
-    let mut reverse_map: HashMap<String, String> = manager
-        .get_section_mapping("类型")
-        .map(|section| {
-            section
-                .iter()
-                .filter(|(k, _)| 是母语键(k))
-                .map(|(k, v)| (v.clone(), k.clone()))
-                .collect()
-        })
-        .unwrap_or_default();
-    for (母语, 英文) in manager.get_alias_map() {
-        if 是母语键(母语) {
-            reverse_map
-                .entry(英文.clone())
-                .or_insert_with(|| 母语.clone());
-        }
-    }
-    for (母语, 英文) in manager.get_module_path_map() {
-        if 是母语键(母语) {
-            reverse_map.insert(英文.clone(), 母语.clone());
-        }
+    let mut reverse_map: HashMap<String, String> = HashMap::new();
+    for (母语, 英文) in manager.get_reverse_candidates() {
+        reverse_map
+            .entry(英文.clone())
+            .or_insert_with(|| 母语.clone());
     }
     reverse_map
 }

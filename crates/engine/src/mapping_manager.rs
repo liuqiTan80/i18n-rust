@@ -12,8 +12,8 @@ use std::sync::OnceLock;
 // 避免两个加载器对同一 TOML 格式的理解漂移
 use crate::error::{LoadError, LoadTarget};
 use crate::mapping_source::{
-    DangerInfo, DangerLevel, danger_from_sections, flatten_sections, is_always_panic_target,
-    merge_module_and_ident_sections, parse_danger_sections, parse_toml_sections,
+    DangerInfo, DangerLevel, ParsedDocument, danger_from_sections, flatten_sections,
+    is_always_panic_target, is_native_key,
 };
 
 /// 映射管理器：统一管理关键字映射、模块路径映射、标识符别名映射
@@ -63,7 +63,38 @@ pub struct MappingManager {
     macro_map_cache: OnceLock<HashMap<String, String>>,
     /// 危险元数据（`["危险等级"]` / `["危险备注"]` 节）：词条 → 风险声明
     danger_map: HashMap<String, DangerInfo>,
+    /// 「英文名 → 母语名」反查候选，已按优先序排好（同一英文名取首个）。
+    /// 只供诊断反查表（[`crate::diagnostic::build_type_map`]）使用，不参与正向转译。
+    /// 顺序来自各来源 TOML 的书写序（先写的是主词条），见
+    /// [`ReverseCandidateSources`]；正向表用 HashMap，节内顺序在解析时就已丢失，
+    /// 若反查直接遍历 HashMap，同一英文名的多个母语同义词谁胜出就成了
+    /// 跨进程随机数（译文会偶尔翻转，见 docs/strategy/README.md）。
+    reverse_candidates: Vec<(String, String)>,
 }
+
+/// 诊断反查候选的有序来源清单（加载期收集，字段顺序即优先序）
+///
+/// 同一节内按 TOML 书写序；跨来源按以下优先级（与正向映射的
+/// 「模块路径覆盖一切、标准库优先于第三方」一致）：
+/// 1. stdlib.toml 的 `["模块路径"]`
+/// 2. module_paths.toml 与 crates/*.toml 的 `["模块路径"]`（后者按文件名序）
+/// 3. keywords.toml 的 `["类型"]`
+/// 4. stdlib.toml 的 `["标识符"]`
+/// 5. crates/*.toml 的 `["标识符"]`（按文件名序）
+#[derive(Default)]
+struct ReverseCandidateSources {
+    module_path_stdlib: Vec<(String, String)>,
+    module_path_other: Vec<(String, String)>,
+    type_section: Vec<(String, String)>,
+    ident_stdlib: Vec<(String, String)>,
+    ident_crate: Vec<(String, String)>,
+}
+
+/// 候选汇总的一个阶段：按书写序的条目 + 该来源对应的**生效**正向表
+///
+/// 只对「在生效表里确实是这个值」的条目做候选（被后续来源覆盖的旧写法
+/// 不能再进诊断），见 [`MappingManager::assemble_reverse_candidates`]。
+type CandidateStage<'a> = (&'a [(String, String)], &'a HashMap<String, String>);
 
 impl MappingManager {
     /// 从语言包目录加载全部映射（推荐用于开发模式）
@@ -89,12 +120,13 @@ impl MappingManager {
                 path: Some(keywords_path.display().to_string()),
                 detail: e.to_string(),
             })?;
-        let section_map =
-            parse_toml_sections(&keywords_content).map_err(|e| LoadError::ParseFailed {
+        let keywords_doc =
+            ParsedDocument::parse(&keywords_content).map_err(|e| LoadError::ParseFailed {
                 target: LoadTarget::Keywords,
                 path: None,
                 detail: e.to_string(),
             })?;
+        let section_map = keywords_doc.sections();
         // 危险等级与关键字同文件（`["危险等级"]` / `["危险备注"]`）
         let mut danger_map = danger_from_sections(&section_map);
         // 派生特征节单独存放（不并入关键字表，避免与方法名别名冲突），
@@ -104,6 +136,12 @@ impl MappingManager {
         for key in derive_map.keys() {
             keyword_map.remove(key);
         }
+        // 诊断反查候选：各来源的 TOML 条目按书写序留存（正向映射仍用上面的
+        // HashMap，两者来自同一次解析，不改变任何映射内容）
+        let mut reverse_sources = ReverseCandidateSources {
+            type_section: keywords_doc.entries("类型").to_vec(),
+            ..Default::default()
+        };
 
         // 2. 加载模块路径映射（来自 module_paths.toml）
         let module_paths_file = lang_dir.join("module_paths.toml");
@@ -115,14 +153,18 @@ impl MappingManager {
                     path: Some(module_paths_file.display().to_string()),
                     detail: e.to_string(),
                 })?;
-            let sections = parse_toml_sections(&content).map_err(|e| LoadError::ParseFailed {
+            let doc = ParsedDocument::parse(&content).map_err(|e| LoadError::ParseFailed {
                 target: LoadTarget::ModulePaths,
                 path: None,
                 detail: e.to_string(),
             })?;
+            let sections = doc.sections();
             if let Some(entries) = sections.get("模块路径") {
                 module_path_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
             }
+            reverse_sources
+                .module_path_other
+                .extend_from_slice(doc.entries("模块路径"));
             danger_map.extend(danger_from_sections(&sections));
         }
 
@@ -154,15 +196,19 @@ impl MappingManager {
                         path: Some(file_path.display().to_string()),
                         detail: e.to_string(),
                     })?;
-                merge_module_and_ident_sections(&content, &mut module_path_map, &mut alias_map)
-                    .map_err(|e| LoadError::ParseFailed {
-                        target: LoadTarget::ThirdParty,
-                        path: Some(file_path.display().to_string()),
-                        detail: e.to_string(),
-                    })?;
-                if let Ok(info) = parse_danger_sections(&content) {
-                    danger_map.extend(info);
-                }
+                let doc = ParsedDocument::parse(&content).map_err(|e| LoadError::ParseFailed {
+                    target: LoadTarget::ThirdParty,
+                    path: Some(file_path.display().to_string()),
+                    detail: e.to_string(),
+                })?;
+                doc.merge_module_and_ident(&mut module_path_map, &mut alias_map);
+                reverse_sources
+                    .module_path_other
+                    .extend_from_slice(doc.entries("模块路径"));
+                reverse_sources
+                    .ident_crate
+                    .extend_from_slice(doc.entries("标识符"));
+                danger_map.extend(doc.danger());
             }
         }
 
@@ -177,19 +223,27 @@ impl MappingManager {
                 path: Some(stdlib_file.display().to_string()),
                 detail: e.to_string(),
             })?;
-            merge_module_and_ident_sections(&content, &mut module_path_map, &mut alias_map)
-                .map_err(|e| LoadError::ParseFailed {
-                    target: LoadTarget::Stdlib,
-                    path: Some(stdlib_file.display().to_string()),
-                    detail: e.to_string(),
-                })?;
-            if let Ok(info) = parse_danger_sections(&content) {
-                danger_map.extend(info);
-            }
+            let doc = ParsedDocument::parse(&content).map_err(|e| LoadError::ParseFailed {
+                target: LoadTarget::Stdlib,
+                path: Some(stdlib_file.display().to_string()),
+                detail: e.to_string(),
+            })?;
+            doc.merge_module_and_ident(&mut module_path_map, &mut alias_map);
+            reverse_sources
+                .module_path_stdlib
+                .extend_from_slice(doc.entries("模块路径"));
+            reverse_sources.ident_stdlib = doc.entries("标识符").to_vec();
+            danger_map.extend(doc.danger());
         }
 
         let use_defer_words = Self::build_use_defer_words(&module_path_map, &alias_map);
         let method_defer_words = Self::build_method_defer_words(&keyword_map, &alias_map);
+        let reverse_candidates = Self::assemble_reverse_candidates(
+            &reverse_sources,
+            &module_path_map,
+            section_map.get("类型"),
+            &alias_map,
+        );
         Ok(Self {
             keyword_map,
             section_map,
@@ -204,6 +258,7 @@ impl MappingManager {
             english_fallback_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
             danger_map,
+            reverse_candidates,
         })
     }
 
@@ -221,12 +276,13 @@ impl MappingManager {
         third_party_data: &[(&str, &str)],
     ) -> Result<Self, LoadError> {
         // 1. 解析关键字映射
-        let section_map =
-            parse_toml_sections(keywords_toml).map_err(|e| LoadError::ParseFailed {
+        let keywords_doc =
+            ParsedDocument::parse(keywords_toml).map_err(|e| LoadError::ParseFailed {
                 target: LoadTarget::BuiltinKeywords,
                 path: None,
                 detail: e.to_string(),
             })?;
+        let section_map = keywords_doc.sections();
         // 派生特征节单独存放（不并入关键字表），并从扁平化关键字表中移除
         let derive_map = section_map.get("派生特征").cloned().unwrap_or_default();
         let mut keyword_map = flatten_sections(&section_map);
@@ -234,52 +290,78 @@ impl MappingManager {
             keyword_map.remove(key);
         }
         let mut danger_map = danger_from_sections(&section_map);
+        // 诊断反查候选：与 load_from_dir 同一套优先序（按来源而非读取顺序），
+        // 因此两种加载方式得到的反查表一致
+        let mut reverse_sources = ReverseCandidateSources {
+            type_section: keywords_doc.entries("类型").to_vec(),
+            ..Default::default()
+        };
 
         // 2. 解析模块路径映射
         let mut module_path_map = HashMap::new();
-        let sections =
-            parse_toml_sections(module_paths_toml).map_err(|e| LoadError::ParseFailed {
+        let module_paths_doc =
+            ParsedDocument::parse(module_paths_toml).map_err(|e| LoadError::ParseFailed {
                 target: LoadTarget::BuiltinModulePaths,
                 path: None,
                 detail: e.to_string(),
             })?;
+        let sections = module_paths_doc.sections();
         if let Some(entries) = sections.get("模块路径") {
             module_path_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
         }
+        reverse_sources
+            .module_path_other
+            .extend_from_slice(module_paths_doc.entries("模块路径"));
         danger_map.extend(danger_from_sections(&sections));
 
         // 3. 解析标准库映射（模块路径 + 标识符别名）
         let mut alias_map = HashMap::new();
-        let sections = parse_toml_sections(stdlib_toml).map_err(|e| LoadError::ParseFailed {
-            target: LoadTarget::BuiltinStdlib,
-            path: None,
-            detail: e.to_string(),
-        })?;
+        let stdlib_doc =
+            ParsedDocument::parse(stdlib_toml).map_err(|e| LoadError::ParseFailed {
+                target: LoadTarget::BuiltinStdlib,
+                path: None,
+                detail: e.to_string(),
+            })?;
+        let sections = stdlib_doc.sections();
         if let Some(entries) = sections.get("模块路径") {
             module_path_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
         }
         if let Some(entries) = sections.get("标识符") {
             alias_map.extend(entries.iter().map(|(k, v)| (k.clone(), v.clone())));
         }
+        reverse_sources
+            .module_path_stdlib
+            .extend_from_slice(stdlib_doc.entries("模块路径"));
+        reverse_sources.ident_stdlib = stdlib_doc.entries("标识符").to_vec();
         danger_map.extend(danger_from_sections(&sections));
 
         // 4. 解析第三方库映射（按文件名排序合并，与 load_from_dir 行为一致）
         let mut sorted: Vec<&(&str, &str)> = third_party_data.iter().collect();
         sorted.sort_by_key(|(name, _)| *name);
         for (file_name, content) in sorted {
-            merge_module_and_ident_sections(content, &mut module_path_map, &mut alias_map)
-                .map_err(|e| LoadError::ParseFailed {
-                    target: LoadTarget::ThirdParty,
-                    path: Some((*file_name).to_string()),
-                    detail: e.to_string(),
-                })?;
-            if let Ok(info) = parse_danger_sections(content) {
-                danger_map.extend(info);
-            }
+            let doc = ParsedDocument::parse(content).map_err(|e| LoadError::ParseFailed {
+                target: LoadTarget::ThirdParty,
+                path: Some((*file_name).to_string()),
+                detail: e.to_string(),
+            })?;
+            doc.merge_module_and_ident(&mut module_path_map, &mut alias_map);
+            reverse_sources
+                .module_path_other
+                .extend_from_slice(doc.entries("模块路径"));
+            reverse_sources
+                .ident_crate
+                .extend_from_slice(doc.entries("标识符"));
+            danger_map.extend(doc.danger());
         }
 
         let use_defer_words = Self::build_use_defer_words(&module_path_map, &alias_map);
         let method_defer_words = Self::build_method_defer_words(&keyword_map, &alias_map);
+        let reverse_candidates = Self::assemble_reverse_candidates(
+            &reverse_sources,
+            &module_path_map,
+            section_map.get("类型"),
+            &alias_map,
+        );
         Ok(Self {
             keyword_map,
             section_map,
@@ -294,6 +376,7 @@ impl MappingManager {
             english_fallback_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
             danger_map,
+            reverse_candidates,
         })
     }
 
@@ -314,6 +397,14 @@ impl MappingManager {
     ) -> Self {
         let use_defer_words = Self::build_use_defer_words(&module_path_map, &alias_map);
         let method_defer_words = Self::build_method_defer_words(&keyword_map, &alias_map);
+        // 没有 TOML 书写序可用（旧格式/硬编码兜底表），反查候选退化为按母语键排序：
+        // 仍然确定，且 ["类型"] 不在这些表里，与旧版只取模块路径/别名两源的口径一致
+        let reverse_candidates = Self::assemble_reverse_candidates(
+            &ReverseCandidateSources::default(),
+            &module_path_map,
+            None,
+            &alias_map,
+        );
         Self {
             keyword_map,
             section_map: HashMap::new(),
@@ -328,6 +419,7 @@ impl MappingManager {
             english_fallback_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
             danger_map: HashMap::new(),
+            reverse_candidates,
         }
     }
 
@@ -354,6 +446,73 @@ impl MappingManager {
     /// 获取标识符别名映射表
     pub fn get_alias_map(&self) -> &HashMap<String, String> {
         &self.alias_map
+    }
+
+    /// 「英文名 → 母语名」反查候选（已按 [`ReverseCandidateSources`] 的优先序排列）
+    ///
+    /// 调用方按「同一英文名取首个命中」遍历，结果与进程无关。
+    /// 仅供诊断反查表使用，不参与正向转译。
+    pub fn get_reverse_candidates(&self) -> &[(String, String)] {
+        &self.reverse_candidates
+    }
+
+    /// 汇总诊断反查候选（母语键 → 英文，按优先序）
+    ///
+    /// 三条规则：
+    /// - 顺序 = `sources` 的字段顺序，同一来源内按 TOML 书写序。语言包允许
+    ///   同一英文值有多个母语同义词（正向写法都合法），反查时必须有一个
+    ///   确定胜出者；先写的那条是主词条（如 zh `"可显示" = "Display"` 写在
+    ///   特征区、`"显示" = "Display"` 写在后面的格式化区）。
+    /// - 只保留正向表里仍然成立的条目：同一母语键在本类映射里被后续文件覆盖时，
+    ///   旧值不再参与反查，否则反查会给出一个正向写不出来的组合。
+    ///   同一母语键在不同映射里可以各有有效词条（`字符串` 在 keywords `[类型]`
+    ///   里是 `String`、在 module_paths.toml 里是路径段 `string`），故去重只能按
+    ///   「母语键 + 英文值」整对儿做，不能按母语键抹平。
+    /// - 有序视图里没出现的条目（如某文件书写序解析失败、或由
+    ///   [`Self::from_flat_maps`] 这种无书写序的入口构造）按母语键排序补在
+    ///   最后，保证反查表覆盖全部英文值，不会因缺少顺序信息而少译。
+    fn assemble_reverse_candidates(
+        sources: &ReverseCandidateSources,
+        module_path_map: &HashMap<String, String>,
+        type_section: Option<&HashMap<String, String>>,
+        alias_map: &HashMap<String, String>,
+    ) -> Vec<(String, String)> {
+        let empty = HashMap::new();
+        let type_section = type_section.unwrap_or(&empty);
+        let mut candidates: Vec<(String, String)> = Vec::new();
+        let mut seen_pair: HashSet<(String, String)> = HashSet::new();
+        let stages: [CandidateStage<'_>; 5] = [
+            (&sources.module_path_stdlib, module_path_map),
+            (&sources.module_path_other, module_path_map),
+            (&sources.type_section, type_section),
+            (&sources.ident_stdlib, alias_map),
+            (&sources.ident_crate, alias_map),
+        ];
+        for (entries, effective) in stages {
+            for (native, english) in entries {
+                // 纯英文键（`"format" = "fmt"` 这类修正项）不能进反查表，
+                // 否则译文里会出现英文值
+                if !is_native_key(native)
+                    || effective.get(native).map(String::as_str) != Some(english.as_str())
+                    || !seen_pair.insert((native.clone(), english.clone()))
+                {
+                    continue;
+                }
+                candidates.push((native.clone(), english.clone()));
+            }
+        }
+        // 兜底：正向表里有、上面没收到的条目（按母语键排序，结果确定）
+        let mut leftovers: Vec<(String, String)> = Vec::new();
+        for map in [module_path_map, type_section, alias_map] {
+            for (native, english) in map {
+                if is_native_key(native) && seen_pair.insert((native.clone(), english.clone())) {
+                    leftovers.push((native.clone(), english.clone()));
+                }
+            }
+        }
+        leftovers.sort();
+        candidates.extend(leftovers);
+        candidates
     }
 
     /// 获取 use 语句内的让位词集合（见字段 `use_defer_words` 说明）
@@ -667,6 +826,9 @@ fn prefer_native(candidate: &str, current: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // 旧的一次性解析入口：加载器已改用 [`ParsedDocument`]（同一文件不重解析），
+    // 这里继续用它的用例守住「非法 TOML 必须报错、不能静默丢映射」这条底线
+    use crate::mapping_source::merge_module_and_ident_sections;
     use std::fs;
 
     /// 在临时目录下构造一个完整的语言包目录并返回其路径

@@ -1383,8 +1383,9 @@ mod tests {
 
     /// 用指定语言的**内置语言包**与真实 `type_map` 构建翻译器（两条注入点门禁共用）。
     ///
-    /// 同时返回该语言的 `type_map`：断言里的「该译成什么」从真表反查，不靠人背；
-    /// 也不造合成映射——要钉住的恰好是「哪些词在真表里会被改写」。
+    /// 同时返回该语言的 `type_map`：跨十一种语言的那半段需要逐语言反查「该词
+    /// 的真表译名是什么」，不靠人背；也不造合成映射——要钉住的恰好是
+    /// 「哪些词在真表里会被改写」。单语言（zh）的断言则直接硬写字面名。
     fn lang_pack_with_real_type_map(lang: &str) -> (DiagnosticTranslator, HashMap<String, String>) {
         use crate::mapping_manager::MappingManager;
         let lang_dir =
@@ -1405,6 +1406,142 @@ mod tests {
             DiagnosticTranslator::new(manager, type_map.clone()),
             type_map,
         )
+    }
+
+    /// 门禁：同一英文值的多个母语同义词，胜出者必须与进程无关，且取语言包
+    /// 里写在最前的主词条。
+    ///
+    /// 起因：`build_type_map` 早期直接遍历 HashMap 做 `entry().or_insert()`，
+    /// 而语言包允许 `"可显示" = "Display"` 与 `"显示" = "Display"` 并存（两种
+    /// 方言写法都合法）——胜出者取决于随机哈希种子，同一份代码两次 `rzc check`
+    /// 的译文会翻转（实机 15 轮翻 7 轮），读者拿译文去搜 rustc 文档偶尔搜不到。
+    /// 现按「来源优先级 + TOML 书写序」取首条：特征区写在格式化区之前，
+    /// 故 `Display` 反查回特征义那一条。
+    ///
+    /// 三段断言各防一种回归：硬写的六语言期望值防「规则改错方向」（改成
+    /// 字典序或短词优先都会选中格式化区那条，ja/ko 还会拿到语义更短的
+    /// `表示`/`표시`）；两次独立加载防「又退回 HashMap 顺序」（每次加载新建
+    /// 的 HashMap 哈希种子不同）；目录加载对内置加载防「开发模式与生产模式
+    /// 给出两套译文」（生产走内置嵌入数据，开发走语言包目录）。
+    #[test]
+    fn synonym_winner_is_deterministic_and_follows_pack_order() {
+        use crate::mapping_manager::MappingManager;
+        /// 两张反查表的胜出者差异（只列不一致的键）
+        ///
+        /// 反查表有上千项，直接 `assert_eq!` 会把两张表整份打进失败输出，
+        /// 反而看不出到底是哪几个词翻了。
+        fn 胜出者差异(
+            a: &std::collections::HashMap<String, String>,
+            b: &std::collections::HashMap<String, String>,
+        ) -> Vec<String> {
+            let mut keys: Vec<&String> = a.keys().chain(b.keys()).collect();
+            keys.sort();
+            keys.dedup();
+            keys.into_iter()
+                .filter(|k| a.get(*k) != b.get(*k))
+                .map(|k| format!("{k}: {:?} → {:?}", a.get(k), b.get(k)))
+                .collect()
+        }
+
+        let _guard = crate::语言::test_language("zh");
+        let 按目录加载 = |lang: &str| {
+            let dir =
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("lang-packs/{lang}"));
+            MappingManager::load_from_dir(&dir)
+                .unwrap_or_else(|e| panic!("{lang} 语言包应可加载：{e}"))
+        };
+        for (lang, 主词条) in [
+            ("zh", "可显示"),
+            ("ja", "表示可能"),
+            ("ko", "표시_가능"),
+            ("ru", "отображаемый"),
+            ("hi", "प्रदर्शनीय"),
+            ("ar", "قابل_للعرض"),
+        ] {
+            let 本次 = build_type_map(&按目录加载(lang));
+            assert_eq!(
+                本次["Display"], 主词条,
+                "{lang} 的 `Display` 反查应取语言包特征区那条主词条（同义词胜出者必须确定）"
+            );
+            let 又一次 = build_type_map(&按目录加载(lang));
+            let 跨进程 = 胜出者差异(&本次, &又一次);
+            assert!(
+                跨进程.is_empty(),
+                "{lang} 反查表跨进程不稳定（同义词胜出者又变成随机数），差异 {} 项：{:?}",
+                跨进程.len(),
+                跨进程.iter().take(10).collect::<Vec<_>>()
+            );
+
+            let files = crate::语言::builtin_lang_files(lang);
+            let content = |name: &str| {
+                files
+                    .iter()
+                    .find(|(n, _)| *n == name)
+                    .map(|(_, c)| *c)
+                    .unwrap_or_default()
+            };
+            let third_party: Vec<(&str, &str)> = files
+                .iter()
+                .filter(|(n, _)| n.starts_with("crates/"))
+                .map(|(n, c)| (*n, *c))
+                .collect();
+            let 内置 = build_type_map(
+                &MappingManager::load_from_builtin(
+                    content("keywords.toml"),
+                    content("module_paths.toml"),
+                    content("stdlib.toml"),
+                    &third_party,
+                )
+                .unwrap_or_else(|e| panic!("{lang} 内置语言包应可加载：{e}")),
+            );
+            let 两套 = 胜出者差异(&本次, &内置);
+            assert!(
+                两套.is_empty(),
+                "{lang} 的目录加载与内置加载给出了两套诊断译文用词，差异 {} 项：{:?}",
+                两套.len(),
+                两套.iter().take(10).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    /// 门禁：反查表的英文值集合必须覆盖全部正向条目（收窄同义词不能少译）。
+    ///
+    /// 胜出者改成「按优先序取首」后，最容易犯的错是候选汇总漏掉某个来源——
+    /// 表现不是报错，而是译文里凭空多出英文。这里拿正向表自己算应有集合：
+    /// keywords `[类型]` 节 + 模块路径 + 标识符三张表里，母语键（含非 ASCII）
+    /// 条目的英文值必须全部出现在反查表键集里。
+    #[test]
+    fn reverse_candidates_cover_every_forward_entry() {
+        use crate::mapping_manager::MappingManager;
+        use crate::mapping_source::is_native_key;
+        use std::collections::HashSet;
+        let _guard = crate::语言::test_language("zh");
+        for lang in ["ar", "de", "es", "fr", "hi", "ja", "ko", "pt", "ru", "zh"] {
+            let dir =
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("lang-packs/{lang}"));
+            let Ok(manager) = MappingManager::load_from_dir(&dir) else {
+                continue;
+            };
+            let 应有: HashSet<String> = [
+                manager.get_section_mapping("类型"),
+                Some(manager.get_module_path_map()),
+                Some(manager.get_alias_map()),
+            ]
+            .into_iter()
+            .flatten()
+            .flat_map(|table| table.iter())
+            .filter(|(母语, _)| is_native_key(母语))
+            .map(|(_, 英文)| 英文.clone())
+            .collect();
+            let 实际: HashSet<String> = build_type_map(&manager).keys().cloned().collect();
+            let 丢失: Vec<&String> = 应有.iter().filter(|k| !实际.contains(*k)).collect();
+            assert!(
+                丢失.is_empty(),
+                "{lang} 有 {} 个英文值没进诊断反查表（首：{:?}），这些词在译文里会保持英文",
+                丢失.len(),
+                丢失.first()
+            );
+        }
     }
 
     /// 门禁：语言包模板里**作者手写**的反引号英文标识符不得被类型映射改写。
@@ -1479,27 +1616,24 @@ mod tests {
     /// 下半段拿存量 17 处清单的同名 token 反向跑一遍：这些词「写在模板里」要保留
     /// 英文，「由 rustc 填进来」则必须译成母语名——两侧共用一张表，防的是只改一边。
     ///
-    /// 期望值一律从**本进程的 `type_map`** 反查，不硬写母语名：真表里同一个英文值可以
-    /// 被多个母语同义词映射（zh 的 `String` ← 字符串/字符串值、`Display` ← 可显示/显示），
-    /// 而 `build_type_map` 的反查是 `HashMap` 遍历顺序上的 `entry().or_insert()`，谁胜出
-    /// 跨进程不稳定（已登记为 strategy P1）。本门禁钉的是「注入值必须被本地化」，
-    /// 不是「哪个同义词胜出」；硬写具体词会让用例变成掷随机数（实测 15 轮翻 7 轮）。
+    /// 期望值直接硬写 zh 字面名：同一个英文值可以有多个母语同义词（zh 的
+    /// `Display` 既写作特征区的 `可显示`、又写作格式化区的 `显示`），但胜出者已由
+    /// `build_type_map` 的确定序固定下来（见
+    /// `synonym_winner_is_deterministic_and_follows_pack_order`），这里才能把
+    /// 「译成哪个词」钉死；改成从 `type_map` 反查就会把这部分断言变成空跑。
     #[test]
     fn injected_rustc_types_are_still_localized() {
         let _guard = crate::语言::test_language("zh");
-        let (translator, type_map) = lang_pack_with_real_type_map("zh");
+        // 期望值硬写 zh 字面名，不取 type_map：见上方函数注释
+        let (translator, _) = lang_pack_with_real_type_map("zh");
 
         // {期望}/{实际}：取自 span label 与消息原文的裸类型串
         let rendered = translator
             .render_main_message(Some("E0308"), "expected `String`, found `&str`", None)
             .expect("zh 应命中 [E0308]");
         assert_eq!(
-            rendered.text,
-            format!(
-                "类型不匹配：期望 `{}`，实际得到 `{}`",
-                type_map["String"], type_map["&str"]
-            ),
-            "{{期望}}/{{实际}} 的注入值未按本进程真表本地化"
+            rendered.text, "类型不匹配：期望 `字符串`，实际得到 `字符串引用`",
+            "{{期望}}/{{实际}} 的注入值未本地化（或同义词胜出者变了）"
         );
 
         // CODE_TEMPLATE_PLACEHOLDERS：{类型}/{特征} 按序取消息反引号内容，
@@ -1512,12 +1646,8 @@ mod tests {
             )
             .expect("zh 应命中 [E0277]");
         assert_eq!(
-            rendered.text,
-            format!(
-                "类型 `点` 未实现特征 `{}::{}::{}`",
-                type_map["std"], type_map["fmt"], type_map["Display"]
-            ),
-            "带路径的注入值未走三段式本地化（本进程真表为准）"
+            rendered.text, "类型 `点` 未实现特征 `标准库::格式化::可显示`",
+            "带路径的注入值未走三段式本地化（`Display` 应取特征区的 `可显示`）"
         );
 
         // rustc 的字面量占位符 {integer}：注入值同样要走字面量显示名替换
@@ -1529,11 +1659,8 @@ mod tests {
             // 本用例已跑在 `test_language("zh")` 下，模板与 `{integer}` 显示名
             // 都取 zh 字面（不在此引 `diag_rustc_integer` 键，以免把生产代码的
             // 引用位从 docs/ui-keys.en.md 的前三角里挤掉）
-            format!(
-                "类型不匹配：无法对 `整数` 和 `{}` 执行运算",
-                type_map["&str"]
-            ),
-            "{{integer}} 字面量或 `&str` 未按本进程真表本地化"
+            "类型不匹配：无法对 `整数` 和 `字符串引用` 执行运算",
+            "{{integer}} 字面量或 `&str` 未本地化"
         );
 
         // {qN} 通配段捕获：注入的 crate 名保留、参数标识符 `--extern` 不被当成类型改写

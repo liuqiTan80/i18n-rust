@@ -454,6 +454,69 @@
   两个后果：① 本轮不拿 E0277 作修复前后的对比依据（只销 E0601 那对）；② 门禁用例的期望值
   从本进程真表反查，否则用例就是在掷随机数。拆同义词胜出（确定序 + 告警）归入那条 P1。
 
+### 修复
+- **诊断译文的「同义名胜出」不再跨进程随机**：`build_type_map` 把语言包正表反转成
+  「英文名 → 母语名」时按 `HashMap` 遍历顺序取舍，而真表允许同一英文值有多个母语同义词
+  （zh 的 `Display` ← 可显示/显示、`String` ← 字符串/字符串值、`clone` ← 克隆/克隆值），
+  于是同一份代码两次 `rzc check` 会给出两种译文。实机对比（沙箱方言项目 `rzc check src/main.zh`，
+  zh 语言包，两版二进制各跑 20 轮）：
+
+  ```text
+  修复前：错误[E0277]: 类型 `Vec<整数>` 未实现特征 `标准库::格式化::可显示`  （11 轮）
+          错误[E0277]: 类型 `Vec<整数>` 未实现特征 `标准库::格式化::显示`    （ 9 轮）
+  修复后：错误[E0277]: 类型 `Vec<整数>` 未实现特征 `标准库::格式化::可显示`  （20 轮）
+  ```
+
+  新规约：**来源优先序 + 同来源内 TOML 书写序，同一英文名取首个命中**。`MappingManager` 在加载时
+  按「stdlib 模块路径 → 其他模块路径（`module_paths.toml` + `crates/*.toml`）→ `keywords.toml` 的
+  `["类型"]` 节 → stdlib 标识符 → crates 标识符」收集有序候选（新字段 `reverse_candidates`），
+  `build_type_map` 只做 first-wins。用优先序而不是读取顺序，是为了让按目录加载与编译期内置加载
+  得到同一张表；stdlib 优先压过第三方 crate 别名，`SocketAddr` / `TcpListener` / `Json` 这类
+  跨文件二义由此定。字典序与短词优先两种候选规则被数据否掉：六语言书写序首位都是特征区主词条，
+  而 ja/ko/ar 的字典序首位是格式化区短词（`表示`/`표시`/`عرض`）。
+- 书写序拿得到的前提：toml 0.8 的 `Value::Table` 是 BTreeMap（按键排序），但 serde 反序列化通道
+  按文档序投递键值对——新增 `parse_toml_sections_ordered`（自定义 visitor 收 `Vec`，不需新增依赖、
+  不需开 `preserve_order`），并让它成为映射源 TOML 的**唯一解析实现**：`parse_toml_sections` /
+  `merge_module_and_ident_sections` / `parse_danger_sections` 三个旧入口收敛为它的视图，两个加载器
+  改走新的 `ParsedDocument`（一个文件只解析一遍；此前 zh 包 26 个文件要解析 2~3 遍）。非表节与
+  非字符串值条目的告警文案、跳过口径与旧实现逐字一致。
+- 加载性能不降反升（debug，20 次加载）：zh `load_from_dir` 1.567s → 0.956s、`load_from_builtin`
+  1.229s → 0.861s；ja 0.938s → 0.553s、0.697s → 0.571s。
+- 正向转译无任何变化：**语言包 TOML 一行未改**，keywords/模块路径/别名三张表的构建路径未改。
+  影响面只在诊断反查表：11 语言的**键集与旧版完全一致**（无少译），改值
+  zh 36 / ja 36 / ko 31 / ru 36 / hi 25 / ar 22（en de es fr pt 为 0），zh 的 `Display` 取回可显示、
+  `String` 取回字符串、`clone` 取回克隆。
+
+### 测试
+- 新增引擎门禁 2 条：`synonym_winner_is_deterministic_and_follows_pack_order`（六语言逐条硬写
+  `Display` 的主词条，再比对两次独立加载与「目录/内置」两种口径；比对只列差异项，失败输出
+  不会打上千项整表）与 `reverse_candidates_cover_every_forward_entry`（候选漏收某个来源时拦住
+  「译文凭空多出英文」这种不报错的退化）。`injected_rustc_types_are_still_localized` 的期望值由
+  上一轮为了绕开随机性而改的「本进程真表反查」**改回硬写字面名**，恢复该门禁的防回退力度。
+- 新增解析层用例 2 条：`parsed_document_views_match_standalone_functions`（zh/ja/ar 全部语言包
+  文件逐文件比对「一次解析取多视图」与三个旧入口的产物一致）、
+  `parsed_document_skips_non_string_entries_like_legacy_parser`（非表节、非字符串值条目、空节的
+  跳过口径一致）。
+- 反证三组，红绿方向互不重叠：① `build_type_map` 退回遍历 HashMap → 两条新门禁同红，且直接
+  量化出 zh 45 项跨进程差异；② 节内条目改按母语键字典序 → 主词条门禁在 ja 转红
+  （`表示` ≠ `表示可能`，zh 仍绿，说明硬写六语言而非只写 zh 是必要的）；③ 候选去重从
+  「母语键 + 英文值」整对退化为只按母语键 → `injected_rustc_types_are_still_localized` 转红
+  （期望 `字符串` 变期望 `字符串值`）且覆盖门禁同红、胜出者门禁仍绿。
+- 基线 803 → 807（debug 连跑 4 轮 + release 1 轮均 807/0，无既有用例回红）。
+
+### 说明与取舍
+- `tools/check-lang-packs.py` 不加「同英文值多母语名」告警：按引擎自身口径这类二义英文值共 421 项
+  （zh 99 / hi 70 / ar 65 / ja 64 / ko 62 / ru 61），绝大多数是有意保留的同义写法（同一个词在不同
+  语义区各有一种方言习惯），加告警只会淹没清单。改为把约定写进
+  [docs/contributing-lang-pack.md](docs/contributing-lang-pack.md) 新增的 2.9「同义词的书写顺序」：
+  主词条写在节内靠前位置，新增同义词追加到节末尾（不会改变已有译文），并在提交前自查清单加一条。
+  `docs/strategy/README.md` 那条 P1 同步标为已修。
+- 一个必须记住的细节：候选去重按「母语键 + 英文值」整对，不能按母语键抹平。`字符串` 在
+  `keywords.toml` 的 `["类型"]` 节是 `String`、在 `module_paths.toml` 里是路径段 `string`，按母语键
+  去重会让前者被后者挤掉，zh 的 `String` 反查退化为 `字符串值`（第三方 crate 的写法）。
+- `docs/ui-keys.en.md` 本轮重生成：只改了调用点行号（`mapping_source.rs` 新增有序解析后行号下移、
+  `translator.rs` 反查表改写后行号上移），无任何键新增/删除。
+
 ## [0.8.12] - 2026-10-28
 
 ### 新增

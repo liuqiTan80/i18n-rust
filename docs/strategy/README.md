@@ -81,18 +81,41 @@
   `injected_rustc_types_are_still_localized`（同表同名 token 作为注入值时仍必须被译成母语名，
   `{期望}`/`{实际}`/带路径类型/`{integer}` 同样照旧）成对钉住；两条各带自己的反证：退回旧实现（或
   只把渲染收尾改回全文改写）正面红、退回反面（`localize_token` 改恒等）反面红
-- 诊断译文的「同义名胜出」跨进程不稳定（本轮写反向门禁时撞上，已登记而非本轮修）：
+- **（2026-10-29 已修）** 诊断译文的「同义名胜出」跨进程不稳定：
   `build_type_map` 把语言包正表反转为「英文名 → 母语名」时，用 `HashMap` 遍历顺序上的
   `entry(英文).or_insert(母语)` / `insert` 取舍，而真表允许同一英文值被多个母语同义词映射——
   按引擎自身的加载口径统计，二义英文值 zh 99 / hi 70 / ar 65 / ja 64 / ko 62 / ru 61（共 421），
   含 `String` ← 字符串/字符串值、`Display` ← 可显示/显示、`clone` ← 克隆/克隆值、`fmt` ←
   格式化/格式化层/格式化模块。后果是同一份代码两次 `rzc check` 可能给出
-  「`标准库::格式化::可显示`」与「`标准库::格式化::显示`」两种译文（实机各跑 10 轮：
-  修复前 7:3、修复后 5:5，两版都翻）——读者拿译文去搜文档时会偶尔搜不到，且任何拿字面串
-  做期望的用例都会变成掷随机数。修法候选：反转时先按确定序（语言包文件内出现序或母语名
-  字典序）取首，并考虑给 `check-lang-packs.py` 加一条「同英文值多母语名」告警（归入现有
-  告警基线）；本轮先把 `injected_rustc_types_are_still_localized` 的期望值改为从**本进程真表**
-  反查，不再硬写具体同义词
+  「`标准库::格式化::可显示`」与「`标准库::格式化::显示`」两种译文——读者拿译文去搜文档时
+  会偶尔搜不到，且任何拿字面串做期望的用例都会变成掷随机数。
+  修法取「来源优先序 + 同来源内 TOML 书写序，同一英文名取首个命中」：`MappingManager` 加载时按
+  「stdlib 模块路径 → 其他模块路径（`module_paths.toml` + `crates/*.toml`）→ `keywords.toml` 的
+  `["类型"]` 节 → stdlib 标识符 → crates 标识符」收集有序候选（`reverse_candidates`），
+  `build_type_map` 只做 first-wins。用优先序而不是读取顺序，是为了让 `load_from_dir` 与
+  `load_from_builtin` 得到同一张表；前两条复刻旧版「模块路径覆盖一切」，stdlib 优先压过
+  第三方 crate 别名（跨文件二义如 `SocketAddr` / `TcpListener` / `Json` 由此定）。
+  顺序可行的前提：toml 0.8 的 `Value::Table` 是 BTreeMap（按键排序），但 serde 反序列化通道
+  按文档序投递键值对，故新增 `parse_toml_sections_ordered`（自定义 visitor 收 `Vec`）；它同时成为
+  **唯一解析实现**，`parse_toml_sections` / `merge_module_and_ident_sections` / `parse_danger_sections`
+  三个旧入口收敛为它的视图，加载器改走 `ParsedDocument`（一个文件只解析一遍，而 zh 包 26 个文件
+  原本要解析 2~3 遍），debug 下 `load_from_dir` 20 次由 1.567s 降到 0.956s、`load_from_builtin`
+  1.229s→0.861s（ja 0.938s→0.553s）。字典序与短词优先两个候选规则被数据否掉：ja/ko/ar 的
+  字典序首位是格式化区短词（`表示`/`표시`/`عرض`），而六语言书写序首位都是特征区主词条。
+  `check-lang-packs.py` 不加「同英文值多母语名」告警：421 项绝大多数是有意保留的同义写法，
+  告警只会淹没清单，改为写进 `docs/contributing-lang-pack.md` 2.9 的「主词条在前」约定。
+  影响面：11 语言反查表**键集与旧版完全一致**（无少译），改值 zh 36 / ja 36 / ko 31 / ru 36 /
+  hi 25 / ar 22（en de es fr pt 为 0），zh 的 `Display` 取回可显示、`String` 取回字符串、
+  `clone` 取回克隆。实机同一沙箱项目各跑 20 轮：修复前 E0277 译文 11:9 翻转，修复后 20/20 稳定。
+  门禁：新增 `synonym_winner_is_deterministic_and_follows_pack_order`（六语言硬写 `Display` 主词条，
+  再比对两次独立加载与目录/内置两口径，失败只列差异项而不打整表）与
+  `reverse_candidates_cover_every_forward_entry`（候选漏收某来源时拦住「译文凭空多出英文」）；
+  `injected_rustc_types_are_still_localized` 的期望值由「本进程真表反查」**改回硬写字面名**，
+  恢复防回退力度。反证两组：`build_type_map` 退回遍历 HashMap → 两条门禁同红（且直接量化出
+  zh 45 项跨进程差异）；节内条目改按母语键字典序 → ja 断言转红（`表示` ≠ `表示可能`）。
+  另补 `parsed_document_views_match_standalone_functions`（zh/ja/ar 逐文件比对一次解析与旧三入口
+  的视图一致）与 `parsed_document_skips_non_string_entries_like_legacy_parser`（非表节/非字符串值/
+  空节的跳过口径一致）。语言包 TOML 一行未改，正向映射一行未改
 - **（2026-10-28 已修）** bin+lib 的第 ② 条墙：主程序 `使用 calc::翻倍;` 报 E0432 时，rustc 的
   `cargo add calc` 建议与 rzc 追加提示都把**自有 crate**说成第三方库，而 Cargo 拒绝包依赖自己
   （`cannot add ... to itself`）。现在按本地包名（`[package] name` 的 `-`→`_` + `[lib] name`）

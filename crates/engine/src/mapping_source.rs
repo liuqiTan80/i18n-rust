@@ -14,6 +14,13 @@ use crate::error::{LoadError, LoadTarget};
 /// 节（section）组织的映射表：节名 → (母语词 → 英文)
 pub type SectionMap = HashMap<String, HashMap<String, String>>;
 
+/// 按**书写序**组织的映射表：[(节名, [(母语词, 英文)])]
+///
+/// 与 [`SectionMap`] 的唯一区别是保留 TOML 里的先后（HashMap 会把它抹掉）：
+/// 诊断反查表要靠这个顺序在同一英文值的多个母语同义词里选主词条，
+/// 见 [`parse_toml_sections_ordered`]。
+pub type OrderedSections = Vec<(String, Vec<(String, String)>)>;
+
 /// 危险等级元数据节：词条 → panic / rewrite / safe（不参与转译映射）
 pub const DANGER_LEVEL_SECTION: &str = "危险等级";
 /// 危险备注元数据节：词条 → 人类可读的风险说明（不参与转译映射）
@@ -171,39 +178,224 @@ pub fn parse_danger_sections(
     Ok(danger_from_sections(&sections))
 }
 
-/// 解析 TOML 内容为“节 → (母语词 → 英文)”二级表（两个加载器共用的单一解析实现）
+/// 按**书写顺序**解析「节 → 条目」清单（`Vec` 而非 HashMap）
 ///
-/// 非表节与非字符串条目记录警告后跳过（数据格式错误不再完全静默，
-/// RZ_LOG=warn 时可见）；返回原始 toml 错误，
-/// 由调用方按场景本地化错误消息（文件/内置/路径等键不同）。
-pub fn parse_toml_sections(content: &str) -> Result<SectionMap, toml::de::Error> {
-    let value: toml::Value = toml::from_str(content)?;
-    let mut sections = HashMap::new();
-    if let toml::Value::Table(table) = value {
-        for (sub_name, sub_value) in table {
-            if let toml::Value::Table(sub_table) = sub_value {
-                let mut sub_map = HashMap::new();
-                for (zh, en_value) in sub_table {
-                    if let toml::Value::String(en) = en_value {
-                        sub_map.insert(zh, en);
-                    } else {
-                        crate::log_warn!(
+/// 这是映射源 TOML 的唯一解析实现：[`parse_toml_sections`] 就是把这里的结果
+/// 收敛成 HashMap（一个文件只解析一遍，不拿顺序的消费者也不会多付代价）。
+/// 顺序保得住的原因：toml 的解析器按文档顺序投递键值对，只要不把它们塞进
+/// `toml::Value::Table`（BTreeMap，按键排序）或 HashMap，书写序就在。
+/// 诊断反查表需要在「同一英文值有多个母语同义词」时选出唯一胜出者，依据
+/// 正是书写序（先写的是主词条，见 `crate::diagnostic::build_type_map`）。
+///
+/// 跳过口径与既有实现一致：非表节、非字符串条目记告警后跳过（RZ_LOG=warn
+/// 可见），只有 TOML 本身语法非法才报错（由调用方按场景本地化错误消息）。
+pub fn parse_toml_sections_ordered(content: &str) -> Result<OrderedSections, toml::de::Error> {
+    let document: OrderedDocument = toml::from_str(content)?;
+    Ok(document
+        .0
+        .into_iter()
+        .filter_map(|(name, body)| match body {
+            OrderedBody::NotATable => {
+                crate::log_warn!("映射源", "节 [{}] 不是表结构，已跳过", name);
+                None
+            }
+            OrderedBody::Entries(entries) => {
+                let mut kept: Vec<(String, String)> = Vec::new();
+                for (native, value) in entries {
+                    match value {
+                        toml::Value::String(english) => kept.push((native, english)),
+                        _ => crate::log_warn!(
                             "映射源",
                             "节 [{}] 条目 {} 的值不是字符串，已跳过",
-                            sub_name,
-                            zh
-                        );
+                            name,
+                            native
+                        ),
                     }
                 }
-                if !sub_map.is_empty() {
-                    sections.insert(sub_name, sub_map);
+                (!kept.is_empty()).then_some((name, kept))
+            }
+        })
+        .collect())
+}
+
+/// 文档本体：顶层一定是表（TOML 文档），收下的节按书写序排列
+struct OrderedDocument(Vec<(String, OrderedBody)>);
+
+/// 节内容：表 → 按书写序的 `(母语词, 值)`；其他形态 → 记为「不是表结构」
+enum OrderedBody {
+    Entries(Vec<(String, toml::Value)>),
+    NotATable,
+}
+
+impl<'de> serde::Deserialize<'de> for OrderedDocument {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Visitor;
+
+        struct DocumentVisitor;
+        impl<'de> Visitor<'de> for DocumentVisitor {
+            type Value = OrderedDocument;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("映射表节")
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<OrderedDocument, A::Error> {
+                let mut sections = Vec::new();
+                while let Some(name) = map.next_key::<String>()? {
+                    sections.push((name, map.next_value::<OrderedBody>()?));
                 }
-            } else {
-                crate::log_warn!("映射源", "节 [{}] 不是表结构，已跳过", sub_name);
+                Ok(OrderedDocument(sections))
             }
         }
+
+        deserializer.deserialize_map(DocumentVisitor)
     }
-    Ok(sections)
+}
+
+impl<'de> serde::Deserialize<'de> for OrderedBody {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Visitor;
+
+        /// 表按书写序收下条目；非表形态（字符串/整数/布尔/数组等）一律记为
+        /// 「不是表结构」，由上层告警跳过（这些方法若不实现，serde 默认会
+        /// 把它们当成类型错误，把「跳过」变成「整个文件解析失败」）
+        struct BodyVisitor;
+        impl<'de> Visitor<'de> for BodyVisitor {
+            type Value = OrderedBody;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("母语词 = \"英文原名\" 形式的条目表")
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<OrderedBody, A::Error> {
+                let mut entries = Vec::new();
+                while let Some(native) = map.next_key::<String>()? {
+                    // 叶子值走 toml::Value：任何 TOML 类型都不会因此报错
+                    entries.push((native, map.next_value::<toml::Value>()?));
+                }
+                Ok(OrderedBody::Entries(entries))
+            }
+            fn visit_str<E: serde::de::Error>(self, _v: &str) -> Result<OrderedBody, E> {
+                Ok(OrderedBody::NotATable)
+            }
+            fn visit_bool<E: serde::de::Error>(self, _v: bool) -> Result<OrderedBody, E> {
+                Ok(OrderedBody::NotATable)
+            }
+            fn visit_i64<E: serde::de::Error>(self, _v: i64) -> Result<OrderedBody, E> {
+                Ok(OrderedBody::NotATable)
+            }
+            fn visit_u64<E: serde::de::Error>(self, _v: u64) -> Result<OrderedBody, E> {
+                Ok(OrderedBody::NotATable)
+            }
+            fn visit_f64<E: serde::de::Error>(self, _v: f64) -> Result<OrderedBody, E> {
+                Ok(OrderedBody::NotATable)
+            }
+            fn visit_unit<E: serde::de::Error>(self) -> Result<OrderedBody, E> {
+                Ok(OrderedBody::NotATable)
+            }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(
+                self,
+                mut seq: A,
+            ) -> Result<OrderedBody, A::Error> {
+                while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
+                Ok(OrderedBody::NotATable)
+            }
+        }
+
+        deserializer.deserialize_any(BodyVisitor)
+    }
+}
+
+/// 从有序视图（[`ParsedDocument::ordered`]）里取一节的有序条目（不存在则空）
+pub fn ordered_section_entries<'a>(
+    ordered: &'a OrderedSections,
+    section_name: &str,
+) -> &'a [(String, String)] {
+    ordered
+        .iter()
+        .find(|(name, _)| name == section_name)
+        .map(|(_, entries)| entries.as_slice())
+        .unwrap_or_default()
+}
+
+/// 是否「母语键」（含非 ASCII 字符）
+///
+/// `"format" = "fmt"` 这类纯英文修正项不能进诊断反查表（否则译文里会
+/// 出现英文值），模块路径与标识符表里混有它们。
+pub fn is_native_key(key: &str) -> bool {
+    !key.chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+/// 单个映射源文件的**一次解析**结果（加载器专用）
+///
+/// 加载一个语言包时，同一份 TOML 往往同时需要三种视图：正向映射用的 HashMap
+/// 节表、诊断反查候选用的书写序条目、危险元数据。逐条调用
+/// [`parse_toml_sections`] / [`parse_toml_sections_ordered`] /
+/// [`parse_danger_sections`] 会把同一个文件解析三遍（zh 包 26 个文件，
+/// 加载耗时接近翻倍），因此这里解析一次、按需取视图。几个旧函数签名不变，
+/// 仍供只要一种视图的调用方（CLI 校验工具等）使用。
+#[derive(Debug, Clone)]
+pub struct ParsedDocument {
+    ordered: OrderedSections,
+}
+
+impl ParsedDocument {
+    /// 解析整个文件（与 [`parse_toml_sections_ordered`] 同口径：只有 TOML
+    /// 本身语法非法才报错，非表节与非字符串条目告警后跳过）
+    pub fn parse(content: &str) -> Result<Self, toml::de::Error> {
+        Ok(Self {
+            ordered: parse_toml_sections_ordered(content)?,
+        })
+    }
+
+    /// 按书写序排列的「节 → 条目」清单
+    pub fn ordered(&self) -> &OrderedSections {
+        &self.ordered
+    }
+
+    /// 取一节的有序条目（不存在则为空）
+    pub fn entries(&self, section_name: &str) -> &[(String, String)] {
+        ordered_section_entries(&self.ordered, section_name)
+    }
+
+    /// 收敛为「节 → (母语词 → 英文)」HashMap（等价于 [`parse_toml_sections`]）
+    pub fn sections(&self) -> SectionMap {
+        self.ordered
+            .iter()
+            .map(|(name, entries)| (name.clone(), entries.iter().cloned().collect()))
+            .collect()
+    }
+
+    /// 危险元数据（`["危险等级"]` / `["危险备注"]` 两节，等价于
+    /// [`parse_danger_sections`]；语法已在本文件解析成功，这里不会再失败）
+    pub fn danger(&self) -> HashMap<String, DangerInfo> {
+        danger_from_sections(&self.sections())
+    }
+
+    /// 把 `["模块路径"]` / `["标识符"]` 两节并入两张正向映射表（等价于
+    /// [`merge_module_and_ident_sections`]，但不重复解析）
+    pub fn merge_module_and_ident(
+        &self,
+        module_path_map: &mut HashMap<String, String>,
+        alias_map: &mut HashMap<String, String>,
+    ) {
+        module_path_map.extend(self.entries("模块路径").iter().cloned());
+        alias_map.extend(self.entries("标识符").iter().cloned());
+    }
+}
+
+/// 解析 TOML 内容为“节 → (母语词 → 英文)”二级表（两个加载器共用的单一解析实现）
+///
+/// 本函数是 [`parse_toml_sections_ordered`] 的收敛视图（同一遍解析，只是丢掉
+/// 顺序），跳过口径与告警文案也完全由那边负责。
+pub fn parse_toml_sections(content: &str) -> Result<SectionMap, toml::de::Error> {
+    Ok(parse_toml_sections_ordered(content)?
+        .into_iter()
+        .map(|(name, entries)| (name, entries.into_iter().collect()))
+        .collect())
 }
 
 /// 把节表扁平化为单一映射：按节名升序合并，同名键冲突时胜出者确定
@@ -1008,5 +1200,84 @@ mod tests {
         // UTF-8 文件名走快速路径原样返回
         let name = std::ffi::OsStr::new("普通名字");
         assert_eq!(decode_os_file_name(name), "普通名字");
+    }
+
+    /// 语言包目录下的映射源文件（根目录 *.toml + crates/*.toml）
+    fn lang_pack_toml_files(dir: &Path) -> Vec<PathBuf> {
+        let mut files: Vec<PathBuf> = fs::read_dir(dir)
+            .expect("语言包目录应可读")
+            .map(|e| e.unwrap().path())
+            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("toml"))
+            .collect();
+        let crates = dir.join("crates");
+        if crates.is_dir() {
+            files.extend(
+                fs::read_dir(&crates)
+                    .unwrap()
+                    .map(|e| e.unwrap().path())
+                    .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("toml")),
+            );
+        }
+        files.sort();
+        files
+    }
+
+    /// 一次解析得到的多种视图，必须与「各调一次独立解析」完全一致
+    ///
+    /// 加载器为了拿到书写序改用 [`ParsedDocument`]，正向映射与危险元数据的
+    /// 口径不能被这次改动带偏，因此逐文件比对两条路径的结果。
+    #[test]
+    fn parsed_document_views_match_standalone_functions() {
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut checked = 0;
+        for lang in ["zh", "ja", "ar"] {
+            for file in lang_pack_toml_files(&manifest.join(format!("lang-packs/{lang}"))) {
+                let content = fs::read_to_string(&file).unwrap();
+                let doc = ParsedDocument::parse(&content).unwrap();
+                let label = file.display().to_string();
+                assert_eq!(
+                    doc.sections(),
+                    parse_toml_sections(&content).unwrap(),
+                    "{label} 节表不一致"
+                );
+                assert_eq!(
+                    doc.danger(),
+                    parse_danger_sections(&content).unwrap(),
+                    "{label} 危险元数据不一致"
+                );
+
+                let mut paths = HashMap::new();
+                let mut idents = HashMap::new();
+                doc.merge_module_and_ident(&mut paths, &mut idents);
+                let mut paths_ref = HashMap::new();
+                let mut idents_ref = HashMap::new();
+                merge_module_and_ident_sections(&content, &mut paths_ref, &mut idents_ref).unwrap();
+                assert_eq!(paths, paths_ref, "{label} 模块路径不一致");
+                assert_eq!(idents, idents_ref, "{label} 标识符不一致");
+                checked += 1;
+            }
+        }
+        assert!(checked >= 15, "应比对足够多的语言包文件，实际 {checked} 个");
+    }
+
+    /// 非表节、非字符串条目、空节：两条路径都按同一口径跳过
+    #[test]
+    fn parsed_document_skips_non_string_entries_like_legacy_parser() {
+        let tricky = "\"顶层标量\" = \"不是表\"\n[\"标识符\"]\n\"字符串\" = \"String\"\n\"数字\" = 42\n\"数组\" = [1, 2]\n[\"空节\"]\n";
+        let doc = ParsedDocument::parse(tricky).unwrap();
+        assert_eq!(doc.sections(), parse_toml_sections(tricky).unwrap());
+        assert_eq!(
+            doc.sections()
+                .get("标识符")
+                .unwrap()
+                .get("字符串")
+                .map(String::as_str),
+            Some("String")
+        );
+        // 跳过的条目不会进表，也不会让整份文件解析失败
+        assert!(!doc.sections().contains_key("顶层标量"));
+        assert!(!doc.sections().contains_key("空节"));
+        assert_eq!(doc.entries("标识符").len(), 1, "只收字符串值的条目");
+        assert!(parse_danger_sections(tricky).is_ok());
     }
 }
