@@ -16,7 +16,7 @@
 | `check-mapping-warnings.py` | 映射告警数基线（只减不增）：运行 `rzc mapping check` 对照 `tools/mapping-baseline.json` | `make mapping-check` |
 | `bench-check.sh` | 基准回归门禁：engine + lsp 双基准集与入库基线对比（阈值默认 30%） | `make bench-check` · `make bench-update`（刷新基线） |
 | `build-site.py` | 文档站装配：从 `tutorials/`、`docs/` 原位组装四语言 mdBook 到 `_site/` | `make site` · `make site-serve` |
-| `publish-feishu.py` | 教程发布到飞书知识库（上传素材 → md 导入 docx → 移入知识库；同名幂等跳过） | `make feishu`（需 FEISHU_* 凭证；先 `--dry-run` 预览） |
+| `publish-feishu.py` | 教程同步到飞书知识库（上传素材 → md 导入 docx → 移入知识库）；按 `docs/strategy/feishu-publish-state.json` 的正文指纹增量：新章节导入、已变更章节 `--update` 原地替换正文 | `make feishu-check`（离线看落后清单）· `make feishu`（需 FEISHU_* 凭证） |
 | `dialect-convert.py` | 标准 Rust 代码块 → 指定语言方言（写译本初稿用；字符串 / 注释不转换） | `python3 tools/dialect-convert.py --lang ja --src en.md --out ja.md` |
 | `init-registry.sh` | 初始化"第三方映射共享注册中心"空仓库骨架（本地目录，含 git init） | `./tools/init-registry.sh [目标目录]` |
 | `test-crate-registry.sh` | 注册中心端到端冒烟（publish / search / install / list / remove，全离线） | `RZC=target/debug/rzc bash tools/test-crate-registry.sh` |

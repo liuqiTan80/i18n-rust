@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+### 工具
+- 飞书教程同步改为「按正文指纹增量」（`tools/publish-feishu.py` + `docs/strategy/feishu-publish-state.json`）。
+  旧实现重跑 `make feishu` 会把所有同名节点静默跳过：9-26 首发之后 6 个提交的中文改动（第十八章
+  一轮四改 +141/−33、第一章 +4、附录 A +1）全部没进飞书，而仓库里没有任何「已发布版本」记录可
+  供比对。现在每篇记录 title / sha256 / node_token / doc_token / 发布时间 / 源码 commit：
+  `make feishu-check` 离线列出落后章节；`--adopt` 认领线上已有章节（只登记，不重写正文）；
+  `--update` 走文档块接口把新块树写回原文档（清空正文 → 按层重建），节点 token 与访问链接不变，
+  旧正文自动备份到 `.rz/feishu-backup/`；`--force` 保留原「忽略状态全部重导」语义。
+- `--update` 需在飞书后台补开 `docx:document` 并发布版本（缺权限报 1770032，脚本附排查提示）；
+  不补权限时仍可走「删旧文档 + 重导」的手工路径，`--check` 同样能指出落后哪几篇。
+
 ### 修复
 - `?` 的两条诊断不再被通用 E0277 桩套成「类型 `?` 未实现特征 `结果`」。rustc 这两句
   （"the `?` operator can only be used in a function that returns `Result` or `Option`…" 与

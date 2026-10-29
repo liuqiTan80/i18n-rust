@@ -12,7 +12,7 @@ CARGO ?= cargo
 PYTHON ?= python3
 NODE ?= node
 
-.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs readme-parity mapping-check tutorials tutorials-all site site-serve lib-index feishu glossary bench bench-check bench-update vsix clean
+.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs readme-parity mapping-check tutorials tutorials-all site site-serve lib-index feishu feishu-check glossary bench bench-check bench-update vsix clean
 
 help: ## 显示全部可用目标
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -80,6 +80,9 @@ lib-index: ## 重生成已翻译库索引可视化（docs/library-index.html，�
 
 feishu: ## 同步中文教程到飞书知识库（凭证见 docs/strategy/发布准备清单.md 第 5 节）
 	$(PYTHON) tools/publish-feishu.py
+
+feishu-check: ## 比对教程正文指纹与飞书发布状态（离线，不需凭证）
+	$(PYTHON) tools/publish-feishu.py --check
 
 glossary: ## 术语表与语言包一致性检查
 	$(PYTHON) tools/verify-glossary.py
