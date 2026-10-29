@@ -211,7 +211,8 @@ my_project/
 
 `cutlery.en` holds the module's body — no `mod` wrapper, the file *is* the module:
 
-```text
+```rust
+// 文件: cutlery.en
 pub fn grab_fork() {
     println!("grabbed a fork");
 }
@@ -219,15 +220,17 @@ pub fn grab_fork() {
 
 `main.en` declares it with **`mod cutlery;`** — note the **semicolon**, not braces, meaning "there is a file called `cutlery` with that module inside":
 
-```text
+```rust
+// 文件: main.en
 mod cutlery;
 
 fn main() {
     cutlery::grab_fork();
 }
+// 预期输出: grabbed a fork
 ```
 
-Run that two-file program and it prints `grabbed a fork`. The same shape written in one file — which is what the rest of this chapter's examples do, and what the book's verifier checks:
+Save the two files and run the project: it prints `grabbed a fork`. (The `// 文件:` line is a marker for the book's verifier — it tells the checker to drop these two blocks into one temporary project's `src/`; you do not write it in your own files.) The same shape written in one file, which is what most examples in this chapter do:
 
 ```rust
 mod cutlery {
@@ -483,7 +486,8 @@ Turn Exercise 1 into two files: `main.en` and `pencil_case.en`.
 
 `pencil_case.en` (the file is the module body):
 
-```text
+```rust
+// 文件: pencil_case.en
 pub fn write() {
     println!("scribble scribble");
 }
@@ -491,12 +495,14 @@ pub fn write() {
 
 `main.en`:
 
-```text
+```rust
+// 文件: main.en
 mod pencil_case;
 
 fn main() {
     pencil_case::write();
 }
+// 预期输出: scribble scribble
 ```
 
 Two files, one program: it prints `scribble scribble`. Move `sharpen()` into `pencil_case.en` as a private `fn` and `write()` keeps working — the lock is per module, and both functions now live inside the same one.

@@ -63,6 +63,14 @@ EXPECT_BEHAVIOR_RE = re.compile(r"^\s*//\s*预期行为[:：]\s*(通过|运行�
 EXPECT_OUT_RE = re.compile(r"^\s*//\s*预期输出[:：]\s*(.*?)\s*$")
 # 多行预期输出：`// 预期输出:` 之后的注释行（`// 内容` → 内容）
 EXPECT_OUT_LINE_RE = re.compile(r"^\s*//\s?(.*)$")
+# 多文件示例协议：块首行 `// 文件: cutlery.en` 声明本块写入 `src/cutlery.en`；
+# 同一章节内相邻的此类块合成一个项目整体 check/run（判据是「多文件模块」
+# 在单文件项目里必然报 E0583/E0601，静态检查无法覆盖）。四种语言教程通
+# 用同一标记（标记本身用中文，不随教程语言变）。
+FILE_MARK_RE = re.compile(r"^\s*//\s*文件\s*[:：]\s*(\S+)\s*$")
+# 各语言方言里与 `main` 等价的入口文件词干（Cargo 只认 main/lib 两个 crate 根，
+# 方言侧把 main 翻译后的词干也算入口——见 crates/cli/src/main.rs 的 is_entry_stem）
+MAIN_STEMS = {"zh": "主函数", "ja": "主関数", "ru": "главная"}
 
 # 片段包裹：顶层声明词头（其后允许空格/泛型参数/括号/!；
 # 异步/不安全 为前缀修饰，后跟 函数/结构体/块）；
@@ -223,6 +231,34 @@ def parse_marks(content):
         rest.append(ln)
         i += 1
     return expected, behavior, expected_output, "".join(rest)
+
+
+def parse_file_mark(content):
+    """剥离块首的 `// 文件: 名字` 声明，返回 (文件名或 None, 剩余内容)。
+
+    只认块首注释区（首个非空行开头的连续注释行），避免把正文里的同名注
+    释误当作文件声明。文件名必须是单个路径段（不带目录分隔）。
+    """
+    lines = content.splitlines(keepends=True)
+    for i, ln in enumerate(lines):
+        st = ln.strip()
+        if not st:
+            continue
+        if not st.startswith("//"):
+            break
+        m = FILE_MARK_RE.match(ln)
+        if m:
+            name = m.group(1)
+            if "/" in name or "\\" in name:
+                return None, content
+            return name, "".join(lines[:i] + lines[i + 1:])
+    return None, content
+
+
+def is_entry_file(name, lang="zh"):
+    """文件名是否为方言项目的入口（main 或母语 main 词干，且直接在 src/ 下）"""
+    stem = os.path.splitext(os.path.basename(name))[0]
+    return stem == "main" or stem == MAIN_STEMS.get(lang, "")
 
 
 # ---------- 片段包裹 ----------
@@ -454,6 +490,46 @@ def build_task(work, index, fname, start, content, expected, behavior, expected_
     return (index, fname, start, kind, expected, behavior, expected_output, src_path, d)
 
 
+# ---------- 多文件任务 ----------
+def build_multifile_task(work, group, file_names, lang="zh"):
+    """把一组带 `// 文件:` 声明的相邻块写成一个项目的多个源文件整体验证。
+
+    group 为同章节相邻的块（已按文档顺序），file_names 为 index → 文件名。
+    组内必须恰好有一个入口文件（main 或该语言的 main 母语词干）；标记
+    （预期错误/输出）从组内第一个非空标记继承。返回 10 元组，末位
+    problem 为书写错误的原因（缺入口、重名文件），非 None 时永远判红。
+    """
+    index, fname, start = group[0][0], group[0][1], group[0][2]
+    expected = next((b[5] for b in group if b[5] is not None), None)
+    behavior = next((b[6] for b in group if b[6] is not None), None)
+    expected_output = next((b[7] for b in group if b[7] is not None), None)
+    # 依赖声明可能落在组内任一块（常见是 main），逐块合并去重
+    deps = ""
+    for b in group:
+        d0 = block_deps(b[1], b[0])
+        deps += "".join(l + "\n" for l in d0.splitlines() if l + "\n" not in deps)
+    d = os.path.join(work, f"b{index:03d}")
+    os.makedirs(os.path.join(d, "src"), exist_ok=True)
+    with open(os.path.join(d, "Cargo.toml"), "w", encoding="utf-8") as f:
+        f.write(CARGO_TMPL.replace("[dependencies]\n", "[dependencies]\n" + deps))
+    names = [file_names[b[0]] for b in group]
+    entry = None
+    for b, name in zip(group, names):
+        with open(os.path.join(d, "src", name), "w", encoding="utf-8") as f:
+            f.write(b[4])
+        if is_entry_file(name, lang):
+            entry = os.path.join(d, "src", name)
+    if len(set(names)) != len(names):
+        problem = "同组多文件示例出现重名文件（后者会静默覆盖前者）"
+    elif entry is None:
+        problem = "多文件示例缺少入口文件（词干须为 main 或该语言的 main 母语词）"
+    else:
+        problem = None
+    first_path = os.path.join(d, "src", names[0])
+    return (index, fname, start, "多文件", expected, behavior, expected_output,
+            entry or first_path, d, problem)
+
+
 # ---------- 串联（章节级） ----------
 def extract_main_body(content, lang="zh"):
     """括号配对提取 `函数 主函数() { ... }` 或对应语言的等价主函数，返回 (函数体, 其余部分)。
@@ -652,10 +728,35 @@ def main():
 
     # 1. 提取全部块
     all_blocks = []  # (index, fname, start, section, content, expected, behavior, expected_output)
+    file_names = {}  # index → 多文件协议声明的文件名
     for path in sorted(glob.glob(os.path.join(tut_dir, "*.md"))):
         for fname, start, section, content in extract_blocks(path):
+            declared, content = parse_file_mark(content)
             expected, behavior, expected_output, content = parse_marks(content)
-            all_blocks.append((len(all_blocks), fname, start, section, content, expected, behavior, expected_output))
+            index = len(all_blocks)
+            if declared:
+                file_names[index] = declared
+            all_blocks.append((index, fname, start, section, content, expected, behavior, expected_output))
+
+    # 1.5 多文件分组：同文档相邻、且都带 `// 文件:` 声明的块合成一个项目
+    #    （单块带声明不开组：它仍按普通块处理，避免读者用单文件写模块时被误判）
+    groups = []
+    grouped = set()
+    i = 0
+    while i < len(all_blocks):
+        if all_blocks[i][0] not in file_names:
+            i += 1
+            continue
+        grp = [all_blocks[i]]
+        j = i + 1
+        while (j < len(all_blocks) and all_blocks[j][1] == all_blocks[i][1]
+               and all_blocks[j][0] in file_names):
+            grp.append(all_blocks[j])
+            j += 1
+        if len(grp) >= 2:
+            groups.append(grp)
+            grouped.update(b[0] for b in grp)
+        i = j
 
     # 2. 生成并验证单块
     work = tempfile.mkdtemp(prefix="zrverify_")
@@ -663,8 +764,19 @@ def main():
     # 均覆盖；被 SIGKILL 强杀时无法保证），避免本地反复运行在 /tmp 残留
     atexit.register(shutil.rmtree, work, ignore_errors=True)
     tasks = []
-    stats = {"完整程序": 0, "片段": 0, "错误示例": 0, "输出示例": 0, "省略": 0}
+    stats = {"完整程序": 0, "片段": 0, "错误示例": 0, "输出示例": 0, "省略": 0, "多文件": 0}
+    for grp in groups:
+        stats["多文件"] += len(grp)
+        tasks.append(build_multifile_task(work, grp, file_names, args.lang))
+    # 声明了文件名却没和相邻块组成项目的孤块：不静默忽略，直接判红
+    for index in sorted(set(file_names) - grouped):
+        b = all_blocks[index]
+        stats["多文件"] += 1
+        tasks.append((b[0], b[1], b[2], "多文件", b[5], b[6], b[7], None, None,
+                      "多文件块声明了文件名，却没有和相邻块组成项目（至少两个相邻块，中间不要插入其他代码块）"))
     for index, fname, start, section, content, expected, behavior, expected_output in all_blocks:
+        if index in grouped:
+            continue
         kind = classify_task(expected, behavior, expected_output, content)
         stats[kind] += 1
         t = build_task(work, index, fname, start, content, expected, behavior, expected_output, args.serialize, args.lang)
@@ -674,12 +786,33 @@ def main():
     results = []
 
     def run(t):
-        index, fname, start, kind, expected, behavior, expected_output, src_path, d = t
+        index, fname, start, kind, expected, behavior, expected_output, src_path, d = t[:9]
+        problem = t[9] if len(t) > 9 else None
+        if problem:
+            # 项目本身写错了（缺入口/重名/孤块），不必浪费一次编译
+            return {"id": index, "file": fname, "line": start, "kind": kind,
+                    "verdict": "FAIL", "reason": problem, "codes": []}
         ok, rc, out = check_one(rzc, src_path, d, expected, behavior, expected_output)
         codes = actual_error_codes(out)
         verdict = "PASS"
         reason = ""
-        if kind == "错误示例":
+        if kind == "多文件":
+            # 多文件项目默认断言编译通过；误差允许白名单兜底（与单块同口径）
+            if expected is not None or behavior == "运行失败":
+                if ok:
+                    verdict, reason = "FAIL", "预期失败却编译通过"
+                elif expected and not expected & codes:
+                    verdict, reason = "FAIL", f"错误码不匹配：预期 {sorted(expected)}，实际 {sorted(codes) or '无 E 码'}"
+            elif expected_output is not None:
+                if not ok:
+                    verdict, reason = "FAIL", f"编译失败或输出不匹配：{out[-300:]}"
+            elif not ok:
+                verdict, reason = "FAIL", "多文件项目编译失败"
+                item = allowlist.get((fname, start))
+                if item:
+                    verdict = "EXPECTED"
+                    reason = f"预期失败（{item.get('category', '?')}：{item.get('note', '')}）"
+        elif kind == "错误示例":
             if behavior == "通过":
                 if not ok:
                     verdict, reason = "FAIL", "预期通过却编译失败"
@@ -713,6 +846,9 @@ def main():
     if args.serialize:
         chapters = {}
         for index, fname, start, section, content, expected, behavior, expected_output in all_blocks:
+            if index in grouped:
+                # 多文件块单独成组验证，不参与章节拼接（同一文件会被声明成模块）
+                continue
             chapters.setdefault(fname, []).append(
                 (index, fname, start, content, expected, behavior, expected_output))
         for fname, blocks in sorted(chapters.items()):
