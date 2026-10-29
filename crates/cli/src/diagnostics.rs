@@ -1624,6 +1624,66 @@ mod tests {
         assert_eq!(translate_cargo_progress("hello world", &ui), "hello world");
     }
 
+    /// en 的工具通道逐字保留 cargo/rustc 自己的措辞（恒等语言不得改写英文原话）
+    ///
+    /// 同一条链上的五个前缀键里，`warning:`/`note:`/`help:`/`Caused by:` 本来就是
+    /// cargo 原话，只有 `cargo_progress_error` 曾写作大写 `Error:`、`
+    /// cargo_progress_finished` 曾写作 `Build finished {}`——两者都发生在「cargo 的
+    /// 英文行被换成另一句英文」这条路径上：英语读者对照 cargo 自己的输出与文档时对不上，
+    /// en 教程第十八章贴的 `Finished \`dev\` profile …` 也和实机输出不一致。
+    /// 现统一为原话，此测试把口径钉住（新增前缀键时同样要能对上）。
+    #[test]
+    fn en_tool_channel_keeps_cargos_own_wording() {
+        let en = ui_for_test("en");
+        let cases = [
+            (
+                "error: could not compile `myapp`",
+                "error: could not compile `myapp`",
+            ),
+            (
+                "error: the trait bound `i32`: `MyTrait` is not satisfied",
+                "error: the trait bound `i32`: `MyTrait` is not satisfied",
+            ),
+            (
+                "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.57s",
+                "Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.57s",
+            ),
+            ("   Compiling serde v1.0.0", "Compiling serde v1.0.0"),
+            ("    Checking myapp v0.1.0", "Checking myapp v0.1.0"),
+            ("Running `target/debug/t`", "Running `target/debug/t`"),
+        ];
+        for (input, expected) in cases {
+            let got = translate_cargo_progress(input, &en);
+            assert_eq!(got, expected, "en 进度行应保持 cargo 原话：{input}");
+        }
+
+        // 工具通道其余前缀（error: 之外的四个）同样逐字
+        let manager = i18n_rust_engine::diagnostic::ErrorTranslationManager::load_from_string(
+            crate::builtin_lang::get_builtin_data("en").errors_toml,
+        )
+        .expect("内置 en 错误消息表应可加载");
+        for line in [
+            "warning: unused variable: `x`",
+            "note: the lint level is defined here",
+            "help: consider using a `let` binding",
+            "Caused by: no targets specified in the manifest",
+        ] {
+            let got = localize_tool_line(line, Some(&manager), &en, "en").expect("标记行应被处理");
+            assert_eq!(got, line, "en 工具通道不得改写已有前缀：{line} → {got}");
+        }
+
+        // 对照：zh 仍走母语前缀（这条链不是只对 en 生效）
+        let zh = ui_for_test("zh");
+        assert!(
+            translate_cargo_progress("error: some custom failure", &zh).starts_with("错误："),
+            "zh 前缀应仍为母语"
+        );
+        assert!(
+            translate_cargo_progress("    Finished `dev` profile", &zh).contains("编译完成"),
+            "zh 完成行应仍为母语"
+        );
+    }
+
     /// 框头 None 分支：缺尾冒号 / 空线程名 / 非框头行均不匹配，原样透传
     #[test]
     fn test_translate_panic_header_reject_malformed() {
@@ -2004,12 +2064,13 @@ mod tests {
             "error: crate name `计算器` passed to `--extern` is not a valid ASCII identifier";
 
         let got = localize_tool_line(line, Some(&en_manager), &ui, "en").expect("标记行应被处理");
-        // 正文逐字保留 rustc 原句；行首前缀按 en 的 `cargo_progress_error` 渲染，
-        // 而该键写的是 `Error:`（大写），与 cargo 自己的 `error:` 不统一——
-        // 属另一条已登记的一致性缺口，此处按现状钉住，改动它时会提醒同步。
+        // 正文与前缀都逐字保留 rustc/cargo 原句：en 的 `cargo_progress_error` 与
+        // 同路径的 `tool_prefix_warning`/`note`/`help` 一样是 cargo 原话的小写形
+        // （旧值写作大写 `Error:`，把 cargo 的行首改写了，见
+        // `en_tool_channel_keeps_cargos_own_wording`）
         assert_eq!(
-            got, "Error: crate name `计算器` passed to `--extern` is not a valid ASCII identifier",
-            "en 下应只换前缀、不动正文"
+            got, "error: crate name `计算器` passed to `--extern` is not a valid ASCII identifier",
+            "en 下应逐字保留 cargo 原句"
         );
         assert!(
             !gaps::peek_gaps()

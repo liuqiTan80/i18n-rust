@@ -61,12 +61,16 @@
   `~/.rz/gaps/en.tsv`（1079 行）不代删，`rzc gaps --lang en --clear` 自清；一致性由
   `identity_language_packs_carry_no_message_table` 双向钉住（en 带「消息翻译」节即红，
   其余 10 语言的消息表被清空也红）
-- en 的工具通道前缀仍与 cargo 自己不统一（同轮查出）：`cargo_progress_error` 在 en 写作
-  `Error: {}`（大写 E），于是经过工具通道的错误行首字母被改写，与 cargo 自己的 `error:`
-  以及同屏的 `warning:` / `note:`（这两条键都是小写）不一致——英语读者拿到的不是逐字原句。
-  该键同时被 `translate_cargo_progress` 复用（diagnostics.rs:255），改前先量进度行输出与
-  en 教程引用（第十八/十六章的 `Error:` 行来自 rzc 自身的 `bail!`，与这条不同路径）。
-  现状已被 `test_localize_tool_line_in_identity_lang_shows_original_without_gap` 按字面钉住
+- **（2026-10-30 已修）** en 的工具通道前缀曾与 cargo 自己不统一（同轮查出）：`cargo_progress_error`
+  在 en 写作 `Error: {}`（大写 E），于是经过工具通道的错误行首字母被改写，与 cargo 自己的 `error:`
+  以及同屏的 `warning:` / `note:`（这两条键都是小写）不一致——英语读者拿到的不是逐字原句。改的
+  时候在同一条路径上查出第二处同类改写：`cargo_progress_finished` 写作 `Build finished {}`，把
+  cargo 的 ``Finished `dev` profile …`` 换成了另一句英文，而 en 教程第十八章贴的正是原话——
+  书与实机对不上。现两条键都取 cargo 原话（`error: {}` / `Finished {}`），en 工具通道的十一条键
+  （Compiling / Checking / Finished / Running / error: / warning: / note: / help: / Caused by: /
+  could not compile / due to）逐字一致；口径由新增的 `en_tool_channel_keeps_cargos_own_wording`
+  钉住（六条进度行逐字 + 四条前缀恒等 + zh 仍走母语前缀的对照），把值退回旧写法即转红。
+  第十八/十六章里 rzc 自身 `bail!` 的 `Error:` 取自 `cli_error_prefix`，属另一条路径，未动
 - **（2026-10-29 已落地）** 待译清单的 TSV 会被多行消息破坏：消息原文含换行时按原样落盘，于是
   `~/.rz/gaps/en.tsv` 1079 行里有 628 行是不以语言列开头的裸续行，`parse_gap_lines` 把它们
   当作「单列消息」并按**当前界面语言**归类 —— 语言归属与条数双双失真，`rzc gaps` 的读数

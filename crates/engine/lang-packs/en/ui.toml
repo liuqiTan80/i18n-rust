@@ -220,9 +220,9 @@
 # ---- cargo progress ----
 "cargo_progress_compiling" = "Compiling {}"
 "cargo_progress_checking" = "Checking {}"
-"cargo_progress_finished" = "Build finished {}"
+"cargo_progress_finished" = "Finished {}"
 "cargo_progress_running" = "Running {}"
-"cargo_progress_error" = "Error: {}"
+"cargo_progress_error" = "error: {}"
 
 # ---- LSP ----
 "lsp_about" = "i18n-rust LSP proxy server"

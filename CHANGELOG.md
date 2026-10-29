@@ -86,6 +86,16 @@
   （`diagnostic::message::message_table_wins`）：消息表命中整句（精确键/通配段键）**且**
   码表桩靠 token 猜槽位时用消息表，其余维持「桩优先」——E0308/E0283 这类桩更精确的句子
   一条不受影响（现有语料 0 翻转）。en 破例收录**同文守卫键**（不译，只截住桩）。
+- **en 的工具通道不再把 cargo 的英文行换成另一句英文**。`en/ui.toml` 里
+  `cargo_progress_error` 写作 `Error: {}`（大写 E）、`cargo_progress_finished` 写作
+  `Build finished {}`：经过这条通道的错误行被改写行首、完成行被换成另一句措辞，而同屏的
+  `warning:` / `note:` / `help:` / `Caused by:` 四条键本来就逐字取 cargo 原话——英语读者
+  拿到的同一屏前缀自相不一致，en 教程第十八章贴的
+  ``Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.57s`` 也和实机输出对不上。
+  现两条键改为 `error: {}` / `Finished {}`，en 侧工具通道的十一条键（Compiling / Checking /
+  Finished / Running / error: / warning: / note: / help: / Caused by: / could not compile /
+  due to）全部为原话。rzc 自身 `bail!` 的 `Error:` 取自 `cli_error_prefix`，不在这条链上，
+  未动；zh/ja/ru 等母语文案不受影响。
 
 ### 测试
 - `rzc doctor` 项目入口自检上锁：8 条单元测试覆盖「缺 target 点名入口命令 / 产物齐备沉默 /
@@ -110,6 +120,12 @@
   作目标错误类型，避开 `String` 的 `From` help 那条无译文长句），`diag-corpus.tsv` +2 条。
 - 三组反证各自实测一红一绿：去掉桩形态条件（E0308 断言转红）、放宽到接受前缀/后缀键
   （语料门禁 10 语言 60 处英文残留）、删 en 守卫键（en 又渲染出 nonsense）。
+- 新增 `en_tool_channel_keeps_cargos_own_wording`：六条 cargo 进度行（`error:` / `Finished` /
+  `Compiling` / `Checking` / `Running`）在 en 下逐字不变，四条工具前缀行（`warning:` / `note:` /
+  `help:` / `Caused by:`）经 `localize_tool_line` 恒等，zh 的同两条键仍渲染母语前缀——正反两向
+  写清「en 是恒等语言」的边界在哪。原先按旧值字面钉住的
+  `test_localize_tool_line_in_identity_lang_shows_original_without_gap` 期望改为 `error: …`；
+  把两条键退回旧写法，上述两条测试同红。
 
 ### 说明与取舍
 - 策略条目原写的「消息表精确命中优先」实测会让 `[E0308]` 丢期望/实际类型、`[E0283]` 丢
