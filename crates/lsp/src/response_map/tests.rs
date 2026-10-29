@@ -370,6 +370,63 @@ fn test_map_diagnostics_ownership_details_in_data() {
 }
 
 #[test]
+fn test_map_diagnostics_e0502_borrow_conflict_keeps_sides_apart() {
+    let (cache, _temp) = create_test_cache();
+    let mapper = ResponseMapper::new(cache.clone());
+    let (entry, _) = cache
+        .update_document(
+            "file:///test/main.zh",
+            "让 a = 1;\n让 b = 1;\n让 c = 1;\n让 d = 1;\n让 e = 1;\n让 f = 1;\n让 g = 1;\n让 h = 1;",
+            1,
+        )
+        .unwrap();
+
+    // rust-analyzer 风格的 E0502：主 range 是被拒的可变借用（1-based 第 7 行），
+    // relatedInformation 里是不可变借用（第 5 行，与 later-used 同行，与实机一致）
+    let related = |line: u32, message: &str| {
+        json!({
+            "location": {
+                "uri": entry.virtual_uri.clone(),
+                "range": {
+                    "start": { "line": line, "character": 8 },
+                    "end": { "line": line, "character": 12 }
+                }
+            },
+            "message": message
+        })
+    };
+    let diag = json!({
+        "range": {
+            "start": { "line": 6, "character": 8 },
+            "end": { "line": 6, "character": 18 }
+        },
+        "severity": 1,
+        "code": "E0502",
+        "source": "rust-analyzer",
+        "message": "cannot borrow `分数` as mutable because it is also borrowed as immutable",
+        "relatedInformation": [
+            related(4, "immutable borrow occurs here"),
+            related(4, "immutable borrow later used here"),
+        ]
+    });
+    let params = json!({
+        "uri": entry.virtual_uri,
+        "version": 1,
+        "diagnostics": [diag]
+    });
+
+    let mapped = mapper.map_diagnostics(&params);
+    let data = mapped["diagnostics"][0]["data"]
+        .as_object()
+        .expect("所有权诊断的 data 字段应为 JSON 对象");
+    assert_eq!(data["变量名"], "分数");
+    // 可变借用取主 range（第 7 行），不可变借用取 relatedInformation（第 5 行），
+    // 两侧不得互换（否则叙事又把行号读反）
+    assert_eq!(data["借用冲突"]["可变借用"]["起始行"], 7);
+    assert_eq!(data["借用冲突"]["不可变借用"]["起始行"], 5);
+}
+
+#[test]
 fn test_map_diagnostics_non_ownership_no_ownership_details() {
     let (cache, _temp) = create_test_cache();
     let mapper = ResponseMapper::new(cache.clone());

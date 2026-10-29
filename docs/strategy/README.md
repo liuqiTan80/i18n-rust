@@ -186,7 +186,10 @@
   先后颠倒——en 教程第十五章实机捕获到 "borrowed on line 5 and is still in use on
   line 3"（5 是新的可变借用、3 是仍在结束的不可变借用），初学者会读反。修法：给
   E0502 单独一条键（"第 3 行的不可变借用还没结束，第 5 行又要可变借用"），
-  11 语言同步并走 `tools/check-ui-keys.py` 门禁
+  11 语言同步并走 `tools/check-ui-keys.py` 门禁。**已修（2026-10-29）**：实现上由 span
+  标签区分两端（`BorrowConflict`），新键 `diag_ownership_borrow_conflict` 只陈述「可变第
+  几行 / 不可变第几行重叠」，不暗示先后；两种 span 形状（for 循环里改、先借后改）实机
+  行号均正确，zh/ja/ru/en 四处教程旧输出已换成实机数字
 
 
 - 「按需求描述给 API」检索（2026-10-28 做过命中率样品，**结论：暂不实现**）：用 20 条高频

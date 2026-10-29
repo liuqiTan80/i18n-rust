@@ -329,6 +329,7 @@
 "diag_kind_ice" = "内部编译器错误"
 "diag_ownership_moved_reused" = "变量 `{}` 在第 {} 行被移动，第 {} 行尝试再次使用。"
 "diag_ownership_borrowed_in_use" = "变量 `{}` 在第 {} 行被借用，第 {} 行仍在被使用。"
+"diag_ownership_borrow_conflict" = "变量 `{}` 的可变借用（第 {} 行）与不可变借用（第 {} 行）重叠：两者不能同时存在。"
 "diag_ownership_moved" = "变量 `{}` 在第 {} 行被移动。"
 "diag_ownership_borrowed" = "变量 `{}` 在第 {} 行被借用。"
 "diag_ownership_conflict" = "变量 `{}` 存在所有权冲突。"

@@ -8,7 +8,7 @@ actual argument expressions passed at those call sites. Use it to judge the tone
 of a message (error, hint, help text) and what each placeholder stands for
 before you translate it.
 
-Key count: **621** · statically referenced: 558 ·
+Key count: **622** · statically referenced: 559 ·
 resolved at runtime by prefix: 63 · unused: 0
 
 | Prefix | Section |
@@ -23,7 +23,7 @@ resolved at runtime by prefix: 63 · unused: 0
 | `lang_*` | CLI: `lang` subcommands (14) |
 | `lc_*` | CLI: language-pack download/verification (10) |
 | `lsp_*` | Language server (LSP) messages (98) |
-| `diag_*` | CLI/engine: diagnostic rendering (14) |
+| `diag_*` | CLI/engine: diagnostic rendering (15) |
 | `unicode_name_*` | Engine: Unicode character names (dynamic, by codepoint) (60) |
 | `guide_*` | CLI: guided first-run tutorial (14) |
 | `crate_*` | CLI: crate scaffolding (`rzc new`) (20) |
@@ -454,11 +454,12 @@ no substitution at all.
 | `diag_kind_ice` | 0 | `crates/engine/src/diagnostic/teaching.rs:51` | — | 内部编译器错误 |
 | `diag_kind_note` | 0 | `crates/engine/src/diagnostic/teaching.rs:49` | — | 注释 |
 | `diag_kind_warning` | 0 | `crates/engine/src/diagnostic/teaching.rs:48` | — | 警告 |
-| `diag_ownership_borrowed` | 2 | `crates/engine/src/diagnostic/teaching.rs:140` | var / &borrow.line_start.to_string() | 变量 `{}` 在第 {} 行被借用。 |
-| `diag_ownership_borrowed_in_use` | 3 | `crates/engine/src/diagnostic/teaching.rs:129` | var / &borrow.line_start.to_string() / &reuse.line_start.to_string() | 变量 `{}` 在第 {} 行被借用，第 {} 行仍在被使用。 |
-| `diag_ownership_conflict` | 1 | `crates/engine/src/diagnostic/teaching.rs:143` | var | 变量 `{}` 存在所有权冲突。 |
-| `diag_ownership_moved` | 2 | `crates/engine/src/diagnostic/teaching.rs:137` | var / &mv.line_start.to_string() | 变量 `{}` 在第 {} 行被移动。 |
-| `diag_ownership_moved_reused` | 3 | `crates/engine/src/diagnostic/teaching.rs:121` | var / &mv.line_start.to_string() / &reuse.line_start.to_string() | 变量 `{}` 在第 {} 行被移动，第 {} 行尝试再次使用。 |
+| `diag_ownership_borrow_conflict` | 3 | `crates/engine/src/diagnostic/teaching.rs:188`<br>`crates/engine/src/diagnostic/teaching.rs:383` | var / &conflict.mutable.line_start.to_s… / &conflict.immutable.line_start.to… | 变量 `{}` 的可变借用（第 {} 行）与不可变借用（第 {} 行）重叠：两者不能同时存在。 |
+| `diag_ownership_borrowed` | 2 | `crates/engine/src/diagnostic/teaching.rs:221` | var / &borrow.line_start.to_string() | 变量 `{}` 在第 {} 行被借用。 |
+| `diag_ownership_borrowed_in_use` | 3 | `crates/engine/src/diagnostic/teaching.rs:210` | var / &borrow.line_start.to_string() / &reuse.line_start.to_string() | 变量 `{}` 在第 {} 行被借用，第 {} 行仍在被使用。 |
+| `diag_ownership_conflict` | 1 | `crates/engine/src/diagnostic/teaching.rs:224` | var | 变量 `{}` 存在所有权冲突。 |
+| `diag_ownership_moved` | 2 | `crates/engine/src/diagnostic/teaching.rs:218` | var / &mv.line_start.to_string() | 变量 `{}` 在第 {} 行被移动。 |
+| `diag_ownership_moved_reused` | 3 | `crates/engine/src/diagnostic/teaching.rs:202` | var / &mv.line_start.to_string() / &reuse.line_start.to_string() | 变量 `{}` 在第 {} 行被移动，第 {} 行尝试再次使用。 |
 | `diag_ref_depth_hint` | 2 | `crates/engine/src/diagnostic/translator.rs:587` | &localize_ref_type(&expected, &se… / &localize_ref_type(&found, &self.… | 引用层数不匹配：期望 `{}`，实际是 `{}`。检查 `&` 的数量：实参前补 `&`，或让参数类型去掉多余的 `&`。 |
 | `diag_rustc_float` | 0 | `crates/lsp/src/response_map/diag_text.rs:118`<br>`crates/lsp/src/response_map/diag_text.rs:121`<br>`crates/engine/src/diagnostic/translator.rs:680` | — | 浮点数 |
 | `diag_rustc_integer` | 0 | `crates/lsp/src/response_map/diag_text.rs:117`<br>`crates/lsp/src/response_map/diag_text.rs:123`<br>`crates/engine/src/diagnostic/translator.rs:679` | — | 整数 |

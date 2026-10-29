@@ -336,6 +336,7 @@
 "diag_kind_ice" = "Interner Compilerfehler"
 "diag_ownership_moved_reused" = "Variable `{}` wurde in Zeile {} verschoben und in Zeile {} erneut verwendet."
 "diag_ownership_borrowed_in_use" = "Variable `{}` wurde in Zeile {} ausgeliehen und wird in Zeile {} noch verwendet."
+"diag_ownership_borrow_conflict" = "Variable `{}`: Die veränderbare Ausleihe (Zeile {}) überschneidet sich mit der unveränderbaren (Zeile {}); Rust erlaubt nicht beides gleichzeitig."
 "diag_ownership_moved" = "Variable `{}` wurde in Zeile {} verschoben."
 "diag_ownership_borrowed" = "Variable `{}` wurde in Zeile {} ausgeliehen."
 "diag_ownership_conflict" = "Variable `{}` hat einen Ownership-Konflikt."

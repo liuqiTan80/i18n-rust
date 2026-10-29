@@ -104,14 +104,95 @@ pub struct OwnershipDetails {
     pub borrow_location: Option<DiagnosticLocation>,
     #[serde(rename = "再次使用")]
     pub reuse_location: Option<DiagnosticLocation>,
+    /// E0502 的冲突双方（仅当两个借用标签都在跨度中时才有值），
+    /// 有值时叙事改走 `diag_ownership_borrow_conflict`
+    #[serde(rename = "借用冲突", skip_serializing_if = "Option::is_none")]
+    pub borrow_conflict: Option<BorrowConflict>,
+}
+
+/// E0502 的借用冲突双方
+///
+/// rustc 对 E0502 给出的两个标签是「mutable borrow occurs here」与
+/// 「immutable borrow occurs here」（另可能附加「immutable borrow later used here」）。
+/// 旧实现把「借用发生」取主 span（总是那个被拒绝的可变借用）、「仍在用」取
+/// later-used 行，于是渲染出「在第 7 行被借用，第 5 行仍在被使用」——行号读反，
+/// 初学者会当成时间倒流。这里按标签分别记下两方，叙事不再依赖先后猜。
+#[derive(Debug, Clone, Serialize)]
+pub struct BorrowConflict {
+    #[serde(rename = "可变借用")]
+    pub mutable: DiagnosticLocation,
+    #[serde(rename = "不可变借用")]
+    pub immutable: DiagnosticLocation,
+}
+
+impl BorrowConflict {
+    /// 按标签把两端位置分开收：返回 `(可变借用, 不可变借用)`
+    ///
+    /// 两个坑都要躲：①「immutable borrow occurs here」以「mutable borrow」结尾
+    /// （im**mutable**），必须先判 immutable；② 已经收到 immutable 后，
+    /// 「immutable borrow later used here」仍会命中 mutable 分支，故可变分支还得排除
+    /// label 里的 immutable。LSP 侧也用它：rust-analyzer 的主 range 不带标签，
+    /// 可变侧的兜底由调用方补。
+    pub fn classify_labelled_spans<'a, I>(
+        spans: I,
+    ) -> (Option<DiagnosticLocation>, Option<DiagnosticLocation>)
+    where
+        I: IntoIterator<Item = (&'a str, DiagnosticLocation)>,
+    {
+        let mut mutable = None;
+        let mut immutable = None;
+        for (label, location) in spans {
+            if immutable.is_none() && label.contains("immutable borrow") {
+                immutable = Some(location);
+            } else if mutable.is_none()
+                && label.contains("mutable borrow")
+                && !label.contains("immutable")
+            {
+                mutable = Some(location);
+            }
+        }
+        (mutable, immutable)
+    }
+
+    /// 两端都认出来时才算得上「借用冲突」
+    pub fn from_sides(
+        mutable: Option<DiagnosticLocation>,
+        immutable: Option<DiagnosticLocation>,
+    ) -> Option<Self> {
+        match (mutable, immutable) {
+            (Some(mutable), Some(immutable)) => Some(Self { mutable, immutable }),
+            _ => None,
+        }
+    }
+
+    /// 从「标签 + 位置」序列里认出冲突双方
+    pub fn from_labelled_spans<'a, I>(spans: I) -> Option<Self>
+    where
+        I: IntoIterator<Item = (&'a str, DiagnosticLocation)>,
+    {
+        let (mutable, immutable) = Self::classify_labelled_spans(spans);
+        Self::from_sides(mutable, immutable)
+    }
 }
 
 impl OwnershipDetails {
     /// 生成当前语言下的叙事性教学文本
     ///
     /// 示例（中文）：变量 `数据` 在第 3 行被移动，第 5 行尝试再次使用。
+    /// E0502 另走 `diag_ownership_borrow_conflict`：只陈述「两方在第几行」
+    /// 与「不能重叠」，不暗示谁先谁后（两种形状下都能读对）。
     pub fn narrative_text(&self) -> String {
         let var = &self.var_name;
+        if let Some(conflict) = &self.borrow_conflict {
+            return crate::语言::f(
+                "diag_ownership_borrow_conflict",
+                &[
+                    var,
+                    &conflict.mutable.line_start.to_string(),
+                    &conflict.immutable.line_start.to_string(),
+                ],
+            );
+        }
         match (
             &self.move_location,
             &self.borrow_location,
@@ -217,11 +298,23 @@ pub fn extract_ownership_details(
     if move_location.is_none() && borrow_location.is_none() && reuse_location.is_none() {
         return None;
     }
+    // E0502 单独记下冲突双方：上方「借用发生 / 仍在用」的粗分类会
+    // 把被拒绝的可变借用当成前者（主 span 兜底），行号因此读反
+    let borrow_conflict = if error_code == "E0502" {
+        BorrowConflict::from_labelled_spans(all_spans.iter().filter_map(|span| {
+            span.label
+                .as_deref()
+                .map(|label| (label, DiagnosticLocation::from_span(span)))
+        }))
+    } else {
+        None
+    };
     Some(OwnershipDetails {
         var_name,
         move_location,
         borrow_location,
         reuse_location,
+        borrow_conflict,
     })
 }
 
@@ -246,4 +339,78 @@ fn extract_var_name_from_spans(spans: &[DiagnosticSpan]) -> Option<String> {
         let end = rest.find('`')?;
         Some(rest[..end].to_string())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 测试用位置（只关心行号）
+    fn loc(line: u32) -> DiagnosticLocation {
+        DiagnosticLocation {
+            file_name: "main.zh".to_string(),
+            line_start: line,
+            column_start: 1,
+            line_end: line,
+            column_end: 2,
+            source_text: None,
+            label: None,
+            is_primary: false,
+        }
+    }
+
+    /// 冲突叙事的模板必须在 11 个语言包里都在，且三个槽位都能回填。
+    /// 键缺失时 `f()` 会原样返回键名，占位符写错则行号丢失——两者都实机可见。
+    /// 走 `narrative_text()` 而非直接调 `f()`：与 CLI 实际入口同一条路径。
+    #[test]
+    fn borrow_conflict_template_present_in_every_language_pack() {
+        let details = OwnershipDetails {
+            var_name: "x".to_string(),
+            move_location: None,
+            borrow_location: None,
+            reuse_location: None,
+            borrow_conflict: Some(BorrowConflict {
+                mutable: loc(7),
+                immutable: loc(5),
+            }),
+        };
+        for lang in [
+            "zh", "en", "ja", "ko", "ru", "de", "es", "fr", "pt", "hi", "ar",
+        ] {
+            let _guard = crate::语言::test_language(lang);
+            let text = details.narrative_text();
+            assert!(
+                !text.contains("diag_ownership_borrow_conflict"),
+                "{lang} 语言包缺少 diag_ownership_borrow_conflict"
+            );
+            assert!(
+                text.contains('x') && text.contains('7') && text.contains('5'),
+                "{lang} 的冲突叙事没有回填全部三个槽位：{text}"
+            );
+        }
+    }
+
+    /// 标签判定次序：“immutable borrow occurs here” 以 “mutable borrow” 结尾，
+    /// 先认 mutable 会把不可变借用当成可变借用；且第二处 immutable 标签
+    /// （later used）也不得冒充可变借用。两种顺序都要稳。
+    #[test]
+    fn immutable_label_is_not_mistaken_for_mutable() {
+        let mutable_first = BorrowConflict::from_labelled_spans(vec![
+            ("mutable borrow occurs here", loc(7)),
+            ("immutable borrow occurs here", loc(5)),
+            ("immutable borrow later used here", loc(5)),
+        ])
+        .expect("应认出冲突双方");
+        assert_eq!(mutable_first.mutable.line_start, 7);
+        assert_eq!(mutable_first.immutable.line_start, 5);
+
+        // 顺序颠倒（LSP 的 relatedInformation 里没有主 range 的标签）：
+        // 可变侧必须缺席，交给调用方兜底，不能被 later-used 那条顶上
+        let (mutable, immutable) = BorrowConflict::classify_labelled_spans(vec![
+            ("immutable borrow occurs here", loc(5)),
+            ("immutable borrow later used here", loc(5)),
+        ]);
+        assert!(mutable.is_none(), "不可变标签不得冒充可变借用");
+        assert_eq!(immutable.unwrap().line_start, 5);
+    }
 }

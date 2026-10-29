@@ -28,6 +28,15 @@
   勿误判为回归。
 
 ### 修复
+- E0502 的所有权叙事不再把两个行号读反。rustc 对 E0502 的主 span 是**被拒绝的那次可变
+  借用**（"mutable borrow occurs here"），子 span 才是 "immutable borrow occurs here" /
+  "immutable borrow later used here"；旧实现把主 span 当「借用发生」、later-used 当「仍在
+  被使用」，于是渲染出「变量 `分数` 在第 7 行被借用，第 5 行仍在被使用」——行号倒流，
+  初学者会当成时间倒流。现在按**标签**分别记下冲突两方（`BorrowConflict`），叙事改走新键
+  `diag_ownership_borrow_conflict`（"可变借用（第 {} 行）与不可变借用（第 {} 行）重叠"），
+  只陈述两方位置与「不能同时存在」，不暗示先后；两端位置同时进诊断 `data.借用冲突`，
+  CLI 与 LSP 同口径（rust-analyzer 主 range 不带标签，可变侧用主 range 兜底）。11 语言
+  同步，教程 zh/ja/ru/en 四处旧输出已换成实机行号。
 - `?` 的两条诊断不再被通用 E0277 桩套成「类型 `?` 未实现特征 `结果`」。rustc 这两句
   （"the `?` operator can only be used in a function that returns `Result` or `Option`…" 与
   "`?` couldn't convert the error to `SignupError`"）都带 E0277 码，而 `[E0277]` 桩只能按消息里
@@ -39,6 +48,12 @@
   一条不受影响（现有语料 0 翻转）。en 破例收录**同文守卫键**（不译，只截住桩）。
 
 ### 测试
+- 新增 `test_e0502_narrative_does_not_read_line_numbers_backwards`（for 循环形状：可变 7 /
+  不可变 5）、`test_e0502_single_borrow_label_falls_back_to_old_narrative`（只剩一端标签时
+  回退旧键）、`test_borrow_conflict_serializes_only_when_recognized`（只有 E0502 才带
+  `借用冲突`）、`borrow_conflict_template_present_in_every_language_pack`（11 语言回填三槽）、
+  `immutable_label_is_not_mistaken_for_mutable`（"immutable borrow" 以 "mutable borrow" 结尾
+  的子串坑），LSP 侧 `test_map_diagnostics_e0502_borrow_conflict_keeps_sides_apart`。
 - 新增门禁 `question_mark_e0277_messages_bypass_token_guessing_stub`：11 语言 × 两条消息，
   断言译文 ≠ 桩的按序回填、无裸占位符、有教学提示、CLI 与 LSP 同口径，zh 硬写期望译文。
 - 反证 `precise_code_stub_keeps_priority_over_coarse_message_entry`：E0308（期望/实际）、

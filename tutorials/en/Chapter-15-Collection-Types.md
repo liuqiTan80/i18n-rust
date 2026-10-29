@@ -473,11 +473,11 @@ fn main() {
 ```text
 error[E0502]: cannot borrow `scores` as mutable because it is also borrowed as immutable
    |         scores.push(60);
-📌 Variable `scores` was borrowed on line 5 and is still in use on line 3.
+📌 Variable `scores`: the mutable borrow on line 6 overlaps the immutable borrow on line 4; Rust does not allow both at once.
 💡 Rust does not allow mutable and immutable borrows at the same time. Try reducing the scope of the immutable borrow.
 ```
 
-The two line numbers in the 📌 line are the two ends of the clash: line 5 is where `push` asks for a mutable borrow, line 3 is the walk still holding the first one.
+The two line numbers in the 📌 line are the two ends of one clash: line 6 is where `push` asks for a mutable borrow, line 4 is the walk that is still holding the immutable one.
 
 `for item in &scores` holds an **immutable** borrow for the whole loop; `scores.push(60)` inside it asks for a **mutable** one, and Chapter 8's iron rule says those never overlap. **Fix**: collect what you want to add in a separate vector, then extend after the loop finishes.
 

@@ -311,6 +311,7 @@
 "diag_kind_ice" = "internal compiler error"
 "diag_ownership_moved_reused" = "Variable `{}` was moved on line {} and used again on line {}."
 "diag_ownership_borrowed_in_use" = "Variable `{}` was borrowed on line {} and is still in use on line {}."
+"diag_ownership_borrow_conflict" = "Variable `{}`: the mutable borrow on line {} overlaps the immutable borrow on line {}; Rust does not allow both at once."
 "diag_ownership_moved" = "Variable `{}` was moved on line {}."
 "diag_ownership_borrowed" = "Variable `{}` was borrowed on line {}."
 "diag_ownership_conflict" = "Variable `{}` has an ownership conflict."

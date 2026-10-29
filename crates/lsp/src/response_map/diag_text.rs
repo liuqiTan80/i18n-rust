@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::SystemTime;
 
-use i18n_rust_engine::diagnostic::{DiagnosticLocation, OwnershipDetails};
+use i18n_rust_engine::diagnostic::{BorrowConflict, DiagnosticLocation, OwnershipDetails};
 use serde_json::{Value, json};
 
 use crate::translation_cache::{TranslationEntry, en_col_to_zh_col_single};
@@ -620,6 +620,9 @@ pub(crate) fn extract_ownership_details(
     let mut move_location = None;
     let mut borrow_location = None;
     let mut reuse_location = None;
+    // E0502 的双方按标签专门认（见 BorrowConflict）：后方粗分类会把被拒的
+    // 可变借用当成「借用发生」，与「仍在用」行号读反
+    let mut labelled: Vec<(&str, DiagnosticLocation)> = Vec::new();
 
     if let Some(related_info) = restored["relatedInformation"].as_array() {
         for item in related_info {
@@ -629,6 +632,7 @@ pub(crate) fn extract_ownership_details(
             else {
                 continue;
             };
+            labelled.push((label, location.clone()));
             // 注意顺序："borrow later used here" 同时含 borrow 与 used here，应归为再次使用
             if label.contains("used here")
                 || label.contains("later used")
@@ -642,6 +646,14 @@ pub(crate) fn extract_ownership_details(
             }
         }
     }
+    // 与引擎同口径：只对 E0502（或消息形态命中）认冲突双方；
+    // rust-analyzer 的主 range 不带标签，而它就是被拒绝的可变借用——兜底补上
+    let borrow_conflict = if matches!(error_code, "E0502") || message.contains("cannot borrow") {
+        let (mutable, immutable) = BorrowConflict::classify_labelled_spans(labelled);
+        BorrowConflict::from_sides(mutable.or_else(|| main_location.clone()), immutable)
+    } else {
+        None
+    };
 
     // 主 range 兜底：E0382 → 再次使用；E0502 → 借用发生；E0507 → 移动发生
     if let Some(location) = main_location {
@@ -662,6 +674,7 @@ pub(crate) fn extract_ownership_details(
         move_location,
         borrow_location,
         reuse_location,
+        borrow_conflict,
     })
 }
 

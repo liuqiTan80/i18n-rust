@@ -336,6 +336,7 @@
 "diag_kind_ice" = "내부 컴파일러 오류"
 "diag_ownership_moved_reused" = "변수 `{}`는 {}행에서 이동되었고 {}행에서 다시 사용되었습니다."
 "diag_ownership_borrowed_in_use" = "변수 `{}`는 {}행에서 빌려졌고 {}행에서 계속 사용 중입니다."
+"diag_ownership_borrow_conflict" = "변수 `{}`의 가변 대여({}행)와 불변 대여({}행)가 겹칩니다. Rust는 둘의 동시 존재를 허용하지 않습니다."
 "diag_ownership_moved" = "변수 `{}`는 {}행에서 이동되었습니다."
 "diag_ownership_borrowed" = "변수 `{}`는 {}행에서 빌려졌습니다."
 "diag_ownership_conflict" = "변수 `{}`에 소유권 충돌이 있습니다."

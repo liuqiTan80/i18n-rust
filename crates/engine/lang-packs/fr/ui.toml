@@ -336,6 +336,7 @@
 "diag_kind_ice" = "Erreur interne du compilateur"
 "diag_ownership_moved_reused" = "La variable `{}` a été déplacée à la ligne {} et réutilisée à la ligne {}."
 "diag_ownership_borrowed_in_use" = "La variable `{}` a été empruntée à la ligne {} et est encore utilisée à la ligne {}."
+"diag_ownership_borrow_conflict" = "La variable `{}` : l'emprunt mutable (ligne {}) chevauche l'emprunt immuable (ligne {}) ; Rust n'autorise pas les deux à la fois."
 "diag_ownership_moved" = "La variable `{}` a été déplacée à la ligne {}."
 "diag_ownership_borrowed" = "La variable `{}` a été empruntée à la ligne {}."
 "diag_ownership_conflict" = "La variable `{}` a un conflit de propriété."

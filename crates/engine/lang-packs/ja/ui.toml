@@ -336,6 +336,7 @@
 "diag_kind_ice" = "内部コンパイラエラー"
 "diag_ownership_moved_reused" = "変数 `{}` は {} 行目で移動され、{} 行目で再び使用されました。"
 "diag_ownership_borrowed_in_use" = "変数 `{}` は {} 行目で借用され、{} 行目でまだ使用されています。"
+"diag_ownership_borrow_conflict" = "変数 `{}` の可変借用（{} 行目）と不変借用（{} 行目）が重なっています。Rust は両方の同時存在を許しません。"
 "diag_ownership_moved" = "変数 `{}` は {} 行目で移動されました。"
 "diag_ownership_borrowed" = "変数 `{}` は {} 行目で借用されました。"
 "diag_ownership_conflict" = "変数 `{}` に所有権の衝突があります。"

@@ -33,7 +33,7 @@ pub use output::{
     parse_diagnostic_output, unresolved_crate_candidates,
 };
 pub use teaching::{
-    DiagnosticLevel, DiagnosticLocation, OWNERSHIP_ERROR_CODES, OwnershipDetails,
+    BorrowConflict, DiagnosticLevel, DiagnosticLocation, OWNERSHIP_ERROR_CODES, OwnershipDetails,
     TeachingDiagnostic, extract_ownership_details,
 };
 pub use translator::{DiagnosticTranslator, RenderedMessage, build_type_map, suggested_crate_name};
@@ -806,9 +806,87 @@ mod tests {
         // "borrow later used here" 应归为再次使用而非借用发生
         assert_eq!(details.reuse_location.as_ref().unwrap().line_start, 7);
         assert!(details.move_location.is_none());
+        // 冲突双方按标签分别记录：可变借用 6、不可变借用 4
+        let conflict = details.borrow_conflict.as_ref().expect("应认出冲突双方");
+        assert_eq!(conflict.mutable.line_start, 6);
+        assert_eq!(conflict.immutable.line_start, 4);
         assert_eq!(
             details.narrative_text(),
-            "变量 `向量` 在第 6 行被借用，第 7 行仍在被使用。"
+            "变量 `向量` 的可变借用（第 6 行）与不可变借用（第 4 行）重叠：两者不能同时存在。"
+        );
+    }
+
+    /// E0502 的真实跨度形状（实机采集）：主 span 是第 7 行的可变借用，
+    /// 第 5 行同时挂着「immutable borrow occurs here」与「immutable borrow
+    /// later used here」。旧叙事会渲染成「在第 7 行被借用，第 5 行仍在被使用」
+    /// ——行号读反，初学者以为时间倒流。
+    #[test]
+    fn test_e0502_narrative_does_not_read_line_numbers_backwards() {
+        let _guard = crate::语言::test_language("zh");
+        let diagnostic = create_ownership_diagnostic(
+            "E0502",
+            "cannot borrow `分数` as mutable because it is also borrowed as immutable",
+            create_span(7, "mutable borrow occurs here", true),
+            vec![create_span(5, "immutable borrow occurs here", false)],
+        );
+
+        let details = extract_ownership_details("E0502", &diagnostic).expect("应提取出所有权详情");
+        assert_eq!(
+            details.narrative_text(),
+            "变量 `分数` 的可变借用（第 7 行）与不可变借用（第 5 行）重叠：两者不能同时存在。"
+        );
+        // 两个行号必须各归其位：可变 7、不可变 5，不得互换
+        let conflict = details.borrow_conflict.as_ref().expect("应认出冲突双方");
+        assert_eq!(conflict.mutable.line_start, 7);
+        assert_eq!(conflict.immutable.line_start, 5);
+    }
+
+    /// 只有一方借用标签时回退旧句式：宁可少说，不可编造另一方行号。
+    #[test]
+    fn test_e0502_single_borrow_label_falls_back_to_old_narrative() {
+        let _guard = crate::语言::test_language("zh");
+        let diagnostic = create_ownership_diagnostic(
+            "E0502",
+            "cannot borrow `向量` as mutable because it is also borrowed as immutable",
+            create_span(6, "mutable borrow occurs here", true),
+            vec![],
+        );
+
+        let details = extract_ownership_details("E0502", &diagnostic).expect("应提取出所有权详情");
+        assert!(details.borrow_conflict.is_none());
+        // 只有一个借用位置，叙事回到「变量 `X` 在第 N 行被借用。」
+        assert_eq!(details.narrative_text(), "变量 `向量` 在第 6 行被借用。");
+    }
+
+    /// 冲突双方要进 JSON（LSP 供扩展可视化）；未识别时不得出现该键。
+    #[test]
+    fn test_borrow_conflict_serializes_only_when_recognized() {
+        let e0502 = create_ownership_diagnostic(
+            "E0502",
+            "cannot borrow `向量` as mutable because it is also borrowed as immutable",
+            create_span(7, "mutable borrow occurs here", true),
+            vec![create_span(5, "immutable borrow occurs here", false)],
+        );
+        let value = serde_json::to_value(extract_ownership_details("E0502", &e0502).unwrap())
+            .expect("所有权详情应可序列化");
+        assert_eq!(value["借用冲突"]["可变借用"]["起始行"], 7);
+        assert_eq!(value["借用冲突"]["不可变借用"]["起始行"], 5);
+
+        let e0382 = create_ownership_diagnostic(
+            "E0382",
+            "use of moved value: `数据`",
+            create_span(5, "value used here after move", true),
+            vec![create_span(
+                3,
+                "move occurs because `数据` has type `String`",
+                false,
+            )],
+        );
+        let value = serde_json::to_value(extract_ownership_details("E0382", &e0382).unwrap())
+            .expect("所有权详情应可序列化");
+        assert!(
+            value.get("借用冲突").is_none(),
+            "非 E0502 不应带借用冲突键：{value}"
         );
     }
 
