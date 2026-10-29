@@ -375,12 +375,65 @@ fn english_word_runs(text: &str) -> Vec<String> {
     runs
 }
 
+/// 码表桩是否会按「反引号 token 出现顺序」猜句子结构
+///
+/// 桩里的 `{类型}`/`{特征}`/`{名称}`/`{变量名}` 等占位符（
+/// [`CODE_TEMPLATE_PLACEHOLDERS`](super::translator::CODE_TEMPLATE_PLACEHOLDERS)）没有
+/// 语义来源，渲染时把消息里的反引号内容**按先后顺序**逐个塞进去。同一错误码下
+/// rustc 会输出结构完全不同的句子，猜错就答非所问：`?` 的两条 E0277 消息被
+/// 「类型 `{类型}` 未实现特征 `{特征}`」套成「类型 `?` 未实现特征 `结果`」，
+/// 读者既看不出这是 `?` 用错位置，也搜不到对应文档。
+/// 只用 `{期望}`/`{实际}`（由 span 标签可靠提取，见 `extract_expected_found`）
+/// 或不含占位符的桩不属于猜结构，它们照常保留优先权。
+pub(crate) fn stub_guesses_token_shape(entry: &ErrorMessageEntry) -> bool {
+    super::translator::CODE_TEMPLATE_PLACEHOLDERS
+        .iter()
+        .any(|p| entry.message_template.contains(p))
+}
+
+/// 消息表命中结果里的「整句条目」（精确键或通配段键）
+///
+/// - 精确键：键就是这句原文，模板是它的完整译文；
+/// - 通配段键：首尾锚把句子从头夹到尾，动态名逐个进 `{qN}`，同样是整句译文；
+/// - 前缀/后缀键只覆盖一端（如 ``the trait bound ` `` → 「特征约束 `」），
+///   翻过去会把剩下的英文原话拼回译文，因此不算整句。
+pub(crate) fn whole_sentence_hit<'a>(
+    query: Option<(&'a ErrorMessageEntry, Option<MessageRest<'_>>)>,
+) -> Option<&'a ErrorMessageEntry> {
+    query
+        .filter(|(_, rest)| match rest {
+            None | Some(MessageRest::Parts(_)) => true,
+            Some(MessageRest::Tail(_) | MessageRest::Head(_)) => false,
+        })
+        .map(|(entry, _)| entry)
+}
+
+/// 主消息取哪张表：消息表的整句译文 vs 会猜槽位的码表桩
+///
+/// 规约：**码表桩要靠 token 顺序猜句子结构、而消息表对该句有整条译文时，用消息表**；
+/// 其余情形维持既有的「码表桩优先」（桩是静态教学措辞、或只填 span 标签里的
+/// 期望/实际类型时，它给的比消息表条目更多——如 `[E0308]` 桩会把只说
+/// 「类型不匹配」的句子渲染成「类型不匹配：期望 `整数`，实际得到 `字符串`」）。
+///
+/// 按现有实跑语料（`tests/data/diag-corpus.tsv`，71 条主消息）核对：本规约对
+/// 11 个语言包**一条都不改变**现有输出（语料里只有 `[E0308]`/`[E0283]` 两处
+/// 整句命中，二者的桩都不猜槽位），只接管语言包明确收录了整句的那些消息。
+pub(crate) fn message_table_wins(
+    code_entry: Option<&ErrorMessageEntry>,
+    sentence_hit: Option<&ErrorMessageEntry>,
+) -> bool {
+    let (Some(stub), Some(_)) = (code_entry, sentence_hit) else {
+        return false;
+    };
+    stub_guesses_token_shape(stub)
+}
+
 /// 用引擎自身的匹配器审计一条 rustc 消息在语言包中的译文残留
 ///
-/// 渲染路径与 `DiagnosticTranslator` 完全一致（错误码表优先→消息表查询→
-/// `{qN}` 填充→未消费则回拼残段），因此这里报出的残留就是用户在终端里
-/// 实际看到的文字。只对「完全未命中的整条消息」与「未消费的 rustc 英文
-/// 残段」度量残留，不对整段译文模板跑词串（拉丁语系译文会全误报）。
+/// 渲染路径与 `DiagnosticTranslator` 完全一致（整句译文优先于猜槽位的码表桩 →
+/// 错误码表→消息表查询→`{qN}` 填充→未消费则回拼残段），因此这里报出的残留
+/// 就是用户在终端里实际看到的文字。只对「完全未命中的整条消息」与「未消费的
+/// rustc 英文残段」度量残留，不对整段译文模板跑词串（拉丁语系译文会全误报）。
 pub fn audit_message(
     manager: &ErrorTranslationManager,
     level: &str,
@@ -388,10 +441,17 @@ pub fn audit_message(
     message: &str,
 ) -> MessageAudit {
     // 主消息优先看错误码表（完整桩）：若该码已有模板，主消息就不会残留英文。
+    // 例外：桩要靠 token 顺序猜结构而消息表有整句译文时，渲染走的是消息表，
+    // 这里也必须按消息表判定，否则语料门禁会替一条永远用不到的桩放行
+    // （`?` 的 E0277 消息正是如此：补键前后都「无残留」，锁不住修复）。
     if level == "main"
         && !code.is_empty()
         && let Some(entry) = manager.query(code)
         && !entry.message_template.is_empty()
+        && !message_table_wins(
+            Some(entry),
+            whole_sentence_hit(manager.query_by_message(message)),
+        )
     {
         return MessageAudit {
             kind: "CODE",

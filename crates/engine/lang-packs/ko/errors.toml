@@ -2613,3 +2613,17 @@
 # ---- cargo 工具通道补键（bin+lib 项目的非 ASCII 包名，实机采集）----
 ["消息翻译"."crate name `?` passed to `?` is not a valid ASCII identifier"]
 "消息模板" = "`{q1}`에 전달된 crate 이름「{q0}」은 유효한 ASCII 식별자가 아닙니다. Rust의 crate 이름은 ASCII 문자, 숫자, 밑줄만 쓸 수 있습니다. 프로젝트에 라이브러리와 메인 프로그램이 모두 있으면 Cargo가 이 이름으로 라이브러리를 넘기므로 Cargo.toml의 패키지 이름을 ASCII 이름(예: `calculator`)으로 바꾸고 `use` 경로도 고치세요"
+
+# ---- `?` 运算符专用键（实机采集）----
+# 这两句都带 E0277 码，而 `[E0277]` 桩是「类型 `{类型}` 未实现特征 `{特征}`」——
+# 渲染时按反引号出现顺序找槽位，于是前者被套成「类型 `?` 未实现特征 `结果`」，
+# 后者被套成「`?` 未实现特征 `SignupError`」，答非所问。语言包收录整句后，
+# 诊断渲染改用整句译文（见 `diagnostic::message::message_table_wins`）。
+# 第二条是通配段键：q0 是运算符本身，q1 是转换目标错误类型。
+["消息翻译"."the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)"]
+"消息模板" = "`?` 연산자는 `결과` 또는 `옵션`(또는 `FromResidual`을 구현한 다른 타입)을 반환하는 함수에서만 사용할 수 있습니다"
+"教学提示" = "`?` 는 함수의 반환 타입으로 오류를 넘기는 연산자입니다. 함수에 반환 타입(예: `결과<(), E>`)을 적거나, 그 자리에서 오류를 처리하세요."
+
+["消息翻译"."`?` couldn't convert the error to `?`"]
+"消息模板" = "`?`가 오류를 `{q1}`(으)로 변환할 수 없습니다"
+"教学提示" = "원래 오류와 반환 타입의 오류가 다릅니다. 대상 오류 타입에 `유래_가능`을 구현하거나 `오류_맵`으로 오류 타입을 통일하세요."

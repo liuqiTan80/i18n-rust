@@ -5,6 +5,36 @@
 
 ## [Unreleased]
 
+### 修复
+- `?` 的两条诊断不再被通用 E0277 桩套成「类型 `?` 未实现特征 `结果`」。rustc 这两句
+  （"the `?` operator can only be used in a function that returns `Result` or `Option`…" 与
+  "`?` couldn't convert the error to `SignupError`"）都带 E0277 码，而 `[E0277]` 桩只能按消息里
+  反引号的出现顺序猜槽位，于是 `?` 被当类型、`Result` 被当特征：en 渲染出
+  "the trait bound `?`: `Result` is not satisfied"，10 个非 en 语言同样答非所问
+  （第十六章《错误处理》正要讲 `?`）。11 语言各补两条整句键，主消息选表规则相应收紧
+  （`diagnostic::message::message_table_wins`）：消息表命中整句（精确键/通配段键）**且**
+  码表桩靠 token 猜槽位时用消息表，其余维持「桩优先」——E0308/E0283 这类桩更精确的句子
+  一条不受影响（现有语料 0 翻转）。en 破例收录**同文守卫键**（不译，只截住桩）。
+
+### 测试
+- 新增门禁 `question_mark_e0277_messages_bypass_token_guessing_stub`：11 语言 × 两条消息，
+  断言译文 ≠ 桩的按序回填、无裸占位符、有教学提示、CLI 与 LSP 同口径，zh 硬写期望译文。
+- 反证 `precise_code_stub_keeps_priority_over_coarse_message_entry`：E0308（期望/实际）、
+  E0283（教学措辞）、半句前缀键（E0596）必须仍走码表桩。
+- `en_pack_code_templates_reproduce_rustc_own_wording` 扩到这两条（en 必须逐字复现原句）；
+  恒等语言门禁改名 `identity_language_packs_carry_only_identity_guards`，改为「只许同文
+  守卫键」；`tools/check-lang-packs.py` 同步把「en 出现消息翻译节」从告警升级为硬规则。
+- 语料新增反例 `tools/diag-corpus/fixtures/e0277_question_mark.rs`（自定义 `SignupError`
+  作目标错误类型，避开 `String` 的 `From` help 那条无译文长句），`diag-corpus.tsv` +2 条。
+- 三组反证各自实测一红一绿：去掉桩形态条件（E0308 断言转红）、放宽到接受前缀/后缀键
+  （语料门禁 10 语言 60 处英文残留）、删 en 守卫键（en 又渲染出 nonsense）。
+
+### 说明与取舍
+- 策略条目原写的「消息表精确命中优先」实测会让 `[E0308]` 丢期望/实际类型、`[E0283]` 丢
+  「存在多个可满足要求的实现」，还会把半句前缀键之后的英文原话拼回译文（zh 12 条翻转、
+  6 条残留）。故落地为「整句命中 ∧ 桩猜槽位」双条件；判据与理由在
+  `diagnostic::message::message_table_wins`，贡献指南新增 §2.10 讲这条优先级。
+
 ### 新增
 - `tools/ui-keys-index.py` 与其生成物 `docs/ui-keys.en.md`：界面消息键索引。逐键列出
   渲染它的代码位置（文件:行）、`{}` 占位符个数、从调用处提取的**实参表达式**，以及 zh

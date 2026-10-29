@@ -20,6 +20,9 @@ help		the trait `std::fmt::Display` is not implemented for `Foo`
 main	E0277	the trait bound `Dog: Speak` is not satisfied
 help		the trait `Speak` is not implemented for `Dog`
 help		this trait has no implementations, consider adding one
+main	E0277	the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)
+main	E0277	`?` couldn't convert the error to `SignupError`
+main		aborting due to 2 previous errors
 main	E0277	the size for values of type `str` cannot be known at compilation time
 help		the trait `Sized` is not implemented for `str`
 help		function arguments must have a statically known size, borrowed types always have a known size
@@ -36,7 +39,6 @@ help		if this is intentional, prefix it with an underscore
 main		aborting due to 1 previous error; 1 warning emitted
 main	E0425	cannot find type `HashMap` in this scope
 help		consider importing this struct
-main		aborting due to 2 previous errors
 main	E0425	cannot find type `MyType` in this scope
 main	E0425	cannot find type `Owner2` in this scope
 help		a struct with a similar name exists

@@ -1174,13 +1174,16 @@ mod tests {
         );
     }
 
-    /// 门禁：en 是身份语言，它的错误码模板必须逐字复现 rustc 自己的英文消息。
+    /// 门禁：en 是身份语言，它的错误码模板与消息表守卫键必须逐字复现 rustc 自己的英文消息。
     ///
     /// 起因：en 包的 `[E0597]` 抄了 `[E0596]` 的文案（"cannot borrow `{名称}` as
     /// mutable"），于是"引用比原值活得久"在英语读者面前显示成一句无关的可变借用
     /// 报错，而第十四章《生命周期》正要把这条诊断原样印进书里。检索按错误码命中，
     /// 模板与原文不符不会让任何既有测试失败，因此用实机捕获的
     /// (错误码, rustc 原文) 断言"渲染结果 == 输入原文"来锁住这类抄写错误。
+    ///
+    /// 末两条走的是消息表的**同文守卫键**（`?` 的两条 E0277 消息要压过会猜槽位的
+    /// `[E0277]` 桩，en 也得先在消息表里站住位置），同样必须一字不改。
     #[test]
     fn en_pack_code_templates_reproduce_rustc_own_wording() {
         // 消息取自 `rustc --edition 2021` 实机输出；反引号内的变量名随源程序变化
@@ -1191,6 +1194,11 @@ mod tests {
                 "cannot borrow `s` as mutable, as it is not declared as mutable",
             ),
             ("E0597", "`s` does not live long enough"),
+            (
+                "E0277",
+                "the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)",
+            ),
+            ("E0277", "`?` couldn't convert the error to `SignupError`"),
         ];
         let files = crate::语言::builtin_lang_files("en");
         let errors_toml = files
@@ -1212,6 +1220,152 @@ mod tests {
             );
             assert!(rendered.hint.is_some(), "[{code}] 缺少教学提示");
         }
+    }
+
+    /// 门禁：`?` 的两条 E0277 消息必须走语言包的整句译文，不能被码表桩套坏。
+    ///
+    /// 起因：这两句自带 E0277 码，而 `[E0277]` 桩是「类型 `{类型}` 未实现特征
+    /// `{特征}`」，槽位值按消息里反引号的出现顺序取——`?` 被当成类型、`Result`
+    /// 被当成特征，渲染成「类型 `?` 未实现特征 `结果`」这种答非所问的句子，
+    /// 而第十六章《错误处理》正要讲 `?`。语言包为两句收录整句键后由
+    /// [`message::message_table_wins`] 交接；本测试对 11 语言逐个断言「渲染结果
+    /// ≠ 桩的按序回填」，并钉住 en 逐字复现、zh 的实际译文、CLI 与 LSP 同口径。
+    #[test]
+    fn question_mark_e0277_messages_bypass_token_guessing_stub() {
+        const OP_MSG: &str = "the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)";
+        const CONV_MSG: &str = "`?` couldn't convert the error to `SignupError`";
+
+        /// 旧行为：把消息里的反引号内容按出现顺序塞进 `[E0277]` 桩的槽位
+        fn stub_guess(manager: &ErrorTranslationManager, message: &str) -> String {
+            let mut template = manager
+                .query("E0277")
+                .expect("各语言包都应有 [E0277] 桩")
+                .message_template
+                .clone();
+            let mut rest = message;
+            let mut tokens = Vec::new();
+            while let Some(start) = rest.find('`') {
+                let after = &rest[start + 1..];
+                let Some(end) = after.find('`') else { break };
+                tokens.push(&after[..end]);
+                rest = &after[end + 1..];
+            }
+            let mut tokens = tokens.into_iter();
+            for placeholder in super::translator::CODE_TEMPLATE_PLACEHOLDERS {
+                if template.contains(placeholder) {
+                    let Some(token) = tokens.next() else { break };
+                    template = template.replace(placeholder, token);
+                }
+            }
+            template
+        }
+
+        let mut checked = 0usize;
+        for lang in crate::语言::builtin_language_codes() {
+            let errors_toml = crate::语言::builtin_lang_files(lang)
+                .into_iter()
+                .find(|(name, _)| *name == "errors.toml")
+                .map(|(_, content)| content)
+                .unwrap_or_else(|| panic!("{lang} 语言包缺少 errors.toml"));
+            let manager = ErrorTranslationManager::load_from_string(errors_toml)
+                .unwrap_or_else(|e| panic!("{lang} errors.toml 解析失败：{e}"));
+            checked += 1;
+
+            for message in [OP_MSG, CONV_MSG] {
+                let guess = stub_guess(&manager, message);
+                let translator = DiagnosticTranslator::new(manager.clone(), HashMap::new());
+                let lsp = translator
+                    .render_main_message(Some("E0277"), message, None)
+                    .unwrap_or_else(|| panic!("[{lang}] {message:?} 应命中表并渲染"));
+                assert_ne!(
+                    lsp.text, guess,
+                    "[{lang}] {message:?} 又被套进 [E0277] 桩的猜法：{}",
+                    lsp.text
+                );
+                assert!(
+                    !lsp.text.contains('{'),
+                    "[{lang}] {message:?} 漏出未回填的占位符：{}",
+                    lsp.text
+                );
+                assert!(lsp.hint.is_some(), "[{lang}] {message:?} 缺少教学提示");
+
+                // CLI 通道必须与 LSP 同口径：第二条是通配段键，`{q1}` 回填原先被
+                // 「码表有条目就跳过」的守卫挡掉，只有 CLI 会漏出裸占位符——
+                // 这条断言正是那次回归的钉子。
+                let cli = translator
+                    .translate_diagnostic(&diag_with(Some("E0277"), message, None))
+                    .translated_message;
+                assert_eq!(cli, lsp.text, "[{lang}] {message:?} CLI/LSP 不同口径");
+
+                if lang == "en" {
+                    // 恒等语言：整句键是「同文守卫键」，必须一字不改
+                    assert_eq!(lsp.text, message, "en 只能收录原句照抄的守卫键");
+                } else if lang == "zh" {
+                    let expected = if message == OP_MSG {
+                        "运算符 `?` 只能用在返回 `结果` 或 `选项`（或另一个实现了 `FromResidual` 的类型）的函数中"
+                    } else {
+                        "`?` 无法把错误转换为 `SignupError`"
+                    };
+                    assert_eq!(lsp.text, expected, "zh 整句译文与语言包不符");
+                }
+            }
+        }
+        assert!(checked >= 11, "内置语言应全部覆盖，实际 {checked} 个");
+    }
+
+    /// 反证：整句译文优先**只**接管「消息表有整句译文 且 码表桩靠 token 猜槽位」。
+    ///
+    /// 收紧规则前逐条实测过：放开「任意形态命中都优先」会让中文语料 12 条翻转，
+    /// 其中 6 条把半句前缀键（「特征约束 `」「无法借用 `」）之后的动态部分拼回
+    /// 成英文残段；放开「整句命中就优先（不看桩形态）」则会让下面①②退化——
+    /// ①丢了期望/实际类型，②丢了「存在多个可满足要求的实现」这段教学措辞。
+    /// 故此处反向钉住：码表桩更精确时仍用桩。
+    #[test]
+    fn precise_code_stub_keeps_priority_over_coarse_message_entry() {
+        let _guard = crate::语言::test_language("zh");
+        let errors_toml = crate::语言::builtin_lang_files("zh")
+            .into_iter()
+            .find(|(name, _)| *name == "errors.toml")
+            .map(|(_, content)| content)
+            .expect("zh 语言包缺少 errors.toml");
+        let manager = ErrorTranslationManager::load_from_string(errors_toml).unwrap();
+        let translator = DiagnosticTranslator::new(manager, HashMap::new());
+
+        // ① `[E0308]` 桩有 `{期望}`/`{实际}` 两个精确槽位，消息表只有静态「类型不匹配」
+        let e0308 = translator
+            .render_main_message(
+                Some("E0308"),
+                "mismatched types",
+                Some("expected `integer`, found `&str`"),
+            )
+            .expect("E0308 应渲染");
+        assert!(
+            e0308.text.contains("整数") && e0308.text.contains("&str"),
+            "E0308 丢失了期望/实际类型（消息表静态句抢了精确桩）：{}",
+            e0308.text
+        );
+
+        // ② `[E0283]` 桩是静态教学句，消息表只有「需要类型标注」
+        let e0283 = translator
+            .render_main_message(Some("E0283"), "type annotations needed", None)
+            .expect("E0283 应渲染");
+        assert_eq!(
+            e0283.text, "类型推断歧义：存在多个可满足要求的实现",
+            "E0283 退化成只说「需要类型标注」"
+        );
+
+        // ③ 消息表只有半句前缀键「cannot borrow 」（Tail，不算整句），码表静态桩优先
+        let e0596 = translator
+            .render_main_message(
+                Some("E0596"),
+                "cannot borrow `s` as mutable, as it is not declared as mutable",
+                None,
+            )
+            .expect("E0596 应渲染");
+        assert_eq!(
+            e0596.text, "无法借用为可变",
+            "前缀键被当成整句，中文模板后粘上了英文残段"
+        );
     }
 
     /// 门禁：错误码模板不得替 rustc 断言「成员种类」。
@@ -1708,18 +1862,20 @@ mod tests {
         );
     }
 
-    /// 门禁：恒等语言判定必须与语言包内容同锁（en 不得携带「消息翻译」节）。
+    /// 门禁：恒等语言的语言包只能携带「同文守卫键」，不得做真翻译。
     ///
-    /// 起因：`gaps::record_gap` 对恒等语言不登记待译，它的前提就是「en 没有消息表
-    /// 可用」（命中不了就原句显示，而原句已是最终形态）。谁哪天给 en 补了
-    /// `消息翻译` 节（例如为了把 11 语言的键数对齐），这条前提就不再成立——
-    /// 英语用户会退回「漏译却不说明」的黑箱，而 `check-lang-packs.py` 不会报。
-    /// 故把两侧钉在一起：要么去掉该节，要么把 en 从 `is_identity_language` 移出。
+    /// 起因：`gaps::record_gap` 对恒等语言不登记待译，它的前提就是「en 没有可用的
+    /// 译文」（命中不了就原句显示，而原句已是最终形态）。谁哪天给 en 补了真正的
+    /// `消息翻译` 条目（例如为了把 11 语言的键数对齐），这条前提就不再成立——
+    /// 英语用户会退回「漏译却不说明」的黑箱。
     ///
-    /// 反向也钉：其余 10 语言都必须有非空消息表，否则它们会沾恒等语言的光
-    /// 而静默失去待译反馈。
+    /// 但「一条都不许有」过头了：`?` 的两条 E0277 消息自带错误码，而 `[E0277]`
+    /// 桩靠消息里反引号的出现顺序猜槽位（`?` 被当类型、`Result` 被当特征），
+    /// en 若不在消息表里「站住位置」，英语读者看到的也是句 nonsense。所以改为
+    /// 允许**同文守卫键**：模板把 `{qN}` 还原成 `?` 后必须与键逐字相同，
+    /// 等于「不译，只截住桩」。其余 10 语言反向钉住：消息表非空。
     #[test]
-    fn identity_language_packs_carry_no_message_table() {
+    fn identity_language_packs_carry_only_identity_guards() {
         for lang in crate::语言::builtin_language_codes() {
             let files = crate::语言::builtin_lang_files(lang);
             let errors_toml = files
@@ -1729,23 +1885,31 @@ mod tests {
                 .1;
             let value: toml::Value = toml::from_str(errors_toml)
                 .unwrap_or_else(|e| panic!("{lang} errors.toml 解析失败：{e}"));
-            let 消息表条目 = value
+            let 消息表 = value
                 .as_table()
                 .and_then(|t| t.get("消息翻译"))
-                .and_then(|v| v.as_table())
-                .map(|t| t.len())
-                .unwrap_or(0);
-            let 恒等 = crate::语言::is_identity_language(lang);
-            if 恒等 {
-                assert_eq!(
-                    消息表条目, 0,
-                    "{lang} 被当作恒等语言（待译清单不登记），却带着 {} 条「消息翻译」条目：\
-                     要么删掉该节，要么把它从 is_identity_language 移出，否则漏译会重新变成静默黑箱",
-                    消息表条目
-                );
+                .and_then(|v| v.as_table());
+            let 条目数 = 消息表.map(|t| t.len()).unwrap_or(0);
+            if crate::语言::is_identity_language(lang) {
+                for (key, entry) in 消息表.into_iter().flatten() {
+                    let template = entry
+                        .get("消息模板")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_else(|| panic!("{lang} 消息键「{key}」缺「消息模板」"));
+                    // 通配段键的 `?` 在模板里表现为 `{qN}`，还原后应与键逐字相同
+                    let mut restored = template.to_string();
+                    for n in 0..10 {
+                        restored = restored.replace(&format!("{{q{n}}}"), "?");
+                    }
+                    assert_eq!(
+                        restored, *key,
+                        "{lang} 是恒等语言（待译清单不登记），消息表只允许同文守卫键：\
+                         键「{key}」的模板「{template}」做了真翻译，英语读者会失去待译反馈"
+                    );
+                }
             } else {
                 assert!(
-                    消息表条目 > 0,
+                    条目数 > 0,
                     "{lang} 不是恒等语言，却没有任何「消息翻译」条目：\
                      待译清单会把它当成无需补表，母语读者的英文残留再也得不到反馈"
                 );

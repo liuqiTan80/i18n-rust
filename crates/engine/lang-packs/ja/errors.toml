@@ -2612,3 +2612,17 @@
 # ---- cargo 工具通道补键（bin+lib 项目的非 ASCII 包名，实机采集）----
 ["消息翻译"."crate name `?` passed to `?` is not a valid ASCII identifier"]
 "消息模板" = "「{q1}」に渡された crate 名「{q0}」は有効な ASCII 識別子ではありません。Rust の crate 名は ASCII の英数字とアンダースコアに限られます。ライブラリとメインプログラムを併せ持つプロジェクトでは Cargo がこの名前でライブラリを引き渡すため、Cargo.toml のパッケージ名を ASCII 名（例 `calculator`）に変更し、`use` のパスも書き直してください"
+
+# ---- `?` 运算符专用键（实机采集）----
+# 这两句都带 E0277 码，而 `[E0277]` 桩是「类型 `{类型}` 未实现特征 `{特征}`」——
+# 渲染时按反引号出现顺序找槽位，于是前者被套成「类型 `?` 未实现特征 `结果`」，
+# 后者被套成「`?` 未实现特征 `SignupError`」，答非所问。语言包收录整句后，
+# 诊断渲染改用整句译文（见 `diagnostic::message::message_table_wins`）。
+# 第二条是通配段键：q0 是运算符本身，q1 是转换目标错误类型。
+["消息翻译"."the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)"]
+"消息模板" = "演算子 `?` は、`リザルト` または `オプション`（または `FromResidual` を実装した別の型）を返す関数でのみ使えます"
+"教学提示" = "`?` は関数の戻り値の型にエラーを返す演算子です。関数に戻り値の型（例 `リザルト<(), E>`）を書くか、その場でエラーを処理してください。"
+
+["消息翻译"."`?` couldn't convert the error to `?`"]
+"消息模板" = "`?` はエラーを `{q1}` に変換できませんでした"
+"教学提示" = "元のエラーと戻り値側のエラー型が違います。戻り値側の型に `由来` を実装するか、`エラーマップ` でエラー型を揃えてください。"

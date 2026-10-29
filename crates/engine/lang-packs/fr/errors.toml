@@ -2613,3 +2613,17 @@
 # ---- cargo 工具通道补键（bin+lib 项目的非 ASCII 包名，实机采集）----
 ["消息翻译"."crate name `?` passed to `?` is not a valid ASCII identifier"]
 "消息模板" = "le nom de crate « {q0} » passé à `{q1}` n'est pas un identifiant ASCII valide. Un nom de crate ne peut contenir que des lettres ASCII, des chiffres et des soulignés ; si le projet a une bibliothèque et un exécutable, Cargo transmet la bibliothèque sous ce nom — remplacez le nom du paquet dans Cargo.toml par un nom ASCII (par ex. `calculator`) et corrigez les chemins `use`"
+
+# ---- `?` 运算符专用键（实机采集）----
+# 这两句都带 E0277 码，而 `[E0277]` 桩是「类型 `{类型}` 未实现特征 `{特征}`」——
+# 渲染时按反引号出现顺序找槽位，于是前者被套成「类型 `?` 未实现特征 `结果`」，
+# 后者被套成「`?` 未实现特征 `SignupError`」，答非所问。语言包收录整句后，
+# 诊断渲染改用整句译文（见 `diagnostic::message::message_table_wins`）。
+# 第二条是通配段键：q0 是运算符本身，q1 是转换目标错误类型。
+["消息翻译"."the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)"]
+"消息模板" = "l'opérateur `?` ne peut être utilisé que dans une fonction qui renvoie `resultat` ou `option` (ou un autre type qui implémente `FromResidual`)"
+"教学提示" = "`?` renvoie l'erreur par le type de retour de la fonction : indiquez un type de retour (par exemple `resultat<(), E>`) ou traitez l'erreur sur place."
+
+["消息翻译"."`?` couldn't convert the error to `?`"]
+"消息模板" = "`?` n'a pas pu convertir l'erreur en `{q1}`"
+"教学提示" = "Le type de l'erreur d'origine et celui du retour diffèrent : implémentez `depuis_quoi` pour l'erreur cible ou unifiez les erreurs avec `mapper_erreur`."

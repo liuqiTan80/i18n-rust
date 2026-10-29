@@ -15,7 +15,7 @@
 检查项（错误退出码非零；--strict 时告警也计入失败）：
 1. 全部语言包的全部 TOML（含 crates/ 子目录）可被 tomllib 回读解析
 2. 错误码表：各语言与 zh 的错误码集合完全一致
-3. 消息表：各语言（en 除外，其无「消息翻译」节属预期）键集合完全一致
+3. 消息表：各语言（en 除外）键集合与 zh 完全一致；en 的消息表只允许「原句照抄」的守卫键
 4. 占位符编号与键形态匹配（见上表），杜绝「填不进去」的死占位符
 5. 非 en 包的消息模板不得与英文原文逐字符相同（补了等于没补）
 6. 兜底键过短告警：前缀键短于 12 字符时极易吞掉整句开头
@@ -115,12 +115,22 @@ def main() -> int:
                  + (f" 缺：{', '.join(miss[:6])}" if miss else "")
                  + (f" 多：{', '.join(extra[:6])}" if extra else ""))
 
-    # ---- 3. 消息表键集合齐平（en 无此节，属预期，以 zh 为基准比对其余 9 语言） ----
+    # ---- 3. 消息表键集合齐平（en 的消息表只收「同文守卫键」，不参与齐平） ----
     zh_msgs = set(msg_tables.get("zh", {}))
     for lang in langs:
         if lang == "en":
-            if msg_tables.get("en"):
-                warn("en/errors.toml 出现「消息翻译」节（rustc 原文即英文，通常不需要）")
+            # 恒等语言通常不需要消息表，但有一类例外必须收录：带错误码、而该码的
+            # 桩会按反引号出现顺序猜槽位的句子（如 `?` 的两条 E0277 消息会被
+            # 套成 "the trait bound `?`: `Result` is not satisfied"）。这类键只能是
+            # **原句照抄**——模板把 {qN} 还原成 `?` 后必须与键逐字相同，否则
+            # 等于在 en 包里偷偷改写 rustc 原话。
+            for key, entry in (msg_tables.get("en") or {}).items():
+                tpl = (entry or {}).get(TEMPLATE_FIELD) or ""
+                if re.sub(r"\{q\d+\}", WILDCARD, tpl) != key:
+                    fail(
+                        f"en/errors.toml 消息表键「{key[:50]}」的模板不是原句照抄"
+                        f"（恒等语言只能收录同文守卫键）：{tpl[:60]}"
+                    )
             continue
         keys = set(msg_tables.get(lang, {}))
         if keys != zh_msgs:

@@ -2640,3 +2640,17 @@
 # ---- cargo 工具通道补键（bin+lib 项目的非 ASCII 包名，实机采集）----
 ["消息翻译"."crate name `?` passed to `?` is not a valid ASCII identifier"]
 "消息模板" = "传给 `{q1}` 的包名「{q0}」不是合法的 ASCII 标识符。Rust 的 crate 名只能用 ASCII 字母、数字和下划线；项目同时有库和主程序时，Cargo 必须用这个名字把库交给主程序，请把 Cargo.toml 里的包名改成 ASCII 名（例如 `calculator`），`use` 路径同步改写"
+
+# ---- `?` 运算符专用键（实机采集）----
+# 这两句都带 E0277 码，而 `[E0277]` 桩是「类型 `{类型}` 未实现特征 `{特征}`」——
+# 渲染时按反引号出现顺序找槽位，于是前者被套成「类型 `?` 未实现特征 `结果`」，
+# 后者被套成「`?` 未实现特征 `SignupError`」，答非所问。语言包收录整句后，
+# 诊断渲染改用整句译文（见 `diagnostic::message::message_table_wins`）。
+# 第二条是通配段键：q0 是运算符本身，q1 是转换目标错误类型。
+["消息翻译"."the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)"]
+"消息模板" = "运算符 `?` 只能用在返回 `结果` 或 `选项`（或另一个实现了 `FromResidual` 的类型）的函数中"
+"教学提示" = "`?` 只能把错误返回给函数的返回类型：给函数写上返回类型（如 `结果<(), 错误>`），或在这一层把错误处理掉。"
+
+["消息翻译"."`?` couldn't convert the error to `?`"]
+"消息模板" = "`?` 无法把错误转换为 `{q1}`"
+"教学提示" = "源错误与目标错误类型不同：为目标错误实现 `从转换`，或先用 `映射错误` 把错误统一成一种类型。"

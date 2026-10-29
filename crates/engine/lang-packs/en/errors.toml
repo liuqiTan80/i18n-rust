@@ -2074,3 +2074,18 @@
 [E0806]
 "消息模板" = "an extern-implementable item is not compatible with its declaration"
 "教学提示" = "Check that the item's declaration matches its actual definition."
+
+# ---- `?` 运算符专用键（同文照抄的守卫键）----
+# 英语是恒等语言（rustc 原文即英文），本文件此前没有「消息翻译」节。这两条是
+# 例外：它们带 E0277 码，而 `[E0277]` 桩会按反引号出现顺序猜槽位，把
+# "the `?` operator can only be used in a function that returns `Result` or
+# `Option`" 套成 "the trait bound `?`: `Result` is not satisfied"。收录整句后
+# 渲染直接复用 rustc 原话（模板与键逐字相同，`tools/check-lang-packs.py` 对 en
+# 只允许这种同文键）。
+["消息翻译"."the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)"]
+"消息模板" = "the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)"
+"教学提示" = "`?` can only return the error through the function's return type: give the function a return type (e.g. `Result<(), E>`), or handle the error right there."
+
+["消息翻译"."`?` couldn't convert the error to `?`"]
+"消息模板" = "`?` couldn't convert the error to `{q1}`"
+"教学提示" = "The two error types differ: implement `From` for the return type's error, or unify them with `map_err`."

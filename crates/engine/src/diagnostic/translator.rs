@@ -15,6 +15,7 @@ use std::collections::HashMap;
 
 use super::message::{
     ErrorTranslationManager, fill_dynamic_placeholders, fill_dynamic_placeholders_with,
+    whole_sentence_hit,
 };
 use super::model::CompilerDiagnostic;
 use super::teaching::{
@@ -325,8 +326,10 @@ impl DiagnosticTranslator {
     /// 仅凭 (错误码, 消息原文, 主 span 标签) 渲染主消息——CLI/LSP 同口径共享入口。
     ///
     /// 渲染链与 [`DiagnosticTranslator::translate_diagnostic`] 的主消息分支一致：
-    /// 错误码表优先（完整桩/静态模板）→ 消息表（精确/前缀/后缀/通配段 + `{qN}`
-    /// 回填）→ 占位符按序回填；类型中文化只作用于回填进来的**值**，
+    /// 消息表的整句译文优先于会猜槽位的码表桩（见
+    /// [`message_table_wins`](super::message::message_table_wins)）→ 错误码表
+    /// （完整桩/静态模板）→ 消息表（精确/前缀/后缀/通配段 + `{qN}` 回填）→
+    /// 占位符按序回填；类型中文化只作用于回填进来的**值**，
     /// 模板字面不参与（见模块文档）。区别在于不依赖完整
     /// `CompilerDiagnostic`：期望/实际取自 `primary_label`（rustc 主 span 标签），
     /// 其次从消息原文 `expected X, found Y`/前两个反引号类型提取；
@@ -347,8 +350,13 @@ impl DiagnosticTranslator {
             .and_then(|c| self.translation_manager.query(c));
         let message_query = self.translation_manager.query_by_message(message);
 
+        // 0. 消息表对该句有整条译文、而码表桩要靠 token 顺序猜结构 → 用整句译文
+        //    （`?` 的两条 E0277 消息：桩会渲染成「类型 `?` 未实现特征 `结果`」）
+        let prefer_message =
+            super::message::message_table_wins(code_entry, whole_sentence_hit(message_query));
+
         // 1. 错误码表优先（与 CLI `code_entry.or_else(message_query)` 对齐）
-        if let Some(entry) = code_entry {
+        if let Some(entry) = code_entry.filter(|_| !prefer_message) {
             let mut template = entry.message_template.clone();
             let expected_found = primary_label
                 .and_then(extract_expected_found)
@@ -430,7 +438,18 @@ impl DiagnosticTranslator {
         let message_query = self
             .translation_manager
             .query_by_message(&diagnostic.message);
-        let matched_entry = code_entry.or_else(|| message_query.map(|(entry, _)| entry));
+        // 消息表对该句有整条译文、而码表桩要靠 token 顺序猜结构 → 用整句译文
+        //（`?` 的两条 E0277 消息：桩会渲染成「类型 `?` 未实现特征 `结果`」）
+        let prefer_message =
+            super::message::message_table_wins(code_entry, whole_sentence_hit(message_query));
+        let matched_entry = if prefer_message {
+            whole_sentence_hit(message_query)
+        } else {
+            code_entry.or_else(|| message_query.map(|(entry, _)| entry))
+        };
+        // 选中哪张表决定动态部是否回拼：码表桩回拼会在母语模板后粘英文尾段
+        //（见下方注释），只有走消息表条目时才按 `{qN}` 填充 / 回拼残段
+        let using_code_entry = !prefer_message && code_entry.is_some();
 
         // 从主要 span 的 label 中提取 expected 和 found；
         // rustc 1.97+ 的算术错误（E0369 等）不再输出 label，类型信息
@@ -473,9 +492,7 @@ impl DiagnosticTranslator {
             // 回拼会在中文模板后粘上英文残段（如 E0624 的
             // "字段或方法是私有的year` is private"）。错误码条目需要展示动态
             // 名称时用 {名称} 等占位符（从消息反引号内容回退填充，见下方）。
-            if code_entry.is_none()
-                && let Some((_, Some(rest))) = message_query
-            {
+            if !using_code_entry && let Some((_, Some(rest))) = message_query {
                 let (filled, consumed) =
                     fill_dynamic_placeholders_with(&template, &rest, &mut |token| {
                         self.localize_token(token)

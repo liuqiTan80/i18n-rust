@@ -137,15 +137,29 @@
   需先把按钮的展示文案与返回值解耦（现在靠中文字符串比对用户点了哪个），门禁
   `tools/check-extension-ui-keys.py` 已就位，新键一律走它
 
-- E0277 通用码模板套坏 `?` 的专用消息（en 第 16 章采集时发现）：rustc 关于 `?` 的
-  两条消息（"the `?` operator can only be used in a function that returns
+- **（2026-10-29 已修）** E0277 通用码模板套坏 `?` 的专用消息（en 第 16 章采集时发现）：rustc 关于 `?`
+  的两条消息（"the `?` operator can only be used in a function that returns
   `Result` or `Option`" 与 "`?` couldn't convert the error to `X`"）本身就带 E0277 码，
   `render_main_message` 却让错误码表优先，并按反引号 token 顺序回填 `{类型}`/`{特征}`
   ——前者把 `?` 本身当成「类型」，渲染出 "the trait bound `?`: `Result` is not
   satisfied"（语义不通），后者渲染出 "the trait bound `?`: `SignupError` is not
-  satisfied"。修法：给 `[消息翻译]` 增两条 `?` 专用键，并把「消息表**精确命中**」提到
-  码表模板之前（前缀/通配命中仍走码表优先），11 语言同步；动的是核心优先级，须与既有
-  `en_pack_code_templates_reproduce_rustc_own_wording` 一并验证
+  satisfied"。落地时把「精确命中优先」收紧成可辩护的规约：**消息表命中整句（精确键或通配段键）
+  且码表桩含 `CODE_TEMPLATE_PLACEHOLDERS`（靠 token 顺序猜槽位）时用消息表，其余维持桩优先**
+  （`diagnostic::message::message_table_wins`，CLI/LSP 共用）。三次量化决定了这条边界：
+  放开「任意形态命中都优先」→ zh 语料 12 条翻转、其中 6 条把半句前缀键（「特征约束 `」
+  「无法借用 `」）之后的英文原话拼回译文；放开「整句命中就优先」→ `[E0308]` 丢期望/实际、
+  `[E0283]` 丢「存在多个可满足要求的实现」；加上桩形态条件后现有主消息语料**0 翻转**。
+  11 语言各补两条 `?` 键（第二条是通配段键，`{q1}` 是目标错误类型），en 破例收录
+  **同文守卫键**（恒等语言不许做真翻译：模板把 `{qN}` 还原成 `?` 后必须与键逐字相同）。
+  门禁：`question_mark_e0277_messages_bypass_token_guessing_stub`（11 语言 × 两条消息，断言
+  ≠ 桩的按序回填、无裸占位符、有提示、CLI=LSP、zh 硬写译文）、反证
+  `precise_code_stub_keeps_priority_over_coarse_message_entry`（E0308/E0283/前缀键仍走桩）、
+  `en_pack_code_templates_reproduce_rustc_own_wording` 扩两条、恒等语言门禁改名
+  `identity_language_packs_carry_only_identity_guards`，语料新增反例
+  `tools/diag-corpus/fixtures/e0277_question_mark.rs`（用自定义 `SignupError` 避开一条
+  无译文的 `From` help）。反证三组：去掉桩形态条件 → E0308 断言转红；`whole_sentence_hit`
+  接受前缀/后缀键 → 语料门禁 10 语言 60 处英文残留；删 en 两条守卫键 → en 又渲染出
+  "the trait bound `?`: `Result` is not satisfied"
 - `rzc check` 快路径漏 MIR 级 lint：`--emit=metadata` 不跑 `unconditional_panic`，于是
   `let scores = [1,2,3]; scores[9]` 被判为「✅ Compilation succeeded」，要到 `rzc run`
   才报 `error[unconditional_panic]: this operation will panic at runtime`（且不翻译）。
