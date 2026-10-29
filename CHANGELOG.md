@@ -5,6 +5,26 @@
 
 ## [Unreleased]
 
+### 新增
+- `rzc doctor` 增加**项目入口自检**。此前读者只有把 `cargo build` 直接敲下去、撞上
+  `error: failed to parse manifest ... no targets specified in the manifest` 才知道项目
+  还没有 Cargo 可读的入口——而 Cargo 本身不本地化，那句墙对非英语读者只能靠教程教怎么
+  「读得懂」。现在在项目目录里跑 `rzc doctor` 就会提前看见：
+  ```
+  项目: /home/me/示例
+    ⚠ 项目有 2 个方言源文件，但 Cargo 读不到任何构建目标（src/main.rs、src/lib.rs 都不存在）
+      方言源文件: src/main.zh, src/餐具库.zh
+      → 先跑 `rzc check src/main.zh` 生成入口产物；此刻直接 `cargo build` 会报 `no targets specified in the manifest`
+  ```
+  target 判定复用 `has_cargo_target`（与 `rzc run`/`check` 的阻断同一口径，不分叉），
+  因此 `[lib]`/`[[bin]]`/`src/bin` 等合法形态不会被误报；workspace 根（虚拟清单）单列一行
+  说明「进成员目录再跑」，不会假报缺入口。bin+lib 同项目还补上教程 18.5 的第 2 个坑：
+  `src/lib.<语言>` 在、`src/lib.rs` 不在、清单没声明 `[lib]` 时，提示「用这个库之前先跑一次
+  `rzc check src/lib.<语言>`」——这一步原先只写在书里，现在工具会主动说。`src/` 下连方言
+  文件都没有时给的是 `rzc init`，而不是编不出来的 check 命令。
+  doctor 这一段沿用该命令既有的中文硬编码口径（与语言包键无关），未新增 ui.toml 键。
+  教程 zh/en 第十八章「错误五」与两份附录 D、`crates/cli/README.md` 同步写明。
+
 ### 工具
 - 教程验证器 `tools/verify-tutorials.py` 支持**多文件示例**（`// 文件:` 协议）。此前每个代码块
   只能生成 `src/main.<ext>` 一个源文件，讲「一个模块一个文件」的第十七章示例必然 E0583/E0601，
@@ -68,6 +88,11 @@
   一条不受影响（现有语料 0 翻转）。en 破例收录**同文守卫键**（不译，只截住桩）。
 
 ### 测试
+- `rzc doctor` 项目入口自检上锁：8 条单元测试覆盖「缺 target 点名入口命令 / 产物齐备沉默 /
+  bin+lib 库产物未生成 / 清单声明 `[lib] path` 不误报 / 母语词干入口 `src/主函数.zh` /
+  workspace 根跳过 / 无 Cargo.toml 沉默 / 无方言源文件给 `rzc init`」，另加 1 条 CLI 集成
+  用例端到端跑 `rzc doctor` 并在 `rzc check` 生成产物后验证自检转绿。反证两组：自检恒空
+  → 5 条单元测试 + 集成用例同红；忽略 `[lib]` 声明 → `respects_declared_lib` 转红。
 - 新增 `test_e0502_narrative_does_not_read_line_numbers_backwards`（for 循环形状：可变 7 /
   不可变 5）、`test_e0502_single_borrow_label_falls_back_to_old_narrative`（只剩一端标签时
   回退旧键）、`test_borrow_conflict_serializes_only_when_recognized`（只有 E0502 才带

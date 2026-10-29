@@ -33,14 +33,21 @@
 - 原生 Cargo 命令仍不看界面语言（`rzc add` 一侧已补母语提示，`cargo build` 直敲
   时用户依旧看到 `no targets specified in the manifest` 原文）。教程已教会读者把 `Caused by`
   两行读成「还没有 `.rs` 入口」，但 rzc 无法拦截外部 cargo 进程。可选做法：`rzc doctor`
-  增加一项「项目是否已有 Cargo 可读入口」的自检，把这条墙从「读得懂」降级为「提前看得见」
+  增加一项「项目是否已有 Cargo 可读入口」的自检，把这条墙从「读得懂」降级为「提前看得见」。
+  **已落地（2026-10-30）**：`rzc doctor` 在项目里跑时自检入口——缺 target 就点名方言源文件、
+  给出该跑的 `rzc check <入口文件>`；判定复用 `has_cargo_target`（与 run/check 的阻断同口径），
+  `[lib]`/`[[bin]]`/`src/bin`/workspace 根都不误报。bin+lib 的「先 check 库」一步也单独提醒
+  （即下条 ③ 的修法候选之一）。Cargo 自己的输出依旧拦不住，这条墙只是从「撞了才知道」变成
+  「跑一下 doctor 就看得见」
 - **（2026-10-28 已按方案 ③ 落地）** `rzc init --lib` 仍不存在（`error: unexpected argument
   '--lib' found`），但造方言库已经零配置：`lib` 纳入入口名集合，`src/lib.<ext>` 的产物直写
   `src/lib.rs`，Cargo 自动认出库目标；`[lib] path` 有显式声明时照声明写。剩下的可选做法是给
   `rzc init` 加 `--lib`（生成 `src/lib.<ext>` 骨架 + 库版 README），属易用性增强而非墙
 - bin+lib 同项目还剩一处墙（原第 ② 条已修、第 ① 条已补译文，均见下两条；教程 18.5 已按实机写明）：
   ③ 入口产物只由被请求的文件写，所以「先 check 库再 check 主程序」是读者
-  必须知道的一步——修法候选：`has_cargo_target` 之外再加一条库目标自检（`rzc doctor`），或让
+  必须知道的一步——修法候选：`has_cargo_target` 之外再加一条库目标自检（`rzc doctor`）**已落地
+  （2026-10-30）**：库源在、`src/lib.rs` 不在、清单未声明 `[lib]` 时 doctor 点名要先跑的
+  `rzc check src/lib.<语言>`；或让
   项目级转译在检测到 `[lib] path`/src/lib.rs 时一并刷新库产物；而 `rzc init 中文名` 是官方鼓励的
   写法，跟非 ASCII 包名这道墙直接冲突（本轮实测：主程序**完全不引用库**也一样撞，只有库或
   只有主程序都能编），真正的根治方向是让入口产物以一个 ASCII crate 名递交给 Cargo

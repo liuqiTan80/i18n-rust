@@ -50,7 +50,7 @@ rzc run src/main.zh
 | `rzc eject <文件或目录>` | 导出为标准 Rust 代码（目录递归批量导出；混合语言目录按扩展名分组） |
 | `rzc lang` | 语言包管理（list / install / remove） |
 | `rzc install lsp` | 安装语言服务器 `i18n-rust-lsp`（VS Code 扩展的补全/诊断后端，按当前 rzc 版本精确安装） |
-| `rzc doctor` | 环境体检：rustc / cargo / rust-analyzer / 语言服务器是否就位、版本与 rzc 是否一致 |
+| `rzc doctor` | 环境体检：rustc / cargo / rust-analyzer / 语言服务器是否就位、版本与 rzc 是否一致；在项目目录里还自检「Cargo 读不读得到入口产物」，缺就点名该跑的 `rzc check` |
 | `rzc mapping auto <crate>` | 自动生成第三方库映射 |
 
 ## AI 映射生成的服务商配置

@@ -1463,7 +1463,7 @@ fn declared_lib_path(project_root: &Path) -> Option<PathBuf> {
 }
 
 /// 从指定目录向上查找项目根（含 Cargo.toml 的目录），未找到返回 None
-fn find_project_root_upward(start: &Path) -> Option<PathBuf> {
+pub(crate) fn find_project_root_upward(start: &Path) -> Option<PathBuf> {
     let mut current = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
     loop {
         if current.join("Cargo.toml").exists() {
@@ -1510,7 +1510,10 @@ fn preflight_manifest(project_root: &Path, ui: &ui::Ui) -> anyhow::Result<()> {
 ///（里面可能是子目录入口如 `src/bin/工具/main.rs`，故只判空不判后缀：误报会阻断
 /// 正常项目，漏报仅退化为翻译链处理 cargo 英文错）。manifest 读不到或不是合法
 /// TOML 时按「有 target」返回，让调用方去报各自更准确的错（解析失败 ≠ 无 target）。
-fn has_cargo_target(project_root: &Path) -> bool {
+///
+/// `rzc doctor` 的项目自检也走这里（`install::project_entry_health_lines`），
+/// 判定口径不许分叉。
+pub(crate) fn has_cargo_target(project_root: &Path) -> bool {
     let Ok(text) = fs::read_to_string(project_root.join("Cargo.toml")) else {
         return true;
     };

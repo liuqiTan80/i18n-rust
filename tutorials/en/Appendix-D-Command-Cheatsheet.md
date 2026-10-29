@@ -25,7 +25,7 @@ For when a command slips your mind. Deeper explanations live in Chapter 1 (rzc b
 | `rzc crate publish` | Publish your local mappings to the registry (quality-gated) | |
 | `rzc install lsp` | Install the language server (VS Code completions) | |
 | `rzc install toolchain` | One-command bundled official toolchain (standalone rustc/cargo/rust-analyzer, no rustup needed) | |
-| `rzc doctor` | Diagnose the toolchain environment (bundled / PATH / version comparison) | |
+| `rzc doctor` | Diagnose the toolchain environment (bundled / PATH / version comparison); inside a project also checks whether Cargo can read an entry target | |
 | `rzc --version` | Show the version | |
 
 ### The daily loop

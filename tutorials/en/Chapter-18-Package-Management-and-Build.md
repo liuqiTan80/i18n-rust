@@ -479,6 +479,11 @@ language). Cargo itself is not localised, so `cargo build` straight from the she
 quotes the internals above — read the two lines under **Caused by** as "no `.rs` entry yet",
 and reach for `rzc check`.
 
+To see this wall *before* hitting it, run `rzc doctor` inside the project. It states plainly
+that Cargo reads no build target, names the dialect files under `src/`, and prints the very
+`rzc check <entry>` command that writes the missing product — and in a bin+lib project it
+calls out a library whose `src/lib.rs` has not been generated yet (18.5's second pit).
+
 ### Error three: the library is used but never declared
 
 You `use` a crate that isn't on the dependency list:

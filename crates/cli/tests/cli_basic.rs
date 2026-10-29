@@ -1397,7 +1397,74 @@ fn test_doctor_prints_health_report() {
         .assert()
         .success()
         .stdout(predicates::str::contains("rzc doctor"))
-        .stdout(predicates::str::contains("语言包"));
+        .stdout(predicates::str::contains("语言包"))
+        .stdout(predicates::str::contains("项目:"));
+}
+
+/// `rzc doctor` 在项目里跑：入口产物还没生成时点名「Cargo 读不到任何构建目标」，
+/// 并给出能走通的那条 `rzc check`——把直接 `cargo build` 撞
+/// `no targets specified in the manifest` 这条墙从「读得懂 rustc 原文」降级为
+/// 「提前看得见」（判定与 rzc run/check 的阻断同源）
+#[test]
+fn test_doctor_reports_missing_cargo_entry_in_project() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    std::fs::create_dir_all(work.path().join("src")).expect("创建 src 失败");
+    std::fs::write(
+        work.path().join("Cargo.toml"),
+        "[package]\nname=\"doccheck\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+    )
+    .unwrap();
+    std::fs::write(work.path().join("src/main.zh"), GOOD_PROGRAM).unwrap();
+
+    let out = rzc()
+        .env("HOME", home.path())
+        .env_remove("RZ_LOG")
+        .current_dir(work.path())
+        .arg("doctor")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8_lossy(&out).to_string();
+    assert!(text.contains("Cargo 读不到任何构建目标"), "{text}");
+    assert!(
+        text.contains("rzc check src/main.zh"),
+        "须给出能走通的命令：{text}"
+    );
+    assert!(
+        text.contains("no targets specified in the manifest"),
+        "应写明直接 cargo build 会撞的那句原话：{text}"
+    );
+
+    // 生成入口产物后自检转绿：不得留下长期误报。
+    // 走 `rzc check`（`rzc transpile` 只打印英文、不落产物）；不断言其退出码——
+    // 入口产物在调用 cargo 之前就已写好，沙箱里没装工具链时 cargo 会失败，
+    // 但自检只看「Cargo 读不读得到 target」，只看产物
+    rzc()
+        .env("HOME", home.path())
+        .env_remove("RZ_LOG")
+        .current_dir(work.path())
+        .args(["check", "src/main.zh"])
+        .output()
+        .expect("运行 rzc check 失败");
+    let text = String::from_utf8_lossy(
+        &rzc()
+            .env("HOME", home.path())
+            .env_remove("RZ_LOG")
+            .current_dir(work.path())
+            .arg("doctor")
+            .assert()
+            .success()
+            .get_output()
+            .stdout,
+    )
+    .to_string();
+    assert!(
+        text.contains("Cargo 可读入口: 正常"),
+        "产物齐备后应转绿：{text}"
+    );
 }
 
 /// `rzc mapping check`：对内置 zh 语言包跑冲突检测，基线干净时退出 0

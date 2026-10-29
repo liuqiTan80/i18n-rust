@@ -491,7 +491,176 @@ pub fn doctor() -> anyhow::Result<()> {
         "升级内置工具链：rzc install toolchain --version <新版本> --force（当前锁定 {}）",
         LOCKED_TOOLCHAIN_VERSION
     );
+
+    // 项目入口自检：在项目里跑 doctor 时，把「直接 cargo build 撞 no targets」
+    // 这条墙提前看得见（判定与 rzc run/check 的阻断同源）
+    let project_root = std::env::current_dir()
+        .ok()
+        .and_then(|cwd| crate::find_project_root_upward(&cwd));
+    println!();
+    match project_root {
+        Some(root) => {
+            println!("项目: {}", root.display());
+            let health =
+                project_entry_health_lines(&root, &crate::lang_manager::all_available_extensions());
+            if health.is_empty() {
+                println!("  Cargo 可读入口: 正常");
+            } else {
+                for line in health {
+                    println!("{line}");
+                }
+            }
+        }
+        None => println!("项目: 当前目录不在 Cargo 项目内（未找到 Cargo.toml，跳过入口自检）"),
+    }
     Ok(())
+}
+
+/// 项目入口自检状态行（纯函数，便于测试）
+///
+/// 把「直接 `cargo build` 撞 `no targets specified in the manifest`」这条墙从
+/// 「读得懂 rustc 原文」降级为「提前看得见」：在项目里跑 `rzc doctor` 就能看见缺
+/// 哪个入口产物、该跑哪条命令补上。target 判定沿用 [`crate::has_cargo_target`]，
+/// 与 `rzc run`/`check` 的阻断同一口径，不许分叉。
+///
+/// 报三类：
+/// - Cargo 读不到任何构建目标：点名 `src/` 下的方言源文件，给出该先跑的
+///   `rzc check <入口候选>`；`src/` 里连方言文件都没有时提示 `rzc init`；
+/// - bin+lib 同项目只生成了主程序产物：`src/lib.<语言>` 在、`src/lib.rs` 不在、
+///   清单又没声明 `[lib]`，提示用库之前先 check 一次库（教程 18.5 的「先 check
+///   库再 check 主程序」那一步不再只靠读者记住）；
+/// - workspace 根：虚拟清单本就没有 target，跳过而不报「缺入口」。
+fn project_entry_health_lines(project_root: &Path, extensions: &[String]) -> Vec<String> {
+    let mut lines = Vec::new();
+    if !project_root.join("Cargo.toml").is_file() {
+        return lines;
+    }
+    if manifest_is_workspace(project_root) {
+        lines.push(
+            "  这是 workspace 根（虚拟清单，本身没有构建目标）：进成员目录再跑 doctor".to_string(),
+        );
+        return lines;
+    }
+    let sources = dialect_sources_under_src(project_root, extensions);
+    if !crate::has_cargo_target(project_root) {
+        if sources.is_empty() {
+            lines.push("  ⚠ Cargo 读不到任何构建目标，src/ 下也没有方言源文件".to_string());
+            lines.push("    → rzc init <项目名> 建骨架，或写一个 src/main.<语言>".to_string());
+            return lines;
+        }
+        lines.push(format!(
+            "  ⚠ 项目有 {} 个方言源文件，但 Cargo 读不到任何构建目标（src/main.rs、src/lib.rs 都不存在）",
+            sources.len()
+        ));
+        lines.push(format!(
+            "    方言源文件: {}",
+            sources
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+        let entry = entry_candidate(&sources);
+        lines.push(format!(
+            "    → 先跑 `rzc check {entry}` 生成入口产物；此刻直接 `cargo build` 会报 `no targets specified in the manifest`"
+        ));
+        return lines;
+    }
+    // 库源在、库产物不在，且清单没声明 [lib]（含 [lib] path 时 Cargo 直接认库目标）
+    let Some(lib_src) = sources
+        .iter()
+        .find(|rel| Path::new(rel).file_stem().is_some_and(|stem| stem == "lib"))
+    else {
+        return lines;
+    };
+    if !project_root.join("src/lib.rs").is_file() && !manifest_declares_lib(project_root) {
+        lines.push(format!(
+            "  ⚠ {lib_src} 还没有入口产物 src/lib.rs（入口产物只由被请求的文件写）"
+        ));
+        lines.push(format!(
+            "    → 主程序 `使用` 这个库之前，先跑一次 `rzc check {lib_src}`"
+        ));
+    }
+    lines
+}
+
+/// `src/` 下的方言源文件（相对项目根路径，字典序；只认已装语言包的扩展名）
+fn dialect_sources_under_src(project_root: &Path, extensions: &[String]) -> Vec<String> {
+    let mut found = Vec::new();
+    collect_dialect_sources(
+        &project_root.join("src"),
+        project_root,
+        extensions,
+        &mut found,
+    );
+    found.sort();
+    found
+}
+
+fn collect_dialect_sources(
+    dir: &Path,
+    root: &Path,
+    extensions: &[String],
+    found: &mut Vec<String>,
+) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_dialect_sources(&path, root, extensions, found);
+            continue;
+        }
+        let is_dialect = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|ext| extensions.iter().any(|known| known == ext));
+        if !is_dialect {
+            continue;
+        }
+        if let Ok(rel) = path.strip_prefix(root) {
+            found.push(rel.display().to_string().replace('\\', "/"));
+        }
+    }
+}
+
+/// 无 target 时建议先跑的入口候选：`main.<语言>` → `lib.<语言>` → src 直属的第一个
+/// 方言文件（母语词干入口如 `src/主函数.zh` 走最后一条，也正好是该先跑的那条命令）
+fn entry_candidate(sources: &[String]) -> String {
+    let stem_of = |rel: &str| Path::new(rel).file_stem().map(|s| s.to_os_string());
+    ["main", "lib"]
+        .iter()
+        .find_map(|want| {
+            sources
+                .iter()
+                .find(|rel| stem_of(rel).is_some_and(|s| s == *want))
+                .cloned()
+        })
+        .or_else(|| {
+            sources
+                .iter()
+                .find(|rel| rel.matches('/').count() == 1)
+                .cloned()
+        })
+        .or_else(|| sources.first().cloned())
+        .unwrap_or_else(|| "src/main.rs".to_string())
+}
+
+/// 清单是否为 workspace 根（虚拟清单 `[workspace]` + `[workspace.members]`）
+fn manifest_is_workspace(project_root: &Path) -> bool {
+    manifest_value(project_root).is_some_and(|m| m.get("workspace").is_some())
+}
+
+/// 清单是否声明了 `[lib]`（含 `[lib] path`：此时库目标由 Cargo 直接认，不要求产物名）
+fn manifest_declares_lib(project_root: &Path) -> bool {
+    manifest_value(project_root).is_some_and(|m| m.get("lib").is_some())
+}
+
+fn manifest_value(project_root: &Path) -> Option<toml::Value> {
+    let text = std::fs::read_to_string(project_root.join("Cargo.toml")).ok()?;
+    toml::from_str::<toml::Value>(&text).ok()
 }
 
 /// 语言包健康检查状态行（纯函数，便于测试）
@@ -1095,6 +1264,132 @@ mod tests {
         let dest = temp.path().join("dest");
         extract_tar_gz(&archive_path, &dest).unwrap();
         assert_eq!(fs::read(dest.join("bin/rzc")).unwrap(), payload);
+    }
+
+    /// 项目自检用例的公共脚手架：写清单 + src 下的文件，返回项目根
+    fn make_project(root: &Path, manifest: &str, files: &[&str]) {
+        std::fs::write(root.join("Cargo.toml"), manifest).unwrap();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        for rel in files {
+            let path = root.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(&path, "// 占位\n").unwrap();
+        }
+    }
+
+    const ZH_JA: &[&str] = &["zh", "ja"];
+
+    fn health(root: &Path) -> Vec<String> {
+        project_entry_health_lines(
+            root,
+            &ZH_JA.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        )
+    }
+
+    /// 有方言源文件却没有入口产物：点名缺 target，并给出能走通的那条 rzc check
+    #[test]
+    fn test_project_entry_health_points_at_check_command() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project(
+            dir.path(),
+            "[package]\nname=\"p\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+            &["src/main.zh", "src/餐具库.zh"],
+        );
+        let lines = health(dir.path());
+        let text = lines.join("\n");
+        assert!(text.contains("Cargo 读不到任何构建目标"), "{text}");
+        assert!(text.contains("2 个方言源文件"), "{text}");
+        assert!(text.contains("rzc check src/main.zh"), "{text}");
+        assert!(
+            text.contains("no targets specified in the manifest"),
+            "须写明直接 cargo build 会撞的那句原文：{text}"
+        );
+    }
+
+    /// 入口产物齐备：一行都不报（正常项目不得被自检噪音打扰）
+    #[test]
+    fn test_project_entry_health_quiet_when_products_exist() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project(
+            dir.path(),
+            "[package]\nname=\"p\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+            &["src/main.zh", "src/main.rs"],
+        );
+        assert!(health(dir.path()).is_empty(), "{:?}", health(dir.path()));
+    }
+
+    /// bin+lib 的第 ③ 条墙：库源在、库产物不在 → 提示先 check 一次库
+    #[test]
+    fn test_project_entry_health_flags_unbuilt_lib() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project(
+            dir.path(),
+            "[package]\nname=\"p\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+            &["src/main.zh", "src/main.rs", "src/lib.zh"],
+        );
+        let text = health(dir.path()).join("\n");
+        assert!(
+            text.contains("src/lib.zh 还没有入口产物 src/lib.rs"),
+            "{text}"
+        );
+        assert!(text.contains("rzc check src/lib.zh"), "{text}");
+    }
+
+    /// 清单声明了 `[lib] path` 时不报库产物：库目标由 Cargo 直接认
+    #[test]
+    fn test_project_entry_health_respects_declared_lib() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project(
+            dir.path(),
+            "[package]\nname=\"p\"\nversion=\"0.1.0\"\nedition=\"2021\"\n[lib]\npath=\"src/库.rs\"\n",
+            &["src/main.rs", "src/lib.zh"],
+        );
+        assert!(health(dir.path()).is_empty(), "{:?}", health(dir.path()));
+    }
+
+    /// 母语词干入口（`src/主函数.zh`）：建议的命令就是它，不是凭空造一个 main.rs
+    #[test]
+    fn test_project_entry_health_falls_back_to_direct_child_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project(
+            dir.path(),
+            "[package]\nname=\"p\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+            &["src/领域/工具.zh", "src/主函数.zh"],
+        );
+        let text = health(dir.path()).join("\n");
+        assert!(text.contains("rzc check src/主函数.zh"), "{text}");
+    }
+
+    /// workspace 根（虚拟清单）本就没有 target：跳过，不报「缺入口」
+    #[test]
+    fn test_project_entry_health_skips_workspace_root() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project(dir.path(), "[workspace]\nmembers = [\"crates/a\"]\n", &[]);
+        let text = health(dir.path()).join("\n");
+        assert!(text.contains("workspace 根"), "{text}");
+        assert!(!text.contains("Cargo 读不到任何构建目标"), "{text}");
+    }
+
+    /// 没有 Cargo.toml 的目录：整段自检沉默（doctor 另有「不在项目内」一行）
+    #[test]
+    fn test_project_entry_health_outside_project_is_silent() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("src/main.rs")).unwrap();
+        assert!(health(dir.path()).is_empty());
+    }
+
+    /// src 下连方言文件都没有：给出 rzc init，而不是编不出来的 check 命令
+    #[test]
+    fn test_project_entry_health_without_sources_suggests_init() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project(
+            dir.path(),
+            "[package]\nname=\"p\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+            &["src/说明.txt"],
+        );
+        let text = health(dir.path()).join("\n");
+        assert!(text.contains("rzc init"), "{text}");
+        assert!(!text.contains("rzc check"), "{text}");
     }
 
     /// 备份名识别：.bak 后缀或含 .stale 段；正常目录名不误判
