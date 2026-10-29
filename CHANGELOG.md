@@ -381,10 +381,27 @@
   --clear` 一次即清；`docs/contributing-lang-pack.md` 已注明它对补表无价值。
 - 顺带查出两条邻近缺陷，本轮**只登记未修**：① en 的工具通道前缀取自 `cargo_progress_error`
    = `Error: {}`（大写 E），与 cargo 自己的 `error:` 以及同屏的 `warning:` / `note:` 都不
-   统一，所以 en 侧输出并非逐字原句——集成用例已按现状把它钉死，改动它时会提醒同步；
-   ② 待译清单的 TSV 会被**多行消息**破坏：消息原文含换行时落盘成多行，读回时裸续行被当作
-   「单列消息」并按当前界面语言归类（本机 `en.tsv` 1079 行里有 628 行是这种续行），语言
-   归属与条数统计双双失真。
+   统一，所以 en 侧输出并非逐字原句——集成用例已按现状把它钉死，改动它时会提醒同步。
+
+### 修复
+- **待译清单 TSV 不再被多行消息破坏**：消息原文含换行/制表符时原样落盘会把一条记录炸成
+  十几行裸续行，于是 `rzc gaps` 报的条数不是待译句子数、且去重失效（每次实跑都重贴同一句，
+  实测 `and 56 others` 在 en/ja/ru 各积 64/42/42 次）。现在：
+  - `gap_line` 写入前对消息列转义 `\` → `\\`、`\n` → `\\n`、`\r` → `\\r`、`\t` → `\\t`；
+  - `parse_gap_lines` 读取时单趟扫描还原，并把历史裸续行拼回上一条记录（按第二列是否为已知
+    通道名判行形状，而非按首列长度），语言归属不再因当前界面语言而失真；
+  - `flush_gaps_to_dir` 改为**整档重写**（而非追加）：第一次有新记录写入即顺带完成格式迁移，
+    无新记录时不改动文件，避免反复改写用户数据；
+  - CLI `render` 导出的 `--export` 产物也走转义，与引擎格式保持往返互逆。
+  影响：已有未转义历史文件在下一次确实新增待译时被自动整档重写迁移（注释会丢，清单由
+  rzc 生成，人工加注请走 `--export`）。
+
+### 测试
+- 新增引擎用例 3 条：`multiline_message_round_trips_as_one_line`、
+  `legacy_raw_continuations_fold_back`、`flush_migrates_legacy_multiline_file`；
+  CLI 集成用例 2 条：`test_gaps_listing_keeps_one_record_per_line`（导出往返）、
+  `test_gaps_migrates_legacy_multiline_file_on_next_run`（真实实跑触发迁移）；
+  CLI 单元用例 1 条：`render_escapes_multiline_message`。基线 795 → 801。
 
 ## [0.8.12] - 2026-10-28
 

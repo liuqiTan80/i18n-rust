@@ -963,6 +963,130 @@ fn test_english_identity_lang_does_not_report_untranslated_gaps() {
     );
 }
 
+/// 待译清单：一行一条记录（跨行消息以转义字面量存放，可无损读回）
+///
+/// rustc JSON 的一类消息本身带换行（如 E0277 的「下列类型实现了该特征」清单）。
+/// 旧实现把它原样落盘：一条记录炸成十几行裸续行，`rzc gaps` 报的条数不是
+/// 待译句子数，且续行会被按当前界面语言误归类（历史文件里占了一半行数）。
+#[test]
+fn test_gaps_listing_keeps_one_record_per_line() {
+    let home = isolated_home();
+    let gaps_dir = home.path().join(".rz").join("gaps");
+    std::fs::create_dir_all(&gaps_dir).expect("创建 gaps 目录失败");
+    let file = gaps_dir.join("zt.tsv");
+    // 新格式：多行消息以 `\n` 字面量存放，一条一行
+    std::fs::write(
+        &file,
+        "zt\thelp\tE0277\tfirst line\\n  second line\\nand 56 others\nzt\tmain\t\tplain message\n",
+    )
+    .expect("写入清单失败");
+
+    let out = rzc()
+        .env("HOME", home.path())
+        .args(["gaps", "--lang", "zt"])
+        .output()
+        .expect("运行 rzc gaps 失败");
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(
+        lines.len(),
+        2,
+        "两条待译应输出两行，不得被消息内容拆行：{lines:?}"
+    );
+    assert!(
+        lines
+            .iter()
+            .all(|l| l.contains("first line\\n") || l.contains("plain message")),
+        "导出件应保留转义形式供工具消费：{lines:?}"
+    );
+
+    // --export 产物可被引擎读回，且消息内容逐字不变
+    let export = home.path().join("exported.tsv");
+    rzc()
+        .env("HOME", home.path())
+        .args(["gaps", "--lang", "zt", "--export"])
+        .arg(&export)
+        .assert()
+        .success();
+    let read = i18n_rust_engine::diagnostic::parse_gap_lines(
+        &std::fs::read_to_string(&export).expect("读取导出件失败"),
+    );
+    assert_eq!(read.len(), 2, "导出件应被读回两条记录");
+    assert!(read.iter().any(|g| g.3 == "plain message"));
+    assert!(
+        read.iter()
+            .any(|g| g.3 == "first line\n  second line\nand 56 others"),
+        "跨行消息导出后必须能逐字还原：{:?}",
+        read
+    );
+}
+
+/// 待译清单：历史未转义文件（裸续行）读回不拆条，实跑一轮后完成格式迁移
+///
+/// 旧行为会把这些裸行当成新记录（按当前界面语言归类），且因为读不回原记录
+/// 而每轮重贴同一句（本机实测 `and 56 others` 在 en/ja/ru 各积 64/42/42 次）。
+#[test]
+fn test_gaps_migrates_legacy_multiline_file_on_next_run() {
+    let home = isolated_home();
+    let gaps_dir = home.path().join(".rz").join("gaps");
+    std::fs::create_dir_all(&gaps_dir).expect("创建 gaps 目录失败");
+    let file = gaps_dir.join("zh.tsv");
+    // 旧格式：一条主记录 + 一条被拆成三行的跨行记录（裸续行无列结构）
+    // 续行只能拼到它前面的记录上——真实历史文件里裸行总是跟在主记录后
+    std::fs::write(
+        &file,
+        "zh\tmain\tE9999\tanchor record\nzh\tmain\t\tlegacy multiline start\n\tlegacy tail with tab\nand its last line\n",
+    )
+    .expect("写入历史清单失败");
+
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    let root = work.path();
+    std::fs::create_dir_all(root.join("src")).expect("创建 src 失败");
+    std::fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname=\"gapmig\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+    )
+    .unwrap();
+    // 两个不同变量名 → 两次都是缓存未命中，真实产生新的待译记录
+    let sources = [
+        "函数 主函数() {\n    让 未用变量甲 = 1;\n}\n",
+        "函数 主函数() {\n    让 未用变量乙 = 2;\n}\n",
+    ];
+    for src in sources {
+        std::fs::write(root.join("src/main.zh"), src).unwrap();
+        rzc()
+            .env("HOME", home.path())
+            .current_dir(root)
+            .args(["check", "src/main.zh"])
+            .output()
+            .expect("运行 rzc check 失败");
+    }
+
+    let raw = std::fs::read_to_string(&file).expect("清单应仍存在");
+    let records = i18n_rust_engine::diagnostic::parse_gap_lines(&raw);
+    assert!(
+        records.iter().any(|g| g.0 == "zh"),
+        "实跑产生的记录应落在 zh 清单里：{:?}",
+        records
+    );
+    assert_eq!(
+        raw.lines().count(),
+        records.len(),
+        "迁移后应一行一条记录（裸续行拼回上一条，不再虚增条数）"
+    );
+    assert!(
+        !raw.contains("legacy multiline start\n\tlegacy tail"),
+        "历史裸行应被拼回单行转义格式：{raw}"
+    );
+    assert!(
+        records
+            .iter()
+            .any(|g| g.3 == "legacy multiline start\n\tlegacy tail with tab\nand its last line"),
+        "拼回的历史记录内容不得丢失：{:?}",
+        records
+    );
+}
+
 /// `rzc check` 多层模块项目：递归收集 + 非入口文件按层级补 `#[path]`
 ///
 /// 布局：src/main.zh → src/领域.zh → src/领域/工具.zh。此前非入口方言文件

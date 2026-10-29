@@ -664,9 +664,9 @@ no substitution at all.
 | `fullwidth_hint_only` | 0 | `crates/engine/src/fullwidth.rs:77` | — | 无对应半角字符，请手动修改 |
 | `fullwidth_to_half` | 1 | `crates/engine/src/fullwidth.rs:76` | &repl.to_string() | 应改为半角「{}」 |
 | `fullwidth_warning_at` | 4 | `crates/engine/src/fullwidth.rs:80` | &self.line.to_string() / &self.column.to_string() / &self.character.to_string() / &guidan… | 第 {} 行第 {} 列：检测到全角标点「{}」，{} |
-| `gaps_cleared` | 2 | `crates/cli/src/translation_gaps.rs:30` | &lang / &file.display().to_string() | 已清空 {} 语言的待译清单：{} |
-| `gaps_none` | 1 | `crates/cli/src/translation_gaps.rs:34`<br>`crates/cli/src/translation_gaps.rs:40` | &file.display().to_string() | 没有待译消息：{} |
-| `gaps_written` | 2 | `crates/cli/src/translation_gaps.rs:50` | &path.display().to_string() / &list.len().to_string() | 待译清单已导出：{}（{} 条） |
+| `gaps_cleared` | 2 | `crates/cli/src/translation_gaps.rs:31` | &lang / &file.display().to_string() | 已清空 {} 语言的待译清单：{} |
+| `gaps_none` | 1 | `crates/cli/src/translation_gaps.rs:35`<br>`crates/cli/src/translation_gaps.rs:41` | &file.display().to_string() | 没有待译消息：{} |
+| `gaps_written` | 2 | `crates/cli/src/translation_gaps.rs:51` | &path.display().to_string() / &list.len().to_string() | 待译清单已导出：{}（{} 条） |
 | `global_lang_dir` | 1 | `crates/cli/src/main.rs:1017` | &lang_manager::global_lang_dir().… | 全局语言包目录：{} |
 | `hint_add_dependency` | 2 | `crates/cli/src/diagnostics.rs:1189` | name | 提示: "{}" 疑似未声明的第三方库，运行 `rzc add {}` 添加依赖 |
 | `hint_own_crate_lib` | 3 | `crates/cli/src/diagnostics.rs:1198` | name / path | "{}" 是本项目的包名，不是第三方库——Cargo 不允许一个包依赖自己，`rzc add {}` 必然失败。要用本项目自己的库代码，先运行 `rzc check {}` 生成 Cargo 的 src/lib.rs，然后重新校验 |

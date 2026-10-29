@@ -60,11 +60,12 @@
   该键同时被 `translate_cargo_progress` 复用（diagnostics.rs:255），改前先量进度行输出与
   en 教程引用（第十八/十六章的 `Error:` 行来自 rzc 自身的 `bail!`，与这条不同路径）。
   现状已被 `test_localize_tool_line_in_identity_lang_shows_original_without_gap` 按字面钉住
-- 待译清单的 TSV 会被多行消息破坏（同轮实机看到）：消息原文含换行时按原样落盘，于是
+- **（2026-10-29 已落地）** 待译清单的 TSV 会被多行消息破坏：消息原文含换行时按原样落盘，于是
   `~/.rz/gaps/en.tsv` 1079 行里有 628 行是不以语言列开头的裸续行，`parse_gap_lines` 把它们
   当作「单列消息」并按**当前界面语言**归类 —— 语言归属与条数双双失真，`rzc gaps` 的读数
-  因此偏大。修法候选：`gap_line` 写入前把消息内的换行转义（`\n` 字面量）并在解析侧还原，
-  同步给 `rzc gaps --export` 的语料门禁同构格式补一条往返用例
+  因此偏大。已修：`gap_line` 写入前转义 `\n`/`\r`/`\t`/`\\`，`parse_gap_lines` 读取时还原，
+  并拼回历史裸续行到上一条记录；`flush_gaps_to_dir` 整档重写（而非追加）触发格式迁移；
+  `rzc gaps --export` 也走转义。一致性由 3 条新测试 + 1 条 CLI 集成用例钉住
 - 消息模板里**作者手写的**反引号英文词会被 `replace_type_names` 按类型映射改写（zh stdlib 表里
   `线程名` = `name`，本轮第一版 zh 模板因此输出「请把 Cargo.toml 里的 `线程名` 改成 ASCII 名」）。
   本轮靠改措辞 + 用例绕开，没动机制。可选修法：只对 `{qN}` 回填进来的 token 做中文化，模板字面

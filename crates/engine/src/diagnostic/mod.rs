@@ -20,8 +20,9 @@ mod teaching;
 mod translator;
 
 pub use gaps::{
-    LEVEL_HELP, LEVEL_MAIN, LEVEL_TOOL, TranslationGap, clear_gaps, drain_gaps, flush_gaps,
-    flush_gaps_to_dir, gap_file, gaps_dir, parse_gap_lines, peek_gaps, read_gaps, record_gap,
+    LEVEL_HELP, LEVEL_MAIN, LEVEL_TOOL, TranslationGap, clear_gaps, decode_gap_field, drain_gaps,
+    encode_gap_field, flush_gaps, flush_gaps_to_dir, gap_file, gaps_dir, parse_gap_lines,
+    peek_gaps, read_gaps, record_gap,
 };
 pub use message::{
     ErrorTranslationManager, MessageAudit, MessageRest, audit_message, fill_dynamic_placeholders,
