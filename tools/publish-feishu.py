@@ -11,8 +11,8 @@
   ② 创建导入任务   md → docx 新版文档（挂到云空间中转文件夹）
   ③ 轮询导入结果   获得文档 token / url
   ④ 移入知识库     move_docs_to_wiki → 知识库节点（新章节）
-     或原地替换     读中转文档块树 → 清空旧文档正文 → 按树重建（更新章节：节点
-                    与访问链接不变，需 docx:document 权限）
+     或原地替换     读中转文档块树 → 清空旧文档正文 → 「创建嵌套块」按树重建
+                    （更新章节：节点与访问链接不变，需 docx:document 权限）
 
 同步状态（docs/strategy/feishu-publish-state.json，随仓库提交）：每篇记录
 title / sha256（正文指纹）/ node_token / doc_token / url / published_at /
@@ -44,6 +44,8 @@ source_commit。重跑时按指纹区分「未变更 / 已变更 / 未登记 / �
   python3 tools/publish-feishu.py --update       # 原地更新已变更章节（链接不变）
   python3 tools/publish-feishu.py --only 第一章   # 只处理匹配章节（子串匹配）
   python3 tools/publish-feishu.py --force        # 忽略状态全部重导（会新建文档）
+  python3 tools/publish-feishu.py --restore-backup <备份.json> --only 第十八章
+                                                # 按备份把正文恢复原状（补救通道）
 
 发布完成后：知识库 → 分享 → 打开「将知识库发布到互联网」，访客即可免登录
 阅读。日常改动流程：改完教程 → `--check` 看落后清单 → `--update` 同步。
@@ -51,6 +53,7 @@ source_commit。重跑时按指纹区分「未变更 / 已变更 / 未登记 / �
 安全：App Secret 仅从命令行/环境变量读取，不落盘、不写入任何文件。
 """
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -69,8 +72,10 @@ API = "https://open.feishu.cn/open-apis"
 # 同步状态文件（随仓库提交，供 `--check` 与实际发布命令共用）
 DEFAULT_STATE = os.path.join(ROOT, "docs", "strategy", "feishu-publish-state.json")
 STATE_VERSION = 1
-# 飞书「创建块」单次批量：官方未公开确切口数，按社区实测取 50（保守）
+# 飞书「删除块」单次批量：batch_delete 按索引区间删，取 50 稳妥
 BLOCK_BATCH = 50
+# 「创建嵌套块」单次请求的块数上限官方未公开，按顶层块切批，保守取 300
+DESCENDANT_BATCH = 300
 
 # 限频错误码：HTTP 429 或 body 内错误码（退回重试）
 RATE_LIMIT_CODES = {1069923, 99991400}
@@ -83,6 +88,9 @@ HINTS = {
     "1069908": "中转文件夹未授权给应用：文件夹「… → 更多 → 添加文档应用」",
     "131006": "知识库权限不足：确认含机器人的群已被添加为知识库可编辑成员",
     "131005": "未找到资源：检查 wiki-token 是否正确、应用是否为知识库成员",
+    "1770001": "建块参数不合法：多半是 payload 里带了只读字段（表格 cells/merge_info 等）",
+    "1770004": "文档块数超上限：该章过长，需拆分或改用导入重导",
+    "1770005": "文档块层级过深：表格/列表嵌套超出上限",
     "1770032": "应用无文档编辑权限：后台「权限管理」开通 docx:document 后创建新版本并发布",
 }
 # SUMMARY.md 条目：`- [标题](目标)` 或 `- [标题](<目标>)`（书名号包裹）
@@ -277,7 +285,9 @@ class FeishuClient:
             path += "?" + urllib.parse.urlencode(query)
         return self._request("GET", path)
 
-    def post(self, path, payload):
+    def post(self, path, payload, query=None):
+        if query:
+            path += "?" + urllib.parse.urlencode(query)
         return self._request(
             "POST", path, json.dumps(payload, ensure_ascii=False).encode("utf-8")
         )
@@ -438,6 +448,13 @@ def list_existing_nodes(client, space_id):
 # ---------- 块树操作（原地更新正文）----------
 # 新建块时不能带这些只读字段：block_id/parent_id 会被当成跨文档引用而报错
 READONLY_BLOCK_FIELDS = ("block_id", "parent_id", "children", "comment_ids")
+# payload 内还有只读子字段：表格的 cells 是单元格 id 列表（单元格改由 children 表达）、
+# merge_info 由系统按行列自动生成、grid 的 columns 同理。回传它们建块会报 1770001。
+READONLY_PAYLOAD_PATHS = (
+    ("table", "cells"),
+    ("table", "property", "merge_info"),
+    ("grid", "columns"),
+)
 
 
 def list_blocks(client, doc_token):
@@ -456,8 +473,17 @@ def list_blocks(client, doc_token):
 
 
 def block_payload(block):
-    """剥掉只读字段，得到可直接用于建块的 payload（子块另行递归）。"""
-    return {k: v for k, v in block.items() if k not in READONLY_BLOCK_FIELDS}
+    """剥掉只读字段，得到可回传给建块接口的 payload（子块改由 children 表达）。"""
+    payload = copy.deepcopy(
+        {k: v for k, v in block.items() if k not in READONLY_BLOCK_FIELDS}
+    )
+    for path in READONLY_PAYLOAD_PATHS:
+        node = payload
+        for key in path[:-1]:
+            node = node.get(key) if isinstance(node, dict) else None
+        if isinstance(node, dict):
+            node.pop(path[-1], None)
+    return payload
 
 
 def build_block_tree(blocks, root_id):
@@ -481,22 +507,67 @@ def build_block_tree(blocks, root_id):
     return kids(root)
 
 
+def tree_size(node):
+    """子树块数（含自身）。"""
+    _payload, kids = node
+    return 1 + sum(tree_size(kid) for kid in kids)
+
+
+def chunk_block_tree(nodes, limit):
+    """按顶层块切批：单棵子树不拆开，每批块数不超过 limit。"""
+    batches, current, size = [], [], 0
+    for node in nodes:
+        need = tree_size(node)
+        if current and size + need > limit:
+            batches.append(current)
+            current, size = [], 0
+        current.append(node)
+        size += need
+    if current:
+        batches.append(current)
+    return batches
+
+
+def flatten_block_tree(nodes):
+    """把嵌套树摊平成「创建嵌套块」要的 (children_id, descendants)。
+
+    临时 block_id 只需在单次请求内唯一，接口按 children 里的 id 还原子树；
+    表格的单元格也走这条路（不再依赖只读的 table.cells）。
+    """
+    descendants = []
+    counter = [0]
+
+    def walk(node):
+        payload, kids = node
+        counter[0] += 1
+        tmp_id = f"rzc{counter[0]:04d}"
+        entry = {"block_id": tmp_id}
+        entry.update(payload)
+        entry["children"] = []
+        descendants.append(entry)
+        entry["children"] = [walk(kid) for kid in kids]
+        return tmp_id
+
+    children_id = [walk(node) for node in nodes]
+    return children_id, descendants
+
+
 def insert_block_tree(client, doc_token, parent_id, nodes):
-    """逐层重建：先建本层（每批 BLOCK_BATCH），再对带子块的块递归。"""
-    for start in range(0, len(nodes), BLOCK_BATCH):
-        chunk = nodes[start:start + BLOCK_BATCH]
-        data = client.post(
-            f"/docx/v1/documents/{doc_token}/blocks/{parent_id}/children",
-            {"children": [payload for payload, _kids in chunk]},
+    """用「创建嵌套块」接口按树重建，返回实际创建的块数。
+
+    逐层 children 接口建不了表格（cells 只读，行列另有 9 的上限）；
+    descendant 接口一次收下整棵子树，表格与嵌套列表都按原样复现。
+    """
+    created = 0
+    for batch in chunk_block_tree(nodes, DESCENDANT_BATCH):
+        children_id, descendants = flatten_block_tree(batch)
+        client.post(
+            f"/docx/v1/documents/{doc_token}/blocks/{parent_id}/descendant",
+            {"children_id": children_id, "descendants": descendants},
+            query={"document_revision_id": -1},
         )
-        created = data.get("children") or []
-        if len(created) != len(chunk):
-            raise FeishuError(
-                f"建块返回 {len(created)} 个，请求 {len(chunk)} 个——重建已中止"
-            )
-        for (_payload, grandkids), block in zip(chunk, created):
-            if grandkids:
-                insert_block_tree(client, doc_token, block["block_id"], grandkids)
+        created += len(descendants)
+    return created
 
 
 def clear_document_body(client, doc_token):
@@ -554,6 +625,16 @@ def replace_document_body(client, target_token, source_token):
             f"正文重建中断（已删 {removed} 个顶层块，备份 {rel}，{note}）：{e}"
         ) from e
     return backup
+
+
+def restore_from_backup(client, doc_token, backup_path):
+    """按备份文件把正文恢复原状（重建失败后的人工补救通道）。"""
+    with open(backup_path, encoding="utf-8") as f:
+        blocks = json.load(f)
+    tree = build_block_tree(blocks, doc_token)
+    removed = clear_document_body(client, doc_token)
+    created = insert_block_tree(client, doc_token, doc_token, tree)
+    return removed, created, len(blocks)
 
 
 def delete_drive_file(client, token):
@@ -639,6 +720,30 @@ def update_chapter(client, args, title, path, entry):
         delete_drive_file(client, result["token"])
 
 
+def run_restore(args, plan, state):
+    """--restore-backup：按备份把一章正文恢复原状（不动状态文件）。"""
+    if len(plan) != 1:
+        sys.exit("--restore-backup 需配合 --only 指定唯一章节")
+    _title, _path, name = plan[0]
+    entry = state.get("chapters", {}).get(name)
+    if not entry or not entry.get("doc_token"):
+        sys.exit(f"状态文件里没有 {name} 的 doc_token，无法定位文档")
+    for opt, value, env in (
+        ("--app-id", args.app_id, "FEISHU_APP_ID"),
+        ("--app-secret", args.app_secret, "FEISHU_APP_SECRET"),
+    ):
+        if not value:
+            sys.exit(f"缺少 {opt}（或环境变量 {env}）")
+    client = FeishuClient(args.app_id, args.app_secret, sleep=args.sleep)
+    removed, created, total = restore_from_backup(
+        client, entry["doc_token"], args.restore_backup
+    )
+    print(
+        f"恢复完成：文档 {entry['doc_token']} 清空 {removed} 个顶层块，"
+        f"按备份重建 {created}/{total} 块"
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="把 tutorials/ 中文教程同步到飞书知识库（按正文指纹增量发布）",
@@ -668,6 +773,8 @@ def main():
                         help="原地更新已变更章节（节点与链接不变，需 docx:document）")
     parser.add_argument("--force", action="store_true",
                         help="忽略状态全部重导（会新建文档，需自行清理旧文档）")
+    parser.add_argument("--restore-backup", default=None,
+                        help="按备份 json 把某章正文恢复原状（配合 --only）")
     parser.add_argument("--keep-h1", action="store_true",
                         help="保留正文首行 H1（默认移除，标题由知识库节点承担）")
     parser.add_argument("--dry-run", action="store_true", help="仅打印清单，不发请求")
@@ -680,6 +787,9 @@ def main():
             sys.exit(f"没有匹配「{args.only}」的章节")
     digests = {name: chapter_digest(path, args.keep_h1) for _t, path, name in plan}
     state = load_state(args.state)
+    if args.restore_backup:
+        run_restore(args, plan, state)
+        return
     actions = plan_actions(plan, state, digests)
 
     print(f"待处理章节：{len(plan)} 篇（顺序与文档站 SUMMARY 一致）")

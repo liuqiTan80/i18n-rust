@@ -15,6 +15,17 @@
   旧正文自动备份到 `.rz/feishu-backup/`；`--force` 保留原「忽略状态全部重导」语义。
 - `--update` 需在飞书后台补开 `docx:document` 并发布版本（缺权限报 1770032，脚本附排查提示）；
   不补权限时仍可走「删旧文档 + 重导」的手工路径，`--check` 同样能指出落后哪几篇。
+- 块树重建改走「创建嵌套块」接口。首次实机 `--update` 即失败：原实现逐层调 `children` 建块，把
+  只读的 `table.cells`、`table.property.merge_info`、`grid.columns` 一并回传（`1770001 invalid
+  param`），且该接口对表格行列另有 9 的上限。现在把整棵子树摊平成
+  `POST /docx/v1/documents/{doc}/blocks/{id}/descendant` 的 `descendants`，用单次请求内唯一的临时
+  block_id 由 `children` 还原子树，表格单元格（block_type 32）与嵌套列表按原样复现；按顶层块切批
+  （300 块/批，子树不拆开）。新增 `--restore-backup <json>`：被误清空的文档可按
+  `.rz/feishu-backup/` 里的块表整篇填回（本次即用它恢复过一次）。
+- 实机结果：知识库 33 篇全部同步（31 篇正文原地替换、2 篇未变更、0 失败），`--check` 为「一致
+  33 篇」，每篇节点 token 与访问链接不变。另随附三类**与块树重建无关**的飞书 md 导入差异备案
+  （toml 代码块降级为 Plain Text、引用块内代码块被拆成兄弟块、列表项带续行时编号重复），排障时
+  勿误判为回归。
 
 ### 修复
 - `?` 的两条诊断不再被通用 E0277 桩套成「类型 `?` 未实现特征 `结果`」。rustc 这两句
