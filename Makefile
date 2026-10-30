@@ -60,14 +60,14 @@ mapping-check: ## 第三方库映射质量门禁（重复键/避让/跨文件冲
 
 tutorials: ## 教程代码块编译验证（zh 全量，携带预期失败白名单）
 	$(CARGO) build --quiet --bin rzc
-	$(PYTHON) tools/verify-tutorials.py --rzc target/debug/rzc --allowlist tools/expected-failures.json
+	$(PYTHON) tools/verify-tutorials.py --rzc target/debug/rzc --allowlist tools/expected-failures.json --ctx
 
 tutorials-all: ## 多语言教程门禁（zh/en/ja/ru 四语依次验证）
 	$(CARGO) build --quiet --bin rzc
-	$(PYTHON) tools/verify-tutorials.py --allowlist tools/expected-failures.json
-	$(PYTHON) tools/verify-tutorials.py --dir tutorials/en --lang en --allowlist tools/expected-failures.json
-	$(PYTHON) tools/verify-tutorials.py --dir tutorials/ja --lang ja --allowlist tools/expected-failures.json
-	$(PYTHON) tools/verify-tutorials.py --dir tutorials/ru --lang ru --allowlist tools/expected-failures.json
+	$(PYTHON) tools/verify-tutorials.py --allowlist tools/expected-failures.json --ctx
+	$(PYTHON) tools/verify-tutorials.py --dir tutorials/en --lang en --allowlist tools/expected-failures.json --ctx
+	$(PYTHON) tools/verify-tutorials.py --dir tutorials/ja --lang ja --allowlist tools/expected-failures.json --ctx
+	$(PYTHON) tools/verify-tutorials.py --dir tutorials/ru --lang ru --allowlist tools/expected-failures.json --ctx
 
 site: ## 构建文档站到 _site/（多语言 mdBook；需 mdbook，安装见 book/README.md）
 	$(PYTHON) tools/build-site.py

@@ -7,8 +7,9 @@
 
 | 脚本 | 用途 | 常用调用 |
 |---|---|---|
-| `verify-tutorials.py` | 教程代码块可编译性验证（CI 硬门禁）：提取围栏代码块逐块编译；错误示例断言预期错误码；`// 预期输出:` 块断言 stdout；相邻的 `// 文件:` 块合成一个多文件项目（见下） | `make tutorials`（zh）· `make tutorials-all`（en/ja/ru） |
+| `verify-tutorials.py` | 教程代码块可编译性验证（CI 硬门禁）：提取围栏代码块逐块编译；错误示例断言预期错误码；`// 预期输出:` 块断言 stdout；相邻的 `// 文件:` 块合成一个多文件项目（见下）；`--ctx` 把白名单块补上本章前文再验一遍（见下） | `make tutorials`（zh）· `make tutorials-all`（en/ja/ru） |
 | `expected-failures.json` | 教程验证白名单：登记结构性噪音（跨块依赖等无法单独编译的块），键为 `文件:行号` | 随教程改动维护，须写明原因 |
+| `ctx-baseline.json` | 上下文复验基线：白名单块补上前文后「前文补全通过」的**下限**（按语言分记，只增不减） | `--ctx --ctx-update` 上调；低于下限判红 |
 | `verify-glossary.py` | 术语表 ↔ zh 语言包一致性（术语表引用的词须能在语言包中找到） | `make glossary` |
 | `check-ui-keys.py` | ui.toml 键完备性（11 语言与 zh 对齐 + `{}` 占位符一致性） | `make ui-keys` |
 | `check-extension-ui-keys.py` | 扩展文案三方一致：`extension.ts` 消费的 `ext_` 键 = `gen-ui-strings.mjs` 白名单 = `src/generated/ui-strings.ts`，并校验生成物未陈落于 ui.toml；纯 Python，免 npm/node_modules | `make ext-ui-keys` |
@@ -29,7 +30,8 @@ python3 tools/verify-tutorials.py \
   --dir tutorials/en --lang en \                       # 教程目录与语言包
   --rzc target/debug/rzc \                             # rzc 路径
   --allowlist tools/expected-failures.json             # 白名单
-# 可选：--json report.json 输出机器可读报告 · --parallel N 并行度（默认 10）· --serialize 附加章节串联验证
+# 可选：--json report.json 输出机器可读报告 · --parallel N 并行度（默认 10）
+#       --serialize 附加章节串联验证 · --ctx 白名单块上下文复验（门禁默认开启）
 ```
 
 ### 多文件示例协议（`// 文件:`）
@@ -49,6 +51,31 @@ python3 tools/verify-tutorials.py \
 现成用法见 `tutorials/第十七章：模块系统.md` 的 17.6 与练习三、
 `tutorials/en/Chapter-17-Modules.md` 的 17.6 与 Exercise 3。读者不必在自己代码里写这行，
 教程正文已就近说明它是门禁标注。
+
+### 上下文复验（`--ctx`）
+
+白名单条目（`tools/expected-failures.json`）过去相当于「这些块不验证」。`--ctx` 把它改成
+「按读者的输入顺序验证」：对白名单里 category 为 `上下文依赖` / `教学演示` 的块，把**同一文档内
+到此块为止**的前文按 `--serialize` 的拼接规则合成一个临时项目再跑一次——读者照着书敲到这一步，
+手里正是这份前文。每块归入三态之一：
+
+| 归属 | 含义 | 处置 |
+| --- | --- | --- |
+| `前文补全通过` | 只是缺前文，补上即编译通过 | 计入基线下限（`tools/ctx-baseline.json`，只增不减） |
+| `本块致错` | 去掉本块前文能编译，加上本块就报错 | 逐条排查：多半是正文真墙（如 15.2 的 `让 颜色` 少写 `可变`，`弹出` 即报 E0596） |
+| `前文噪音` | 前文自身还编不过（它自己也在白名单里），无法归因 | 修好前面的块，噪音自然转移成前两态 |
+
+`故意报错` / `练习答案` 两类不复验：拼上前文也不该编译通过（前者是反例，后者把答案留给读者），
+复验它们只会制造假红。临时项目目录名带上「块序 + 阶段」，否则同章多块并行会写同一个
+`src` 互相覆盖（实测让通过数在两跑之间跳动）。
+
+```bash
+# 记录 / 上调基线（改完教程后跑；非 zh 附加 --dir tutorials/en --lang en）
+python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json --ctx --ctx-update
+```
+
+`make tutorials` / `make tutorials-all` 已默认带 `--ctx`：「前文补全通过」低于基线即判红，
+高于基线只提示可上调，`本块致错` 逐条打印（含第一条真错误行，lint 教学提示行已剥离）。
 
 ## 注意事项
 

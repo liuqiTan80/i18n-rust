@@ -26,11 +26,19 @@ Result 的 `错误(...)` 构造、`错误(原因)` 模式匹配、`xxx错误` �
 同名函数/特征/枚举分块渐进教学与错误示例块（其变量声明被跳过），与
 合并验证本质冲突，个别章节失败属固有噪音，不作为 CI 门禁。
 
+可选 --ctx 模式（上下文复验，CI 门禁）：白名单块「单独编译失败」不等于
+「不必编译」——把该章到此块为止的前文按串联规则拼进临时项目再验一次
+（读者照着书敲到这一步，用的正是这份前文），每个白名单块得到三种归属
+之一：`前文补全通过`（等价于已验证）、`本块致错`（去掉本块前文能编译，
+加上就报错——正文里真实存在的墙）、`前文噪音`（前文自己还编不过，无法
+归因）。「前文补全通过」数受基线下限保护（只增不减，见
+`tools/ctx-baseline.json`），教程改动导致它下降即判红。
+
 退出码：非预期失败为 1（CI 门禁用）；--json 输出机器可读报告。
 
 用法：
-  python3 tools/verify-tutorials.py [--serialize] [--json 报告.json] \
-      [--rzc 路径] [--dir 教程目录] [--parallel N]
+  python3 tools/verify-tutorials.py [--serialize] [--ctx] [--ctx-update] \
+      [--json 报告.json] [--rzc 路径] [--dir 教程目录] [--parallel N]
 """
 import argparse
 import atexit
@@ -71,6 +79,15 @@ FILE_MARK_RE = re.compile(r"^\s*//\s*文件\s*[:：]\s*(\S+)\s*$")
 # 各语言方言里与 `main` 等价的入口文件词干（Cargo 只认 main/lib 两个 crate 根，
 # 方言侧把 main 翻译后的词干也算入口——见 crates/cli/src/main.rs 的 is_entry_stem）
 MAIN_STEMS = {"zh": "主函数", "ja": "主関数", "ru": "главная"}
+
+# 上下文复验覆盖的白名单类别：这两类的成立条件都是「定义散落在前后块」，
+# 拼上前文即可复现读者的真实输入；`故意报错`/`练习答案` 拼上前文也不该编译
+# 通过（前者是反例，后者缺的答案留给读者），复验它们只会制造假红
+CTX_CATEGORIES = ("上下文依赖", "教学演示")
+# 复验三态
+CTX_PASS, CTX_MINE, CTX_NOISE = "前文补全通过", "本块致错", "前文噪音"
+# 上下文复验的编译耗时上限比单块长（前文越拼越长），与 --serialize 同档
+CTX_TIMEOUT = 180
 
 # 片段包裹：顶层声明词头（其后允许空格/泛型参数/括号/!；
 # 异步/不安全 为前缀修饰，后跟 函数/结构体/块）；
@@ -691,6 +708,80 @@ def build_serialized(work, chapter_blocks, base_name, allowlist, deps="", lang="
     return src_path, d
 
 
+# ---------- 上下文复验（--ctx） ----------
+def first_error_line(output):
+    """从 rzc 输出里取第一行真错误（剥掉 lint 教学提示行，它们会淹没有用信息）"""
+    kept = []
+    for line in output.splitlines():
+        if "（教学提示）" in line or "[警告]" in line:
+            continue
+        if ERR_CODE_RE.search(line):
+            return line.strip()[:120]
+        kept.append(line.strip())
+    for line in kept:
+        if line.startswith(("错误", "error", "エラー", "Ошибка")) or "error[" in line:
+            return line[:120]
+    return (kept[-1] if kept else "")[:120]
+
+
+def run_ctx_check(rzc, work, results, all_blocks, grouped, allowlist, lang, parallel):
+    """白名单块的前文上下文复验：把「到此块为止」的章节前文拼进临时项目再验一次
+
+    返回 `[{file, line, category, verdict, error}]`，verdict 取 CTX_PASS /
+    CTX_MINE / CTX_NOISE。前文拼接复用 `build_serialized`（与 --serialize 同一
+    规则，避免两套口径分叉）；临时目录名带上块序与阶段，否则同章多块并行
+    会写同一个 src 互相覆盖（实测会让通过数在两跑之间拖动）。"""
+    chapters = {}
+    for b in all_blocks:
+        index, fname, start, _section, content, expected, behavior, expected_output = b
+        if index in grouped:
+            # 多文件块自成项目，不参与章节拼接（与 --serialize 同口径）
+            continue
+        chapters.setdefault(fname, []).append(
+            (index, fname, start, content, expected, behavior, expected_output))
+    todo = []
+    for r in results:
+        if r["verdict"] != "EXPECTED":
+            continue
+        item = allowlist.get((r["file"], r["line"]))
+        if not item or item.get("category") not in CTX_CATEGORIES:
+            continue
+        blocks = chapters.get(r["file"])
+        if not blocks:
+            continue
+        pos = next((i for i, t in enumerate(blocks) if t[2] == r["line"]), None)
+        if pos is None:
+            continue
+        todo.append((r["file"], r["line"], item.get("category"), blocks, pos))
+
+    def probe(t):
+        fname, line, cat, blocks, k = t
+        base = re.sub(r"[^\w一-鿿-]", "-", os.path.splitext(fname)[0])
+        deps = block_deps(fname, -1)
+        if "第二十五章" in fname:
+            deps += 'rustc_lexer = "0.1"\n'
+
+        def build(grp, tag):
+            src_path, d = build_serialized(work, grp, f"{base}-{k}-{tag}", allowlist, deps, lang)
+            if src_path is None:
+                return False, "前文项目生成失败"
+            ok, _rc, out = check_one(rzc, src_path, d, set(), None, timeout=CTX_TIMEOUT)
+            return ok, first_error_line(out)
+
+        ok, err = build(blocks[:k + 1], "ctx")
+        if ok:
+            verdict = CTX_PASS
+        else:
+            # 归因：本块之前的前文自己就编不过时，错不算在本块头上
+            ok0, _err0 = build(blocks[:k], "base")
+            verdict = CTX_NOISE if not ok0 else CTX_MINE
+        return {"file": fname, "line": line, "category": cat, "verdict": verdict,
+                "error": "" if verdict == CTX_PASS else err}
+
+    with ThreadPoolExecutor(max_workers=parallel) as ex:
+        return list(ex.map(probe, todo))
+
+
 # ---------- 主流程 ----------
 def main():
     ap = argparse.ArgumentParser(description="教程代码块可编译性验证（CI 硬门禁）")
@@ -702,6 +793,12 @@ def main():
     ap.add_argument("--serialize", action="store_true", help="附加章节串联验证")
     ap.add_argument("--allowlist", default=None,
                     help="预期失败白名单 JSON（条目 {file, line, category, note}）",)
+    ap.add_argument("--ctx", action="store_true",
+                    help="对白名单块做前文上下文复验（CI 门禁，见文件头说明）")
+    ap.add_argument("--ctx-baseline", default=None,
+                    help="上下文复验基线 JSON（默认 tools/ctx-baseline.json）")
+    ap.add_argument("--ctx-update", action="store_true",
+                    help="把本次「前文补全通过」数写回基线（需同时 --ctx）")
     args = ap.parse_args()
 
     allowlist = {}
@@ -840,6 +937,10 @@ def main():
     with ThreadPoolExecutor(max_workers=args.parallel) as ex:
         results = list(ex.map(run, tasks))
 
+    # 2.5 上下文复验（--ctx）：白名单块补上前文再验一次，归属三态
+    ctx_results = run_ctx_check(rzc, work, results, all_blocks, grouped, allowlist,
+                                args.lang, args.parallel) if args.ctx else []
+
     # 3. 串联模式（按章分组拼接；定义按名去重、变量全局提升，
     #    既补全跨节依赖，也消除同名定义冲突噪音）
     serial_results = []
@@ -896,13 +997,54 @@ def main():
             print(f"  ❌ 串联 {r['file']}：{r['reason']}")
             print(f"     {r['output'].replace(chr(10), chr(10) + '     ')[:400]}")
 
+    # 4.5 上下文复验报告与基线（只约束「前文补全通过」下限，不拦新发现的堆坑）
+    ctx_fail = False
+    if args.ctx:
+        counts = {CTX_PASS: 0, CTX_MINE: 0, CTX_NOISE: 0}
+        for r in ctx_results:
+            counts[r["verdict"]] = counts.get(r["verdict"], 0) + 1
+        print(f"上下文复验：{len(ctx_results)} 块白名单 → {CTX_PASS} {counts[CTX_PASS]}，"
+              f"{CTX_MINE} {counts[CTX_MINE]}，{CTX_NOISE} {counts[CTX_NOISE]}")
+        for r in sorted((x for x in ctx_results if x["verdict"] == CTX_MINE),
+                        key=lambda x: (x["file"], x["line"])):
+            print(f"  🔴 {r['file']} L{r['line']}（{r['category']}）{r['error']}")
+        baseline_path = args.ctx_baseline or os.path.join(repo, "tools", "ctx-baseline.json")
+        baseline = {}
+        if os.path.isfile(baseline_path):
+            with open(baseline_path, encoding="utf-8") as f:
+                baseline = json.load(f)
+        langs = baseline.setdefault("languages", {})
+        if args.ctx_update:
+            langs[args.lang] = {CTX_PASS: counts[CTX_PASS], "复验块数": len(ctx_results)}
+            baseline["说明"] = ("教程门禁 --ctx 的「前文补全通过」下限（只增不减）。改完教程跑"
+                               " `python3 tools/verify-tutorials.py --ctx --ctx-update`（非 zh 附加"
+                               " `--dir tutorials/en --lang en`）上调下限；低于下限即判红。"
+                               "「复验块数」仅存档参考，不参与判定。")
+            with open(baseline_path, "w", encoding="utf-8") as f:
+                json.dump(baseline, f, ensure_ascii=False, indent=2)
+                f.write("\n")
+            print(f"  已写入基线：{baseline_path}（{args.lang} {CTX_PASS}={counts[CTX_PASS]}）")
+        else:
+            floor = (langs.get(args.lang) or {}).get(CTX_PASS)
+            if floor is None:
+                print(f"  ⚠️ 基线没有 {args.lang} 条目（先 --ctx-update 记录一次）")
+            elif counts[CTX_PASS] < floor:
+                ctx_fail = True
+                print(f"  ❌ {CTX_PASS} 低于基线：{floor} → {counts[CTX_PASS]}"
+                      "（教程正文或前文拼接规则回退了）")
+            elif counts[CTX_PASS] > floor:
+                print(f"  ✅ {CTX_PASS} 高于基线 {floor} → {counts[CTX_PASS]}"
+                      "（可 --ctx-update 上调下限）")
+            else:
+                print(f"  ✅ {CTX_PASS} 与基线一致（{floor}）")
+
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:
             json.dump({"blocks": len(all_blocks), "stats": stats,
-                       "single": results, "serial": serial_results},
+                       "single": results, "serial": serial_results, "ctx": ctx_results},
                       f, ensure_ascii=False, indent=1)
 
-    return 1 if fails or sfails else 0
+    return 1 if fails or sfails or ctx_fail else 0
 
 
 # Windows 控制台/管道默认 GBK：输出里的 ✅/❌ 无法编码会触发
