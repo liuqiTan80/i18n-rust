@@ -486,7 +486,7 @@ fn main() {
 
 Running `cargo check` reports:
 
-```
+```text
 error: mismatched closing delimiter: `}`
  --> src/main.rs:2:22
 ```
@@ -509,7 +509,7 @@ fn main() {
 
 The report:
 
-```
+```text
 error: cannot find macro `printnl` in this scope
  --> src/main.rs:2:5
 ```
@@ -529,7 +529,7 @@ fn main() {
 
 The report:
 
-```
+```text
 error[E0308]: mismatched types: expected `i32`, found `&str`
 ```
 

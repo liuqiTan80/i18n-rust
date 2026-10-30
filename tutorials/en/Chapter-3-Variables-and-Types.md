@@ -131,7 +131,7 @@ fn main() {
 
 Running `cargo check` reports:
 
-```
+```text
 error[E0384]: cannot assign twice to immutable variable `score`
 ```
 

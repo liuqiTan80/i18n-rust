@@ -141,7 +141,7 @@ fn main() {
 
 The compiler reports, mercilessly:
 
-```
+```text
 error[E0382]: borrow of moved value: `sentence_a`
  --> src/main.rs:4:27
  |
