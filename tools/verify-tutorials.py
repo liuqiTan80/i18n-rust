@@ -497,11 +497,14 @@ def make_project(work_dir, src_text, deps="", lang="zh"):
 
 
 def block_deps(fname, index):
-    """按块上下文补充外部依赖（fname 为教程文件名，index 为全库块序号）"""
+    """按块所属**文件名**补充外部依赖。
+
+    刻意不用全库块序号判定：序号会随其它章节增删（如新增教程章节）整体漂移，
+    硬编码序号会静默失效，导致依赖漏注入、示例编译报 E0432。fname 稳定可作依据。"""
     deps = ""
     if "第二十四章" in fname:
         deps += 'futures = "0.3"\n'
-    if index == 96:  # 25.11 彩蛋（需 rustc_lexer）
+    if "第二十五章" in fname:  # 25.11 彩蛋镜像真实后端模块，用到 rustc_lexer
         deps += 'rustc_lexer = "0.1"\n'
     return deps
 
@@ -865,8 +868,6 @@ def run_ctx_check(rzc, work, results, all_blocks, grouped, allowlist, lang, para
         fname, line, cat, blocks, k = t
         base = re.sub(r"[^\w一-鿿-]", "-", os.path.splitext(fname)[0])
         deps = block_deps(fname, -1)
-        if "第二十五章" in fname:
-            deps += 'rustc_lexer = "0.1"\n'
 
         def build(grp, tag):
             src_path, d = build_serialized(work, grp, f"{base}-{k}-{tag}", allowlist, deps, lang)
@@ -1239,8 +1240,6 @@ def main():
             # 目录名只保留字母数字下划线中文：`:` 反引号等会破坏 rustc 路径拼接
             base_name = re.sub(r"[^\w一-鿿-]", "-", os.path.splitext(fname)[0])
             deps = block_deps(fname, -1)
-            if "第二十五章" in fname:
-                deps += 'rustc_lexer = "0.1"\n'
             src_path, d = build_serialized(work, blocks, base_name, allowlist, deps, args.lang)
             ok, rc, out = check_one(rzc, src_path, d, set(), None, timeout=180)
             codes = actual_error_codes(out)
