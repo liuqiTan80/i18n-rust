@@ -35,10 +35,19 @@ Result 的 `错误(...)` 构造、`错误(原因)` 模式匹配、`xxx错误` �
 `tools/ctx-baseline.json`），教程改动导致它下降即判红；白名单收缩（条目因修好
 而删除）导致的等量下降除外。
 
+可选 --outputs 模式（输出展示复验，CI 门禁）：教程里给读者看的「运行结果」
+裸围栏（``` 无语言标注）历史上不受任何校验——正文一改，展示块容易改漏。该模式
+把每对「程序块 + 紧随其后的展示块」拿去 `rzc run`，展示块必须与实际 stdout 逐行
+严格相等，任何「输出不符」直接判红；「输出一致」的对数受基线下限保护（只增不减，
+见 `tools/output-baseline.json`）。固有不确定（哈希容器遍历顺序）可在白名单用 category `输出顺序不定` 放宽——只免行序、
+不免内容（按行多重集比对，单块验证的 `// 预期输出:` 同口径）。诊断/命令行/构建记录不该
+占裸围栏，应改 ```text。
+
 退出码：非预期失败为 1（CI 门禁用）；--json 输出机器可读报告。
 
 用法：
   python3 tools/verify-tutorials.py [--serialize] [--ctx] [--ctx-update] \
+      [--outputs] [--outputs-update] \
       [--json 报告.json] [--rzc 路径] [--dir 教程目录] [--parallel N]
 """
 import argparse
@@ -90,7 +99,68 @@ CTX_CATEGORIES = ("上下文依赖", "教学演示")
 # 复验三态
 CTX_PASS, CTX_MINE, CTX_NOISE = "前文补全通过", "本块致错", "前文噪音"
 # 上下文复验的编译耗时上限比单块长（前文越拼越长），与 --serialize 同档
-CTX_TIMEOUT = 180
+CTX_TIMEOUT = 180# ---------- 输出展示块复验（--outputs） ----------
+# 书里给读者看的「运行结果」有两种载体：代码块内的 `// 预期输出:` 注释（单块
+# 验证已断言 stdout），和紧随代码块之后的裸围栏（``` 无语言标注）。后者历史上
+# 没有任何校验——正文改了展示块跟着改，改漏就一直错着（第九章 9.3 把 推入('，')
+# 改成 推入('！') 就漏了展示块那一处）。--outputs 把裸围栏当断言：必须与前面那
+# 段程序 `rzc run` 的 stdout 逐行严格相等。
+#
+# 配套规矩：**裸围栏只放程序打印出来的 stdout**。命令行记录（`$ cargo test`）、
+# 编译器诊断、恐慌信息改用 ```text / ```bash。zh 版 41 处已按此清理；en/ja/ru
+# 尚未清理的裸诊断围栏归入「非stdout展示」并逐条提示，不判红。
+OUT_COLON_END_RE = re.compile(r"[:：]\s*$")
+OUT_CUE_WORD_RE = re.compile(
+    r"(输出|运行结果|运行后屏幕显示|显示|出力|报告|見えるはずのもの|実行すると画面には"
+    r"|output|what you should see|report|вывод|вы увидите|сообщит|сообщение)", re.IGNORECASE)
+# 小节标题本身就是「运行结果 / Output / Вывод」样式
+OUT_HEAD_RE = re.compile(
+    r"^#{1,4}\s+.*(运行结果|输出|出力|見えるはずのもの|output|вывод|вы увидите)", re.IGNORECASE)
+# 展示块其实不是 stdout 的形态特征（诊断、命令行、构建/测试记录）
+NON_STDOUT_RE = re.compile(
+    r"^\s*(?:\$|>)\s|^(?:错误|エラー|警告|warning|error|ошибка)\b|^\s*-->|^\s*💡"
+    r"|^线程 |^\s*thread .+ panicked|^test result:|^running \d+ tests"
+    r"|^Предупреждение\[|^Ошибка\[|^Поток "
+    r"|^\S+ сохранён как ", re.MULTILINE | re.IGNORECASE)
+OUT_PASS, OUT_FAIL, OUT_NOSTDOUT, OUT_UNRUN, OUT_REG = (
+    "输出一致", "输出不符", "非stdout展示", "无法复验", "已登记跳过")
+# 白名单里用来放宽某块输出断言的类别：哈希映射/哈希集合的遍历顺序是 Rust 的
+# 固有不确定，登记后该行不再要求顺序，但内容（每行各出现几次）仍然逐行核对。
+# 「已登记跳过」= 因这条豁免而对齐了；不匹配照样判红。
+OUT_ALLOW_CATEGORY = "输出顺序不定"
+OUT_TIMEOUT = 120
+# rzc run 把程序 stdout 原样打出，再在尾部追加引擎警告/提示块（`警告[...]:`、
+# `  -->`、`   |`、`💡`、`提示：`、`---` 分隔行）。展示块只印程序自己打印的内容，
+# 所以比对时要从第一条噪音行处截断。教程里若要印「分隔线」请别让它出现在行首
+# （现状：无一块的正文以这些形态开头，实测四语 79+ 对全部对齐）。
+NOISE_LINE_RE = re.compile(
+    r"^(?:警告\[|错误\[|错误[:：]|警告[:：]|提示[:：]|💡|\s*-->|\s*\||---+$"
+    r"|warning\[|error\[|note[:：]|help[:：]|エラー\[|panic[:：]"
+    # 尾部的「N warnings emitted」汇总行同属诊断。「错误：」不列——程序自己打印
+    # 「错误：xxx」是合法输出，静默吃掉比留下它更危险
+    # 俄文诊断前缀（实测 `rzc run` 打到 stdout 的形态：Предупреждение[...]/
+    # Предупреждение: N warning emitted）；以及带语言包缺口的块会先打一行
+    # 「<路径> сохранён как <路径>.bak」（rzc 的备份提示，不是程序输出）。
+    r"|Предупреждение\[|Предупреждение[:：]|Ошибка\["
+    # 俄文 panic 行首（"Поток ... panicked"）也是诊断，不是程序 stdout
+    r"|Поток "
+    r"|\S+ сохранён как )")
+
+
+def strip_engine_noise(text):
+    """逐行剔除引擎噪音，只留程序自己打印的部分。
+
+    不能「从第一条噪音行截断」：`rzc run` 把警告打在程序 stdout 前面还是后面并不
+    固定（zh 实测在后、ru 实测在前），截断会把真实输出整段吃掉（ru 第四/十二章
+    一度报「实际 0 行」）。噪音行的形态都是诊断专属（`警告[`/`💡`/` -->`/`   |`/
+    `---`/`Предупреждение[`/「сохранён как」），教程里程序打印的行不会撞上；正文若
+    真要让读者看到 `---` 这类行，请改用 ```text 展示，别占 stdout 围栏。
+    """
+    keep = [ln for ln in text.split("\n") if not NOISE_LINE_RE.match(ln)]
+    return "\n".join(keep)
+
+
+
 
 # 片段包裹：顶层声明词头（其后允许空格/泛型参数/括号/!；
 # 异步/不安全 为前缀修饰，后跟 函数/结构体/块）；
@@ -267,15 +337,15 @@ def parse_marks(content):
             inline = m.group(1)
             out_lines = [inline] if inline else []
             i += 1
-            if not inline:
-                # 多行形式：收集后续注释行直至非注释行
-                while i < n:
-                    cm = EXPECT_OUT_LINE_RE.match(lines[i])
-                    if cm:
-                        out_lines.append(cm.group(1))
-                        i += 1
-                    else:
-                        break
+            # 后续连续注释行同属这份输出：两种写法都要收（ja/ru 有 17 块写成
+            # `// 预期输出: 首行` + 续行，旧规则只比首行，等于放弃其余行的断言）
+            while i < n:
+                cm = EXPECT_OUT_LINE_RE.match(lines[i])
+                if cm:
+                    out_lines.append(cm.group(1))
+                    i += 1
+                else:
+                    break
             expected_output = "\n".join(out_lines)
             continue
         rest.append(ln)
@@ -447,11 +517,15 @@ def normalize_output(text):
     return "\n".join(lines)
 
 
-def output_matches(want, actual):
+def output_matches(want, actual, ignore_order=False):
     """预期行按序匹配实际输出行（宽容编译警告等附加输出）。
 
     实际输出可能夹杂编译警告（如 警告[dead_code]）与帮助信息，
-    只要预期各行按原顺序出现即为匹配。"""
+    只要预期各行按原顺序出现即为匹配。
+    ignore_order=True 用于白名单登记 `输出顺序不定` 的块（哈希容器遍历）：改为
+    行多重集相等才算过——顺序不锁，内容照旧一行不能多、一行不能少。"""
+    if ignore_order:
+        return sorted(want.splitlines()) == sorted(actual.splitlines())
     lines = want.splitlines()
     i = 0
     for ln in actual.splitlines():
@@ -460,13 +534,15 @@ def output_matches(want, actual):
     return i == len(lines)
 
 
-def check_one(rzc, src_path, cwd, expected, behavior, expected_output=None, timeout=120):
+def check_one(rzc, src_path, cwd, expected, behavior, expected_output=None, timeout=120,
+              out_ignore_order=False):
     """rzc check（需要运行时验证时加 rzc run）。
 
     返回 (ok, returncode, full_output)。ok 语义：
     - behavior 为 "通过"：编译通过
     - behavior 为 "运行失败"：编译通过且运行非零退出
     - expected_output 非 None：编译通过且 stdout 规范化后与预期一致
+      （out_ignore_order=True 时只要求行多重集相同，见 output_matches）
     - 其他（错误示例默认）：编译失败"""
     try:
         r = subprocess.run([rzc, "check", src_path], capture_output=True, text=True,
@@ -480,9 +556,9 @@ def check_one(rzc, src_path, cwd, expected, behavior, expected_output=None, time
                                 timeout=timeout, cwd=cwd)
             if rr.returncode != 0:
                 return False, rr.returncode, (rr.stdout + rr.stderr).strip()
-            actual = normalize_output(rr.stdout)
+            actual = normalize_output(strip_engine_noise(rr.stdout))
             want = normalize_output(expected_output)
-            if not output_matches(want, actual):
+            if not output_matches(want, actual, out_ignore_order):
                 return False, rr.returncode, ("输出不匹配\n"
                                               f"  预期: {want!r}\n"
                                               f"  实际: {actual!r}")
@@ -814,6 +890,169 @@ def run_ctx_check(rzc, work, results, all_blocks, grouped, allowlist, lang, para
 
 
 # ---------- 主流程 ----------
+# ---------- 输出展示块定位与复验 ----------
+def iter_fences(lines):
+    """扫描围栏，返回 [(开行0-based, 闭行0-based, 语言标注)]（闭行越界表示未闭合）。"""
+    spans = []
+    i = 0
+    while i < len(lines):
+        st = lines[i].strip()
+        if st.startswith("```"):
+            info = st[3:].strip()
+            j = i + 1
+            while j < len(lines) and lines[j].strip() != "```":
+                j += 1
+            spans.append((i, j, info))
+            i = j + 1
+        else:
+            i += 1
+    return spans
+
+
+def details_depth(lines, upto):
+    """ upto 行之前（不含）还开着几层 `<details>`。练习答案折叠区里的「题目要求」
+    块长得和运行结果一样，靠这个把跨区的错误配对挡掉。"""
+    depth = 0
+    for ln in lines[:upto]:
+        s = ln.strip().lower()
+        if s.startswith("<details"):
+            depth += 1
+        elif s.startswith("</details"):
+            depth -= 1
+    return depth
+
+
+def find_output_shows(md_path):
+    """定位「程序块 + 紧随其后的运行结果展示块」配对。
+
+    返回 [(程序块行号, 展示块首行行号, 展示文本, 引导方式)]。行号口径与
+    extract_blocks 一致：程序块行号就是白名单里用的那个键（围栏行号）。
+    配对条件：① 展示块是裸围栏；② 上一个围栏是 ```rust；③ 两者没跨过
+    `<details>` 边界；④ 中间有引导语（正文以「输出：」收尾，或最近标题是
+    「运行结果」）。"""
+    with open(md_path, encoding="utf-8") as f:
+        lines = f.read().split("\n")
+    spans = iter_fences(lines)
+    out = []
+    for (s, e, info) in spans:
+        if info:
+            continue
+        prev = [x for x in spans if x[1] < s]
+        if not prev or prev[-1][2] != "rust":
+            continue
+        ps, pe = prev[-1][0], prev[-1][1]
+        if details_depth(lines, ps) != details_depth(lines, s):
+            continue
+        between = lines[pe + 1:s]
+        head = any(OUT_HEAD_RE.match(l.strip()) for l in between)
+        cue = any(OUT_COLON_END_RE.search(l.strip()) and OUT_CUE_WORD_RE.search(l)
+                  and not l.strip().startswith(("#", "```")) for l in between)
+        if not (head or cue):
+            continue
+        out.append((ps + 1, s + 2, "\n".join(lines[s + 1:e]), "标题" if head else "正文"))
+    return out
+
+
+def output_diff_note(want, actual, ignore_order=False):
+    """人话说明两者差在哪一行（逐行严格比较）。
+
+    ignore_order=True 用于「顺序无关」的登记块：先按行排序再比，否则报告会把
+    「少了哪一行」说成「第 N 行不同」，看着像错位其实差在内容。"""
+    if ignore_order:
+        want = "\n".join(sorted(want.split("\n")))
+        actual = "\n".join(sorted(actual.split("\n")))
+    wl = want.split("\n") if want else []
+    al = actual.split("\n") if actual else []
+    if len(wl) != len(al):
+        note = f"行数不同：展示 {len(wl)} 行，实际 {len(al)} 行"
+    else:
+        note = "内容不同"
+    for k in range(min(len(wl), len(al))):
+        if wl[k] != al[k]:
+            return f"{note}；首个差异在第 {k + 1} 行：展示 {wl[k]!r}，实际 {al[k]!r}"
+    if len(wl) != len(al):
+        extra = (wl[len(al):] or al[len(wl):])[0]
+        return f"{note}；多出的一行是 {extra!r}"
+    return note
+
+
+def run_output_check(rzc, work, tut_dir, allowlist, lang, parallel):
+    """裸围栏「运行结果」复验：把前面那段程序单独跑一遍，展示块必须与 stdout 相等。
+
+    代码块内已有 `// 预期输出:` 的，stdout 已由单块验证断言，这里只做「注释与
+    展示块互相对齐」的静态比对（不再烧一次编译）。"""
+    pairs = []
+    for path in sorted(glob.glob(os.path.join(tut_dir, "*.md"))):
+        fname = os.path.basename(path)
+        blocks = {st: ct for (_f, st, _sec, ct) in extract_blocks(path)}
+        for code_line, shown_line, shown, how in find_output_shows(path):
+            content = blocks.get(code_line)
+            if content is None:
+                continue
+            _exp, _beh, marks, _rest = parse_marks(content)
+            pairs.append((fname, code_line, shown_line, shown, content, marks, how))
+
+    def probe(idx, item):
+        fname, code_line, shown_line, shown, content, marks, how = item
+        base = {"file": fname, "line": code_line, "shown_line": shown_line, "cue": how}
+        entry = allowlist.get((fname, code_line)) or {}
+        loose = entry.get("category") == OUT_ALLOW_CATEGORY
+        base["loose"] = loose
+        want = normalize_output(shown)
+        if NON_STDOUT_RE.search(want):
+            base.update(verdict=OUT_NOSTDOUT,
+                        reason="这不是程序打印的 stdout（诊断/命令行/构建记录），建议围栏改成 ```text")
+            return base
+        if marks is not None:
+            got = normalize_output(marks)
+            if got == want:
+                base.update(verdict=OUT_PASS, reason="与块内 预期输出 注释对齐")
+                return base
+            if loose and sorted(got.split("\n")) == sorted(want.split("\n")):
+                # 同一份程序的两处展示（块内注释 + 裸围栏），顺序类块允许行序不同
+                base.update(verdict=OUT_REG, reason="与块内 预期输出 注释内容一致（行序不同）")
+                return base
+            base.update(verdict=OUT_FAIL,
+                        reason="展示块与块内 `// 预期输出:` 注释不一致：" + output_diff_note(want, got))
+            return base
+        t = build_task(work, 900000 + idx, fname, code_line, content,
+                       None, None, None, False, lang)
+        if t is None:
+            base.update(verdict=OUT_UNRUN, reason="省略块，不单独运行")
+            return base
+        src_path, d = t[7], t[8]
+        try:
+            r = subprocess.run([rzc, "check", src_path], capture_output=True,
+                               text=True, timeout=OUT_TIMEOUT, cwd=d)
+            if r.returncode != 0:
+                base.update(verdict=OUT_UNRUN,
+                            reason="程序单独跑不通：" + first_error_line((r.stdout + r.stderr).strip()))
+                return base
+            rr = subprocess.run([rzc, "run", src_path], capture_output=True,
+                                text=True, timeout=OUT_TIMEOUT, cwd=d)
+            if rr.returncode != 0:
+                base.update(verdict=OUT_UNRUN, reason="运行非零退出（展示的多是 stderr，应改用 ```text）")
+                return base
+        except subprocess.TimeoutExpired:
+            base.update(verdict=OUT_UNRUN, reason="运行超时")
+            return base
+        actual = normalize_output(strip_engine_noise(rr.stdout))
+        if actual == want:
+            base.update(verdict=OUT_PASS, reason="")
+        elif loose and sorted(want.split("\n")) == sorted(actual.split("\n")):
+            base.update(verdict=OUT_REG, reason="顺序不定登记项：本次行序不同，内容逐行一致")
+        elif loose:
+            base.update(verdict=OUT_FAIL,
+                        reason="已登记顺序不定，但内容对不上（按行排序后比）："
+                               + output_diff_note(want, actual, ignore_order=True))
+        else:
+            base.update(verdict=OUT_FAIL, reason=output_diff_note(want, actual))
+        return base
+
+    with ThreadPoolExecutor(max_workers=parallel) as ex:
+        return [base for base in ex.map(lambda c: probe(c[0], c[1]), list(enumerate(pairs)))]
+
+
 def main():
     ap = argparse.ArgumentParser(description="教程代码块可编译性验证（CI 硬门禁）")
     ap.add_argument("--lang", default="zh", help="教程语言（决定临时项目扩展名与包裹头）")
@@ -830,6 +1069,12 @@ def main():
                     help="上下文复验基线 JSON（默认 tools/ctx-baseline.json）")
     ap.add_argument("--ctx-update", action="store_true",
                     help="把本次「前文补全通过」数写回基线（需同时 --ctx）")
+    ap.add_argument("--outputs", action="store_true",
+                    help="复验裸围栏「运行结果」展示块是否与实际 stdout 一致（CI 门禁，见文件头说明）")
+    ap.add_argument("--outputs-baseline", default=None,
+                    help="输出展示复验基线 JSON（默认 tools/output-baseline.json）")
+    ap.add_argument("--outputs-update", action="store_true",
+                    help="把本次「输出一致」数写回基线（需同时 --outputs）")
     args = ap.parse_args()
 
     allowlist = {}
@@ -921,7 +1166,9 @@ def main():
             # 项目本身写错了（缺入口/重名/孤块），不必浪费一次编译
             return {"id": index, "file": fname, "line": start, "kind": kind,
                     "verdict": "FAIL", "reason": problem, "codes": []}
-        ok, rc, out = check_one(rzc, src_path, d, expected, behavior, expected_output)
+        item = allowlist.get((fname, start)) or {}
+        ok, rc, out = check_one(rzc, src_path, d, expected, behavior, expected_output,
+                                  out_ignore_order=item.get("category") == OUT_ALLOW_CATEGORY)
         codes = actual_error_codes(out)
         verdict = "PASS"
         reason = ""
@@ -972,6 +1219,10 @@ def main():
     # 2.5 上下文复验（--ctx）：白名单块补上前文再验一次，归属三态
     ctx_results = run_ctx_check(rzc, work, results, all_blocks, grouped, allowlist,
                                 args.lang, args.parallel) if args.ctx else []
+    # 2.6 输出展示复验（--outputs）：裸围栏「运行结果」必须等于程序实际 stdout
+    out_results = run_output_check(rzc, work, tut_dir, allowlist,
+                                   args.lang, args.parallel) if args.outputs else []
+
 
     # 3. 串联模式（按章分组拼接；定义按名去重、变量全局提升，
     #    既补全跨节依赖，也消除同名定义冲突噪音）
@@ -1018,6 +1269,9 @@ def main():
         run_files = {r["file"] for r in results}
         for key in sorted(allowlist):
             if key[0] not in run_files:
+                continue
+            if allowlist[key].get("category") == OUT_ALLOW_CATEGORY:
+                # 该类别是 --outputs 的豁免登记，不参与单块失败匹配
                 continue
             if key not in matched:
                 print(f"  ⚠️ 白名单过期条目（已不失败，建议删除）：{key[0]} L{key[1]}")
@@ -1080,13 +1334,98 @@ def main():
                 else:
                     print(f"  ✅ {CTX_PASS} 与下限持平：{counts[CTX_PASS]}{shrink_note}")
 
+    # 4.6 输出展示复验报告与基线（不符即判红；「非stdout展示」只提示，计数只减不增）
+    out_fail = False
+    if args.outputs:
+        counts = {}
+        for r in out_results:
+            counts[r["verdict"]] = counts.get(r["verdict"], 0) + 1
+        line = (f"输出展示复验：{len(out_results)} 对 → {OUT_PASS} {counts.get(OUT_PASS, 0)}，"
+                f"{OUT_FAIL} {counts.get(OUT_FAIL, 0)}，{OUT_UNRUN} {counts.get(OUT_UNRUN, 0)}，"
+                f"{OUT_NOSTDOUT} {counts.get(OUT_NOSTDOUT, 0)}，顺序无关一致 {counts.get(OUT_REG, 0)}")
+        print(line)
+        for r in sorted((x for x in out_results if x["verdict"] == OUT_FAIL),
+                        key=lambda x: (x["file"], x["shown_line"])):
+            print(f"  ❌ {r['file']} 展示块L{r['shown_line']}（程序块L{r['line']}，{r['cue']}引导）{r['reason']}")
+            out_fail = True
+        for r in sorted((x for x in out_results if x["verdict"] == OUT_UNRUN),
+                        key=lambda x: (x["file"], x["shown_line"])):
+            print(f"  ⚪ {r['file']} L{r['shown_line']}：{r['reason']}")
+        for r in sorted((x for x in out_results if x["verdict"] == OUT_NOSTDOUT),
+                        key=lambda x: (x["file"], x["shown_line"])):
+            print(f"  🔧 {r['file']} L{r['shown_line']}：{r['reason']}")
+        # 豁免条目若已用不上（该配对没了），提示清理，不判红
+        pairs_keys = {(r["file"], r["line"]) for r in out_results}
+        run_files = {r["file"] for r in out_results}
+        for key, item in sorted(allowlist.items()):
+            if item.get("category") == OUT_ALLOW_CATEGORY and key[0] in run_files and key not in pairs_keys:
+                print(f"  ⚠️ 输出豁免条目已用不上（建议删除）：{key[0]} L{key[1]}")
+
+        ob_path = args.outputs_baseline or os.path.join(repo, "tools", "output-baseline.json")
+        obase = {}
+        if os.path.isfile(ob_path):
+            with open(ob_path, encoding="utf-8") as f:
+                obase = json.load(f)
+        olangs = obase.setdefault("languages", {})
+        # 下限看的是「对齐的对数」：顺序完全一致 + 顺序无关一致都算对齐。哈希
+        # 容器的行序每次可能不同，只数 OUT_PASS 会让基线随抖动忽涨忽落、报假红。
+        aligned = counts.get(OUT_PASS, 0) + counts.get(OUT_REG, 0)
+        # 顺序无关下限看的是「登记为顺序不定的块是否仍对齐」，与随机行序无关：
+        # 同一哈希块某次恰好按序会落成 输出一致，不能因此判配对消失。
+        loose_aligned = sum(1 for r in out_results
+                            if r.get("loose") and r["verdict"] in (OUT_PASS, OUT_REG))
+        if args.outputs_update:
+            olangs[args.lang] = {OUT_PASS: aligned, "复验对数": len(out_results),
+                                   "顺序无关": loose_aligned}
+            obase["说明"] = ("教程门禁 --outputs 的对齐下限（只增不减）= 「输出一致」+「顺序无关一致」两类的对数。改完教程跑"
+                            " `python3 tools/verify-tutorials.py --outputs --outputs-update`（非 zh 附加"
+                            " `--dir tutorials/en --lang en`）上调下限；低于下限即判红。"
+                            "「复验对数」参与判定：配对数比基线每少一对，下限等量放宽（那对多半被"
+                            "改成了 ```text 或挪进了答案区）。另有一条硬规则：出现任何"
+                            "「输出不符」直接判红，不受基线保护。")
+            with open(ob_path, "w", encoding="utf-8") as f:
+                json.dump(obase, f, ensure_ascii=False, indent=2)
+                f.write("\n")
+            print(f"  已写入基线：{ob_path}（{args.lang} 对齐 {aligned}）")
+        else:
+            oentry = olangs.get(args.lang) or {}
+            ofloor = oentry.get(OUT_PASS)
+            if ofloor is None:
+                print(f"  ⚠️ 基线没有 {args.lang} 条目（先 --outputs --outputs-update 记录一次）")
+            else:
+                oshrink = max(0, (oentry.get("复验对数") or len(out_results)) - len(out_results))
+                obase_floor = ofloor
+                ofloor -= oshrink
+                onote = f"（基线 {obase_floor}，配对收缩 −{oshrink}）" if oshrink else ""
+                if aligned < ofloor:
+                    out_fail = True
+                    print(f"  ❌ 对齐对数 低于下限 {ofloor} → {aligned}{onote}"
+                          f"（展示块或程序改动把已对齐的输出改坏了）")
+                elif aligned > ofloor:
+                    print(f"  ✅ 对齐对数 高于下限 {ofloor} → {aligned}{onote}"
+                          f"（可 --outputs --outputs-update 上调基线）")
+                else:
+                    print(f"  ✅ 对齐对数 与下限持平：{aligned}{onote}")
+                # 顺序无关登记项兜底：少了就判红（顺序可以变，配对不能没）。
+                # 看 loose_aligned（登记块里仍对齐的对数），随机行序落 PASS 还是 REG 都不误伤；
+                # 内容真对不上时该块会判 输出不符，已由上面「不符即判红」硬规则兜住。
+                oloose_floor = oentry.get("顺序无关")
+                if oloose_floor is not None:
+                    oloose_floor -= oshrink
+                    if loose_aligned < oloose_floor:
+                        out_fail = True
+                        print(f"  ❌ 顺序无关登记块对齐数 低于下限 {oloose_floor} → "
+                              f"{loose_aligned}（登记的哈希顺序块内容对不上了，"
+                              f"或配对已不成立——请修展示块，或删掉白名单里的该条）")
+
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:
             json.dump({"blocks": len(all_blocks), "stats": stats,
-                       "single": results, "serial": serial_results, "ctx": ctx_results},
+                       "single": results, "serial": serial_results, "ctx": ctx_results,
+                       "outputs": out_results},
                       f, ensure_ascii=False, indent=1)
 
-    return 1 if fails or sfails or ctx_fail else 0
+    return 1 if fails or sfails or ctx_fail or out_fail else 0
 
 
 # Windows 控制台/管道默认 GBK：输出里的 ✅/❌ 无法编码会触发

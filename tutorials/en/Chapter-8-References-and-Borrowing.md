@@ -354,11 +354,11 @@ fn main() {
 }
 ```
 
-Output (the phrase occupies 12 bytes in UTF-8):
+Output (the phrase occupies 10 bytes in UTF-8):
 
 ```
-this sentence is 12 bytes
-this sentence is 12 bytes
+this sentence is 10 bytes
+this sentence is 10 bytes
 original: study hard
 ```
 

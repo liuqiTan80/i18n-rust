@@ -296,8 +296,7 @@ fn main() {
         println!("{} -> {}", name, price);
     }
 }
-// 预期输出:
-// apple -> 3
+// 预期输出: apple -> 3
 // banana -> 2
 // orange -> 5
 ```

@@ -64,16 +64,16 @@ The error says, roughly: you can't call `push` on a `&str`. Stone is stone — e
 let mut diary = String::from("Today I learned about strings");
 
 // push: append one character to the end (single quotes!)
-diary.push(',');
+diary.push('!');
 
 // push_str: append a run of text
 diary.push_str(" so much fun!");
 
 println!("diary: {}", diary);
-// 预期输出: diary: Today I learned about strings, so much fun!
+// 预期输出: diary: Today I learned about strings! so much fun!
 ```
 
-Output: `diary: Today I learned about strings, so much fun!`
+Output: `diary: Today I learned about strings! so much fun!`
 
 Three points:
 
@@ -118,7 +118,7 @@ println!("ends with 'fun!': {}", diary.ends_with("fun!"));
 Output:
 
 ```
-byte length: 39
+byte length: 43
 contains 'strings': true
 starts with 'Today': true
 ends with 'fun!': true
@@ -136,7 +136,7 @@ ends with 'fun!': true
 
 ## 9.6 Bytes vs characters: the multilingual trap
 
-Here's a counter-intuitive number: "Today I learned about strings, so much fun!" is visibly **39 characters** (count them!), and `.len()` happens to return **39** — because every letter and space takes exactly 1 byte in UTF-8. So far so good.
+Here's a counter-intuitive number: "Today I learned about strings, so much fun!" is visibly **43 characters** (count them!), and `.len()` happens to return **43** — because every letter and space takes exactly 1 byte in UTF-8. So far so good.
 
 Now watch what happens with text beyond the English alphabet:
 
@@ -274,7 +274,7 @@ fn main() {
 
     // —— A mutable string can grow ——
     let mut diary = String::from("Today I learned about strings");
-    diary.push(',');
+    diary.push('!');
     diary.push_str(" so much fun!");
     println!("diary: {}", diary);
 
@@ -314,9 +314,9 @@ fn main() {
 
 ```
 Hello, Xiaoming!
-diary: Today I learned about strings, so much fun!
-byte length: 45
-character count: 45
+diary: Today I learned about strings! so much fun!
+byte length: 43
+character count: 43
 contains 'strings': true
 [apple]
 [banana]
