@@ -293,7 +293,7 @@ Syntaxhervorhebung, intelligente Vervollständigung, Hover-Dokumentation, Gehe-z
 
 ## 📖Tutorial
 
-Ein vollständiges chinesisches Anfängertutorial: **26 Kapitel + Glossar + 5 Anhänge** — siehe [tutorials/](tutorials/). Von „Hallo, Welt“ über Ownership, Closures, Async und Makros bis zum großen Praxisprojekt; alle Beispiele sind in chinesischem Rust geschrieben.
+Ein vollständiges chinesisches Anfängertutorial: **27 Kapitel + Glossar + 5 Anhänge** — siehe [tutorials/](tutorials/). Von „Hallo, Welt“ über Ownership, Closures, Async und Makros bis zum großen Praxisprojekt; alle Beispiele sind in chinesischem Rust geschrieben.
 
 🌐 **Online lesen**: [Online-Dokumentation](https://liuqiTan80.github.io/i18n-rust/) (mdBook, 4 Sprachen mit Umschalter in der oberen Leiste; lokale Vorschau mit `make site-serve`).
 
@@ -325,7 +325,7 @@ JSON-Diagnosen → Fehlercode-/Meldungsübersetzung + Typ-Lokalisierung + Lehrhi
 | `crates/engine/lang-packs` | 11 eingebaute Sprachpakete (10 natürliche Sprachen + `en`-Identitätspaket: Schlüsselwörter / Standardbibliothek / Modulpfade / Fehlerübersetzungen / UI-Texte) |
 | `tools/vscode-extension`   | VS Code / Qoder-Erweiterung |
 | `tools`                    | Gates und Build-Skripte: Tutorial-Verifikation, Benchmark-Regression, Doku-Site-Aufbau ([tools/README.md](tools/README.md)) |
-| `tutorials`                | 26 Kapitel chinesisches Tutorial mit Anhängen (en/ja/ru-Übersetzungen in Arbeit) |
+| `tutorials`                | 27 Kapitel chinesisches Tutorial mit Anhängen (en/ja/ru-Übersetzungen in Arbeit) |
 | `book`                     | Aufbauquelle der Doku-Site (mdBook, [book/README.md](book/README.md)) |
 | `docs`                     | Referenz- und Entwicklerdokumentation, [Projektkarte](docs/project-map.md); Betrieb & Roadmap: [docs/strategy/](docs/strategy/README.md) |
 

@@ -303,12 +303,12 @@ Rust 本身以英文书写，因此英语不作为教学方言（恒等映射无
 
 ## 📖配套教程
 
-面向零基础学习者的完整中文教程：**26 章 + 总术语表 + 5 个附录**，见 [tutorials/](tutorials/)。
+面向零基础学习者的完整中文教程：**27 章（含 1 章算法选读）+ 总术语表 + 5 个附录**，见 [tutorials/](tutorials/)。
 从《你好世界》到所有权、闭包、异步、宏，直至综合实战——所有示例全部用中文 Rust 书写。
 
 🌐 **在线阅读**：[在线文档站](https://liuqiTan80.github.io/i18n-rust/)（mdBook 四语言 + 顶栏切换；本地预览 `make site-serve`） · 📚 **国内推荐**：[飞书知识库](https://my.feishu.cn/wiki/space/7689728327082314704)（33 篇中文教程，公网免登录直接阅读）。站点托管于 GitHub Pages，**国内网络可能无法稳定访问**（此时用上方飞书入口）；也可直接在仓库内阅读 [tutorials/](tutorials/)（GitCode 页内可正常浏览），或使用离线发布包随附的 `教程/` 目录。
 
-**多语言译本进行中**：英文（开篇、第 1–13 章、附录 D，15/33）、日本語、Русский 持续滚动；
+**多语言译本进行中**：英文（开篇、第 1–18 章、附录 D，20/34）、日本語、Русский 持续滚动；
 进度与下一批见 [translation-status.md](docs/translation-status.md)。
 
 > 教程质量由 CI 自动门禁守护（[tools/verify-tutorials.py](tools/verify-tutorials.py)）：
@@ -339,7 +339,7 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 | `crates/engine/lang-packs` | 11 个内置语言包（10 种自然语言 + `en` 恒等包：关键字/标准库/模块路径/错误翻译/界面文案） |
 | `tools/vscode-extension`   | VS Code / Qoder 扩展 |
 | `tools`                    | 门禁与构建脚本：教程验证、基准回归、文档站装配等（见 [tools/README.md](tools/README.md)） |
-| `tutorials`                | 26 章中文教程与附录（en/ja/ru 译本进行中） |
+| `tutorials`                | 27 章中文教程与附录（en/ja/ru 译本进行中） |
 | `book`                     | 文档站装配源（mdBook，见 [book/README.md](book/README.md)） |
 | `docs`                     | 参考文档、开发文档与[项目地图](docs/project-map.md)；运营与路线图见 [docs/strategy/](docs/strategy/README.md) |
 

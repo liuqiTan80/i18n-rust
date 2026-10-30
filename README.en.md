@@ -285,7 +285,7 @@ Syntax highlighting, smart completion, hover docs, go-to-definition, find refere
 
 ## 📖Tutorials
 
-A complete beginner-friendly **Chinese tutorial** — 26 chapters + glossary + 5 appendices — lives in [tutorials/](tutorials/): from "Hello, World" through ownership, closures, async and macros, up to a full capstone project. Every example is written in Chinese Rust.
+A complete beginner-friendly **Chinese tutorial** — 27 chapters + glossary + 5 appendices — lives in [tutorials/](tutorials/): from "Hello, World" through ownership, closures, async and macros, up to a full capstone project. Every example is written in Chinese Rust.
 
 🌐 **Read online**: [documentation site](https://liuqiTan80.github.io/i18n-rust/) (mdBook, 4 languages with a top-bar switcher; preview locally with `make site-serve`) · 📚 **For readers in China**: [Feishu knowledge base](https://my.feishu.cn/wiki/space/7689728327082314704) (33-part Chinese tutorial, publicly readable without a Feishu account).
 
@@ -322,7 +322,7 @@ JSON diagnostics → error-code/message translation + type localization + teachi
 | `crates/engine/lang-packs` | 11 built-in language packs (10 natural languages + the `en` identity pack: keywords / stdlib / module paths / error translations / UI strings) |
 | `tools/vscode-extension` | VS Code / Qoder extension |
 | `tools` | gates and build scripts: tutorial verification, benchmark regression, docs-site assembly ([tools/README.md](tools/README.md)) |
-| `tutorials` | 26-chapter Chinese tutorial + appendices (en/ja/ru translations in progress) |
+| `tutorials` | 27-chapter Chinese tutorial + appendices (en/ja/ru translations in progress) |
 | `book` | docs-site assembly source (mdBook, see [book/README.md](book/README.md)) |
 | `docs` | reference docs, dev docs and the [project map](docs/project-map.md); operations & roadmap in [docs/strategy/](docs/strategy/README.md) |
 

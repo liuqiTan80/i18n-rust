@@ -293,7 +293,7 @@ Coloration syntaxique, complétion intelligente, documentation au survol, aller 
 
 ## 📖Tutoriel
 
-Un tutoriel complet en chinois pour débutants : **26 chapitres + glossaire + 5 annexes** — voir [tutorials/](tutorials/). De « Bonjour le monde » à l'ownership, aux closures, à l'async et aux macros, jusqu'au projet final ; tous les exemples sont écrits en Rust chinois.
+Un tutoriel complet en chinois pour débutants : **27 chapitres + glossaire + 5 annexes** — voir [tutorials/](tutorials/). De « Bonjour le monde » à l'ownership, aux closures, à l'async et aux macros, jusqu'au projet final ; tous les exemples sont écrits en Rust chinois.
 
 🌐 **Lecture en ligne** : [documentation en ligne](https://liuqiTan80.github.io/i18n-rust/) (mdBook, 4 langues avec sélecteur en barre supérieure ; aperçu local avec `make site-serve`).
 
@@ -325,7 +325,7 @@ Diagnostics JSON → traduction codes/messages + localisation des types + consei
 | `crates/engine/lang-packs` | 11 packs de langue intégrés (10 langues naturelles + le pack identité `en` : mots-clés / bibliothèque standard / chemins de modules / traductions d'erreurs / textes d'interface) |
 | `tools/vscode-extension`   | extension VS Code / Qoder |
 | `tools`                    | portes et scripts de build : vérification du tutoriel, régression de benchmarks, assemblage du site de documentation ([tools/README.md](tools/README.md)) |
-| `tutorials`                | tutoriel chinois en 26 chapitres avec annexes (traductions en/ja/ru en cours) |
+| `tutorials`                | tutoriel chinois en 27 chapitres avec annexes (traductions en/ja/ru en cours) |
 | `book`                     | source d'assemblage du site de documentation (mdBook, [book/README.md](book/README.md)) |
 | `docs`                     | documentation de référence et de développement, [carte du projet](docs/project-map.md) ; opérations et feuille de route dans [docs/strategy/](docs/strategy/README.md) |
 

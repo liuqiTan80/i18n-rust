@@ -293,7 +293,7 @@ Resaltado de sintaxis, autocompletado inteligente, documentación al pasar el cu
 
 ## 📖Tutorial
 
-Un tutorial completo en chino para principiantes: **26 capítulos + glosario + 5 apéndices** — ver [tutorials/](tutorials/). Desde «Hola, mundo» hasta ownership, closures, async y macros, hasta el proyecto final integrador; todos los ejemplos están escritos en Rust chino.
+Un tutorial completo en chino para principiantes: **27 capítulos + glosario + 5 apéndices** — ver [tutorials/](tutorials/). Desde «Hola, mundo» hasta ownership, closures, async y macros, hasta el proyecto final integrador; todos los ejemplos están escritos en Rust chino.
 
 🌐 **Lectura en línea**: [documentación en línea](https://liuqiTan80.github.io/i18n-rust/) (mdBook, 4 idiomas con selector en la barra superior; vista previa local con `make site-serve`).
 
@@ -325,7 +325,7 @@ Diagnósticos JSON → traducción de códigos/mensajes + localización de tipos
 | `crates/engine/lang-packs` | 11 paquetes de idioma integrados (10 lenguas naturales + el paquete identidad `en`: palabras clave / biblioteca estándar / rutas de módulo / traducciones de errores / textos de interfaz) |
 | `tools/vscode-extension`   | extensión de VS Code / Qoder |
 | `tools`                    | puertas y scripts de compilación: verificación del tutorial, regresión de benchmarks, ensamblado del sitio de documentación ([tools/README.md](tools/README.md)) |
-| `tutorials`                | tutorial chino de 26 capítulos con apéndices (traducciones en/ja/ru en curso) |
+| `tutorials`                | tutorial chino de 27 capítulos con apéndices (traducciones en/ja/ru en curso) |
 | `book`                     | fuente de ensamblado del sitio de documentación (mdBook, [book/README.md](book/README.md)) |
 | `docs`                     | documentación de referencia y de desarrollo, [mapa del proyecto](docs/project-map.md); operaciones y hoja de ruta en [docs/strategy/](docs/strategy/README.md) |
 

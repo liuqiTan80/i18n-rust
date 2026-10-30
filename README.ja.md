@@ -293,7 +293,7 @@ Rust 自体は英語で書かれているため、英語は教学方言に含ま
 
 ## 📖チュートリアル
 
-初心者向けの完全な中国語チュートリアル：**26 章 + 用語集 + 5 付録**。[tutorials/](tutorials/) を参照。『こんにちは世界』から所有権、クロージャ、非同期、マクロを経て総合実戦まで——すべての例は中国語 Rust で書かれています。
+初心者向けの完全な中国語チュートリアル：**27 章 + 用語集 + 5 付録**。[tutorials/](tutorials/) を参照。『こんにちは世界』から所有権、クロージャ、非同期、マクロを経て総合実戦まで——すべての例は中国語 Rust で書かれています。
 
 🌐 **オンライン読書**：[オンラインドキュメント](https://liuqiTan80.github.io/i18n-rust/)（mdBook 4 言語 + トップバー切り替え；ローカルプレビューは `make site-serve`）。
 
@@ -327,7 +327,7 @@ JSON 診断 → エラーコード・メッセージ表翻訳 + 型ローカラ�
 | `crates/engine/lang-packs` | 11 個の内蔵言語パック（10 自然言語 + `en` 恒等パック：キーワード / 標準ライブラリ / モジュールパス / エラー翻訳 / UI テキスト） |
 | `tools/vscode-extension`   | VS Code / Qoder 拡張 |
 | `tools`                    | ゲートとビルドスクリプト：チュートリアル検証、ベンチマーク回帰、ドキュメントサイト組み立てなど（[tools/README.md](tools/README.md)） |
-| `tutorials`                | 26 章の中国語チュートリアルと付録（en/ja/ru 訳進行中） |
+| `tutorials`                | 27 章の中国語チュートリアルと付録（en/ja/ru 訳進行中） |
 | `book`                     | ドキュメントサイト組み立てソース（mdBook、[book/README.md](book/README.md)） |
 | `docs`                     | リファレンス・開発ドキュメントと[プロジェクトマップ](docs/project-map.md)；運営とロードマップは [docs/strategy/](docs/strategy/README.md) |
 

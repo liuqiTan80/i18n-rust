@@ -293,7 +293,7 @@ O `rzc mapping auto` extrai as APIs públicas dos crates instalados e gera nomes
 
 ## 📖Tutorial
 
-Um tutorial completo em chinês para iniciantes: **26 capítulos + glossário + 5 apêndices** — veja [tutorials/](tutorials/). De «Olá, mundo» a ownership, closures, async e macros, até o projeto final integrador; todos os exemplos são escritos em Rust chinês.
+Um tutorial completo em chinês para iniciantes: **27 capítulos + glossário + 5 apêndices** — veja [tutorials/](tutorials/). De «Olá, mundo» a ownership, closures, async e macros, até o projeto final integrador; todos os exemplos são escritos em Rust chinês.
 
 🌐 **Leitura online**: [documentação online](https://liuqiTan80.github.io/i18n-rust/) (mdBook, 4 idiomas com seletor na barra superior; pré-visualização local com `make site-serve`).
 
@@ -325,7 +325,7 @@ Diagnósticos JSON → tradução de códigos/mensagens + localização de tipos
 | `crates/engine/lang-packs` | 11 pacotes de idioma embutidos (10 idiomas naturais + o pacote identidade `en`: palavras-chave / biblioteca padrão / caminhos de módulo / traduções de erros / textos de interface) |
 | `tools/vscode-extension`   | extensão VS Code / Qoder |
 | `tools`                    | portões e scripts de build: verificação do tutorial, regressão de benchmarks, montagem do site de documentação ([tools/README.md](tools/README.md)) |
-| `tutorials`                | tutorial chinês de 26 capítulos com apêndices (traduções en/ja/ru em andamento) |
+| `tutorials`                | tutorial chinês de 27 capítulos com apêndices (traduções en/ja/ru em andamento) |
 | `book`                     | fonte de montagem do site de documentação (mdBook, [book/README.md](book/README.md)) |
 | `docs`                     | documentação de referência e de desenvolvimento, [mapa do projeto](docs/project-map.md); operações e roteiro em [docs/strategy/](docs/strategy/README.md) |
 
