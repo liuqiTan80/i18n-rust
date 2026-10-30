@@ -205,11 +205,12 @@ rzc eject src/main.zh
 
 ### 第三阶段：深入学习（持续）
 
-1. 阅读第二十六章（不安全 Rust 与外部函数接口），了解语言的最后一块拼图
-2. 阅读标准 Rust 的官方教程（The Rust Programming Language）
-3. 通过示例学习（Rust by Example）、刷小练习（Rustlings）
-4. 学习 Rust 的异步生态或嵌入式开发
-5. 参与开源项目
+1. 阅读第二十七章（基础算法与复杂度），补上"算得快"这门内功——读完第 22 章即可跳读
+2. 阅读第二十六章（不安全 Rust 与外部函数接口），了解语言的最后一块拼图
+3. 阅读标准 Rust 的官方教程（The Rust Programming Language）
+4. 通过示例学习（Rust by Example）、刷小练习（Rustlings）
+5. 学习 Rust 的异步生态或嵌入式开发
+6. 参与开源项目
 
 ---
 
