@@ -101,13 +101,15 @@ jobs:
         # 9 份翻译 README vs en 基准：章节数/锚点有效性/围栏配对（与 ci.yml 同源）
         run: python3 tools/check-readme-parity.py
 
-      - name: 教程代码块验证（zh/en/ja/ru，与 ci.yml 同链）
-        # 发布版本对应的教程必须逐块可编译：防止发出去的版本与教程内容漂移
+      - name: 教程代码块验证（zh/en/ja/ru，与 ci.yml 同链，含上下文复验）
+        # 发布版本对应的教程必须逐块可编译：防止发出去的版本与教程内容漂移。
+        # `--ctx` 另按「读者敲到此块为止的前文」复验白名单块，前文补全通过数
+        # 低于 tools/ctx-baseline.json 下限即挡住发布
         run: |
-          python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json
+          python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json --ctx
           for lang in en ja ru; do
             python3 tools/verify-tutorials.py --dir "tutorials/$lang" --lang "$lang" \
-              --allowlist tools/expected-failures.json
+              --allowlist tools/expected-failures.json --ctx
           done
 
       - name: 术语表与语言包一致性检查

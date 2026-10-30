@@ -116,17 +116,19 @@ jobs:
         # 防止章节漂移与锚点失效（新增章节只改基准、emoji 标题锚点回归等）
         run: python3 tools/check-readme-parity.py
 
-      - name: 教程代码块验证（单块编译 + 预期错误码断言，zh/en/ja/ru）
+      - name: 教程代码块验证（单块编译 + 上下文复验 + 预期错误码断言，zh/en/ja/ru）
         # 逐个验证 tutorials/*.md 代码块：完整程序/片段须编译通过，
         # 错误示例须编译失败且实际错误码与 `// 预期错误: EXXXX` 标记一致；
         # 非预期失败时退出码非零。白名单（tools/expected-failures.json）
-        # 仅豁免教程结构固有噪音（跨块上下文依赖/环境依赖等）
+        # 仅豁免教程结构固有噪音（跨块上下文依赖/环境依赖等）。
+        # `--ctx` 把白名单块按「读者敲到此块为止的前文」再复验一次，
+        # 「前文补全通过」低于 tools/ctx-baseline.json 下限即判红（口径见 tools/README.md）
         run: |
           cargo build --quiet --bin rzc
-          python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json
+          python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json --ctx
           for lang in en ja ru; do
             python3 tools/verify-tutorials.py --dir "tutorials/$lang" --lang "$lang" \
-              --allowlist tools/expected-failures.json
+              --allowlist tools/expected-failures.json --ctx
           done
 
       - name: 术语表与语言包一致性检查

@@ -78,7 +78,8 @@ python3 tools/verify-tutorials.py \
 python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json --ctx --ctx-update
 ```
 
-`make tutorials` / `make tutorials-all` 已默认带 `--ctx`：「前文补全通过」低于基线即判红，
+`make tutorials` / `make tutorials-all`，以及 CI（`.github/workflows/ci.yml`）与发版链
+（`release.yml`）的教程步骤都已带 `--ctx`：「前文补全通过」低于基线即判红，
 高于基线只提示可上调，`本块致错` 逐条打印（含第一条真错误行，lint 教学提示行已剥离）。
 
 ## 白名单维护
