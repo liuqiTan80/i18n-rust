@@ -147,6 +147,10 @@ Student { name: "Xiaohua", age: 12, score: 95 }
 `{:?}` is the **debug format** — every field laid bare, a debugging superpower. Want a multi-line view for many fields? Use `{:#?}`:
 
 ```rust
+#[derive(Debug)]
+struct Color { red: i32, green: i32, blue: i32 }
+
+let sky_blue = Color { red: 0, green: 191, blue: 255 };
 println!("{:#?}", sky_blue);
 ```
 

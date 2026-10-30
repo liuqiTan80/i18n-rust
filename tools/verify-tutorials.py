@@ -162,6 +162,17 @@ def is_complete_program(content, lang="zh"):
     return STD_MAIN in content
 
 
+def main_pattern(lang):
+    """主函数签名的匹配式，统一从 MAIN_FUNCS / STD_MAIN 生成。
+
+    以前这里是 `zh / ja / 其余按 fn main` 三分支：ru 的 `функция главная` 在
+    `is_complete_program` 里认得到、在这里认不到，于是含主函数的 ru 块拆不出函数体，
+    串联出来的前文多出一个孤立 `}`（实测 ru 第十一章因此一直归不进「前文补全通过」）。
+    新增方言只需往上填 MAIN_FUNCS。"""
+    name = MAIN_FUNCS.get(lang, STD_MAIN)
+    return re.compile(r"\s+".join(map(re.escape, name.split())) + r"\s*\(\s*\)")
+
+
 NATIVE_KEYWORDS = {
     "zh": ("函数", "让 ", "打印行", "如果", "匹配", "循环", "对于"),
     "ja": ("関数", "宣言 ", "表示行", "もし", "マッチ", "ループ", "各"),
@@ -575,9 +586,7 @@ def extract_main_body(content, lang="zh"):
     主函数签名行整体从其余部分移除（残留签名会让后续 collect_decl 配对错乱）。
     注释行里的主函数签名不匹配（先跳过以 `//` 开头的行）。
     找不到时返回 (None, content)。"""
-    main_re = re.compile(r"函数\s+主函数\s*\(\s*\)" if lang == "zh"
-                         else (r"関数\s+主関数\s*\(\s*\)" if lang == "ja"
-                               else r"fn\s+main\s*\(\s*\)"))
+    main_re = main_pattern(lang)
     for m in main_re.finditer(content):
         line_start = content.rfind("\n", 0, m.start()) + 1
         if content[line_start:m.start()].strip().startswith("//"):

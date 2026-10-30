@@ -518,6 +518,8 @@ fn main() {
 **Fix**: convert one side with `as`, and **write it in two lines**:
 
 ```rust
+let a = 10;      // the two numbers from the bad example above
+let b = 3.5;
 let a_as_float = a as f64;
 let total = a_as_float + b;
 ```

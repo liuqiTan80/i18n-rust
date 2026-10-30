@@ -83,6 +83,9 @@ python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json --ctx
 
 ## 白名单维护
 
+- **答案折叠区归 `练习答案`**：`<details> 查看答案`（含 `参考答案` / `Reference answer` / `🔍 Ответ`）
+  里的片段是「读者不必抄」的，身份就是 `练习答案`——它既不参与上下文复验，也不进后续块的
+  前文。挂在 `上下文依赖` 下只会抬高 `本块致错`（实测四语 21 条如此）。
 - **过期即删**：门禁会列出「已不失败，建议删除」的条目。把块改成自足（补上缺失的
   `使用`、把依赖的数据写进块内）之后，条目要删掉，否则它会一直替这个块遮丑。
 - **行号会漂**：条目以 `文件:起始行号` 定位，正文增删行就要同步。按「第 k 个代码块」
@@ -101,5 +104,9 @@ python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json --ctx
   `--update` 会重写基线文件（随提交走），支持 `--only engine|lsp` 与 `BENCH_REGRESSION_PCT` 调阈值；
 - 注册中心两脚本仅在协议 / 发布流程变更时使用（见 [third-party-registry.md](../docs/third-party-registry.md)）；
 - `dialect-convert.py` 产物只是初稿，必须过 `make tutorials-all` 门禁；
+- **验证器的方言登记只有一处**：`verify-tutorials.py` 的 `MAIN_FUNCS` 同时喂「完整程序」识别
+  与主函数体拆分。新方言只往这张表填就行；再写出 `if lang == "zh" … elif …` 这种硬编码分支
+  就会重演 ru 的故障——`функция главная` 在那头认得到、在这头认不到，含主函数的块拆不出
+  函数体，拼出的前文多一个孤立 `}`，整章永远归不进「前文补全通过」；
 - 飞书发布凭证（`FEISHU_APP_SECRET`）仅经环境变量传入、严禁入库；平台侧
   一次性配置与发布后核验见[发布准备清单](../docs/strategy/发布准备清单.md)第 5 节。
