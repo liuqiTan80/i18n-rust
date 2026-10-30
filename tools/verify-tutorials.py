@@ -15,7 +15,7 @@
 - 输出示例（块内 `// 预期输出: 内容` 标记）：断言编译通过且 rzc run 的
   stdout 与预期一致（多行用 `// 预期输出:` + 后续注释行；每行剥尾部空白、
   忽略首尾空行后精确比较）；
-- 省略块（含 ... / …… / 省略 且无主函数）：跳过。
+- 省略块（代码里出现 ... / …… / 省略，或以 `// ...` 起头占位，且无主函数）：跳过。
 
 Result 的 `错误(...)` 构造、`错误(原因)` 模式匹配、`xxx错误` 类型名等
 合法用法不会误判为错误示例（错误标记判定不含裸 `错误` 词）。
@@ -32,7 +32,8 @@ Result 的 `错误(...)` 构造、`错误(原因)` 模式匹配、`xxx错误` �
 之一：`前文补全通过`（等价于已验证）、`本块致错`（去掉本块前文能编译，
 加上就报错——正文里真实存在的墙）、`前文噪音`（前文自己还编不过，无法
 归因）。「前文补全通过」数受基线下限保护（只增不减，见
-`tools/ctx-baseline.json`），教程改动导致它下降即判红。
+`tools/ctx-baseline.json`），教程改动导致它下降即判红；白名单收缩（条目因修好
+而删除）导致的等量下降除外。
 
 退出码：非预期失败为 1（CI 门禁用）；--json 输出机器可读报告。
 
@@ -55,6 +56,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 # ---------- 常量 ----------
 OMIT_MARKS = ("...", "……", "省略")
+# 行尾注释起点：冒号后的 //（协议 URL）不算注释，避免把字符串里的地址当成注释截断
+LINE_COMMENT_RE = re.compile(r"(?<!:)//")
 # 错误示例标记：裸 `错误` 词（Result::Err 构造/错误类型名）不判定
 ERR_MARKS = ("❌", "报错", "编译失败")
 # 错误码提取：兼容各语言诊断前缀（中文 错误 / 日文 エラー / 英文 error / 俄文 Ошибка）
@@ -181,8 +184,27 @@ def main_header(lang):
     return STD_MAIN + "() {"
 
 
+def has_omit_mark(content):
+    """块内是否真的省略了代码（决定该块跳过验证）。
+
+    省略标记必须出现在**代码**里，或作为**注释的第一个 token**（`// ... 这里略过实现`
+    才是作者把内容省了）。写在注释中间的词不算——`让 全部 = &分数[..]; // 两头都省略`
+    讲的是范围语法，`} // ❌ 名次还可能是 3、4、5……` 讲的是穷尽匹配，两者都是要验证的
+    正文（实测第四章的切片块因此被整块跳过，连累下一块在 `--ctx` 里被误判成本块致错）。
+    """
+    for line in content.splitlines():
+        s = line.strip()
+        if s.startswith("//"):
+            if s[2:].lstrip().startswith(OMIT_MARKS):
+                return True
+            continue
+        if any(k in LINE_COMMENT_RE.split(line, maxsplit=1)[0] for k in OMIT_MARKS):
+            return True
+    return False
+
+
 def classify(content, lang="zh"):
-    if any(k in content for k in OMIT_MARKS) and not is_complete_program(content, lang):
+    if has_omit_mark(content) and not is_complete_program(content, lang):
         return "省略"
     if any(m in content for m in ERR_MARKS) or ERR_CODE_RE.search(content):
         return "错误示例"
@@ -807,7 +829,8 @@ def main():
             for item in json.load(f):
                 allowlist[(item["file"], item["line"])] = item
     elif args.allowlist:
-        print(f"⚠️ 白名单不存在：{args.allowlist}（先 --gen-allowlist 生成）", file=sys.stderr)
+        print(f"⚠️ 白名单不存在：{args.allowlist}（格式见 tools/README.md：条目为"
+              f" {{file, line, category, note}}）", file=sys.stderr)
 
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     tut_dir = args.dir or os.path.join(repo, "tutorials")
@@ -1019,24 +1042,34 @@ def main():
             baseline["说明"] = ("教程门禁 --ctx 的「前文补全通过」下限（只增不减）。改完教程跑"
                                " `python3 tools/verify-tutorials.py --ctx --ctx-update`（非 zh 附加"
                                " `--dir tutorials/en --lang en`）上调下限；低于下限即判红。"
-                               "「复验块数」仅存档参考，不参与判定。")
+                               "「复验块数」参与判定：白名单比基线每少一条，下限等量放宽"
+                               "（那条多半已能单块编译，不再需要上下文复验）。")
             with open(baseline_path, "w", encoding="utf-8") as f:
                 json.dump(baseline, f, ensure_ascii=False, indent=2)
                 f.write("\n")
             print(f"  已写入基线：{baseline_path}（{args.lang} {CTX_PASS}={counts[CTX_PASS]}）")
         else:
-            floor = (langs.get(args.lang) or {}).get(CTX_PASS)
+            entry = langs.get(args.lang) or {}
+            floor = entry.get(CTX_PASS)
             if floor is None:
                 print(f"  ⚠️ 基线没有 {args.lang} 条目（先 --ctx-update 记录一次）")
-            elif counts[CTX_PASS] < floor:
-                ctx_fail = True
-                print(f"  ❌ {CTX_PASS} 低于基线：{floor} → {counts[CTX_PASS]}"
-                      "（教程正文或前文拼接规则回退了）")
-            elif counts[CTX_PASS] > floor:
-                print(f"  ✅ {CTX_PASS} 高于基线 {floor} → {counts[CTX_PASS]}"
-                      "（可 --ctx-update 上调下限）")
             else:
-                print(f"  ✅ {CTX_PASS} 与基线一致（{floor}）")
+                # 白名单收缩的合法扣减：条目被删（多是因为该块已能单块编译）后，它
+                # 不再进入上下文复验，通过数会跟着少一个——这是进步不是回退。故按
+                # 「复验块数」的下降量等量放宽下限；跌幅超过收缩量仍然判红。
+                shrink = max(0, (entry.get("复验块数") or len(ctx_results)) - len(ctx_results))
+                base = floor
+                floor -= shrink
+                shrink_note = (f"（基线 {base}，白名单收缩 −{shrink}）" if shrink else "")
+                if counts[CTX_PASS] < floor:
+                    ctx_fail = True
+                    print(f"  ❌ {CTX_PASS} 低于下限 {floor} → {counts[CTX_PASS]}"
+                          f"{shrink_note}（教程正文或前文拼接规则回退了）")
+                elif counts[CTX_PASS] > floor:
+                    print(f"  ✅ {CTX_PASS} 高于下限 {floor} → {counts[CTX_PASS]}"
+                          f"{shrink_note}（可 --ctx-update 上调基线）")
+                else:
+                    print(f"  ✅ {CTX_PASS} 与下限持平：{counts[CTX_PASS]}{shrink_note}")
 
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:

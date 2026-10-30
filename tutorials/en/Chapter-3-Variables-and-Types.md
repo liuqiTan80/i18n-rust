@@ -346,6 +346,7 @@ score *= 2;    // 85 × 2 = 170
 Rust has **no** `++` operator. To add 1, write:
 
 ```rust
+let mut counter = 0;
 counter += 1;
 ```
 

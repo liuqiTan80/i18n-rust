@@ -111,7 +111,8 @@ impl Student {
     }
 }
 
-// 调用：
+// Call site (add_points mutates xiaohua, so it has to be `let mut`):
+let mut xiaohua = Student { name: String::from("Xiaohua"), age: 12, score: 95 };
 xiaohua.add_points(5);
 println!("{}", xiaohua.is_passing());
 ```

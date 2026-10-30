@@ -146,6 +146,9 @@ error[E0004]: non-exhaustive patterns: pattern `Light::Green` not covered
 **Two fixes**: ① list every variant; ② catch-all with `_` (Chapter 5):
 
 ```rust
+enum Light { Red, Green }
+
+let current = Light::Red;
 match current {
     Light::Red => println!("stop"),
     _ => println!("every other case"),

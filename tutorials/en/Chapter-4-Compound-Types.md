@@ -299,6 +299,7 @@ Slice length: 3
 ### Shorter forms
 
 ```rust
+let scores = [88, 95, 76, 90, 82];
 let from_start_to_third = &scores[..3];    // omitted start = from 0
 let from_third_to_end = &scores[2..];      // omitted end = to the last one
 let everything = &scores[..];              // both omitted = the whole stretch
