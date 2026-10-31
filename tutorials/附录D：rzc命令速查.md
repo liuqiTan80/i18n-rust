@@ -14,12 +14,17 @@
 | `rzc eject 文件.zh [更多目标…]` | 导出为标准 Rust（生成 .rs）；可一次传多个文件/目录，逐项导出并汇总成功与失败 | `rzc eject src/main.zh src/工具.zh` |
 | `rzc transpile 文件.zh` | 只转译不编译，标准 Rust 输出到屏幕 | `rzc transpile src/main.zh` |
 | `rzc cheat 语言` | 母语 ↔ Rust 映射速查表（带危险等级与备注，`--markdown` 可嵌入文档） | `rzc cheat zh --markdown` |
-| `rzc lang list` | 查看可用语言包 | |
-| `rzc lang install 语言` | 安装语言包 | `rzc lang install ja` |
+| `rzc lang list` | 列出已安装的语言包（内置 + 用户装的） | |
+| `rzc lang search [关键词]` | 浏览远程语言包市场 | `rzc lang search` |
+| `rzc lang install 语言` | 安装语言包（语言代码从远程下载，目录路径直接复制） | `rzc lang install ja` |
+| `rzc lang remove 语言` | 删除用户安装的语言包（内置的删不掉） | |
 | `rzc mapping auto 库名` | 用 AI 或规则自动生成第三方库映射 | `rzc mapping auto rand --provider rule` |
 | `rzc mapping check` | 校验第三方库映射文件 | |
 | `rzc crate search 关键词` | 检索社区共享的第三方库映射 | `rzc crate search serde` |
 | `rzc crate install 库名 --lang 语言` | 安装社区映射到全局语言包 | `rzc crate install serde --lang zh` |
+| `rzc crate list` | 列出已安装的社区映射 | |
+| `rzc crate update` | 按已装清单重新拉取全部映射（取别人的更新） | |
+| `rzc crate remove 库名 --lang 语言` | 从全局语言包与清单里删掉某个社区映射 | `rzc crate remove serde --lang zh` |
 | `rzc crate publish` | 把本地映射发布到注册中心（先过质量门禁） | |
 | `rzc mapping coverage` | 用后端真实源码检验语言包覆盖度，列出缺失的母语映射（在 i18n-rust 仓库根运行） | `rzc mapping coverage --lang zh` |
 | `rzc mapping scaffold` | 为新语言生成映射脚手架 | |
