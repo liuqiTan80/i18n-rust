@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.8.12
+
+### 变更
+- **语言服务器启动失败文案本地化**：`extension.ts` 里两条硬编码中文提示改走 ui.toml 的
+  `ext_` 键（界面消息键 620 → 622，覆盖 11 语言）——`ext_lsp_binary_missing`（未找到
+  `i18n-rust-lsp` 可执行文件）与 `ext_lsp_start_failed`（服务器启动失败，`{}` 填协议层原因）。
+- **未找到提示改指 `rzc install lsp`**：去掉「或 `cargo install i18n-rust-lsp`」——该命令装
+  registry 最新版（实测落后于 rzc），`rzc install lsp` 才按当前版本精确锁定；并提示 `rzc doctor` 自检环境。
+
 ## 0.8.8
 
 ### 新增
