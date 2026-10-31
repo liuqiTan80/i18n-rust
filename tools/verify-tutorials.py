@@ -539,6 +539,23 @@ def output_matches(want, actual, ignore_order=False):
 
 def check_one(rzc, src_path, cwd, expected, behavior, expected_output=None, timeout=120,
               out_ignore_order=False):
+    """_check_one_once 的超时重试外壳。
+
+    共享 runner 负载抖动会让冷缓存编译偶发越过超时上限——这与块内容无关，
+    超时（returncode -1）自动重试一次，重试后仍超时才维持判红
+    （2026-10-31 run #241 实证：同内容 #240 绿 #241 红，无重试则误报）。"""
+    res = _check_one_once(rzc, src_path, cwd, expected, behavior,
+                          expected_output=expected_output, timeout=timeout,
+                          out_ignore_order=out_ignore_order)
+    if res[1] == -1:
+        res = _check_one_once(rzc, src_path, cwd, expected, behavior,
+                              expected_output=expected_output, timeout=timeout,
+                              out_ignore_order=out_ignore_order)
+    return res
+
+
+def _check_one_once(rzc, src_path, cwd, expected, behavior, expected_output=None, timeout=120,
+                    out_ignore_order=False):
     """rzc check（需要运行时验证时加 rzc run）。
 
     返回 (ok, returncode, full_output)。ok 语义：
@@ -1022,20 +1039,26 @@ def run_output_check(rzc, work, tut_dir, allowlist, lang, parallel):
             base.update(verdict=OUT_UNRUN, reason="省略块，不单独运行")
             return base
         src_path, d = t[7], t[8]
-        try:
-            r = subprocess.run([rzc, "check", src_path], capture_output=True,
-                               text=True, timeout=OUT_TIMEOUT, cwd=d)
-            if r.returncode != 0:
-                base.update(verdict=OUT_UNRUN,
-                            reason="程序单独跑不通：" + first_error_line((r.stdout + r.stderr).strip()))
-                return base
-            rr = subprocess.run([rzc, "run", src_path], capture_output=True,
-                                text=True, timeout=OUT_TIMEOUT, cwd=d)
-            if rr.returncode != 0:
-                base.update(verdict=OUT_UNRUN, reason="运行非零退出（展示的多是 stderr，应改用 ```text）")
-                return base
-        except subprocess.TimeoutExpired:
-            base.update(verdict=OUT_UNRUN, reason="运行超时")
+        # 与 check_one 同一口径：负载抖动型超时与内容无关，重试一次仍超时才判
+        rr = None
+        for _ in (1, 2):
+            try:
+                r = subprocess.run([rzc, "check", src_path], capture_output=True,
+                                   text=True, timeout=OUT_TIMEOUT, cwd=d)
+                if r.returncode != 0:
+                    base.update(verdict=OUT_UNRUN,
+                                reason="程序单独跑不通：" + first_error_line((r.stdout + r.stderr).strip()))
+                    return base
+                rr = subprocess.run([rzc, "run", src_path], capture_output=True,
+                                    text=True, timeout=OUT_TIMEOUT, cwd=d)
+                if rr.returncode != 0:
+                    base.update(verdict=OUT_UNRUN, reason="运行非零退出（展示的多是 stderr，应改用 ```text）")
+                    return base
+                break
+            except subprocess.TimeoutExpired:
+                rr = None
+        if rr is None:
+            base.update(verdict=OUT_UNRUN, reason="运行超时（重试后仍超时）")
             return base
         actual = normalize_output(strip_engine_noise(rr.stdout))
         if actual == want:
