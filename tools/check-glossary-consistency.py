@@ -9,7 +9,8 @@
    确实不命中的概念词记入 tools/glossary-phantoms.json 豁免清单（待下一轮重命名/改写）。
 4. [HARD] 覆盖度：各章「本章术语表」的词必须收进总术语表（错误码 E+4位与
    登记在 SKIP_WORDS 的元词除外，错误码查附录 C）。
-5. [SOFT] 附录B 字面命中：--report 打印，不失败（附录B 是描述性索引）。
+5. [HARD] 附录B 字面命中：条目词须在被引章正文出现（2026-10-31 清单清零后上锁；
+   指向附录的条目天然跳过）。
 
 用法：python3 tools/check-glossary-consistency.py [--tutorials-dir tutorials]
                                   [--phantoms tools/glossary-phantoms.json] [--report]
@@ -233,8 +234,7 @@ def main() -> int:
             )
 
     # 2b. 被引章节必须真的包含该词（只检自带解释的词条；见引用词条是同义词指针，豁免）
-    #     总术语表 HARD（豁免记于 phantoms）；附录B 是描述性索引，降级 SOFT。
-    soft_appearance = []
+    #     总术语表豁免记于 phantoms；附录B 清单已清零，2026-10-31 起同为 HARD（防回潮）。
     for src, entries in (("总术语表", master["entries"]), ("附录B", index["entries"])):
         for key, e in entries.items():
             ch = e["chapter"]
@@ -244,7 +244,7 @@ def main() -> int:
             if text is not None and key not in text:
                 msg = f"{src}「{key}」声称在{fmt_chapter(ch)}详解，但该章正文没有这个词（行 {e['line']}）"
                 if src == "附录B":
-                    soft_appearance.append(msg)
+                    errors.append(msg)
                 elif key not in phantoms:
                     errors.append(msg)
 
@@ -266,8 +266,6 @@ def main() -> int:
     if args.report:
         print(f"— 在总术语表、不在附录B（{len(only_master)}）：", "、".join(only_master))
         print(f"— 在附录B、不在总术语表（{len(only_index)}）：", "、".join(only_index))
-        for msg in soft_appearance:
-            print("— SOFT:", msg)
         print(f"— 在章术语表、不在总术语表（{len(missing_in_master)}）：",
               "、".join(f"{t}({'+'.join(fmt_chapter(c) for c, _ in v)})" for t, v in
                         ((t, ch_all[t]) for t in missing_in_master)))
