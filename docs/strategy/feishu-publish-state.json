@@ -283,12 +283,12 @@
     },
     "附录C：常见错误信息字典.md": {
       "title": "附录 C：常见错误信息字典",
-      "sha256": "6f8da8a652398e301f4a8168186474602d226a89f6f112ad8b2375fae2c75ecc",
+      "sha256": "17741e7ec2dd90a56b79a1af15418b2e560c6db221381154b4977b564f6fd23f",
       "node_token": "LAKNwes3Fi1bQTk3kA1cqMFgnQ4",
       "doc_token": "Cl8Hd1ap4oFsh8x9KCpcsh8qn4d",
       "url": "",
-      "published_at": "2026-10-31T00:47:31Z",
-      "source_commit": "1c3aea4"
+      "published_at": "2026-10-31T02:56:19Z",
+      "source_commit": "54c2a6d"
     },
     "附录D：rzc命令速查.md": {
       "title": "附录 D：rzc 命令速查",
