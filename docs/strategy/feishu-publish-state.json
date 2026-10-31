@@ -13,12 +13,12 @@
     },
     "总术语表.md": {
       "title": "总术语表",
-      "sha256": "13cc98115ac2cabab94e56c8a0033cc95b2e74e7663ba4c3e702f370edb791e4",
+      "sha256": "517e93c211b189ee17300f31a102f8e07db2f5d9d8189e362d39ecdd90d37619",
       "node_token": "T3VhwvrCFiCAXekwAmjc6xZAn6b",
       "doc_token": "EIj3dCxwbojBUrxrLn9cj8MEnrb",
       "url": "",
-      "published_at": "2026-10-31T00:47:31Z",
-      "source_commit": "1c3aea4"
+      "published_at": "2026-10-31T04:25:44Z",
+      "source_commit": "9cc97ef"
     },
     "第一章：用好VS Code扩展.md": {
       "title": "第一章：用好 VS Code 扩展",
@@ -274,12 +274,12 @@
     },
     "附录B：索引.md": {
       "title": "附录 B：索引",
-      "sha256": "a8bac495e2fe8184e851d44d452df23ef44872b57722e65b16e9532142b3ee5f",
+      "sha256": "5096cec8cb473c9bb05fed0242e2dc031d6aae57254c5f76c70d97d08c7eb59b",
       "node_token": "SjvxwSZ0fiRErDkCKeDcIAuqnfg",
       "doc_token": "XZYKdffgTo33onxe7JWc5Zmbnyc",
       "url": "",
-      "published_at": "2026-10-31T00:47:31Z",
-      "source_commit": "1c3aea4"
+      "published_at": "2026-10-31T04:26:08Z",
+      "source_commit": "9cc97ef"
     },
     "附录C：常见错误信息字典.md": {
       "title": "附录 C：常见错误信息字典",
