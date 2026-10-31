@@ -7,7 +7,9 @@
 2. [HARD] 总术语表 ↔ 附录B：两表都收录的词，章节号不得矛盾。
 3. [HARD] 总术语表自解释词条：被引章节正文必须真含该词（防“指错章”）；
    确实不命中的概念词记入 tools/glossary-phantoms.json 豁免清单（待下一轮重命名/改写）。
-4. [SOFT] 覆盖度与附录B字面命中：--report 打印，不失败（附录B是描述性索引）。
+4. [HARD] 覆盖度：各章「本章术语表」的词必须收进总术语表（错误码 E+4位与
+   登记在 SKIP_WORDS 的元词除外，错误码查附录 C）。
+5. [SOFT] 附录B 字面命中：--report 打印，不失败（附录B 是描述性索引）。
 
 用法：python3 tools/check-glossary-consistency.py [--tutorials-dir tutorials]
                                   [--phantoms tools/glossary-phantoms.json] [--report]
@@ -18,6 +20,10 @@ import json
 import os
 import re
 import sys
+
+# 覆盖度检查的跳过规则：错误码词条目不收总术语表（附录 C 是错误码字典）
+SKIP_COVERAGE_RE = re.compile(r"^E\d{4}$")
+SKIP_COVERAGE_WORDS = {"常见问题"}
 
 # 文件名 → 章节标识；中文数字表
 CN_NUM = {
@@ -242,7 +248,7 @@ def main() -> int:
                 elif key not in phantoms:
                     errors.append(msg)
 
-    # 3. SOFT 覆盖度（附录B 有意只收部分词，默认不报）
+    # 3. 覆盖度：章表词必在总表（HARD，错误码等按跳过规则豁免）；附录B 有意只收部分词（SOFT 不报）
     only_master = sorted(set(master["entries"]) - set(index["entries"]))
     only_index = sorted(set(index["entries"]) - set(master["entries"]))
     # 章表 ↔ 总表
@@ -250,7 +256,12 @@ def main() -> int:
     for label, terms in chapters.items():
         for t, ln in terms.items():
             ch_all.setdefault(t, []).append((label, ln))
-    missing_in_master = sorted(set(ch_all) - set(master["entries"]))
+    missing_in_master = sorted(
+        t for t in set(ch_all) - set(master["entries"])
+        if not SKIP_COVERAGE_RE.match(t) and t not in SKIP_COVERAGE_WORDS)
+    for t in missing_in_master:
+        where = "、".join(fmt_chapter(c) for c, _ in ch_all[t])
+        errors.append(f"章术语表词「{t}」（{where}）未收进总术语表，请补词条或登记豁免")
 
     if args.report:
         print(f"— 在总术语表、不在附录B（{len(only_master)}）：", "、".join(only_master))
