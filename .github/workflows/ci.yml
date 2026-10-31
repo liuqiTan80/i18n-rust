@@ -270,6 +270,12 @@ jobs:
   audit:
     name: 依赖漏洞审计
     runs-on: ubuntu-latest
+    # audit-check@v2 要把每条 RUSTSEC 公告写成 check annotation；全局只有
+    # contents: read 时创建 check-run 报「Resource not accessible by integration」，
+    # 失败详情只剩一个 exit code（2026-10-31 run #240 实证）
+    permissions:
+      contents: read
+      checks: write
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
