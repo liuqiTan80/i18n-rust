@@ -265,12 +265,12 @@
     },
     "附录A：映射表参考.md": {
       "title": "附录 A：映射表参考",
-      "sha256": "413323453c274bbe4883457fb7d63277ecca3f8c28d48efb20f99df3ddaf5d60",
+      "sha256": "93c5c83bde6069bc5e0578ac97632c99e34e0a2b124257c9a248cecb94b1cce9",
       "node_token": "UjJhwyQ0xifABWky3YEcjDEenLb",
       "doc_token": "A8q0dx4e3ovr2ex01R4c5GKRnHb",
       "url": "",
-      "published_at": "2026-10-31T00:47:31Z",
-      "source_commit": "1c3aea4"
+      "published_at": "2026-10-31T02:36:02Z",
+      "source_commit": "587a7a1"
     },
     "附录B：索引.md": {
       "title": "附录 B：索引",
