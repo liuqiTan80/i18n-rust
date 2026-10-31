@@ -292,12 +292,12 @@
     },
     "附录D：rzc命令速查.md": {
       "title": "附录 D：rzc 命令速查",
-      "sha256": "913f044ad4d0b0e8883185212b823bf4114bea58fca59463440e2f11c335c622",
+      "sha256": "6845afb54f3d684652bf32881249034c2310cae339f85807fedf36e2b1d0d435",
       "node_token": "AlSDwiTcwiHG10kfD20cDIkXnRh",
       "doc_token": "JkRGdJh5BoMyanxjXgQcvOKCnBh",
       "url": "",
-      "published_at": "2026-10-31T00:47:31Z",
-      "source_commit": "1c3aea4"
+      "published_at": "2026-10-31T02:18:49Z",
+      "source_commit": "734ad2e"
     },
     "附录E：常见问题、迁移指南与学习路线.md": {
       "title": "附录 E：常见问题、迁移指南与学习路线",
