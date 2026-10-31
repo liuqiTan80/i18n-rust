@@ -116,6 +116,11 @@ jobs:
         # 防止章节漂移与锚点失效（新增章节只改基准、emoji 标题锚点回归等）
         run: python3 tools/check-readme-parity.py
 
+      - name: 编译教程验证工具 rzc
+        # 从验证步骤拆出：run #242 整步只剩「exit code 1」且匿名读不到日志，
+        # 拆步后哪条命令挂的直接在步骤名上可见
+        run: cargo build --quiet --bin rzc
+
       - name: 教程代码块验证（单块编译 + 上下文复验 + 输出展示复验 + 预期错误码断言，zh/en/ja/ru）
         # 逐个验证 tutorials/*.md 代码块：完整程序/片段须编译通过，
         # 错误示例须编译失败且实际错误码与 `// 预期错误: EXXXX` 标记一致；
@@ -125,13 +130,23 @@ jobs:
         # 「前文补全通过」低于 tools/ctx-baseline.json 下限即判红（口径见 tools/README.md）
         # `--outputs` 把「程序块 + 紧随其后的裸围栏运行结果」拿去 rzc run 复验，
         # 展示块与实际 stdout 逐行对齐；任何「输出不符」直接判红（口径见 tools/README.md）
+        # 失败判定时把判红明细写成 ::error:: annotation（Actions 日志需登录才能看，
+        # annotation 匿名 API 可读，外部排查通道依赖它；每语言最多 30 条防截断）
         run: |
-          cargo build --quiet --bin rzc
-          python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json --ctx --outputs
+          fail=0
+          run_verify() {
+            out=$(python3 tools/verify-tutorials.py "$@" 2>&1) || {
+              fail=1
+              echo "$out" | grep -E '🔴|❌|失败 [1-9][0-9]*$' | head -30 | sed -e 's/%/%25/g' -e 's|^|::error title=教程验证::|'
+              echo "$out"
+            }
+          }
+          run_verify --allowlist tools/expected-failures.json --ctx --outputs
           for lang in en ja ru; do
-            python3 tools/verify-tutorials.py --dir "tutorials/$lang" --lang "$lang" \
+            run_verify --dir "tutorials/$lang" --lang "$lang" \
               --allowlist tools/expected-failures.json --ctx --outputs
           done
+          exit $fail
 
       - name: 术语表与语言包一致性检查
         # 术语表「对应关键字/宏/方法/…」引用必须能在 zh 语言包找到对应键，
