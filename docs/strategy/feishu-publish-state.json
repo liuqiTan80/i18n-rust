@@ -58,12 +58,12 @@
     },
     "第二十一章：测试.md": {
       "title": "第二十一章：测试",
-      "sha256": "6fb326b8f4255c15ef050d1c9e776cc2783831019c78aad27b453333e0667008",
+      "sha256": "be80a64d80afd4c2e8eb88e11620f836cea18fac00555d904e02190b3130a3d9",
       "node_token": "CbQtwBBBwiXgbBkP8fFcjpp4nfg",
       "doc_token": "MMWhds1zEoKyr1xzDe7cCcK4nwb",
       "url": "",
-      "published_at": "2026-10-31T00:47:31Z",
-      "source_commit": "1c3aea4"
+      "published_at": "2026-10-31T02:12:31Z",
+      "source_commit": "769200f"
     },
     "第二十七章：基础算法与复杂度.md": {
       "title": "第二十七章：基础算法与复杂度（选读）",
@@ -121,12 +121,12 @@
     },
     "第二十章：并发与多线程.md": {
       "title": "第二十章：并发与多线程",
-      "sha256": "a9c92323744a287ddf8bd06fa98415afe730428bd14d2ae6ec6351aa162d77df",
+      "sha256": "d426f589edc1b0fe758562a474725d8f680ce6aa03b69abfc45a651ab41a7eed",
       "node_token": "ErUNwR5voigCTvka1bvcMtz6nVb",
       "doc_token": "IE1ldCtL0oLU3wxET3Hc9mT3npe",
       "url": "",
-      "published_at": "2026-10-31T00:47:31Z",
-      "source_commit": "1c3aea4"
+      "published_at": "2026-10-31T02:12:31Z",
+      "source_commit": "769200f"
     },
     "第二章：你好世界.md": {
       "title": "第二章：你好世界",
@@ -220,12 +220,12 @@
     },
     "第十八章：包管理与构建.md": {
       "title": "第十八章：包管理与构建",
-      "sha256": "1c15421f9dca5be63b8c1f6727fc1000348b41aed39231853108e1e716e0d95c",
+      "sha256": "a59dc6265583c88c9ecf90b7eae8b38d5ef5ea3368a0206476d1e5f7ae5293bd",
       "node_token": "Ij1TwNTtziwC8skxh2RcMfiLnQe",
       "doc_token": "ISVDdpGI2oNR0pxekxRcWRTInZk",
       "url": "",
-      "published_at": "2026-10-31T00:47:31Z",
-      "source_commit": "1c3aea4"
+      "published_at": "2026-10-31T02:12:31Z",
+      "source_commit": "769200f"
     },
     "第十六章：错误处理.md": {
       "title": "第十六章：错误处理",
