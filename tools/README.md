@@ -12,6 +12,7 @@
 | `ctx-baseline.json` | 上下文复验基线：白名单块补上前文后「前文补全通过」的**下限**（按语言分记，只增不减） | `--ctx --ctx-update` 上调；低于下限判红 |
 | `output-baseline.json` | 输出展示复验基线：各语言「对齐对数（输出一致 + 顺序无关一致）」的**下限**（只增不减） | `--outputs --outputs-update` 上调；低于下限或出现任何「输出不符」判红 |
 | `verify-glossary.py` | 术语表 ↔ zh 语言包一致性（术语表引用的词须能在语言包中找到） | `make glossary` |
+| `check-glossary-consistency.py` | 术语三方一致性门禁（总术语表↔附录B↔各章「本章术语表」）：六项 HARD——两表词条重复、见引用断链/自环、见链与目标章号不一致、两表同词章号冲突、总表/附录B 词条须字面出现在被引章正文、章表词必在总表（覆盖度，跳过错误码 `^E\d{4}$` 与「常见问题」）；豁免登记 `glossary-phantoms.json`；`--report` 打印两表差集 | `make glossary-consistency` |
 | `check-ui-keys.py` | ui.toml 键完备性（11 语言与 zh 对齐 + `{}` 占位符一致性） | `make ui-keys` |
 | `check-extension-ui-keys.py` | 扩展文案三方一致：`extension.ts` 消费的 `ext_` 键 = `gen-ui-strings.mjs` 白名单 = `src/generated/ui-strings.ts`，并校验生成物未陈落于 ui.toml；纯 Python，免 npm/node_modules | `make ext-ui-keys` |
 | `ui-keys-index.py` | 生成/校验 `docs/ui-keys.en.md`（界面消息键 → 消费点 + `{}` 实参表达式 + zh 原文）：索引陈旧或新增无调用点的死键即失败；动态取键前缀需在此显式登记 | `make ui-index` / `make ui-index-write` |

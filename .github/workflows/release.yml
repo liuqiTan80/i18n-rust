@@ -117,6 +117,9 @@ jobs:
         # 术语表引用必须能在 zh 语言包找到对应键（与 ci.yml 同源）
         run: python3 tools/verify-glossary.py
 
+      - name: 术语三方一致性门禁（六项 HARD，与 ci.yml 同源）
+        run: python3 tools/check-glossary-consistency.py
+
       - name: 版本一致性校验（三 crate == 扩展 == tag，CHANGELOG 有对应条目）
         run: |
           set -e

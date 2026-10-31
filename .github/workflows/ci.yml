@@ -138,6 +138,11 @@ jobs:
         # 防止教程索引与转译事实来源漂移（学习者按术语表写代码却无法转译）
         run: python3 tools/verify-glossary.py
 
+      - name: 术语三方一致性门禁（总术语表↔附录B↔章术语表，六项 HARD）
+        # 两表词条重复/见引用断链/两表同词章号冲突/总表与附录B字面命中被引章/
+        # 章表词必在总表（覆盖度）均为 HARD；豁免登记在 tools/glossary-phantoms.json
+        run: python3 tools/check-glossary-consistency.py
+
   # ---------- 1.5 Windows 门禁（补齐 ubuntu-only 的平台覆盖） ----------
   # `test` job 只在 ubuntu-latest 运行；Windows 专有的路径 / 可执行文件 /
   # 控制台编码缺陷（白名单反斜杠误报、找不到 rzc.exe、GBK 下 ✅ 崩溃）
@@ -189,6 +194,9 @@ jobs:
 
       - name: 术语表与语言包一致性检查
         run: python tools/verify-glossary.py
+
+      - name: 术语三方一致性门禁（六项 HARD，与 ubuntu 同源）
+        run: python tools/check-glossary-consistency.py
 
   # ---------- 2. MSRV 门禁（声明的最低 Rust 版本可编译） ----------
   msrv:

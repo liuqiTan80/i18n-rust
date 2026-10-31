@@ -12,7 +12,7 @@ CARGO ?= cargo
 PYTHON ?= python3
 NODE ?= node
 
-.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs readme-parity mapping-check tutorials tutorials-all site site-serve lib-index feishu feishu-check glossary bench bench-check bench-update vsix clean
+.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs readme-parity mapping-check tutorials tutorials-all site site-serve lib-index feishu feishu-check glossary glossary-consistency bench bench-check bench-update vsix clean
 
 help: ## 显示全部可用目标
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -31,7 +31,7 @@ test: ## 全部单元测试（debug + release，锁定依赖；CI 同款）
 	$(CARGO) test --workspace --locked
 	$(CARGO) test --workspace --release --locked
 
-gate: fmt-check clippy test prod-panics ui-keys ui-index ext-ui-keys lang-packs readme-parity mapping-check tutorials-all glossary ## 提交前完整门禁（= CI test job 全链）
+gate: fmt-check clippy test prod-panics ui-keys ui-index ext-ui-keys lang-packs readme-parity mapping-check tutorials-all glossary glossary-consistency ## 提交前完整门禁（= CI test job 全链）
 
 prod-panics: ## 生产代码 panic 面门禁（unwrap/expect/panic! 仅限测试区或白名单）
 	$(PYTHON) tools/check-prod-panics.py
@@ -86,6 +86,9 @@ feishu-check: ## 比对教程正文指纹与飞书发布状态（离线，不需
 
 glossary: ## 术语表与语言包一致性检查
 	$(PYTHON) tools/verify-glossary.py
+
+glossary-consistency: ## 术语三方一致性门禁（总表↔附录B↔章表，六项 HARD）
+	$(PYTHON) tools/check-glossary-consistency.py
 
 bench: ## 运行基准（engine 转译管线 + LSP 热路径，只出结果）
 	$(CARGO) bench -p i18n-rust-engine --bench transpile

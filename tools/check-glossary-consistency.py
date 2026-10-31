@@ -290,5 +290,13 @@ def main() -> int:
     return 0
 
 
+# Windows 控制台/管道默认 GBK：输出里的 ✅/❌ 无法编码会触发
+# UnicodeEncodeError，把「检查通过」变成崩溃（与 check-lang-packs.py 同源防护）
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(errors="replace")
+
+
 if __name__ == "__main__":
     sys.exit(main())
