@@ -22,12 +22,12 @@
     },
     "第一章：用好VS Code扩展.md": {
       "title": "第一章：用好 VS Code 扩展",
-      "sha256": "9ac6d83c67c7169b382e3383c6ed3eea1a817df4fd64a626187d66f056a4e885",
+      "sha256": "aabba92913e12439eb61845a7736d0b2fb6d9f48fe4c1c2cb971209ba35c1a68",
       "node_token": "OrkxwItIsi4CnLk3du7cOgkonfb",
       "doc_token": "WNNddK4FWolXZCxppx2czcoLnqh",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T03:21:14Z",
+      "source_commit": "ac7e2a1"
     },
     "第七章：所有权.md": {
       "title": "第七章：所有权",
