@@ -301,12 +301,12 @@
     },
     "附录E：常见问题、迁移指南与学习路线.md": {
       "title": "附录 E：常见问题、迁移指南与学习路线",
-      "sha256": "5a9882103e1f6e26c31c786c3e359c66e103e3f10db5be878f6179d0c3c73677",
+      "sha256": "ed9ba7669123ce8778aaf003fe6c33409a44d4111119225538e15fd0b77dd3e3",
       "node_token": "ZStcw48J9iwXklkRRSzc1454nEd",
       "doc_token": "U37odiGdco8DwUxlUTJcu5tXnUh",
       "url": "",
-      "published_at": "2026-10-31T00:47:31Z",
-      "source_commit": "1c3aea4"
+      "published_at": "2026-10-31T03:32:31Z",
+      "source_commit": "0c92e43"
     }
   }
 }
