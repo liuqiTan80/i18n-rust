@@ -59,12 +59,28 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: 运行单元测试（debug，锁定依赖）
-        run: cargo test --workspace --locked
+        # 失败时把关键日志转为 ::error:: 注解（annotations API 匿名可读，
+        # Actions 日志本身需登录；机制见 .github/scripts/cargo-test-annotations.sh）
+        run: |
+          set +e
+          cargo test --workspace --locked 2>&1 | tee cargo-test-debug.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            bash .github/scripts/cargo-test-annotations.sh cargo-test-debug.log ubuntu-unit-debug || true
+          fi
+          exit "$status"
 
       - name: 运行单元测试（release 优化）
         # release 模式下的测试此前从未运行，可暴露仅在优化下出现的
         # 数值/溢出/内联行为差异
-        run: cargo test --workspace --release --locked
+        run: |
+          set +e
+          cargo test --workspace --release --locked 2>&1 | tee cargo-test-release.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            bash .github/scripts/cargo-test-annotations.sh cargo-test-release.log ubuntu-unit-release || true
+          fi
+          exit "$status"
 
       - name: 运行 Clippy 代码质量检查（警告视为错误）
         run: cargo clippy --workspace --all-targets -- -D warnings
@@ -181,7 +197,14 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: 运行单元测试（debug，锁定依赖）
-        run: cargo test --workspace --locked
+        run: |
+          set +e
+          cargo test --workspace --locked 2>&1 | tee cargo-test.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            bash .github/scripts/cargo-test-annotations.sh cargo-test.log windows-unit-debug || true
+          fi
+          exit "$status"
 
       - name: 构建 rzc（供门禁脚本调用）
         run: cargo build --quiet --bin rzc
@@ -272,7 +295,14 @@ jobs:
         # 阈值 85 留约 1 个点余量吸收工具链计数漂移；e2e 驱动的 LSP
         # 协议主循环/诊断映射与引擎各模块 90%+ 为已覆盖主体，剩余为
         # CLI 网络安装/AI 映射生成等边界层（不做单测，经 e2e/手测覆盖）
-        run: cargo llvm-cov --workspace --fail-under-lines 85 --html -- --include-ignored
+        run: |
+          set +e
+          cargo llvm-cov --workspace --fail-under-lines 85 --html -- --include-ignored 2>&1 | tee cargo-test-cov.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            bash .github/scripts/cargo-test-annotations.sh cargo-test-cov.log coverage-gate || true
+          fi
+          exit "$status"
 
       - name: 上传覆盖率报告
         uses: actions/upload-artifact@v4
@@ -432,31 +462,75 @@ jobs:
 
       - name: 平台相关单测（Linux/Windows）
         if: matrix.os_name != 'macos'
-        run: cargo test --release -p rzc -p i18n-rust-lsp --locked
+        # shell: bash 保证 Windows 上用同一注解模板（job 默认 shell 是 pwsh）
+        shell: bash
+        run: |
+          set +e
+          cargo test --release -p rzc -p i18n-rust-lsp --locked 2>&1 | tee cargo-test.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            bash .github/scripts/cargo-test-annotations.sh cargo-test.log "unit-${{ matrix.os_name }}" || true
+          fi
+          exit "$status"
 
       # macOS 侧曾出现测试失败但无日志权限定位难；拆成模块级探针，
       # 失败时从步级结论即可定位到具体模块（探针间无状态依赖）。
       - name: 平台单测·探针0 编译测试二进制（macos）
         if: matrix.os_name == 'macos'
-        run: cargo test --release --locked -p rzc -p i18n-rust-lsp --no-run
+        run: |
+          set +e
+          cargo test --release --locked -p rzc -p i18n-rust-lsp --no-run 2>&1 | tee cargo-test-p0.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            bash .github/scripts/cargo-test-annotations.sh cargo-test-p0.log macos-probe0 || true
+          fi
+          exit "$status"
 
       - name: 平台单测·探针1 lsp analyzer 模块（macos）
         if: matrix.os_name == 'macos'
-        run: cargo test --release --locked -p i18n-rust-lsp -- analyzer
+        run: |
+          set +e
+          cargo test --release --locked -p i18n-rust-lsp -- analyzer 2>&1 | tee cargo-test-p1.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            bash .github/scripts/cargo-test-annotations.sh cargo-test-p1.log macos-probe1 || true
+          fi
+          exit "$status"
 
       - name: 平台单测·探针2 lsp 其余模块（macos）
         # lsp 为 bin-only crate（无 lib target）：不可加 --lib，否则报
         # “no library targets found” 假失败（此前诊断组即因此误报）
         if: matrix.os_name == 'macos'
-        run: cargo test --release --locked -p i18n-rust-lsp -- --skip analyzer
+        run: |
+          set +e
+          cargo test --release --locked -p i18n-rust-lsp -- --skip analyzer 2>&1 | tee cargo-test-p2.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            bash .github/scripts/cargo-test-annotations.sh cargo-test-p2.log macos-probe2 || true
+          fi
+          exit "$status"
 
       - name: 平台单测·探针3 rzc lang_manager 模块（macos）
         if: matrix.os_name == 'macos'
-        run: cargo test --release --locked -p rzc -- lang_manager
+        run: |
+          set +e
+          cargo test --release --locked -p rzc -- lang_manager 2>&1 | tee cargo-test-p3.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            bash .github/scripts/cargo-test-annotations.sh cargo-test-p3.log macos-probe3 || true
+          fi
+          exit "$status"
 
       - name: 平台单测·探针4 rzc 其余模块（macos）
         if: matrix.os_name == 'macos'
-        run: cargo test --release --locked -p rzc -- --skip lang_manager
+        run: |
+          set +e
+          cargo test --release --locked -p rzc -- --skip lang_manager 2>&1 | tee cargo-test-p4.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            bash .github/scripts/cargo-test-annotations.sh cargo-test-p4.log macos-probe4 || true
+          fi
+          exit "$status"
 
       - name: 上传二进制产物
         uses: actions/upload-artifact@v4
