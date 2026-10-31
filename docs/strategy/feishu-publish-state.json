@@ -274,12 +274,12 @@
     },
     "附录B：索引.md": {
       "title": "附录 B：索引",
-      "sha256": "67680d52b0dbfc016769e68ab7492b8ed93b1605987b5df42729d7f468d5f145",
+      "sha256": "0de8c77d6fbba0d34285fc1b8261b264d451085126772f7ed7f698b22d6b530c",
       "node_token": "SjvxwSZ0fiRErDkCKeDcIAuqnfg",
       "doc_token": "XZYKdffgTo33onxe7JWc5Zmbnyc",
       "url": "",
-      "published_at": "2026-10-31T04:54:57Z",
-      "source_commit": "07de75b"
+      "published_at": "2026-10-31T05:04:44Z",
+      "source_commit": "481dd8d"
     },
     "附录C：常见错误信息字典.md": {
       "title": "附录 C：常见错误信息字典",
