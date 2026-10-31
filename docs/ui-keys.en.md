@@ -700,8 +700,8 @@ no substitution at all.
 | `log_level_info` | 0 | `crates/engine/src/logger.rs:39` | — | 信息 |
 | `log_level_warn` | 0 | `crates/engine/src/logger.rs:40` | — | 警告 |
 | `log_transpile_cache_fallback` | 0 | `crates/cli/src/main.rs:2005` | — | 缓存转译失败，回退无缓存管线 |
-| `log_transpile_done` | 3 | `crates/engine/src/lib.rs:89` | &source.len().to_string() / &output.output.len().to_string() / &elapsed | 翻译完成（{} 字节 → {} 字节，耗时 {}） |
-| `log_transpile_start` | 1 | `crates/engine/src/lib.rs:70` | &source.len().to_string() | 开始翻译（{} 字节） |
+| `log_transpile_done` | 3 | `crates/engine/src/lib.rs:88` | &source.len().to_string() / &output.output.len().to_string() / &elapsed | 翻译完成（{} 字节 → {} 字节，耗时 {}） |
+| `log_transpile_start` | 1 | `crates/engine/src/lib.rs:69` | &source.len().to_string() | 开始翻译（{} 字节） |
 | `manifest_no_target` | 0 | `crates/cli/src/main.rs:1498` | — | Cargo.toml 没有声明编译目标，项目中也找不到 src/main.rs 或 src/lib.rs。请先在 src/main.rs 编写主程序，或在 Cargo.toml 中声明 [[bin]]/lib。 |
 | `manifest_parse_error` | 2 | `crates/cli/src/main.rs:1492` | &path.display().to_string() / &e.to_string() | Cargo.toml 解析失败：{}（{}） |
 | `no_available_ext` | 0 | `crates/cli/src/main.rs:2691` | — | 无 |
