@@ -4,21 +4,21 @@
   "chapters": {
     "开篇：这本书怎么用.md": {
       "title": "开篇：这本书怎么用",
-      "sha256": "8462f46b2db6a21064804f4dbd021c5c7c6de4ca5239180f32d05499850e54bd",
+      "sha256": "6d9093f9cc3a9ca384155d93c85ee7b8dd41775707788ab318b5c2e8b1ce0330",
       "node_token": "MPGFwrEKpi9wEbkobZ2c012UnXc",
       "doc_token": "R1OIdjmE9oEGXsxBLFqc5dGQnth",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "总术语表.md": {
       "title": "总术语表",
-      "sha256": "1988e0376f2b8bc5df4fcaaeb7fc8e0dd0ec626ef277e5909042d96e365fbe78",
+      "sha256": "13cc98115ac2cabab94e56c8a0033cc95b2e74e7663ba4c3e702f370edb791e4",
       "node_token": "T3VhwvrCFiCAXekwAmjc6xZAn6b",
       "doc_token": "EIj3dCxwbojBUrxrLn9cj8MEnrb",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第一章：用好VS Code扩展.md": {
       "title": "第一章：用好 VS Code 扩展",
@@ -31,21 +31,21 @@
     },
     "第七章：所有权.md": {
       "title": "第七章：所有权",
-      "sha256": "2cdd4c357a20a4380469030bac0ea78787c426c80e42cfe698a94b5ebf57266f",
+      "sha256": "252300e3596ae62b87ceb5d7c9c7845e19d5a430146046c39484e4b6cc71bcd5",
       "node_token": "WyWPwlKMGiwdysk2C3Hc6DfVnbf",
       "doc_token": "ZgAVdCrjQo6xXPxGJF5cY4tbnEe",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第三章：变量与类型.md": {
       "title": "第三章：变量与类型",
-      "sha256": "89dbf56efaf43710054880a93600e2036a790fad7caec8dd402dea82499e07b5",
+      "sha256": "83caf214302e31df75bd2ea34ad3ce662e1d207f2355950974ad0b0f109dd3a4",
       "node_token": "AZskwFFDyiTvIIk8Yg0cyGdKnph",
       "doc_token": "Wx78dVmOUou9ZKxKS9kc2bv6nZc",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第九章：字符串与文本.md": {
       "title": "第九章：字符串与文本",
@@ -58,75 +58,84 @@
     },
     "第二十一章：测试.md": {
       "title": "第二十一章：测试",
-      "sha256": "2f920d17f1a28b358a70d8d079cee7d73c319ae45562e552df816bb54b123020",
+      "sha256": "6fb326b8f4255c15ef050d1c9e776cc2783831019c78aad27b453333e0667008",
       "node_token": "CbQtwBBBwiXgbBkP8fFcjpp4nfg",
       "doc_token": "MMWhds1zEoKyr1xzDe7cCcK4nwb",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
+    },
+    "第二十七章：基础算法与复杂度.md": {
+      "title": "第二十七章：基础算法与复杂度（选读）",
+      "sha256": "1b30f75278ca1c5dfc3ca7660dd3a00b5b50ee4d23a1ac76d3398c520a5b306c",
+      "node_token": "UJFewePJ0i540Fkaa95cyRqcnPb",
+      "doc_token": "J0CMdwxm9oevkmxD8Aec2PtOnWe",
+      "url": "https://my.feishu.cn/docx/J0CMdwxm9oevkmxD8Aec2PtOnWe",
+      "published_at": "2026-10-31T00:47:15Z",
+      "source_commit": "1c3aea4"
     },
     "第二十三章：宏与元编程.md": {
       "title": "第二十三章：宏与元编程",
-      "sha256": "9c1c0fda22231383b75b855c777aad992b21f135a5d59565d966bc38f36be685",
+      "sha256": "f47048d015c829b67edb9df935194e8dfeadc237c9aa9317b9af49030cfe24c2",
       "node_token": "DGZIwPZhGi4TEjkWOtbc6gjXnth",
       "doc_token": "FTKCdXglWoZBrrxXxvkcPjPSnYf",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第二十二章：闭包与迭代器.md": {
       "title": "第二十二章：闭包与迭代器",
-      "sha256": "b6a7655a269925dfe6553fd20b49adfade5e63c94d20107a88030b782d091d41",
+      "sha256": "8df3bd230cbbebc8f08267311673ade4debe543a5b60f07ddba8058867760c7d",
       "node_token": "SjPHwghlHiV2bpk8janc4I89n9c",
       "doc_token": "A4m6dzYzPoSwX3xS8GUc5zwKn9d",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第二十五章：综合实战.md": {
       "title": "第二十五章：综合实战",
-      "sha256": "ddde8aa08db91d6469f0531bc66fc416701622212613f524dbd025cba96567e0",
+      "sha256": "c96673440e56d36dadb3b668be72b8f1799c83e475331e16b6b392d15233c0f0",
       "node_token": "Tvyvw0cWoiRPNGkWPeZc5MmWnog",
       "doc_token": "JsWXd7qClo6Te8x7NvocrCeWnMs",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第二十六章：不安全Rust与FFI.md": {
       "title": "第二十六章：不安全 Rust 与 FFI",
-      "sha256": "bf311ee18644366389fdbfde08fca54771d0caee9e68fef2ca728619c9ace5eb",
+      "sha256": "fb7b76bf0f8d5cee65d11c4672010fe24f43ba8a3e4b11683ea05d13f0c8894b",
       "node_token": "NUDYwg1asiUKS9kgO5FcyJdinHv",
       "doc_token": "OFAWdbWv0oap8rxKnzqcZ8FOnWb",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第二十四章：异步编程.md": {
       "title": "第二十四章：异步编程",
-      "sha256": "b6f936ab9b66d253893ef68e6c9289c895639e21e1eb2c5f7f648f25deeb2db3",
+      "sha256": "27fe7a684514fd164779bc06c7c387566cd7818187f96059b43850ac0c22e5fe",
       "node_token": "HQcuwRVGZiiw5RkaZ2rcJSE2nQt",
       "doc_token": "FVGGdVlHxopqBexEJAwcCiVRnHb",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第二十章：并发与多线程.md": {
       "title": "第二十章：并发与多线程",
-      "sha256": "050afbe6f6e8932472edae9d492c679b8ad1993a16c4451a90989889412d0aa2",
+      "sha256": "a9c92323744a287ddf8bd06fa98415afe730428bd14d2ae6ec6351aa162d77df",
       "node_token": "ErUNwR5voigCTvka1bvcMtz6nVb",
       "doc_token": "IE1ldCtL0oLU3wxET3Hc9mT3npe",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第二章：你好世界.md": {
       "title": "第二章：你好世界",
-      "sha256": "ffafb16fd648f7d6be4f5b116ef4d14a8662c0c5239232cfb1095d589bcac800",
+      "sha256": "f557929ca1a895e449da684da8efdbfbc270511a78ff922f4232df6fd8898dde",
       "node_token": "WqHYwwsbviRsclkYnpRcY0DNnHf",
       "doc_token": "J77FdcoaIolu5Ax5CozcVtZ4nHg",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第五章：控制流.md": {
       "title": "第五章：控制流",
@@ -139,165 +148,165 @@
     },
     "第八章：引用与借用.md": {
       "title": "第八章：引用与借用",
-      "sha256": "31434e2b7f1d02dd21725d9aa3cc9648fe813e160136b6f6db6a89164df40fd8",
+      "sha256": "90d375c2dfdedd03f261a48c454de84d25124a4700462f0c30c9ccc6c9f8c19b",
       "node_token": "QCoJwIrGri7H7tk6XyJcVlYAnMf",
       "doc_token": "KhhMdaYG5obBIExlbQDcgWGPnyb",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第六章：函数与方法.md": {
       "title": "第六章：函数与方法",
-      "sha256": "87e7c6895afe1195a47d9efdc48a8cd3ced9caea1c5492e3e1544b6de30f3c58",
+      "sha256": "0c4f9cb25b236ee6aee935d1df211c39603f53177f30dba4859bf8c14becc81b",
       "node_token": "YA0FwEPPFiqiIHkYiKOc6hW1nkT",
       "doc_token": "Z6U0dhsTgoKYfKx2ndycpCTInUg",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第十一章：枚举与模式匹配.md": {
       "title": "第十一章：枚举与模式匹配",
-      "sha256": "91220b34dc29d4b307775041e5ee4b1180101093834f6d4fa20f8ef47628f335",
+      "sha256": "c421b9420f97cab95a6d6d46cc6256f271a02ca569d5a78658b60975e4362da9",
       "node_token": "Jo5EwOFMsicVL0klX4Ecswjnnlg",
       "doc_token": "OyqsdEZcsoPu02xcACicnIbZnRf",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第十七章：模块系统.md": {
       "title": "第十七章：模块系统",
-      "sha256": "4719730444d48fcebb2a62e5beca3eccb8508783ac51eafc6dfc5e56de4bfdd7",
+      "sha256": "cff5bac8e7247143403eec013c61eda2d401fa169bc06c30f9dc8b1477aef8ae",
       "node_token": "EOXHwl6A7indNWky9zucu8cUnwc",
       "doc_token": "XZBAdjjXeo8SUCxjXBGcJ9AAnWc",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第十三章：特征.md": {
       "title": "第十三章：特征",
-      "sha256": "b658cad794e66d80f0475a15b003e3f45523c5a14cd52ecdefb69a85e05f45dd",
+      "sha256": "fb45fd367558cc5204fc6fa245eb3445c50f2e04d53f8930c35b4acaefe04483",
       "node_token": "AU7XwFdKtimXBmk8bkWcoRNznNd",
       "doc_token": "QFiudlF5fol0yzxrIGOcVjM5nUd",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第十九章：智能指针.md": {
       "title": "第十九章：智能指针",
-      "sha256": "c03312d8407b0af4cc128a7db5afbdf9849600963ad2dd07d3299d30dd2f0fc8",
+      "sha256": "f2209db55ecaeb69b1947bc4bf4ea1a7f6132e1ecd2d328bd6b1004060ac3a25",
       "node_token": "ZJbXwHeiiiEcFCklC4scRL06nsb",
       "doc_token": "Q09cd0bLfoMVi0x0XfNcuCyWnOg",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第十二章：泛型.md": {
       "title": "第十二章：泛型",
-      "sha256": "3ee52f244fee3555588f142a7269643e777e7c7331392cba72de7cf15c5920fe",
+      "sha256": "57ce4ea6856651bf0e492752c9debafe73df79f3a851391bc605690cecaece51",
       "node_token": "J3oMwX2AZivDL2k8EyecLqgDnDf",
       "doc_token": "OLNydf6BioLuk9xFEZmcrPgfnLf",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第十五章：集合类型.md": {
       "title": "第十五章：集合类型",
-      "sha256": "116ace70507b6274d86e7f40c6c21c4c64ff0fb70890430c82fdc97b6d5d4d67",
+      "sha256": "e979ce24c529dd13567104445c20c0630946803c41722b4c716821a9fff8dcc1",
       "node_token": "C7w6wxo04i9SJTk3G7bcM54Sneb",
       "doc_token": "Mkq6dgevnokFO3xXfVncjrcvnRf",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第十八章：包管理与构建.md": {
       "title": "第十八章：包管理与构建",
-      "sha256": "67621d2b46a012144fdd89c2e227c53935386393246f069ea788a0982a9e7372",
+      "sha256": "1c15421f9dca5be63b8c1f6727fc1000348b41aed39231853108e1e716e0d95c",
       "node_token": "Ij1TwNTtziwC8skxh2RcMfiLnQe",
       "doc_token": "ISVDdpGI2oNR0pxekxRcWRTInZk",
       "url": "",
-      "published_at": "2026-10-29T10:45:53Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第十六章：错误处理.md": {
       "title": "第十六章：错误处理",
-      "sha256": "9a2ab3718f922002bf1e0d1ca0284fcd4c55ed30c809749946336bb54ffdd8ef",
+      "sha256": "0d82a80c3e4ee67628b1378e2a3c8db852fe42f4726972566a08b0f7405f9edb",
       "node_token": "Ihpawh16QieMrUkx6yqcyPzynmg",
       "doc_token": "ZkvNd4BOeoXdGOxZaCqcMSjGnph",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第十四章：生命周期.md": {
       "title": "第十四章：生命周期",
-      "sha256": "e90642da80fcf4ad83ce5117205dea5c36045f1594cc41ddd8aa82d068e44835",
+      "sha256": "471c42779461a8fe046b08f416f9e13c65821fd3c072a9c1269fe8b129923473",
       "node_token": "KVrNwDXo2iifLyk3Zo0c49VYnHg",
       "doc_token": "RIyNdQ1nYoAbMJxN5z1cRI3Ln9g",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第十章：结构体.md": {
       "title": "第十章：结构体",
-      "sha256": "5ca0d385a351a41295ea65d5329692f70764def1a3b84e87d697ff45ed177835",
+      "sha256": "bf73500a6cf858437577193d6909ba61d0ea26cbe111bad97f808ca1e5eebf97",
       "node_token": "Jk4TwBs5EiQq3ukeN7HcuGXLnbg",
       "doc_token": "KVDUdgD6sod3jkxpTzycOHRpnGh",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "第四章：复合类型.md": {
       "title": "第四章：复合类型",
-      "sha256": "c35ebfbe92a290654df82de94b5e23de87ea9f94f2af610ac2033e220f86598c",
+      "sha256": "bc7d24d52d5d163f3b5c9647d029ddcda2a9247bc7a353d24f23ab8b472bf05f",
       "node_token": "My0xwy88fi5ojVkwWMXcvTOinob",
       "doc_token": "Tf7odZ5wTouNJcxH8eScD3j5nod",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "附录A：映射表参考.md": {
       "title": "附录 A：映射表参考",
-      "sha256": "3b69797a1fa600a75d371def02d0285514910ea1eaa33aeafbb7280129e4c9ed",
+      "sha256": "413323453c274bbe4883457fb7d63277ecca3f8c28d48efb20f99df3ddaf5d60",
       "node_token": "UjJhwyQ0xifABWky3YEcjDEenLb",
       "doc_token": "A8q0dx4e3ovr2ex01R4c5GKRnHb",
       "url": "",
-      "published_at": "2026-10-29T10:59:17Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "附录B：索引.md": {
       "title": "附录 B：索引",
-      "sha256": "577a594fb32db4c52fc82991b077d674d1f1c7e20b22bea048e1b8c26130f50c",
+      "sha256": "a8bac495e2fe8184e851d44d452df23ef44872b57722e65b16e9532142b3ee5f",
       "node_token": "SjvxwSZ0fiRErDkCKeDcIAuqnfg",
       "doc_token": "XZYKdffgTo33onxe7JWc5Zmbnyc",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "附录C：常见错误信息字典.md": {
       "title": "附录 C：常见错误信息字典",
-      "sha256": "5f5390cf0b6cf72f9e987ef25893792c20f66a65e51ede4c479c8bc85b765a4f",
+      "sha256": "6f8da8a652398e301f4a8168186474602d226a89f6f112ad8b2375fae2c75ecc",
       "node_token": "LAKNwes3Fi1bQTk3kA1cqMFgnQ4",
       "doc_token": "Cl8Hd1ap4oFsh8x9KCpcsh8qn4d",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "附录D：rzc命令速查.md": {
       "title": "附录 D：rzc 命令速查",
-      "sha256": "742feff124a454551165d1ed25dbc3325d89538b632ac3dde2e2e4d2a49c6e06",
+      "sha256": "913f044ad4d0b0e8883185212b823bf4114bea58fca59463440e2f11c335c622",
       "node_token": "AlSDwiTcwiHG10kfD20cDIkXnRh",
       "doc_token": "JkRGdJh5BoMyanxjXgQcvOKCnBh",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     },
     "附录E：常见问题、迁移指南与学习路线.md": {
       "title": "附录 E：常见问题、迁移指南与学习路线",
-      "sha256": "fbabba2324a5986131fe82909bf34d64180a58b30431b0324b36dc65f38077e9",
+      "sha256": "5a9882103e1f6e26c31c786c3e359c66e103e3f10db5be878f6179d0c3c73677",
       "node_token": "ZStcw48J9iwXklkRRSzc1454nEd",
       "doc_token": "U37odiGdco8DwUxlUTJcu5tXnUh",
       "url": "",
-      "published_at": "2026-10-29T10:59:39Z",
-      "source_commit": "1f333c6"
+      "published_at": "2026-10-31T00:47:31Z",
+      "source_commit": "1c3aea4"
     }
   }
 }
