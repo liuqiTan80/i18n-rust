@@ -8,12 +8,15 @@
 
 | 命令 | 作用 | 例子 |
 |---|---|---|
-| `rzc init 名字` | 新建中文项目（生成 Cargo.toml + main.zh） | `rzc init 我的项目` |
-| `rzc run 文件.zh` | 转译 + 编译 + 运行 | `rzc run src/main.zh` |
-| `rzc check 文件.zh` | 只检查，不生成可执行文件（更快） | `rzc check src/main.zh` |
+| `rzc init 名字` | 新建方言项目（Cargo.toml、src/main.zh、.gitignore、README.md、rust-toolchain.toml）；加 `--ai` 还会在项目里生成 AGENTS.md | `rzc init 我的项目` |
+| `rzc run src/main.zh` | 转译 + 编译 + 运行；只跑项目入口——传非入口文件会明确拒收并告诉你改用 `cargo run --bin <名称>` | `rzc run src/main.zh` |
+| `rzc check 文件.zh` | 只做校验、不出可执行二进制（更快）。注意它校验的是**从入口连得起来的项目**：入口无关、也从未进过编译树的文件会被放过去，别把它的「✅」当成全项目干净；`--fix` 顺手把源文件里的全角标点改成半角 | `rzc check src/main.zh` |
 | `rzc eject 文件.zh [更多目标…]` | 导出为标准 Rust（生成 .rs）；可一次传多个文件/目录，逐项导出并汇总成功与失败 | `rzc eject src/main.zh src/工具.zh` |
-| `rzc transpile 文件.zh` | 只转译不编译，标准 Rust 输出到屏幕 | `rzc transpile src/main.zh` |
+| `rzc transpile 文件.zh` | 只转译不编译，标准 Rust 输出到屏幕；只接**单个文件**（传目录会拒收并指向 `rzc eject <目录>`） | `rzc transpile src/main.zh` |
 | `rzc cheat 语言` | 母语 ↔ Rust 映射速查表（带危险等级与备注，`--markdown` 可嵌入文档） | `rzc cheat zh --markdown` |
+| `rzc guide` | 生成母语编程指南（全量词条表 + 书写规则）；`-o AGENTS.md` 落盘，给 AI 助手当说明书 | `rzc guide --lang zh -o AGENTS.md` |
+| `rzc gaps` | 查看/导出未翻译消息清单（英文残留），语言包译者补译用；`--export 路径` 出 TSV | `rzc gaps --lang zh` |
+| `rzc relocalize --to 语言` | 跨母语阅读：把方言 / 标准 Rust 工程反译重生为目标方言（默认输出到源工程旁的 `relocalized.<语言>`） | `rzc relocalize --to ja` |
 | `rzc lang list` | 列出已安装的语言包（内置 + 用户装的） | |
 | `rzc lang search [关键词]` | 浏览远程语言包市场 | `rzc lang search` |
 | `rzc lang install 语言` | 安装语言包（语言代码从远程下载，目录路径直接复制） | `rzc lang install ja` |
@@ -34,6 +37,8 @@
 | `rzc doctor` | 诊断工具链环境（内置 / PATH / 版本对比）、语言包遮蔽；在项目里还自检 Cargo 读不读得到入口产物 | |
 | `rzc --version` | 查看版本 | |
 
+所有子命令都认全局选项 `--no-lint`：关掉教学风格提示（Unicode 混淆与全角标点告警不受它影响）。
+
 ### 日常流水线
 
 ```bash
@@ -47,8 +52,9 @@ cargo build --release            # 发布优化版（第十八章）
 
 ### 看编译报错时去哪行找
 
-- 用 `rzc run` / `rzc check` / `rzc transpile` 编译：报错直接给**母语文件行列**
-  （`main.zh:3:15`），不用反查；
+- 用 `rzc run` / `rzc check` 编译：报错直接给**母语文件行列**（`main.zh:3:15`），不用反查
+  ——行列指向的是入口文件；`rzc transpile` **不做任何校验**（实测：错文件也照常吐出译文），
+  想看坐标校验结果请用 `rzc check`；
 - 用 `rzc eject` 导出后裸跑 `cargo build`：转译是词条级替换、不重排版，
   **行号与 `.zh` 一一对应**（列号会随词条长短偏移）——按行号回原文件即可；
   需要精确列号时改用 `rzc check 原文件.zh`。
@@ -84,7 +90,7 @@ cargo build --release            # 发布优化版（第十八章）
 | 安装语言包 (langInstall) | 装社区语言包 | |
 | 添加依赖 (cargoAdd) | 图形化加库 | |
 
-编辑器右键 `.zh` 文件也能看到运行/检查/导出菜单。扩展的 20 个代码片段清单见第二章 2.5 节。
+编辑器右键 `.zh` 文件也能看到运行/检查/导出菜单。扩展内置 20 个代码片段，清单见第一章 1.6 节。
 
 ---
 
