@@ -795,9 +795,13 @@ fn extract_zip(archive_path: &Path, extract_dir: &Path) -> anyhow::Result<()> {
                 crate::ui::Ui::global().f("lc_err_read_zip_entry", &[&e.to_string()])
             )
         })?;
-        let name = entry.name();
+        // zip 9 起条目名解码可能失败（非 UTF-8/无效编码），失败条目跳过；
+        // 取 owned 形态以免与下方 `&mut entry` 的拷贝借用冲突
+        let Ok(name) = entry.name().map(|name| name.into_owned()) else {
+            continue;
+        };
         // 条目名安全校验：拒绝绝对路径、盘符前缀与 `..` 上跳（详见函数文档）
-        let Some(target) = safe_zip_entry_path(name).map(|rel| extract_dir.join(rel)) else {
+        let Some(target) = safe_zip_entry_path(&name).map(|rel| extract_dir.join(rel)) else {
             continue;
         };
         if entry.is_dir() {
@@ -1579,7 +1583,7 @@ pub(crate) mod tests {
         use std::io::Write as _;
         use zip::write::FileOptions;
         let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
-        let opts: FileOptions<'_, ()> =
+        let opts: FileOptions<'_, '_, ()> =
             FileOptions::default().compression_method(zip::CompressionMethod::Stored);
         writer
             .start_file(format!("{top_dir}/{lang_code}/keywords.toml"), opts)

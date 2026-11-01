@@ -610,7 +610,9 @@ fn keyword_value_sets(content: &str) -> (HashSet<String>, HashSet<String>) {
 
 /// 提取 errors.toml 的错误码节集合（如 E0425）与消息翻译键集合
 fn error_components(content: &str) -> (HashSet<String>, HashSet<String>) {
-    let Ok(value) = content.parse::<toml::Value>() else {
+    // toml 1.x 的 `Value::from_str` 解析的是「单个值」而非「整个文档」，
+    // 这里必须走文档解析入口，否则会静默退化为空集合
+    let Ok(value) = toml::from_str::<toml::Value>(content) else {
         return (HashSet::new(), HashSet::new());
     };
     let Some(table) = value.as_table() else {
@@ -1953,8 +1955,24 @@ mod tests {
 
     /// 报告渲染三分支：干净通过 / 仅警告通过 / 错误失败；
     /// render_issue 对无参数 code 与未知 code 均不 panic
+    ///
+    /// `print_report` 三调用只验证「不 panic」（输出到 stdout，本单元不做捕获），
+    /// 真正的不变量在 `render_issue` 的 code→模板链路上，逐条钉住。
     #[test]
     fn test_print_report_all_branches() {
+        // render_issue 走 `Ui::global()`，语言取自环境变量：这里持环境锁并钉住
+        // RZ_LANG=zh，免得用户目录里的 ui.toml 或 CI 预设的 en 让结果时好时坏
+        // （同一手法参照 `doc_json::test_nonexistent_crate_error`）。
+        let _lock = crate::lang_manager::tests::env_lock();
+        let _env = crate::lang_manager::tests::EnvRestore::take(&[
+            "RZ_LANG",
+            "LC_ALL",
+            "LC_MESSAGES",
+            "LANG",
+        ]);
+        // Rust 2024：进程级环境变量写入为 unsafe，由上面的 env_lock 串行化
+        unsafe { std::env::set_var("RZ_LANG", "zh") };
+
         let clean = CheckReport::default();
         print_report("zh", &clean);
         let mut warns_only = CheckReport::default();
@@ -1970,10 +1988,24 @@ mod tests {
             .warnings
             .push("mc_stdlib_shadow|a.toml|键|a|b".to_string());
         print_report("zh", &failed);
-        // 无 `|` 参数的 code：整串作为 code 查模板
-        let _ = render_issue("mc_ok");
-        // 未知 code：回退键本身，不 panic
-        let _ = render_issue("not_a_real_code|x");
+
+        // 以下断言只看「结构」，不比对译文文字：界面文案随 RZ_LANG/系统语言变化，
+        // 钉死中文串会让用例在别的 locale 下随机红。
+        // 无 `|` 参数：整串作为 code 查模板，命中时必须拿到译文而不是键名
+        assert_ne!(render_issue("mc_ok"), "mc_ok", "mc_ok 应有界面模板");
+        assert!(!render_issue("mc_ok").is_empty(), "模板不得渲染成空串");
+        // 带参数：`|` 后的各段要真的进到渲染结果里，否则等于参数被默默丢掉
+        let with_arg = render_issue("mc_ok_with_warnings|3");
+        assert_ne!(with_arg, "mc_ok_with_warnings", "应有模板而非回退键名");
+        assert!(with_arg.contains("3"), "警告数未注入模板：{with_arg:?}");
+        let shadow = render_issue("mc_stdlib_shadow|a.toml|键|a|b");
+        for arg in ["a.toml", "键", "a", "b"] {
+            assert!(shadow.contains(arg), "参数 {arg:?} 被丢弃：{shadow:?}");
+        }
+        // 未知 code：回退键本身（既不 panic，也不渲染成空串吞掉整行）
+        assert_eq!(render_issue("not_a_real_code|x"), "not_a_real_code");
+        // 空串：不 panic，按模板回退链返回空（split 的首段就是整串）
+        assert_eq!(render_issue(""), "");
     }
 
     /// scaffold：首次写入并带目标语 TODO 注释（英文值保留）；重跑跳过已存在文件

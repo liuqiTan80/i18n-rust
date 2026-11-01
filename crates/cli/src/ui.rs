@@ -12,29 +12,38 @@
 //! 语言选择优先级：
 //! RZ_LANG 环境变量 > 系统语言（LANG/LC_ALL） > zh
 
-use std::collections::HashMap;
 use std::path::Path;
 
-/// 界面消息表：语言代码 + 消息模板
+use i18n_rust_engine::ui::UiTable;
+use i18n_rust_engine::语言::builtin_message_table;
+
+/// 界面消息表
+///
+/// 磁盘覆盖命中时持有解析结果；否则只记语言代码、查询时按引用直取引擎
+/// 内置静态表，避免每次 [`Ui::global`] 都重新解析一遍 ui.toml（调用点上百处）。
+/// 语言选择仍是「每次调用重算」：环境变量变化后 `global()` 立即切换。
 pub struct Ui {
-    /// 消息模板（键 → 含 `{}` 占位符的模板）
-    messages: HashMap<String, String>,
+    /// 落盘命中的自定义表（项目内 / 全局 / 显式目录）
+    custom: Option<UiTable>,
+    /// 内置回退语言代码（`custom` 为 `None` 时生效，未知代码由引擎路由回中文）
+    lang: String,
 }
 
 impl Ui {
-    /// 从 TOML 内容构造消息表（["界面消息"] 节）
-    fn from_str(content: &str) -> Self {
-        let mut messages = HashMap::new();
-        if let Ok(value) = toml::from_str::<toml::Value>(content)
-            && let Some(table) = value.get("界面消息").and_then(|v| v.as_table())
-        {
-            for (key, val) in table {
-                if let Some(text) = val.as_str() {
-                    messages.insert(key.clone(), text.to_string());
-                }
-            }
+    /// 用已读入的 ui.toml 内容构造自定义表
+    fn from_content(content: String, lang_code: &str) -> Self {
+        Self {
+            custom: Some(UiTable::parse(&content)),
+            lang: lang_code.to_string(),
         }
-        Ui { messages }
+    }
+
+    /// 内置表路径：只记语言代码，查询时按引用直取引擎静态表
+    fn builtin(lang_code: &str) -> Self {
+        Self {
+            custom: None,
+            lang: lang_code.to_string(),
+        }
     }
 
     /// 加载指定语言的界面消息（项目内 > 全局 > 内置）
@@ -47,7 +56,7 @@ impl Ui {
         if local.is_file()
             && let Ok(content) = std::fs::read_to_string(&local)
         {
-            return Self::from_str(&content);
+            return Self::from_content(content, lang_code);
         }
         // 2. 全局用户语言包目录
         let global = crate::lang_manager::global_lang_dir()
@@ -56,74 +65,46 @@ impl Ui {
         if global.is_file()
             && let Ok(content) = std::fs::read_to_string(&global)
         {
-            return Self::from_str(&content);
+            return Self::from_content(content, lang_code);
         }
-        // 3. 内置语言包（未知语言代码自动回退中文）
-        let builtin = crate::builtin_lang::get_builtin_data(lang_code);
-        Self::from_str(builtin.ui_toml)
+        // 3. 内置语言包：只记语言代码，查询时按引用直取引擎静态表
+        Self::builtin(lang_code)
     }
 
     /// 加载 --lang-pack 显式指定目录的界面消息
     ///
     /// 目录含 ui.toml 时直接使用；否则按目录名回退常规加载链。
     pub fn for_explicit_dir(path: &Path) -> Self {
-        let lang_code = path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("zh")
-            .to_string();
+        let lang_code = path.file_name().and_then(|s| s.to_str()).unwrap_or("zh");
         let ui_file = path.join("ui.toml");
         if ui_file.is_file()
             && let Ok(content) = std::fs::read_to_string(&ui_file)
         {
-            return Self::from_str(&content);
+            return Self::from_content(content, lang_code);
         }
-        Self::for_lang(&lang_code)
+        Self::for_lang(lang_code)
     }
 
     /// 全局界面消息：用于 clap 帮助等无文件上下文的场景
     ///
-    /// 每次调用重新解析（模板仅 60 余键，开销可忽略），
-    /// 避免全局缓存导致环境变量变化后语言不切换。
+    /// 每次调用重算语言与磁盘覆盖，避免全局缓存导致环境变量变化后语言不切换；
+    /// 内置表按引用直取，不重复解析 TOML。
     pub fn global() -> Self {
         Self::for_lang(&detect_ui_lang())
     }
 
-    /// 取消息模板（缺失时回退键名本身，便于定位遗漏）
+    /// 取消息模板：自定义表 → 内置中文表 → 键名本身
     pub fn t(&self, key: &str) -> String {
-        self.messages
-            .get(key)
-            .cloned()
-            .unwrap_or_else(|| key.to_string())
+        match &self.custom {
+            Some(table) => table.t(key),
+            None => i18n_rust_engine::ui::lookup(builtin_message_table(&self.lang), key),
+        }
     }
 
     /// 取消息模板并替换 `{}` 占位符（按出现顺序）
     pub fn f(&self, key: &str, args: &[&str]) -> String {
-        substitute(&self.t(key), args)
+        i18n_rust_engine::ui::substitute(&self.t(key), args)
     }
-}
-
-/// 按出现顺序把 `{}` 替换为参数；参数多于占位符时忽略多余参数，
-/// 参数不足时保留未替换的 `{}`（模板兜底，避免 panic）。
-fn substitute(template: &str, args: &[&str]) -> String {
-    let mut result = String::with_capacity(template.len());
-    let mut remaining = template;
-    for arg in args {
-        match remaining.find("{}") {
-            Some(pos) => {
-                result.push_str(&remaining[..pos]);
-                result.push_str(arg);
-                remaining = &remaining[pos + 2..];
-            }
-            None => {
-                // 占位符已耗尽：剩余模板原样保留
-                result.push_str(remaining);
-                return result;
-            }
-        }
-    }
-    result.push_str(remaining);
-    result
 }
 
 /// 界面语言选择：RZ_LANG 环境变量 > 系统语言 > zh
@@ -225,24 +206,12 @@ pub fn parse_lang_choice(input: &str, codes: &[String], default: &str) -> Option
 mod tests {
     use super::*;
 
+    /// 占位符替换走向引擎统一实现（顺序填充、多余参数忽略、缺参保留）
     #[test]
-    fn test_substitute_ordered() {
-        assert_eq!(substitute("已导出到 {}", &["a.rs"]), "已导出到 a.rs");
-        assert_eq!(
-            substitute("项目根: {}，错误: {}", &["/p", "boom"]),
-            "项目根: /p，错误: boom"
-        );
-    }
-
-    #[test]
-    fn test_substitute_extra_args_ignored() {
-        assert_eq!(substitute("只有 {}", &["a", "b"]), "只有 a");
-    }
-
-    #[test]
-    fn test_substitute_missing_args_kept() {
-        assert_eq!(substitute("{} 和 {}", &["a"]), "a 和 {}");
-        assert_eq!(substitute("无占位符", &[]), "无占位符");
+    fn test_f_substitutes_placeholders() {
+        let ui = Ui::for_lang("zh");
+        assert_eq!(ui.f("err_line_col", &["3", "7"]), "第 3 行第 7 列");
+        assert_eq!(ui.f("cli_about", &[]), ui.t("cli_about"));
     }
 
     #[test]
@@ -257,8 +226,12 @@ mod tests {
     fn test_for_lang_all_builtin_have_ui() {
         for code in crate::builtin_lang::builtin_lang_codes() {
             let ui = Ui::for_lang(code);
-            assert!(!ui.messages.is_empty(), "{code} 的 ui 消息为空");
-            assert_eq!(ui.t("cli_about"), ui.t("cli_about"));
+            // 键名原样返回说明该语言缺这条消息（已回退过中文仍没有）
+            assert_ne!(
+                ui.t("cli_about"),
+                "cli_about",
+                "{code} 的 ui 消息缺失 cli_about"
+            );
         }
     }
 

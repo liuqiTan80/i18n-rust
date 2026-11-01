@@ -2280,12 +2280,7 @@ fn transpile_project_files(
                             manager,
                             Some(project),
                         );
-                        emit_teaching_warnings_for_file(
-                            &source,
-                            &display_name,
-                            manager.get_lint_words(),
-                            &manager.ambiguous_constructor_words(),
-                        );
+                        emit_teaching_warnings_for_file(&source, &display_name, manager);
                         cache
                             .lock()
                             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -2369,12 +2364,10 @@ fn prune_stale_products(project_root: &Path, extensions: &[String], ui: &ui::Ui)
 /// 多文件项目中项目内文件分散在多个方言文件，裸行列无法定位具体文件；
 /// 入口文件的告警仍由转译管线直接输出（裸行列即命令传入的入口文件）。
 /// 时机与转译一致（仅缓存未命中时输出），静默管线保证不重复输出。
-fn emit_teaching_warnings_for_file(
-    source: &str,
-    display_name: &str,
-    lint_words: &HashSet<String>,
-    ambiguous_constructors: &HashSet<String>,
-) {
+fn emit_teaching_warnings_for_file(source: &str, display_name: &str, manager: &MappingManager) {
+    // 一份字符切片喂给全角标点与教学 lint 两个扫描器：早先两处各自把源码展开
+    // 成 `Vec<char>`，小文件上这份物化开销与扫描本体同量级
+    let chars: Vec<char> = source.chars().collect();
     for warning in i18n_rust_engine::unicode_confusion::check_unicode_confusion(source) {
         i18n_rust_engine::log_warn!(
             "unicode_confusion",
@@ -2383,14 +2376,16 @@ fn emit_teaching_warnings_for_file(
             warning.format()
         );
     }
-    for warning in i18n_rust_engine::fullwidth::find_fullwidth_punct(source) {
+    for warning in i18n_rust_engine::fullwidth::find_fullwidth_punct_chars(&chars) {
         i18n_rust_engine::log_warn!("fullwidth", "{}：{}", display_name, warning.format());
     }
     if i18n_rust_engine::lint::teaching_lint_enabled() {
-        for warning in i18n_rust_engine::lint::lint_teaching_with_words(
-            source,
-            lint_words,
-            ambiguous_constructors,
+        // 易混词表的分桶索引由 manager 缓存（每语言包一次）：早先每份源码在首个
+        // 方法调用位重建一次，实测 2.45 ms/1192 份，比扫描本身还贵
+        for warning in i18n_rust_engine::lint::lint_teaching_with_buckets_chars(
+            &chars,
+            manager.lint_word_buckets(),
+            manager.ambiguous_constructor_words(),
         ) {
             i18n_rust_engine::log_warn!("lint", "{}：{}", display_name, warning.format());
         }
@@ -2989,8 +2984,13 @@ mod tests {
     }
 
     /// 混合语言目录按扩展名分组：同语言文件归组，显式语言包不再分组
+    ///
+    /// 持环境变量锁：分组走扩展名动态映射（扫描全局语言包目录，受
+    /// `RZ_LANG_DIR` 影响），lang_manager 的环境变量测试并发修改该变量时
+    /// 会令 `ja` 解不出语言码、组序错位。
     #[test]
     fn test_group_files_by_lang() {
+        let _lock = crate::lang_manager::tests::env_lock();
         use std::path::{Path, PathBuf};
         let files = vec![
             PathBuf::from("a.zh"),

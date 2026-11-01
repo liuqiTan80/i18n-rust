@@ -1,4 +1,4 @@
-//! 界面消息本地化模块（LSP 独立实现，不依赖 cli crate）
+//! 界面消息本地化模块（LSP 自有加载链，解析与回退语义复用引擎 `ui` 模块）
 //!
 //! 每个语言包的 ui.toml 提供 ["界面消息"] 节，内含 LSP 帮助与错误提示；
 //! 可选提供 ["解释"] 节，内含方法/函数的大白话使用提示（键为符号路径）。
@@ -11,9 +11,10 @@
 //! 4. 系统语言（LC_ALL / LC_MESSAGES / LANG）
 //! 5. 中文（默认）
 
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::OnceLock;
+
+use i18n_rust_engine::ui::UiTable;
 
 /// 全局 UI（main 启动时 init；未 init 时回退内置 zh，便于测试）
 static GLOBAL: OnceLock<Ui> = OnceLock::new();
@@ -34,11 +35,11 @@ pub fn global() -> &'static Ui {
 }
 
 /// 界面消息表
+///
+/// 解析、`{}` 替换与缺键回退统一由引擎 [`UiTable`] 实现；本模块只保留
+/// LSP 自己的加载链（显式目录 → 目录名 → 环境变量 → 中文）。
 pub struct Ui {
-    /// 消息模板（键 → 含 `{}` 占位符的模板）
-    messages: HashMap<String, String>,
-    /// 大白话解释表（["解释"] 节，键 = 符号路径/方法名，如 "Option::unwrap"）
-    explanations: HashMap<String, String>,
+    table: UiTable,
 }
 
 // 内置 ui.toml 由引擎 crate 编译期嵌入（避免发布打包时 include_str! 路径失效），
@@ -47,27 +48,8 @@ pub struct Ui {
 impl Ui {
     /// 从 TOML 内容构造消息表（["界面消息"] + ["解释"] 节）
     fn from_toml(content: &str) -> Self {
-        let mut messages = HashMap::new();
-        let mut explanations = HashMap::new();
-        if let Ok(value) = toml::from_str::<toml::Value>(content) {
-            if let Some(table) = value.get("界面消息").and_then(|v| v.as_table()) {
-                for (key, val) in table {
-                    if let Some(text) = val.as_str() {
-                        messages.insert(key.clone(), text.to_string());
-                    }
-                }
-            }
-            if let Some(table) = value.get("解释").and_then(|v| v.as_table()) {
-                for (key, val) in table {
-                    if let Some(text) = val.as_str() {
-                        explanations.insert(key.clone(), text.to_string());
-                    }
-                }
-            }
-        }
-        Ui {
-            messages,
-            explanations,
+        Self {
+            table: UiTable::parse(content),
         }
     }
 
@@ -76,7 +58,7 @@ impl Ui {
         // 1. --language-pack 显式目录内的 ui.toml
         if let Ok(content) = std::fs::read_to_string(lang_pack_path.join("ui.toml")) {
             let ui = Self::from_toml(&content);
-            if !ui.messages.is_empty() {
+            if !ui.table.is_empty() {
                 return ui;
             }
         }
@@ -109,50 +91,25 @@ impl Ui {
         Self::from_toml(builtin_ui("zh").unwrap_or_default())
     }
 
-    /// 取消息模板（缺失时回退键名本身，便于定位遗漏）
+    /// 取消息模板：本表 → 内置中文表 → 键名本身
     pub fn t(&self, key: &str) -> String {
-        self.messages
-            .get(key)
-            .cloned()
-            .unwrap_or_else(|| key.to_string())
+        self.table.t(key)
     }
 
     /// 取消息模板并替换 `{}` 占位符（按出现顺序）
     pub fn f(&self, key: &str, args: &[&str]) -> String {
-        substitute(&self.t(key), args)
+        self.table.f(key, args)
     }
 
     /// 取大白话解释（缺失返回 None，调用方保持原样回退）
     pub fn explanation(&self, key: &str) -> Option<&str> {
-        self.explanations.get(key).map(String::as_str)
+        self.table.explanation(key)
     }
 }
 
 /// 语言代码 → 内置 ui.toml（数据由引擎 crate 编译期嵌入）
 fn builtin_ui(lang_code: &str) -> Option<&'static str> {
     i18n_rust_engine::语言::builtin_file(lang_code, "ui.toml")
-}
-
-/// 按出现顺序把 `{}` 替换为参数；参数多于占位符时忽略多余参数，
-/// 参数不足时保留未替换的 `{}`（模板兜底，避免 panic）。
-fn substitute(template: &str, args: &[&str]) -> String {
-    let mut result = String::with_capacity(template.len());
-    let mut remaining = template;
-    for arg in args {
-        match remaining.find("{}") {
-            Some(pos) => {
-                result.push_str(&remaining[..pos]);
-                result.push_str(arg);
-                remaining = &remaining[pos + 2..];
-            }
-            None => {
-                result.push_str(remaining);
-                return result;
-            }
-        }
-    }
-    result.push_str(remaining);
-    result
 }
 
 #[cfg(test)]
@@ -167,10 +124,11 @@ mod tests {
     }
 
     #[test]
-    fn test_substitute_ordered_and_fallback() {
-        assert_eq!(substitute("未知参数: {}", &["x"]), "未知参数: x");
-        assert_eq!(substitute("{} 和 {}", &["a"]), "a 和 {}");
-        assert_eq!(substitute("无", &[]), "无");
+    fn test_f_delegates_to_engine() {
+        // 占位符替换走引擎统一实现：顺序填充、缺参保留 `{}`
+        let ui = Ui::from_toml("[\"界面消息\"]\n\"k\" = \"{} 和 {}\"\n");
+        assert_eq!(ui.f("k", &["a"]), "a 和 {}");
+        assert_eq!(ui.f("k", &["a", "b", "c"]), "a 和 b");
     }
 
     #[test]
@@ -187,7 +145,8 @@ mod tests {
         // 只有 ["解释"] 没有 ["界面消息"] 时也能工作
         let only_expl = Ui::from_toml("[\"解释\"]\n\"Vec::push\" = \"末尾追加\"\n");
         assert_eq!(only_expl.explanation("Vec::push"), Some("末尾追加"));
-        assert_eq!(only_expl.t("lsp_about"), "lsp_about");
+        // 没有 ["界面消息"] 节：界面消息回退内置中文表（不再直接吐裸键名）
+        assert_eq!(only_expl.t("lsp_about"), "i18n-rust LSP 代理服务器");
     }
 
     #[test]

@@ -8,8 +8,8 @@ actual argument expressions passed at those call sites. Use it to judge the tone
 of a message (error, hint, help text) and what each placeholder stands for
 before you translate it.
 
-Key count: **622** · statically referenced: 559 ·
-resolved at runtime by prefix: 63 · unused: 0
+Key count: **622** · statically referenced: 563 ·
+resolved at runtime by prefix: 59 · unused: 0
 
 | Prefix | Section |
 |---|---|
@@ -90,84 +90,84 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `cmd_add_about` | 0 | `crates/cli/src/main.rs:2826` | — | 添加第三方库依赖（封装 cargo add） |
-| `cmd_cheat_about` | 0 | `crates/cli/src/main.rs:2851` | — | 母语 ↔ Rust 映射速查表（关键字/模块路径/别名/派生特征） |
-| `cmd_check_about` | 0 | `crates/cli/src/main.rs:2817` | — | 检查方言源文件（编译并翻译错误消息） |
-| `cmd_crate_about` | 0 | `crates/cli/src/main.rs:2927` | — | 第三方库共享注册中心（search / install / list / remove / update / publish） |
-| `cmd_crate_install_about` | 0 | `crates/cli/src/main.rs:2933` | — | 安装单个第三方库映射：从注册中心复制到全局语言包 |
-| `cmd_crate_list_about` | 0 | `crates/cli/src/main.rs:2940` | — | 列出已安装的社区映射 |
-| `cmd_crate_publish_about` | 0 | `crates/cli/src/main.rs:2948` | — | 发布本地映射到注册中心（先经质量门禁） |
-| `cmd_crate_remove_about` | 0 | `crates/cli/src/main.rs:2942` | — | 删除已安装的社区映射（从全局语言包与清单移除） |
-| `cmd_crate_search_about` | 0 | `crates/cli/src/main.rs:2929` | — | 检索注册中心已发布的第三方库映射（可选关键词过滤） |
-| `cmd_crate_update_about` | 0 | `crates/cli/src/main.rs:2946` | — | 按已安装清单重新拉取所有映射（获取他人更新） |
-| `cmd_eject_about` | 0 | `crates/cli/src/main.rs:2821` | — | 把方言源文件或目录导出为标准 Rust 代码 |
-| `cmd_gaps_about` | 0 | `crates/cli/src/main.rs:2845` | — | 查看/导出未翻译消息清单（英文残留），补译后可清零 |
-| `cmd_guide_about` | 0 | `crates/cli/src/main.rs:2856` | — | 母语编程指南（全量词条表 + 书写规则，供学习者与 AI 助手使用） |
-| `cmd_init_about` | 0 | `crates/cli/src/main.rs:2811` | — | 创建新项目（生成对应语言的主文件模板） |
-| `cmd_init_ai_help` | 0 | `crates/cli/src/main.rs:2813` | — | 同时在项目内生成 AGENTS.md（AI 编程指南，由当前语言包渲染） |
-| `cmd_install_about` | 0 | `crates/cli/src/main.rs:2830` | — | 安装配套组件（语言服务器 i18n-rust-lsp） |
-| `cmd_install_lsp_about` | 0 | `crates/cli/src/main.rs:2832` | — | 安装语言服务器 i18n-rust-lsp（VS Code 扩展的补全/诊断后端） |
-| `cmd_lang_about` | 0 | `crates/cli/src/main.rs:2869` | — | 语言包管理（list / install / remove） |
-| `cmd_lang_install_about` | 0 | `crates/cli/src/main.rs:2872` | — | 安装语言包：本地目录路径直接复制；语言代码从远程仓库下载 |
-| `cmd_lang_list_about` | 0 | `crates/cli/src/main.rs:2870` | — | 列出所有已安装的语言包（内置 + 用户安装） |
-| `cmd_lang_remove_about` | 0 | `crates/cli/src/main.rs:2883` | — | 删除用户安装的语言包（内置语言包不可删除） |
-| `cmd_lang_search_about` | 0 | `crates/cli/src/main.rs:2877` | — | 浏览远程语言包市场（可选关键词过滤） |
-| `cmd_mapping_about` | 0 | `crates/cli/src/main.rs:2888` | — | 自动生成第三方库映射 |
-| `cmd_mapping_auto_about` | 0 | `crates/cli/src/main.rs:2890` | — | 自动生成第三方库映射文件：提取 crate 公开 API，AI 或规则生成母语名与解释 |
-| `cmd_mapping_check_about` | 0 | `crates/cli/src/main.rs:2903` | — | 校验第三方库映射质量：重复键/关键字避让/跨文件冲突/条目数一致性 |
-| `cmd_mapping_check_target_help` | 0 | `crates/cli/src/main.rs:2905` | — | 内置语言代码（如 zh）或语言包目录路径；省略时校验全部内置语言 |
-| `cmd_mapping_coverage_about` | 0 | `crates/cli/src/main.rs:2922` | — | 语料覆盖矩阵：用后端真实源码检验语言包关键字/API 覆盖度，自动列出缺失的母语映射 |
-| `cmd_mapping_scaffold_about` | 0 | `crates/cli/src/main.rs:2909` | — | 从源语言 crates 映射生成目标语言的翻译骨架 |
-| `cmd_mapping_scaffold_provider_help` | 0 | `crates/cli/src/main.rs:2918` | — | 翻译方式：rule（默认，生成 TODO 骨架待人工翻译）或 deepseek / openai / compatible（AI 翻译键名，端点、密钥、模型由 RZ_AI_* 环境变量指定） |
-| `cmd_mapping_scaffold_source_help` | 0 | `crates/cli/src/main.rs:2911` | — | 源语言代码（内置语言，如 zh） |
-| `cmd_mapping_scaffold_target_help` | 0 | `crates/cli/src/main.rs:2914` | — | 目标语言代码（新语言包目录名，如 vi） |
-| `cmd_relocalize_about` | 0 | `crates/cli/src/main.rs:2861` | — | 跨母语阅读：把方言 / 标准 Rust 工程反译重生为目标方言（逐文件正向转译到标准 Rust 再反译，产物结构忠实、可再次 rzc build） |
-| `cmd_run_about` | 0 | `crates/cli/src/main.rs:2815` | — | 运行方言源文件 |
-| `cmd_transpile_about` | 0 | `crates/cli/src/main.rs:2824` | — | 把方言源文件转译为标准 Rust 代码并输出到标准输出（不写文件） |
+| `cmd_add_about` | 0 | `crates/cli/src/main.rs:2821` | — | 添加第三方库依赖（封装 cargo add） |
+| `cmd_cheat_about` | 0 | `crates/cli/src/main.rs:2846` | — | 母语 ↔ Rust 映射速查表（关键字/模块路径/别名/派生特征） |
+| `cmd_check_about` | 0 | `crates/cli/src/main.rs:2812` | — | 检查方言源文件（编译并翻译错误消息） |
+| `cmd_crate_about` | 0 | `crates/cli/src/main.rs:2922` | — | 第三方库共享注册中心（search / install / list / remove / update / publish） |
+| `cmd_crate_install_about` | 0 | `crates/cli/src/main.rs:2928` | — | 安装单个第三方库映射：从注册中心复制到全局语言包 |
+| `cmd_crate_list_about` | 0 | `crates/cli/src/main.rs:2935` | — | 列出已安装的社区映射 |
+| `cmd_crate_publish_about` | 0 | `crates/cli/src/main.rs:2943` | — | 发布本地映射到注册中心（先经质量门禁） |
+| `cmd_crate_remove_about` | 0 | `crates/cli/src/main.rs:2937` | — | 删除已安装的社区映射（从全局语言包与清单移除） |
+| `cmd_crate_search_about` | 0 | `crates/cli/src/main.rs:2924` | — | 检索注册中心已发布的第三方库映射（可选关键词过滤） |
+| `cmd_crate_update_about` | 0 | `crates/cli/src/main.rs:2941` | — | 按已安装清单重新拉取所有映射（获取他人更新） |
+| `cmd_eject_about` | 0 | `crates/cli/src/main.rs:2816` | — | 把方言源文件或目录导出为标准 Rust 代码 |
+| `cmd_gaps_about` | 0 | `crates/cli/src/main.rs:2840` | — | 查看/导出未翻译消息清单（英文残留），补译后可清零 |
+| `cmd_guide_about` | 0 | `crates/cli/src/main.rs:2851` | — | 母语编程指南（全量词条表 + 书写规则，供学习者与 AI 助手使用） |
+| `cmd_init_about` | 0 | `crates/cli/src/main.rs:2806` | — | 创建新项目（生成对应语言的主文件模板） |
+| `cmd_init_ai_help` | 0 | `crates/cli/src/main.rs:2808` | — | 同时在项目内生成 AGENTS.md（AI 编程指南，由当前语言包渲染） |
+| `cmd_install_about` | 0 | `crates/cli/src/main.rs:2825` | — | 安装配套组件（语言服务器 i18n-rust-lsp） |
+| `cmd_install_lsp_about` | 0 | `crates/cli/src/main.rs:2827` | — | 安装语言服务器 i18n-rust-lsp（VS Code 扩展的补全/诊断后端） |
+| `cmd_lang_about` | 0 | `crates/cli/src/main.rs:2864` | — | 语言包管理（list / install / remove） |
+| `cmd_lang_install_about` | 0 | `crates/cli/src/main.rs:2867` | — | 安装语言包：本地目录路径直接复制；语言代码从远程仓库下载 |
+| `cmd_lang_list_about` | 0 | `crates/cli/src/main.rs:2865` | — | 列出所有已安装的语言包（内置 + 用户安装） |
+| `cmd_lang_remove_about` | 0 | `crates/cli/src/main.rs:2878` | — | 删除用户安装的语言包（内置语言包不可删除） |
+| `cmd_lang_search_about` | 0 | `crates/cli/src/main.rs:2872` | — | 浏览远程语言包市场（可选关键词过滤） |
+| `cmd_mapping_about` | 0 | `crates/cli/src/main.rs:2883` | — | 自动生成第三方库映射 |
+| `cmd_mapping_auto_about` | 0 | `crates/cli/src/main.rs:2885` | — | 自动生成第三方库映射文件：提取 crate 公开 API，AI 或规则生成母语名与解释 |
+| `cmd_mapping_check_about` | 0 | `crates/cli/src/main.rs:2898` | — | 校验第三方库映射质量：重复键/关键字避让/跨文件冲突/条目数一致性 |
+| `cmd_mapping_check_target_help` | 0 | `crates/cli/src/main.rs:2900` | — | 内置语言代码（如 zh）或语言包目录路径；省略时校验全部内置语言 |
+| `cmd_mapping_coverage_about` | 0 | `crates/cli/src/main.rs:2917` | — | 语料覆盖矩阵：用后端真实源码检验语言包关键字/API 覆盖度，自动列出缺失的母语映射 |
+| `cmd_mapping_scaffold_about` | 0 | `crates/cli/src/main.rs:2904` | — | 从源语言 crates 映射生成目标语言的翻译骨架 |
+| `cmd_mapping_scaffold_provider_help` | 0 | `crates/cli/src/main.rs:2913` | — | 翻译方式：rule（默认，生成 TODO 骨架待人工翻译）或 deepseek / openai / compatible（AI 翻译键名，端点、密钥、模型由 RZ_AI_* 环境变量指定） |
+| `cmd_mapping_scaffold_source_help` | 0 | `crates/cli/src/main.rs:2906` | — | 源语言代码（内置语言，如 zh） |
+| `cmd_mapping_scaffold_target_help` | 0 | `crates/cli/src/main.rs:2909` | — | 目标语言代码（新语言包目录名，如 vi） |
+| `cmd_relocalize_about` | 0 | `crates/cli/src/main.rs:2856` | — | 跨母语阅读：把方言 / 标准 Rust 工程反译重生为目标方言（逐文件正向转译到标准 Rust 再反译，产物结构忠实、可再次 rzc build） |
+| `cmd_run_about` | 0 | `crates/cli/src/main.rs:2810` | — | 运行方言源文件 |
+| `cmd_transpile_about` | 0 | `crates/cli/src/main.rs:2819` | — | 把方言源文件转译为标准 Rust 代码并输出到标准输出（不写文件） |
 
 ## CLI: argument descriptions (clap help)
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `arg_add_crates_help` | 0 | `crates/cli/src/main.rs:2827` | — | 要添加的 crate 名，可用 @version 指定版本（如 serde_json、tokio@1） |
-| `arg_cheat_lang_help` | 0 | `crates/cli/src/main.rs:2852` | — | 内置语言代码（如 zh）或语言包目录路径；省略时按系统语言检测 |
-| `arg_check_fix_help` | 0 | `crates/cli/src/main.rs:2818` | — | 自动修复全角标点（写入源文件，仅转换有半角对应的字符） |
-| `arg_coverage_lang_help` | 0 | `crates/cli/src/main.rs:2923` | — | 内置语言代码（如 zh）；省略时检测全部内置语言 |
-| `arg_crate_author_help` | 0 | `crates/cli/src/main.rs:2952` | — | 译者署名；缺省取 git user.name |
-| `arg_crate_file_help` | 0 | `crates/cli/src/main.rs:2951` | — | 映射文件路径；缺省按全局/项目语言包或当前目录查找 |
-| `arg_crate_keyword_help` | 0 | `crates/cli/src/main.rs:2930` | — | 关键词（匹配 crate 名 / 语言 / 作者）；省略时列出全部 |
-| `arg_crate_name_help` | 0 | `crates/cli/src/main.rs:2943`<br>`crates/cli/src/main.rs:2949` | — | crate 名 |
-| `arg_crate_name_normalize_help` | 0 | `crates/cli/src/main.rs:2935` | — | crate 名（连字符归一为下划线） |
-| `arg_eject_files_help` | 0 | `crates/cli/src/main.rs:2822` | — | 要导出的方言源文件或目录；可一次传多个（批量导出，失败项单独汇总） |
-| `arg_force_help` | 0 | `crates/cli/src/main.rs:2833`<br>`crates/cli/src/main.rs:2840`<br>`crates/cli/src/main.rs:2874` | — | 已存在时强制覆盖 |
-| `arg_gaps_clear_help` | 0 | `crates/cli/src/main.rs:2848` | — | 清空清单（补完消息表后使用） |
-| `arg_gaps_export_help` | 0 | `crates/cli/src/main.rs:2847` | — | 把清单导出为 TSV（列：LEVEL/CODE/消息，制表符分隔）到指定路径 |
-| `arg_gaps_lang_help` | 0 | `crates/cli/src/main.rs:2846` | — | 语言代码（缺省时按当前界面语言） |
-| `arg_guide_lang_help` | 0 | `crates/cli/src/main.rs:2857` | — | 内置语言代码（如 zh）；省略时按系统语言自动检测 |
-| `arg_guide_out_help` | 0 | `crates/cli/src/main.rs:2858` | — | 把指南写入指定文件（如 AGENTS.md） |
-| `arg_install_help` | 0 | `crates/cli/src/main.rs:2900` | — | 生成映射后自动把对应 crate 加入当前项目依赖 |
-| `arg_lang_code_help` | 0 | `crates/cli/src/main.rs:2884` | — | 语言代码（语言包目录名） |
-| `arg_lang_help` | 0 | `crates/cli/src/main.rs:2812`<br>`crates/cli/src/main.rs:2894`<br>`crates/cli/src/main.rs:2937` | — | 语言代码（语言包目录名，如 zh、ru；默认按系统语言检测） |
-| `arg_lang_search_keyword_help` | 0 | `crates/cli/src/main.rs:2879` | — | 关键词（匹配语言代码或显示名称）；省略时列出全部远程语言包 |
-| `arg_lang_source_help` | 0 | `crates/cli/src/main.rs:2873` | — | 本地语言包目录路径，或远程语言代码 |
-| `arg_mapping_auto_crate_help` | 0 | `crates/cli/src/main.rs:2892` | — | 目标 crate 名（需已安装或可从 crates.io 获取） |
-| `arg_markdown_help` | 0 | `crates/cli/src/main.rs:2853` | — | 以 Markdown 表格输出，便于嵌入文档 |
-| `arg_no_lint_help` | 0 | `crates/cli/src/main.rs:2809` | — | 不输出教学 lint 提示（初学者代码风格警告；Unicode 混淆/全角标点告警不受影响） |
-| `arg_output_help` | 0 | `crates/cli/src/main.rs:2899`<br>`crates/cli/src/main.rs:2916` | — | 输出文件路径（默认 lang-packs/<语言>/crates/<crate名>.toml） |
-| `arg_provider_help` | 0 | `crates/cli/src/main.rs:2895` | — | AI 服务商：deepseek / openai / compatible（默认 deepseek；端点、密钥、模型由 RZ_AI_BASE_URL / RZ_AI_API_KEY / RZ_AI_MODEL 指定）或 rule（离线规则… |
-| `arg_relocalize_from_help` | 0 | `crates/cli/src/main.rs:2863` | — | 源方言语言代码；省略时按各文件扩展名自动检测 |
-| `arg_relocalize_out_dir_help` | 0 | `crates/cli/src/main.rs:2865` | — | 输出目录（镜像源结构、扩展名换为目标语言）；默认为源工程根旁的 relocalized.<to> |
-| `arg_relocalize_to_help` | 0 | `crates/cli/src/main.rs:2862` | — | 目标方言语言代码（必填，如 ja）；决定输出工程所用语言 |
-| `arg_target_version_help` | 0 | `crates/cli/src/main.rs:2897` | — | 锁定目标 crate 版本（如 2.11.5 精确锁定；2.11 / 2 为该线最新）；省略时用最新版（不可复现） |
-| `arg_tc_ra_only_help` | 0 | `crates/cli/src/main.rs:2839` | — | 仅升级 rust-analyzer（跳过 rustc/cargo 的 300MB 重下） |
-| `arg_tc_ra_tag_help` | 0 | `crates/cli/src/main.rs:2838` | — | rust-analyzer 官方 Release tag（默认锁定版本） |
-| `arg_tc_version_help` | 0 | `crates/cli/src/main.rs:2837` | — | 工具链版本（默认与 rzc 锁定版本一致，如 1.98.0） |
+| `arg_add_crates_help` | 0 | `crates/cli/src/main.rs:2822` | — | 要添加的 crate 名，可用 @version 指定版本（如 serde_json、tokio@1） |
+| `arg_cheat_lang_help` | 0 | `crates/cli/src/main.rs:2847` | — | 内置语言代码（如 zh）或语言包目录路径；省略时按系统语言检测 |
+| `arg_check_fix_help` | 0 | `crates/cli/src/main.rs:2813` | — | 自动修复全角标点（写入源文件，仅转换有半角对应的字符） |
+| `arg_coverage_lang_help` | 0 | `crates/cli/src/main.rs:2918` | — | 内置语言代码（如 zh）；省略时检测全部内置语言 |
+| `arg_crate_author_help` | 0 | `crates/cli/src/main.rs:2947` | — | 译者署名；缺省取 git user.name |
+| `arg_crate_file_help` | 0 | `crates/cli/src/main.rs:2946` | — | 映射文件路径；缺省按全局/项目语言包或当前目录查找 |
+| `arg_crate_keyword_help` | 0 | `crates/cli/src/main.rs:2925` | — | 关键词（匹配 crate 名 / 语言 / 作者）；省略时列出全部 |
+| `arg_crate_name_help` | 0 | `crates/cli/src/main.rs:2938`<br>`crates/cli/src/main.rs:2944` | — | crate 名 |
+| `arg_crate_name_normalize_help` | 0 | `crates/cli/src/main.rs:2930` | — | crate 名（连字符归一为下划线） |
+| `arg_eject_files_help` | 0 | `crates/cli/src/main.rs:2817` | — | 要导出的方言源文件或目录；可一次传多个（批量导出，失败项单独汇总） |
+| `arg_force_help` | 0 | `crates/cli/src/main.rs:2828`<br>`crates/cli/src/main.rs:2835`<br>`crates/cli/src/main.rs:2869` | — | 已存在时强制覆盖 |
+| `arg_gaps_clear_help` | 0 | `crates/cli/src/main.rs:2843` | — | 清空清单（补完消息表后使用） |
+| `arg_gaps_export_help` | 0 | `crates/cli/src/main.rs:2842` | — | 把清单导出为 TSV（列：LEVEL/CODE/消息，制表符分隔）到指定路径 |
+| `arg_gaps_lang_help` | 0 | `crates/cli/src/main.rs:2841` | — | 语言代码（缺省时按当前界面语言） |
+| `arg_guide_lang_help` | 0 | `crates/cli/src/main.rs:2852` | — | 内置语言代码（如 zh）；省略时按系统语言自动检测 |
+| `arg_guide_out_help` | 0 | `crates/cli/src/main.rs:2853` | — | 把指南写入指定文件（如 AGENTS.md） |
+| `arg_install_help` | 0 | `crates/cli/src/main.rs:2895` | — | 生成映射后自动把对应 crate 加入当前项目依赖 |
+| `arg_lang_code_help` | 0 | `crates/cli/src/main.rs:2879` | — | 语言代码（语言包目录名） |
+| `arg_lang_help` | 0 | `crates/cli/src/main.rs:2807`<br>`crates/cli/src/main.rs:2889`<br>`crates/cli/src/main.rs:2932` | — | 语言代码（语言包目录名，如 zh、ru；默认按系统语言检测） |
+| `arg_lang_search_keyword_help` | 0 | `crates/cli/src/main.rs:2874` | — | 关键词（匹配语言代码或显示名称）；省略时列出全部远程语言包 |
+| `arg_lang_source_help` | 0 | `crates/cli/src/main.rs:2868` | — | 本地语言包目录路径，或远程语言代码 |
+| `arg_mapping_auto_crate_help` | 0 | `crates/cli/src/main.rs:2887` | — | 目标 crate 名（需已安装或可从 crates.io 获取） |
+| `arg_markdown_help` | 0 | `crates/cli/src/main.rs:2848` | — | 以 Markdown 表格输出，便于嵌入文档 |
+| `arg_no_lint_help` | 0 | `crates/cli/src/main.rs:2804` | — | 不输出教学 lint 提示（初学者代码风格警告；Unicode 混淆/全角标点告警不受影响） |
+| `arg_output_help` | 0 | `crates/cli/src/main.rs:2894`<br>`crates/cli/src/main.rs:2911` | — | 输出文件路径（默认 lang-packs/<语言>/crates/<crate名>.toml） |
+| `arg_provider_help` | 0 | `crates/cli/src/main.rs:2890` | — | AI 服务商：deepseek / openai / compatible（默认 deepseek；端点、密钥、模型由 RZ_AI_BASE_URL / RZ_AI_API_KEY / RZ_AI_MODEL 指定）或 rule（离线规则… |
+| `arg_relocalize_from_help` | 0 | `crates/cli/src/main.rs:2858` | — | 源方言语言代码；省略时按各文件扩展名自动检测 |
+| `arg_relocalize_out_dir_help` | 0 | `crates/cli/src/main.rs:2860` | — | 输出目录（镜像源结构、扩展名换为目标语言）；默认为源工程根旁的 relocalized.<to> |
+| `arg_relocalize_to_help` | 0 | `crates/cli/src/main.rs:2857` | — | 目标方言语言代码（必填，如 ja）；决定输出工程所用语言 |
+| `arg_target_version_help` | 0 | `crates/cli/src/main.rs:2892` | — | 锁定目标 crate 版本（如 2.11.5 精确锁定；2.11 / 2 为该线最新）；省略时用最新版（不可复现） |
+| `arg_tc_ra_only_help` | 0 | `crates/cli/src/main.rs:2834` | — | 仅升级 rust-analyzer（跳过 rustc/cargo 的 300MB 重下） |
+| `arg_tc_ra_tag_help` | 0 | `crates/cli/src/main.rs:2833` | — | rust-analyzer 官方 Release tag（默认锁定版本） |
+| `arg_tc_version_help` | 0 | `crates/cli/src/main.rs:2832` | — | 工具链版本（默认与 rzc 锁定版本一致，如 1.98.0） |
 
 ## CLI: general output
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `cli_about` | 0 | `crates/cli/src/main.rs:2808`<br>`crates/cli/src/ui.rs:251`<br>`crates/cli/src/ui.rs:261` | — | 多语言 Rust 教学方言编译器 |
+| `cli_about` | 0 | `crates/cli/src/main.rs:2803`<br>`crates/cli/src/ui.rs:214`<br>`crates/cli/src/ui.rs:220` | — | 多语言 Rust 教学方言编译器 |
 | `cli_error_prefix` | 1 | `crates/cli/src/main.rs:334` | &format!("{err:#}") | 错误：{} |
 
 ## CLI: `mapping` generation internals
@@ -225,43 +225,43 @@ no substitution at all.
 | `mc_cov_stats` | 4 | `crates/cli/src/mapping_coverage.rs:416` | &report.covered_names.to_string() / &report.total_names.to_string() / &pct.to_string() / … | 覆盖: {} / {}（{}%）· 语料 {} 个源文件 |
 | `mc_cov_std_missing` | 3 | `crates/cli/src/mapping_coverage.rs:441` | name / &count.to_string() / file | ⚠️ std 模块/类型缺母语映射: {}（{} 次，例: {}） |
 | `mc_cov_type_missing` | 3 | `crates/cli/src/mapping_coverage.rs:466` | name / &count.to_string() / file | ⚠️ 类型名缺母语映射（多为编译器内部实现，可按需忽略）: {}（{} 次，例: {}） |
-| `mc_cross_conflict` | 5 | `crates/cli/src/mapping_check.rs:369`<br>`crates/cli/src/mapping_check.rs:1069`<br>`crates/cli/src/mapping_check.rs:1500` | — | ❌ 键 "{}" 跨文件冲突: {} = "{}" 与 {} = "{}" |
-| `mc_cross_conflict_mp` | 5 | `crates/cli/src/mapping_check.rs:366`<br>`crates/cli/src/mapping_check.rs:1074`<br>`crates/cli/src/mapping_check.rs:1616` | — | ❌ 模块路径键 "{}" 跨文件冲突: {} = "{}" 与 {} = "{}" |
-| `mc_cross_derive_missing` | 3 | `crates/cli/src/mapping_check.rs:1848` | — | ❌ {} 缺少 {} 个派生特征（派生属性参数不可用）: {} |
-| `mc_cross_err_missing` | 3 | `crates/cli/src/mapping_check.rs:1899` | — | ❌ {} 缺少 {} 个错误码节（无母语教学提示）: {} |
-| `mc_cross_integrity_header` | 0 | `crates/cli/src/mapping_check.rs:707` | — | 🔬 跨语言完整性检查（基准：zh）: |
-| `mc_cross_integrity_none` | 0 | `crates/cli/src/mapping_check.rs:743` | — | （无可比较的语言包） |
-| `mc_cross_integrity_ok` | 0 | `crates/cli/src/mapping_check.rs:730` | — | ✅ 关键字/派生特征/错误码全覆盖 |
-| `mc_cross_integrity_warn` | 1 | `crates/cli/src/mapping_check.rs:736` | &report.warnings.len().to_string() | ✅ 覆盖完整（{} 条消息翻译缺失警告） |
-| `mc_cross_kw_missing` | 3 | `crates/cli/src/mapping_check.rs:1878` | — | ❌ {} 缺少 {} 个关键字值（方言词不可用）: {} |
-| `mc_cross_lang_consistent` | 0 | `crates/cli/src/mapping_check.rs:776` | — | ✅ 各语言条目数一致 |
-| `mc_cross_lang_header` | 0 | `crates/cli/src/mapping_check.rs:761` | — | 📊 跨语言标识符条目数: |
-| `mc_cross_lang_inconsistent` | 0 | `crates/cli/src/mapping_check.rs:774` | — | ⚠️ 各语言条目数不一致，请人工同步（可用 rzc mapping scaffold 生成骨架） |
-| `mc_cross_msg_missing` | 3 | `crates/cli/src/mapping_check.rs:1915` | — | ⚠️ {} 缺少 {} 个消息翻译键（回退英文原文）: {} 等 |
+| `mc_cross_conflict` | 5 | `crates/cli/src/mapping_check.rs:369`<br>`crates/cli/src/mapping_check.rs:1071`<br>`crates/cli/src/mapping_check.rs:1502` | — | ❌ 键 "{}" 跨文件冲突: {} = "{}" 与 {} = "{}" |
+| `mc_cross_conflict_mp` | 5 | `crates/cli/src/mapping_check.rs:366`<br>`crates/cli/src/mapping_check.rs:1076`<br>`crates/cli/src/mapping_check.rs:1618` | — | ❌ 模块路径键 "{}" 跨文件冲突: {} = "{}" 与 {} = "{}" |
+| `mc_cross_derive_missing` | 3 | `crates/cli/src/mapping_check.rs:1850`<br>`crates/cli/src/mapping_check.rs:667` | — | ❌ {} 缺少 {} 个派生特征（派生属性参数不可用）: {} |
+| `mc_cross_err_missing` | 3 | `crates/cli/src/mapping_check.rs:1901`<br>`crates/cli/src/mapping_check.rs:678` | — | ❌ {} 缺少 {} 个错误码节（无母语教学提示）: {} |
+| `mc_cross_integrity_header` | 0 | `crates/cli/src/mapping_check.rs:709` | — | 🔬 跨语言完整性检查（基准：zh）: |
+| `mc_cross_integrity_none` | 0 | `crates/cli/src/mapping_check.rs:745` | — | （无可比较的语言包） |
+| `mc_cross_integrity_ok` | 0 | `crates/cli/src/mapping_check.rs:732` | — | ✅ 关键字/派生特征/错误码全覆盖 |
+| `mc_cross_integrity_warn` | 1 | `crates/cli/src/mapping_check.rs:738` | &report.warnings.len().to_string() | ✅ 覆盖完整（{} 条消息翻译缺失警告） |
+| `mc_cross_kw_missing` | 3 | `crates/cli/src/mapping_check.rs:1880`<br>`crates/cli/src/mapping_check.rs:656` | — | ❌ {} 缺少 {} 个关键字值（方言词不可用）: {} |
+| `mc_cross_lang_consistent` | 0 | `crates/cli/src/mapping_check.rs:778` | — | ✅ 各语言条目数一致 |
+| `mc_cross_lang_header` | 0 | `crates/cli/src/mapping_check.rs:763` | — | 📊 跨语言标识符条目数: |
+| `mc_cross_lang_inconsistent` | 0 | `crates/cli/src/mapping_check.rs:776` | — | ⚠️ 各语言条目数不一致，请人工同步（可用 rzc mapping scaffold 生成骨架） |
+| `mc_cross_msg_missing` | 3 | `crates/cli/src/mapping_check.rs:1917`<br>`crates/cli/src/mapping_check.rs:689` | — | ⚠️ {} 缺少 {} 个消息翻译键（回退英文原文）: {} 等 |
 | `mc_danger_invalid` | 3 | dynamic | crates/cli/src/mapping_check.rs render_issue() | ❌ {} 危险等级 "{}" 的值 "{}" 无法识别（只允许 panic / rewrite / safe，多风险用 + 连接） |
 | `mc_danger_orphan` | 2 | dynamic | crates/cli/src/mapping_check.rs render_issue() | ❌ {} 危险元数据 "{}" 没有对应词条（可能已改名，元数据已失效） |
 | `mc_danger_understated` | 3 | dynamic | crates/cli/src/mapping_check.rs render_issue() | ❌ {} 词条 "{}" 映射到会 panic 的 "{}"，却未标注 panic（不得隐式 panic） |
 | `mc_danger_understated_rewrite` | 2 | dynamic | crates/cli/src/mapping_check.rs render_issue() | ❌ {} 词条 "{}" 是关键字/宏（任意位置替换），却未标注 rewrite（不得误标为纯安全） |
 | `mc_failed` | 2 | `crates/cli/src/mapping_check.rs:507` | &report.errors.len().to_string() / &report.warnings.len().to_string() | ❌ 校验未通过: {} 个错误 / {} 条警告 |
 | `mc_header` | 1 | `crates/cli/src/mapping_check.rs:476` | view_lang | 🔍 映射校验: {} |
-| `mc_keyword_collision` | 5 | `crates/cli/src/mapping_check.rs:1066`<br>`crates/cli/src/mapping_check.rs:1483` | — | ❌ {}[{}] 键 "{}" 与关键字冲突（crates 值 "{}" 永不生效，关键字值为 "{}"） |
-| `mc_missing_section` | 2 | `crates/cli/src/mapping_check.rs:1430`<br>`crates/cli/src/mapping_check.rs:1443` | — | ❌ {} keywords.toml 缺少必需节 ["{}"]（整类词条静默失效，转译仍报成功） |
-| `mc_no_crates` | 1 | `crates/cli/src/mapping_check.rs:809` | source | 源语言 {} 没有 crates 映射，无法生成脚手架 |
-| `mc_ok` | 0 | `crates/cli/src/mapping_check.rs:498`<br>`crates/cli/src/mapping_check.rs:922`<br>`crates/cli/src/mapping_check.rs:947` | — | ✅ 校验通过 |
-| `mc_ok_with_warnings` | 1 | `crates/cli/src/mapping_check.rs:500`<br>`crates/cli/src/mapping_check.rs:919` | &report.warnings.len().to_string() | ✅ 校验通过（{} 条警告） |
-| `mc_parse_failed` | 2 | `crates/cli/src/mapping_check.rs:1552` | — | ❌ {} TOML 解析失败: {} |
-| `mc_scaffold_ai_batch` | 2 | `crates/cli/src/mapping_check.rs:885` | &(i + 1).to_string() / &total_batches.to_string() | 🤖 AI 正在翻译键（第 {}/{} 批）... |
-| `mc_scaffold_ai_done` | 2 | `crates/cli/src/mapping_check.rs:897` | &replaced.to_string() / &items.len().to_string() | ✅ AI 翻译完成：已替换 {}/{} 个键 |
-| `mc_scaffold_ai_partial` | 1 | `crates/cli/src/mapping_check.rs:905` | &(items.len() - replaced).to_stri… | ⚠️ {} 个键未被 AI 翻译，保留 TODO 标记，需人工补齐 |
-| `mc_scaffold_ai_retry` | 3 | `crates/cli/src/mapping_check.rs:929` | &conflict_items.len().to_string() / &round.to_string() / &AI_MAX_RETRY_ROUNDS.to_string() | 🔄 检出 {} 个冲突键，AI 改名中（第 {}/{} 轮）... |
-| `mc_scaffold_ai_retry_left` | 1 | `crates/cli/src/mapping_check.rs:945` | target | ⚠️ 改名后仍有冲突残留，请运行 rzc mapping check {} 人工处理 |
-| `mc_scaffold_generated` | 2 | `crates/cli/src/mapping_check.rs:826` | &created.to_string() / &output_dir.display().to_string() | ✅ 已生成 {} 个脚手架文件 → {} |
-| `mc_scaffold_hint` | 1 | `crates/cli/src/mapping_check.rs:840` | target | 下一步: 翻译标记 TODO({}) 的键，英文值保持不变 |
-| `mc_scaffold_skip_existing` | 1 | `crates/cli/src/mapping_check.rs:834` | &skipped.to_string() | ⚠️ 已存在 {} 个脚手架文件，跳过生成（保留既有翻译） |
+| `mc_keyword_collision` | 5 | `crates/cli/src/mapping_check.rs:1068`<br>`crates/cli/src/mapping_check.rs:1485`<br>`crates/cli/src/mapping_check.rs:379` | — | ❌ {}[{}] 键 "{}" 与关键字冲突（crates 值 "{}" 永不生效，关键字值为 "{}"） |
+| `mc_missing_section` | 2 | `crates/cli/src/mapping_check.rs:1432`<br>`crates/cli/src/mapping_check.rs:1445`<br>`crates/cli/src/mapping_check.rs:287` | — | ❌ {} keywords.toml 缺少必需节 ["{}"]（整类词条静默失效，转译仍报成功） |
+| `mc_no_crates` | 1 | `crates/cli/src/mapping_check.rs:811` | source | 源语言 {} 没有 crates 映射，无法生成脚手架 |
+| `mc_ok` | 0 | `crates/cli/src/mapping_check.rs:498`<br>`crates/cli/src/mapping_check.rs:924`<br>`crates/cli/src/mapping_check.rs:949` | — | ✅ 校验通过 |
+| `mc_ok_with_warnings` | 1 | `crates/cli/src/mapping_check.rs:500`<br>`crates/cli/src/mapping_check.rs:921`<br>`crates/cli/src/mapping_check.rs:1999` | &report.warnings.len().to_string() | ✅ 校验通过（{} 条警告） |
+| `mc_parse_failed` | 2 | `crates/cli/src/mapping_check.rs:1554`<br>`crates/cli/src/mapping_check.rs:293`<br>`crates/cli/src/mapping_check.rs:347` | — | ❌ {} TOML 解析失败: {} |
+| `mc_scaffold_ai_batch` | 2 | `crates/cli/src/mapping_check.rs:887` | &(i + 1).to_string() / &total_batches.to_string() | 🤖 AI 正在翻译键（第 {}/{} 批）... |
+| `mc_scaffold_ai_done` | 2 | `crates/cli/src/mapping_check.rs:899` | &replaced.to_string() / &items.len().to_string() | ✅ AI 翻译完成：已替换 {}/{} 个键 |
+| `mc_scaffold_ai_partial` | 1 | `crates/cli/src/mapping_check.rs:907` | &(items.len() - replaced).to_stri… | ⚠️ {} 个键未被 AI 翻译，保留 TODO 标记，需人工补齐 |
+| `mc_scaffold_ai_retry` | 3 | `crates/cli/src/mapping_check.rs:931` | &conflict_items.len().to_string() / &round.to_string() / &AI_MAX_RETRY_ROUNDS.to_string() | 🔄 检出 {} 个冲突键，AI 改名中（第 {}/{} 轮）... |
+| `mc_scaffold_ai_retry_left` | 1 | `crates/cli/src/mapping_check.rs:947` | target | ⚠️ 改名后仍有冲突残留，请运行 rzc mapping check {} 人工处理 |
+| `mc_scaffold_generated` | 2 | `crates/cli/src/mapping_check.rs:828` | &created.to_string() / &output_dir.display().to_string() | ✅ 已生成 {} 个脚手架文件 → {} |
+| `mc_scaffold_hint` | 1 | `crates/cli/src/mapping_check.rs:842` | target | 下一步: 翻译标记 TODO({}) 的键，英文值保持不变 |
+| `mc_scaffold_skip_existing` | 1 | `crates/cli/src/mapping_check.rs:836` | &skipped.to_string() | ⚠️ 已存在 {} 个脚手架文件，跳过生成（保留既有翻译） |
 | `mc_stats` | 3 | `crates/cli/src/mapping_check.rs:480` | &report.stats.crate_files.to_stri… / &report.stats.module_path_entries… / &report.stats.i… | 统计: {} 个文件 / 模块路径 {} 条 / 标识符 {} 条 |
-| `mc_stdlib_parse_failed` | 1 | `crates/cli/src/mapping_check.rs:1574`<br>`crates/cli/src/mapping_check.rs:1598` | — | ❌ stdlib.toml 解析失败: {}（标准库映射整体失效） |
-| `mc_stdlib_shadow` | 4 | `crates/cli/src/mapping_check.rs:1535` | — | ⚠️ {} 键 "{}"（值 "{}"）被 stdlib 覆盖（stdlib 值 "{}"），crates 条目失效 |
-| `mc_unknown_source` | 1 | `crates/cli/src/mapping_check.rs:795` | source | 未知源语言: {}（不是内置语言） |
+| `mc_stdlib_parse_failed` | 1 | `crates/cli/src/mapping_check.rs:1576`<br>`crates/cli/src/mapping_check.rs:1600`<br>`crates/cli/src/mapping_check.rs:301` | — | ❌ stdlib.toml 解析失败: {}（标准库映射整体失效） |
+| `mc_stdlib_shadow` | 4 | `crates/cli/src/mapping_check.rs:1537`<br>`crates/cli/src/mapping_check.rs:400`<br>`crates/cli/src/mapping_check.rs:1981` | — | ⚠️ {} 键 "{}"（值 "{}"）被 stdlib 覆盖（stdlib 值 "{}"），crates 条目失效 |
+| `mc_unknown_source` | 1 | `crates/cli/src/mapping_check.rs:797` | source | 未知源语言: {}（不是内置语言） |
 | `mc_unknown_target` | 1 | `crates/cli/src/mapping_check.rs:560`<br>`crates/cli/src/mapping_coverage.rs:507` | target / lang_code | 未知校验目标: {}（不是内置语言代码，也不是已存在的目录） |
 
 ## CLI: `mapping` user-facing flow
@@ -275,9 +275,9 @@ no substitution at all.
 | `mapping_auto_install_failed` | 2 | `crates/cli/src/main.rs:1237`<br>`crates/cli/src/main.rs:1243` | crate_name / &status.to_string() / &e.to_string() | 自动添加依赖 {} 失败：{} |
 | `mapping_auto_install_no_project` | 0 | `crates/cli/src/main.rs:1218` | — | 未找到 Cargo 项目，跳过自动安装依赖 |
 | `mapping_auto_installed` | 1 | `crates/cli/src/main.rs:1232` | crate_name | ✅ 依赖 {} 已自动加入当前项目 |
-| `mapping_cat_keywords` | 0 | `crates/engine/src/mapping_source.rs:504`<br>`crates/engine/src/语言.rs:320` | — | 关键字 |
-| `mapping_cat_stdlib` | 0 | `crates/engine/src/mapping_source.rs:505` | — | 标准库 |
-| `mapping_cat_third_party` | 0 | `crates/engine/src/mapping_source.rs:506` | — | 第三方库 |
+| `mapping_cat_keywords` | 0 | `crates/engine/src/mapping_source.rs:506`<br>`crates/engine/src/语言.rs:275` | — | 关键字 |
+| `mapping_cat_stdlib` | 0 | `crates/engine/src/mapping_source.rs:507` | — | 标准库 |
+| `mapping_cat_third_party` | 0 | `crates/engine/src/mapping_source.rs:508` | — | 第三方库 |
 | `mapping_crate_empty` | 0 | `crates/cli/src/mapping_gen/mod.rs:176` | — | crate 名不能为空 |
 | `mapping_crate_invalid` | 1 | `crates/cli/src/mapping_gen/mod.rs:182` | crate_name | crate 名只能包含字母、数字、连字符和下划线，实际输入：{} |
 | `mapping_crate_name_line` | 3 | `crates/cli/src/mapping_gen/mod.rs:406` | &crate_chinese_name / crate_name | crate 母语名: {}（模块路径映射 {} → {}） |
@@ -298,11 +298,11 @@ no substitution at all.
 | `mapping_no_macro` | 0 | `crates/cli/src/mapping_gen/mod.rs:254` | — | 提示: rustdoc JSON 格式暂不包含 macro_rules! 宏定义，宏映射需手动补充。 |
 | `mapping_overwrite_warn` | 1 | `crates/cli/src/mapping_gen/mod.rs:388` | &output_path.display().to_string() | ⚠️ 警告：文件已存在，将覆盖: {} |
 | `mapping_rule_mode` | 0 | `crates/cli/src/mapping_gen/mod.rs:342` | — | 未配置 AI，无法生成 API 解释（规则模式，解释留空）。 |
-| `mapping_source_builtin` | 1 | `crates/cli/src/main.rs:2760` | &lang_code | 映射数据来源: 内置语言包 {}（编译期嵌入，修改语言包后需重新编译；自定义请用 rzc lang install） |
-| `mapping_source_explicit` | 1 | `crates/cli/src/main.rs:2678` | &path.display().to_string() | 映射数据来源: --lang-pack 显式目录 {}（优先于项目/全局/内置） |
-| `mapping_source_global` | 1 | `crates/cli/src/main.rs:2738` | &global_path.display().to_string() | 映射数据来源: 全局用户语言包 {}（覆盖内置；RZ_LANG_DIR 可改目录） |
-| `mapping_source_project` | 1 | `crates/cli/src/main.rs:2722` | &local_path.display().to_string() | 映射数据来源: 项目语言包 {}（覆盖全局与内置） |
-| `mapping_unknown_provider` | 1 | `crates/cli/src/mapping_check.rs:805`<br>`crates/cli/src/mapping_gen/mod.rs:198` | provider | 未知 AI 服务商 '{}'，可选：deepseek / openai / compatible / rule |
+| `mapping_source_builtin` | 1 | `crates/cli/src/main.rs:2755` | &lang_code | 映射数据来源: 内置语言包 {}（编译期嵌入，修改语言包后需重新编译；自定义请用 rzc lang install） |
+| `mapping_source_explicit` | 1 | `crates/cli/src/main.rs:2673` | &path.display().to_string() | 映射数据来源: --lang-pack 显式目录 {}（优先于项目/全局/内置） |
+| `mapping_source_global` | 1 | `crates/cli/src/main.rs:2733` | &global_path.display().to_string() | 映射数据来源: 全局用户语言包 {}（覆盖内置；RZ_LANG_DIR 可改目录） |
+| `mapping_source_project` | 1 | `crates/cli/src/main.rs:2717` | &local_path.display().to_string() | 映射数据来源: 项目语言包 {}（覆盖全局与内置） |
+| `mapping_unknown_provider` | 1 | `crates/cli/src/mapping_check.rs:807`<br>`crates/cli/src/mapping_gen/mod.rs:198` | provider | 未知 AI 服务商 '{}'，可选：deepseek / openai / compatible / rule |
 | `mapping_usage_hint` | 1 | `crates/cli/src/mapping_gen/mod.rs:410` | lang | 使用方式: 在项目中创建 lang-packs/{}/ 目录后放入此文件，或用 --lang-pack 指定。 |
 | `mapping_version_invalid` | 1 | `crates/cli/src/mapping_gen/mod.rs:188` | version | 版本号无效: {}（需为 x、x.y 或 x.y.z，可带预发布/构建后缀，如 3.0.0-alpha.0） |
 | `mapping_version_unlocked` | 0 | `crates/cli/src/mapping_gen/mod.rs:191` | — | 提示: 未指定 --target-version，依赖将解析为当前最新版本（生成结果不可复现）；生产映射建议锁定，如 --target-version 2.11.5 |
@@ -311,12 +311,12 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `lang_already_installed` | 3 | `crates/cli/src/lang_manager.rs:891` | lang_code / &target_dir.display().to_string() | 语言包 '{}' 已安装（{}）。如需覆盖，请使用 `rzc lang install {} --force`。 |
+| `lang_already_installed` | 3 | `crates/cli/src/lang_manager.rs:895` | lang_code / &target_dir.display().to_string() | 语言包 '{}' 已安装（{}）。如需覆盖，请使用 `rzc lang install {} --force`。 |
 | `lang_builtin_not_removable` | 1 | `crates/cli/src/lang_manager.rs:453` | lang_code | 语言包 '{}' 是内置语言包，不可删除。 |
-| `lang_install_hint` | 0 | `crates/cli/src/lang_manager.rs:914` | — | 现在可通过 `rzc run/check 文件.<扩展名>` 直接使用。 |
-| `lang_installed` | 2 | `crates/cli/src/lang_manager.rs:910` | lang_code / &target_dir.display().to_string() | ✅ 语言包 '{}' 安装成功：{} |
+| `lang_install_hint` | 0 | `crates/cli/src/lang_manager.rs:918` | — | 现在可通过 `rzc run/check 文件.<扩展名>` 直接使用。 |
+| `lang_installed` | 2 | `crates/cli/src/lang_manager.rs:914` | lang_code / &target_dir.display().to_string() | ✅ 语言包 '{}' 安装成功：{} |
 | `lang_list_display` | 5 | `crates/cli/src/main.rs:1009` | &tag / &display / &ext / &version | [{}] {}（扩展名：{}，版本：{}）{} |
-| `lang_not_builtin` | 2 | `crates/cli/src/main.rs:2753` | &lang_code | 语言包 '{}' 未内置，请通过 `rzc lang install {}` 下载安装。 |
+| `lang_not_builtin` | 2 | `crates/cli/src/main.rs:2748` | &lang_code | 语言包 '{}' 未内置，请通过 `rzc lang install {}` 下载安装。 |
 | `lang_not_found` | 2 | `crates/cli/src/lang_manager.rs:459` | lang_code / &target_dir.display().to_string() | 语言包 '{}' 不存在（{}）。可用 `rzc lang list` 查看已安装的语言包。 |
 | `lang_removed` | 1 | `crates/cli/src/lang_manager.rs:448` | lang_code | ✅ 语言包 '{}' 已删除。 |
 | `lang_search_empty` | 1 | `crates/cli/src/main.rs:1035` | kw | 未找到匹配的语言包（关键词：{}） |
@@ -339,44 +339,44 @@ no substitution at all.
 | `lc_err_read_zip` | 1 | `crates/cli/src/lang_manager.rs:788` | &e.to_string() | 读取压缩包失败：{} |
 | `lc_err_read_zip_entry` | 1 | `crates/cli/src/lang_manager.rs:795` | &e.to_string() | 读取压缩包条目失败：{} |
 | `lc_err_source_detail` | 3 | `crates/cli/src/lang_manager.rs:504`<br>`crates/cli/src/lang_manager.rs:634` | &(index + 1).to_string() / &source.git_url / &err.to_string() | 源{}（{}）：{} |
-| `lc_err_write_file` | 2 | `crates/cli/src/lang_manager.rs:813` | &target.display().to_string() / &e.to_string() | 写入 {} 失败：{} |
+| `lc_err_write_file` | 2 | `crates/cli/src/lang_manager.rs:817` | &target.display().to_string() / &e.to_string() | 写入 {} 失败：{} |
 
 ## Language server (LSP) messages
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `lsp_about` | 0 | `crates/lsp/src/main.rs:105`<br>`crates/lsp/src/ui.rs:190`<br>`crates/lsp/src/ui.rs:196` | — | i18n-rust LSP 代理服务器 |
+| `lsp_about` | 0 | `crates/lsp/src/main.rs:105`<br>`crates/lsp/src/ui.rs:149`<br>`crates/lsp/src/ui.rs:155` | — | i18n-rust LSP 代理服务器 |
 | `lsp_action_add_dependency` | 1 | `crates/lsp/src/response_map/responses.rs:749` | &display | 添加依赖 {}（cargo add） |
 | `lsp_action_fix_fullwidth` | 2 | `crates/lsp/src/response_map/responses.rs:792` | &character / &replacement | 将「{}」替换为「{}」 |
 | `lsp_action_ignore_lint` | 0 | `crates/lsp/src/response_map/responses.rs:819` | — | 忽略此行教学提示（// 教学忽略） |
-| `lsp_err_cache_lock` | 0 | `crates/lsp/src/translation_cache.rs:215`<br>`crates/lsp/src/translation_cache.rs:474`<br>`crates/lsp/src/translation_cache.rs:506` | — | 翻译缓存写锁获取失败 |
-| `lsp_err_entry_missing` | 1 | `crates/lsp/src/translation_cache.rs:284` | uri | 翻译条目不存在: {} |
+| `lsp_err_cache_lock` | 0 | `crates/lsp/src/translation_cache.rs:292`<br>`crates/lsp/src/translation_cache.rs:575`<br>`crates/lsp/src/translation_cache.rs:609` | — | 翻译缓存写锁获取失败 |
+| `lsp_err_entry_missing` | 1 | `crates/lsp/src/translation_cache.rs:349`<br>`crates/lsp/src/translation_cache.rs:384` | uri | 翻译条目不存在: {} |
 | `lsp_err_expect_initialize` | 1 | `crates/lsp/src/server.rs:236` | &req.method | 期望 initialize 请求，收到: {} |
 | `lsp_err_expect_request` | 0 | `crates/lsp/src/server.rs:240` | — | 期望 Request，收到其他类型消息 |
 | `lsp_err_extensions` | 0 | `crates/lsp/src/main.rs:70` | — | 错误: --extensions 需要指定扩展名列表（逗号分隔） |
-| `lsp_err_handle_notification` | 1 | `crates/lsp/src/server.rs:544` | &e.to_string() | 处理客户端通知失败: {} |
-| `lsp_err_handle_request` | 1 | `crates/lsp/src/server.rs:536` | &e.to_string() | 处理客户端请求失败: {} |
+| `lsp_err_handle_notification` | 1 | `crates/lsp/src/server.rs:542` | &e.to_string() | 处理客户端通知失败: {} |
+| `lsp_err_handle_request` | 1 | `crates/lsp/src/server.rs:534` | &e.to_string() | 处理客户端请求失败: {} |
 | `lsp_err_lang_pack` | 0 | `crates/lsp/src/main.rs:60` | — | 错误: --language-pack 需要指定路径 |
-| `lsp_err_load_keywords` | 1 | `crates/lsp/src/server.rs:1859` | &e.to_string() | 加载关键字失败: {} |
-| `lsp_err_lock` | 0 | `crates/lsp/src/server.rs:1191` | — | 待映射请求锁获取失败 |
+| `lsp_err_load_keywords` | 1 | `crates/lsp/src/server.rs:1854` | &e.to_string() | 加载关键字失败: {} |
+| `lsp_err_lock` | 0 | `crates/lsp/src/server.rs:1190` | — | 待映射请求锁获取失败 |
 | `lsp_err_ra_init_timeout` | 0 | `crates/lsp/src/server.rs:369` | — | 等待 rust-analyzer 初始化响应超时，中止启动 |
 | `lsp_err_ra_not_found` | 0 | `crates/lsp/src/analyzer.rs:375` | — | 未找到 rust-analyzer。请安装（`rustup component add rust-analyzer`）或设置 RUST_ANALYZER_PATH 环境变量 |
 | `lsp_err_ra_not_running` | 0 | `crates/lsp/src/analyzer.rs:167`<br>`crates/lsp/src/analyzer.rs:246`<br>`crates/lsp/src/analyzer.rs:552` | — | rust-analyzer 进程不可用（未启动或正在重启） |
-| `lsp_err_ra_restart` | 1 | `crates/lsp/src/server.rs:494`<br>`crates/lsp/src/server.rs:500` | &e.to_string() | rust-analyzer 自动重启失败：{} |
+| `lsp_err_ra_restart` | 1 | `crates/lsp/src/server.rs:493`<br>`crates/lsp/src/server.rs:499` | &e.to_string() | rust-analyzer 自动重启失败：{} |
 | `lsp_err_ra_start` | 1 | `crates/lsp/src/analyzer.rs:98` | &e.to_string() | 启动 rust-analyzer 失败: {} |
 | `lsp_err_ra_stdin` | 0 | `crates/lsp/src/analyzer.rs:105` | — | 无法获取 rust-analyzer stdin |
 | `lsp_err_ra_stdout` | 0 | `crates/lsp/src/analyzer.rs:109` | — | 无法获取 rust-analyzer stdout |
 | `lsp_err_read_body` | 0 | `crates/lsp/src/analyzer.rs:310` | — | 读取 rust-analyzer 消息体失败 |
 | `lsp_err_read_output` | 1 | `crates/lsp/src/analyzer.rs:288` | &e.to_string() | 读取 rust-analyzer 输出失败: {} |
 | `lsp_err_recv_initialize` | 1 | `crates/lsp/src/server.rs:223` | &e.to_string() | 接收 initialize 请求失败: {} |
-| `lsp_err_send_format` | 1 | `crates/lsp/src/server.rs:1166` | &e.to_string() | 发送格式化响应失败: {} |
-| `lsp_err_send_initialize` | 1 | `crates/lsp/src/server.rs:428` | &e.to_string() | 发送 initialize 响应失败: {} |
-| `lsp_err_temp_symlink` | 1 | `crates/lsp/src/server.rs:1374`<br>`crates/lsp/src/server.rs:1382` | &dir.display().to_string() | 临时目录是符号链接，出于安全拒绝使用: {} |
+| `lsp_err_send_format` | 1 | `crates/lsp/src/server.rs:1165` | &e.to_string() | 发送格式化响应失败: {} |
+| `lsp_err_send_initialize` | 1 | `crates/lsp/src/server.rs:427` | &e.to_string() | 发送 initialize 响应失败: {} |
+| `lsp_err_temp_symlink` | 1 | `crates/lsp/src/server.rs:1373`<br>`crates/lsp/src/server.rs:1381` | &dir.display().to_string() | 临时目录是符号链接，出于安全拒绝使用: {} |
 | `lsp_err_write_lock` | 0 | `crates/lsp/src/analyzer.rs:116`<br>`crates/lsp/src/analyzer.rs:121`<br>`crates/lsp/src/analyzer.rs:126` | — | 写入端锁获取失败 |
 | `lsp_extensions_opt` | 0 | `crates/lsp/src/main.rs:111` | — | --extensions <列表> 方言扩展名列表（默认: .zh,.de,.ja） |
 | `lsp_fail_notify` | 1 | `crates/lsp/src/server.rs:198` | reason | i18n-rust 语言服务器启动失败：{}（详见输出面板「i18n-rust LSP」） |
-| `lsp_gen_lib_comment` | 0 | `crates/lsp/src/translation_cache.rs:1119` | — | // 由 i18n-rust LSP 代理自动生成，请勿手动修改。 |
-| `lsp_gen_module_fallback` | 0 | `crates/lsp/src/translation_cache.rs:1135` | — | 模块 |
+| `lsp_gen_lib_comment` | 0 | `crates/lsp/src/translation_cache.rs:1344` | — | // 由 i18n-rust LSP 代理自动生成，请勿手动修改。 |
+| `lsp_gen_module_fallback` | 0 | `crates/lsp/src/translation_cache.rs:1360` | — | 模块 |
 | `lsp_help_opt` | 0 | `crates/lsp/src/main.rs:113` | — | --help, -h 显示帮助信息 |
 | `lsp_hint_add_dependency` | 1 | `crates/lsp/src/response_map/diag_text.rs:214` | crate_name | 💡 教学提示：若这是未声明的第三方库，运行 `rzc add {}` 添加依赖。 |
 | `lsp_hint_cannot_find` | 0 | `crates/lsp/src/response_map/diag_text.rs:206` | — | 💡 教学提示：请检查名称拼写是否正确，以及是否已通过 use 导入。 |
@@ -391,27 +391,27 @@ no substitution at all.
 | `lsp_install_no_cargo` | 1 | `crates/cli/src/install.rs:119` | &e.to_string() | 执行 cargo 失败：{}。请先安装 Rust 工具链（https://rustup.rs），或从发布页手动下载 i18n-rust-lsp。 |
 | `lsp_install_version_mismatch` | 2 | `crates/cli/src/install.rs:59` | &installed / env!("CARGO_PKG_VERSION") | 已安装的语言服务器版本为 {}，与当前 rzc 版本 {} 不一致。请执行 `rzc install lsp --force` 重新安装以保持一致。 |
 | `lsp_install_version_unknown` | 1 | `crates/cli/src/install.rs:68` | &target.display().to_string() | 无法确定已安装语言服务器 {} 的版本；如需确保与 rzc 一致，请执行 `rzc install lsp --force`。 |
-| `lsp_internal_error` | 0 | `crates/lsp/src/server.rs:1686` | — | 内部错误 |
+| `lsp_internal_error` | 0 | `crates/lsp/src/server.rs:1682` | — | 内部错误 |
 | `lsp_lang_pack_opt` | 0 | `crates/lsp/src/main.rs:110` | — | --language-pack, -l <路径> 语言包目录路径（默认: lang-packs/zh） |
-| `lsp_log_cache_removed` | 1 | `crates/lsp/src/translation_cache.rs:456`<br>`crates/lsp/src/translation_cache.rs:487` | &uri / uri | 翻译缓存已移除: {} |
-| `lsp_log_cache_updated` | 2 | `crates/lsp/src/translation_cache.rs:294` | uri / &content.lines().count().to_strin… | 翻译缓存已更新: {} ({} 行) |
-| `lsp_log_client_disconnected` | 0 | `crates/lsp/src/server.rs:514` | — | 客户端连接已断开 |
+| `lsp_log_cache_removed` | 1 | `crates/lsp/src/translation_cache.rs:557`<br>`crates/lsp/src/translation_cache.rs:588` | &uri / uri | 翻译缓存已移除: {} |
+| `lsp_log_cache_updated` | 2 | `crates/lsp/src/translation_cache.rs:394` | uri / &content.lines().count().to_strin… | 翻译缓存已更新: {} ({} 行) |
+| `lsp_log_client_disconnected` | 0 | `crates/lsp/src/server.rs:513` | — | 客户端连接已断开 |
 | `lsp_log_client_init` | 0 | `crates/lsp/src/server.rs:152` | — | 客户端初始化完成 |
-| `lsp_log_client_notification` | 1 | `crates/lsp/src/server.rs:627` | &notif.method | 客户端通知: {} |
-| `lsp_log_client_request` | 2 | `crates/lsp/src/server.rs:601` | &req.method / &format!("{:?}", req.id) | 客户端请求: {} id={} |
-| `lsp_log_doc_opened` | 2 | `crates/lsp/src/server.rs:766` | uri / &version.to_string() | 文档已打开并翻译: {} ({}) |
+| `lsp_log_client_notification` | 1 | `crates/lsp/src/server.rs:625` | &notif.method | 客户端通知: {} |
+| `lsp_log_client_request` | 2 | `crates/lsp/src/server.rs:599` | &req.method / &format!("{:?}", req.id) | 客户端请求: {} id={} |
+| `lsp_log_doc_opened` | 2 | `crates/lsp/src/server.rs:764` | uri / &version.to_string() | 文档已打开并翻译: {} ({}) |
 | `lsp_log_exit` | 0 | `crates/lsp/src/main.rs:216` | — | i18n-rust LSP 代理服务器已退出 |
 | `lsp_log_lang_pack` | 1 | `crates/lsp/src/main.rs:205` | &args.lang_pack_path.display().to… | 语言包路径: {} |
 | `lsp_log_loaded_mappings` | 2 | `crates/lsp/src/server.rs:101` | &manager.keyword_map.len().to_str… / &manager.get_macro_map().len().to… | 已加载 {} 个关键字映射，{} 个宏名称 |
-| `lsp_log_mappings_fallback` | 1 | `crates/lsp/src/server.rs:1846` | &e.to_string() | 从映射表加载失败: {}, 使用备用 |
-| `lsp_log_ra_crashed` | 0 | `crates/lsp/src/server.rs:557` | — | rust-analyzer 进程异常退出，正在自动重启并重新同步… |
+| `lsp_log_mappings_fallback` | 1 | `crates/lsp/src/server.rs:1841` | &e.to_string() | 从映射表加载失败: {}, 使用备用 |
+| `lsp_log_ra_crashed` | 0 | `crates/lsp/src/server.rs:555` | — | rust-analyzer 进程异常退出，正在自动重启并重新同步… |
 | `lsp_log_ra_init_done` | 0 | `crates/lsp/src/server.rs:342` | — | rust-analyzer 初始化完成 |
 | `lsp_log_ra_output_ended` | 0 | `crates/lsp/src/analyzer.rs:143` | — | rust-analyzer 输出已结束 |
-| `lsp_log_ra_restarted` | 0 | `crates/lsp/src/server.rs:592` | — | rust-analyzer 已自动重启，文档已重新同步 |
+| `lsp_log_ra_restarted` | 0 | `crates/lsp/src/server.rs:590` | — | rust-analyzer 已自动重启，文档已重新同步 |
 | `lsp_log_ra_starting` | 1 | `crates/lsp/src/analyzer.rs:81` | &ra_path.display().to_string() | 启动 rust-analyzer: {} |
 | `lsp_log_ra_stopping` | 0 | `crates/lsp/src/analyzer.rs:223` | — | 正在停止 rust-analyzer... |
-| `lsp_log_ra_thread_exit` | 0 | `crates/lsp/src/server.rs:468` | — | rust-analyzer 转发线程已退出 |
-| `lsp_log_shutdown` | 0 | `crates/lsp/src/server.rs:522` | — | 收到 shutdown 请求 |
+| `lsp_log_ra_thread_exit` | 0 | `crates/lsp/src/server.rs:467` | — | rust-analyzer 转发线程已退出 |
+| `lsp_log_shutdown` | 0 | `crates/lsp/src/server.rs:521` | — | 收到 shutdown 请求 |
 | `lsp_log_start` | 0 | `crates/lsp/src/main.rs:201` | — | i18n-rust LSP 代理服务器启动 |
 | `lsp_options` | 0 | `crates/lsp/src/main.rs:109` | — | 选项: |
 | `lsp_phrase_aborting_due_to` | 0 | `crates/lsp/src/response_map/diag_text.rs:159` | — | 中止，原因： |
@@ -434,22 +434,22 @@ no substitution at all.
 | `lsp_phrase_previous_error` | 0 | `crates/lsp/src/response_map/diag_text.rs:160` | — | 前一个错误 |
 | `lsp_phrase_the_trait` | 0 | `crates/lsp/src/response_map/diag_text.rs:155` | — | 特征 |
 | `lsp_phrase_type_mismatch` | 0 | `crates/lsp/src/response_map/diag_text.rs:136` | — | 类型不匹配 |
-| `lsp_phrase_unresolved_import` | 0 | `crates/lsp/src/server.rs:1311`<br>`crates/lsp/src/response_map/diag_text.rs:157` | — | 未解析的导入 |
+| `lsp_phrase_unresolved_import` | 0 | `crates/lsp/src/server.rs:1310`<br>`crates/lsp/src/response_map/diag_text.rs:157` | — | 未解析的导入 |
 | `lsp_phrase_unused_import` | 0 | `crates/lsp/src/response_map/diag_text.rs:144` | — | 未使用的导入 |
 | `lsp_phrase_unused_variable` | 0 | `crates/lsp/src/response_map/diag_text.rs:143` | — | 未使用的变量 |
 | `lsp_unknown_arg` | 1 | `crates/lsp/src/main.rs:90` | &args[i] | 未知参数: {} |
 | `lsp_usage` | 0 | `crates/lsp/src/main.rs:107` | — | 用法: i18n-rust-lsp [选项] |
 | `lsp_use_help` | 0 | `crates/lsp/src/main.rs:91` | — | 使用 --help 查看帮助 |
 | `lsp_version_opt` | 0 | `crates/lsp/src/main.rs:112` | — | --version, -V 输出版本号 |
-| `lsp_warn_builtin_fallback` | 0 | `crates/lsp/src/server.rs:1864` | — | 未找到语言包文件，使用内置关键字映射 |
-| `lsp_warn_request_timeout` | 0 | `crates/lsp/src/server.rs:1521` | — | 转发请求超时：rust-analyzer 未响应 |
+| `lsp_warn_builtin_fallback` | 0 | `crates/lsp/src/server.rs:1859` | — | 未找到语言包文件，使用内置关键字映射 |
+| `lsp_warn_request_timeout` | 0 | `crates/lsp/src/server.rs:1520` | — | 转发请求超时：rust-analyzer 未响应 |
 
 ## CLI/engine: diagnostic rendering
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
 | `diag_fix_suggestion` | 1 | `crates/engine/src/diagnostic/translator.rs:570` | &hint | 修复建议：{} |
-| `diag_kind_error` | 0 | `crates/engine/src/语言.rs:320`<br>`crates/engine/src/diagnostic/teaching.rs:47` | — | 错误 |
+| `diag_kind_error` | 0 | `crates/engine/src/语言.rs:275`<br>`crates/engine/src/diagnostic/teaching.rs:47` | — | 错误 |
 | `diag_kind_help` | 0 | `crates/engine/src/diagnostic/teaching.rs:50` | — | 帮助 |
 | `diag_kind_ice` | 0 | `crates/engine/src/diagnostic/teaching.rs:51` | — | 内部编译器错误 |
 | `diag_kind_note` | 0 | `crates/engine/src/diagnostic/teaching.rs:49` | — | 注释 |
@@ -577,12 +577,12 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `load_builtin_lang_pack_failed` | 1 | `crates/cli/src/main.rs:2771` | &e.to_string() | 加载内置语言包失败: {} |
+| `load_builtin_lang_pack_failed` | 1 | `crates/cli/src/main.rs:2766` | &e.to_string() | 加载内置语言包失败: {} |
 | `load_error_msg_failed` | 1 | `crates/cli/src/diagnostics.rs:590` | &e.to_string() | 加载错误消息失败: {} |
-| `load_global_lang_pack_failed` | 1 | `crates/cli/src/main.rs:2745` | &e.to_string() | 加载全局语言包失败: {} |
+| `load_global_lang_pack_failed` | 1 | `crates/cli/src/main.rs:2740` | &e.to_string() | 加载全局语言包失败: {} |
 | `load_keywords_missing` | 1 | `crates/engine/src/error.rs:185` | — | 关键字文件不存在: {} |
-| `load_lang_pack_failed` | 1 | `crates/cli/src/main.rs:2681` | &e.to_string() | 加载语言包失败: {} |
-| `load_local_lang_pack_failed` | 1 | `crates/cli/src/main.rs:2727` | &e.to_string() | 加载本地语言包失败: {} |
+| `load_lang_pack_failed` | 1 | `crates/cli/src/main.rs:2676` | &e.to_string() | 加载语言包失败: {} |
+| `load_local_lang_pack_failed` | 1 | `crates/cli/src/main.rs:2722` | &e.to_string() | 加载本地语言包失败: {} |
 | `load_map_file_missing` | 1 | `crates/engine/src/error.rs:186` | — | 映射表文件不存在: {} |
 | `load_parse_builtin_keywords_failed` | 1 | `crates/engine/src/error.rs:233` | detail | 解析内置关键字 TOML 失败: {} |
 | `load_parse_builtin_paths_failed` | 1 | `crates/engine/src/error.rs:236` | detail | 解析内置模块路径 TOML 失败: {} |
@@ -605,7 +605,7 @@ no substitution at all.
 | `err_confusion_char` | 3 | `crates/engine/src/error.rs:103` | &location.describe() / &codepoint / detail | 检测到可疑 Unicode 字符（{}）：U+{}（{}） |
 | `err_input_invalid` | 1 | `crates/engine/src/error.rs:71` | reason | 输入无效：{} |
 | `err_lex_error` | 2 | `crates/engine/src/error.rs:76` | &location.describe() / detail | 词法错误（{}）：{} |
-| `err_line_col` | 2 | `crates/engine/src/error.rs:26`<br>`crates/engine/src/语言.rs:275`<br>`crates/engine/src/语言.rs:284` | &self.line.to_string() / &self.column.to_string() / "1" / "2" | 第 {} 行第 {} 列 |
+| `err_line_col` | 2 | `crates/cli/src/ui.rs:213`<br>`crates/engine/src/error.rs:26`<br>`crates/engine/src/ui.rs:145` | "3" / "7" / &self.line.to_string() / &self.column.to_string() | 第 {} 行第 {} 列 |
 | `err_mapping_missing` | 1 | `crates/engine/src/error.rs:90` | name | 映射缺失：找不到 `{}` 的翻译映射 |
 | `err_mapping_missing_at` | 2 | `crates/engine/src/error.rs:84` | &loc.describe() / name | 映射缺失（{}）：找不到 `{}` 的翻译映射 |
 | `err_parse_error_messages` | 1 | `crates/engine/src/error.rs:240` | detail | 解析错误消息 TOML 失败: {} |
@@ -624,7 +624,7 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `transpile_backup` | 2 | `crates/cli/src/main.rs:2439` | &path.display().to_string() / &backup.display().to_string() | 已将 {} 备份为 {}（原内容被新的转译结果覆盖） |
+| `transpile_backup` | 2 | `crates/cli/src/main.rs:2434` | &path.display().to_string() / &backup.display().to_string() | 已将 {} 备份为 {}（原内容被新的转译结果覆盖） |
 | `transpile_file_failed` | 2 | `crates/cli/src/main.rs:2258` | &path.display().to_string() / &e.to_string() | 转译 {} 失败: {} |
 
 ## Other UI messages
@@ -636,7 +636,7 @@ no substitution at all.
 | `add_mapping_ready` | 2 | `crates/cli/src/main.rs:1098` | &crate_name / &alias | ✅ 已添加 {}。该 crate 有母语别名「{}」，母语源码中可直接使用 |
 | `add_no_project` | 0 | `crates/cli/src/main.rs:1070` | — | 未找到 Cargo 项目（当前目录及上级均无 Cargo.toml），请在项目内运行 |
 | `add_no_targets_hint` | 2 | `crates/cli/src/main.rs:1083` | &entry | 这个项目还没有 Cargo 能读取的构建入口：`Cargo.toml` 未声明 [lib]/[[bin]]，`src/` 下也没有 {} 对应的 .rs 文件。先运行 `rzc check {}` 生成标准 Rust 入口，再重试本命令 |
-| `agents_generated` | 1 | `crates/cli/src/main.rs:811`<br>`crates/cli/src/main.rs:2657` | &path.display().to_string() / "AGENTS.md" | AI 编程指南已生成：{}（语言包更新后重跑 rzc guide 可刷新） |
+| `agents_generated` | 1 | `crates/cli/src/main.rs:811`<br>`crates/cli/src/main.rs:2652` | &path.display().to_string() / "AGENTS.md" | AI 编程指南已生成：{}（语言包更新后重跑 rzc guide 可刷新） |
 | `cargo_check_failed` | 2 | `crates/cli/src/main.rs:693` | &project_root.display().to_string… / &e.to_string() | 执行 cargo check 失败，项目根: {}，错误: {} |
 | `cargo_progress_checking` | 1 | `crates/cli/src/diagnostics.rs:252` | — | 正在检查 {} |
 | `cargo_progress_compiling` | 1 | `crates/cli/src/diagnostics.rs:251` | — | 正在编译 {} |
@@ -647,7 +647,7 @@ no substitution at all.
 | `cargo_progress_running` | 1 | `crates/cli/src/diagnostics.rs:254` | — | 正在运行 {} |
 | `cargo_run_failed` | 2 | `crates/cli/src/main.rs:487`<br>`crates/cli/src/main.rs:533`<br>`crates/cli/src/main.rs:552` | &project_root.display().to_string… / &e.to_string() | 执行 cargo run 失败，项目根: {}，错误: {} |
 | `compile_error` | 1 | `crates/cli/src/diagnostics.rs:813`<br>`crates/cli/src/diagnostics.rs:842` | &cargo_error_text() | 编译错误： {} |
-| `dir_exists` | 1 | `crates/cli/src/main.rs:2595` | project_name | 目录 {} 已存在 |
+| `dir_exists` | 1 | `crates/cli/src/main.rs:2590` | project_name | 目录 {} 已存在 |
 | `eject_args_duplicate` | 1 | `crates/cli/src/main.rs:1750` | &dup.display().to_string() | 导出目标重复：{}（同一目标只需传一次） |
 | `eject_failed` | 2 | `crates/cli/src/main.rs:1782` | &file.display().to_string() / &format!("{err:#}") | 导出失败：{}（{}） |
 | `eject_hint_declared_name` | 4 | `crates/engine/src/eject_hints.rs:59` | &line / &column / &self.word / &self.target | 第 {} 行第 {} 列：声明的名字「{}」命中词条，转译后会被改写成「{}」，请换个名字（教学提示） |
@@ -672,16 +672,16 @@ no substitution at all.
 | `hint_add_dependency` | 2 | `crates/cli/src/diagnostics.rs:1189` | name | 提示: "{}" 疑似未声明的第三方库，运行 `rzc add {}` 添加依赖 |
 | `hint_own_crate_lib` | 3 | `crates/cli/src/diagnostics.rs:1198` | name / path | "{}" 是本项目的包名，不是第三方库——Cargo 不允许一个包依赖自己，`rzc add {}` 必然失败。要用本项目自己的库代码，先运行 `rzc check {}` 生成 Cargo 的 src/lib.rs，然后重新校验 |
 | `hint_own_crate_no_lib` | 4 | `crates/cli/src/diagnostics.rs:1202` | name / path | "{}" 是本项目的包名，不是第三方库——Cargo 不允许一个包依赖自己，`rzc add {}` 必然失败。本项目还没有库入口 {}：`use 包名::…` 引用的就是这个文件编译出的库，把可复用的代码写进去，再运行 `rzc che… |
-| `init_lang_fallback` | 2 | `crates/cli/src/main.rs:2513` | &raw / INIT_DEFAULT_LANG | 未识别系统语言 '{}'，已回退到 '{}'。可用 `rzc init <项目名> --lang <语言代码>` 指定语言。 |
-| `init_lang_menu_invalid` | 0 | `crates/cli/src/main.rs:2585` | — | 无效选择，请重新输入。 |
-| `init_lang_menu_prompt` | 1 | `crates/cli/src/main.rs:2574` | &default_hint | 输入序号或语言代码后回车（直接回车使用默认 {}）： |
-| `init_lang_menu_title` | 0 | `crates/cli/src/main.rs:2563` | — | 当前系统语言没有对应的语言包，请选择项目语言： |
-| `init_unknown_lang` | 2 | `crates/cli/src/main.rs:2502` | &code / &available_lang_codes_text() | 未知语言 '{}'。可用语言：{}。安装第三方语言包请用 `rzc lang install <语言代码>`。 |
+| `init_lang_fallback` | 2 | `crates/cli/src/main.rs:2508` | &raw / INIT_DEFAULT_LANG | 未识别系统语言 '{}'，已回退到 '{}'。可用 `rzc init <项目名> --lang <语言代码>` 指定语言。 |
+| `init_lang_menu_invalid` | 0 | `crates/cli/src/main.rs:2580` | — | 无效选择，请重新输入。 |
+| `init_lang_menu_prompt` | 1 | `crates/cli/src/main.rs:2569` | &default_hint | 输入序号或语言代码后回车（直接回车使用默认 {}）： |
+| `init_lang_menu_title` | 0 | `crates/cli/src/main.rs:2558` | — | 当前系统语言没有对应的语言包，请选择项目语言： |
+| `init_unknown_lang` | 2 | `crates/cli/src/main.rs:2497` | &code / &available_lang_codes_text() | 未知语言 '{}'。可用语言：{}。安装第三方语言包请用 `rzc lang install <语言代码>`。 |
 | `input_is_directory` | 1 | `crates/cli/src/main.rs:1673` | &file.display().to_string() | {} 是目录：`rzc run` / `rzc check` / `rzc transpile` 只接受单个源文件；批量导出目录请用 `rzc eject <目录>` |
 | `input_missing` | 1 | `crates/cli/src/main.rs:1668`<br>`crates/cli/src/main.rs:1708`<br>`crates/cli/src/main.rs:1895` | &file.display().to_string() / &anchor.display().to_string() | {} 不存在：请检查路径（文件或目录） |
 | `installed_langs_count` | 1 | `crates/cli/src/main.rs:980` | &list.len().to_string() | 已安装的语言包（共 {} 个）： |
 | `invalid_lang_code` | 1 | `crates/cli/src/lang_manager.rs:443`<br>`crates/cli/src/lang_manager.rs:469` | lang_code | 无效的语言代码 '{}'：应为仓库内目录名。 |
-| `invalid_lang_dir` | 1 | `crates/cli/src/lang_manager.rs:998` | &path.display().to_string() | 无效的语言包目录：{} 下缺少 keywords.toml。 |
+| `invalid_lang_dir` | 1 | `crates/cli/src/lang_manager.rs:1002` | &path.display().to_string() | 无效的语言包目录：{} 下缺少 keywords.toml。 |
 | `legacy_product_moved` | 2 | `crates/cli/src/main.rs:1356` | &legacy.display().to_string() / &backup.display().to_string() | 旧布局生成文件 {} 已迁到 .rz/gen/（原内容备份为 {}） |
 | `lint_confusable_method` | 4 | `crates/engine/src/lint.rs:95` | &self.line.to_string() / &self.column.to_string() / &self.text / &self.extra | 第 {} 行第 {} 列：方法名「{}」未收录（将原样保留），是否想写「{}」？（教学提示） |
 | `lint_deep_indent` | 2 | `crates/engine/src/lint.rs:92` | &self.line.to_string() / &self.text | 第 {} 行：嵌套过深（{} 个空格缩进），建议拆分函数（教学提示） |
@@ -689,22 +689,22 @@ no substitution at all.
 | `lint_magic_number` | 3 | `crates/engine/src/lint.rs:88` | &self.line.to_string() / &self.column.to_string() / &self.text | 第 {} 行第 {} 列：魔法数字「{}」，建议命名常量（教学提示） |
 | `lint_reserved_name_collision` | 4 | `crates/engine/src/lint.rs:113` | &self.line.to_string() / &self.column.to_string() / &self.text / &self.extra | 第 {} 行第 {} 列：声明的名字「{}」转译后是 Rust 保留字「{}」，产物非法或语义被静默改写；请改名，或用 r# 原始标识符转义（教学提示） |
 | `lint_untyped_let` | 2 | `crates/engine/src/lint.rs:84` | &self.line.to_string() / &self.column.to_string() | 第 {} 行第 {} 列：`让` 未标注类型，试试显式写出类型（教学提示） |
-| `log_cache_disk_discard` | 0 | `crates/engine/src/cache.rs:202` | — | 磁盘缓存版本不匹配或已损坏，已丢弃 |
-| `log_cache_disk_loaded` | 1 | `crates/engine/src/cache.rs:283` | &self.entries.len().to_string() | 已从磁盘加载缓存（{} 条） |
-| `log_cache_disk_save_failed` | 0 | `crates/engine/src/cache.rs:259` | — | 磁盘缓存保存失败 |
-| `log_cache_evict` | 1 | `crates/engine/src/cache.rs:526` | &front_hash.to_string() | 容量已满，淘汰最旧条目（哈希 {}） |
-| `log_cache_hit` | 2 | `crates/engine/src/cache.rs:426` | &content.len().to_string() / &context_fingerprint.to_string() | 命中缓存（{} 字节，指纹 {}） |
-| `log_cache_miss` | 2 | `crates/engine/src/cache.rs:437` | &content.len().to_string() / &context_fingerprint.to_string() | 缓存未命中（{} 字节，指纹 {}），执行翻译 |
+| `log_cache_disk_discard` | 0 | `crates/engine/src/cache.rs:347` | — | 磁盘缓存版本不匹配或已损坏，已丢弃 |
+| `log_cache_disk_loaded` | 1 | `crates/engine/src/cache.rs:428` | &self.entries.len().to_string() | 已从磁盘加载缓存（{} 条） |
+| `log_cache_disk_save_failed` | 0 | `crates/engine/src/cache.rs:404` | — | 磁盘缓存保存失败 |
+| `log_cache_evict` | 1 | `crates/engine/src/cache.rs:671` | &front_hash.to_string() | 容量已满，淘汰最旧条目（哈希 {}） |
+| `log_cache_hit` | 2 | `crates/engine/src/cache.rs:571` | &content.len().to_string() / &context_fingerprint.to_string() | 命中缓存（{} 字节，指纹 {}） |
+| `log_cache_miss` | 2 | `crates/engine/src/cache.rs:582` | &content.len().to_string() / &context_fingerprint.to_string() | 缓存未命中（{} 字节，指纹 {}），执行翻译 |
 | `log_level_debug` | 0 | `crates/engine/src/logger.rs:38` | — | 调试 |
 | `log_level_error` | 0 | `crates/engine/src/logger.rs:41` | — | 错误 |
 | `log_level_info` | 0 | `crates/engine/src/logger.rs:39` | — | 信息 |
 | `log_level_warn` | 0 | `crates/engine/src/logger.rs:40` | — | 警告 |
 | `log_transpile_cache_fallback` | 0 | `crates/cli/src/main.rs:2005` | — | 缓存转译失败，回退无缓存管线 |
-| `log_transpile_done` | 3 | `crates/engine/src/lib.rs:88` | &source.len().to_string() / &output.output.len().to_string() / &elapsed | 翻译完成（{} 字节 → {} 字节，耗时 {}） |
-| `log_transpile_start` | 1 | `crates/engine/src/lib.rs:69` | &source.len().to_string() | 开始翻译（{} 字节） |
+| `log_transpile_done` | 3 | `crates/engine/src/lib.rs:91` | &source.len().to_string() / &output.output.len().to_string() / &elapsed | 翻译完成（{} 字节 → {} 字节，耗时 {}） |
+| `log_transpile_start` | 1 | `crates/engine/src/lib.rs:72` | &source.len().to_string() | 开始翻译（{} 字节） |
 | `manifest_no_target` | 0 | `crates/cli/src/main.rs:1498` | — | Cargo.toml 没有声明编译目标，项目中也找不到 src/main.rs 或 src/lib.rs。请先在 src/main.rs 编写主程序，或在 Cargo.toml 中声明 [[bin]]/lib。 |
 | `manifest_parse_error` | 2 | `crates/cli/src/main.rs:1492` | &path.display().to_string() / &e.to_string() | Cargo.toml 解析失败：{}（{}） |
-| `no_available_ext` | 0 | `crates/cli/src/main.rs:2691` | — | 无 |
+| `no_available_ext` | 0 | `crates/cli/src/main.rs:2686` | — | 无 |
 | `no_lang_installed` | 0 | `crates/cli/src/main.rs:975` | — | 没有已安装的语言包。 |
 | `no_project_root` | 1 | `crates/cli/src/main.rs:1268` | &file.display().to_string() | 未找到项目根目录（向上未找到 Cargo.toml）。源文件: {}。请先使用 `rzc init` 创建项目。 |
 | `not_removable` | 0 | `crates/cli/src/main.rs:997` | — | （不可删除） |
@@ -717,41 +717,41 @@ no substitution at all.
 | `panic_msg_index_oob` | 2 | `crates/cli/src/diagnostics.rs:409` | len_s.trim() / idx_s.trim() | 下标越界：长度是 {}，但下标是 {} |
 | `panic_note` | 0 | `crates/cli/src/diagnostics.rs:348` | — | 提示：设置 RUST_BACKTRACE=1 环境变量可显示回溯 |
 | `panic_thread_main` | 0 | `crates/cli/src/diagnostics.rs:391` | — | 主函数 |
-| `project_created` | 1 | `crates/cli/src/main.rs:2659` | project_name | ✅ 项目 '{}' 创建成功！ |
-| `project_created_hint` | 1 | `crates/cli/src/main.rs:2660` | lang | 语言包已内置，无需手动复制。如需自定义，可创建 lang-packs/{}/ 目录覆盖。 |
-| `project_run_hint` | 1 | `crates/cli/src/main.rs:2661` | lang | 使用 `rzc run src/main.{}` 运行。 |
-| `readme_template` | 2 | `crates/cli/src/main.rs:2639` | project_name / lang | # {} 使用 `rzc run src/main.{}` 运行。 |
+| `project_created` | 1 | `crates/cli/src/main.rs:2654` | project_name | ✅ 项目 '{}' 创建成功！ |
+| `project_created_hint` | 1 | `crates/cli/src/main.rs:2655` | lang | 语言包已内置，无需手动复制。如需自定义，可创建 lang-packs/{}/ 目录覆盖。 |
+| `project_run_hint` | 1 | `crates/cli/src/main.rs:2656` | lang | 使用 `rzc run src/main.{}` 运行。 |
+| `readme_template` | 2 | `crates/cli/src/main.rs:2634` | project_name / lang | # {} 使用 `rzc run src/main.{}` 运行。 |
 | `relocalize_done` | 2 | `crates/cli/src/main.rs:1982` | &count.to_string() / &out_root.display().to_string() | 已反译重生 {} 个文件到：{} |
 | `relocalize_no_module_entry` | 0 | `crates/cli/src/main.rs:1977` | — | 未在输出工程中发现入口文件（main / 主函数词），产物可能无法直接 rzc build |
 | `remote_install_failed` | 3 | `crates/cli/src/lang_manager.rs:643` | lang_code / &sources.len().to_string() / &error_details.join("\n") | 远程安装语言包 '{}' 失败，已依次尝试 {} 个源： {} 请检查网络连接；或通过环境变量 RZ_LANG_REPO 指定自定义仓库地址。 |
 | `remote_lang_not_found` | 1 | `crates/cli/src/lang_manager.rs:726`<br>`crates/cli/src/lang_manager.rs:766` | lang_code | 远程仓库中不存在语言包 '{}'。请检查语言代码，或使用 `rzc lang list` 查看已安装的语言包。 |
-| `stale_products_pruned` | 1 | `crates/cli/src/main.rs:2362` | &pruned.len().to_string() | 已清理 {} 个失效生成文件（对应母语源文件已删除或改名） |
+| `stale_products_pruned` | 1 | `crates/cli/src/main.rs:2357` | &pruned.len().to_string() | 已清理 {} 个失效生成文件（对应母语源文件已删除或改名） |
 | `success_compile` | 0 | `crates/cli/src/diagnostics.rs:807`<br>`crates/cli/src/diagnostics.rs:839` | — | ✅ 编译成功，没有错误。 |
 | `tag_builtin` | 0 | `crates/cli/src/main.rs:984` | — | 内置 |
 | `tag_user` | 0 | `crates/cli/src/main.rs:985` | — | 用户安装 |
-| `tc_doctor_help` | 0 | `crates/cli/src/main.rs:2843` | — | 诊断工具链环境：内置工具链 / PATH / 版本对比 |
+| `tc_doctor_help` | 0 | `crates/cli/src/main.rs:2838` | — | 诊断工具链环境：内置工具链 / PATH / 版本对比 |
 | `tc_download_rustc` | 1 | `crates/cli/src/install.rs:222` | &url | 正在下载 rustc/cargo（官方 standalone，体积较大，请耐心等待）... {} |
 | `tc_extracting` | 0 | `crates/cli/src/install.rs:241` | — | 正在解压并安装... |
 | `tc_install_already` | 1 | `crates/cli/src/install.rs:212` | &bin_dir.display().to_string() | 内置工具链已安装（{}）；如需更新版本请使用 --force 重新安装 |
 | `tc_install_done` | 1 | `crates/cli/src/install.rs:261` | &bin_dir.display().to_string() | 内置工具链安装完成：{} rzc 与 LSP 将优先使用内置工具链，不再依赖 rustup 与 PATH 配置 |
-| `tc_install_help` | 0 | `crates/cli/src/main.rs:2836` | — | 一键安装内置工具链（standalone rustc/cargo/rust-analyzer，脱离 rustup） |
+| `tc_install_help` | 0 | `crates/cli/src/main.rs:2831` | — | 一键安装内置工具链（standalone rustc/cargo/rust-analyzer，脱离 rustup） |
 | `tc_ra_installed` | 1 | `crates/cli/src/install.rs:251`<br>`crates/cli/src/install.rs:273` | ra_tag | rust-analyzer {} 已安装 |
 | `tc_ra_skipped` | 1 | `crates/cli/src/install.rs:252` | &e.to_string() | rust-analyzer 下载失败（{}）；可稍后执行 rzc install lsp 或手动安装 |
-| `template_main` | 0 | `crates/cli/src/main.rs:2635`<br>`crates/engine/src/guide.rs:204` | — | 函数 主函数() { 打印行!("你好，世界！"); } |
+| `template_main` | 0 | `crates/cli/src/main.rs:2630`<br>`crates/engine/src/guide.rs:204` | — | 函数 主函数() { 打印行!("你好，世界！"); } |
 | `tool_prefix_caused_by` | 1 | `crates/cli/src/diagnostics.rs:546` | — | 原因：{} |
 | `tool_prefix_help` | 1 | `crates/cli/src/diagnostics.rs:545` | — | 提示：{} |
 | `tool_prefix_note` | 1 | `crates/cli/src/diagnostics.rs:544` | — | 说明：{} |
 | `tool_prefix_warning` | 1 | `crates/cli/src/diagnostics.rs:543` | — | 警告：{} |
 | `translation_gap_notice` | 2 | `crates/cli/src/diagnostics.rs:530` | &recorded.len().to_string() / &dir.display().to_string() | 提示：{} 条消息暂无译文，已按原文显示并记入待译清单：{}（可用 `rzc gaps` 查看） |
-| `unicode_bidi_hint` | 1 | `crates/engine/src/unicode_confusion.rs:104` | &localized_char_name(ch, name) | {}。双向控制符可篡改代码的显示顺序（bidi 攻击），可能隐藏恶意代码 |
+| `unicode_bidi_hint` | 1 | `crates/engine/src/unicode_confusion.rs:115` | &localized_char_name(ch, name) | {}。双向控制符可篡改代码的显示顺序（bidi 攻击），可能隐藏恶意代码 |
 | `unicode_cat_bidi` | 0 | `crates/engine/src/unicode_confusion.rs:23` | — | 双向文本控制符 |
 | `unicode_cat_homoglyph` | 0 | `crates/engine/src/unicode_confusion.rs:24` | — | 同形异义字符 |
 | `unicode_cat_zero_width` | 0 | `crates/engine/src/unicode_confusion.rs:22` | — | 零宽字符 |
-| `unicode_homoglyph_hint` | 2 | `crates/engine/src/unicode_confusion.rs:115` | &similar.to_string() / &localized_char_name(ch, name) | 形似拉丁字母 '{}'（{}）。可能被用于同形异义攻击，伪装标识符 |
+| `unicode_homoglyph_hint` | 2 | `crates/engine/src/unicode_confusion.rs:126` | &similar.to_string() / &localized_char_name(ch, name) | 形似拉丁字母 '{}'（{}）。可能被用于同形异义攻击，伪装标识符 |
 | `unicode_warning_at` | 5 | `crates/engine/src/unicode_confusion.rs:52` | &self.line.to_string() / &self.column.to_string() / &self.category.display_text() / &code… | 第 {} 行第 {} 列：检测到{} U+{}（{}） |
-| `unicode_zero_width_hint` | 1 | `crates/engine/src/unicode_confusion.rs:94` | &localized_char_name(ch, name) | {}。此类字符肉眼不可见，可能被用于隐藏代码或绕过检测 |
+| `unicode_zero_width_hint` | 1 | `crates/engine/src/unicode_confusion.rs:105` | &localized_char_name(ch, name) | {}。此类字符肉眼不可见，可能被用于隐藏代码或绕过检测 |
 | `unknown` | 0 | `crates/cli/src/main.rs:991`<br>`crates/cli/src/main.rs:994`<br>`crates/cli/src/mapping_check.rs:58` | — | 未知 |
-| `unknown_extension` | 2 | `crates/cli/src/main.rs:2701` | extension / &available_text | 无法识别源文件扩展名 '{}'。当前可用扩展名：{}。或通过 --lang-pack 指定语言包目录。 |
+| `unknown_extension` | 2 | `crates/cli/src/main.rs:2696` | extension / &available_text | 无法识别源文件扩展名 '{}'。当前可用扩展名：{}。或通过 --lang-pack 指定语言包目录。 |
 | `warn_builtin_errors_failed` | 1 | `crates/cli/src/diagnostics.rs:598` | &e.to_string() | 警告: 加载内置错误消息失败: {} |
 
 ## Keys with no static call site
@@ -761,10 +761,6 @@ text search will not find them — they still must be translated.
 
 | Key | Why static search misses it |
 |---|---|
-| `mc_danger_invalid` | crates/cli/src/mapping_check.rs render_issue() |
-| `mc_danger_orphan` | crates/cli/src/mapping_check.rs render_issue() |
-| `mc_danger_understated` | crates/cli/src/mapping_check.rs render_issue() |
-| `mc_danger_understated_rewrite` | crates/cli/src/mapping_check.rs render_issue() |
 | `unicode_name_00AD` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
 | `unicode_name_0391` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
 | `unicode_name_0392` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |

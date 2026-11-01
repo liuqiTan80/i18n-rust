@@ -17,6 +17,11 @@
 
 动态取键（静态扫描看不见、但确实在用）以前缀白名单显式登记，见 DYNAMIC_PREFIXES。
 
+消费点按四种字面形态匹配：`"键"`、`'键'`、`["键"]`（扩展的 `界面文案["键"]`），
+以及 `"键|`——`rzc mapping check` 的问题条目是 `code|arg1|arg2` 结构，生产侧只以
+`format!("mc_xxx|{file}|{e}")` 出现；不认这一形态时，这些键的「已消费」证据会全部
+落在测试断言的裸字面量上，清一条测试就能把活键误判成死键。
+
 用法：python3 tools/ui-keys-index.py [--write | --check] [--quiet]（默认即 --check）
 """
 
@@ -49,6 +54,8 @@ DYNAMIC_PREFIXES = {
     # crate::语言::t(&format!("unicode_name_{:04X}", ch as u32))——同形字符诊断的字符名
     "unicode_name_": "crates/engine/src/unicode_confusion.rs (format! by codepoint)",
     # render_issue(): `code|arg1|arg2` 结构化问题条目按 code 取文案
+    # （`"键|` 形态自 2026-11 起已被 build_index 直接识别，这条登记留作兜底：
+    # 新增 danger 码只在测试里出现时不至于被误判为死键）
     "mc_danger_": "crates/cli/src/mapping_check.rs render_issue()",
 }
 
@@ -177,7 +184,11 @@ def build_index(messages: dict) -> dict:
             offsets.append(pos)
             pos += len(line) + 1
         for key in messages:
-            for token in (f'"{key}"', f"'{key}'", f'["{key}"]'):
+            # `"{key}|`：`render_issue` 的 `code|arg1|arg2` 形态（生产侧写问题条目时
+            # 用 `format!("mc_parse_failed|{file}|{e}")`），键名后紧跟 `|` 而不是闭合引号，
+            # 只匹配 `"{key}"` 会把这些键的消费证据全部落在测试代码上——清理一条测试
+            # 断言就会让活键被误判为死键（实测 8 个）。
+            for token in (f'"{key}"', f"'{key}'", f'["{key}"]', f'"{key}|'):
                 for m in re.finditer(re.escape(token), text):
                     p = m.start()
                     idx = next(i for i in range(len(offsets) - 1, -1, -1) if offsets[i] <= p)

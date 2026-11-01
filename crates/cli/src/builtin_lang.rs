@@ -18,8 +18,6 @@ pub struct BuiltinLangData {
     pub errors_toml: &'static str,
     /// 语言包信息 TOML（名称 / 扩展名 / 版本）
     pub lang_info_toml: &'static str,
-    /// 界面消息 TOML（CLI / LSP 用户可见提示语）
-    pub ui_toml: &'static str,
     /// 第三方库映射文件列表（文件名, 内容）
     pub crates_data: &'static [(&'static str, &'static str)],
 }
@@ -52,7 +50,6 @@ macro_rules! define_builtin_lang {
                 stdlib_toml: builtin_file_or_panic($lang_dir, "stdlib.toml"),
                 errors_toml: builtin_file_or_panic($lang_dir, "errors.toml"),
                 lang_info_toml: builtin_file_or_panic($lang_dir, "lang_info.toml"),
-                ui_toml: builtin_file_or_panic($lang_dir, "ui.toml"),
                 crates_data,
             }
         });
@@ -177,11 +174,6 @@ mod tests {
             assert!(!data.stdlib_toml.is_empty(), "{code} stdlib 为空");
             assert!(!data.errors_toml.is_empty(), "{code} errors 为空");
             assert!(!data.lang_info_toml.is_empty(), "{code} lang_info 为空");
-            assert!(!data.ui_toml.is_empty(), "{code} ui 为空");
-            assert!(
-                data.ui_toml.contains("\"界面消息\""),
-                "{code} ui.toml 应包含 [界面消息] 节"
-            );
         }
     }
 
