@@ -9,14 +9,16 @@
 //!   验证 E0425（未定义名称）诊断的消息翻译与教学提示；
 //! - 全角标点教学诊断注入（代码位置的全角标点在 IDE 内联提示）；
 //! - 教学 lint 诊断注入（未标注类型/魔法数字 + 忽略标记）；
+//! - 教学告警通道唯一性（诊断按文件发布，server stderr 不再无归属刷屏）；
 //! - 多模块项目无假红语料（模块聚合 / `#[path]` 注解 / include 资源，
 //!   rust-analyzer 升级时必跑，防诊断格式漂移）。
 //!
 //! 前置条件：rust-analyzer 可执行文件可用（查找顺序与 analyzer.rs 相同：
 //! RUST_ANALYZER_PATH 环境变量 → ~/.rz/toolchain/bin/rust-analyzer → PATH）。
-//! 找不到时测试自动跳过（打印原因，不失败），方便无 rust-analyzer 的
-//! 开发环境；CI 中先安装工具链再显式运行：
-//! `cargo test -p i18n-rust-lsp --test e2e -- --ignored`
+//! 找不到时的颜色由 [`rust_analyzer_for_run`] 按环境判定：本地开发环境打印
+//! 原因并跳过；CI（`CI`/`GITHUB_ACTIONS`）直接判红——被跳过的用例在报告里也是
+//! ok，不拦住了就会出现「端到端全链路一条没跑、任务全绿」。CI 中先安装工具链
+//! 再显式运行：`cargo test -p i18n-rust-lsp --test e2e -- --ignored`
 
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
@@ -372,6 +374,70 @@ fn spawn_lsp(
     (child, stdin, rx)
 }
 
+/// 同 [`spawn_lsp`]，但抓取子进程 stderr，且放开引擎日志级别
+///
+/// 常规 `spawn_lsp` 把 stderr 丢进 null 并设 `RZ_LOG=error`——引擎的 warn 级
+/// 教学告警因此从未被任何用例看过。本变体专为「server stderr 该不该出现
+/// 某类输出」提供可断言的通道：
+/// - `RZ_LOG=warn`：与默认级别一致，显式写出以免日后默认变化把断言变成空转；
+/// - stderr 逐行送进通道（rust-analyzer 子进程继承同一 stderr，见
+///   `analyzer.rs`，故通道里也有 RA 的输出——断言只针对引擎教学告警的
+///   行特征，不受影响）。
+fn spawn_lsp_capturing_stderr(
+    ra_path: &Path,
+    lang_pack: &Path,
+) -> (
+    Child,
+    BufWriter<ChildStdin>,
+    mpsc::Receiver<Value>,
+    mpsc::Receiver<String>,
+) {
+    let bin = env!("CARGO_BIN_EXE_i18n-rust-lsp");
+    let mut child = Command::new(bin)
+        .args(["--language-pack"])
+        .arg(lang_pack)
+        .env("RUST_ANALYZER_PATH", ra_path)
+        .env("RZ_LOG", "warn")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("启动 i18n-rust-lsp 失败");
+    let stdin = BufWriter::new(child.stdin.take().expect("取 stdin 失败"));
+    let rx = spawn_reader(child.stdout.take().expect("取 stdout 失败"));
+    let (err_tx, err_rx) = mpsc::channel();
+    let stderr = child.stderr.take().expect("取 stderr 失败");
+    std::thread::spawn(move || {
+        let mut reader = BufReader::new(stderr);
+        let mut line = String::new();
+        loop {
+            line.clear();
+            match reader.read_line(&mut line) {
+                Ok(0) | Err(_) => return,
+                Ok(_) => {
+                    if err_tx.send(line.trim_end().to_string()).is_err() {
+                        return;
+                    }
+                }
+            }
+        }
+    });
+    (child, stdin, rx, err_rx)
+}
+
+/// 有界抽取 stderr 通道：子进程退出后收尾一小段，避免 rust-analyzer 仍
+/// 持有继承的 stderr 写端时无界阻塞（读端拿到的告警都产生在锚点之前）
+fn drain_stderr(err_rx: &mpsc::Receiver<String>) -> Vec<String> {
+    let mut lines = Vec::new();
+    loop {
+        match err_rx.recv_timeout(Duration::from_millis(300)) {
+            Ok(line) => lines.push(line),
+            Err(mpsc::RecvTimeoutError::Timeout) => return lines,
+            Err(mpsc::RecvTimeoutError::Disconnected) => return lines,
+        }
+    }
+}
+
 /// 创建临时项目：Cargo.toml + 含错误的 main.zh
 fn create_test_project(dir: &Path, lang_code: &str) -> (String, String) {
     std::fs::create_dir_all(dir.join("src")).expect("创建 src 目录失败");
@@ -403,15 +469,50 @@ fn shutdown(child: &mut Child, stdin: &mut BufWriter<ChildStdin>, rx: &mpsc::Rec
     let _ = child.wait();
 }
 
+/// 是否在 CI 里跑：GitHub Actions 会设 `CI=true` 与 `GITHUB_ACTIONS=true`
+fn running_in_ci() -> bool {
+    ["CI", "GITHUB_ACTIONS"].iter().any(|key| {
+        std::env::var(key)
+            .ok()
+            .is_some_and(|val| !val.is_empty() && val != "false")
+    })
+}
+
+/// 取 rust-analyzer；`None` 表示「本地无工具链，调用方应直接返回」
+///
+/// 旧写法是在各用例里 `eprintln!("跳过 …") + return`，把「没跑」报成绿色
+/// 的 ok；libtest 没有 skipped 状态，报告上它与真实通过长得一模一样。
+/// CI 里这是致命的：工具链安装环节只要把二进制放到查找链之外（或今后
+/// 被改成统一跳过），整个 lsp-e2e 任务会在零验证的情况下全绿。因此
+/// CI 环境下缺工具链一律判红，本地仍沿用「打印原因并跳过」的约定。
+fn rust_analyzer_for_run() -> Option<PathBuf> {
+    let found = find_rust_analyzer();
+    if found.is_some() {
+        return found;
+    }
+    assert!(
+        !running_in_ci(),
+        "CI 中未找到 rust-analyzer：端到端用例不得静默跳过（安装步骤见 \
+         .github/workflows/ci.yml 的 lsp-e2e job：`rzc install toolchain --ra-only --force`）"
+    );
+    eprintln!("跳过 LSP 端到端测试：未找到 rust-analyzer（可设置 RUST_ANALYZER_PATH）");
+    None
+}
+
+/// 只需要「能不能跑」而不需要路径的用例开头走这里（判定口径与
+/// [`rust_analyzer_for_run`] 完全一致，避开同一文件里再长一份跳过约定）
+fn rust_analyzer_available() -> bool {
+    rust_analyzer_for_run().is_some()
+}
+
 /// 单个语言的全链路诊断翻译验证
 ///
 /// `keyword` 为该语言 E0425 翻译模板中的特征词（errors.toml [消息翻译] 节），
 /// `lang_code` 为语言包目录名。变量名断言跨语言通用（模板 {名称} 嵌入同一
 /// 中文变量名，转译保留用户标识符）。
 fn run_e2e_lang(lang_code: &str, keyword: &str) {
-    let Some(ra_path) = find_rust_analyzer() else {
-        eprintln!("跳过 LSP 端到端测试：未找到 rust-analyzer（可设置 RUST_ANALYZER_PATH）");
-        return;
+    let Some(ra_path) = rust_analyzer_for_run() else {
+        return; // 本地无工具链：上面已打印原因
     };
 
     // 语言包：测试运行时 cwd 为 crates/lsp，从 manifest 目录定位引擎语言包
@@ -570,9 +671,8 @@ fn e2e_startup_failure_reports_reason() {
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_fullwidth_diagnostic_injected() {
-    let Some(ra_path) = find_rust_analyzer() else {
-        eprintln!("跳过 LSP 端到端测试：未找到 rust-analyzer（可设置 RUST_ANALYZER_PATH）");
-        return;
+    let Some(ra_path) = rust_analyzer_for_run() else {
+        return; // 本地无工具链：上面已打印原因
     };
 
     let manifest_dir =
@@ -640,9 +740,8 @@ fn e2e_fullwidth_diagnostic_injected() {
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_teaching_lint_diagnostic_injected() {
-    let Some(ra_path) = find_rust_analyzer() else {
-        eprintln!("跳过 LSP 端到端测试：未找到 rust-analyzer（可设置 RUST_ANALYZER_PATH）");
-        return;
+    let Some(ra_path) = rust_analyzer_for_run() else {
+        return; // 本地无工具链：上面已打印原因
     };
 
     let manifest_dir =
@@ -711,6 +810,112 @@ fn e2e_teaching_lint_diagnostic_injected() {
     eprintln!("✅ LSP 端到端测试通过：教学 lint 诊断已注入（含忽略标记）");
 }
 
+/// 教学告警只走诊断通道：server stderr 不重复刷无归属告警
+///
+/// 全角标点/教学 lint 在 IDE 里由 `inject_teaching_diags` 算成诊断、按文件
+/// 归属发布；而转译管线的非静默入口会把同一批告警再用引擎日志格式往
+/// server stderr 打一遍，且不含文件名——`mirror_check` 逐项目文件循环，
+/// 等于每次打开/保存都把整个项目的教学告警无归属刷屏（与 Problems
+/// 面板完全重复）。本用例锁定两面：
+/// ① 客户端仍能收到 fullwidth 教学诊断（正向，防有人把注入链路删掉来「消除刷屏」）；
+/// ② server stderr 不出现引擎格式的教学告警行。
+///
+/// 需要 `RZ_LOG=warn`（本用例自己的子进程环境，见
+/// [`spawn_lsp_capturing_stderr`]）：否则②在任何实现下都恒成立，用例会空转。
+#[test]
+#[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
+fn e2e_teaching_warnings_do_not_leak_to_server_stderr() {
+    let Some(ra_path) = rust_analyzer_for_run() else {
+        return; // 本地无工具链：上面已打印原因
+    };
+
+    let manifest_dir =
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
+
+    let temp = tempfile::tempdir().expect("创建临时项目失败");
+    std::fs::create_dir_all(temp.path().join("src")).expect("创建 src 目录失败");
+    std::fs::write(
+        temp.path().join("Cargo.toml"),
+        "[package]\nname = \"e2e-project\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+    )
+    .expect("写入 Cargo.toml 失败");
+    // 打开文件：第 4 行魔法数字（lint）+ 第 5 行行尾全角分号（fullwidth）
+    // + 未定义变量（供锚点的 E0425 转译诊断）
+    let main_src =
+        "模块 辅助;\n\n函数 主函数() {\n    让 数量 = 5;\n    让 结果 = 数量 + 不存在的变量；\n}\n";
+    std::fs::write(temp.path().join("src/main.zh"), main_src).expect("写入 main.zh 失败");
+    // 未打开的兄弟文件：也带一条全角告警——非静默入口会连它一起刷进 stderr
+    std::fs::write(
+        temp.path().join("src/辅助.zh"),
+        "公开 函数 加一(数: i32) -> i32 {\n    数 + 1；\n}\n",
+    )
+    .expect("写入 辅助.zh 失败");
+    let uri = format!("file://{}", temp.path().join("src/main.zh").display());
+
+    let (mut child, mut stdin, rx, err_rx) = spawn_lsp_capturing_stderr(&ra_path, &lang_pack);
+    let root_uri = format!("file://{}", temp.path().display());
+    initialize(&mut stdin, &rx, &root_uri);
+    send_notification(&mut stdin, "initialized", json!({}));
+    send_notification(
+        &mut stdin,
+        "textDocument/didOpen",
+        json!({
+            "textDocument": {
+                "uri": uri,
+                "languageId": "rust-zh",
+                "version": 1,
+                "text": main_src
+            }
+        }),
+    );
+
+    // 锚点：镜像检查发布的 E0425 母语翻译——它出现即表示 `mirror_check`
+    // 已逐项目文件跑完转译（非静默入口的刷屏就发生在该循环里）；出现后再收
+    // 15s 诊断，确保教学诊断注入也已走完
+    let (found, diags) = collect_diagnostics_until_settle(
+        &rx,
+        &uri,
+        "找不到",
+        Duration::from_secs(120),
+        Duration::from_secs(15),
+    );
+    assert!(
+        found,
+        "锚点（E0425 母语翻译）未出现：镜像检查未跑完，本用例未能验证转译循环"
+    );
+    // ① 注入链路仍在工作：教学诊断按文件归属发到客户端
+    let fullwidth: Vec<&Value> = diags
+        .iter()
+        .filter(|d| d.get("code").and_then(Value::as_str) == Some("fullwidth"))
+        .collect();
+    assert!(
+        !fullwidth.is_empty(),
+        "客户端应收到 fullwidth 教学诊断（注入链路不得删除）：\n{diags:?}"
+    );
+
+    shutdown(&mut child, &mut stdin, &rx);
+
+    // ② server stderr 不出现引擎格式的教学告警行（`[时间] [级别] [模块] …`）：
+    //    按模块标签匹配，不依赖级别文案（级别文字随语言包本地化）
+    let teaching_tags = ["[fullwidth]", "[lint]", "[unicode_confusion]"];
+    let stderr_lines = drain_stderr(&err_rx);
+    let leaked: Vec<&String> = stderr_lines
+        .iter()
+        .filter(|line| teaching_tags.iter().any(|tag| line.contains(tag)))
+        .collect();
+    assert!(
+        leaked.is_empty(),
+        "教学告警不得无归属刷进 server stderr（已由诊断按文件发布）：\n{}",
+        leaked
+            .iter()
+            .map(|line| line.as_str())
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+    eprintln!("✅ LSP 端到端测试通过：教学告警只走诊断通道，stderr 不再刷屏");
+}
+
 /// 等待目标 uri 的「空诊断」批次（修复后/didClose 后诊断被清空）
 ///
 /// rust-analyzer 与代理可能先发布若干非空批次（旧版本残留），仅当收到
@@ -748,7 +953,10 @@ fn open_zh_session(
     mpsc::Receiver<Value>,
     String,
 ) {
-    let ra_path = find_rust_analyzer().expect("需要 rust-analyzer（可设置 RUST_ANALYZER_PATH）");
+    // 工具链缺失时 `rust_analyzer_for_run` 已在 CI 判红，本地缺工具链的情况由各
+    // 用例开头的同款调用提前返回，因此这里拿到 None 只可能是新用例忘了加判定。
+    let ra_path = rust_analyzer_for_run()
+        .expect("用例开头未做 rust_analyzer_for_run 判定就调用了 open_zh_session");
     let manifest_dir =
         PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
     let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
@@ -800,6 +1008,9 @@ fn open_zh_session(
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_did_change_save_close_lifecycle() {
+    if !rust_analyzer_available() {
+        return; // 本地无工具链：已打印原因
+    }
     let bad = lang_source("zh");
     let good = "函数 主函数() {\n    打印行!(\"好\");\n}\n";
     let (_temp, mut child, mut stdin, rx, uri) = open_zh_session(&bad, &[("src/main.zh", &bad)]);
@@ -873,6 +1084,9 @@ fn e2e_did_change_save_close_lifecycle() {
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_did_save_triggers_cargo_check() {
+    if !rust_analyzer_available() {
+        return; // 本地无工具链：已打印原因
+    }
     let source = lang_source("zh");
     let (_temp, mut child, mut stdin, rx, uri) =
         open_zh_session(&source, &[("src/main.zh", &source)]);
@@ -920,6 +1134,9 @@ fn e2e_did_save_triggers_cargo_check() {
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_hover_forwarded_roundtrip() {
+    if !rust_analyzer_available() {
+        return; // 本地无工具链：已打印原因
+    }
     // 干净文件：避免错误诊断干扰，hover 落到主函数名上
     let source = "函数 主函数() {\n    打印行!(\"好\");\n}\n";
     let (_temp, mut child, mut stdin, rx, uri) =
@@ -1058,9 +1275,8 @@ fn collect_diagnostics_until_settle(
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_no_false_red_in_corpus_project() {
-    let Some(ra_path) = find_rust_analyzer() else {
-        eprintln!("跳过 LSP 端到端测试：未找到 rust-analyzer（可设置 RUST_ANALYZER_PATH）");
-        return;
+    let Some(ra_path) = rust_analyzer_for_run() else {
+        return; // 本地无工具链：上面已打印原因
     };
 
     let manifest_dir =
@@ -1168,6 +1384,9 @@ fn e2e_no_false_red_in_corpus_project() {
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
 fn e2e_nested_module_no_false_diagnostics() {
+    if !rust_analyzer_available() {
+        return; // 本地无工具链：已打印原因
+    }
     let main_src = "模块 领域;\n\n函数 主函数() {\n    打印行!(\"{}\", 领域::工具::加一(1));\n}\n";
     let domain_src = "公开 模块 工具;\n";
     let tool_src = "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n";

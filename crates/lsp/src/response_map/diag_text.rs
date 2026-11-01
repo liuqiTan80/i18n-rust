@@ -552,7 +552,8 @@ fn project_dependency_names(file_path: &Path) -> Option<Arc<HashSet<String>>> {
 /// 解析 Cargo.toml 中的全部依赖名（含 dev/build、workspace、target 各节）
 fn parse_dependency_names(text: &str) -> HashSet<String> {
     let mut names = HashSet::new();
-    let Ok(value) = text.parse::<toml::Value>() else {
+    // toml 1.x 的 `Value::from_str` 解析的是「单个值」而非「整个文档」
+    let Ok(value) = toml::from_str::<toml::Value>(text) else {
         return names;
     };
     let mut collect = |table: Option<&toml::Value>| {
@@ -742,49 +743,44 @@ pub(crate) fn fullwidth_diagnostics(entry: &TranslationEntry) -> Vec<Value> {
 ///
 /// 直接在母语原文上扫描（`让` 等关键字在转译后已不存在）：行列均为
 /// 字符计数，中文代码在 BMP 内 char 列即 UTF-16 列，直接转换即可。
-/// `known_words` 为映射表键集合，供易混方法名提示判定（#14）；
-/// `ambiguous_constructors` 为推导歧义构造器被调名集（new/default 及其
-/// 方言词），仅类型无法自行推导的初始化式才提示未标注类型；
-/// `keyword_map` 供保留字撞名提示（声明名字转译后是否为 Rust 保留字）。
+/// `buckets` 为易混方法名的分桶索引（manager 缓存一次，含精确命中表），
+/// 供易混方法名提示判定（#14）；`ambiguous_constructors` 为推导歧义构造器
+/// 被调名集（new/default 及其方言词），仅类型无法自行推导的初始化式才提示
+/// 未标注类型；`keyword_map` 供保留字撞名提示（声明名字转译后是否为 Rust 保留字）。
+///
+/// 三组警告由一次扫描产出（顺序：教学 / 英文回落 / 保留字撞名，与早先
+/// 三个独立入口依次 extend 的顺序一致），与 CLI 同源。
 pub(crate) fn lint_teaching_diagnostics(
     entry: &TranslationEntry,
-    known_words: &HashSet<String>,
+    buckets: &i18n_rust_engine::lint::WordBuckets,
     ambiguous_constructors: &HashSet<String>,
     fallback_map: &HashMap<String, String>,
     keyword_map: &HashMap<String, String>,
 ) -> Vec<Value> {
-    let mut warnings = i18n_rust_engine::lint::lint_teaching_with_words(
-        &entry.zh_content,
-        known_words,
+    let chars: Vec<char> = entry.zh_content.chars().collect();
+    i18n_rust_engine::lint::lint_teaching_all_with_buckets_chars(
+        &chars,
+        buckets,
         ambiguous_constructors,
-    );
-    // 英文回落提示：母语方言源码里把有母语词条的结构词写成英文（`fn`/`Vec`/.collect()…）
-    warnings.extend(i18n_rust_engine::lint::lint_english_fallback(
-        &entry.zh_content,
         fallback_map,
-    ));
-    // 保留字撞名：声明名字转译后是 Rust 保留字（`函数 匹配` → `fn match`）
-    warnings.extend(i18n_rust_engine::lint::lint_reserved_name_collision(
-        &entry.zh_content,
         keyword_map,
-    ));
-    warnings
-        .iter()
-        .map(|w| {
-            let line = (w.line - 1) as u32;
-            let col = (w.column - 1) as u32;
-            json!({
-                "range": {
-                    "start": { "line": line, "character": col },
-                    "end": { "line": line, "character": col + 1 }
-                },
-                "severity": 3,
-                "code": lint_code(w.kind),
-                "source": "i18n-rust",
-                "message": w.format()
-            })
+    )
+    .iter()
+    .map(|w| {
+        let line = (w.line - 1) as u32;
+        let col = (w.column - 1) as u32;
+        json!({
+            "range": {
+                "start": { "line": line, "character": col },
+                "end": { "line": line, "character": col + 1 }
+            },
+            "severity": 3,
+            "code": lint_code(w.kind),
+            "source": "i18n-rust",
+            "message": w.format()
         })
-        .collect()
+    })
+    .collect()
 }
 
 /// 注入教学诊断（全角标点 + 教学 lint）到方言坐标的诊断列表
@@ -797,7 +793,7 @@ pub(crate) fn lint_teaching_diagnostics(
 pub(crate) fn inject_teaching_diags(
     diags: &mut Vec<Value>,
     entry: &TranslationEntry,
-    known_words: &HashSet<String>,
+    buckets: &i18n_rust_engine::lint::WordBuckets,
     ambiguous_constructors: &HashSet<String>,
     fallback_map: &HashMap<String, String>,
     keyword_map: &HashMap<String, String>,
@@ -807,7 +803,7 @@ pub(crate) fn inject_teaching_diags(
     if teaching_lint_enabled() {
         diags.extend(lint_teaching_diagnostics(
             entry,
-            known_words,
+            buckets,
             ambiguous_constructors,
             fallback_map,
             keyword_map,
@@ -966,11 +962,12 @@ mod tests {
             virtual_uri: String::new(),
             virtual_path: PathBuf::from("virtual_main.rs"),
             line_map: Vec::new(),
-            column_map: Vec::new(),
+            column_map: crate::translation_cache::ColumnMap::default(),
             added_crate_tokens: HashSet::new(),
             version: 1,
             is_open: true,
             source_meta: None,
+            declared: None,
         }
     }
 

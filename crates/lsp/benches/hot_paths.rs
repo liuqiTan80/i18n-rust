@@ -4,7 +4,10 @@
 //! - `update_document`：编辑器打开/每次按键触发的文档同步（全量转译 +
 //!   列映射回放 + 教学检查 + 虚拟文件写盘）。分「打开文件」（首次打开，
 //!   模块集合变化 → 全量重写 + 虚拟项目刷新）与「连续编辑」（集合不变 →
-//!   仅重写当前条目）两个场景；
+//!   仅重写当前条目）两个场景；另有一条**别名密集**变体
+//!   `update_document_typing_alias_heavy`：默认语料里方法名多为未收录词（原样
+//!   保留），后续阶段只产生几条编辑，盖不住「后续阶段编辑 × 词法编辑」这类
+//!   乘积项，故换一份密集调用已收录方法名的语料单独盯住它；
 //! - `reverse_transpile`：rust-analyzer 响应映射热路径（英文文本 → 母语）。
 //!   分「补全片段」（无文档上下文的短片段）与「整文档还原」（格式化响应）。
 //!
@@ -48,6 +51,30 @@ fn teaching_source() -> String {
          \x20   打印行!(\"总计：{{:?}}\", 全部);\n\
          }\n",
     );
+    src
+}
+
+/// 别名密集源码：约 2000 行，每函数多次已收录的标准库成员调用
+///
+/// 与 `teaching_source` 的行数量级相同，但后续阶段产生的编辑从几条涨到上千条：
+/// `teaching_source` 里的 `.推送()` 未收录在语言包（原样保留），所以它根本
+/// 不产生别名编辑，阶段间偏移换算的乘积项在打字路径上测不到（历史教训：
+/// 逐条重扫时同规模语料的冷转译从 3.2 ms 涨到 37 ms，旧语料完全看不出）。
+/// 不写整数字面量、方法名全收录，以免教学告警刷屏引入 I/O 抖动。
+fn alias_heavy_source() -> String {
+    let mut src = String::with_capacity(2000 * 40);
+    src.push_str("使用 标准库::向量::向量;\n使用 标准库::映射::映射;\n\n");
+    for i in 0..280 {
+        src.push_str(&format!(
+            "函数 函数_{i}(项: 向量<字符串>, 表: 映射<字符串, 整数>) -> 整数 {{\n\
+             \x20   让 个数 = 项.长度();\n\
+             \x20   项.推入(\"新项{i}\");\n\
+             \x20   让 合计 = 项.迭代().计数();\n\
+             \x20   表.插入(\"键{i}\", 合计);\n\
+             \x20   返回 个数 + 表.元素数();\n\
+             }}\n\n",
+        ));
+    }
     src
 }
 
@@ -115,6 +142,42 @@ fn bench_update_document(c: &mut Criterion) {
     group.finish();
 }
 
+/// update_document 打字路径的别名密集变体
+///
+/// 与 `bench_update_document` 的口径一致（预热打开 + 每次按键改内容），只换
+/// 语料：让后续阶段的编辑量从几条涨到上千条，覆盖阶段间偏移换算的乘积项。
+/// 这条基准盯的是「大文件 + 密集方法调用」下每次按键的延迟，`teaching_source`
+/// 测不到它。
+fn bench_update_document_alias_heavy(c: &mut Criterion) {
+    i18n_rust_engine::logger::set_log_level(i18n_rust_engine::logger::LogLevel::Error);
+    let manager = zh_manager();
+    let source = alias_heavy_source();
+    let mut group = c.benchmark_group("lsp_update_document");
+    // 大输入每次迭代数毫秒级，降样本数以免 CI 过长（与 engine 侧同口径）
+    group.sample_size(30);
+
+    let tmp = tempfile::tempdir().expect("创建临时目录失败");
+    let (_path, uri) = setup_project(tmp.path(), "proj_typing_alias", &source);
+    let cache = TranslationCache::new(manager.clone(), tmp.path().join("virtual"));
+    cache
+        .update_document(&uri, &source, 1)
+        .expect("预热打开失败");
+    let mut version = 1i32;
+    group.bench_function("update_document_typing_alias_heavy", |b| {
+        let mut counter = 0usize;
+        b.iter(|| {
+            counter += 1;
+            version += 1;
+            let edited = format!("{source}\n// 连续编辑 {counter}");
+            cache
+                .update_document(black_box(&uri), black_box(&edited), version)
+                .expect("编辑失败")
+        })
+    });
+
+    group.finish();
+}
+
 /// reverse_transpile：补全片段（无上下文）与整文档还原（格式化响应）
 fn bench_reverse_transpile(c: &mut Criterion) {
     // 同上：静默引擎教学日志
@@ -150,5 +213,10 @@ fn bench_reverse_transpile(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_update_document, bench_reverse_transpile);
+criterion_group!(
+    benches,
+    bench_update_document,
+    bench_update_document_alias_heavy,
+    bench_reverse_transpile
+);
 criterion_main!(benches);

@@ -80,7 +80,7 @@ pub(crate) fn run_mirror_check(
     builtin_diags: &Arc<Mutex<HashMap<String, Vec<Value>>>>,
     extensions: &[String],
     origin_uri: &str,
-    known_words: &HashSet<String>,
+    manager: &i18n_rust_engine::mapping_manager::MappingManager,
 ) -> bool {
     // 触发文件须在缓存中（didOpen/didSave 均已入库），据此定位项目根
     let Some(origin_path) = cache
@@ -162,7 +162,7 @@ pub(crate) fn run_mirror_check(
         &mirror_dir,
         &files,
         cache,
-        known_words,
+        manager,
         builtin_diags,
         sender,
     );
@@ -341,12 +341,20 @@ fn transpile_into_mirror(
     );
 
     // 逐文件转译（内存中）：入口识别需要全部产物先就绪
+    //
+    // 走**静默**入口：本模块自己把全角标点与教学 lint 算成诊断按文件归属
+    // 发布（见 `inject_teaching_diags`），而非静默入口会把项目里每个文件的每
+    // 条教学告警再往 stderr 无归属地打一遍（`[时间] [警告] [lint] 第 N 行…`，
+    // 看不出是哪个文件）——与 Problems 面板完全重复。除刷屏外还有实际代价：
+    // `emit_teaching_diagnostics` 会跑一整轮 Unicode 混淆/全角/lint 扫描并逐条
+    // `format()`，结果全部丢弃；而镜像检查逐项目文件循环，开销随文件数线性增长。
+    // LSP 侧转译入口早先已统一为静默（`translation_cache`），此处为残留的非静默点。
     let mut pending: Vec<Pending> = Vec::new();
     for mirror_path in &dialect_paths {
         let Some(content) = sources.get(mirror_path) else {
             continue;
         };
-        let output = i18n_rust_engine::transpile_pipeline_with_map_and_project(
+        let output = i18n_rust_engine::transpile_pipeline_quiet_with_map_and_project(
             content,
             cache.manager(),
             Some(&module_names),
@@ -567,7 +575,7 @@ fn publish_rustc_diagnostics(
     mirror_dir: &Path,
     files: &[MirrorFile],
     cache: &Arc<TranslationCache>,
-    known_words: &HashSet<String>,
+    manager: &i18n_rust_engine::mapping_manager::MappingManager,
     builtin_diags: &Arc<Mutex<HashMap<String, Vec<Value>>>>,
     sender: &crossbeam_channel::Sender<lsp_server::Message>,
 ) -> (usize, usize) {
@@ -713,8 +721,8 @@ fn publish_rustc_diagnostics(
             inject_teaching_diags(
                 &mut diags,
                 &entry,
-                known_words,
-                &cache.ambiguous_constructor_words(),
+                manager.lint_word_buckets(),
+                cache.ambiguous_constructor_words(),
                 cache.english_fallback_map(),
                 cache.keyword_map(),
             );

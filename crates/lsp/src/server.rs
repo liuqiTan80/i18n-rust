@@ -415,8 +415,7 @@ impl ProxyServer {
 
         let response = Response {
             id,
-            result: Some(capabilities),
-            error: None,
+            response_result: Ok(capabilities),
         };
 
         self.connection
@@ -522,8 +521,7 @@ impl ProxyServer {
                         log::info!("{}", crate::ui::global().t("lsp_log_shutdown"));
                         let response = Response {
                             id: req.id,
-                            result: Some(Value::Null),
-                            error: None,
+                            response_result: Ok(Value::Null),
                         };
                         let _ = self.connection.sender.send(Message::Response(response));
                         break;
@@ -905,7 +903,9 @@ impl ProxyServer {
         let check_running = self.check_running.clone();
         let check_pending = self.check_pending.clone();
         let extensions = self.supported_extensions.clone();
-        let known_words = mapper.lint_words().clone();
+        // 教学 lint 词表索引由 manager 缓存：跨线程只带一份 Arc，
+        // 线程内按需取分桶索引（早先每次保存克隆整张词表 1600 余项）
+        let manager = mapper.manager_arc();
         let saved_uri = saved_uri.to_string();
         let project_dir = cache.virtual_project_dir();
 
@@ -939,7 +939,7 @@ impl ProxyServer {
                     &builtin_diags,
                     &extensions,
                     &saved_uri,
-                    &known_words,
+                    &manager,
                 );
                 if !mirror_ok && !draft_virtual {
                     Self::run_cargo_check_once(
@@ -1105,8 +1105,8 @@ impl ProxyServer {
                 crate::response_map::diag_text::inject_teaching_diags(
                     &mut final_diags,
                     &entry,
-                    mapper.lint_words(),
-                    &mapper.ambiguous_constructor_words(),
+                    mapper.lint_word_buckets(),
+                    mapper.ambiguous_constructor_words(),
                     mapper.english_fallback_map(),
                     mapper.keyword_map(),
                 );
@@ -1154,8 +1154,7 @@ impl ProxyServer {
 
         let response = Response {
             id: req.id,
-            result: Some(Value::Array(edits)),
-            error: None,
+            response_result: Ok(Value::Array(edits)),
         };
         self.connection
             .sender
@@ -1521,8 +1520,7 @@ fn cleanup_expired_requests(
         log::warn!("{}", crate::ui::global().t("lsp_warn_request_timeout"));
         let response = Response {
             id,
-            result: None,
-            error: Some(lsp_server::ResponseError {
+            response_result: Err(lsp_server::ResponseError {
                 code: -32603,
                 message: "rust-analyzer did not respond in time".to_string(),
                 data: None,
@@ -1548,8 +1546,7 @@ fn fail_all_pending(
     for id in ids {
         let response = Response {
             id,
-            result: None,
-            error: Some(lsp_server::ResponseError {
+            response_result: Err(lsp_server::ResponseError {
                 code: -32603,
                 message: "rust-analyzer restarted".to_string(),
                 data: None,
@@ -1677,8 +1674,7 @@ fn handle_analyzer_message(
                 let error_value = msg["error"].clone();
                 let response = Response {
                     id: info.original_id,
-                    result: None,
-                    error: Some(lsp_server::ResponseError {
+                    response_result: Err(lsp_server::ResponseError {
                         code: error_value["code"].as_i64().unwrap_or(-32603) as i32,
                         message: error_value["message"]
                             .as_str()
@@ -1728,8 +1724,7 @@ fn handle_analyzer_message(
 
             let response = Response {
                 id: info.original_id,
-                result: Some(mapped_result),
-                error: None,
+                response_result: Ok(mapped_result),
             };
             let _ = sender.send(Message::Response(response));
         } else if msg.get("method").and_then(|v| v.as_str()).is_some() {
@@ -1790,8 +1785,8 @@ fn handle_analyzer_message(
                         crate::response_map::diag_text::inject_teaching_diags(
                             &mut merged_diags,
                             &entry,
-                            mapper.lint_words(),
-                            &mapper.ambiguous_constructor_words(),
+                            mapper.lint_word_buckets(),
+                            mapper.ambiguous_constructor_words(),
                             mapper.english_fallback_map(),
                             mapper.keyword_map(),
                         );
@@ -2352,7 +2347,7 @@ mod tests {
         for (i, message) in collected.iter().enumerate() {
             if let Message::Response(resp) = message {
                 assert_eq!(resp.id, lsp_server::RequestId::from(i as i32 + 100));
-                assert!(resp.error.is_none(), "分支 {i} 不应产生错误应答");
+                assert!(resp.response_result.is_ok(), "分支 {i} 不应产生错误应答");
             } else {
                 panic!("期望 Response，实际收到 {message:?}");
             }
@@ -2379,7 +2374,7 @@ mod tests {
         match rx.recv().unwrap() {
             Message::Response(resp) => {
                 assert_eq!(resp.id, lsp_server::RequestId::from(100));
-                let err = resp.error.expect("应透传错误");
+                let err = resp.response_result.expect_err("应透传错误");
                 assert_eq!(err.code, -32601);
                 assert_eq!(err.message, "method not found");
             }
@@ -2397,7 +2392,7 @@ mod tests {
         handle_analyzer_message(&msg, &mapper, &tx, &pending, &reply, &builtin);
         match rx.recv().unwrap() {
             Message::Response(resp) => {
-                let err = resp.error.unwrap();
+                let err = resp.response_result.unwrap_err();
                 assert_eq!(err.code, -32603);
                 assert!(!err.message.is_empty(), "缺 message 应用内置文案");
             }
@@ -2530,7 +2525,7 @@ mod tests {
         match rx.try_recv() {
             Ok(Message::Response(resp)) => {
                 assert_eq!(resp.id, lsp_server::RequestId::from(101));
-                assert_eq!(resp.error.unwrap().code, -32603);
+                assert_eq!(resp.response_result.unwrap_err().code, -32603);
             }
             other => panic!("期望超时 Response：{other:?}"),
         }
@@ -2563,7 +2558,7 @@ mod tests {
         let mut ids = Vec::new();
         while let Ok(Message::Response(resp)) = rx.try_recv() {
             assert_eq!(
-                resp.error.as_ref().unwrap().message,
+                resp.response_result.as_ref().unwrap_err().message,
                 "rust-analyzer restarted"
             );
             ids.push(resp.id);

@@ -45,8 +45,8 @@ pub struct TranslationEntry {
     pub virtual_path: PathBuf,
     /// 英文行号 → 中文行号的映射
     pub line_map: Vec<u32>,
-    /// 列偏移映射（每行一个分段表，行号 → 该行的分段边界点）
-    pub column_map: Vec<Vec<ColumnMapPoint>>,
+    /// 列偏移映射（紧凑行表，行号 → 该行的分段边界点）
+    pub column_map: ColumnMap,
     /// 代理添加的 `crate::` 前缀在英文输出中的非空白 token 序号
     ///（仅 LSP 虚拟项目跨文件引用重写产生；供反向转译精确删除，
     /// 避免误删用户显式书写的 `crate::` 前缀）
@@ -61,6 +61,15 @@ pub struct TranslationEntry {
     pub is_open: bool,
     /// 磁盘源文件的 (修改时间, 字节数)：兄弟模块增量同步的变更判定
     pub source_meta: Option<(SystemTime, u64)>,
+    /// 本文件声明名（项 / 变量 / 结构体字段 / 库特征方法）
+    ///
+    /// 转译时由词法阶段顺带产出（见引擎
+    /// `transpile_pipeline_with_deferred_project`），直接挂在条目上：
+    /// 其他文件转译前汇总项目上下文时不必再按内容哈希重算（一次全文
+    /// FNV 哈希 + 可能的一趟词法转译）。
+    /// `None` 表示内容已变但尚未重译（新建条目、降级为兄弟模块的初值），
+    /// 取用方退回内容哈希缓存补算。
+    pub declared: Option<Arc<i18n_rust_engine::alias::DeclaredNames>>,
 }
 
 /// 列偏移映射的一个分段边界点
@@ -69,7 +78,7 @@ pub struct TranslationEntry {
 ///   zh_col = en_col - offset_diff
 /// 列号按 LSP 的 UTF-16 code unit 计数（常用中文字符在 BMP 内占 1 个单元，
 /// 增补平面字符如 emoji 占 2 个单元），每行独立从 0 开始。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColumnMapPoint {
     /// 该分段起始处的英文列号
     pub en_col: u32,
@@ -77,6 +86,74 @@ pub struct ColumnMapPoint {
     pub zh_col: u32,
     /// 累计字符偏移差（en_col - zh_col）
     pub offset_diff: i32,
+}
+
+/// 列偏移映射（紧凑行表）
+///
+/// 第 `i` 行的分段点是 `points[rows[i]..rows[i + 1]]`（最后一行到最后），
+/// 每行开头必是行首点（`en_col`/`zh_col`/`offset_diff` 全 0）。
+///
+/// 早先是「每行一个 `Vec`」：360 行文本每次按键要新建 360 个小 `Vec`
+///（各自一次分配），实测占列映射回放的三分之一；改成两块连续存储后
+/// 整趟只剩两次分配。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ColumnMap {
+    /// 全部分段点（按行顺序拼接）
+    points: Vec<ColumnMapPoint>,
+    /// 每行在 `points` 中的起始下标
+    rows: Vec<u32>,
+}
+
+impl ColumnMap {
+    /// 预留容量：`rows_est` 行数估计、`edits_est` 分段点估计（每处替换至多一个）
+    fn with_capacity(rows_est: usize, edits_est: usize) -> Self {
+        let mut map = Self {
+            points: Vec::with_capacity(rows_est + edits_est),
+            rows: Vec::with_capacity(rows_est),
+        };
+        map.new_row();
+        map
+    }
+
+    /// 开新行：行首点必在（列 0、偏移差 0）
+    fn new_row(&mut self) {
+        self.rows.push(self.points.len() as u32);
+        self.points.push(ColumnMapPoint {
+            en_col: 0,
+            zh_col: 0,
+            offset_diff: 0,
+        });
+    }
+
+    /// 当前行追加一个分段点（替换点处偏移差变化时）
+    fn push_point(&mut self, point: ColumnMapPoint) {
+        self.points.push(point);
+    }
+
+    /// 行数
+    pub fn len(&self) -> usize {
+        self.rows.len()
+    }
+
+    /// 是否没有任何行（未转译条目的初值）
+    pub fn is_empty(&self) -> bool {
+        self.rows.is_empty()
+    }
+
+    /// 第 `row` 行的分段点；越界返回 `None`
+    pub fn get(&self, row: usize) -> Option<&[ColumnMapPoint]> {
+        let start = *self.rows.get(row)? as usize;
+        let end = self
+            .rows
+            .get(row + 1)
+            .map_or(self.points.len(), |next| *next as usize);
+        Some(&self.points[start..end])
+    }
+
+    /// 最后一行的分段点（行号越界时的回退口径）
+    pub fn last(&self) -> Option<&[ColumnMapPoint]> {
+        self.len().checked_sub(1).and_then(|row| self.get(row))
+    }
 }
 
 /// 翻译缓存管理器
@@ -205,7 +282,7 @@ impl TranslationCache {
         let updated_siblings = self.sync_sibling_modules(&original_path);
 
         // 行映射不依赖模块路径重写（重写不改变行数），先按中文行数生成
-        let line_map = generate_line_map(content, content);
+        let line_map = generate_line_map(content);
 
         // 存入缓存（英文内容与列映射由下面的重写步骤填充）
         {
@@ -222,11 +299,12 @@ impl TranslationCache {
                 virtual_uri: virtual_uri.clone(),
                 virtual_path: virtual_path.clone(),
                 line_map,
-                column_map: Vec::new(),
+                column_map: ColumnMap::default(),
                 added_crate_tokens: HashSet::new(),
                 version,
                 is_open: true,
                 source_meta: disk_meta(&original_path),
+                declared: None,
             });
             table.insert(uri.to_string(), Arc::clone(&new_entry));
             // 同步虚拟 URI 索引（同一 uri 的 virtual_uri 恒定，插入一次即可）
@@ -244,41 +322,63 @@ impl TranslationCache {
         let new_module_names = self.current_module_names(None);
         let set_changed = new_module_names != old_names;
 
-        // 项目级声明上下文（跨文件声明豁免，#8）：项目声明名（项/结构体
-        // 字段）变化会改变其他文件的豁免结果，须与模块集合变化同样触发
-        // 全量重写；声明名指纹无变化（纯函数体编辑）时只重写当前条目
-        let project = self.current_project_context(&new_module_names);
-        let project_fp = project.fingerprint();
+        // 模块集合变化：全量重写 + 刷新虚拟项目，项目上下文必须先建好
+        //（兄弟文件都要按同一上下文转译）。
+        // 增量路径则先重译当前条目——本文件声明由词法阶段顺带产出
+        //（见引擎 `transpile_pipeline_with_deferred_project`），之后据声明名
+        // 指纹决定是否全量重写其余条目：纯内容编辑不必先预扫本文件声明
+        //（预扫内部是一整趟词法转译，与紧随其后的转译重复）。
+        let (mut changes, project, project_fp) = if set_changed {
+            let _ = self.bump_module_version();
+            let project = self.current_project_context(&new_module_names);
+            let project_fp = project.fingerprint();
+            // main.rs/Cargo.toml 只依赖模块集合：纯内容编辑不触发，
+            // 每次按键省去数次磁盘写与全表遍历
+            self.refresh_virtual_project();
+            let changes = self.rewrite_all(&new_module_names, &project);
+            (changes, project, project_fp)
+        } else {
+            match self.rewrite_entry_deferred(uri, &new_module_names) {
+                Some((changed, project)) => {
+                    let project_fp = project.fingerprint();
+                    (changed.into_iter().collect(), project, project_fp)
+                }
+                None => {
+                    return Err(anyhow::anyhow!(
+                        "{}",
+                        crate::ui::global().f("lsp_err_entry_missing", &[uri])
+                    ));
+                }
+            }
+        };
+
+        // 项目声明名（项/结构体字段）变化会改变其他文件的豁免结果，
+        // 须与模块集合变化同样触发全量重写；指纹无变化（纯函数体编辑）
+        // 时只重写当前条目
         let names_changed = self
             .project_fingerprint
             .swap(project_fp, std::sync::atomic::Ordering::SeqCst)
             != project_fp;
-        // 模块集合变化时重写全部条目并刷新虚拟项目；声明名变化时
-        // 仅全量重写（main.rs 聚合只依赖模块集合，无需刷新/重载）
-        let changes = if set_changed || names_changed {
-            if set_changed {
-                let _ = self.bump_module_version();
-                // main.rs/Cargo.toml 只依赖模块集合：纯内容编辑不触发，
-                // 每次按键省去数次磁盘写与全表遍历
-                self.refresh_virtual_project();
-            }
-            self.rewrite_all(&new_module_names, &project)
-        } else {
-            let mut changes = Vec::new();
-            if let Some(entry) = self.rewrite_entry(uri, &new_module_names, &project) {
-                changes.push(entry);
-            }
-            // 兄弟模块磁盘内容变更（集合不变时的增量路径）：逐条重译
-            for sibling_uri in &updated_siblings {
-                if sibling_uri == uri {
-                    continue;
-                }
-                if let Some(entry) = self.rewrite_entry(sibling_uri, &new_module_names, &project) {
+        if !set_changed {
+            if names_changed {
+                // 声明名集合变化：其余条目（含磁盘内容变更的兄弟）按同一上下文重译
+                for entry in self.rewrite_all_except(Some(uri), &new_module_names, &project) {
                     changes.push(entry);
                 }
+            } else {
+                // 兄弟模块磁盘内容变更（集合不变时的增量路径）：逐条重译
+                for sibling_uri in &updated_siblings {
+                    if sibling_uri == uri {
+                        continue;
+                    }
+                    if let Some(entry) =
+                        self.rewrite_entry(sibling_uri, &new_module_names, &project)
+                    {
+                        changes.push(entry);
+                    }
+                }
             }
-            changes
-        };
+        }
 
         let entry = self.query_original(uri).ok_or_else(|| {
             anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_entry_missing", &[uri]))
@@ -382,7 +482,7 @@ impl TranslationCache {
                     };
                     let virtual_path = self.virtual_path_for(&path);
                     let virtual_uri = path_to_uri(&virtual_path);
-                    let line_map = generate_line_map(&content, &content);
+                    let line_map = generate_line_map(&content);
                     if let Ok(mut table) = self.entries.write() {
                         let entry = Arc::new(TranslationEntry {
                             original_uri: uri.clone(),
@@ -393,11 +493,12 @@ impl TranslationCache {
                             virtual_uri: virtual_uri.clone(),
                             virtual_path,
                             line_map,
-                            column_map: Vec::new(),
+                            column_map: ColumnMap::default(),
                             added_crate_tokens: HashSet::new(),
                             version: 0,
                             is_open: false,
                             source_meta: Some(meta),
+                            declared: None,
                         });
                         table.insert(uri.clone(), Arc::clone(&entry));
                         if let Ok(mut index) = self.virtual_index.write() {
@@ -497,9 +598,11 @@ impl TranslationCache {
             demoted.en_content = String::new();
             demoted.ra_content = String::new();
             demoted.source_meta = Some(meta);
-            demoted.line_map = generate_line_map(&demoted.zh_content, &demoted.zh_content);
-            demoted.column_map = Vec::new();
+            demoted.line_map = generate_line_map(&demoted.zh_content);
+            demoted.column_map = ColumnMap::default();
             demoted.added_crate_tokens = HashSet::new();
+            // 内容已换成磁盘文本：旧声明名不再对应本条内容
+            demoted.declared = None;
             let demoted = Arc::new(demoted);
             {
                 let mut table = self.entries.write().map_err(|_| {
@@ -693,8 +796,22 @@ impl TranslationCache {
         self.manager.get_lint_words()
     }
 
+    /// 教学 lint 的分桶索引（带精确命中表）：manager 内缓存一次，
+    /// 供 LSP 诊断发布路径复用（每份文档不再重建分桶与命中表）。
+    pub fn lint_word_buckets(&self) -> &i18n_rust_engine::lint::WordBuckets {
+        self.manager.lint_word_buckets()
+    }
+
+    /// 映射管理器的共享句柄：跨线程路径（cargo 检查线程）持有一份，
+    /// 线程内自行取词表/分桶索引，避免整张词表逐个 `String` 克隆。
+    pub fn manager_arc(&self) -> Arc<MappingManager> {
+        Arc::clone(&self.manager)
+    }
+
     /// 教学 lint「未标注类型」歧义构造器被调名集（new/default 及方言词）
-    pub fn ambiguous_constructor_words(&self) -> HashSet<String> {
+    ///
+    /// 转发引用（manager 内缓存一次），逐文件路径不再每份源码 clone 一遍。
+    pub fn ambiguous_constructor_words(&self) -> &HashSet<String> {
         self.manager.ambiguous_constructor_words()
     }
 
@@ -832,25 +949,43 @@ impl TranslationCache {
     /// 统一实现（与 CLI 同一规则来源，杜绝平行实现漂移）。
     /// 调用方在文档内容入库后调用，保证上下文包含最新内容。
     ///
-    /// 性能：汇总所需的单文件声明收集（词法转译 + 声明扫描）按**内容哈希**
-    /// 缓存复用。本函数每次按键都会被调用，若每次重算全部打开文件，等于
-    /// O(项目规模) 次词法转译；缓存后每次按键只有内容真正变化的文件需重算。
+    /// 性能：单文件声明名随转译结果挂在条目上（见
+    /// [`TranslationEntry::declared`]），汇总时直接复用，既不重算词法转译
+    /// 也不做全文哈希；只有内容已变、尚未重译的条目才退回内容哈希缓存。
     fn current_project_context(
         &self,
         module_names: &HashSet<String>,
     ) -> i18n_rust_engine::alias::ProjectContext {
-        let sources: Vec<String> = match self.entries.read() {
-            Ok(table) => table.values().map(|e| e.zh_content.clone()).collect(),
-            Err(_) => Vec::new(),
-        };
-        let 声明们: Vec<Arc<i18n_rust_engine::alias::DeclaredNames>> = sources
-            .iter()
-            .map(|内容| self.declared_names_cached(内容))
-            .collect();
+        let 声明们 = self.declarations_of_entries(None);
         i18n_rust_engine::alias::ProjectContext::from_declarations(
             module_names.clone(),
             声明们.iter().map(Arc::as_ref),
         )
+    }
+
+    /// 汇总条目的声明名（`skip_uri` 为需要排除的条目）
+    ///
+    /// 锁内只做快照：自带声明的条目仅取 `Arc` 引用，未转译过的才克隆全文；
+    /// 哈希与声明扫描都在锁外进行——持 entries 读锁做计算会阻塞写入者。
+    fn declarations_of_entries(
+        &self,
+        skip_uri: Option<&str>,
+    ) -> Vec<Arc<i18n_rust_engine::alias::DeclaredNames>> {
+        let mut ready: Vec<Arc<i18n_rust_engine::alias::DeclaredNames>> = Vec::new();
+        let mut pending: Vec<String> = Vec::new();
+        if let Ok(table) = self.entries.read() {
+            for (uri, entry) in table.iter() {
+                if skip_uri == Some(uri.as_str()) {
+                    continue;
+                }
+                match &entry.declared {
+                    Some(declared) => ready.push(Arc::clone(declared)),
+                    None => pending.push(entry.zh_content.clone()),
+                }
+            }
+        }
+        ready.extend(pending.iter().map(|内容| self.declared_names_cached(内容)));
+        ready
     }
 
     /// 取单文件声明收集结果（按内容哈希缓存）
@@ -868,13 +1003,26 @@ impl TranslationCache {
             内容,
             &self.manager,
         ));
+        self.store_declarations(hash, 结果.clone());
+        结果
+    }
+
+    /// 写入声明缓存（按内容哈希；超上限整体清空）
+    fn store_declarations(&self, hash: u64, 声明: Arc<i18n_rust_engine::alias::DeclaredNames>) {
         if let Ok(mut 表) = self.decl_names_cache.write() {
             if 表.len() >= 声明缓存上限 {
                 表.clear();
             }
-            表.insert(hash, 结果.clone());
+            表.insert(hash, 声明);
         }
-        结果
+    }
+
+    /// 取除 `uri` 外全部条目的声明（条目自带则直接复用）
+    ///
+    /// 转译链路专用：当前条目每次按键内容都会变，其声明由词法阶段顺带产出
+    /// （见 [`Self::rewrite_entry_deferred`]），不能从缓存里取旧内容对应的条目。
+    fn other_declarations(&self, uri: &str) -> Vec<Arc<i18n_rust_engine::alias::DeclaredNames>> {
+        self.declarations_of_entries(Some(uri))
     }
 
     /// 重写单个条目的虚拟内容：翻译 + 模块路径加 `crate::` 前缀 + 重建列映射 + 写盘
@@ -892,12 +1040,62 @@ impl TranslationCache {
         project: &i18n_rust_engine::alias::ProjectContext,
     ) -> Option<Arc<TranslationEntry>> {
         let old_entry = self.query_original(uri)?;
-        let output = i18n_rust_engine::transpile_pipeline_with_map_and_project(
+        let output = i18n_rust_engine::transpile_pipeline_quiet_with_map_and_project(
             &old_entry.zh_content,
             &self.manager,
             Some(module_names),
             Some(project),
         );
+        let declared = Some(self.declared_names_cached(&old_entry.zh_content));
+        self.finish_entry(uri, old_entry, output, declared)
+    }
+
+    /// 同 [`Self::rewrite_entry`]，但项目上下文由引擎在词法阶段后补全
+    ///
+    /// 当前条目的内容每次都变，其声明名无法从内容哈希缓存命中；而完整上下文
+    /// 又是转译的前提。此入口把词法阶段提前，本文件声明从词法产物顺带收集，
+    /// 回调只合并其他条目的缓存声明，省去「为取声明而多做的一整趟转译」。
+    ///
+    /// 返回（条目内容是否变化 → 新条目；所用项目上下文）。
+    fn rewrite_entry_deferred(
+        &self,
+        uri: &str,
+        module_names: &HashSet<String>,
+    ) -> Option<(
+        Option<Arc<TranslationEntry>>,
+        i18n_rust_engine::alias::ProjectContext,
+    )> {
+        let old_entry = self.query_original(uri)?;
+        let 其他声明 = self.other_declarations(uri);
+        let (output, 本文件声明, project) =
+            i18n_rust_engine::transpile_pipeline_with_deferred_project_quiet(
+                &old_entry.zh_content,
+                &self.manager,
+                Some(module_names),
+                |本文件| {
+                    i18n_rust_engine::alias::ProjectContext::from_declarations(
+                        module_names.clone(),
+                        其他声明
+                            .iter()
+                            .map(Arc::as_ref)
+                            .chain(std::iter::once(本文件)),
+                    )
+                },
+            );
+        // 本文件声明随条目入库：下次编辑其他文件时取上下文直接复用，
+        // 不再按内容哈希重算（一次 FNV 全文哈希）
+        let declared = Some(Arc::new(本文件声明));
+        Some((self.finish_entry(uri, old_entry, output, declared), project))
+    }
+
+    /// 转译后的单条目收尾：净化 + 子模块声明 + 列映射 + 写盘 + 入库
+    fn finish_entry(
+        &self,
+        uri: &str,
+        old_entry: Arc<TranslationEntry>,
+        output: i18n_rust_engine::cache::TranspileOutput,
+        declared: Option<Arc<i18n_rust_engine::alias::DeclaredNames>>,
+    ) -> Option<Arc<TranslationEntry>> {
         let en_content = output.output;
         // 净化：抹除文件式 `mod 名字;` 声明（含前置属性/可见性）——
         // LSP 虚拟项目按哈希名托管文件并以 `#[path]` 聚合，用户原文的
@@ -960,13 +1158,26 @@ impl TranslationCache {
         let added_crate_tokens =
             lexer::added_crate_token_indices(&en_content, &output.pipeline_map);
 
-        // 构造新版本需要克隆旧条目一次；此后查询均为 Arc 廉价克隆
+        // 构造新版本只搬必要字段：`..(*old_entry).clone()` 会把旧条目的
+        // en_content / ra_content / column_map 也整份克隆一遍再丢弃——每次
+        // 按键白拷两份全文，外加每行一次小 Vec 分配（列映射有几百行）。
+        // en_content / ra_content 的旧值已在上面的映射计算里读完，两份新
+        // 文本按值移入新条目
         let new_entry = Arc::new(TranslationEntry {
-            en_content: en_content.clone(),
-            ra_content: ra_content.clone(),
+            original_uri: old_entry.original_uri.clone(),
+            original_path: old_entry.original_path.clone(),
+            zh_content: old_entry.zh_content.clone(),
+            en_content,
+            ra_content,
+            virtual_uri: old_entry.virtual_uri.clone(),
+            virtual_path: old_entry.virtual_path.clone(),
+            line_map: old_entry.line_map.clone(),
             column_map,
             added_crate_tokens,
-            ..(*old_entry).clone()
+            version: old_entry.version,
+            is_open: old_entry.is_open,
+            source_meta: old_entry.source_meta,
+            declared,
         });
 
         // 写入虚拟文件到磁盘（rust-analyzer 需要文件系统支持；main 文件写 pub 版）
@@ -1025,12 +1236,26 @@ impl TranslationCache {
         module_names: &HashSet<String>,
         project: &i18n_rust_engine::alias::ProjectContext,
     ) -> Vec<Arc<TranslationEntry>> {
+        self.rewrite_all_except(None, module_names, project)
+    }
+
+    /// 同 [`Self::rewrite_all`]，但跳过已单独重译过的条目
+    fn rewrite_all_except(
+        &self,
+        skip: Option<&str>,
+        module_names: &HashSet<String>,
+        project: &i18n_rust_engine::alias::ProjectContext,
+    ) -> Vec<Arc<TranslationEntry>> {
         let uris: Vec<String> = {
             let table = match self.entries.read() {
                 Ok(t) => t,
                 Err(_) => return Vec::new(),
             };
-            table.values().map(|e| e.original_uri.clone()).collect()
+            table
+                .values()
+                .filter(|e| skip != Some(e.original_uri.as_str()))
+                .map(|e| e.original_uri.clone())
+                .collect()
         };
         let mut changes = Vec::new();
         for uri in uris {
@@ -1265,6 +1490,12 @@ fn path_within(path: &Path, root: &Path) -> bool {
 /// 注释与字符串内的伪调用天然排除。
 fn collect_include_asset_paths(content: &str) -> Vec<String> {
     use rustc_lexer::{LiteralKind, TokenKind, tokenize};
+    // 快速通道：识别 `include_str`/`include_bytes` 要求 token 文本精确匹配，
+    // 全文连子串都不含时直接返回空。本函数每次按键都会对整份虚拟内容调用，
+    // 而带 include 资源的文件是少数。
+    if !content.contains("include_str") && !content.contains("include_bytes") {
+        return Vec::new();
+    }
     let mut spans: Vec<(TokenKind, usize, usize)> = Vec::new();
     let mut offset = 0usize;
     for token in tokenize(content) {
@@ -1515,31 +1746,160 @@ fn build_reverse_map(forward: &HashMap<String, String>) -> HashMap<String, Strin
 
 /// 由引擎全管线编辑地图重建列偏移映射
 ///
+/// 转译是逐 token 的原地替换、不增删换行，所以回放只需要两样东西：编辑表
+/// （已按母语源偏移升序，[`i18n_rust_engine::compose_pipeline_map`] 保证）
+/// 和源码文本本身。未命中编辑表的文本中英文同步等宽，唯一会打断列累加的
+/// 是换行——因此按「编辑边界」把源文本切开顺序推进即可，不必为回放再分词
+/// 一次（`tokenize` 是这条路径上最贵的一步：359 行样例上列映射约 166 µs，
+/// 其中分词占大头）。
+///
+/// 编辑条目一律是 token 对齐的单 token 替换（词法关键字/宏/派生、use 路径段、
+/// `crate::` 前缀、别名），故编辑起点就是被替换文本的起点，`length` 即那段
+/// 区间的字节长度；replacement 的 UTF-16 宽度与真实转译输出一致（含宏自动
+/// 补的 `!` 与 `crate::` 前缀）。
+///
+/// 不包含任何转译判定——规则的唯一来源是引擎，此处仅做纯算术回放，杜绝与
+/// 引擎转译逻辑的平行实现漂移。
+///
+/// 与 [`replay_column_map_tokenized`]（分词实现，仅测试期保留为等价性基准）
+/// 的唯一行为差异：跨行字面量（多行字符串/原始字符串）内的换行现在也切分
+/// 新行——分词版把非空白 token 里的 `\n` 当普通字符计入列宽，其后的行会
+/// 整体错位；扫描版按物理行切分，与其余行口径一致。
+fn replay_column_map(zh_content: &str, pipeline_map: &[SourceMapEntry]) -> ColumnMap {
+    let rows_est = zh_content.len() / 24 + 2;
+    let mut per_line_map = ColumnMap::with_capacity(rows_est, pipeline_map.len());
+    let mut zh_col = 0u32;
+    let mut en_col = 0u32;
+    let mut offset_diff = 0i32; // 当前行内 en_col - zh_col
+    // 上一个分段点的偏移差（行首为 0）：避免每 token 回头读表尾
+    let mut last_diff = 0i32;
+    let mut cursor = 0usize;
+
+    for edit in pipeline_map {
+        let start = edit.source_offset;
+        // 防御：乱序/重叠/越界条目（管线保证不会出现）宁可少一段映射也不 panic
+        if start < cursor || start > zh_content.len() {
+            continue;
+        }
+        advance_columns(
+            &zh_content[cursor..start],
+            &mut per_line_map,
+            &mut zh_col,
+            &mut en_col,
+            &mut offset_diff,
+            &mut last_diff,
+        );
+        // 被替换区间：中英长度可不同（`让` → `let`、`字符串` → `String`、
+        // 模块词 → `crate::模块`），累计偏移差变化处记录分段点
+        let zh_len = utf16_width(edit.original.as_str());
+        let en_len = utf16_width(edit.replacement.as_str());
+        zh_col += zh_len;
+        en_col += en_len;
+        offset_diff += en_len as i32 - zh_len as i32;
+        if offset_diff != last_diff {
+            last_diff = offset_diff;
+            per_line_map.push_point(ColumnMapPoint {
+                en_col,
+                zh_col,
+                offset_diff,
+            });
+        }
+        cursor = (start + edit.length).min(zh_content.len());
+    }
+    advance_columns(
+        &zh_content[cursor..],
+        &mut per_line_map,
+        &mut zh_col,
+        &mut en_col,
+        &mut offset_diff,
+        &mut last_diff,
+    );
+
+    per_line_map
+}
+
+/// 推进一段未被替换的文本：中英同步等宽，仅在换行处切分行并重置行内偏移差
+fn advance_columns(
+    text: &str,
+    per_line_map: &mut ColumnMap,
+    zh_col: &mut u32,
+    en_col: &mut u32,
+    offset_diff: &mut i32,
+    last_diff: &mut i32,
+) {
+    if text.is_empty() {
+        return;
+    }
+    if text.is_ascii() {
+        // ASCII 快路径：列宽即字节数，只需找换行
+        let mut width = 0u32;
+        for b in text.as_bytes() {
+            if *b == b'\n' {
+                *zh_col += width;
+                *en_col += width;
+                *zh_col = 0;
+                *en_col = 0;
+                *offset_diff = 0;
+                *last_diff = 0;
+                per_line_map.new_row();
+                width = 0;
+            } else {
+                width += 1;
+            }
+        }
+        *zh_col += width;
+        *en_col += width;
+        return;
+    }
+    // 非 ASCII（中文标识符/注释/字面量）：逐字符取 UTF-16 列宽
+    for c in text.chars() {
+        if c == '\n' {
+            *zh_col = 0;
+            *en_col = 0;
+            *offset_diff = 0;
+            *last_diff = 0;
+            per_line_map.new_row();
+        } else {
+            let width = c.len_utf16() as u32;
+            *zh_col += width;
+            *en_col += width;
+        }
+    }
+}
+
+/// 文本的 UTF-16 列宽（LSP 协议口径：增补平面字符占 2 个单元）
+fn utf16_width(text: &str) -> u32 {
+    if text.is_ascii() {
+        text.len() as u32
+    } else {
+        text.chars().map(|c| c.len_utf16() as u32).sum()
+    }
+}
+
+/// 分词回放（仅测试期保留：`replay_column_map` 的等价性基准，勿在生产路径使用）
+///
 /// 对母语源逐 token 推进：命中地图条目的 token 输出长度取 replacement 的
 /// UTF-16 长度（与真实转译输出一致，含宏自动补的 `!` 与 `crate::` 前缀），
 /// 未命中的 token 原样长度；累计偏移差变化处记录分段点。
 ///
 /// 不包含任何转译判定——规则的唯一来源是引擎（`transpile_pipeline_with_map`），
 /// 此处仅做纯算术回放，杜绝与引擎转译逻辑的平行实现漂移。
-fn replay_column_map(
-    zh_content: &str,
-    pipeline_map: &[SourceMapEntry],
-) -> Vec<Vec<ColumnMapPoint>> {
+///
+/// 编辑表按源偏移升序（[`i18n_rust_engine::compose_pipeline_map`] 保证），
+/// 因此用游标顺序推进即可定位「当前 token 是否被替换」，不必建偏移哈希表；
+/// 空白/注释按字节扫（只需识别 `\n` 与列宽），ASCII token 长度即 UTF-16 长度。
+#[cfg(test)]
+fn replay_column_map_tokenized(zh_content: &str, pipeline_map: &[SourceMapEntry]) -> ColumnMap {
     use rustc_lexer::{TokenKind, tokenize};
 
-    // 索引：源偏移 → 条目（token 级替换，一个 token 至多一条）
-    let by_offset: HashMap<usize, &SourceMapEntry> =
-        pipeline_map.iter().map(|e| (e.source_offset, e)).collect();
-
-    let mut per_line_map: Vec<Vec<ColumnMapPoint>> = vec![vec![ColumnMapPoint {
-        en_col: 0,
-        zh_col: 0,
-        offset_diff: 0,
-    }]];
+    let mut per_line_map = ColumnMap::with_capacity(zh_content.len() / 24 + 2, pipeline_map.len());
     let mut zh_col = 0u32;
     let mut en_col = 0u32;
     let mut cumulative_diff = 0i32; // 当前行内 en_col - zh_col
+    // 上一个分段点的偏移差（行首为 0）：避免每 token 回头读表尾
+    let mut last_diff = 0i32;
     let mut current_offset = 0usize;
+    let mut edit_idx = 0usize;
     let is_whitespace = |k: TokenKind| {
         matches!(
             k,
@@ -1552,32 +1912,55 @@ fn replay_column_map(
         let token_text = &zh_content[current_offset..][..token.len];
         current_offset += token.len;
 
-        // 空白 token：两列同步前进（逐字符处理，空白可能跨行）
+        // 空白 token：两列同步前进（逐字节处理，只需识别换行）
         if is_whitespace(token.kind) {
-            for c in token_text.chars() {
-                if c == '\n' {
-                    // 新行：行内列与偏移差重置，并记录新行起点
-                    zh_col = 0;
-                    en_col = 0;
-                    cumulative_diff = 0;
-                    per_line_map.push(vec![ColumnMapPoint {
-                        en_col: 0,
-                        zh_col: 0,
-                        offset_diff: 0,
-                    }]);
-                } else {
-                    zh_col += c.len_utf16() as u32;
-                    en_col += c.len_utf16() as u32;
+            if token_text.is_ascii() {
+                for b in token_text.as_bytes() {
+                    if *b == b'\n' {
+                        // 新行：行内列与偏移差重置，并记录新行起点
+                        zh_col = 0;
+                        en_col = 0;
+                        cumulative_diff = 0;
+                        last_diff = 0;
+                        per_line_map.new_row();
+                    } else {
+                        zh_col += 1;
+                        en_col += 1;
+                    }
+                }
+            } else {
+                for c in token_text.chars() {
+                    if c == '\n' {
+                        zh_col = 0;
+                        en_col = 0;
+                        cumulative_diff = 0;
+                        last_diff = 0;
+                        per_line_map.new_row();
+                    } else {
+                        zh_col += c.len_utf16() as u32;
+                        en_col += c.len_utf16() as u32;
+                    }
                 }
             }
             continue;
         }
 
+        // 游标推进到当前 token（编辑表升序、每条对应一个被替换 token 的起点）
+        while edit_idx < pipeline_map.len() && pipeline_map[edit_idx].source_offset < token_start {
+            edit_idx += 1;
+        }
+
         // 输出长度：命中地图条目取 replacement 的 UTF-16 长度，否则原样
-        let zh_len: u32 = token_text.chars().map(|c| c.len_utf16() as u32).sum();
-        let en_len: u32 = match by_offset.get(&token_start) {
-            Some(e) => e.replacement.chars().map(|c| c.len_utf16() as u32).sum(),
-            None => zh_len,
+        let zh_len: u32 = if token_text.is_ascii() {
+            token_text.len() as u32
+        } else {
+            token_text.chars().map(|c| c.len_utf16() as u32).sum()
+        };
+        let en_len: u32 = match pipeline_map.get(edit_idx) {
+            Some(e) if e.source_offset == token_start => {
+                e.replacement.chars().map(|c| c.len_utf16() as u32).sum()
+            }
+            _ => zh_len,
         };
 
         cumulative_diff += en_len as i32 - zh_len as i32;
@@ -1585,20 +1968,13 @@ fn replay_column_map(
         en_col += en_len;
 
         // 如果偏移差变化了，记录新的分段边界（当前行内）
-        let last_diff = per_line_map
-            .last()
-            .and_then(|row| row.last())
-            .map(|p| p.offset_diff)
-            .unwrap_or(0);
         if cumulative_diff != last_diff {
-            // 当前行映射必然存在（每行起点已入表）；防御性判断避免 panic
-            if let Some(row) = per_line_map.last_mut() {
-                row.push(ColumnMapPoint {
-                    en_col,
-                    zh_col,
-                    offset_diff: cumulative_diff,
-                });
-            }
+            last_diff = cumulative_diff;
+            per_line_map.push_point(ColumnMapPoint {
+                en_col,
+                zh_col,
+                offset_diff: cumulative_diff,
+            });
         }
     }
 
@@ -1609,21 +1985,25 @@ fn replay_column_map(
 ///
 /// 由于当前翻译是逐行替换关键字，行数保持一致，
 /// 因此映射为 0→0, 1→1, 2→2, ...
+///
+/// 行数按字节统计换行：`str::lines()` 逐字符解码，9.6 KB 源码上两次计数
+/// 就是 20 µs 量级，而这里只要行数。
 /// 未来若支持多行展开/折叠，此处需要更复杂的算法。
-fn generate_line_map(zh_content: &str, en_content: &str) -> Vec<u32> {
-    let en_line_count = en_content.lines().count() as u32;
-    let zh_line_count = zh_content.lines().count() as u32;
-    let min_lines = en_line_count.min(zh_line_count);
+fn generate_line_map(content: &str) -> Vec<u32> {
+    (0..line_count(content)).collect()
+}
 
-    // 基础 1:1 映射
-    let mut map: Vec<u32> = (0..en_line_count).collect();
-
-    // 对于超出中文行数的英文行，映射到最后一行
-    for i in min_lines..en_line_count {
-        map[i as usize] = zh_line_count.saturating_sub(1);
+/// 行数，口径与 `str::lines().count()` 一致（末尾换行不产生额外空行）
+fn line_count(content: &str) -> u32 {
+    if content.is_empty() {
+        return 0;
     }
-
-    map
+    let newlines = content.as_bytes().iter().filter(|b| **b == b'\n').count() as u32;
+    if content.ends_with('\n') {
+        newlines
+    } else {
+        newlines + 1
+    }
 }
 
 #[cfg(test)]
@@ -1669,6 +2049,61 @@ mod tests {
     /// 构造测试用映射管理器（关键字表 + 可选别名表，模块路径/宏/派生表为空）
     fn test_manager(alias_map: HashMap<String, String>) -> MappingManager {
         MappingManager::from_flat_maps(test_map(), HashMap::new(), alias_map)
+    }
+
+    /// 列映射扫描回放 × 分词回放差分：多种源码形态 + 真实管线编辑表必须逐行逐段一致
+    ///
+    /// 扫描版是生产实现（省去每按键一次全文分词）；分词版仅在此充当等价性基准。
+    /// 语料覆盖：单行/多行、Tab 缩进、CRLF、块注释跨行、中文/emoji 字面量、
+    /// use 路径段、`crate::` 前缀、别名替换、空文件。
+    #[test]
+    fn test_replay_column_map_matches_tokenized_replay() {
+        let manager = test_manager(HashMap::from([
+            ("字符串".into(), "String".into()),
+            ("新建".into(), "new".into()),
+        ]));
+        let module_names: HashSet<String> = ["工具".to_string(), "辅助".to_string()]
+            .into_iter()
+            .collect();
+        let sources = [
+            "让 可变 x = 5;",
+            "函数 主函数() {\n    让 结果 = 计算(2);\n    // 注释：中文\n    返回 结果;\n}\n",
+            "函数 f(名称: 字符串) -> 字符串 {\n\t让 s = 名称.新建();\n\ts\n}\n",
+            "使用 工具::辅助;\n\n函数 主函数() {\n    工具::辅助::执行(1);\n}\n",
+            "/* 块注释\n   跨行 */\n让 a = 1;\n\n\n让 b = 2;\n",
+            "让 s = \"中文 字面量 😀\";\r\n让 t = 1;\r\n",
+            "让 r = r#\"原样 字符串\"#;\n让 x = 1;",
+            "",
+            "// 只有注释\n",
+        ];
+        for source in sources {
+            let output = i18n_rust_engine::transpile_pipeline_quiet_with_map_and_project(
+                source,
+                &manager,
+                Some(&module_names),
+                None,
+            );
+            assert_eq!(
+                replay_column_map(source, &output.pipeline_map),
+                replay_column_map_tokenized(source, &output.pipeline_map),
+                "扫描回放与分词回放不一致：{source:?}"
+            );
+        }
+    }
+
+    /// 跨行原始字符串：换行也切分新行
+    ///
+    /// 分词回放把非空白 token 里的 `\n` 当普通字符计入列宽，多行字面量之后的
+    /// 行会整体错位；扫描回放按物理行切分，行数与 `lines()` 对齐。
+    #[test]
+    fn test_replay_column_map_multiline_literal_splits_lines() {
+        let source = "让 s = r#\"第一行\n第二行\"#;\n让 t = 1;";
+        let map = replay_column_map(source, &[]);
+        assert_eq!(map.len(), 3, "三行源码应有三行映射");
+        // 未被替换的第三行：行内偏移差为 0（分词版会把前两行宽度累加进第三行）
+        let row = map.get(2).expect("第三行应有分段表");
+        assert_eq!(row.len(), 1);
+        assert_eq!(row[0].offset_diff, 0);
     }
 
     #[test]
@@ -2014,10 +2449,76 @@ mod tests {
         );
     }
 
+    /// 增量编辑（集合不变）走延迟上下文单趟路径：
+    /// 声明名变化 → 其余条目按新上下文重译；纯函数体编辑 → 不触发全量重译
+    #[test]
+    fn test_incremental_edit_declaration_change_rewrites_others() {
+        let temp = tempfile::tempdir().unwrap();
+        let alias_map = HashMap::from([("新建".into(), "new".into())]);
+        let cache = TranslationCache::new(test_manager(alias_map), temp.path().to_path_buf());
+
+        // 两个文件都不含 `新建` 声明：调用位照常替换（此时集合变化 → 全量路径）
+        cache
+            .update_document("file:///test/甲.zh", "函数 甲函数() {}", 1)
+            .unwrap();
+        let (乙, _) = cache
+            .update_document(
+                "file:///test/乙.zh",
+                "函数 乙函数() { 让 值 = 甲::新建(); }",
+                1,
+            )
+            .unwrap();
+        assert!(
+            乙.en_content.contains("甲::new()"),
+            "无声明时应替换：{}",
+            乙.en_content
+        );
+
+        // 编辑甲：新增 `新建` 声明（集合不变 → 增量路径；声明名变化 → 其余条目重译）
+        let (_, others) = cache
+            .update_document("file:///test/甲.zh", "函数 新建() {}\n函数 甲函数() {}", 2)
+            .unwrap();
+        assert!(!others.is_empty(), "声明名变化应触发其余条目重译");
+        let 乙 = cache.query_original("file:///test/乙.zh").expect("乙条目");
+        assert!(
+            乙.en_content.contains("甲::新建()"),
+            "跨文件声明应豁免：{}",
+            乙.en_content
+        );
+
+        // 继续纯函数体编辑：声明名未变 → 不得重译其余条目
+        let (_, others) = cache
+            .update_document(
+                "file:///test/甲.zh",
+                "函数 新建() { 让 值 = 1; }\n函数 甲函数() {}",
+                3,
+            )
+            .unwrap();
+        assert!(others.is_empty(), "声明名未变不应重译其余条目");
+    }
+
+    /// 行映射：1:1 恒等，行数口径与 `str::lines().count()` 一致（含末尾换行/CRLF）
     #[test]
     fn test_line_map() {
-        let map = generate_line_map("行0\n行1\n行2", "line0\nline1\nline2");
-        assert_eq!(map, vec![0, 1, 2]);
+        assert_eq!(generate_line_map("行0\n行1\n行2"), vec![0, 1, 2]);
+        // 末尾换行不多算一行
+        assert_eq!(generate_line_map("let 让\n"), vec![0]);
+        assert_eq!(generate_line_map("a\r\nb\r\n"), vec![0, 1]);
+        // 空内容无行
+        assert!(generate_line_map("").is_empty());
+        for sample in [
+            "a",
+            "a\n",
+            "a\nb",
+            "a\n\nb\n",
+            "函数 f() {\n    让 x = 1;\n}",
+        ] {
+            assert_eq!(
+                line_count(sample),
+                sample.lines().count() as u32,
+                "{sample:?}"
+            );
+        }
     }
 
     #[test]
@@ -2376,6 +2877,33 @@ mod tests {
         let copied = virt.path().join("src").join("数据.txt");
         assert!(copied.is_file(), "include 资源应复制到虚拟项目");
         assert_eq!(std::fs::read_to_string(copied).unwrap(), "占位内容");
+    }
+
+    /// include 资源路径收集：子串早退只跳过真实子串缺失的情形
+    ///
+    /// 早退判据是「全文不含 `include_str`/`include_bytes` 子串」，而识别一个
+    /// 调用要求 token 文本恰为该名，故早退不可能误跳过真实调用；本测试同时钉住
+    /// 无宏内容、真实调用、伪调用（注释里的子串）与跨行调用四类结果。
+    #[test]
+    fn test_collect_include_asset_paths_early_out() {
+        assert!(collect_include_asset_paths("fn main() { let s = \"文本\"; }").is_empty());
+        assert_eq!(
+            collect_include_asset_paths("fn main() { let s = include_str!(\"数据.txt\"); }"),
+            vec!["数据.txt".to_string()]
+        );
+        // 子串存在但不是调用（行注释）：不走早退，但也不收集
+        assert!(
+            collect_include_asset_paths("// include_str!(\"假.txt\")\nfn main() {}").is_empty()
+        );
+        assert_eq!(
+            collect_include_asset_paths("static B: &[u8] = include_bytes!(\"图片.png\");"),
+            vec!["图片.png".to_string()]
+        );
+        // 允许 `!(` 之间存在空白/换行
+        assert_eq!(
+            collect_include_asset_paths("let s = include_str ! (\n    \"配置.toml\",\n);"),
+            vec!["配置.toml".to_string()]
+        );
     }
 
     /// 关闭文档：磁盘文件仍存在时降级为兄弟模块（不删除条目/虚拟文件）

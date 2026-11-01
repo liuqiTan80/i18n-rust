@@ -1177,8 +1177,8 @@ fn test_lint_teaching_diagnostics_reserved_name_collision() {
 
     let diags = super::diag_text::lint_teaching_diagnostics(
         &entry,
-        cache.lint_words(),
-        &cache.ambiguous_constructor_words(),
+        cache.lint_word_buckets(),
+        cache.ambiguous_constructor_words(),
         cache.english_fallback_map(),
         cache.keyword_map(),
     );

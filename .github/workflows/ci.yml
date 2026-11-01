@@ -279,16 +279,17 @@ jobs:
         run: cargo build --quiet --bin rzc --locked
 
       - name: 安装 rust-analyzer（--ra-only 仅下载分析器，跳过 300MB rustc）
-        # 与 lsp-e2e job 同口径：安装到 ~/.rz/toolchain/bin，
-        # 使 crates/lsp/tests/e2e.rs 的 7 条 #[ignore] 端到端测试在
-        # 覆盖率统计中真实启动 LSP 二进制（缺失时这些测试静默跳过，
-        # 覆盖率会跌破阈值而显式失败，不会假装通过）
+        # 与 lsp-e2e job 同口径：安装到 ~/.rz/toolchain/bin，使
+        # crates/lsp/tests/e2e.rs 的 12 条 #[ignore] 端到端测试在覆盖率统计中
+        # 真实启动 LSP 二进制。工具链缺失时不再依赖「覆盖率跌破阈值」兜底：
+        # e2e.rs 的 rust_analyzer_for_run 在 CI 环境下直接判红（本地仍跳过），
+        # 因为被跳过的用例在 libtest 报告里也是 ok，看不出没跑
         shell: bash
         run: ./target/debug/rzc install toolchain --ra-only --force
 
       - name: 覆盖率门禁（纳入 e2e，行覆盖率低于 85% 时失败）
         # 当前基线 86.11% 行 / 86.56% 分支（2026-09 llvm-cov 实测，
-        # --include-ignored 纳入 7 条真实 rust-analyzer 端到端测试：
+        # --include-ignored 纳入 12 条真实 rust-analyzer 端到端测试：
         # server.rs 28.56%→82.19%、diagnostics.rs 91.69%、
         # mapping_check.rs 85.98%、mapping_source.rs 91.54%、
         # responses.rs 92.89%）。

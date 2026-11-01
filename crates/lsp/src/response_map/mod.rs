@@ -72,9 +72,20 @@ impl ResponseMapper {
         self.cache.lint_words()
     }
 
+    /// 获取教学 lint 的分桶索引（转发 TranslationCache，
+    /// 教学诊断发布路径的一次扫描入口用，索引随语言包缓存一次）
+    pub fn lint_word_buckets(&self) -> &i18n_rust_engine::lint::WordBuckets {
+        self.cache.lint_word_buckets()
+    }
+
+    /// 获取映射管理器的共享句柄（cargo 检查线程跨线程取词表用）
+    pub fn manager_arc(&self) -> std::sync::Arc<i18n_rust_engine::mapping_manager::MappingManager> {
+        self.cache.manager_arc()
+    }
+
     /// 获取教学 lint 歧义构造器词集（转发 TranslationCache，
     /// 「未标注类型」仅提示无法自行推导的 new/default/collect 形态）
-    pub fn ambiguous_constructor_words(&self) -> std::collections::HashSet<String> {
+    pub fn ambiguous_constructor_words(&self) -> &std::collections::HashSet<String> {
         self.cache.ambiguous_constructor_words()
     }
 
