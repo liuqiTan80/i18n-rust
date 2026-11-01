@@ -10,7 +10,7 @@
 |---|---|
 | 全球品牌与双平台 | GitHub / GitCode 同名 `i18n-rust`，双平台同步推送；语言包安装源自动回退 |
 | 发布链路 | **crates.io 三 crate 最新 0.8.4（2026-10-28 `cargo search` 实测；0.8.2 首发 2026-09-21），已落后源码版本**；`vsce package` 本机一次通过；release.yml 三平台产物 + SHA256SUMS |
-| 教程资产 | zh 全量（27 章 + 术语表 + 5 附录，逐块编译门禁）；en 20/34；ja/ru 滚动中（[translation-status](../translation-status.md)） |
+| 教程资产 | zh 全量（26 章 + 术语表 + 5 附录，逐块编译门禁）；en 15/33；ja/ru 滚动中（[translation-status](../translation-status.md)） |
 | 文档站 | `book/` 装配源 + `tools/build-site.py` 四语言组装 + [pages.yml](../../.github/workflows/pages.yml) 自动部署（[book/README.md](../../book/README.md)） |
 | 演示素材 | `docs/demo/` 三语言 vhs 脚本 + 演示样本（zh/ja/ru），差一次录屏 |
 | 质量门禁 | CI 七 job（test / msrv / coverage / audit / bench / build / vsix）+ 本地 `make gate`；四语言教程门禁 0 失败；维护者入口见 [项目地图](../project-map.md) |
@@ -29,7 +29,7 @@
 
 ## 候选下一步（P1，按需启动）
 
-- 教程滚动：en 第十九章《智能指针》起继续（en 20/34，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
+- 教程滚动：en 第十九章《智能指针》起继续（en 20/33，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
 - 原生 Cargo 命令仍不看界面语言（`rzc add` 一侧已补母语提示，`cargo build` 直敲
   时用户依旧看到 `no targets specified in the manifest` 原文）。教程已教会读者把 `Caused by`
   两行读成「还没有 `.rs` 入口」，但 rzc 无法拦截外部 cargo 进程。可选做法：`rzc doctor`
@@ -106,8 +106,10 @@
   `build_type_map` 只做 first-wins。用优先序而不是读取顺序，是为了让 `load_from_dir` 与
   `load_from_builtin` 得到同一张表；前两条复刻旧版「模块路径覆盖一切」，stdlib 优先压过
   第三方 crate 别名（跨文件二义如 `SocketAddr` / `TcpListener` / `Json` 由此定）。
-  顺序可行的前提：toml 0.8 的 `Value::Table` 是 BTreeMap（按键排序），但 serde 反序列化通道
-  按文档序投递键值对，故新增 `parse_toml_sections_ordered`（自定义 visitor 收 `Vec`）；它同时成为
+  顺序可行的前提：serde 反序列化通道按文档序投递键值对，故新增 `parse_toml_sections_ordered`
+  （自定义 visitor 收 `Vec`）；2026-10-30 依赖升级到 toml 1.x 后，其默认表改为按键排序
+  （0.8 走 toml_edit 天然保序），workspace 层已启用 `preserve_order` 特性把 `Value::Table`
+  的书写序一并钉住（否则 ja 的 `Display` 反查会从「表示可能」翻回「表示」）。它同时成为
   **唯一解析实现**，`parse_toml_sections` / `merge_module_and_ident_sections` / `parse_danger_sections`
   三个旧入口收敛为它的视图，加载器改走 `ParsedDocument`（一个文件只解析一遍，而 zh 包 26 个文件
   原本要解析 2~3 遍），debug 下 `load_from_dir` 20 次由 1.567s 降到 0.956s、`load_from_builtin`
