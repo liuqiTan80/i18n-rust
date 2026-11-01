@@ -43,7 +43,16 @@ Result 的 `错误(...)` 构造、`错误(原因)` 模式匹配、`xxx错误` �
 不免内容（按行多重集比对，单块验证的 `// 预期输出:` 同口径）。诊断/命令行/构建记录不该
 占裸围栏，应改 ```text。
 
-退出码：非预期失败为 1（CI 门禁用）；--json 输出机器可读报告。
+退出码：非预期失败为 1（CI 门禁用）；白名单里的过期条目（本次扫到的文件中，
+登记行已不再失败）同样判 1——只提示不拦的话，教程改好后忘删的登记会静静积在
+`tools/expected-failures.json` 里，既误导后来人「这块还得失败」，也会掩盖代码块
+本身的变化；--json 输出机器可读报告（含 `stale` 过期清单）。
+
+「问不到答案」不算「编译器说了不」：任何一块出现 rzc 超时、进程没起来、被信号
+终止（共享 runner 的 OOM-killer）或 rzc 自身 panic，一律判红，不得折进「预期
+失败成立」。旧写法把「退出码非 0」当成编译失败，四种场景（SIGKILL、退出 101、
+run 被杀、重试后仍超时）实测都能让断言失败的块白拿 PASS（四语受影响 89 块，
+详见 `stage_unknown` 注释）。
 
 用法：
   python3 tools/verify-tutorials.py [--serialize] [--ctx] [--ctx-update] \
@@ -537,13 +546,53 @@ def output_matches(want, actual, ignore_order=False):
     return i == len(lines)
 
 
+# rzc check 只用两种码表态：0 编译通过、1 有诊断（rustc 非零一律折成 FAILURE，
+# 见 crates/cli/src/main.rs 的 Check 分支与 diagnostics.rs）。
+CHECK_CODES = (0, 1)
+
+
+def stage_unknown(rc, out, stage):
+    """这次提问到底有没有问到答案：问到了返回 None，没问到返回给人看的理由。
+
+    把「编译器说了不」和「没能问到编译器」混为一谈是门禁的经典假绿：`!= 0` 这个
+    判据同时接纳了超时（-1）、进程没起来（-2）、被信号杀（负数——共享 runner 上
+    OOM-killer 的常态）和 rzc 自身 panic（101）。四例都用最小教程夹具（一个
+    `// ❌` 块 + 一个 `// 预期行为: 运行失败` 块）配假 rzc 端到端复现过：check 被
+    SIGKILL（returncode -9）时前者判绿、check 以 101 崩溃时判绿、run 被 SIGKILL 时
+    后者判绿、check 重试后仍超时（-1）时判绿。按块统计，四语教程里 180 个断言失败的
+    块有 89 个没有预期错误码兜底（无码 76 + 运行失败 13），带码的 91 个则因取不到
+    预期码而侥幸判红——也就是说这条假绿路径正好盖住了「预期失败」类块的一半。
+
+    stage == "check"：只认 0/1；stage == "run"：教程程序自己的退出码无法穷举
+    （0 跑成功、101 panic、`process::exit(3)` 都是合法答案），只有「进程没跑成」
+    （rc < 0：超时 / 没起来 / 被信号杀）算没问到答案。
+    残留盲区：rzc run 把「子进程被信号杀」折成退出码 1 传播（main.rs 的
+    `unwrap_or(FAILURE)`），那一层从码上分不出来，只能靠 rzc 侧改协议。
+    """
+    if stage == "check":
+        if rc in CHECK_CODES:
+            return None
+    elif rc >= 0:
+        return None
+    if rc == -1:
+        return "无法判定：rzc 超时（重试后仍超时）"
+    if rc == -2:
+        return f"无法判定：rzc 未能执行（{out[:120]}）"
+    if rc < 0:
+        return f"无法判定：rzc 被信号终止（returncode {rc}）"
+    if rc == 101:
+        return f"无法判定：rzc 自身 panic（returncode 101）：{out[:120]}"
+    return f"无法判定：rzc {stage} 退出码异常（{rc}）：{out[:120]}"
+
+
 def check_one(rzc, src_path, cwd, expected, behavior, expected_output=None, timeout=120,
               out_ignore_order=False):
     """_check_one_once 的超时重试外壳。
 
     共享 runner 负载抖动会让冷缓存编译偶发越过超时上限——这与块内容无关，
     超时（returncode -1）自动重试一次，重试后仍超时才维持判红
-    （2026-10-31 run #241 实证：同内容 #240 绿 #241 红，无重试则误报）。"""
+    （2026-10-31 run #241 实证：同内容 #240 绿 #241 红，无重试则误报）。
+    重试救不了的那一次会带着「无法判定」的理由返回，不会伪装成断言成立。"""
     res = _check_one_once(rzc, src_path, cwd, expected, behavior,
                           expected_output=expected_output, timeout=timeout,
                           out_ignore_order=out_ignore_order)
@@ -558,7 +607,10 @@ def _check_one_once(rzc, src_path, cwd, expected, behavior, expected_output=None
                     out_ignore_order=False):
     """rzc check（需要运行时验证时加 rzc run）。
 
-    返回 (ok, returncode, full_output)。ok 语义：
+    返回 (ok, returncode, full_output, unknown)：unknown 非 None 表示这一问根本没
+    问到答案（超时 / 没起来 / 被信号杀 / rzc 崩溃 / 退出码异常），调用方必须判红，
+    判据见 stage_unknown。
+    ok 语义：
     - behavior 为 "通过"：编译通过
     - behavior 为 "运行失败"：编译通过且运行非零退出
     - expected_output 非 None：编译通过且 stdout 规范化后与预期一致
@@ -568,36 +620,46 @@ def _check_one_once(rzc, src_path, cwd, expected, behavior, expected_output=None
         r = subprocess.run([rzc, "check", src_path], capture_output=True, text=True,
                            timeout=timeout, cwd=cwd)
         out = (r.stdout + r.stderr).strip()
+        unknown = stage_unknown(r.returncode, out, "check")
+        if unknown:
+            return False, r.returncode, out, unknown
         compiled_ok = r.returncode == 0
         if expected_output is not None:
             if not compiled_ok:
-                return False, r.returncode, out
+                return False, r.returncode, out, None
             rr = subprocess.run([rzc, "run", src_path], capture_output=True, text=True,
                                 timeout=timeout, cwd=cwd)
+            rr_out = (rr.stdout + rr.stderr).strip()
+            unknown = stage_unknown(rr.returncode, rr_out, "run")
+            if unknown:
+                return False, rr.returncode, rr_out, unknown
             if rr.returncode != 0:
-                return False, rr.returncode, (rr.stdout + rr.stderr).strip()
+                return False, rr.returncode, rr_out, None
             actual = normalize_output(strip_engine_noise(rr.stdout))
             want = normalize_output(expected_output)
             if not output_matches(want, actual, out_ignore_order):
                 return False, rr.returncode, ("输出不匹配\n"
                                               f"  预期: {want!r}\n"
-                                              f"  实际: {actual!r}")
-            return True, rr.returncode, rr.stdout
+                                              f"  实际: {actual!r}"), None
+            return True, rr.returncode, rr.stdout, None
         if behavior == "运行失败":
             if not compiled_ok:
-                return False, r.returncode, out
+                return False, r.returncode, out, None
             rr = subprocess.run([rzc, "run", src_path], capture_output=True, text=True,
                                 timeout=timeout, cwd=cwd)
             out = (rr.stdout + rr.stderr).strip()
-            return rr.returncode != 0, rr.returncode, out
+            unknown = stage_unknown(rr.returncode, out, "run")
+            if unknown:
+                return False, rr.returncode, out, unknown
+            return rr.returncode != 0, rr.returncode, out, None
         if behavior == "通过":
-            return compiled_ok, r.returncode, out
+            return compiled_ok, r.returncode, out, None
         # 错误示例默认：断言编译失败（预期错误码由调用方核对）
-        return compiled_ok, r.returncode, out
+        return compiled_ok, r.returncode, out, None
     except subprocess.TimeoutExpired:
-        return False, -1, "超时"
+        return False, -1, "超时", stage_unknown(-1, "超时", "check")
     except Exception as e:
-        return False, -2, str(e)
+        return False, -2, str(e), stage_unknown(-2, str(e), "check")
 
 
 def actual_error_codes(output):
@@ -889,17 +951,25 @@ def run_ctx_check(rzc, work, results, all_blocks, grouped, allowlist, lang, para
         def build(grp, tag):
             src_path, d = build_serialized(work, grp, f"{base}-{k}-{tag}", allowlist, deps, lang)
             if src_path is None:
-                return False, "前文项目生成失败"
-            ok, _rc, out = check_one(rzc, src_path, d, set(), None, timeout=CTX_TIMEOUT)
-            return ok, first_error_line(out)
+                return False, "前文项目生成失败", None
+            ok, _rc, out, unknown = check_one(rzc, src_path, d, set(), None, timeout=CTX_TIMEOUT)
+            return ok, first_error_line(out), unknown
 
-        ok, err = build(blocks[:k + 1], "ctx")
+        # 拿不到判定（超时/被信号杀/rzc 崩溃）时不许记在「本块致错」上——那一格
+        # 是在向读者指认正文里真实存在的一堵墙；归进「前文噪音」这个无法归因的
+        # 桶，并把理由带进报告。
+        ok, err, unknown = build(blocks[:k + 1], "ctx")
         if ok:
             verdict = CTX_PASS
+        elif unknown:
+            verdict, err = CTX_NOISE, unknown
         else:
             # 归因：本块之前的前文自己就编不过时，错不算在本块头上
-            ok0, _err0 = build(blocks[:k], "base")
-            verdict = CTX_NOISE if not ok0 else CTX_MINE
+            ok0, _err0, unknown0 = build(blocks[:k], "base")
+            if unknown0:
+                verdict, err = CTX_NOISE, unknown0
+            else:
+                verdict = CTX_NOISE if not ok0 else CTX_MINE
         return {"file": fname, "line": line, "category": cat, "verdict": verdict,
                 "error": "" if verdict == CTX_PASS else err}
 
@@ -1136,6 +1206,22 @@ def main():
                 file_names[index] = declared
             all_blocks.append((index, fname, start, section, content, expected, behavior, expected_output))
 
+    # 1.1 检查对象为空绝不是「没有需要检查的东西」，而是门禁瞎了。目录写错（CI 用
+    # `--dir "tutorials/$lang"` 拼路径，方言名笔误就会指到不存在的目录）、教程文件
+    # 被移动，旧版都会一路跑到基线比对，再把「0 块复验」按收缩扣减算成
+    # 「✅ 高于下限 -9」报绿（实测：`--dir tutorials/zz-不存在 --ctx --outputs` 配
+    # 仓库真基线跑出 EXIT=0，提取 0 块、复验 0 块、对齐 0 对）。
+    if not os.path.isdir(tut_dir):
+        print(f"❌ 教程目录不存在：{tut_dir}\n"
+              "   本门禁检查的对象就是这份目录，目录拿不到时所有断言恒成立——不能算通过。",
+              file=sys.stderr)
+        return 2
+    if not all_blocks:
+        print(f"❌ 目录 {tut_dir} 里没提取到任何代码块（*.md 里没有 rust 围栏？）\n"
+              "   空对象上的「失败 0」不是通过：请确认 --dir 指对、教程文件在位。",
+              file=sys.stderr)
+        return 2
+
     # 1.5 多文件分组：同文档相邻、且都带 `// 文件:` 声明的块合成一个项目
     #    （单块带声明不开组：它仍按普通块处理，避免读者用单文件写模块时被误判）
     groups = []
@@ -1175,7 +1261,7 @@ def main():
     for index, fname, start, section, content, expected, behavior, expected_output in all_blocks:
         if index in grouped:
             continue
-        kind = classify_task(expected, behavior, expected_output, content)
+        kind = classify_task(expected, behavior, expected_output, content, args.lang)
         stats[kind] += 1
         t = build_task(work, index, fname, start, content, expected, behavior, expected_output, args.serialize, args.lang)
         if t:
@@ -1191,8 +1277,13 @@ def main():
             return {"id": index, "file": fname, "line": start, "kind": kind,
                     "verdict": "FAIL", "reason": problem, "codes": []}
         item = allowlist.get((fname, start)) or {}
-        ok, rc, out = check_one(rzc, src_path, d, expected, behavior, expected_output,
+        ok, rc, out, unknown = check_one(rzc, src_path, d, expected, behavior, expected_output,
                                   out_ignore_order=item.get("category") == OUT_ALLOW_CATEGORY)
+        if unknown:
+            # 「没能问到编译器」不是「编译器说了不」：见 stage_unknown 的实测四例。
+            # 白名单条目也救不了——登记的含义是「这块编不过」，不是「这块跑不起来」。
+            return {"id": index, "file": fname, "line": start, "kind": kind,
+                    "verdict": "FAIL", "reason": unknown, "codes": []}
         codes = actual_error_codes(out)
         verdict = "PASS"
         reason = ""
@@ -1264,12 +1355,12 @@ def main():
             base_name = re.sub(r"[^\w一-鿿-]", "-", os.path.splitext(fname)[0])
             deps = block_deps(fname, -1)
             src_path, d = build_serialized(work, blocks, base_name, allowlist, deps, args.lang)
-            ok, rc, out = check_one(rzc, src_path, d, set(), None, timeout=180)
+            ok, rc, out, unknown = check_one(rzc, src_path, d, set(), None, timeout=180)
             codes = actual_error_codes(out)
             serial_results.append({
                 "file": fname,
                 "verdict": "PASS" if ok else "FAIL",
-                "reason": "" if ok else "串联编译失败",
+                "reason": "" if ok else (unknown or "串联编译失败"),
                 "codes": sorted(codes),
                 "output": out[-500:] if not ok else "",
             })
@@ -1284,6 +1375,7 @@ def main():
         print(f"  ❌ b{r['id']:03d} {r['file']} L{r['line']} [{r['kind']}] {r['reason']}")
     # 过期检查仅在单块验证执行后有意义（--serialize 附加模式不跑单块，
     # 白名单条目无从匹配，全部误报过期）
+    stale = []
     if allowlist and not args.serialize:
         matched = {(r["file"], r["line"]) for r in expecteds}
         # 只检查本次实际扫描到的文件：多语言白名单合并存放时（zh + en/ja/ru
@@ -1296,7 +1388,13 @@ def main():
                 # 该类别是 --outputs 的豁免登记，不参与单块失败匹配
                 continue
             if key not in matched:
-                print(f"  ⚠️ 白名单过期条目（已不失败，建议删除）：{key[0]} L{key[1]}")
+                stale.append(key)
+    for stale_file, stale_line in stale:
+        print(f"  ❌ 白名单过期条目（已不失败）：{stale_file} L{stale_line}")
+    if stale:
+        print(f"   共 {len(stale)} 条登记已不再命中：要么删掉该条（教程已修好），"
+              "要么代码块改位置后把行号改对；\n"
+              "   留着它们只会误导后来人，并掩盖代码块自身的变化。")
     sfails = []
     if args.serialize:
         sfails = [r for r in serial_results if r["verdict"] != "PASS"]
@@ -1318,12 +1416,20 @@ def main():
             print(f"  🔴 {r['file']} L{r['line']}（{r['category']}）{r['error']}")
         baseline_path = args.ctx_baseline or os.path.join(repo, "tools", "ctx-baseline.json")
         baseline = {}
-        if os.path.isfile(baseline_path):
+        baseline_loaded = os.path.isfile(baseline_path)
+        if baseline_loaded:
             with open(baseline_path, encoding="utf-8") as f:
                 baseline = json.load(f)
         langs = baseline.setdefault("languages", {})
         if args.ctx_update:
+            prev_floor = (langs.get(args.lang) or {}).get(CTX_PASS)
             langs[args.lang] = {CTX_PASS: counts[CTX_PASS], "复验块数": len(ctx_results)}
+            if prev_floor is not None and counts[CTX_PASS] < prev_floor:
+                # 不拦（--ctx-update 就是主动重记的出口），但要把「这是下调」说出口，
+                # 免得下调混在一大片输出里看不见
+                print(f"  ⚠️ 本次下调了 {args.lang} 的下限：{prev_floor} → "
+                      f"{counts[CTX_PASS]}（复验块数 {len(ctx_results)}）——"
+                      "请在提交说明里写清为什么")
             baseline["说明"] = ("教程门禁 --ctx 的「前文补全通过」下限（只增不减）。改完教程跑"
                                " `python3 tools/verify-tutorials.py --ctx --ctx-update`（非 zh 附加"
                                " `--dir tutorials/en --lang en`）上调下限；低于下限即判红。"
@@ -1337,19 +1443,33 @@ def main():
             entry = langs.get(args.lang) or {}
             floor = entry.get(CTX_PASS)
             if floor is None:
-                print(f"  ⚠️ 基线没有 {args.lang} 条目（先 --ctx-update 记录一次）")
+                # 拿不到下限 = 这条门禁本轮没有生效。旧版只打一行 ⚠️ 且不影响退出码，
+                # 于是基线文件改名/移动、或 `--lang` 写得和基线里的键不一致（CI 新增
+                # 方言时最容易撞上）都会让「前文补全通过」不再有任何下限地报绿
+                # （实测：`--ctx-baseline` 指向不存在的文件→只报 ⚠️、EXIT=0）。
+                ctx_fail = True
+                where = baseline_path if baseline_loaded else f"{baseline_path}（文件不存在）"
+                print(f"  ❌ 基线里没有 {args.lang} 的条目：{where}——下限拿不到时"
+                      "本门禁等于没跑。核对 --lang 与基线键一致后用 --ctx-update 显式记录一次")
             else:
                 # 白名单收缩的合法扣减：条目被删（多是因为该块已能单块编译）后，它
                 # 不再进入上下文复验，通过数会跟着少一个——这是进步不是回退。故按
                 # 「复验块数」的下降量等量放宽下限；跌幅超过收缩量仍然判红。
                 shrink = max(0, (entry.get("复验块数") or len(ctx_results)) - len(ctx_results))
                 base = floor
-                floor -= shrink
+                # 但扣减不许把下限拖没：整批块退出复验（类别被改成不参与复验的类别、
+                # 白名单被重新生成）时 floor 会掉到 0 甚至负数，「0 块通过」反而打印
+                # 「✅ 高于下限 -9」（实测：`--dir` 指向不存在的目录，配仓库真基线跑出
+                # EXIT=0）。一次掉一半以上只可能是口径变化，必须显式 --ctx-update 重记。
+                floor = max(base - shrink, -(-base // 2))
                 shrink_note = (f"（基线 {base}，白名单收缩 −{shrink}）" if shrink else "")
                 if counts[CTX_PASS] < floor:
                     ctx_fail = True
+                    cap_note = ("；跌幅超过基线的一半，收缩扣减已封顶——多半是口径变化"
+                                "（类别改登记/白名单重生成），确认后用 --ctx-update 重记"
+                                if base - shrink < floor else "")
                     print(f"  ❌ {CTX_PASS} 低于下限 {floor} → {counts[CTX_PASS]}"
-                          f"{shrink_note}（教程正文或前文拼接规则回退了）")
+                          f"{shrink_note}（教程正文或前文拼接规则回退了）{cap_note}")
                 elif counts[CTX_PASS] > floor:
                     print(f"  ✅ {CTX_PASS} 高于下限 {floor} → {counts[CTX_PASS]}"
                           f"{shrink_note}（可 --ctx-update 上调基线）")
@@ -1385,7 +1505,8 @@ def main():
 
         ob_path = args.outputs_baseline or os.path.join(repo, "tools", "output-baseline.json")
         obase = {}
-        if os.path.isfile(ob_path):
+        obase_loaded = os.path.isfile(ob_path)
+        if obase_loaded:
             with open(ob_path, encoding="utf-8") as f:
                 obase = json.load(f)
         olangs = obase.setdefault("languages", {})
@@ -1397,8 +1518,13 @@ def main():
         loose_aligned = sum(1 for r in out_results
                             if r.get("loose") and r["verdict"] in (OUT_PASS, OUT_REG))
         if args.outputs_update:
+            prev_aligned = (olangs.get(args.lang) or {}).get(OUT_PASS)
             olangs[args.lang] = {OUT_PASS: aligned, "复验对数": len(out_results),
                                    "顺序无关": loose_aligned}
+            if prev_aligned is not None and aligned < prev_aligned:
+                # 同 --ctx-update：不拦主动重记，但下调必须说出口
+                print(f"  ⚠️ 本次下调了 {args.lang} 的下限：{prev_aligned} → "
+                      f"{aligned}（复验对数 {len(out_results)}）——请在提交说明里写清为什么")
             obase["说明"] = ("教程门禁 --outputs 的对齐下限（只增不减）= 「输出一致」+「顺序无关一致」两类的对数。改完教程跑"
                             " `python3 tools/verify-tutorials.py --outputs --outputs-update`（非 zh 附加"
                             " `--dir tutorials/en --lang en`）上调下限；低于下限即判红。"
@@ -1413,16 +1539,28 @@ def main():
             oentry = olangs.get(args.lang) or {}
             ofloor = oentry.get(OUT_PASS)
             if ofloor is None:
-                print(f"  ⚠️ 基线没有 {args.lang} 条目（先 --outputs --outputs-update 记录一次）")
+                # 同 --ctx：拿不到下限就是这条门禁没生效，不能只提一行就算过
+                out_fail = True
+                where = ob_path if obase_loaded else f"{ob_path}（文件不存在）"
+                print(f"  ❌ 基线里没有 {args.lang} 的条目：{where}——下限拿不到时本门禁"
+                      "等于没跑。核对 --lang 与基线键一致后用 --outputs --outputs-update 显式记录一次")
             else:
                 oshrink = max(0, (oentry.get("复验对数") or len(out_results)) - len(out_results))
                 obase_floor = ofloor
-                ofloor -= oshrink
+                # 收缩扣减不许把下限拖没（与 --ctx 同口径）：把展示围栏整批改成
+                # ```text / 删掉展示块会让配对成批消失，旧规则下限随之等量降到 0 甚至负数，
+                # 「0 对对齐」反而打印「✅ 高于下限 -3」（实测：`--dir` 指向不存在的目录，
+                # 配仓库真基线跑出 EXIT=0）。一次掉一半以上只可能是口径变化。
+                ofloor = max(obase_floor - oshrink, -(-obase_floor // 2))
                 onote = f"（基线 {obase_floor}，配对收缩 −{oshrink}）" if oshrink else ""
                 if aligned < ofloor:
                     out_fail = True
+                    ocap_note = ("；跌幅超过基线的一半，收缩扣减已封顶——多半是口径变化"
+                                 "（展示块改成 text 围栏/白名单重生成），确认后用"
+                                 " --outputs --outputs-update 重记"
+                                 if obase_floor - oshrink < ofloor else "")
                     print(f"  ❌ 对齐对数 低于下限 {ofloor} → {aligned}{onote}"
-                          f"（展示块或程序改动把已对齐的输出改坏了）")
+                          f"（展示块或程序改动把已对齐的输出改坏了）{ocap_note}")
                 elif aligned > ofloor:
                     print(f"  ✅ 对齐对数 高于下限 {ofloor} → {aligned}{onote}"
                           f"（可 --outputs --outputs-update 上调基线）")
@@ -1433,7 +1571,9 @@ def main():
                 # 内容真对不上时该块会判 输出不符，已由上面「不符即判红」硬规则兜住。
                 oloose_floor = oentry.get("顺序无关")
                 if oloose_floor is not None:
-                    oloose_floor -= oshrink
+                    # 同样给收缩扣减封个底：登记的哈希顺序块整批消失时，
+                    # 不许「0 对」靠负下限报绿
+                    oloose_floor = max(oloose_floor - oshrink, -(-oloose_floor // 2))
                     if loose_aligned < oloose_floor:
                         out_fail = True
                         print(f"  ❌ 顺序无关登记块对齐数 低于下限 {oloose_floor} → "
@@ -1444,10 +1584,11 @@ def main():
         with open(args.json, "w", encoding="utf-8") as f:
             json.dump({"blocks": len(all_blocks), "stats": stats,
                        "single": results, "serial": serial_results, "ctx": ctx_results,
-                       "outputs": out_results},
+                       "outputs": out_results,
+                       "stale": [{"file": f, "line": ln} for f, ln in stale]},
                       f, ensure_ascii=False, indent=1)
 
-    return 1 if fails or sfails or ctx_fail or out_fail else 0
+    return 1 if fails or sfails or ctx_fail or out_fail or stale else 0
 
 
 # Windows 控制台/管道默认 GBK：输出里的 ✅/❌ 无法编码会触发
