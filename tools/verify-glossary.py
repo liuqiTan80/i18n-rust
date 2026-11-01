@@ -109,6 +109,18 @@ def check_glossary() -> int:
             continue
         missing.append(f"第 {lineno} 行：对应{kind} `{term}`（语言包无「{key}」）")
 
+    if not refs:
+        # 检查对象为空不是「术语表很干净」，而是门禁瞎了：REF_RE 认的是
+        # 「对应(类别) `词`」这一种写法，而术语表是散文式文档，把措辞统一改写
+        # （翻译成别的语言、或改成表格列）都是合法编辑动作。命中 0 条时 missing
+        # 也恒为 0，旧版照样报「✅ 术语表一致性检查通过：0 处「对应…」引用全部
+        # 可在 zh 语言包找到」（实测：只在内存里把副本里的「对应」二字换掉，
+        # 44 处命中→ 0 处，返回码仍为 0）。
+        print(f"❌ 术语表里没解析到任何「对应… `词`」引用：{GLOSSARY}\n"
+              "   引用写法改了要同步改本脚本的 REF_RE；空对象上的「全部可找到」不是通过。",
+              file=sys.stderr)
+        return 1
+
     if missing:
         print(f"❌ 术语表与 zh 语言包不一致（{len(missing)} 处）：")
         for item in missing:

@@ -165,6 +165,22 @@ def offset_to_line(offsets, offset):
 
 
 def main():
+    # 扫描对象为空不是「生产代码很干净」，而是门禁瞎了：REPO_ROOT 由脚本自身位置
+    # 推出，脚本被移动、`crates/` 改名、或源码目录换布局都会让 `iter_src_files()`
+    # 空转，旧版照样打印「✅ 生产 panic 面门禁通过（扫描 0 个 src/ Rust 文件）」
+    # 并退出 0（实测：副本脚本放仓库一级子目录 + 空的 crates/engine/src + ALLOW 清空
+    # → EXIT=0）。当时唯一挡住这件事的是下面那节白名单防腐——一条与本节无关的偶然
+    # 兜底，ALLOW 清空（最后一处登记的 panic 面被重构掉是合理结局）后它就没了。
+    if not (REPO_ROOT / "crates").is_dir():
+        print(f"❌ 找不到 crates/ 目录：{REPO_ROOT / 'crates'}\n"
+              "   本门禁的扫描对象由脚本位置推出，路径不对时所有断言恒成立——不能算通过。")
+        sys.exit(1)
+    scanned = sum(1 for _ in iter_src_files())
+    if scanned == 0:
+        print(f"❌ crates/*/src 下没扫到任何 .rs 文件（REPO_ROOT={REPO_ROOT}）\n"
+              "   空对象上的「0 处 panic 面」不是通过：请确认脚本位置与仓库布局。")
+        sys.exit(1)
+
     violations = []
     for path in iter_src_files():
         # 统一正斜杠：ALLOW 中的相对路径按正斜杠书写，Windows 的
@@ -221,7 +237,6 @@ def main():
 
     if errors:
         sys.exit(1)
-    scanned = sum(1 for _ in iter_src_files())
     print(f"✅ 生产 panic 面门禁通过（扫描 {scanned} 个 src/ Rust 文件，白名单 {len(ALLOW)} 条）")
 
 

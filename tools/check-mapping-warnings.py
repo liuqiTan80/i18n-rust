@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""mapping check 告警基线：告警数只减不增。
+"""mapping check 告警基线：告警数只减不增，另加逐语言覆盖面对账。
 
 运行 rzc mapping check（全部内置语言 + 跨语言检查）并打印完整输出，
 统计其中的 ⚠️ 告警行数，与 tools/mapping-baseline.json 的基线比对：
@@ -54,6 +54,33 @@ def main() -> int:
         baseline = json.load(f)
     limit = baseline["max_warnings"]
 
+    # 覆盖面对账：告警「只减不增」单独看是不能分辨「真的变好了」和「根本没检查」的。
+    # 旧版只数 ⚠️ 行：把 `--rzc` 换成一个什么都不输出、直接 exit 0 的脚本，得到
+    # 「📉 告警数 0 低于基线 2——请把 max_warnings 下调为 0」并 EXIT=0（还会教人
+    # 把基线调成 0，从此把静默坐实为「健在」）。因此要求每个语言都能单独跑出来：
+    # 内置语言清单与 lang-packs 目录不一致、或整段校验逻辑提前退出，都在这里响。每
+    # 次约 90 ms，11 个语言共约 1 s。告警数仍只从上面那一次聚合输出统计。
+    packs_dir = os.path.join(repo_root, "crates", "engine", "lang-packs")
+    expected = sorted(d for d in os.listdir(packs_dir)
+                      if os.path.isdir(os.path.join(packs_dir, d))) \
+        if os.path.isdir(packs_dir) else []
+    if not expected:
+        print(f"❌ 语言包目录里没有语言子目录：{packs_dir}\n"
+              "   无覆盖面可比对，不能把「告警数不超基线」当成通过。", file=sys.stderr)
+        return 1
+    for lang in expected:
+        one = subprocess.run([rzc, "mapping", "check", lang],
+                             capture_output=True, text=True,
+                             encoding="utf-8", errors="replace")
+        body = (one.stdout + one.stderr).strip()
+        if one.returncode != 0 or not body:
+            print(f"❌ 覆盖面对账失败：`mapping check {lang}` 退出码 "
+                  f"{one.returncode}、输出 {len(body)} 字符\n"
+                  f"   语言包在位共 {len(expected)} 个：{expected}\n"
+                  "   单语言跑不出来时，聚合检查的「0 告警」只能理解为没检查，不是好消息。",
+                  file=sys.stderr)
+            return 1
+
     print()
     if len(warnings) > limit:
         print(f"❌ 告警数 {len(warnings)} 超过基线 {limit}：")
@@ -64,7 +91,8 @@ def main() -> int:
         return 1
     if len(warnings) < limit:
         print(f"📉 告警数 {len(warnings)} 低于基线 {limit}——"
-              f"请把 max_warnings 下调为 {len(warnings)} 后提交本文件")
+              f"请把 max_warnings 下调为 {len(warnings)} 后提交本文件"
+              f"（下调前先确认 mapping check 仍覆盖全部 {len(expected)} 个语言）")
         return 0
     print(f"✅ 告警数 {len(warnings)} 与基线一致（只减不增）")
     return 0

@@ -81,6 +81,11 @@ def main() -> int:
 
     root = args.lang_pack_dir
     langs = sorted(d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d)))
+    if not langs:
+        # 检查对象就是这份目录清单：空清单时下面每一节都恒成立，不能算通过
+        print(f"❌ 语言包根目录里没有任何语言子目录：{root}\n"
+              "   路径写错请用 --lang-pack-dir 指对。", file=sys.stderr)
+        return 1
     errors, warnings = [], []
     warn = warnings.append
     fail = errors.append
@@ -117,6 +122,14 @@ def main() -> int:
 
     # ---- 3. 消息表键集合齐平（en 的消息表只收「同文守卫键」，不参与齐平） ----
     zh_msgs = set(msg_tables.get("zh", {}))
+    # 基准不能是空集：第 2、3、8 节全以 zh 的 errors.toml 为基准，拿不到键时
+    # 「集合齐平」对每个语言都恒成立（实测：把副本里 11 个语言的 errors.toml
+    # 全拿掉——文件名改了或没同步都是这个后果——再跑，旧版输出「✅ 语言包检查：
+    # 11 语言 / 175 个 TOML / 0 错误码 / 0 条消息翻译键」并 EXIT=0）。
+    if not zh_codes or not zh_msgs:
+        fail(f"基准 zh/errors.toml 的空集合：{len(zh_codes)} 个错误码 / "
+             f"{len(zh_msgs)} 条「{MESSAGE_SECTION}」键（基准为空时齐平类检查全部恒成立，"
+             "门禁会在没检查任何东西的情况下报绿；确认是文件名/段名改过，还是 zh 包坏了）")
     for lang in langs:
         if lang == "en":
             # 恒等语言通常不需要消息表，但有一类例外必须收录：带错误码、而该码的

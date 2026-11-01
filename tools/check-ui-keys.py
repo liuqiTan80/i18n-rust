@@ -3,7 +3,7 @@
 
 检查项（任一失败退出码非零）：
 1. 每个语言包 ["界面消息"] 必须包含 zh 的全部键（缺键会回退键名/中文，界面出现原始键名）
-2. 界面消息键不得误放进 ["解释"] 段（LSP hover 专用段；引擎 parse_ui 只读界面消息段）
+2. 界面消息键不得误放进 ["解释"] 段（LSP hover 专用段；引擎 ui::parse_messages 只读界面消息段）
 3. 共有键的 {} 占位符数量必须与 zh 一致（翻译时丢失/多写占位符会导致参数错位）
 
 用法：python3 tools/check-ui-keys.py [--lang-pack-dir crates/engine/lang-packs]
@@ -35,8 +35,23 @@ def main() -> int:
 
     root = args.lang_pack_dir
     langs = sorted(d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d)))
+    # 基准不能是空集：全部断言都以 zh 键集为对象，基准为空时「缺键」「放错段」
+    # 「占位符数」都恒成立，门禁会在覆盖 0 个键的情况下报绿（实测：把副本里
+    # zh/ui.toml 的段名改成 ["界面文案"] 再跑，旧版输出「✅ 通过：11 个语言包均含
+    # zh 全量 0 键」并 EXIT=0）。段名/路径改动要同步改这里。
+    if not langs:
+        print(f'❌ 语言包根目录里没有任何语言子目录：{root}\n'
+              "   检查对象就是这份目录清单，空清单时所有断言恒成立——不能算通过。\n"
+              "   路径写错请用 --lang-pack-dir 指对。", file=sys.stderr)
+        return 1
     zh = load_sections(os.path.join(root, "zh", "ui.toml"))
     zh_ui = zh.get("界面消息", {})
+    if not zh_ui:
+        print(f'❌ 基准 zh 的 ["界面消息"] 段为空或不存在：{os.path.join(root, "zh", "ui.toml")}\n'
+              f"   本检查以 zh 键集为基准（现共 0 键），基准为空时三项全部恒成立。\n"
+              '   要么段名/路径被改过（同步改 tools/check-ui-keys.py），要么 zh 包本身坏了。',
+              file=sys.stderr)
+        return 1
 
     errors = 0
     for lang in langs:
