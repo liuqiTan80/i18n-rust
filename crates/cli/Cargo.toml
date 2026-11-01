@@ -22,7 +22,10 @@ toml.workspace = true
 # 非 ASCII 模块声明 #[path] 注解（与引擎同版本，避免 E0754）
 rustc_lexer.workspace = true
 # 远程语言包安装：curl 下载 ZIP 压缩包后的解压
-zip = "2"
+# 只启 deflate（GitHub/GitCode archive 与 `rzc lang package` 均为 deflate/stored）：
+# 默认 features 会拖入 aes-crypto（要求 rustc 1.89，打穿本项目 MSRV 1.88）、
+# bzip2/zstd/lzma/ppmd/xz——解压语言包用不到，仅增加依赖体积与 C 工具链依赖
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 # mapping auto 的 AI 调用：轻量同步 HTTP 客户端（rustls 0.23 特性避免系统 OpenSSL 依赖；
 # 升级 3.x 同步修复 rustls-webpki 0.101 的 RUSTSEC-2026-0098/0099/0104）
 ureq = { version = "3", features = ["rustls"] }

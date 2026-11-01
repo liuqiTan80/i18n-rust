@@ -3,8 +3,10 @@
 //! 基于 rustc_lexer 的 token 级转译，保证注释与字符串字面量内容不被误改。
 //! 支持宏感叹号自动补充、原始标识符（r#）处理、反向转译（Rust → 母语）。
 
-use crate::cache::SourceMapEntry;
+use crate::cache::{MapText, SourceMapEntry};
+use crate::name_cache::NameCache;
 use rustc_lexer::{TokenKind, tokenize};
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
 /// 转译结果：标准 Rust 输出、词法阶段源映射与全管线编辑表
@@ -12,11 +14,31 @@ use std::collections::{HashMap, HashSet};
 pub struct TranspileResult {
     /// 转译后的代码文本
     pub output: String,
-    /// 词法阶段源映射条目列表（记录被替换的标识符，replacement 不含补的 `!`）
+    /// 词法阶段源映射条目列表（记录被替换的标识符；replacement 是词法阶段自己的
+    /// 产物，因此不含宏调用自动补的 `!`）
     pub source_map: Vec<SourceMapEntry>,
     /// 全管线编辑表：与 source_map 同偏移，但 replacement 为**最终输出文本**
     ///（宏调用自动补充的 `!` 已计入 replacement），供全管线编辑地图组合使用
     pub final_edits: Vec<SourceMapEntry>,
+}
+
+/// 标识符映射事实：一次解析出词法阶段无条件要问的那两张表的答案
+///
+/// 词法阶段对每个标识符都要问关键字表与宏表，每次都是一次随机内存访问——
+/// 2000 行样例（3930 个标识符）实测约 22 ns/次。同一份源码里标识符高度重复
+/// （局部变量、字段名被反复引用），因此按名字直映缓存解析结果：重复名字只付
+/// 一次廉价探测，首次出现才查表。
+///
+/// 只缓存无条件的这两张表：派生特征表、use 让位词、方法位让位词都只在特定
+/// 上下文（`#[派生(` 内、use 段内、`.` 之后）才需要，现场查一次比塞进缓存更
+/// 便宜——早先每个未命中的名字都要连查五张表，实测占词法阶段 16%（1192 份
+/// 语料 0.84 ms）。
+#[derive(Clone, Copy)]
+struct IdentFacts<'a> {
+    /// 关键字表命中值（按去掉 `r#` 的名字查）
+    keyword: Option<&'a str>,
+    /// 宏表命中值（按去掉 `r#` 的名字查）
+    macro_en: Option<&'a str>,
 }
 
 /// 将母语 Rust 源代码转换为标准 Rust 源代码字符串
@@ -118,46 +140,93 @@ pub fn transpile_with_map(
     method_defer: &HashSet<String>,
     literal_suffix_map: &HashMap<String, String>,
 ) -> TranspileResult {
-    // 收集所有 token 以便前瞻/后顾
-    let token_stream: Vec<_> = tokenize(source).collect();
-    // 预计算每个 token 的文本（派生属性上下文回溯需要前一个标识符的内容）
-    let token_texts: Vec<&str> = {
-        let mut offset = 0;
-        token_stream
-            .iter()
-            .map(|t| {
-                let s = &source[offset..offset + t.len];
-                offset += t.len;
-                s
-            })
-            .collect()
-    };
-    let mut output = String::new();
+    transpile_with_map_tokens(
+        source,
+        keyword_map,
+        macro_map,
+        derive_map,
+        defer_in_use,
+        method_defer,
+        literal_suffix_map,
+    )
+    .0
+}
+
+/// 同 [`transpile_with_map`]，另把本阶段自己分好的**输入** token 流交给调用方
+///
+/// 转译需要随机访问整条 token 流（前瞻宏调用的 `!`、后顾声明位），因此本
+/// 阶段无论如何都要把源码分词一次并留一份向量。转译之后的管线还需要在
+/// **词法产物**上分词一次（`lex.output` 的 token 流），而那份流可由「本阶段
+/// 的输入 token 流 + 本阶段的编辑表」派生（见 [`crate::rebase_tokens`]）：
+/// 于是这里把手里的向量顺手交出去，省掉管线对输出的整趟重新分词（2000 行
+/// 样例实测 421 µs）。
+///
+/// [`crate::rebase_tokens`]: crate#rebase_tokens
+pub(crate) fn transpile_with_map_tokens(
+    source: &str,
+    keyword_map: &HashMap<String, String>,
+    macro_map: &HashMap<String, String>,
+    derive_map: &HashMap<String, String>,
+    defer_in_use: &HashSet<String>,
+    method_defer: &HashSet<String>,
+    literal_suffix_map: &HashMap<String, String>,
+) -> (TranspileResult, Vec<rustc_lexer::Token>) {
+    // 收集所有 token 以便前瞻/后顾。token 原文按需切片（见 [`text_at`]）：
+    // 早先为整条 token 流预建 `Vec<&str>`，2000 行文件因此多付一次全量分配、
+    // 一趟遍历和每 token 16 字节的临时表，而实际回溯只跨紧邻的几个 token
+    let mut token_stream: Vec<rustc_lexer::Token> = Vec::with_capacity(source.len() / 4 + 8);
+    token_stream.extend(tokenize(source));
+    // 输出只在替换点刷出：未替换的 token 不逐个 `push_str`，替换时才把
+    // 「上次刷出位置 → 本 token 起点」的原始片段整段拷过去（2000 行样例
+    // 1.5 万个 token 只有一百多个替换点）
+    let mut output = String::with_capacity(source.len());
+    let mut copied = 0usize;
     let mut current_offset = 0;
     // 本文件声明的名字（`函数 测试`/`结构体 测试`… 后的标识符）：调用位不是宏调用。
     // 与宏同名的用户函数被调用时（`测试(41)`），若不排除会被宏糖补 `!`
     // 产出不存在的宏 `test!(41)`。惰性构建：文件里没有宏调用形态时零开销。
     let mut declared_names: Option<HashSet<&str>> = None;
-    let mut source_map = Vec::new();
-    // 全管线编辑表：replacement 为最终输出文本（宏补的 `!` 计入），与 source_map 同偏移
-    let mut final_edits = Vec::new();
+    // 全管线编辑表：replacement 为最终输出文本（宏补的 `!` 计入）
+    let mut final_edits: Vec<SourceMapEntry> = Vec::new();
+    // 词法表（`source_map`）**不在主循环里收**：它与 `final_edits` 逐条同偏移、同原文，
+    // 只有「词法自动补 `!`」的条目不同（词法表记不含 `!` 的替换值，或压根不记）。
+    // 两条表在循环里各写一份是词法阶段里最大的一项重复写入：2000 行样例（两条表
+    // 各 2525 条、每条 80 字节）上改成「只收一张 + 末尾整表复制」（复制那一份实测
+    // 28 µs）后，criterion 配对 A/B（改动前后交替构建、stderr 分流）测得词法阶段
+    // 906.1 → 841.6 µs（−6.0%～−12.7%）。这里因此只记下少数差异条目（`final_edits`
+    // 下标 + 词法阶段的替换值，`None` = 该条不进词法表），循环后由
+    // [`build_lex_source_map`] 复制出词法表。
+    let mut lex_overrides: Vec<(usize, Option<MapText>)> = Vec::new();
     // 派生参数态：`#[派生(` 之后的参数（直到 `)`）内的标识符
     // 优先查派生特征映射（`克隆` → `Clone`），避免与方法名别名（小写 clone）冲突
     let mut in_derive_params = false;
     // use 语句态：use 段内的路径段命中"让位词"（模块路径/别名映射键）时
     // 跳过关键字/宏替换，交由后续模块路径与别名阶段按标准库语义替换——
     // 同名词在宏表与标准库表重复时 use 段内标准库优先（`文件`=file/File，
-    // `使用 标准库::文件系统::文件` 必须产出 `use std::fs::File` 而非小写 file）
+    // `使用 标准库::文件系统::文件` 必须产出 `use std::fs::File` 而非小写 file ）
     let mut in_use_stmt = false;
+    // 标识符事实缓存（见 [`IdentFacts`] 与 [`crate::name_cache`]）：按名字直映
+    let mut ident_cache: NameCache<'_, IdentFacts<'_>> = NameCache::new();
+    // 上一个有意义 token 是否为 `.`（方法位判定）：空白/注释不改变该状态，
+    // 与早先逐位回溯 `is_preceded_by_dot` 逐字等价，但不必再回扫 token 流
+    let mut prev_is_dot = false;
 
     for i in 0..token_stream.len() {
         let token = &token_stream[i];
-        let length = token.len as usize;
+        let length = token.len;
         let text = &source[current_offset..current_offset + length];
 
         match token.kind {
             TokenKind::Ident | TokenKind::RawIdent => {
                 let raw_name = text.strip_prefix("r#").unwrap_or(text);
+                // 原始标识符（`r#匹配`）是用户显式转义的名字：关键字查表口径
+                // 与普通标识符不同（宏名不能是原始标识符，故永不补 `!`）
+                let is_raw = raw_name.len() != text.len();
+                // 名字级缓存：命中则复用上次解析的几张表答案，未命中才逐表查
+                let facts = ident_cache.get_or(text, || IdentFacts {
+                    keyword: keyword_map.get(raw_name).map(String::as_str),
+                    macro_en: macro_map.get(raw_name).map(String::as_str),
+                });
 
                 // 宏调用上下文优先：宏名后跟 `!` 或 `(/[/{`（且前面不是 `::`）时，
                 // 使用宏映射替换为英文宏名并确保感叹号，避免宏名在类型节与宏节
@@ -165,95 +234,98 @@ pub fn transpile_with_map(
                 // 方法调用位（前面是 `.`）不适用：宏不经 `.` 访问，
                 // `.格式化(` 是方法调用，不补 `!`（后续走关键字映射 → `.format(`）
                 let mut handled = false;
-                if macro_map.contains_key(raw_name)
+                if facts.macro_en.is_some()
                     // 原始标识符（`r#匹配`）是用户显式转义的名字：宏名不能是
                     // 原始标识符，故永不补 `!`（`r#匹配(3)` → `r#match(3)`）
-                    && !text.starts_with("r#")
+                    && !is_raw
                     && !is_preceded_by_double_colon(&token_stream, i)
-                    && !is_preceded_by_dot(&token_stream, i)
+                    && !prev_is_dot
                     && !is_attribute_name(&token_stream, i)
                     && !(in_use_stmt && defer_in_use.contains(raw_name))
                     // 声明位豁免：声明关键字后的名字不是宏调用（`模块 测试 {` 的
                     // `测试` 不得补 `!`），修复 `mod test!` 一类非法产物。
-                    && !is_preceded_by_decl_introducer(&token_stream, &token_texts, i, keyword_map)
+                    && !is_preceded_by_decl_introducer(
+                        source,
+                        &token_stream,
+                        i,
+                        current_offset,
+                        keyword_map,
+                    )
                     // 本文件已声明同名函数/类型时，调用位按普通标识符处理
                     && !declared_names
                         .get_or_insert_with(|| {
-                            collect_declared_names(&token_stream, &token_texts, keyword_map, macro_map)
+                            collect_declared_names(source, &token_stream, keyword_map, macro_map)
                         })
                         .contains(raw_name)
                     && let Some(next_kind) = find_next_non_ws_kind(&token_stream, i + 1)
                 {
                     let is_bang = matches!(next_kind, TokenKind::Not);
                     if is_open_bracket(next_kind) || is_bang {
-                        let en_macro = macro_map.get(raw_name).cloned().unwrap_or_else(|| {
-                            keyword_map
-                                .get(raw_name)
-                                .cloned()
-                                .unwrap_or_else(|| text.to_string())
-                        });
-                        let final_text = en_macro;
-                        if final_text != text {
-                            source_map.push(SourceMapEntry::new(
-                                current_offset,
-                                length,
-                                text,
-                                &final_text,
-                            ));
-                        }
+                        // 借用映射表里的值而非 clone：宏名替换是热路径上少数
+                        // 需要字符串的场合，未命中时直接沿用原文切片
+                        let en_macro: &str = facts.macro_en.or(facts.keyword).unwrap_or(text);
                         // 最终输出文本（含自动补充的 `!`）：
-                        // 与 source_map 语义不同——replacement 即输出原文，供列映射回放
-                        let appended = if is_open_bracket(next_kind) {
-                            format!("{}!", final_text)
+                        // 与词法表语义不同——replacement 即输出原文，供列映射回放
+                        let needs_bang = is_open_bracket(next_kind);
+                        let appended: Cow<'_, str> = if needs_bang {
+                            Cow::Owned(format!("{en_macro}!"))
                         } else {
-                            final_text.clone()
+                            Cow::Borrowed(en_macro)
                         };
                         if appended != text {
+                            let index = final_edits.len();
                             final_edits.push(SourceMapEntry::new(
                                 current_offset,
                                 length,
                                 text,
                                 &appended,
                             ));
+                            // 补了 `!`：词法表要的是不含 `!` 的替换值；替换值本就等于
+                            // 原文（只补了 `!`）时词法表不记这一条
+                            if needs_bang {
+                                lex_overrides.push((
+                                    index,
+                                    (en_macro != text).then(|| MapText::from(en_macro)),
+                                ));
+                            }
                         }
-                        output.push_str(&final_text);
+                        output.push_str(&source[copied..current_offset]);
+                        output.push_str(en_macro);
                         // 后跟开括号但无 `!` 时自动补 `!`
-                        if is_open_bracket(next_kind) {
+                        if needs_bang {
                             output.push('!');
                         }
+                        copied = current_offset + length;
                         handled = true;
                     }
                 }
 
                 if !handled {
-                    // 派生参数态内：优先查派生特征映射（如 `克隆` → `Clone`）
-                    let derive_replacement = if in_derive_params {
-                        derive_map.get(raw_name).cloned()
-                    } else {
-                        None
-                    };
-                    let replacement = if in_use_stmt && defer_in_use.contains(raw_name) {
-                        // use 段让位：保持原文，由模块路径/别名阶段替换
-                        text.to_string()
-                    } else if method_defer.contains(raw_name)
-                        && is_preceded_by_dot(&token_stream, i)
-                    {
-                        // 方法位让位：替换值是保留关键字，直译非法（`.枚举()` →
-                        // `.enum()`）；保持原文由别名阶段替换为有效词条（enumerate）
-                        text.to_string()
-                    } else if let Some(en) = derive_replacement {
-                        en
-                    } else if let Some(inner) = text.strip_prefix("r#") {
-                        keyword_map
-                            .get(inner)
-                            .map(|en| format!("r#{}", en))
-                            .unwrap_or_else(|| text.to_string())
-                    } else {
-                        keyword_map
-                            .get(text)
-                            .cloned()
-                            .unwrap_or_else(|| text.to_string())
-                    };
+                    // 全走借用（Cow）：热路径上绝大多数标识符未命中任何映射表，
+                    // 逐 token `to_string()` 是纯分配损耗（2000 行文件数万次）
+                    let replacement: Cow<'_, str> =
+                        if in_use_stmt && defer_in_use.contains(raw_name) {
+                            // use 段让位：保持原文，由模块路径/别名阶段替换
+                            Cow::Borrowed(text)
+                        } else if prev_is_dot && method_defer.contains(raw_name) {
+                            // 方法位让位：替换值是保留关键字，直译非法（`.枚举()` →
+                            // `.enum()`）；保持原文由别名阶段替换为有效词条（enumerate）
+                            Cow::Borrowed(text)
+                        } else if in_derive_params
+                            && let Some(en) = derive_map.get(raw_name).map(String::as_str)
+                        {
+                            // 派生参数态内：优先查派生特征映射（如 `克隆` → `Clone`）
+                            Cow::Borrowed(en)
+                        } else if is_raw {
+                            match facts.keyword {
+                                Some(en) => Cow::Owned(format!("r#{}", en)),
+                                None => Cow::Borrowed(text),
+                            }
+                        } else if let Some(en) = facts.keyword {
+                            Cow::Borrowed(en)
+                        } else {
+                            Cow::Borrowed(text)
+                        };
 
                     // `宏规则`（macro_rules）声明形式：后跟宏名时必须带 `!`，
                     // 如 `宏规则 创建向量 { ... }` → `macro_rules! 创建向量 { ... }`
@@ -262,56 +334,63 @@ pub fn transpile_with_map(
                             find_next_non_ws_kind(&token_stream, i + 1),
                             Some(TokenKind::Ident)
                         );
-                    let final_replacement = if macro_rules_decl {
+                    let final_replacement: &str = if macro_rules_decl {
                         "macro_rules!"
                     } else {
-                        replacement.as_str()
+                        replacement.as_ref()
                     };
 
-                    // 记录实际发生替换的标识符映射
+                    // 记录实际发生替换的标识符映射（两张表此处同值，只收一份）
                     if final_replacement != text {
-                        source_map.push(SourceMapEntry::new(
-                            current_offset,
-                            length,
-                            text,
-                            final_replacement,
-                        ));
                         final_edits.push(SourceMapEntry::new(
                             current_offset,
                             length,
                             text,
                             final_replacement,
                         ));
+                        output.push_str(&source[copied..current_offset]);
+                        output.push_str(final_replacement);
+                        copied = current_offset + length;
                     }
-                    output.push_str(final_replacement);
                 }
                 // use 语句态推进：本语言 use 关键字词形开启让位态，由 `;` 结束。
                 // 词形经关键字映射反查（zh/ja `使用`、es/pt `usar`、ru `используй`
                 // 等全部本地词形），不硬编码字面 `use`/`使用`——历史实现只识别
                 // 这两种，其余语言 use 段让位态从未开启，冲突词（如 es `formato`
                 // 宏 format 与模块 fmt 同名）被词法替换后残留英文宏名 `format::`
-                if text == "use" || keyword_map.get(text).is_some_and(|v| v == "use") {
+                //
+                // 原始标识符按完整原文查（与上面缓存里的原名口径不同）
+                let use_word = if is_raw {
+                    keyword_map.get(text).map(String::as_str)
+                } else {
+                    facts.keyword
+                };
+                if text == "use" || use_word.is_some_and(|v| v == "use") {
                     in_use_stmt = true;
                 }
             }
             TokenKind::OpenParen => {
                 // 派生属性：`派生`（转译为 derive）后跟 `(` 进入参数态
                 if !in_derive_params
-                    && prev_ident_is(&token_stream, &token_texts, i, keyword_map, "derive")
+                    && prev_ident_is(
+                        source,
+                        &token_stream,
+                        i,
+                        current_offset,
+                        keyword_map,
+                        "derive",
+                    )
                 {
                     in_derive_params = true;
                 }
-                output.push_str(text);
             }
             TokenKind::CloseParen => {
                 // 离开派生参数态
                 in_derive_params = false;
-                output.push_str(text);
             }
             // use 语句以分号结束，退出让位态
             TokenKind::Semi => {
                 in_use_stmt = false;
-                output.push_str(text);
             }
             // 数字字面量：数字与中文类型"黏连"（`0无符号微整数`）时，
             // rustc_lexer 把整串（含 Unicode 后缀）切为单个 Literal token，
@@ -334,24 +413,65 @@ pub fn transpile_with_map(
                         suffix,
                         en,
                     );
-                    source_map.push(entry.clone());
                     final_edits.push(entry);
+                    output.push_str(&source[copied..current_offset]);
                     output.push_str(&replaced);
-                } else {
-                    output.push_str(text);
+                    copied = current_offset + length;
                 }
             }
-            // 其他所有 token 直接原样输出
-            _ => output.push_str(text),
+            // 其他所有 token 原样输出（随片段拷出，无需逐个 push）
+            _ => {}
+        }
+        // 空白/注释不改变「上一个有意义 token」的状态
+        if !is_whitespace(token.kind) {
+            prev_is_dot = matches!(token.kind, TokenKind::Dot);
         }
         current_offset += length;
     }
+    output.push_str(&source[copied..]);
 
-    TranspileResult {
-        output,
-        source_map,
-        final_edits,
+    let source_map = build_lex_source_map(&final_edits, &lex_overrides);
+    (
+        TranspileResult {
+            output,
+            source_map,
+            final_edits,
+        },
+        token_stream,
+    )
+}
+
+/// 由全管线编辑表复制出词法阶段的源映射表
+///
+/// 两条表逐条同偏移、同原文（见 [`transpile_with_map_tokens`] 里的说明），只有
+/// 词法自动补 `!` 的条目不同：`overrides` 按 `final_edits` 下标升序给出这些条目
+/// 在词法阶段的替换值，`None` 表示该条不进词法表（替换值就是原文、只补了 `!`）。
+/// 与「在循环里各 push 一份」逐条等价，但只付一次整表复制。
+fn build_lex_source_map(
+    final_edits: &[SourceMapEntry],
+    overrides: &[(usize, Option<MapText>)],
+) -> Vec<SourceMapEntry> {
+    let mut out: Vec<SourceMapEntry> = Vec::with_capacity(final_edits.len());
+    let mut next = 0usize;
+    for (index, entry) in final_edits.iter().enumerate() {
+        while next < overrides.len() && overrides[next].0 < index {
+            next += 1;
+        }
+        if next < overrides.len() && overrides[next].0 == index {
+            next += 1;
+            if let Some(lex_text) = &overrides[next - 1].1 {
+                out.push(SourceMapEntry {
+                    source_offset: entry.source_offset,
+                    length: entry.length,
+                    original: entry.original.clone(),
+                    replacement: lex_text.clone(),
+                });
+            }
+            continue;
+        }
+        out.push(entry.clone());
     }
+    out
 }
 
 /// 查找从指定位置开始的第一个非空白 token 的 kind
@@ -364,17 +484,40 @@ fn find_next_non_ws_kind(token_stream: &[rustc_lexer::Token], start: usize) -> O
     None
 }
 
+/// 取 token 流中序号 `idx` 的原文切片
+///
+/// `current_offset` 是序号 `current`（要求 `idx <= current`）token 的起始偏移。
+/// 回溯只跨过紧邻的少量 token（空白/标点），因此是 O(1) 且零分配——取代
+/// 早先为整条 token 流预建 `Vec<&str>` 的做法。
+fn text_at<'a>(
+    source: &'a str,
+    token_stream: &[rustc_lexer::Token],
+    current: usize,
+    current_offset: usize,
+    idx: usize,
+) -> &'a str {
+    let mut start = current_offset;
+    let mut k = current;
+    while k > idx {
+        k -= 1;
+        start = start.saturating_sub(token_stream[k].len);
+    }
+    let len = token_stream[idx].len;
+    &source[start..start + len]
+}
+
 /// 判断当前位置之前的第一个非空白标识符（经关键字映射后）是否等于指定英文值
 ///
 /// 用于识别派生属性：`#[派生(...)]` 中 `派生` 的映射值为 `derive`。
 fn prev_ident_is(
+    source: &str,
     token_stream: &[rustc_lexer::Token],
-    token_texts: &[&str],
     current: usize,
+    current_offset: usize,
     keyword_map: &HashMap<String, String>,
     en_value: &str,
 ) -> bool {
-    prev_ident_text(token_stream, token_texts, current)
+    prev_ident_text(source, token_stream, current, current_offset)
         .and_then(|name| keyword_map.get(name))
         .is_some_and(|value| value == en_value)
 }
@@ -383,9 +526,10 @@ fn prev_ident_is(
 ///
 /// 中间遇到非空白 token 时返回 None（非紧邻）。
 fn prev_ident_text<'a>(
+    source: &'a str,
     token_stream: &[rustc_lexer::Token],
-    token_texts: &[&'a str],
     current: usize,
+    current_offset: usize,
 ) -> Option<&'a str> {
     let mut j = current;
     while j > 0 {
@@ -395,7 +539,8 @@ fn prev_ident_text<'a>(
             continue;
         }
         if matches!(kind, TokenKind::Ident | TokenKind::RawIdent) {
-            return Some(token_texts[j].strip_prefix("r#").unwrap_or(token_texts[j]));
+            let raw = text_at(source, token_stream, current, current_offset, j);
+            return Some(raw.strip_prefix("r#").unwrap_or(raw));
         }
         return None;
     }
@@ -416,12 +561,13 @@ const DECL_INTRODUCER_VALUES: &[&str] = &[
 ///
 /// 命中时该标识符处于声明位，应跳过宏感叹号自动补充，交由关键字映射照常替换。
 fn is_preceded_by_decl_introducer(
+    source: &str,
     token_stream: &[rustc_lexer::Token],
-    token_texts: &[&str],
     current: usize,
+    current_offset: usize,
     keyword_map: &HashMap<String, String>,
 ) -> bool {
-    prev_ident_text(token_stream, token_texts, current)
+    prev_ident_text(source, token_stream, current, current_offset)
         .and_then(|name| keyword_map.get(name))
         .is_some_and(|value| DECL_INTRODUCER_VALUES.contains(&value.as_str()))
 }
@@ -432,18 +578,23 @@ fn is_preceded_by_decl_introducer(
 /// 不应被当作宏调用补 `!`（否则产出不存在的 `test!(41)`）。只收集同时
 /// 存在于宏表的名字——调用方仅在宏名分支上问该集合。
 fn collect_declared_names<'a>(
+    source: &'a str,
     token_stream: &[rustc_lexer::Token],
-    token_texts: &[&'a str],
     keyword_map: &HashMap<String, String>,
     macro_map: &HashMap<String, String>,
 ) -> HashSet<&'a str> {
     let mut names = HashSet::new();
+    // 顺序扫描并自维护运行偏移（避免为全文回溯重建 token 索引表）
+    let mut offset = 0usize;
     for i in 0..token_stream.len() {
+        let token_start = offset;
+        let len = token_stream[i].len;
+        offset += len;
         if !matches!(token_stream[i].kind, TokenKind::Ident | TokenKind::RawIdent) {
             continue;
         }
         // 先取前一个标识符再做一次查表（避免对 11 个引导词重复回溯）
-        let Some(prev) = prev_ident_text(token_stream, token_texts, i) else {
+        let Some(prev) = prev_ident_text(source, token_stream, i, token_start) else {
             continue;
         };
         let is_declaration = keyword_map
@@ -452,7 +603,8 @@ fn collect_declared_names<'a>(
         if !is_declaration {
             continue;
         }
-        let name = token_texts[i].strip_prefix("r#").unwrap_or(token_texts[i]);
+        let text = &source[token_start..token_start + len];
+        let name = text.strip_prefix("r#").unwrap_or(text);
         if macro_map.contains_key(name) {
             names.insert(name);
         }
@@ -683,22 +835,6 @@ fn is_preceded_by_double_colon(token_stream: &[rustc_lexer::Token], current_pos:
     matches!(prev_one, Some(TokenKind::Colon)) && matches!(prev_two, Some(TokenKind::Colon))
 }
 
-/// 判断指定位置的标识符前是否为 `.`（方法调用/字段访问位）
-///
-/// 宏不能经 `.` 访问，`标识符(...)` 前是 `.` 时必为方法调用：
-/// `.格式化(...)` 不应按宏补 `!`（否则生成 `.format!(...)`，方法调用
-/// 语法非法）。修复「宏映射词在方法调用位被追补感叹号」的行为。
-fn is_preceded_by_dot(token_stream: &[rustc_lexer::Token], current_pos: usize) -> bool {
-    let mut j = current_pos;
-    while j > 0 {
-        j -= 1;
-        if !is_whitespace(token_stream[j].kind) {
-            return matches!(token_stream[j].kind, TokenKind::Dot);
-        }
-    }
-    false
-}
-
 /// 判断指定位置的标识符是否为属性名（紧跟在 `#[` 或 `#![` 之后的标识符）
 ///
 /// 属性名不应触发宏感叹号自动补充：`#[配置(测试)]` 中的 `配置` 是属性
@@ -798,6 +934,48 @@ mod tests {
         let source = "函数 主函数() { }";
         let expected = "fn 主函数() { }";
         assert_eq!(transpile_source(source, &map), expected);
+    }
+
+    /// 标识符事实缓存按名字直映：槽位冲突时两个名字必须各得其事实
+    ///
+    /// 槽内保存名字全文并逐字节比较；若误按槽位直接取用，后写入的未映射
+    /// 名字会拿到前一个已映射名字的译文（或反之）。
+    #[test]
+    fn test_ident_cache_collision_keeps_both_names() {
+        let mut map = create_test_map();
+        map.insert("甲".to_string(), "one".to_string());
+        let want = crate::name_cache::name_cache_slot("甲");
+        let collide = (0..5000)
+            .map(|i| format!("甲{i}"))
+            .find(|name| crate::name_cache::name_cache_slot(name) == want)
+            .expect("应能找到同槽位的另一个名字");
+        let source = format!("让 甲 = 1;\n让 {collide} = 2;\n");
+        let expected = format!("let one = 1;\nlet {collide} = 2;\n");
+        assert_eq!(transpile_source(&source, &map), expected);
+    }
+
+    /// 名字数远超缓存槽数（必然反复冲突覆盖），逐个仍按自己的事实转译
+    #[test]
+    fn test_ident_cache_many_distinct_names() {
+        let map = create_test_map();
+        let mut source = String::from("函数 主函数() {\n");
+        let mut expected = String::from("fn 主函数() {\n");
+        for i in 0..600 {
+            source.push_str(&format!("    让 变量_{i} = {i};\n"));
+            expected.push_str(&format!("    let 变量_{i} = {i};\n"));
+        }
+        // 重复引用 + 关键字词交替出现：命中与未命中混在一起
+        source.push_str(
+            "    让 结果 = 变量_5 + 变量_257;\n    如果 结果 > 0 { 打印行!(\"正\"); }\n}\n",
+        );
+        expected.push_str(
+            "    let 结果 = 变量_5 + 变量_257;\n    if 结果 > 0 { println!(\"正\"); }\n}\n",
+        );
+        let macros = create_macro_map();
+        assert_eq!(
+            transpile_source_with_macro_map(&source, &map, &macros, &HashMap::new()),
+            expected
+        );
     }
 
     // ===== 宏感叹号自动补充测试 =====
@@ -1220,6 +1398,148 @@ mod tests {
         assert_eq!(entry.replacement, "r#match");
     }
 
+    /// 编辑表投影成（原文，替换值）序列，便于逐条比两张表的内容
+    fn table_pairs(entries: &[SourceMapEntry]) -> Vec<(&str, &str)> {
+        entries
+            .iter()
+            .map(|e| (e.original.as_str(), e.replacement.as_str()))
+            .collect()
+    }
+
+    /// 只给关键字表与宏表的最小入参转译（其余表为空，不影响这里的形态）
+    fn transpile_two_maps(
+        source: &str,
+        keyword_map: &HashMap<String, String>,
+        macro_map: &HashMap<String, String>,
+    ) -> TranspileResult {
+        transpile_with_map(
+            source,
+            keyword_map,
+            macro_map,
+            &HashMap::new(),
+            &HashSet::new(),
+            &HashSet::new(),
+            &HashMap::new(),
+        )
+    }
+
+    /// 两张表的等价关系（回归锁，口径见 [`build_lex_source_map`]）
+    ///
+    /// 主循环只收全管线表，词法表由它复制、少数条目按补 `!` 规则改写或删除。
+    /// 这里钉住两个后果：① 全管线表回放到源码必须逐字等于输出——漏收条目、
+    /// 替换值写错都会先在这里炸；② 两张表逐条同偏移同原文，替换值只可能差一个
+    /// 自动补的 `!`，且不进词法表的条目必须正是「原文 + `!`」那一种。
+    fn assert_tables_in_lockstep(source: &str, result: &TranspileResult) {
+        let mut replay = String::new();
+        let mut copied = 0usize;
+        for edit in &result.final_edits {
+            assert!(
+                edit.source_offset >= copied,
+                "全管线表必须按偏移升序且不重叠：{edit:?}"
+            );
+            replay.push_str(&source[copied..edit.source_offset]);
+            replay.push_str(edit.replacement.as_str());
+            copied = edit.source_offset + edit.length;
+        }
+        replay.push_str(&source[copied..]);
+        assert_eq!(replay, result.output, "全管线表回放必须逐字等于输出");
+
+        let mut lex = result.source_map.iter();
+        let mut pending = lex.next();
+        for edit in &result.final_edits {
+            if pending.is_some_and(|l| l.source_offset == edit.source_offset) {
+                let entry = pending.take().expect("上面 is_some 判定的就是这个条目");
+                assert_eq!(
+                    (entry.length, entry.original.as_str()),
+                    (edit.length, edit.original.as_str()),
+                    "偏移 {} 的两表条目必须同原文同长度",
+                    edit.source_offset
+                );
+                let diff = edit
+                    .replacement
+                    .as_str()
+                    .strip_prefix(entry.replacement.as_str());
+                assert!(
+                    diff == Some("") || diff == Some("!"),
+                    "偏移 {}：词法表 {:?} 与全管线表 {:?} 只能差一个补的 `!`",
+                    edit.source_offset,
+                    entry.replacement,
+                    edit.replacement
+                );
+                pending = lex.next();
+            } else {
+                let original = &source[edit.source_offset..edit.source_offset + edit.length];
+                assert_eq!(
+                    edit.replacement.as_str(),
+                    format!("{original}!"),
+                    "不进词法表的条目只能是「原文只补 `!`」"
+                );
+            }
+        }
+        assert!(pending.is_none(), "词法表不能有全管线表之外的条目");
+    }
+
+    /// 各形态下两条表各自的内容：宏调用补的 `!` 只进全管线表，其余同值
+    #[test]
+    fn test_lex_and_final_tables_per_shape() {
+        let mut keywords = create_test_map();
+        keywords.insert("无符号微整数".to_string(), "u8".to_string());
+        keywords.insert("宏规则".to_string(), "macro_rules".to_string());
+        keywords.insert("匹配".to_string(), "match".to_string());
+        let source = "函数 示例() {\n    打印行(\"补叹号\");\n    打印行!(\"已带叹号\");\n    让 值 = 0无符号微整数;\n    让 r#匹配 = 1;\n    宏规则 建向量 { () => {} }\n}\n";
+        let result = transpile_two_maps(source, &keywords, &create_macro_map());
+        assert_eq!(
+            result.output,
+            "fn 示例() {\n    println!(\"补叹号\");\n    println!(\"已带叹号\");\n    let 值 = 0u8;\n    let r#match = 1;\n    macro_rules! 建向量 { () => {} }\n}\n"
+        );
+        // 词法表记本阶段产物：两条宏调用都是 println（第一条的 `!` 由本阶段
+        // 补在输出里，不进表），`宏规则` 的 `!` 是替换值自带、照常进表
+        assert_eq!(
+            table_pairs(&result.source_map),
+            [
+                ("函数", "fn"),
+                ("打印行", "println"),
+                ("打印行", "println"),
+                ("让", "let"),
+                ("无符号微整数", "u8"),
+                ("让", "let"),
+                ("r#匹配", "r#match"),
+                ("宏规则", "macro_rules!"),
+            ]
+        );
+        // 全管线表记输出原文：第一条补了 `!`，第二条源码自带 `!` 不重复补
+        assert_eq!(
+            table_pairs(&result.final_edits),
+            [
+                ("函数", "fn"),
+                ("打印行", "println!"),
+                ("打印行", "println"),
+                ("让", "let"),
+                ("无符号微整数", "u8"),
+                ("让", "let"),
+                ("r#匹配", "r#match"),
+                ("宏规则", "macro_rules!"),
+            ]
+        );
+        assert_tables_in_lockstep(source, &result);
+    }
+
+    /// 宏名译文与母语词形相同（两表差别只有补的 `!`）：词法表不记该条
+    ///
+    /// 这是「词法阶段没改动、输出却多了 `!`」的那一侧边界，对应
+    /// `lex_overrides` 里的 `None` 分支。
+    #[test]
+    fn test_lex_table_skips_bang_only_edit() {
+        let keywords = HashMap::from([("打印行".to_string(), "打印行".to_string())]);
+        let macros = HashMap::from([("打印行".to_string(), "打印行".to_string())]);
+        let source = "打印行(\"甲\");\n";
+        let result = transpile_two_maps(source, &keywords, &macros);
+        assert_eq!(result.output, "打印行!(\"甲\");\n");
+        assert!(result.source_map.is_empty(), "只补 `!` 的条目不进词法表");
+        assert_eq!(table_pairs(&result.final_edits), [("打印行", "打印行!")]);
+        assert_tables_in_lockstep(source, &result);
+    }
+
     // ===== 反向转译测试 =====
 
     fn create_reverse_map(forward: &HashMap<String, String>) -> HashMap<String, String> {
@@ -1457,6 +1777,48 @@ mod tests {
         .output;
         // `usar` 照常译为 use；`formato` 让位保留（交模块路径阶段替换为 fmt）
         assert_eq!(out, "use estandar::formato::Mostrar;");
+    }
+
+    /// 方法位判定跨空白与注释：`.` 与名字之间夹什么都是方法位
+    ///
+    /// 方法位改用「上一个有意义 token 是否为 `.`」的状态变量（早先对每个
+    /// 标识符回扫 token 流），空白与注释不重置该状态正是两条实现等价的关键
+    /// 边界；同时确认非方法位照常替换，状态没有被粘住。
+    #[test]
+    fn test_method_pos_defers_across_trivia() {
+        let map = HashMap::from([("枚举".to_string(), "enum".to_string())]);
+        let method_defer = HashSet::from(["枚举".to_string()]);
+        for src in [
+            "列.枚举();",
+            "列 . 枚举();",
+            "列.\n    枚举();",
+            "列. /* c */ 枚举();",
+            "列. // c\n    枚举();",
+        ] {
+            let out = transpile_with_map(
+                src,
+                &map,
+                &HashMap::new(),
+                &HashMap::new(),
+                &HashSet::new(),
+                &method_defer,
+                &HashMap::new(),
+            )
+            .output;
+            assert_eq!(out, src, "方法位让位失效：{src:?}");
+        }
+        // 对照：不在 `.` 之后的同名标识符照常替换
+        let out = transpile_with_map(
+            "枚举();",
+            &map,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashSet::new(),
+            &method_defer,
+            &HashMap::new(),
+        )
+        .output;
+        assert_eq!(out, "enum();");
     }
 
     /// 方法位让位：词法替换值是保留关键字的词（`枚举`→enum）在 `.` 后

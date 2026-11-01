@@ -95,6 +95,14 @@ impl FullwidthWarning {
 /// 字符串/注释内的列号只保证大致正确（这些位置不产生警告）。
 pub fn find_fullwidth_punct(source: &str) -> Vec<FullwidthWarning> {
     let chars: Vec<char> = source.chars().collect();
+    find_fullwidth_punct_chars(&chars)
+}
+
+/// [`find_fullwidth_punct`] 的字符切片入口
+///
+/// 与教学 lint 各扫描器共用同一份字符切片（见 `transpile_pipeline_inner`）：
+/// 一轮教学检查里全角扫描、易混词表 lint 都只看这份切片，不再各自展开源码。
+pub fn find_fullwidth_punct_chars(chars: &[char]) -> Vec<FullwidthWarning> {
     let mut warnings = Vec::new();
     let mut line = 1usize;
     let mut col = 1usize;
@@ -366,6 +374,20 @@ mod tests {
         assert_eq!(warnings[0].line, 1);
         assert_eq!(warnings[0].column, 7);
         assert_eq!(warnings[0].replacement, Some('('));
+    }
+
+    /// 字符切片入口与字符串入口口径一致（CLI 多文件路径两处共用一份切片）
+    #[test]
+    fn chars_entry_matches_str_entry() {
+        let source =
+            "函数 主函数() {\n    让 x = 项们.展平（）;\n}\"里头的，不算\" // 注释里的，也不算";
+        let by_str = find_fullwidth_punct(source);
+        let chars: Vec<char> = source.chars().collect();
+        assert_eq!(find_fullwidth_punct_chars(&chars), by_str, "{by_str:?}");
+        assert!(
+            !by_str.is_empty(),
+            "用例应至少命中一个全角标点，否则这条锁形同虚设"
+        );
     }
 
     #[test]

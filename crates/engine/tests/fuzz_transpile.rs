@@ -8,10 +8,12 @@
 //! - 源映射条目的偏移/长度全部落在源文本内，且 original 与源文本逐字节一致
 //!   （LSP 列映射与诊断还原的坐标换算依赖此精确性）；
 //! - pipeline_map 按源偏移严格升序（消费方回放依赖，乱序会破坏列映射）；
+//! - 词法阶段的两张编辑表逐条等价（全管线表回放等于输出，词法表只差补的 `!`）；
 //! - 幂等：转译输出再次转译保持不变（映射表无英文键、无来回抖动）。
 
 use std::path::Path;
 
+use i18n_rust_engine::lexer;
 use i18n_rust_engine::mapping_manager::MappingManager;
 use i18n_rust_engine::transpile_pipeline;
 use proptest::prelude::*;
@@ -140,6 +142,69 @@ proptest! {
             }
             prev = Some(entry.source_offset);
         }
+    }
+
+    /// 词法阶段两张编辑表逐条等价（复制逻辑的回归锁，口径见 lexer 模块
+    /// `build_lex_source_map`）
+    ///
+    /// 主循环只收全管线表、词法表循环后由它复制并按下标覆盖补 `!` 的差异条目。
+    /// 复制逻辑漏条目、写错替换值、弄丢「词法表不含自动补的 `!`」这一差别，都会
+    /// 在随机语料上暴露：① 全管线表回放必须逐字等于词法输出；② 两张表逐条同
+    /// 偏移同原文、替换值只可能差一个自动补的 `!`，且不进词法表的条目只能是
+    /// 「原文 + `!`」那一种。
+    #[test]
+    fn fuzz_lex_stage_tables_stay_in_lockstep(src in source_strategy()) {
+        let manager = zh_manager();
+        let result = lexer::transpile_with_map(
+            &src,
+            manager.get_keyword_map(),
+            manager.get_macro_map(),
+            manager.get_derive_map(),
+            manager.get_use_defer_words(),
+            manager.get_method_defer_words(),
+            manager.get_alias_map(),
+        );
+
+        let mut replay = String::new();
+        let mut copied = 0usize;
+        for edit in &result.final_edits {
+            prop_assert!(
+                edit.source_offset >= copied,
+                "全管线表必须按偏移升序且不重叠：{edit:?}"
+            );
+            replay.push_str(&src[copied..edit.source_offset]);
+            replay.push_str(edit.replacement.as_str());
+            copied = edit.source_offset + edit.length;
+        }
+        replay.push_str(&src[copied..]);
+        prop_assert_eq!(replay, result.output.clone(), "全管线表回放必须逐字等于输出");
+
+        let mut lex = result.source_map.iter();
+        let mut pending = lex.next();
+        for edit in &result.final_edits {
+            if pending.is_some_and(|l| l.source_offset == edit.source_offset) {
+                let entry = pending.take().expect("上面 is_some 判定的就是这个条目");
+                prop_assert_eq!(entry.length, edit.length, "两表条目长度必须一致");
+                prop_assert_eq!(&entry.original, &edit.original, "两表条目原文必须一致");
+                let diff = edit.replacement.as_str().strip_prefix(entry.replacement.as_str());
+                prop_assert!(
+                    diff == Some("") || diff == Some("!"),
+                    "偏移 {}：词法表 {:?} 与全管线表 {:?} 只能差一个补的 `!`",
+                    edit.source_offset,
+                    entry.replacement,
+                    edit.replacement
+                );
+                pending = lex.next();
+            } else {
+                let original = &src[edit.source_offset..edit.source_offset + edit.length];
+                prop_assert_eq!(
+                    edit.replacement.as_str(),
+                    format!("{original}!"),
+                    "不进词法表的条目只能是「原文只补 `!`」"
+                );
+            }
+        }
+        prop_assert!(pending.is_none(), "词法表不能有全管线表之外的条目");
     }
 
     /// 幂等：转译输出再次转译保持不变（映射无抖动）

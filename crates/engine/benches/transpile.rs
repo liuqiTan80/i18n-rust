@@ -8,7 +8,11 @@
 //! - `teaching_checks`：全角标点扫描与教学 lint 单独计费（LSP 诊断发布前
 //!   每次变更都会执行，单独量化便于发现回归）；
 //! - `pipeline_*_2000`：约 2000 行大文件输入的冷转译与缓存命中，守住
-//!   transpile 的线性低延迟（由 `tools/bench-check.sh` 阈值守卫）。
+//!   transpile 的线性低延迟（由 `tools/bench-check.sh` 阈值守卫）；
+//! - `pipeline_no_cache_2000_alias_heavy`：同规模但**别名密集**的语料。关键字
+//!   密集语料的后续阶段只有几条编辑，盖不住「后续阶段编辑 × 词法编辑」这类
+//!   乘积项（历史教训：`compose_pipeline_map` 的逆映射曾逐条从头重扫，
+//!   同一文件从 3.2 ms 涨到 37 ms，而旧语料完全测不出），故单独一份语料。
 //!
 //! 运行：`cargo bench -p i18n-rust-engine`
 //! CI 快速模式：`cargo bench -p i18n-rust-engine --bench transpile -- --quick`
@@ -19,9 +23,12 @@ use std::path::Path;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use i18n_rust_engine::cache::TranslationCache;
 use i18n_rust_engine::fullwidth::find_fullwidth_punct;
-use i18n_rust_engine::lint::{lint_reserved_name_collision, lint_teaching};
+use i18n_rust_engine::lint::{
+    lint_reserved_name_collision, lint_teaching, lint_teaching_all,
+    lint_teaching_with_buckets_chars, lint_teaching_with_words,
+};
 use i18n_rust_engine::mapping_manager::MappingManager;
-use i18n_rust_engine::{transpile_pipeline, transpile_source};
+use i18n_rust_engine::{alias, lexer, transpile_pipeline, transpile_source};
 
 /// 构造内置 zh 语言包的映射管理器（与 CLI 默认一致）
 fn zh_manager() -> MappingManager {
@@ -76,6 +83,30 @@ fn large_source() -> String {
     src
 }
 
+/// 别名密集语料：约 2000 行，但每函数多次标准库成员调用（`.长度()`
+/// `.推入()` `.迭代().计数()` `.插入()` `.元素数()`）
+///
+/// 与 `large_source` 的行数量级相同，后续阶段的编辑数却从 2 条涨到上千条：
+/// 专测阶段间偏移换算的乘积项（见模块文档）。不写整数字面量、方法名全部
+/// 收录在语言包里，以免教学告警写 stderr 落在计时区里干扰读数。
+fn alias_heavy_source() -> String {
+    let mut src = String::with_capacity(2000 * 40);
+    src.push_str("使用 标准库::向量::向量;\n使用 标准库::映射::映射;\n\n");
+    for i in 0..280 {
+        src.push_str(&format!(
+            "函数 函数_{i}(项: 向量<字符串>, 表: 映射<字符串, 整数>) -> 整数 {{\n\
+             \x20   让 个数 = 项.长度();\n\
+             \x20   项.推入(\"新项{i}\");\n\
+             \x20   让 合计 = 项.迭代().计数();\n\
+             \x20   表.插入(\"键{i}\", 合计);\n\
+             \x20   返回 个数 + 表.元素数();\n\
+             }}\n\n",
+        ));
+    }
+    src.push_str("函数 主函数() {\n    让 全部 = 向量::新建();\n}\n");
+    src
+}
+
 /// 转译管线：无缓存全量 vs 缓存命中
 fn bench_transpile(c: &mut Criterion) {
     let manager = zh_manager();
@@ -98,17 +129,34 @@ fn bench_transpile(c: &mut Criterion) {
 }
 
 /// 教学检查单独计费（LSP 每次变更都会执行全角扫描、教学 lint 与保留字撞名扫描）
+///
+/// `lint_scan` 是空词表阈值（只看状态机本体）；`lint_scan_words` 才是管线
+/// 真实路径——带整张词表与歧义构造器集合，易混方法名判定在里面；
+/// `teaching_all_scan` 把英文回落与保留字撞名也算进来（两者共用一次遍历）。
+///
+/// `lint_scan_buckets` 是转译管线真正走的分桶索引入口（索引由 manager 缓存、
+/// 带精确命中表）；上面几个 `*_words` 走惰性构建，每轮都要重建索引，只适合
+/// 衡定单文件 API 的开销。
 fn bench_teaching_checks(c: &mut Criterion) {
     let manager = zh_manager();
     let source = teaching_source();
     let keyword_map = manager.get_keyword_map();
+    let fallback_map = manager.english_fallback_map();
+    let words = manager.get_lint_words();
+    let ambiguous = manager.ambiguous_constructor_words();
+    let buckets = manager.lint_word_buckets();
+    // 管线已物化过字符切片（全角/教学 lint 共用一份），基准同样把它放在闭包外
+    let chars: Vec<char> = source.chars().collect();
     let mut group = c.benchmark_group("teaching_checks");
     group.sample_size(50);
 
     for (名称, 代码) in [
         ("fullwidth_scan", black_box(&source) as &str),
         ("lint_scan", black_box(source.as_str())),
+        ("lint_scan_words", black_box(source.as_str())),
+        ("lint_scan_buckets", black_box(source.as_str())),
         ("collision_scan", black_box(source.as_str())),
+        ("teaching_all_scan", black_box(source.as_str())),
     ] {
         group.bench_with_input(
             BenchmarkId::new(名称, source.len()),
@@ -116,6 +164,13 @@ fn bench_teaching_checks(c: &mut Criterion) {
             |b, 源码| match 名称 {
                 "fullwidth_scan" => b.iter(|| find_fullwidth_punct(源码)),
                 "collision_scan" => b.iter(|| lint_reserved_name_collision(源码, keyword_map)),
+                "lint_scan_words" => b.iter(|| lint_teaching_with_words(源码, words, ambiguous)),
+                "lint_scan_buckets" => {
+                    b.iter(|| lint_teaching_with_buckets_chars(&chars, buckets, ambiguous))
+                }
+                "teaching_all_scan" => {
+                    b.iter(|| lint_teaching_all(源码, words, ambiguous, fallback_map, keyword_map))
+                }
                 _ => b.iter(|| lint_teaching(源码)),
             },
         );
@@ -140,6 +195,44 @@ fn bench_transpile_large(c: &mut Criterion) {
     transpile_source(&source, &manager, &mut cache).expect("预热转译失败");
     group.bench_function("pipeline_cache_hit_2000", |b| {
         b.iter(|| transpile_source(black_box(&source), &manager, &mut cache).expect("缓存转译失败"))
+    });
+
+    // 词法阶段单独计费（占冷转译一半以上：token 流物化 + 逐标识符查表）。
+    // 2000 行大文件上 3930 个标识符高度重复，标识符事实缓存就命中在这里。
+    group.bench_function("lexer_stage_2000", |b| {
+        b.iter(|| {
+            lexer::transpile_with_map(
+                black_box(source.as_str()),
+                manager.get_keyword_map(),
+                manager.get_macro_map(),
+                manager.get_derive_map(),
+                manager.get_use_defer_words(),
+                manager.get_method_defer_words(),
+                manager.get_alias_map(),
+            )
+        })
+    });
+
+    // 别名阶段单独计费（token 流物化 + 声明收集三趟 + 逐标识符豁免判定）
+    // 注意：这一项与 `lexer_stage_2000` 都不走真实管线编排（自己从源文本重新
+    // 分词），只能定序不能相加；管线里未被两项覆盖的部分（偏移换算链、
+    // 编辑表合并、产物拼接）由下面两份语料的差值兼顾。
+    group.bench_function("alias_stage_2000", |b| {
+        b.iter(|| {
+            alias::replace_aliases_with_context_and_module_paths(
+                black_box(source.as_str()),
+                manager.get_alias_map(),
+                manager.get_module_path_map(),
+                None,
+            )
+        })
+    });
+
+    // 别名密集语料：后续阶段编辑数从 2 条涨到上千条，守住阶段间偏移换算的
+    // 乘积项（历史教训见模块文档：逐条重扫让同规模文件从 3.2 ms 涨到 37 ms）
+    let alias_heavy = alias_heavy_source();
+    group.bench_function("pipeline_no_cache_2000_alias_heavy", |b| {
+        b.iter(|| transpile_pipeline(black_box(&alias_heavy), &manager))
     });
 
     group.finish();

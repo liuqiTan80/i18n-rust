@@ -182,8 +182,10 @@ pub fn parse_danger_sections(
 ///
 /// 这是映射源 TOML 的唯一解析实现：[`parse_toml_sections`] 就是把这里的结果
 /// 收敛成 HashMap（一个文件只解析一遍，不拿顺序的消费者也不会多付代价）。
-/// 顺序保得住的原因：toml 的解析器按文档顺序投递键值对，只要不把它们塞进
-/// `toml::Value::Table`（BTreeMap，按键排序）或 HashMap，书写序就在。
+/// 顺序保得住的原因：自定义 visitor 直接接收 serde 通道按文档顺序投递的键值对，
+/// 不把它们塞进 HashMap 就丢不了序。注意 toml 1.x 起默认表按键排序（0.8 走
+/// toml_edit 后端天然保序），故 workspace 层启用了 `preserve_order` 特性，
+/// 让 `toml::Value::Table` 同样保持书写序——两条通道顺序因此一致。
 /// 诊断反查表需要在「同一英文值有多个母语同义词」时选出唯一胜出者，依据
 /// 正是书写序（先写的是主词条，见 `crate::diagnostic::build_type_map`）。
 ///

@@ -16,7 +16,10 @@ rust-version = "1.88"
 # 避免多 crate 重复声明导致版本漂移
 [workspace.dependencies]
 rustc_lexer = "0.1"
-toml = "0.8"
+# preserve_order 是硬需求：诊断反查表按「同一英文值的多个母语同义词取书写序首条」
+# 决定胜出者（见 diagnostic::build_type_map）。toml 1.x 换掉了 0.8 的 toml_edit 后端，
+# 默认表为按键排序的 BTreeMap，书写序会丢（ja 的 Display 会从「表示可能」翻成「表示」）
+toml = { version = "1.1", features = ["preserve_order"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 encoding_rs = "0.8"

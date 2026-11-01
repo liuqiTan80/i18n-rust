@@ -72,11 +72,22 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
     let mut warnings = Vec::new();
     let mut line = 1usize;
     let mut col = 1usize;
+    // 当前方言是否原生使用西里尔字母：只与语言有关，循环外判定一次。
+    // 早先每个形似字符都要调一次 `current_language()`（每次都 clone 一份语言
+    // 代码串）再判文字系统——西里尔字母源码里几乎每个字母都命中同形表，
+    // 这一步是 ru 语料上本阶段的主要开销
+    let native_cyrillic = crate::语言::uses_cyrillic_script(&crate::语言::current_language());
 
     for (offset, ch) in source.char_indices() {
         if ch == '\n' {
             line += 1;
             col = 1;
+            continue;
+        }
+        // ASCII 快速路径：三张表全不含 ASCII（零宽/双向控制符/西里尔与希腊
+        // 字母），逐个查表纯属浪费——CJK 与拉丁源码里多数字符走到这里
+        if ch.is_ascii() {
+            col += 1;
             continue;
         }
         // 文件开头的 BOM（U+FEFF）是合法编码标记，不视为混淆
@@ -105,7 +116,7 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
             });
         } else if let Some((similar, name)) = homoglyph_char(ch) {
             // 当前方言合法使用该文字时（如 ru 方言的西里尔字母）不构成混淆，跳过
-            if !is_native_script_char(ch) {
+            if !(native_cyrillic && is_cyrillic_block(ch)) {
                 warnings.push(ConfusionWarning {
                     line,
                     column: col,
@@ -222,21 +233,15 @@ fn homoglyph_char(ch: char) -> Option<(char, &'static str)> {
         .map(|(_, similar, name)| (*similar, *name))
 }
 
-/// 字符是否属于当前方言合法使用的文字系统
+/// 字符是否属于西里尔字母 Unicode 块
 ///
 /// 使用西里尔字母的方言（ru/uk/bg/sr 等）中，形似拉丁字母的西里尔字符
-/// （а/е/о/р/с/у/х 等）是合法字符而非伪装；
-/// 覆盖完整西里尔字母 Unicode 块（U+0400–U+04FF 基本块 +
-/// U+0500–U+052F 扩展块），确保乌克兰语（є/і/ї/ґ）、
-/// 白俄罗斯语等扩展字符不被误报为可疑伪装。
-/// 希腊字母等其他同形字符与零宽/双向控制符不受豁免，仍然告警。
-fn is_native_script_char(ch: char) -> bool {
-    let code = ch as u32;
-    // 任何使用西里尔字母的方言包：整个西里尔字母块均为合法字符
-    if crate::语言::uses_cyrillic_script(&crate::语言::current_language()) {
-        return matches!(code, 0x0400..=0x052F);
-    }
-    false
+/// （а/е/о/р/с/у/х 等）是合法字符而非伪装；覆盖完整西里尔字母 Unicode 块
+/// （U+0400–U+04FF 基本块 + U+0500–U+052F 扩展块），确保乌克兰语
+/// （є/і/ї/ґ）、白俄罗斯语等扩展字符不被误报为可疑伪装。
+/// 希腊字母等其他同形字符不受豁免，仍然告警。
+fn is_cyrillic_block(ch: char) -> bool {
+    matches!(ch as u32, 0x0400..=0x052F)
 }
 
 #[cfg(test)]
@@ -331,6 +336,22 @@ mod tests {
         assert!(w.detail.contains("西里尔小写字母"));
         assert_eq!(w.line, 1);
         assert_eq!(w.column, 3);
+    }
+
+    /// 零宽字符紧跟在 ASCII 代码之后：列号按字符计，ASCII 快速路径不得丢弃计数
+    #[test]
+    fn test_zero_width_after_ascii_column() {
+        let _guard = zh_guard();
+        let source = "函数 主函数() { let x = 1;\u{200B} }";
+        let warnings = check_unicode_confusion(source);
+        assert_eq!(warnings.len(), 1);
+        let expected_col = source
+            .chars()
+            .position(|c| c == '\u{200B}')
+            .expect("源码里应有零宽空格")
+            + 1;
+        assert_eq!(warnings[0].column, expected_col);
+        assert_eq!(warnings[0].line, 1);
     }
 
     #[test]

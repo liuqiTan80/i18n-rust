@@ -58,37 +58,84 @@ pub fn replace_module_paths_with_map(
             edits: Vec::new(),
         };
     }
-    let tokens: Vec<_> = tokenize(source).collect();
-    let mut output = String::new();
+    // use 语句是唯一的替换场合：整份源码里两种词形都不出现时无需分词
+    // （直接调用本函数时母语与已转译的 `use` 都可能出现）
+    if !source.contains("use") && !source.contains("使用") {
+        return ReplaceResult {
+            output: source.to_string(),
+            edits: Vec::new(),
+        };
+    }
+    // 不收集 token 向量：主循环只顺序消费一次（每个 use 行只命中少数段），
+    // 收集一份全文件 token 表是纯分配开销
+    replace_module_paths_iter(source, path_map, tokenize(source).map(|t| (t.kind, t.len)))
+}
+
+/// 同 [`replace_module_paths_with_map`]，但复用调用方已分好的 token 流
+///
+/// 引擎的延迟项目上下文入口在 `lex.output` 上已经分词一次（为了收集声明名
+/// 建项目上下文），而本阶段恰好也是在这份文本上跑，可直接借用那份 token 流，
+/// 省掉一次全文件分词。两条入口的输出与编辑表逐字相同（同一序列）。
+pub(crate) fn replace_module_paths_in_tokens(
+    source: &str,
+    path_map: &HashMap<String, String>,
+    tokens: &[rustc_lexer::Token],
+) -> ReplaceResult {
+    if path_map.is_empty() {
+        return ReplaceResult {
+            output: source.to_string(),
+            edits: Vec::new(),
+        };
+    }
+    // 与现分词入口同一道早退：本阶段与它逐字等价，只是 token 来源不同
+    if !source.contains("use") && !source.contains("使用") {
+        return ReplaceResult {
+            output: source.to_string(),
+            edits: Vec::new(),
+        };
+    }
+    replace_module_paths_iter(source, path_map, tokens.iter().map(|t| (t.kind, t.len)))
+}
+
+/// [`replace_module_paths_with_map`] 的实现：token 流由调用方决定是现分词
+/// （流式）还是复用已有向量
+fn replace_module_paths_iter<I>(
+    source: &str,
+    path_map: &HashMap<String, String>,
+    tokens: I,
+) -> ReplaceResult
+where
+    I: Iterator<Item = (TokenKind, usize)>,
+{
+    let mut output = String::with_capacity(source.len());
     let mut edits = Vec::new();
     let mut current_offset = 0;
+    // 已刷出的源偏移：未命中的 token 不逐个 push_str，命中时才把「上次刷出
+    // 位置 → 本 token 起点」的原始片段整段拷过去。大文件里 token 数万而命中
+    // 只在 use 行，逐 token 复制是纯开销（2000 行样例本阶段 515.7 → 473.9 µs）
+    let mut copied = 0usize;
     // use 语句内的路径段才启用模块路径映射；
     // 表达式中的 `类型::关联函数`（如 `引用计数::新建`）应走别名映射，
     // 不能被模块路径映射误替换成 `rc::新建`
     let mut in_use_stmt = false;
 
-    for token in tokens.iter() {
-        let len = token.len;
+    for (kind, len) in tokens {
         let text = &source[current_offset..current_offset + len];
-        match token.kind {
+        match kind {
             TokenKind::Ident => {
                 // use 语句内所有路径段（含末段/单段）都查映射：
                 // use 中不可能出现用户变量，替换安全；
                 // 末段若不在路径映射（如 `服务器` 属于标识符别名），
                 // 保持原样交给别名替换处理
-                if in_use_stmt {
-                    if let Some(english) = path_map.get(text) {
-                        // crate 名规范化：`日志订阅` → `tracing_subscriber`
-                        //（映射值 `tracing-subscriber` 中的连字符非法）
-                        let normalized = normalize_crate_hyphen(english);
-                        let replacement = normalized.as_deref().unwrap_or(english);
-                        edits.push(SourceMapEntry::new(current_offset, len, text, replacement));
-                        output.push_str(replacement);
-                    } else {
-                        output.push_str(text);
-                    }
-                } else {
-                    output.push_str(text);
+                if in_use_stmt && let Some(english) = path_map.get(text) {
+                    // crate 名规范化：`日志订阅` → `tracing_subscriber`
+                    //（映射值 `tracing-subscriber` 中的连字符非法）
+                    let normalized = normalize_crate_hyphen(english);
+                    let replacement = normalized.as_deref().unwrap_or(english);
+                    edits.push(SourceMapEntry::new(current_offset, len, text, replacement));
+                    output.push_str(&source[copied..current_offset]);
+                    output.push_str(replacement);
+                    copied = current_offset + len;
                 }
                 // 检测 use 语句起点（管线中 `使用` 已被词法转译为 `use`；
                 // 直接调用本函数时两种写法均支持）
@@ -99,12 +146,12 @@ pub fn replace_module_paths_with_map(
             TokenKind::Semi => {
                 // use 语句以分号结束
                 in_use_stmt = false;
-                output.push_str(text);
             }
-            _ => output.push_str(text),
+            _ => {}
         }
         current_offset += len;
     }
+    output.push_str(&source[copied..]);
     ReplaceResult { output, edits }
 }
 
@@ -117,6 +164,32 @@ pub fn replace_module_paths_with_map(
 /// 别名阶段（alias.rs）对 use 之外的模块词回退替换时复用本函数。
 pub(crate) fn normalize_crate_hyphen(segment: &str) -> Option<String> {
     segment.contains('-').then(|| segment.replace('-', "_"))
+}
+
+/// 可能被加 `crate::` 前缀的路径段：模块名之后（跳过空白）紧跟 `::`
+///
+/// 供 [`qualify_module_paths_with_map`] 的快速通道使用：这是「该名字会被加
+/// 前缀」的**必要条件**（[`is_path_separator_after`] 允许名与 `::` 之间
+/// 夹空白/注释）。注释以 `/` 开头，遇到 `/` 时同样视为可能（否则
+/// `甲 /*x*/ :: 乙` 会被误判为不可能）；其余后续字节（`(`、`;`、`_` 等）
+/// 都足以否定该处出现。
+fn could_be_path_segment(content: &str, name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    // 名字可能自重叠（`aa` 在 `aaa::` 中），每次只前进一个字符
+    let step = name.chars().next().map_or(1, char::len_utf8);
+    let mut from = 0usize;
+    while let Some(pos) = content[from..].find(name) {
+        let after_name = from + pos + name.len();
+        let rest = content[after_name..].trim_start_matches([' ', '\t', '\r', '\n']);
+        match rest.as_bytes().first() {
+            Some(b':') | Some(b'/') => return true,
+            _ => {}
+        }
+        from += pos + step;
+    }
+    false
 }
 
 /// 为已知模块路径段添加 `crate::` 前缀
@@ -141,6 +214,20 @@ pub fn qualify_module_paths_with_map(
     item_names: &HashSet<String>,
 ) -> ReplaceResult {
     if module_names.is_empty() || content.is_empty() {
+        return ReplaceResult {
+            output: content.to_string(),
+            edits: Vec::new(),
+        };
+    }
+    // 快速通道：本条只给「与模块名逐字节相同的标识符、且后面紧跟 `::`」
+    // 加前缀，所以只要每个模块名的每处出现后面都不可能跟 `::`，就一定没有
+    // 编辑（无编辑时逐 token 重建的输出恒等于原文）。比「全文包含模块名」更准：
+    // 单文件项目的模块名就是文件词干 `main`，而 `主函数` 会被词法阶段译成
+    // `main`（`fn main()`）——只看子串会永远命中，等于没有早退。
+    if !module_names
+        .iter()
+        .any(|name| could_be_path_segment(content, name))
+    {
         return ReplaceResult {
             output: content.to_string(),
             edits: Vec::new(),
@@ -301,6 +388,13 @@ fn collect_use_bindings<'a>(
 /// 空格），行号与列号同原文严格一致，列映射无需调整；内联模块
 /// （`mod 名字 { ... }`）照常参与编译，不被处理。
 pub fn strip_file_module_decls(content: &str) -> String {
+    // 快速通道：判定一个 token 是否文件式声明，要求其文本恰为 `mod`，
+    // 因此全文连子串 `mod` 都不含时不可能有声明。LSP 每次按键都会调用
+    // 本函数，省掉整趟词法与 token 区间表的分配（绝大多数文件没有 `mod`）。
+    if !content.contains("mod") {
+        return content.to_string();
+    }
+
     // 收集 token 的字节区间：rustc_lexer 的 token 流连续覆盖整个输入
     let mut spans: Vec<(TokenKind, usize, usize)> = Vec::new();
     let mut offset = 0usize;
@@ -800,6 +894,46 @@ mod tests {
         let map = sample_path_map();
         let result = replace_module_paths("使用 salvo::服务器;", &map);
         assert_eq!(result, "使用 salvo::服务器;");
+    }
+
+    /// 复用外部 token 流的入口与现分词入口逐字等价
+    ///
+    /// 两条路径同一实现，差别只在 token 从哪来（现分词 vs 调用方已分的向量）。
+    /// 覆盖：use 段内/段外、跨行 use、注释与空白穿插、无 use 文件（字符串早退）、
+    /// 未映射末段、连字符 crate 名、空文件。
+    #[test]
+    fn test_tokens_entry_matches_fresh_tokenize() {
+        let map = HashMap::from([
+            ("标准集合".to_string(), "std::collections".to_string()),
+            ("文件系统".to_string(), "std::fs".to_string()),
+            ("字符串".to_string(), "string".to_string()),
+            ("日志订阅".to_string(), "tracing-subscriber".to_string()),
+        ]);
+        for src in [
+            "使用 标准集合::哈希映射;\n",
+            "使用 文件系统;\n",
+            "使用 标准集合::字符串 as 映射;\n使用 文件系统::文件;\n",
+            "使用 标准集合 :: 字符串;\n",
+            "使用 日志订阅 as 日志框架;\n",
+            "使用 salvo::服务器;\n",
+            "fn main() {\n    let x = 标准集合::新建(5);\n}\n",
+            "使用 文件系统::文件;\nfn f() { 文件系统::读('a'); }\n",
+            "// 使用 标准集合::哈希映射;\nlet x = 1;\n",
+            "fn main() {}\n",
+            "",
+        ] {
+            let fresh = replace_module_paths_with_map(src, &map);
+            let tokens = crate::collect_tokens(src);
+            let reused = replace_module_paths_in_tokens(src, &map, &tokens);
+            assert_eq!(fresh.output, reused.output, "{src:?}：译文不一致");
+            assert_eq!(fresh.edits.len(), reused.edits.len(), "{src:?}：编辑条数");
+            for (i, (a, b)) in fresh.edits.iter().zip(&reused.edits).enumerate() {
+                assert_eq!(a.source_offset, b.source_offset, "{src:?} 第 {i} 条偏移");
+                assert_eq!(a.length, b.length, "{src:?} 第 {i} 条长度");
+                assert_eq!(a.original, b.original, "{src:?} 第 {i} 条原文");
+                assert_eq!(a.replacement, b.replacement, "{src:?} 第 {i} 条替换文本");
+            }
+        }
     }
 
     /// crate 名含连字符时（Cargo 名 ≠ Rust 路径名）：替换值规范化为下划线形式

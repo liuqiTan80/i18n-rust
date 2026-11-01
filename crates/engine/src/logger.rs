@@ -54,8 +54,14 @@ impl LogLevel {
     }
 }
 
+/// 默认级别的序数（警告）：`LEVEL_STORE` 的初值，无 RZ_LOG 时生效。
+///
+/// 写成字面量而不是 `LogLevel::Warn as u8` 是有意的——这样「初值 ↔ 枚举序数」的一致性
+/// 才需要被测试钉住：枚举变体一旦重排（Debug/Info/Warn/Error 的序数值变了），
+/// 默认级别会静默漂移成「调试」或「错误」，而 `test_default_level_is_warn` 会红。
+const DEFAULT_LEVEL_ORDINAL: u8 = 2;
 /// 当前生效的日志级别（默认警告：静默但保留关键输出）
-static LEVEL_STORE: AtomicU8 = AtomicU8::new(2);
+static LEVEL_STORE: AtomicU8 = AtomicU8::new(DEFAULT_LEVEL_ORDINAL);
 /// 是否已从环境变量初始化（幂等标记）
 static INITIALIZED: Once = Once::new();
 /// 是否已被程序化设置（置位后 RZ_LOG 不再覆盖，保证程序化优先级更高）
@@ -66,9 +72,17 @@ static LEVEL_SET_PROGRAMMATICALLY: AtomicBool = AtomicBool::new(false);
 /// 示例：`RZ_LOG=debug rzc run file.zh` 启用全部日志；
 /// `RZ_LOG=error` 仅输出错误。
 /// 若级别已被 [`set_log_level`] 程序化设置，则环境变量不覆盖。
+/// `init()` 的取舍：程序化设置优先于 RZ_LOG
+///
+/// 单独拆出来是为了能直接断言——`init()` 本体的 `Once` 全进程只生效一次，
+/// 用例若不是第一个调它的，断言就只是在验证「已经没人能改了」，而不是这条规则。
+fn env_should_override(programmatically_set: bool) -> bool {
+    !programmatically_set
+}
+
 pub fn init() {
     INITIALIZED.call_once(|| {
-        if LEVEL_SET_PROGRAMMATICALLY.load(Ordering::Relaxed) {
+        if !env_should_override(LEVEL_SET_PROGRAMMATICALLY.load(Ordering::Relaxed)) {
             return;
         }
         if let Ok(val) = std::env::var("RZ_LOG")
@@ -93,6 +107,73 @@ pub fn current_level() -> LogLevel {
 /// 判断指定级别是否应输出（级别 >= 当前级别时才输出）
 pub fn is_enabled(level: LogLevel) -> bool {
     level >= current_level()
+}
+
+/// 测试专用的日志级别守卫（纪律与 `语言::test_language` 一致）
+///
+/// 级别是进程全局（`LEVEL_STORE`），而 libtest 用多线程并发跑用例：任何
+/// 「改级别」或「断言级别」的用例都必须持 [`test_log_level`] 返回的守卫，
+/// 否则两侧互相翻转全局值，随机红（实测：把断言用例的窗口撑开 150 ms，
+/// 与逐个建缓存就写一次级别的旧 `new_cache()` 并发跑，12/12 轮全红）。
+/// Drop 时恢复进入前的级别，避免把状态留给后续用例。
+#[cfg(test)]
+pub(crate) struct LevelTestGuard {
+    previous: LogLevel,
+    _lock: std::sync::MutexGuard<'static, ()>,
+}
+
+#[cfg(test)]
+impl Drop for LevelTestGuard {
+    fn drop(&mut self) {
+        set_log_level(self.previous);
+    }
+}
+
+/// 串行化「改级别 / 断言级别」的用例；毒化由持锁方 panic 造成，状态仍可继续用
+#[cfg(test)]
+static LEVEL_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(test)]
+fn level_lock() -> std::sync::MutexGuard<'static, ()> {
+    LEVEL_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// 把级别钉到 `level` 并持锁到返回的守卫离开作用域，之后恢复原值
+#[cfg(test)]
+pub(crate) fn test_log_level(level: LogLevel) -> LevelTestGuard {
+    quiet_for_tests();
+    let lock = level_lock();
+    let previous = current_level();
+    set_log_level(level);
+    LevelTestGuard {
+        previous,
+        _lock: lock,
+    }
+}
+
+/// 需要安静日志的用例（构造缓存等）走这里：全进程只把级别压到 Error 一次
+///
+/// 旧做法是在共享辅助函数里每次调用都 `set_log_level(Error)`——那是个不持锁的
+/// 环境写侧，任何断言级别的用例都在与它赛跑（实测撑开窗口后 12/12 轮红）。
+/// 收敛成一次性写入，且这一次写入必须在持锁下进行，才与 [`test_log_level`] 互斥。
+///
+/// 用 `try_lock` 而不是阻塞式抢锁：拿不到锁说明有「断言级别」的用例正处在窗口
+/// 里，那就跳过（本函数每个建缓存的用例都会再走一遍，下一次照样能落地）。这样
+/// 既不会与它互翻全局值，也不可能自锁——持守卫的用例里再调 `new_cache()` 只是
+/// 这次不静音，不会像阻塞式抢锁那样把 std 的非可重入 Mutex 变成死锁。
+#[cfg(test)]
+pub(crate) fn quiet_for_tests() {
+    static QUIET_DONE: AtomicBool = AtomicBool::new(false);
+    if QUIET_DONE.load(Ordering::Relaxed) {
+        return; // 已静音：热路径上只是读一个原子量
+    }
+    let Ok(_lock) = LEVEL_TEST_LOCK.try_lock() else {
+        return;
+    };
+    QUIET_DONE.store(true, Ordering::Relaxed);
+    set_log_level(LogLevel::Error);
 }
 
 /// 生成一条日志行文本（不包含级别判断，供测试与复用）
@@ -217,14 +298,38 @@ mod tests {
 
     #[test]
     fn test_default_level_is_warn() {
-        // 默认级别：警告（无 RZ_LOG 时静默但保留关键输出）
-        // 注意：此测试依赖全局状态，可能受其他测试影响
-        let _ = current_level();
+        // 约定：无 RZ_LOG 时默认「警告」——教学级(Info)静默、Warn 与 Error 保留。
+        // 旧实现只有 `let _ = current_level();`，一句断言都没有，把初值改成别的
+        // 数也照样全绿（变异实测），所以这里钉的是三方一致：初值常量 ↔ 枚举序数 ↔
+        // from_ordinal 还原。
+        assert_eq!(
+            DEFAULT_LEVEL_ORDINAL,
+            LogLevel::Warn as u8,
+            "默认级别初值与 Warn 的序数脱钩了"
+        );
+        for level in [
+            LogLevel::Debug,
+            LogLevel::Info,
+            LogLevel::Warn,
+            LogLevel::Error,
+        ] {
+            assert_eq!(
+                LogLevel::from_ordinal(level as u8),
+                level,
+                "{level:?} 序数往返"
+            );
+        }
+        assert_eq!(
+            LogLevel::from_ordinal(7),
+            LogLevel::Warn,
+            "未知序数须兜底为警告（保守：不放大也不静默）"
+        );
     }
 
     #[test]
     fn test_is_enabled_filters_by_level() {
-        set_log_level(LogLevel::Warn);
+        // 级别是进程全局：改 + 断言必须持守卫，否则与并发用例互翻（见 LevelTestGuard）
+        let _level = test_log_level(LogLevel::Warn);
         assert!(!is_enabled(LogLevel::Debug));
         assert!(!is_enabled(LogLevel::Info));
         assert!(is_enabled(LogLevel::Warn));
@@ -256,6 +361,10 @@ mod tests {
 
     #[test]
     fn test_format_log_line_structure() {
+        // 级别文字走全局语言（`LogLevel::display_text` → `语言::t`）：断言中文
+        // 「信息」就得持语言守卫，否则会与切语言的用例竞争——它把级别换成
+        // `INFO`/`ИНФО`，本用例随机红（实测：工作区并行跑 release 全量时会咬）。
+        let _lang = crate::语言::test_language("zh");
         let line = format_log_line(LogLevel::Info, "test_module", "test message 42");
         // 格式：[YYYY-MM-DD HH:MM:SS] [信息] [test_module] test message 42
         assert!(line.starts_with('['));
@@ -269,7 +378,7 @@ mod tests {
     #[test]
     fn test_write_below_level_no_output() {
         // 级别设为错误时，信息级写入不应 panic（被过滤，无输出）
-        set_log_level(LogLevel::Error);
+        let _level = test_log_level(LogLevel::Error);
         write_log(LogLevel::Info, "test_module", "不应输出");
         log_info!("test_module", "宏调用不应 panic {}", 1);
         log_debug!("test_module", "调试消息");
@@ -278,7 +387,12 @@ mod tests {
 
     #[test]
     fn test_macros_work_at_enabled_level() {
-        set_log_level(LogLevel::Debug);
+        // 调试级下四个宏都应放行；宏本身不 panic 只是下限，级别判定才是可断言的行为
+        let _level = test_log_level(LogLevel::Debug);
+        assert!(is_enabled(LogLevel::Debug));
+        assert!(is_enabled(LogLevel::Info));
+        assert!(is_enabled(LogLevel::Warn));
+        assert!(is_enabled(LogLevel::Error));
         log_debug!("test_module", "调试 {}", "内容");
         log_info!("test_module", "信息 {}", 42);
         log_warn!("test_module", "警告");
@@ -288,8 +402,13 @@ mod tests {
     #[test]
     fn test_programmatic_level_not_overridden_by_init() {
         // 程序化设置后，init()（读 RZ_LOG）不得覆盖——契约：程序化优先级更高
-        set_log_level(LogLevel::Error);
+        let _level = test_log_level(LogLevel::Error);
+        assert!(LEVEL_SET_PROGRAMMATICALLY.load(Ordering::Relaxed));
         init();
         assert_eq!(current_level(), LogLevel::Error);
+        // 规则本体走纯函数断言：上面的 init() 受 Once 约束，若不是本进程第一个
+        // 调用它的用例，「没被覆盖」可能只是时序巧合，这里把判定逻辑单独钉死。
+        assert!(!env_should_override(true), "已程序化设置时 RZ_LOG 不得覆盖");
+        assert!(env_should_override(false), "未程序化设置时 RZ_LOG 应生效");
     }
 }

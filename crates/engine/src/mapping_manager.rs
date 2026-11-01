@@ -55,6 +55,9 @@ pub struct MappingManager {
     /// 别名）。供“方法调用位未命中映射表”的易混词提示判定——词表大且
     /// lint 每文件调用，惰性计算一次后复用（映射表构造后不可变）。
     lint_words_cache: OnceLock<HashSet<String>>,
+    /// 教学 lint 词表分桶索引缓存（见 [`Self::lint_word_buckets`]）：
+    /// 词表不可变，分桶只建一次；否则每份源码都要重建一遍
+    lint_word_buckets_cache: OnceLock<crate::lint::WordBuckets>,
     /// 教学 lint 歧义构造器被调名集缓存（见 [`Self::ambiguous_constructor_words`]）
     ambiguous_constructors_cache: OnceLock<HashSet<String>>,
     /// 英文回落反向索引缓存（英文原词 → 母语词条）：见 [`Self::english_fallback_map`]
@@ -254,6 +257,7 @@ impl MappingManager {
             alias_map,
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
+            lint_word_buckets_cache: OnceLock::new(),
             ambiguous_constructors_cache: OnceLock::new(),
             english_fallback_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
@@ -372,6 +376,7 @@ impl MappingManager {
             alias_map,
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
+            lint_word_buckets_cache: OnceLock::new(),
             ambiguous_constructors_cache: OnceLock::new(),
             english_fallback_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
@@ -415,6 +420,7 @@ impl MappingManager {
             alias_map,
             fingerprint_cache: OnceLock::new(),
             lint_words_cache: OnceLock::new(),
+            lint_word_buckets_cache: OnceLock::new(),
             ambiguous_constructors_cache: OnceLock::new(),
             english_fallback_cache: OnceLock::new(),
             macro_map_cache: OnceLock::new(),
@@ -541,27 +547,43 @@ impl MappingManager {
         })
     }
 
+    /// 教学 lint 词表分桶索引（易混方法名笔误检查用）
+    ///
+    /// 与 [`Self::get_lint_words`] 同一份词表，只是按字符数分了桶：笔误检查只需
+    /// 比较名字长度 ±1 的词。词表随语言包确定后不可变，因此分桶只建一次——
+    /// 早先由 lint 内部每份源码重建，小文件（CLI 批量转译、LSP 每次编辑）上
+    /// 这笔固定开销占 lint 总耗时的绝大部分。
+    pub fn lint_word_buckets(&self) -> &crate::lint::WordBuckets {
+        self.lint_word_buckets_cache.get_or_init(|| {
+            // 带上精确命中表：真实语料里方法调用位绝大多数是合法词，一次哈希
+            // 探测就能免去扫三桶候选；建表一次、每语言包一次，惰性路径不建
+            crate::lint::WordBuckets::build(self.get_lint_words()).with_exact_index()
+        })
+    }
+
     /// 教学 lint「未标注类型」用：类型推导歧义构造器被调名集合
     ///
     /// 含英文原词 `new`/`default` 与全部映射表中值恰为这些词的方言键
     /// （如 zh：`新建`→new、`默认值`/`缺省`→default）。仅供 lint 启发式
     /// 判定 `X::新建()` 这类无法自行推导结果类型的关联构造调用。
-    pub fn ambiguous_constructor_words(&self) -> HashSet<String> {
-        self.ambiguous_constructors_cache
-            .get_or_init(|| {
-                let mut words: HashSet<String> = ["new".to_string(), "default".to_string()]
-                    .into_iter()
-                    .collect();
-                for map in [&self.keyword_map, &self.module_path_map, &self.alias_map] {
-                    words.extend(
-                        map.iter()
-                            .filter(|(_, en)| matches!(en.as_str(), "new" | "default"))
-                            .map(|(zh, _)| zh.clone()),
-                    );
-                }
-                words
-            })
-            .clone()
+    ///
+    /// 返回引用：集合在 manager 内缓存一次（映射表不可变故无需重建）。早先
+    /// 返回 `HashSet` 副本，逐文件路径（CLI 批量转译、转译管线每次调用）都要
+    /// 为每份源码白 clone 一遍。
+    pub fn ambiguous_constructor_words(&self) -> &HashSet<String> {
+        self.ambiguous_constructors_cache.get_or_init(|| {
+            let mut words: HashSet<String> = ["new".to_string(), "default".to_string()]
+                .into_iter()
+                .collect();
+            for map in [&self.keyword_map, &self.module_path_map, &self.alias_map] {
+                words.extend(
+                    map.iter()
+                        .filter(|(_, en)| matches!(en.as_str(), "new" | "default"))
+                        .map(|(zh, _)| zh.clone()),
+                );
+            }
+            words
+        })
     }
 
     /// 英文回落反向索引（英文原词 → 母语词条）：供教学 lint 提示「方言

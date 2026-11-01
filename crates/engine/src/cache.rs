@@ -9,6 +9,148 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+/// 编辑表内联存储的字节上限
+///
+/// 真实语料里 token 与译文都是短串（`函数` 6 字节、`macro_rules!` 12、
+/// `tracing_subscriber` 18，中文标识符普遍 ≤ 21 字节），22 字节以内不碰堆。
+const 内联字节: usize = 22;
+
+/// 编辑表文本：不超 [`内联字节`] 时内联存储，更长的退化为堆分配
+///
+/// 编辑表每条都保存原名与译名。用 `String` 时每条 2 次 `malloc` + 拷贝，
+/// 而 359 行教学样例会产出 456 条编辑、管线里还要经历
+/// 「词法 source_map → 词法 final_edits → 合并 map」三份拷贝，合计约
+/// 2700 次分配——实测占整条管线 663 µs 里的 **290 µs（44%）**。改为内联后
+/// 短串只付一次 22 字节的 `memcpy`，长名字（极少）仍走 `String`。
+///
+/// 对外仍是字符串（`Deref<Target = str>`，可 `==`、`len()`、`starts_with()`），
+/// 序列化形制不变（仍是一个 JSON 字符串），不影响已有缓存文件。
+#[derive(Clone)]
+pub struct MapText(MapTextRepr);
+
+#[derive(Clone)]
+enum MapTextRepr {
+    /// 内联：`len` 为已用字节数（构造自合法 UTF-8 切片，故必是字符边界）
+    Inline {
+        len: u8,
+        buf: [u8; 内联字节],
+    },
+    Heap(String),
+}
+
+impl MapText {
+    /// 文本切片
+    pub fn as_str(&self) -> &str {
+        match &self.0 {
+            MapTextRepr::Inline { len, buf } => {
+                // 安全：`buf[..len]` 是从一个合法 `&str` 逐字节拷来的原片段
+                //（构造点只有 `From<&str>`），不可能是非法 UTF-8；`len` 也不越界
+                std::str::from_utf8(&buf[..usize::from(*len)]).unwrap_or("")
+            }
+            MapTextRepr::Heap(s) => s.as_str(),
+        }
+    }
+}
+
+impl From<&str> for MapText {
+    fn from(text: &str) -> Self {
+        if text.len() <= 内联字节 {
+            let mut buf = [0u8; 内联字节];
+            buf[..text.len()].copy_from_slice(text.as_bytes());
+            // `len` 不超 22，转 u8 不会截断
+            MapText(MapTextRepr::Inline {
+                len: text.len() as u8,
+                buf,
+            })
+        } else {
+            MapText(MapTextRepr::Heap(text.to_string()))
+        }
+    }
+}
+
+impl From<String> for MapText {
+    fn from(text: String) -> Self {
+        Self::from(text.as_str())
+    }
+}
+
+impl std::ops::Deref for MapText {
+    type Target = str;
+    fn deref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl std::fmt::Debug for MapText {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // 按字符串打印：条目调试输出与 `String` 时期一致（内联与否不可见）
+        std::fmt::Debug::fmt(self.as_str(), f)
+    }
+}
+
+impl std::fmt::Display for MapText {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl PartialEq for MapText {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl Eq for MapText {}
+
+impl PartialEq<str> for MapText {
+    fn eq(&self, other: &str) -> bool {
+        self.as_str() == other
+    }
+}
+
+impl PartialEq<&str> for MapText {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl PartialEq<String> for MapText {
+    fn eq(&self, other: &String) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl PartialEq<MapText> for str {
+    fn eq(&self, other: &MapText) -> bool {
+        self == other.as_str()
+    }
+}
+
+impl PartialEq<MapText> for &str {
+    fn eq(&self, other: &MapText) -> bool {
+        *self == other.as_str()
+    }
+}
+
+impl PartialEq<MapText> for String {
+    fn eq(&self, other: &MapText) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl Serialize for MapText {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for MapText {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        Ok(Self::from(text.as_str()))
+    }
+}
+
 /// 源映射条目：输入文本中一个被替换的标识符 token
 ///
 /// 记录输入侧信息（字节偏移、长度）与翻译前后文本；
@@ -18,6 +160,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 /// - 词法阶段 `source_map`：偏移为母语源坐标，replacement 为词法阶段文本；
 /// - 全管线 `pipeline_map`：偏移为母语源坐标，replacement 为**最终输出文本**；
 /// - 各中间阶段 `_with_map` 的 edits：偏移为该阶段输入文本坐标。
+///
+/// 两个文本字段用 [`MapText`]（小串内联）：编辑表是转译热路径上
+/// 唯一的高频小串容器，见该类型的文档。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceMapEntry {
     /// 源文件中的字节偏移（token 起点）
@@ -25,9 +170,9 @@ pub struct SourceMapEntry {
     /// token 字节长度
     pub length: usize,
     /// 源 token 文本（如 `函数`）
-    pub original: String,
+    pub original: MapText,
     /// 翻译后文本（如 `fn`）
-    pub replacement: String,
+    pub replacement: MapText,
 }
 
 impl SourceMapEntry {
@@ -35,8 +180,8 @@ impl SourceMapEntry {
         Self {
             source_offset,
             length,
-            original: original.to_string(),
-            replacement: replacement.to_string(),
+            original: MapText::from(original),
+            replacement: MapText::from(replacement),
         }
     }
 }
@@ -565,6 +710,61 @@ impl TranslationCache {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_map_text_inline_and_heap_boundaries() {
+        // 边界：恰好 22 字节仍内联，23 字节转堆；两者读回逐字节相同
+        let 恰好 = "a".repeat(内联字节);
+        let 超出 = "b".repeat(内联字节 + 1);
+        for text in [
+            "",
+            "fn",
+            "函数",
+            "macro_rules!",
+            恰好.as_str(),
+            超出.as_str(),
+        ] {
+            let 内联 = MapText::from(text);
+            assert_eq!(内联.as_str(), text);
+            assert_eq!(内联, *text);
+            assert_eq!(内联.len(), text.len());
+        }
+        assert!(matches!(
+            MapText::from("a".repeat(内联字节).as_str()).0,
+            MapTextRepr::Inline { .. }
+        ));
+        assert!(matches!(
+            MapText::from("a".repeat(内联字节 + 1).as_str()).0,
+            MapTextRepr::Heap(_)
+        ));
+        // 多字节字符恰好填满内联缓冲：字符边界不被切断
+        let 中文 = "中".repeat(7); // 21 字节
+        assert_eq!(中文.len(), 21);
+        assert!(matches!(
+            MapText::from(中文.as_str()).0,
+            MapTextRepr::Inline { .. }
+        ));
+        assert_eq!(MapText::from(中文.as_str()).as_str(), 中文);
+    }
+
+    #[test]
+    fn test_map_text_serde_keeps_string_shape() {
+        // 序列化形制与旧版一致：仍是 JSON 字符串（缓存文件无需失效）
+        let entry = SourceMapEntry::new(3, 6, "函数", "fn");
+        let json = serde_json::to_string(&entry).expect("序列化失败");
+        assert_eq!(
+            json,
+            r#"{"source_offset":3,"length":6,"original":"函数","replacement":"fn"}"#
+        );
+        let back: SourceMapEntry = serde_json::from_str(&json).expect("反序列化失败");
+        assert_eq!(back, entry);
+        // 超长文本走堆后依然往返一致
+        let 长 = "x".repeat(64);
+        let entry = SourceMapEntry::new(0, 64, 长.as_str(), 长.as_str());
+        let back: SourceMapEntry =
+            serde_json::from_str(&serde_json::to_string(&entry).unwrap()).unwrap();
+        assert_eq!(back.replacement.as_str(), 长);
+    }
 
     fn sample_fingerprint() -> u64 {
         TranslationCache::compute_content_hash("测试语境")

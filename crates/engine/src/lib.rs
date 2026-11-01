@@ -15,13 +15,16 @@ pub mod logger;
 pub mod mapping_manager;
 pub mod mapping_source;
 pub mod module_path;
+pub mod name_cache;
 pub mod product_layout;
 pub mod relocalize;
 pub mod toolchain;
+pub mod ui;
 pub mod unicode_confusion;
 #[path = "语言.rs"]
 pub mod 语言;
 
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::time::Instant;
 
@@ -175,6 +178,106 @@ pub fn transpile_pipeline_with_map_and_project(
     transpile_pipeline_inner(source, manager, module_names, project, true)
 }
 
+/// 同 [`transpile_pipeline_with_map_and_project`]，项目上下文由调用方在词法
+/// 阶段后补全（单趟：本文件声明不再单独预扫）
+///
+/// LSP 每次按键都要重建项目上下文：本文件内容已变，声明名按内容哈希缓存
+/// 必然失效，而 [`transpile_pipeline_with_map_and_project`] 要求先有完整上下文
+/// 才能转译——调用方只能先跑一整趟 `alias::collect_source_declarations`
+///（内部含完整词法转译）取本文件声明，随后管线里的词法阶段再跑一遍。
+///
+/// 本入口把词法阶段提到回调之前执行，本文件声明从词法产物顺带收集，回调
+/// 只需合并其他文件的缓存声明。输出与「预扫声明 → 建上下文 → 完整管线」
+/// 逐字节一致（项目上下文按构造相同），另返回本文件声明与所用上下文，
+/// 供调用方缓存与变更判定。
+pub fn transpile_pipeline_with_deferred_project<F>(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    module_names: Option<&HashSet<String>>,
+    build_project: F,
+) -> (
+    cache::TranspileOutput,
+    alias::DeclaredNames,
+    alias::ProjectContext,
+)
+where
+    F: FnOnce(&alias::DeclaredNames) -> alias::ProjectContext,
+{
+    deferred_project_inner(source, manager, module_names, build_project, true)
+}
+
+/// 同 [`transpile_pipeline_with_deferred_project`]，但不输出教学告警
+///
+/// 供调用方自行负责教学告警输出的场景使用（LSP 把教学提示作为诊断发布，
+/// 转译时的日志告警只是重复刷屏）：除告警外输出完全一致。
+pub fn transpile_pipeline_with_deferred_project_quiet<F>(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    module_names: Option<&HashSet<String>>,
+    build_project: F,
+) -> (
+    cache::TranspileOutput,
+    alias::DeclaredNames,
+    alias::ProjectContext,
+)
+where
+    F: FnOnce(&alias::DeclaredNames) -> alias::ProjectContext,
+{
+    deferred_project_inner(source, manager, module_names, build_project, false)
+}
+
+/// [`transpile_pipeline_with_deferred_project`] 的唯一实现
+fn deferred_project_inner<F>(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    module_names: Option<&HashSet<String>>,
+    build_project: F,
+    emit_teaching_warnings: bool,
+) -> (
+    cache::TranspileOutput,
+    alias::DeclaredNames,
+    alias::ProjectContext,
+)
+where
+    F: FnOnce(&alias::DeclaredNames) -> alias::ProjectContext,
+{
+    emit_teaching_diagnostics(source, manager, emit_teaching_warnings);
+    let (lex, input_tokens) = transpile_lex_stage(source, manager);
+    // 词法产物要分词一次才收得了声明（建项目上下文的前置）；use 路径阶段
+    // 恰好也在这份文本上跑，于是这份 token 流一路交给后续阶段复用。
+    // 它不必重新分词：词法阶段自己那份输入 token 流按本阶段编辑表推进就是它
+    let lex_tokens = derive_lex_tokens(&input_tokens, &lex);
+    // 词法产物上收集本文件声明：与 `alias::collect_source_declarations` 同源
+    // （后者正是「词法转译 + 收集」），仅少一次重复的转译
+    let declared =
+        alias::collect_declared_names_in(&lex.output, manager.get_alias_map(), &lex_tokens);
+    let project = build_project(&declared);
+    let output = transpile_after_lex(
+        source,
+        manager,
+        module_names,
+        Some(&project),
+        Some(LexReuse {
+            declared: Some(&declared),
+            tokens: &lex_tokens,
+        }),
+        lex,
+    );
+    (output, declared, project)
+}
+
+/// 同 [`transpile_pipeline_with_map_and_project`]，但不输出教学告警
+///
+/// 与 [`transpile_pipeline_quiet`] 同口径：除教学告警外输出完全一致。
+pub fn transpile_pipeline_quiet_with_map_and_project(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    module_names: Option<&HashSet<String>>,
+    project: Option<&alias::ProjectContext>,
+) -> cache::TranspileOutput {
+    transpile_pipeline_inner(source, manager, module_names, project, false)
+}
+
 /// 转译管线的唯一实现：`emit_teaching_warnings` 控制教学告警日志的开关
 fn transpile_pipeline_inner(
     source: &str,
@@ -183,147 +286,374 @@ fn transpile_pipeline_inner(
     project: Option<&alias::ProjectContext>,
     emit_teaching_warnings: bool,
 ) -> cache::TranspileOutput {
-    if emit_teaching_warnings {
+    emit_teaching_diagnostics(source, manager, emit_teaching_warnings);
+    let (lex, input_tokens) = transpile_lex_stage(source, manager);
+    // 词法产物的 token 流由词法阶段自己那份派生（见 [`derive_lex_tokens`]），
+    // 交给 use 路径与别名两个阶段共用：预计算入口（CLI 整棵编译）同样只付
+    // 一整趟分词。声明名不在本入口预算（调用方已带项目上下文），传 `None`。
+    let lex_tokens = derive_lex_tokens(&input_tokens, &lex);
+    transpile_after_lex(
+        source,
+        manager,
+        module_names,
+        project,
+        Some(LexReuse {
+            declared: None,
+            tokens: &lex_tokens,
+        }),
+        lex,
+    )
+}
+
+/// 教学告警（Unicode 混淆 / 全角标点 / 教学 lint）：仅告警不阻断，`emit` 控制输出
+fn emit_teaching_diagnostics(source: &str, manager: &mapping_manager::MappingManager, emit: bool) {
+    if emit {
         // 词法处理前的 Unicode 混淆安全检查（零宽/双向/同形字符，仅告警）
         for warning in unicode_confusion::check_unicode_confusion(source) {
             crate::log_warn!("unicode_confusion", "{}", warning.format());
         }
         // 全角标点教学检查（中文输入法常见错误：代码位置的全角标点，仅告警不阻断）；
         // 字符串/注释内的全角标点合法，由扫描器自动跳过
-        for warning in fullwidth::find_fullwidth_punct(source) {
+        //
+        // 以下四个扫描器共用同一份字符切片：源码只物化一次，避免各扫一遍
+        let chars: Vec<char> = source.chars().collect();
+        for warning in fullwidth::find_fullwidth_punct_chars(&chars) {
             crate::log_warn!("fullwidth", "{}", warning.format());
         }
         // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深/易混方法名。
         // CLI `--no-lint` 可关闭（lint::set_teaching_lint_enabled），
         // 供项目开发（非教学）场景静默刷屏提示
         if lint::teaching_lint_enabled() {
-            for warning in lint::lint_teaching_with_words(
-                source,
-                manager.get_lint_words(),
-                &manager.ambiguous_constructor_words(),
+            // 一把算全部教学提示：共用同一份字符切片，英文回落（母语词条却写成
+            // `fn`/`Vec`/`.collect()` 等）与保留字撞名（`函数 匹配` → `fn match`）
+            // 在同一次遍历里判定，见 `lint::lint_teaching_all`；易混词表的分桶索引
+            // 由 manager 缓存（每语言包一次，不是每文件一次）
+            for warning in lint::lint_teaching_all_chars(
+                &chars,
+                lint::WordIndexSource::Shared(manager.lint_word_buckets()),
+                manager.ambiguous_constructor_words(),
+                manager.english_fallback_map(),
+                manager.get_keyword_map(),
             ) {
-                crate::log_warn!("lint", "{}", warning.format());
-            }
-            // 英文回落提示：母语方言源码里把有母语词条的结构词写成英文（`fn`/`Vec`/
-            // `.collect()`…）时纠偏；恒等映射的英文语言包回落表为空，自动静默
-            for warning in lint::lint_english_fallback(source, manager.english_fallback_map()) {
-                crate::log_warn!("lint", "{}", warning.format());
-            }
-            // 保留字撞名：声明位名字命中 keywords 词条且映射为 Rust 保留关键字时，
-            // 提示改名或 `r#` 转义（消除转译管线唯一的静默语义改写路径）
-            for warning in lint::lint_reserved_name_collision(source, manager.get_keyword_map()) {
                 crate::log_warn!("lint", "{}", warning.format());
             }
         }
     }
+}
 
-    let macro_map = manager.get_macro_map();
-    let derive_map = manager.get_derive_map();
-    let lex = lexer::transpile_with_map(
+/// 词法阶段（关键字/宏/派生/让位词映射）
+///
+/// 另返回本阶段自己分好的输入 token 流（它本来就要分一次）：词法产物的
+/// token 流可据此派生，管线不必再对输出整份重新分词。
+fn transpile_lex_stage(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+) -> (lexer::TranspileResult, Vec<rustc_lexer::Token>) {
+    lexer::transpile_with_map_tokens(
         source,
         manager.get_keyword_map(),
-        macro_map,
-        derive_map,
+        manager.get_macro_map(),
+        manager.get_derive_map(),
         manager.get_use_defer_words(),
         manager.get_method_defer_words(),
         manager.get_alias_map(),
-    );
+    )
+}
 
-    // 阶段 2：use 语句路径替换
-    let mp = if manager.module_path_map.is_empty() {
-        module_path::ReplaceResult {
-            output: lex.output.clone(),
-            edits: Vec::new(),
+/// 词法产物的分词结果（各阶段共用一份 token 流时的载体）
+///
+/// 分词口径与各阶段自己收集的完全一致（`with_capacity(len/4+8)` + `tokenize`）。
+fn collect_tokens(source: &str) -> Vec<rustc_lexer::Token> {
+    let mut tokens: Vec<rustc_lexer::Token> = Vec::with_capacity(source.len() / 4 + 8);
+    tokens.extend(rustc_lexer::tokenize(source));
+    tokens
+}
+
+/// 按某阶段的编辑表把 token 流推进到该阶段输出的坐标
+///
+/// 编辑都是**整段覆盖若干相邻 token** 的替换（词法阶段改标识符 token、use 路径
+/// 改 `模块词` 整个 token、数字后缀黏连时一条编辑跨两个 token），`kind` 序列
+/// 只取决于替换文本。因此「把被覆盖的 token 换成替换值自己的 token」就得到
+/// 该阶段输出的 token 流，不必把整份文件重新分词（359 / 2000 行样例分别
+/// 实测 189 / 421 µs）。替换值本身仍要分词（它可能含 `::`，如 `标准集合` →
+/// `std::collections`，也可能含补出来的 `!`，如 `打印行` → `println!`），但每处
+/// 只有几个 token，且替换值原样占据原文置，前后邻接关系不变，所以单独分词与
+/// 整份分词的结果同构（该假设由单测、语料差分测试与 debug 构建下的自检守住）。
+///
+/// 编辑起点不在 token 边界、终点落进 token 内部、或编辑表没走完时返回 `None`：
+/// 调用方退回现场分词，宁慢不错。`SourceMapEntry` 按匹配位置升序发出，故与
+/// token 同序遍历一次即可。
+fn rebase_tokens(
+    base: &[rustc_lexer::Token],
+    edits: &[cache::SourceMapEntry],
+) -> Option<Vec<rustc_lexer::Token>> {
+    let mut out: Vec<rustc_lexer::Token> = Vec::with_capacity(base.len());
+    let mut index = 0usize;
+    let mut offset = 0usize;
+    let mut next_edit = 0usize;
+    while index < base.len() {
+        let token = &base[index];
+        // 编辑起点落在本 token 内部（如数字字面量的后缀被单独改写：`1024整数`
+        // 是一个 Literal token，后缀 `整数` 是其尾部字节）：整段对齐前提已破，
+        // 立刻放弃派生，不要跑完全流才发现。
+        if let Some(edit) = edits.get(next_edit)
+            && edit.source_offset < offset
+        {
+            return None;
         }
-    } else {
-        module_path::replace_module_paths_with_map(&lex.output, manager.get_module_path_map())
-    };
+        if let Some(edit) = edits.get(next_edit)
+            && edit.source_offset == offset
+        {
+            // 同一起点的编辑必然从本 token 起整段覆盖：往后吃满 `length`
+            let end = offset + edit.length;
+            let mut covered = index;
+            let mut cursor = offset;
+            while cursor < end {
+                let spanned = base.get(covered)?;
+                cursor += spanned.len;
+                covered += 1;
+            }
+            if cursor != end {
+                return None;
+            }
+            let replacement = edit.replacement.as_str();
+            let before = out.len();
+            for part in rustc_lexer::tokenize(replacement) {
+                out.push(rustc_lexer::Token {
+                    kind: part.kind,
+                    len: part.len,
+                });
+            }
+            // 空替换（把 token 抹成空白）无从对齐，退回现场分词
+            if out.len() == before {
+                return None;
+            }
+            next_edit += 1;
+            index = covered;
+            offset = cursor;
+        } else {
+            out.push(rustc_lexer::Token {
+                kind: token.kind,
+                len: token.len,
+            });
+            offset += token.len;
+            index += 1;
+        }
+    }
+    (next_edit == edits.len()).then_some(out)
+}
+
+/// 由词法阶段的输入 token 流派生 `lex.output` 的 token 流
+///
+/// 派生只在编辑与 token 边界对齐时成立（见 [`rebase_tokens`]）；对不齐时退回
+/// 现场分词。debug 构建下额外把派生结果与整份重新分词逐 token 对比，不一致
+/// 即崩——那意味着某个替换值与相邻字符合并成了不同的 token 序列（宁可开发期
+/// 吵，也不让错位的偏移表静默流入产物）。
+fn derive_lex_tokens(
+    input_tokens: &[rustc_lexer::Token],
+    lex: &lexer::TranspileResult,
+) -> Vec<rustc_lexer::Token> {
+    let derived = rebase_tokens(input_tokens, &lex.final_edits);
+    #[cfg(debug_assertions)]
+    if let Some(tokens) = &derived {
+        let fresh = collect_tokens(&lex.output);
+        debug_assert!(
+            tokens
+                .iter()
+                .zip(&fresh)
+                .all(|(a, b)| a.kind == b.kind && a.len == b.len)
+                && tokens.len() == fresh.len(),
+            "词法 token 派生与重新分词不一致：派生 {} token / 重分 {} token",
+            tokens.len(),
+            fresh.len()
+        );
+    }
+    derived.unwrap_or_else(|| collect_tokens(&lex.output))
+}
+
+/// 延迟入口与预计算入口在词法产物上已经算好的成果，交给后续阶段复用
+///
+/// 两者都以 `lex.output` 为输入：那份分词流（use 路径阶段直接借用，别名阶段
+/// 借用由它再派生的一份）与声明名（只有延迟入口会先收集，它必须先把声明
+/// 汇总成项目上下文才能继续；预计算入口的上下文由调用方备好，声明名由别名
+/// 阶段自己现场收集）。缺哪个就由哪个阶段自己补上。
+struct LexReuse<'a> {
+    declared: Option<&'a alias::DeclaredNames>,
+    tokens: &'a [rustc_lexer::Token],
+}
+
+/// 词法之后的管线：use 路径替换 → `crate::` 前缀 → 别名替换 → 编辑表合并
+///
+/// `reuse` 为词法产物上已算好的声明名与 token 流（延迟项目上下文入口必然
+/// 先算过）：传入时 use 路径阶段与别名阶段都跳过重复的分词/状态机；`None`
+/// 时由各阶段自行完成。两条路径输出逐字节一致（见 `tests/alias_declared_
+/// reuse.rs` 与 `module_path` 的差分测试）。
+fn transpile_after_lex(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    module_names: Option<&HashSet<String>>,
+    project: Option<&alias::ProjectContext>,
+    reuse: Option<LexReuse<'_>>,
+    lex: lexer::TranspileResult,
+) -> cache::TranspileOutput {
+    // 阶段 2：use 语句路径替换
+    //
+    // 各阶段输出用 Cow 串起来：阶段未启用时直接借用上一阶段输出，不再整份
+    // clone——早先三个阶段各 clone 一次全文（2000 行文件即三次全文拷贝）
+    let lex_output = lex.output;
+    // 调用方已分好词时直接借用那份 token 流
+    let reuse_tokens = reuse.as_ref().map(|r| r.tokens);
+    let (mp_out, mp_edits): (Cow<'_, str>, Vec<cache::SourceMapEntry>) =
+        if manager.module_path_map.is_empty() {
+            (Cow::Borrowed(lex_output.as_str()), Vec::new())
+        } else {
+            let replaced = match reuse_tokens {
+                Some(tokens) => module_path::replace_module_paths_in_tokens(
+                    &lex_output,
+                    manager.get_module_path_map(),
+                    tokens,
+                ),
+                None => module_path::replace_module_paths_with_map(
+                    &lex_output,
+                    manager.get_module_path_map(),
+                ),
+            };
+            (Cow::Owned(replaced.output), replaced.edits)
+        };
     // 阶段 3（可选）：`crate::` 前缀重写（LSP 虚拟项目跨文件引用）；
     // 项目项名集合供 glob 导入场景的遮蔽豁免（无项目上下文时传空集）
-    let qual = if let Some(names) = module_names
+    let (qual_out, qual_edits): (Cow<'_, str>, Vec<cache::SourceMapEntry>) = if let Some(names) =
+        module_names
         && !names.is_empty()
     {
         let empty_items = HashSet::new();
         let item_names = project.map(|p| &p.items).unwrap_or(&empty_items);
-        module_path::qualify_module_paths_with_map(&mp.output, names, item_names)
+        let qualified =
+            module_path::qualify_module_paths_with_map(mp_out.as_ref(), names, item_names);
+        (Cow::Owned(qualified.output), qualified.edits)
     } else {
-        module_path::ReplaceResult {
-            output: mp.output.clone(),
-            edits: Vec::new(),
+        (Cow::Borrowed(mp_out.as_ref()), Vec::new())
+    };
+    // 阶段 4 的输入是 `qual_out`：它的 token 流可由词法产物那份派生——use 路径
+    // 替换只改标识符 token 的长度，`crate::` 前缀阶段真插入过文本时无从派生
+    //（token 数量变了），退回现场分词。
+    let rebased_tokens;
+    let alias_tokens: Option<&[rustc_lexer::Token]> = match reuse_tokens {
+        Some(base) if qual_edits.is_empty() && mp_edits.is_empty() => Some(base),
+        Some(base) if qual_edits.is_empty() => {
+            rebased_tokens = rebase_tokens(base, &mp_edits);
+            rebased_tokens.as_deref()
         }
+        _ => None,
     };
     // 阶段 4：标识符别名替换（声明位保护 + 项目级声明上下文）；
     // 附模块路径表：use 之外的路径根位模块词（`异步运行时::睡眠`、
     // `#[异步运行时::主函数]`）在别名阶段回退模块路径表完成转译
-    let al = if manager.alias_map.is_empty() && manager.module_path_map.is_empty() {
-        alias::ReplaceResult {
-            output: qual.output.clone(),
-            edits: Vec::new(),
-        }
-    } else {
-        alias::replace_aliases_with_context_and_module_paths(
-            &qual.output,
-            manager.get_alias_map(),
-            manager.get_module_path_map(),
-            project,
-        )
-    };
+    let (al_out, al_edits): (Cow<'_, str>, Vec<cache::SourceMapEntry>) =
+        if manager.alias_map.is_empty() && manager.module_path_map.is_empty() {
+            (Cow::Borrowed(qual_out.as_ref()), Vec::new())
+        } else {
+            let aliased = alias::replace_aliases_reusing(
+                qual_out.as_ref(),
+                manager.get_alias_map(),
+                manager.get_module_path_map(),
+                project,
+                reuse.as_ref().and_then(|r| r.declared),
+                alias_tokens,
+            );
+            (Cow::Owned(aliased.output), aliased.edits)
+        };
 
     // 组合各阶段编辑表为母语源坐标的全管线地图（replacement 取最终输出文本）
-    let stages: Vec<&[cache::SourceMapEntry]> =
-        vec![&lex.final_edits, &mp.edits, &qual.edits, &al.edits];
-    let pipeline_map = compose_pipeline_map(source, &stages);
+    // 词法阶段编辑按所有权传入：它们已是母语源坐标，无需夹边界时可原样移动
+    let later: Vec<&[cache::SourceMapEntry]> = vec![&mp_edits, &qual_edits, &al_edits];
+    let pipeline_map = compose_pipeline_map(source, lex.final_edits, &later);
 
-    cache::TranspileOutput::with_full_map(al.output, lex.source_map, pipeline_map)
+    cache::TranspileOutput::with_full_map(al_out.into_owned(), lex.source_map, pipeline_map)
 }
 
 /// 合并各阶段编辑表为母语源坐标的最终编辑地图
 ///
-/// `stages[0]`（词法）的编辑已直接以母语源偏移记录；后续阶段的编辑以各自
-/// 输入文本偏移记录，需经逆映射链换算回母语源偏移。`original/length`
-/// 一律以母语源文本为准（后续阶段替换的 token 未被前置阶段改写，长度一致）。
+/// `lex_edits`（词法阶段）的编辑已直接以母语源偏移记录，且按所有权传入；
+/// `later` 中的各阶段编辑以各自输入文本偏移记录，需经逆映射链换算回母语源
+/// 偏移。`original/length` 一律以母语源文本为准（后续阶段替换的 token 未被
+/// 前置阶段改写，长度一致）。
 /// 同一源偏移出现多条编辑时保留最后阶段（后写覆盖先写，按阶段顺序稳定排序）。
 fn compose_pipeline_map(
     source: &str,
-    stages: &[&[cache::SourceMapEntry]],
+    lex_edits: Vec<cache::SourceMapEntry>,
+    later: &[&[cache::SourceMapEntry]],
 ) -> Vec<cache::SourceMapEntry> {
-    let mut merged: Vec<cache::SourceMapEntry> = Vec::new();
-    for (stage_idx, edits) in stages.iter().enumerate() {
+    // 先为后续阶段算好母语源偏移（逆映射要读前面的全部阶段，含词法阶段；
+    // 算完后词法编辑才可被移动消费）
+    //
+    // 换算走 [`ReverseCursor`] 而非逐条从头扫描：某阶段的编辑按输入偏移升序，
+    // 而逆映射单调（替换区间内一律返回 token 起点），故一条查询的答案不会小于
+    // 前一条——游标只前进不回退，整段换算从 O(该阶段编辑数 × 前置阶段编辑数)
+    // 降到 O(两者之和)。逐条重扫在大文件上是实测的平方项：2246 行、别名密集
+    //（词法 2528 条 + 别名 1683 条）的语料冷转译 37.4 ms，同规模只改关键字的
+    // 语料 3.26 ms；行数翻倍时间 ×3.9。与旧实现逐偏移等价
+    //（见 `test_reverse_cursor_matches_naive`）。
+    let mut later_offsets: Vec<Vec<usize>> = Vec::with_capacity(later.len());
+    for (stage_idx, edits) in later.iter().enumerate() {
+        let mut offsets = Vec::with_capacity(edits.len());
+        if edits.is_empty() {
+            later_offsets.push(offsets);
+            continue;
+        }
+        // 换算链：先夹更后的阶段（后写覆盖先写，逆序回溯），最后夹词法阶段
+        let mut chain: Vec<ReverseCursor<'_>> = later[..stage_idx]
+            .iter()
+            .rev()
+            .copied()
+            .map(ReverseCursor::new)
+            .collect();
+        let mut lex_cursor = ReverseCursor::new(&lex_edits);
         for e in edits.iter() {
-            let zh_offset = if stage_idx == 0 {
-                e.source_offset
-            } else {
-                // 逆映射链：从 stage_idx-1 阶段往回推到母语源坐标
-                let mut off = e.source_offset;
-                for prev in stages[..stage_idx].iter().rev() {
-                    off = inverse_map_offset(prev, off);
-                }
-                off
-            };
+            let mut off = e.source_offset;
+            for cursor in &mut chain {
+                off = cursor.map(off);
+            }
+            offsets.push(lex_cursor.map(off));
+        }
+        later_offsets.push(offsets);
+    }
+
+    let total = lex_edits.len() + later.iter().map(|e| e.len()).sum::<usize>();
+    let mut merged: Vec<cache::SourceMapEntry> = Vec::with_capacity(total);
+    // 词法阶段：坐标已就位，边界无需调整时直接移动条目（每条省下两次文本
+    // 拷贝——359 行样例 456 条编辑，这张表是管线里最大的一份）
+    for e in lex_edits {
+        let end = e.source_offset + e.length;
+        let 边界无需调整 = end <= source.len()
+            && source.is_char_boundary(e.source_offset)
+            && source.is_char_boundary(end)
+            && &source[e.source_offset..end] == e.original.as_str();
+        if 边界无需调整 {
+            merged.push(e);
+            continue;
+        }
+        let (start, end) = clamp_to_char_boundaries(source, e.source_offset, e.length);
+        merged.push(cache::SourceMapEntry::new(
+            e.source_offset,
+            e.length,
+            &source[start..end],
+            e.replacement.as_str(),
+        ));
+    }
+
+    for (stage_idx, edits) in later.iter().enumerate() {
+        for (e, &zh_offset) in edits.iter().zip(later_offsets[stage_idx].iter()) {
             // original/length 以母语源文本为准。
-            // 注意：非第 0 阶段的 e.length 处于该阶段输入坐标，未必等于母语源坐标长度；
+            // 注意：后续阶段的 e.length 处于该阶段输入坐标，未必等于母语源坐标长度；
             // 这里把起止偏移都夹到母语源文本的合法字符边界，避免多字节字符（如日本語の
             // メソッド名 `から`）切片越界引发 panic。transpile 输出本身不受影响。
-            let src_len = source.len();
-            let start = zh_offset.min(src_len);
-            let end_raw = (zh_offset + e.length).min(src_len);
-            let start = {
-                let mut s = start;
-                while s < src_len && !source.is_char_boundary(s) {
-                    s += 1;
-                }
-                s
-            };
-            let mut end = end_raw;
-            while end > start && !source.is_char_boundary(end) {
-                end -= 1;
-            }
-            let original = &source[start..end];
+            let (start, end) = clamp_to_char_boundaries(source, zh_offset, e.length);
             merged.push(cache::SourceMapEntry::new(
                 zh_offset,
                 e.length,
-                original,
-                &e.replacement,
+                &source[start..end],
+                e.replacement.as_str(),
             ));
         }
     }
@@ -343,11 +673,34 @@ fn compose_pipeline_map(
     deduped
 }
 
+/// 把编辑区间夹到母语源文本的合法字符边界
+///
+/// 返回 `(start, end)`：`start` 向后推进到字符边界、`end` 向前回退到字符边界
+/// （不越过 `start`），两者都不超文本长度。后续阶段的 `length` 处于该阶段坐标，
+/// 未必对齐母语源的字符边界（如日本語のメソッド名 `から`），直接切片会 panic。
+fn clamp_to_char_boundaries(source: &str, offset: usize, length: usize) -> (usize, usize) {
+    let src_len = source.len();
+    let mut start = offset.min(src_len);
+    while start < src_len && !source.is_char_boundary(start) {
+        start += 1;
+    }
+    let mut end = (offset + length).min(src_len);
+    while end > start && !source.is_char_boundary(end) {
+        end -= 1;
+    }
+    (start, end)
+}
+
 /// 逆映射：把"上一阶段输出坐标"的偏移映射回"上一阶段输入坐标"
 ///
 /// edits 按 input_offset 升序、互不重叠（每个被替换 token 一条）。
 /// 落在替换区间内的偏移返回 token 起点（token 级边界近似——列映射在
 /// token 起点记录分段点，区间内位置近似映射到起点即可）。
+///
+/// **仅供测试参照**：生产路径按升序批量查询，用 [`ReverseCursor`] 保住游标，
+/// 不必每次从表头重扫（后者是实测的平方项）。保留这份朴素实现就是为了
+/// 能对着一模一样的语义做差分（`test_reverse_cursor_matches_naive`）。
+#[cfg(test)]
 fn inverse_map_offset(edits: &[cache::SourceMapEntry], out_offset: usize) -> usize {
     let mut in_cursor = 0usize;
     let mut out_cursor = 0usize;
@@ -364,6 +717,67 @@ fn inverse_map_offset(edits: &[cache::SourceMapEntry], out_offset: usize) -> usi
         in_cursor = e.source_offset + e.length;
     }
     in_cursor + (out_offset - out_cursor)
+}
+
+/// 逆映射游标：对**非递减**的查询偏移序列，只前进一趟就把全部答案换算完
+///
+/// 与 [`inverse_map_offset`]（逐条从头扫描）逐偏移等价，但省掉重复扫描：整段
+/// 查询 O(编辑数 + 查询数) 而不是 O(编辑数 × 查询数）。前提由调用方保证：
+/// 各阶段编辑表按输入偏移升序，且映射本身单调（区间内一律返回 token 起点，
+/// 不会把后面的查询映到比前面的答案更小的偏移）。debug 构建下断言序列确实
+/// 非递减——前提破了就是错乱偏移流进产物，宁可在开发期吵。
+pub(crate) struct ReverseCursor<'a> {
+    /// 前置阶段的编辑表（按输入偏移升序、互不重叠）
+    edits: &'a [cache::SourceMapEntry],
+    /// 下一个尚未跨过的编辑
+    index: usize,
+    /// `edits[index]` 起点两侧的偏移：输入侧与输出侧
+    in_offset: usize,
+    out_offset: usize,
+    /// 上一次查询的偏移（非递减前提的自检）
+    last: usize,
+}
+
+impl<'a> ReverseCursor<'a> {
+    /// 新游标：停在文本起点，尚未消费任何编辑
+    pub(crate) fn new(edits: &'a [cache::SourceMapEntry]) -> Self {
+        Self {
+            edits,
+            index: 0,
+            in_offset: 0,
+            out_offset: 0,
+            last: 0,
+        }
+    }
+
+    /// 查询一个输出侧偏移对应的输入侧偏移（查询序列必须非递减）
+    pub(crate) fn map(&mut self, out: usize) -> usize {
+        debug_assert!(
+            out >= self.last,
+            "逆映射游标的查询偏移必须非递减：本次 {out} < 上次 {}",
+            self.last
+        );
+        self.last = out;
+        while self.index < self.edits.len() {
+            let e = &self.edits[self.index];
+            // 未替换区间 [in_offset, e.source_offset)：输出侧等长、逐字节对应
+            let gap_end = self.out_offset + (e.source_offset - self.in_offset);
+            if out <= gap_end {
+                return self.in_offset + (out - self.out_offset);
+            }
+            // 替换区间内：一律映到 token 起点（与旧实现同一近似）；
+            // 游标不前进——后续查询可能还落在同一条替换里
+            if out < gap_end + e.replacement.len() {
+                return e.source_offset;
+            }
+            // 整条跨过，游标推进到下一条编辑之前
+            self.out_offset = gap_end + e.replacement.len();
+            self.in_offset = e.source_offset + e.length;
+            self.index += 1;
+        }
+        // 表已走完：尾部未替换区间逐字节对应
+        self.in_offset + (out - self.out_offset)
+    }
 }
 
 #[cfg(test)]
@@ -413,9 +827,287 @@ mod tests {
         .expect("创建测试管理器失败")
     }
 
+    /// `rebase_tokens` 派生出的 token 流必须与对阶段输出重新分词的结果逐项相同
+    ///
+    /// 派生只改被替换 token 的长度（编辑整 token 对齐、替换值是单个标识符）。
+    /// 这里用真实模块路径替换产生编辑，再把派生结果与 `tokenize(输出)` 对拍：
+    /// `kind` 与 `len` 任一不同都说明同构假设不成立。
+    #[test]
+    fn test_rebase_tokens_matches_fresh_tokenize() {
+        let manager = create_manager();
+        let path_map = manager.get_module_path_map();
+        for src in [
+            "使用 标准集合::哈希映射;\n",
+            "使用 标准集合 :: 哈希映射;\n",
+            "使用 线程::生成;\n使用 标准集合::双向队列;\n",
+            "使用 网络库 as 网络;\nfn f() { 标准集合::新建(); }\n",
+            "// 使用 标准集合::哈希映射;\nfn f() {}\n",
+            "fn f() { let x = 1; }\n",
+            "",
+        ] {
+            let base = collect_tokens(src);
+            let stage = module_path::replace_module_paths_with_map(src, path_map);
+            let Some(rebased) = rebase_tokens(&base, &stage.edits) else {
+                panic!("{src:?}: 单个标识符替换应能派生 token 流");
+            };
+            let fresh = collect_tokens(&stage.output);
+            assert_eq!(rebased.len(), fresh.len(), "{src:?}: token 数不一致");
+            for (i, (a, b)) in rebased.iter().zip(&fresh).enumerate() {
+                assert_eq!(a.kind, b.kind, "{src:?}: 第 {i} 个 token 的 kind");
+                assert_eq!(a.len, b.len, "{src:?}: 第 {i} 个 token 的长度");
+            }
+        }
+    }
+
+    /// 替换值含 `::` 时派生会把替换值再分词，得到的仍是同构的 token 流
+    #[test]
+    fn test_rebase_tokens_splits_multi_token_replacement() {
+        let src = "标准集合::哈希映射;";
+        let base = collect_tokens(src);
+        let edits = vec![cache::SourceMapEntry::new(
+            0,
+            "标准集合".len(),
+            "标准集合",
+            "std::collections",
+        )];
+        let rebased = rebase_tokens(&base, &edits).expect("应能派生");
+        let fresh = collect_tokens("std::collections::哈希映射;");
+        assert_eq!(rebased.len(), fresh.len(), "token 数应与重新分词一致");
+        for (i, (a, b)) in rebased.iter().zip(&fresh).enumerate() {
+            assert_eq!(a.kind, b.kind, "第 {i} 个 token 的 kind");
+            assert_eq!(a.len, b.len, "第 {i} 个 token 的长度");
+        }
+    }
+
+    /// 编辑未落在 token 边界时派生失败（不能默默错位）
+    #[test]
+    fn test_rebase_tokens_rejects_misaligned_edit() {
+        let src = "标准集合::哈希映射;";
+        let base = collect_tokens(src);
+        // token 起点：0 / 12 / 13 / 14 / 26；其余偏移都落在某个 token 内部
+        for offset in [1usize, 3, 15, 20, 25] {
+            let edits = vec![cache::SourceMapEntry::new(offset, 1, "x", "y")];
+            assert!(
+                rebase_tokens(&base, &edits).is_none(),
+                "偏移 {offset} 不在 token 边界，应拒绝"
+            );
+        }
+    }
+
+    /// 一条编辑跨过多个 token 时同样可派生（被覆盖的 token 整段消失）
+    ///
+    /// 词法阶段的数字后缀黏连（`1024整数`）就是这么一条编辑；这里用
+    /// `标准集合::` → `std::`（标识符 + 两个冒号）固定该形态。
+    #[test]
+    fn test_rebase_tokens_spans_multi_token_edit() {
+        let src = "标准集合::哈希映射;";
+        let base = collect_tokens(src);
+        let edits = vec![cache::SourceMapEntry::new(
+            0,
+            "标准集合::".len(),
+            "标准集合::",
+            "std::",
+        )];
+        let rebased = rebase_tokens(&base, &edits).expect("跨 token 编辑应能派生");
+        let fresh = collect_tokens("std::哈希映射;");
+        assert_eq!(rebased.len(), fresh.len(), "token 数应与重新分词一致");
+        for (i, (a, b)) in rebased.iter().zip(&fresh).enumerate() {
+            assert_eq!(a.kind, b.kind, "第 {i} 个 token 的 kind");
+            assert_eq!(a.len, b.len, "第 {i} 个 token 的长度");
+        }
+    }
+
+    /// 词法产物的 token 流可由「词法阶段输入 token + 词法编辑表」派生
+    ///
+    /// 管线里最贵的一趟重复分词就在这一句上（2000 行样例实测 421 µs），所以
+    /// 同构假设必须直接锁住：逐形态比 `derive_lex_tokens` 与 `tokenize(输出)`。
+    /// 形态涵盖宏补 `!`、`!` 邻接、数字后缀黏连、生命周期、字面量、跨行注释、
+    /// use 路径与表达式里的模块词、空文件。
+    #[test]
+    fn test_derive_lex_tokens_matches_fresh_tokenize() {
+        let manager = create_manager();
+        for src in [
+            "打印行!(\"x\");\n",
+            "打印行(\"x\");\n",
+            "如果 标志 != 打印行(1) {}\n",
+            "让 a = 文件!(1); 让 b = 文件(2);\n",
+            "函数 f<'a>(x: &'a 整数) -> 整数 { *x }\n",
+            "让 c = '中'; 让 b = b'x'; 让 s = \"含 打印行 的串\"; 让 r = r#\"原始\"#;\n",
+            "/* 块\n注释 */ 让 x = 打印行(1);\n",
+            "使用 标准集合::哈希映射;\n让 m = 标准集合::新建();\n",
+            "标准集合::哈希映射::新建();\n",
+            "函数 主函数() { 让 可变 数量: 整数 = 5; }\n",
+            "枚举 E { A, B }\n",
+            "让 x = 1..=2; 让 y = -1;\n",
+            "让 r#函数 = 1;\n",
+            "// 只有注释\n",
+            "",
+        ] {
+            let (lex, input_tokens) = transpile_lex_stage(src, &manager);
+            // 派生必须真的成立（否则本测试只是「退回现场分词」的同义反复）
+            assert!(
+                rebase_tokens(&input_tokens, &lex.final_edits).is_some(),
+                "{src:?}: 未能由输入 token 派生"
+            );
+            let derived = derive_lex_tokens(&input_tokens, &lex);
+            let fresh = collect_tokens(&lex.output);
+            assert_eq!(derived.len(), fresh.len(), "{src:?}: token 数不一致");
+            for (i, (a, b)) in derived.iter().zip(&fresh).enumerate() {
+                assert_eq!(a.kind, b.kind, "{src:?}: 第 {i} 个 token 的 kind");
+                assert_eq!(a.len, b.len, "{src:?}: 第 {i} 个 token 的长度");
+            }
+        }
+    }
+
+    /// 真 zh 语言包（而非上面那份小映射表）：替换点越密，派生越容易暴露问题
+    fn zh_manager() -> mapping_manager::MappingManager {
+        use std::path::Path;
+
+        mapping_manager::MappingManager::load_from_dir(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh"),
+        )
+        .expect("加载 zh 语言包失败")
+    }
+
+    /// 后缀与数字黏连时不派生（编辑落在 token 内部），但退回路径仍须同构
+    #[test]
+    fn test_derive_lex_tokens_falls_back_on_partial_edit() {
+        let manager = zh_manager();
+        for src in [
+            "让 n = 1024整数;\n",
+            "让 n = 1024无符号机器整数;\n",
+            "让 x = 3整数;\n",
+        ] {
+            let (lex, input_tokens) = transpile_lex_stage(src, &manager);
+            assert!(
+                rebase_tokens(&input_tokens, &lex.final_edits).is_none(),
+                "{src:?}: 编辑落在 token 内部，应拒绝派生"
+            );
+            let derived = derive_lex_tokens(&input_tokens, &lex);
+            let fresh = collect_tokens(&lex.output);
+            assert_eq!(derived.len(), fresh.len(), "{src:?}: 退回路径 token 数");
+            for (i, (a, b)) in derived.iter().zip(&fresh).enumerate() {
+                assert_eq!(a.kind, b.kind, "{src:?}: 退回路径第 {i} 个 token 的 kind");
+                assert_eq!(a.len, b.len, "{src:?}: 退回路径第 {i} 个 token 的长度");
+            }
+        }
+    }
+
+    /// 真实语料上派生与重新分词同构（zh 教程全部代码块）
+    ///
+    /// 单测的十几份形态只能算抽样；这一条把仓库里的方言语料全部跑一遍：
+    /// 任何教程块里出现「派生与重新分词不同构」都会在这里反出来（debug 构建
+    /// 下的管线自检也会反，但只在真的跑过那条管线时）。派生不成立（退回
+    /// 现场分词）不算错，只统计不崩。
+    #[test]
+    fn test_derive_lex_tokens_matches_on_tutorial_corpus() {
+        use std::fs;
+        use std::path::Path;
+
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tutorials");
+        // 语料目录缺席分两种，必须区分对待：旧写法不分青红皂白 `return`，而这一返回
+        // 正好在 `checked > 400` 的语料下限断言之前（实测把目录指向不存在的名字：
+        // 用例 0.00 s 绿色通过，真实跑是 0.12 s）——也就是说本用例唯一的名值守门人
+        // 被它自己绕过了。仓库布局的判据是 workspace 根清单在不在：在，则教程目录
+        // 缺席只能是路径写错或检出不全，必须判红；不在（发布包/独立 crate）才是真的跳过。
+        if !dir.is_dir() {
+            let workspace_manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../Cargo.toml");
+            assert!(
+                !workspace_manifest.is_file(),
+                "教程语料目录缺失：{}（workspace 布局下它必须存在，否则本用例等于没跑）",
+                dir.display()
+            );
+            return; // 非仓库布局（如发布包）里没教程目录，不阻断测试
+        }
+        let entries = fs::read_dir(&dir).expect("教程目录存在但读不了");
+        let manager = zh_manager();
+        let mut checked = 0usize;
+        let mut rejected = 0usize;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("md") {
+                continue;
+            }
+            let Ok(text) = fs::read_to_string(&path) else {
+                continue;
+            };
+            for block in markdown_code_blocks(&text) {
+                let (lex, input_tokens) = transpile_lex_stage(&block, &manager);
+                checked += 1;
+                if rebase_tokens(&input_tokens, &lex.final_edits).is_none() {
+                    rejected += 1;
+                }
+                let derived = derive_lex_tokens(&input_tokens, &lex);
+                let fresh = collect_tokens(&lex.output);
+                assert_eq!(
+                    derived.len(),
+                    fresh.len(),
+                    "{:?} 的块：token 数不一致",
+                    path.file_name()
+                );
+                for (i, (a, b)) in derived.iter().zip(&fresh).enumerate() {
+                    assert_eq!(
+                        a.kind,
+                        b.kind,
+                        "{:?} 的块：第 {i} 个 token 的 kind",
+                        path.file_name()
+                    );
+                    assert_eq!(
+                        a.len,
+                        b.len,
+                        "{:?} 的块：第 {i} 个 token 的长度",
+                        path.file_name()
+                    );
+                }
+            }
+        }
+        assert!(
+            checked > 400,
+            "语料过少（{checked} 块），检查教程目录/解析是否失效"
+        );
+        // 后缀黏连等形态只能退回现场分词；占比不应过半，否则本优化失效
+        assert!(rejected * 2 < checked, "派生失败过多：{rejected}/{checked}");
+    }
+
+    /// 提取 Markdown 围栏代码块（```rust / ```zh / 裸 ```）
+    fn markdown_code_blocks(text: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut current: Option<String> = None;
+        for line in text.lines() {
+            let t = line.trim_start();
+            if let Some(rest) = t.strip_prefix("```") {
+                match current.take() {
+                    None => {
+                        let lang = rest.trim();
+                        if matches!(lang, "" | "rust" | "zh" | "rust,zh" | "zh,rust") {
+                            current = Some(String::new());
+                        } else {
+                            // 非代码块（bash/text/…）：置 None 但仍需闭合，
+                            // 用一个永不出发的占位块标记跳过
+                            current = Some("\u{0}".to_string());
+                        }
+                    }
+                    Some(buf) => {
+                        if !buf.starts_with('\u{0}') {
+                            out.push(buf);
+                        }
+                        current = None;
+                    }
+                }
+            } else if let Some(buf) = current.as_mut()
+                && !buf.starts_with('\u{0}')
+            {
+                buf.push_str(line);
+                buf.push('\n');
+            }
+        }
+        out
+    }
+
     fn new_cache() -> cache::TranslationCache {
-        // 测试中抑制日志输出（默认级别为警告，信息级会被过滤）
-        logger::set_log_level(logger::LogLevel::Error);
+        // 静音走一次性写入且持级别锁：旧写法每次建缓存都裸写全局级别，等于给
+        // 所有「断言级别」的用例埋了个不持锁的竞争者（撑开窗口实测 12/12 轮红）。
+        logger::quiet_for_tests();
         cache::TranslationCache::with_default_capacity()
     }
 
@@ -605,6 +1297,161 @@ mod tests {
         assert_eq!(
             normal.pipeline_map, quiet.pipeline_map,
             "静默重放的管线地图必须一致"
+        );
+    }
+
+    /// 游标版逆映射与朴素版逐偏移等价：多种表形态 × 全量偏移查询 × 阶段链
+    ///
+    /// 生产路径按升序批量查询（见 `compose_pipeline_map`），游标只前进不回退；
+    /// 朴素版每次从表头重扫。两者必须逐偏移给出同一答案——偏移换算错了，
+    /// 全管线地图就错位，列映射回译跟着错。形态覆盖：空表、首条从 0 起、
+    /// 替换变长/变短/等长/清空、相邻无缝隙，以及表尾之后的越界查询。
+    #[test]
+    fn test_reverse_cursor_matches_naive() {
+        fn 表(条目: &[(usize, usize, &str, &str)]) -> Vec<cache::SourceMapEntry> {
+            条目
+                .iter()
+                .map(|(偏移, 长度, 原文, 替换)| {
+                    cache::SourceMapEntry::new(*偏移, *长度, 原文, 替换)
+                })
+                .collect()
+        }
+        let 形态: Vec<Vec<cache::SourceMapEntry>> = vec![
+            表(&[]),
+            表(&[(0, 6, "函数", "fn")]),
+            表(&[
+                (3, 6, "函数", "fn"),
+                (20, 3, "让", "let"),
+                (40, 9, "整数", "i32"),
+            ]),
+            表(&[
+                (0, 6, "打印行", ""),
+                (10, 3, "甲", "乙丙丁"),
+                (14, 2, "等", "等"),
+            ]),
+            表(&[(5, 2, "aa", "bb"), (7, 2, "cc", "dd")]),
+        ];
+        for 编辑表 in &形态 {
+            // 查到表尾之后一大截：尾部未替换区间的换算也要对齐
+            let 上界 = 编辑表
+                .last()
+                .map(|e| e.source_offset + e.replacement.len() + 32)
+                .unwrap_or(64);
+            let 朴素: Vec<usize> = (0..=上界)
+                .map(|偏移| inverse_map_offset(编辑表, 偏移))
+                .collect();
+            let mut 游标 = ReverseCursor::new(编辑表);
+            for (偏移, 期望) in 朴素.iter().enumerate() {
+                assert_eq!(
+                    *期望,
+                    游标.map(偏移),
+                    "偏移 {偏移} 的换算不一致（表：{编辑表:?}）"
+                );
+            }
+        }
+
+        // 随机表形状：固定种子 LCG 造 200 张表，条数、间隔（含 0，即相邻无缝隙）、
+        // 原文长度（含 0，即同偏移并列）与替换长度（含 0，即整段删除）全部随机。
+        // 上面手写的形态容易漏边角，随机铺开才能把差分覆盖面拉开；不变量与
+        // 生产一致：按输入偏移升序且互不重叠（下一条偏移 ≥ 上一条偏移 + 上一条长度）。
+        let mut 种子 = 0x9E37_79B9_7F4A_7C15u64;
+        let mut 随机 = move || -> usize {
+            种子 = 种子
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            (种子 >> 33) as usize
+        };
+        for 轮 in 0..200 {
+            let mut 编辑表 = Vec::new();
+            let mut 偏移 = 随机() % 4;
+            for _ in 0..(随机() % 8 + 1) {
+                let 原文长度 = 随机() % 4;
+                let 替换长度 = 随机() % 4;
+                编辑表.push(cache::SourceMapEntry::new(
+                    偏移,
+                    原文长度,
+                    // ASCII：让 length 字段就是字节长度，与 `原文长度` 自洽
+                    &"x".repeat(原文长度),
+                    &"y".repeat(替换长度),
+                ));
+                偏移 += 原文长度 + 随机() % 5;
+            }
+            // 查询上界：整表走完得到的输出侧末尾再往后一截（尾部未替换区间）
+            let 上界 = 偏移 + 16;
+            let 朴素: Vec<usize> = (0..=上界)
+                .map(|偏移| inverse_map_offset(&编辑表, 偏移))
+                .collect();
+            let mut 游标 = ReverseCursor::new(&编辑表);
+            for (偏移, 期望) in 朴素.iter().enumerate() {
+                assert_eq!(
+                    *期望,
+                    游标.map(偏移),
+                    "第 {轮} 轮随机表：偏移 {偏移} 的换算不一致（表：{编辑表:?}）"
+                );
+            }
+        }
+
+        // 阶段链：上一环的答案作为下一环的查询（对应 `compose_pipeline_map` 里
+        // 「先夹更后阶段、再夹词法阶段」的串联），逐环同样必须等价
+        let 甲 = 表(&[(0, 6, "使用", "use"), (12, 6, "标准库", "std")]);
+        let 乙 = 表(&[(2, 3, "向量", "Vec"), (9, 2, "映射", "Map")]);
+        let mut 游标甲 = ReverseCursor::new(&甲);
+        let mut 游标乙 = ReverseCursor::new(&乙);
+        for 偏移 in 0..=120usize {
+            let 期望 = inverse_map_offset(&甲, inverse_map_offset(&乙, 偏移));
+            let 中间 = 游标乙.map(偏移);
+            assert_eq!(
+                期望,
+                游标甲.map(中间),
+                "阶段链偏移 {偏移} 的换算不一致（乙给出 {中间}）"
+            );
+        }
+    }
+
+    /// 真实语言包 + 别名密集多阶段源：全管线地图回放仍须逐字等于输出
+    ///
+    /// 手工小表测不到「词法上千条 × 别名/`crate::` 前缀阶段数百条」的换算链，
+    /// 而这条链正是 `compose_pipeline_map` 里游标推进的地方；前提破了（游标
+    /// 乱序、单调性假设不成立）就直接反映为回放错位，不靠人工比对也能接住。
+    #[test]
+    fn test_pipeline_map_replays_on_alias_heavy_real_pack() {
+        let manager = zh_manager();
+        let mut source =
+            String::from("使用 标准库::向量::向量;\n使用 标准库::映射::映射;\n\n模块 辅助;\n\n");
+        for i in 0..120 {
+            source.push_str(&format!(
+                "函数 函数_{i}(项: 向量<字符串>, 表: 映射<字符串, 整数>) -> 整数 {{\n\
+                 \x20   让 个数 = 项.长度();\n\
+                 \x20   项.推送(\"新项\");\n\
+                 \x20   让 合计 = 项.迭代().计数();\n\
+                 \x20   表.插入(\"键{i}\", 合计);\n\
+                 \x20   返回 辅助::查询(表, 个数) + 项.长度();\n\
+                 }}\n\n"
+            ));
+        }
+        let module_names: HashSet<String> = ["辅助".to_string()].into_iter().collect();
+        // 静默入口：本用例只关心偏移换算，不要被上千条教学告警埋掉失败输出
+        let output = transpile_pipeline_quiet_with_map_and_project(
+            &source,
+            &manager,
+            Some(&module_names),
+            None,
+        );
+        // 三道阶段的编辑都进了地图：条目数远超小表，才有资格作为游标的回归样本
+        assert!(
+            output.pipeline_map.len() > 1000,
+            "别名密集语料的地图条目应上千：{}",
+            output.pipeline_map.len()
+        );
+        assert!(
+            output.output.contains("crate::辅助::query"),
+            "语料应确实走通 `crate::` 前缀阶段：{}",
+            &output.output[..output.output.len().min(400)]
+        );
+        let rebuilt = apply_pipeline_map(&source, &output.pipeline_map);
+        assert_eq!(
+            rebuilt, output.output,
+            "地图回放必须逐字等于输出（偏移换算错位即在此暴露）"
         );
     }
 

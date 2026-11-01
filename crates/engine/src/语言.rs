@@ -6,7 +6,8 @@
 //! - 语言由 CLI / LSP 启动时通过 [`set_language`] 指定，默认 `zh`；
 //! - 消息模板来自各语言包 `ui.toml` 的 `["界面消息"]` 节，编译期嵌入，
 //!   运行期惰性解析（每语言一次），占位符 `{}` 按出现顺序替换；
-//! - 缺失键依次回退：当前语言表 → 中文表 → 键名本身。
+//! - 缺失键依次回退：当前语言表 → 中文表 → 键名本身；这条回退链与
+//!   占位符替换、ui.toml 解析一并定义在 [`crate::ui`]，CLI / LSP 共用同一份。
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -99,24 +100,6 @@ pub fn current_language() -> String {
     }
 }
 
-/// 解析 ui.toml 内容为消息表（键 → 模板）
-///
-/// 使用自有 String 存储而非 `&'static str`：每语言表仅解析一次，
-/// `Box::leak` 会永久泄漏全部消息文本，无必要。
-fn parse_ui(content: &str) -> HashMap<String, String> {
-    let mut messages = HashMap::new();
-    if let Ok(value) = toml::from_str::<toml::Value>(content)
-        && let Some(table) = value.get("界面消息").and_then(|v| v.as_table())
-    {
-        for (key, val) in table {
-            if let Some(text) = val.as_str() {
-                messages.insert(key.clone(), text.to_string());
-            }
-        }
-    }
-    messages
-}
-
 // build.rs 扫描 lang-packs/ 自动生成的内嵌清单（勿手工编辑）：
 // - BUILTIN_FILES：(语言代码, 相对路径, 内容) 全量清单
 // - UI_TABLE_*：每语言 ui.toml 消息表静态实例 + ui_table_for 路由
@@ -148,8 +131,11 @@ pub fn builtin_lang_files(lang: &str) -> Vec<(&'static str, &'static str)> {
         .collect()
 }
 
-/// 按语言代码取消息表（未知语言回退中文表）；路由由 build.rs 生成
-fn table_for(code: &str) -> &'static HashMap<String, String> {
+/// 按语言代码取内置消息表（未知语言回退中文表）；路由由 build.rs 生成
+///
+/// 返回编译期嵌入的静态实例，调用方按引用查询即可，无需再解析 TOML；
+/// 需要 `["解释"]` 节或磁盘自定义覆盖时改用 [`crate::ui::UiTable`]。
+pub fn builtin_message_table(code: &str) -> &'static HashMap<String, String> {
     ui_table_for(code)
 }
 
@@ -215,15 +201,7 @@ fn lang_info_extension(lang: &str) -> Option<String> {
 
 /// 取指定语言的消息模板；缺失时回退中文表，再缺失回退键名本身
 fn t_in(code: &str, key: &str) -> String {
-    if code != "zh"
-        && let Some(text) = table_for(code).get(key)
-    {
-        return text.to_string();
-    }
-    ui_table_for("zh")
-        .get(key)
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| key.to_string())
+    crate::ui::lookup(builtin_message_table(code), key)
 }
 
 /// 取当前语言的消息模板；缺失时回退中文表，再缺失回退键名本身
@@ -233,35 +211,12 @@ pub fn t(key: &str) -> String {
 
 /// 按指定语言取消息模板并替换 `{}` 占位符（纯函数，测试与内部使用）
 fn f_in(code: &str, key: &str, args: &[&str]) -> String {
-    substitute(&t_in(code, key), args)
+    crate::ui::substitute(&t_in(code, key), args)
 }
 
 /// 取消息模板并替换 `{}` 占位符（按出现顺序）
 pub fn f(key: &str, args: &[&str]) -> String {
     f_in(&current_language(), key, args)
-}
-
-/// 按出现顺序把 `{}` 替换为参数；参数多于占位符时忽略多余参数，
-/// 参数不足时保留未替换的 `{}`（模板兜底，避免 panic）。
-fn substitute(template: &str, args: &[&str]) -> String {
-    let mut result = String::with_capacity(template.len());
-    let mut remaining = template;
-    for arg in args {
-        match remaining.find("{}") {
-            Some(pos) => {
-                result.push_str(&remaining[..pos]);
-                result.push_str(arg);
-                remaining = &remaining[pos + 2..];
-            }
-            None => {
-                // 占位符已耗尽：剩余模板原样保留
-                result.push_str(remaining);
-                return result;
-            }
-        }
-    }
-    result.push_str(remaining);
-    result
 }
 
 #[cfg(test)]
@@ -316,7 +271,7 @@ mod tests {
         let codes = builtin_language_codes();
         assert!(codes.len() >= 10, "内置语言包数量异常: {}", codes.len());
         for code in codes {
-            let table = table_for(code);
+            let table = builtin_message_table(code);
             for key in ["err_line_col", "diag_kind_error", "mapping_cat_keywords"] {
                 assert!(table.contains_key(key), "{code} 缺少 {key}");
             }
@@ -337,16 +292,5 @@ mod tests {
         sorted.sort();
         sorted.dedup();
         assert_eq!(sorted.len(), extensions.len());
-    }
-
-    #[test]
-    fn test_substitute_ordered() {
-        assert_eq!(substitute("已导出到 {}", &["a.rs"]), "已导出到 a.rs");
-        assert_eq!(
-            substitute("项目根: {}，错误: {}", &["/p", "boom"]),
-            "项目根: /p，错误: boom"
-        );
-        assert_eq!(substitute("只有 {}", &["a", "b"]), "只有 a");
-        assert_eq!(substitute("{} 和 {}", &["a"]), "a 和 {}");
     }
 }

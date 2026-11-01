@@ -10,8 +10,8 @@ repository = "https://github.com/liuqiTan80/i18n-rust"
 
 [dependencies]
 # LSP 协议
-lsp-server = "0.7"
-lsp-types = "0.95"
+lsp-server = "0.10"
+lsp-types = "0.97"
 
 # 序列化
 serde.workspace = true
@@ -39,7 +39,7 @@ tempfile.workspace = true
 
 [dev-dependencies]
 # 性能基准（LSP 热路径：update_document / reverse_transpile）
-criterion = "0.5"
+criterion = "0.8"
 
 [[bench]]
 name = "hot_paths"

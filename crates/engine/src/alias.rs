@@ -32,10 +32,11 @@
 //!    `匹配 有值(入参) { 有值(连接) => … }` 的 `连接`（撞
 //!    `连接`=join 映射键）全文件豁免（见 collect_pattern_bindings）。
 
-use rustc_lexer::{TokenKind, tokenize};
+use rustc_lexer::TokenKind;
 use std::collections::{HashMap, HashSet};
 
 use crate::cache::SourceMapEntry;
+use crate::name_cache::NameCache;
 
 /// 单阶段替换结果：输出与编辑表
 ///
@@ -64,7 +65,7 @@ pub const DECL_KEYWORDS: &[&str] = &[
 /// 是「项」，项可经 `::` 访问（见模块文档第 1 条规则）
 const VAR_DECL_KEYWORDS: &[&str] = &["let", "const", "static"];
 
-/// 用户声明名与库特征方法名的收集结果（第一遍扫描）
+/// 用户声明名与库特征方法名的收集结果
 #[derive(Debug, Default)]
 pub struct DeclaredNames {
     /// 项声明名（fn/struct/enum/trait/type/mod）+ 枚举变体名：
@@ -227,49 +228,84 @@ pub fn collect_source_declarations(
 /// 分析，同名遮蔽场景同样豁免，与声明位保护的设计意图一致）。
 /// 库特征实现块内的方法名（见 [`collect_library_impl_fns`]）从保护集合剔除。
 pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>) -> DeclaredNames {
+    let tokens = crate::collect_tokens(source);
+    collect_declared_names_in(source, alias_map, &tokens)
+}
+
+/// [`collect_declared_names`] 的实现：调用方已持有 token 序列时直接复用，
+/// 避免同一份源码被重复词法化
+///
+/// 管线内部也直接走本入口：延迟项目上下文的入口要对 `lex.output` 分词才能
+/// 收集声明，而 use 路径阶段恰好也在这份文本上跑，两者共用同一份 token 流。
+///
+/// 声明收集的三个方面合并为**一次** token 遍历：
+/// - 声明位（`fn`/`struct`/`let`/`const`/`static`… 后的名字）、类型体成员、
+///   函数与闭包参数；
+/// - 库特征实现块的方法名：`impl 特征 for 类型 { fn 方法 }` 中，特征名既不是
+///   本文件声明的项、又在别名映射表里时，块内方法名是库 API（用户从映射表
+///   抄写而来），必须照常参与替换；实现用户自定义特征时方法名是用户取的名字，
+///   保持声明位保护；
+/// - 模式绑定：match 臂（`=>` 向左回溯到臂起点）、let 解构括号内、`for` 到
+///   `in` 之间的名字是用户命名的值绑定，与参数一样全文件豁免替换
+///   （`成功(连接) =>` 的 `连接` 撞 `连接`=join 键，误替换即缺陷）。
+///
+/// 三组状态互不读对方的中途结果（库特征判定用的 `items` 只在整份源码扫完后
+/// 才需要），所以能并在一起：每个 token 只取一次文本切片、只分派一次。此前
+/// 三者各走一遍 token 流，98 KB / 2805 行样例声明收集 1684 → 1513 µs
+/// （−10.2%，同进程交替 5/5 轮）；1193 份语料与旧实现逐字段零差异。
+///
+/// 但仍保留原来的**两阶段顺序**：库特征方法名要拿扫完后的完整 `items` 判定
+/// 并统一剔除（impl 块可以出现在目标类型声明之前），模式绑定在那之后再并入。
+pub(crate) fn collect_declared_names_in(
+    source: &str,
+    alias_map: &HashMap<String, String>,
+    tokens: &[rustc_lexer::Token],
+) -> DeclaredNames {
     let mut result = DeclaredNames::default();
+    // —— 一：声明位 / 类型体 / 函数与闭包参数 ——
     let mut prev_decl: Option<&'static str> = None;
-    // —— 类型体（struct/enum）扫描状态 ——
-    // pending_type：已见 `struct`/`enum` 关键字，值为（是否枚举，是否已见名字）；
-    // 名字后遇 `{` 进入体扫描，遇 `;` 放弃（unit/tuple 结构体无可收集成员）
     let mut pending_type: Option<(bool, bool)> = None;
     let mut type_body: Option<TypeBodyScan> = None;
-    // 类型体内的括号/方括号深度：>0 时内部标识符不参与成员收集
-    //（`pub(crate) 字段` 可见性、`[T; N]` 数组类型、`#[属性]` 属性）
     let mut body_paren = 0u32;
     let mut body_angle = 0u32;
     let mut body_bracket = 0u32;
-    // —— 函数参数绑定跟踪 ——
-    // fn_head：0=不在 fn 头部；1=已见 fn 等待参数括号；2=在参数括号内。
-    // 括号内处于参数开始位置（`(` 或 `,` 之后）且后跟 `:` 的标识符是
-    // 用户声明的参数名（`mut 名: 类型` 中 mut 透明传递）
     let mut fn_head = 0u32;
-    // fn 名后的 `<...>` 泛型深度：`fn 名<T>(...)` 中的 `(` 不是参数括号
     let mut fn_angle = 0u32;
     let mut paren_depth = 0u32;
     let mut at_param_start = false;
     let mut pending_param: Option<String> = None;
-    // —— 闭包参数绑定跟踪（`|甲, 乙| 体`，无类型标注直接收集）——
     let mut in_closure = false;
-    // 闭包参数内的括号深度：解构/类型（`|(甲, 乙): (T, T)|`）内的名字不收集
     let mut closure_parens = 0u32;
     let mut closure_start = false;
-    // 上一个有效 token 是否可作表达式结尾（区分位或 `a | b` 与闭包 `|甲|`）
     let mut prev_value_end = false;
-    // 上一个 `|`（Or）token 的结束偏移：rustc_lexer 不合并 `||`，它是连续
-    // 两个 `|` token，紧邻的第二个不得判定为闭包起始（`a || b` 是逻辑或）
     let mut last_or_end = usize::MAX;
-    // token 序列预收集：本函数内三遍扫描（声明名/库特征方法/模式绑定）
-    // 共享同一份 token 序列，避免重复词法化
-    let tokens: Vec<rustc_lexer::Token> = tokenize(source).collect();
-    let mut offset = 0;
-    for token in &tokens {
-        let text = &source[offset..offset + token.len];
-        match token.kind {
+    // —— 二：impl 块（库特征判定延后到扫完之后）——
+    // impl 块可以出现在目标类型声明之前，故不能边扫边按 `items` 判定；
+    // 先把每块的（目标名, 块内 fn 名）记下，扫完后统一判定。名字用源码切片，不分配。
+    let mut impl_header = false;
+    let mut impl_target: Option<&str> = None;
+    let mut impl_block: Option<usize> = None;
+    let mut impl_angle = 0u32;
+    let mut impl_brace = 0u32;
+    let mut prev_is_fn = false;
+    let mut impl_blocks: Vec<(&str, Vec<&str>)> = Vec::new();
+    // —— 三：模式绑定 ——
+    let mut let_ok = false;
+    let mut let_depth = 0u32;
+    let mut for_ok = false;
+    let mut for_depth = 0u32;
+    let mut for_pending: Vec<&str> = Vec::new();
+    let mut in_impl_header = false;
+    // 模式绑定单独暂存：库特征方法名的剔除只作用于声明位收集结果，
+    // 旧实现是「先剔除、再把模式绑定并入 variables」，此处保持同一顺序
+    let mut bindings: HashSet<String> = HashSet::new();
+    let mut offset = 0usize;
+    for i in 0..tokens.len() {
+        let kind = tokens[i].kind;
+        let text = &source[offset..offset + tokens[i].len];
+        match kind {
             TokenKind::Ident => {
-                // —— 类型头推进（struct/enum 后第一个标识符是类型名）——
-                // 名字已由下方声明关键字逻辑收集为项；此处仅推进状态，
-                // `pub` 修饰不消耗「等名字」态
+                // —— 一：类型头推进（struct/enum 后第一个标识符是类型名）——
                 if text == "struct" {
                     pending_type = Some((false, false));
                 } else if text == "enum" {
@@ -280,11 +316,7 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 {
                     *seen = true;
                 }
-                // —— 类型体成员收集 ——
-                // 成员开始位置的标识符：枚举顶层是变体名（收集为项，变体可经
-                // `::` 访问）；struct 字段与变体携带的结构体字段先入候选，
-                // 等 `:` 确认后收集（`pub(crate)` 可见性、`#[属性]`、数组类型
-                // `[T; N]` 与泛型 `<...>` 内部的标识符不参与）
+                // —— 一：类型体成员收集 ——
                 if let Some(body) = &mut type_body
                     && body_paren == 0
                     && body_angle == 0
@@ -299,6 +331,7 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                     }
                     body.at_start = false;
                 }
+                // —— 一：声明位 ——
                 if let Some(keyword) = prev_decl {
                     if VAR_DECL_KEYWORDS.contains(&keyword) {
                         result.variables.insert(text.to_string());
@@ -307,7 +340,7 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                     }
                 }
                 prev_decl = next_decl_keyword(prev_decl, text);
-                // 函数参数名：参数开始位置的标识符（`mut` 后继续等待名字）
+                // —— 一：函数参数名 ——
                 if fn_head == 2 && paren_depth == 1 && at_param_start && text != "mut" {
                     pending_param = Some(text.to_string());
                     at_param_start = false;
@@ -316,13 +349,62 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                     fn_head = 1;
                     fn_angle = 0;
                 }
-                // 闭包参数名：`|` 或 `,` 之后的名字（`mut 名` 同样透明）
+                // —— 一：闭包参数名 ——
                 if in_closure && closure_parens == 0 && closure_start && text != "mut" {
                     result.variables.insert(text.to_string());
                     closure_start = false;
                 }
-                // `move |甲|`：move 是闭包前缀，其后 `|` 仍是闭包起始
                 prev_value_end = text != "move";
+
+                // —— 二：impl 块 ——
+                if let Some(block) = impl_block {
+                    // 块体内的 fn 名：紧跟在 `fn` 之后的标识符
+                    if prev_is_fn {
+                        impl_blocks[block].1.push(text);
+                    }
+                } else if impl_header {
+                    // `<...>` 泛型参数里的名字不是 impl 目标
+                    if impl_angle == 0 {
+                        impl_header = false;
+                        impl_target = Some(text);
+                    }
+                } else if impl_target.is_none() && text == "impl" {
+                    impl_header = true;
+                    impl_angle = 0;
+                }
+                prev_is_fn = text == "fn";
+
+                // —— 三：模式绑定 ——
+                if text == "impl" {
+                    in_impl_header = true;
+                }
+                if for_ok {
+                    if text == "in" && for_depth == 0 {
+                        // 模式结束：提交挂起绑定
+                        bindings.extend(for_pending.drain(..).map(str::to_string));
+                        for_ok = false;
+                    } else if for_depth == 0
+                        && (text == "for" || STMT_BOUNDARY_KEYWORDS.contains(&text))
+                    {
+                        // 遇嵌套 for 重启挂起；遇声明/语句关键字丢弃挂起
+                        for_pending.clear();
+                        for_ok = text == "for";
+                        for_depth = 0;
+                    } else if is_pattern_binding(tokens, i, text) {
+                        for_pending.push(text);
+                    }
+                } else if text == "for" && !in_impl_header {
+                    for_ok = true;
+                    for_depth = 0;
+                    for_pending.clear();
+                }
+                if let_ok && let_depth > 0 && is_pattern_binding(tokens, i, text) {
+                    bindings.insert(text.to_string());
+                }
+                if text == "let" {
+                    let_ok = true;
+                    let_depth = 0;
+                }
             }
             TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {}
             TokenKind::OpenParen => {
@@ -344,6 +426,13 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 }
                 pending_param = None;
                 prev_value_end = false;
+                prev_is_fn = false;
+                if let_ok {
+                    let_depth += 1;
+                }
+                if for_ok {
+                    for_depth += 1;
+                }
             }
             TokenKind::CloseParen => {
                 prev_decl = None;
@@ -363,6 +452,9 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 }
                 pending_param = None;
                 prev_value_end = true;
+                prev_is_fn = false;
+                let_depth = let_depth.saturating_sub(1);
+                for_depth = for_depth.saturating_sub(1);
             }
             TokenKind::Comma => {
                 prev_decl = None;
@@ -382,9 +474,9 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                     body.at_start = true;
                     body.pending_member = None;
                 }
-                // 名字后遇 `,`（无类型标注模式）：丢弃待确认候选
                 pending_param = None;
                 prev_value_end = false;
+                prev_is_fn = false;
             }
             TokenKind::Colon => {
                 prev_decl = None;
@@ -392,14 +484,31 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 if let Some(name) = pending_param.take() {
                     result.variables.insert(name);
                 }
-                // `字段:` → 确认结构体字段名（收作成员名；`::` 的第二冒号
-                // 无候选，无副作用）
+                // `字段:` → 确认结构体字段名
                 if let Some(body) = &mut type_body
                     && let Some(name) = body.pending_member.take()
                 {
                     result.members.insert(name);
                 }
                 prev_value_end = false;
+                prev_is_fn = false;
+                // `let 名: 类型` 的 `:` 是类型标注分隔——其后是类型，不再是
+                // 模式绑定；`::` 是路径分隔（两个相邻 Colon），不结束 let 态
+                if let_ok
+                    && let_depth == 0
+                    && !prev_sig_index(tokens, i)
+                        .is_some_and(|p| tokens[p].kind == TokenKind::Colon)
+                    && !next_sig_index(tokens, i)
+                        .is_some_and(|n| tokens[n].kind == TokenKind::Colon)
+                {
+                    let_ok = false;
+                    let_depth = 0;
+                }
+                // for 模式里 `:` 不合法（类型标注等非循环场景，防御）
+                if for_ok && for_depth == 0 {
+                    for_pending.clear();
+                    for_ok = false;
+                }
             }
             TokenKind::Or => {
                 prev_decl = None;
@@ -410,14 +519,14 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 } else if !prev_value_end && last_or_end != offset {
                     // 前一个有效 token 不是表达式结尾，且不与上一个 `|`
                     // 相邻（`a || b` 是连续两个 `|` token）→ 闭包起始
-                    //（位或 `a | b` 的 `|` 前是表达式，不进入闭包态）
                     in_closure = true;
                     closure_parens = 0;
                     closure_start = true;
                 }
-                last_or_end = offset + token.len;
+                last_or_end = offset + tokens[i].len;
                 pending_param = None;
                 prev_value_end = false;
+                prev_is_fn = false;
             }
             TokenKind::Lt => {
                 prev_decl = None;
@@ -429,6 +538,15 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 }
                 pending_param = None;
                 prev_value_end = false;
+                if impl_header {
+                    impl_angle += 1;
+                }
+                prev_is_fn = false;
+                // for 模式里 `<` 不合法（泛型等非循环场景，防御）
+                if for_ok && for_depth == 0 {
+                    for_pending.clear();
+                    for_ok = false;
+                }
             }
             TokenKind::Gt => {
                 prev_decl = None;
@@ -440,10 +558,20 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 }
                 pending_param = None;
                 prev_value_end = false;
+                if impl_header {
+                    impl_angle = impl_angle.saturating_sub(1);
+                }
+                prev_is_fn = false;
+                // `=>`（Eq+Gt 相邻两 token）：match 臂箭头 → 回溯收集
+                if let Some(p) = prev_sig_index(tokens, i)
+                    && tokens[p].kind == TokenKind::Eq
+                    && p == i - 1
+                {
+                    collect_match_arm_bindings(tokens, offset, i, source, &mut bindings);
+                }
             }
             TokenKind::OpenBrace => {
-                // `struct/enum 名 {` → 进入类型体成员扫描；体内嵌套花括号
-                //（变体携带的结构体体、常量表达式块）加深一层
+                // `struct/enum 名 {` → 进入类型体成员扫描
                 if let Some((is_enum, seen)) = pending_type.take() {
                     if seen {
                         type_body = Some(TypeBodyScan {
@@ -469,6 +597,26 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 prev_decl = None;
                 pending_param = None;
                 prev_value_end = false;
+                // `impl 目标 {` → 进入块体；体内嵌套花括号加深一层
+                if let Some(target) = impl_target.take() {
+                    impl_blocks.push((target, Vec::new()));
+                    impl_block = Some(impl_blocks.len() - 1);
+                    impl_brace = 0;
+                } else if impl_block.is_some() {
+                    impl_brace += 1;
+                } else {
+                    // `impl {`：非法写法，放弃跟踪
+                    impl_header = false;
+                }
+                prev_is_fn = false;
+                // impl 头部结束（进入块体）
+                in_impl_header = false;
+                if let_ok {
+                    let_depth += 1;
+                }
+                if for_ok {
+                    for_depth += 1;
+                }
             }
             TokenKind::CloseBrace => {
                 // 类型体闭合：depth 归零退出扫描（括号/尖括号/方括号内的
@@ -493,6 +641,17 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 prev_decl = None;
                 pending_param = None;
                 prev_value_end = true;
+                // impl 块体闭合：嵌套深度归零时退出追踪
+                if impl_block.is_some() {
+                    if impl_brace == 0 {
+                        impl_block = None;
+                    } else {
+                        impl_brace -= 1;
+                    }
+                }
+                prev_is_fn = false;
+                let_depth = let_depth.saturating_sub(1);
+                for_depth = for_depth.saturating_sub(1);
             }
             TokenKind::OpenBracket => {
                 // 方括号内的标识符不参与成员收集（属性、数组类型 `[T; N]`）
@@ -502,6 +661,13 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 prev_decl = None;
                 pending_param = None;
                 prev_value_end = false;
+                prev_is_fn = false;
+                if let_ok {
+                    let_depth += 1;
+                }
+                if for_ok {
+                    for_depth += 1;
+                }
             }
             TokenKind::CloseBracket => {
                 if type_body.is_some() {
@@ -510,34 +676,62 @@ pub fn collect_declared_names(source: &str, alias_map: &HashMap<String, String>)
                 prev_decl = None;
                 pending_param = None;
                 prev_value_end = true;
+                prev_is_fn = false;
+                let_depth = let_depth.saturating_sub(1);
+                for_depth = for_depth.saturating_sub(1);
             }
             _ => {
                 prev_decl = None;
                 pending_param = None;
-                // `struct/enum 名;`（单元结构体）：放弃类型体等待
-                if matches!(token.kind, TokenKind::Semi) {
+                if matches!(kind, TokenKind::Semi) {
+                    // `struct/enum 名;`（单元结构体）：放弃类型体等待
                     pending_type = None;
+                    // 语句边界：清空全部模式状态
+                    in_impl_header = false;
+                    let_ok = false;
+                    let_depth = 0;
+                    for_pending.clear();
+                    for_ok = false;
+                    for_depth = 0;
+                } else if matches!(kind, TokenKind::Eq) {
+                    // `let 模式 =`：模式结束（`=` 之后是表达式）
+                    if let_ok && let_depth == 0 {
+                        let_ok = false;
+                    }
+                    // for 模式里 `=` 不合法（防御）
+                    if for_ok && for_depth == 0 {
+                        for_pending.clear();
+                        for_ok = false;
+                    }
                 }
                 prev_value_end = matches!(
-                    token.kind,
+                    kind,
                     TokenKind::Literal { .. }
                         | TokenKind::CloseBracket
                         | TokenKind::CloseBrace
                         | TokenKind::Question
                 );
+                prev_is_fn = false;
             }
         }
-        offset += token.len;
+        offset += tokens[i].len;
     }
-    // 库特征实现块内的方法名从保护集合剔除：它们是库 API 规定的名称，
-    // 应照常参与别名替换（如 `实现 抄写器 对于 类型 { 函数 渲染（...） }`）
-    result.library_fns = collect_library_impl_fns(&tokens, source, &result.items, alias_map);
-    for name in &result.library_fns {
-        result.items.remove(name);
-        result.variables.remove(name);
+    // 库特征实现块：目标名既不是用户项、又在别名映射表中 → 块内方法名是库 API
+    //（判定用扫完后的完整 items；先全部判定再统一剔除，与旧实现两阶段一致）
+    let mut library_methods: Vec<&str> = Vec::new();
+    for (target, methods) in &impl_blocks {
+        if result.items.contains(*target) || !alias_map.contains_key(*target) {
+            continue;
+        }
+        library_methods.extend(methods.iter().copied());
     }
-    // 模式绑定收集（match 臂 / let 解构 / for 模式）：独立扫描
-    collect_pattern_bindings(&tokens, source, &mut result);
+    for method in library_methods {
+        result.library_fns.insert(method.to_string());
+        result.items.remove(method);
+        result.variables.remove(method);
+    }
+    // 模式绑定最后并入：旧实现顺序为「先剔除库方法名、再并入模式绑定」
+    result.variables.extend(bindings);
     result
 }
 
@@ -549,111 +743,6 @@ fn next_decl_keyword(prev: Option<&'static str>, text: &str) -> Option<&'static 
     DECL_KEYWORDS.iter().find(|&&k| k == text).copied()
 }
 
-/// `impl` 块扫描状态（第二遍扫描用）
-#[derive(Debug)]
-enum ImplScan {
-    /// 不在 impl 上下文中
-    None,
-    /// 已见 `impl`，等待特征名/类型名（`<...>` 泛型参数内的名字忽略）
-    Header,
-    /// 已见 impl 目标名，等待块开始 `{`
-    Named(String),
-    /// 在 impl 块内；`lib` 表示这是「库特征实现块」
-    Body { lib: bool },
-}
-
-/// 识别「库特征实现块」内的方法名（第二遍扫描）
-///
-/// 实现外部（库）特征时，`impl` 块内的方法名是库 API 规定的方法名
-/// （用户从映射表抄写而来），必须照常参与别名替换；而实现用户自定义
-/// 特征（`trait 可显示`）时方法名是用户取的名字，保持声明位保护。
-/// 判定「库特征」的两个条件同时满足：特征名不在用户项集合中（排除
-/// 同文件自定义特征），且在别名映射表中（无映射词时替换循环本就无事
-/// 可做，保持保护无害，也避免跨文件自定义特征被误判）。
-fn collect_library_impl_fns(
-    tokens: &[rustc_lexer::Token],
-    source: &str,
-    items: &HashSet<String>,
-    alias_map: &HashMap<String, String>,
-) -> HashSet<String> {
-    let mut library_fns = HashSet::new();
-    let mut state = ImplScan::None;
-    // Header 中 `<...>` 泛型参数深度：`impl<T> 特征 for 类型` 里 `T` 不是特征名
-    let mut angle_depth = 0u32;
-    // Body 内大括号深度：归零时退出 impl 块
-    let mut brace_depth = 0u32;
-    // 上一个有意义 token 是否为 `fn`（空白/注释不打断，与主循环一致）
-    let mut prev_is_fn = false;
-    let mut offset = 0;
-    for token in tokens {
-        let text = &source[offset..offset + token.len];
-        match token.kind {
-            TokenKind::Ident => {
-                match &state {
-                    ImplScan::None => {
-                        if text == "impl" {
-                            state = ImplScan::Header;
-                            angle_depth = 0;
-                        }
-                    }
-                    ImplScan::Header => {
-                        if angle_depth == 0 {
-                            state = ImplScan::Named(text.to_string());
-                        }
-                    }
-                    // `impl 特征 for 类型`：特征名之后的 for/类型名均忽略，等待 `{`
-                    ImplScan::Named(_) => {}
-                    ImplScan::Body { lib } => {
-                        if *lib && prev_is_fn {
-                            library_fns.insert(text.to_string());
-                        }
-                    }
-                }
-                prev_is_fn = text == "fn";
-            }
-            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {}
-            TokenKind::OpenBrace => {
-                if let ImplScan::Named(name) = &state {
-                    let lib = !items.contains(name) && alias_map.contains_key(name);
-                    state = ImplScan::Body { lib };
-                    brace_depth = 0;
-                } else if matches!(state, ImplScan::Body { .. }) {
-                    brace_depth += 1;
-                } else if matches!(state, ImplScan::Header) {
-                    // `impl {`：非法写法，放弃跟踪
-                    state = ImplScan::None;
-                }
-                prev_is_fn = false;
-            }
-            TokenKind::CloseBrace => {
-                if matches!(state, ImplScan::Body { .. }) {
-                    if brace_depth == 0 {
-                        state = ImplScan::None;
-                    } else {
-                        brace_depth -= 1;
-                    }
-                }
-                prev_is_fn = false;
-            }
-            TokenKind::Lt => {
-                if matches!(state, ImplScan::Header) {
-                    angle_depth += 1;
-                }
-                prev_is_fn = false;
-            }
-            TokenKind::Gt => {
-                if matches!(state, ImplScan::Header) {
-                    angle_depth = angle_depth.saturating_sub(1);
-                }
-                prev_is_fn = false;
-            }
-            _ => prev_is_fn = false,
-        }
-        offset += token.len;
-    }
-    library_fns
-}
-
 /// for 模式挂起中出现的「非模式词」：声明/语句关键字
 ///
 /// 真模式里不可能出现这些词，出现即说明挂起跨越了语句边界
@@ -663,164 +752,6 @@ const STMT_BOUNDARY_KEYWORDS: &[&str] = &[
     "return", "if", "else", "while", "loop", "match", "break", "continue", "unsafe", "async",
     "await", "move", "where",
 ];
-
-/// 模式绑定收集（第三遍扫描）：match 臂 / let 解构 / for 模式
-///
-/// 模式中出现的标识符是「值绑定」（用户命名），须与函数/闭包参数一样
-/// 全文件豁免替换——否则 `成功(连接) =>` 的 `连接`（撞 `连接`=join
-/// 映射键）会被误替换为 `join`（实测确认的缺陷）。识别规则：
-/// - match 臂：`=>`（`Eq`+`Gt` 相邻两 token）向左回溯到臂起点
-///   （深度 0 的 `,`/`{`/`;`），区间内标识符按模式语法过滤后收集；
-///   守卫表达式中的名字同为值使用，一并收集无害（方法调用位与
-///   `::` 路径位不查值绑定集合，不会过度豁免库 API）；
-/// - let 解构：`let` 后解构括号（`let (甲, 乙) = …`、
-///   `let 点 { x, y } = …`）内的名字；`=` 结束（类型标注在括号外，
-///   不受影响），if-let/while-let 同形覆盖；
-/// - for 模式：`for` 到 `in` 之间的名字（`for &长度 in …`、
-///   `for (键, 值) in …`）；挂起期间遇声明/语句关键字即丢弃。
-///   `impl … for 类型 {` 的 for 由 impl 头部状态排除。
-///
-/// 过滤见 [`is_pattern_binding`]：`::` 路径段（`错误::连接` 的
-/// `连接` 是库变体）、后跟 `(`/`{`/`[` 的构造路径（`有值(…)`、
-/// `点 { … }`）、后跟 `:` 的字段名（`x: 甲` 的 `x`）、`mut`/`ref`
-/// 修饰符都不是绑定。
-fn collect_pattern_bindings(
-    tokens: &[rustc_lexer::Token],
-    source: &str,
-    result: &mut DeclaredNames,
-) {
-    // —— let 解构态 / for 模式态 / impl 头部区间 ——
-    let mut let_ok = false;
-    let mut let_depth = 0u32;
-    let mut for_ok = false;
-    let mut for_depth = 0u32;
-    let mut for_pending: Vec<String> = Vec::new();
-    // `impl … for 类型 {` 的头部区间：其间出现的 `for` 是 impl 语法
-    let mut in_impl_header = false;
-
-    let mut offset = 0usize;
-    for i in 0..tokens.len() {
-        let kind = tokens[i].kind;
-        let text = &source[offset..offset + tokens[i].len];
-        match kind {
-            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {}
-            TokenKind::Ident => {
-                if text == "impl" {
-                    in_impl_header = true;
-                }
-                // —— for 模式态 ——
-                if for_ok {
-                    if text == "in" && for_depth == 0 {
-                        // 模式结束：提交挂起绑定
-                        result.variables.extend(for_pending.drain(..));
-                        for_ok = false;
-                    } else if for_depth == 0
-                        && (text == "for" || STMT_BOUNDARY_KEYWORDS.contains(&text))
-                    {
-                        // 遇嵌套 for 重启挂起；遇声明/语句关键字丢弃挂起
-                        for_pending.clear();
-                        for_ok = text == "for";
-                        for_depth = 0;
-                    } else if is_pattern_binding(tokens, i, text) {
-                        for_pending.push(text.to_string());
-                    }
-                } else if text == "for" && !in_impl_header {
-                    for_ok = true;
-                    for_depth = 0;
-                    for_pending.clear();
-                }
-                // —— let 解构态（`=` 之前括号内的名字是绑定）——
-                if let_ok && let_depth > 0 && is_pattern_binding(tokens, i, text) {
-                    result.variables.insert(text.to_string());
-                }
-                if text == "let" {
-                    let_ok = true;
-                    let_depth = 0;
-                }
-            }
-            TokenKind::OpenParen | TokenKind::OpenBracket => {
-                if let_ok {
-                    let_depth += 1;
-                }
-                if for_ok {
-                    for_depth += 1;
-                }
-            }
-            TokenKind::OpenBrace => {
-                // impl 头部结束（进入块体）
-                in_impl_header = false;
-                if let_ok {
-                    let_depth += 1;
-                }
-                if for_ok {
-                    for_depth += 1;
-                }
-            }
-            TokenKind::CloseParen | TokenKind::CloseBracket | TokenKind::CloseBrace => {
-                let_depth = let_depth.saturating_sub(1);
-                for_depth = for_depth.saturating_sub(1);
-            }
-            TokenKind::Semi => {
-                in_impl_header = false;
-                let_ok = false;
-                let_depth = 0;
-                for_pending.clear();
-                for_ok = false;
-                for_depth = 0;
-            }
-            TokenKind::Eq => {
-                // `let 模式 =`：模式结束（`=` 之后是表达式，名字照常替换）；
-                // for 模式里 `=` 不合法（防御）
-                if let_ok && let_depth == 0 {
-                    let_ok = false;
-                }
-                if for_ok && for_depth == 0 {
-                    for_pending.clear();
-                    for_ok = false;
-                }
-            }
-            TokenKind::Colon => {
-                // `let 名: 类型` 的 `:` 是类型标注分隔——其后是类型（可能含
-                // `[`/`<`/`(`），不再是模式绑定。须立即结束 let 态，否则类型
-                // 中的 `[` 会把 let 深度抬回非零、`=` 无法结束 let 态，导致类型
-                // 内的别名被误收为值绑定而全文件豁免替换（weix-1 #15）。
-                // `::` 是路径分隔（两个相邻 Colon token），不代表类型标注，不能结束。
-                if let_ok
-                    && let_depth == 0
-                    && !prev_sig_index(tokens, i)
-                        .is_some_and(|p| tokens[p].kind == TokenKind::Colon)
-                    && !next_sig_index(tokens, i)
-                        .is_some_and(|n| tokens[n].kind == TokenKind::Colon)
-                {
-                    let_ok = false;
-                    let_depth = 0;
-                }
-                // for 模式里 `:` 不合法（类型标注等非循环场景，防御）
-                if for_ok && for_depth == 0 {
-                    for_pending.clear();
-                    for_ok = false;
-                }
-            }
-            TokenKind::Lt if for_ok && for_depth == 0 => {
-                // for 模式里 `<` 不合法（泛型等非循环场景，防御）
-                for_pending.clear();
-                for_ok = false;
-            }
-            TokenKind::Gt => {
-                // `=>`（`Eq`+`Gt` 相邻两 token）：match 臂箭头 → 回溯收集
-                //（索引相邻即两 token 间无其他 token，`=>` 无空白）
-                if let Some(p) = prev_sig_index(tokens, i)
-                    && tokens[p].kind == TokenKind::Eq
-                    && p == i - 1
-                {
-                    collect_match_arm_bindings(tokens, offset, i, source, result);
-                }
-            }
-            _ => {}
-        }
-        offset += tokens[i].len;
-    }
-}
 
 /// `=>` 回溯：收集 match 臂模式中的绑定名
 ///
@@ -841,7 +772,7 @@ fn collect_match_arm_bindings(
     arrow_offset: usize,
     arrow: usize,
     source: &str,
-    result: &mut DeclaredNames,
+    bindings: &mut HashSet<String>,
 ) {
     // arrow 前一个有意义 token 是 `=`（调用方已确认 `=>` 相邻）
     let Some(eq) = prev_sig_index(tokens, arrow) else {
@@ -884,7 +815,7 @@ fn collect_match_arm_bindings(
             TokenKind::Ident => {
                 let text = &source[start..start + tokens[j].len];
                 if is_pattern_binding(tokens, j, text) {
-                    result.variables.insert(text.to_string());
+                    bindings.insert(text.to_string());
                 }
             }
             _ => {}
@@ -1018,6 +949,23 @@ pub fn replace_aliases_with_context(
     replace_aliases_with_context_and_module_paths(source, alias_map, &HashMap::new(), project)
 }
 
+/// 别名阶段的名字级事实：一次解出主循环要问的那几张表的答案
+///
+/// 主循环对每个标识符都要查别名表、判定项目路径根（`modules`/`items` 两次
+/// 哈希查找）、推进声明关键字状态（`DECL_KEYWORDS` 线性扫）。这三件事只取决于
+/// 名字本身，因此按名字直映缓存（见 [`crate::name_cache`]）：同名重复出现时
+/// 只付一次探测。模块路径表**不在**缓存内——它只在路径根位（后跟 `::`）才
+/// 需要，而路径根位是少数，无条件预查反而会为每个标识符多搭一次随机访存。
+#[derive(Clone, Copy)]
+struct AliasFacts<'a> {
+    /// 别名表命中值
+    alias: Option<&'a str>,
+    /// 项目路径根（crate/super/self/项目模块名/项目项名）；无项目上下文时恒 false
+    path_root: bool,
+    /// 声明位关键字（`mut` 除外：它的透明传递由调用处按上一个状态处理）
+    decl_keyword: Option<&'static str>,
+}
+
 /// 同 [`replace_aliases_with_context`]，附模块路径表（use 之外的模块前缀转译）
 ///
 /// 管线的「模块路径替换」阶段只处理 use 语句；表达式与属性位置的
@@ -1035,6 +983,53 @@ pub fn replace_aliases_with_context_and_module_paths(
     module_path_map: &HashMap<String, String>,
     project: Option<&ProjectContext>,
 ) -> ReplaceResult {
+    replace_aliases_with_context_and_module_paths_using_declarations(
+        source,
+        alias_map,
+        module_path_map,
+        project,
+        None,
+    )
+}
+
+/// 同 [`replace_aliases_with_context_and_module_paths`]，但可复用调用方
+/// 已收集好的声明名
+///
+/// 延迟项目上下文的管线入口（[`crate::transpile_pipeline_with_deferred_project`]）
+/// 必需在别名阶段之前先拿到本文件声明才能建项目上下文，而它拿到的声明是
+/// 从**词法产物**收集的；本阶段的输入则是「词法 → use 路径 → `crate::` 前缀」
+/// 之后的文本。两处的声明集合相同（后续两个阶段只改 use 段路径与路径根位
+/// 前缀，既不动声明关键字也不动声明位名字），因此可省掉本阶段内部那趟声明
+/// 状态机（分词仍要为替换主循环付，省不掉）——359 行样例上该状态机 47.3 µs，
+/// 占管线约 9%，现场收集整趟（含分词）则占 ~21%。
+///
+/// 等价性由 `tests/alias_declared_reuse.rs` 的差分测试锁定：两条入口对同一
+/// 语料的 `output` 与 `edits` 逐字段一致。`declared` 为 `None` 时行为与原入口相同。
+pub fn replace_aliases_with_context_and_module_paths_using_declarations(
+    source: &str,
+    alias_map: &HashMap<String, String>,
+    module_path_map: &HashMap<String, String>,
+    project: Option<&ProjectContext>,
+    declared: Option<&DeclaredNames>,
+) -> ReplaceResult {
+    replace_aliases_reusing(source, alias_map, module_path_map, project, declared, None)
+}
+
+/// [`replace_aliases_with_context_and_module_paths_using_declarations`] 的实现，
+/// 另可复用调用方已分好的 token 流
+///
+/// `tokens` 必须与 `source` 同一份文本（同一序列）。管线里本阶段的输入是
+/// 「词法 → use 路径」之后的文本，那份 token 流可由「词法产物的 token + use 路径
+/// 阶段各编辑的新长度」派生（见 `crate::rebase_tokens`），省掉整份重新分词——
+/// 359 行样例上该分词 46~72 µs，占管线一成上下。
+pub(crate) fn replace_aliases_reusing(
+    source: &str,
+    alias_map: &HashMap<String, String>,
+    module_path_map: &HashMap<String, String>,
+    project: Option<&ProjectContext>,
+    declared: Option<&DeclaredNames>,
+    tokens: Option<&[rustc_lexer::Token]>,
+) -> ReplaceResult {
     // 映射表为空时直接返回，避免不必要的词法分析开销
     if alias_map.is_empty() && module_path_map.is_empty() {
         return ReplaceResult {
@@ -1042,15 +1037,45 @@ pub fn replace_aliases_with_context_and_module_paths(
             edits: Vec::new(),
         };
     }
-    // 第一遍：收集用户声明名与库特征方法名（使用处豁免见 DeclaredNames）
-    let declared = collect_declared_names(source, alias_map);
+    // token 序列只解析一次：候选位预扫、声明名收集与替换主循环共享（`.方法()`
+    // 判定需向后看一位——下一个有意义 token 是否为 `(`，字段访问 `实例.字段`
+    // 与方法调用 `实例.方法()` 的豁免集合不同）。调用方已分好词时直接借用
+    let owned_tokens;
+    let tokens: &[rustc_lexer::Token] = match tokens {
+        Some(tokens) => tokens,
+        None => {
+            owned_tokens = crate::collect_tokens(source);
+            &owned_tokens
+        }
+    };
+    // 候选位预扫：整份源码没有任何替换候选（别名表命中 / 路径根位命中模块路径表）
+    // 时直接原样返回。真实语料 1192 份里 774 份属于这一类，此前照旧付「声明名
+    // 收集 + 逐位置豁免判定」两趟（该阶段 6.1 ms 里的 4.2 ms）
+    if !has_replacement_candidate(tokens, source, alias_map, module_path_map) {
+        return ReplaceResult {
+            output: source.to_string(),
+            edits: Vec::new(),
+        };
+    }
+    // 第一遍：收集用户声明名与库特征方法名（使用处豁免见 DeclaredNames）。
+    // 调用方已收集好时直接借用，未收集时才现场走状态机
+    let owned_declared;
+    let declared: &DeclaredNames = match declared {
+        Some(declared) => declared,
+        None => {
+            owned_declared = collect_declared_names_in(source, alias_map, tokens);
+            &owned_declared
+        }
+    };
+    // 名字级事实缓存（见 [`AliasFacts`]）：按名字直映
+    let mut name_cache: NameCache<'_, AliasFacts<'_>> = NameCache::new();
     // 单个 Colon 跟踪：rustc_lexer 把 `::` 拆成两个 Colon token
     let mut last_was_colon = false;
-    // token 序列化收集：`.方法()` 判定需向后看一位（下一个有意义 token
-    // 是否为 `(`），字段访问 `实例.字段` 与方法调用 `实例.方法()` 的
-    // 豁免集合不同
-    let tokens: Vec<rustc_lexer::Token> = tokenize(source).collect();
-    let mut output = String::new();
+    // 输出只在替换点刷出：未命中的 token 不逐个 `push_str`，替换时才把
+    // 「上次刷出位置 → 本 token 起点」的原始片段整段拷过去。2000 行样例
+    // 有 1.5 万个 token、替换点只有几十个，逐 token 复制是纯开销
+    let mut output = String::with_capacity(source.len());
+    let mut copied = 0usize;
     let mut edits = Vec::new();
     let mut current_offset = 0;
     // 上一个有意义 token 若是声明关键字，记录其文本（`mut` 透明传递）；
@@ -1071,94 +1096,119 @@ pub fn replace_aliases_with_context_and_module_paths(
         let text = &source[current_offset..current_offset + len];
         match token.kind {
             TokenKind::Ident => {
-                // `.方法()` 位：`.` 后的标识符且下一个有意义 token 是 `(`
-                //（字段名不是方法名，豁免集合见下方 usage_exempt）
-                let is_method_pos = prev_is_dot && next_significant_is_open_paren(&tokens, index);
-                // 路径根位置（首段）：后跟 `::` 且前不是 `::` 的标识符——
-                // `模块词::项` 的首段。字段/变量不可经 `::` 访问，根位豁免
-                // 不适用（office-zb #27）；模块词回退替换亦仅限根位
-                let is_path_head =
-                    !prev_is_path_sep && next_significant_is_path_sep(&tokens, index);
-                // 项目路径链：根段后跟 `::` 时链内段按项目声明名豁免。
-                // 根段确认依赖上一标识符留存的候选标记与当前 `::` 状态
+                // 替换候选先行判定：别名表命中，或处于路径根位且模块路径表命中。
+                // 两者皆无时是否豁免不影响输出（豁免只决定要不要替换），直接原样
+                // 输出：大文件里绝大多数标识符走这条快路，省掉 5 次豁免哈希查找
+                let facts = name_cache.get_or(text, || AliasFacts {
+                    alias: alias_map.get(text).map(String::as_str),
+                    path_root: project.is_some_and(|p| p.is_path_root(text)),
+                    decl_keyword: DECL_KEYWORDS.iter().find(|&&k| k == text).copied(),
+                });
+                let alias_hit = facts.alias;
+                let is_path_head_candidate =
+                    !prev_is_path_sep && next_significant_is_path_sep(tokens, index);
+                // 模块路径表只在路径根位查一次（命中判定与取值共用同一次查找）
+                let module_hit = if is_path_head_candidate {
+                    module_path_map.get(text).map(String::as_str)
+                } else {
+                    None
+                };
+                // 项目路径链状态必须无条件推进（链内段的豁免判定依赖它，与当前
+                // 标识符是否有替换候选无关）；根段确认依赖上一标识符留存的候选
+                // 标记与当前 `::` 状态
                 let in_project_chain = project.is_some()
                     && (in_project_path || (pending_project_root && prev_is_path_sep));
                 if in_project_chain {
                     in_project_path = true;
                 }
-                // 声明位保护：紧随声明关键字的名字是用户自己的定义；
-                // 例外——库特征实现块内 `fn` 后的方法名是库 API 名称
-                //（见 collect_library_impl_fns），照常参与替换
-                let decl_protected = prev_decl.is_some()
-                    && !(prev_decl == Some("fn") && declared.library_fns.contains(text));
-                // 各位置豁免集合：
-                // - 链内：仅项目声明名（项/模块）——`平台Linux::新建` 豁免，
-                //   未定义于项目的 `源码映射项::新建` 照常替换（与教程
-                //   `fn new` 定义侧一致）；
-                // - `::` 后非链（根非项目根）：无项目上下文时保留旧行为
-                //   （本文件项名豁免，`接口错误::错误请求`）；有上下文时
-                //   一律按库 API 替换（`盒子::新建` 的同名项目项不得误伤）；
-                // - `.方法()` 位：仅项目方法名（项集合）——`编辑表.长度()`
-                //   的 `长度` 是 `Vec::len` 调用，字段名豁免不适用于方法位；
-                // - 其他：本文件声明名 + 项目裸使用处豁免（含结构体字段）
-                let usage_exempt = if in_project_chain {
-                    declared.items.contains(text)
-                        || project
-                            .is_some_and(|p| p.items.contains(text) || p.modules.contains(text))
-                } else if prev_is_path_sep {
-                    project.is_none() && declared.items.contains(text)
-                } else if is_method_pos {
-                    declared.items.contains(text) || project.is_some_and(|p| p.items.contains(text))
-                } else if is_path_head {
-                    // 路径根位（后跟 `::`）：字段/变量/裸名豁免不适用——它们
-                    // 不可经 `::` 访问。缺陷回归（office-zb #27 字段场景）：
-                    // 字段名与词表词撞名（如「天数」=Days）时，`天数::新建`
-                    // 曾因字段豁免保留「天数」、只替换段位 → `天数::new`
-                    // 报 E0433；字面量/字段访问位等非根位仍按字段豁免。
-                    // 仅本文件项名与项目项名/模块名（路径链根）在根位豁免
-                    declared.items.contains(text) || project.is_some_and(|p| p.is_path_root(text))
-                } else {
-                    declared.items.contains(text)
-                        || declared.variables.contains(text)
-                        || declared.members.contains(text)
-                        // 项目声明名（项+字段，含其他文件声明）与项目根词
-                        //（模块名；crate/super/self 为英文，替换表不会命中，
-                        // 在此仅作为路径链起点）
-                        || project.is_some_and(|p| {
-                            p.naked_exempt(text) || p.is_path_root(text)
-                        })
-                };
-                if decl_protected || usage_exempt {
-                    // 声明位标识符或用户声明名的使用处：保留原样
-                    output.push_str(text);
-                } else if let Some(english) = alias_map.get(text) {
-                    edits.push(SourceMapEntry::new(current_offset, len, text, english));
-                    output.push_str(english);
-                } else if is_path_head && let Some(english) = module_path_map.get(text) {
-                    // 路径根位回退模块路径表：`异步运行时::睡眠` → `tokio::sleep`、
-                    // `#[异步运行时::主函数]` → `#[tokio::main]`（office-zb #10/#18）。
-                    // use 语句内已在管线模块路径阶段替换，此处覆盖表达式/属性位置
-                    let normalized = crate::module_path::normalize_crate_hyphen(english);
-                    let replacement = normalized.as_deref().unwrap_or(english);
-                    edits.push(SourceMapEntry::new(current_offset, len, text, replacement));
-                    output.push_str(replacement);
-                } else {
-                    output.push_str(text);
+                if alias_hit.is_some() || module_hit.is_some() {
+                    // `.方法()` 位：`.` 后的标识符且下一个有意义 token 是 `(`
+                    //（字段名不是方法名，豁免集合见下方 usage_exempt）
+                    let is_method_pos =
+                        prev_is_dot && next_significant_is_open_paren(tokens, index);
+                    // 路径根位置（首段）：后跟 `::` 且前不是 `::` 的标识符——
+                    // `模块词::项` 的首段。字段/变量不可经 `::` 访问，根位豁免
+                    // 不适用（office-zb #27）；模块词回退替换亦仅限根位
+                    let is_path_head = is_path_head_candidate;
+                    // 声明位保护：紧随声明关键字的名字是用户自己的定义；
+                    // 例外——库特征实现块内 `fn` 后的方法名是库 API 名称
+                    //（见 collect_library_impl_fns），照常参与替换
+                    let decl_protected = prev_decl.is_some()
+                        && !(prev_decl == Some("fn") && declared.library_fns.contains(text));
+                    // 各位置豁免集合：
+                    // - 链内：仅项目声明名（项/模块）——`平台Linux::新建` 豁免，
+                    //   未定义于项目的 `源码映射项::新建` 照常替换（与教程
+                    //   `fn new` 定义侧一致）；
+                    // - `::` 后非链（根非项目根）：无项目上下文时保留旧行为
+                    //   （本文件项名豁免，`接口错误::错误请求`）；有上下文时
+                    //   一律按库 API 替换（`盒子::新建` 的同名项目项不得误伤）；
+                    // - `.方法()` 位：仅项目方法名（项集合）——`编辑表.长度()`
+                    //   的 `长度` 是 `Vec::len` 调用，字段名豁免不适用于方法位；
+                    // - 其他：本文件声明名 + 项目裸使用处豁免（含结构体字段）
+                    let usage_exempt = if in_project_chain {
+                        declared.items.contains(text)
+                            || project
+                                .is_some_and(|p| p.items.contains(text) || p.modules.contains(text))
+                    } else if prev_is_path_sep {
+                        project.is_none() && declared.items.contains(text)
+                    } else if is_method_pos {
+                        declared.items.contains(text)
+                            || project.is_some_and(|p| p.items.contains(text))
+                    } else if is_path_head {
+                        // 路径根位（后跟 `::`）：字段/变量/裸名豁免不适用——它们
+                        // 不可经 `::` 访问。缺陷回归（office-zb #27 字段场景）：
+                        // 字段名与词表词撞名（如「天数」=Days）时，`天数::新建`
+                        // 曾因字段豁免保留「天数」、只替换段位 → `天数::new`
+                        // 报 E0433；字面量/字段访问位等非根位仍按字段豁免。
+                        // 仅本文件项名与项目项名/模块名（路径链根）在根位豁免
+                        declared.items.contains(text) || facts.path_root
+                    } else {
+                        declared.items.contains(text)
+                            || declared.variables.contains(text)
+                            || declared.members.contains(text)
+                            // 项目声明名（项+字段，含其他文件声明）与项目根词
+                            //（模块名；crate/super/self 为英文，替换表不会命中，
+                            // 在此仅作为路径链起点）
+                            || project.is_some_and(|p| p.naked_exempt(text))
+                            || facts.path_root
+                    };
+                    // 声明位标识符与用户声明名的使用处保留原样（随片段拷出）
+                    if !decl_protected && !usage_exempt {
+                        if let Some(english) = alias_hit {
+                            edits.push(SourceMapEntry::new(current_offset, len, text, english));
+                            output.push_str(&source[copied..current_offset]);
+                            output.push_str(english);
+                            copied = current_offset + len;
+                        } else if let Some(english) = module_hit {
+                            // 路径根位回退模块路径表：`异步运行时::睡眠` → `tokio::sleep`、
+                            // `#[异步运行时::主函数]` → `#[tokio::main]`（office-zb #10/#18）。
+                            // use 语句内已在管线模块路径阶段替换，此处覆盖表达式/属性位置
+                            let normalized = crate::module_path::normalize_crate_hyphen(english);
+                            let replacement = normalized.as_deref().unwrap_or(english);
+                            edits.push(SourceMapEntry::new(current_offset, len, text, replacement));
+                            output.push_str(&source[copied..current_offset]);
+                            output.push_str(replacement);
+                            copied = current_offset + len;
+                        }
+                    }
                 }
                 // 根段候选判定（基于母语原文；`包`等已在词法阶段转为英文）
-                pending_project_root = project.is_some_and(|p| p.is_path_root(text));
+                pending_project_root = facts.path_root;
                 // `让 mut 名称`：声明位内的 mut 透明传递声明状态；
                 // `&mut 类型` 等非声明位的 mut 不传递，库类型引用仍被替换
-                prev_decl = next_decl_keyword(prev_decl, text);
+                prev_decl = if text == "mut" {
+                    prev_decl
+                } else {
+                    facts.decl_keyword
+                };
                 prev_is_path_sep = false;
                 prev_is_dot = false;
             }
             TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {
-                output.push_str(text);
-                // 空白与注释不打断声明状态、路径限定状态与成员访问状态
+                // 空白与注释不打断声明状态、路径限定状态与成员访问状态；
+                // 原文随片段拷出，无需单独输出
             }
             _ => {
-                output.push_str(text);
                 // 符号终结声明位；连续两个 Colon 构成 `::` 路径限定
                 prev_decl = None;
                 let is_colon = matches!(token.kind, TokenKind::Colon);
@@ -1178,7 +1228,58 @@ pub fn replace_aliases_with_context_and_module_paths(
         }
         current_offset += len;
     }
+    output.push_str(&source[copied..]);
     ReplaceResult { output, edits }
+}
+
+/// 整份源码是否存在任何替换候选
+///
+/// 主循环只在两处替换：别名表命中，或路径根位（后跟 `::`、前不是 `::`）命中
+/// 模块路径表。声明名收集与逐位置豁免判定都只服务于这些候选，因此候选数为零
+/// 的文件整条阶段可以省掉——扫描本身只做一次标识符查表 + 路径根位前瞻，比
+/// 「收集声明 + 判定豁免」两趟便宜得多。
+///
+/// 状态机与主循环逐字对齐（`::` 由两个 Colon token 构成、空白/注释不打断），
+/// 否则预扫可能漏判候选，把该替换的文件原样返回。
+fn has_replacement_candidate(
+    tokens: &[rustc_lexer::Token],
+    source: &str,
+    alias_map: &HashMap<String, String>,
+    module_path_map: &HashMap<String, String>,
+) -> bool {
+    let mut offset = 0usize;
+    let mut last_was_colon = false;
+    let mut prev_is_path_sep = false;
+    for (index, token) in tokens.iter().enumerate() {
+        let text = &source[offset..offset + token.len];
+        match token.kind {
+            TokenKind::Ident => {
+                if alias_map.contains_key(text) {
+                    return true;
+                }
+                if !prev_is_path_sep
+                    && !module_path_map.is_empty()
+                    && module_path_map.contains_key(text)
+                    && next_significant_is_path_sep(tokens, index)
+                {
+                    return true;
+                }
+                prev_is_path_sep = false;
+            }
+            TokenKind::Whitespace | TokenKind::LineComment | TokenKind::BlockComment { .. } => {}
+            _ => {
+                let is_colon = matches!(token.kind, TokenKind::Colon);
+                prev_is_path_sep = if is_colon {
+                    prev_is_path_sep || last_was_colon
+                } else {
+                    false
+                };
+                last_was_colon = is_colon;
+            }
+        }
+        offset += token.len;
+    }
+    false
 }
 
 /// 下一个有意义 token（跳过空白/注释）是否为 `(`
@@ -1236,6 +1337,75 @@ mod tests {
             ("绝对值".to_string(), "abs".to_string()),
             ("字符串".to_string(), "String".to_string()),
         ])
+    }
+
+    /// 零候选文件：整份源码既无别名表命中、也无路径根位命中模块路径表时，
+    /// 预扫直接原样返回（不产出编辑）。早期实现照旧付「声明名收集 + 逐位置
+    /// 豁免判定」两趟，等价性由本测试与下方候选位测试共同锁定。
+    #[test]
+    fn no_candidate_file_returns_unchanged() {
+        let map = alias_map();
+        let src = "fn 主函数() {\n    let x = 1;\n    let 总和 = x + 2;\n}\n";
+        let r = replace_aliases_with_context_and_module_paths(src, &map, &HashMap::new(), None);
+        assert_eq!(r.output, src);
+        assert!(r.edits.is_empty(), "无候选文件不应产出编辑：{:?}", r.edits);
+    }
+
+    /// 预扫的状态机必须与主循环一致：`::` 由两个 Colon token 组成，中间允许
+    /// 夹空白与注释。预扫若漏认路径根位，整份文件会被误判为零候选而原样返回。
+    #[test]
+    fn candidate_scan_handles_path_sep_with_trivia() {
+        let map = HashMap::from([("打印".to_string(), "print".to_string())]);
+        let modules = HashMap::from([("异步运行时".to_string(), "tokio".to_string())]);
+        for src in [
+            "异步运行时::睡眠(1);",
+            "异步运行时 :: 睡眠(1);",
+            "异步运行时: /* c */ : 睡眠(1);",
+        ] {
+            let r = replace_aliases_with_context_and_module_paths(src, &map, &modules, None);
+            assert!(
+                !r.edits.is_empty(),
+                "路径根位候选被预扫漏掉，整份文件原样返回：{src}"
+            );
+            assert!(
+                r.output.contains("tokio"),
+                "路径根位未回退模块路径表：{}",
+                r.output
+            );
+        }
+    }
+
+    /// 有候选但候选全被豁免（声明位）：输出必须与零候选路径一致——原样、无编辑。
+    /// 豁免只决定「要不要替换」，不创造替换；预扫据此只看候选存在性。
+    #[test]
+    fn exempt_candidate_yields_no_edits() {
+        let map = alias_map();
+        let src = "struct 字符串;\n";
+        let r = replace_aliases_with_context_and_module_paths(src, &map, &HashMap::new(), None);
+        assert_eq!(r.output, src);
+        assert!(r.edits.is_empty(), "声明位不应被替换：{:?}", r.edits);
+    }
+
+    /// 有候选文件不受预扫影响：所有可替换点仍照常替换（含路径根段与类型位）。
+    #[test]
+    fn candidate_present_still_replaces_all_sites() {
+        let map = HashMap::from([
+            ("字符串".to_string(), "String".to_string()),
+            ("新建".to_string(), "new".to_string()),
+        ]);
+        let src = "fn 主函数() {\n    let b = 字符串::新建();\n    let c: 字符串 = b;\n}\n";
+        let r = replace_aliases_with_context_and_module_paths(src, &map, &HashMap::new(), None);
+        assert!(
+            r.output.contains("String::new()"),
+            "路径根与段位未全部替换：{}",
+            r.output
+        );
+        assert!(
+            r.output.contains("let c: String = b;"),
+            "类型位未替换：{}",
+            r.output
+        );
+        assert_eq!(r.edits.len(), 3, "可替换点应全部替换：{:?}", r.edits);
     }
 
     #[test]
@@ -1928,5 +2098,52 @@ mod tests {
             None,
         );
         assert_eq!(out.output, "struct 时间 {}\nlet t = 时间::new();");
+    }
+
+    /// 名字级事实缓存按名字直映：槽位冲突时两个名字各得其事实
+    ///
+    /// 槽内保存名字全文并逐字节比较；若误按槽位取用，同槽的未映射名字会拿到
+    /// 前一个已映射名字的译文。
+    #[test]
+    fn test_alias_facts_cache_collision_keeps_both_names() {
+        let alias = HashMap::from([("甲".to_string(), "one".to_string())]);
+        let want = crate::name_cache::name_cache_slot("甲");
+        let collide = (0..5000)
+            .map(|i| format!("甲{i}"))
+            .find(|name| crate::name_cache::name_cache_slot(name) == want)
+            .expect("应能找到同槽位的另一个名字");
+        let source = format!("let y = 甲 + {collide};\n");
+        let out = replace_aliases(&source, &alias);
+        assert_eq!(out, format!("let y = one + {collide};\n"));
+    }
+
+    /// 项目上下文的名字级缓存：路径根事实在重复名字上一致生效
+    ///
+    /// 同一个名字既作路径链根又出现在裸使用位，两处的豁免依据不同
+    ///（根位看 `path_root`，裸位看项目声明名），缓存不能把两件事混成一件。
+    #[test]
+    fn test_project_path_root_fact_reused_across_positions() {
+        let alias = HashMap::from([
+            ("平台Linux".to_string(), "platform".to_string()),
+            ("新建".to_string(), "new".to_string()),
+        ]);
+        let mut items = HashSet::new();
+        items.insert("平台Linux".to_string());
+        let project = ProjectContext {
+            modules: HashSet::new(),
+            names: items.clone(),
+            items,
+        };
+        let out = replace_aliases_with_context(
+            "let a = 平台Linux::新建();\nlet b = 平台Linux();",
+            &alias,
+            Some(&project),
+        );
+        // 根位按项目路径根豁免、裸位按项目声明名豁免，两处都不替换；
+        // 链内段「新建」未定义于项目，照常按库 API 替换
+        assert_eq!(
+            out.output,
+            "let a = 平台Linux::new();\nlet b = 平台Linux();"
+        );
     }
 }
