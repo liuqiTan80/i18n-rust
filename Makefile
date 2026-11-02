@@ -31,7 +31,7 @@ test: ## 全部单元测试（debug + release，锁定依赖；CI 同款）
 	$(CARGO) test --workspace --locked
 	$(CARGO) test --workspace --release --locked
 
-gate: fmt-check clippy test prod-panics ui-keys ui-index ext-ui-keys lang-packs readme-parity mapping-check tutorials-all glossary glossary-consistency ## 提交前完整门禁（= CI test job 全链）
+gate: fmt-check clippy test prod-panics ui-keys ui-index ext-ui-keys lang-packs readme-parity mapping-check tutorials-all glossary glossary-consistency zh-artifacts ## 提交前完整门禁（= CI test job 全链）
 
 prod-panics: ## 生产代码 panic 面门禁（unwrap/expect/panic! 仅限测试区或白名单）
 	$(PYTHON) tools/check-prod-panics.py
@@ -53,6 +53,10 @@ lang-packs: ## 语言包完整性门禁（errors.toml 回读/键数齐平/占位
 
 readme-parity: ## 翻译 README 结构 parity 检查（章节数/锚点有效性/围栏配对，基准 en）
 	$(PYTHON) tools/check-readme-parity.py
+
+zh-artifacts: ## zh 分支方言源纪律门禁（产物同步 + 一词多译 + 命名位撞词条审计（含声明名）；main 无 .zh 时自动空跑）
+	$(CARGO) build --quiet --bin rzc
+	$(PYTHON) tools/check-zh-artifacts.py
 
 mapping-check: ## 第三方库映射质量门禁（重复键/避让/跨文件冲突/跨语言条目数/告警基线）
 	$(CARGO) build --quiet --bin rzc
