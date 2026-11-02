@@ -70,7 +70,7 @@ fn find_rust_analyzer() -> Option<PathBuf> {
     {
         return Some(PathBuf::from(path));
     }
-    if let Some(p) = i18n_rust_engine::toolchain::find_toolchain_bin("rust-analyzer") {
+    if let Some(p) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
         return Some(p);
     }
     let exe = if cfg!(windows) {

@@ -52,7 +52,7 @@ struct MirrorFile {
     /// 方言源内容（打开文档取缓冲区，否则取磁盘；同行列换算用）
     zh_content: String,
     /// 引擎列映射（产物字符列 → 方言字符列；本模块自行转译，与 CLI 同源）
-    column_map: i18n_rust_engine::column_map::ColumnMap,
+    column_map: i18n_rust_engine::列位映射::列位映射表,
     /// 入口产物行（磁盘行，0-based 索引）→ 引擎直出行映射；
     /// 仅入口文件有 `#[path]` 注解插入行，其余为恒等（None）
     entry_line_map: Option<Vec<usize>>,
@@ -65,7 +65,7 @@ struct Pending {
     /// 引擎转译输出（未补 `#[path]` 注解）
     output: String,
     /// 引擎列映射（产物字符列 → 方言字符列）
-    column_map: i18n_rust_engine::column_map::ColumnMap,
+    column_map: i18n_rust_engine::列位映射::列位映射表,
     /// 方言源内容（打开文档取缓冲区，否则取磁盘）
     zh_content: String,
 }
@@ -360,8 +360,10 @@ fn transpile_into_mirror(
             Some(&module_names),
             Some(&project),
         );
-        let column_map =
-            i18n_rust_engine::column_map::ColumnMap::build(content, &output.pipeline_map);
+        let column_map = i18n_rust_engine::列位映射::列位映射表::回放生成(
+            content,
+            &output.pipeline_map,
+        );
         pending.push(Pending {
             mirror_path: mirror_path.clone(),
             output: output.output,
@@ -780,7 +782,7 @@ fn map_position(file: &MirrorFile, line_1based: u32, col_1based: u32) -> (u32, u
             .unwrap_or(line_1based),
         None => line_1based,
     };
-    let (zh_line, zh_char_col) = file.column_map.map_position(engine_line, col_1based);
+    let (zh_line, zh_char_col) = file.column_map.回译坐标(engine_line, col_1based);
     (
         zh_line.saturating_sub(1),
         zh_char_col_to_utf16(&file.zh_content, zh_line, zh_char_col),
@@ -813,7 +815,7 @@ mod tests {
         Pending {
             mirror_path: PathBuf::from("/mirror/src").join(name),
             output: output.to_string(),
-            column_map: i18n_rust_engine::column_map::ColumnMap::build("", &[]),
+            column_map: i18n_rust_engine::列位映射::列位映射表::回放生成("", &[]),
             zh_content: String::new(),
         }
     }
@@ -1082,7 +1084,7 @@ mod tests {
             product_path: PathBuf::from("/mirror/src/main.rs"),
             original_uri: "file:///proj/src/main.zh".to_string(),
             zh_content: zh.to_string(),
-            column_map: i18n_rust_engine::column_map::ColumnMap::build(zh, &edits),
+            column_map: i18n_rust_engine::列位映射::列位映射表::回放生成(zh, &edits),
             entry_line_map,
         }
     }
@@ -1114,7 +1116,7 @@ mod tests {
             product_path: PathBuf::from("/mirror/src/main.rs"),
             original_uri: "file:///proj/src/main.zh".to_string(),
             zh_content: zh.to_string(),
-            column_map: i18n_rust_engine::column_map::ColumnMap::build(zh, &edits),
+            column_map: i18n_rust_engine::列位映射::列位映射表::回放生成(zh, &edits),
             entry_line_map: Some(vec![2, 0, 1]),
         };
         // 产物第 1 行 → 引擎第 3 行（"}" 行）→ 方言 0-based 第 2 行
@@ -1150,7 +1152,7 @@ mod tests {
             product_path: PathBuf::from("/mirror/src/main.rs"),
             original_uri: "file:///proj/src/main.zh".to_string(),
             zh_content: zh.to_string(),
-            column_map: i18n_rust_engine::column_map::ColumnMap::build(zh, &edits),
+            column_map: i18n_rust_engine::列位映射::列位映射表::回放生成(zh, &edits),
             entry_line_map: None,
         };
         // 产物「let😀x」中 x 在第 5 字符列 → 方言 UTF-16 列 3
