@@ -335,7 +335,7 @@ fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
     }
 
     // 1. 内置工具链（脱离 rustup 的 standalone 版本，版本自管）
-    if let Some(p) = i18n_rust_engine::toolchain::find_toolchain_bin("rust-analyzer") {
+    if let Some(p) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
         return Ok(p);
     }
 
@@ -356,7 +356,7 @@ fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
     }
 
     // PATH 扫描（engine 工具链定位统一实现：含 Windows PATHEXT 探测）
-    if let Some(p) = i18n_rust_engine::toolchain::find_toolchain_bin("rust-analyzer") {
+    if let Some(p) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
         return Ok(p);
     }
 
@@ -476,10 +476,10 @@ mod tests {
 
     /// PATH 扫描由 engine 工具链定位统一实现（见 crates/engine/src/toolchain.rs）
     #[test]
-    fn test_engine_find_toolchain_bin_missing() {
+    fn test_engine_查找工具链程序_missing() {
         // 内置与 PATH 都不存在的二进制名应返回 None（不 panic）
         let name = format!("__ra_nonexistent__{}", std::process::id());
-        assert!(i18n_rust_engine::toolchain::find_toolchain_bin(&name).is_none());
+        assert!(i18n_rust_engine::工具链::查找工具链程序(&name).is_none());
     }
 
     /// 构造空连接（未启动任何子进程）

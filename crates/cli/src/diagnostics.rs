@@ -88,7 +88,7 @@ pub(crate) fn run_direct_rustc(
     manager: &MappingManager,
     source: &str,
     file: &Path,
-    column_map: &i18n_rust_engine::column_map::ColumnMap,
+    column_map: &i18n_rust_engine::列位映射::列位映射表,
     entry_line_map: &[usize],
     project_ctx: &i18n_rust_engine::alias::ProjectContext,
 ) -> anyhow::Result<std::process::ExitCode> {
@@ -192,7 +192,7 @@ pub(crate) fn check_direct_rustc(
     manager: &MappingManager,
     source: &str,
     file: &Path,
-    column_map: &i18n_rust_engine::column_map::ColumnMap,
+    column_map: &i18n_rust_engine::列位映射::列位映射表,
     entry_line_map: &[usize],
     project_ctx: &i18n_rust_engine::alias::ProjectContext,
 ) -> anyhow::Result<std::process::ExitCode> {
@@ -462,7 +462,7 @@ pub(crate) struct DiagContext<'a> {
     ///
     /// rustc 看到的是转译后的英文源码，其列号对母语源码无效
     ///（如 `让` → `let` 后整行右移）。`None` 表示不做映射，保持旧行为。
-    pub(crate) column_map: Option<&'a i18n_rust_engine::column_map::ColumnMap>,
+    pub(crate) column_map: Option<&'a i18n_rust_engine::列位映射::列位映射表>,
     /// 入口磁盘产物行 → 引擎直出行映射（见
     /// [`annotate_product`](crate::annotate_product)）。
     ///
@@ -871,7 +871,7 @@ fn translate_cargo_diagnostics_impl(
 struct DiagFileContext {
     display_name: String,
     source: String,
-    column_map: i18n_rust_engine::column_map::ColumnMap,
+    column_map: i18n_rust_engine::列位映射::列位映射表,
     /// 磁盘产物行 → 引擎直出行映射（`#[path]` 注解插入行时非恒等）。
     ///
     /// 托管布局下入口与子模块产物都由
@@ -925,8 +925,10 @@ fn resolve_dialect_context(
     // 教学告警（lint/全角/Unicode）已在写盘转译时输出过，此处重放不得重复告警
     let transpiled =
         i18n_rust_engine::transpile_pipeline_quiet_with_project(&source, manager, project);
-    let column_map =
-        i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
+    let column_map = i18n_rust_engine::列位映射::列位映射表::回放生成(
+        &source,
+        &transpiled.pipeline_map,
+    );
     // 子模块产物写盘时按托管布局插入了 `#[path]` 行：列映射以未注解的引擎
     // 直出产物为基准，须先用同一函数的行映射换算回直出行号，否则注解越多、
     // 行号偏移越大（多文件项目下的错行）。产物路径按同一规则重算，
@@ -965,7 +967,7 @@ pub(crate) struct DiagLocationFixer<'a> {
     /// 入口文件的母语源码
     source: &'a str,
     /// 入口产物的列映射（rustc 列号 → 母语列号）
-    column_map: Option<&'a i18n_rust_engine::column_map::ColumnMap>,
+    column_map: Option<&'a i18n_rust_engine::列位映射::列位映射表>,
     /// 入口磁盘产物行 → 引擎直出行映射（含 `#[path]` 注解插入行时非恒等）
     entry_line_map: Option<&'a [usize]>,
     project_root: &'a Path,
@@ -1030,7 +1032,7 @@ impl<'a> DiagLocationFixer<'a> {
                     .and_then(|map| map.get(loc.line_start.saturating_sub(1) as usize).copied())
                     .map(|engine| engine as u32 + 1)
                     .unwrap_or(loc.line_start);
-                let (line, column) = cm.map_position(engine_line, loc.column_start);
+                let (line, column) = cm.回译坐标(engine_line, loc.column_start);
                 loc.line_start = line;
                 loc.column_start = column;
             }
@@ -1061,9 +1063,7 @@ impl<'a> DiagLocationFixer<'a> {
             .copied()
             .map(|engine| engine as u32 + 1)
             .unwrap_or(loc.line_start);
-        let (line, column) = context
-            .column_map
-            .map_position(engine_line, loc.column_start);
+        let (line, column) = context.column_map.回译坐标(engine_line, loc.column_start);
         loc.line_start = line;
         loc.column_start = column;
         loc.source_text = get_chinese_source_line(&context.source, loc.line_start);
@@ -1304,8 +1304,10 @@ mod tests {
 
         let manager = zh_manager();
         let transpiled = i18n_rust_engine::transpile_pipeline(source, &manager);
-        let column_map =
-            i18n_rust_engine::column_map::ColumnMap::build(source, &transpiled.pipeline_map);
+        let column_map = i18n_rust_engine::列位映射::列位映射表::回放生成(
+            source,
+            &transpiled.pipeline_map,
+        );
         let (annotated, line_map) = annotate_non_ascii_mods_with_lines(&transpiled.output);
         // 磁盘产物（rustc 看到的就是它）：注解插在第 2 行，其后行号 +1
         std::fs::write(root.join("src/main.rs"), &annotated).unwrap();

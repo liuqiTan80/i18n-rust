@@ -198,9 +198,9 @@ pub fn install_toolchain(
     force: bool,
     ra_only: bool,
 ) -> anyhow::Result<()> {
-    use i18n_rust_engine::toolchain::{rz_home, toolchain_bin_dir};
+    use i18n_rust_engine::工具链::{安装根目录, 工具链程序目录};
 
-    let bin_dir = toolchain_bin_dir();
+    let bin_dir = 工具链程序目录();
     if ra_only {
         return install_rust_analyzer_only(ui, ra_tag, &bin_dir);
     }
@@ -253,7 +253,7 @@ pub fn install_toolchain(
     }
 
     // 3. 记录版本
-    let toolchain_dir = rz_home().join("toolchain");
+    let toolchain_dir = 安装根目录().join("toolchain");
     std::fs::create_dir_all(&toolchain_dir)?;
     std::fs::write(toolchain_dir.join("version.txt"), version)?;
     println!(
@@ -431,15 +431,13 @@ fn copy_bin_dir(from: &Path, to: &Path) -> anyhow::Result<()> {
 
 /// 环境诊断：rzc / 内置工具链 / PATH 工具链 / 版本对比
 pub fn doctor() -> anyhow::Result<()> {
-    use i18n_rust_engine::toolchain::{
-        LOCKED_TOOLCHAIN_VERSION, installed_toolchain_version, toolchain_bin_dir,
-    };
+    use i18n_rust_engine::工具链::{工具链程序目录, 已安装版本, 锁定版本};
 
     println!("=== rzc doctor ===");
     println!("rzc: {}", env!("CARGO_PKG_VERSION"));
 
-    let bin_dir = toolchain_bin_dir();
-    let builtin_version = installed_toolchain_version();
+    let bin_dir = 工具链程序目录();
+    let builtin_version = 已安装版本();
     match &builtin_version {
         Some(v) => println!("内置工具链: {}（{}）", v, bin_dir.display()),
         None => {
@@ -480,16 +478,16 @@ pub fn doctor() -> anyhow::Result<()> {
     }
 
     if let Some(v) = builtin_version.as_deref()
-        && v != LOCKED_TOOLCHAIN_VERSION
+        && v != 锁定版本
     {
         println!(
             "提示: 内置工具链 {} 与锁定版本 {} 不一致（rzc install toolchain --force 更新）",
-            v, LOCKED_TOOLCHAIN_VERSION
+            v, 锁定版本
         );
     }
     println!(
         "升级内置工具链：rzc install toolchain --version <新版本> --force（当前锁定 {}）",
-        LOCKED_TOOLCHAIN_VERSION
+        锁定版本
     );
 
     // 项目入口自检：在项目里跑 doctor 时，把「直接 cargo build 撞 no targets」
@@ -776,7 +774,7 @@ fn locate_component(name: &str, bin_dir: &std::path::Path) -> Option<ComponentSo
     if builtin.is_file() {
         return Some(ComponentSource::Builtin(builtin));
     }
-    i18n_rust_engine::toolchain::find_toolchain_bin(name).map(ComponentSource::Path)
+    i18n_rust_engine::工具链::查找工具链程序(name).map(ComponentSource::Path)
 }
 
 /// 各组件来源状态行（纯函数，便于测试）：`rustc: 内置（路径）` / `cargo: PATH（路径）` 等
@@ -838,7 +836,7 @@ fn lsp_version_line(lsp_version: Option<&str>, rzc_version: &str) -> Option<Stri
 /// 双击 rzc.exe（或终端无参数运行）时的环境安装向导：
 /// 逐项检查组件状态，标注「已就绪 ✓」或「缺失 ✗ + 解决命令」。
 pub fn show_setup_wizard() {
-    use i18n_rust_engine::toolchain::{find_toolchain_bin, toolchain_bin_dir};
+    use i18n_rust_engine::工具链::{工具链程序目录, 查找工具链程序};
     let exe = std::env::consts::EXE_SUFFIX;
 
     println!("════════════ i18n-rust 环境安装向导 ════════════");
@@ -855,10 +853,10 @@ pub fn show_setup_wizard() {
         ("cargo", "rzc install toolchain"),
         ("rust-analyzer", "rzc install toolchain --force"),
     ] {
-        let builtin = toolchain_bin_dir().join(format!("{name}{exe}"));
+        let builtin = 工具链程序目录().join(format!("{name}{exe}"));
         let (mark, detail) = if builtin.is_file() {
             ("✓ 已就绪", format!("内置（{}）", builtin.display()))
-        } else if let Some(p) = find_toolchain_bin(name) {
+        } else if let Some(p) = 查找工具链程序(name) {
             ("✓ 已就绪", format!("PATH（{}）", p.display()))
         } else {
             (
@@ -872,7 +870,7 @@ pub fn show_setup_wizard() {
 
     // 2. 语言服务器（VS Code 补全/诊断后端）
     println!("【第 2 步】语言服务器 i18n-rust-lsp（rzc install lsp 一键安装）");
-    if let Some(p) = find_toolchain_bin("i18n-rust-lsp") {
+    if let Some(p) = 查找工具链程序("i18n-rust-lsp") {
         println!("  [✓ 已就绪] {}", p.display());
         if let Ok(output) = std::process::Command::new(&p).arg("--version").output() {
             let version = String::from_utf8_lossy(&output.stdout).trim().to_string();

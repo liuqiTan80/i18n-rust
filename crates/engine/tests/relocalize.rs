@@ -7,8 +7,8 @@
 use std::path::Path;
 
 use i18n_rust_engine::mapping_manager::MappingManager;
-use i18n_rust_engine::relocalize::relocalize;
 use i18n_rust_engine::transpile_pipeline;
+use i18n_rust_engine::反译重生::反译重生;
 
 fn manager(lang: &str) -> MappingManager {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("lang-packs/{lang}"));
@@ -31,7 +31,7 @@ fn relocalize_zh_to_ja_uses_core_main_keyword_not_crate_alias() {
     let zh = manager("zh");
     let ja = manager("ja");
     let english = transpile_pipeline(ZH_SOURCE, &zh).output;
-    let ja_source = relocalize(&english, &ja);
+    let ja_source = 反译重生(&english, &ja);
     assert!(ja_source.contains("関数"), "应含 ja `関数`: {ja_source}");
     assert!(ja_source.contains("もし"), "应含 ja `もし`: {ja_source}");
     assert!(
@@ -57,7 +57,7 @@ fn relocalize_output_transpiles_back_to_same_english() {
     let zh = manager("zh");
     let ja = manager("ja");
     let english = transpile_pipeline(ZH_SOURCE, &zh).output;
-    let ja_source = relocalize(&english, &ja);
+    let ja_source = 反译重生(&english, &ja);
     let back = transpile_pipeline(&ja_source, &ja).output;
     assert!(
         back.contains("fn main"),
@@ -74,15 +74,15 @@ fn relocalize_is_idempotent_on_relocalize() {
     let ja = manager("ja");
     let zh = manager("zh");
     let english = transpile_pipeline(ZH_SOURCE, &zh).output;
-    let first = relocalize(&english, &ja);
+    let first = 反译重生(&english, &ja);
     let english_again = transpile_pipeline(&first, &ja).output;
-    let second = relocalize(&english_again, &ja);
+    let second = 反译重生(&english_again, &ja);
     assert_eq!(first, second, "relocalize 经正向/反译往返应幂等");
 }
 
 #[test]
 fn relocalize_pure_no_panic_on_empty_and_standard_input() {
     let ja = manager("ja");
-    assert_eq!(relocalize("", &ja), "", "空输入应得空输出");
-    let _ = relocalize("fn main() { let x = std::mem::size_of::<u8>(); }", &ja);
+    assert_eq!(反译重生("", &ja), "", "空输入应得空输出");
+    let _ = 反译重生("fn main() { let x = std::mem::size_of::<u8>(); }", &ja);
 }

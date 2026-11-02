@@ -355,9 +355,9 @@ impl TranslationCache {
     }
 
     /// 默认位置的持久化缓存：`~/.rz/cache/transpile-v1.json`
-    ///（与工具链/语言包同根，见 [`crate::toolchain::rz_home`]）
+    ///（与工具链/语言包同根，见 [`crate::工具链::安装根目录`]）
     pub fn persistent_default() -> Self {
-        let path = crate::toolchain::rz_home()
+        let path = crate::工具链::安装根目录()
             .join("cache")
             .join("transpile-v1.json");
         Self::persistent(&path)

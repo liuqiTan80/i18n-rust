@@ -36,7 +36,7 @@ use rustc_lexer::TokenKind;
 use std::collections::{HashMap, HashSet};
 
 use crate::cache::SourceMapEntry;
-use crate::name_cache::NameCache;
+use crate::名字缓存::名字缓存;
 
 /// 单阶段替换结果：输出与编辑表
 ///
@@ -953,7 +953,7 @@ pub fn replace_aliases_with_context(
 ///
 /// 主循环对每个标识符都要查别名表、判定项目路径根（`modules`/`items` 两次
 /// 哈希查找）、推进声明关键字状态（`DECL_KEYWORDS` 线性扫）。这三件事只取决于
-/// 名字本身，因此按名字直映缓存（见 [`crate::name_cache`]）：同名重复出现时
+/// 名字本身，因此按名字直映缓存（见 [`crate::名字缓存`]）：同名重复出现时
 /// 只付一次探测。模块路径表**不在**缓存内——它只在路径根位（后跟 `::`）才
 /// 需要，而路径根位是少数，无条件预查反而会为每个标识符多搭一次随机访存。
 #[derive(Clone, Copy)]
@@ -1068,7 +1068,7 @@ pub(crate) fn replace_aliases_reusing(
         }
     };
     // 名字级事实缓存（见 [`AliasFacts`]）：按名字直映
-    let mut name_cache: NameCache<'_, AliasFacts<'_>> = NameCache::new();
+    let mut name_cache: 名字缓存<'_, AliasFacts<'_>> = 名字缓存::新建();
     // 单个 Colon 跟踪：rustc_lexer 把 `::` 拆成两个 Colon token
     let mut last_was_colon = false;
     // 输出只在替换点刷出：未命中的 token 不逐个 `push_str`，替换时才把
@@ -1099,7 +1099,7 @@ pub(crate) fn replace_aliases_reusing(
                 // 替换候选先行判定：别名表命中，或处于路径根位且模块路径表命中。
                 // 两者皆无时是否豁免不影响输出（豁免只决定要不要替换），直接原样
                 // 输出：大文件里绝大多数标识符走这条快路，省掉 5 次豁免哈希查找
-                let facts = name_cache.get_or(text, || AliasFacts {
+                let facts = name_cache.取或解析(text, || AliasFacts {
                     alias: alias_map.get(text).map(String::as_str),
                     path_root: project.is_some_and(|p| p.is_path_root(text)),
                     decl_keyword: DECL_KEYWORDS.iter().find(|&&k| k == text).copied(),
@@ -2107,10 +2107,10 @@ mod tests {
     #[test]
     fn test_alias_facts_cache_collision_keeps_both_names() {
         let alias = HashMap::from([("甲".to_string(), "one".to_string())]);
-        let want = crate::name_cache::name_cache_slot("甲");
+        let want = crate::名字缓存::名字槽位("甲");
         let collide = (0..5000)
             .map(|i| format!("甲{i}"))
-            .find(|name| crate::name_cache::name_cache_slot(name) == want)
+            .find(|name| crate::名字缓存::名字槽位(name) == want)
             .expect("应能找到同槽位的另一个名字");
         let source = format!("let y = 甲 + {collide};\n");
         let out = replace_aliases(&source, &alias);

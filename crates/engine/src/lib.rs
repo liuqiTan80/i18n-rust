@@ -3,24 +3,30 @@
 
 pub mod alias;
 pub mod cache;
-pub mod column_map;
 pub mod diagnostic;
 pub mod eject_hints;
 pub mod error;
 pub mod fullwidth;
-pub mod guide;
 pub mod lexer;
 pub mod lint;
 pub mod logger;
 pub mod mapping_manager;
 pub mod mapping_source;
 pub mod module_path;
-pub mod name_cache;
 pub mod product_layout;
-pub mod relocalize;
-pub mod toolchain;
-pub mod ui;
 pub mod unicode_confusion;
+#[path = "列位映射.rs"]
+pub mod 列位映射;
+#[path = "反译重生.rs"]
+pub mod 反译重生;
+#[path = "名字缓存.rs"]
+pub mod 名字缓存;
+#[path = "工具链.rs"]
+pub mod 工具链;
+#[path = "指南.rs"]
+pub mod 指南;
+#[path = "界面消息.rs"]
+pub mod 界面消息;
 #[path = "语言.rs"]
 pub mod 语言;
 

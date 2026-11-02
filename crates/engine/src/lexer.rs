@@ -4,7 +4,7 @@
 //! 支持宏感叹号自动补充、原始标识符（r#）处理、反向转译（Rust → 母语）。
 
 use crate::cache::{MapText, SourceMapEntry};
-use crate::name_cache::NameCache;
+use crate::名字缓存::名字缓存;
 use rustc_lexer::{TokenKind, tokenize};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -205,8 +205,8 @@ pub(crate) fn transpile_with_map_tokens(
     // 同名词在宏表与标准库表重复时 use 段内标准库优先（`文件`=file/File，
     // `使用 标准库::文件系统::文件` 必须产出 `use std::fs::File` 而非小写 file ）
     let mut in_use_stmt = false;
-    // 标识符事实缓存（见 [`IdentFacts`] 与 [`crate::name_cache`]）：按名字直映
-    let mut ident_cache: NameCache<'_, IdentFacts<'_>> = NameCache::new();
+    // 标识符事实缓存（见 [`IdentFacts`] 与 [`crate::名字缓存`]）：按名字直映
+    let mut ident_cache: 名字缓存<'_, IdentFacts<'_>> = 名字缓存::新建();
     // 上一个有意义 token 是否为 `.`（方法位判定）：空白/注释不改变该状态，
     // 与早先逐位回溯 `is_preceded_by_dot` 逐字等价，但不必再回扫 token 流
     let mut prev_is_dot = false;
@@ -223,7 +223,7 @@ pub(crate) fn transpile_with_map_tokens(
                 // 与普通标识符不同（宏名不能是原始标识符，故永不补 `!`）
                 let is_raw = raw_name.len() != text.len();
                 // 名字级缓存：命中则复用上次解析的几张表答案，未命中才逐表查
-                let facts = ident_cache.get_or(text, || IdentFacts {
+                let facts = ident_cache.取或解析(text, || IdentFacts {
                     keyword: keyword_map.get(raw_name).map(String::as_str),
                     macro_en: macro_map.get(raw_name).map(String::as_str),
                 });
@@ -944,10 +944,10 @@ mod tests {
     fn test_ident_cache_collision_keeps_both_names() {
         let mut map = create_test_map();
         map.insert("甲".to_string(), "one".to_string());
-        let want = crate::name_cache::name_cache_slot("甲");
+        let want = crate::名字缓存::名字槽位("甲");
         let collide = (0..5000)
             .map(|i| format!("甲{i}"))
-            .find(|name| crate::name_cache::name_cache_slot(name) == want)
+            .find(|name| crate::名字缓存::名字槽位(name) == want)
             .expect("应能找到同槽位的另一个名字");
         let source = format!("让 甲 = 1;\n让 {collide} = 2;\n");
         let expected = format!("let one = 1;\nlet {collide} = 2;\n");
