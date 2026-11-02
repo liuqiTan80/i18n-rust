@@ -58,11 +58,41 @@ pub fn transpile_source_with_map(
 ///
 /// 缓存语境指纹并入项目上下文指纹（[`alias::ProjectContext::fingerprint`]）：
 /// 项目声明集合变化时相关缓存自动失效，无需语言包版本变化触发。
+///
+/// 教学告警与缓存状态无关：命中缓存只复用**转译产物**，源码里的魔法数字、全角
+/// 标点、Unicode 混淆字符还在原地，每次调用都照旧提示。旧实现把告警挂在转译
+/// 闭包里（只有未命中才跑），实测同一份含魔法数字的 `main.zh` 连跑两次
+/// `rzc check`：第一次出「[lint] 第 5 行第 12 列：魔法数字「5」」，第二次一条
+/// 告警都没有——学习者会读成「提示消失＝问题已修」。
 pub fn transpile_source_with_project(
     source: &str,
     manager: &mapping_manager::MappingManager,
     cache: &mut cache::TranslationCache,
     project: Option<&alias::ProjectContext>,
+) -> Result<cache::TranspileOutput, error::TranspileError> {
+    transpile_source_cached_inner(source, manager, cache, project, true)
+}
+
+/// 同 [`transpile_source_with_project`]，但不输出教学告警
+///
+/// 供调用方自行负责告警与文件归属的场景使用（CLI 多文件项目按文件名前缀输出，
+/// 见 [`emit_teaching_warnings`]）：除告警外，产物与缓存行为逐字一致。
+pub fn transpile_source_with_project_quiet(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    cache: &mut cache::TranslationCache,
+    project: Option<&alias::ProjectContext>,
+) -> Result<cache::TranspileOutput, error::TranspileError> {
+    transpile_source_cached_inner(source, manager, cache, project, false)
+}
+
+/// 带缓存转译入口的唯一实现：`emit` 控制本入口是否输出教学告警
+fn transpile_source_cached_inner(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    cache: &mut cache::TranslationCache,
+    project: Option<&alias::ProjectContext>,
+    emit: bool,
 ) -> Result<cache::TranspileOutput, error::TranspileError> {
     logger::init();
     let start = Instant::now();
@@ -77,11 +107,13 @@ pub fn transpile_source_with_project(
         project.map(alias::ProjectContext::fingerprint),
     );
 
+    // 闭包内保持静默：把告警挂在闭包里，等于把它绑死在「缓存未命中」这个条件上
     let output = cache.get_or_transpile(source, fingerprint, || {
         Ok(transpile_pipeline_inner(
-            source, manager, None, project, true,
+            source, manager, None, project, false,
         ))
     })?;
+    emit_teaching_diagnostics(source, manager, emit);
 
     let elapsed = format!("{:?}", start.elapsed());
     crate::log_info!(
@@ -305,39 +337,61 @@ fn transpile_pipeline_inner(
     )
 }
 
-/// 教学告警（Unicode 混淆 / 全角标点 / 教学 lint）：仅告警不阻断，`emit` 控制输出
+/// 教学告警（Unicode 混淆 / 全角标点 / 教学 lint）：仅告警不阻断
+///
+/// `label` 为 Some 时每条告警带文件归属前缀（`标签：正文`）：多文件项目里裸
+/// 行列定位不到具体文件，按文件输出的调用方（CLI）传自己的显示名；None 是管线
+/// 内部出口（入口文件语境，裸行列即命令传入的那个文件）。
+///
+/// 本函数是教学扫描集合的**唯一**事实来源：调用方不要再各自拼一遍扫描器。历史
+/// 上 CLI 侧那份少调了英文回落与保留字撞名两类，入口文件会提示而兄弟文件不会，
+/// 同一份代码换条路径就漏报（见 `lint_teaching_all_chars`）。
+pub fn emit_teaching_warnings(
+    source: &str,
+    manager: &mapping_manager::MappingManager,
+    label: Option<&str>,
+) {
+    // 归属前缀只在有标签时拼一次：None 走原样，不额外分配
+    let owned = |text: String| match label {
+        Some(name) => format!("{name}：{text}"),
+        None => text,
+    };
+    // 词法处理前的 Unicode 混淆安全检查（零宽/双向/同形字符，仅告警）
+    for warning in unicode_confusion::check_unicode_confusion(source) {
+        crate::log_warn!("unicode_confusion", "{}", owned(warning.format()));
+    }
+    // 全角标点教学检查（中文输入法常见错误：代码位置的全角标点，仅告警不阻断）；
+    // 字符串/注释内的全角标点合法，由扫描器自动跳过
+    //
+    // 以下四个扫描器共用同一份字符切片：源码只物化一次，避免各扫一遍
+    let chars: Vec<char> = source.chars().collect();
+    for warning in fullwidth::find_fullwidth_punct_chars(&chars) {
+        crate::log_warn!("fullwidth", "{}", owned(warning.format()));
+    }
+    // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深/易混方法名。
+    // CLI `--no-lint` 可关闭（lint::set_teaching_lint_enabled），
+    // 供项目开发（非教学）场景静默刷屏提示
+    if lint::teaching_lint_enabled() {
+        // 一把算全部教学提示：共用同一份字符切片，英文回落（母语词条却写成
+        // `fn`/`Vec`/`.collect()` 等）与保留字撞名（`函数 匹配` → `fn match`）
+        // 在同一次遍历里判定，见 `lint::lint_teaching_all`；易混词表的分桶索引
+        // 由 manager 缓存（每语言包一次，不是每文件一次）
+        for warning in lint::lint_teaching_all_chars(
+            &chars,
+            lint::WordIndexSource::Shared(manager.lint_word_buckets()),
+            manager.ambiguous_constructor_words(),
+            manager.english_fallback_map(),
+            manager.get_keyword_map(),
+        ) {
+            crate::log_warn!("lint", "{}", owned(warning.format()));
+        }
+    }
+}
+
+/// 管线内部出口：`emit` 控制是否输出（不带文件归属）
 fn emit_teaching_diagnostics(source: &str, manager: &mapping_manager::MappingManager, emit: bool) {
     if emit {
-        // 词法处理前的 Unicode 混淆安全检查（零宽/双向/同形字符，仅告警）
-        for warning in unicode_confusion::check_unicode_confusion(source) {
-            crate::log_warn!("unicode_confusion", "{}", warning.format());
-        }
-        // 全角标点教学检查（中文输入法常见错误：代码位置的全角标点，仅告警不阻断）；
-        // 字符串/注释内的全角标点合法，由扫描器自动跳过
-        //
-        // 以下四个扫描器共用同一份字符切片：源码只物化一次，避免各扫一遍
-        let chars: Vec<char> = source.chars().collect();
-        for warning in fullwidth::find_fullwidth_punct_chars(&chars) {
-            crate::log_warn!("fullwidth", "{}", warning.format());
-        }
-        // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深/易混方法名。
-        // CLI `--no-lint` 可关闭（lint::set_teaching_lint_enabled），
-        // 供项目开发（非教学）场景静默刷屏提示
-        if lint::teaching_lint_enabled() {
-            // 一把算全部教学提示：共用同一份字符切片，英文回落（母语词条却写成
-            // `fn`/`Vec`/`.collect()` 等）与保留字撞名（`函数 匹配` → `fn match`）
-            // 在同一次遍历里判定，见 `lint::lint_teaching_all`；易混词表的分桶索引
-            // 由 manager 缓存（每语言包一次，不是每文件一次）
-            for warning in lint::lint_teaching_all_chars(
-                &chars,
-                lint::WordIndexSource::Shared(manager.lint_word_buckets()),
-                manager.ambiguous_constructor_words(),
-                manager.english_fallback_map(),
-                manager.get_keyword_map(),
-            ) {
-                crate::log_warn!("lint", "{}", warning.format());
-            }
-        }
+        emit_teaching_warnings(source, manager, None);
     }
 }
 

@@ -424,6 +424,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner),
                 Some(&project_ctx),
+                &teaching_display_name(&file, &project_root),
             );
             // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
             let column_map =
@@ -636,6 +637,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner),
                 Some(&project_ctx),
+                &teaching_display_name(&file, &project_root),
             );
             // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
             let column_map =
@@ -740,8 +742,15 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // 与 eject 同一管线（项目上下文 + 模块注解）：预览产物即导出产物
             let project = collect_export_context(&file, &manager);
             let mut cache = TranslationCache::persistent_default();
-            let english_code =
-                transpile_for_export(&file, &source, &manager, &project, &mut cache, false);
+            let english_code = transpile_for_export(
+                &file,
+                &source,
+                &manager,
+                &project,
+                &mut cache,
+                false,
+                &file.display().to_string(),
+            );
             print!("{english_code}");
             let _ = ui; // stdout 模式无需额外提示
             Ok(std::process::ExitCode::SUCCESS)
@@ -1622,6 +1631,7 @@ fn collect_context_for_files(
 
 /// 转译单个源文件为可导出的标准 Rust（项目上下文 + 模块路径注解）
 ///
+/// `display_name` 是教学告警的文件归属名（导出/预览按调用方给的路径显示）。
 /// `dir_mode` 区分导出形态：目录批量导出时非入口文件的子模块位于
 /// `<自身词干>/` 下（rustc 默认查找规则），注解须带词干前缀；单文件导出
 /// 按 crate 根处理（与既有 eject 产物一致）。
@@ -1632,8 +1642,10 @@ fn transpile_for_export(
     project: &i18n_rust_engine::alias::ProjectContext,
     cache: &mut TranslationCache,
     dir_mode: bool,
+    display_name: &str,
 ) -> String {
-    let transpiled = transpile_with_map_cached_in_project(source, manager, cache, Some(project));
+    let transpiled =
+        transpile_with_map_cached_in_project(source, manager, cache, Some(project), display_name);
     annotate_exported_mods(&transpiled.output, path, manager, dir_mode)
 }
 
@@ -1855,8 +1867,15 @@ fn eject_sources(
                     );
                 }
             }
-            let code =
-                transpile_for_export(path, &source, &manager, &project, &mut cache, dir_mode);
+            let code = transpile_for_export(
+                path,
+                &source,
+                &manager,
+                &project,
+                &mut cache,
+                dir_mode,
+                &path.display().to_string(),
+            );
             let output_path = path.with_extension("rs");
             write_transpiled(&output_path, &code, ui)?;
             outputs.push(output_path);
@@ -1986,27 +2005,47 @@ fn relocalize_targets(
     Ok(std::process::ExitCode::SUCCESS)
 }
 
-/// 同 [`transpile_source_with_project`]，附项目级声明上下文（跨文件声明豁免）
+/// 同 [`transpile_source_with_project`]，附项目级声明上下文（跨文件声明豁免），
+/// 教学告警按文件归属输出
 ///
 /// 缓存语境指纹由引擎并入项目上下文指纹（[`transpile_source_with_project`]）：
 /// 项目声明集合变化时相关缓存自动失效。
+///
+/// 告警走静默入口再带名输出，与兄弟文件（[`emit_teaching_warnings_for_file`]）
+/// 共用同一条出口：过去入口文件由引擎裸打行列（`第 5 行第 12 列：…`）、兄弟文件
+/// 带 `工具.zh：` 前缀，同一次运行混着两种格式；且引擎那份只在缓存未命中时输出。
 fn transpile_with_map_cached_in_project(
     source: &str,
     manager: &MappingManager,
     cache: &mut i18n_rust_engine::cache::TranslationCache,
     project: Option<&i18n_rust_engine::alias::ProjectContext>,
+    display_name: &str,
 ) -> i18n_rust_engine::cache::TranspileOutput {
-    i18n_rust_engine::transpile_source_with_project(source, manager, cache, project).unwrap_or_else(
-        |_e| {
-            // 缓存失败不阻断转译：回退无缓存管线（与旧行为一致）
-            i18n_rust_engine::log_warn!(
-                "cli",
-                "{}",
-                i18n_rust_engine::语言::t("log_transpile_cache_fallback")
-            );
-            i18n_rust_engine::transpile_pipeline_with_project(source, manager, project)
-        },
-    )
+    let output =
+        i18n_rust_engine::transpile_source_with_project_quiet(source, manager, cache, project)
+            .unwrap_or_else(|_e| {
+                // 缓存失败不阻断转译：回退无缓存静默管线（告警统一由下方输出，不重复）
+                i18n_rust_engine::log_warn!(
+                    "cli",
+                    "{}",
+                    i18n_rust_engine::语言::t("log_transpile_cache_fallback")
+                );
+                i18n_rust_engine::transpile_pipeline_quiet_with_project(source, manager, project)
+            });
+    emit_teaching_warnings_for_file(source, display_name, manager);
+    output
+}
+
+/// 教学告警的文件归属名：项目内文件相对 `src/` 显示，与 [`transpile_project_files`]
+/// 给兄弟文件算的显示名同口径；`src/` 之外（根目录脚本、目录导出）按给定路径显示
+fn teaching_display_name(file: &Path, project_root: &Path) -> String {
+    let abs = file.canonicalize().unwrap_or_else(|_| file.to_path_buf());
+    let src_dir = project_root.join("src");
+    abs.strip_prefix(&src_dir)
+        .or_else(|_| abs.strip_prefix(project_root))
+        .unwrap_or(abs.as_path())
+        .display()
+        .to_string()
 }
 
 /// 解析 cargo 可执行文件：内置工具链（~/.rz/toolchain）优先，PATH 回退；
@@ -2272,7 +2311,7 @@ fn transpile_project_files(
                     Some(output) => output,
                     None => {
                         // 锁外并行转译，完成后短临界区写回缓存；
-                        // 静默管线：教学告警改由下方带文件名输出（多文件项目
+                        // 静默管线：教学告警由 match 之外带文件名输出（多文件项目
                         // 中裸行列无法定位到具体文件）；项目上下文保证
                         // 跨文件调用的成员名与声明侧一致（#8）
                         let output = i18n_rust_engine::transpile_pipeline_quiet_with_project(
@@ -2280,7 +2319,6 @@ fn transpile_project_files(
                             manager,
                             Some(project),
                         );
-                        emit_teaching_warnings_for_file(&source, &display_name, manager);
                         cache
                             .lock()
                             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -2288,6 +2326,9 @@ fn transpile_project_files(
                         output
                     }
                 };
+                // 告警挂在 match 之外：命中缓存同样要提示。旧版把它放在「未命中」
+                // 分支里，同一份源码第二次 `rzc check` 一条告警都不出
+                emit_teaching_warnings_for_file(&source, &display_name, manager);
                 // 非入口产物写入托管目录并镜像源码布局（src/领域/工具.zh →
                 // .rz/gen/src/领域/工具.rs）：`#[path]` 落点按同一布局解析，
                 // 托管树内的相对位置与旧布局逐字一致（子模块在 `<自身词干>/`
@@ -2359,37 +2400,15 @@ fn prune_stale_products(project_root: &Path, extensions: &[String], ui: &ui::Ui)
     }
 }
 
-/// 输出单个方言文件的教学告警（Unicode 混淆/全角标点/lint），带文件名归属
+/// 输出单个方言文件的教学告警（Unicode 混淆/全角标点/教学 lint），带文件名归属
 ///
-/// 多文件项目中项目内文件分散在多个方言文件，裸行列无法定位具体文件；
-/// 入口文件的告警仍由转译管线直接输出（裸行列即命令传入的入口文件）。
-/// 时机与转译一致（仅缓存未命中时输出），静默管线保证不重复输出。
+/// 多文件项目中项目内文件分散在多个方言文件，裸行列无法定位具体文件。扫描集合
+/// 与出口都在引擎（[`i18n_rust_engine::emit_teaching_warnings`]），入口文件与
+/// 兄弟文件共用同一份口径——早先这里自己拼了一遍扫描器，少调英文回落与保留字
+/// 撞名两类：同一份代码走入口路径会提示、走兄弟路径不提示。
+/// 输出时机与缓存无关（每次转译都提示，见引擎 `transpile_source_with_project`）。
 fn emit_teaching_warnings_for_file(source: &str, display_name: &str, manager: &MappingManager) {
-    // 一份字符切片喂给全角标点与教学 lint 两个扫描器：早先两处各自把源码展开
-    // 成 `Vec<char>`，小文件上这份物化开销与扫描本体同量级
-    let chars: Vec<char> = source.chars().collect();
-    for warning in i18n_rust_engine::unicode_confusion::check_unicode_confusion(source) {
-        i18n_rust_engine::log_warn!(
-            "unicode_confusion",
-            "{}：{}",
-            display_name,
-            warning.format()
-        );
-    }
-    for warning in i18n_rust_engine::fullwidth::find_fullwidth_punct_chars(&chars) {
-        i18n_rust_engine::log_warn!("fullwidth", "{}：{}", display_name, warning.format());
-    }
-    if i18n_rust_engine::lint::teaching_lint_enabled() {
-        // 易混词表的分桶索引由 manager 缓存（每语言包一次）：早先每份源码在首个
-        // 方法调用位重建一次，实测 2.45 ms/1192 份，比扫描本身还贵
-        for warning in i18n_rust_engine::lint::lint_teaching_with_buckets_chars(
-            &chars,
-            manager.lint_word_buckets(),
-            manager.ambiguous_constructor_words(),
-        ) {
-            i18n_rust_engine::log_warn!("lint", "{}：{}", display_name, warning.format());
-        }
-    }
+    i18n_rust_engine::emit_teaching_warnings(source, manager, Some(display_name));
 }
 
 /// 写转译产物，写入语义按落点分道
@@ -3317,6 +3336,7 @@ mod tests {
             &manager,
             &mut cache.lock().unwrap(),
             Some(&ctx),
+            "main.zh",
         )
         .output;
         assert!(

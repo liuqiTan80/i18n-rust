@@ -766,6 +766,36 @@
   readme-parity / 术语表两项）全绿、四语教程 `--allowlist --ctx --outputs` 全绿、
   `cargo +1.88 build --workspace --locked` 通过。
 ### 修复
+- **`rzc check` 的教学告警随缓存命中与否出现、入口文件那条没有归属**：引擎把告警挂在
+  `cache.get_or_transpile` 的转译闭包里，而闭包只在**未命中**时执行；CLI 侧带文件名的那份
+  `emit_teaching_warnings_for_file` 又只在兄弟文件循环的 `None =>`（未命中）分支里调用。实测
+  同一份含魔法数字的项目连跑两次 `rzc check src/main.zh`：第一次两条
+  「[警告] [lint] 第 4 行第 12 列：魔法数字「5」」（入口这条不带文件名）与
+  「[警告] [lint] 工具.zh：第 2 行第 12 列：魔法数字「42」」，第二次两条全没了，只剩
+  「✅ 编译成功，没有错误。」——学习者会读成「提示消失＝问题已修」。改后两次输出逐字相同、
+  每条都带文件名前缀。顺带收掉两处口径分叉：入口走引擎的匿名告警、兄弟走 CLI 的带名告警，
+  且 CLI 那份用的 `lint_teaching_with_buckets_chars` 比引擎的 `lint_teaching_all_chars` 少
+  「英文回落」「保留字撞名」两类提示。
+  做法是把扫描集合收敛为引擎唯一出口 `emit_teaching_warnings(source, manager, label)`
+  （`label` 决定要不要拼 `{文件名}：` 前缀），`transpile_source_with_project` 把告警移到缓存
+  查询之后（与缓存状态无关），另给 CLI 一个 `transpile_source_with_project_quiet` 自行按名
+  输出、回退分支改用 `transpile_pipeline_quiet_with_project` 防重复；CLI 侧
+  `emit_teaching_warnings_for_file` 缩为一行委托，文件名口径由新增的 `teaching_display_name`
+  统一（相对 `src/`，取不到再退相对项目根）。
+  回归锁：`test_teaching_warnings_survive_transpile_cache`（真 `rzc` 子进程、同内容跑两遍比对
+  剔掉时间戳后的 `[lint]` 正文）。旧代码判红实测：该用例 FAILED 于
+  `crates/cli/tests/cli_basic.rs:277`，打印出的实际 stderr 正是那条不带文件名的
+  「第 4 行第 12 列：魔法数字「5」」。不误伤：`--no-lint` 两遍均 0 条教学告警（静默开关仍生效），
+  `rzc transpile` 两遍告警同样一致。
+  代价要说清：`transpile_source` 这条带缓存的公开入口，命中路径从此每次多跑一遍教学扫描——
+  engine 基准 `transpile/pipeline_cache_hit` 基线 23741 → 213575 ns、`pipeline_cache_hit_2000`
+  138081 → 815871 ns（BENCH_RUNS=3 取最小值），增量与单独计费的
+  `teaching_checks/teaching_all_scan`（180573 ns）对得上，也就是命中成本变成「缓存查询 + 一遍
+  教学扫描」，仍只有同规模全量转译（571647 ns）的 37%。没有把告警文本随转译产物一起写进缓存
+  来省掉这一遍：那要改持久缓存的条目结构（`~/.rz/cache/transpile-v1.json`），存量旧条目没有
+  这个字段，等于对它们把缺陷 B 原样长回来，得连带升版本号——而真实链路里 CLI 走 `*_quiet`、
+  LSP 走静默管线，多付这份扫描的只有「库调用方直接用带缓存入口」这一种场景。LSP 五组基线
+  未动（同机重测幅度 -2.3%～+1.9%，全部远在 30% 阈值内，可证热路径没吃到这次改动）。
 - **LSP 每次打开/保存把整个项目的教学告警无归属刷进 server stderr**：`mirror_check` 逐项目文件
   转译时走的是非静默管线入口，而该模块已通过 `inject_teaching_diags` 把全角标点与教学 lint 算成
   诊断按文件归属发布——同一条提示在 Problems 面板和 server 日志里各出现一次，后者不含文件名

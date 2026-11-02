@@ -196,8 +196,9 @@ fn test_init_unknown_locale_reports_fallback() {
 ///
 /// 项目开发（非教学）场景中，未标注类型等初学者提示每次转译刷屏；
 /// 默认输出（stderr 含 `[lint]` 标签）与关闭后输出（stderr 空）对比验证。
-/// HOME 隔离到临时目录：缓存（~/.rz）不跨测试/机器残留，内容各自
-/// 不同强制缓存未命中（命中会跳过管线而不产生任何告警，断言失真）。
+/// HOME 隔离到临时目录：缓存（~/.rz）不跨测试/机器残留。两个文件内容各自
+/// 不同（不同变量名）只是让两次都是新鲜语境；教学告警本身已与缓存命中与否
+/// 无关（回归见 test_teaching_warnings_survive_transpile_cache）。
 #[test]
 fn test_no_lint_silences_teaching_hints() {
     let dir = tempfile::tempdir().expect("创建临时目录失败");
@@ -235,6 +236,95 @@ fn test_no_lint_silences_teaching_hints() {
         .success()
         .stdout(predicates::str::contains("let 数量乙 = 6;"))
         .stderr(predicates::str::is_empty());
+}
+
+/// 回归（缺陷 B）：教学告警不得随转译缓存命中而消失，且每条带文件归属
+///
+/// 旧实现把告警挂在「缓存未命中才执行」的转译闭包里：HOME 隔离下同一份源码连
+/// 跑两次 `rzc check`，第一次出「[lint] …：魔法数字「5」…」」，第二次一条告警
+/// 都不出。学习者会把它读成「提示消失＝问题已修」。同一次运行里入口文件的告警
+/// 是裸行列、兄弟文件却带 `工具.zh：` 前缀，两种格式混着出，也没法把告警对回文件。
+#[test]
+fn test_teaching_warnings_survive_transpile_cache() {
+    let home = isolated_home();
+    let work = tempfile::tempdir().expect("创建工作目录失败");
+    std::fs::create_dir_all(work.path().join("src")).expect("创建 src 失败");
+    std::fs::write(
+        work.path().join("Cargo.toml"),
+        "[package]\nname=\"t\"\nversion=\"0.1.0\"\nedition=\"2021\"\n",
+    )
+    .unwrap();
+    // 入口与兄弟模块各含一个魔法数字：两条告警分属不同文件，都要有归属
+    std::fs::write(
+        work.path().join("src/main.zh"),
+        "模块 工具;\n\n函数 主函数() {\n    让 数量 = 5;\n    打印行!(\"{}\", 数量);\n    工具::算一算();\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        work.path().join("src/工具.zh"),
+        "公开 函数 算一算() {\n    让 倍数 = 42;\n    打印行!(\"{}\", 倍数);\n}\n",
+    )
+    .unwrap();
+
+    // 同一份源码跑两遍 `rzc check`：第二遍转译缓存必然命中（同 HOME、同语境指纹）
+    let first = check_stderr_with(&["check", "src/main.zh"], &home, &work);
+    let second = check_stderr_with(&["check", "src/main.zh"], &home, &work);
+
+    for (轮次, stderr) in [
+        ("首跑（缓存未命中）", &first),
+        ("复跑（缓存命中）", &second),
+    ] {
+        assert!(
+            stderr.contains("main.zh：第 4 行第 12 列：魔法数字「5」"),
+            "{轮次}应有入口文件的教学告警，且带文件名归属：\n{stderr}"
+        );
+        assert!(
+            stderr.contains("工具.zh：第 2 行第 12 列：魔法数字「42」"),
+            "{轮次}应有兄弟文件的教学告警：\n{stderr}"
+        );
+    }
+
+    // 缓存命中与否不得改变告警集合（剔掉时间戳与级别前缀后逐字一致）
+    assert_eq!(
+        教学告警正文(&first),
+        教学告警正文(&second),
+        "两次运行的教学告警应逐字一致——缓存只复用转译产物，源码里的问题还在原地"
+    );
+
+    // 对照（防误伤）：--no-lint 仍静默全部教学 lint，缓存命中路径也一样静默
+    let 静默后 = check_stderr_with(&["--no-lint", "check", "src/main.zh"], &home, &work);
+    assert!(
+        !静默后.contains("魔法数字"),
+        "--no-lint 应静默全部教学告警（缓存命中路径同样静默）：\n{静默后}"
+    );
+}
+
+/// 取出日志行里 `[lint]` 之后的告警正文（剔掉时间戳与级别，只比告警本身）
+fn 教学告警正文(text: &str) -> Vec<&str> {
+    text.lines()
+        .filter_map(|line| {
+            line.rfind("[lint] ")
+                .map(|at| &line[at + "[lint] ".len()..])
+        })
+        .collect()
+}
+
+/// 按给定参数跑一次 `rzc check` 类命令，返回 stderr
+///
+/// HOME 隔离到临时目录（~/.rz 转译缓存不跟真实用户目录相碰）、清 RZ_LOG
+/// （界面语言与日志级别不跟机器环境相碰），多个断言分支共用同一份命令构造。
+fn check_stderr_with(args: &[&str], home: &tempfile::TempDir, work: &tempfile::TempDir) -> String {
+    let stderr = rzc()
+        .env("HOME", home.path())
+        .env_remove("RZ_LOG")
+        .current_dir(work.path())
+        .args(args)
+        .assert()
+        .success()
+        .get_output()
+        .stderr
+        .clone();
+    String::from_utf8(stderr).expect("stderr 应为 UTF-8")
 }
 
 // ========== 进程级子命令链路（真实 rustc / 文件系统，隔离 HOME） ==========
