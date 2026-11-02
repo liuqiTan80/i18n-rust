@@ -134,7 +134,7 @@ pub fn builtin_lang_files(lang: &str) -> Vec<(&'static str, &'static str)> {
 /// 按语言代码取内置消息表（未知语言回退中文表）；路由由 build.rs 生成
 ///
 /// 返回编译期嵌入的静态实例，调用方按引用查询即可，无需再解析 TOML；
-/// 需要 `["解释"]` 节或磁盘自定义覆盖时改用 [`crate::ui::UiTable`]。
+/// 需要 `["解释"]` 节或磁盘自定义覆盖时改用 [`crate::界面消息::消息表`]。
 pub fn builtin_message_table(code: &str) -> &'static HashMap<String, String> {
     ui_table_for(code)
 }
@@ -201,7 +201,7 @@ fn lang_info_extension(lang: &str) -> Option<String> {
 
 /// 取指定语言的消息模板；缺失时回退中文表，再缺失回退键名本身
 fn t_in(code: &str, key: &str) -> String {
-    crate::ui::lookup(builtin_message_table(code), key)
+    crate::界面消息::取模板(builtin_message_table(code), key)
 }
 
 /// 取当前语言的消息模板；缺失时回退中文表，再缺失回退键名本身
@@ -211,7 +211,7 @@ pub fn t(key: &str) -> String {
 
 /// 按指定语言取消息模板并替换 `{}` 占位符（纯函数，测试与内部使用）
 fn f_in(code: &str, key: &str, args: &[&str]) -> String {
-    crate::ui::substitute(&t_in(code, key), args)
+    crate::界面消息::代入参数(&t_in(code, key), args)
 }
 
 /// 取消息模板并替换 `{}` 占位符（按出现顺序）

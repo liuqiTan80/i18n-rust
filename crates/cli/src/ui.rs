@@ -14,7 +14,7 @@
 
 use std::path::Path;
 
-use i18n_rust_engine::ui::UiTable;
+use i18n_rust_engine::界面消息::消息表;
 use i18n_rust_engine::语言::builtin_message_table;
 
 /// 界面消息表
@@ -24,7 +24,7 @@ use i18n_rust_engine::语言::builtin_message_table;
 /// 语言选择仍是「每次调用重算」：环境变量变化后 `global()` 立即切换。
 pub struct Ui {
     /// 落盘命中的自定义表（项目内 / 全局 / 显式目录）
-    custom: Option<UiTable>,
+    custom: Option<消息表>,
     /// 内置回退语言代码（`custom` 为 `None` 时生效，未知代码由引擎路由回中文）
     lang: String,
 }
@@ -33,7 +33,7 @@ impl Ui {
     /// 用已读入的 ui.toml 内容构造自定义表
     fn from_content(content: String, lang_code: &str) -> Self {
         Self {
-            custom: Some(UiTable::parse(&content)),
+            custom: Some(消息表::成表(&content)),
             lang: lang_code.to_string(),
         }
     }
@@ -97,13 +97,15 @@ impl Ui {
     pub fn t(&self, key: &str) -> String {
         match &self.custom {
             Some(table) => table.t(key),
-            None => i18n_rust_engine::ui::lookup(builtin_message_table(&self.lang), key),
+            None => {
+                i18n_rust_engine::界面消息::取模板(builtin_message_table(&self.lang), key)
+            }
         }
     }
 
     /// 取消息模板并替换 `{}` 占位符（按出现顺序）
     pub fn f(&self, key: &str, args: &[&str]) -> String {
-        i18n_rust_engine::ui::substitute(&self.t(key), args)
+        i18n_rust_engine::界面消息::代入参数(&self.t(key), args)
     }
 }
 

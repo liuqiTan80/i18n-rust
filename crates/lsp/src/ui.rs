@@ -14,7 +14,7 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
-use i18n_rust_engine::ui::UiTable;
+use i18n_rust_engine::界面消息::消息表;
 
 /// 全局 UI（main 启动时 init；未 init 时回退内置 zh，便于测试）
 static GLOBAL: OnceLock<Ui> = OnceLock::new();
@@ -45,10 +45,10 @@ pub fn global() -> &'static Ui {
 
 /// 界面消息表
 ///
-/// 解析、`{}` 替换与缺键回退统一由引擎 [`UiTable`] 实现；本模块只保留
+/// 解析、`{}` 替换与缺键回退统一由引擎 [`消息表`] 实现；本模块只保留
 /// LSP 自己的加载链（显式目录 → 目录名 → 环境变量 → 中文）。
 pub struct Ui {
-    table: UiTable,
+    table: 消息表,
 }
 
 // 内置 ui.toml 由引擎 crate 编译期嵌入（避免发布打包时 include_str! 路径失效），
@@ -58,7 +58,7 @@ impl Ui {
     /// 从 TOML 内容构造消息表（["界面消息"] + ["解释"] 节）
     fn from_toml(content: &str) -> Self {
         Self {
-            table: UiTable::parse(content),
+            table: 消息表::成表(content),
         }
     }
 
@@ -85,7 +85,7 @@ impl Ui {
         // 1. --language-pack 显式目录内的 ui.toml
         if let Ok(content) = std::fs::read_to_string(lang_pack_path.join("ui.toml")) {
             let ui = Self::from_toml(&content);
-            if !ui.table.is_empty() {
+            if !ui.table.没有消息() {
                 return (ui, dir_lang);
             }
         }
@@ -131,7 +131,7 @@ impl Ui {
 
     /// 取大白话解释（缺失返回 None，调用方保持原样回退）
     pub fn explanation(&self, key: &str) -> Option<&str> {
-        self.table.explanation(key)
+        self.table.解释(key)
     }
 }
 
