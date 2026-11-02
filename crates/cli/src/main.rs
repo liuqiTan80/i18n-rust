@@ -176,7 +176,7 @@ enum InstallCommand {
     /// One-click install of the bundled toolchain (standalone rustc/cargo/rust-analyzer, no rustup required)
     Toolchain {
         /// Toolchain version (defaults to the version rzc is locked to, e.g. 1.98.0)
-        #[arg(long, default_value = i18n_rust_engine::toolchain::LOCKED_TOOLCHAIN_VERSION)]
+        #[arg(long, default_value = i18n_rust_engine::工具链::锁定版本)]
         version: String,
         /// Official rust-analyzer release tag (defaults to the locked version)
         #[arg(long, default_value = crate::install::RA_RELEASE_TAG)]
@@ -427,8 +427,10 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 &teaching_display_name(&file, &project_root),
             );
             // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
-            let column_map =
-                i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
+            let column_map = i18n_rust_engine::列位映射::列位映射表::回放生成(
+                &source,
+                &transpiled.pipeline_map,
+            );
             // 写盘产物含 `#[path]` 注解插入行：保留行映射供诊断回译先行换算
             //（注解落点按托管布局解析：子模块产物在 `.rz/gen/` 镜像目录下）
             let entry_extensions = lang_manager::all_available_extensions();
@@ -640,8 +642,10 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 &teaching_display_name(&file, &project_root),
             );
             // 列映射：把 rustc 诊断的英文产物列号回译到母语源码列号
-            let column_map =
-                i18n_rust_engine::column_map::ColumnMap::build(&source, &transpiled.pipeline_map);
+            let column_map = i18n_rust_engine::列位映射::列位映射表::回放生成(
+                &source,
+                &transpiled.pipeline_map,
+            );
             // 写盘产物含 `#[path]` 注解插入行：保留行映射供诊断回译先行换算
             //（注解落点按托管布局解析：子模块产物在 `.rz/gen/` 镜像目录下）
             let entry_extensions = lang_manager::all_available_extensions();
@@ -798,7 +802,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let manager = load_mapping(None, Some(&fake_source))?;
             print!(
                 "{}",
-                i18n_rust_engine::guide::render_cheat(&manager, &lang_code, markdown)
+                i18n_rust_engine::指南::渲染速查表(&manager, &lang_code, markdown)
             );
             Ok(std::process::ExitCode::SUCCESS)
         }
@@ -810,7 +814,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             i18n_rust_engine::语言::set_language(&lang_code);
             let fake_source = PathBuf::from(format!("main.{lang_code}"));
             let manager = load_mapping(None, Some(&fake_source))?;
-            let guide = i18n_rust_engine::guide::render_agent_guide(&manager, &lang_code);
+            let guide = i18n_rust_engine::指南::渲染母语指南(&manager, &lang_code);
             match out {
                 Some(path) => {
                     // 写盘成功才报「已生成」：失败时让异常冒泡到顶层母语错误出口
@@ -954,7 +958,7 @@ fn maybe_show_first_run(ui: &ui::Ui) {
     println!();
     println!("{}", ui.t("first_run_hello"));
     // rustc 检测：内置工具链目录或 PATH（含 rustc.exe/rustc）任一命中
-    let rustc_ok = i18n_rust_engine::toolchain::find_toolchain_bin("rustc").is_some()
+    let rustc_ok = i18n_rust_engine::工具链::查找工具链程序("rustc").is_some()
         || std::env::var_os("PATH").is_some_and(|path| {
             std::env::split_paths(&path).any(|dir| {
                 let exe = if cfg!(windows) { "rustc.exe" } else { "rustc" };
@@ -1964,7 +1968,7 @@ fn relocalize_targets(
             }
             i18n_rust_engine::transpile_pipeline(&source, &manager_cache[&lang]).output
         };
-        let dialect = i18n_rust_engine::relocalize::relocalize(&english, &target_manager);
+        let dialect = i18n_rust_engine::反译重生::反译重生(&english, &target_manager);
         // 镜像写出：相对扫描根的路径，扩展名换为目标语言代码
         let rel = path.strip_prefix(&scan_root).unwrap_or(path.as_path());
         let out_path = out_root.join(rel).with_extension(to);
@@ -1989,7 +1993,7 @@ fn relocalize_targets(
     // 目标方言 AGENTS.md（与 guide 打通，复用引擎渲染；失败不阻断产物写出）
     let _ = fs::write(
         out_root.join("AGENTS.md"),
-        i18n_rust_engine::guide::render_agent_guide(&target_manager, to),
+        i18n_rust_engine::指南::渲染母语指南(&target_manager, to),
     );
 
     if !wrote_entry {
@@ -2051,14 +2055,12 @@ fn teaching_display_name(file: &Path, project_root: &Path) -> String {
 /// 解析 cargo 可执行文件：内置工具链（~/.rz/toolchain）优先，PATH 回退；
 /// 找不到时返回 "cargo" 由系统报错（保持与旧行为一致的报错信息）
 pub fn resolve_cargo() -> PathBuf {
-    i18n_rust_engine::toolchain::find_toolchain_bin("cargo")
-        .unwrap_or_else(|| PathBuf::from("cargo"))
+    i18n_rust_engine::工具链::查找工具链程序("cargo").unwrap_or_else(|| PathBuf::from("cargo"))
 }
 
 /// 解析 rustc 可执行文件：内置工具链优先，PATH 回退
 pub fn resolve_rustc() -> PathBuf {
-    i18n_rust_engine::toolchain::find_toolchain_bin("rustc")
-        .unwrap_or_else(|| PathBuf::from("rustc"))
+    i18n_rust_engine::工具链::查找工具链程序("rustc").unwrap_or_else(|| PathBuf::from("rustc"))
 }
 
 /// 解析与 [`resolve_rustc`] 同工具链的 rustdoc：优先内建/PATH 的独立 rustdoc，
@@ -2068,7 +2070,7 @@ pub fn resolve_rustc() -> PathBuf {
 /// `mapping auto` 手调 rustdoc 生成 JSON 时必须与 cargo 编译 rlib 用同一
 /// rustc，否则跨版本链接触发 E0514（见 doc_json.rs 的 RUSTC 统一注入）。
 pub fn resolve_rustdoc() -> PathBuf {
-    if let Some(p) = i18n_rust_engine::toolchain::find_toolchain_bin("rustdoc") {
+    if let Some(p) = i18n_rust_engine::工具链::查找工具链程序("rustdoc") {
         return p;
     }
     if let Ok(out) = std::process::Command::new(resolve_rustc())
@@ -2666,7 +2668,7 @@ fn create_project(project_name: &str, lang: &str, ai: bool) -> anyhow::Result<()
         let manager = load_mapping(None, Some(&PathBuf::from(format!("main.{lang}"))))?;
         fs::write(
             project_path.join("AGENTS.md"),
-            i18n_rust_engine::guide::render_agent_guide(&manager, lang),
+            i18n_rust_engine::指南::渲染母语指南(&manager, lang),
         )?;
         println!("{}", ui.f("agents_generated", &["AGENTS.md"]));
     }
