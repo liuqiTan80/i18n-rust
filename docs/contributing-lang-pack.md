@@ -303,7 +303,7 @@ RZ_LANG_REPO=https://gitcode.com/你的账号/你的语言包仓库 rzc lang ins
 - [ ] `rzc mapping check crates/engine/lang-packs/<码>` 无错误
 - [ ] `rzc lang install crates/engine/lang-packs/<码>` 安装成功
 - [ ] 母语方言源码 `rzc eject` 转出标准 Rust 且可编译
-- [ ] `make lang-packs`（`tools/check-lang-packs.py`）全绿：逐包 TOML 真回读、消息表/错误码表/关键词/stdlib 键数结构齐平、版本号与内置表一致、无短前缀吞整句告警（进 CI 门禁，无需靠手工）
+- [ ] `make lang-packs`（`tools/check-lang-packs.py`）全绿：逐包 TOML 真回读、消息表/错误码表/关键词/stdlib 键数结构齐平、版本号与内置表一致、无短前缀吞整句告警（进 CI 门禁，无需靠手工；`make lang-packs` 与 CI/发布防线均带 `--strict`，告警即判红——别再指望「只是 ⚠️」能混过去）
 - [ ] 反例语料无残留：`cargo test -p i18n-rust-engine --test diag_corpus_gate` 全过（语料来自 `tools/diag-corpus/collect.py` 对 `rustc --error-format json` 的实跑采样，签入 `crates/engine/tests/data/diag-corpus.tsv`；新增高频反例后重跑 collect.py 刷新语料即自动拦住中英混排）
 - [ ] `~/.rz/lang-packs/` 下无陈旧/改名遗留目录（`rzc doctor` 可直接查出，见 2.5）
 - [ ] 高频反例实跑 `rzc check`，逐条看「修复建议」有无中英混排（静态检查查不出，见 2.6）

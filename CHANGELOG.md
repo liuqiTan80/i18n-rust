@@ -26,6 +26,13 @@
   教程 zh/en 第十八章「错误五」与两份附录 D、`crates/cli/README.md` 同步写明。
 
 ### 工具
+- 语言包门禁的「只提示」口子封掉：四处调用点统一加 `--strict`（`Makefile` 的 lang-packs、
+  `ci.yml` 的 ubuntu 与 windows 两处、`release.yml`）。短前缀键吞整句这类风险原先只打 ⚠️ 不影响
+  退出码——实测往副本语言包的 10 个非 en 包各注入一条 10 字符前缀键，不带 `--strict` 时「10 行
+  ⚠️ 照打、EXIT=0」，CI 全绿；带 `--strict` 则 EXIT=1 并写「0 项错误、10 项告警（--strict 下告警
+  计入失败）」。真表当前告警数为 0，加 `--strict` 后仍 EXIT=0（11 语言 / 186 个 TOML / 518 错误码 /
+  169 条消息翻译键），所以这次收紧不需要清尾。`docs/contributing-lang-pack.md` 的提交前自查同步
+  写明「告警即判红，别再指望只是 ⚠️ 能混过去」。
 - CI 失败注解脚本不再在「明细为空」时静默收尾（`.github/scripts/cargo-test-annotations.sh`、
   `.github/scripts/e2e-failure-annotations.sh`）。这两个脚本是单测/e2e 失败明细对外的唯一通道
   （job 日志要登录才能看，`::error::` 注解可匿名读），旧版只防了「日志文件不存在」：喂 0 字节

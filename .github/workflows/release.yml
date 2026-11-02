@@ -94,8 +94,9 @@ jobs:
         run: python3 tools/ui-keys-index.py
 
       - name: 语言包 errors.toml 完整性检查
-        # 逐语言包回读校验：键数齐平/占位符形态/模板不回落英文/lang_info 版本（与 ci.yml 同源）
-        run: python3 tools/check-lang-packs.py
+        # 逐语言包回读校验：键数齐平/占位符形态/模板不回落英文/lang_info 版本
+        # （与 ci.yml 同源，含 --strict：告警计入失败，发布防线上不留只提示的口子）
+        run: python3 tools/check-lang-packs.py --strict
 
       - name: README 结构 parity 检查
         # 9 份翻译 README vs en 基准：章节数/锚点有效性/围栏配对（与 ci.yml 同源）

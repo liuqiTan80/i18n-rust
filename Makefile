@@ -49,7 +49,7 @@ ui-index-write: ## 重新生成 docs/ui-keys.en.md（新增或改动界面消息
 	$(PYTHON) tools/ui-keys-index.py --write
 
 lang-packs: ## 语言包完整性门禁（errors.toml 回读/键数齐平/占位符形态/版本一致/通配段特异度）
-	$(PYTHON) tools/check-lang-packs.py
+	$(PYTHON) tools/check-lang-packs.py --strict
 
 readme-parity: ## 翻译 README 结构 parity 检查（章节数/锚点有效性/围栏配对，基准 en）
 	$(PYTHON) tools/check-readme-parity.py

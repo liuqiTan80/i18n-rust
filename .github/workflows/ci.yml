@@ -123,8 +123,11 @@ jobs:
         # 逐语言包回读全部 errors.toml（含撇号/反引号键必须为双引号字面量，
         # 否则整包静默炸掉）、错误码表/消息表键数与 zh 齐平、通配段/前缀/后缀
         # 键的 {qN} 占位符编号与形态匹配、非 en 模板不得回落英文原文、
-        # lang_info 版本与扩展名一致；任一项不满足退出码非零
-        run: python3 tools/check-lang-packs.py
+        # lang_info 版本与扩展名一致；任一项不满足退出码非零。
+        # --strict：短前缀键吞整句这类告警也计入失败——清单已清零，留着只提示
+        # 就等于默认它可以再长回来（实测注入 10 条短前缀键，不带 --strict 时
+        # 10 行 ⚠️ 照打、EXIT=0，CI 全绿）
+        run: python3 tools/check-lang-packs.py --strict
 
       - name: README 结构 parity 检查（9 份翻译 vs en 基准）
         # 校验 9 份翻译 README 的 h1/h2/h3 章节数、页内锚点有效性、
@@ -222,7 +225,7 @@ jobs:
         run: python tools/ui-keys-index.py
 
       - name: 语言包 errors.toml 完整性检查
-        run: python tools/check-lang-packs.py
+        run: python tools/check-lang-packs.py --strict
 
       - name: 第三方库映射质量门禁
         run: python tools/check-mapping-warnings.py
