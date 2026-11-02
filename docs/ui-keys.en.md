@@ -345,7 +345,7 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `lsp_about` | 0 | `crates/lsp/src/main.rs:105`<br>`crates/lsp/src/ui.rs:149`<br>`crates/lsp/src/ui.rs:155` | — | i18n-rust LSP 代理服务器 |
+| `lsp_about` | 0 | `crates/lsp/src/main.rs:105`<br>`crates/lsp/src/ui.rs:177`<br>`crates/lsp/src/ui.rs:183` | — | i18n-rust LSP 代理服务器 |
 | `lsp_action_add_dependency` | 1 | `crates/lsp/src/response_map/responses.rs:749` | &display | 添加依赖 {}（cargo add） |
 | `lsp_action_fix_fullwidth` | 2 | `crates/lsp/src/response_map/responses.rs:792` | &character / &replacement | 将「{}」替换为「{}」 |
 | `lsp_action_ignore_lint` | 0 | `crates/lsp/src/response_map/responses.rs:819` | — | 忽略此行教学提示（// 教学忽略） |

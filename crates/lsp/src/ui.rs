@@ -22,8 +22,17 @@ static GLOBAL: OnceLock<Ui> = OnceLock::new();
 static FALLBACK_ZH: OnceLock<Ui> = OnceLock::new();
 
 /// 初始化全局界面消息（用 --language-pack 目录加载）
+///
+/// 同时把命中的语言代码同步给引擎全局语言（[`i18n_rust_engine::语言::set_language`]）：
+/// 引擎侧的用户可见文本（Unicode 混淆 / 全角标点 / 教学 lint / 诊断模板）按**全局
+/// 语言**取模板，与 LSP 自己的 `lsp_*` 消息是两条链路。不同步的后果有两层：
+/// - 德语用户在编辑器里看到的引擎教学文本恒为中文（CLI 启动时就同步，见
+///   `crates/cli/src/main.rs`，两个入口口径不一致）；
+/// - `语言::uses_cyrillic_script` 也读全局语言：恒为 zh 时俄文方言的西里尔标识符
+///   被逐个判成「同形异义字符」，对合法代码刷假告警。
 pub fn init(lang_pack_path: &Path) {
-    let ui = Ui::load(lang_pack_path);
+    let (ui, lang) = Ui::load_with_lang(lang_pack_path);
+    i18n_rust_engine::语言::set_language(&lang);
     let _ = GLOBAL.set(ui);
 }
 
@@ -54,28 +63,44 @@ impl Ui {
     }
 
     /// 按加载优先级获取界面消息
+    ///
+    /// 只要消息表、不要语言代码时用这个；两者需同源的场景（启动初始化）改用
+    /// [`Ui::load_with_lang`]，别在这里再判一遍语言。
     pub fn load(lang_pack_path: &Path) -> Self {
+        Self::load_with_lang(lang_pack_path).0
+    }
+
+    /// 按加载优先级获取界面消息，并返回实际命中的语言代码
+    ///
+    /// 语言代码与消息表由同一条链产出：两条链路各判一次语言，就会出现「界面消息
+    /// 是德语、引擎教学文本是中文」的混合输出（缺陷 C）。
+    /// 第 1 档的自定义目录里的 ui.toml 没有语言身份，按目录名登记：未知代码在
+    /// 引擎侧逐级回退内置中文表（`语言::t` 的回退链），与登记 zh 同形。
+    pub fn load_with_lang(lang_pack_path: &Path) -> (Self, String) {
+        let dir_lang = lang_pack_path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("zh")
+            .to_string();
         // 1. --language-pack 显式目录内的 ui.toml
         if let Ok(content) = std::fs::read_to_string(lang_pack_path.join("ui.toml")) {
             let ui = Self::from_toml(&content);
             if !ui.table.is_empty() {
-                return ui;
+                return (ui, dir_lang);
             }
         }
         // 2. --language-pack 目录名匹配内置语言包
-        if let Some(name) = lang_pack_path.file_name().and_then(|s| s.to_str())
-            && let Some(builtin) = builtin_ui(name)
-        {
-            return Self::from_toml(builtin);
+        if let Some(builtin) = builtin_ui(&dir_lang) {
+            return (Self::from_toml(builtin), dir_lang);
         }
         // 3. RZ_LANG 环境变量
-        if let Ok(lang) = std::env::var("RZ_LANG") {
-            let lang = lang.trim().to_lowercase();
-            if !lang.is_empty()
-                && let Some(builtin) = builtin_ui(&lang)
-            {
-                return Self::from_toml(builtin);
-            }
+        let env_lang = std::env::var("RZ_LANG")
+            .map(|v| v.trim().to_lowercase())
+            .unwrap_or_default();
+        if !env_lang.is_empty()
+            && let Some(builtin) = builtin_ui(&env_lang)
+        {
+            return (Self::from_toml(builtin), env_lang);
         }
         // 4. 系统语言
         for var in ["LC_ALL", "LC_MESSAGES", "LANG"] {
@@ -83,12 +108,15 @@ impl Ui {
                 let lower = val.to_lowercase();
                 let tag = lower.split(['_', '-', '.']).next().unwrap_or("").trim();
                 if let Some(builtin) = builtin_ui(tag) {
-                    return Self::from_toml(builtin);
+                    return (Self::from_toml(builtin), tag.to_string());
                 }
             }
         }
         // 5. 中文（默认）
-        Self::from_toml(builtin_ui("zh").unwrap_or_default())
+        (
+            Self::from_toml(builtin_ui("zh").unwrap_or_default()),
+            "zh".to_string(),
+        )
     }
 
     /// 取消息模板：本表 → 内置中文表 → 键名本身
