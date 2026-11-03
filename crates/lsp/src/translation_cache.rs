@@ -8,9 +8,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 
-use i18n_rust_engine::cache::SourceMapEntry;
-use i18n_rust_engine::lexer;
-use i18n_rust_engine::mapping_manager::MappingManager;
+use i18n_rust_engine::映射管理器::映射管理器;
+use i18n_rust_engine::缓存::源码映射条目;
+use i18n_rust_engine::词法器;
 
 /// 虚拟项目磁盘操作：失败必须记录日志——虚拟项目是 rust-analyzer 的分析基础，
 /// 写失败会导致补全/诊断静默失效且无任何线索可查
@@ -159,7 +159,7 @@ impl ColumnMap {
 /// 翻译缓存管理器
 ///
 /// 持有所有已打开文档的翻译结果，并提供线程安全的读写接口。
-pub struct TranslationCache {
+pub struct 转译缓存 {
     /// URI → 翻译条目
     ///
     /// 条目以 Arc 共享：查询返回廉价引用计数克隆，避免每次按键
@@ -173,7 +173,7 @@ pub struct TranslationCache {
     virtual_index: RwLock<HashMap<String, Arc<TranslationEntry>>>,
     /// 统一映射管理器（关键字/宏/派生/模块路径/别名，与 CLI 管线完全同源）。
     /// 转译与列映射统一走引擎完整管线，规则唯一来源为引擎。
-    manager: Arc<MappingManager>,
+    manager: Arc<映射管理器>,
     /// 虚拟文件存放的临时目录
     temp_dir: PathBuf,
     /// 模块集合版本号：模块集合（已打开方言文件的文件名）变化时递增。
@@ -204,7 +204,7 @@ pub struct TranslationCache {
 /// 单文件声明收集缓存的条数上限（超出时整体清空，避免长期会话无界增长）
 const 声明缓存上限: usize = 512;
 
-impl TranslationCache {
+impl 转译缓存 {
     /// 创建新的翻译缓存
     ///
     /// - 映射管理器：统一持有关键字/宏/派生/模块路径/别名映射（与 CLI 管线同源）
@@ -213,7 +213,7 @@ impl TranslationCache {
     /// 安全性由调用方负责：`temp_dir` 必须已经过符号链接校验与创建
     /// （生产路径见 `server::virtual_temp_dir`，它先校验再创建并复核）。
     /// 此处不再重复「只记日志不拒绝」的假校验——那会让调用方误以为已防护。
-    pub fn new(manager: MappingManager, temp_dir: PathBuf) -> Arc<Self> {
+    pub fn new(manager: 映射管理器, temp_dir: PathBuf) -> Arc<Self> {
         log_io_err(
             "创建临时目录",
             &temp_dir,
@@ -225,8 +225,8 @@ impl TranslationCache {
             std::fs::create_dir_all(temp_dir.join("src")),
         );
         // 合并反向表预构建：关键字反转优先，别名反转仅在英文键未占用时并入
-        let mut reverse_map = build_reverse_map(&manager.keyword_map);
-        for (english, native) in build_reverse_map(&manager.alias_map) {
+        let mut reverse_map = build_reverse_map(&manager.关键词表);
+        for (english, native) in build_reverse_map(&manager.标识符别名) {
             reverse_map.entry(english).or_insert(native);
         }
         let manager = Arc::new(manager);
@@ -782,29 +782,29 @@ impl TranslationCache {
 
     /// 获取关键字映射的引用
     pub fn keyword_map(&self) -> &HashMap<String, String> {
-        &self.manager.keyword_map
+        &self.manager.关键词表
     }
 
     /// 获取别名映射的引用（标准库/第三方库标识符，供反向转译合并使用）
     pub fn alias_map(&self) -> &HashMap<String, String> {
-        &self.manager.alias_map
+        &self.manager.标识符别名
     }
 
     /// 获取教学 lint 已知词表的引用（全部映射表键的并集，
     /// 供易混方法名提示判定；manager 内惰性缓存一次）
     pub fn lint_words(&self) -> &HashSet<String> {
-        self.manager.get_lint_words()
+        self.manager.取校验词表()
     }
 
     /// 教学 lint 的分桶索引（带精确命中表）：manager 内缓存一次，
     /// 供 LSP 诊断发布路径复用（每份文档不再重建分桶与命中表）。
-    pub fn lint_word_buckets(&self) -> &i18n_rust_engine::lint::WordBuckets {
-        self.manager.lint_word_buckets()
+    pub fn lint_word_buckets(&self) -> &i18n_rust_engine::校验::词形分桶 {
+        self.manager.取校验分桶()
     }
 
     /// 映射管理器的共享句柄：跨线程路径（cargo 检查线程）持有一份，
     /// 线程内自行取词表/分桶索引，避免整张词表逐个 `String` 克隆。
-    pub fn manager_arc(&self) -> Arc<MappingManager> {
+    pub fn manager_arc(&self) -> Arc<映射管理器> {
         Arc::clone(&self.manager)
     }
 
@@ -812,12 +812,12 @@ impl TranslationCache {
     ///
     /// 转发引用（manager 内缓存一次），逐文件路径不再每份源码 clone 一遍。
     pub fn ambiguous_constructor_words(&self) -> &HashSet<String> {
-        self.manager.ambiguous_constructor_words()
+        self.manager.取歧义构造器()
     }
 
     /// 英文回落 lint 反向索引（英文原词 → 母语词条）：manager 内惰性缓存一次
     pub fn english_fallback_map(&self) -> &HashMap<String, String> {
-        self.manager.english_fallback_map()
+        self.manager.取英文回落()
     }
 
     /// 获取合并反向表的引用（英文 → 母语，关键字优先于别名）
@@ -843,7 +843,7 @@ impl TranslationCache {
     /// 上下文场景）时不删除任何前缀，宁可保留代理前缀也不误删用户手写。
     pub fn reverse_transpile(&self, uri: Option<&str>, en_content: &str) -> String {
         // 无文档上下文或条目无代理前缀时，module_names 完全不被使用
-        //（lexer 仅在 added_crate_tokens 命中后才查模块名集合）——
+        //（词法器 仅在 added_crate_tokens 命中后才查模块名集合）——
         // 跳过全表扫描：补全/代码操作响应的每个片段都走这里，
         // 每次省一次 O(文档数) 的读锁遍历
         let added_crate_tokens = uri
@@ -855,7 +855,7 @@ impl TranslationCache {
         } else {
             self.current_module_names(None)
         };
-        lexer::reverse_transpile(
+        词法器::反译(
             en_content,
             &self.reverse_map,
             &module_names,
@@ -874,7 +874,7 @@ impl TranslationCache {
     }
 
     /// 映射管理器（镜像检查用同一语言包转译，规则零重复）
-    pub(crate) fn manager(&self) -> &MappingManager {
+    pub(crate) fn manager(&self) -> &映射管理器 {
         &self.manager
     }
 
@@ -993,7 +993,7 @@ impl TranslationCache {
     /// 缓存条数上限 [`声明缓存上限`]：超出时整体清空（会话内打开的文件数
     /// 远小于该值，清空代价可忽略，避免长期会话下无界增长）。
     fn declared_names_cached(&self, 内容: &str) -> Arc<i18n_rust_engine::alias::DeclaredNames> {
-        let hash = i18n_rust_engine::cache::TranslationCache::compute_content_hash(内容);
+        let hash = i18n_rust_engine::缓存::转译缓存::compute_content_hash(内容);
         if let Ok(表) = self.decl_names_cache.read()
             && let Some(命中) = 表.get(&hash)
         {
@@ -1093,7 +1093,7 @@ impl TranslationCache {
         &self,
         uri: &str,
         old_entry: Arc<TranslationEntry>,
-        output: i18n_rust_engine::cache::TranspileOutput,
+        output: i18n_rust_engine::缓存::TranspileOutput,
         declared: Option<Arc<i18n_rust_engine::alias::DeclaredNames>>,
     ) -> Option<Arc<TranslationEntry>> {
         let en_content = output.output;
@@ -1156,7 +1156,7 @@ impl TranslationCache {
         let column_map = replay_column_map(&old_entry.zh_content, &output.pipeline_map);
         // 代理添加的 crate:: 前缀记录（token 序号）：反向转译时只删这些前缀
         let added_crate_tokens =
-            lexer::added_crate_token_indices(&en_content, &output.pipeline_map);
+            词法器::added_crate_token_indices(&en_content, &output.pipeline_map);
 
         // 构造新版本只搬必要字段：`..(*old_entry).clone()` 会把旧条目的
         // en_content / ra_content / column_map 也整份克隆一遍再丢弃——每次
@@ -1765,7 +1765,7 @@ fn build_reverse_map(forward: &HashMap<String, String>) -> HashMap<String, Strin
 /// 的唯一行为差异：跨行字面量（多行字符串/原始字符串）内的换行现在也切分
 /// 新行——分词版把非空白 token 里的 `\n` 当普通字符计入列宽，其后的行会
 /// 整体错位；扫描版按物理行切分，与其余行口径一致。
-fn replay_column_map(zh_content: &str, pipeline_map: &[SourceMapEntry]) -> ColumnMap {
+fn replay_column_map(zh_content: &str, pipeline_map: &[源码映射条目]) -> ColumnMap {
     let rows_est = zh_content.len() / 24 + 2;
     let mut per_line_map = ColumnMap::with_capacity(rows_est, pipeline_map.len());
     let mut zh_col = 0u32;
@@ -1776,7 +1776,7 @@ fn replay_column_map(zh_content: &str, pipeline_map: &[SourceMapEntry]) -> Colum
     let mut cursor = 0usize;
 
     for edit in pipeline_map {
-        let start = edit.source_offset;
+        let start = edit.源偏移;
         // 防御：乱序/重叠/越界条目（管线保证不会出现）宁可少一段映射也不 panic
         if start < cursor || start > zh_content.len() {
             continue;
@@ -1792,7 +1792,7 @@ fn replay_column_map(zh_content: &str, pipeline_map: &[SourceMapEntry]) -> Colum
         // 被替换区间：中英长度可不同（`让` → `let`、`字符串` → `String`、
         // 模块词 → `crate::模块`），累计偏移差变化处记录分段点
         let zh_len = utf16_width(edit.original.as_str());
-        let en_len = utf16_width(edit.replacement.as_str());
+        let en_len = utf16_width(edit.替换文字.as_str());
         zh_col += zh_len;
         en_col += en_len;
         offset_diff += en_len as i32 - zh_len as i32;
@@ -1889,7 +1889,7 @@ fn utf16_width(text: &str) -> u32 {
 /// 因此用游标顺序推进即可定位「当前 token 是否被替换」，不必建偏移哈希表；
 /// 空白/注释按字节扫（只需识别 `\n` 与列宽），ASCII token 长度即 UTF-16 长度。
 #[cfg(test)]
-fn replay_column_map_tokenized(zh_content: &str, pipeline_map: &[SourceMapEntry]) -> ColumnMap {
+fn replay_column_map_tokenized(zh_content: &str, pipeline_map: &[源码映射条目]) -> ColumnMap {
     use rustc_lexer::{TokenKind, tokenize};
 
     let mut per_line_map = ColumnMap::with_capacity(zh_content.len() / 24 + 2, pipeline_map.len());
@@ -1946,7 +1946,7 @@ fn replay_column_map_tokenized(zh_content: &str, pipeline_map: &[SourceMapEntry]
         }
 
         // 游标推进到当前 token（编辑表升序、每条对应一个被替换 token 的起点）
-        while edit_idx < pipeline_map.len() && pipeline_map[edit_idx].source_offset < token_start {
+        while edit_idx < pipeline_map.len() && pipeline_map[edit_idx].源偏移 < token_start {
             edit_idx += 1;
         }
 
@@ -1957,8 +1957,8 @@ fn replay_column_map_tokenized(zh_content: &str, pipeline_map: &[SourceMapEntry]
             token_text.chars().map(|c| c.len_utf16() as u32).sum()
         };
         let en_len: u32 = match pipeline_map.get(edit_idx) {
-            Some(e) if e.source_offset == token_start => {
-                e.replacement.chars().map(|c| c.len_utf16() as u32).sum()
+            Some(e) if e.源偏移 == token_start => {
+                e.替换文字.chars().map(|c| c.len_utf16() as u32).sum()
             }
             _ => zh_len,
         };
@@ -2047,8 +2047,8 @@ mod tests {
     }
 
     /// 构造测试用映射管理器（关键字表 + 可选别名表，模块路径/宏/派生表为空）
-    fn test_manager(alias_map: HashMap<String, String>) -> MappingManager {
-        MappingManager::from_flat_maps(test_map(), HashMap::new(), alias_map)
+    fn test_manager(alias_map: HashMap<String, String>) -> 映射管理器 {
+        映射管理器::从扁表构造(test_map(), HashMap::new(), alias_map)
     }
 
     /// 列映射扫描回放 × 分词回放差分：多种源码形态 + 真实管线编辑表必须逐行逐段一致
@@ -2109,7 +2109,7 @@ mod tests {
     #[test]
     fn test_update_document() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(HashMap::new()), temp.path().to_path_buf());
 
         let (entry, others) = cache
             .update_document("file:///test/main.zh", "让 可变 x = 5;", 1)
@@ -2125,7 +2125,7 @@ mod tests {
     #[test]
     fn test_query_by_path_tolerates_windows_forms() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(HashMap::new()), temp.path().to_path_buf());
 
         // 客户端 URI 为反斜杠/盘符形式：uri 解出 C:/x/main.zh
         let (entry, _) = cache
@@ -2150,7 +2150,7 @@ mod tests {
             ("字符串".into(), "String".into()),
             ("新建".into(), "new".into()),
         ]);
-        let cache = TranslationCache::new(test_manager(alias_map), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(alias_map), temp.path().to_path_buf());
 
         let (entry, _) = cache
             .update_document(
@@ -2172,7 +2172,7 @@ mod tests {
     fn test_alias_usage_replaced_when_not_declared() {
         let temp = tempfile::tempdir().unwrap();
         let alias_map = HashMap::from([("字符串".into(), "String".into())]);
-        let cache = TranslationCache::new(test_manager(alias_map), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(alias_map), temp.path().to_path_buf());
 
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 s: 字符串 = x;", 1)
@@ -2185,7 +2185,7 @@ mod tests {
     fn test_alias_column_map_alignment() {
         let temp = tempfile::tempdir().unwrap();
         let alias_map = HashMap::from([("字符串".into(), "String".into())]);
-        let cache = TranslationCache::new(test_manager(alias_map), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(alias_map), temp.path().to_path_buf());
         let uri = "file:///test/main.zh";
         let (entry, _) = cache.update_document(uri, "让 s: 字符串 = x;", 1).unwrap();
 
@@ -2200,7 +2200,7 @@ mod tests {
     #[test]
     fn test_close_document() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(HashMap::new()), temp.path().to_path_buf());
 
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
@@ -2216,7 +2216,7 @@ mod tests {
     #[test]
     fn test_close_document_missing_is_noop() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(HashMap::new()), temp.path().to_path_buf());
         cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
             .unwrap();
@@ -2231,7 +2231,7 @@ mod tests {
     #[test]
     fn test_user_defined_tokens_cache_invalidation() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(HashMap::new()), temp.path().to_path_buf());
         cache
             .update_document("file:///test/main.zh", "函数 自定义甲() {}", 1)
             .unwrap();
@@ -2251,7 +2251,7 @@ mod tests {
     #[test]
     fn test_query_by_virtual_uri() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(HashMap::new()), temp.path().to_path_buf());
 
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "让 x = 1;", 1)
@@ -2285,7 +2285,7 @@ mod tests {
     fn test_module_path_column_map() {
         // crate:: 前缀重写逻辑已迁入引擎（module_path::qualify_module_paths_with_map，
         // 其行为测试在引擎侧）；此处验证列映射与虚拟内容经由完整管线正确对齐
-        let manager = MappingManager::from_flat_maps(
+        let manager = 映射管理器::从扁表构造(
             HashMap::from([
                 ("函数".into(), "fn".into()),
                 ("让".into(), "let".into()),
@@ -2295,7 +2295,7 @@ mod tests {
             HashMap::new(),
         );
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(manager, temp.path().to_path_buf());
+        let cache = 转译缓存::new(manager, temp.path().to_path_buf());
 
         // 先打开 辅助.zh，使模块集合包含 辅助
         let (helper_entry, _) = cache
@@ -2337,7 +2337,7 @@ mod tests {
     /// use 语句路径段中文化（LSP 此前缺失的环节，现经引擎完整管线修复）
     #[test]
     fn test_use_stmt_module_path_translated() {
-        let manager = MappingManager::load_from_builtin(
+        let manager = 映射管理器::从内置载入(
             r#"
 ["声明"]
 "函数" = "fn"
@@ -2356,7 +2356,7 @@ mod tests {
         )
         .expect("管理器创建失败");
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(manager, temp.path().to_path_buf());
+        let cache = 转译缓存::new(manager, temp.path().to_path_buf());
         let (entry, _) = cache
             .update_document("file:///test/main.zh", "使用 标准集合::哈希映射;", 1)
             .unwrap();
@@ -2374,7 +2374,7 @@ mod tests {
     /// crate 段规范化后虚拟文件语法合法，误报消失（CLI 走同一引擎管线）。
     #[test]
     fn test_use_stmt_hyphenated_crate_normalized() {
-        let manager = MappingManager::load_from_builtin(
+        let manager = 映射管理器::从内置载入(
             r#"
 ["声明"]
 "使用" = "use"
@@ -2388,7 +2388,7 @@ mod tests {
         )
         .expect("管理器创建失败");
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(manager, temp.path().to_path_buf());
+        let cache = 转译缓存::new(manager, temp.path().to_path_buf());
         let (entry, _) = cache
             .update_document("file:///test/日志设置.zh", "使用 日志订阅 as 日志框架;", 1)
             .unwrap();
@@ -2406,8 +2406,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let alias_map =
             HashMap::from([("新建".into(), "new".into()), ("盒子".into(), "Box".into())]);
-        let cache =
-            TranslationCache::new(test_manager(alias_map.clone()), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(alias_map.clone()), temp.path().to_path_buf());
 
         // A 文件：声明 `新建`（同名用户函数）
         let (_, _) = cache
@@ -2434,7 +2433,7 @@ mod tests {
 
         // 对照：无 A 声明（单独打开 B）时保持旧行为——`新建` 被替换出 `new`
         let temp2 = tempfile::tempdir().unwrap();
-        let cache2 = TranslationCache::new(test_manager(alias_map), temp2.path().to_path_buf());
+        let cache2 = 转译缓存::new(test_manager(alias_map), temp2.path().to_path_buf());
         let (entry2, _) = cache2
             .update_document(
                 "file:///test/平台接口.zh",
@@ -2455,7 +2454,7 @@ mod tests {
     fn test_incremental_edit_declaration_change_rewrites_others() {
         let temp = tempfile::tempdir().unwrap();
         let alias_map = HashMap::from([("新建".into(), "new".into())]);
-        let cache = TranslationCache::new(test_manager(alias_map), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(alias_map), temp.path().to_path_buf());
 
         // 两个文件都不含 `新建` 声明：调用位照常替换（此时集合变化 → 全量路径）
         cache
@@ -2523,7 +2522,7 @@ mod tests {
 
     #[test]
     fn test_reverse_transpile() {
-        let manager = MappingManager::from_flat_maps(
+        let manager = 映射管理器::从扁表构造(
             HashMap::from([
                 ("函数".into(), "fn".into()),
                 ("让".into(), "let".into()),
@@ -2534,7 +2533,7 @@ mod tests {
             HashMap::new(),
         );
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(manager, temp.path().to_path_buf());
+        let cache = 转译缓存::new(manager, temp.path().to_path_buf());
         let (entry, _) = cache
             .update_document(
                 "file:///test/main.zh",
@@ -2597,7 +2596,7 @@ mod tests {
     #[test]
     fn test_update_document_encoded_chinese_filename() {
         let temp = tempfile::tempdir().unwrap();
-        let cache = TranslationCache::new(test_manager(HashMap::new()), temp.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(HashMap::new()), temp.path().to_path_buf());
         let (entry, _) = cache
             .update_document("file:///test/%E6%B5%8B%E8%AF%95.zh", "让 x = 1;", 1)
             .unwrap();
@@ -2612,11 +2611,11 @@ mod tests {
     }
 
     /// 含 `公开`/`包含字符串` 映射的测试管理器（C2 系列测试用）
-    fn test_manager_extended() -> MappingManager {
+    fn test_manager_extended() -> 映射管理器 {
         let mut map = test_map();
         map.insert("公开".into(), "pub".into());
         map.insert("包含字符串".into(), "include_str".into());
-        MappingManager::from_flat_maps(map, HashMap::new(), HashMap::new())
+        映射管理器::从扁表构造(map, HashMap::new(), HashMap::new())
     }
 
     /// C2a：同目录未打开的兄弟模块被聚合（虚拟项目高保真化）
@@ -2635,7 +2634,7 @@ mod tests {
         )
         .unwrap();
 
-        let cache = TranslationCache::new(test_manager_extended(), virt.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager_extended(), virt.path().to_path_buf());
         let main_uri = path_to_uri(&src.join("main.zh"));
         let (entry, _) = cache
             .update_document(&main_uri, "函数 主函数() {\n    工具::加一(1);\n}\n", 1)
@@ -2687,7 +2686,7 @@ mod tests {
         )
         .unwrap();
 
-        let cache = TranslationCache::new(test_manager_extended(), virt.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager_extended(), virt.path().to_path_buf());
         let main_uri = path_to_uri(&src.join("main.zh"));
         let (entry, _) = cache
             .update_document(
@@ -2773,7 +2772,7 @@ mod tests {
         )
         .unwrap();
 
-        let cache = TranslationCache::new(test_manager_extended(), virt.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager_extended(), virt.path().to_path_buf());
         let main_uri = path_to_uri(&src.join("main.zh"));
         cache
             .update_document(&main_uri, "函数 主函数() {\n    工具::加一(1);\n}\n", 1)
@@ -2819,7 +2818,7 @@ mod tests {
         let tool_path = src.join("工具.zh");
         std::fs::write(&tool_path, "公开 函数 加一() {}\n").unwrap();
 
-        let cache = TranslationCache::new(test_manager_extended(), virt.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager_extended(), virt.path().to_path_buf());
         let main_uri = path_to_uri(&src.join("main.zh"));
         cache
             .update_document(&main_uri, "函数 主函数() {}\n", 1)
@@ -2859,7 +2858,7 @@ mod tests {
         std::fs::create_dir_all(&src).unwrap();
         std::fs::write(src.join("数据.txt"), "占位内容").unwrap();
 
-        let cache = TranslationCache::new(test_manager_extended(), virt.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager_extended(), virt.path().to_path_buf());
         let main_uri = path_to_uri(&src.join("main.zh"));
         let (entry, _) = cache
             .update_document(
@@ -2916,7 +2915,7 @@ mod tests {
         // 磁盘内容与缓冲区不同：关闭后应以磁盘为准
         std::fs::write(src.join("main.zh"), "让 磁盘 = 1;\n").unwrap();
 
-        let cache = TranslationCache::new(test_manager(HashMap::new()), virt.path().to_path_buf());
+        let cache = 转译缓存::new(test_manager(HashMap::new()), virt.path().to_path_buf());
         let main_uri = path_to_uri(&src.join("main.zh"));
         cache
             .update_document(&main_uri, "让 缓冲 = 2;\n", 1)

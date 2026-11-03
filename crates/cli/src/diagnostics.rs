@@ -16,7 +16,7 @@ use crate::{
     builtin_lang, get_lang_code_from_extension, lang_manager, lang_pack_root_of, resolve_rustc,
     temp_guard, ui,
 };
-use i18n_rust_engine::mapping_manager::MappingManager;
+use i18n_rust_engine::映射管理器::映射管理器;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -85,7 +85,7 @@ pub(crate) fn run_direct_rustc(
     project_root: &Path,
     source_path: &Path,
     lang_pack: &Option<PathBuf>,
-    manager: &MappingManager,
+    manager: &映射管理器,
     source: &str,
     file: &Path,
     column_map: &i18n_rust_engine::列位映射::列位映射表,
@@ -189,7 +189,7 @@ pub(crate) fn check_direct_rustc(
     project_root: &Path,
     source_path: &Path,
     lang_pack: &Option<PathBuf>,
-    manager: &MappingManager,
+    manager: &映射管理器,
     source: &str,
     file: &Path,
     column_map: &i18n_rust_engine::列位映射::列位映射表,
@@ -447,7 +447,7 @@ pub(crate) struct DiagContext<'a> {
     pub(crate) ui: &'a ui::Ui,
     pub(crate) lang_pack: &'a Option<PathBuf>,
     pub(crate) project_root: &'a Path,
-    pub(crate) manager: &'a MappingManager,
+    pub(crate) manager: &'a 映射管理器,
     pub(crate) source: &'a str,
     pub(crate) file: &'a Path,
     /// 本次实际编译的**入口产物**路径（请求文件的转译产物，如 `src/main.rs`、
@@ -905,7 +905,7 @@ fn resolve_dialect_context(
     project_root: &Path,
     dialect_ext: &str,
     product_file: &str,
-    manager: &MappingManager,
+    manager: &映射管理器,
     project: Option<&i18n_rust_engine::alias::ProjectContext>,
 ) -> Option<DiagFileContext> {
     let abs = resolve_product_path(project_root, product_file)?;
@@ -971,7 +971,7 @@ pub(crate) struct DiagLocationFixer<'a> {
     /// 入口磁盘产物行 → 引擎直出行映射（含 `#[path]` 注解插入行时非恒等）
     entry_line_map: Option<&'a [usize]>,
     project_root: &'a Path,
-    manager: &'a MappingManager,
+    manager: &'a 映射管理器,
     /// 入口文件名（如 main.zh）
     original_filename: &'a str,
     /// 被编译入口产物的规范路径（本次请求文件的产物），用于识别入口产物的诊断
@@ -1230,9 +1230,9 @@ mod tests {
     }
 
     /// 加载内置中文映射管理器（测试诊断回译用）
-    fn zh_manager() -> i18n_rust_engine::mapping_manager::MappingManager {
+    fn zh_manager() -> i18n_rust_engine::映射管理器::映射管理器 {
         let builtin = crate::builtin_lang::get_builtin_data("zh");
-        i18n_rust_engine::mapping_manager::MappingManager::load_from_builtin(
+        i18n_rust_engine::映射管理器::映射管理器::从内置载入(
             builtin.keywords_toml,
             builtin.module_paths_toml,
             builtin.stdlib_toml,
@@ -1735,7 +1735,7 @@ mod tests {
     fn minimal_ctx<'a>(
         ui: &'a crate::ui::Ui,
         root: &'a std::path::Path,
-        manager: &'a i18n_rust_engine::mapping_manager::MappingManager,
+        manager: &'a i18n_rust_engine::映射管理器::映射管理器,
         file: &'a std::path::Path,
         source: &'a str,
     ) -> DiagContext<'a> {

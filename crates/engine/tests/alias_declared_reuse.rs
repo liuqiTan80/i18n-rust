@@ -15,12 +15,12 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use i18n_rust_engine::alias::{self, ProjectContext};
-use i18n_rust_engine::cache::SourceMapEntry;
-use i18n_rust_engine::mapping_manager::MappingManager;
+use i18n_rust_engine::映射管理器::映射管理器;
+use i18n_rust_engine::缓存::源码映射条目;
 
-fn zh_manager() -> MappingManager {
+fn zh_manager() -> 映射管理器 {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
-    MappingManager::load_from_dir(&dir).expect("加载 zh 语言包失败")
+    映射管理器::从目录载入(&dir).expect("加载 zh 语言包失败")
 }
 
 /// 虚拟项目的模块名集合（`crate::` 前缀阶段用）
@@ -104,13 +104,13 @@ impl 显示 for 计数器 {
 ",
 ];
 
-fn assert_edits_eq(label: &str, a: &[SourceMapEntry], b: &[SourceMapEntry]) {
+fn assert_edits_eq(label: &str, a: &[源码映射条目], b: &[源码映射条目]) {
     assert_eq!(a.len(), b.len(), "{label}：编辑表条目数不一致");
     for (i, (x, y)) in a.iter().zip(b).enumerate() {
-        assert_eq!(x.source_offset, y.source_offset, "{label}：第 {i} 条偏移");
+        assert_eq!(x.源偏移, y.源偏移, "{label}：第 {i} 条偏移");
         assert_eq!(x.length, y.length, "{label}：第 {i} 条长度");
         assert_eq!(x.original, y.original, "{label}：第 {i} 条原文");
-        assert_eq!(x.replacement, y.replacement, "{label}：第 {i} 条替换文本");
+        assert_eq!(x.替换文字, y.替换文字, "{label}：第 {i} 条替换文本");
     }
 }
 
@@ -118,8 +118,8 @@ fn assert_edits_eq(label: &str, a: &[SourceMapEntry], b: &[SourceMapEntry]) {
 #[test]
 fn reuse_declared_matches_fresh_collection() {
     let manager = zh_manager();
-    let alias_map = manager.get_alias_map();
-    let module_path_map = manager.get_module_path_map();
+    let alias_map = manager.取别名表();
+    let module_path_map = manager.取模块路径表();
     let module_names = modules();
     let mut with_edits = 0;
     for (idx, source) in CORPUS.iter().enumerate() {

@@ -73,10 +73,10 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
     let mut line = 1usize;
     let mut col = 1usize;
     // 当前方言是否原生使用西里尔字母：只与语言有关，循环外判定一次。
-    // 早先每个形似字符都要调一次 `current_language()`（每次都 clone 一份语言
+    // 早先每个形似字符都要调一次 `当前语言()`（每次都 clone 一份语言
     // 代码串）再判文字系统——西里尔字母源码里几乎每个字母都命中同形表，
     // 这一步是 ru 语料上本阶段的主要开销
-    let native_cyrillic = crate::语言::uses_cyrillic_script(&crate::语言::current_language());
+    let native_cyrillic = crate::语言::uses_cyrillic_script(&crate::语言::当前语言());
 
     for (offset, ch) in source.char_indices() {
         if ch == '\n' {
@@ -169,7 +169,7 @@ fn bidi_control_name(ch: char) -> Option<&'static str> {
 /// 获取当前语言下的字符名：zh 语言包提供中文名（unicode_name_{codepoint:X}），
 /// 其他语言直接用英文 Unicode 官方名（语言包不重复翻译字符名）。
 fn localized_char_name(ch: char, english_name: &str) -> String {
-    if crate::语言::current_language() == "zh" {
+    if crate::语言::当前语言() == "zh" {
         // 键名为 4 位大写十六进制（如 unicode_name_200B），与语言包一致
         crate::语言::t(&format!("unicode_name_{:04X}", ch as u32))
     } else {
@@ -248,10 +248,10 @@ fn is_cyrillic_block(ch: char) -> bool {
 mod tests {
     use super::*;
 
-    /// 语言测试守卫：复用 语言::test_language（持全局测试锁串行化 +
+    /// 语言测试守卫：复用 语言::钉住语言（持全局测试锁串行化 +
     /// RAII 恢复语言 + 抗毒化；unicode 字符名仅 zh 语言包提供中文映射）
-    fn zh_guard() -> crate::语言::LangTestGuard {
-        crate::语言::test_language("zh")
+    fn zh_guard() -> crate::语言::语言测试护 {
+        crate::语言::钉住语言("zh")
     }
 
     #[test]
@@ -378,7 +378,7 @@ mod tests {
     #[test]
     fn test_russian_dialect_skips_cyrillic_homoglyph() {
         // RAII 守卫：离开作用域（含断言 panic）自动恢复 zh，无需手工还原
-        let _guard = crate::语言::test_language("ru");
+        let _guard = crate::语言::钉住语言("ru");
         // 西里尔字符在 ru 方言中是合法标识符字符，不再报同形异义告警
         let warnings = check_unicode_confusion("пусть а = 1;");
         assert!(warnings.is_empty(), "ru 方言不应误报西里尔字符");

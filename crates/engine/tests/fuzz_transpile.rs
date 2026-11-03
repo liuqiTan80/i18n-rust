@@ -13,15 +13,15 @@
 
 use std::path::Path;
 
-use i18n_rust_engine::lexer;
-use i18n_rust_engine::mapping_manager::MappingManager;
 use i18n_rust_engine::transpile_pipeline;
+use i18n_rust_engine::映射管理器::映射管理器;
+use i18n_rust_engine::词法器;
 use proptest::prelude::*;
 
 /// 内置 zh 语言包映射管理器（与 CLI 默认一致）
-fn zh_manager() -> MappingManager {
+fn zh_manager() -> 映射管理器 {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
-    MappingManager::load_from_dir(&dir).expect("加载 zh 语言包失败")
+    映射管理器::从目录载入(&dir).expect("加载 zh 语言包失败")
 }
 
 /// 方言源码片段策略：方言词表 + 畸形输入的任意组合
@@ -123,13 +123,13 @@ proptest! {
             "转译不得改变行结构（LSP 行号映射依赖）"
         );
         for entry in output.source_map.iter().chain(output.pipeline_map.iter()) {
-            prop_assert!(entry.source_offset <= src.len(), "源映射偏移越界");
+            prop_assert!(entry.源偏移 <= src.len(), "源映射偏移越界");
             prop_assert!(
-                entry.source_offset + entry.length <= src.len(),
+                entry.源偏移 + entry.length <= src.len(),
                 "源映射长度越界"
             );
             prop_assert_eq!(
-                &src[entry.source_offset..entry.source_offset + entry.length],
+                &src[entry.源偏移..entry.源偏移 + entry.length],
                 &entry.original,
                 "源映射 original 与源文本不一致"
             );
@@ -138,13 +138,13 @@ proptest! {
         let mut prev: Option<usize> = None;
         for entry in &output.pipeline_map {
             if let Some(p) = prev {
-                prop_assert!(p < entry.source_offset, "pipeline_map 未按源偏移升序");
+                prop_assert!(p < entry.源偏移, "pipeline_map 未按源偏移升序");
             }
-            prev = Some(entry.source_offset);
+            prev = Some(entry.源偏移);
         }
     }
 
-    /// 词法阶段两张编辑表逐条等价（复制逻辑的回归锁，口径见 lexer 模块
+    /// 词法阶段两张编辑表逐条等价（复制逻辑的回归锁，口径见 词法器 模块
     /// `build_lex_source_map`）
     ///
     /// 主循环只收全管线表、词法表循环后由它复制并按下标覆盖补 `!` 的差异条目。
@@ -155,26 +155,26 @@ proptest! {
     #[test]
     fn fuzz_lex_stage_tables_stay_in_lockstep(src in source_strategy()) {
         let manager = zh_manager();
-        let result = lexer::transpile_with_map(
+        let result = 词法器::transpile_with_map(
             &src,
-            manager.get_keyword_map(),
-            manager.get_macro_map(),
-            manager.get_derive_map(),
-            manager.get_use_defer_words(),
-            manager.get_method_defer_words(),
-            manager.get_alias_map(),
+            manager.取关键词表(),
+            manager.取宏表(),
+            manager.取派生特征表(),
+            manager.取让位词(),
+            manager.取方法让位词(),
+            manager.取别名表(),
         );
 
         let mut replay = String::new();
         let mut copied = 0usize;
         for edit in &result.final_edits {
             prop_assert!(
-                edit.source_offset >= copied,
+                edit.源偏移 >= copied,
                 "全管线表必须按偏移升序且不重叠：{edit:?}"
             );
-            replay.push_str(&src[copied..edit.source_offset]);
-            replay.push_str(edit.replacement.as_str());
-            copied = edit.source_offset + edit.length;
+            replay.push_str(&src[copied..edit.源偏移]);
+            replay.push_str(edit.替换文字.as_str());
+            copied = edit.源偏移 + edit.length;
         }
         replay.push_str(&src[copied..]);
         prop_assert_eq!(replay, result.output.clone(), "全管线表回放必须逐字等于输出");
@@ -182,23 +182,23 @@ proptest! {
         let mut lex = result.source_map.iter();
         let mut pending = lex.next();
         for edit in &result.final_edits {
-            if pending.is_some_and(|l| l.source_offset == edit.source_offset) {
+            if pending.is_some_and(|l| l.源偏移 == edit.源偏移) {
                 let entry = pending.take().expect("上面 is_some 判定的就是这个条目");
                 prop_assert_eq!(entry.length, edit.length, "两表条目长度必须一致");
                 prop_assert_eq!(&entry.original, &edit.original, "两表条目原文必须一致");
-                let diff = edit.replacement.as_str().strip_prefix(entry.replacement.as_str());
+                let diff = edit.替换文字.as_str().strip_prefix(entry.替换文字.as_str());
                 prop_assert!(
                     diff == Some("") || diff == Some("!"),
                     "偏移 {}：词法表 {:?} 与全管线表 {:?} 只能差一个补的 `!`",
-                    edit.source_offset,
-                    entry.replacement,
-                    edit.replacement
+                    edit.源偏移,
+                    entry.替换文字,
+                    edit.替换文字
                 );
                 pending = lex.next();
             } else {
-                let original = &src[edit.source_offset..edit.source_offset + edit.length];
+                let original = &src[edit.源偏移..edit.源偏移 + edit.length];
                 prop_assert_eq!(
-                    edit.replacement.as_str(),
+                    edit.替换文字.as_str(),
                     format!("{original}!"),
                     "不进词法表的条目只能是「原文只补 `!`」"
                 );
@@ -220,7 +220,7 @@ proptest! {
     #[test]
     fn fuzz_teaching_checks_never_panic(src in source_strategy()) {
         let _ = i18n_rust_engine::fullwidth::find_fullwidth_punct(&src);
-        let _ = i18n_rust_engine::lint::lint_teaching(&src);
+        let _ = i18n_rust_engine::校验::lint_teaching(&src);
     }
 
     /// 方言词只要整体处于字符串/块注释内，转译输出必须逐字节不变

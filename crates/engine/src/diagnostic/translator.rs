@@ -21,7 +21,7 @@ use super::model::CompilerDiagnostic;
 use super::teaching::{
     DiagnosticLevel, DiagnosticLocation, TeachingDiagnostic, extract_ownership_details,
 };
-use crate::mapping_manager::MappingManager;
+use crate::映射管理器::映射管理器;
 
 /// 诊断翻译器：将 rustc 诊断翻译为教学诊断
 ///
@@ -235,7 +235,7 @@ fn extract_types_from_message(message: &str) -> Option<(String, String)> {
 
 /// 由映射管理器构建诊断类型反查表（英文类型名 → 母语名），CLI 与 LSP 共用。
 ///
-/// 数据来源与优先级：`MappingManager` 在加载时已把候选按「模块路径 → keywords
+/// 数据来源与优先级：`映射管理器` 在加载时已把候选按「模块路径 → keywords
 /// `[类型]` 节 → 标准库标识符 → 第三方标识符」与各来源的 **TOML 书写序**排好
 /// （见其 `ReverseCandidateSources`），这里只按「同一英文名取首个命中」落表；
 /// 「只收母语键（含非 ASCII 字符）」的过滤也在候选汇总时完成，避免把
@@ -247,9 +247,9 @@ fn extract_types_from_message(message: &str) -> Option<(String, String)> {
 /// 种子——同一份代码两次 `rzc check` 的译文会翻转（实机 15 轮翻 7 轮），读者拿
 /// 译文去搜 rustc 文档时偶尔搜不到。现在取书写序最前的主词条，译文与进程
 /// 无关，门禁用例也能硬写期望值。
-pub fn build_type_map(manager: &MappingManager) -> HashMap<String, String> {
+pub fn build_type_map(manager: &映射管理器) -> HashMap<String, String> {
     let mut reverse_map: HashMap<String, String> = HashMap::new();
-    for (母语, 英文) in manager.get_reverse_candidates() {
+    for (母语, 英文) in manager.取反查候选() {
         reverse_map
             .entry(英文.clone())
             .or_insert_with(|| 母语.clone());

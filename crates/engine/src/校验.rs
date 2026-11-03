@@ -159,7 +159,7 @@ pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
 ///
 /// `ambiguous_constructors`：类型推导歧义构造器的被调名集合（含英文
 /// `new`/`default` 及其各方言映射词，如「新建」「缺省」），由
-/// `MappingManager::ambiguous_constructor_words` 提供；仅这些关联构造
+/// `映射管理器::ambiguous_constructor_words` 提供；仅这些关联构造
 /// 的无 turbofish 调用与无 turbofish 的 `.collect()` 才触发未标注类型提示。
 ///
 /// 仅报告代码位置的问题；字符串/注释内的同名文本被状态机跳过。
@@ -182,12 +182,12 @@ pub fn lint_teaching_with_words(
 
 /// 同 [`lint_teaching_with_words`]，但复用调用方缓存的词表分桶索引
 ///
-/// `buckets` 由 [`crate::mapping_manager::MappingManager::lint_word_buckets`]
+/// `buckets` 由 [`crate::映射管理器::映射管理器::lint_word_buckets`]
 /// 提供：词表随语言包确定后不可变，分桶只需建一次。小文件（批量转译、
 /// 每次编辑）上重建索引的开销远大于扫描本身。
 pub fn lint_teaching_with_buckets(
     source: &str,
-    buckets: &WordBuckets,
+    buckets: &词形分桶,
     ambiguous_constructors: &HashSet<String>,
 ) -> Vec<LintWarning> {
     let chars: Vec<char> = source.chars().collect();
@@ -200,7 +200,7 @@ pub fn lint_teaching_with_buckets(
 /// 转译、LSP 每次变更）：字符切片只物化一份，几个扫描器共用。
 pub fn lint_teaching_with_buckets_chars(
     chars: &[char],
-    buckets: &WordBuckets,
+    buckets: &词形分桶,
     ambiguous_constructors: &HashSet<String>,
 ) -> Vec<LintWarning> {
     lint_teaching_chars(
@@ -215,7 +215,7 @@ pub fn lint_teaching_with_buckets_chars(
 /// 惰性分支保留改前的行为：源码里一个方法调用位都没有时完全不建索引。
 pub(crate) enum WordIndexSource<'a> {
     /// 调用方持有并缓存的分桶索引（每语言包一次）
-    Shared(&'a WordBuckets),
+    Shared(&'a 词形分桶),
     /// 现场构建：只在首个方法调用位出现时建一次
     Lazy(&'a HashSet<String>),
 }
@@ -231,7 +231,7 @@ pub(crate) fn lint_teaching_chars(
     ambiguous_constructors: &HashSet<String>,
 ) -> Vec<LintWarning> {
     // 惰性分支的落地位置：进入首个方法调用位时建一次
-    let mut local_index: Option<WordBuckets> = None;
+    let mut local_index: Option<词形分桶> = None;
     let mut warnings = Vec::new();
     let mut line = 1usize;
     let mut col = 1usize;
@@ -431,7 +431,7 @@ pub(crate) fn lint_teaching_chars(
                         let index = match &words {
                             WordIndexSource::Shared(buckets) => *buckets,
                             WordIndexSource::Lazy(known) => {
-                                &*local_index.get_or_insert_with(|| WordBuckets::build(known))
+                                &*local_index.get_or_insert_with(|| 词形分桶::build(known))
                             }
                         };
                         if let Some(candidate) = confusable_candidate(name, index) {
@@ -494,7 +494,7 @@ const DECL_INTRODUCER_VALUES: &[&str] = &[
 /// 英文回落 lint：在母语方言源码中提示「有母语词条却写成英文」的结构词
 ///
 /// `fallback_map`：英文原词 → 母语词条（见
-/// [`crate::mapping_manager::MappingManager::english_fallback_map`]）；恒等映射的
+/// [`crate::映射管理器::映射管理器::english_fallback_map`]）；恒等映射的
 /// 英文语言包传入空表，本函数直接返回空（自动静默，不误伤英文原生写法）。
 ///
 /// 只在**结构位置**判定以降噪（避免把同名自定义变量/字段误报）：
@@ -794,7 +794,7 @@ pub(crate) fn lint_english_and_collision_chars(
 /// 用 `r#` 原始标识符转义。
 ///
 /// `keyword_map`：母语 → 英文的关键字映射（见
-/// [`crate::mapping_manager::MappingManager::get_keyword_map`]）。声明引导词
+/// [`crate::映射管理器::映射管理器::get_keyword_map`]）。声明引导词
 /// 与撞名候选均直接从该表查（不派生临时集合：本函数在 LSP 每次变更都会
 /// 跑一遍，过早建 HashSet 会白付 600+ 次哈希）；`可变`(mut) 作为 `让` 的
 /// 修饰词可跨过后再判定名字。判定要求名字后紧跟声明定界符
@@ -858,7 +858,7 @@ pub fn lint_teaching_all(
 /// 转译管线已经物化过一份字符切片，直接从这里进，不再展开一次源码。
 /// `words` 为易混方法名的索引来源：管线路径传
 /// [`WordIndexSource::Shared`]（每语言包建一次，见
-/// [`crate::mapping_manager::MappingManager::lint_word_buckets`]）。
+/// [`crate::映射管理器::映射管理器::lint_word_buckets`]）。
 pub(crate) fn lint_teaching_all_chars(
     chars: &[char],
     words: WordIndexSource<'_>,
@@ -878,11 +878,11 @@ pub(crate) fn lint_teaching_all_chars(
 ///
 /// 与 [`lint_teaching_with_buckets_chars`] 对称：LSP 每次发布诊断都要重算
 /// 教学提示，索引随语言包确定后不可变，应由
-/// [`crate::mapping_manager::MappingManager::lint_word_buckets`] 建一次、
+/// [`crate::映射管理器::映射管理器::lint_word_buckets`] 建一次、
 /// 此后每份文档直接复用（惰性入口每份源码重建一次分桶与精确命中表）。
 pub fn lint_teaching_all_with_buckets_chars(
     chars: &[char],
-    buckets: &WordBuckets,
+    buckets: &词形分桶,
     ambiguous_constructors: &HashSet<String>,
     fallback_map: &HashMap<String, String>,
     keyword_map: &HashMap<String, String>,
@@ -1190,12 +1190,12 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// 每份源码在第一个方法调用位才现场构建一次，小文件（CLI 批量、LSP 每次
 /// 编辑）上这份固定开销远大于扫描本身（实测：真实语料上占 lint 的 85%）。
 /// 现在改为拥有所有权、由调用方缓存
-/// （[`crate::mapping_manager::MappingManager::lint_word_buckets`]）。
+/// （[`crate::映射管理器::映射管理器::lint_word_buckets`]）。
 ///
 /// 词按桶顺序紧排在同一个 `String` 里，桶内只记 `(起始字节, 字节长度)`：
 /// 词表上千条，逐词 `Box<str>` 会让一次性构建的开销涨到十倍。
 #[derive(Debug, Clone)]
-pub struct WordBuckets {
+pub struct 词形分桶 {
     words: String,
     by_len: Vec<Vec<(u32, u32)>>,
     /// 精确命中表（开放地址，槽存 `(起始字节, 字节长度)`，空槽起始为 `u32::MAX`）
@@ -1208,7 +1208,7 @@ pub struct WordBuckets {
     exact: Option<Box<[(u32, u32)]>>,
 }
 
-impl WordBuckets {
+impl 词形分桶 {
     /// 按字符数把词表切成分桶
     pub fn build(known: &HashSet<String>) -> Self {
         let mut words = String::with_capacity(known.len() * 8);
@@ -1233,9 +1233,9 @@ impl WordBuckets {
     ///
     /// 开放地址线性探测，容量取词数的两倍向上取整；槽里存词在公共 `words`
     /// 串中的位置，不复制字符串。只由缓存索引的调用方
-    /// （[`crate::mapping_manager::MappingManager::lint_word_buckets`]）调用。
+    /// （[`crate::映射管理器::映射管理器::lint_word_buckets`]）调用。
     #[must_use]
-    pub fn with_exact_index(mut self) -> Self {
+    pub fn 带精确索引(mut self) -> Self {
         let count: usize = self.by_len.iter().map(Vec::len).sum();
         if count == 0 {
             return self;
@@ -1296,7 +1296,7 @@ impl WordBuckets {
 
 /// 在已知词表中寻找与未命中方法名编辑距离 ≤1 的候选（按字典序取
 /// 首个，结果确定）；名字本身在表中或过短（单字）时不提示。
-fn confusable_candidate<'a>(name: &[char], index: &'a WordBuckets) -> Option<&'a str> {
+fn confusable_candidate<'a>(name: &[char], index: &'a 词形分桶) -> Option<&'a str> {
     if name.len() < 2 {
         return None;
     }
@@ -1683,7 +1683,7 @@ mod tests {
             "函数 主函数() {\n    项们.打印行（）;\n}", // 全角括号 + 表内词
         ] {
             let chars: Vec<char> = source.chars().collect();
-            let buckets = WordBuckets::build(&known);
+            let buckets = 词形分桶::build(&known);
             let lazy = lint_teaching_with_words(source, &known, &ambiguous);
             let shared = lint_teaching_with_buckets(source, &buckets, &ambiguous);
             let shared_chars = lint_teaching_with_buckets_chars(&chars, &buckets, &ambiguous);
@@ -1782,8 +1782,8 @@ mod tests {
             .iter()
             .map(|s| s.to_string())
             .collect();
-        let lazy = WordBuckets::build(&words);
-        let exact = WordBuckets::build(&words).with_exact_index();
+        let lazy = 词形分桶::build(&words);
+        let exact = 词形分桶::build(&words).带精确索引();
         for name in [
             "展平",
             "拉平",
@@ -1819,7 +1819,7 @@ mod tests {
             .iter()
             .map(|s| s.to_string())
             .collect();
-        let buckets = WordBuckets::build(&known).with_exact_index();
+        let buckets = 词形分桶::build(&known).带精确索引();
         let fallback = HashMap::from([("fn".to_string(), "函数".to_string())]);
         let keyword = HashMap::from([
             ("函数".to_string(), "fn".to_string()),

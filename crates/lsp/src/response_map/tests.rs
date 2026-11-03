@@ -3,18 +3,18 @@
 use super::diag_text::translate_diagnostic_message;
 use super::responses::label_identifier_suffix;
 use super::*;
-use crate::translation_cache::TranslationCache;
+use crate::translation_cache::转译缓存;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-fn create_test_cache() -> (Arc<TranslationCache>, tempfile::TempDir) {
-    let manager = i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+fn create_test_cache() -> (Arc<转译缓存>, tempfile::TempDir) {
+    let manager = i18n_rust_engine::映射管理器::映射管理器::从扁表构造(
         HashMap::from([("函数".into(), "fn".into()), ("让".into(), "let".into())]),
         HashMap::new(),
         HashMap::new(),
     );
     let temp = tempfile::tempdir().unwrap();
-    let cache = TranslationCache::new(manager, temp.path().to_path_buf());
+    let cache = 转译缓存::new(manager, temp.path().to_path_buf());
     (cache, temp)
 }
 
@@ -1024,13 +1024,13 @@ fn test_map_completion_language_filter() {
 /// 英文语言包（恒等映射）不启用语言过滤，所有项保留
 #[test]
 fn test_map_completion_no_filter_for_identity_pack() {
-    let manager = i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+    let manager = i18n_rust_engine::映射管理器::映射管理器::从扁表构造(
         HashMap::from([("fn".into(), "fn".into()), ("let".into(), "let".into())]),
         HashMap::new(),
         HashMap::new(),
     );
     let temp = tempfile::tempdir().unwrap();
-    let cache = TranslationCache::new(manager, temp.path().to_path_buf());
+    let cache = 转译缓存::new(manager, temp.path().to_path_buf());
     let mapper = ResponseMapper::new(cache);
 
     let response = json!({
@@ -1141,7 +1141,7 @@ fn test_inject_teaching_actions() {
         edit["newText"]
             .as_str()
             .unwrap()
-            .contains(i18n_rust_engine::lint::IGNORE_MARK)
+            .contains(i18n_rust_engine::校验::IGNORE_MARK)
     );
 
     // 无可修复字符的全角标点（顿号等）：不产生动作
@@ -1160,7 +1160,7 @@ fn test_inject_teaching_actions() {
 /// （code 为 `lint-reserved-name-collision`，与其它教学 lint 同一发布链）
 #[test]
 fn test_lint_teaching_diagnostics_reserved_name_collision() {
-    let manager = i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+    let manager = i18n_rust_engine::映射管理器::映射管理器::从扁表构造(
         HashMap::from([
             ("函数".into(), "fn".into()),
             ("让".into(), "let".into()),
@@ -1170,7 +1170,7 @@ fn test_lint_teaching_diagnostics_reserved_name_collision() {
         HashMap::new(),
     );
     let temp = tempfile::tempdir().unwrap();
-    let cache = TranslationCache::new(manager, temp.path().to_path_buf());
+    let cache = 转译缓存::new(manager, temp.path().to_path_buf());
     let (entry, _) = cache
         .update_document("file:///test/main.zh", "函数 匹配(数量: 整数) {}", 1)
         .unwrap();

@@ -3,8 +3,8 @@
 //! 基于 rustc_lexer 的 token 级转译，保证注释与字符串字面量内容不被误改。
 //! 支持宏感叹号自动补充、原始标识符（r#）处理、反向转译（Rust → 母语）。
 
-use crate::cache::{MapText, SourceMapEntry};
 use crate::名字缓存::名字缓存;
+use crate::缓存::{MapText, 源码映射条目};
 use rustc_lexer::{TokenKind, tokenize};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -16,10 +16,10 @@ pub struct TranspileResult {
     pub output: String,
     /// 词法阶段源映射条目列表（记录被替换的标识符；replacement 是词法阶段自己的
     /// 产物，因此不含宏调用自动补的 `!`）
-    pub source_map: Vec<SourceMapEntry>,
+    pub source_map: Vec<源码映射条目>,
     /// 全管线编辑表：与 source_map 同偏移，但 replacement 为**最终输出文本**
     ///（宏调用自动补充的 `!` 已计入 replacement），供全管线编辑地图组合使用
-    pub final_edits: Vec<SourceMapEntry>,
+    pub final_edits: Vec<源码映射条目>,
 }
 
 /// 标识符映射事实：一次解析出词法阶段无条件要问的那两张表的答案
@@ -118,17 +118,17 @@ pub fn transpile_source_with_macro_map(
 /// 源映射在标识符实际被替换时记录；宏感叹号自动补充不产生映射条目。
 ///
 /// `defer_in_use`：use 语句内的让位词集合（模块路径/别名映射键，见
-/// [`crate::mapping_manager::MappingManager::get_use_defer_words`]）。
+/// [`crate::映射管理器::映射管理器::get_use_defer_words`]）。
 /// use 段内命中该集合的词跳过关键字/宏替换，原样保留给后续阶段处理。
 ///
 /// `method_defer`：方法位让位词集合（见
-/// [`crate::mapping_manager::MappingManager::get_method_defer_words`]）——
+/// [`crate::映射管理器::映射管理器::get_method_defer_words`]）——
 /// 词法替换值是保留关键字的词（`枚举`→enum）在方法位（前面是 `.`）原样
 /// 保留：`.枚举()` 直译会成非法的 `.enum()`，让位后由别名阶段替换为
 /// `.enumerate()`。
 ///
 /// `literal_suffix_map`：数字字面量后缀的兜底查表（标准库标识符映射，见
-/// [`crate::mapping_manager::MappingManager::get_alias_map`]）——标准库层
+/// [`crate::映射管理器::映射管理器::get_alias_map`]）——标准库层
 /// 数值类型词（如 `无符号机器整数` = usize）不在 keyword_map，黏连数字后
 /// 同样需要拆分替换。
 pub fn transpile_with_map(
@@ -187,7 +187,7 @@ pub(crate) fn transpile_with_map_tokens(
     // 产出不存在的宏 `test!(41)`。惰性构建：文件里没有宏调用形态时零开销。
     let mut declared_names: Option<HashSet<&str>> = None;
     // 全管线编辑表：replacement 为最终输出文本（宏补的 `!` 计入）
-    let mut final_edits: Vec<SourceMapEntry> = Vec::new();
+    let mut final_edits: Vec<源码映射条目> = Vec::new();
     // 词法表（`source_map`）**不在主循环里收**：它与 `final_edits` 逐条同偏移、同原文，
     // 只有「词法自动补 `!`」的条目不同（词法表记不含 `!` 的替换值，或压根不记）。
     // 两条表在循环里各写一份是词法阶段里最大的一项重复写入：2000 行样例（两条表
@@ -274,7 +274,7 @@ pub(crate) fn transpile_with_map_tokens(
                         };
                         if appended != text {
                             let index = final_edits.len();
-                            final_edits.push(SourceMapEntry::new(
+                            final_edits.push(源码映射条目::new(
                                 current_offset,
                                 length,
                                 text,
@@ -342,7 +342,7 @@ pub(crate) fn transpile_with_map_tokens(
 
                     // 记录实际发生替换的标识符映射（两张表此处同值，只收一份）
                     if final_replacement != text {
-                        final_edits.push(SourceMapEntry::new(
+                        final_edits.push(源码映射条目::new(
                             current_offset,
                             length,
                             text,
@@ -407,7 +407,7 @@ pub(crate) fn transpile_with_map_tokens(
                 {
                     let number = &text[..suffix_start];
                     let replaced = format!("{}{}", number, en);
-                    let entry = SourceMapEntry::new(
+                    let entry = 源码映射条目::new(
                         current_offset + suffix_start,
                         suffix.len(),
                         suffix,
@@ -448,10 +448,10 @@ pub(crate) fn transpile_with_map_tokens(
 /// 在词法阶段的替换值，`None` 表示该条不进词法表（替换值就是原文、只补了 `!`）。
 /// 与「在循环里各 push 一份」逐条等价，但只付一次整表复制。
 fn build_lex_source_map(
-    final_edits: &[SourceMapEntry],
+    final_edits: &[源码映射条目],
     overrides: &[(usize, Option<MapText>)],
-) -> Vec<SourceMapEntry> {
-    let mut out: Vec<SourceMapEntry> = Vec::with_capacity(final_edits.len());
+) -> Vec<源码映射条目> {
+    let mut out: Vec<源码映射条目> = Vec::with_capacity(final_edits.len());
     let mut next = 0usize;
     for (index, entry) in final_edits.iter().enumerate() {
         while next < overrides.len() && overrides[next].0 < index {
@@ -460,11 +460,11 @@ fn build_lex_source_map(
         if next < overrides.len() && overrides[next].0 == index {
             next += 1;
             if let Some(lex_text) = &overrides[next - 1].1 {
-                out.push(SourceMapEntry {
-                    source_offset: entry.source_offset,
+                out.push(源码映射条目 {
+                    源偏移: entry.源偏移,
                     length: entry.length,
                     original: entry.original.clone(),
-                    replacement: lex_text.clone(),
+                    替换文字: lex_text.clone(),
                 });
             }
             continue;
@@ -631,7 +631,7 @@ fn collect_declared_names<'a>(
 /// 输出中的非空白 token 序号（见 [`added_crate_token_indices`]）：仅删除这些
 /// 位置的前缀；用户显式书写的 `crate::`（不在集合中）原样保留，反向转译
 /// 不再无差别删除，避免还原后代码丢失用户手写前缀。
-pub fn reverse_transpile(
+pub fn 反译(
     source: &str,
     reverse_map: &HashMap<String, String>,
     module_names: &HashSet<String>,
@@ -713,25 +713,25 @@ pub fn reverse_transpile(
 /// 换算为英文输出偏移，再转为非空白 token 序号。
 ///
 /// rustfmt 格式化不改变非空白 token 序列（只改变空白），序号在格式化前后
-/// 保持一致，供 [`reverse_transpile`] 对格式化后的文本精确删除前缀。
+/// 保持一致，供 [`反译`] 对格式化后的文本精确删除前缀。
 pub fn added_crate_token_indices(
     en_content: &str,
-    pipeline_map: &[SourceMapEntry],
+    pipeline_map: &[源码映射条目],
 ) -> HashSet<usize> {
     // 1. 英文输出偏移 = 母语源偏移 + 之前全部条目的净长度增量
     //（编辑地图以母语源偏移升序记录且条目互不重叠，线性累积即可）
     let mut en_offsets = HashSet::new();
     let mut delta = 0i64;
     for e in pipeline_map {
-        if e.replacement.starts_with("crate::") {
-            en_offsets.insert((e.source_offset as i64 + delta) as usize);
+        if e.替换文字.starts_with("crate::") {
+            en_offsets.insert((e.源偏移 as i64 + delta) as usize);
         }
-        delta += e.replacement.len() as i64 - e.length as i64;
+        delta += e.替换文字.len() as i64 - e.length as i64;
     }
     if en_offsets.is_empty() {
         return HashSet::new();
     }
-    // 2. 偏移 → 非空白 token 序号（与 [`reverse_transpile`] 计数口径一致）
+    // 2. 偏移 → 非空白 token 序号（与 [`反译`] 计数口径一致）
     let mut result = HashSet::new();
     let mut offset = 0usize;
     let mut nonspace = 0usize;
@@ -1346,9 +1346,9 @@ mod tests {
             .iter()
             .find(|m| m.original == "函数")
             .expect("应有 函数 映射");
-        assert_eq!(fn_entry.replacement, "fn");
+        assert_eq!(fn_entry.替换文字, "fn");
         assert_eq!(
-            &source[fn_entry.source_offset..fn_entry.source_offset + fn_entry.length],
+            &source[fn_entry.源偏移..fn_entry.源偏移 + fn_entry.length],
             "函数"
         );
 
@@ -1357,9 +1357,9 @@ mod tests {
             .iter()
             .find(|m| m.original == "让")
             .expect("应有 让 映射");
-        assert_eq!(let_entry.replacement, "let");
+        assert_eq!(let_entry.替换文字, "let");
         assert_eq!(
-            &source[let_entry.source_offset..let_entry.source_offset + let_entry.length],
+            &source[let_entry.源偏移..let_entry.源偏移 + let_entry.length],
             "让"
         );
 
@@ -1369,7 +1369,7 @@ mod tests {
             .iter()
             .find(|m| m.original == "打印行")
             .expect("应有 打印行 映射");
-        assert_eq!(println_entry.replacement, "println");
+        assert_eq!(println_entry.替换文字, "println");
 
         assert!(!result.source_map.iter().any(|m| m.original == "主函数"));
     }
@@ -1395,14 +1395,14 @@ mod tests {
             .iter()
             .find(|m| m.original == "r#匹配")
             .expect("应有原始标识符映射");
-        assert_eq!(entry.replacement, "r#match");
+        assert_eq!(entry.替换文字, "r#match");
     }
 
     /// 编辑表投影成（原文，替换值）序列，便于逐条比两张表的内容
-    fn table_pairs(entries: &[SourceMapEntry]) -> Vec<(&str, &str)> {
+    fn table_pairs(entries: &[源码映射条目]) -> Vec<(&str, &str)> {
         entries
             .iter()
-            .map(|e| (e.original.as_str(), e.replacement.as_str()))
+            .map(|e| (e.original.as_str(), e.替换文字.as_str()))
             .collect()
     }
 
@@ -1434,12 +1434,12 @@ mod tests {
         let mut copied = 0usize;
         for edit in &result.final_edits {
             assert!(
-                edit.source_offset >= copied,
+                edit.源偏移 >= copied,
                 "全管线表必须按偏移升序且不重叠：{edit:?}"
             );
-            replay.push_str(&source[copied..edit.source_offset]);
-            replay.push_str(edit.replacement.as_str());
-            copied = edit.source_offset + edit.length;
+            replay.push_str(&source[copied..edit.源偏移]);
+            replay.push_str(edit.替换文字.as_str());
+            copied = edit.源偏移 + edit.length;
         }
         replay.push_str(&source[copied..]);
         assert_eq!(replay, result.output, "全管线表回放必须逐字等于输出");
@@ -1447,30 +1447,27 @@ mod tests {
         let mut lex = result.source_map.iter();
         let mut pending = lex.next();
         for edit in &result.final_edits {
-            if pending.is_some_and(|l| l.source_offset == edit.source_offset) {
+            if pending.is_some_and(|l| l.源偏移 == edit.源偏移) {
                 let entry = pending.take().expect("上面 is_some 判定的就是这个条目");
                 assert_eq!(
                     (entry.length, entry.original.as_str()),
                     (edit.length, edit.original.as_str()),
                     "偏移 {} 的两表条目必须同原文同长度",
-                    edit.source_offset
+                    edit.源偏移
                 );
-                let diff = edit
-                    .replacement
-                    .as_str()
-                    .strip_prefix(entry.replacement.as_str());
+                let diff = edit.替换文字.as_str().strip_prefix(entry.替换文字.as_str());
                 assert!(
                     diff == Some("") || diff == Some("!"),
                     "偏移 {}：词法表 {:?} 与全管线表 {:?} 只能差一个补的 `!`",
-                    edit.source_offset,
-                    entry.replacement,
-                    edit.replacement
+                    edit.源偏移,
+                    entry.替换文字,
+                    edit.替换文字
                 );
                 pending = lex.next();
             } else {
-                let original = &source[edit.source_offset..edit.source_offset + edit.length];
+                let original = &source[edit.源偏移..edit.源偏移 + edit.length];
                 assert_eq!(
-                    edit.replacement.as_str(),
+                    edit.替换文字.as_str(),
                     format!("{original}!"),
                     "不进词法表的条目只能是「原文只补 `!`」"
                 );
@@ -1550,7 +1547,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reverse_transpile_basic() {
+    fn test_反译_basic() {
         // 关键字、类型名、宏名均被还原为母语，宏感叹号保留
         let forward = HashMap::from([
             ("函数".to_string(), "fn".to_string()),
@@ -1564,14 +1561,11 @@ mod tests {
         let empty = HashSet::new();
         let source = "fn main() { let mut x: i32 = 5; println!(\"你好\"); }";
         let expected = "函数 主函数() { 让 可变 x: 整数 = 5; 打印行!(\"你好\"); }";
-        assert_eq!(
-            reverse_transpile(source, &reverse, &empty, &HashSet::new()),
-            expected
-        );
+        assert_eq!(反译(source, &reverse, &empty, &HashSet::new()), expected);
     }
 
     #[test]
-    fn test_reverse_transpile_preserves_comments_strings_custom_idents() {
+    fn test_反译_preserves_comments_strings_custom_idents() {
         // 注释、字符串字面量、中文/英文自定义标识符均保持原样
         let reverse = HashMap::from([
             ("fn".to_string(), "函数".to_string()),
@@ -1580,14 +1574,11 @@ mod tests {
         let empty = HashSet::new();
         let source = "// fn 是关键字\nlet s = \"let\";\nlet 计数 = fn_value;";
         let expected = "// fn 是关键字\n让 s = \"let\";\n让 计数 = fn_value;";
-        assert_eq!(
-            reverse_transpile(source, &reverse, &empty, &HashSet::new()),
-            expected
-        );
+        assert_eq!(反译(source, &reverse, &empty, &HashSet::new()), expected);
     }
 
     #[test]
-    fn test_reverse_transpile_longer_word_priority() {
+    fn test_反译_longer_word_priority() {
         // token 级匹配：i32 与 i3x 是完整 token，互不干扰（无子串误替换）
         let reverse = HashMap::from([
             ("i32".to_string(), "整数".to_string()),
@@ -1597,14 +1588,11 @@ mod tests {
         let source = "let a: i32 = 1; let b: i3x = 2; let c = i3;";
         // let 不在反向表中保持原样；i32→整数、i3→三，i3x 是完整 token 不受影响
         let expected = "let a: 整数 = 1; let b: i3x = 2; let c = 三;";
-        assert_eq!(
-            reverse_transpile(source, &reverse, &empty, &HashSet::new()),
-            expected
-        );
+        assert_eq!(反译(source, &reverse, &empty, &HashSet::new()), expected);
     }
 
     #[test]
-    fn test_reverse_transpile_macro_rules_declaration() {
+    fn test_反译_macro_rules_declaration() {
         // `macro_rules! 名称` 反向转译为 `宏规则 名称`（感叹号省略）
         let forward = HashMap::from([
             ("宏规则".to_string(), "macro_rules".to_string()),
@@ -1614,14 +1602,11 @@ mod tests {
         let empty = HashSet::new();
         let source = "macro_rules! 创建向量 { () => { } }";
         let expected = "宏规则 创建向量 { () => { } }";
-        assert_eq!(
-            reverse_transpile(source, &reverse, &empty, &HashSet::new()),
-            expected
-        );
+        assert_eq!(反译(source, &reverse, &empty, &HashSet::new()), expected);
     }
 
     #[test]
-    fn test_reverse_transpile_macro_rules_with_bang_string() {
+    fn test_反译_macro_rules_with_bang_string() {
         // 宏调用 `名称!(...)` 的感叹号属于调用方，反向转译时保留
         let forward = HashMap::from([
             ("打印行".to_string(), "println".to_string()),
@@ -1632,14 +1617,11 @@ mod tests {
         let empty = HashSet::new();
         let source = "macro_rules! 创建向量 { () => { } }\nfn main() { 创建向量!() }";
         let expected = "宏规则 创建向量 { () => { } }\n函数 main() { 创建向量!() }";
-        assert_eq!(
-            reverse_transpile(source, &reverse, &empty, &HashSet::new()),
-            expected
-        );
+        assert_eq!(反译(source, &reverse, &empty, &HashSet::new()), expected);
     }
 
     #[test]
-    fn test_reverse_transpile_module_prefix() {
+    fn test_反译_module_prefix() {
         let forward = HashMap::from([
             ("函数".to_string(), "fn".to_string()),
             ("包".to_string(), "crate".to_string()),
@@ -1649,7 +1631,7 @@ mod tests {
         // 序号命中正向记录（代理添加的 crate::）：整体删除，还原为裸路径
         let added = HashSet::from([5usize]);
         assert_eq!(
-            reverse_transpile(
+            反译(
                 "fn main() { crate::辅助::辅助函数(); }",
                 &reverse,
                 &set,
@@ -1659,7 +1641,7 @@ mod tests {
         );
         // 序号未命中（用户手写的 crate::，非代理添加）：前缀保留不误删
         assert_eq!(
-            reverse_transpile(
+            反译(
                 "fn main() { crate::辅助::辅助函数(); }",
                 &reverse,
                 &set,
@@ -1669,32 +1651,32 @@ mod tests {
         );
         // 后跟非模块名时还原为 包::（不受序号影响）
         assert_eq!(
-            reverse_transpile("fn main() { crate::外部函数(); }", &reverse, &set, &added),
+            反译("fn main() { crate::外部函数(); }", &reverse, &set, &added),
             "函数 main() { 包::外部函数(); }"
         );
     }
 
     #[test]
-    fn test_reverse_transpile_raw_identifier() {
+    fn test_反译_raw_identifier() {
         let reverse = HashMap::from([
             ("let".to_string(), "让".to_string()),
             ("match".to_string(), "匹配".to_string()),
         ]);
         let empty = HashSet::new();
         assert_eq!(
-            reverse_transpile("let r#match = 1;", &reverse, &empty, &HashSet::new()),
+            反译("let r#match = 1;", &reverse, &empty, &HashSet::new()),
             "让 r#匹配 = 1;"
         );
     }
 
     #[test]
-    fn test_reverse_transpile_crate_prefix_with_whitespace() {
+    fn test_反译_crate_prefix_with_whitespace() {
         // crate 与 :: 之间存在空白时前缀仍应被完整删除（不能残留孤立冒号）
         let reverse = HashMap::from([("fn".to_string(), "函数".to_string())]);
         let set = HashSet::from(["辅助".to_string()]);
         let added = HashSet::from([5usize]);
         assert_eq!(
-            reverse_transpile(
+            反译(
                 "fn f() { crate :: 辅助::辅助函数(); }",
                 &reverse,
                 &set,
@@ -1705,12 +1687,12 @@ mod tests {
     }
 
     #[test]
-    fn test_reverse_transpile_macro_rules_with_whitespace_bang() {
+    fn test_反译_macro_rules_with_whitespace_bang() {
         // macro_rules 与 ! 之间存在空白时感叹号仍应被省略
         let reverse = HashMap::from([("macro_rules".to_string(), "宏规则".to_string())]);
         let empty = HashSet::new();
         assert_eq!(
-            reverse_transpile(
+            反译(
                 "macro_rules ! 创建向量 { () => { } }",
                 &reverse,
                 &empty,
@@ -1875,7 +1857,7 @@ mod tests {
         assert_eq!(result.output, "vec![0u8; 16]");
         assert_eq!(result.source_map.len(), 1);
         assert_eq!(result.source_map[0].original, "无符号微整数");
-        assert_eq!(result.source_map[0].replacement, "u8");
+        assert_eq!(result.source_map[0].替换文字, "u8");
         // 后缀未命中：原样保留（编译错误交给编译器）
         let out = transpile_with_map(
             "let x = 0未知词;",
@@ -1921,7 +1903,7 @@ mod tests {
         assert_eq!(result.output, "let x = 0usize;");
         assert_eq!(result.source_map.len(), 1);
         assert_eq!(result.source_map[0].original, "无符号机器整数");
-        assert_eq!(result.source_map[0].replacement, "usize");
+        assert_eq!(result.source_map[0].替换文字, "usize");
         // 两表同词冲突：keyword_map 优先（匹配其它阶段的查找次序）
         let map = HashMap::from([("微整数".to_string(), "u8".to_string())]);
         let fallback = HashMap::from([("微整数".to_string(), "usize".to_string())]);

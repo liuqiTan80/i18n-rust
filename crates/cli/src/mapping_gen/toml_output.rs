@@ -128,7 +128,7 @@ pub fn build_mapping_toml(
     // 否则调用方会把它当纯安全接口（词条表也据此逐条标注）
     let mut panic_entries: Vec<&str> = Vec::new();
     for (chinese_name, english_name) in chinese_name_table {
-        if i18n_rust_engine::mapping_source::is_always_panic_target(english_name)
+        if i18n_rust_engine::映射源::恒恐慌目标(english_name)
             && !panic_entries.contains(&chinese_name.as_str())
         {
             panic_entries.push(chinese_name.as_str());
@@ -248,19 +248,20 @@ mod tests {
         let crates_dir = temp.path().join("crates");
         std::fs::create_dir_all(&crates_dir).unwrap();
         std::fs::write(crates_dir.join("示例.toml"), toml).unwrap();
-        let manager = i18n_rust_engine::mapping_manager::MappingManager::load_from_dir(temp.path())
-            .expect("映射管理器应能加载");
+        let manager =
+            i18n_rust_engine::映射管理器::映射管理器::从目录载入(temp.path())
+                .expect("映射管理器应能加载");
         // ["解释"] 节被忽略，["标识符"]/["模块路径"] 正常生效
         assert_eq!(
-            manager.module_path_map.get("示例库").map(String::as_str),
+            manager.模块路径表.get("示例库").map(String::as_str),
             Some("示例")
         );
         assert_eq!(
-            manager.alias_map.get("新建").map(String::as_str),
+            manager.标识符别名.get("新建").map(String::as_str),
             Some("new")
         );
         assert_eq!(
-            manager.alias_map.get("状态").map(String::as_str),
+            manager.标识符别名.get("状态").map(String::as_str),
             Some("State")
         );
     }

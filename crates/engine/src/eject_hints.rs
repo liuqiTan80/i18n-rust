@@ -17,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 
 use rustc_lexer::{TokenKind, tokenize};
 
-use crate::mapping_manager::MappingManager;
+use crate::映射管理器::映射管理器;
 
 /// 提示种类
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -70,11 +70,11 @@ impl EjectHint {
 /// 扫描母语源码，返回全部导出冲突提示（按出现顺序）
 ///
 /// 只依赖映射表与源码文本：不读文件、不联网、不看环境变量。
-pub fn eject_hints(source: &str, manager: &MappingManager) -> Vec<EjectHint> {
+pub fn eject_hints(source: &str, manager: &映射管理器) -> Vec<EjectHint> {
     let tokens = tokenize_code(source);
-    let keywords = manager.get_keyword_map();
-    let aliases = manager.get_alias_map();
-    let macro_map = manager.get_macro_map();
+    let keywords = manager.取关键词表();
+    let aliases = manager.取别名表();
+    let macro_map = manager.取宏表();
     let mut sink = HintSink::default();
 
     // 方言拼写由词条表反查（语言无关）：值为 struct 的键就是「结构体」这个词
@@ -211,7 +211,7 @@ fn field_name_before<'a, 't>(
 /// 会 panic 的词条出现在文本语境：文本宏实参内，或结果上直接接文本方法
 fn check_panic_as_text(
     tokens: &[Token<'_>],
-    manager: &MappingManager,
+    manager: &映射管理器,
     macro_map: &HashMap<String, String>,
     aliases: &HashMap<String, String>,
     sink: &mut HintSink,
@@ -270,9 +270,9 @@ fn check_panic_as_text(
         }
         let target = aliases.get(word)?;
         manager
-            .danger_of(word)
-            .level
-            .panic
+            .取危险详情(word)
+            .等级
+            .会恐慌
             .then_some(target.as_str())
     };
 
@@ -397,9 +397,9 @@ mod tests {
     use std::path::Path;
 
     /// 真实 zh 内置语言包（与 CLI 同源）
-    fn manager() -> MappingManager {
+    fn manager() -> 映射管理器 {
         let lang_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
-        MappingManager::load_from_dir(&lang_dir).expect("内置语言包应可加载")
+        映射管理器::从目录载入(&lang_dir).expect("内置语言包应可加载")
     }
 
     fn kinds(hints: &[EjectHint]) -> Vec<EjectHintKind> {

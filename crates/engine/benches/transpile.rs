@@ -21,19 +21,19 @@ use std::hint::black_box;
 use std::path::Path;
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use i18n_rust_engine::cache::TranslationCache;
 use i18n_rust_engine::fullwidth::find_fullwidth_punct;
-use i18n_rust_engine::lint::{
+use i18n_rust_engine::映射管理器::映射管理器;
+use i18n_rust_engine::校验::{
     lint_reserved_name_collision, lint_teaching, lint_teaching_all,
     lint_teaching_with_buckets_chars, lint_teaching_with_words,
 };
-use i18n_rust_engine::mapping_manager::MappingManager;
-use i18n_rust_engine::{alias, lexer, transpile_pipeline, transpile_source};
+use i18n_rust_engine::缓存::转译缓存;
+use i18n_rust_engine::{alias, transpile_pipeline, transpile_source, 词法器};
 
 /// 构造内置 zh 语言包的映射管理器（与 CLI 默认一致）
-fn zh_manager() -> MappingManager {
+fn zh_manager() -> 映射管理器 {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
-    MappingManager::load_from_dir(&dir).expect("加载 zh 语言包失败")
+    映射管理器::从目录载入(&dir).expect("加载 zh 语言包失败")
 }
 
 /// 教学场景中等规模源码：约 250 行混合结构
@@ -119,7 +119,7 @@ fn bench_transpile(c: &mut Criterion) {
     });
 
     // 缓存命中场景：先用真实转译预热缓存，迭代期间内容哈希不变全命中
-    let mut cache = TranslationCache::with_default_capacity();
+    let mut cache = 转译缓存::with_default_capacity();
     transpile_source(&source, &manager, &mut cache).expect("预热转译失败");
     group.bench_function("pipeline_cache_hit", |b| {
         b.iter(|| transpile_source(black_box(&source), &manager, &mut cache).expect("缓存转译失败"))
@@ -140,11 +140,11 @@ fn bench_transpile(c: &mut Criterion) {
 fn bench_teaching_checks(c: &mut Criterion) {
     let manager = zh_manager();
     let source = teaching_source();
-    let keyword_map = manager.get_keyword_map();
-    let fallback_map = manager.english_fallback_map();
-    let words = manager.get_lint_words();
-    let ambiguous = manager.ambiguous_constructor_words();
-    let buckets = manager.lint_word_buckets();
+    let keyword_map = manager.取关键词表();
+    let fallback_map = manager.取英文回落();
+    let words = manager.取校验词表();
+    let ambiguous = manager.取歧义构造器();
+    let buckets = manager.取校验分桶();
     // 管线已物化过字符切片（全角/教学 lint 共用一份），基准同样把它放在闭包外
     let chars: Vec<char> = source.chars().collect();
     let mut group = c.benchmark_group("teaching_checks");
@@ -191,7 +191,7 @@ fn bench_transpile_large(c: &mut Criterion) {
     });
 
     // 缓存命中场景：预热后内容哈希不变全命中
-    let mut cache = TranslationCache::with_default_capacity();
+    let mut cache = 转译缓存::with_default_capacity();
     transpile_source(&source, &manager, &mut cache).expect("预热转译失败");
     group.bench_function("pipeline_cache_hit_2000", |b| {
         b.iter(|| transpile_source(black_box(&source), &manager, &mut cache).expect("缓存转译失败"))
@@ -201,14 +201,14 @@ fn bench_transpile_large(c: &mut Criterion) {
     // 2000 行大文件上 3930 个标识符高度重复，标识符事实缓存就命中在这里。
     group.bench_function("lexer_stage_2000", |b| {
         b.iter(|| {
-            lexer::transpile_with_map(
+            词法器::transpile_with_map(
                 black_box(source.as_str()),
-                manager.get_keyword_map(),
-                manager.get_macro_map(),
-                manager.get_derive_map(),
-                manager.get_use_defer_words(),
-                manager.get_method_defer_words(),
-                manager.get_alias_map(),
+                manager.取关键词表(),
+                manager.取宏表(),
+                manager.取派生特征表(),
+                manager.取让位词(),
+                manager.取方法让位词(),
+                manager.取别名表(),
             )
         })
     });
@@ -221,8 +221,8 @@ fn bench_transpile_large(c: &mut Criterion) {
         b.iter(|| {
             alias::replace_aliases_with_context_and_module_paths(
                 black_box(source.as_str()),
-                manager.get_alias_map(),
-                manager.get_module_path_map(),
+                manager.取别名表(),
+                manager.取模块路径表(),
                 None,
             )
         })

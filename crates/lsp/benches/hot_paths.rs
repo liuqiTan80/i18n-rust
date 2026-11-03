@@ -18,13 +18,13 @@ use std::hint::black_box;
 use std::path::{Path, PathBuf};
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
-use i18n_rust_engine::mapping_manager::MappingManager;
-use i18n_rust_lsp::translation_cache::TranslationCache;
+use i18n_rust_engine::映射管理器::映射管理器;
+use i18n_rust_lsp::translation_cache::转译缓存;
 
 /// 构造内置 zh 语言包映射管理器（与 CLI / LSP 默认一致）
-fn zh_manager() -> MappingManager {
+fn zh_manager() -> 映射管理器 {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../engine/lang-packs/zh");
-    MappingManager::load_from_dir(&dir).expect("加载 zh 语言包失败")
+    映射管理器::从目录载入(&dir).expect("加载 zh 语言包失败")
 }
 
 /// 教学场景中等规模源码：约 250 行混合结构
@@ -106,7 +106,7 @@ fn bench_update_document(c: &mut Criterion) {
             || {
                 let tmp = tempfile::tempdir().expect("创建临时目录失败");
                 let (_path, uri) = setup_project(tmp.path(), "proj", &source);
-                let cache = TranslationCache::new(manager.clone(), tmp.path().join("virtual"));
+                let cache = 转译缓存::new(manager.clone(), tmp.path().join("virtual"));
                 (tmp, cache, uri)
             },
             |(_tmp, cache, uri)| {
@@ -122,7 +122,7 @@ fn bench_update_document(c: &mut Criterion) {
     //    模块集合不变 → 仅重写当前条目，声明名缓存按内容哈希逐次失效）
     let tmp = tempfile::tempdir().expect("创建临时目录失败");
     let (_path, uri) = setup_project(tmp.path(), "proj_typing", &source);
-    let cache = TranslationCache::new(manager.clone(), tmp.path().join("virtual"));
+    let cache = 转译缓存::new(manager.clone(), tmp.path().join("virtual"));
     cache
         .update_document(&uri, &source, 1)
         .expect("预热打开失败");
@@ -158,7 +158,7 @@ fn bench_update_document_alias_heavy(c: &mut Criterion) {
 
     let tmp = tempfile::tempdir().expect("创建临时目录失败");
     let (_path, uri) = setup_project(tmp.path(), "proj_typing_alias", &source);
-    let cache = TranslationCache::new(manager.clone(), tmp.path().join("virtual"));
+    let cache = 转译缓存::new(manager.clone(), tmp.path().join("virtual"));
     cache
         .update_document(&uri, &source, 1)
         .expect("预热打开失败");
@@ -186,7 +186,7 @@ fn bench_reverse_transpile(c: &mut Criterion) {
     let source = teaching_source();
     let tmp = tempfile::tempdir().expect("创建临时目录失败");
     let (_path, uri) = setup_project(tmp.path(), "proj_reverse", &source);
-    let cache = TranslationCache::new(manager.clone(), tmp.path().join("virtual"));
+    let cache = 转译缓存::new(manager.clone(), tmp.path().join("virtual"));
     let (entry, _) = cache
         .update_document(&uri, &source, 1)
         .expect("预热打开失败");

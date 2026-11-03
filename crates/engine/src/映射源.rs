@@ -9,14 +9,14 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::error::{LoadError, LoadTarget};
+use crate::故障::{载入故障, 载入目标};
 
 /// 节（section）组织的映射表：节名 → (母语词 → 英文)
-pub type SectionMap = HashMap<String, HashMap<String, String>>;
+pub type 节表 = HashMap<String, HashMap<String, String>>;
 
 /// 按**书写序**组织的映射表：[(节名, [(母语词, 英文)])]
 ///
-/// 与 [`SectionMap`] 的唯一区别是保留 TOML 里的先后（HashMap 会把它抹掉）：
+/// 与 [`节表`] 的唯一区别是保留 TOML 里的先后（HashMap 会把它抹掉）：
 /// 诊断反查表要靠这个顺序在同一英文值的多个母语同义词里选主词条，
 /// 见 [`parse_toml_sections_ordered`]。
 pub type OrderedSections = Vec<(String, Vec<(String, String)>)>;
@@ -36,45 +36,45 @@ pub fn is_metadata_section(name: &str) -> bool {
 /// - `panic`：映射目标在运行时可能 panic（越界、类型不符、unwrap/expect 等）；
 /// - `rewrite`：词法层任意位置替换，同名自定义标识符也会被改写（关键字/宏类词条）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
-pub struct DangerLevel {
+pub struct 危险等级 {
     /// 会 panic
-    pub panic: bool,
+    pub 会恐慌: bool,
     /// 会改写标识符
-    pub rewrite: bool,
+    pub 会改写: bool,
 }
 
-impl DangerLevel {
+impl 危险等级 {
     /// 纯安全
-    pub const SAFE: Self = Self {
-        panic: false,
-        rewrite: false,
+    pub const 全安全: Self = Self {
+        会恐慌: false,
+        会改写: false,
     };
     /// 会 panic
-    pub const PANIC: Self = Self {
-        panic: true,
-        rewrite: false,
+    pub const 必恐慌: Self = Self {
+        会恐慌: true,
+        会改写: false,
     };
     /// 会改写标识符
-    pub const REWRITE: Self = Self {
-        panic: false,
-        rewrite: true,
+    pub const 必改写: Self = Self {
+        会恐慌: false,
+        会改写: true,
     };
     /// 两种风险并存
-    pub const PANIC_REWRITE: Self = Self {
-        panic: true,
-        rewrite: true,
+    pub const 恐慌加改写: Self = Self {
+        会恐慌: true,
+        会改写: true,
     };
 
     /// 解析标注值：`panic` / `rewrite` / `safe`，多风险用 `+`（也接受 `,` `|`）连接
-    pub fn parse(text: &str) -> Option<Self> {
-        let mut level = Self::SAFE;
+    pub fn 解析等级(text: &str) -> Option<Self> {
+        let mut level = Self::全安全;
         for part in text.split(['+', ',', '|']).map(str::trim) {
             if part.is_empty() {
                 continue;
             }
             match part {
-                "panic" => level.panic = true,
-                "rewrite" => level.rewrite = true,
+                "panic" => level.会恐慌 = true,
+                "rewrite" => level.会改写 = true,
                 "safe" => {}
                 _ => return None,
             }
@@ -83,13 +83,13 @@ impl DangerLevel {
     }
 
     /// 是否纯安全
-    pub fn is_safe(self) -> bool {
-        self == Self::SAFE
+    pub fn 是安全(self) -> bool {
+        self == Self::全安全
     }
 
     /// 稳定标识（Markdown/校验输出用）
-    pub fn code(self) -> &'static str {
-        match (self.panic, self.rewrite) {
+    pub fn 代号(self) -> &'static str {
+        match (self.会恐慌, self.会改写) {
             (false, false) => "safe",
             (true, false) => "panic",
             (false, true) => "rewrite",
@@ -98,8 +98,8 @@ impl DangerLevel {
     }
 
     /// 词条表显示标签（与表头图例一致）
-    pub fn label(self) -> &'static str {
-        match (self.panic, self.rewrite) {
+    pub fn 标签(self) -> &'static str {
+        match (self.会恐慌, self.会改写) {
             (false, false) => "纯安全",
             (true, false) => "会 panic",
             (false, true) => "会改写标识符",
@@ -110,11 +110,11 @@ impl DangerLevel {
 
 /// 词条危险信息：等级 + 可选备注（多风险时必须写明）
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct DangerInfo {
+pub struct 危险详情 {
     /// 危险等级
-    pub level: DangerLevel,
+    pub 等级: 危险等级,
     /// 备注（空串表示无额外说明）
-    pub note: String,
+    pub 备注: String,
 }
 
 /// 命中即视为一定会 panic 的映射目标（与接收者无关，如 Option/Result 的解包）
@@ -135,7 +135,7 @@ pub const ALWAYS_PANIC_TARGETS: &[&str] = &[
 ];
 
 /// 映射目标是否属于「一定 panic」集合
-pub fn is_always_panic_target(target: &str) -> bool {
+pub fn 恒恐慌目标(target: &str) -> bool {
     ALWAYS_PANIC_TARGETS.contains(&target)
 }
 
@@ -143,11 +143,11 @@ pub fn is_always_panic_target(target: &str) -> bool {
 ///
 /// 非法等级值按「会 panic」处理并记录警告：宁可高估风险，也不能把
 /// 会 panic 的词条静默标成纯安全。
-pub fn danger_from_sections(sections: &SectionMap) -> HashMap<String, DangerInfo> {
-    let mut result: HashMap<String, DangerInfo> = HashMap::new();
+pub fn 危险从节表(sections: &节表) -> HashMap<String, 危险详情> {
+    let mut result: HashMap<String, 危险详情> = HashMap::new();
     if let Some(levels) = sections.get(DANGER_LEVEL_SECTION) {
         for (word, raw) in levels {
-            let level = match DangerLevel::parse(raw) {
+            let level = match 危险等级::解析等级(raw) {
                 Some(level) => level,
                 None => {
                     crate::log_warn!(
@@ -156,26 +156,24 @@ pub fn danger_from_sections(sections: &SectionMap) -> HashMap<String, DangerInfo
                         word,
                         raw
                     );
-                    DangerLevel::PANIC
+                    危险等级::必恐慌
                 }
             };
-            result.entry(word.clone()).or_default().level = level;
+            result.entry(word.clone()).or_default().等级 = level;
         }
     }
     if let Some(notes) = sections.get(DANGER_NOTE_SECTION) {
         for (word, note) in notes {
-            result.entry(word.clone()).or_default().note = note.clone();
+            result.entry(word.clone()).or_default().备注 = note.clone();
         }
     }
     result
 }
 
 /// 解析 TOML 内容中的危险元数据（供加载器与校验工具共用）
-pub fn parse_danger_sections(
-    content: &str,
-) -> Result<HashMap<String, DangerInfo>, toml::de::Error> {
+pub fn 解析危险节表(content: &str) -> Result<HashMap<String, 危险详情>, toml::de::Error> {
     let sections = parse_toml_sections(content)?;
-    Ok(danger_from_sections(&sections))
+    Ok(危险从节表(&sections))
 }
 
 /// 按**书写顺序**解析「节 → 条目」清单（`Vec` 而非 HashMap）
@@ -310,7 +308,7 @@ impl<'de> serde::Deserialize<'de> for OrderedBody {
     }
 }
 
-/// 从有序视图（[`ParsedDocument::ordered`]）里取一节的有序条目（不存在则空）
+/// 从有序视图（[`已解析文档::ordered`]）里取一节的有序条目（不存在则空）
 pub fn ordered_section_entries<'a>(
     ordered: &'a OrderedSections,
     section_name: &str,
@@ -326,7 +324,7 @@ pub fn ordered_section_entries<'a>(
 ///
 /// `"format" = "fmt"` 这类纯英文修正项不能进诊断反查表（否则译文里会
 /// 出现英文值），模块路径与标识符表里混有它们。
-pub fn is_native_key(key: &str) -> bool {
+pub fn 是母语词条(key: &str) -> bool {
     !key.chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
@@ -336,18 +334,18 @@ pub fn is_native_key(key: &str) -> bool {
 /// 加载一个语言包时，同一份 TOML 往往同时需要三种视图：正向映射用的 HashMap
 /// 节表、诊断反查候选用的书写序条目、危险元数据。逐条调用
 /// [`parse_toml_sections`] / [`parse_toml_sections_ordered`] /
-/// [`parse_danger_sections`] 会把同一个文件解析三遍（zh 包 26 个文件，
+/// [`解析危险节表`] 会把同一个文件解析三遍（zh 包 26 个文件，
 /// 加载耗时接近翻倍），因此这里解析一次、按需取视图。几个旧函数签名不变，
 /// 仍供只要一种视图的调用方（CLI 校验工具等）使用。
 #[derive(Debug, Clone)]
-pub struct ParsedDocument {
+pub struct 已解析文档 {
     ordered: OrderedSections,
 }
 
-impl ParsedDocument {
+impl 已解析文档 {
     /// 解析整个文件（与 [`parse_toml_sections_ordered`] 同口径：只有 TOML
     /// 本身语法非法才报错，非表节与非字符串条目告警后跳过）
-    pub fn parse(content: &str) -> Result<Self, toml::de::Error> {
+    pub fn 解析文档(content: &str) -> Result<Self, toml::de::Error> {
         Ok(Self {
             ordered: parse_toml_sections_ordered(content)?,
         })
@@ -359,12 +357,12 @@ impl ParsedDocument {
     }
 
     /// 取一节的有序条目（不存在则为空）
-    pub fn entries(&self, section_name: &str) -> &[(String, String)] {
+    pub fn 节条目们(&self, section_name: &str) -> &[(String, String)] {
         ordered_section_entries(&self.ordered, section_name)
     }
 
     /// 收敛为「节 → (母语词 → 英文)」HashMap（等价于 [`parse_toml_sections`]）
-    pub fn sections(&self) -> SectionMap {
+    pub fn 节表(&self) -> 节表 {
         self.ordered
             .iter()
             .map(|(name, entries)| (name.clone(), entries.iter().cloned().collect()))
@@ -372,20 +370,20 @@ impl ParsedDocument {
     }
 
     /// 危险元数据（`["危险等级"]` / `["危险备注"]` 两节，等价于
-    /// [`parse_danger_sections`]；语法已在本文件解析成功，这里不会再失败）
-    pub fn danger(&self) -> HashMap<String, DangerInfo> {
-        danger_from_sections(&self.sections())
+    /// [`解析危险节表`]；语法已在本文件解析成功，这里不会再失败）
+    pub fn 危险表(&self) -> HashMap<String, 危险详情> {
+        危险从节表(&self.节表())
     }
 
     /// 把 `["模块路径"]` / `["标识符"]` 两节并入两张正向映射表（等价于
-    /// [`merge_module_and_ident_sections`]，但不重复解析）
-    pub fn merge_module_and_ident(
+    /// [`合并模块路径与标识符节`]，但不重复解析）
+    pub fn 合并模块路径与标识符(
         &self,
         module_path_map: &mut HashMap<String, String>,
         alias_map: &mut HashMap<String, String>,
     ) {
-        module_path_map.extend(self.entries("模块路径").iter().cloned());
-        alias_map.extend(self.entries("标识符").iter().cloned());
+        module_path_map.extend(self.节条目们("模块路径").iter().cloned());
+        alias_map.extend(self.节条目们("标识符").iter().cloned());
     }
 }
 
@@ -393,7 +391,7 @@ impl ParsedDocument {
 ///
 /// 本函数是 [`parse_toml_sections_ordered`] 的收敛视图（同一遍解析，只是丢掉
 /// 顺序），跳过口径与告警文案也完全由那边负责。
-pub fn parse_toml_sections(content: &str) -> Result<SectionMap, toml::de::Error> {
+pub fn parse_toml_sections(content: &str) -> Result<节表, toml::de::Error> {
     Ok(parse_toml_sections_ordered(content)?
         .into_iter()
         .map(|(name, entries)| (name, entries.into_iter().collect()))
@@ -402,7 +400,7 @@ pub fn parse_toml_sections(content: &str) -> Result<SectionMap, toml::de::Error>
 
 /// 把节表扁平化为单一映射：按节名升序合并，同名键冲突时胜出者确定
 /// （HashMap 遍历顺序随机会导致多次加载结果不一致）
-pub fn flatten_sections(sections: &SectionMap) -> HashMap<String, String> {
+pub fn 摊平节表(sections: &节表) -> HashMap<String, String> {
     let mut result = HashMap::new();
     let mut names: Vec<&String> = sections
         .keys()
@@ -422,8 +420,8 @@ pub fn flatten_sections(sections: &SectionMap) -> HashMap<String, String> {
 /// - `["模块路径"]` 节 → 合并到模块路径映射（如 `"线程" = "std::thread"`）
 /// - `["标识符"]` 节 → 合并到标识符别名映射（如 `"字符串" = "String"`）
 ///
-/// 返回原始 toml 错误，由调用方结合文件路径/数据源上下文转为 [`LoadError`]。
-pub fn merge_module_and_ident_sections(
+/// 返回原始 toml 错误，由调用方结合文件路径/数据源上下文转为 [`载入故障`]。
+pub fn 合并模块路径与标识符节(
     content: &str,
     module_path_map: &mut HashMap<String, String>,
     alias_map: &mut HashMap<String, String>,
@@ -534,7 +532,7 @@ impl MappingLoader {
     }
 
     /// 加载指定分类的映射表
-    pub fn load(&mut self, category: MappingCategory) -> Result<(), LoadError> {
+    pub fn load(&mut self, category: MappingCategory) -> Result<(), 载入故障> {
         // 第三方库是目录，包含多个文件
         if category == MappingCategory::ThirdParty {
             return self.load_third_party_dir();
@@ -543,29 +541,30 @@ impl MappingLoader {
         let file_path = self.root_dir.join(category.default_filename());
 
         if !file_path.exists() {
-            return Err(LoadError::FileMissing {
-                target: LoadTarget::Mapping,
-                path: format!("{:?}", file_path),
+            return Err(载入故障::文件缺失 {
+                目标: 载入目标::映射表,
+                文件路径: format!("{:?}", file_path),
             });
         }
 
-        let content = fs::read_to_string(&file_path).map_err(|e| LoadError::ReadFailed {
-            target: LoadTarget::Mapping,
-            path: None,
-            detail: e.to_string(),
+        let content = fs::read_to_string(&file_path).map_err(|e| 载入故障::读取失败 {
+            目标: 载入目标::映射表,
+            文件路径: None,
+            详情: e.to_string(),
         })?;
 
-        let category_map = parse_toml_sections(&content).map_err(|e| LoadError::ParseFailed {
-            target: LoadTarget::Mapping,
-            path: None,
-            detail: e.to_string(),
-        })?;
+        let category_map =
+            parse_toml_sections(&content).map_err(|e| 载入故障::解析失败 {
+                目标: 载入目标::映射表,
+                文件路径: None,
+                详情: e.to_string(),
+            })?;
         self.mappings.insert(category, category_map);
         Ok(())
     }
 
     /// 加载第三方库目录（crates/）下的所有 TOML 文件
-    fn load_third_party_dir(&mut self) -> Result<(), LoadError> {
+    fn load_third_party_dir(&mut self) -> Result<(), 载入故障> {
         let dir_path = self.root_dir.join("crates");
 
         if !dir_path.exists() {
@@ -576,15 +575,15 @@ impl MappingLoader {
         let mut merged_map = HashMap::new();
 
         // 遍历目录中的所有 .toml 文件（按文件名排序，read_dir 顺序未定义，
-        // 排序后合并结果与 MappingManager::load_from_dir 保持一致且确定）；
+        // 排序后合并结果与 映射管理器::load_from_dir 保持一致且确定）；
         // read_dir 或条目读取失败必须报错（不能静默吞掉，否则映射整体丢失）
         let mut toml_files: Vec<PathBuf> = fs::read_dir(&dir_path)
-            .map_err(|e| LoadError::DirReadFailed {
-                detail: e.to_string(),
+            .map_err(|e| 载入故障::目录读取失败 {
+                详情: e.to_string(),
             })?
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| LoadError::DirReadFailed {
-                detail: e.to_string(),
+            .map_err(|e| 载入故障::目录读取失败 {
+                详情: e.to_string(),
             })?
             .into_iter()
             .map(|entry| entry.path())
@@ -601,18 +600,19 @@ impl MappingLoader {
                 .map(decode_os_file_name)
                 .unwrap_or_else(|| decode_os_file_name(path.as_os_str()));
 
-            let content = fs::read_to_string(&path).map_err(|e| LoadError::ReadFailed {
-                target: LoadTarget::ThirdParty,
-                path: Some(format!("{:?}", path)),
-                detail: e.to_string(),
+            let content = fs::read_to_string(&path).map_err(|e| 载入故障::读取失败 {
+                目标: 载入目标::第三方库,
+                文件路径: Some(format!("{:?}", path)),
+                详情: e.to_string(),
             })?;
 
             // 将文件中的映射合并，加上文件分类前缀
-            let sections = parse_toml_sections(&content).map_err(|e| LoadError::ParseFailed {
-                target: LoadTarget::ThirdParty,
-                path: Some(format!("{:?}", path)),
-                detail: e.to_string(),
-            })?;
+            let sections =
+                parse_toml_sections(&content).map_err(|e| 载入故障::解析失败 {
+                    目标: 载入目标::第三方库,
+                    文件路径: Some(format!("{:?}", path)),
+                    详情: e.to_string(),
+                })?;
             // 节名排序后合并，保证 "文件名/子分类" 键的插入顺序确定
             let mut sub_names: Vec<&String> = sections.keys().collect();
             sub_names.sort();
@@ -628,29 +628,30 @@ impl MappingLoader {
     }
 
     /// 加载所有默认映射表
-    pub fn load_all(&mut self) -> Result<(), LoadError> {
+    pub fn load_all(&mut self) -> Result<(), 载入故障> {
         self.load(MappingCategory::Keywords)?;
-        // 标准库可选：缺失时静默跳过（与 MappingManager::load_from_dir 行为一致），
+        // 标准库可选：缺失时静默跳过（与 映射管理器::load_from_dir 行为一致），
         // 存在但加载失败时必须报错
         if self.root_dir.join("stdlib.toml").exists() {
             self.load(MappingCategory::StdLib)?;
         }
         // module_paths.toml（可选）：模块路径映射并入标准库分类的 ["模块路径"] 子节。
         // 在 stdlib 之后合并且仅补充缺失键，保证 stdlib 的同名映射优先
-        // （与 MappingManager 的 module_paths 先、stdlib 后的覆盖顺序语义一致）
+        // （与 映射管理器 的 module_paths 先、stdlib 后的覆盖顺序语义一致）
         let module_paths_file = self.root_dir.join("module_paths.toml");
         if module_paths_file.exists() {
             let content =
-                fs::read_to_string(&module_paths_file).map_err(|e| LoadError::ReadFailed {
-                    target: LoadTarget::ModulePaths,
-                    path: Some(module_paths_file.display().to_string()),
-                    detail: e.to_string(),
+                fs::read_to_string(&module_paths_file).map_err(|e| 载入故障::读取失败 {
+                    目标: 载入目标::模块路径表,
+                    文件路径: Some(module_paths_file.display().to_string()),
+                    详情: e.to_string(),
                 })?;
-            let sections = parse_toml_sections(&content).map_err(|e| LoadError::ParseFailed {
-                target: LoadTarget::ModulePaths,
-                path: None,
-                detail: e.to_string(),
-            })?;
+            let sections =
+                parse_toml_sections(&content).map_err(|e| 载入故障::解析失败 {
+                    目标: 载入目标::模块路径表,
+                    文件路径: None,
+                    详情: e.to_string(),
+                })?;
             if let Some(entries) = sections.get("模块路径") {
                 let stdlib_map = self.mappings.entry(MappingCategory::StdLib).or_default();
                 let mp_section = stdlib_map.entry("模块路径".to_string()).or_default();
@@ -674,7 +675,7 @@ impl MappingLoader {
     pub fn get_mapping(&self, category: MappingCategory) -> HashMap<String, String> {
         self.mappings
             .get(&category)
-            .map(flatten_sections)
+            .map(摊平节表)
             .unwrap_or_default()
     }
 
@@ -739,7 +740,7 @@ impl MappingLoader {
 /// 便捷函数：加载关键字映射
 pub fn load_keyword_mapping<P: AsRef<Path>>(
     lang_pack_path: P,
-) -> Result<HashMap<String, String>, LoadError> {
+) -> Result<HashMap<String, String>, 载入故障> {
     let mut loader = MappingLoader::new(lang_pack_path);
     loader.load(MappingCategory::Keywords)?;
     Ok(loader.get_mapping(MappingCategory::Keywords))
@@ -748,7 +749,7 @@ pub fn load_keyword_mapping<P: AsRef<Path>>(
 /// 便捷函数：加载标准库映射
 pub fn load_stdlib_mapping<P: AsRef<Path>>(
     lang_pack_path: P,
-) -> Result<HashMap<String, String>, LoadError> {
+) -> Result<HashMap<String, String>, 载入故障> {
     let mut loader = MappingLoader::new(lang_pack_path);
     loader.load(MappingCategory::StdLib)?;
     Ok(loader.get_mapping(MappingCategory::StdLib))
@@ -757,7 +758,7 @@ pub fn load_stdlib_mapping<P: AsRef<Path>>(
 /// 便捷函数：加载所有映射
 pub fn load_all_mappings<P: AsRef<Path>>(
     lang_pack_path: P,
-) -> Result<HashMap<MappingCategory, HashMap<String, String>>, LoadError> {
+) -> Result<HashMap<MappingCategory, HashMap<String, String>>, 载入故障> {
     let mut loader = MappingLoader::new(lang_pack_path);
     loader.load_all()?;
 
@@ -948,7 +949,7 @@ mod tests {
     }
 
     /// load_all 把 module_paths.toml 并入标准库分类的 ["模块路径"] 子节，
-    /// 且同名键 stdlib 优先（与 MappingManager::load_from_dir 的覆盖顺序语义一致）
+    /// 且同名键 stdlib 优先（与 映射管理器::load_from_dir 的覆盖顺序语义一致）
     #[test]
     fn test_load_all_merges_module_paths_with_stdlib_priority() {
         let temp = tempfile::tempdir().unwrap();
@@ -1046,7 +1047,7 @@ mod tests {
         // 空目录加载关键字：FileMissing
         assert!(matches!(
             loader.load(MappingCategory::Keywords),
-            Err(LoadError::FileMissing { .. })
+            Err(载入故障::文件缺失 { .. })
         ));
         // crates/ 目录不存在：静默 Ok
         loader.load(MappingCategory::ThirdParty).unwrap();
@@ -1072,7 +1073,7 @@ mod tests {
         .unwrap();
         assert!(matches!(
             loader.load(MappingCategory::Keywords),
-            Err(LoadError::ParseFailed { .. })
+            Err(载入故障::解析失败 { .. })
         ));
         // parse_toml_sections 直接校验同样报错
         assert!(parse_toml_sections("not = = toml").is_err());
@@ -1226,7 +1227,7 @@ mod tests {
 
     /// 一次解析得到的多种视图，必须与「各调一次独立解析」完全一致
     ///
-    /// 加载器为了拿到书写序改用 [`ParsedDocument`]，正向映射与危险元数据的
+    /// 加载器为了拿到书写序改用 [`已解析文档`]，正向映射与危险元数据的
     /// 口径不能被这次改动带偏，因此逐文件比对两条路径的结果。
     #[test]
     fn parsed_document_views_match_standalone_functions() {
@@ -1235,25 +1236,25 @@ mod tests {
         for lang in ["zh", "ja", "ar"] {
             for file in lang_pack_toml_files(&manifest.join(format!("lang-packs/{lang}"))) {
                 let content = fs::read_to_string(&file).unwrap();
-                let doc = ParsedDocument::parse(&content).unwrap();
+                let doc = 已解析文档::解析文档(&content).unwrap();
                 let label = file.display().to_string();
                 assert_eq!(
-                    doc.sections(),
+                    doc.节表(),
                     parse_toml_sections(&content).unwrap(),
                     "{label} 节表不一致"
                 );
                 assert_eq!(
-                    doc.danger(),
-                    parse_danger_sections(&content).unwrap(),
+                    doc.危险表(),
+                    解析危险节表(&content).unwrap(),
                     "{label} 危险元数据不一致"
                 );
 
                 let mut paths = HashMap::new();
                 let mut idents = HashMap::new();
-                doc.merge_module_and_ident(&mut paths, &mut idents);
+                doc.合并模块路径与标识符(&mut paths, &mut idents);
                 let mut paths_ref = HashMap::new();
                 let mut idents_ref = HashMap::new();
-                merge_module_and_ident_sections(&content, &mut paths_ref, &mut idents_ref).unwrap();
+                合并模块路径与标识符节(&content, &mut paths_ref, &mut idents_ref).unwrap();
                 assert_eq!(paths, paths_ref, "{label} 模块路径不一致");
                 assert_eq!(idents, idents_ref, "{label} 标识符不一致");
                 checked += 1;
@@ -1266,10 +1267,10 @@ mod tests {
     #[test]
     fn parsed_document_skips_non_string_entries_like_legacy_parser() {
         let tricky = "\"顶层标量\" = \"不是表\"\n[\"标识符\"]\n\"字符串\" = \"String\"\n\"数字\" = 42\n\"数组\" = [1, 2]\n[\"空节\"]\n";
-        let doc = ParsedDocument::parse(tricky).unwrap();
-        assert_eq!(doc.sections(), parse_toml_sections(tricky).unwrap());
+        let doc = 已解析文档::解析文档(tricky).unwrap();
+        assert_eq!(doc.节表(), parse_toml_sections(tricky).unwrap());
         assert_eq!(
-            doc.sections()
+            doc.节表()
                 .get("标识符")
                 .unwrap()
                 .get("字符串")
@@ -1277,9 +1278,9 @@ mod tests {
             Some("String")
         );
         // 跳过的条目不会进表，也不会让整份文件解析失败
-        assert!(!doc.sections().contains_key("顶层标量"));
-        assert!(!doc.sections().contains_key("空节"));
-        assert_eq!(doc.entries("标识符").len(), 1, "只收字符串值的条目");
-        assert!(parse_danger_sections(tricky).is_ok());
+        assert!(!doc.节表().contains_key("顶层标量"));
+        assert!(!doc.节表().contains_key("空节"));
+        assert_eq!(doc.节条目们("标识符").len(), 1, "只收字符串值的条目");
+        assert!(解析危险节表(tricky).is_ok());
     }
 }

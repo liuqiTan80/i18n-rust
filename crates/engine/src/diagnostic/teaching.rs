@@ -377,7 +377,7 @@ mod tests {
         for lang in [
             "zh", "en", "ja", "ko", "ru", "de", "es", "fr", "pt", "hi", "ar",
         ] {
-            let _guard = crate::语言::test_language(lang);
+            let _guard = crate::语言::钉住语言(lang);
             let text = details.narrative_text();
             assert!(
                 !text.contains("diag_ownership_borrow_conflict"),

@@ -12,11 +12,11 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use i18n_rust_engine::alias::{ProjectContext, collect_source_declarations};
-use i18n_rust_engine::mapping_manager::MappingManager;
+use i18n_rust_engine::映射管理器::映射管理器;
 
-fn zh_manager() -> MappingManager {
+fn zh_manager() -> 映射管理器 {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
-    MappingManager::load_from_dir(&dir).expect("加载 zh 语言包失败")
+    映射管理器::从目录载入(&dir).expect("加载 zh 语言包失败")
 }
 
 /// 甲文件：声明 `新建`（撞 `新建`=new 映射）与结构体字段
@@ -45,7 +45,7 @@ fn modules() -> HashSet<String> {
 fn deferred_project_matches_precomputed_project() {
     let manager = zh_manager();
     let module_names = modules();
-    let alias_map = manager.get_alias_map();
+    let alias_map = manager.取别名表();
     assert!(
         alias_map.contains_key("新建") && alias_map.contains_key("盒子"),
         "测试前提：zh 语言包应含 `新建`/`盒子` 的别名映射"

@@ -1,16 +1,16 @@
 //! 工具链定位：内置目录 → 环境变量 → PATH 的三源查找
 //!
-//! 内置工具链：`rzc install toolchain` 将官方 standalone 工具链
+//! 内置工具链：`rzc install toolchain` 将官方独立发行版工具链
 //!（rustc/cargo/rust-analyzer）安装到 `~/.rz/toolchain/bin`，使发布包自包含、
 //! 不依赖 rustup 与 PATH 配置。
 //!
 //! 设计（中文原生重构，非英文版的逐句对译）：
 //! - 三个来源先**折算成一条候选路径序列**，存在性判定只留一处 `是否为文件`。
-//!   英文版把 `is_file` 抄了四遍（内置、环境变量、PATH 目录、PATHEXT 后缀各一
+//!   英文版把「是否为文件」判定抄了四遍（内置、环境变量、PATH 目录、PATHEXT 后缀各一
 //!   遍），每加一个来源就多一个判定分支；改成数据驱动后，新增来源只是往序列里
 //!   多推一条路径，优先级由序列次序表达，不再由嵌套层次表达。
 //! - Windows 后缀**读系统真实登记的 `PATHEXT`**，取代硬编码的
-//!   `["exe", "cmd", "bat", "com"]` 与 `操作系统名 == "windows"` 字符串比较：
+//!   硬编码的「.exe / .cmd / .bat / .com」后缀表与「操作系统名 == Windows」字符串比较：
 //!   非 Windows 上该环境变量不存在，直接得到空序列，既不空转四轮探测，也尊重
 //!   用户自定义的 PATHEXT（原实现会漏 `.MSI` 一类，又无条件试 `.COM`）。
 
@@ -25,7 +25,7 @@ pub fn 安装根目录() -> PathBuf {
     PathBuf::from(主目录).join(".rz")
 }
 
-/// 内置工具链的 bin 目录（`~/.rz/toolchain/bin`）
+/// 内置工具链的二进制目录（`~/.rz/toolchain/bin`）
 pub fn 工具链程序目录() -> PathBuf {
     安装根目录().join("toolchain").join("bin")
 }
@@ -102,7 +102,7 @@ pub fn 已安装版本() -> Option<String> {
         .filter(|串| !串.is_empty())
 }
 
-/// 当前锁定版本（与仓库 rust-toolchain.toml 对齐；后续随官方 stable 升级）
+/// 当前锁定版本（与仓库 rust-toolchain.toml 对齐；后续随官方稳定版升级）
 pub const 锁定版本: &str = "1.98.0";
 
 #[cfg(test)]
@@ -129,14 +129,14 @@ mod 母语测试 {
 
     #[test]
     fn 环境变量名按组件名派生() {
-        // 连字符转下划线、大写、加 _PATH 尾巴——三级查找的第二级全靠这个名字
+        // 连字符转下划线、字母大写——三级查找的第二级全靠这个环境变量名
         assert_eq!(环境变量名("rust-analyzer"), "RUST_ANALYZER_PATH");
         assert_eq!(环境变量名("cargo"), "CARGO_PATH");
     }
 
     #[test]
     fn 程序名带平台后缀() {
-        // Unix 上 EXE_SUFFIX 为空串，Windows 上为 .exe：拼接结果随平台一致变化
+        // Unix 上「可执行后缀」为空串，Windows 上为 .exe：拼接结果随平台一致变化
         let 期望名 = 拼程序名("rustc");
         assert!(期望名.starts_with("rustc"));
         assert_eq!(期望名.len(), "rustc".len() + env::consts::EXE_SUFFIX.len());

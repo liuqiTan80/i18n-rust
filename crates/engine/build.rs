@@ -53,7 +53,7 @@ fn collect_lang_files(lang_dir: &Path) -> LangFiles {
     LangFiles { files }
 }
 
-/// FNV-1a 64 位增量哈希（与 cache.rs 的 compute_content_hash 同算法）
+/// FNV-1a 64 位增量哈希（与 缓存.rs 的 compute_content_hash 同算法）
 fn fnv1a(hash: &mut u64, bytes: &[u8]) {
     for byte in bytes {
         *hash ^= *byte as u64;
@@ -133,7 +133,7 @@ fn main() {
     }
     code.push_str("];\n\n");
 
-    // ===== 引擎源码指纹（转译缓存失效依据，见 cache.rs 语境指纹） =====
+    // ===== 引擎源码指纹（转译缓存失效依据，见 缓存.rs 语境指纹） =====
     // 缓存条目除内容哈希与语言包映射指纹外，还须绑定转译算法自身的身份：
     // 算法变更（如别名替换细则修复）后旧缓存必须失效，否则源文件未变时
     // 旧转译产物继续命中、修复不生效（真实事故：`实现 库特征` 块内方法名

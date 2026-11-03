@@ -4,8 +4,8 @@
 //! 将母语 Rust 源码实时转译为标准 Rust 并调用 cargo 编译/运行。
 
 use clap::{FromArgMatches, Parser, Subcommand};
-use i18n_rust_engine::cache::TranslationCache;
-use i18n_rust_engine::mapping_manager::MappingManager;
+use i18n_rust_engine::映射管理器::映射管理器;
+use i18n_rust_engine::缓存::转译缓存;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::io::{BufRead, BufReader};
@@ -342,7 +342,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
     // 按当前界面语言本地化 clap 帮助文本
     let ui = ui::Ui::global();
     // 同步引擎全局语言（错误/诊断/日志随界面语言输出）
-    i18n_rust_engine::语言::set_language(&ui::detect_ui_lang());
+    i18n_rust_engine::语言::设定语言(&ui::detect_ui_lang());
     let cli = localize_clap(&ui);
     // clap 自身错误（--help/--version 输出、非法参数等）按 clap 退出码直接退出
     let args = match CliArgs::from_arg_matches(&cli.get_matches()) {
@@ -353,7 +353,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
     // `--no-lint`：项目开发（非教学）场景静默教学 lint（初学者代码风格提示，
     // 每次转译刷屏）；Unicode 混淆/全角标点告警不受影响
     if args.no_lint {
-        i18n_rust_engine::lint::set_teaching_lint_enabled(false);
+        i18n_rust_engine::校验::set_teaching_lint_enabled(false);
     }
 
     // 首次运行引导：终端交互场景下，首次执行教学核心命令时打印
@@ -373,7 +373,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             ai,
         } => {
             let lang = resolve_init_lang(lang)?;
-            i18n_rust_engine::语言::set_language(&lang);
+            i18n_rust_engine::语言::设定语言(&lang);
             create_project(&project_name, &lang, ai)?;
             Ok(std::process::ExitCode::SUCCESS)
         }
@@ -414,9 +414,8 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                     )
                 );
             }
-            let cache = std::sync::Mutex::new(
-                i18n_rust_engine::cache::TranslationCache::persistent_default(),
-            );
+            let cache =
+                std::sync::Mutex::new(i18n_rust_engine::缓存::转译缓存::persistent_default());
             let transpiled = transpile_with_map_cached_in_project(
                 &source,
                 &manager,
@@ -629,9 +628,8 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // 项目级声明上下文（跨文件声明豁免，同 run）
             let project_ctx = collect_project_context(&project_root, &file, &manager);
             let source_path = entry_output_path(&project_root, &file, &manager);
-            let cache = std::sync::Mutex::new(
-                i18n_rust_engine::cache::TranslationCache::persistent_default(),
-            );
+            let cache =
+                std::sync::Mutex::new(i18n_rust_engine::缓存::转译缓存::persistent_default());
             let transpiled = transpile_with_map_cached_in_project(
                 &source,
                 &manager,
@@ -745,7 +743,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             let manager = load_mapping(lang_pack, Some(&file))?;
             // 与 eject 同一管线（项目上下文 + 模块注解）：预览产物即导出产物
             let project = collect_export_context(&file, &manager);
-            let mut cache = TranslationCache::persistent_default();
+            let mut cache = 转译缓存::persistent_default();
             let english_code = transpile_for_export(
                 &file,
                 &source,
@@ -796,7 +794,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 .clone()
                 .unwrap_or_else(mapping_gen::detect_system_language);
             // 速查表标题固定英文：全球用户的第一张卡不依赖界面语言
-            i18n_rust_engine::语言::set_language(&lang_code);
+            i18n_rust_engine::语言::设定语言(&lang_code);
             let fake_source = PathBuf::from(format!("main.{lang_code}"));
             // 借虚拟扩展名让 load_mapping 走既有解析链（项目内 → 全局 → 内置语言包）
             let manager = load_mapping(None, Some(&fake_source))?;
@@ -811,7 +809,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 .clone()
                 .unwrap_or_else(mapping_gen::detect_system_language);
             // 指南正文随语言包界面消息切换（guide_* 键），先同步引擎全局语言
-            i18n_rust_engine::语言::set_language(&lang_code);
+            i18n_rust_engine::语言::设定语言(&lang_code);
             let fake_source = PathBuf::from(format!("main.{lang_code}"));
             let manager = load_mapping(None, Some(&fake_source))?;
             let guide = i18n_rust_engine::指南::渲染母语指南(&manager, &lang_code);
@@ -842,7 +840,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 install,
             } => {
                 let lang = lang.unwrap_or_else(mapping_gen::detect_system_language);
-                i18n_rust_engine::语言::set_language(&lang);
+                i18n_rust_engine::语言::设定语言(&lang);
                 let output_path = output.unwrap_or_else(|| {
                     // 默认写入项目语言包根：从 cwd 向上找 Cargo.toml，
                     // 保证任意子目录下执行都落到项目本地语言包（load_mapping 同一位置查找）；
@@ -879,7 +877,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             MappingCommand::Check { target } => {
                 // check 输出的语言默认跟随系统语言
                 let lang = mapping_gen::detect_system_language();
-                i18n_rust_engine::语言::set_language(&lang);
+                i18n_rust_engine::语言::设定语言(&lang);
                 match mapping_check::run_check(target.as_deref()) {
                     Ok(true) => Ok(std::process::ExitCode::SUCCESS),
                     Ok(false) => Ok(std::process::ExitCode::FAILURE),
@@ -889,7 +887,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             MappingCommand::Coverage { lang } => {
                 // coverage 输出的语言默认跟随系统语言
                 let ui_lang = mapping_gen::detect_system_language();
-                i18n_rust_engine::语言::set_language(&ui_lang);
+                i18n_rust_engine::语言::设定语言(&ui_lang);
                 match mapping_coverage::run_coverage(lang.as_deref()) {
                     Ok(true) => Ok(std::process::ExitCode::SUCCESS),
                     Ok(false) => Ok(std::process::ExitCode::FAILURE),
@@ -903,7 +901,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                 provider,
             } => {
                 let lang = mapping_gen::detect_system_language();
-                i18n_rust_engine::语言::set_language(&lang);
+                i18n_rust_engine::语言::设定语言(&lang);
                 mapping_check::run_scaffold(&source, &target, output.as_deref(), &provider)
                     .map(|()| std::process::ExitCode::SUCCESS)
             }
@@ -1297,7 +1295,7 @@ fn find_project_root(file: &Path) -> anyhow::Result<PathBuf> {
 ///
 /// 库入口有一个例外：Cargo.toml 里显式声明了 `[lib] path` 时以声明为准
 /// （[`declared_lib_path`]），否则升级后那些项目会静默编译一份不再更新的托管产物。
-fn entry_output_path(project_root: &Path, file: &Path, manager: &MappingManager) -> PathBuf {
+fn entry_output_path(project_root: &Path, file: &Path, manager: &映射管理器) -> PathBuf {
     match entry_product_default(file, project_root, manager) {
         Some(LIB_PRODUCT_PATH) => {
             declared_lib_path(project_root).unwrap_or_else(|| project_root.join(LIB_PRODUCT_PATH))
@@ -1309,7 +1307,7 @@ fn entry_output_path(project_root: &Path, file: &Path, manager: &MappingManager)
 
 /// 源文件是否为项目的 Cargo 固定入口（[`entry_output_path`] 的判定条件，
 /// 产物注解需按同一条件选择子模块目录，故单独暴露）
-fn is_entry_source(file: &Path, project_root: &Path, manager: &MappingManager) -> bool {
+fn is_entry_source(file: &Path, project_root: &Path, manager: &映射管理器) -> bool {
     entry_product_default(file, project_root, manager).is_some()
 }
 
@@ -1420,10 +1418,10 @@ const LIB_PRODUCT_PATH: &str = "src/lib.rs";
 /// `init` 生成 `src/main.<lang>`，教程与示例（.zh-demo）同样使用 `src/main.zh`；
 /// 早期项目还可能有母语词干入口（如 zh 的 `src/主函数.zh`）——都须聚合到
 /// Cargo 固定入口 `src/main.rs`，否则 cargo 报「no targets specified」。
-fn is_entry_stem(stem: &str, manager: &MappingManager) -> bool {
+fn is_entry_stem(stem: &str, manager: &映射管理器) -> bool {
     stem == "main"
         || manager
-            .get_keyword_map()
+            .取关键词表()
             .iter()
             .any(|(母语词, 英文)| 英文 == "main" && 母语词 == stem)
 }
@@ -1435,7 +1433,7 @@ fn is_entry_stem(stem: &str, manager: &MappingManager) -> bool {
 /// `lib` 不是 Rust 关键字、各语言包都不翻译它，因此它没有母语别名——写
 /// `src/库.zh` 仍然只是普通模块，这一点与 `main` 不对称，但正是 Cargo 的
 /// 命名要求，造库要的是零配置而不是文件名本地化。
-fn entry_product_name(stem: &str, manager: &MappingManager) -> Option<&'static str> {
+fn entry_product_name(stem: &str, manager: &映射管理器) -> Option<&'static str> {
     if is_entry_stem(stem, manager) {
         Some(MAIN_PRODUCT_PATH)
     } else if stem == "lib" {
@@ -1450,7 +1448,7 @@ fn entry_product_name(stem: &str, manager: &MappingManager) -> Option<&'static s
 fn entry_product_default(
     file: &Path,
     project_root: &Path,
-    manager: &MappingManager,
+    manager: &映射管理器,
 ) -> Option<&'static str> {
     let stem = file.file_stem().and_then(|s| s.to_str())?;
     entry_product_name(stem, manager).filter(|_| directly_under_src(file, project_root))
@@ -1563,7 +1561,7 @@ pub(crate) fn lang_pack_root_of(base: &Path) -> PathBuf {
 
 /// 测试辅助：无项目上下文的单文件转译（关键字/别名管线 + 非 ASCII 模块注解）
 #[cfg(test)]
-fn transpile_to_english(source: &str, manager: &MappingManager) -> String {
+fn transpile_to_english(source: &str, manager: &映射管理器) -> String {
     annotate_non_ascii_mods(&i18n_rust_engine::transpile_pipeline(source, manager).output)
 }
 
@@ -1575,7 +1573,7 @@ fn transpile_to_english(source: &str, manager: &MappingManager) -> String {
 /// 不要求目标位于 Cargo 项目内。
 fn collect_export_context(
     file: &Path,
-    manager: &MappingManager,
+    manager: &映射管理器,
 ) -> i18n_rust_engine::alias::ProjectContext {
     let extensions = lang_manager::all_available_extensions();
     if file.is_dir() {
@@ -1614,7 +1612,7 @@ fn collect_export_context(
 /// 模块名取文件词干（路径段豁免的保守近似），声明名由引擎扫描各文件内容。
 fn collect_context_for_files(
     files: impl IntoIterator<Item = PathBuf>,
-    manager: &MappingManager,
+    manager: &映射管理器,
 ) -> i18n_rust_engine::alias::ProjectContext {
     let mut modules = HashSet::new();
     let mut sources: Vec<String> = Vec::new();
@@ -1642,9 +1640,9 @@ fn collect_context_for_files(
 fn transpile_for_export(
     path: &Path,
     source: &str,
-    manager: &MappingManager,
+    manager: &映射管理器,
     project: &i18n_rust_engine::alias::ProjectContext,
-    cache: &mut TranslationCache,
+    cache: &mut 转译缓存,
     dir_mode: bool,
     display_name: &str,
 ) -> String {
@@ -1658,10 +1656,7 @@ fn transpile_for_export(
 /// 仅 crate 根（`main`/`lib`/语言包入口词）与单文件导出按当前目录解析；
 /// 目录模式的其他文件是子模块，须按 `<自身词干>/子名.rs` 注解。
 fn annotate_exported_mods(
-    code: &str,
-    path: &Path,
-    manager: &MappingManager,
-    dir_mode: bool,
+    code: &str, path: &Path, manager: &映射管理器, dir_mode: bool
 ) -> String {
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
     // crate 根词干（main／主函数词／lib）按当前目录解析子模块，口径与
@@ -1846,7 +1841,7 @@ fn eject_sources(
             ui.f("eject_no_source", &[&file.display().to_string()])
         );
     }
-    let mut cache = TranslationCache::persistent_default();
+    let mut cache = 转译缓存::persistent_default();
     let mut outputs = Vec::with_capacity(files.len());
     for group in group_files_by_lang(&files, explicit_pack) {
         let anchor: &Path = group.first().map(|p| p.as_path()).unwrap_or(file);
@@ -1861,7 +1856,7 @@ fn eject_sources(
             let source = fs::read_to_string(path)?;
             // 导出前扫一遍冲突（--no-lint 一并关闭）：字段名/声明名命中词条会被改写、
             // 会 panic 的词条被当文本用——只提示不阻断，避免导出后才发现语义已变
-            if i18n_rust_engine::lint::teaching_lint_enabled() {
+            if i18n_rust_engine::校验::teaching_lint_enabled() {
                 for hint in i18n_rust_engine::eject_hints::eject_hints(&source, &manager) {
                     i18n_rust_engine::log_warn!(
                         "eject_hint",
@@ -1945,7 +1940,7 @@ fn relocalize_targets(
     }
 
     // 源语言 manager 缓存（按语言代码）；--from 显式时统一用该语言
-    let mut manager_cache: HashMap<String, MappingManager> = HashMap::new();
+    let mut manager_cache: HashMap<String, 映射管理器> = HashMap::new();
     let mut count = 0usize;
     let mut wrote_entry = false;
     for path in &sources {
@@ -2020,11 +2015,11 @@ fn relocalize_targets(
 /// 带 `工具.zh：` 前缀，同一次运行混着两种格式；且引擎那份只在缓存未命中时输出。
 fn transpile_with_map_cached_in_project(
     source: &str,
-    manager: &MappingManager,
-    cache: &mut i18n_rust_engine::cache::TranslationCache,
+    manager: &映射管理器,
+    cache: &mut i18n_rust_engine::缓存::转译缓存,
     project: Option<&i18n_rust_engine::alias::ProjectContext>,
     display_name: &str,
-) -> i18n_rust_engine::cache::TranspileOutput {
+) -> i18n_rust_engine::缓存::TranspileOutput {
     let output =
         i18n_rust_engine::transpile_source_with_project_quiet(source, manager, cache, project)
             .unwrap_or_else(|_e| {
@@ -2164,7 +2159,7 @@ fn collect_sibling_dialect_files(dir: &Path, extensions: &[String]) -> Vec<PathB
 fn collect_project_context(
     project_root: &Path,
     entry_file: &Path,
-    manager: &MappingManager,
+    manager: &映射管理器,
 ) -> i18n_rust_engine::alias::ProjectContext {
     use std::collections::HashSet;
     let extensions = lang_manager::all_available_extensions();
@@ -2212,8 +2207,8 @@ fn collect_project_context(
 fn transpile_project_files(
     project_root: &Path,
     entry_file: &Path,
-    manager: &MappingManager,
-    cache: &std::sync::Mutex<TranslationCache>,
+    manager: &映射管理器,
+    cache: &std::sync::Mutex<转译缓存>,
     project: &i18n_rust_engine::alias::ProjectContext,
 ) -> anyhow::Result<()> {
     let ui = ui::Ui::global();
@@ -2259,10 +2254,10 @@ fn transpile_project_files(
     // 语境指纹只算一次（全部文件共享同一语言包与项目上下文）；
     // 项目上下文指纹并入后，跨文件声明变化时旧缓存自动失效。
     // 必须与引擎 `transpile_source_with_project` 使用同一组合函数：
-    // 入口文件与项目内其它文件共用同一个 TranslationCache 实例，
+    // 入口文件与项目内其它文件共用同一个 转译缓存 实例，
     // 两处指纹算法若不同，同一语境会算出两个键，缓存互相不可见。
-    let fingerprint = i18n_rust_engine::cache::TranslationCache::combine_fingerprint(
-        manager.context_fingerprint(),
+    let fingerprint = i18n_rust_engine::缓存::转译缓存::combine_fingerprint(
+        manager.取语境指纹(),
         Some(project.fingerprint()),
     );
     let first_error: std::sync::Mutex<Option<anyhow::Error>> = std::sync::Mutex::new(None);
@@ -2409,7 +2404,7 @@ fn prune_stale_products(project_root: &Path, extensions: &[String], ui: &ui::Ui)
 /// 兄弟文件共用同一份口径——早先这里自己拼了一遍扫描器，少调英文回落与保留字
 /// 撞名两类：同一份代码走入口路径会提示、走兄弟路径不提示。
 /// 输出时机与缓存无关（每次转译都提示，见引擎 `transpile_source_with_project`）。
-fn emit_teaching_warnings_for_file(source: &str, display_name: &str, manager: &MappingManager) {
+fn emit_teaching_warnings_for_file(source: &str, display_name: &str, manager: &映射管理器) {
     i18n_rust_engine::emit_teaching_warnings(source, manager, Some(display_name));
 }
 
@@ -2605,7 +2600,7 @@ fn prompt_lang_menu(ui: &ui::Ui) -> Option<String> {
 
 fn create_project(project_name: &str, lang: &str, ai: bool) -> anyhow::Result<()> {
     let ui = ui::Ui::for_lang(lang);
-    i18n_rust_engine::语言::set_language(lang);
+    i18n_rust_engine::语言::设定语言(lang);
     let project_path = PathBuf::from(project_name);
     if project_path.exists() {
         anyhow::bail!("{}", ui.f("dir_exists", &[project_name]));
@@ -2681,7 +2676,7 @@ fn create_project(project_name: &str, lang: &str, ai: bool) -> anyhow::Result<()
 fn load_mapping(
     lang_pack_path: Option<PathBuf>,
     source_file: Option<&Path>,
-) -> anyhow::Result<MappingManager> {
+) -> anyhow::Result<映射管理器> {
     // 映射数据来源日志（语言包开发调试：RZ_LOG=info rzc check 可见）
     // 注意：load_mapping 先于转译管线执行，logger 需在此提前初始化（幂等）
     i18n_rust_engine::logger::init();
@@ -2693,7 +2688,7 @@ fn load_mapping(
             "{}",
             ui.f("mapping_source_explicit", &[&path.display().to_string()])
         );
-        return MappingManager::load_from_dir(&path)
+        return 映射管理器::从目录载入(&path)
             .map_err(|e| anyhow::anyhow!("{}", ui.f("load_lang_pack_failed", &[&e.to_string()])));
     }
     // 2. 根据源文件扩展名确定语言代码
@@ -2739,7 +2734,7 @@ fn load_mapping(
                     &[&local_path.display().to_string()]
                 )
             );
-            return MappingManager::load_from_dir(local_path).map_err(|e| {
+            return 映射管理器::从目录载入(local_path).map_err(|e| {
                 anyhow::anyhow!("{}", ui.f("load_local_lang_pack_failed", &[&e.to_string()]))
             });
         }
@@ -2755,7 +2750,7 @@ fn load_mapping(
                 &[&global_path.display().to_string()]
             )
         );
-        return MappingManager::load_from_dir(&global_path).map_err(|e| {
+        return 映射管理器::从目录载入(&global_path).map_err(|e| {
             anyhow::anyhow!(
                 "{}",
                 ui.f("load_global_lang_pack_failed", &[&e.to_string()])
@@ -2775,7 +2770,7 @@ fn load_mapping(
         "{}",
         ui.f("mapping_source_builtin", &[&lang_code])
     );
-    MappingManager::load_from_builtin(
+    映射管理器::从内置载入(
         builtin.keywords_toml,
         builtin.module_paths_toml,
         builtin.stdlib_toml,
@@ -2802,7 +2797,7 @@ fn ui_for_file(file: &Path, lang_pack: &Option<PathBuf>) -> ui::Ui {
             .and_then(|s| s.to_str())
             .unwrap_or("zh")
             .to_string();
-        i18n_rust_engine::语言::set_language(&code);
+        i18n_rust_engine::语言::设定语言(&code);
         return ui;
     }
     let lang_code = file
@@ -2810,7 +2805,7 @@ fn ui_for_file(file: &Path, lang_pack: &Option<PathBuf>) -> ui::Ui {
         .and_then(|e| e.to_str())
         .and_then(get_lang_code_from_extension)
         .unwrap_or_else(ui::detect_ui_lang);
-    i18n_rust_engine::语言::set_language(&lang_code);
+    i18n_rust_engine::语言::设定语言(&lang_code);
     ui::Ui::for_lang(&lang_code)
 }
 
@@ -2993,9 +2988,9 @@ mod tests {
     use i18n_rust_engine::module_path::annotate_non_ascii_mods_with_lines;
 
     /// 加载内置中文映射管理器（测试转译管线用）
-    fn zh_manager() -> i18n_rust_engine::mapping_manager::MappingManager {
+    fn zh_manager() -> i18n_rust_engine::映射管理器::映射管理器 {
         let builtin = crate::builtin_lang::get_builtin_data("zh");
-        i18n_rust_engine::mapping_manager::MappingManager::load_from_builtin(
+        i18n_rust_engine::映射管理器::映射管理器::从内置载入(
             builtin.keywords_toml,
             builtin.module_paths_toml,
             builtin.stdlib_toml,
@@ -3306,7 +3301,7 @@ mod tests {
         std::fs::write(root.join("src/辅助.rs"), "// 上一版旧产物\n").unwrap();
 
         let manager = zh_manager();
-        let cache = std::sync::Mutex::new(i18n_rust_engine::cache::TranslationCache::new(8));
+        let cache = std::sync::Mutex::new(i18n_rust_engine::缓存::转译缓存::new(8));
         // 项目级声明上下文：模块名（文件词干）+ 声明名（入口+src/ 全扫）
         let ctx = collect_project_context(root, &entry, &manager);
         assert!(ctx.modules.contains("辅助"), "模块名应含文件名词干");

@@ -60,7 +60,7 @@ pub fn record_gap(lang: &str, level: &str, code: &str, message: &str) {
         return;
     }
     let lang = if lang.is_empty() {
-        crate::语言::current_language()
+        crate::语言::当前语言()
     } else {
         lang.to_string()
     };
@@ -206,7 +206,7 @@ pub fn parse_gap_lines(raw: &str) -> Vec<TranslationGap> {
             ),
             // 语料门禁三列格式（LEVEL\tCODE\t消息），语言取默认
             [level, code, message, extras @ ..] if is_known_level(level) => (
-                crate::语言::current_language(),
+                crate::语言::当前语言(),
                 level.to_string(),
                 code.to_string(),
                 decode_gap_field(&format!("{message}{}", tab_suffix(extras))),
@@ -235,7 +235,7 @@ pub fn parse_gap_lines(raw: &str) -> Vec<TranslationGap> {
             }
             // 两列且首列是通道名：语料格式的缺消息列变体
             [level, message] if is_known_level(level) => (
-                crate::语言::current_language(),
+                crate::语言::当前语言(),
                 level.to_string(),
                 String::new(),
                 decode_gap_field(message),
@@ -254,7 +254,7 @@ pub fn parse_gap_lines(raw: &str) -> Vec<TranslationGap> {
                     continue;
                 }
                 (
-                    crate::语言::current_language(),
+                    crate::语言::当前语言(),
                     LEVEL_MAIN.to_string(),
                     String::new(),
                     decode_gap_field(message),
@@ -366,7 +366,7 @@ mod tests {
             "E9999".to_string(),
             "unique message A".to_string(),
         );
-        // 直接播种到登记表（避免并发测试互相干扰全局 current_language）
+        // 直接播种到登记表（避免并发测试互相干扰全局 当前语言）
         registry().lock().unwrap().insert(gap.clone());
         assert!(peek_gaps().contains(&gap));
         let drained = drain_gaps();
@@ -416,7 +416,7 @@ mod tests {
     #[test]
     fn identity_language_applies_to_current_language_fallback() {
         let _serial = serialise_gaps();
-        let _guard = crate::语言::test_language("en");
+        let _guard = crate::语言::钉住语言("en");
         let 消息 = "an english message with no entry in the identity pack";
         record_gap("", LEVEL_MAIN, "", 消息);
         assert!(

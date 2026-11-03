@@ -35,8 +35,8 @@
 use rustc_lexer::TokenKind;
 use std::collections::{HashMap, HashSet};
 
-use crate::cache::SourceMapEntry;
 use crate::名字缓存::名字缓存;
+use crate::缓存::源码映射条目;
 
 /// 单阶段替换结果：输出与编辑表
 ///
@@ -47,7 +47,7 @@ pub struct ReplaceResult {
     /// 替换后的文本
     pub output: String,
     /// 编辑表
-    pub edits: Vec<SourceMapEntry>,
+    pub edits: Vec<源码映射条目>,
 }
 
 /// 声明位关键字（转译后的英文形式）：其后紧跟的标识符为用户定义
@@ -111,7 +111,7 @@ impl ProjectContext {
     pub fn from_sources<'a>(
         modules: HashSet<String>,
         sources: impl IntoIterator<Item = &'a str>,
-        manager: &crate::mapping_manager::MappingManager,
+        manager: &crate::映射管理器::映射管理器,
     ) -> Self {
         let 声明们: Vec<DeclaredNames> = sources
             .into_iter()
@@ -201,18 +201,18 @@ struct TypeBodyScan {
 /// 每次按键只有内容真正变化的那个文件需要重算。
 pub fn collect_source_declarations(
     source: &str,
-    manager: &crate::mapping_manager::MappingManager,
+    manager: &crate::映射管理器::映射管理器,
 ) -> DeclaredNames {
-    let lex = crate::lexer::transpile_with_map(
+    let lex = crate::词法器::transpile_with_map(
         source,
-        manager.get_keyword_map(),
-        manager.get_macro_map(),
-        manager.get_derive_map(),
-        manager.get_use_defer_words(),
-        manager.get_method_defer_words(),
-        manager.get_alias_map(),
+        manager.取关键词表(),
+        manager.取宏表(),
+        manager.取派生特征表(),
+        manager.取让位词(),
+        manager.取方法让位词(),
+        manager.取别名表(),
     );
-    collect_declared_names(&lex.output, manager.get_alias_map())
+    collect_declared_names(&lex.output, manager.取别名表())
 }
 
 /// 收集用户在声明位定义的标识符名（第一遍扫描）
@@ -1175,7 +1175,7 @@ pub(crate) fn replace_aliases_reusing(
                     // 声明位标识符与用户声明名的使用处保留原样（随片段拷出）
                     if !decl_protected && !usage_exempt {
                         if let Some(english) = alias_hit {
-                            edits.push(SourceMapEntry::new(current_offset, len, text, english));
+                            edits.push(源码映射条目::new(current_offset, len, text, english));
                             output.push_str(&source[copied..current_offset]);
                             output.push_str(english);
                             copied = current_offset + len;
@@ -1185,7 +1185,12 @@ pub(crate) fn replace_aliases_reusing(
                             // use 语句内已在管线模块路径阶段替换，此处覆盖表达式/属性位置
                             let normalized = crate::module_path::normalize_crate_hyphen(english);
                             let replacement = normalized.as_deref().unwrap_or(english);
-                            edits.push(SourceMapEntry::new(current_offset, len, text, replacement));
+                            edits.push(源码映射条目::new(
+                                current_offset,
+                                len,
+                                text,
+                                replacement,
+                            ));
                             output.push_str(&source[copied..current_offset]);
                             output.push_str(replacement);
                             copied = current_offset + len;
@@ -1790,8 +1795,7 @@ mod tests {
         // 项目扫描：项名与结构体字段都并入声明名，字段不入项名；
         // 源文件为母语原文（内部先跑词法转译再收集声明）
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
-        let manager = crate::mapping_manager::MappingManager::load_from_dir(&dir)
-            .expect("加载 zh 语言包失败");
+        let manager = crate::映射管理器::映射管理器::从目录载入(&dir).expect("加载 zh 语言包失败");
         let ctx = ProjectContext::from_sources(
             HashSet::from(["甲".to_string()]),
             ["公开 函数 新建() {}\n结构体 配置 { pub 超时: u32 }"],

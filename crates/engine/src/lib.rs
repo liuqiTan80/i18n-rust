@@ -2,16 +2,10 @@
 //! 提供多语言 Rust 方言的词法处理、映射管理、诊断翻译、增量缓存、安全检测等功能
 
 pub mod alias;
-pub mod cache;
 pub mod diagnostic;
 pub mod eject_hints;
-pub mod error;
 pub mod fullwidth;
-pub mod lexer;
-pub mod lint;
 pub mod logger;
-pub mod mapping_manager;
-pub mod mapping_source;
 pub mod module_path;
 pub mod product_layout;
 pub mod unicode_confusion;
@@ -25,8 +19,20 @@ pub mod 名字缓存;
 pub mod 工具链;
 #[path = "指南.rs"]
 pub mod 指南;
+#[path = "故障.rs"]
+pub mod 故障;
+#[path = "映射源.rs"]
+pub mod 映射源;
+#[path = "映射管理器.rs"]
+pub mod 映射管理器;
+#[path = "校验.rs"]
+pub mod 校验;
 #[path = "界面消息.rs"]
 pub mod 界面消息;
+#[path = "缓存.rs"]
+pub mod 缓存;
+#[path = "词法器.rs"]
+pub mod 词法器;
 #[path = "语言.rs"]
 pub mod 语言;
 
@@ -45,18 +51,18 @@ use std::time::Instant;
 /// `RZ_LOG` 环境变量（debug/info/warn/error）控制。
 pub fn transpile_source(
     source: &str,
-    manager: &mapping_manager::MappingManager,
-    cache: &mut cache::TranslationCache,
-) -> Result<String, error::TranspileError> {
+    manager: &映射管理器::映射管理器,
+    cache: &mut 缓存::转译缓存,
+) -> Result<String, 故障::转译故障> {
     Ok(transpile_source_with_map(source, manager, cache)?.output)
 }
 
 /// 同 [`transpile_source`]，同时返回源映射（被替换标识符的源偏移与翻译前后文本）
 pub fn transpile_source_with_map(
     source: &str,
-    manager: &mapping_manager::MappingManager,
-    cache: &mut cache::TranslationCache,
-) -> Result<cache::TranspileOutput, error::TranspileError> {
+    manager: &映射管理器::映射管理器,
+    cache: &mut 缓存::转译缓存,
+) -> Result<缓存::TranspileOutput, 故障::转译故障> {
     transpile_source_with_project(source, manager, cache, None)
 }
 
@@ -72,10 +78,10 @@ pub fn transpile_source_with_map(
 /// 告警都没有——学习者会读成「提示消失＝问题已修」。
 pub fn transpile_source_with_project(
     source: &str,
-    manager: &mapping_manager::MappingManager,
-    cache: &mut cache::TranslationCache,
+    manager: &映射管理器::映射管理器,
+    cache: &mut 缓存::转译缓存,
     project: Option<&alias::ProjectContext>,
-) -> Result<cache::TranspileOutput, error::TranspileError> {
+) -> Result<缓存::TranspileOutput, 故障::转译故障> {
     transpile_source_cached_inner(source, manager, cache, project, true)
 }
 
@@ -85,21 +91,21 @@ pub fn transpile_source_with_project(
 /// 见 [`emit_teaching_warnings`]）：除告警外，产物与缓存行为逐字一致。
 pub fn transpile_source_with_project_quiet(
     source: &str,
-    manager: &mapping_manager::MappingManager,
-    cache: &mut cache::TranslationCache,
+    manager: &映射管理器::映射管理器,
+    cache: &mut 缓存::转译缓存,
     project: Option<&alias::ProjectContext>,
-) -> Result<cache::TranspileOutput, error::TranspileError> {
+) -> Result<缓存::TranspileOutput, 故障::转译故障> {
     transpile_source_cached_inner(source, manager, cache, project, false)
 }
 
 /// 带缓存转译入口的唯一实现：`emit` 控制本入口是否输出教学告警
 fn transpile_source_cached_inner(
     source: &str,
-    manager: &mapping_manager::MappingManager,
-    cache: &mut cache::TranslationCache,
+    manager: &映射管理器::映射管理器,
+    cache: &mut 缓存::转译缓存,
     project: Option<&alias::ProjectContext>,
     emit: bool,
-) -> Result<cache::TranspileOutput, error::TranspileError> {
+) -> Result<缓存::TranspileOutput, 故障::转译故障> {
     logger::init();
     let start = Instant::now();
     crate::log_info!(
@@ -108,8 +114,8 @@ fn transpile_source_cached_inner(
         crate::语言::f("log_transpile_start", &[&source.len().to_string()])
     );
 
-    let fingerprint = cache::TranslationCache::combine_fingerprint(
-        manager.context_fingerprint(),
+    let fingerprint = 缓存::转译缓存::combine_fingerprint(
+        manager.取语境指纹(),
         project.map(alias::ProjectContext::fingerprint),
     );
 
@@ -144,8 +150,8 @@ fn transpile_source_cached_inner(
 /// 返回转译结果与源映射（被替换标识符的源偏移与翻译前后文本）。
 pub fn transpile_pipeline(
     source: &str,
-    manager: &mapping_manager::MappingManager,
-) -> cache::TranspileOutput {
+    manager: &映射管理器::映射管理器,
+) -> 缓存::TranspileOutput {
     transpile_pipeline_inner(source, manager, None, None, true)
 }
 
@@ -159,8 +165,8 @@ pub fn transpile_pipeline(
 /// 除教学告警外，输出与 [`transpile_pipeline`] 完全一致。
 pub fn transpile_pipeline_quiet(
     source: &str,
-    manager: &mapping_manager::MappingManager,
-) -> cache::TranspileOutput {
+    manager: &映射管理器::映射管理器,
+) -> 缓存::TranspileOutput {
     transpile_pipeline_inner(source, manager, None, None, false)
 }
 
@@ -170,9 +176,9 @@ pub fn transpile_pipeline_quiet(
 /// 预先收集（见 [`alias::ProjectContext::from_sources`]），与入口文件共享。
 pub fn transpile_pipeline_quiet_with_project(
     source: &str,
-    manager: &mapping_manager::MappingManager,
+    manager: &映射管理器::映射管理器,
     project: Option<&alias::ProjectContext>,
-) -> cache::TranspileOutput {
+) -> 缓存::TranspileOutput {
     transpile_pipeline_inner(source, manager, None, project, false)
 }
 
@@ -181,9 +187,9 @@ pub fn transpile_pipeline_quiet_with_project(
 /// 供无缓存场景的调用方使用；带缓存的入口见 [`transpile_source_with_project`]。
 pub fn transpile_pipeline_with_project(
     source: &str,
-    manager: &mapping_manager::MappingManager,
+    manager: &映射管理器::映射管理器,
     project: Option<&alias::ProjectContext>,
-) -> cache::TranspileOutput {
+) -> 缓存::TranspileOutput {
     transpile_pipeline_inner(source, manager, None, project, true)
 }
 
@@ -197,9 +203,9 @@ pub fn transpile_pipeline_with_project(
 /// 是列映射等消费方的唯一规则来源——消费方无需复刻任何转译判定。
 pub fn transpile_pipeline_with_map(
     source: &str,
-    manager: &mapping_manager::MappingManager,
+    manager: &映射管理器::映射管理器,
     module_names: Option<&HashSet<String>>,
-) -> cache::TranspileOutput {
+) -> 缓存::TranspileOutput {
     transpile_pipeline_inner(source, manager, module_names, None, true)
 }
 
@@ -209,10 +215,10 @@ pub fn transpile_pipeline_with_map(
 /// 前缀重写共同保证跨文件引用的成员在调用侧与声明侧行为一致。
 pub fn transpile_pipeline_with_map_and_project(
     source: &str,
-    manager: &mapping_manager::MappingManager,
+    manager: &映射管理器::映射管理器,
     module_names: Option<&HashSet<String>>,
     project: Option<&alias::ProjectContext>,
-) -> cache::TranspileOutput {
+) -> 缓存::TranspileOutput {
     transpile_pipeline_inner(source, manager, module_names, project, true)
 }
 
@@ -230,11 +236,11 @@ pub fn transpile_pipeline_with_map_and_project(
 /// 供调用方缓存与变更判定。
 pub fn transpile_pipeline_with_deferred_project<F>(
     source: &str,
-    manager: &mapping_manager::MappingManager,
+    manager: &映射管理器::映射管理器,
     module_names: Option<&HashSet<String>>,
     build_project: F,
 ) -> (
-    cache::TranspileOutput,
+    缓存::TranspileOutput,
     alias::DeclaredNames,
     alias::ProjectContext,
 )
@@ -250,11 +256,11 @@ where
 /// 转译时的日志告警只是重复刷屏）：除告警外输出完全一致。
 pub fn transpile_pipeline_with_deferred_project_quiet<F>(
     source: &str,
-    manager: &mapping_manager::MappingManager,
+    manager: &映射管理器::映射管理器,
     module_names: Option<&HashSet<String>>,
     build_project: F,
 ) -> (
-    cache::TranspileOutput,
+    缓存::TranspileOutput,
     alias::DeclaredNames,
     alias::ProjectContext,
 )
@@ -267,12 +273,12 @@ where
 /// [`transpile_pipeline_with_deferred_project`] 的唯一实现
 fn deferred_project_inner<F>(
     source: &str,
-    manager: &mapping_manager::MappingManager,
+    manager: &映射管理器::映射管理器,
     module_names: Option<&HashSet<String>>,
     build_project: F,
     emit_teaching_warnings: bool,
 ) -> (
-    cache::TranspileOutput,
+    缓存::TranspileOutput,
     alias::DeclaredNames,
     alias::ProjectContext,
 )
@@ -287,8 +293,7 @@ where
     let lex_tokens = derive_lex_tokens(&input_tokens, &lex);
     // 词法产物上收集本文件声明：与 `alias::collect_source_declarations` 同源
     // （后者正是「词法转译 + 收集」），仅少一次重复的转译
-    let declared =
-        alias::collect_declared_names_in(&lex.output, manager.get_alias_map(), &lex_tokens);
+    let declared = alias::collect_declared_names_in(&lex.output, manager.取别名表(), &lex_tokens);
     let project = build_project(&declared);
     let output = transpile_after_lex(
         source,
@@ -309,21 +314,21 @@ where
 /// 与 [`transpile_pipeline_quiet`] 同口径：除教学告警外输出完全一致。
 pub fn transpile_pipeline_quiet_with_map_and_project(
     source: &str,
-    manager: &mapping_manager::MappingManager,
+    manager: &映射管理器::映射管理器,
     module_names: Option<&HashSet<String>>,
     project: Option<&alias::ProjectContext>,
-) -> cache::TranspileOutput {
+) -> 缓存::TranspileOutput {
     transpile_pipeline_inner(source, manager, module_names, project, false)
 }
 
 /// 转译管线的唯一实现：`emit_teaching_warnings` 控制教学告警日志的开关
 fn transpile_pipeline_inner(
     source: &str,
-    manager: &mapping_manager::MappingManager,
+    manager: &映射管理器::映射管理器,
     module_names: Option<&HashSet<String>>,
     project: Option<&alias::ProjectContext>,
     emit_teaching_warnings: bool,
-) -> cache::TranspileOutput {
+) -> 缓存::TranspileOutput {
     emit_teaching_diagnostics(source, manager, emit_teaching_warnings);
     let (lex, input_tokens) = transpile_lex_stage(source, manager);
     // 词法产物的 token 流由词法阶段自己那份派生（见 [`derive_lex_tokens`]），
@@ -353,9 +358,7 @@ fn transpile_pipeline_inner(
 /// 上 CLI 侧那份少调了英文回落与保留字撞名两类，入口文件会提示而兄弟文件不会，
 /// 同一份代码换条路径就漏报（见 `lint_teaching_all_chars`）。
 pub fn emit_teaching_warnings(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    label: Option<&str>,
+    source: &str, manager: &映射管理器::映射管理器, label: Option<&str>
 ) {
     // 归属前缀只在有标签时拼一次：None 走原样，不额外分配
     let owned = |text: String| match label {
@@ -375,19 +378,19 @@ pub fn emit_teaching_warnings(
         crate::log_warn!("fullwidth", "{}", owned(warning.format()));
     }
     // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深/易混方法名。
-    // CLI `--no-lint` 可关闭（lint::set_teaching_lint_enabled），
+    // CLI `--no-lint` 可关闭（校验::set_teaching_lint_enabled），
     // 供项目开发（非教学）场景静默刷屏提示
-    if lint::teaching_lint_enabled() {
+    if 校验::teaching_lint_enabled() {
         // 一把算全部教学提示：共用同一份字符切片，英文回落（母语词条却写成
         // `fn`/`Vec`/`.collect()` 等）与保留字撞名（`函数 匹配` → `fn match`）
-        // 在同一次遍历里判定，见 `lint::lint_teaching_all`；易混词表的分桶索引
+        // 在同一次遍历里判定，见 `校验::lint_teaching_all`；易混词表的分桶索引
         // 由 manager 缓存（每语言包一次，不是每文件一次）
-        for warning in lint::lint_teaching_all_chars(
+        for warning in 校验::lint_teaching_all_chars(
             &chars,
-            lint::WordIndexSource::Shared(manager.lint_word_buckets()),
-            manager.ambiguous_constructor_words(),
-            manager.english_fallback_map(),
-            manager.get_keyword_map(),
+            校验::WordIndexSource::Shared(manager.取校验分桶()),
+            manager.取歧义构造器(),
+            manager.取英文回落(),
+            manager.取关键词表(),
         ) {
             crate::log_warn!("lint", "{}", owned(warning.format()));
         }
@@ -395,7 +398,7 @@ pub fn emit_teaching_warnings(
 }
 
 /// 管线内部出口：`emit` 控制是否输出（不带文件归属）
-fn emit_teaching_diagnostics(source: &str, manager: &mapping_manager::MappingManager, emit: bool) {
+fn emit_teaching_diagnostics(source: &str, manager: &映射管理器::映射管理器, emit: bool) {
     if emit {
         emit_teaching_warnings(source, manager, None);
     }
@@ -407,16 +410,16 @@ fn emit_teaching_diagnostics(source: &str, manager: &mapping_manager::MappingMan
 /// token 流可据此派生，管线不必再对输出整份重新分词。
 fn transpile_lex_stage(
     source: &str,
-    manager: &mapping_manager::MappingManager,
-) -> (lexer::TranspileResult, Vec<rustc_lexer::Token>) {
-    lexer::transpile_with_map_tokens(
+    manager: &映射管理器::映射管理器,
+) -> (词法器::TranspileResult, Vec<rustc_lexer::Token>) {
+    词法器::transpile_with_map_tokens(
         source,
-        manager.get_keyword_map(),
-        manager.get_macro_map(),
-        manager.get_derive_map(),
-        manager.get_use_defer_words(),
-        manager.get_method_defer_words(),
-        manager.get_alias_map(),
+        manager.取关键词表(),
+        manager.取宏表(),
+        manager.取派生特征表(),
+        manager.取让位词(),
+        manager.取方法让位词(),
+        manager.取别名表(),
     )
 }
 
@@ -441,11 +444,11 @@ fn collect_tokens(source: &str) -> Vec<rustc_lexer::Token> {
 /// 整份分词的结果同构（该假设由单测、语料差分测试与 debug 构建下的自检守住）。
 ///
 /// 编辑起点不在 token 边界、终点落进 token 内部、或编辑表没走完时返回 `None`：
-/// 调用方退回现场分词，宁慢不错。`SourceMapEntry` 按匹配位置升序发出，故与
+/// 调用方退回现场分词，宁慢不错。`源码映射条目` 按匹配位置升序发出，故与
 /// token 同序遍历一次即可。
 fn rebase_tokens(
     base: &[rustc_lexer::Token],
-    edits: &[cache::SourceMapEntry],
+    edits: &[缓存::源码映射条目],
 ) -> Option<Vec<rustc_lexer::Token>> {
     let mut out: Vec<rustc_lexer::Token> = Vec::with_capacity(base.len());
     let mut index = 0usize;
@@ -457,12 +460,12 @@ fn rebase_tokens(
         // 是一个 Literal token，后缀 `整数` 是其尾部字节）：整段对齐前提已破，
         // 立刻放弃派生，不要跑完全流才发现。
         if let Some(edit) = edits.get(next_edit)
-            && edit.source_offset < offset
+            && edit.源偏移 < offset
         {
             return None;
         }
         if let Some(edit) = edits.get(next_edit)
-            && edit.source_offset == offset
+            && edit.源偏移 == offset
         {
             // 同一起点的编辑必然从本 token 起整段覆盖：往后吃满 `length`
             let end = offset + edit.length;
@@ -476,7 +479,7 @@ fn rebase_tokens(
             if cursor != end {
                 return None;
             }
-            let replacement = edit.replacement.as_str();
+            let replacement = edit.替换文字.as_str();
             let before = out.len();
             for part in rustc_lexer::tokenize(replacement) {
                 out.push(rustc_lexer::Token {
@@ -511,7 +514,7 @@ fn rebase_tokens(
 /// 吵，也不让错位的偏移表静默流入产物）。
 fn derive_lex_tokens(
     input_tokens: &[rustc_lexer::Token],
-    lex: &lexer::TranspileResult,
+    lex: &词法器::TranspileResult,
 ) -> Vec<rustc_lexer::Token> {
     let derived = rebase_tokens(input_tokens, &lex.final_edits);
     #[cfg(debug_assertions)]
@@ -550,12 +553,12 @@ struct LexReuse<'a> {
 /// reuse.rs` 与 `module_path` 的差分测试）。
 fn transpile_after_lex(
     source: &str,
-    manager: &mapping_manager::MappingManager,
+    manager: &映射管理器::映射管理器,
     module_names: Option<&HashSet<String>>,
     project: Option<&alias::ProjectContext>,
     reuse: Option<LexReuse<'_>>,
-    lex: lexer::TranspileResult,
-) -> cache::TranspileOutput {
+    lex: 词法器::TranspileResult,
+) -> 缓存::TranspileOutput {
     // 阶段 2：use 语句路径替换
     //
     // 各阶段输出用 Cow 串起来：阶段未启用时直接借用上一阶段输出，不再整份
@@ -563,26 +566,25 @@ fn transpile_after_lex(
     let lex_output = lex.output;
     // 调用方已分好词时直接借用那份 token 流
     let reuse_tokens = reuse.as_ref().map(|r| r.tokens);
-    let (mp_out, mp_edits): (Cow<'_, str>, Vec<cache::SourceMapEntry>) =
-        if manager.module_path_map.is_empty() {
-            (Cow::Borrowed(lex_output.as_str()), Vec::new())
-        } else {
-            let replaced = match reuse_tokens {
-                Some(tokens) => module_path::replace_module_paths_in_tokens(
-                    &lex_output,
-                    manager.get_module_path_map(),
-                    tokens,
-                ),
-                None => module_path::replace_module_paths_with_map(
-                    &lex_output,
-                    manager.get_module_path_map(),
-                ),
-            };
-            (Cow::Owned(replaced.output), replaced.edits)
+    let (mp_out, mp_edits): (Cow<'_, str>, Vec<缓存::源码映射条目>) = if manager
+        .模块路径表
+        .is_empty()
+    {
+        (Cow::Borrowed(lex_output.as_str()), Vec::new())
+    } else {
+        let replaced = match reuse_tokens {
+            Some(tokens) => module_path::replace_module_paths_in_tokens(
+                &lex_output,
+                manager.取模块路径表(),
+                tokens,
+            ),
+            None => module_path::replace_module_paths_with_map(&lex_output, manager.取模块路径表()),
         };
+        (Cow::Owned(replaced.output), replaced.edits)
+    };
     // 阶段 3（可选）：`crate::` 前缀重写（LSP 虚拟项目跨文件引用）；
     // 项目项名集合供 glob 导入场景的遮蔽豁免（无项目上下文时传空集）
-    let (qual_out, qual_edits): (Cow<'_, str>, Vec<cache::SourceMapEntry>) = if let Some(names) =
+    let (qual_out, qual_edits): (Cow<'_, str>, Vec<缓存::源码映射条目>) = if let Some(names) =
         module_names
         && !names.is_empty()
     {
@@ -609,14 +611,14 @@ fn transpile_after_lex(
     // 阶段 4：标识符别名替换（声明位保护 + 项目级声明上下文）；
     // 附模块路径表：use 之外的路径根位模块词（`异步运行时::睡眠`、
     // `#[异步运行时::主函数]`）在别名阶段回退模块路径表完成转译
-    let (al_out, al_edits): (Cow<'_, str>, Vec<cache::SourceMapEntry>) =
-        if manager.alias_map.is_empty() && manager.module_path_map.is_empty() {
+    let (al_out, al_edits): (Cow<'_, str>, Vec<缓存::源码映射条目>) =
+        if manager.标识符别名.is_empty() && manager.模块路径表.is_empty() {
             (Cow::Borrowed(qual_out.as_ref()), Vec::new())
         } else {
             let aliased = alias::replace_aliases_reusing(
                 qual_out.as_ref(),
-                manager.get_alias_map(),
-                manager.get_module_path_map(),
+                manager.取别名表(),
+                manager.取模块路径表(),
                 project,
                 reuse.as_ref().and_then(|r| r.declared),
                 alias_tokens,
@@ -626,10 +628,10 @@ fn transpile_after_lex(
 
     // 组合各阶段编辑表为母语源坐标的全管线地图（replacement 取最终输出文本）
     // 词法阶段编辑按所有权传入：它们已是母语源坐标，无需夹边界时可原样移动
-    let later: Vec<&[cache::SourceMapEntry]> = vec![&mp_edits, &qual_edits, &al_edits];
+    let later: Vec<&[缓存::源码映射条目]> = vec![&mp_edits, &qual_edits, &al_edits];
     let pipeline_map = compose_pipeline_map(source, lex.final_edits, &later);
 
-    cache::TranspileOutput::with_full_map(al_out.into_owned(), lex.source_map, pipeline_map)
+    缓存::TranspileOutput::with_full_map(al_out.into_owned(), lex.source_map, pipeline_map)
 }
 
 /// 合并各阶段编辑表为母语源坐标的最终编辑地图
@@ -641,9 +643,9 @@ fn transpile_after_lex(
 /// 同一源偏移出现多条编辑时保留最后阶段（后写覆盖先写，按阶段顺序稳定排序）。
 fn compose_pipeline_map(
     source: &str,
-    lex_edits: Vec<cache::SourceMapEntry>,
-    later: &[&[cache::SourceMapEntry]],
-) -> Vec<cache::SourceMapEntry> {
+    lex_edits: Vec<缓存::源码映射条目>,
+    later: &[&[缓存::源码映射条目]],
+) -> Vec<缓存::源码映射条目> {
     // 先为后续阶段算好母语源偏移（逆映射要读前面的全部阶段，含词法阶段；
     // 算完后词法编辑才可被移动消费）
     //
@@ -670,7 +672,7 @@ fn compose_pipeline_map(
             .collect();
         let mut lex_cursor = ReverseCursor::new(&lex_edits);
         for e in edits.iter() {
-            let mut off = e.source_offset;
+            let mut off = e.源偏移;
             for cursor in &mut chain {
                 off = cursor.map(off);
             }
@@ -680,25 +682,25 @@ fn compose_pipeline_map(
     }
 
     let total = lex_edits.len() + later.iter().map(|e| e.len()).sum::<usize>();
-    let mut merged: Vec<cache::SourceMapEntry> = Vec::with_capacity(total);
+    let mut merged: Vec<缓存::源码映射条目> = Vec::with_capacity(total);
     // 词法阶段：坐标已就位，边界无需调整时直接移动条目（每条省下两次文本
     // 拷贝——359 行样例 456 条编辑，这张表是管线里最大的一份）
     for e in lex_edits {
-        let end = e.source_offset + e.length;
+        let end = e.源偏移 + e.length;
         let 边界无需调整 = end <= source.len()
-            && source.is_char_boundary(e.source_offset)
+            && source.is_char_boundary(e.源偏移)
             && source.is_char_boundary(end)
-            && &source[e.source_offset..end] == e.original.as_str();
+            && &source[e.源偏移..end] == e.original.as_str();
         if 边界无需调整 {
             merged.push(e);
             continue;
         }
-        let (start, end) = clamp_to_char_boundaries(source, e.source_offset, e.length);
-        merged.push(cache::SourceMapEntry::new(
-            e.source_offset,
+        let (start, end) = clamp_to_char_boundaries(source, e.源偏移, e.length);
+        merged.push(缓存::源码映射条目::new(
+            e.源偏移,
             e.length,
             &source[start..end],
-            e.replacement.as_str(),
+            e.替换文字.as_str(),
         ));
     }
 
@@ -709,21 +711,21 @@ fn compose_pipeline_map(
             // 这里把起止偏移都夹到母语源文本的合法字符边界，避免多字节字符（如日本語の
             // メソッド名 `から`）切片越界引发 panic。transpile 输出本身不受影响。
             let (start, end) = clamp_to_char_boundaries(source, zh_offset, e.length);
-            merged.push(cache::SourceMapEntry::new(
+            merged.push(缓存::源码映射条目::new(
                 zh_offset,
                 e.length,
                 &source[start..end],
-                e.replacement.as_str(),
+                e.替换文字.as_str(),
             ));
         }
     }
     // 稳定排序：同偏移多条编辑时，阶段靠后的保持在后（最终消费取后者）
-    merged.sort_by_key(|e| e.source_offset);
+    merged.sort_by_key(|e| e.源偏移);
     // 同偏移去重：保留最后一条（阶段靠后的替换即为最终输出文本）
-    let mut deduped: Vec<cache::SourceMapEntry> = Vec::with_capacity(merged.len());
+    let mut deduped: Vec<缓存::源码映射条目> = Vec::with_capacity(merged.len());
     for e in merged {
         if let Some(last) = deduped.last_mut()
-            && last.source_offset == e.source_offset
+            && last.源偏移 == e.源偏移
         {
             *last = e;
         } else {
@@ -761,20 +763,20 @@ fn clamp_to_char_boundaries(source: &str, offset: usize, length: usize) -> (usiz
 /// 不必每次从表头重扫（后者是实测的平方项）。保留这份朴素实现就是为了
 /// 能对着一模一样的语义做差分（`test_reverse_cursor_matches_naive`）。
 #[cfg(test)]
-fn inverse_map_offset(edits: &[cache::SourceMapEntry], out_offset: usize) -> usize {
+fn inverse_map_offset(edits: &[缓存::源码映射条目], out_offset: usize) -> usize {
     let mut in_cursor = 0usize;
     let mut out_cursor = 0usize;
     for e in edits {
-        let gap = e.source_offset - in_cursor; // 输入侧未替换区间
+        let gap = e.源偏移 - in_cursor; // 输入侧未替换区间
         if out_offset <= out_cursor + gap {
             return in_cursor + (out_offset - out_cursor);
         }
         out_cursor += gap;
-        if out_offset < out_cursor + e.replacement.len() {
-            return e.source_offset; // 替换区间内：token 起点近似
+        if out_offset < out_cursor + e.替换文字.len() {
+            return e.源偏移; // 替换区间内：token 起点近似
         }
-        out_cursor += e.replacement.len();
-        in_cursor = e.source_offset + e.length;
+        out_cursor += e.替换文字.len();
+        in_cursor = e.源偏移 + e.length;
     }
     in_cursor + (out_offset - out_cursor)
 }
@@ -788,7 +790,7 @@ fn inverse_map_offset(edits: &[cache::SourceMapEntry], out_offset: usize) -> usi
 /// 非递减——前提破了就是错乱偏移流进产物，宁可在开发期吵。
 pub(crate) struct ReverseCursor<'a> {
     /// 前置阶段的编辑表（按输入偏移升序、互不重叠）
-    edits: &'a [cache::SourceMapEntry],
+    edits: &'a [缓存::源码映射条目],
     /// 下一个尚未跨过的编辑
     index: usize,
     /// `edits[index]` 起点两侧的偏移：输入侧与输出侧
@@ -800,7 +802,7 @@ pub(crate) struct ReverseCursor<'a> {
 
 impl<'a> ReverseCursor<'a> {
     /// 新游标：停在文本起点，尚未消费任何编辑
-    pub(crate) fn new(edits: &'a [cache::SourceMapEntry]) -> Self {
+    pub(crate) fn new(edits: &'a [缓存::源码映射条目]) -> Self {
         Self {
             edits,
             index: 0,
@@ -820,19 +822,19 @@ impl<'a> ReverseCursor<'a> {
         self.last = out;
         while self.index < self.edits.len() {
             let e = &self.edits[self.index];
-            // 未替换区间 [in_offset, e.source_offset)：输出侧等长、逐字节对应
-            let gap_end = self.out_offset + (e.source_offset - self.in_offset);
+            // 未替换区间 [in_offset, e.源偏移)：输出侧等长、逐字节对应
+            let gap_end = self.out_offset + (e.源偏移 - self.in_offset);
             if out <= gap_end {
                 return self.in_offset + (out - self.out_offset);
             }
             // 替换区间内：一律映到 token 起点（与旧实现同一近似）；
             // 游标不前进——后续查询可能还落在同一条替换里
-            if out < gap_end + e.replacement.len() {
-                return e.source_offset;
+            if out < gap_end + e.替换文字.len() {
+                return e.源偏移;
             }
             // 整条跨过，游标推进到下一条编辑之前
-            self.out_offset = gap_end + e.replacement.len();
-            self.in_offset = e.source_offset + e.length;
+            self.out_offset = gap_end + e.替换文字.len();
+            self.in_offset = e.源偏移 + e.length;
             self.index += 1;
         }
         // 表已走完：尾部未替换区间逐字节对应
@@ -844,7 +846,7 @@ impl<'a> ReverseCursor<'a> {
 mod tests {
     use super::*;
 
-    fn create_manager() -> mapping_manager::MappingManager {
+    fn create_manager() -> 映射管理器::映射管理器 {
         let keywords_toml = r#"
 ["声明"]
 "函数" = "fn"
@@ -878,7 +880,7 @@ mod tests {
 "服务器" = "Server"
 "#,
         )];
-        mapping_manager::MappingManager::load_from_builtin(
+        映射管理器::映射管理器::从内置载入(
             keywords_toml,
             module_paths_toml,
             stdlib_toml,
@@ -895,7 +897,7 @@ mod tests {
     #[test]
     fn test_rebase_tokens_matches_fresh_tokenize() {
         let manager = create_manager();
-        let path_map = manager.get_module_path_map();
+        let path_map = manager.取模块路径表();
         for src in [
             "使用 标准集合::哈希映射;\n",
             "使用 标准集合 :: 哈希映射;\n",
@@ -924,7 +926,7 @@ mod tests {
     fn test_rebase_tokens_splits_multi_token_replacement() {
         let src = "标准集合::哈希映射;";
         let base = collect_tokens(src);
-        let edits = vec![cache::SourceMapEntry::new(
+        let edits = vec![缓存::源码映射条目::new(
             0,
             "标准集合".len(),
             "标准集合",
@@ -946,7 +948,7 @@ mod tests {
         let base = collect_tokens(src);
         // token 起点：0 / 12 / 13 / 14 / 26；其余偏移都落在某个 token 内部
         for offset in [1usize, 3, 15, 20, 25] {
-            let edits = vec![cache::SourceMapEntry::new(offset, 1, "x", "y")];
+            let edits = vec![缓存::源码映射条目::new(offset, 1, "x", "y")];
             assert!(
                 rebase_tokens(&base, &edits).is_none(),
                 "偏移 {offset} 不在 token 边界，应拒绝"
@@ -962,7 +964,7 @@ mod tests {
     fn test_rebase_tokens_spans_multi_token_edit() {
         let src = "标准集合::哈希映射;";
         let base = collect_tokens(src);
-        let edits = vec![cache::SourceMapEntry::new(
+        let edits = vec![缓存::源码映射条目::new(
             0,
             "标准集合::".len(),
             "标准集合::",
@@ -1020,10 +1022,10 @@ mod tests {
     }
 
     /// 真 zh 语言包（而非上面那份小映射表）：替换点越密，派生越容易暴露问题
-    fn zh_manager() -> mapping_manager::MappingManager {
+    fn zh_manager() -> 映射管理器::映射管理器 {
         use std::path::Path;
 
-        mapping_manager::MappingManager::load_from_dir(
+        映射管理器::映射管理器::从目录载入(
             &Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh"),
         )
         .expect("加载 zh 语言包失败")
@@ -1164,11 +1166,11 @@ mod tests {
         out
     }
 
-    fn new_cache() -> cache::TranslationCache {
+    fn new_cache() -> 缓存::转译缓存 {
         // 静音走一次性写入且持级别锁：旧写法每次建缓存都裸写全局级别，等于给
         // 所有「断言级别」的用例埋了个不持锁的竞争者（撑开窗口实测 12/12 轮红）。
         logger::quiet_for_tests();
-        cache::TranslationCache::with_default_capacity()
+        缓存::转译缓存::with_default_capacity()
     }
 
     #[test]
@@ -1238,9 +1240,9 @@ mod tests {
             .iter()
             .find(|m| m.original == "函数")
             .expect("应有 函数 映射");
-        assert_eq!(fn_map.replacement, "fn");
+        assert_eq!(fn_map.替换文字, "fn");
         assert_eq!(
-            &source[fn_map.source_offset..fn_map.source_offset + fn_map.length],
+            &source[fn_map.源偏移..fn_map.源偏移 + fn_map.length],
             "函数"
         );
 
@@ -1249,7 +1251,7 @@ mod tests {
             .iter()
             .find(|m| m.original == "让")
             .expect("应有 让 映射");
-        assert_eq!(let_map.replacement, "let");
+        assert_eq!(let_map.替换文字, "let");
         assert!(!output.source_map.iter().any(|m| m.original == "主函数"));
     }
 
@@ -1261,7 +1263,7 @@ mod tests {
 
         transpile_source(source, &manager, &mut cache).expect("翻译失败");
         // 语言包变化（新增 可变→mut 映射）→ 语境指纹变化 → 缓存失效重新翻译
-        let new_manager = mapping_manager::MappingManager::load_from_builtin(
+        let new_manager = 映射管理器::映射管理器::从内置载入(
             r#"
 ["声明"]
 "函数" = "fn"
@@ -1297,15 +1299,15 @@ mod tests {
 
     // ===== 全管线编辑地图（pipeline_map）测试 =====
 
-    /// 把编辑地图应用到源文本（按 source_offset 拼接 replacement），
+    /// 把编辑地图应用到源文本（按 源偏移 拼接 replacement），
     /// 是"地图与真实输出一致"的权威校验——任何阶段改规则却不同步地图都会使此测试失败。
-    fn apply_pipeline_map(source: &str, map: &[cache::SourceMapEntry]) -> String {
+    fn apply_pipeline_map(source: &str, map: &[缓存::源码映射条目]) -> String {
         let mut result = String::new();
         let mut pos = 0usize;
         for e in map {
-            result.push_str(&source[pos..e.source_offset]);
-            result.push_str(&e.replacement);
-            pos = e.source_offset + e.length;
+            result.push_str(&source[pos..e.源偏移]);
+            result.push_str(&e.替换文字);
+            pos = e.源偏移 + e.length;
         }
         result.push_str(&source[pos..]);
         result
@@ -1368,15 +1370,15 @@ mod tests {
     /// 替换变长/变短/等长/清空、相邻无缝隙，以及表尾之后的越界查询。
     #[test]
     fn test_reverse_cursor_matches_naive() {
-        fn 表(条目: &[(usize, usize, &str, &str)]) -> Vec<cache::SourceMapEntry> {
+        fn 表(条目: &[(usize, usize, &str, &str)]) -> Vec<缓存::源码映射条目> {
             条目
                 .iter()
                 .map(|(偏移, 长度, 原文, 替换)| {
-                    cache::SourceMapEntry::new(*偏移, *长度, 原文, 替换)
+                    缓存::源码映射条目::new(*偏移, *长度, 原文, 替换)
                 })
                 .collect()
         }
-        let 形态: Vec<Vec<cache::SourceMapEntry>> = vec![
+        let 形态: Vec<Vec<缓存::源码映射条目>> = vec![
             表(&[]),
             表(&[(0, 6, "函数", "fn")]),
             表(&[
@@ -1395,7 +1397,7 @@ mod tests {
             // 查到表尾之后一大截：尾部未替换区间的换算也要对齐
             let 上界 = 编辑表
                 .last()
-                .map(|e| e.source_offset + e.replacement.len() + 32)
+                .map(|e| e.源偏移 + e.替换文字.len() + 32)
                 .unwrap_or(64);
             let 朴素: Vec<usize> = (0..=上界)
                 .map(|偏移| inverse_map_offset(编辑表, 偏移))
@@ -1427,7 +1429,7 @@ mod tests {
             for _ in 0..(随机() % 8 + 1) {
                 let 原文长度 = 随机() % 4;
                 let 替换长度 = 随机() % 4;
-                编辑表.push(cache::SourceMapEntry::new(
+                编辑表.push(缓存::源码映射条目::new(
                     偏移,
                     原文长度,
                     // ASCII：让 length 字段就是字节长度，与 `原文长度` 自洽
@@ -1528,19 +1530,19 @@ mod tests {
             .iter()
             .find(|e| e.original == "打印行")
             .expect("应有宏条目");
-        assert_eq!(macro_entry.replacement, "println!");
+        assert_eq!(macro_entry.替换文字, "println!");
         let qual_entry = output
             .pipeline_map
             .iter()
             .find(|e| e.original == "辅助")
             .expect("应有模块路径条目");
-        assert_eq!(qual_entry.replacement, "crate::辅助");
+        assert_eq!(qual_entry.替换文字, "crate::辅助");
     }
 
     /// use 语句路径段经模块路径阶段替换、末段经别名阶段替换（LSP 之前缺失的环节）
     #[test]
     fn test_pipeline_map_use_stmt_module_path_and_alias() {
-        let manager = mapping_manager::MappingManager::load_from_builtin(
+        let manager = 映射管理器::映射管理器::从内置载入(
             r#"
 ["声明"]
 "函数" = "fn"
@@ -1592,17 +1594,17 @@ mod tests {
 
         // 合并关键字 + 宏 + 别名三类映射并反转（英文 → 中文），与正向管线互为逆
         let mut reverse_map = std::collections::HashMap::new();
-        for (zh, en) in manager.get_keyword_map() {
+        for (zh, en) in manager.取关键词表() {
             reverse_map.insert(en.clone(), zh.clone());
         }
-        for (zh, en) in manager.get_macro_map() {
+        for (zh, en) in manager.取宏表() {
             reverse_map.insert(en.clone(), zh.clone());
         }
-        for (zh, en) in manager.get_alias_map() {
+        for (zh, en) in manager.取别名表() {
             reverse_map.insert(en.clone(), zh.clone());
         }
 
-        let restored = lexer::reverse_transpile(
+        let restored = 词法器::反译(
             &output.output,
             &reverse_map,
             &HashSet::new(),
@@ -1648,14 +1650,14 @@ mod tests {
                 .filter(|(n, _)| n.starts_with("crates/"))
                 .map(|(n, c)| (*n, *c))
                 .collect();
-            let manager = mapping_manager::MappingManager::load_from_builtin(
+            let manager = 映射管理器::映射管理器::从内置载入(
                 keywords,
                 get("module_paths.toml"),
                 get("stdlib.toml"),
                 &third_party,
             )
             .expect("语言包应能解析");
-            let cycles = manager.find_mapping_cycles();
+            let cycles = manager.查循环();
             assert!(cycles.is_empty(), "{code} 语言包存在循环映射：{cycles:?}");
         }
     }
@@ -1682,7 +1684,7 @@ mod tests {
                 .filter(|(n, _)| n.starts_with("crates/"))
                 .map(|(n, c)| (*n, *c))
                 .collect();
-            let manager = mapping_manager::MappingManager::load_from_builtin(
+            let manager = 映射管理器::映射管理器::从内置载入(
                 get("keywords.toml"),
                 get("module_paths.toml"),
                 get("stdlib.toml"),
@@ -1691,11 +1693,8 @@ mod tests {
             .expect("语言包应能解析");
 
             let mut cache = new_cache();
-            for word in manager.get_method_defer_words() {
-                let target = manager
-                    .get_alias_map()
-                    .get(word)
-                    .expect("让位词应有别名词条");
+            for word in manager.取方法让位词() {
+                let target = manager.取别名表().get(word).expect("让位词应有别名词条");
                 let source = format!("函数 主函数() {{ 让 x = 甲.{}(); }}", word);
                 let out = transpile_source(&source, &manager, &mut cache).expect("翻译失败");
                 assert!(

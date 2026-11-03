@@ -33,7 +33,7 @@ use serde_json::{Value, json};
 use crate::response_map::diag_text::{
     extract_ownership_details, inject_teaching_diags, translate_diagnostic_message,
 };
-use crate::translation_cache::{TranslationCache, path_to_uri};
+use crate::translation_cache::{path_to_uri, 转译缓存};
 
 /// 镜像树复制时排除的目录名（构建产物/版本库/依赖缓存）
 const EXCLUDED_DIRS: [&str; 5] = ["target", ".git", "node_modules", "dist", ".rz"];
@@ -75,12 +75,12 @@ struct Pending {
 /// 返回 true 表示镜像检查确实执行（无论项目有无诊断）；
 /// false 表示镜像不可用，调用方回退虚拟项目检查（原有行为）。
 pub(crate) fn run_mirror_check(
-    cache: &Arc<TranslationCache>,
+    cache: &Arc<转译缓存>,
     sender: &crossbeam_channel::Sender<lsp_server::Message>,
     builtin_diags: &Arc<Mutex<HashMap<String, Vec<Value>>>>,
     extensions: &[String],
     origin_uri: &str,
-    manager: &i18n_rust_engine::mapping_manager::MappingManager,
+    manager: &i18n_rust_engine::映射管理器::映射管理器,
 ) -> bool {
     // 触发文件须在缓存中（didOpen/didSave 均已入库），据此定位项目根
     let Some(origin_path) = cache
@@ -290,7 +290,7 @@ fn file_matches_extensions(path: &Path, extensions: &[String]) -> bool {
 /// 限定用）、项目声明上下文来自全部方言源（跨文件声明豁免）、入口产物补
 /// 非 ASCII 模块 `#[path]` 注解。打开中的文档以缓冲区内容为准。
 fn transpile_into_mirror(
-    cache: &Arc<TranslationCache>,
+    cache: &Arc<转译缓存>,
     extensions: &[String],
     project_root: &Path,
     mirror_dir: &Path,
@@ -576,8 +576,8 @@ fn publish_rustc_diagnostics(
     stdout: &str,
     mirror_dir: &Path,
     files: &[MirrorFile],
-    cache: &Arc<TranslationCache>,
-    manager: &i18n_rust_engine::mapping_manager::MappingManager,
+    cache: &Arc<转译缓存>,
+    manager: &i18n_rust_engine::映射管理器::映射管理器,
     builtin_diags: &Arc<Mutex<HashMap<String, Vec<Value>>>>,
     sender: &crossbeam_channel::Sender<lsp_server::Message>,
 ) -> (usize, usize) {
@@ -723,7 +723,7 @@ fn publish_rustc_diagnostics(
             inject_teaching_diags(
                 &mut diags,
                 &entry,
-                manager.lint_word_buckets(),
+                manager.取校验分桶(),
                 cache.ambiguous_constructor_words(),
                 cache.english_fallback_map(),
                 cache.keyword_map(),
@@ -1077,7 +1077,7 @@ mod tests {
     /// 构造一个带列映射的镜像文件（zh「让 x = 1;」→ en「let x = 1;」）
     fn mapped_file(entry_line_map: Option<Vec<usize>>) -> MirrorFile {
         let zh = "让 x = 1;\n";
-        let edits = [i18n_rust_engine::cache::SourceMapEntry::new(
+        let edits = [i18n_rust_engine::缓存::源码映射条目::new(
             0, 3, "让", "let",
         )];
         MirrorFile {
@@ -1108,9 +1108,9 @@ mod tests {
         // 方言 3 行；产物在顶部插入 1 行注解：产物 1 行 ↔ 引擎 3 行（映射值 2 → 行 3）
         let zh = "函数 主函数() {\n    打印行!(\"hi\");\n}\n";
         let edits = [
-            i18n_rust_engine::cache::SourceMapEntry::new(0, 6, "函数", "fn"),
+            i18n_rust_engine::缓存::源码映射条目::new(0, 6, "函数", "fn"),
             // 第 1 行 21 字节 + 4 个前导空格 → 「打印行」字节偏移 25
-            i18n_rust_engine::cache::SourceMapEntry::new(25, 9, "打印行", "println"),
+            i18n_rust_engine::缓存::源码映射条目::new(25, 9, "打印行", "println"),
         ];
         let file = MirrorFile {
             product_path: PathBuf::from("/mirror/src/main.rs"),
@@ -1145,7 +1145,7 @@ mod tests {
     #[test]
     fn test_map_span_range_non_bmp_before_column() {
         let zh = "让😀x = 1;\n";
-        let edits = [i18n_rust_engine::cache::SourceMapEntry::new(
+        let edits = [i18n_rust_engine::缓存::源码映射条目::new(
             0, 3, "让", "let",
         )];
         let file = MirrorFile {

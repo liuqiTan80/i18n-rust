@@ -15,7 +15,7 @@
 use std::path::Path;
 
 use i18n_rust_engine::界面消息::消息表;
-use i18n_rust_engine::语言::builtin_message_table;
+use i18n_rust_engine::语言::内置消息表;
 
 /// 界面消息表
 ///
@@ -96,10 +96,8 @@ impl Ui {
     /// 取消息模板：自定义表 → 内置中文表 → 键名本身
     pub fn t(&self, key: &str) -> String {
         match &self.custom {
-            Some(table) => table.t(key),
-            None => {
-                i18n_rust_engine::界面消息::取模板(builtin_message_table(&self.lang), key)
-            }
+            Some(table) => table.取消息(key),
+            None => i18n_rust_engine::界面消息::取模板(内置消息表(&self.lang), key),
         }
     }
 

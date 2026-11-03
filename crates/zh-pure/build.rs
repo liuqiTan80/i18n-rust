@@ -1,7 +1,7 @@
 //! 构建脚本：把 `tests-zh/*.zh` 方言测试转译为标准 Rust，写入 `$OUT_DIR`
 //!
 //! cargo 只识别 `.rs` 测试文件，因此这里用项目自身引擎做一次转译，
-//! 生成物由 `tests/zh_pure_tests.rs` 以 `include!` 引入——方言里的
+//! 生成物由 `tests/方言测试.rs` 以 `include!` 引入——方言里的
 //! `#[测试]` 转译后成为 `#[test]`，`cargo test` 自动发现并执行。
 //!
 //! 映射只取自**编译期嵌入**的内置 zh 语言包（不读磁盘语言包、不联网、
@@ -63,7 +63,7 @@ fn main() {
 }
 
 /// 从编译期嵌入的 zh 语言包构造映射管理器（与 CLI 内置包同源）
-fn 加载映射() -> i18n_rust_engine::mapping_manager::MappingManager {
+fn 加载映射() -> i18n_rust_engine::映射管理器::映射管理器 {
     let 文件 = i18n_rust_engine::语言::builtin_lang_files("zh");
     let 取 = |名: &str| {
         文件
@@ -77,7 +77,7 @@ fn 加载映射() -> i18n_rust_engine::mapping_manager::MappingManager {
         .filter(|(路径, _)| 路径.starts_with("crates/"))
         .copied()
         .collect();
-    i18n_rust_engine::mapping_manager::MappingManager::load_from_builtin(
+    i18n_rust_engine::映射管理器::映射管理器::从内置载入(
         取("keywords.toml"),
         取("module_paths.toml"),
         取("stdlib.toml"),

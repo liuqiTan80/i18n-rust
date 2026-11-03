@@ -1,6 +1,6 @@
 //! 词法差分测试（声明位启发式的 oracle）
 //!
-//! 把 `alias.rs`/`lint.rs` 里的"声明位保护"从经验规则升级为有 oracle 的规格：
+//! 把 `alias.rs`/`校验.rs` 里的"声明位保护"从经验规则升级为有 oracle 的规格：
 //! 随机生成"语法良好-ish"的母语方言 token 流，正向转译后用 `rustc_lexer` 重新
 //! 词法化，对 source↔output 断言四类结构不变量，并对不含模块路径的子集做反译回环。
 //!
@@ -16,13 +16,13 @@
 //! 4. 幂等复核：`transpile(output) == output`（英文产物再转译不变）。
 //!
 //! 反译回环 oracle（独立属性）：对不含模块路径、宏一律带感叹号的生成子集，
-//! `reverse_transpile(output, reverse_map(kw+macro+alias+derive), ∅, ∅)` 还原 source。
+//! `反译(output, reverse_map(kw+macro+alias+derive), ∅, ∅)` 还原 source。
 
 use std::collections::HashMap;
 
-use i18n_rust_engine::lexer::reverse_transpile;
-use i18n_rust_engine::mapping_manager::MappingManager;
 use i18n_rust_engine::transpile_pipeline_with_map;
+use i18n_rust_engine::映射管理器::映射管理器;
+use i18n_rust_engine::词法器::反译;
 use proptest::prelude::*;
 use rustc_lexer::{TokenKind, tokenize};
 
@@ -34,7 +34,7 @@ const DECL_EN: &[&str] = &[
 
 /// 受控测试语言包：关键字/类型/宏/派生特征/模块路径/标识符别名全覆盖，
 /// 且所有替换目标均为单标识符（不含 `::`/`.`/空格），便于结构同构断言。
-fn test_manager() -> MappingManager {
+fn test_manager() -> 映射管理器 {
     let keywords = r#"
 ["声明"]
 "函数" = "fn"
@@ -70,8 +70,7 @@ fn test_manager() -> MappingManager {
 "字符串" = "String"
 "获取" = "get"
 "#;
-    MappingManager::load_from_builtin(keywords, module_paths, stdlib, &[])
-        .expect("加载受控测试语言包失败")
+    映射管理器::从内置载入(keywords, module_paths, stdlib, &[]).expect("加载受控测试语言包失败")
 }
 
 /// `en` 是否为合法的单 Rust 标识符（首字母/下划线，余字母数字/下划线）：
@@ -216,20 +215,20 @@ const PUNCTS: &[&str] = &[
 ];
 
 impl Pools {
-    fn new(m: &MappingManager) -> Pools {
-        let kw = m.get_keyword_map();
-        let alias_map = m.get_alias_map();
-        let macro_map = m.get_macro_map();
-        let module_map = m.get_module_path_map();
+    fn new(m: &映射管理器) -> Pools {
+        let kw = m.取关键词表();
+        let alias_map = m.取别名表();
+        let macro_map = m.取宏表();
+        let module_map = m.取模块路径表();
 
         // 反向唯一集：kw+macro+alias+derive（排除模块路径——其英文含 `::` 非单标识符）
         let (_rev, unique) =
-            build_reverse_and_unique(&[kw, macro_map, alias_map, m.get_derive_map()]);
+            build_reverse_and_unique(&[kw, macro_map, alias_map, m.取派生特征表()]);
 
         // 英文值全集（用于自定义命名排雷：自定义名不得是任何表的英文值，避免反译误改）
         let mut english_values: std::collections::HashSet<String> =
             std::collections::HashSet::new();
-        for tbl in [kw, macro_map, alias_map, m.get_derive_map(), module_map] {
+        for tbl in [kw, macro_map, alias_map, m.取派生特征表(), module_map] {
             for en in tbl.values() {
                 english_values.insert(en.clone());
             }
@@ -435,7 +434,7 @@ proptest! {
         prop_assert_eq!(&again, output, "对输出再转译应保持不变\noutput={:?}", output);
     }
 
-    /// 反译回环 oracle：不含模块路径、宏一律带感叹号的子集，reverse_transpile 还原 source
+    /// 反译回环 oracle：不含模块路径、宏一律带感叹号的子集，反译 还原 source
     #[test]
     fn prop_reverse_roundtrip(frags in prop::collection::vec(frag_strategy(), 1..=10)) {
         let manager = test_manager();
@@ -447,13 +446,13 @@ proptest! {
 
         // 合并关键字 + 宏 + 别名 + 派生特征并反转（英文 → 母语，排序最小者优先）
         let (reverse_map, _unique) = build_reverse_and_unique(&[
-            manager.get_keyword_map(),
-            manager.get_macro_map(),
-            manager.get_alias_map(),
-            manager.get_derive_map(),
+            manager.取关键词表(),
+            manager.取宏表(),
+            manager.取别名表(),
+            manager.取派生特征表(),
         ]);
 
-        let restored = reverse_transpile(
+        let restored = 反译(
             output,
             &reverse_map,
             &std::collections::HashSet::new(),

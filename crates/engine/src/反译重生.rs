@@ -6,7 +6,7 @@
 //! 设计（中文原生，非英文版的逐句对译）：
 //! - 反查表按**表优先级** `关键字 > 宏 > 派生特征 > 别名` 依次填充，先占者胜：
 //!   同一英文词被多表命中时保留更通用、更早的表项。否则一个核心词（如 `main`）
-//!   可能被第三方 crate 映射抢先反查，产物换出的母语词在不含该 crate 的普通
+//!   可能被第三方包映射抢先反查，产物换出的母语词在不含该包的普通
 //!   工程里无法再转译回 `main`，破坏 `rzc build` 可编译性。
 //! - 同表内同一英文词的多个母语候选取**字典序最小**者（确定性）。本版不借助
 //!   「收集成数组再排序」——有序映射按键升序遍历是数据结构的天然性质，
@@ -16,27 +16,27 @@
 //!
 //! 保真与边界（须写进 `--help` 与文档，诚实标注）：
 //! - 目标语言包缺该词条时，该段保留英文（可编译，只是未本地化）；
-//! - 输入应为标准 Rust（正向转译产物），不携带代理添加的 `crate::` 前缀，
+//! - 输入应为标准 Rust（正向转译产物），不携带代理添加的「本包」路径前缀，
 //!   反译时两个「已添加前缀」集合传空。
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::lexer;
-use crate::mapping_manager::MappingManager;
+use crate::映射管理器::映射管理器;
+use crate::词法器;
 
 /// 合并目标语言包的关键字 / 宏 / 派生特征 / 别名四表，构建「英文 → 母语」反查表。
 ///
 /// 表序即优先级（先占者胜），表内以 (英文, 母语) 有序暂存后逐键首次写入，
 /// 同英文的多个母语候选自然取到字典序最小者——输出与旧「排序数组 +
-/// entry().or_insert」实现逐条等价。
-pub(crate) fn 构建反查表(目标: &MappingManager) -> HashMap<String, String> {
+/// 「取条目 + 或插入」式实现逐条等价。
+pub(crate) fn 构建反查表(目标: &映射管理器) -> HashMap<String, String> {
     let mut 反查: HashMap<String, String> = HashMap::new();
     // 表优先级：越靠前越通用，先占者胜
     for 表 in [
-        目标.get_keyword_map(),
-        目标.get_macro_map(),
-        目标.get_derive_map(),
-        目标.get_alias_map(),
+        目标.取关键词表(),
+        目标.取宏表(),
+        目标.取派生特征表(),
+        目标.取别名表(),
     ] {
         // 有序暂存键 (英文, 母语)：遍历即按英文升序、同英文内按母语升序
         let mut 候选: BTreeMap<(&String, &String), ()> = BTreeMap::new();
@@ -59,11 +59,11 @@ pub(crate) fn 构建反查表(目标: &MappingManager) -> HashMap<String, String
     反查
 }
 
-/// 把标准 Rust 源码反译重生为目标方言（纯函数，无副作用、不 panic）。
+/// 把标准 Rust 源码反译重生为目标方言（纯函数，无副作用、不恐慌）。
 ///
 /// `标准英文源` 为标准 Rust（英文）源码；`目标` 为目标语言包的映射管理器。
 /// 返回目标方言源码：结构与源一致，词法可被 `rzc` 正向转译回标准 Rust 后编译。
-pub fn 反译重生(标准英文源: &str, 目标: &MappingManager) -> String {
+pub fn 反译重生(标准英文源: &str, 目标: &映射管理器) -> String {
     let 反查 = 构建反查表(目标);
-    lexer::reverse_transpile(标准英文源, &反查, &HashSet::new(), &HashSet::new())
+    词法器::反译(标准英文源, &反查, &HashSet::new(), &HashSet::new())
 }

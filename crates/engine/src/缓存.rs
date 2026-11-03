@@ -3,7 +3,7 @@
 //! 内容未变化且语言包映射未变化时直接复用翻译结果，避免重复翻译；
 //! 同时缓存源映射（被替换标识符的源偏移与替换文本），供 LSP/调试使用。
 
-use crate::error::TranspileError;
+use crate::故障::转译故障;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
@@ -157,31 +157,36 @@ impl<'de> Deserialize<'de> for MapText {
 /// 不提供目标偏移——完整管线后续的模块路径替换/别名替换会改变输出偏移，
 /// 输入侧信息始终保持精确。
 /// 语义按使用场景分两级：
-/// - 词法阶段 `source_map`：偏移为母语源坐标，replacement 为词法阶段文本；
-/// - 全管线 `pipeline_map`：偏移为母语源坐标，replacement 为**最终输出文本**；
+/// - 词法阶段 `source_map`：偏移为母语源坐标，替换文字 为词法阶段文本；
+/// - 全管线 `pipeline_map`：偏移为母语源坐标，替换文字 为**最终输出文本**；
 /// - 各中间阶段 `_with_map` 的 edits：偏移为该阶段输入文本坐标。
 ///
 /// 两个文本字段用 [`MapText`]（小串内联）：编辑表是转译热路径上
 /// 唯一的高频小串容器，见该类型的文档。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceMapEntry {
+pub struct 源码映射条目 {
     /// 源文件中的字节偏移（token 起点）
-    pub source_offset: usize,
+    ///
+    /// 磁盘缓存 JSON 的键沿用 v1 拼写（`#[serde(rename)]`）：产物格式是对外契约，
+    /// 不随源码侧中文化而变，存量缓存文件因此继续有效、无需版本升级。
+    #[serde(rename = "source_offset")]
+    pub 源偏移: usize,
     /// token 字节长度
     pub length: usize,
     /// 源 token 文本（如 `函数`）
     pub original: MapText,
     /// 翻译后文本（如 `fn`）
-    pub replacement: MapText,
+    #[serde(rename = "replacement")]
+    pub 替换文字: MapText,
 }
 
-impl SourceMapEntry {
-    pub fn new(source_offset: usize, length: usize, original: &str, replacement: &str) -> Self {
+impl 源码映射条目 {
+    pub fn new(源偏移: usize, length: usize, original: &str, 替换文字: &str) -> Self {
         Self {
-            source_offset,
+            源偏移,
             length,
             original: MapText::from(original),
-            replacement: MapText::from(replacement),
+            替换文字: MapText::from(替换文字),
         }
     }
 }
@@ -191,12 +196,12 @@ impl SourceMapEntry {
 pub struct TranspileOutput {
     /// 翻译后的代码文本
     pub output: String,
-    /// 词法阶段源映射（向后兼容：仅含词法阶段的替换，replacement 为词法阶段文本）
-    pub source_map: Vec<SourceMapEntry>,
-    /// 全管线编辑地图：以母语源偏移升序记录，replacement 为**最终输出文本**
-    ///（宏调用自动补充的 `!` 已计入 replacement）。
+    /// 词法阶段源映射（向后兼容：仅含词法阶段的替换，替换文字 为词法阶段文本）
+    pub source_map: Vec<源码映射条目>,
+    /// 全管线编辑地图：以母语源偏移升序记录，替换文字 为**最终输出文本**
+    ///（宏调用自动补充的 `!` 已计入 替换文字）。
     /// 列映射等消费方只需回放此表，无需复刻任何转译规则。
-    pub pipeline_map: Vec<SourceMapEntry>,
+    pub pipeline_map: Vec<源码映射条目>,
 }
 
 impl TranspileOutput {
@@ -210,7 +215,7 @@ impl TranspileOutput {
     }
 
     /// 创建输出并附带词法阶段源映射
-    pub fn with_map(output: String, source_map: Vec<SourceMapEntry>) -> Self {
+    pub fn with_map(output: String, source_map: Vec<源码映射条目>) -> Self {
         Self {
             output,
             source_map,
@@ -221,8 +226,8 @@ impl TranspileOutput {
     /// 创建输出并附带词法阶段源映射与全管线编辑地图
     pub fn with_full_map(
         output: String,
-        source_map: Vec<SourceMapEntry>,
-        pipeline_map: Vec<SourceMapEntry>,
+        source_map: Vec<源码映射条目>,
+        pipeline_map: Vec<源码映射条目>,
     ) -> Self {
         Self {
             output,
@@ -253,7 +258,7 @@ struct CacheEntry {
 ///
 /// 统计计数用 [`AtomicU64`]，类型满足 `Send + Sync`，
 /// 可置于 `Mutex`/`RwLock` 后在多线程间共享（如并行转译项目文件）。
-pub struct TranslationCache {
+pub struct 转译缓存 {
     entries: HashMap<u64, CacheEntry>,
     /// LRU 顺序：队首最旧、队尾最新；每个条目附带代际计数器，
     /// `mark_hit` 递增代际并在队尾添加新条目，旧代际条目在淘汰时惰性跳过
@@ -263,10 +268,10 @@ pub struct TranslationCache {
     capacity: usize,
     hits: AtomicU64,
     misses: AtomicU64,
-    /// 磁盘持久化路径：Some 时由 [`TranslationCache::flush`] 原子写盘
+    /// 磁盘持久化路径：Some 时由 [`转译缓存::flush`] 原子写盘
     ///（跨进程复用：CLI 短命进程把上次运行的翻译结果留给下次）
     persistence: Option<PathBuf>,
-    /// 待写盘标记：变更后置位，[`TranslationCache::flush`] 成功写盘后清除。
+    /// 待写盘标记：变更后置位，[`转译缓存::flush`] 成功写盘后清除。
     ///
     /// 不每次变更都写盘的原因：`save` 会把**整个**缓存序列化为 JSON，
     /// 批量转译 N 个文件（各自 miss 后插入）会产生 N 次全量写，
@@ -276,7 +281,7 @@ pub struct TranslationCache {
 }
 
 /// 退出兜底：保证累积的未写盘变更不丢失（正常路径无需显式 `flush`）
-impl Drop for TranslationCache {
+impl Drop for 转译缓存 {
     fn drop(&mut self) {
         self.flush();
     }
@@ -306,7 +311,7 @@ const PERSISTENT_FORMAT_VERSION: u32 = 1;
 /// 持久化缓存的默认容量（磁盘缓存面向多项目，比内存默认稍大）
 const PERSISTENT_CAPACITY: usize = 512;
 
-impl TranslationCache {
+impl 转译缓存 {
     /// 新建缓存（容量至少为 1）
     pub fn new(capacity: usize) -> Self {
         Self {
@@ -463,14 +468,14 @@ impl TranslationCache {
     /// 基于排序后的键值对拼接哈希，与映射表的插入顺序无关。
     ///
     /// 四张表全部参与：关键字、模块路径、别名、派生特征。
-    /// 派生特征表由 `MappingManager` 从「派生特征」节单独存放（不并入
+    /// 派生特征表由 `映射管理器` 从「派生特征」节单独存放（不并入
     /// keyword_map，避免与方法名别名冲突），若漏算会导致只改派生表时
     /// 指纹不变、缓存返回旧转译产物。
     /// 另混入引擎源码指纹（build.rs 对 src/ 全量生成）：缓存不仅须跟随
     /// 语言包映射变化，也须跟随转译算法变化——否则升级 rzc 后（算法修复/
     /// 调整），源文件未变时旧缓存仍命中、修复不生效（真实事故：别名替换
     /// 细则修复后，旧转译产物继续被复用）。
-    pub fn generate_context_fingerprint(
+    pub fn 生成语境指纹(
         keyword_map: &HashMap<String, String>,
         module_path_map: &HashMap<String, String>,
         alias_map: &HashMap<String, String>,
@@ -500,7 +505,7 @@ impl TranslationCache {
     /// `None` 与「项目指纹恰为 0」的组合结果相同，会把「无项目上下文」与
     /// 「项目上下文指纹为 0」混为一谈而错误复用缓存。此处对 `None`/`Some`
     /// 使用显式标签，并用无歧义定界拼接后走稳定哈希（FNV-1a，跨进程一致，
-    /// 与 [`Self::generate_context_fingerprint`] 同一算法，便于磁盘缓存比对）。
+    /// 与 [`Self::生成语境指纹`] 同一算法，便于磁盘缓存比对）。
     pub fn combine_fingerprint(manager_fingerprint: u64, project_fingerprint: Option<u64>) -> u64 {
         let project_part = match project_fingerprint {
             Some(fp) => format!("project:{fp:#x}"),
@@ -543,9 +548,9 @@ impl TranslationCache {
         content: &str,
         context_fingerprint: u64,
         transpile_fn: F,
-    ) -> Result<TranspileOutput, TranspileError>
+    ) -> Result<TranspileOutput, 转译故障>
     where
-        F: FnOnce() -> Result<TranspileOutput, TranspileError>,
+        F: FnOnce() -> Result<TranspileOutput, 转译故障>,
     {
         // 预计算哈希一次（旧实现 miss 路径计算两次）
         let hash = Self::compute_content_hash(content);
@@ -749,25 +754,26 @@ mod tests {
 
     #[test]
     fn test_map_text_serde_keeps_string_shape() {
-        // 序列化形制与旧版一致：仍是 JSON 字符串（缓存文件无需失效）
-        let entry = SourceMapEntry::new(3, 6, "函数", "fn");
+        // 序列化形制与旧版一致：仍是 JSON 字符串、键名仍是 v1 拼写
+        //（字段名已中文化，磁盘格式靠 `#[serde(rename)]` 定住，缓存文件无需失效）
+        let entry = 源码映射条目::new(3, 6, "函数", "fn");
         let json = serde_json::to_string(&entry).expect("序列化失败");
         assert_eq!(
             json,
             r#"{"source_offset":3,"length":6,"original":"函数","replacement":"fn"}"#
         );
-        let back: SourceMapEntry = serde_json::from_str(&json).expect("反序列化失败");
+        let back: 源码映射条目 = serde_json::from_str(&json).expect("反序列化失败");
         assert_eq!(back, entry);
         // 超长文本走堆后依然往返一致
         let 长 = "x".repeat(64);
-        let entry = SourceMapEntry::new(0, 64, 长.as_str(), 长.as_str());
-        let back: SourceMapEntry =
+        let entry = 源码映射条目::new(0, 64, 长.as_str(), 长.as_str());
+        let back: 源码映射条目 =
             serde_json::from_str(&serde_json::to_string(&entry).unwrap()).unwrap();
-        assert_eq!(back.replacement.as_str(), 长);
+        assert_eq!(back.替换文字.as_str(), 长);
     }
 
     fn sample_fingerprint() -> u64 {
-        TranslationCache::compute_content_hash("测试语境")
+        转译缓存::compute_content_hash("测试语境")
     }
 
     fn sample_output(suffix: &str) -> TranspileOutput {
@@ -776,22 +782,19 @@ mod tests {
 
     #[test]
     fn test_content_hash_deterministic_and_different() {
-        let hash1 = TranslationCache::compute_content_hash("函数 主函数() {}");
-        let hash2 = TranslationCache::compute_content_hash("函数 主函数() {}");
+        let hash1 = 转译缓存::compute_content_hash("函数 主函数() {}");
+        let hash2 = 转译缓存::compute_content_hash("函数 主函数() {}");
         assert_eq!(hash1, hash2);
-        assert_ne!(
-            hash1,
-            TranslationCache::compute_content_hash("函数 主函数() { }")
-        );
-        assert_ne!(TranslationCache::compute_content_hash(""), hash1);
+        assert_ne!(hash1, 转译缓存::compute_content_hash("函数 主函数() { }"));
+        assert_ne!(转译缓存::compute_content_hash(""), hash1);
     }
 
     /// 组合指纹：`None` 与 `Some(0)` 必须区分（异或会把二者混为一谈）
     #[test]
     fn test_combine_fingerprint_distinguishes_none_from_zero() {
         let 语言包 = sample_fingerprint();
-        let 无项目 = TranslationCache::combine_fingerprint(语言包, None);
-        let 零指纹项目 = TranslationCache::combine_fingerprint(语言包, Some(0));
+        let 无项目 = 转译缓存::combine_fingerprint(语言包, None);
+        let 零指纹项目 = 转译缓存::combine_fingerprint(语言包, Some(0));
         assert_ne!(无项目, 零指纹项目, "无项目上下文不应与指纹为 0 的项目同键");
     }
 
@@ -799,10 +802,10 @@ mod tests {
     #[test]
     fn test_combine_fingerprint_distinguishes_projects() {
         let 语言包 = sample_fingerprint();
-        let 甲 = TranslationCache::combine_fingerprint(语言包, Some(1));
-        let 乙 = TranslationCache::combine_fingerprint(语言包, Some(2));
+        let 甲 = 转译缓存::combine_fingerprint(语言包, Some(1));
+        let 乙 = 转译缓存::combine_fingerprint(语言包, Some(2));
         assert_ne!(甲, 乙);
-        assert_eq!(甲, TranslationCache::combine_fingerprint(语言包, Some(1)));
+        assert_eq!(甲, 转译缓存::combine_fingerprint(语言包, Some(1)));
     }
 
     #[test]
@@ -817,8 +820,8 @@ mod tests {
         ]);
         let empty = HashMap::new();
         assert_eq!(
-            TranslationCache::generate_context_fingerprint(&a, &empty, &empty, &empty),
-            TranslationCache::generate_context_fingerprint(&b, &empty, &empty, &empty)
+            转译缓存::生成语境指纹(&a, &empty, &empty, &empty),
+            转译缓存::生成语境指纹(&b, &empty, &empty, &empty)
         );
         let c = HashMap::from([
             ("函数".to_string(), "fn".to_string()),
@@ -826,15 +829,15 @@ mod tests {
             ("可变".to_string(), "mut".to_string()),
         ]);
         assert_ne!(
-            TranslationCache::generate_context_fingerprint(&a, &empty, &empty, &empty),
-            TranslationCache::generate_context_fingerprint(&c, &empty, &empty, &empty)
+            转译缓存::生成语境指纹(&a, &empty, &empty, &empty),
+            转译缓存::生成语境指纹(&c, &empty, &empty, &empty)
         );
     }
 
     /// 语境指纹须覆盖派生特征表
     ///
     /// 回归：指纹曾只算关键字 / 模块路径 / 别名三表，而「派生特征」节由
-    /// `MappingManager` 单独存放（不并入 keyword_map，避免与方法名别名冲突）。
+    /// `映射管理器` 单独存放（不并入 keyword_map，避免与方法名别名冲突）。
     /// 只改派生表时指纹不变，缓存会返回旧转译产物。
     #[test]
     fn test_context_fingerprint_covers_derive_map() {
@@ -845,20 +848,20 @@ mod tests {
 
         // 仅派生表内容不同 → 指纹必须不同，否则缓存不会失效
         assert_ne!(
-            TranslationCache::generate_context_fingerprint(&keywords, &empty, &empty, &derive_a),
-            TranslationCache::generate_context_fingerprint(&keywords, &empty, &empty, &derive_b)
+            转译缓存::生成语境指纹(&keywords, &empty, &empty, &derive_a),
+            转译缓存::生成语境指纹(&keywords, &empty, &empty, &derive_b)
         );
         // 派生表内容相同（与插入顺序无关）→ 指纹一致
         let derive_c = HashMap::from([("克隆".to_string(), "Clone".to_string())]);
         assert_eq!(
-            TranslationCache::generate_context_fingerprint(&keywords, &empty, &empty, &derive_a),
-            TranslationCache::generate_context_fingerprint(&keywords, &empty, &empty, &derive_c)
+            转译缓存::生成语境指纹(&keywords, &empty, &empty, &derive_a),
+            转译缓存::生成语境指纹(&keywords, &empty, &empty, &derive_c)
         );
     }
 
     #[test]
     fn test_hit_and_miss() {
-        let mut cache = TranslationCache::new(8);
+        let mut cache = 转译缓存::new(8);
         let fp = sample_fingerprint();
         let content = "函数 主函数() {}";
 
@@ -873,7 +876,7 @@ mod tests {
 
     #[test]
     fn test_content_change_causes_miss() {
-        let mut cache = TranslationCache::new(8);
+        let mut cache = 转译缓存::new(8);
         let fp = sample_fingerprint();
         cache.insert("函数 主函数() {}", fp, sample_output("甲"));
         assert!(cache.query("函数 主函数() { 让 x = 1; }", fp).is_none());
@@ -883,9 +886,9 @@ mod tests {
 
     #[test]
     fn test_context_change_invalidates_cache() {
-        let mut cache = TranslationCache::new(8);
-        let fp1 = TranslationCache::compute_content_hash("语言包版本 1");
-        let fp2 = TranslationCache::compute_content_hash("语言包版本 2");
+        let mut cache = 转译缓存::new(8);
+        let fp1 = 转译缓存::compute_content_hash("语言包版本 1");
+        let fp2 = 转译缓存::compute_content_hash("语言包版本 2");
         cache.insert("函数 主函数() {}", fp1, sample_output("旧"));
         assert!(cache.query("函数 主函数() {}", fp2).is_none());
         cache.insert("函数 主函数() {}", fp2, sample_output("新"));
@@ -897,7 +900,7 @@ mod tests {
 
     #[test]
     fn test_capacity_evicts_oldest() {
-        let mut cache = TranslationCache::new(2);
+        let mut cache = 转译缓存::new(2);
         let fp = sample_fingerprint();
         cache.insert("内容甲", fp, sample_output("甲"));
         cache.insert("内容乙", fp, sample_output("乙"));
@@ -912,7 +915,7 @@ mod tests {
     ///（长期运行如 LSP 会话下，过时条目累积是内存泄漏）
     #[test]
     fn test_queue_compacts_after_many_hits() {
-        let mut cache = TranslationCache::new(2);
+        let mut cache = 转译缓存::new(2);
         let fp = sample_fingerprint();
         cache.insert("内容甲", fp, sample_output("甲"));
         cache.insert("内容乙", fp, sample_output("乙"));
@@ -938,14 +941,14 @@ mod tests {
         let a = HashMap::from([("a=b".to_string(), "c".to_string())]);
         let b = HashMap::from([("a".to_string(), "b=c".to_string())]);
         assert_ne!(
-            TranslationCache::generate_context_fingerprint(&a, &empty, &empty, &empty),
-            TranslationCache::generate_context_fingerprint(&b, &empty, &empty, &empty)
+            转译缓存::生成语境指纹(&a, &empty, &empty, &empty),
+            转译缓存::生成语境指纹(&b, &empty, &empty, &empty)
         );
     }
 
     #[test]
     fn test_hit_refreshes_lru_order() {
-        let mut cache = TranslationCache::new(2);
+        let mut cache = 转译缓存::new(2);
         let fp = sample_fingerprint();
         cache.insert("内容甲", fp, sample_output("甲"));
         cache.insert("内容乙", fp, sample_output("乙"));
@@ -961,7 +964,7 @@ mod tests {
 
     #[test]
     fn test_get_or_transpile_closure_execution_count() {
-        let mut cache = TranslationCache::with_default_capacity();
+        let mut cache = 转译缓存::with_default_capacity();
         let fp = sample_fingerprint();
         let content = "函数 主函数() {}";
         let mut exec_count = 0;
@@ -989,31 +992,31 @@ mod tests {
 
     #[test]
     fn test_get_or_transpile_error_propagation() {
-        let mut cache = TranslationCache::with_default_capacity();
+        let mut cache = 转译缓存::with_default_capacity();
         let fp = sample_fingerprint();
         let content = "函数 主函数() {}";
 
         let result = cache.get_or_transpile(content, fp, || {
-            Err(TranspileError::InvalidInput {
-                reason: "模拟失败".to_string(),
+            Err(转译故障::输入无效 {
+                原因: "模拟失败".to_string(),
             })
         });
-        assert!(matches!(result, Err(TranspileError::InvalidInput { .. })));
+        assert!(matches!(result, Err(转译故障::输入无效 { .. })));
         assert_eq!(cache.current_count(), 0);
     }
 
     #[test]
     fn test_source_map_entry() {
-        let entry = SourceMapEntry::new(0, 6, "函数", "fn");
-        assert_eq!(entry.source_offset, 0);
+        let entry = 源码映射条目::new(0, 6, "函数", "fn");
+        assert_eq!(entry.源偏移, 0);
         assert_eq!(entry.length, 6);
         assert_eq!(entry.original, "函数");
-        assert_eq!(entry.replacement, "fn");
+        assert_eq!(entry.替换文字, "fn");
     }
 
     #[test]
     fn test_clear_and_stats() {
-        let mut cache = TranslationCache::new(4);
+        let mut cache = 转译缓存::new(4);
         let fp = sample_fingerprint();
         cache.insert("内容甲", fp, sample_output("甲"));
         cache.insert("内容乙", fp, sample_output("乙"));
@@ -1026,7 +1029,7 @@ mod tests {
 
     #[test]
     fn test_capacity_at_least_one() {
-        let cache = TranslationCache::new(0);
+        let cache = 转译缓存::new(0);
         assert_eq!(cache.capacity_value(), 1);
     }
 
@@ -1040,7 +1043,7 @@ mod tests {
 
         // 第一次：插入只累积变更，写盘延迟到 flush（或进程退出时 Drop 兜底）
         {
-            let mut cache = TranslationCache::persistent(&path);
+            let mut cache = 转译缓存::persistent(&path);
             cache.insert("函数 主函数() {}", fp, sample_output("甲"));
             assert!(
                 !path.exists(),
@@ -1051,7 +1054,7 @@ mod tests {
         }
         // 第二次（模拟新进程）：从磁盘加载，可直接命中
         {
-            let cache = TranslationCache::persistent(&path);
+            let cache = 转译缓存::persistent(&path);
             let hit = cache.query("函数 主函数() {}", fp);
             assert_eq!(hit.map(|o| o.output.as_str()), Some("翻译输出甲"));
             assert_eq!(cache.current_count(), 1);
@@ -1065,20 +1068,17 @@ mod tests {
         let fp = sample_fingerprint();
         let output = TranspileOutput::with_full_map(
             "fn 主函数() {}".to_string(),
-            vec![SourceMapEntry::new(0, 6, "函数", "fn")],
-            vec![SourceMapEntry::new(0, 6, "函数", "fn")],
+            vec![源码映射条目::new(0, 6, "函数", "fn")],
+            vec![源码映射条目::new(0, 6, "函数", "fn")],
         );
         {
-            let mut cache = TranslationCache::persistent(&path);
+            let mut cache = 转译缓存::persistent(&path);
             cache.insert("函数 主函数() {}", fp, output);
         }
-        let cache = TranslationCache::persistent(&path);
+        let cache = 转译缓存::persistent(&path);
         let hit = cache.query("函数 主函数() {}", fp).expect("应命中");
         assert_eq!(hit.output, "fn 主函数() {}");
-        assert_eq!(
-            hit.source_map,
-            vec![SourceMapEntry::new(0, 6, "函数", "fn")]
-        );
+        assert_eq!(hit.source_map, vec![源码映射条目::new(0, 6, "函数", "fn")]);
         assert_eq!(hit.pipeline_map.len(), 1);
     }
 
@@ -1087,7 +1087,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("创建临时目录失败");
         let path = dir.path().join("transpile.json");
         std::fs::write(&path, r#"{"version": 999, "entries": []}"#).expect("写入旧版本文件");
-        let cache = TranslationCache::persistent(&path);
+        let cache = 转译缓存::persistent(&path);
         assert_eq!(cache.current_count(), 0, "版本不匹配应丢弃");
     }
 
@@ -1096,7 +1096,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("创建临时目录失败");
         let path = dir.path().join("transpile.json");
         std::fs::write(&path, "这不是 JSON{{{ 内容").expect("写入损坏文件");
-        let cache = TranslationCache::persistent(&path);
+        let cache = 转译缓存::persistent(&path);
         assert_eq!(cache.current_count(), 0, "损坏文件应丢弃");
     }
 
@@ -1106,11 +1106,11 @@ mod tests {
         let path = dir.path().join("transpile.json");
         let fp = sample_fingerprint();
         {
-            let mut cache = TranslationCache::persistent(&path);
+            let mut cache = 转译缓存::persistent(&path);
             cache.insert("内容甲", fp, sample_output("甲"));
             cache.clear();
         }
-        let cache = TranslationCache::persistent(&path);
+        let cache = 转译缓存::persistent(&path);
         assert_eq!(cache.current_count(), 0, "清空后磁盘文件应同步为空");
     }
 
@@ -1121,14 +1121,14 @@ mod tests {
         let fp = sample_fingerprint();
         {
             // 容量 2：插入 3 条，最旧一条被淘汰
-            let mut cache = TranslationCache::persistent(&path);
+            let mut cache = 转译缓存::persistent(&path);
             cache.capacity = 2;
             cache.insert("内容甲", fp, sample_output("甲"));
             cache.insert("内容乙", fp, sample_output("乙"));
             cache.insert("内容丙", fp, sample_output("丙"));
             assert_eq!(cache.current_count(), 2);
         }
-        let cache = TranslationCache::persistent(&path);
+        let cache = 转译缓存::persistent(&path);
         assert_eq!(cache.current_count(), 2, "淘汰后的有效条目应完整持久化");
         assert!(cache.query("内容乙", fp).is_some());
         assert!(cache.query("内容丙", fp).is_some());
@@ -1144,14 +1144,14 @@ mod tests {
         let dir = tempfile::tempdir().expect("创建临时目录失败");
         let path = dir.path().join("transpile.json");
         let fp = sample_fingerprint();
-        let mut cache = TranslationCache::persistent(&path);
+        let mut cache = 转译缓存::persistent(&path);
         for 名 in ["甲", "乙", "丙", "丁"] {
             cache.insert(&format!("内容{名}"), fp, sample_output(名));
             assert!(!path.exists(), "flush 前不应有任何写盘");
         }
         assert_eq!(cache.current_count(), 4);
         cache.flush();
-        let 重载 = TranslationCache::persistent(&path);
+        let 重载 = 转译缓存::persistent(&path);
         assert_eq!(重载.current_count(), 4, "一次 flush 应写入全部累积条目");
         // 幂等：无新变更时再 flush 不产生写盘（文件 mtime 不变）
         let 修改前 = std::fs::metadata(&path).and_then(|m| m.modified()).ok();

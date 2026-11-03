@@ -37,6 +37,7 @@
 
 # toml
 "TOML处理" = "toml"
+"TOML值" = "Value"  # toml::Value（与 serde_json 的 `JSON值` 同英文不同域）
 "反序列化模块" = "de"
 "表格" = "Table"
 "字符串值" = "String"

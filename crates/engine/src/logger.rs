@@ -109,7 +109,7 @@ pub fn is_enabled(level: LogLevel) -> bool {
     level >= current_level()
 }
 
-/// 测试专用的日志级别守卫（纪律与 `语言::test_language` 一致）
+/// 测试专用的日志级别守卫（纪律与 `语言::钉住语言` 一致）
 ///
 /// 级别是进程全局（`LEVEL_STORE`），而 libtest 用多线程并发跑用例：任何
 /// 「改级别」或「断言级别」的用例都必须持 [`test_log_level`] 返回的守卫，
@@ -364,7 +364,7 @@ mod tests {
         // 级别文字走全局语言（`LogLevel::display_text` → `语言::t`）：断言中文
         // 「信息」就得持语言守卫，否则会与切语言的用例竞争——它把级别换成
         // `INFO`/`ИНФО`，本用例随机红（实测：工作区并行跑 release 全量时会咬）。
-        let _lang = crate::语言::test_language("zh");
+        let _lang = crate::语言::钉住语言("zh");
         let line = format_log_line(LogLevel::Info, "test_module", "test message 42");
         // 格式：[YYYY-MM-DD HH:MM:SS] [信息] [test_module] test message 42
         assert!(line.starts_with('['));

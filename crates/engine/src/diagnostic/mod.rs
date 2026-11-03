@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_e0308_ref_depth_hint_appended() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         // expected `&String`, found `String`：引用层数 1 vs 0，应追加提示
         let diagnostic = create_e0308_with_label("expected `&String`, found `String`");
         let translator = DiagnosticTranslator::new(
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn test_e0308_same_ref_depth_no_hint() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         // expected `&String`, found `&str`：层数 1 vs 1，不应追加提示
         let diagnostic = create_e0308_with_label("expected `&String`, found `&str`");
         let translator = DiagnosticTranslator::new(
@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn test_e0308_no_ref_no_hint() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         // expected `String`, found `i32`：均非引用，不应追加提示
         let diagnostic = create_e0308_with_label("expected `String`, found `i32`");
         let translator = DiagnosticTranslator::new(
@@ -210,7 +210,7 @@ mod tests {
     /// 核心类型不同（标量 vs 字符串等）时：引用层数提示为假阳性，不应追加
     #[test]
     fn test_e0308_different_base_types_no_ref_hint() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         for label in [
             "expected `&str`, found `String`",
             "expected `i32`, found `&str`",
@@ -273,7 +273,7 @@ mod tests {
     /// 无错误码消息：命中 [消息翻译] 节精确条目，标题与教学提示均翻译
     #[test]
     fn test_translate_without_code_matches_message_map() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 ["消息翻译"."format argument must be a string literal"]
 "消息模板" = "format 参数必须是字符串字面量"
@@ -300,7 +300,7 @@ mod tests {
     /// 前缀匹配：help 短语 "did you mean " 保留动态后缀（`foo`?）
     #[test]
     fn test_translate_help_prefix_keeps_dynamic_rest() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 ["消息翻译"."did you mean "]
 "消息模板" = "你是否想用 "
@@ -336,7 +336,7 @@ mod tests {
     /// Unicode 混淆 help：{q0}/{q1} 捕获占位符从单引号分段提取两个字符
     #[test]
     fn test_translate_help_unicode_quote_captures() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 ["消息翻译"."Unicode character '"]
 "消息模板" = "Unicode 字符 '{q0}' 形似 '{q1}'，但它并不是它"
@@ -374,7 +374,7 @@ mod tests {
     ///（回归：中文模块名误触发 `add 规则类型` 建议，且英文原文直接透出）
     #[test]
     fn test_translate_help_crate_add_suggestion_non_ascii_dropped() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let file = create_error_message_file("");
         let manager = ErrorTranslationManager::load_from_file(file.path()).unwrap();
         let translator = DiagnosticTranslator::new(manager, create_test_type_map());
@@ -409,7 +409,7 @@ mod tests {
     /// 且重写为 `rzc add`（教学引导走方言工具链）
     #[test]
     fn test_translate_help_crate_add_suggestion_ascii() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 ["消息翻译"."if you wanted to use a crate named "]
 "消息模板" = "若要使用名为 {q0} 的第三方库，请运行 `rzc add {q0}` 添加依赖"
@@ -454,7 +454,7 @@ mod tests {
     /// 'consider using `static`...' 只译出 '考虑 ' 前缀，中英混杂。
     #[test]
     fn test_builtin_zh_top_level_let_fully_translated() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let zh = crate::语言::builtin_file("zh", "errors.toml").expect("内置中文错误表应存在");
         let manager = ErrorTranslationManager::load_from_string(zh).unwrap();
         let translator = DiagnosticTranslator::new(manager, create_test_type_map());
@@ -534,7 +534,7 @@ mod tests {
     /// E0277 占位符填充后的实际类型名也应中文化（{类型}/{特征} → 中文 + 后缀匹配）
     #[test]
     fn test_translate_e0277_placeholder_types_localized() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 [E0277]
 "消息模板" = "类型 `{类型}` 未实现特征 `{特征}`"
@@ -569,7 +569,7 @@ mod tests {
     /// 后缀键（~ 开头）：动态名在消息中间的 lint 警告（dead_code/non_snake_case）
     #[test]
     fn test_translate_suffix_key_never_used() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 ["消息翻译"."function `"]
 "消息模板" = "函数 `{q0}` 从未被使用"
@@ -611,7 +611,7 @@ mod tests {
     /// 应回退提取并翻译 rustc 字面量占位符 `{integer}`
     #[test]
     fn test_translate_e0369_no_label_fallback_to_message() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 [E0369]
 "消息模板" = "类型不匹配：无法对 `{期望}` 和 `{实际}` 执行运算"
@@ -762,7 +762,7 @@ mod tests {
     #[test]
     fn test_extract_ownership_details_e0382() {
         // narrative_text 按当前语言取模板，需钉住 zh 并串行化
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         // rustc 对 E0382 输出：主 span 是再次使用处，副 span 标记移动发生
         let diagnostic = create_ownership_diagnostic(
             "E0382",
@@ -788,7 +788,7 @@ mod tests {
 
     #[test]
     fn test_extract_ownership_details_e0502() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         // E0502：主 span 是可变借用处，另有不可变借用处与 borrow later used here
         let diagnostic = create_ownership_diagnostic(
             "E0502",
@@ -822,7 +822,7 @@ mod tests {
     /// ——行号读反，初学者以为时间倒流。
     #[test]
     fn test_e0502_narrative_does_not_read_line_numbers_backwards() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let diagnostic = create_ownership_diagnostic(
             "E0502",
             "cannot borrow `分数` as mutable because it is also borrowed as immutable",
@@ -844,7 +844,7 @@ mod tests {
     /// 只有一方借用标签时回退旧句式：宁可少说，不可编造另一方行号。
     #[test]
     fn test_e0502_single_borrow_label_falls_back_to_old_narrative() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let diagnostic = create_ownership_diagnostic(
             "E0502",
             "cannot borrow `向量` as mutable because it is also borrowed as immutable",
@@ -892,7 +892,7 @@ mod tests {
 
     #[test]
     fn test_extract_ownership_details_e0507() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         // E0507：主 span 即移动发生处，无再次使用位置
         let diagnostic = create_ownership_diagnostic(
             "E0507",
@@ -942,7 +942,7 @@ mod tests {
 
     #[test]
     fn test_translate_diagnostic_with_ownership_details_and_narrative() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 [E0382]
 "消息模板" = "值在移动后被使用：`{变量名}`"
@@ -1051,7 +1051,7 @@ mod tests {
     ///（回归：E0624 输出 "字段或方法是私有的year` is private"）
     #[test]
     fn test_translate_code_entry_no_message_rest_concat() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 [E0624]
 "消息模板" = "字段或方法 `{名称}` 是私有的"
@@ -1085,7 +1085,7 @@ mod tests {
     ///（回归：输出 "特征 ` which provides ` 从未被使用"）
     #[test]
     fn test_translate_trait_which_provides_capture() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 ["消息翻译"."trait `"]
 "消息模板" = "特征 `{q0}` 从未被使用"
@@ -1110,7 +1110,7 @@ mod tests {
     /// 后缀链 + 双占位符（复数变体）：头段引号对完整，{q0}/{q1} 分别取首个/末个
     #[test]
     fn test_translate_variants_suffix_captures() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 ["消息翻译"."~ are never constructed"]
 "消息模板" = "`{q0}` 和 `{q1}` 从未被构造"
@@ -1164,7 +1164,7 @@ mod tests {
     /// 必须逐字一致，杜绝“同诊断 CLI 详、LSP 略”的分叉。
     #[test]
     fn cli_lsp_main_message_parity() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 [E0308]
 "消息模板" = "类型不匹配：期望 `{期望}`，实际得到 `{实际}`"
@@ -1223,7 +1223,7 @@ mod tests {
     /// 不得输出字面 `{模块名}`（多层模块断裂假红回归）
     #[test]
     fn e0583_module_name_placeholder_filled() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let toml_content = r#"
 [E0583]
 "消息模板" = "找不到模块 `{模块名}` 对应的文件"
@@ -1400,7 +1400,7 @@ mod tests {
     /// 故此处反向钉住：码表桩更精确时仍用桩。
     #[test]
     fn precise_code_stub_keeps_priority_over_coarse_message_entry() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let errors_toml = crate::语言::builtin_lang_files("zh")
             .into_iter()
             .find(|(name, _)| *name == "errors.toml")
@@ -1542,7 +1542,7 @@ mod tests {
     /// 不带反引号措辞保留不动，断言继续钉住「读者不会被告知去改一个不存在的东西」。
     #[test]
     fn non_ascii_extern_crate_name_is_localized_in_all_lang_packs() {
-        use crate::mapping_manager::MappingManager;
+        use crate::映射管理器::映射管理器;
         // `rzc check src/main.zh`（包名 `计算器`，同时有 src/lib.zh）实机原文
         let raw = "crate name `计算器` passed to `--extern` is not a valid ASCII identifier";
         for lang in ["zh", "ja", "ru", "de", "es", "fr", "pt", "hi", "ko", "ar"] {
@@ -1572,9 +1572,8 @@ mod tests {
 
         // zh 走 CLI 真实渲染口径（带类型映射）：译文不得被改成「`线程名`」
         let lang_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
-        let type_map = build_type_map(
-            &MappingManager::load_from_dir(&lang_dir).expect("内置 zh 语言包应可加载"),
-        );
+        let type_map =
+            build_type_map(&映射管理器::从目录载入(&lang_dir).expect("内置 zh 语言包应可加载"));
         let files = crate::语言::builtin_lang_files("zh");
         let errors_toml = files
             .iter()
@@ -1632,11 +1631,11 @@ mod tests {
     /// 的真表译名是什么」，不靠人背；也不造合成映射——要钉住的恰好是
     /// 「哪些词在真表里会被改写」。单语言（zh）的断言则直接硬写字面名。
     fn lang_pack_with_real_type_map(lang: &str) -> (DiagnosticTranslator, HashMap<String, String>) {
-        use crate::mapping_manager::MappingManager;
+        use crate::映射管理器::映射管理器;
         let lang_dir =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("lang-packs/{lang}"));
         let type_map = build_type_map(
-            &MappingManager::load_from_dir(&lang_dir)
+            &映射管理器::从目录载入(&lang_dir)
                 .unwrap_or_else(|e| panic!("{lang} 语言包应可加载：{e}")),
         );
         let files = crate::语言::builtin_lang_files(lang);
@@ -1670,7 +1669,7 @@ mod tests {
     /// 给出两套译文」（生产走内置嵌入数据，开发走语言包目录）。
     #[test]
     fn synonym_winner_is_deterministic_and_follows_pack_order() {
-        use crate::mapping_manager::MappingManager;
+        use crate::映射管理器::映射管理器;
         /// 两张反查表的胜出者差异（只列不一致的键）
         ///
         /// 反查表有上千项，直接 `assert_eq!` 会把两张表整份打进失败输出，
@@ -1688,12 +1687,11 @@ mod tests {
                 .collect()
         }
 
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         let 按目录加载 = |lang: &str| {
             let dir =
                 std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("lang-packs/{lang}"));
-            MappingManager::load_from_dir(&dir)
-                .unwrap_or_else(|e| panic!("{lang} 语言包应可加载：{e}"))
+            映射管理器::从目录载入(&dir).unwrap_or_else(|e| panic!("{lang} 语言包应可加载：{e}"))
         };
         for (lang, 主词条) in [
             ("zh", "可显示"),
@@ -1731,7 +1729,7 @@ mod tests {
                 .map(|(n, c)| (*n, *c))
                 .collect();
             let 内置 = build_type_map(
-                &MappingManager::load_from_builtin(
+                &映射管理器::从内置载入(
                     content("keywords.toml"),
                     content("module_paths.toml"),
                     content("stdlib.toml"),
@@ -1757,25 +1755,25 @@ mod tests {
     /// 条目的英文值必须全部出现在反查表键集里。
     #[test]
     fn reverse_candidates_cover_every_forward_entry() {
-        use crate::mapping_manager::MappingManager;
-        use crate::mapping_source::is_native_key;
+        use crate::映射源::是母语词条;
+        use crate::映射管理器::映射管理器;
         use std::collections::HashSet;
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         for lang in ["ar", "de", "es", "fr", "hi", "ja", "ko", "pt", "ru", "zh"] {
             let dir =
                 std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("lang-packs/{lang}"));
-            let Ok(manager) = MappingManager::load_from_dir(&dir) else {
+            let Ok(manager) = 映射管理器::从目录载入(&dir) else {
                 continue;
             };
             let 应有: HashSet<String> = [
-                manager.get_section_mapping("类型"),
-                Some(manager.get_module_path_map()),
-                Some(manager.get_alias_map()),
+                manager.取节映射("类型"),
+                Some(manager.取模块路径表()),
+                Some(manager.取别名表()),
             ]
             .into_iter()
             .flatten()
             .flat_map(|table| table.iter())
-            .filter(|(母语, _)| is_native_key(母语))
+            .filter(|(母语, _)| 是母语词条(母语))
             .map(|(_, 英文)| 英文.clone())
             .collect();
             let 实际: HashSet<String> = build_type_map(&manager).keys().cloned().collect();
@@ -1799,7 +1797,7 @@ mod tests {
     /// 必须保持英文——清单逐行钉住，新增同类模板会红。
     #[test]
     fn template_literal_identifiers_survive_localization() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
 
         // 码表桩路径：模板字面原样送达终端（实机 E0601 的 rustc 原文）
         let (translator, _) = lang_pack_with_real_type_map("zh");
@@ -1868,7 +1866,7 @@ mod tests {
     /// 「译成哪个词」钉死；改成从 `type_map` 反查就会把这部分断言变成空跑。
     #[test]
     fn injected_rustc_types_are_still_localized() {
-        let _guard = crate::语言::test_language("zh");
+        let _guard = crate::语言::钉住语言("zh");
         // 期望值硬写 zh 字面名，不取 type_map：见上方函数注释
         let (translator, _) = lang_pack_with_real_type_map("zh");
 
@@ -1901,7 +1899,7 @@ mod tests {
             .expect("zh 应命中 [E0369]");
         assert_eq!(
             rendered.text,
-            // 本用例已跑在 `test_language("zh")` 下，模板与 `{integer}` 显示名
+            // 本用例已跑在 `钉住语言("zh")` 下，模板与 `{integer}` 显示名
             // 都取 zh 字面（不在此引 `diag_rustc_integer` 键，以免把生产代码的
             // 引用位从 docs/ui-keys.en.md 的前三角里挤掉）
             "类型不匹配：无法对 `整数` 和 `字符串引用` 执行运算",

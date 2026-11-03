@@ -13,7 +13,7 @@
 //! 模块/类型/函数名不含连字符，`-` 只会出现在 crate 名段，故替换时对
 //! 映射值做 `-` → `_` 规范化安全。
 
-use crate::cache::SourceMapEntry;
+use crate::缓存::源码映射条目;
 use rustc_lexer::{TokenKind, tokenize};
 use std::collections::{HashMap, HashSet};
 
@@ -26,7 +26,7 @@ pub struct ReplaceResult {
     /// 替换后的文本
     pub output: String,
     /// 编辑表
-    pub edits: Vec<SourceMapEntry>,
+    pub edits: Vec<源码映射条目>,
 }
 
 /// 将源代码中的中文模块路径段替换为英文
@@ -132,7 +132,12 @@ where
                     //（映射值 `tracing-subscriber` 中的连字符非法）
                     let normalized = normalize_crate_hyphen(english);
                     let replacement = normalized.as_deref().unwrap_or(english);
-                    edits.push(SourceMapEntry::new(current_offset, len, text, replacement));
+                    edits.push(源码映射条目::new(
+                        current_offset,
+                        len,
+                        text,
+                        replacement,
+                    ));
                     output.push_str(&source[copied..current_offset]);
                     output.push_str(replacement);
                     copied = current_offset + len;
@@ -267,7 +272,7 @@ pub fn qualify_module_paths_with_map(
         };
         if needs_prefix {
             let prefixed = format!("crate::{}", text);
-            edits.push(SourceMapEntry::new(start, text.len(), text, &prefixed));
+            edits.push(源码映射条目::new(start, text.len(), text, &prefixed));
             output.push_str(&prefixed);
         } else {
             output.push_str(text);
@@ -928,10 +933,10 @@ mod tests {
             assert_eq!(fresh.output, reused.output, "{src:?}：译文不一致");
             assert_eq!(fresh.edits.len(), reused.edits.len(), "{src:?}：编辑条数");
             for (i, (a, b)) in fresh.edits.iter().zip(&reused.edits).enumerate() {
-                assert_eq!(a.source_offset, b.source_offset, "{src:?} 第 {i} 条偏移");
+                assert_eq!(a.源偏移, b.源偏移, "{src:?} 第 {i} 条偏移");
                 assert_eq!(a.length, b.length, "{src:?} 第 {i} 条长度");
                 assert_eq!(a.original, b.original, "{src:?} 第 {i} 条原文");
-                assert_eq!(a.replacement, b.replacement, "{src:?} 第 {i} 条替换文本");
+                assert_eq!(a.替换文字, b.替换文字, "{src:?} 第 {i} 条替换文本");
             }
         }
     }
@@ -943,7 +948,7 @@ mod tests {
         let result = replace_module_paths_with_map("使用 日志订阅 as 日志框架;", &map);
         assert_eq!(result.output, "使用 tracing_subscriber as 日志框架;");
         assert_eq!(result.edits.len(), 1);
-        assert_eq!(result.edits[0].replacement, "tracing_subscriber");
+        assert_eq!(result.edits[0].替换文字, "tracing_subscriber");
     }
 
     /// 无连字符的路径段不受规范化影响
@@ -997,9 +1002,9 @@ mod tests {
         assert_eq!(result.edits.len(), 1);
         let e = &result.edits[0];
         assert_eq!(e.original, "标准集合");
-        assert_eq!(e.replacement, "std::collections");
+        assert_eq!(e.替换文字, "std::collections");
         assert_eq!(
-            &"使用 标准集合::哈希映射;"[e.source_offset..e.source_offset + e.length],
+            &"使用 标准集合::哈希映射;"[e.源偏移..e.源偏移 + e.length],
             "标准集合"
         );
     }
@@ -1060,7 +1065,7 @@ mod tests {
         assert_eq!(result.edits.len(), 1);
         let e = &result.edits[0];
         assert_eq!(e.original, "辅助");
-        assert_eq!(e.replacement, "crate::辅助");
+        assert_eq!(e.替换文字, "crate::辅助");
     }
 
     /// 同文件类型声明名与模块名重名：裸路径按本地类型解析，不加前缀

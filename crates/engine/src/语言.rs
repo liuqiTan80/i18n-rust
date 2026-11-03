@@ -3,7 +3,7 @@
 //! 引擎内所有用户可见消息（错误、诊断、日志、分类名等）经此模块
 //! 按全局语言代码输出，彻底消除硬编码中文。
 //!
-//! - 语言由 CLI / LSP 启动时通过 [`set_language`] 指定，默认 `zh`；
+//! - 语言由 CLI / LSP 启动时通过 [`设定语言`] 指定，默认 `zh`；
 //! - 消息模板来自各语言包 `ui.toml` 的 `["界面消息"]` 节，编译期嵌入，
 //!   运行期惰性解析（每语言一次），占位符 `{}` 按出现顺序替换；
 //! - 缺失键依次回退：当前语言表 → 中文表 → 键名本身；这条回退链与
@@ -29,13 +29,13 @@ fn lang_lock() -> std::sync::MutexGuard<'static, String> {
 pub(crate) static LANG_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 /// 设置全局语言代码
-pub fn set_language(code: &str) {
+pub fn 设定语言(code: &str) {
     *lang_lock() = code.to_string();
 }
 
 /// RAII 语言作用域守卫：构造时设置语言，drop 时恢复进入前的值
 ///
-/// 用于测试与临时切换场景，消除手工 `set_language` + 末尾恢复
+/// 用于测试与临时切换场景，消除手工 `设定语言` + 末尾恢复
 /// 的遗忘风险（忘记恢复会在并行测试间污染全局语言，是历史
 /// flaky 的根因类别）。注意：守卫只保证恢复，不保证串行化；
 /// 测试中仍应配合 [`LANG_TEST_LOCK`] 持锁使用。
@@ -73,25 +73,25 @@ pub fn with_language(code: &str) -> LanguageGuard {
 /// 执行，避免一次偶发断言失败沿锁毒化放大为整批测试连环失败。
 /// 所有修改或断言全局语言的测试应统一使用本守卫。
 #[cfg(test)]
-pub(crate) struct LangTestGuard {
+pub(crate) struct 语言测试护 {
     _lang: LanguageGuard,
     _lock: std::sync::MutexGuard<'static, ()>,
 }
 
-/// 测试入口：`let _g = 语言::test_language("zh");` 串行化 + 语言钉住，离开自动恢复
+/// 测试入口：`let _g = 语言::钉住语言("zh");` 串行化 + 语言钉住，离开自动恢复
 #[cfg(test)]
-pub(crate) fn test_language(code: &str) -> LangTestGuard {
+pub(crate) fn 钉住语言(code: &str) -> 语言测试护 {
     let lock = LANG_TEST_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    LangTestGuard {
+    语言测试护 {
         _lang: LanguageGuard::enter(code),
         _lock: lock,
     }
 }
 
 /// 当前全局语言代码（未设置时为 zh）
-pub fn current_language() -> String {
+pub fn 当前语言() -> String {
     let lang = lang_lock();
     if lang.is_empty() {
         "zh".to_string()
@@ -135,7 +135,7 @@ pub fn builtin_lang_files(lang: &str) -> Vec<(&'static str, &'static str)> {
 ///
 /// 返回编译期嵌入的静态实例，调用方按引用查询即可，无需再解析 TOML；
 /// 需要 `["解释"]` 节或磁盘自定义覆盖时改用 [`crate::界面消息::消息表`]。
-pub fn builtin_message_table(code: &str) -> &'static HashMap<String, String> {
+pub fn 内置消息表(code: &str) -> &'static HashMap<String, String> {
     ui_table_for(code)
 }
 
@@ -201,12 +201,12 @@ fn lang_info_extension(lang: &str) -> Option<String> {
 
 /// 取指定语言的消息模板；缺失时回退中文表，再缺失回退键名本身
 fn t_in(code: &str, key: &str) -> String {
-    crate::界面消息::取模板(builtin_message_table(code), key)
+    crate::界面消息::取模板(内置消息表(code), key)
 }
 
 /// 取当前语言的消息模板；缺失时回退中文表，再缺失回退键名本身
 pub fn t(key: &str) -> String {
-    t_in(&current_language(), key)
+    t_in(&当前语言(), key)
 }
 
 /// 按指定语言取消息模板并替换 `{}` 占位符（纯函数，测试与内部使用）
@@ -216,7 +216,7 @@ fn f_in(code: &str, key: &str, args: &[&str]) -> String {
 
 /// 取消息模板并替换 `{}` 占位符（按出现顺序）
 pub fn f(key: &str, args: &[&str]) -> String {
-    f_in(&current_language(), key, args)
+    f_in(&当前语言(), key, args)
 }
 
 #[cfg(test)]
@@ -225,16 +225,16 @@ mod tests {
 
     #[test]
     fn test_default_zh() {
-        let _guard = test_language("zh");
-        assert_eq!(current_language(), "zh");
+        let _guard = 钉住语言("zh");
+        assert_eq!(当前语言(), "zh");
         assert_eq!(t_in("zh", "err_line_col"), "第 {} 行第 {} 列");
         assert_eq!(t_in("zh", "cli_about"), "多语言 Rust 教学方言编译器");
     }
 
     #[test]
     fn test_set_language_de() {
-        let _guard = test_language("de");
-        assert_eq!(current_language(), "de");
+        let _guard = 钉住语言("de");
+        assert_eq!(当前语言(), "de");
         // 纯函数按语言取模板，不受全局状态干扰
         assert_eq!(t_in("de", "err_line_col"), "Zeile {}, Spalte {}");
         assert_eq!(f_in("de", "err_line_col", &["1", "2"]), "Zeile 1, Spalte 2");
@@ -242,20 +242,20 @@ mod tests {
 
     #[test]
     fn test_language_guard_restores_previous() {
-        let _guard = test_language("zh");
+        let _guard = 钉住语言("zh");
         {
             let _lang = with_language("ru");
-            assert_eq!(current_language(), "ru");
+            assert_eq!(当前语言(), "ru");
             // 嵌套守卫逐层恢复
             let _inner = with_language("de");
-            assert_eq!(current_language(), "de");
+            assert_eq!(当前语言(), "de");
         }
-        assert_eq!(current_language(), "zh");
+        assert_eq!(当前语言(), "zh");
     }
 
     #[test]
     fn test_fallback_chain() {
-        let _guard = test_language("de");
+        let _guard = 钉住语言("de");
         // unicode_name_* 已同步到全部语言包（英文 Unicode 标准名），直接命中德语表
         assert_eq!(
             t_in("de", "unicode_name_200B"),
@@ -271,7 +271,7 @@ mod tests {
         let codes = builtin_language_codes();
         assert!(codes.len() >= 10, "内置语言包数量异常: {}", codes.len());
         for code in codes {
-            let table = builtin_message_table(code);
+            let table = 内置消息表(code);
             for key in ["err_line_col", "diag_kind_error", "mapping_cat_keywords"] {
                 assert!(table.contains_key(key), "{code} 缺少 {key}");
             }

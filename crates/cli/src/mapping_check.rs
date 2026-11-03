@@ -151,7 +151,7 @@ fn extract_sections(content: &str) -> Result<(NameMap, NameMap), String> {
 
 /// 提取 keywords.toml 中所有节的“母语词 → 英文”映射
 ///
-/// 复用引擎权威语义（flatten_sections：按节名升序合并，后到覆盖），
+/// 复用引擎权威语义（摊平节表：按节名升序合并，后到覆盖），
 /// 与运行时实际生效的关键字映射保持一致，避免校验误报。
 /// `["派生特征"]` 节仅在 `#[派生(...)]` 属性内生效（不并入关键字表），
 /// 此处同步排除，否则与 stdlib/crates 的同键异值（如 `调试`: Debug/debug）
@@ -160,9 +160,9 @@ fn extract_sections(content: &str) -> Result<(NameMap, NameMap), String> {
 /// 用于关键字避让检测：需比较 crates 键与关键字的**值**是否一致，
 /// 同值视为安全冗余（关键字替换与 crates 替换结果相同），不同值才是真冲突。
 fn extract_keyword_map(content: &str) -> HashMap<String, String> {
-    match i18n_rust_engine::mapping_source::parse_toml_sections(content) {
+    match i18n_rust_engine::映射源::parse_toml_sections(content) {
         Ok(sections) => {
-            let mut map = i18n_rust_engine::mapping_source::flatten_sections(&sections);
+            let mut map = i18n_rust_engine::映射源::摊平节表(&sections);
             if let Some(derive) = sections.get("派生特征") {
                 for key in derive.keys() {
                     map.remove(key);
@@ -179,7 +179,7 @@ fn extract_keyword_map(content: &str) -> HashMap<String, String> {
 /// - `宏`：宏名 → 英文宏名，供宏调用自动补 `!`。缺失则 `get_macro_map()`
 ///   为空、宏调用不再补 `!`，产物非法却仍报「转译成功」，最难排查；
 /// - `派生特征`：`#[派生(...)]` 参数。缺失则派生参数不替换；
-/// - 其余节经 `flatten_sections` 合并进关键字表，缺节即整类方言词不可用。
+/// - 其余节经 `摊平节表` 合并进关键字表，缺节即整类方言词不可用。
 const 必需关键字节: &[&str] = &[
     "声明",
     "控制流",
@@ -208,17 +208,17 @@ fn check_danger_metadata(
     targets: &NameMap,
     keyword: bool,
 ) {
-    use i18n_rust_engine::mapping_source::{
-        DANGER_LEVEL_SECTION, DANGER_NOTE_SECTION, DangerLevel, is_always_panic_target,
+    use i18n_rust_engine::映射源::{
+        DANGER_LEVEL_SECTION, DANGER_NOTE_SECTION, 危险等级, 恒恐慌目标,
     };
 
-    let Ok(sections) = i18n_rust_engine::mapping_source::parse_toml_sections(content) else {
+    let Ok(sections) = i18n_rust_engine::映射源::parse_toml_sections(content) else {
         return; // TOML 解析错误已由其他检查项报告
     };
     let mut declared = HashSet::new();
     for (word, raw) in sections.get(DANGER_LEVEL_SECTION).into_iter().flatten() {
         declared.insert(word.as_str());
-        let Some(level) = DangerLevel::parse(raw) else {
+        let Some(level) = 危险等级::解析等级(raw) else {
             report
                 .errors
                 .push(format!("mc_danger_invalid|{file_name}|{word}|{raw}"));
@@ -230,12 +230,12 @@ fn check_danger_metadata(
                 .push(format!("mc_danger_orphan|{file_name}|{word}"));
             continue;
         };
-        if is_always_panic_target(target) && !level.panic {
+        if 恒恐慌目标(target) && !level.会恐慌 {
             report
                 .errors
                 .push(format!("mc_danger_understated|{file_name}|{word}|{target}"));
         }
-        if keyword && !level.rewrite {
+        if keyword && !level.会改写 {
             report
                 .errors
                 .push(format!("mc_danger_understated_rewrite|{file_name}|{word}"));
@@ -307,8 +307,7 @@ pub fn check_lang_pack(view: &LangPackView) -> CheckReport {
     // （关键字默认 rewrite、unwrap 类目标默认 panic，显式标注不得降级）
     {
         let mut keyword_targets = keyword_map.clone();
-        if let Ok(sections) =
-            i18n_rust_engine::mapping_source::parse_toml_sections(&view.keywords_toml)
+        if let Ok(sections) = i18n_rust_engine::映射源::parse_toml_sections(&view.keywords_toml)
             && let Some(derive) = sections.get("派生特征")
         {
             keyword_targets.extend(derive.iter().map(|(k, v)| (k.clone(), v.clone())));
@@ -579,18 +578,18 @@ impl CrossLangReport {
 
 /// 提取 keywords.toml 的扁平化关键字值集合与派生特征值集合
 ///
-/// 与引擎运行时语义一致（flatten_sections + 派生特征节单独存放），
+/// 与引擎运行时语义一致（摊平节表 + 派生特征节单独存放），
 /// 按**英文值**对齐而非母语键：各语言母语词不同（ja 用日语、de 用德语），
 /// 只有英文值是跨语言可比的"方言能力"。
 fn keyword_value_sets(content: &str) -> (HashSet<String>, HashSet<String>) {
-    match i18n_rust_engine::mapping_source::parse_toml_sections(content) {
+    match i18n_rust_engine::映射源::parse_toml_sections(content) {
         Ok(sections) => {
             let mut keyword = HashSet::new();
             let mut derive = HashSet::new();
             for (section, table) in &sections {
                 // 危险等级/备注是元数据节（值不是 Rust 名称），
                 // 并入值集合会把 panic 等标记当成缺失词条误报
-                if i18n_rust_engine::mapping_source::is_metadata_section(section) {
+                if i18n_rust_engine::映射源::is_metadata_section(section) {
                     continue;
                 }
                 let target = if section == "派生特征" {

@@ -3,7 +3,7 @@
 //! LSP 自己的 `lsp_*` 消息走 `crates/lsp/src/ui.rs` 的加载链，解析与代入落在
 //! 引擎侧的 `crates/engine/src/界面消息.rs`；引擎的用户可见
 //! 文本（Unicode 混淆 / 全角标点 / 教学 lint / 诊断模板）走 `语言::` 的**全局
-//! 语言**。改前 `init` 只加载前者、从不调 `语言::set_language`（CLI 在启动时
+//! 语言**。改前 `init` 只加载前者、从不调 `语言::设定语言`（CLI 在启动时
 //! 同步），于是德语/俄文用户的编辑器里「界面消息是母语、引擎教学文本恒为中文」。
 //!
 //! 本文件单独成一个测试二进制：`init` 写的是进程级全局（GLOBAL 与 CURRENT_LANG），
@@ -28,8 +28,8 @@ fn init_syncs_engine_language_and_kills_native_script_false_positives() {
 
     // 钉住「全局语言 = zh」这一改前状态：此时同形判定照常报（不是检测坏了，
     // 而是 LSP 根本没把用户语言告诉引擎）
-    语言::set_language("zh");
-    assert_eq!(语言::current_language(), "zh");
+    语言::设定语言("zh");
+    assert_eq!(语言::当前语言(), "zh");
     assert!(
         !check_unicode_confusion(source).is_empty(),
         "zh 语境下西里尔标识符应被判为同形异义（这正是 LSP 改前的实际状态）"
@@ -38,9 +38,9 @@ fn init_syncs_engine_language_and_kills_native_script_false_positives() {
     i18n_rust_lsp::ui::init(&lang_pack("ru"));
 
     assert_eq!(
-        语言::current_language(),
+        语言::当前语言(),
         "ru",
-        "init 应把命中的语言代码同步给引擎（改前从不调 set_language）"
+        "init 应把命中的语言代码同步给引擎（改前从不调 设定语言）"
     );
     assert!(
         check_unicode_confusion(source).is_empty(),

@@ -18,10 +18,10 @@ pub fn detect_keyword_conflicts(
     };
     // 复用引擎权威语义（按节名升序合并、后到覆盖），与运行时生效的
     // 关键字映射一致；否则按文档顺序先到先得会误报冲突
-    let Ok(sections) = i18n_rust_engine::mapping_source::parse_toml_sections(&content) else {
+    let Ok(sections) = i18n_rust_engine::映射源::parse_toml_sections(&content) else {
         return Vec::new();
     };
-    let keyword_map = i18n_rust_engine::mapping_source::flatten_sections(&sections);
+    let keyword_map = i18n_rust_engine::映射源::摊平节表(&sections);
     let mut conflicts = Vec::new();
     for (chinese, english) in chinese_name_table {
         if let Some(keyword_english) = keyword_map.get(chinese)

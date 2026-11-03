@@ -825,7 +825,7 @@ impl ResponseMapper {
                         "changes": {
                             original_uri: [{
                                 "range": range,
-                                "newText": format!("  // {}", i18n_rust_engine::lint::IGNORE_MARK)
+                                "newText": format!("  // {}", i18n_rust_engine::校验::IGNORE_MARK)
                             }]
                         }
                     }
@@ -1048,11 +1048,11 @@ mod tests {
     ) -> (
         ResponseMapper,
         tempfile::TempDir,
-        std::sync::Arc<crate::translation_cache::TranslationCache>,
+        std::sync::Arc<crate::translation_cache::转译缓存>,
     ) {
         use std::collections::HashMap;
         use std::sync::Arc;
-        let manager = i18n_rust_engine::mapping_manager::MappingManager::from_flat_maps(
+        let manager = i18n_rust_engine::映射管理器::映射管理器::从扁表构造(
             HashMap::from([
                 ("函数".into(), "fn".into()),
                 ("让".into(), "let".into()),
@@ -1062,8 +1062,8 @@ mod tests {
             HashMap::from([("长度".into(), "len".into()), ("向量".into(), "Vec".into())]),
         );
         let temp = tempfile::tempdir().unwrap();
-        let cache: Arc<crate::translation_cache::TranslationCache> =
-            crate::translation_cache::TranslationCache::new(manager, temp.path().to_path_buf());
+        let cache: Arc<crate::translation_cache::转译缓存> =
+            crate::translation_cache::转译缓存::new(manager, temp.path().to_path_buf());
         cache
             .update_document("file:///t/main.zh", source, 1)
             .unwrap();

@@ -23,7 +23,7 @@ static FALLBACK_ZH: OnceLock<Ui> = OnceLock::new();
 
 /// 初始化全局界面消息（用 --language-pack 目录加载）
 ///
-/// 同时把命中的语言代码同步给引擎全局语言（[`i18n_rust_engine::语言::set_language`]）：
+/// 同时把命中的语言代码同步给引擎全局语言（[`i18n_rust_engine::语言::设定语言`]）：
 /// 引擎侧的用户可见文本（Unicode 混淆 / 全角标点 / 教学 lint / 诊断模板）按**全局
 /// 语言**取模板，与 LSP 自己的 `lsp_*` 消息是两条链路。不同步的后果有两层：
 /// - 德语用户在编辑器里看到的引擎教学文本恒为中文（CLI 启动时就同步，见
@@ -32,7 +32,7 @@ static FALLBACK_ZH: OnceLock<Ui> = OnceLock::new();
 ///   被逐个判成「同形异义字符」，对合法代码刷假告警。
 pub fn init(lang_pack_path: &Path) {
     let (ui, lang) = Ui::load_with_lang(lang_pack_path);
-    i18n_rust_engine::语言::set_language(&lang);
+    i18n_rust_engine::语言::设定语言(&lang);
     let _ = GLOBAL.set(ui);
 }
 
@@ -121,12 +121,12 @@ impl Ui {
 
     /// 取消息模板：本表 → 内置中文表 → 键名本身
     pub fn t(&self, key: &str) -> String {
-        self.table.t(key)
+        self.table.取消息(key)
     }
 
     /// 取消息模板并替换 `{}` 占位符（按出现顺序）
     pub fn f(&self, key: &str, args: &[&str]) -> String {
-        self.table.f(key, args)
+        self.table.取带参消息(key, args)
     }
 
     /// 取大白话解释（缺失返回 None，调用方保持原样回退）

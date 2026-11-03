@@ -6,13 +6,13 @@
 
 use std::path::Path;
 
-use i18n_rust_engine::mapping_manager::MappingManager;
 use i18n_rust_engine::transpile_pipeline;
 use i18n_rust_engine::反译重生::反译重生;
+use i18n_rust_engine::映射管理器::映射管理器;
 
-fn manager(lang: &str) -> MappingManager {
+fn manager(lang: &str) -> 映射管理器 {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("lang-packs/{lang}"));
-    MappingManager::load_from_dir(&dir).unwrap_or_else(|e| panic!("加载 {lang} 语言包失败: {e}"))
+    映射管理器::从目录载入(&dir).unwrap_or_else(|e| panic!("加载 {lang} 语言包失败: {e}"))
 }
 
 /// zh 样例源码（声明/控制流/宏/字符串，字符串内含词条探针）

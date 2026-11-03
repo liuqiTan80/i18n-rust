@@ -26,7 +26,7 @@ static DIAGNOSTIC_TRANSLATOR: std::sync::OnceLock<
 /// 失败/缺失时回退内置 zh），使 LSP 主消息与 CLI 同 (code, message) 同译文。
 pub fn init_diagnostic_translator(
     lang_pack_path: &std::path::Path,
-    manager: &i18n_rust_engine::mapping_manager::MappingManager,
+    manager: &i18n_rust_engine::映射管理器::映射管理器,
 ) {
     let type_map = i18n_rust_engine::diagnostic::build_type_map(manager);
     let translation_manager =
@@ -752,13 +752,13 @@ pub(crate) fn fullwidth_diagnostics(entry: &TranslationEntry) -> Vec<Value> {
 /// 三个独立入口依次 extend 的顺序一致），与 CLI 同源。
 pub(crate) fn lint_teaching_diagnostics(
     entry: &TranslationEntry,
-    buckets: &i18n_rust_engine::lint::WordBuckets,
+    buckets: &i18n_rust_engine::校验::词形分桶,
     ambiguous_constructors: &HashSet<String>,
     fallback_map: &HashMap<String, String>,
     keyword_map: &HashMap<String, String>,
 ) -> Vec<Value> {
     let chars: Vec<char> = entry.zh_content.chars().collect();
-    i18n_rust_engine::lint::lint_teaching_all_with_buckets_chars(
+    i18n_rust_engine::校验::lint_teaching_all_with_buckets_chars(
         &chars,
         buckets,
         ambiguous_constructors,
@@ -793,7 +793,7 @@ pub(crate) fn lint_teaching_diagnostics(
 pub(crate) fn inject_teaching_diags(
     diags: &mut Vec<Value>,
     entry: &TranslationEntry,
-    buckets: &i18n_rust_engine::lint::WordBuckets,
+    buckets: &i18n_rust_engine::校验::词形分桶,
     ambiguous_constructors: &HashSet<String>,
     fallback_map: &HashMap<String, String>,
     keyword_map: &HashMap<String, String>,
@@ -827,14 +827,14 @@ pub(crate) fn is_teaching_diag(d: &Value) -> bool {
 }
 
 /// 教学 lint 规则 → LSP 诊断 code
-fn lint_code(kind: i18n_rust_engine::lint::LintKind) -> &'static str {
+fn lint_code(kind: i18n_rust_engine::校验::LintKind) -> &'static str {
     match kind {
-        i18n_rust_engine::lint::LintKind::UntypedLet => "lint-untyped-let",
-        i18n_rust_engine::lint::LintKind::MagicNumber => "lint-magic-number",
-        i18n_rust_engine::lint::LintKind::DeepIndent => "lint-deep-indent",
-        i18n_rust_engine::lint::LintKind::ConfusableMethod => "lint-confusable-method",
-        i18n_rust_engine::lint::LintKind::EnglishFallback => "lint-english-fallback",
-        i18n_rust_engine::lint::LintKind::ReservedNameCollision => "lint-reserved-name-collision",
+        i18n_rust_engine::校验::LintKind::UntypedLet => "lint-untyped-let",
+        i18n_rust_engine::校验::LintKind::MagicNumber => "lint-magic-number",
+        i18n_rust_engine::校验::LintKind::DeepIndent => "lint-deep-indent",
+        i18n_rust_engine::校验::LintKind::ConfusableMethod => "lint-confusable-method",
+        i18n_rust_engine::校验::LintKind::EnglishFallback => "lint-english-fallback",
+        i18n_rust_engine::校验::LintKind::ReservedNameCollision => "lint-reserved-name-collision",
     }
 }
 

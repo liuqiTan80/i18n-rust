@@ -280,10 +280,9 @@ fn build_reverse_index(
                 .or_insert_with(|| key.to_string());
         }
     };
-    if let Ok(sections) = i18n_rust_engine::mapping_source::parse_toml_sections(keywords_toml) {
+    if let Ok(sections) = i18n_rust_engine::映射源::parse_toml_sections(keywords_toml) {
         for (section, map) in &sections {
-            if section == "派生特征"
-                || i18n_rust_engine::mapping_source::is_metadata_section(section)
+            if section == "派生特征" || i18n_rust_engine::映射源::is_metadata_section(section)
             {
                 continue;
             }
@@ -293,9 +292,9 @@ fn build_reverse_index(
         }
     }
     for toml_content in [module_paths_toml, stdlib_toml] {
-        if let Ok(sections) = i18n_rust_engine::mapping_source::parse_toml_sections(toml_content) {
+        if let Ok(sections) = i18n_rust_engine::映射源::parse_toml_sections(toml_content) {
             for (section, map) in &sections {
-                if i18n_rust_engine::mapping_source::is_metadata_section(section) {
+                if i18n_rust_engine::映射源::is_metadata_section(section) {
                     continue;
                 }
                 for (k, v) in map {
@@ -305,9 +304,9 @@ fn build_reverse_index(
         }
     }
     for (_, content) in crates_data {
-        if let Ok(sections) = i18n_rust_engine::mapping_source::parse_toml_sections(content) {
+        if let Ok(sections) = i18n_rust_engine::映射源::parse_toml_sections(content) {
             for (section, map) in &sections {
-                if i18n_rust_engine::mapping_source::is_metadata_section(section) {
+                if i18n_rust_engine::映射源::is_metadata_section(section) {
                     continue;
                 }
                 for (k, v) in map {

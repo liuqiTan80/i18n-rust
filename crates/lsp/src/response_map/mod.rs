@@ -21,14 +21,14 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use crate::translation_cache::{TranslationCache, TranslationEntry, en_col_to_zh_col_single};
+use crate::translation_cache::{TranslationEntry, en_col_to_zh_col_single, 转译缓存};
 
 /// 响应映射器
 ///
 /// 持有翻译缓存的引用，负责将 rust-analyzer 的各种响应
 /// 中的位置/URI 从虚拟文件还原到原始中文文件。
 pub struct ResponseMapper {
-    cache: Arc<TranslationCache>,
+    cache: Arc<转译缓存>,
     /// 预构建的反向映射表（英文 → 母语），O(1) 查找且结果确定
     reverse_map: std::collections::HashMap<String, String>,
     /// 是否启用补全语言过滤（禁止串语言）
@@ -41,10 +41,10 @@ pub struct ResponseMapper {
 impl ResponseMapper {
     /// 创建新的响应映射器
     ///
-    /// 反向表直接复用 TranslationCache 构造时预构建的合并表
+    /// 反向表直接复用 转译缓存 构造时预构建的合并表
     /// （关键字反转后合并别名反转，多对一冲突保留排序最小者，
     /// 结果确定），避免每次构造映射器重复构建。
-    pub fn new(cache: Arc<TranslationCache>) -> Self {
+    pub fn new(cache: Arc<转译缓存>) -> Self {
         // 英文语言包为恒等映射（键=值），无需也无法做语言过滤
         let strict_native_filter = cache
             .keyword_map()
@@ -67,35 +67,37 @@ impl ResponseMapper {
         self.cache.query_original(uri)
     }
 
-    /// 获取教学 lint 已知词表（转发 TranslationCache，易混方法名提示用）
+    /// 获取教学 lint 已知词表（转发 转译缓存，易混方法名提示用）
     pub fn lint_words(&self) -> &std::collections::HashSet<String> {
         self.cache.lint_words()
     }
 
-    /// 获取教学 lint 的分桶索引（转发 TranslationCache，
+    /// 获取教学 lint 的分桶索引（转发 转译缓存，
     /// 教学诊断发布路径的一次扫描入口用，索引随语言包缓存一次）
-    pub fn lint_word_buckets(&self) -> &i18n_rust_engine::lint::WordBuckets {
+    pub fn lint_word_buckets(&self) -> &i18n_rust_engine::校验::词形分桶 {
         self.cache.lint_word_buckets()
     }
 
     /// 获取映射管理器的共享句柄（cargo 检查线程跨线程取词表用）
-    pub fn manager_arc(&self) -> std::sync::Arc<i18n_rust_engine::mapping_manager::MappingManager> {
+    pub fn manager_arc(
+        &self,
+    ) -> std::sync::Arc<i18n_rust_engine::映射管理器::映射管理器> {
         self.cache.manager_arc()
     }
 
-    /// 获取教学 lint 歧义构造器词集（转发 TranslationCache，
+    /// 获取教学 lint 歧义构造器词集（转发 转译缓存，
     /// 「未标注类型」仅提示无法自行推导的 new/default/collect 形态）
     pub fn ambiguous_constructor_words(&self) -> &std::collections::HashSet<String> {
         self.cache.ambiguous_constructor_words()
     }
 
-    /// 获取英文回落 lint 反向索引（转发 TranslationCache，
+    /// 获取英文回落 lint 反向索引（转发 转译缓存，
     /// 方言源码里写成英文且有母语词条的结构词提示用）
     pub fn english_fallback_map(&self) -> &std::collections::HashMap<String, String> {
         self.cache.english_fallback_map()
     }
 
-    /// 获取关键字映射表（转发 TranslationCache，
+    /// 获取关键字映射表（转发 转译缓存，
     /// 保留字撞名提示：声明名字转译后是否为 Rust 保留字）
     pub fn keyword_map(&self) -> &std::collections::HashMap<String, String> {
         self.cache.keyword_map()
@@ -201,7 +203,7 @@ impl ResponseMapper {
             return text.to_string();
         }
         // 补全片段无文档上下文：不删除任何 crate:: 前缀（宁可保留代理
-        // 前缀，也不误删用户手写的前缀——见 TranslationCache::reverse_transpile）
+        // 前缀，也不误删用户手写的前缀——见 转译缓存::reverse_transpile）
         self.cache.reverse_transpile(None, text)
     }
 
