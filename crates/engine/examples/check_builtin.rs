@@ -2,15 +2,15 @@ use i18n_rust_engine::映射管理器::映射管理器;
 use i18n_rust_engine::语言;
 
 fn main() {
-    let keywords = 语言::builtin_file("zh", "keywords.toml").unwrap();
+    let keywords = 语言::内置文件("zh", "keywords.toml").unwrap();
     println!(
         "内置 keywords.toml 包含 哪里: {}",
         keywords.contains("哪里")
     );
     let m = 映射管理器::从内置载入(
         keywords,
-        语言::builtin_file("zh", "module_paths.toml").unwrap(),
-        语言::builtin_file("zh", "stdlib.toml").unwrap(),
+        语言::内置文件("zh", "module_paths.toml").unwrap(),
+        语言::内置文件("zh", "stdlib.toml").unwrap(),
         &[],
     )
     .unwrap();

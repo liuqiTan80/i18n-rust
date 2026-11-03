@@ -25,7 +25,7 @@ use crate::translation_cache::{TranslationEntry, path_to_uri, 转译缓存};
 /// 单一来源：引擎 lang-packs 目录，避免清单与语言包漂移）；
 /// 可通过命令行 `--extensions` 参数覆盖
 fn default_extensions() -> Vec<String> {
-    i18n_rust_engine::语言::builtin_language_extensions()
+    i18n_rust_engine::语言::内置语言扩展名()
         .into_iter()
         .map(|e| format!(".{e}"))
         .collect()
@@ -1882,7 +1882,7 @@ fn load_builtin_zh_fallback() -> Option<i18n_rust_engine::映射管理器::映�
     let dir = tempfile::tempdir().ok()?;
     let zh_dir = dir.path().join("zh");
     std::fs::create_dir_all(&zh_dir).ok()?;
-    for (file, content) in i18n_rust_engine::语言::builtin_lang_files("zh") {
+    for (file, content) in i18n_rust_engine::语言::内置语言包文件("zh") {
         // crates/*.toml 等含子目录的文件：逐级创建父目录
         if let Some(parent) = std::path::Path::new(file).parent()
             && !parent.as_os_str().is_empty()

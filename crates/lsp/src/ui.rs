@@ -28,7 +28,7 @@ static FALLBACK_ZH: OnceLock<Ui> = OnceLock::new();
 /// 语言**取模板，与 LSP 自己的 `lsp_*` 消息是两条链路。不同步的后果有两层：
 /// - 德语用户在编辑器里看到的引擎教学文本恒为中文（CLI 启动时就同步，见
 ///   `crates/cli/src/main.rs`，两个入口口径不一致）；
-/// - `语言::uses_cyrillic_script` 也读全局语言：恒为 zh 时俄文方言的西里尔标识符
+/// - `语言::用西里尔文字` 也读全局语言：恒为 zh 时俄文方言的西里尔标识符
 ///   被逐个判成「同形异义字符」，对合法代码刷假告警。
 pub fn init(lang_pack_path: &Path) {
     let (ui, lang) = Ui::load_with_lang(lang_pack_path);
@@ -75,7 +75,7 @@ impl Ui {
     /// 语言代码与消息表由同一条链产出：两条链路各判一次语言，就会出现「界面消息
     /// 是德语、引擎教学文本是中文」的混合输出（缺陷 C）。
     /// 第 1 档的自定义目录里的 ui.toml 没有语言身份，按目录名登记：未知代码在
-    /// 引擎侧逐级回退内置中文表（`语言::t` 的回退链），与登记 zh 同形。
+    /// 引擎侧逐级回退内置中文表（`语言::取消息` 的回退链），与登记 zh 同形。
     pub fn load_with_lang(lang_pack_path: &Path) -> (Self, String) {
         let dir_lang = lang_pack_path
             .file_name()
@@ -137,7 +137,7 @@ impl Ui {
 
 /// 语言代码 → 内置 ui.toml（数据由引擎 crate 编译期嵌入）
 fn builtin_ui(lang_code: &str) -> Option<&'static str> {
-    i18n_rust_engine::语言::builtin_file(lang_code, "ui.toml")
+    i18n_rust_engine::语言::内置文件(lang_code, "ui.toml")
 }
 
 #[cfg(test)]

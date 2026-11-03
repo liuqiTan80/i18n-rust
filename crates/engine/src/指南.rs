@@ -42,8 +42,8 @@ struct 词条行 {
 }
 
 /// 词条表的一个分类：标题与该标题下的全部行（行序已稳定）
-struct 词条分类<'a> {
-    标题: &'a str,
+struct 词条分类<'甲> {
+    标题: &'甲 str,
     词条们: Vec<词条行>,
 }
 
@@ -233,13 +233,13 @@ fn 渲染分类表本体(分类们: &[词条分类<'_>], 语言码: &str) -> Str
 /// → 入口示例（语言包 `template_main`）→ 全量词条表 → 尾注。
 /// 全部文案来自 `ui.toml` 的 `guide_*` 键，随 `设定语言` 切换。
 pub fn 渲染母语指南(管理器: &映射管理器, 语言码: &str) -> String {
-    use crate::语言::{f as 带参消息, t as 消息};
+    use crate::语言::{取带参消息, 取消息};
     let 分类们 = 词条分类表(管理器);
     let 总条数: usize = 分类们.iter().map(|分| 分.词条们.len()).sum();
     let mut 出 = String::new();
-    出.push_str(&format!("{}\n\n", 带参消息("guide_title", &[语言码])));
-    出.push_str(&format!("{}\n\n", 带参消息("guide_intro", &[语言码])));
-    出.push_str(&format!("{}\n", 消息("guide_rules_head")));
+    出.push_str(&format!("{}\n\n", 取带参消息("guide_title", &[语言码])));
+    出.push_str(&format!("{}\n\n", 取带参消息("guide_intro", &[语言码])));
+    出.push_str(&format!("{}\n", 取消息("guide_rules_head")));
     // 不带占位符的规则条目按此顺序成组输出；工作流那条带参，单独走
     for 键 in [
         "guide_rule_keywords",
@@ -248,26 +248,29 @@ pub fn 渲染母语指南(管理器: &映射管理器, 语言码: &str) -> Strin
         "guide_rule_punct",
         "guide_rule_danger",
     ] {
-        出.push_str(&format!("{}\n", 消息(键)));
+        出.push_str(&format!("{}\n", 取消息(键)));
     }
     // 工作流规则含 `{}` 占位（入口文件扩展名 = 语言码），须带参渲染
-    出.push_str(&format!("{}\n", 带参消息("guide_rule_workflow", &[语言码])));
+    出.push_str(&format!(
+        "{}\n",
+        取带参消息("guide_rule_workflow", &[语言码])
+    ));
     // 实测坑（三引号多行字符串 / 取父路径返回借用）：来自真实项目踩坑，
     // 写进指南让人工智能助手少绕弯路；词条补齐母语支持后可删除本条规则
-    出.push_str(&format!("{}\n", 消息("guide_rule_pitfalls")));
-    出.push_str(&format!("{}\n", 消息("guide_rule_gaps")));
+    出.push_str(&format!("{}\n", 取消息("guide_rule_pitfalls")));
+    出.push_str(&format!("{}\n", 取消息("guide_rule_gaps")));
     出.push('\n');
-    出.push_str(&format!("{}\n\n", 消息("guide_example_head")));
+    出.push_str(&format!("{}\n\n", 取消息("guide_example_head")));
     出.push_str("```rust\n");
-    出.push_str(消息("template_main").trim_end());
+    出.push_str(取消息("template_main").trim_end());
     出.push_str("\n```\n\n");
     出.push_str(&format!(
         "{}\n\n",
-        带参消息("guide_table_head", &[&总条数.to_string()])
+        取带参消息("guide_table_head", &[&总条数.to_string()])
     ));
     // 词条表本体与 `rzc cheat --markdown` 同一份实现，只差标题井号数
     出.push_str(&渲染分类表本体(&分类们, 语言码));
-    出.push_str(&format!("{}\n", 消息("guide_footer")));
+    出.push_str(&format!("{}\n", 取消息("guide_footer")));
     出
 }
 

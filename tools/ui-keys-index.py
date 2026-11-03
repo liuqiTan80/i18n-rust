@@ -51,7 +51,7 @@ PACKAGE_JSON = os.path.join(REPO_ROOT, "tools", "vscode-extension", "package.jso
 
 # 动态取键前缀：键名在运行时拼出，静态扫描必然误判为死键。每条附出处。
 DYNAMIC_PREFIXES = {
-    # crate::语言::t(&format!("unicode_name_{:04X}", ch as u32))——同形字符诊断的字符名
+    # crate::语言::取消息(&format!("unicode_name_{:04X}", ch as u32))——同形字符诊断的字符名
     "unicode_name_": "crates/engine/src/unicode_confusion.rs (format! by codepoint)",
     # render_issue(): `code|arg1|arg2` 结构化问题条目按 code 取文案
     # （`"键|` 形态自 2026-11 起已被 build_index 直接识别，这条登记留作兜底：

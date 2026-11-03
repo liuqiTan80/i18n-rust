@@ -567,7 +567,10 @@ impl DiagnosticTranslator {
                         );
                         child.message.clone()
                     });
-                teaching_hints.push(crate::语言::f("diag_fix_suggestion", &[&hint]));
+                teaching_hints.push(crate::语言::取带参消息(
+                    "diag_fix_suggestion",
+                    &[&hint],
+                ));
             }
         }
 
@@ -583,7 +586,7 @@ impl DiagnosticTranslator {
                 && (exp_refs > 0 || fnd_refs > 0)
                 && ref_base_type(&expected) == ref_base_type(&found)
             {
-                teaching_hints.push(crate::语言::f(
+                teaching_hints.push(crate::语言::取带参消息(
                     "diag_ref_depth_hint",
                     &[
                         &localize_ref_type(&expected, &self.type_map),
@@ -676,10 +679,17 @@ impl DiagnosticTranslator {
     fn localize_rustc_literals(&self, message: String) -> String {
         let mut result = message;
         result = result
-            .replace("{integer}", &crate::语言::t("diag_rustc_integer"))
-            .replace("{float}", &crate::语言::t("diag_rustc_float"))
-            .replace("floating-point number", &crate::语言::t("diag_rustc_float"));
-        replace_whole_word(&result, "integer", &crate::语言::t("diag_rustc_integer"))
+            .replace("{integer}", &crate::语言::取消息("diag_rustc_integer"))
+            .replace("{float}", &crate::语言::取消息("diag_rustc_float"))
+            .replace(
+                "floating-point number",
+                &crate::语言::取消息("diag_rustc_float"),
+            );
+        replace_whole_word(
+            &result,
+            "integer",
+            &crate::语言::取消息("diag_rustc_integer"),
+        )
     }
 
     /// 对文本里**所有**反引号 token 做类型中文化（供 rustc 英文残段兜底使用）

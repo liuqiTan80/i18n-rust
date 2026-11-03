@@ -55,11 +55,11 @@ fn 诊断反例语料在全部内置语言包中译文无残留() {
 
     let mut failures: Vec<String> = Vec::new();
     let mut checked_langs = 0usize;
-    for code in i18n_rust_engine::语言::builtin_language_codes() {
+    for code in i18n_rust_engine::语言::内置语言代码() {
         if code == "en" {
             continue; // 直通语言，rustc 原文即英文，不查消息表
         }
-        let errors_toml = i18n_rust_engine::语言::builtin_lang_files(code)
+        let errors_toml = i18n_rust_engine::语言::内置语言包文件(code)
             .into_iter()
             .find(|(n, _)| *n == "errors.toml")
             .map(|(_, c)| c)

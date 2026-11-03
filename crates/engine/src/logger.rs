@@ -40,7 +40,7 @@ impl LogLevel {
             Self::Warn => "log_level_warn",
             Self::Error => "log_level_error",
         };
-        crate::语言::t(key)
+        crate::语言::取消息(key)
     }
 
     /// 从序号还原日志级别（用于从 AtomicU8 读取）
@@ -361,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_format_log_line_structure() {
-        // 级别文字走全局语言（`LogLevel::display_text` → `语言::t`）：断言中文
+        // 级别文字走全局语言（`LogLevel::display_text` → `语言::取消息`）：断言中文
         // 「信息」就得持语言守卫，否则会与切语言的用例竞争——它把级别换成
         // `INFO`/`ИНФО`，本用例随机红（实测：工作区并行跑 release 全量时会咬）。
         let _lang = crate::语言::钉住语言("zh");

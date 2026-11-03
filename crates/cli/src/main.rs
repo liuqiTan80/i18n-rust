@@ -2027,7 +2027,7 @@ fn transpile_with_map_cached_in_project(
                 i18n_rust_engine::log_warn!(
                     "cli",
                     "{}",
-                    i18n_rust_engine::语言::t("log_transpile_cache_fallback")
+                    i18n_rust_engine::语言::取消息("log_transpile_cache_fallback")
                 );
                 i18n_rust_engine::transpile_pipeline_quiet_with_project(source, manager, project)
             });

@@ -73,10 +73,10 @@ impl FullwidthWarning {
     /// 示例（zh）：`第 1 行第 5 列：检测到全角标点「，」，应改为半角「,」`
     pub fn format(&self) -> String {
         let guidance = match self.replacement {
-            Some(repl) => crate::语言::f("fullwidth_to_half", &[&repl.to_string()]),
-            None => crate::语言::t("fullwidth_hint_only"),
+            Some(repl) => crate::语言::取带参消息("fullwidth_to_half", &[&repl.to_string()]),
+            None => crate::语言::取消息("fullwidth_hint_only"),
         };
-        crate::语言::f(
+        crate::语言::取带参消息(
             "fullwidth_warning_at",
             &[
                 &self.line.to_string(),

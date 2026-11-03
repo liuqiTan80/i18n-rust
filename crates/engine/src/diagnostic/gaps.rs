@@ -25,7 +25,7 @@
 //! 虚报、去重失效（每轮实跑都重贴同一坨），语言列也只剩首行带着。
 //!
 //! 恒等语言例外：en 的「原文」就是母语输出，所以 [`record_gap`] 对
-//! [`crate::语言::is_identity_language`] 直接返回，不登记也不落盘。否则英语用户
+//! [`crate::语言::是恒等语言`] 直接返回，不登记也不落盘。否则英语用户
 //! 每次报错都会多一行「有 N 条消息暂无译文」（它在 en 下永远为真），
 //! `~/.rz/gaps/en.tsv` 也会积成一份无法补表的清单（实测曾积 1000+ 行）。
 
@@ -64,7 +64,7 @@ pub fn record_gap(lang: &str, level: &str, code: &str, message: &str) {
     } else {
         lang.to_string()
     };
-    if crate::语言::is_identity_language(&lang) {
+    if crate::语言::是恒等语言(&lang) {
         return;
     }
     let gap = (

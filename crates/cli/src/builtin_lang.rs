@@ -1,7 +1,7 @@
 //! 内置语言包 - 将默认语言包嵌入到可执行文件中
 //!
 //! 语言包 TOML 数据由引擎 crate 在编译期嵌入（include_str!），
-//! 本模块通过 [`i18n_rust_engine::语言::builtin_file`] 获取，
+//! 本模块通过 [`i18n_rust_engine::语言::内置文件`] 获取，
 //! 使得 rzc 可执行文件无需附带语言包目录即可独立运行。
 //! 通过 [`get_builtin_data`] 按语言代码获取对应的内置语言包，
 //! 未知语言代码自动回退到中文。
@@ -29,7 +29,7 @@ pub struct BuiltinLangData {
 /// - `$lang_dir`：语言包目录名（如 `"zh"`、`"de"`）
 ///
 /// 第三方库映射清单不再手工维护：从引擎编译期扫描结果
-/// （[`i18n_rust_engine::语言::builtin_lang_files`]，build.rs 生成）动态过滤
+/// （[`i18n_rust_engine::语言::内置语言包文件`]，build.rs 生成）动态过滤
 /// `crates/` 前缀条目，与语言包目录（单一数据源）天然一致，
 /// 新增/删除 crates 文件后无需修改本文件。
 macro_rules! define_builtin_lang {
@@ -37,7 +37,7 @@ macro_rules! define_builtin_lang {
         static $name: std::sync::LazyLock<BuiltinLangData> = std::sync::LazyLock::new(|| {
             // 第三方库映射数组需 'static 引用，用 Box::leak 提升（仅初始化一次）
             let crates_data: &'static [(&'static str, &'static str)] = Box::leak(Box::new(
-                i18n_rust_engine::语言::builtin_lang_files($lang_dir)
+                i18n_rust_engine::语言::内置语言包文件($lang_dir)
                     .into_iter()
                     .filter_map(|(path, content)| {
                         path.strip_prefix("crates/").map(|name| (name, content))
@@ -58,7 +58,7 @@ macro_rules! define_builtin_lang {
 
 /// 从引擎内置语言包取文件内容（缺失时 panic，内置数据必须完整）
 fn builtin_file_or_panic(lang: &str, file: &str) -> &'static str {
-    i18n_rust_engine::语言::builtin_file(lang, file).expect("内置语言包文件缺失：引擎未嵌入该文件")
+    i18n_rust_engine::语言::内置文件(lang, file).expect("内置语言包文件缺失：引擎未嵌入该文件")
 }
 
 // 英文内置语言包（恒等映射：Rust 本以英文书写；教程验证管线依赖 .en 扩展名）
@@ -142,7 +142,7 @@ pub fn get_builtin_data(lang_code: &str) -> &BuiltinLangData {
 /// 避免未知语言被静默回退到中文时用户无感知。
 /// 单一事实源：引擎 lang-packs 目录（build.rs 自动生成）。
 pub fn has_builtin_lang(lang_code: &str) -> bool {
-    i18n_rust_engine::语言::has_builtin_language(lang_code)
+    i18n_rust_engine::语言::有内置语言(lang_code)
 }
 
 /// 所有内置语言包的代码列表
@@ -152,7 +152,7 @@ pub fn has_builtin_lang(lang_code: &str) -> bool {
 /// 单一事实源：引擎 lang-packs 目录（build.rs 自动生成），
 /// 避免代码清单与语言包目录、扩展名清单并行维护而漂移。
 pub fn builtin_lang_codes() -> Vec<&'static str> {
-    i18n_rust_engine::语言::builtin_language_codes()
+    i18n_rust_engine::语言::内置语言代码()
 }
 
 #[cfg(test)]
@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn test_crates_data_per_lang() {
         for code in ["zh", "de", "ja", "ru", "es", "fr", "pt", "ko", "ar", "hi"] {
-            let scanned: Vec<&str> = i18n_rust_engine::语言::builtin_lang_files(code)
+            let scanned: Vec<&str> = i18n_rust_engine::语言::内置语言包文件(code)
                 .into_iter()
                 .filter_map(|(path, _)| path.strip_prefix("crates/"))
                 .collect();

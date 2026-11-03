@@ -455,7 +455,7 @@ mod tests {
     #[test]
     fn test_builtin_zh_top_level_let_fully_translated() {
         let _guard = crate::语言::钉住语言("zh");
-        let zh = crate::语言::builtin_file("zh", "errors.toml").expect("内置中文错误表应存在");
+        let zh = crate::语言::内置文件("zh", "errors.toml").expect("内置中文错误表应存在");
         let manager = ErrorTranslationManager::load_from_string(zh).unwrap();
         let translator = DiagnosticTranslator::new(manager, create_test_type_map());
 
@@ -1278,7 +1278,7 @@ mod tests {
             ),
             ("E0277", "`?` couldn't convert the error to `SignupError`"),
         ];
-        let files = crate::语言::builtin_lang_files("en");
+        let files = crate::语言::内置语言包文件("en");
         let errors_toml = files
             .iter()
             .find(|(name, _)| *name == "errors.toml")
@@ -1339,8 +1339,8 @@ mod tests {
         }
 
         let mut checked = 0usize;
-        for lang in crate::语言::builtin_language_codes() {
-            let errors_toml = crate::语言::builtin_lang_files(lang)
+        for lang in crate::语言::内置语言代码() {
+            let errors_toml = crate::语言::内置语言包文件(lang)
                 .into_iter()
                 .find(|(name, _)| *name == "errors.toml")
                 .map(|(_, content)| content)
@@ -1401,7 +1401,7 @@ mod tests {
     #[test]
     fn precise_code_stub_keeps_priority_over_coarse_message_entry() {
         let _guard = crate::语言::钉住语言("zh");
-        let errors_toml = crate::语言::builtin_lang_files("zh")
+        let errors_toml = crate::语言::内置语言包文件("zh")
             .into_iter()
             .find(|(name, _)| *name == "errors.toml")
             .map(|(_, content)| content)
@@ -1497,7 +1497,7 @@ mod tests {
             ),
         ];
         for (lang, code, rustc_message, wrong_noun) in cases {
-            let files = crate::语言::builtin_lang_files(lang);
+            let files = crate::语言::内置语言包文件(lang);
             let errors_toml = files
                 .iter()
                 .find(|(name, _)| *name == "errors.toml")
@@ -1546,7 +1546,7 @@ mod tests {
         // `rzc check src/main.zh`（包名 `计算器`，同时有 src/lib.zh）实机原文
         let raw = "crate name `计算器` passed to `--extern` is not a valid ASCII identifier";
         for lang in ["zh", "ja", "ru", "de", "es", "fr", "pt", "hi", "ko", "ar"] {
-            let files = crate::语言::builtin_lang_files(lang);
+            let files = crate::语言::内置语言包文件(lang);
             let errors_toml = files
                 .iter()
                 .find(|(name, _)| *name == "errors.toml")
@@ -1574,7 +1574,7 @@ mod tests {
         let lang_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh");
         let type_map =
             build_type_map(&映射管理器::从目录载入(&lang_dir).expect("内置 zh 语言包应可加载"));
-        let files = crate::语言::builtin_lang_files("zh");
+        let files = crate::语言::内置语言包文件("zh");
         let errors_toml = files
             .iter()
             .find(|(name, _)| *name == "errors.toml")
@@ -1638,7 +1638,7 @@ mod tests {
             &映射管理器::从目录载入(&lang_dir)
                 .unwrap_or_else(|e| panic!("{lang} 语言包应可加载：{e}")),
         );
-        let files = crate::语言::builtin_lang_files(lang);
+        let files = crate::语言::内置语言包文件(lang);
         let errors_toml = files
             .iter()
             .find(|(name, _)| *name == "errors.toml")
@@ -1715,7 +1715,7 @@ mod tests {
                 跨进程.iter().take(10).collect::<Vec<_>>()
             );
 
-            let files = crate::语言::builtin_lang_files(lang);
+            let files = crate::语言::内置语言包文件(lang);
             let content = |name: &str| {
                 files
                     .iter()
@@ -1965,8 +1965,8 @@ mod tests {
     /// 等于「不译，只截住桩」。其余 10 语言反向钉住：消息表非空。
     #[test]
     fn identity_language_packs_carry_only_identity_guards() {
-        for lang in crate::语言::builtin_language_codes() {
-            let files = crate::语言::builtin_lang_files(lang);
+        for lang in crate::语言::内置语言代码() {
+            let files = crate::语言::内置语言包文件(lang);
             let errors_toml = files
                 .iter()
                 .find(|(name, _)| *name == "errors.toml")
@@ -1979,7 +1979,7 @@ mod tests {
                 .and_then(|t| t.get("消息翻译"))
                 .and_then(|v| v.as_table());
             let 条目数 = 消息表.map(|t| t.len()).unwrap_or(0);
-            if crate::语言::is_identity_language(lang) {
+            if crate::语言::是恒等语言(lang) {
                 for (key, entry) in 消息表.into_iter().flatten() {
                     let template = entry
                         .get("消息模板")
@@ -2039,8 +2039,8 @@ mod tests {
         }
 
         let mut total = 0;
-        for lang in crate::语言::builtin_language_codes() {
-            let files = crate::语言::builtin_lang_files(lang);
+        for lang in crate::语言::内置语言代码() {
+            let files = crate::语言::内置语言包文件(lang);
             let errors_toml = files
                 .iter()
                 .find(|(name, _)| *name == "errors.toml")

@@ -43,7 +43,7 @@ pub fn init_diagnostic_translator(
 /// 物化引擎内嵌的中文 errors.toml 并加载翻译器（语言包目录缺失时兜底）
 fn builtin_zh_error_translator() -> Option<i18n_rust_engine::diagnostic::ErrorTranslationManager> {
     let dir = tempfile::tempdir().ok()?;
-    let content = i18n_rust_engine::语言::builtin_lang_files("zh")
+    let content = i18n_rust_engine::语言::内置语言包文件("zh")
         .iter()
         .find(|(f, _)| *f == "errors.toml")?
         .1;

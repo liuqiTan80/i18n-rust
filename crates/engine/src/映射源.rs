@@ -505,7 +505,7 @@ impl MappingCategory {
             MappingCategory::StdLib => "mapping_cat_stdlib",
             MappingCategory::ThirdParty => "mapping_cat_third_party",
         };
-        crate::语言::t(key)
+        crate::语言::取消息(key)
     }
 }
 

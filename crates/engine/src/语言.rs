@@ -1,296 +1,320 @@
-//! 全局语言与界面消息模块
+//! 全局语言与界面消息入口
 //!
-//! 引擎内所有用户可见消息（错误、诊断、日志、分类名等）经此模块
-//! 按全局语言代码输出，彻底消除硬编码中文。
+//! 引擎内所有用户可见消息（错误、诊断、日志、分类名等）都从本模块按全局语言
+//! 码输出，彻底消除硬编码中文。
 //!
-//! - 语言由 CLI / LSP 启动时通过 [`设定语言`] 指定，默认 `zh`；
-//! - 消息模板来自各语言包 `ui.toml` 的 `["界面消息"]` 节，编译期嵌入，
-//!   运行期惰性解析（每语言一次），占位符 `{}` 按出现顺序替换；
-//! - 缺失键依次回退：当前语言表 → 中文表 → 键名本身；这条回退链与
-//!   占位符替换、ui.toml 解析一并定义在 [`crate::ui`]，CLI / LSP 共用同一份。
+//! - 语言由命令行与语言服务器启动时通过 [`设定语言`] 指定，未指定时按中文；
+//! - 消息模板来自各语言包 `ui.toml` 的 `["界面消息"]` 节，编译期嵌入、运行期
+//!   惰性解析（每语言一次），占位符 `{}` 按出现顺序替换；
+//! - 缺失键依次回退：当前语言表 → 中文表 → 键名本身。这条回退链与占位符替换、
+//!   TOML 解析一并写在 [`包::界面消息`]，命令行与语言服务器共用同一份实现。
+//!
+//! ## 本模块的四条写法约束
+//!
+//! - **内嵌清单不写在源码里**。`内置清单`、`消息表路由`、每语言一张 `消息表_*`
+//!   都由 `crates/engine/build.rs` 扫描 `lang-packs/` 生成到 `内置生成.rs`，
+//!   文件末尾一句 `包含文件!(编译环境!(…))` 把它展开进来：构建脚本用
+//!   `cargo:rustc-env` 把生成文件的绝对路径交给编译期，于是这里不需要拼路径，
+//!   也不必给「拼接」这个宏补语言包词条（跨语言完整性要求每个关键字
+//!   在 11 个包里都存在）；增删语言包不改任何代码，重新编译即自动纳入；
+//! - **生成项是中文命名的**。构建脚本产出的那几项直接参与编译、不经转译，
+//!   而消费它们的方言源在全中文门禁下不能写英文项名，于是生成侧也用中文标识符；
+//! - **借用寿命由调用方选，不写死「整个程序期」**。内嵌数据本身活到最久，
+//!   声明成 `<'甲>` 由调用方按需实例化，收缩靠协变自动完成，于是方言源里
+//!   不必出现生命周期位的英文原名（该位置不吃词表，见台账 F16）；
+//! - **取消息按「是否带占位符参数」分两个入口**（[`取消息`] 与 [`取带参消息`]），
+//!   各配一个「按指定语言取」的内部版本，使测试能绕开全局语言状态直接断言
+//!   某语言的模板。
 
-use std::collections::HashMap;
-use std::sync::Mutex;
+use std::collections::{BTreeSet, HashMap};
+use std::sync::{Mutex, MutexGuard};
 
-/// 全局语言代码（默认 zh，由 CLI/LSP 启动时设置；可重复设置以便测试恢复）
-static CURRENT_LANG: Mutex<String> = Mutex::new(String::new());
+/// 全局语言码：未设定时按中文。命令行与语言服务器启动时设定，可重复设定，
+/// 便于测试跑完把现场恢复回去
+static 当前语言码: Mutex<String> = Mutex::new(String::new());
 
-/// 获取语言锁；投毒时恢复而非 panic（锁内无关键不变量，
-/// 仅存语言代码字符串，panic 传播会拖垮整个诊断输出链路）
-fn lang_lock() -> std::sync::MutexGuard<'static, String> {
-    CURRENT_LANG
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-}
+/// 用西里尔字母的语言码（码位升序，便于逐条核对）
+static 西里尔语言码表: &[&str] = &["be", "bg", "mk", "ru", "sr", "uk"];
 
-#[cfg(test)]
-/// 测试级互斥锁：串行化所有修改全局语言或断言语言相关文本的测试，
-/// 防止 test_set_language_de 等并行执行时把 CURRENT_LANG 污染为其他语言
-pub(crate) static LANG_TEST_LOCK: Mutex<()> = Mutex::new(());
-
-/// 设置全局语言代码
-pub fn 设定语言(code: &str) {
-    *lang_lock() = code.to_string();
-}
-
-/// RAII 语言作用域守卫：构造时设置语言，drop 时恢复进入前的值
+/// 取语言锁：锁中毒时接管继续用，不恐慌
 ///
-/// 用于测试与临时切换场景，消除手工 `设定语言` + 末尾恢复
-/// 的遗忘风险（忘记恢复会在并行测试间污染全局语言，是历史
-/// flaky 的根因类别）。注意：守卫只保证恢复，不保证串行化；
-/// 测试中仍应配合 [`LANG_TEST_LOCK`] 持锁使用。
-pub struct LanguageGuard {
-    previous: String,
-}
-
-impl LanguageGuard {
-    /// 切换到指定语言，记录进入前的语言供 drop 时恢复
-    pub fn enter(code: &str) -> Self {
-        let mut lang = lang_lock();
-        let previous = lang.clone();
-        *lang = code.to_string();
-        Self { previous }
+/// 锁里只存一个语言码字符串，没有需要守护的不变量；让一次偶发恐慌沿锁中毒
+/// 往上传，会把整条诊断输出链路一起拖垮，代价远大于接管继续。
+fn 语言锁<'甲>() -> MutexGuard<'甲, String> {
+    match 当前语言码.lock() {
+        Ok(守卫) => 守卫,
+        Err(中毒) => 中毒.into_inner(),
     }
 }
 
-impl Drop for LanguageGuard {
-    fn drop(&mut self) {
-        // mem::take 避免在 drop 中克隆；恢复后 previous 置空不再使用
-        *lang_lock() = std::mem::take(&mut self.previous);
-    }
-}
-
-/// 便捷入口：`let _g = 语言::with_language("ru");` 作用域内生效，离开自动恢复
-pub fn with_language(code: &str) -> LanguageGuard {
-    LanguageGuard::enter(code)
-}
-
-/// 测试语言守卫：持 [`LANG_TEST_LOCK`] 串行化并切换到指定语言，
-/// drop 时先恢复原语言后释放锁（字段声明顺序决定 drop 顺序，
-/// 断言 panic 也不会泄漏语言或锁）。
-///
-/// 加锁抗毒化：即使先前有测试持锁 panic 导致锁中毒，也接管继续
-/// 执行，避免一次偶发断言失败沿锁毒化放大为整批测试连环失败。
-/// 所有修改或断言全局语言的测试应统一使用本守卫。
 #[cfg(test)]
-pub(crate) struct 语言测试护 {
-    _lang: LanguageGuard,
-    _lock: std::sync::MutexGuard<'static, ()>,
+/// 测试级互斥锁：串行化所有改动或断言全局语言的测试，防止并行执行时把语言码
+/// 污染成别的语言
+pub(crate) static 语言测试锁: Mutex<()> = Mutex::new(());
+
+/// 设定全局语言码
+pub fn 设定语言(语言码: &str) {
+    *语言锁() = 语言码.to_string();
 }
 
-/// 测试入口：`let _g = 语言::钉住语言("zh");` 串行化 + 语言钉住，离开自动恢复
-#[cfg(test)]
-pub(crate) fn 钉住语言(code: &str) -> 语言测试护 {
-    let lock = LANG_TEST_LOCK
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    语言测试护 {
-        _lang: LanguageGuard::enter(code),
-        _lock: lock,
-    }
-}
-
-/// 当前全局语言代码（未设置时为 zh）
+/// 当前全局语言码（未设定时按中文）
 pub fn 当前语言() -> String {
-    let lang = lang_lock();
-    if lang.is_empty() {
-        "zh".to_string()
-    } else {
-        lang.clone()
+    let 现值 = 语言锁();
+    if 现值.is_empty() {
+        return "zh".to_string();
+    }
+    现值.clone()
+}
+
+/// 语言作用域守卫：构造时设定语言，离开作用域时恢复进入前的语言码
+///
+/// 给测试与临时切换用，消掉「手工设定 + 末尾记得恢复」的遗忘风险——漏恢复
+/// 会在并行测试之间污染全局语言，是历史偶发失败的根因类别。注意守卫只保证
+/// 恢复、不保证串行化，测试里仍须配合 [`语言测试锁`] 持锁。
+pub struct 语言护 {
+    先前: String,
+}
+
+/// 便捷入口：`让 _护 = 切换语言("ru");` 作用域内生效，离开自动恢复
+pub fn 切换语言(语言码: &str) -> 语言护 {
+    let mut 锁 = 语言锁();
+    let 先前 = 锁.clone();
+    *锁 = 语言码.to_string();
+    语言护 { 先前 }
+}
+
+impl Drop for 语言护 {
+    fn drop(&mut self) {
+        // 用取值把旧语言码换出来，免得在释放路径上再克隆一次
+        *语言锁() = std::mem::take(&mut self.先前);
     }
 }
 
-// build.rs 扫描 lang-packs/ 自动生成的内嵌清单（勿手工编辑）：
-// - BUILTIN_FILES：(语言代码, 相对路径, 内容) 全量清单
-// - UI_TABLE_*：每语言 ui.toml 消息表静态实例 + ui_table_for 路由
-// 新增语言包文件无需修改任何 Rust 代码，重新编译即自动纳入。
-include!(concat!(env!("OUT_DIR"), "/builtin_generated.rs"));
-
-/// 按语言代码取内置语言包文件的编译期内容（供 CLI / LSP 嵌入回退数据）
+#[cfg(test)]
+/// 测试语言守卫：持 [`语言测试锁`] 串行化并切换到指定语言，释放时先恢复原语言、
+/// 再放开锁（字段声明顺序决定释放顺序，断言恐慌也不会泄漏语言码或锁）
 ///
-/// `file` 为语言包目录内的相对路径，如 `"keywords.toml"`、
-/// `"crates/序列化.toml"`；未知语言或文件返回 `None`。
-/// 清单由 build.rs 扫描 lang-packs/ 自动生成，覆盖全部语言与文件。
-pub fn builtin_file(lang: &str, file: &str) -> Option<&'static str> {
-    BUILTIN_FILES
-        .iter()
-        .find(|(l, f, _)| *l == lang && *f == file)
-        .map(|(_, _, content)| *content)
+/// 取锁抗中毒：先前有测试持锁恐慌时本守卫照样接管继续，避免一次偶发断言失败
+/// 沿锁中毒放大成整批测试连环失败。改动或断言全局语言的测试一律用本守卫。
+pub(crate) struct 语言测试护<'甲> {
+    _护: 语言护,
+    _锁: MutexGuard<'甲, ()>,
 }
 
-/// 列出某语言的全部内嵌语言包文件（相对路径 → 内容）
+#[cfg(test)]
+/// 测试入口：`让 _护 = 钉住语言("zh");` 串行化 + 钉住语言码，离开自动恢复
+pub(crate) fn 钉住语言<'甲>(语言码: &str) -> 语言测试护<'甲> {
+    let 锁 = match 语言测试锁.lock() {
+        Ok(守卫) => 守卫,
+        Err(中毒) => 中毒.into_inner(),
+    };
+    语言测试护 {
+        _护: 切换语言(语言码),
+        _锁: 锁,
+    }
+}
+
+/// 按语言码取内嵌语言包文件的编译期内容（供命令行与语言服务器嵌入回退数据）
 ///
-/// 供 CLI / LSP 在无语言包目录时物化完整内置包：与磁盘语言包
-/// 完全同源（关键字/宏/别名全量），避免硬编码旧表随语言包演进
-/// 而残缺（如缺宏表、缺新关键字）导致转译不完整。
-pub fn builtin_lang_files(lang: &str) -> Vec<(&'static str, &'static str)> {
-    BUILTIN_FILES
+/// 相对路径是语言包目录内的路径，如 `keywords.toml`、`crates/序列化.toml`；
+/// 未知语言或未知文件返回无。清单由构建脚本扫目录生成，覆盖全部语言与文件。
+pub fn 内置文件<'甲>(语言码: &str, 相对路径: &str) -> Option<&'甲 str> {
+    内置清单
         .iter()
-        .filter(|(l, _, _)| *l == lang)
-        .map(|(_, f, c)| (*f, *c))
+        .find(|(所记语言, 所记路径, _)| *所记语言 == 语言码 && *所记路径 == 相对路径)
+        .map(|(_, _, 内容)| *内容)
+}
+
+/// 列出某语言的全部内嵌语言包文件（相对路径与内容成对给出）
+///
+/// 供命令行与语言服务器在没有语言包目录时物化完整内置包：与磁盘上的语言包同源
+/// （关键字/宏/别名全量），避免硬编码一份旧表随语言包演进残缺（缺宏表、缺新
+/// 关键字），害得转译只做一半。
+pub fn 内置语言包文件<'甲>(语言码: &str) -> Vec<(&'甲 str, &'甲 str)> {
+    内置清单
+        .iter()
+        .filter_map(|(所记语言, 所记路径, 内容)| {
+            if *所记语言 == 语言码 {
+                Some((*所记路径, *内容))
+            } else {
+                None
+            }
+        })
         .collect()
 }
 
-/// 按语言代码取内置消息表（未知语言回退中文表）；路由由 build.rs 生成
+/// 按语言码取内嵌消息表；未知语言回退中文表。路由分支由构建脚本生成
 ///
-/// 返回编译期嵌入的静态实例，调用方按引用查询即可，无需再解析 TOML；
-/// 需要 `["解释"]` 节或磁盘自定义覆盖时改用 [`crate::界面消息::消息表`]。
-pub fn 内置消息表(code: &str) -> &'static HashMap<String, String> {
-    ui_table_for(code)
+/// 拿到的是编译期嵌入的静态表，按引用查即可，不必再解析一次 TOML；需要
+/// `["解释"]` 节或磁盘自定义覆盖时改走 [`包::界面消息::消息表`]。
+pub fn 内置消息表(语言码: &str) -> &HashMap<String, String> {
+    消息表路由(语言码)
 }
 
-/// 内置语言包代码列表（从 lang-packs/ 目录自动生成，单一事实源）
+/// 内置语言码列表（由内嵌清单去重升序而来，是语言集合的单一事实源）
 ///
-/// 由 build.rs 扫描目录生成 [`BUILTIN_FILES`] 后在此去重排序；
-/// 新增/删除语言包无需修改任何 Rust 代码，重新编译即自动纳入。
-/// CLI / LSP 的语言清单（rzc lang、扩展名推断、系统语言检测）均以本函数为源。
-pub fn builtin_language_codes() -> Vec<&'static str> {
-    let mut codes: Vec<&'static str> = BUILTIN_FILES.iter().map(|(l, _, _)| *l).collect();
-    codes.sort_unstable();
-    codes.dedup();
-    codes
+/// 命令行的语言清单、扩展名推断、系统语言检测都以本函数为源；增删语言包不必
+/// 改任何代码，重新编译即自动纳入。「先收集、再排序、再去重」的三步换成有序
+/// 集合：升序与去重本来就是它的天然性质。
+pub fn 内置语言代码<'甲>() -> Vec<&'甲 str> {
+    let 语言码集: BTreeSet<&str> = 内置清单.iter().map(|(所记语言, _, _)| *所记语言).collect();
+    语言码集.iter().map(|语言码| *语言码).collect()
 }
 
-/// 判断语言代码是否使用西里尔字母文字系统
+/// 判断语言码是否使用西里尔字母文字系统
 ///
-/// 覆盖俄语 (ru)、乌克兰语 (uk)、白俄罗斯语、保加利亚语 (bg)、
-/// 塞尔维亚语 (sr)、马其顿语等使用西里尔字母的语言。
-/// 供 Unicode 混淆检测判断形似拉丁字母的西里尔字符是否为合法字符。
-pub fn uses_cyrillic_script(lang_code: &str) -> bool {
-    matches!(lang_code, "ru" | "uk" | "bg" | "sr" | "mk" | "be")
+/// 覆盖俄语、乌克兰语、白俄罗斯语、保加利亚语、塞尔维亚语、马其顿语等用西里尔
+/// 字母的语言，供 Unicode 混淆检测判断形似拉丁字母的西里尔字符是否为合法字符。
+pub fn 用西里尔文字(语言码: &str) -> bool {
+    西里尔语言码表.contains(&语言码)
 }
 
-/// 判断语言代码是否为**恒等语言**（译文与原文同语，不存在「未译」可言）
+/// 判断语言码是否为**恒等语言**（译文与原文同语，不存在「未译」可言）
 ///
-/// 英语是本项目唯一的恒等语言：rustc / cargo 的诊断本身就是英文，en 语言包因此
+/// 英语是本项目唯一的恒等语言：rustc 与 cargo 的诊断本身就是英文，英文包因此
 /// 不携带「消息翻译」节（`tools/check-lang-packs.py` 亦视之为预期），命中不了
-/// 消息表时按原句显示已经是最终形态。供待译清单（[`crate::diagnostic::gaps`]）
-/// 判定「这句英文算不算缺失」——给恒等语言登记待译，会把正常输出谎报成
-/// 「有 N 条消息暂无译文」，并刷出一份永远补不动的清单。
-pub fn is_identity_language(code: &str) -> bool {
-    code == "en"
+/// 消息表时按原句显示已经是最终形态。供待译清单判定「这句英文算不算缺失」——
+/// 给恒等语言登记待译，会把正常输出谎报成「有 N 条消息暂无译文」，并刷出一份
+/// 永远补不动的清单。
+pub fn 是恒等语言(语言码: &str) -> bool {
+    语言码 == "en"
 }
 
-/// 判断语言代码是否有对应的内置语言包
-pub fn has_builtin_language(code: &str) -> bool {
-    BUILTIN_FILES.iter().any(|(l, _, _)| *l == code)
+/// 判断语言码是否有对应的内置语言包
+pub fn 有内置语言(语言码: &str) -> bool {
+    内置清单.iter().any(|(所记语言, _, _)| *所记语言 == 语言码)
 }
 
-/// 内置语言包扩展名列表（来自各语言包 lang_info.toml 的 `"扩展名"` 字段）
+/// 内置语言包扩展名列表（取自各语言包 `lang_info.toml` 的「扩展名」字段）
 ///
-/// 与 [`builtin_language_codes`] 同源（代码与扩展名一一对应），
-/// 供 CLI / LSP 在缺省时推断方言文件扩展名，避免在各 crate 中
-/// 手工维护扩展名清单（历史上曾与语言包目录漂移）。
-pub fn builtin_language_extensions() -> Vec<String> {
-    builtin_language_codes()
-        .into_iter()
-        .filter_map(lang_info_extension)
+/// 与 [`内置语言代码`] 同源（语言码与扩展名一一对应），供命令行与语言服务器在
+/// 缺省时推断方言文件的扩展名，避免各包手工维护一份扩展名清单（历史上曾与
+/// 语言包目录漂移）。
+pub fn 内置语言扩展名() -> Vec<String> {
+    内置语言代码()
+        .iter()
+        .filter_map(|语言码| 语言信息扩展名(语言码))
         .collect()
 }
 
-/// 解析语言包 lang_info.toml 的扩展名字段
-fn lang_info_extension(lang: &str) -> Option<String> {
-    let content = builtin_file(lang, "lang_info.toml")?;
-    let value: toml::Value = toml::from_str(content).ok()?;
-    value
-        .get("语言包")?
-        .get("扩展名")?
-        .as_str()
-        .map(String::from)
+/// 读某语言 `lang_info.toml` 里的扩展名字段
+fn 语言信息扩展名(语言码: &str) -> Option<String> {
+    let 内容 = 内置文件(语言码, "lang_info.toml")?;
+    match toml::from_str::<toml::Value>(内容) {
+        Ok(文档) => 文档
+            .get("语言包")?
+            .get("扩展名")?
+            .as_str()
+            .map(|片段| 片段.to_string()),
+        Err(_) => None,
+    }
 }
 
-/// 取指定语言的消息模板；缺失时回退中文表，再缺失回退键名本身
-fn t_in(code: &str, key: &str) -> String {
-    crate::界面消息::取模板(内置消息表(code), key)
+/// 按指定语言取消息模板；缺失时回退中文表，再缺失回退键名本身
+fn 取消息于(语言码: &str, 键名: &str) -> String {
+    crate::界面消息::取模板(内置消息表(语言码), 键名)
 }
 
 /// 取当前语言的消息模板；缺失时回退中文表，再缺失回退键名本身
-pub fn t(key: &str) -> String {
-    t_in(&当前语言(), key)
+pub fn 取消息(键名: &str) -> String {
+    取消息于(&当前语言(), 键名)
 }
 
-/// 按指定语言取消息模板并替换 `{}` 占位符（纯函数，测试与内部使用）
-fn f_in(code: &str, key: &str, args: &[&str]) -> String {
-    crate::界面消息::代入参数(&t_in(code, key), args)
+/// 按指定语言取消息模板并按出现顺序代入 `{}` 占位符（纯函数，测试与内部使用）
+fn 取带参消息于(语言码: &str, 键名: &str, 消息参数: &[&str]) -> String {
+    crate::界面消息::代入参数(&取消息于(语言码, 键名), 消息参数)
 }
 
-/// 取消息模板并替换 `{}` 占位符（按出现顺序）
-pub fn f(key: &str, args: &[&str]) -> String {
-    f_in(&当前语言(), key, args)
+/// 取消息模板并按出现顺序代入 `{}` 占位符
+pub fn 取带参消息(键名: &str, 消息参数: &[&str]) -> String {
+    取带参消息于(&当前语言(), 键名, 消息参数)
 }
+
+// 内嵌清单的展开点：构建脚本扫语言包目录生成内容，并把生成文件的绝对路径
+// 交给编译期（`编译环境!` 读的那个变量名由构建脚本用 cargo:rustc-env 约定，
+// 是构建契约而非行文用词，故保持原名）。新增语言包文件不需要改这里，
+// 也不需要改任何 Rust 代码。
+include!(env!("BUILTIN_GENERATED_PATH"));
 
 #[cfg(test)]
-mod tests {
+mod 语言测试 {
     use super::*;
 
+    /// 内置语言包数量的下限：少于它就说明语言包目录被误删
+    const 最少内置语言数: usize = 10;
+
     #[test]
-    fn test_default_zh() {
-        let _guard = 钉住语言("zh");
+    fn 未设定时按中文取模板() {
+        let _护 = 钉住语言("zh");
         assert_eq!(当前语言(), "zh");
-        assert_eq!(t_in("zh", "err_line_col"), "第 {} 行第 {} 列");
-        assert_eq!(t_in("zh", "cli_about"), "多语言 Rust 教学方言编译器");
+        assert_eq!(取消息于("zh", "err_line_col"), "第 {} 行第 {} 列");
+        assert_eq!(取消息于("zh", "cli_about"), "多语言 Rust 教学方言编译器");
     }
 
     #[test]
-    fn test_set_language_de() {
-        let _guard = 钉住语言("de");
+    fn 设定语言后当前语言随之改变() {
+        let _护 = 钉住语言("de");
         assert_eq!(当前语言(), "de");
         // 纯函数按语言取模板，不受全局状态干扰
-        assert_eq!(t_in("de", "err_line_col"), "Zeile {}, Spalte {}");
-        assert_eq!(f_in("de", "err_line_col", &["1", "2"]), "Zeile 1, Spalte 2");
+        assert_eq!(取消息于("de", "err_line_col"), "Zeile {}, Spalte {}");
+        assert_eq!(
+            取带参消息于("de", "err_line_col", &["1", "2"]),
+            "Zeile 1, Spalte 2"
+        );
     }
 
     #[test]
-    fn test_language_guard_restores_previous() {
-        let _guard = 钉住语言("zh");
+    fn 守卫逐层恢复原语言() {
+        let _护 = 钉住语言("zh");
         {
-            let _lang = with_language("ru");
+            let _外层 = 切换语言("ru");
             assert_eq!(当前语言(), "ru");
-            // 嵌套守卫逐层恢复
-            let _inner = with_language("de");
+            let _内层 = 切换语言("de");
             assert_eq!(当前语言(), "de");
         }
         assert_eq!(当前语言(), "zh");
     }
 
     #[test]
-    fn test_fallback_chain() {
-        let _guard = 钉住语言("de");
-        // unicode_name_* 已同步到全部语言包（英文 Unicode 标准名），直接命中德语表
+    fn 缺失键逐级回退() {
+        let _护 = 钉住语言("de");
+        // `unicode_name_*` 已同步到全部语言包（字符标准名逐字照抄），直接命中德语表
         assert_eq!(
-            t_in("de", "unicode_name_200B"),
+            取消息于("de", "unicode_name_200B"),
             "\u{200b} (Zero Width Space)"
         );
-        // 完全缺失的键回退键名
-        assert_eq!(t_in("de", "no_such_key"), "no_such_key");
+        // 连中文表都没有该键时才回退键名，让漏译一眼可见
+        assert_eq!(取消息于("de", "no_such_key"), "no_such_key");
     }
 
     #[test]
-    fn test_all_langs_have_common_keys() {
-        // 语言集合来自 lang-packs 目录（单一事实源），随语言包增删自动适应
-        let codes = builtin_language_codes();
-        assert!(codes.len() >= 10, "内置语言包数量异常: {}", codes.len());
-        for code in codes {
-            let table = 内置消息表(code);
-            for key in ["err_line_col", "diag_kind_error", "mapping_cat_keywords"] {
-                assert!(table.contains_key(key), "{code} 缺少 {key}");
+    fn 全部语言都有公共键() {
+        // 语言集合来自语言包目录（单一事实源），随语言包增删自动适应
+        let 码表 = 内置语言代码();
+        assert!(
+            码表.len() >= 最少内置语言数,
+            "内置语言包数量异常: {}",
+            码表.len()
+        );
+        for 语言码 in &码表 {
+            let 内置表 = 内置消息表(语言码);
+            for 键名 in ["err_line_col", "diag_kind_error", "mapping_cat_keywords"] {
+                assert!(内置表.contains_key(键名), "{语言码} 缺少 {键名}");
             }
         }
     }
 
     #[test]
-    fn test_builtin_languages_single_source() {
-        // 代码列表与扩展名一一对应，且每语言都有 lang_info.toml 元数据
-        let codes = builtin_language_codes();
-        let extensions = builtin_language_extensions();
-        assert_eq!(codes.len(), extensions.len());
-        for code in &codes {
-            assert!(has_builtin_language(code), "{code} 应被识别为内置语言");
+    fn 语言码与扩展名一一对应() {
+        // 两个列表同源，且每语言都有 `lang_info.toml` 元数据
+        let 码表 = 内置语言代码();
+        let 扩展名表 = 内置语言扩展名();
+        assert_eq!(码表.len(), 扩展名表.len());
+        for 语言码 in &码表 {
+            assert!(有内置语言(语言码), "{语言码} 应被识别为内置语言");
         }
-        // 扩展名去重（任一语言有且仅有一个扩展名）
-        let mut sorted = extensions.clone();
-        sorted.sort();
-        sorted.dedup();
-        assert_eq!(sorted.len(), extensions.len());
+        // 扩展名去重：任一语言有且仅有一个扩展名（有序集的去重是天然性质）
+        let 去重后: BTreeSet<String> = 扩展名表.iter().map(|值| 值.clone()).collect();
+        assert_eq!(去重后.len(), 扩展名表.len());
     }
 }

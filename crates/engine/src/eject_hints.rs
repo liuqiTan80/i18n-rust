@@ -51,15 +51,15 @@ impl EjectHint {
         let line = self.line.to_string();
         let column = self.column.to_string();
         match self.kind {
-            EjectHintKind::FieldShadowed => crate::语言::f(
+            EjectHintKind::FieldShadowed => crate::语言::取带参消息(
                 "eject_hint_field_shadowed",
                 &[&line, &column, &self.word, &self.target],
             ),
-            EjectHintKind::DeclaredNameRewritten => crate::语言::f(
+            EjectHintKind::DeclaredNameRewritten => crate::语言::取带参消息(
                 "eject_hint_declared_name",
                 &[&line, &column, &self.word, &self.target],
             ),
-            EjectHintKind::PanicAsText => crate::语言::f(
+            EjectHintKind::PanicAsText => crate::语言::取带参消息(
                 "eject_hint_panic_as_text",
                 &[&line, &column, &self.word, &self.target],
             ),

@@ -51,7 +51,7 @@ impl DiagnosticLevel {
             Self::ICE => "diag_kind_ice",
             Self::Unknown(s) => return s.clone(),
         };
-        crate::语言::t(key)
+        crate::语言::取消息(key)
     }
 }
 
@@ -184,7 +184,7 @@ impl OwnershipDetails {
     pub fn narrative_text(&self) -> String {
         let var = &self.var_name;
         if let Some(conflict) = &self.borrow_conflict {
-            return crate::语言::f(
+            return crate::语言::取带参消息(
                 "diag_ownership_borrow_conflict",
                 &[
                     var,
@@ -198,7 +198,7 @@ impl OwnershipDetails {
             &self.borrow_location,
             &self.reuse_location,
         ) {
-            (Some(mv), None, Some(reuse)) => crate::语言::f(
+            (Some(mv), None, Some(reuse)) => crate::语言::取带参消息(
                 "diag_ownership_moved_reused",
                 &[
                     var,
@@ -206,7 +206,7 @@ impl OwnershipDetails {
                     &reuse.line_start.to_string(),
                 ],
             ),
-            (None, Some(borrow), Some(reuse)) => crate::语言::f(
+            (None, Some(borrow), Some(reuse)) => crate::语言::取带参消息(
                 "diag_ownership_borrowed_in_use",
                 &[
                     var,
@@ -214,14 +214,15 @@ impl OwnershipDetails {
                     &reuse.line_start.to_string(),
                 ],
             ),
-            (Some(mv), _, _) => {
-                crate::语言::f("diag_ownership_moved", &[var, &mv.line_start.to_string()])
-            }
-            (None, Some(borrow), _) => crate::语言::f(
+            (Some(mv), _, _) => crate::语言::取带参消息(
+                "diag_ownership_moved",
+                &[var, &mv.line_start.to_string()],
+            ),
+            (None, Some(borrow), _) => crate::语言::取带参消息(
                 "diag_ownership_borrowed",
                 &[var, &borrow.line_start.to_string()],
             ),
-            _ => crate::语言::f("diag_ownership_conflict", &[var]),
+            _ => crate::语言::取带参消息("diag_ownership_conflict", &[var]),
         }
     }
 }

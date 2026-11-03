@@ -111,7 +111,7 @@ fn transpile_source_cached_inner(
     crate::log_info!(
         "transpile_engine",
         "{}",
-        crate::语言::f("log_transpile_start", &[&source.len().to_string()])
+        crate::语言::取带参消息("log_transpile_start", &[&source.len().to_string()])
     );
 
     let fingerprint = 缓存::转译缓存::combine_fingerprint(
@@ -131,7 +131,7 @@ fn transpile_source_cached_inner(
     crate::log_info!(
         "transpile_engine",
         "{}",
-        crate::语言::f(
+        crate::语言::取带参消息(
             "log_transpile_done",
             &[
                 &source.len().to_string(),
@@ -1632,10 +1632,10 @@ mod tests {
     /// 本测试加载全部内置语言包，守护新增条目时不会引入互指。
     #[test]
     fn test_all_builtin_lang_packs_no_mapping_cycles() {
-        let codes = 语言::builtin_language_codes();
+        let codes = 语言::内置语言代码();
         assert!(codes.len() >= 9, "应覆盖全部内置语言：{codes:?}");
         for code in codes {
-            let files = 语言::builtin_lang_files(code);
+            let files = 语言::内置语言包文件(code);
             let get = |name: &str| {
                 files
                     .iter()
@@ -1670,8 +1670,8 @@ mod tests {
     /// 不硬编码具体词汇——新增语言包自动纳入守护。
     #[test]
     fn test_builtin_lang_packs_method_defer_words_reach_alias_stage() {
-        for code in 语言::builtin_language_codes() {
-            let files = 语言::builtin_lang_files(code);
+        for code in 语言::内置语言代码() {
+            let files = 语言::内置语言包文件(code);
             let get = |name: &str| {
                 files
                     .iter()
@@ -1722,10 +1722,10 @@ mod tests {
             "E0405", "E0425", "E0432", "E0502", "E0507", "E0508", "E0531", "E0573", "E0596",
             "E0597", "E0599", "E0603",
         ];
-        let codes = 语言::builtin_language_codes();
+        let codes = 语言::内置语言代码();
         assert!(codes.len() >= 9, "应覆盖全部内置语言：{codes:?}");
         for code in codes {
-            let files = 语言::builtin_lang_files(code);
+            let files = 语言::内置语言包文件(code);
             let errors_toml = files
                 .iter()
                 .find(|(n, _)| *n == "errors.toml")

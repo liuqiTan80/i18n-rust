@@ -6,7 +6,7 @@
 //! 语言**。改前 `init` 只加载前者、从不调 `语言::设定语言`（CLI 在启动时
 //! 同步），于是德语/俄文用户的编辑器里「界面消息是母语、引擎教学文本恒为中文」。
 //!
-//! 本文件单独成一个测试二进制：`init` 写的是进程级全局（GLOBAL 与 CURRENT_LANG），
+//! 本文件单独成一个测试二进制：`init` 写的是进程级全局（GLOBAL 与 语言::当前语言码），
 //! 不能与依赖默认语言的用例同进程并行。
 
 use std::path::PathBuf;
@@ -48,7 +48,7 @@ fn init_syncs_engine_language_and_kills_native_script_false_positives() {
         check_unicode_confusion(source)
     );
     // 引擎模板也随语言切换：同一键在 ru 表里是俄文，不再恒为中文
-    assert_eq!(语言::t("unicode_cat_homoglyph"), "символ-омоглиф");
+    assert_eq!(语言::取消息("unicode_cat_homoglyph"), "символ-омоглиф");
     // LSP 自己的消息表同一条链，界面语言与引擎语言不得分叉
     assert_eq!(
         i18n_rust_lsp::ui::global().t("lsp_about"),

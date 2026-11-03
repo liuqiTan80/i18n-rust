@@ -349,7 +349,7 @@ impl 转译缓存 {
                 crate::log_warn!(
                     "translation_cache",
                     "{}（{}）",
-                    crate::语言::t("log_cache_disk_discard"),
+                    crate::语言::取消息("log_cache_disk_discard"),
                     path.display()
                 );
             }
@@ -406,7 +406,7 @@ impl 转译缓存 {
             Err(e) => crate::log_warn!(
                 "translation_cache",
                 "{}（{}）",
-                crate::语言::t("log_cache_disk_save_failed"),
+                crate::语言::取消息("log_cache_disk_save_failed"),
                 e
             ),
         }
@@ -430,7 +430,10 @@ impl 转译缓存 {
         crate::log_info!(
             "translation_cache",
             "{}",
-            crate::语言::f("log_cache_disk_loaded", &[&self.entries.len().to_string()])
+            crate::语言::取带参消息(
+                "log_cache_disk_loaded",
+                &[&self.entries.len().to_string()]
+            )
         );
     }
 
@@ -483,10 +486,7 @@ impl 转译缓存 {
     ) -> u64 {
         let mut pairs: Vec<String> = Vec::new();
         // 引擎源码指纹：转译算法自身的身份，算法代码变化即失效全部缓存
-        pairs.push(format!(
-            "engine-source:{:#x}",
-            crate::语言::ENGINE_SOURCE_FINGERPRINT
-        ));
+        pairs.push(format!("engine-source:{:#x}", crate::语言::源码指纹));
         for map in [keyword_map, module_path_map, alias_map, derive_map] {
             for (key, value) in map {
                 // 长度前缀 + NUL 定界：键/值中出现任意字符（含 `=`、`\0`）
@@ -572,7 +572,7 @@ impl 转译缓存 {
             crate::log_info!(
                 "translation_cache",
                 "{}",
-                crate::语言::f(
+                crate::语言::取带参消息(
                     "log_cache_hit",
                     &[&content.len().to_string(), &context_fingerprint.to_string()]
                 )
@@ -583,7 +583,7 @@ impl 转译缓存 {
         crate::log_info!(
             "translation_cache",
             "{}",
-            crate::语言::f(
+            crate::语言::取带参消息(
                 "log_cache_miss",
                 &[&content.len().to_string(), &context_fingerprint.to_string()]
             )
@@ -673,7 +673,10 @@ impl 转译缓存 {
                     crate::log_debug!(
                         "translation_cache",
                         "{}",
-                        crate::语言::f("log_cache_evict", &[&front_hash.to_string()])
+                        crate::语言::取带参消息(
+                            "log_cache_evict",
+                            &[&front_hash.to_string()]
+                        )
                     );
                     break;
                 }

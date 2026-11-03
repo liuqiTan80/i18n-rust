@@ -1,11 +1,15 @@
 // 构建脚本：扫描 lang-packs/ 目录自动生成内嵌清单
 //
-// 消除 语言.rs 中手写的 include_str! 白名单（builtin_file match 与 ui_table! 宏列表）：
+// 消除 语言 模块里手写的 include_str! 白名单（内置文件查询的语言码分支与消息表分支）：
 // 语言包新增/删除文件后无需修改任何 Rust 代码，重新编译即自动纳入。
 //
-// 生成物（OUT_DIR/builtin_generated.rs，由 语言.rs include! 引入）：
-// - BUILTIN_FILES：(语言代码, 相对路径, 文件内容) 全量清单，供 builtin_file 查询
-// - UI_TABLE_*：每语言 ui.toml 的消息表静态实例，供 ui_table_for 查询
+// 生成物（OUT_DIR/内置生成.rs，由 语言.zh 的 `包含文件!` 展开在 语言 模块内；
+// 路径经 cargo:rustc-env 交给编译期）：
+// - 内置清单：(语言码, 相对路径, 文件内容) 全量清单，供 语言::内置文件 查询
+// - 消息表_*：每语言 ui.toml 的消息表静态实例，供 语言::消息表路由 查询
+//
+// 生成项一律用中文命名：消费方是方言源，写英文项名会在全中文门禁上记账
+// （中文标识符对 rustc 本身合法，生成物直接参与编译，不经转译）。
 //
 // 发布兼容性：lang-packs/ 位于 crate 目录内且已列入 Cargo.toml include 白名单，
 // crates.io 消费者编译时本脚本同样可扫描到完整数据。
@@ -53,7 +57,7 @@ fn collect_lang_files(lang_dir: &Path) -> LangFiles {
     LangFiles { files }
 }
 
-/// FNV-1a 64 位增量哈希（与 缓存.rs 的 compute_content_hash 同算法）
+/// FNV-1a 64 位增量哈希（与 缓存 模块的内容哈希同算法）
 fn fnv1a(hash: &mut u64, bytes: &[u8]) {
     for byte in bytes {
         *hash ^= *byte as u64;
@@ -117,8 +121,8 @@ fn main() {
 
     let mut code = String::from("// 由 build.rs 自动生成，勿手工编辑\n\n");
 
-    // ===== BUILTIN_FILES 全量清单 =====
-    code.push_str("static BUILTIN_FILES: &[(&str, &str, &str)] = &[\n");
+    // ===== 内置清单 全量清单 =====
+    code.push_str("static 内置清单: &[(&str, &str, &str)] = &[\n");
     let mut ui_tables = Vec::new();
     for dir in &lang_dirs {
         let lang = dir.file_name().unwrap().to_string_lossy().into_owned();
@@ -140,40 +144,47 @@ fn main() {
     // 替换修复后，旧产物仍被复用）。
     writeln!(
         code,
-        "pub(crate) static ENGINE_SOURCE_FINGERPRINT: u64 = {:#x};",
+        "pub(crate) static 源码指纹: u64 = {:#x};",
         engine_source_fingerprint(Path::new(&manifest_dir))
     )
     .unwrap();
     code.push('\n');
 
-    // ===== UI 消息表静态实例（每语言一个，惰性解析一次） =====
+    // ===== 消息表静态实例（每语言一个，惰性解析一次） =====
     for (i, (_, abs)) in ui_tables.iter().enumerate() {
         writeln!(
             code,
-            "static UI_TABLE_{i}: std::sync::LazyLock<std::collections::HashMap<String, String>> =\n    \
+            "static 消息表_{i}: std::sync::LazyLock<std::collections::HashMap<String, String>> =\n    \
              std::sync::LazyLock::new(|| crate::界面消息::解析界面消息(include_str!({abs:?})));"
         )
         .unwrap();
     }
     code.push('\n');
 
-    // ===== ui_table_for：按语言代码路由消息表（未知语言回退 zh） =====
+    // ===== 消息表路由：按语言码路由消息表（未知语言回退中文表） =====
     code.push_str(
-        "fn ui_table_for(code: &str) -> &'static std::sync::LazyLock<std::collections::HashMap<String, String>> {\n    match code {\n",
+        "fn 消息表路由(语言码: &str) -> &'static std::sync::LazyLock<std::collections::HashMap<String, String>> {\n    match 语言码 {\n",
     );
     for (i, (lang, _)) in ui_tables.iter().enumerate() {
         if lang == "zh" {
             continue; // zh 作为回退分支最后输出
         }
-        writeln!(code, "        {lang:?} => &UI_TABLE_{i},").unwrap();
+        writeln!(code, "        {lang:?} => &消息表_{i},").unwrap();
     }
     let zh_index = ui_tables
         .iter()
         .position(|(lang, _)| lang == "zh")
         .expect("zh 语言包必须存在（消息回退链依赖）");
-    writeln!(code, "        _ => &UI_TABLE_{zh_index},").unwrap();
+    writeln!(code, "        _ => &消息表_{zh_index},").unwrap();
     code.push_str("    }\n}\n");
 
-    fs::write(Path::new(&out_dir).join("builtin_generated.rs"), code)
-        .expect("写入生成的嵌入清单失败");
+    let 生成文件 = Path::new(&out_dir).join("内置生成.rs");
+    fs::write(&生成文件, code).expect("写入生成的嵌入清单失败");
+    // 把生成文件的绝对路径交给编译期：`语言` 模块据此展开 `包含文件!`。
+    // 走这条约定而不是在源码里拼 `OUT_DIR` 路径，方言源就不必用拼接宏，
+    // 也不必为它给全部语言包补词条。
+    println!(
+        "cargo:rustc-env=BUILTIN_GENERATED_PATH={}",
+        生成文件.display()
+    );
 }

@@ -23,7 +23,7 @@ impl ConfusionCategory {
             Self::BidiControl => "unicode_cat_bidi",
             Self::Homoglyph => "unicode_cat_homoglyph",
         };
-        crate::语言::t(key)
+        crate::语言::取消息(key)
     }
 }
 
@@ -48,7 +48,7 @@ impl ConfusionWarning {
     pub fn format(&self) -> String {
         // 格式占位符 {:04X} 先格式化再传入模板
         let codepoint = format!("{:04X}", self.character as u32);
-        crate::语言::f(
+        crate::语言::取带参消息(
             "unicode_warning_at",
             &[
                 &self.line.to_string(),
@@ -76,7 +76,7 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
     // 早先每个形似字符都要调一次 `当前语言()`（每次都 clone 一份语言
     // 代码串）再判文字系统——西里尔字母源码里几乎每个字母都命中同形表，
     // 这一步是 ru 语料上本阶段的主要开销
-    let native_cyrillic = crate::语言::uses_cyrillic_script(&crate::语言::当前语言());
+    let native_cyrillic = crate::语言::用西里尔文字(&crate::语言::当前语言());
 
     for (offset, ch) in source.char_indices() {
         if ch == '\n' {
@@ -101,7 +101,7 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
                 column: col,
                 character: ch,
                 category: ConfusionCategory::ZeroWidth,
-                detail: crate::语言::f(
+                detail: crate::语言::取带参消息(
                     "unicode_zero_width_hint",
                     &[&localized_char_name(ch, name)],
                 ),
@@ -112,7 +112,10 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
                 column: col,
                 character: ch,
                 category: ConfusionCategory::BidiControl,
-                detail: crate::语言::f("unicode_bidi_hint", &[&localized_char_name(ch, name)]),
+                detail: crate::语言::取带参消息(
+                    "unicode_bidi_hint",
+                    &[&localized_char_name(ch, name)],
+                ),
             });
         } else if let Some((similar, name)) = homoglyph_char(ch) {
             // 当前方言合法使用该文字时（如 ru 方言的西里尔字母）不构成混淆，跳过
@@ -122,7 +125,7 @@ pub fn check_unicode_confusion(source: &str) -> Vec<ConfusionWarning> {
                     column: col,
                     character: ch,
                     category: ConfusionCategory::Homoglyph,
-                    detail: crate::语言::f(
+                    detail: crate::语言::取带参消息(
                         "unicode_homoglyph_hint",
                         &[&similar.to_string(), &localized_char_name(ch, name)],
                     ),
@@ -171,7 +174,7 @@ fn bidi_control_name(ch: char) -> Option<&'static str> {
 fn localized_char_name(ch: char, english_name: &str) -> String {
     if crate::语言::当前语言() == "zh" {
         // 键名为 4 位大写十六进制（如 unicode_name_200B），与语言包一致
-        crate::语言::t(&format!("unicode_name_{:04X}", ch as u32))
+        crate::语言::取消息(&format!("unicode_name_{:04X}", ch as u32))
     } else {
         english_name.to_string()
     }
@@ -250,7 +253,7 @@ mod tests {
 
     /// 语言测试守卫：复用 语言::钉住语言（持全局测试锁串行化 +
     /// RAII 恢复语言 + 抗毒化；unicode 字符名仅 zh 语言包提供中文映射）
-    fn zh_guard() -> crate::语言::语言测试护 {
+    fn zh_guard() -> crate::语言::语言测试护<'static> {
         crate::语言::钉住语言("zh")
     }
 

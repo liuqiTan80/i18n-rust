@@ -80,18 +80,19 @@ impl LintWarning {
     /// 格式化为单行提示文本，模板随当前语言变化
     pub fn format(&self) -> String {
         match self.kind {
-            LintKind::UntypedLet => crate::语言::f(
+            LintKind::UntypedLet => crate::语言::取带参消息(
                 "lint_untyped_let",
                 &[&self.line.to_string(), &self.column.to_string()],
             ),
-            LintKind::MagicNumber => crate::语言::f(
+            LintKind::MagicNumber => crate::语言::取带参消息(
                 "lint_magic_number",
                 &[&self.line.to_string(), &self.column.to_string(), &self.text],
             ),
-            LintKind::DeepIndent => {
-                crate::语言::f("lint_deep_indent", &[&self.line.to_string(), &self.text])
-            }
-            LintKind::ConfusableMethod => crate::语言::f(
+            LintKind::DeepIndent => crate::语言::取带参消息(
+                "lint_deep_indent",
+                &[&self.line.to_string(), &self.text],
+            ),
+            LintKind::ConfusableMethod => crate::语言::取带参消息(
                 "lint_confusable_method",
                 &[
                     &self.line.to_string(),
@@ -100,7 +101,7 @@ impl LintWarning {
                     &self.extra,
                 ],
             ),
-            LintKind::EnglishFallback => crate::语言::f(
+            LintKind::EnglishFallback => crate::语言::取带参消息(
                 "lint_english_fallback",
                 &[
                     &self.line.to_string(),
@@ -109,7 +110,7 @@ impl LintWarning {
                     &self.extra,
                 ],
             ),
-            LintKind::ReservedNameCollision => crate::语言::f(
+            LintKind::ReservedNameCollision => crate::语言::取带参消息(
                 "lint_reserved_name_collision",
                 &[
                     &self.line.to_string(),

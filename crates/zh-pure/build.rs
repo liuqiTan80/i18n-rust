@@ -64,7 +64,7 @@ fn main() {
 
 /// 从编译期嵌入的 zh 语言包构造映射管理器（与 CLI 内置包同源）
 fn 加载映射() -> i18n_rust_engine::映射管理器::映射管理器 {
-    let 文件 = i18n_rust_engine::语言::builtin_lang_files("zh");
+    let 文件 = i18n_rust_engine::语言::内置语言包文件("zh");
     let 取 = |名: &str| {
         文件
             .iter()

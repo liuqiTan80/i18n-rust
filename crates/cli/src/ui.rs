@@ -138,7 +138,7 @@ pub fn detect_system_language_tag() -> Option<String> {
             let tag = lower.split(['_', '-', '.']).next().unwrap_or("").trim();
             // 普通话标签 cmn 归入中文（其余标签按内置语言代码集合精确匹配）
             let code = if tag == "cmn" { "zh" } else { tag };
-            if i18n_rust_engine::语言::builtin_language_codes().contains(&code) {
+            if i18n_rust_engine::语言::内置语言代码().contains(&code) {
                 return Some(code.to_string());
             }
         }

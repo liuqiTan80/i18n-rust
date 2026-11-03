@@ -60,7 +60,7 @@ use crate::缓存::转译缓存;
 ///
 /// 只对「在生效表里确实是这个值」的条目做候选（被后续来源覆盖的旧写法不能再
 /// 进诊断），见 [`组装反查候选`]。
-type 候选阶段<'a> = (Vec<(String, String)>, &'a HashMap<String, String>);
+type 候选阶段<'甲> = (Vec<(String, String)>, &'甲 HashMap<String, String>);
 
 /// Rust 保留关键字（码位升序）：词法层替换值落在里面时，方法位直译必为非法
 /// 产物（`.enum()`），只能让位给别名表
@@ -725,12 +725,12 @@ impl 载入源 {
     /// 顺序来自各来源 TOML 的书写序（先写的是主词条）；正向表用 `哈希映射`，
     /// 节内顺序在解析时就已丢失，若反查直接遍历正向表，同一英文名的多个母语
     /// 同义词谁胜出就成了跨进程随机数。
-    fn 反查阶段们<'a>(
-        &'a self,
-        模块路径表: &'a HashMap<String, String>,
-        类型节: &'a HashMap<String, String>,
-        标识符别名: &'a HashMap<String, String>,
-    ) -> Vec<候选阶段<'a>> {
+    fn 反查阶段们<'甲>(
+        &'甲 self,
+        模块路径表: &'甲 HashMap<String, String>,
+        类型节: &'甲 HashMap<String, String>,
+        标识符别名: &'甲 HashMap<String, String>,
+    ) -> Vec<候选阶段<'甲>> {
         // module_paths.toml 与各 crates/*.toml 同属「其余模块路径」一档，
         // 三方包表已按文件名序，接在后面即可
         let mut 其他模块路径 = 节条目(&self.模块路径文档, "模块路径");
