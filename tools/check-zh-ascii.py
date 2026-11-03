@@ -43,6 +43,7 @@ import argparse
 import importlib.util
 import json
 import re
+import subprocess
 import sys
 import tomllib
 from collections import Counter
@@ -68,9 +69,15 @@ PATHISH = re.compile(
 # 反引号区间里的代码标点：含这些符号的区间是「把产物文本逐字摆给读者看」
 # （`let x = 1;`、`Box::leak`、`matches!`），不是拿英文当行文用词；散文里的
 # `HashMap`/`stdlib`/`token` 不带代码标点，依旧判红。
-CODEPUNCT = re.compile(r"[;()\[\]{}=!|&*<>#:]")
+# 空白也算：`fn main`、`impl Debug` 这类两个词以上的区间必然是产物片段
+# （单个英文词才可能是「有中文词形却没写」的散文用词），本轮实测 `fn main`
+# 不含任何旧标点符号、被误判成散文后补上。
+CODEPUNCT = re.compile(r"[;()\[\]{}=!|&*<>:#]|\s")
 # 反引号区间里的命令引用：以真命令开头（`rzc build`、`cargo test --workspace`）
 CMDSTART = re.compile(r"(?:rzc|cargo|rustc|rustup|rustfmt|clippy|git|make|python3)\b")
+# 反引号区间里的命令行选项名（`--help`、-v）：与命令同性质，是对外契约的逐字
+# 引用——改写就敲不出那个选项。CODEPUNCT 不含 `-`，所以得单列一条。
+OPTSTART = re.compile(r"-{1,2}[A-Za-z][\w-]*$")
 # 连字符小写名：工具/文件/包名的惯常写法（rust-analyzer、rust-toolchain）
 KEBAB = re.compile(r"\b[a-z][a-z0-9]*(?:-[a-z0-9]+)+\b")
 # 编号类引用：台账条目 F16、编译错误码 E0308、基准项 B9 等（大写字母 + 数字）
@@ -116,7 +123,15 @@ def load_allowlist() -> set:
 
 
 def registered_forms() -> list:
-    """语言包全部键（词形），长词优先；含 ASCII 的词形一并收录"""
+    """语言包全部键（词形），长词优先；含 ASCII 的词形一并收录
+
+    `ui.toml` 整本排除：它的两节（`["界面消息"]` 622 项消息键、`["解释"]` 191 项
+    英文 API 名）键全是**英文原名**，不是母语词形。混进词形登记表等于给
+    `main`/`debug`/`clone` 这批「有中文词形却没写」的英文发通行证——注释区
+    扫到它们时会被 `strip_forms` 抹空，静默放行（本轮实测出来的第 4 层豁免漏洞）。
+    真正该保留的拉丁专名（`JSON`/`HTTP2`/`Actix`/`salvo`）另有
+    `tools/zh-comment-allowlist.json` 逐条登记，不靠这本文件。
+    """
     forms = set()
 
     def walk(node):
@@ -129,11 +144,33 @@ def registered_forms() -> list:
                 walk(v)
 
     for f in sorted(PACK.rglob("*.toml")):
+        if f.name == "ui.toml":
+            continue
         try:
             walk(tomllib.loads(f.read_text(encoding="utf-8")))
         except Exception as exc:  # noqa: BLE001 - 词形收集不因单文件失败而中断
             print(f"警告：{f.relative_to(REPO)} 解析失败：{exc}", file=sys.stderr)
     return sorted((x for x in forms if x and x != "版本"), key=len, reverse=True)
+
+
+def data_keys() -> set:
+    """`ui.toml` 的键全集：真实存在的数据标识符，逐字引用时不算「有词形不写」
+
+    与 registered_forms() 排除 ui.toml 是同一件事的两面：那些键（622 个消息键 +
+    191 个英文 API 索引名）**不是母语词形**，所以不能进词形登记表当通行证；
+    但它们是磁盘上真实存在的键名，注释里引用 `template_main`、
+    `panic_msg_index_oob` 与引用 `cache.rs` 同性质。豁免口径因此收紧为
+    **整个反引号区间逐字等于一个键**，而不是「长得像 snake_case 就放行」。
+    """
+    文件 = PACK / "ui.toml"
+    if not 文件.exists():
+        return set()
+    文档 = tomllib.loads(文件.read_text(encoding="utf-8"))
+    # 只收 `["界面消息"]`（622 个消息键）：它们是程序内部标识符，改了键就查不到
+    # 消息，注释里只能逐字引用。**不收 `["解释"]`**——那 191 项的键是英文 API 名
+    # （`clone`、`main`、`Option::unwrap`），个个都有中文词形，给它们发通行证等于
+    # 把「有词形却写英文原名」重新藏起来（本轮先收全、量到 3 处后才定此口径）。
+    return set(文档.get("界面消息", {}))
 
 
 def strip_forms(text: str, forms: list) -> str:
@@ -247,8 +284,8 @@ def strip_phrases(body: str, allow: set) -> str:
     return body
 
 
-def strip_spans(text: str) -> str:
-    """按反引号配对剖开，只把「代码形/命令形」的区间内容抹空
+def strip_spans(text: str, keys: frozenset = frozenset()) -> str:
+    """按反引号配对剖开，只把「代码形/命令形/选项名/数据键名」的区间内容抹空
 
     不用正则扫整行：rustdoc 链接 [`X`] 与命令引用 `rzc build` 相邻时，正则
     会把「上一个区间的结束反引号」当成「下一个区间的开始反引号」，跨区间
@@ -257,7 +294,8 @@ def strip_spans(text: str) -> str:
     parts = text.split("`")
     for i in range(1, len(parts), 2):
         seg = parts[i]
-        if CODEPUNCT.search(seg) or CMDSTART.match(seg):
+        if (CODEPUNCT.search(seg) or CMDSTART.match(seg) or OPTSTART.match(seg)
+                or seg.strip() in keys):
             parts[i] = " " * len(seg)
     return "`".join(parts)
 
@@ -279,14 +317,14 @@ def scan_single_names(path: Path) -> list:
     return out
 
 
-def scan_comments(path: Path, forms: list, allow: set) -> dict:
+def scan_comments(path: Path, forms: list, allow: set, keys: frozenset) -> dict:
     """注释区未中文化的英文：{词: [(行号, 该词所在片段)]}"""
     text = path.read_text(encoding="utf-8")
     hits = {}
     for lineno, raw in comment_lines(text):
         body = re.sub(r"^[\s/*]*", "", raw)
         body = PATHISH.sub(" ", body)
-        body = strip_spans(body)
+        body = strip_spans(body, keys)
         body = KEBAB.sub(" ", body)
         body = strip_phrases(body, allow)
         body = CODE.sub(" ", body)
@@ -301,7 +339,31 @@ def scan_comments(path: Path, forms: list, allow: set) -> dict:
 
 
 def zh_sources() -> list:
-    return sorted(p for p in REPO.glob("crates/**/*.zh") if ".zh-" not in p.name)
+    """门禁射程内的方言源。
+
+    三类都要管：`crates/**/*.zh` 是后端本体；`.zh-demo/**/*.zh` 是对外演示 crate、
+    `docs/**/*.zh` 是文档里的可运行样例——它们写的就是「方言能写到什么程度」的
+    门面，门面里留英文等于替英文背书。（glob 的通配段不匹配点开头目录，故
+    `.zh-demo` 写成字面量段。）
+    """
+    found = [p for p in REPO.glob("crates/**/*.zh") if ".zh-" not in p.name]
+    found += list(REPO.glob(".zh-demo/**/*.zh"))
+    found += list(REPO.glob("docs/**/*.zh"))
+    return sorted(found)
+
+
+def tracked_zh() -> set:
+    """git 跟踪的 .zh 全集（射程自校验用）；不在 git 仓库里时返回空集，自校验跳过
+
+    用 `-z` 取 NUL 分隔的原始字节：默认输出会把非 ASCII 路径转成 `"\345\210"`
+    这种 C 引用形式，中文文件名全部对不上号。
+    """
+    跑 = subprocess.run(
+        ["git", "ls-files", "-z", "--", "*.zh"], cwd=REPO, capture_output=True
+    )
+    if 跑.returncode != 0:
+        return set()
+    return {REPO / 项.decode("utf-8") for 项 in 跑.stdout.split(b"\0") if 项}
 
 
 def main() -> int:
@@ -312,10 +374,24 @@ def main() -> int:
 
     forms = registered_forms()
     allow = load_allowlist()
-    print(f"词形登记表收录 {len(forms)} 个词形，注释区专名豁免表收录 {len(allow)} 词")
+    keys = frozenset(data_keys())
+    print(f"词形登记表收录 {len(forms)} 个词形，注释区专名豁免表收录 {len(allow)} 词，"
+          f"数据键名豁免 {len(keys)} 项")
+
+    # 射程自校验：漏文件比漏词更危险——不在射程内的方言源，英文可以整篇隐身
+    # （`.zh-demo` 曾以「门禁只扫 crates/」为由带着成排英文活了很久）
+    sources = zh_sources()
+    漏 = sorted(str(p.relative_to(REPO)) for p in tracked_zh() - set(sources))
+    if 漏:
+        print(f"\n🔴 {len(漏)} 个被跟踪的方言源不在门禁射程内：")
+        for rel in 漏:
+            print(f"   {rel}")
+        print("   把对应目录加进 zh_sources()，或删掉这个方言源")
+        return 1
+
     current = {}
     detail = {}
-    for p in zh_sources():
+    for p in sources:
         rel = str(p.relative_to(REPO))
         c = scan_file(p, forms)
         current[rel] = sum(c.values())
@@ -323,9 +399,9 @@ def main() -> int:
 
     total = sum(current.values())
     comment_hits = {}
-    for p in zh_sources():
+    for p in sources:
         rel = str(p.relative_to(REPO))
-        c = scan_comments(p, forms, allow)
+        c = scan_comments(p, forms, allow, keys)
         if c:
             comment_hits[rel] = c
     comment_total = sum(sum(len(v) for v in c.values()) for c in comment_hits.values())
@@ -379,7 +455,7 @@ def main() -> int:
         print("   改写为中文术语；确需保留的往 tools/zh-comment-allowlist.json 附理由登记")
         return 1
     single = {}
-    for p in zh_sources():
+    for p in sources:
         rel = str(p.relative_to(REPO))
         s = scan_single_names(p)
         if s:
