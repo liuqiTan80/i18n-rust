@@ -1,21 +1,21 @@
 {
   "benchmark": "i18n-rust-engine/transpile",
-  "created": "2026-11-02",
+  "created": "2026-11-03",
   "unit": "ns（mean point_estimate；BENCH_RUNS 多样本取最小值）",
   "threshold_pct": 30,
   "results": {
-    "teaching_checks/collision_scan": 57160.70034658243,
-    "teaching_checks/fullwidth_scan": 25646.55364502923,
-    "teaching_checks/lint_scan": 51086.39481993858,
-    "teaching_checks/lint_scan_buckets": 44913.223720116206,
-    "teaching_checks/lint_scan_words": 103839.16816060204,
-    "teaching_checks/teaching_all_scan": 180573.0399954013,
-    "transpile/alias_stage_2000": 836130.0228109548,
-    "transpile/lexer_stage_2000": 842448.8797869275,
-    "transpile/pipeline_cache_hit": 213574.8305114675,
-    "transpile/pipeline_cache_hit_2000": 815870.5352485819,
-    "transpile/pipeline_no_cache": 571646.9725133461,
-    "transpile/pipeline_no_cache_2000": 3127695.467039088,
-    "transpile/pipeline_no_cache_2000_alias_heavy": 5674407.660909901
+    "teaching_checks/collision_scan": 56586.53135892861,
+    "teaching_checks/fullwidth_scan": 25342.118161588976,
+    "teaching_checks/lint_scan": 47918.146821726375,
+    "teaching_checks/lint_scan_buckets": 46881.75928782541,
+    "teaching_checks/lint_scan_words": 101280.28847304171,
+    "teaching_checks/teaching_all_scan": 176307.90582786888,
+    "transpile/alias_stage_2000": 824910.9460665592,
+    "transpile/lexer_stage_2000": 845115.2463411579,
+    "transpile/pipeline_cache_hit": 199720.2423104867,
+    "transpile/pipeline_cache_hit_2000": 830295.4505033452,
+    "transpile/pipeline_no_cache": 548797.2708158776,
+    "transpile/pipeline_no_cache_2000": 3124029.650709547,
+    "transpile/pipeline_no_cache_2000_alias_heavy": 5570523.382244075
   }
 }

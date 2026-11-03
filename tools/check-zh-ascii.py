@@ -79,19 +79,31 @@ CODE = re.compile(r"\b[A-Z]{1,3}\d+\b")
 # 闭包参数，但它同时把「有名字的英文 API」也藏了（`pub fn t`/`pub fn f` 及方言侧
 # 对它们的调用）。泛型/闭包参数是结构性 ASCII，声明名与导入名是没中文化的英文，
 # 同一条 len<2 规则盖不住两种情况——这里单独量出来（台账 F38）。
+# F39 起升为判红：`语言` 模块方言化后已无一处命中，留作只报不红的规则等于没有。
 SINGLE_DECL = re.compile(
-    r"(?:函数|方法|结构体|枚举|常量|静态|特征|模块|类型别名)\s+([A-Za-z])\b"
+    r"(?:函数|方法|结构体|枚举|常量|静态|特征|模块|类型|类型别名)\s+([A-Za-z])\b"
     r"|::\s*([A-Za-z])\b"
     r"|[{,]\s*([A-Za-z])\s+作为"
 )
-# 声明位/导入位的单字母 ASCII 名：`scan_file` 的 len<2 豁免本意是放过泛型参数 `T`
-# 与闭包参数，但它同时把「有名字的英文 API」也藏了（`pub fn t`/`pub fn f` 与它们在
-# 方言侧的调用）。泛型/闭包参数是结构性 ASCII，声明名与导入名是**没中文化的英文**，
-# 同一条 len<2 规则盖不住两种情况——这里单独量出来（台账 F38）。
-SINGLE_DECL = re.compile(
-    r"(?:函数|方法|结构体|枚举|常量|静态|特征|模块|类型别名)\s+([A-Za-z])\b"
-    r"|::\s*([A-Za-z])\b"
-    r"|[{,]\s*([A-Za-z])\s+作为"
+# 寿命位的 ASCII 寿命名：`'a`/`'static` 以前被归入「结构性 ASCII」，但寿命名对
+# rzc 与 rustc 都是普通标识符，`'甲` 已实测可用（台账 F39）——它不是语言约定，
+# 是没中文化的名字。`(?!')` 把字符字面量 `'a'` 排除在外。
+LIFETIME_ASCII = re.compile(r"(?<![\\\w])'([A-Za-z][A-Za-z0-9_]*)(?!')")
+# 类型参数位的单字母名：`<T: 可复制>`、`, F>`、`-> T>`。多字母的英文名
+# （`Value` 之类）本来就会被代码区扫到，len<2 只漏了单字母这一种。
+GENERIC_PARAM = re.compile(
+    r"(?:<|,)\s*([A-Za-z])\s*(?::|,|>)"
+    r"|->\s*([A-Za-z])\s*(?=[,>)])"
+)
+# 方法位的单字母名（`ui.f(...)`、`m.t(...)`）：声明位规则管不到调用位，
+# 而全仓 250+ 处 `ui.f(` 证明这类 API 真存在——方言源必须不许写它。
+METHOD_ASCII = re.compile(r"\.[A-Za-z]\(")
+# 绑定名位：循环变量、闭包参数、`让` 绑定的局部名。单字母在这里不是语言约定
+# （只有 `_` 是），而是随手写的英文名——方言源里全部已改中文名，故一并判红。
+BINDING_ASCII = re.compile(
+    r"对于\s+([A-Za-z])\s+在"
+    r"|\|\s*([A-Za-z])\s*[,|]"
+    r"|让\s+(?:可变\s+)?([A-Za-z])\s*[:=]"
 )
 
 
@@ -251,15 +263,19 @@ def strip_spans(text: str) -> str:
 
 
 def scan_single_names(path: Path) -> list:
-    """声明位/导入位的单字母英文名：[(行号, 片段)]（F38 欠账计量，不判红）"""
-    text = path.read_text(encoding="utf-8")
+    """代码区的单字母英文名：声明/导入位、寿命位、类型参数位、方法位、绑定名位
+
+    只量代码区：测试里内嵌的英文 Rust 样例（字符串字面量）属数据区，不在此射程。
+    """
+    text = cza.strip_literals(path.read_text(encoding="utf-8"))
     out = []
     for lineno, line in enumerate(text.split("\n"), 1):
         seg = re.sub(r"//.*", "", line)
-        for m in SINGLE_DECL.finditer(seg):
-            tok = next(g for g in m.groups() if g)
-            out.append((lineno, seg.strip()[:70]))
-            del tok
+        for pat in (SINGLE_DECL, LIFETIME_ASCII, GENERIC_PARAM, METHOD_ASCII,
+                    BINDING_ASCII):
+            if pat.search(seg):
+                out.append((lineno, seg.strip()[:70]))
+                break
     return out
 
 
@@ -370,10 +386,13 @@ def main() -> int:
             single[rel] = s
     if single:
         n = sum(len(v) for v in single.values())
-        print(f"⚠️ 声明位/导入位单字母英文名 {n} 处（len<2 豁免的漏网，台账 F38）：")
+        print(f"\n🔴 代码区单字母英文名 {n} 处（len<2 豁免的漏网，台账 F38/F39）：")
         for rel, places in sorted(single.items()):
             lines = "、".join(str(x[0]) for x in places[:6])
             print(f"   {rel}: {len(places)} 处（L{lines}）如 {places[0][1][:56]}")
+        print("   声明/导入名、方法名、循环/闭包/局部名一律中文化（外部模块可加导入别名）；"
+              "寿命名用 `'甲`、类型参用中文名词（均已实测）；`'_` 占位与字符字面量不在射程")
+        return 1
     print(
         f"✅ 全中文棘轮达标：{len(current)} 个方言源，代码区残余英文 {total} 处与基线一致，"
         f"注释区残余英文 0 处"

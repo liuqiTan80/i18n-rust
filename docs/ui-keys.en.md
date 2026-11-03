@@ -275,7 +275,7 @@ no substitution at all.
 | `mapping_auto_install_failed` | 2 | `crates/cli/src/main.rs:1248`<br>`crates/cli/src/main.rs:1254` | crate_name / &status.to_string() / &e.to_string() | 自动添加依赖 {} 失败：{} |
 | `mapping_auto_install_no_project` | 0 | `crates/cli/src/main.rs:1229` | — | 未找到 Cargo 项目，跳过自动安装依赖 |
 | `mapping_auto_installed` | 1 | `crates/cli/src/main.rs:1243` | crate_name | ✅ 依赖 {} 已自动加入当前项目 |
-| `mapping_cat_keywords` | 0 | `crates/engine/src/映射源.rs:504`<br>`crates/engine/src/语言.rs:275` | — | 关键字 |
+| `mapping_cat_keywords` | 0 | `crates/engine/src/映射源.rs:504`<br>`crates/engine/src/语言.rs:301` | — | 关键字 |
 | `mapping_cat_stdlib` | 0 | `crates/engine/src/映射源.rs:505` | — | 标准库 |
 | `mapping_cat_third_party` | 0 | `crates/engine/src/映射源.rs:506` | — | 第三方库 |
 | `mapping_crate_empty` | 0 | `crates/cli/src/mapping_gen/mod.rs:176` | — | crate 名不能为空 |
@@ -448,21 +448,21 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `diag_fix_suggestion` | 1 | `crates/engine/src/diagnostic/translator.rs:570` | &hint | 修复建议：{} |
-| `diag_kind_error` | 0 | `crates/engine/src/语言.rs:275`<br>`crates/engine/src/diagnostic/teaching.rs:47` | — | 错误 |
+| `diag_fix_suggestion` | 1 | `crates/engine/src/diagnostic/translator.rs:571` | &hint | 修复建议：{} |
+| `diag_kind_error` | 0 | `crates/engine/src/语言.rs:301`<br>`crates/engine/src/diagnostic/teaching.rs:47` | — | 错误 |
 | `diag_kind_help` | 0 | `crates/engine/src/diagnostic/teaching.rs:50` | — | 帮助 |
 | `diag_kind_ice` | 0 | `crates/engine/src/diagnostic/teaching.rs:51` | — | 内部编译器错误 |
 | `diag_kind_note` | 0 | `crates/engine/src/diagnostic/teaching.rs:49` | — | 注释 |
 | `diag_kind_warning` | 0 | `crates/engine/src/diagnostic/teaching.rs:48` | — | 警告 |
-| `diag_ownership_borrow_conflict` | 3 | `crates/engine/src/diagnostic/teaching.rs:188`<br>`crates/engine/src/diagnostic/teaching.rs:383` | var / &conflict.mutable.line_start.to_s… / &conflict.immutable.line_start.to… | 变量 `{}` 的可变借用（第 {} 行）与不可变借用（第 {} 行）重叠：两者不能同时存在。 |
-| `diag_ownership_borrowed` | 2 | `crates/engine/src/diagnostic/teaching.rs:221` | var / &borrow.line_start.to_string() | 变量 `{}` 在第 {} 行被借用。 |
+| `diag_ownership_borrow_conflict` | 3 | `crates/engine/src/diagnostic/teaching.rs:188`<br>`crates/engine/src/diagnostic/teaching.rs:384` | var / &conflict.mutable.line_start.to_s… / &conflict.immutable.line_start.to… | 变量 `{}` 的可变借用（第 {} 行）与不可变借用（第 {} 行）重叠：两者不能同时存在。 |
+| `diag_ownership_borrowed` | 2 | `crates/engine/src/diagnostic/teaching.rs:222` | var / &borrow.line_start.to_string() | 变量 `{}` 在第 {} 行被借用。 |
 | `diag_ownership_borrowed_in_use` | 3 | `crates/engine/src/diagnostic/teaching.rs:210` | var / &borrow.line_start.to_string() / &reuse.line_start.to_string() | 变量 `{}` 在第 {} 行被借用，第 {} 行仍在被使用。 |
-| `diag_ownership_conflict` | 1 | `crates/engine/src/diagnostic/teaching.rs:224` | var | 变量 `{}` 存在所有权冲突。 |
+| `diag_ownership_conflict` | 1 | `crates/engine/src/diagnostic/teaching.rs:225` | var | 变量 `{}` 存在所有权冲突。 |
 | `diag_ownership_moved` | 2 | `crates/engine/src/diagnostic/teaching.rs:218` | var / &mv.line_start.to_string() | 变量 `{}` 在第 {} 行被移动。 |
 | `diag_ownership_moved_reused` | 3 | `crates/engine/src/diagnostic/teaching.rs:202` | var / &mv.line_start.to_string() / &reuse.line_start.to_string() | 变量 `{}` 在第 {} 行被移动，第 {} 行尝试再次使用。 |
-| `diag_ref_depth_hint` | 2 | `crates/engine/src/diagnostic/translator.rs:587` | &localize_ref_type(&expected, &se… / &localize_ref_type(&found, &self.… | 引用层数不匹配：期望 `{}`，实际是 `{}`。检查 `&` 的数量：实参前补 `&`，或让参数类型去掉多余的 `&`。 |
-| `diag_rustc_float` | 0 | `crates/lsp/src/response_map/diag_text.rs:118`<br>`crates/lsp/src/response_map/diag_text.rs:121`<br>`crates/engine/src/diagnostic/translator.rs:680` | — | 浮点数 |
-| `diag_rustc_integer` | 0 | `crates/lsp/src/response_map/diag_text.rs:117`<br>`crates/lsp/src/response_map/diag_text.rs:123`<br>`crates/engine/src/diagnostic/translator.rs:679` | — | 整数 |
+| `diag_ref_depth_hint` | 2 | `crates/engine/src/diagnostic/translator.rs:590` | &localize_ref_type(&expected, &se… / &localize_ref_type(&found, &self.… | 引用层数不匹配：期望 `{}`，实际是 `{}`。检查 `&` 的数量：实参前补 `&`，或让参数类型去掉多余的 `&`。 |
+| `diag_rustc_float` | 0 | `crates/lsp/src/response_map/diag_text.rs:118`<br>`crates/lsp/src/response_map/diag_text.rs:121`<br>`crates/engine/src/diagnostic/translator.rs:683` | — | 浮点数 |
+| `diag_rustc_integer` | 0 | `crates/lsp/src/response_map/diag_text.rs:117`<br>`crates/lsp/src/response_map/diag_text.rs:123`<br>`crates/engine/src/diagnostic/translator.rs:682` | — | 整数 |
 
 ## Engine: Unicode character names (dynamic, by codepoint)
 
@@ -533,19 +533,19 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `guide_example_head` | 0 | `crates/engine/src/指南.rs:260` | — | ## 示例：入口文件的正确写法 |
-| `guide_footer` | 0 | `crates/engine/src/指南.rs:270` | — | 由 `rzc guide` 生成；语言包更新后重跑以刷新。 |
+| `guide_example_head` | 0 | `crates/engine/src/指南.rs:263` | — | ## 示例：入口文件的正确写法 |
+| `guide_footer` | 0 | `crates/engine/src/指南.rs:273` | — | 由 `rzc guide` 生成；语言包更新后重跑以刷新。 |
 | `guide_intro` | 1 | `crates/engine/src/指南.rs:241` | 语言码 | 本项目用{}编写 Rust 代码：语言结构（关键字/宏）与标准库调用都使用母语词条，rzc 会自动转译为标准 Rust 交给官方工具链编译。生成或修改本项目代码时，请遵循下方书写规则与全量词条表。 |
 | `guide_rule_danger` | 0 | `crates/engine/src/指南.rs:249` | — | - 词条表「危险等级」列含义：`纯安全` 只在受保护位置替换；`会改写标识符` 在任意位置替换（同名自定义标识符会被改写）；`会 panic` 运行时可能 panic，仅显式选用，优先用安全同义词条；多风险以 `+` 连接并在「备注」列说… |
-| `guide_rule_gaps` | 0 | `crates/engine/src/指南.rs:258` | — | - 若输出中出现未翻译的英文消息，`rzc gaps` 查看待译清单（不影响运行）；补齐词条表是社区贡献的一部分。 |
+| `guide_rule_gaps` | 0 | `crates/engine/src/指南.rs:261` | — | - 若输出中出现未翻译的英文消息，`rzc gaps` 查看待译清单（不影响运行）；补齐词条表是社区贡献的一部分。 |
 | `guide_rule_ident` | 0 | `crates/engine/src/指南.rs:246` | — | - 自定义函数名、变量名、类型名可用母语或英文，转译保留原样；注意危险等级为「会改写标识符」的词条会连带改写同名自定义标识符，命名时避开这类词。 |
 | `guide_rule_keywords` | 0 | `crates/engine/src/指南.rs:245` | — | - 语言关键字、宏、标准库类型与方法一律使用下方词条表中的母语词条（如写 `函数` 而非 `fn`、`打印行!` 而非 `println!`）：英文写法虽能编译，但会触发「英文回落」教学提示。 |
-| `guide_rule_pitfalls` | 0 | `crates/engine/src/指南.rs:257` | — | - 两个实测坑：标准 Rust 没有 `"""` 三引号多行字符串，写出即报「期望 . ; ? }」——跨行文本用原始字符串 `r#"…"#`（内部 `"` 免转义）或逐行拼接 `向量![行1, 行2].连接("\n")`（每行普通字符串… |
+| `guide_rule_pitfalls` | 0 | `crates/engine/src/指南.rs:260` | — | - 两个实测坑：标准 Rust 没有 `"""` 三引号多行字符串，写出即报「期望 . ; ? }」——跨行文本用原始字符串 `r#"…"#`（内部 `"` 免转义）或逐行拼接 `向量![行1, 行2].连接("\n")`（每行普通字符串… |
 | `guide_rule_punct` | 0 | `crates/engine/src/指南.rs:248` | — | - 代码位置使用半角标点（逗号、分号、括号、引号等）；全角标点只允许出现在字符串与注释内，否则 rzc 会给出全角标点告警。 |
 | `guide_rule_raw_ident` | 0 | `crates/engine/src/指南.rs:247` | — | - 自定义名字与 Rust 保留字或宏同名时（如 `匹配`、`测试`），用 `r#` 前缀转义：`函数 r#匹配` → `fn r#match`，调用处同样写 `r#匹配`；本文件内声明的同名函数优先于宏，跨文件同名调用请用 `r#` 区… |
-| `guide_rule_workflow` | 1 | `crates/engine/src/指南.rs:254` | 语言码 | - 工作方式：`rzc run src/main.{}` 运行项目，`rzc check <文件>` 只做检查；诊断的行列与源码位置自动回译到母语源文件。IDE 中安装 i18n-rust VS Code 扩展获得实时诊断与母语补全。 |
+| `guide_rule_workflow` | 1 | `crates/engine/src/指南.rs:256` | 语言码 | - 工作方式：`rzc run src/main.{}` 运行项目，`rzc check <文件>` 只做检查；诊断的行列与源码位置自动回译到母语源文件。IDE 中安装 i18n-rust VS Code 扩展获得实时诊断与母语补全。 |
 | `guide_rules_head` | 0 | `crates/engine/src/指南.rs:242` | — | ## 书写规则 |
-| `guide_table_head` | 1 | `crates/engine/src/指南.rs:266` | &总条数.to_string() | ## 全量词条表（{} 条） |
+| `guide_table_head` | 1 | `crates/engine/src/指南.rs:269` | &总条数.to_string() | ## 全量词条表（{} 条） |
 | `guide_title` | 1 | `crates/engine/src/指南.rs:240` | 语言码 | # rzc 母语编程指南 —— {} ↔ Rust |
 
 ## CLI: crate scaffolding (`rzc new`)
@@ -683,16 +683,16 @@ no substitution at all.
 | `invalid_lang_code` | 1 | `crates/cli/src/lang_manager.rs:443`<br>`crates/cli/src/lang_manager.rs:469` | lang_code | 无效的语言代码 '{}'：应为仓库内目录名。 |
 | `invalid_lang_dir` | 1 | `crates/cli/src/lang_manager.rs:1002` | &path.display().to_string() | 无效的语言包目录：{} 下缺少 keywords.toml。 |
 | `legacy_product_moved` | 2 | `crates/cli/src/main.rs:1367` | &legacy.display().to_string() / &backup.display().to_string() | 旧布局生成文件 {} 已迁到 .rz/gen/（原内容备份为 {}） |
-| `lint_confusable_method` | 4 | `crates/engine/src/校验.rs:95` | &self.line.to_string() / &self.column.to_string() / &self.text / &self.extra | 第 {} 行第 {} 列：方法名「{}」未收录（将原样保留），是否想写「{}」？（教学提示） |
+| `lint_confusable_method` | 4 | `crates/engine/src/校验.rs:96` | &self.line.to_string() / &self.column.to_string() / &self.text / &self.extra | 第 {} 行第 {} 列：方法名「{}」未收录（将原样保留），是否想写「{}」？（教学提示） |
 | `lint_deep_indent` | 2 | `crates/engine/src/校验.rs:92` | &self.line.to_string() / &self.text | 第 {} 行：嵌套过深（{} 个空格缩进），建议拆分函数（教学提示） |
-| `lint_english_fallback` | 4 | `crates/engine/src/校验.rs:104` | &self.line.to_string() / &self.column.to_string() / &self.text / &self.extra | 第 {} 行第 {} 列：`{}` 有母语词条 `{}`，建议使用母语写法（教学提示） |
+| `lint_english_fallback` | 4 | `crates/engine/src/校验.rs:105` | &self.line.to_string() / &self.column.to_string() / &self.text / &self.extra | 第 {} 行第 {} 列：`{}` 有母语词条 `{}`，建议使用母语写法（教学提示） |
 | `lint_magic_number` | 3 | `crates/engine/src/校验.rs:88` | &self.line.to_string() / &self.column.to_string() / &self.text | 第 {} 行第 {} 列：魔法数字「{}」，建议命名常量（教学提示） |
-| `lint_reserved_name_collision` | 4 | `crates/engine/src/校验.rs:113` | &self.line.to_string() / &self.column.to_string() / &self.text / &self.extra | 第 {} 行第 {} 列：声明的名字「{}」转译后是 Rust 保留字「{}」，产物非法或语义被静默改写；请改名，或用 r# 原始标识符转义（教学提示） |
+| `lint_reserved_name_collision` | 4 | `crates/engine/src/校验.rs:114` | &self.line.to_string() / &self.column.to_string() / &self.text / &self.extra | 第 {} 行第 {} 列：声明的名字「{}」转译后是 Rust 保留字「{}」，产物非法或语义被静默改写；请改名，或用 r# 原始标识符转义（教学提示） |
 | `lint_untyped_let` | 2 | `crates/engine/src/校验.rs:84` | &self.line.to_string() / &self.column.to_string() | 第 {} 行第 {} 列：`让` 未标注类型，试试显式写出类型（教学提示） |
 | `log_cache_disk_discard` | 0 | `crates/engine/src/缓存.rs:352` | — | 磁盘缓存版本不匹配或已损坏，已丢弃 |
-| `log_cache_disk_loaded` | 1 | `crates/engine/src/缓存.rs:433` | &self.entries.len().to_string() | 已从磁盘加载缓存（{} 条） |
+| `log_cache_disk_loaded` | 1 | `crates/engine/src/缓存.rs:434` | &self.entries.len().to_string() | 已从磁盘加载缓存（{} 条） |
 | `log_cache_disk_save_failed` | 0 | `crates/engine/src/缓存.rs:409` | — | 磁盘缓存保存失败 |
-| `log_cache_evict` | 1 | `crates/engine/src/缓存.rs:676` | &front_hash.to_string() | 容量已满，淘汰最旧条目（哈希 {}） |
+| `log_cache_evict` | 1 | `crates/engine/src/缓存.rs:677` | &front_hash.to_string() | 容量已满，淘汰最旧条目（哈希 {}） |
 | `log_cache_hit` | 2 | `crates/engine/src/缓存.rs:576` | &content.len().to_string() / &context_fingerprint.to_string() | 命中缓存（{} 字节，指纹 {}） |
 | `log_cache_miss` | 2 | `crates/engine/src/缓存.rs:587` | &content.len().to_string() / &context_fingerprint.to_string() | 缓存未命中（{} 字节，指纹 {}），执行翻译 |
 | `log_level_debug` | 0 | `crates/engine/src/logger.rs:38` | — | 调试 |
@@ -737,17 +737,17 @@ no substitution at all.
 | `tc_install_help` | 0 | `crates/cli/src/main.rs:2847` | — | 一键安装内置工具链（standalone rustc/cargo/rust-analyzer，脱离 rustup） |
 | `tc_ra_installed` | 1 | `crates/cli/src/install.rs:251`<br>`crates/cli/src/install.rs:273` | ra_tag | rust-analyzer {} 已安装 |
 | `tc_ra_skipped` | 1 | `crates/cli/src/install.rs:252` | &e.to_string() | rust-analyzer 下载失败（{}）；可稍后执行 rzc install lsp 或手动安装 |
-| `template_main` | 0 | `crates/cli/src/main.rs:2646`<br>`crates/engine/src/指南.rs:262` | — | 函数 主函数() { 打印行!("你好，世界！"); } |
+| `template_main` | 0 | `crates/cli/src/main.rs:2646`<br>`crates/engine/src/指南.rs:265` | — | 函数 主函数() { 打印行!("你好，世界！"); } |
 | `tool_prefix_caused_by` | 1 | `crates/cli/src/diagnostics.rs:546` | — | 原因：{} |
 | `tool_prefix_help` | 1 | `crates/cli/src/diagnostics.rs:545` | — | 提示：{} |
 | `tool_prefix_note` | 1 | `crates/cli/src/diagnostics.rs:544` | — | 说明：{} |
 | `tool_prefix_warning` | 1 | `crates/cli/src/diagnostics.rs:543` | — | 警告：{} |
 | `translation_gap_notice` | 2 | `crates/cli/src/diagnostics.rs:530` | &recorded.len().to_string() / &dir.display().to_string() | 提示：{} 条消息暂无译文，已按原文显示并记入待译清单：{}（可用 `rzc gaps` 查看） |
-| `unicode_bidi_hint` | 1 | `crates/engine/src/unicode_confusion.rs:115` | &localized_char_name(ch, name) | {}。双向控制符可篡改代码的显示顺序（bidi 攻击），可能隐藏恶意代码 |
+| `unicode_bidi_hint` | 1 | `crates/engine/src/unicode_confusion.rs:116` | &localized_char_name(ch, name) | {}。双向控制符可篡改代码的显示顺序（bidi 攻击），可能隐藏恶意代码 |
 | `unicode_cat_bidi` | 0 | `crates/engine/src/unicode_confusion.rs:23` | — | 双向文本控制符 |
 | `unicode_cat_homoglyph` | 0 | `crates/engine/src/unicode_confusion.rs:24` | — | 同形异义字符 |
 | `unicode_cat_zero_width` | 0 | `crates/engine/src/unicode_confusion.rs:22` | — | 零宽字符 |
-| `unicode_homoglyph_hint` | 2 | `crates/engine/src/unicode_confusion.rs:126` | &similar.to_string() / &localized_char_name(ch, name) | 形似拉丁字母 '{}'（{}）。可能被用于同形异义攻击，伪装标识符 |
+| `unicode_homoglyph_hint` | 2 | `crates/engine/src/unicode_confusion.rs:129` | &similar.to_string() / &localized_char_name(ch, name) | 形似拉丁字母 '{}'（{}）。可能被用于同形异义攻击，伪装标识符 |
 | `unicode_warning_at` | 5 | `crates/engine/src/unicode_confusion.rs:52` | &self.line.to_string() / &self.column.to_string() / &self.category.display_text() / &code… | 第 {} 行第 {} 列：检测到{} U+{}（{}） |
 | `unicode_zero_width_hint` | 1 | `crates/engine/src/unicode_confusion.rs:105` | &localized_char_name(ch, name) | {}。此类字符肉眼不可见，可能被用于隐藏代码或绕过检测 |
 | `unknown` | 0 | `crates/cli/src/main.rs:1002`<br>`crates/cli/src/main.rs:1005`<br>`crates/cli/src/mapping_check.rs:58` | — | 未知 |
