@@ -148,6 +148,15 @@ def load_exemptions(repo_root: str) -> dict:
         return json.load(f).get("语法位允许", {})
 
 
+def load_decl_exemptions(repo_root: str) -> dict:
+    """声明位有意替换表：平台规定死的名字（trait 方法名等）只能用词形写"""
+    path = os.path.join(repo_root, "tools", "zh-decl-exemptions.json")
+    if not os.path.isfile(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f).get("声明位允许", {})
+
+
 def check_ambiguity(repo_root: str, sources: list) -> int:
     """扫描每个 .zh 源的代码区 token，命中一词多译且不在豁免表 → 判红"""
     ambiguous = build_ambiguous_map(repo_root)
@@ -219,6 +228,7 @@ def check_binding_hijack(repo_root: str, sources: list) -> int:
     nat2eng, eng2nat = build_keyword_table(repo_root)
     if not nat2eng:
         return 0
+    decl_exempt = load_decl_exemptions(repo_root)
 
     def alt(english: str, fallback: str) -> str:
         words = sorted(eng2nat.get(english, []), key=len, reverse=True)
@@ -231,7 +241,9 @@ def check_binding_hijack(repo_root: str, sources: list) -> int:
         ("for 循环变量", r"(?:^|[\s;{}()])(?:%s)\s+(\w+)\s+在" % alt("for", "对于")),
         ("闭包参数", r"\(\s*(?:%s\s+)?\|([^|]*)\|" % alt("move", "移动")),
         ("参数/字段名", r"(\w+)\s*:(?!:)"),
-        ("模式内绑定", r"(?:%s|%s|%s)\(\s*(?:%s\s+)?(\w+)"
+        # 括号里跟的若是 `名::` 路径或 `名(` 调用，那是表达式不是绑定，跳过
+        # （实测 `成功(自身::载入文件(…))` 里的 `自身` 是路径前缀，不换即是正确产物）
+        ("模式内绑定", r"(?:%s|%s|%s)\(\s*(?:%s\s+)?(\w+)(?!\s*::)(?!\s*\()"
          % (alt("Some", "有值"), alt("Ok", "成功"), alt("Err", "错误"), mut)),
         # 声明名位：函数/结构体/常量等名字同样被词法层顶掉（实测
         # `函数 格式化(…)` → `fn format(…)`，静默改名后仍能编译）
@@ -247,6 +259,7 @@ def check_binding_hijack(repo_root: str, sources: list) -> int:
     skip = re.compile(r"^(?:%s|%s|%s)$" % (mut, alt("move", "移动"), alt("ref", "引用绑定")))
 
     violations = 0
+    exempt_hits = 0
     for zh in sources:
         with open(zh, encoding="utf-8") as f:
             cleaned = normalize(strip_literals(f.read()))
@@ -259,6 +272,11 @@ def check_binding_hijack(repo_root: str, sources: list) -> int:
                     values = nat2eng.get(name)
                     if not values:
                         continue
+                    # 声明名位豁免：平台把名字钉死（trait 方法名 `fmt` 等），
+                    # 方言侧只能用词形，替换出规定名正是目的
+                    if kind == "声明名" and name in decl_exempt:
+                        exempt_hits += 1
+                        continue
                     line = cleaned.count("\n", 0, m.start()) + 1
                     print(f"FAIL 绑定位劫持：{zh}:{line} {kind} `{name}` => {sorted(values)}")
                     print("     关键字表词条在任意位置都会被替换，此处会静默改名或"
@@ -266,7 +284,8 @@ def check_binding_hijack(repo_root: str, sources: list) -> int:
                           "`无` → `空值`、`文本` → `文本串`）")
                     violations += 1
     if not violations and sources:
-        print(f"绑定位审计：{len(nat2eng)} 个关键字词条在册，{len(sources)} 个方言源的绑定位零命中")
+        extra = f"，声明位有意替换 {exempt_hits} 处（均在册）" if exempt_hits else ""
+        print(f"绑定位审计：{len(nat2eng)} 个关键字词条在册，{len(sources)} 个方言源的绑定位零命中{extra}")
     return violations
 
 
