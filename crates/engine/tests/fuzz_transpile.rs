@@ -219,7 +219,7 @@ proptest! {
     /// 教学检查（全角标点/教学 lint）在任意输入上不 panic
     #[test]
     fn fuzz_teaching_checks_never_panic(src in source_strategy()) {
-        let _ = i18n_rust_engine::fullwidth::find_fullwidth_punct(&src);
+        let _ = i18n_rust_engine::全角标点::检测全角标点(&src);
         let _ = i18n_rust_engine::校验::lint_teaching(&src);
     }
 

@@ -11,7 +11,7 @@
 
 use std::path::PathBuf;
 
-use i18n_rust_engine::unicode_confusion::check_unicode_confusion;
+use i18n_rust_engine::混淆检测::检查混淆;
 use i18n_rust_engine::语言;
 
 /// 按语言码定位引擎内置语言包目录（测试运行时 cwd 为 crates/lsp）
@@ -31,7 +31,7 @@ fn init_syncs_engine_language_and_kills_native_script_false_positives() {
     语言::设定语言("zh");
     assert_eq!(语言::当前语言(), "zh");
     assert!(
-        !check_unicode_confusion(source).is_empty(),
+        !检查混淆(source).is_empty(),
         "zh 语境下西里尔标识符应被判为同形异义（这正是 LSP 改前的实际状态）"
     );
 
@@ -43,9 +43,9 @@ fn init_syncs_engine_language_and_kills_native_script_false_positives() {
         "init 应把命中的语言代码同步给引擎（改前从不调 设定语言）"
     );
     assert!(
-        check_unicode_confusion(source).is_empty(),
+        检查混淆(source).is_empty(),
         "ru 语境下合法的西里尔标识符不该报同形异义，实际：{:?}",
-        check_unicode_confusion(source)
+        检查混淆(source)
     );
     // 引擎模板也随语言切换：同一键在 ru 表里是俄文，不再恒为中文
     assert_eq!(语言::取消息("unicode_cat_homoglyph"), "символ-омоглиф");

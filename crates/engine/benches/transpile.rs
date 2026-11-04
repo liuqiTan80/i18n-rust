@@ -21,7 +21,7 @@ use std::hint::black_box;
 use std::path::Path;
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use i18n_rust_engine::fullwidth::find_fullwidth_punct;
+use i18n_rust_engine::全角标点::检测全角标点;
 use i18n_rust_engine::映射管理器::映射管理器;
 use i18n_rust_engine::校验::{
     lint_reserved_name_collision, lint_teaching, lint_teaching_all,
@@ -162,7 +162,7 @@ fn bench_teaching_checks(c: &mut Criterion) {
             BenchmarkId::new(名称, source.len()),
             &代码,
             |b, 源码| match 名称 {
-                "fullwidth_scan" => b.iter(|| find_fullwidth_punct(源码)),
+                "fullwidth_scan" => b.iter(|| 检测全角标点(源码)),
                 "collision_scan" => b.iter(|| lint_reserved_name_collision(源码, keyword_map)),
                 "lint_scan_words" => b.iter(|| lint_teaching_with_words(源码, words, ambiguous)),
                 "lint_scan_buckets" => {

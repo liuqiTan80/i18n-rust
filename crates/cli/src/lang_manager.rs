@@ -1038,9 +1038,9 @@ impl TempDir {
             .map(|d| d.as_nanos())
             .unwrap_or(0);
         // 用户隔离 + 符号链接校验（与 temp_guard/LSP 虚拟目录同一威胁模型）
-        let path = crate::temp_guard::secure_temp_path(&format!(
+        let path = crate::临时守卫::安全临时路径(&format!(
             "rzc-lang-{}-{}-{}",
-            crate::temp_guard::safe_user_segment(),
+            crate::临时守卫::安全用户段(),
             std::process::id(),
             timestamp
         ))?;

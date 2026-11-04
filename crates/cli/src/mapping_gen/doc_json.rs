@@ -25,10 +25,10 @@ impl TempProject {
     fn new(crate_name: &str) -> anyhow::Result<Self> {
         // 用户隔离 + 符号链接校验（crate 名已由 run_auto_generate 校验为
         // ASCII 标识符字符；仍拼接用户/PID 段保证路径不可预测）
-        let path = crate::temp_guard::secure_temp_path(&format!(
+        let path = crate::临时守卫::安全临时路径(&format!(
             "rzc-mapping-{}-{}-{}",
             crate_name,
-            crate::temp_guard::safe_user_segment(),
+            crate::临时守卫::安全用户段(),
             std::process::id()
         ))?;
         let _ = fs::remove_dir_all(&path);

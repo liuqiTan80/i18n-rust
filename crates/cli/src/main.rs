@@ -20,9 +20,10 @@ mod lang_manager;
 mod mapping_check;
 mod mapping_coverage;
 mod mapping_gen;
-mod temp_guard;
 mod translation_gaps;
 mod ui;
+#[path = "临时守卫.rs"]
+mod 临时守卫;
 
 use diagnostics::{
     DiagContext, StreamTranslator, can_use_direct_rustc, check_direct_rustc, run_direct_rustc,
@@ -37,7 +38,7 @@ use i18n_rust_engine::module_path::annotate_non_ascii_mods;
 // 兜底文案（localize_clap 会按界面语言覆盖）；用英文避免硬编码中文
 #[command(about = "Multi-language Rust teaching dialect compiler")]
 struct CliArgs {
-    /// Suppress teaching lint hints (beginner code-style warnings; Unicode confusables / full-width punctuation warnings are unaffected)
+    /// 静默教学 lint 提示（初学者代码风格告警；Unicode 混淆字符 / 全角标点告警不受影响）
     #[arg(long, global = true)]
     no_lint: bool,
     #[command(subcommand)]
@@ -53,7 +54,7 @@ enum CliCommand {
         // 后者要提示回退或在终端里列出菜单（见 resolve_init_lang）
         #[arg(short, long)]
         lang: Option<String>,
-        /// Also generate AGENTS.md (native-language coding guide for AI assistants, rendered from the current language pack)
+        /// 同时生成 AGENTS.md（面向 AI 助手的母语编程指南，由当前语言包渲染）
         #[arg(long)]
         ai: bool,
     },
@@ -66,100 +67,100 @@ enum CliCommand {
         file: PathBuf,
         #[arg(short, long)]
         lang_pack: Option<PathBuf>,
-        /// Auto-fix full-width punctuation (writes to the source file; only characters with a half-width counterpart are converted)
+        /// 自动修正全角标点（写回源文件；仅转换存在半角对应字符的那些）
         #[arg(long)]
         fix: bool,
     },
     Eject {
-        /// Dialect source files or directories to export; repeatable (batch export, failures summarized)
+        /// 要导出的方言源文件或目录；可重复（批量导出，失败项汇总报告）
         #[arg(required = true, num_args = 1..)]
         files: Vec<PathBuf>,
         #[arg(short, long)]
         lang_pack: Option<PathBuf>,
     },
-    /// Transpile preview: convert dialect source to standard Rust and print to stdout (no files written)
+    /// 转译预览：将方言源码转为标准 Rust 并打印到标准输出（不写任何文件）
     Transpile {
         file: PathBuf,
         #[arg(short, long)]
         lang_pack: Option<PathBuf>,
     },
-    /// Add third-party dependencies to the current project (wraps cargo add, with native-language mapping hints)
+    /// 为当前项目添加第三方依赖（封装 cargo add，并给出母语映射提示）
     Add {
-        /// crate name or name@version, repeatable (e.g. serde tokio@1)
+        /// crate 名称或 名称@版本，可重复（例如 serde tokio@1）
         #[arg(required = true)]
         crates: Vec<String>,
     },
-    /// Language pack management (list / install / remove)
+    /// 语言包管理（列出 / 安装 / 移除）
     Lang {
         #[command(subcommand)]
         subcommand: LangCommand,
     },
-    /// Generate third-party crate mappings (extract APIs from installed crates)
+    /// 生成第三方 crate 映射（从已安装的 crate 中抽取 API）
     Mapping {
         #[command(subcommand)]
         subcommand: MappingCommand,
     },
-    /// Shared third-party crate registry (search / install / list / remove / update / publish)
+    /// 共享第三方 crate 注册表（搜索 / 安装 / 列出 / 移除 / 更新 / 发布）
     Crate {
         #[command(subcommand)]
         subcommand: CrateCommand,
     },
-    /// Install companion components (language server i18n-rust-lsp, etc.)
+    /// 安装配套组件（语言服务器 i18n-rust-lsp 等）
     Install {
         #[command(subcommand)]
         subcommand: Option<InstallCommand>,
     },
-    /// Diagnose the toolchain environment: bundled toolchain / PATH / version comparison
+    /// 诊断工具链环境：内置工具链 / PATH / 版本对比
     Doctor,
-    /// Show / export / clear the to-translate list (compiler & cargo messages with no native translation yet)
+    /// 查看 / 导出 / 清空待翻译清单（尚无母语翻译的编译器与 cargo 消息）
     Gaps {
-        /// Language code (defaults to the detected UI language)
+        /// 语言代码（默认为检测到的界面语言）
         #[arg(long)]
         lang: Option<String>,
-        /// Export the list as a three-column TSV (LEVEL\tCODE\tmessage) to the given path
+        /// 将清单以三列形式（LEVEL\tCODE\t消息）导出到指定路径
         #[arg(long)]
         export: Option<PathBuf>,
-        /// Clear the list (use it after filling the message table)
+        /// 清空清单（填完消息表后使用）
         #[arg(long)]
         clear: bool,
     },
-    /// Native-language ↔ Rust mapping cheat sheet (keywords / module paths / aliases / derive traits)
+    /// 母语 ↔ Rust 映射速查表（关键字 / 模块路径 / 别名 / derive 特征）
     Cheat {
-        /// Built-in language code (e.g. zh) or a language-pack directory path; auto-detected from the system language when omitted
+        /// 内置语言代码（例如 zh）或语言包目录路径；省略时从系统语言自动检测
         lang: Option<String>,
-        /// Output as a Markdown table for embedding into docs
+        /// 以 Markdown 表格输出，便于嵌入文档
         #[arg(long)]
         markdown: bool,
     },
-    /// Native-language coding guide: writing rules + full term tables for learners and AI assistants
+    /// 母语编程指南：面向学习者与 AI 助手的写作规则 + 完整术语表
     Guide {
-        /// Built-in language code (e.g. zh); auto-detected from the system language when omitted
+        /// 内置语言代码（例如 zh）；省略时从系统语言自动检测
         #[arg(short, long)]
         lang: Option<String>,
-        /// Write the guide to the given file (e.g. AGENTS.md) instead of stdout
+        /// 将指南写入指定文件（例如 AGENTS.md）而非标准输出
         #[arg(short, long)]
         out: Option<PathBuf>,
     },
-    /// Cross-native reading: re-transpile a dialect / standard Rust project into another dialect
-    /// (transpile each source to standard Rust, then relocalize it to the target dialect; the
-    /// mirrored project stays structurally faithful and can be built again with `rzc build`). Missing
-    /// target-term entries keep their English text (registered as gaps); one-to-many reverse lookups
-    /// pick a deterministic candidate, so cross-native "reading" need not byte-match the original word.
+    /// 跨母语阅读：将方言 / 标准 Rust 项目重新转译为另一种方言
+    /// （先把每个源文件转成标准 Rust，再本地化为目标方言；镜像出的项目保持
+    /// 结构忠实，可用 `rzc build` 重新构建）。缺失的目标术语保留英文原文
+    /// （登记为待翻译项）；一对多的反向查询会挑选一个确定的候选，
+    /// 因此跨母语「阅读」无需与原词逐字一致。
     Relocalize {
-        /// Target dialect language code (required, e.g. ja); becomes the output project's language
+        /// 目标方言语言代码（必填，例如 ja）；即输出项目所使用的语言
         #[arg(long)]
         to: String,
-        /// Source dialect language code; auto-detected per file from its extension when omitted
+        /// 源方言语言代码；省略时按每个文件的扩展名自动检测
         #[arg(long)]
         from: Option<String>,
-        /// Output directory (mirrors the source layout with the target extension); defaults to a
-        /// sibling `relocalized.<to>` directory next to the source project root
+        /// 输出目录（镜像源布局并换用目标扩展名）；默认为源项目根同级的
+        /// relocalized.<to> 同级目录
         #[arg(long)]
         out_dir: Option<PathBuf>,
-        /// Override the source language pack directory (target always resolves from `--to`)
+        /// 覆盖源语言包目录（目标始终从 `--to` 解析）
         #[arg(short, long)]
         lang_pack: Option<PathBuf>,
-        /// Project directory or source files to convert; defaults to the current directory
+        /// 待转换的项目目录或源文件；默认为当前目录
         #[arg(num_args = 0..)]
         files: Vec<PathBuf>,
     },
@@ -167,24 +168,24 @@ enum CliCommand {
 
 #[derive(Subcommand)]
 enum InstallCommand {
-    /// Install the language server i18n-rust-lsp (completion / diagnostics backend for the VS Code extension)
+    /// 安装语言服务器 i18n-rust-lsp（VS Code 扩展的补全 / 诊断后端）
     Lsp {
-        /// Force overwrite if already installed
+        /// 若已安装则强制覆盖
         #[arg(short = 'f', long = "force")]
         force: bool,
     },
-    /// One-click install of the bundled toolchain (standalone rustc/cargo/rust-analyzer, no rustup required)
+    /// 一键安装内置工具链（独立 rustc/cargo/rust-analyzer，无需 rustup）
     Toolchain {
-        /// Toolchain version (defaults to the version rzc is locked to, e.g. 1.98.0)
+        /// 工具链版本（默认为 rzc 锁定的版本，例如 1.98.0）
         #[arg(long, default_value = i18n_rust_engine::工具链::锁定版本)]
         version: String,
-        /// Official rust-analyzer release tag (defaults to the locked version)
+        /// 官方 rust-analyzer 发布标签（默认为锁定版本）
         #[arg(long, default_value = crate::install::RA_RELEASE_TAG)]
         ra_tag: String,
-        /// Upgrade rust-analyzer only (skip the ~300 MB rustc/cargo re-download)
+        /// 仅升级 rust-analyzer（跳过约 300 MB 的 rustc/cargo 重新下载）
         #[arg(long)]
         ra_only: bool,
-        /// Force reinstall if already installed
+        /// 若已安装则强制重装
         #[arg(short = 'f', long = "force")]
         force: bool,
     },
@@ -192,47 +193,47 @@ enum InstallCommand {
 
 #[derive(Subcommand)]
 enum MappingCommand {
-    /// Auto-generate third-party crate mapping files: extract the crate's public API; AI or rules generate names and explanations in the target language
+    /// 自动生成第三方 crate 映射文件：抽取 crate 的公开 API；由 AI 或规则以目标语言生成名称与释义
     Auto {
-        /// Target crate name (must be installed or available from crates.io)
+        /// 目标 crate 名称（须已安装或在 crates.io 上可用）
         crate_name: String,
-        /// Target language (language-pack directory name, e.g. zh, ru; auto-detected from the system language by default)
+        /// 目标语言（语言包目录名，例如 zh、ru；默认从系统语言自动检测）
         #[arg(long)]
         lang: Option<String>,
-        /// AI provider: deepseek (default) / openai / compatible - all speak the OpenAI protocol, with endpoint, key and model set via RZ_AI_BASE_URL / RZ_AI_API_KEY / RZ_AI_MODEL - or rule (offline rule mode)
+        /// AI 提供方：deepseek（默认）/ openai / compatible——三者均遵循 OpenAI 协议，端点、密钥与模型通过 RZ_AI_BASE_URL / RZ_AI_API_KEY / RZ_AI_MODEL 设置——或 rule（离线规则模式）
         #[arg(long, default_value = "deepseek")]
         provider: String,
-        /// Pin the target crate version (e.g. 2.11.5 exact; 2.11 / 2 = latest in that line); uses the latest when omitted (not reproducible)
+        /// 固定目标 crate 版本（例如 2.11.5 精确；2.11 / 2 = 该系列最新）；省略时用最新版（不可复现）
         #[arg(long)]
         target_version: Option<String>,
-        /// Output file path (defaults to the project language-pack root: <lang>/crates/<crate_name>.toml)
+        /// 输出文件路径（默认为项目语言包根目录：<lang>/crates/<crate_name>.toml）
         #[arg(long)]
         output: Option<PathBuf>,
-        /// Also add the crate to the current project's Cargo.toml after generating mappings (cargo add)
+        /// 生成映射后同时把该 crate 加入当前项目的 Cargo.toml（cargo add）
         #[arg(long)]
         install: bool,
     },
-    /// Validate third-party crate mapping quality: duplicate keys / keyword avoidance / cross-file conflicts / entry-count consistency
+    /// 校验第三方 crate 映射质量：重复键 / 关键字规避 / 跨文件冲突 / 条目数一致性
     Check {
-        /// Built-in language code (e.g. zh) or a language-pack directory path; validates all built-in languages when omitted
+        /// 内置语言代码（例如 zh）或语言包目录路径；省略时校验所有内置语言
         target: Option<String>,
     },
-    /// Corpus coverage matrix: validate language-pack keyword/API coverage against real backend sources; lists missing native-language mappings
+    /// 语料覆盖率矩阵：对照真实后端源码校验语言包关键字/API 覆盖率；列出缺失的母语映射
     Coverage {
-        /// Built-in language code (e.g. zh); checks all built-in languages when omitted
+        /// 内置语言代码（例如 zh）；省略时检查所有内置语言
         #[arg(long)]
         lang: Option<String>,
     },
-    /// Generate a translation skeleton for the target language from the source-language crates mappings (keys kept for translation, English values unchanged)
+    /// 从源语言的 crates 映射生成目标语言的翻译骨架（保留键待翻译，英文值不变）
     Scaffold {
-        /// Source language code (a built-in language, e.g. zh)
+        /// 源语言代码（内置语言，例如 zh）
         source: String,
-        /// Target language code (new language-pack directory name, e.g. vi)
+        /// 目标语言代码（新语言包目录名，例如 vi）
         target: String,
-        /// Output directory (defaults to the project language-pack root: <target>/crates/)
+        /// 输出目录（默认为项目语言包根目录：<target>/crates/）
         #[arg(long)]
         output: Option<PathBuf>,
-        /// Translation mode: rule (default; generates a TODO skeleton for manual translation) or deepseek / openai / compatible (AI translates keys; endpoint, key and model come from the RZ_AI_* environment variables)
+        /// 翻译模式：rule（默认；生成 TODO 骨架供人工翻译）或 deepseek / openai / compatible（AI 翻译键；端点、密钥与模型来自 RZ_AI_* 环境变量）
         #[arg(long, default_value = "rule")]
         provider: String,
     },
@@ -240,45 +241,45 @@ enum MappingCommand {
 
 #[derive(Subcommand)]
 enum CrateCommand {
-    /// Search third-party crate mappings published in the registry (optional keyword filter)
+    /// 搜索注册表中已发布的第三方 crate 映射（可选关键字过滤）
     Search {
-        /// Keyword (matches crate name / language / author); lists everything when omitted (sorted by downloads)
+        /// 关键字（匹配 crate 名 / 语言 / 作者）；省略时列出全部（按下载量排序）
         keyword: Option<String>,
     },
-    /// Install a single third-party crate mapping: copy it from the registry into the global language pack
+    /// 安装单个第三方 crate 映射：从注册表复制到全局语言包
     Install {
-        /// Crate name (hyphens normalized to underscores)
+        /// crate 名称（连字符归一化为下划线）
         crate_name: String,
-        /// Target language code (e.g. zh)
+        /// 目标语言代码（例如 zh）
         #[arg(long)]
         lang: String,
-        /// Force overwrite if already installed
+        /// 若已安装则强制覆盖
         #[arg(short = 'f', long = "force")]
         force: bool,
     },
-    /// List installed community mappings
+    /// 列出已安装的社区映射
     List,
-    /// Remove an installed community mapping (from the global language pack and the manifest)
+    /// 移除已安装的社区映射（从全局语言包与清单中删除）
     Remove {
-        /// Crate name
+        /// crate 名称
         crate_name: String,
-        /// Language code
+        /// 语言代码
         #[arg(long)]
         lang: String,
     },
-    /// Re-fetch all mappings according to the installed manifest (pick up others' updates)
+    /// 按已安装清单重新拉取全部映射（获取他人更新）
     Update,
-    /// Publish a local mapping to the registry (quality gate runs first)
+    /// 将本地映射发布到注册表（先进行质量校验）
     Publish {
-        /// Crate name
+        /// crate 名称
         crate_name: String,
-        /// Language code
+        /// 语言代码
         #[arg(long)]
         lang: String,
-        /// Mapping file path (when omitted, searched in common locations: global/project language pack or the current directory)
+        /// 映射文件路径（省略时在常见位置搜索：全局/项目语言包或当前目录）
         #[arg(long)]
         file: Option<PathBuf>,
-        /// Translator credit (defaults to git user.name)
+        /// 译者署名（默认为 git user.name）
         #[arg(long)]
         author: Option<String>,
     },
@@ -286,24 +287,24 @@ enum CrateCommand {
 
 #[derive(Subcommand)]
 enum LangCommand {
-    /// List all installed language packs (built-in + user-installed)
+    /// 列出所有已安装的语言包（内置 + 用户安装）
     List,
-    /// Install a language pack: a local directory path is copied directly; a language code is downloaded from the remote repository
+    /// 安装语言包：本地目录路径直接复制；语言代码从远程仓库下载
     Install {
-        /// Local language-pack directory path, or a remote language code
+        /// 本地语言包目录路径，或远程语言代码
         source: String,
-        /// Force overwrite if already installed
+        /// 若已安装则强制覆盖
         #[arg(short = 'f', long = "force")]
         force: bool,
     },
-    /// Remove a user-installed language pack (built-in packs cannot be removed)
+    /// 移除用户安装的语言包（内置语言包不可移除）
     Remove {
-        /// Language code (language-pack directory name)
+        /// 语言代码 (language-pack directory name)
         lang_code: String,
     },
-    /// Browse the remote language-pack marketplace (scan the remote repository; optional keyword filter)
+    /// 浏览远程语言包市场（扫描远程仓库；可选关键字过滤）
     Search {
-        /// Keyword (matches language code or display name); lists all remote packs when omitted
+        /// 关键字（匹配语言代码或显示名）；省略时列出所有远程语言包
         keyword: Option<String>,
     },
 }
@@ -603,7 +604,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
             // 并提示剩余需人工修改的字符（顿号/全角空格等）；
             // 不带 --fix 时警告由转译管线（log_warn）自动输出。
             if fix {
-                let (fixed, count) = i18n_rust_engine::fullwidth::fix_fullwidth_punct(&source);
+                let (fixed, count) = i18n_rust_engine::全角标点::修复全角标点(&source);
                 if count > 0 {
                     fs::write(&file, &fixed)?;
                     source = fixed;
@@ -615,7 +616,7 @@ fn run() -> anyhow::Result<std::process::ExitCode> {
                         )
                     );
                 }
-                let remaining = i18n_rust_engine::fullwidth::find_fullwidth_punct(&source).len();
+                let remaining = i18n_rust_engine::全角标点::检测全角标点(&source).len();
                 if remaining > 0 {
                     println!(
                         "{}",

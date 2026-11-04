@@ -265,8 +265,8 @@ impl 转译缓存 {
         let original_path = uri_to_path(uri);
 
         // Unicode 混淆安全检查（零宽/双向/同形字符）：仅告警不阻断翻译
-        for warning in i18n_rust_engine::unicode_confusion::check_unicode_confusion(content) {
-            log::warn!("{}", warning.format());
+        for warning in i18n_rust_engine::混淆检测::检查混淆(content) {
+            log::warn!("{}", warning.展示行());
         }
 
         // 生成虚拟文件路径（用哈希避免同名文件冲突）。

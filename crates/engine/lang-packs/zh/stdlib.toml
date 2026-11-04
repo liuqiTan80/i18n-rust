@@ -401,6 +401,8 @@
 "是否为文件" = "is_file"
 "是否为目录" = "is_dir"
 "是否为符号链接" = "is_symlink"
+"符号链接元数据" = "symlink_metadata"  # fs::symlink_metadata / Path::symlink_metadata（不跟随符号链接取元数据）
+"文件类型" = "file_type"  # DirEntry::file_type / Metadata::file_type（返回 FileType）
 "权限" = "Permissions"
 "只读" = "readonly"
 "设置只读" = "set_readonly"

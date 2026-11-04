@@ -13,8 +13,8 @@
 //! 不负责转译编排（见 `main.rs` 的 `transpile_project_files` 等）。
 
 use crate::{
-    builtin_lang, get_lang_code_from_extension, lang_manager, lang_pack_root_of, resolve_rustc,
-    temp_guard, ui,
+    builtin_lang, get_lang_code_from_extension, lang_manager, lang_pack_root_of, resolve_rustc, ui,
+    临时守卫,
 };
 use i18n_rust_engine::映射管理器::映射管理器;
 use std::collections::HashMap;
@@ -92,9 +92,9 @@ pub(crate) fn run_direct_rustc(
     entry_line_map: &[usize],
     project_ctx: &i18n_rust_engine::alias::ProjectContext,
 ) -> anyhow::Result<std::process::ExitCode> {
-    let exe = temp_guard::secure_temp_path(&format!(
+    let exe = 临时守卫::安全临时路径(&format!(
         "rzc-run-{}-{}.exe",
-        temp_guard::safe_user_segment(),
+        临时守卫::安全用户段(),
         std::process::id()
     ))?;
     let output = Command::new(resolve_rustc())

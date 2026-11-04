@@ -4,11 +4,13 @@
 pub mod alias;
 pub mod diagnostic;
 pub mod eject_hints;
-pub mod fullwidth;
+#[path = "全角标点.rs"]
+pub mod 全角标点;
 pub mod logger;
 pub mod module_path;
 pub mod product_layout;
-pub mod unicode_confusion;
+#[path = "混淆检测.rs"]
+pub mod 混淆检测;
 #[path = "列位映射.rs"]
 pub mod 列位映射;
 #[path = "反译重生.rs"]
@@ -366,16 +368,16 @@ pub fn emit_teaching_warnings(
         None => text,
     };
     // 词法处理前的 Unicode 混淆安全检查（零宽/双向/同形字符，仅告警）
-    for warning in unicode_confusion::check_unicode_confusion(source) {
-        crate::log_warn!("unicode_confusion", "{}", owned(warning.format()));
+    for warning in 混淆检测::检查混淆(source) {
+        crate::log_warn!("unicode_confusion", "{}", owned(warning.展示行()));
     }
     // 全角标点教学检查（中文输入法常见错误：代码位置的全角标点，仅告警不阻断）；
     // 字符串/注释内的全角标点合法，由扫描器自动跳过
     //
     // 以下四个扫描器共用同一份字符切片：源码只物化一次，避免各扫一遍
     let chars: Vec<char> = source.chars().collect();
-    for warning in fullwidth::find_fullwidth_punct_chars(&chars) {
-        crate::log_warn!("fullwidth", "{}", owned(warning.format()));
+    for warning in 全角标点::检测全角标点字符(&chars) {
+        crate::log_warn!("fullwidth", "{}", owned(warning.展示行()));
     }
     // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深/易混方法名。
     // CLI `--no-lint` 可关闭（校验::set_teaching_lint_enabled），

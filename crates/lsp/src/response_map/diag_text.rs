@@ -714,11 +714,11 @@ fn construct_position_from_range(file_name: &str, range: &Value) -> Option<Diagn
 /// 扫描得到虚拟坐标（转译不改变行结构，代码位置为 ASCII，char 列即
 /// UTF-16 列），再经列映射还原为方言坐标，与 RA/内置诊断坐标系一致。
 pub(crate) fn fullwidth_diagnostics(entry: &TranslationEntry) -> Vec<Value> {
-    i18n_rust_engine::fullwidth::find_fullwidth_punct(&entry.en_content)
+    i18n_rust_engine::全角标点::检测全角标点(&entry.en_content)
         .iter()
         .map(|w| {
-            let line = (w.line - 1) as u32;
-            let en_col = (w.column - 1) as u32;
+            let line = (w.行号 - 1) as u32;
+            let en_col = (w.列序 - 1) as u32;
             let zh_col = en_col_to_zh_col_single(entry, line, en_col);
             json!({
                 "range": {
@@ -728,11 +728,11 @@ pub(crate) fn fullwidth_diagnostics(entry: &TranslationEntry) -> Vec<Value> {
                 "severity": 3,
                 "code": "fullwidth",
                 "source": "i18n-rust",
-                "message": w.format(),
+                "message": w.展示行(),
                 // 修复动作数据：全角字符与建议的半角字符（供 codeAction 注入）
                 "data": {
-                    "character": w.character.to_string(),
-                    "replacement": w.replacement.map(|c| c.to_string())
+                    "character": w.涉事字符.to_string(),
+                    "replacement": w.替代字符.map(|c| c.to_string())
                 }
             })
         })
