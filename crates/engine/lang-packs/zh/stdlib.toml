@@ -205,6 +205,7 @@
 "以开头" = "starts_with"
 "以结尾" = "ends_with"
 "查找" = "find"
+"查找映射" = "find_map"  # 迭代器：查找首个映射成功者（对齐 过滤映射=filter_map）
 "反向查找" = "rfind"
 "截取" = "get"
 "去前缀" = "strip_prefix"

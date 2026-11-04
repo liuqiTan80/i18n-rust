@@ -24,6 +24,7 @@
 "JSON对象" = "Object"
 "JSON数组" = "Array"
 "解析字符串" = "from_str"
+"解析值" = "from_value"  # serde_json::from_value（诊断簇 cargo 包装行解析）
 "转字符串" = "to_string"
 "美化输出" = "to_string_pretty"  # serde_json::to_string_pretty
 "从文件读取" = "from_reader"
