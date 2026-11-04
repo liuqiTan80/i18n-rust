@@ -253,6 +253,7 @@
 "最后一个" = "last"
 "第一个_mut" = "first_mut"
 "最后一个_mut" = "last_mut"
+"可变末尾" = "last_mut"  # 迭代器：末尾元素可变引用（纯中文形，供 .zh 源使用）
 "切片" = "as_slice"
 "切片_mut" = "as_mut_slice"
 "拼接" = "concat"
