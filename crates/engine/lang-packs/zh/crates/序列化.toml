@@ -17,6 +17,7 @@
 # serde 属性专用词：`#[serde(rename = ...)]` 里的 crate 名。`序列化` 同时映射
 # serialize 方法，属性位会误取 serialize，故单列此词只映射 serde（派生辅助属性位）。
 "序列化属性" = "serde"
+"跳过序列化若" = "skip_serializing_if"  # serde 属性位：可选字段为空时跳过序列化
 
 # serde_json
 "JSON序列化" = "serde_json"  # 模块路径词在函数体内的副本（serde_json:: 前缀调用）
