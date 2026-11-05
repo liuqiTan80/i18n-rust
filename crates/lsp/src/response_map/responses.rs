@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 
 use super::ResponseMapper;
 use super::diag_text::{
-    extract_ownership_details, find_expected_found_label, is_main_fn_hint,
+    提取所有权详情, find_expected_found_label, is_main_fn_hint,
     is_missing_dependency_noise, is_missing_include_asset, is_missing_project_dependency,
     is_unopened_module_reference, translate_diagnostic_message,
 };
@@ -124,7 +124,7 @@ impl ResponseMapper {
                 ));
 
                 // 所有权错误：提取叙事化详情并存入 data 字段（供 VS Code 扩展可视化）
-                if let Some(details) = extract_ownership_details(diag, &mapped, &original_uri)
+                if let Some(details) = 提取所有权详情(diag, &mapped, &original_uri)
                     && let Ok(details_value) = serde_json::to_value(&details)
                 {
                     // 保留 rust-analyzer 已有的 data（如代码操作数据），嵌套存入

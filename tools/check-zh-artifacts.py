@@ -241,9 +241,11 @@ def check_binding_hijack(repo_root: str, sources: list) -> int:
         ("for 循环变量", r"(?:^|[\s;{}()])(?:%s)\s+(\w+)\s+在" % alt("for", "对于")),
         ("闭包参数", r"\(\s*(?:%s\s+)?\|([^|]*)\|" % alt("move", "移动")),
         ("参数/字段名", r"(\w+)\s*:(?!:)"),
-        # 括号里跟的若是 `名::` 路径或 `名(` 调用，那是表达式不是绑定，跳过
-        # （实测 `成功(自身::载入文件(…))` 里的 `自身` 是路径前缀，不换即是正确产物）
-        ("模式内绑定", r"(?:%s|%s|%s)\(\s*(?:%s\s+)?(\w+)(?!\s*::)(?!\s*\()"
+        # 括号里跟的若是 `名::` 路径、`名(` 调用、`名!` 宏或 `名 {` 结构体字面量，
+        # 那都是表达式不是绑定，跳过（实测 `成功(自身::载入文件(…))` 里的 `自身` 是
+        # 路径前缀、`有值(向量![..])` 转译 `Some(vec![..])`、`成功(自身 {…})` 转译
+        # `Ok(Self {…})`——均为有意替换的正确产物；裸 `名` 仍照判，真实绑定不放过）
+        ("模式内绑定", r"(?:%s|%s|%s)\(\s*(?:%s\s+)?(\w+)(?!\s*::)(?!\s*\()(?!\s*!)(?!\s*\{)"
          % (alt("Some", "有值"), alt("Ok", "成功"), alt("Err", "错误"), mut)),
         # 声明名位：函数/结构体/常量等名字同样被词法层顶掉（实测
         # `函数 格式化(…)` → `fn format(…)`，静默改名后仍能编译）
@@ -308,30 +310,27 @@ def transpile_and_format(rzc: str, zh: str):
     rzc 转译输出不做格式规范化，而提交侧要求 cargo fmt 幂等（否则
     `make fmt-check` 与产物内容互相打架），因此期望值 = rustfmt(rzc transpile)。
     """
-    import tempfile
-
     result = subprocess.run(
         [rzc, "transpile", zh], capture_output=True, text=True, encoding="utf-8"
     )
     if result.returncode != 0:
         print(f"FAIL 转译失败：{zh}\n{result.stderr}", file=sys.stderr)
         return None
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=".rs", encoding="utf-8", delete=False, newline=""
-    ) as f:
-        f.write(result.stdout)
-        tmp = f.name
-    try:
-        fmt = subprocess.run(
-            ["rustfmt", "--edition", "2024", tmp], capture_output=True, text=True
-        )
-        if fmt.returncode != 0:
-            print(f"FAIL rustfmt 失败：{zh}\n{fmt.stderr}", file=sys.stderr)
-            return None
-        with open(tmp, encoding="utf-8", newline="") as f:
-            return f.read()
-    finally:
-        os.unlink(tmp)
+    # 走 stdin 而非临时文件：rustfmt 读文件参数时会解析 `pub mod X;` 子模块，父
+    # 模块（diagnostic/mod 等）的兄弟 .rs 不在同一临时目录，会 rc=1 失败；stdin 只
+    # 格式化给定文本、不做模块解析，且与产物生成管线逐字节一致（实测 stdin 输出 ==
+    # 已提交的 mod.rs）。口径同本工具 FAIL 提示的 `rzc transpile X | rustfmt > X.rs`。
+    fmt = subprocess.run(
+        ["rustfmt", "--edition", "2024"],
+        input=result.stdout,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if fmt.returncode != 0:
+        print(f"FAIL rustfmt 失败：{zh}\n{fmt.stderr}", file=sys.stderr)
+        return None
+    return fmt.stdout
 
 
 def main() -> int:

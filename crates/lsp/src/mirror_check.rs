@@ -31,7 +31,7 @@ use std::sync::{Arc, Mutex};
 use serde_json::{Value, json};
 
 use crate::response_map::diag_text::{
-    extract_ownership_details, inject_teaching_diags, translate_diagnostic_message,
+    提取所有权详情, inject_teaching_diags, translate_diagnostic_message,
 };
 use crate::translation_cache::{path_to_uri, 转译缓存};
 
@@ -629,7 +629,7 @@ fn publish_rustc_diagnostics(
         });
 
         // 次级 span → relatedInformation（所有权可视化等）；消息先保留英文，
-        // 供 extract_ownership_details 关键词判定，发布前再翻译
+        // 供 提取所有权详情 关键词判定，发布前再翻译
         let mut raw_related: Vec<Value> = Vec::new();
         for s in spans {
             if s["is_primary"] == Value::Bool(true) {
@@ -658,7 +658,7 @@ fn publish_rustc_diagnostics(
 
         let raw = json!({ "message": orig_message, "code": code });
         let restored = json!({ "range": range, "relatedInformation": raw_related });
-        let ownership = extract_ownership_details(&raw, &restored, &file.original_uri);
+        let ownership = 提取所有权详情(&raw, &restored, &file.original_uri);
 
         // 主消息与 CLI 同口径：传错误码 + 主 span 标签（rustc JSON 携带
         // “expected X, found Y”），使类型不匹配等能回填期望/实际并中文化类型名

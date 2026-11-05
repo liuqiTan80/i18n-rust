@@ -1313,12 +1313,12 @@ fn extract_unresolved_crates_from_diagnostics(diags: &[Value]) -> Vec<String> {
         let Some(msg) = diag.get("message").and_then(|v| v.as_str()) else {
             continue;
         };
-        let is_unresolved = i18n_rust_engine::diagnostic::is_unresolved_import_message(msg)
+        let is_unresolved = i18n_rust_engine::diagnostic::是否未解析导入消息(msg)
             || msg.contains(translated_phrase.as_str());
         if !is_unresolved {
             continue;
         }
-        for seg in i18n_rust_engine::diagnostic::extract_backtick_first_segments(msg) {
+        for seg in i18n_rust_engine::diagnostic::取反引号首段(msg) {
             if matches!(
                 seg.as_str(),
                 "std" | "core" | "alloc" | "self" | "super" | "crate" | "proc_macro"

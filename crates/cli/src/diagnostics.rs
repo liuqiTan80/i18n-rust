@@ -304,7 +304,7 @@ pub(crate) struct StreamTranslator {
     ///
     /// 直调 rustc 运行时管道里只有被运行程序的 stderr，无消息表时
     /// 不得拿 `error:` 行去查表（会把程序自己打印的错误误当 cargo 错误）。
-    tool_manager: Option<i18n_rust_engine::diagnostic::ErrorTranslationManager>,
+    tool_manager: Option<i18n_rust_engine::diagnostic::错误消息管理器>,
     /// 待译清单登记语言（空串取当前界面语言）
     gap_lang: String,
     /// 程序已开始运行（见过 `Running` 进度行）：之后的 `error:` 行属于程序输出
@@ -324,7 +324,7 @@ impl StreamTranslator {
     /// 启用 cargo 纯文本错误行本地化（仅 `cargo run` 流式透传通道使用）
     pub(crate) fn with_tool_text(
         mut self,
-        manager: i18n_rust_engine::diagnostic::ErrorTranslationManager,
+        manager: i18n_rust_engine::diagnostic::错误消息管理器,
         gap_lang: impl Into<String>,
     ) -> Self {
         self.tool_manager = Some(manager);
@@ -510,11 +510,11 @@ pub(crate) fn translate_cargo_diagnostics(
 /// 提示并持久化本轮登记的英文残留（无登记时静默）
 ///
 /// 单元测试进程只清空登记表不落盘：测试用样例语言代码登记的残留不该写进
-/// 用户主目录（落盘/读取/去重逻辑另有 tempdir 用例覆盖，见 `diagnostic::gaps`）。
+/// 用户主目录（落盘/读取/去重逻辑另有 tempdir 用例覆盖，见 `diagnostic::待译清单`）。
 #[allow(unused_variables, clippy::needless_pass_by_value)]
 pub(crate) fn report_translation_gaps(ui: &ui::Ui) {
-    use i18n_rust_engine::diagnostic::gaps;
-    let recorded = gaps::drain_gaps();
+    use i18n_rust_engine::diagnostic::待译清单;
+    let recorded = 待译清单::取出缺口();
     if recorded.is_empty() {
         return;
     }
@@ -522,8 +522,8 @@ pub(crate) fn report_translation_gaps(ui: &ui::Ui) {
     return;
     #[cfg(not(test))]
     {
-        let dir = gaps::gaps_dir();
-        gaps::flush_gaps_to_dir(&dir, &recorded);
+        let dir = 待译清单::清单目录();
+        待译清单::落盘缺口至目录(&dir, &recorded);
         eprintln!(
             "{}",
             ui.f(
@@ -566,8 +566,8 @@ pub(crate) fn load_error_manager(
     lang_pack: &Option<PathBuf>,
     project_root: &Path,
     lang_code: &str,
-) -> Option<i18n_rust_engine::diagnostic::ErrorTranslationManager> {
-    use i18n_rust_engine::diagnostic::ErrorTranslationManager;
+) -> Option<i18n_rust_engine::diagnostic::错误消息管理器> {
+    use i18n_rust_engine::diagnostic::错误消息管理器;
     let error_msg_path = if let Some(path) = lang_pack {
         path.join("errors.toml")
     } else if lang_pack_root_of(project_root)
@@ -585,14 +585,14 @@ pub(crate) fn load_error_manager(
     };
     if error_msg_path.exists() {
         // 加载失败时降级到内置表，不因错误消息文件损坏阻断诊断展示
-        match ErrorTranslationManager::load_from_file(&error_msg_path) {
+        match 错误消息管理器::从文件载入(&error_msg_path) {
             Ok(manager) => return Some(manager),
             Err(e) => eprintln!("{}", ui.f("load_error_msg_failed", &[&e.to_string()])),
         }
     }
     // 文件路径不可用/加载失败时回退内置语言包（未知语言代码自动回退中文）
     let builtin = builtin_lang::get_builtin_data(lang_code);
-    match ErrorTranslationManager::load_from_string(builtin.errors_toml) {
+    match 错误消息管理器::从字符串载入(builtin.errors_toml) {
         Ok(manager) => Some(manager),
         Err(e) => {
             eprintln!("{}", ui.f("warn_builtin_errors_failed", &[&e.to_string()]));
@@ -610,26 +610,26 @@ pub(crate) fn load_error_manager(
 /// 登记点同此口径（见 translator 的 `note_gap`：未命中或残段未被 `{qN}` 消费才记）。
 fn render_tool_detail(
     detail: &str,
-    manager: &i18n_rust_engine::diagnostic::ErrorTranslationManager,
+    manager: &i18n_rust_engine::diagnostic::错误消息管理器,
     gap_lang: &str,
     record_miss: bool,
 ) -> Option<String> {
-    use i18n_rust_engine::diagnostic::{fill_dynamic_placeholders, gaps};
-    let Some((entry, rest)) = manager.query_by_message(detail) else {
+    use i18n_rust_engine::diagnostic::{填充动态占位, 待译清单};
+    let Some((entry, rest)) = manager.按消息查询(detail) else {
         if !record_miss {
             return None;
         }
-        gaps::record_gap(gap_lang, gaps::LEVEL_TOOL, "", detail);
+        待译清单::登记缺口(gap_lang, 待译清单::工具级, "", detail);
         return Some(detail.to_string());
     };
-    let mut text = entry.message_template.clone();
+    let mut text = entry.消息模板.clone();
     if let Some(rest) = rest {
-        let (filled, consumed) = fill_dynamic_placeholders(&text, &rest);
+        let (filled, consumed) = 填充动态占位(&text, &rest);
         text = filled;
         if !consumed {
             // 模板没有对应占位符，英文残段拼回尾巴（兜底）→ 记待译
-            text.push_str(rest.text());
-            gaps::record_gap(gap_lang, gaps::LEVEL_TOOL, "", detail);
+            text.push_str(rest.文字());
+            待译清单::登记缺口(gap_lang, 待译清单::工具级, "", detail);
         }
     }
     Some(text)
@@ -642,7 +642,7 @@ fn render_tool_detail(
 /// 由调用方交给进度行翻译器（那里已有 "could not compile" 的专门处理）。
 fn localize_tool_line(
     line: &str,
-    manager: Option<&i18n_rust_engine::diagnostic::ErrorTranslationManager>,
+    manager: Option<&i18n_rust_engine::diagnostic::错误消息管理器>,
     ui: &ui::Ui,
     gap_lang: &str,
 ) -> Option<String> {
@@ -689,7 +689,7 @@ fn localize_tool_line(
 ///（如缩进后的补充说明）不单独登记，避免把进度行刷进清单。
 pub(crate) fn localize_tool_text(
     text: &str,
-    manager: &i18n_rust_engine::diagnostic::ErrorTranslationManager,
+    manager: &i18n_rust_engine::diagnostic::错误消息管理器,
     ui: &ui::Ui,
     gap_lang: &str,
 ) -> String {
@@ -715,7 +715,7 @@ fn translate_cargo_diagnostics_impl(
     streamed_output: bool,
 ) -> bool {
     use i18n_rust_engine::diagnostic::{
-        DiagnosticTranslator, build_type_map, parse_diagnostic_output, suggested_crate_name,
+        诊断翻译器, 构建类型映射, 解析诊断输出, 建议包名,
     };
     let ui = ctx.ui;
     let lang_pack = ctx.lang_pack;
@@ -750,17 +750,17 @@ fn translate_cargo_diagnostics_impl(
     // 类型映射（英文 → 母语）：供诊断消息中的类型/特征名中文化（如
     // `std::fmt::Display` → `标准库::格式化::可显示`）。构建逻辑下沉引擎，
     // 与 LSP 共用同一来源，避免两侧漂移（keywords [类型] 反转为主，别名/模块路径补充）。
-    let reverse_map = build_type_map(manager);
+    let reverse_map = 构建类型映射(manager);
     let translator =
         load_error_manager(ui, lang_pack, project_root, &lang_code).map(|translation_manager| {
-            DiagnosticTranslator::new(translation_manager, reverse_map.clone())
-                .with_gap_lang(lang_code.clone())
+            诊断翻译器::新建(translation_manager, reverse_map.clone())
+                .带待译语言(lang_code.clone())
         });
 
     // cargo 自身错误（纯文本通道）本地化：manifest 写坏、不在项目里、
     // 未声明编译目标这类新手高频错误旧行为是直接喷英文
     let cargo_error_text = || match &translator {
-        Some(t) => localize_tool_text(stderr_text.trim(), t.translation_manager(), ui, &lang_code),
+        Some(t) => localize_tool_text(stderr_text.trim(), t.取译表(), ui, &lang_code),
         None => stderr_text.trim().to_string(),
     };
 
@@ -769,18 +769,18 @@ fn translate_cargo_diagnostics_impl(
         .unwrap_or_default()
         .to_string_lossy()
         .to_string();
-    let mut diagnostics = parse_diagnostic_output(rustc_output);
+    let mut diagnostics = 解析诊断输出(rustc_output);
     // 保留 error/warning；不要求有错误码——无码的解析错误（如缺括号）
     // 也必须显示，否则会被静默吞掉导致假“编译成功”
-    diagnostics.retain(|d| d.level == "error" || d.level == "warning");
+    diagnostics.retain(|d| d.级别 == "error" || d.级别 == "warning");
     // rustc 的汇总元消息（"aborting due to N previous error(s)"）：无代码位置、
     // 无教学内容，具体错误已逐条列出；省略它可以避免英文残句与伪“错误”行
     // 混入诊断列表（数字无法用消息表占位符捕获，故不在翻译层处理）
-    diagnostics.retain(|d| !d.message.starts_with("aborting due to "));
+    diagnostics.retain(|d| !d.诊断消息.starts_with("aborting due to "));
     let mut seen_codes = std::collections::HashSet::new();
     diagnostics.retain(|d| {
-        if let Some(ref code) = d.code {
-            seen_codes.insert(code.code.clone())
+        if let Some(ref code) = d.诊断码 {
+            seen_codes.insert(code.码值.clone())
         } else {
             true // 无错误码的诊断（解析错误等）不去重，直接保留
         }
@@ -794,8 +794,8 @@ fn translate_cargo_diagnostics_impl(
     // 这里复用它的提取函数，不另写一套解析。
     if !local_names.is_empty() {
         for diag in &mut diagnostics {
-            diag.children.retain(|child| {
-                !suggested_crate_name(&child.message)
+            diag.子诊断.retain(|child| {
+                !建议包名(&child.诊断消息)
                     .is_some_and(|name| local_names.iter().any(|local| local == name))
             });
         }
@@ -817,10 +817,10 @@ fn translate_cargo_diagnostics_impl(
     }
 
     if let Some(ref translator) = translator {
-        let mut teaching_list = translator.batch_translate(&diagnostics);
+        let mut teaching_list = translator.批量翻译(&diagnostics);
         let mut seen_teaching_codes = std::collections::HashSet::new();
         teaching_list.retain(|t| {
-            t.error_code
+            t.错误码
                 .as_ref()
                 .is_none_or(|code| seen_teaching_codes.insert(code.clone()))
         });
@@ -846,7 +846,7 @@ fn translate_cargo_diagnostics_impl(
         }
         println!(
             "{}",
-            i18n_rust_engine::diagnostic::TeachingDiagnostic::batch_format_as_text(&teaching_list)
+            i18n_rust_engine::diagnostic::教学诊断::批量作为文字输出(&teaching_list)
         );
         dep_hints();
         true
@@ -1007,21 +1007,21 @@ impl<'a> DiagLocationFixer<'a> {
     }
 
     /// 回译一条教学诊断的全部位置（含子诊断）
-    fn fix(&mut self, teaching: &mut i18n_rust_engine::diagnostic::TeachingDiagnostic) {
-        for loc in &mut teaching.locations {
+    fn fix(&mut self, teaching: &mut i18n_rust_engine::diagnostic::教学诊断) {
+        for loc in &mut teaching.位置集 {
             self.fix_location(loc);
         }
-        for child in &mut teaching.children {
+        for child in &mut teaching.子诊断 {
             self.fix(child);
         }
     }
 
     pub(crate) fn fix_location(
         &mut self,
-        loc: &mut i18n_rust_engine::diagnostic::DiagnosticLocation,
+        loc: &mut i18n_rust_engine::diagnostic::诊断位置,
     ) {
-        if self.is_entry_product(&loc.file_name) {
-            loc.file_name = self.original_filename.to_string();
+        if self.is_entry_product(&loc.文件名称) {
+            loc.文件名称 = self.original_filename.to_string();
             // 先把 rustc 的（英文产物）行列回译到母语源码坐标，
             // 再用回译后的行号取源码行——顺序不可颠倒，否则源码行与列号错位。
             if let Some(cm) = self.column_map {
@@ -1029,24 +1029,24 @@ impl<'a> DiagLocationFixer<'a> {
                 //（列映射以引擎直出产物为基准，1-based 换算后传入）
                 let engine_line = self
                     .entry_line_map
-                    .and_then(|map| map.get(loc.line_start.saturating_sub(1) as usize).copied())
+                    .and_then(|map| map.get(loc.起始行号.saturating_sub(1) as usize).copied())
                     .map(|engine| engine as u32 + 1)
-                    .unwrap_or(loc.line_start);
-                let (line, column) = cm.回译坐标(engine_line, loc.column_start);
-                loc.line_start = line;
-                loc.column_start = column;
+                    .unwrap_or(loc.起始行号);
+                let (line, column) = cm.回译坐标(engine_line, loc.起始列号);
+                loc.起始行号 = line;
+                loc.起始列号 = column;
             }
-            loc.source_text = get_chinese_source_line(self.source, loc.line_start);
+            loc.源码文本 = get_chinese_source_line(self.source, loc.起始行号);
             return;
         }
         let context = self
             .file_contexts
-            .entry(loc.file_name.clone())
+            .entry(loc.文件名称.clone())
             .or_insert_with(|| {
                 resolve_dialect_context(
                     self.project_root,
                     self.dialect_ext,
-                    &loc.file_name,
+                    &loc.文件名称,
                     self.manager,
                     self.project,
                 )
@@ -1055,18 +1055,18 @@ impl<'a> DiagLocationFixer<'a> {
             // 非方言文件（手写 .rs、第三方源码等）：保持 rustc 原始定位
             return;
         };
-        loc.file_name = context.display_name.clone();
+        loc.文件名称 = context.display_name.clone();
         // 注解插入行先行换算（1-based 映射），再回译列号
         let engine_line = context
             .line_map
-            .get(loc.line_start.saturating_sub(1) as usize)
+            .get(loc.起始行号.saturating_sub(1) as usize)
             .copied()
             .map(|engine| engine as u32 + 1)
-            .unwrap_or(loc.line_start);
-        let (line, column) = context.column_map.回译坐标(engine_line, loc.column_start);
-        loc.line_start = line;
-        loc.column_start = column;
-        loc.source_text = get_chinese_source_line(&context.source, loc.line_start);
+            .unwrap_or(loc.起始行号);
+        let (line, column) = context.column_map.回译坐标(engine_line, loc.起始列号);
+        loc.起始行号 = line;
+        loc.起始列号 = column;
+        loc.源码文本 = get_chinese_source_line(&context.source, loc.起始行号);
     }
 
     /// 判断诊断文件是否为本次编译入口（请求文件）的转译产物
@@ -1085,7 +1085,7 @@ impl<'a> DiagLocationFixer<'a> {
 /// 识别 unresolved import（E0432）与 failed to resolve（E0433）诊断，
 /// 候选提取复用 engine 共享逻辑（已去重，排除标准库与保留路径）。
 pub(crate) fn extract_unresolved_crates(rustc_output: &str) -> Vec<String> {
-    use i18n_rust_engine::diagnostic::{is_unresolved_import_message, unresolved_crate_candidates};
+    use i18n_rust_engine::diagnostic::{是否未解析导入消息, 未解析包候选};
     let mut result: Vec<String> = Vec::new();
     for line in rustc_output.lines() {
         let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) else {
@@ -1109,20 +1109,20 @@ pub(crate) fn extract_unresolved_crates(rustc_output: &str) -> Vec<String> {
             .and_then(|v| v.as_str())
             .unwrap_or("");
         let text = msg.get("message").and_then(|v| v.as_str()).unwrap_or("");
-        if !matches!(code, "E0432" | "E0433") && !is_unresolved_import_message(text) {
+        if !matches!(code, "E0432" | "E0433") && !是否未解析导入消息(text) {
             continue;
         }
-        for seg in unresolved_crate_candidates(text) {
+        for seg in 未解析包候选(text) {
             if !result.contains(&seg) {
                 result.push(seg);
             }
         }
         // 码命中但消息文本未命中时（消息格式变化），退化到纯首段提取
-        if matches!(code, "E0432" | "E0433") && unresolved_crate_candidates(text).is_empty() {
-            use i18n_rust_engine::diagnostic::extract_backtick_first_segments;
-            for seg in extract_backtick_first_segments(text) {
+        if matches!(code, "E0432" | "E0433") && 未解析包候选(text).is_empty() {
+            use i18n_rust_engine::diagnostic::取反引号首段;
+            for seg in 取反引号首段(text) {
                 // 非 ASCII 段不是 crate 名（母语标识符误提取），
-                // 与 unresolved_crate_candidates 的过滤保持一致
+                // 与 未解析包候选 的过滤保持一致
                 if !matches!(
                     seg.as_str(),
                     "std" | "core" | "alloc" | "self" | "super" | "crate" | "proc_macro"
@@ -1327,23 +1327,23 @@ mod tests {
         };
         let mut fixer = DiagLocationFixer::new(&ctx, "main.zh", "zh");
         // rustc 报磁盘第 6 行第 13 列（`未定义的名字` 首字符）
-        let mut loc = i18n_rust_engine::diagnostic::DiagnosticLocation {
-            file_name: "src/main.rs".to_string(),
-            line_start: 6,
-            column_start: 13,
-            line_end: 6,
-            column_end: 18,
-            source_text: None,
-            label: None,
-            is_primary: true,
+        let mut loc = i18n_rust_engine::diagnostic::诊断位置 {
+            文件名称: "src/main.rs".to_string(),
+            起始行号: 6,
+            起始列号: 13,
+            结束行号: 6,
+            结束列号: 18,
+            源码文本: None,
+            标签文本: None,
+            是否主因: true,
         };
         fixer.fix_location(&mut loc);
 
         // 回译到母语源码：第 5 行第 11 列（`让` → `let` 的列差已补回）
-        assert_eq!(loc.file_name, "main.zh");
-        assert_eq!(loc.line_start, 5);
-        assert_eq!(loc.column_start, 11);
-        assert_eq!(loc.source_text.as_deref(), Some("    让 _ = 未定义的名字;"));
+        assert_eq!(loc.文件名称, "main.zh");
+        assert_eq!(loc.起始行号, 5);
+        assert_eq!(loc.起始列号, 11);
+        assert_eq!(loc.源码文本.as_deref(), Some("    让 _ = 未定义的名字;"));
     }
 
     /// 托管布局子模块产物（`.rz/gen/src/…`）的诊断仍须回译到母语源文件
@@ -1412,22 +1412,22 @@ mod tests {
             project: None,
         };
         let mut fixer = DiagLocationFixer::new(&ctx, "main.zh", "zh");
-        let mut loc = i18n_rust_engine::diagnostic::DiagnosticLocation {
-            file_name: "src/../.rz/gen/src/数学.rs".to_string(),
-            line_start: disk_line as u32,
-            column_start: 13,
-            line_end: disk_line as u32,
-            column_end: 18,
-            source_text: None,
-            label: None,
-            is_primary: true,
+        let mut loc = i18n_rust_engine::diagnostic::诊断位置 {
+            文件名称: "src/../.rz/gen/src/数学.rs".to_string(),
+            起始行号: disk_line as u32,
+            起始列号: 13,
+            结束行号: disk_line as u32,
+            结束列号: 18,
+            源码文本: None,
+            标签文本: None,
+            是否主因: true,
         };
         fixer.fix_location(&mut loc);
 
-        assert_eq!(loc.file_name, "数学.zh");
-        assert_eq!(loc.line_start, 4);
-        assert_eq!(loc.column_start, 11);
-        assert_eq!(loc.source_text.as_deref(), Some("    让 _ = 未定义的名字;"));
+        assert_eq!(loc.文件名称, "数学.zh");
+        assert_eq!(loc.起始行号, 4);
+        assert_eq!(loc.起始列号, 11);
+        assert_eq!(loc.源码文本.as_deref(), Some("    让 _ = 未定义的名字;"));
     }
 
     /// cargo JSON 流中提取未声明 crate：E0432/E0433 命中，标准库与重复项排除
@@ -1660,7 +1660,7 @@ mod tests {
         }
 
         // 工具通道其余前缀（error: 之外的四个）同样逐字
-        let manager = i18n_rust_engine::diagnostic::ErrorTranslationManager::load_from_string(
+        let manager = i18n_rust_engine::diagnostic::错误消息管理器::从字符串载入(
             crate::builtin_lang::get_builtin_data("en").errors_toml,
         )
         .expect("内置 en 错误消息表应可加载");
@@ -1771,21 +1771,21 @@ mod tests {
         } else {
             "/nonexistent-crate-9f3/src/lib.rs".to_string()
         };
-        let mut loc = i18n_rust_engine::diagnostic::DiagnosticLocation {
-            file_name: external.clone(),
-            line_start: 7,
-            column_start: 3,
-            line_end: 7,
-            column_end: 9,
-            source_text: Some("orig".to_string()),
-            label: None,
-            is_primary: true,
+        let mut loc = i18n_rust_engine::diagnostic::诊断位置 {
+            文件名称: external.clone(),
+            起始行号: 7,
+            起始列号: 3,
+            结束行号: 7,
+            结束列号: 9,
+            源码文本: Some("orig".to_string()),
+            标签文本: None,
+            是否主因: true,
         };
         fixer.fix_location(&mut loc);
-        assert_eq!(loc.file_name, external);
-        assert_eq!(loc.line_start, 7);
-        assert_eq!(loc.column_start, 3);
-        assert_eq!(loc.source_text.as_deref(), Some("orig"));
+        assert_eq!(loc.文件名称, external);
+        assert_eq!(loc.起始行号, 7);
+        assert_eq!(loc.起始列号, 3);
+        assert_eq!(loc.源码文本.as_deref(), Some("orig"));
     }
 
     /// 子模块方言产物（src/数学.rs）：解析回同名 .zh 源文件并重建坐标/源码行
@@ -1805,19 +1805,19 @@ mod tests {
         let ui = crate::ui::Ui::for_lang("zh");
         let ctx = minimal_ctx(&ui, root, &manager, &entry, "函数 主函数() {}\n");
         let mut fixer = DiagLocationFixer::new(&ctx, "main.zh", "zh");
-        let mut loc = i18n_rust_engine::diagnostic::DiagnosticLocation {
-            file_name: "src/数学.rs".to_string(),
-            line_start: 1,
-            column_start: 1,
-            line_end: 1,
-            column_end: 1,
-            source_text: None,
-            label: None,
-            is_primary: true,
+        let mut loc = i18n_rust_engine::diagnostic::诊断位置 {
+            文件名称: "src/数学.rs".to_string(),
+            起始行号: 1,
+            起始列号: 1,
+            结束行号: 1,
+            结束列号: 1,
+            源码文本: None,
+            标签文本: None,
+            是否主因: true,
         };
         fixer.fix_location(&mut loc);
-        assert_eq!(loc.file_name, "数学.zh");
-        assert_eq!(loc.source_text.as_deref(), Some(sub_source.trim_end()));
+        assert_eq!(loc.文件名称, "数学.zh");
+        assert_eq!(loc.源码文本.as_deref(), Some(sub_source.trim_end()));
     }
 
     /// 诊断归属按**被编译目标**而非请求文件：`rzc check src/工具.zh` 时
@@ -1841,20 +1841,20 @@ mod tests {
         let ui = crate::ui::Ui::for_lang("zh");
         let ctx = minimal_ctx(&ui, root, &manager, &entry, tool_source);
         let mut fixer = DiagLocationFixer::new(&ctx, "工具.zh", "zh");
-        let mut loc = i18n_rust_engine::diagnostic::DiagnosticLocation {
-            file_name: "src/main.rs".to_string(),
-            line_start: 1,
-            column_start: 19,
-            line_end: 1,
-            column_end: 20,
-            source_text: None,
-            label: None,
-            is_primary: true,
+        let mut loc = i18n_rust_engine::diagnostic::诊断位置 {
+            文件名称: "src/main.rs".to_string(),
+            起始行号: 1,
+            起始列号: 19,
+            结束行号: 1,
+            结束列号: 20,
+            源码文本: None,
+            标签文本: None,
+            是否主因: true,
         };
         fixer.fix_location(&mut loc);
-        assert_eq!(loc.file_name, "main.zh", "应归到报错所在的源文件");
+        assert_eq!(loc.文件名称, "main.zh", "应归到报错所在的源文件");
         assert_eq!(
-            loc.source_text.as_deref(),
+            loc.源码文本.as_deref(),
             Some(main_source.trim_end()),
             "源码行取自 main.zh而非工具.zh"
         );
@@ -1954,8 +1954,8 @@ mod tests {
     }
 
     /// 内置中文消息表（cargo 纯文本通道与 JSON 通道共用同一张表）
-    fn zh_error_manager() -> i18n_rust_engine::diagnostic::ErrorTranslationManager {
-        i18n_rust_engine::diagnostic::ErrorTranslationManager::load_from_string(
+    fn zh_error_manager() -> i18n_rust_engine::diagnostic::错误消息管理器 {
+        i18n_rust_engine::diagnostic::错误消息管理器::从字符串载入(
             crate::builtin_lang::get_builtin_data("zh").errors_toml,
         )
         .expect("内置中文错误消息表应可加载")
@@ -2008,7 +2008,7 @@ mod tests {
     /// 未命中的 cargo 错误行：原文照旧输出（绝不吞诊断）+ 前缀本地化 + 登记待译
     #[test]
     fn test_localize_tool_line_falls_back_and_records_gap() {
-        use i18n_rust_engine::diagnostic::gaps;
+        use i18n_rust_engine::diagnostic::待译清单;
         let manager = zh_error_manager();
         let ui = ui_for_test("zh");
         // 独占语言代码：登记表是进程全局的，避免与其他并行测试互相干扰
@@ -2021,10 +2021,10 @@ mod tests {
             "未译句子应保留原文，仅换行首前缀"
         );
         assert!(
-            gaps::peek_gaps()
+            待译清单::查看缺口()
                 .iter()
                 .any(|(lang, level, _, message)| lang == gap_lang
-                    && level == gaps::LEVEL_TOOL
+                    && level == 待译清单::工具级
                     && message.starts_with("unsupported subfeatures")),
             "未命中应登记 tool 通道待译清单"
         );
@@ -2048,16 +2048,16 @@ mod tests {
 
     /// en（恒等语言）未命中消息表：原句就是母语输出，不得登记待译
     ///
-    /// 起因：en 包不携带「消息翻译」节，`query_by_message` 在 en 下永远未命中。
+    /// 起因：en 包不携带「消息翻译」节，`按消息查询` 在 en 下永远未命中。
     /// 旧行为于是给每句英文都记一条 gap：英语用户每次报错都多看到一行
     /// `Note: N message(s) have no translation, shown as-is`（它在 en 下恒为真），
-    /// 同时往 `~/.rz/gaps/en.tsv` 堆英文原句（实测积到 1000+ 行且永远补不动）。
+    /// 同时往 `~/.rz/待译清单/en.tsv` 堆英文原句（实测积到 1000+ 行且永远补不动）。
     /// 对照分支拿同一个 en 消息表只换 `gap_lang`：非恒等语言必须照记，
     /// 证明「不登记」只源于语言判定，不是这句消息本身被过滤。
     #[test]
     fn test_localize_tool_line_in_identity_lang_shows_original_without_gap() {
-        use i18n_rust_engine::diagnostic::gaps;
-        let en_manager = i18n_rust_engine::diagnostic::ErrorTranslationManager::load_from_string(
+        use i18n_rust_engine::diagnostic::待译清单;
+        let en_manager = i18n_rust_engine::diagnostic::错误消息管理器::从字符串载入(
             crate::builtin_lang::get_builtin_data("en").errors_toml,
         )
         .expect("内置 en 错误消息表应可加载");
@@ -2075,7 +2075,7 @@ mod tests {
             "en 下应逐字保留 cargo 原句"
         );
         assert!(
-            !gaps::peek_gaps()
+            !待译清单::查看缺口()
                 .iter()
                 .any(|(lang, _, _, message)| lang == "en" && message.contains("--extern")),
             "恒等语言未命中不算待译，否则英语用户被告知去补一份不存在的译文"
@@ -2085,9 +2085,9 @@ mod tests {
         let 对照语言 = "tool-identity-contrast";
         localize_tool_line(line, Some(&en_manager), &ui, 对照语言).expect("标记行应被处理");
         assert!(
-            gaps::peek_gaps()
+            待译清单::查看缺口()
                 .iter()
-                .any(|(lang, level, _, _)| lang == 对照语言 && level == gaps::LEVEL_TOOL),
+                .any(|(lang, level, _, _)| lang == 对照语言 && level == 待译清单::工具级),
             "非恒等语言未命中仍应登记 tool 通道待译清单"
         );
 
@@ -2107,7 +2107,7 @@ mod tests {
     /// （缩进输出也可能是被运行程序自己的打印）。
     #[test]
     fn test_localize_tool_line_handles_caused_by_chain() {
-        use i18n_rust_engine::diagnostic::gaps;
+        use i18n_rust_engine::diagnostic::待译清单;
         let manager = zh_error_manager();
         let ui = ui_for_test("zh");
         assert_eq!(
@@ -2138,7 +2138,7 @@ mod tests {
             "未命中的缩进行应交回原有流程"
         );
         assert!(
-            !gaps::peek_gaps()
+            !待译清单::查看缺口()
                 .iter()
                 .any(|(lang, _, _, _)| lang == gap_lang),
             "缩进行未命中不得登记待译清单"

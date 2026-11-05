@@ -1,7 +1,7 @@
-//! `rzc gaps` —— 待译清单（英文残留）查看、导出与清零
+//! `rzc 待译清单` —— 待译清单（英文残留）查看、导出与清零
 //!
 //! 编译器/构建工具的消息命中不了语言包消息表时，诊断照旧按英文原文显示
-//! （兜底，绝不吞诊断），同时把这条未译记录写入 `~/.rz/gaps/<语言>.tsv`。
+//! （兜底，绝不吞诊断），同时把这条未译记录写入 `~/.rz/待译清单/<语言>.tsv`。
 //! 本命令把清单读回来：直接看、导出成补表素材，或补完后清零。
 //!
 //! 清单每行 `语言\t通道\t错误码\t消息原文`，通道取 `main`（主消息）、
@@ -12,7 +12,7 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use i18n_rust_engine::diagnostic::gaps;
+use i18n_rust_engine::diagnostic::待译清单;
 
 use crate::ui;
 
@@ -24,19 +24,19 @@ pub(crate) fn command(
     clear: bool,
 ) -> anyhow::Result<()> {
     let lang = lang.unwrap_or_else(crate::ui::detect_ui_lang);
-    let file = gaps::gap_file(&lang);
+    let file = 待译清单::清单项文件(&lang);
     if clear {
         println!(
             "{}",
             ui.f("gaps_cleared", &[&lang, &file.display().to_string()])
         );
-        if !gaps::clear_gaps(&lang) {
+        if !待译清单::清空缺口(&lang) {
             // 文件本就不存在：清单已是空，补一句避免误以为删了东西
             println!("{}", ui.f("gaps_none", &[&file.display().to_string()]));
         }
         return Ok(());
     }
-    let list = gaps::read_gaps(&lang);
+    let list = 待译清单::读取缺口(&lang);
     if list.is_empty() {
         println!("{}", ui.f("gaps_none", &[&file.display().to_string()]));
         return Ok(());
@@ -63,10 +63,10 @@ pub(crate) fn command(
 
 /// 渲染清单：按通道分组排序，输出与语料门禁同构的三列 TSV
 ///
-/// 消息里的换行/制表符走 [`gaps::encode_gap_field`]：跨行消息（如 E0277 的
+/// 消息里的换行/制表符走 [`待译清单::编码缺口字段`]：跨行消息（如 E0277 的
 /// 「下列类型实现了该特征」清单）若原样输出，导出件一行就不只一条记录，
-/// 下游补表脚本与 `parse_gap_lines` 都要读坏。
-fn render(list: &[gaps::TranslationGap]) -> String {
+/// 下游补表脚本与 `解析清单行` 都要读坏。
+fn render(list: &[待译清单::待译记录]) -> String {
     let mut sorted = list.to_vec();
     // 通道（main → help → tool）→ 消息原文，稳定输出便于 diff
     sorted.sort_by(|a, b| (&a.1, &a.3).cmp(&(&b.1, &b.3)));
@@ -74,7 +74,7 @@ fn render(list: &[gaps::TranslationGap]) -> String {
     for (_, level, code, message) in sorted {
         out.push_str(&format!(
             "{level}\t{code}\t{}\n",
-            gaps::encode_gap_field(&message)
+            待译清单::编码缺口字段(&message)
         ));
     }
     out
@@ -114,13 +114,13 @@ mod tests {
         assert!(lines[1].starts_with("main\tE9999"));
         assert!(lines[2].starts_with("tool\t"));
         // 去掉语言列后可直接被引擎解析（语料门禁同构）
-        assert_eq!(gaps::parse_gap_lines(&text).len(), 3);
+        assert_eq!(待译清单::解析清单行(&text).len(), 3);
     }
 
     /// 跨行消息在导出件里仍是一行一条，且能被引擎逐字读回
     ///
     /// 不转义就会把 `--export` 产物拆成裸行：补表脚本按行读到的是半句，
-    /// 而 `rzc gaps` 的条数也不再是待译句子数。
+    /// 而 `rzc 待译清单` 的条数也不再是待译句子数。
     #[test]
     fn render_escapes_multiline_message() {
         let 多行 = "the following other types implement trait `Add<Rhs>`:\n  `&f16` implements `Add<f16>`\nand 56 others";
@@ -150,7 +150,7 @@ mod tests {
             "应以转义字面量存放：{multiline_line}"
         );
         // 导出件去首列后仍与语料门禁同构，读回内容逐字相等
-        let read = gaps::parse_gap_lines(&text);
+        let read = 待译清单::解析清单行(&text);
         assert_eq!(read.len(), 2);
         assert!(
             read.iter().any(|g| g.3 == 多行),

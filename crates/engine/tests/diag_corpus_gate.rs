@@ -7,8 +7,8 @@
 //! - 语料 `data/diag-corpus.tsv` 由 `tools/diag-corpus/collect.py` 从
 //!   `tools/diag-corpus/fixtures/*.rs` 采集生成（每行 `LEVEL\tCODE\t消息原文`）；
 //!   rustc 新增/改动消息句子时，重跑采集器刷新语料即可暴露缺口。
-//! - 审计判据 [`audit_message`] 与开发期 `diag_audit` 示例同源，渲染路径与
-//!   `DiagnosticTranslator` 一致，这里报出的残留即用户在终端实际看到的文字。
+//! - 审计判据 [`审计消息`] 与开发期 `diag_audit` 示例同源，渲染路径与
+//!   `诊断翻译器` 一致，这里报出的残留即用户在终端实际看到的文字。
 //!
 //! 只要有人删键、改坏通配段匹配、或补了等于没补（模板回落英文原文），
 //! 本测试立刻在 `cargo test --workspace` 里失败，无需再靠手工实跑发现。
@@ -17,7 +17,7 @@
 
 use std::collections::HashSet;
 
-use i18n_rust_engine::diagnostic::{ErrorTranslationManager, audit_message};
+use i18n_rust_engine::diagnostic::{错误消息管理器, 审计消息};
 
 /// 每行 `LEVEL\tCODE\t消息原文`（CODE 可为空）；裸行按 main/空码处理。
 fn parse_corpus(raw: &str) -> Vec<(String, String, String)> {
@@ -64,15 +64,15 @@ fn 诊断反例语料在全部内置语言包中译文无残留() {
             .find(|(n, _)| *n == "errors.toml")
             .map(|(_, c)| c)
             .unwrap_or_else(|| panic!("{code} 语言包缺少 errors.toml"));
-        let manager = ErrorTranslationManager::load_from_string(errors_toml)
+        let manager = 错误消息管理器::从字符串载入(errors_toml)
             .unwrap_or_else(|e| panic!("{code}/errors.toml 解析失败：{e}"));
         checked_langs += 1;
         for (level, ec, message) in &corpus {
-            let audit = audit_message(&manager, level, ec, message);
-            if !audit.residue.is_empty() {
+            let audit = 审计消息(&manager, level, ec, message);
+            if !audit.残留.is_empty() {
                 failures.push(format!(
                     "[{code}] {level}/{ec} 形态={} 残留={:?}\n    原文: {message}\n    译文: {}",
-                    audit.kind, audit.residue, audit.rendered
+                    audit.种类, audit.残留, audit.已渲染
                 ));
             }
         }

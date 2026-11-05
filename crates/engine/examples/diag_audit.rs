@@ -5,20 +5,20 @@
 //! 输入一批消息原文（由 `tools/diag-corpus/` 采集），输出每条的命中形态与
 //! 渲染后仍残留的英文片段，用于批量定位缺口。
 //!
-//! 渲染路径与 `DiagnosticTranslator` 完全一致（模板 → `{qN}` 填充 → 未消费则
+//! 渲染路径与 `诊断翻译器` 完全一致（模板 → `{qN}` 填充 → 未消费则
 //! 回拼残段），因此这里报出的残留就是用户在终端里实际看到的文字。
 //!
 //! 用法：
 //!   cargo run -p i18n-rust-engine --example diag_audit -- \
 //!     --errors crates/engine/lang-packs/zh/errors.toml --messages /tmp/msgs.txt
 //!
-//! 审计判据已下沉为库函数 [`audit_message`]（门禁测试 `tests/diag_corpus_gate.rs`
+//! 审计判据已下沉为库函数 [`审计消息`]（门禁测试 `tests/diag_corpus_gate.rs`
 //! 与采样反例语料共用同一实现，避免示例与测试漂移）。
 use std::collections::HashSet;
 use std::io::Read;
 use std::path::PathBuf;
 
-use i18n_rust_engine::diagnostic::{ErrorTranslationManager, audit_message};
+use i18n_rust_engine::diagnostic::{错误消息管理器, 审计消息};
 
 fn main() {
     let mut errors: Option<PathBuf> = None;
@@ -43,7 +43,7 @@ fn main() {
         std::process::exit(2);
     };
 
-    let manager = ErrorTranslationManager::load_from_file(&errors)
+    let manager = 错误消息管理器::从文件载入(&errors)
         .unwrap_or_else(|e| panic!("无法加载 {}: {e:?}", errors.display()));
     let mut raw = String::new();
     std::fs::File::open(&messages_file)
@@ -70,18 +70,18 @@ fn main() {
             continue;
         }
         total += 1;
-        let audit = audit_message(&manager, level, code, message);
-        if audit.residue.is_empty() {
+        let audit = 审计消息(&manager, level, code, message);
+        if audit.残留.is_empty() {
             ok += 1;
             continue;
         }
-        match audit.kind {
+        match audit.种类.as_str() {
             "MISS" => miss += 1,
             _ => partial += 1,
         }
-        println!("{level}\t{}\t{message}", audit.kind);
-        println!("  译文: {}", audit.rendered);
-        println!("  残留: {}", audit.residue.join(" | "));
+        println!("{level}\t{}\t{message}", audit.种类);
+        println!("  译文: {}", audit.已渲染);
+        println!("  残留: {}", audit.残留.join(" | "));
     }
     println!("# 合计 {total} 条：完全未命中 {miss}、部分残留 {partial}、已译全 {ok}");
     if miss + partial > 0 {

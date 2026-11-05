@@ -9,17 +9,17 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::SystemTime;
 
-use i18n_rust_engine::diagnostic::{BorrowConflict, DiagnosticLocation, OwnershipDetails};
+use i18n_rust_engine::diagnostic::{借用冲突, 诊断位置, 所有权详情};
 use serde_json::{Value, json};
 
 use crate::translation_cache::{TranslationEntry, en_col_to_zh_col_single};
 
 /// 诊断翻译器（errors.toml 消息表 + 错误码表 + type_map）：与 CLI 完全同源，
-/// 走引擎 `render_main_message` 统一口径，覆盖 rustc/rust-analyzer 的常见消息。
+/// 走引擎 `渲染主消息` 统一口径，覆盖 rustc/rust-analyzer 的常见消息。
 /// 由服务器启动时初始化（语言包目录 errors.toml + 映射管理器，缺失时回退内置
 /// zh）；未初始化时为 None，翻译退化为下方轻量短语替换。
 static DIAGNOSTIC_TRANSLATOR: std::sync::OnceLock<
-    Option<i18n_rust_engine::diagnostic::DiagnosticTranslator>,
+    Option<i18n_rust_engine::diagnostic::诊断翻译器>,
 > = std::sync::OnceLock::new();
 
 /// 初始化诊断翻译器（errors.toml 消息表 + 由映射管理器构建的 type_map；
@@ -28,27 +28,27 @@ pub fn init_diagnostic_translator(
     lang_pack_path: &std::path::Path,
     manager: &i18n_rust_engine::映射管理器::映射管理器,
 ) {
-    let type_map = i18n_rust_engine::diagnostic::build_type_map(manager);
+    let type_map = i18n_rust_engine::diagnostic::构建类型映射(manager);
     let translation_manager =
-        i18n_rust_engine::diagnostic::ErrorTranslationManager::load_from_file(
+        i18n_rust_engine::diagnostic::错误消息管理器::从文件载入(
             &lang_pack_path.join("errors.toml"),
         )
         .ok()
         .or_else(builtin_zh_error_translator);
     let translator = translation_manager
-        .map(|m| i18n_rust_engine::diagnostic::DiagnosticTranslator::new(m, type_map));
+        .map(|m| i18n_rust_engine::diagnostic::诊断翻译器::新建(m, type_map));
     let _ = DIAGNOSTIC_TRANSLATOR.set(translator);
 }
 
 /// 物化引擎内嵌的中文 errors.toml 并加载翻译器（语言包目录缺失时兜底）
-fn builtin_zh_error_translator() -> Option<i18n_rust_engine::diagnostic::ErrorTranslationManager> {
+fn builtin_zh_error_translator() -> Option<i18n_rust_engine::diagnostic::错误消息管理器> {
     let dir = tempfile::tempdir().ok()?;
     let content = i18n_rust_engine::语言::内置语言包文件("zh")
         .iter()
         .find(|(f, _)| *f == "errors.toml")?
         .1;
     std::fs::write(dir.path().join("errors.toml"), content).ok()?;
-    i18n_rust_engine::diagnostic::ErrorTranslationManager::load_from_file(
+    i18n_rust_engine::diagnostic::错误消息管理器::从文件载入(
         &dir.path().join("errors.toml"),
     )
     .ok()
@@ -58,7 +58,7 @@ fn builtin_zh_error_translator() -> Option<i18n_rust_engine::diagnostic::ErrorTr
 ///
 /// `code`：诊断错误码（若有），供错误码表优先命中；`primary_label`：rustc 主
 /// span 标签（镜像检查从真实 rustc JSON 可得，供提取期望/实际类型）。
-/// 优先走引擎 `render_main_message`（错误码表→消息表→占位符回填→类型中文化）；
+/// 优先走引擎 `渲染主消息`（错误码表→消息表→占位符回填→类型中文化）；
 /// 未命中时退化为轻量短语替换。多行消息按行逐条翻译后拼接（仅首行适用
 /// 错误码/标签与教学提示）。仅反引号外文本参与兜底替换，避免误伤标识符。
 ///
@@ -92,7 +92,7 @@ pub(crate) fn translate_diagnostic_message(
 ///
 /// rust-analyzer 把类型不匹配的期望/实际放在 `relatedInformation` 而非主
 /// span 标签（CLI 的 rustc JSON 则带在主 span label）。本函数从 related
-/// 消息中取首个命中者，作为 `render_main_message` 的 `primary_label`，使 RA
+/// 消息中取首个命中者，作为 `渲染主消息` 的 `primary_label`，使 RA
 /// 直连路径也能回填 `{期望}`/`{实际}`，与 CLI/镜像检查同一完整译文。
 /// 无命中时返回 None（渲染器自动回退消息表，不劣于旧行为）。
 pub(crate) fn find_expected_found_label(diag: &Value) -> Option<String> {
@@ -185,10 +185,10 @@ fn translate_diagnostic_message_single(
     //    后缀/通配段）→ {qN}/占位符回填，回填进来的值走 type_map 类型中文化
     //（模板字面里作者手写的 `main`/`Box` 之类不参与改写）。命中任一表即返回。
     if let Some(translator) = DIAGNOSTIC_TRANSLATOR.get().and_then(|opt| opt.as_ref())
-        && let Some(rendered) = translator.render_main_message(code, message, primary_label)
+        && let Some(rendered) = translator.渲染主消息(code, message, primary_label)
     {
-        let mut text = rendered.text;
-        if with_hint && let Some(hint) = &rendered.hint {
+        let mut text = rendered.文字;
+        if with_hint && let Some(hint) = &rendered.提示 {
             text.push('\n');
             text.push_str(hint);
         }
@@ -206,10 +206,10 @@ fn translate_diagnostic_message_single(
         result.push_str(&ui.t("lsp_hint_cannot_find"));
     } else if message.contains("unused") {
         result.push_str(&ui.t("lsp_hint_unused"));
-    } else if i18n_rust_engine::diagnostic::is_unresolved_import_message(message) {
+    } else if i18n_rust_engine::diagnostic::是否未解析导入消息(message) {
         // 未解析导入：提示通过 `rzc add <crate>` 添加缺失依赖
         if let Some(crate_name) =
-            i18n_rust_engine::diagnostic::unresolved_crate_candidates(message).first()
+            i18n_rust_engine::diagnostic::未解析包候选(message).first()
         {
             result.push_str(&ui.f("lsp_hint_add_dependency", &[crate_name]));
         }
@@ -416,7 +416,7 @@ pub(super) fn is_missing_project_dependency(
     let Some(deps) = project_dependency_names(&entry.original_path) else {
         return false;
     };
-    i18n_rust_engine::diagnostic::extract_backtick_first_segments(message)
+    i18n_rust_engine::diagnostic::取反引号首段(message)
         .iter()
         .any(|seg| seg.is_ascii() && crate_name_forms(seg).iter().any(|form| deps.contains(form)))
 }
@@ -599,11 +599,11 @@ fn crate_name_forms(name: &str) -> Vec<String> {
 /// 移动/借用/再次使用位置取自已还原到母语文件的 range 与 relatedInformation，
 /// LSP 的 0-based 行号统一转为 1-based（与 rustc 诊断一致）。
 /// 仅处理 E0382/E0502/E0507 及消息模式匹配的所有权错误。
-pub(crate) fn extract_ownership_details(
+pub(crate) fn 提取所有权详情(
     original_diag: &Value,
     restored: &Value,
     original_uri: &str,
-) -> Option<OwnershipDetails> {
+) -> Option<所有权详情> {
     let message = original_diag["message"].as_str()?;
     let error_code = original_diag["code"].as_str().unwrap_or("");
     let is_ownership_error = matches!(error_code, "E0382" | "E0502" | "E0507")
@@ -621,9 +621,9 @@ pub(crate) fn extract_ownership_details(
     let mut move_location = None;
     let mut borrow_location = None;
     let mut reuse_location = None;
-    // E0502 的双方按标签专门认（见 BorrowConflict）：后方粗分类会把被拒的
+    // E0502 的双方按标签专门认（见 借用冲突）：后方粗分类会把被拒的
     // 可变借用当成「借用发生」，与「仍在用」行号读反
-    let mut labelled: Vec<(&str, DiagnosticLocation)> = Vec::new();
+    let mut labelled: Vec<(&str, 诊断位置)> = Vec::new();
 
     if let Some(related_info) = restored["relatedInformation"].as_array() {
         for item in related_info {
@@ -650,8 +650,8 @@ pub(crate) fn extract_ownership_details(
     // 与引擎同口径：只对 E0502（或消息形态命中）认冲突双方；
     // rust-analyzer 的主 range 不带标签，而它就是被拒绝的可变借用——兜底补上
     let borrow_conflict = if matches!(error_code, "E0502") || message.contains("cannot borrow") {
-        let (mutable, immutable) = BorrowConflict::classify_labelled_spans(labelled);
-        BorrowConflict::from_sides(mutable.or_else(|| main_location.clone()), immutable)
+        let (mutable, immutable) = 借用冲突::归类带标签跨度(labelled);
+        借用冲突::自两端(mutable.or_else(|| main_location.clone()), immutable)
     } else {
         None
     };
@@ -670,12 +670,12 @@ pub(crate) fn extract_ownership_details(
     if move_location.is_none() && borrow_location.is_none() && reuse_location.is_none() {
         return None;
     }
-    Some(OwnershipDetails {
-        var_name,
-        move_location,
-        borrow_location,
-        reuse_location,
-        borrow_conflict,
+    Some(所有权详情 {
+        变量名: var_name,
+        移动发生: move_location,
+        借用发生: borrow_location,
+        再次使用: reuse_location,
+        借用冲突: borrow_conflict,
     })
 }
 
@@ -690,20 +690,20 @@ fn extract_backtick_var_name(message: &str) -> Option<String> {
 }
 
 /// 从 LSP range 构造诊断位置（0-based 行号转为 1-based）
-fn construct_position_from_range(file_name: &str, range: &Value) -> Option<DiagnosticLocation> {
+fn construct_position_from_range(file_name: &str, range: &Value) -> Option<诊断位置> {
     let line_start = range["start"]["line"].as_u64()? as u32;
     let col_start = range["start"]["character"].as_u64()? as u32;
     let line_end = range["end"]["line"].as_u64()? as u32;
     let col_end = range["end"]["character"].as_u64()? as u32;
-    Some(DiagnosticLocation {
-        file_name: file_name.to_string(),
-        line_start: line_start + 1,
-        column_start: col_start + 1,
-        line_end: line_end + 1,
-        column_end: col_end + 1,
-        source_text: None,
-        label: None,
-        is_primary: false,
+    Some(诊断位置 {
+        文件名称: file_name.to_string(),
+        起始行号: line_start + 1,
+        起始列号: col_start + 1,
+        结束行号: line_end + 1,
+        结束列号: col_end + 1,
+        源码文本: None,
+        标签文本: None,
+        是否主因: false,
     })
 }
 

@@ -1733,17 +1733,17 @@ mod tests {
                 .find(|(n, _)| *n == "errors.toml")
                 .map(|(_, c)| *c)
                 .expect("{code} 语言包缺少 errors.toml");
-            let manager = diagnostic::ErrorTranslationManager::load_from_string(errors_toml)
+            let manager = diagnostic::错误消息管理器::从字符串载入(errors_toml)
                 .expect("errors.toml 应能解析");
             for error_code in appendix_c_codes {
                 let entry = manager
-                    .translation_table
+                    .翻译表
                     .get(*error_code)
                     .unwrap_or_else(|| {
                         panic!("{code} 语言包缺少附录C 错误码 [{error_code}] 的教学提示")
                     });
                 assert!(
-                    entry.teaching_hint.is_some(),
+                    entry.教学提示.is_some(),
                     "{code} 语言包的 [{error_code}] 缺少教学提示（附录C 已收录）"
                 );
             }

@@ -1098,7 +1098,7 @@ fn test_gaps_listing_keeps_one_record_per_line() {
         .arg(&export)
         .assert()
         .success();
-    let read = i18n_rust_engine::diagnostic::parse_gap_lines(
+    let read = i18n_rust_engine::diagnostic::解析清单行(
         &std::fs::read_to_string(&export).expect("读取导出件失败"),
     );
     assert_eq!(read.len(), 2, "导出件应被读回两条记录");
@@ -1153,7 +1153,7 @@ fn test_gaps_migrates_legacy_multiline_file_on_next_run() {
     }
 
     let raw = std::fs::read_to_string(&file).expect("清单应仍存在");
-    let records = i18n_rust_engine::diagnostic::parse_gap_lines(&raw);
+    let records = i18n_rust_engine::diagnostic::解析清单行(&raw);
     assert!(
         records.iter().any(|g| g.0 == "zh"),
         "实跑产生的记录应落在 zh 清单里：{:?}",

@@ -28,6 +28,7 @@
 "解析值" = "from_value"  # serde_json::from_value（诊断簇 cargo 包装行解析）
 "转字符串" = "to_string"
 "美化输出" = "to_string_pretty"  # serde_json::to_string_pretty
+"序列化为值" = "to_value"  # serde_json::to_value（诊断簇测试把结构转 JSON 值断言）
 "从文件读取" = "from_reader"
 "写入文件" = "to_writer"
 
@@ -46,6 +47,7 @@
 "反序列化模块" = "de"
 "表格" = "Table"
 "字符串值" = "String"
+"数组值" = "Array"  # toml::Value::Array（与 `字符串值`/`表格` 同为 Value 变体，纯中文形）
 
 # bincode
 "编码" = "encode"
