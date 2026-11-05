@@ -15,4 +15,5 @@ pub mod server;
 /// 翻译缓存（虚拟文件系统，维护 .zh → .rs 翻译缓存与行号映射）
 pub mod translation_cache;
 /// 界面消息本地化（帮助与错误提示随语言包/系统语言变化）
-pub mod ui;
+#[path = "界面消息.rs"]
+pub mod 界面消息;

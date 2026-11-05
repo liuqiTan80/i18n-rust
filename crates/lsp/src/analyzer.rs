@@ -78,7 +78,7 @@ impl AnalyzerConnection {
         let ra_path = find_rust_analyzer()?;
         log::info!(
             "{}",
-            crate::ui::global().f("lsp_log_ra_starting", &[&ra_path.display().to_string()])
+            crate::界面消息::全局界面().取带参消息("lsp_log_ra_starting", &[&ra_path.display().to_string()])
         );
         let mut command = Command::new(&ra_path);
         // 新版 rust-analyzer 已移除 --stdio 参数（stdio 为默认模式）
@@ -95,35 +95,35 @@ impl AnalyzerConnection {
             .map_err(|e| {
                 anyhow::anyhow!(
                     "{}",
-                    crate::ui::global().f("lsp_err_ra_start", &[&e.to_string()])
+                    crate::界面消息::全局界面().取带参消息("lsp_err_ra_start", &[&e.to_string()])
                 )
             })?;
 
         let writer = child
             .stdin
             .take()
-            .ok_or_else(|| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_ra_stdin")))?;
+            .ok_or_else(|| anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_ra_stdin")))?;
         let reader = child
             .stdout
             .take()
-            .ok_or_else(|| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_ra_stdout")))?;
+            .ok_or_else(|| anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_ra_stdout")))?;
 
         // 新进程的停止抑制标志：reader 线程持各自标志，stop() 只置位当前标志
         let stop_flag = Arc::new(AtomicBool::new(false));
         *self
             .child
             .lock()
-            .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))? =
+            .map_err(|_| anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_write_lock")))? =
             Some(child);
         *self
             .writer
             .lock()
-            .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))? =
+            .map_err(|_| anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_write_lock")))? =
             Some(writer);
         *self
             .stop_flag
             .lock()
-            .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))? =
+            .map_err(|_| anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_write_lock")))? =
             stop_flag.clone();
 
         // 后台线程：持续读取 rust-analyzer 的 stdout，转发到统一消息出口；
@@ -140,7 +140,7 @@ impl AnalyzerConnection {
                         }
                     }
                     None => {
-                        log::info!("{}", crate::ui::global().t("lsp_log_ra_output_ended"));
+                        log::info!("{}", crate::界面消息::全局界面().取消息("lsp_log_ra_output_ended"));
                         // 非主动停止视为异常退出：置崩溃标志供主循环自动重启
                         if !stop_flag.load(Ordering::SeqCst) {
                             crashed.store(true, Ordering::SeqCst);
@@ -162,9 +162,9 @@ impl AnalyzerConnection {
         let mut writer = self
             .writer
             .lock()
-            .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))?;
+            .map_err(|_| anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_write_lock")))?;
         let stdin = writer.as_mut().ok_or_else(|| {
-            anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_ra_not_running"))
+            anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_ra_not_running"))
         })?;
         stdin.write_all(frame.as_bytes())?;
         stdin.flush()?;
@@ -220,7 +220,7 @@ impl AnalyzerConnection {
             flag.store(true, Ordering::SeqCst);
         }
         if let Some(mut process) = self.child.lock().ok().and_then(|mut slot| slot.take()) {
-            log::info!("{}", crate::ui::global().t("lsp_log_ra_stopping"));
+            log::info!("{}", crate::界面消息::全局界面().取消息("lsp_log_ra_stopping"));
             let _ = process.kill();
             let _ = process.wait();
         }
@@ -241,9 +241,9 @@ impl Sender {
         let mut writer = self
             .writer
             .lock()
-            .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_write_lock")))?;
+            .map_err(|_| anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_write_lock")))?;
         let stdin = writer.as_mut().ok_or_else(|| {
-            anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_ra_not_running"))
+            anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_ra_not_running"))
         })?;
         stdin.write_all(frame.as_bytes())?;
         stdin.flush()?;
@@ -285,7 +285,7 @@ fn read_one_lsp_message<R: BufRead>(reader: &mut R) -> Option<Value> {
             Err(e) => {
                 log::error!(
                     "{}",
-                    crate::ui::global().f("lsp_err_read_output", &[&e.to_string()])
+                    crate::界面消息::全局界面().取带参消息("lsp_err_read_output", &[&e.to_string()])
                 );
                 return None;
             }
@@ -307,7 +307,7 @@ fn read_one_lsp_message<R: BufRead>(reader: &mut R) -> Option<Value> {
 
     let mut buffer = vec![0u8; len];
     if std::io::Read::read_exact(reader, &mut buffer).is_err() {
-        log::error!("{}", crate::ui::global().t("lsp_err_read_body"));
+        log::error!("{}", crate::界面消息::全局界面().取消息("lsp_err_read_body"));
         return None;
     }
 
@@ -372,7 +372,7 @@ fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
         }
     }
 
-    anyhow::bail!("{}", crate::ui::global().t("lsp_err_ra_not_found"))
+    anyhow::bail!("{}", crate::界面消息::全局界面().取消息("lsp_err_ra_not_found"))
 }
 
 fn home_path(relative: &str) -> PathBuf {

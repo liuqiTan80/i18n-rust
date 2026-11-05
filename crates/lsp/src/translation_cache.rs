@@ -289,7 +289,7 @@ impl 转译缓存 {
             let mut table = self
                 .entries
                 .write()
-                .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock")))?;
+                .map_err(|_| anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_cache_lock")))?;
             let new_entry = Arc::new(TranslationEntry {
                 original_uri: uri.to_string(),
                 original_path: original_path.clone(),
@@ -346,7 +346,7 @@ impl 转译缓存 {
                 None => {
                     return Err(anyhow::anyhow!(
                         "{}",
-                        crate::ui::global().f("lsp_err_entry_missing", &[uri])
+                        crate::界面消息::全局界面().取带参消息("lsp_err_entry_missing", &[uri])
                     ));
                 }
             }
@@ -381,7 +381,7 @@ impl 转译缓存 {
         }
 
         let entry = self.query_original(uri).ok_or_else(|| {
-            anyhow::anyhow!("{}", crate::ui::global().f("lsp_err_entry_missing", &[uri]))
+            anyhow::anyhow!("{}", crate::界面消息::全局界面().取带参消息("lsp_err_entry_missing", &[uri]))
         })?;
         let other_changes: Vec<Arc<TranslationEntry>> = changes
             .into_iter()
@@ -390,7 +390,7 @@ impl 转译缓存 {
 
         log::info!(
             "{}",
-            crate::ui::global().f(
+            crate::界面消息::全局界面().取带参消息(
                 "lsp_log_cache_updated",
                 &[uri, &content.lines().count().to_string()]
             )
@@ -554,7 +554,7 @@ impl 转译缓存 {
                     .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 log::info!(
                     "{}",
-                    crate::ui::global().f("lsp_log_cache_removed", &[&uri])
+                    crate::界面消息::全局界面().取带参消息("lsp_log_cache_removed", &[&uri])
                 );
             }
         }
@@ -572,7 +572,7 @@ impl 转译缓存 {
             let mut table = self
                 .entries
                 .write()
-                .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock")))?;
+                .map_err(|_| anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_cache_lock")))?;
             match table.remove(uri) {
                 Some(entry) => entry,
                 None => return Ok(Vec::new()),
@@ -585,7 +585,7 @@ impl 转译缓存 {
         // 内容可能变化：递增文档变更代号，使用户词汇缓存失效
         self.docs_generation
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        log::info!("{}", crate::ui::global().f("lsp_log_cache_removed", &[uri]));
+        log::info!("{}", crate::界面消息::全局界面().取带参消息("lsp_log_cache_removed", &[uri]));
 
         // 磁盘文件仍存在：降级为兄弟模块（缓冲区 → 磁盘内容），
         // 模块集合不变（名字仍在），虚拟项目无需刷新/重载
@@ -606,7 +606,7 @@ impl 转译缓存 {
             let demoted = Arc::new(demoted);
             {
                 let mut table = self.entries.write().map_err(|_| {
-                    anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_cache_lock"))
+                    anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_cache_lock"))
                 })?;
                 table.insert(uri.to_string(), Arc::clone(&demoted));
                 if let Ok(mut index) = self.virtual_index.write() {
@@ -1341,7 +1341,7 @@ impl 转译缓存 {
         // #![allow(dead_code)] 抑制辅助函数/类型的未使用警告
         let mut main_content = format!(
             "#![allow(dead_code)]\n{}\n",
-            crate::ui::global().t("lsp_gen_lib_comment")
+            crate::界面消息::全局界面().取消息("lsp_gen_lib_comment")
         );
         // 模块名净化为合法 Rust 标识符，并在重名时追加哈希后缀。
         // 仅聚合托管根下的顶层模块；嵌套模块（src/领域/工具.zh 等）由
@@ -1357,7 +1357,7 @@ impl 转译缓存 {
                 has_main_module = true;
             }
             let mut module_name = if stem.is_empty() {
-                crate::ui::global().t("lsp_gen_module_fallback")
+                crate::界面消息::全局界面().取消息("lsp_gen_module_fallback")
             } else {
                 sanitize_module_name(stem)
             };

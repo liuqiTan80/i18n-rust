@@ -325,15 +325,15 @@ impl ResponseMapper {
             return Value::String(explain);
         }
         // label 直查 + 方法名兜底
-        let ui = crate::ui::global();
+        let ui = crate::界面消息::全局界面();
         if let Some(label) = item.get("label").and_then(|v| v.as_str())
-            && let Some(explain) = ui.explanation(label)
+            && let Some(explain) = ui.取解释(label)
         {
             return Value::String(explain.to_string());
         }
         if let Some(text) = doc_text
             && let Some(name) = extract_fn_name(text)
-            && let Some(explain) = ui.explanation(&name)
+            && let Some(explain) = ui.取解释(&name)
         {
             return Value::String(explain.to_string());
         }
@@ -616,9 +616,9 @@ impl ResponseMapper {
                 }
             }
         }
-        let ui = crate::ui::global();
+        let ui = crate::界面消息::全局界面();
         keys.iter()
-            .find_map(|k| ui.explanation(k).map(str::to_string))
+            .find_map(|k| ui.取解释(k).map(str::to_string))
     }
 
     /// 映射引用响应
@@ -746,7 +746,7 @@ impl ResponseMapper {
             let display = self
                 .reverse_lookup(crate_name)
                 .unwrap_or_else(|| crate_name.clone());
-            let title = crate::ui::global().f("lsp_action_add_dependency", &[&display]);
+            let title = crate::界面消息::全局界面().取带参消息("lsp_action_add_dependency", &[&display]);
             actions.push(json!({
                 "title": title,
                 "kind": "quickfix",
@@ -778,7 +778,7 @@ impl ResponseMapper {
             Value::Array(list) => list.clone(),
             _ => Vec::new(),
         };
-        let ui = crate::ui::global();
+        let ui = crate::界面消息::全局界面();
         for diag in teaching_diags {
             let code = diag["code"].as_str().unwrap_or("");
             if code == "fullwidth" {
@@ -789,7 +789,7 @@ impl ResponseMapper {
                 };
                 let character = diag["data"]["character"].as_str().unwrap_or("").to_string();
                 let range = diag["range"].clone();
-                let title = ui.f("lsp_action_fix_fullwidth", &[&character, &replacement]);
+                let title = ui.取带参消息("lsp_action_fix_fullwidth", &[&character, &replacement]);
                 actions.push(json!({
                     "title": title,
                     "kind": "quickfix",
@@ -816,7 +816,7 @@ impl ResponseMapper {
                     "start": { "line": line, "character": line_end },
                     "end": { "line": line, "character": line_end }
                 });
-                let title = ui.t("lsp_action_ignore_lint");
+                let title = ui.取消息("lsp_action_ignore_lint");
                 actions.push(json!({
                     "title": title,
                     "kind": "quickfix",

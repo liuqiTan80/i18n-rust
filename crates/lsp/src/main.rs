@@ -14,7 +14,7 @@
 
 use std::path::PathBuf;
 
-use i18n_rust_lsp::{server, ui};
+use i18n_rust_lsp::{server, 界面消息 as ui};
 
 /// 命令行参数
 struct CliArgs {
@@ -56,8 +56,8 @@ fn parse_args() -> CliArgs {
                     lang_pack_path = PathBuf::from(&args[i + 1]);
                     i += 2;
                 } else {
-                    let ui = ui::Ui::load(&lang_pack_path);
-                    eprintln!("{}", ui.t("lsp_err_lang_pack"));
+                    let ui = ui::界面::载入(&lang_pack_path);
+                    eprintln!("{}", ui.取消息("lsp_err_lang_pack"));
                     std::process::exit(1);
                 }
             }
@@ -66,13 +66,13 @@ fn parse_args() -> CliArgs {
                     extensions = parse_extensions(&args[i + 1]);
                     i += 2;
                 } else {
-                    let ui = ui::Ui::load(&lang_pack_path);
-                    eprintln!("{}", ui.t("lsp_err_extensions"));
+                    let ui = ui::界面::载入(&lang_pack_path);
+                    eprintln!("{}", ui.取消息("lsp_err_extensions"));
                     std::process::exit(1);
                 }
             }
             "--help" | "-h" => {
-                let ui = ui::Ui::load(&lang_pack_path);
+                let ui = ui::界面::载入(&lang_pack_path);
                 print_help(&ui);
                 std::process::exit(0);
             }
@@ -86,9 +86,9 @@ fn parse_args() -> CliArgs {
                 i += 1;
             }
             _ => {
-                let ui = ui::Ui::load(&lang_pack_path);
-                eprintln!("{}", ui.f("lsp_unknown_arg", &[&args[i]]));
-                eprintln!("{}", ui.t("lsp_use_help"));
+                let ui = ui::界面::载入(&lang_pack_path);
+                eprintln!("{}", ui.取带参消息("lsp_unknown_arg", &[&args[i]]));
+                eprintln!("{}", ui.取消息("lsp_use_help"));
                 std::process::exit(1);
             }
         }
@@ -101,16 +101,16 @@ fn parse_args() -> CliArgs {
 }
 
 /// 打印帮助文本（提示语随语言包/系统语言本地化）
-fn print_help(ui: &ui::Ui) {
-    println!("{}", ui.t("lsp_about"));
+fn print_help(ui: &ui::界面) {
+    println!("{}", ui.取消息("lsp_about"));
     println!();
-    println!("{}", ui.t("lsp_usage"));
+    println!("{}", ui.取消息("lsp_usage"));
     println!();
-    println!("{}", ui.t("lsp_options"));
-    println!("{}", ui.t("lsp_lang_pack_opt"));
-    println!("{}", ui.t("lsp_extensions_opt"));
-    println!("{}", ui.t("lsp_version_opt"));
-    println!("{}", ui.t("lsp_help_opt"));
+    println!("{}", ui.取消息("lsp_options"));
+    println!("{}", ui.取消息("lsp_lang_pack_opt"));
+    println!("{}", ui.取消息("lsp_extensions_opt"));
+    println!("{}", ui.取消息("lsp_version_opt"));
+    println!("{}", ui.取消息("lsp_help_opt"));
 }
 
 /// 当默认语言包路径不存在时，自动搜索常见位置
@@ -197,11 +197,11 @@ fn main() -> anyhow::Result<()> {
     }
 
     // 初始化全局界面消息（随语言包/系统语言变化）
-    ui::init(&args.lang_pack_path);
-    log::info!("{}", ui::global().t("lsp_log_start"));
+    ui::设定全局(&args.lang_pack_path);
+    log::info!("{}", ui::全局界面().取消息("lsp_log_start"));
     log::info!(
         "{}",
-        ui::global().f(
+        ui::全局界面().取带参消息(
             "lsp_log_lang_pack",
             &[&args.lang_pack_path.display().to_string()]
         )
@@ -213,7 +213,7 @@ fn main() -> anyhow::Result<()> {
     // 运行服务器（阻塞直到退出）
     server.run(io_threads)?;
 
-    log::info!("{}", ui::global().t("lsp_log_exit"));
+    log::info!("{}", ui::全局界面().取消息("lsp_log_exit"));
     Ok(())
 }
 

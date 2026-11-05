@@ -112,52 +112,52 @@ static DIAG_PHRASE_REPLACEMENTS: std::sync::OnceLock<Vec<(String, String)>> =
 /// 获取（并惰性构建）轻量短语替换表
 fn diag_phrase_replacements() -> &'static Vec<(String, String)> {
     DIAG_PHRASE_REPLACEMENTS.get_or_init(|| {
-        let ui = crate::ui::global();
+        let ui = crate::界面消息::全局界面();
         let mut replacements: Vec<(String, String)> = vec![
-            ("{integer}".to_string(), ui.t("diag_rustc_integer")),
-            ("{float}".to_string(), ui.t("diag_rustc_float")),
+            ("{integer}".to_string(), ui.取消息("diag_rustc_integer")),
+            ("{float}".to_string(), ui.取消息("diag_rustc_float")),
             (
                 "floating-point number".to_string(),
-                ui.t("diag_rustc_float"),
+                ui.取消息("diag_rustc_float"),
             ),
-            ("integer".to_string(), ui.t("diag_rustc_integer")),
+            ("integer".to_string(), ui.取消息("diag_rustc_integer")),
         ];
 
         // 常见错误模式翻译
         let replace_table = [
-            ("cannot find value", ui.t("lsp_phrase_cannot_find_value")),
-            ("cannot find type", ui.t("lsp_phrase_cannot_find_type")),
+            ("cannot find value", ui.取消息("lsp_phrase_cannot_find_value")),
+            ("cannot find type", ui.取消息("lsp_phrase_cannot_find_type")),
             (
                 "cannot find function",
-                ui.t("lsp_phrase_cannot_find_function"),
+                ui.取消息("lsp_phrase_cannot_find_function"),
             ),
-            ("cannot find module", ui.t("lsp_phrase_cannot_find_module")),
-            ("mismatched types", ui.t("lsp_phrase_mismatched_types")),
-            ("type mismatch", ui.t("lsp_phrase_type_mismatch")),
-            ("expected", ui.t("lsp_phrase_expected")),
+            ("cannot find module", ui.取消息("lsp_phrase_cannot_find_module")),
+            ("mismatched types", ui.取消息("lsp_phrase_mismatched_types")),
+            ("type mismatch", ui.取消息("lsp_phrase_type_mismatch")),
+            ("expected", ui.取消息("lsp_phrase_expected")),
             // "found" 仅在类型不匹配场景（"expected ..., found ..."）译为
             // 「实际为」：以带逗号的长键限定语境——裸词 "found" 会把 E0599 的
             // "no method named ... found for struct ..." 误译为「实际为」
             //（"找到"义），也会与 "method not found" 变体相互干扰
-            (", found ", format!("，{} ", ui.t("lsp_phrase_found"))),
-            ("unused variable", ui.t("lsp_phrase_unused_variable")),
-            ("unused import", ui.t("lsp_phrase_unused_import")),
-            ("cannot borrow", ui.t("lsp_phrase_cannot_borrow")),
+            (", found ", format!("，{} ", ui.取消息("lsp_phrase_found"))),
+            ("unused variable", ui.取消息("lsp_phrase_unused_variable")),
+            ("unused import", ui.取消息("lsp_phrase_unused_import")),
+            ("cannot borrow", ui.取消息("lsp_phrase_cannot_borrow")),
             (
                 "borrowed as immutable",
-                ui.t("lsp_phrase_borrowed_immutable"),
+                ui.取消息("lsp_phrase_borrowed_immutable"),
             ),
-            ("borrowed as mutable", ui.t("lsp_phrase_borrowed_mutable")),
-            ("no method named", ui.t("lsp_phrase_no_method_named")),
-            ("method not found", ui.t("lsp_phrase_method_not_found")),
-            ("field", ui.t("lsp_phrase_field")),
-            ("does not implement", ui.t("lsp_phrase_does_not_implement")),
-            ("the trait", ui.t("lsp_phrase_the_trait")),
-            ("is not satisfied", ui.t("lsp_phrase_is_not_satisfied")),
-            ("unresolved import", ui.t("lsp_phrase_unresolved_import")),
-            ("file not found", ui.t("lsp_phrase_file_not_found")),
-            ("aborting due to", ui.t("lsp_phrase_aborting_due_to")),
-            ("previous error", ui.t("lsp_phrase_previous_error")),
+            ("borrowed as mutable", ui.取消息("lsp_phrase_borrowed_mutable")),
+            ("no method named", ui.取消息("lsp_phrase_no_method_named")),
+            ("method not found", ui.取消息("lsp_phrase_method_not_found")),
+            ("field", ui.取消息("lsp_phrase_field")),
+            ("does not implement", ui.取消息("lsp_phrase_does_not_implement")),
+            ("the trait", ui.取消息("lsp_phrase_the_trait")),
+            ("is not satisfied", ui.取消息("lsp_phrase_is_not_satisfied")),
+            ("unresolved import", ui.取消息("lsp_phrase_unresolved_import")),
+            ("file not found", ui.取消息("lsp_phrase_file_not_found")),
+            ("aborting due to", ui.取消息("lsp_phrase_aborting_due_to")),
+            ("previous error", ui.取消息("lsp_phrase_previous_error")),
         ];
 
         for (en, localized) in replace_table {
@@ -179,7 +179,7 @@ fn translate_diagnostic_message_single(
     primary_label: Option<&str>,
     with_hint: bool,
 ) -> String {
-    let ui = crate::ui::global();
+    let ui = crate::界面消息::全局界面();
 
     // 1. 引擎同口径渲染（与 CLI 完全同源）：错误码表优先→消息表（精确/前缀/
     //    后缀/通配段）→ {qN}/占位符回填，回填进来的值走 type_map 类型中文化
@@ -201,17 +201,17 @@ fn translate_diagnostic_message_single(
 
     // 添加教学提示
     if message.contains("mismatched types") || message.contains("type mismatch") {
-        result.push_str(&ui.t("lsp_hint_mismatched_types"));
+        result.push_str(&ui.取消息("lsp_hint_mismatched_types"));
     } else if message.contains("cannot find") {
-        result.push_str(&ui.t("lsp_hint_cannot_find"));
+        result.push_str(&ui.取消息("lsp_hint_cannot_find"));
     } else if message.contains("unused") {
-        result.push_str(&ui.t("lsp_hint_unused"));
+        result.push_str(&ui.取消息("lsp_hint_unused"));
     } else if i18n_rust_engine::diagnostic::是否未解析导入消息(message) {
         // 未解析导入：提示通过 `rzc add <crate>` 添加缺失依赖
         if let Some(crate_name) =
             i18n_rust_engine::diagnostic::未解析包候选(message).first()
         {
-            result.push_str(&ui.f("lsp_hint_add_dependency", &[crate_name]));
+            result.push_str(&ui.取带参消息("lsp_hint_add_dependency", &[crate_name]));
         }
     }
 

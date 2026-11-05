@@ -97,7 +97,7 @@ impl ProxyServer {
         crate::response_map::init_diagnostic_translator(lang_pack_path, &manager);
         log::info!(
             "{}",
-            crate::ui::global().f(
+            crate::界面消息::全局界面().取带参消息(
                 "lsp_log_loaded_mappings",
                 &[
                     &manager.关键词表.len().to_string(),
@@ -149,7 +149,7 @@ impl ProxyServer {
     pub fn run(self, io_threads: lsp_server::IoThreads) -> anyhow::Result<()> {
         // 1. 等待 initialize 请求并握手
         let (init_id, init_params) = self.handshake()?;
-        log::info!("{}", crate::ui::global().t("lsp_log_client_init"));
+        log::info!("{}", crate::界面消息::全局界面().取消息("lsp_log_client_init"));
 
         // 2. 初始化 rust-analyzer
         //
@@ -195,7 +195,7 @@ impl ProxyServer {
     ///
     /// 返回 Err 让 `main` 以非零码退出，并把原因留在 stderr（输出面板可见）。
     fn fail_initialize(&self, id: lsp_server::RequestId, reason: &str) -> anyhow::Result<()> {
-        let message = crate::ui::global().f("lsp_fail_notify", &[reason]);
+        let message = crate::界面消息::全局界面().取带参消息("lsp_fail_notify", &[reason]);
         log::error!("{message}");
         // 失败时可能已经拉起子进程（如初始化超时），先收尾避免孤儿进程
         self.analyzer.stop();
@@ -220,7 +220,7 @@ impl ProxyServer {
         let msg = self.connection.receiver.recv().map_err(|e| {
             anyhow::anyhow!(
                 "{}",
-                crate::ui::global().f("lsp_err_recv_initialize", &[&e.to_string()])
+                crate::界面消息::全局界面().取带参消息("lsp_err_recv_initialize", &[&e.to_string()])
             )
         })?;
 
@@ -233,11 +233,11 @@ impl ProxyServer {
                 } else {
                     anyhow::bail!(
                         "{}",
-                        crate::ui::global().f("lsp_err_expect_initialize", &[&req.method])
+                        crate::界面消息::全局界面().取带参消息("lsp_err_expect_initialize", &[&req.method])
                     )
                 }
             }
-            _ => anyhow::bail!("{}", crate::ui::global().t("lsp_err_expect_request")),
+            _ => anyhow::bail!("{}", crate::界面消息::全局界面().取消息("lsp_err_expect_request")),
         }
     }
 
@@ -339,7 +339,7 @@ impl ProxyServer {
                     {
                         *slot = Some(provider);
                     }
-                    log::info!("{}", crate::ui::global().t("lsp_log_ra_init_done"));
+                    log::info!("{}", crate::界面消息::全局界面().取消息("lsp_log_ra_init_done"));
                     初始化完成 = true;
                     break;
                 }
@@ -366,7 +366,7 @@ impl ProxyServer {
             thread::sleep(std::time::Duration::from_millis(50));
         }
         if !初始化完成 {
-            anyhow::bail!("{}", crate::ui::global().t("lsp_err_ra_init_timeout"));
+            anyhow::bail!("{}", crate::界面消息::全局界面().取消息("lsp_err_ra_init_timeout"));
         }
 
         // 注意：initialized 通知不在本处发送，
@@ -424,7 +424,7 @@ impl ProxyServer {
             .map_err(|e| {
                 anyhow::anyhow!(
                     "{}",
-                    crate::ui::global().f("lsp_err_send_initialize", &[&e.to_string()])
+                    crate::界面消息::全局界面().取带参消息("lsp_err_send_initialize", &[&e.to_string()])
                 )
             })?;
         Ok(())
@@ -464,7 +464,7 @@ impl ProxyServer {
                     上次清理 = std::time::Instant::now();
                 }
             }
-            log::info!("{}", crate::ui::global().t("lsp_log_ra_thread_exit"));
+            log::info!("{}", crate::界面消息::全局界面().取消息("lsp_log_ra_thread_exit"));
         });
 
         Ok(())
@@ -490,13 +490,13 @@ impl ProxyServer {
                     {
                         log::error!(
                             "{}",
-                            crate::ui::global().f("lsp_err_ra_restart", &[&e.to_string()])
+                            crate::界面消息::全局界面().取带参消息("lsp_err_ra_restart", &[&e.to_string()])
                         );
                         // 重启失败（如二进制被卸载）：通知客户端并暂停自动重试，
                         // 避免每 100ms 刷一次错误日志与 showMessage
                         let params = json!({
                             "type": 1,
-                            "message": crate::ui::global().f("lsp_err_ra_restart", &[&e.to_string()])
+                            "message": crate::界面消息::全局界面().取带参消息("lsp_err_ra_restart", &[&e.to_string()])
                         });
                         let _ = self
                             .connection
@@ -510,7 +510,7 @@ impl ProxyServer {
                     continue;
                 }
                 Err(_) => {
-                    log::info!("{}", crate::ui::global().t("lsp_log_client_disconnected"));
+                    log::info!("{}", crate::界面消息::全局界面().取消息("lsp_log_client_disconnected"));
                     break;
                 }
             };
@@ -518,7 +518,7 @@ impl ProxyServer {
             match msg {
                 Message::Request(req) => {
                     if req.method == "shutdown" {
-                        log::info!("{}", crate::ui::global().t("lsp_log_shutdown"));
+                        log::info!("{}", crate::界面消息::全局界面().取消息("lsp_log_shutdown"));
                         let response = Response {
                             id: req.id,
                             response_result: Ok(Value::Null),
@@ -531,7 +531,7 @@ impl ProxyServer {
                     if let Err(e) = self.handle_client_request(req) {
                         log::error!(
                             "{}",
-                            crate::ui::global().f("lsp_err_handle_request", &[&e.to_string()])
+                            crate::界面消息::全局界面().取带参消息("lsp_err_handle_request", &[&e.to_string()])
                         );
                     }
                 }
@@ -539,7 +539,7 @@ impl ProxyServer {
                     if let Err(e) = self.handle_client_notification(notif) {
                         log::error!(
                             "{}",
-                            crate::ui::global().f("lsp_err_handle_notification", &[&e.to_string()])
+                            crate::界面消息::全局界面().取带参消息("lsp_err_handle_notification", &[&e.to_string()])
                         );
                     }
                 }
@@ -552,7 +552,7 @@ impl ProxyServer {
     /// rust-analyzer 崩溃后的自动恢复：重启子进程并重做完整握手，
     /// 使编辑器会话无感恢复（诊断/补全/悬停等重新可用）。
     fn restart_analyzer(&self) -> anyhow::Result<()> {
-        log::warn!("{}", crate::ui::global().t("lsp_log_ra_crashed"));
+        log::warn!("{}", crate::界面消息::全局界面().取消息("lsp_log_ra_crashed"));
         self.analyzer.restart()?;
         // 重握手：initialize（含语义着色能力捕获）
         self.initialize_analyzer(&Value::Null)?;
@@ -587,7 +587,7 @@ impl ProxyServer {
         // 旧进程遗留的待映射请求永远不会有响应：统一向客户端应答错误，
         // 避免客户端永久等待（否则编辑器内对应请求一直转圈）
         fail_all_pending(&self.pending_requests, &self.connection.sender);
-        log::info!("{}", crate::ui::global().t("lsp_log_ra_restarted"));
+        log::info!("{}", crate::界面消息::全局界面().取消息("lsp_log_ra_restarted"));
         Ok(())
     }
 
@@ -595,7 +595,7 @@ impl ProxyServer {
     fn handle_client_request(&self, req: Request) -> anyhow::Result<()> {
         log::debug!(
             "{}",
-            crate::ui::global().f(
+            crate::界面消息::全局界面().取带参消息(
                 "lsp_log_client_request",
                 &[&req.method, &format!("{:?}", req.id)]
             )
@@ -622,7 +622,7 @@ impl ProxyServer {
     fn handle_client_notification(&self, notif: Notification) -> anyhow::Result<()> {
         log::debug!(
             "{}",
-            crate::ui::global().f("lsp_log_client_notification", &[&notif.method])
+            crate::界面消息::全局界面().取带参消息("lsp_log_client_notification", &[&notif.method])
         );
 
         match notif.method.as_str() {
@@ -761,7 +761,7 @@ impl ProxyServer {
         self.analyzer.send(&ra_msg)?;
         log::info!(
             "{}",
-            crate::ui::global().f("lsp_log_doc_opened", &[uri, &version.to_string()])
+            crate::界面消息::全局界面().取带参消息("lsp_log_doc_opened", &[uri, &version.to_string()])
         );
 
         // 打开即跑权威检查（真实项目镜像）：无需保存即可见编译级诊断；
@@ -1162,7 +1162,7 @@ impl ProxyServer {
             .map_err(|e| {
                 anyhow::anyhow!(
                     "{}",
-                    crate::ui::global().f("lsp_err_send_format", &[&e.to_string()])
+                    crate::界面消息::全局界面().取带参消息("lsp_err_send_format", &[&e.to_string()])
                 )
             })?;
         Ok(())
@@ -1187,7 +1187,7 @@ impl ProxyServer {
             let mut pending = self
                 .pending_requests
                 .lock()
-                .map_err(|_| anyhow::anyhow!("{}", crate::ui::global().t("lsp_err_lock")))?;
+                .map_err(|_| anyhow::anyhow!("{}", crate::界面消息::全局界面().取消息("lsp_err_lock")))?;
             pending.insert(
                 ra_id,
                 PendingRequestInfo {
@@ -1307,7 +1307,7 @@ fn is_supported_file(uri: &str, extensions: &[String]) -> bool {
 ///（经我方 publish 后由客户端回传）：两者都保留反引号包裹的路径
 /// 内容，提取逻辑统一；母语消息按本地化短语表判定未解析导入。
 fn extract_unresolved_crates_from_diagnostics(diags: &[Value]) -> Vec<String> {
-    let translated_phrase = crate::ui::global().t("lsp_phrase_unresolved_import");
+    let translated_phrase = crate::界面消息::全局界面().取消息("lsp_phrase_unresolved_import");
     let mut result = Vec::new();
     for diag in diags {
         let Some(msg) = diag.get("message").and_then(|v| v.as_str()) else {
@@ -1370,7 +1370,7 @@ fn virtual_temp_dir() -> anyhow::Result<PathBuf> {
     if is_symlink(&dir) {
         anyhow::bail!(
             "{}",
-            crate::ui::global().f("lsp_err_temp_symlink", &[&dir.display().to_string()])
+            crate::界面消息::全局界面().取带参消息("lsp_err_temp_symlink", &[&dir.display().to_string()])
         );
     }
     std::fs::create_dir_all(&dir)
@@ -1378,7 +1378,7 @@ fn virtual_temp_dir() -> anyhow::Result<PathBuf> {
     if is_symlink(&dir) {
         anyhow::bail!(
             "{}",
-            crate::ui::global().f("lsp_err_temp_symlink", &[&dir.display().to_string()])
+            crate::界面消息::全局界面().取带参消息("lsp_err_temp_symlink", &[&dir.display().to_string()])
         );
     }
     Ok(dir)
@@ -1517,7 +1517,7 @@ fn cleanup_expired_requests(
         });
     }
     for id in expired {
-        log::warn!("{}", crate::ui::global().t("lsp_warn_request_timeout"));
+        log::warn!("{}", crate::界面消息::全局界面().取消息("lsp_warn_request_timeout"));
         let response = Response {
             id,
             response_result: Err(lsp_server::ResponseError {
@@ -1679,7 +1679,7 @@ fn handle_analyzer_message(
                         message: error_value["message"]
                             .as_str()
                             .map(String::from)
-                            .unwrap_or_else(|| crate::ui::global().t("lsp_internal_error")),
+                            .unwrap_or_else(|| crate::界面消息::全局界面().取消息("lsp_internal_error")),
                         data: error_value.get("data").cloned(),
                     }),
                 };
@@ -1838,7 +1838,7 @@ fn load_language_pack(
             }
             Err(e) => log::warn!(
                 "{}",
-                crate::ui::global().f("lsp_log_mappings_fallback", &[&e.to_string()])
+                crate::界面消息::全局界面().取带参消息("lsp_log_mappings_fallback", &[&e.to_string()])
             ),
         }
     }
@@ -1850,12 +1850,12 @@ fn load_language_pack(
         return i18n_rust_engine::映射管理器::映射管理器::从目录载入(lang_pack_path).map_err(|e| {
             anyhow::anyhow!(
                 "{}",
-                crate::ui::global().f("lsp_err_load_keywords", &[&e.to_string()])
+                crate::界面消息::全局界面().取带参消息("lsp_err_load_keywords", &[&e.to_string()])
             )
         });
     }
 
-    log::warn!("{}", crate::ui::global().t("lsp_warn_builtin_fallback"));
+    log::warn!("{}", crate::界面消息::全局界面().取消息("lsp_warn_builtin_fallback"));
     // 语言包目录缺失时的回退：物化 engine 编译期内嵌的完整中文语言包后
     // 走统一加载器（与 CLI 完全同源，含关键字/宏/别名全量）。
     // 不可再退回 create_builtin_keyword_mapping()：那是早期硬编码旧表

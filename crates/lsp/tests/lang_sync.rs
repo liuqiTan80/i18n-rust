@@ -1,6 +1,6 @@
 //! LSP 启动时是否把界面语言同步给引擎（缺陷 C 回归）
 //!
-//! LSP 自己的 `lsp_*` 消息走 `crates/lsp/src/ui.rs` 的加载链，解析与代入落在
+//! LSP 自己的 `lsp_*` 消息走 `crates/lsp/src/界面消息.rs` 的加载链，解析与代入落在
 //! 引擎侧的 `crates/engine/src/界面消息.rs`；引擎的用户可见
 //! 文本（Unicode 混淆 / 全角标点 / 教学 lint / 诊断模板）走 `语言::` 的**全局
 //! 语言**。改前 `init` 只加载前者、从不调 `语言::设定语言`（CLI 在启动时
@@ -35,7 +35,7 @@ fn init_syncs_engine_language_and_kills_native_script_false_positives() {
         "zh 语境下西里尔标识符应被判为同形异义（这正是 LSP 改前的实际状态）"
     );
 
-    i18n_rust_lsp::ui::init(&lang_pack("ru"));
+    i18n_rust_lsp::界面消息::设定全局(&lang_pack("ru"));
 
     assert_eq!(
         语言::当前语言(),
@@ -51,7 +51,7 @@ fn init_syncs_engine_language_and_kills_native_script_false_positives() {
     assert_eq!(语言::取消息("unicode_cat_homoglyph"), "символ-омоглиф");
     // LSP 自己的消息表同一条链，界面语言与引擎语言不得分叉
     assert_eq!(
-        i18n_rust_lsp::ui::global().t("lsp_about"),
+        i18n_rust_lsp::界面消息::全局界面().取消息("lsp_about"),
         "LSP-прокси-сервер i18n-rust"
     );
 }
@@ -59,21 +59,21 @@ fn init_syncs_engine_language_and_kills_native_script_false_positives() {
 /// 语言代码与消息表由同一条链产出（`load_with_lang` 纯函数入口，不碰全局）
 #[test]
 fn load_with_lang_reports_the_language_it_actually_used() {
-    let (ui, lang) = i18n_rust_lsp::ui::Ui::load_with_lang(&lang_pack("de"));
+    let (ui, lang) = i18n_rust_lsp::界面消息::界面::载入带语言(&lang_pack("de"));
     assert_eq!(lang, "de", "显式语言包目录应按目录名登记语言");
-    assert_eq!(ui.t("lsp_about"), "i18n-rust LSP-Proxy-Server");
+    assert_eq!(ui.取消息("lsp_about"), "i18n-rust LSP-Proxy-Server");
 
-    let (ui, lang) = i18n_rust_lsp::ui::Ui::load_with_lang(&lang_pack("zh"));
+    let (ui, lang) = i18n_rust_lsp::界面消息::界面::载入带语言(&lang_pack("zh"));
     assert_eq!(lang, "zh");
-    assert_eq!(ui.t("lsp_about"), "i18n-rust LSP 代理服务器");
+    assert_eq!(ui.取消息("lsp_about"), "i18n-rust LSP 代理服务器");
 
     // 目录里没有 ui.toml 时走目录名匹配内置包，语言代码同样要说清（改前这里
     // 只回消息表、语言代码无人知晓，两条链路就分叉了）
-    let (ui, lang) = i18n_rust_lsp::ui::Ui::load_with_lang(std::path::Path::new("/任意路径/ja"));
+    let (ui, lang) = i18n_rust_lsp::界面消息::界面::载入带语言(std::path::Path::new("/任意路径/ja"));
     assert_eq!(lang, "ja");
     assert!(
-        !ui.t("lsp_about").contains("LSP 代理服务器"),
+        !ui.取消息("lsp_about").contains("LSP 代理服务器"),
         "ja 包的消息表不该回退成中文：{}",
-        ui.t("lsp_about")
+        ui.取消息("lsp_about")
     );
 }
