@@ -679,7 +679,7 @@ fn lang_pack_health_lines(
     let mut lines = Vec::new();
     // 1. 遮蔽内置表（同名的正常目录）
     for pack in packs {
-        if !crate::builtin_lang::has_builtin_lang(&pack.dir_name) || is_backup_name(&pack.dir_name)
+        if !crate::内置语言::有内置语言包(&pack.dir_name) || is_backup_name(&pack.dir_name)
         {
             continue;
         }
@@ -721,7 +721,7 @@ fn lang_pack_health_lines(
     }
     // 3. 目录名与声明扩展名不符（排除备份与自研同名包）
     for pack in packs {
-        if crate::builtin_lang::has_builtin_lang(&pack.dir_name) || is_backup_name(&pack.dir_name) {
+        if crate::内置语言::有内置语言包(&pack.dir_name) || is_backup_name(&pack.dir_name) {
             continue;
         }
         if let Some(ext) = pack_extension(pack)

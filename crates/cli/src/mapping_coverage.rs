@@ -498,19 +498,19 @@ pub fn run_coverage(lang: Option<&str>) -> anyhow::Result<bool> {
     println!("{}", ui.t("mc_cov_corpus_intro"));
     let langs: Vec<&str> = match lang {
         Some(l) => vec![l],
-        None => crate::builtin_lang::builtin_lang_codes(),
+        None => crate::内置语言::内置语言清单(),
     };
     let mut all_ok = true;
     for lang_code in langs {
-        if !crate::builtin_lang::has_builtin_lang(lang_code) {
+        if !crate::内置语言::有内置语言包(lang_code) {
             anyhow::bail!(ui.f("mc_unknown_target", &[lang_code]));
         }
-        let data = crate::builtin_lang::get_builtin_data(lang_code);
+        let data = crate::内置语言::获取内置数据(lang_code);
         let reverse = build_reverse_index(
-            data.keywords_toml,
-            data.module_paths_toml,
-            data.stdlib_toml,
-            data.crates_data,
+            data.关键字内容,
+            data.模块路径内容,
+            data.标准库内容,
+            data.三方库数据,
         );
         let report = coverage_for(&corpus, &reverse, lang_code);
         all_ok &= report.missing_keywords.is_empty();
@@ -661,9 +661,9 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     #[test]
     fn test_all_builtin_langs_keywords_complete() {
         let mut failed: Vec<String> = Vec::new();
-        for lang in crate::builtin_lang::builtin_lang_codes() {
-            let data = crate::builtin_lang::get_builtin_data(lang);
-            let rev = build_reverse_index(data.keywords_toml, "", "", &[]);
+        for lang in crate::内置语言::内置语言清单() {
+            let data = crate::内置语言::获取内置数据(lang);
+            let rev = build_reverse_index(data.关键字内容, "", "", &[]);
             let missing: Vec<&str> = RUST_KEYWORDS
                 .iter()
                 .copied()
@@ -679,13 +679,13 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     /// 全内置语言跑一遍覆盖检测（不 panic、有统计）
     #[test]
     fn test_run_coverage_all_langs_no_panic() {
-        for lang in crate::builtin_lang::builtin_lang_codes() {
-            let data = crate::builtin_lang::get_builtin_data(lang);
+        for lang in crate::内置语言::内置语言清单() {
+            let data = crate::内置语言::获取内置数据(lang);
             let rev = build_reverse_index(
-                data.keywords_toml,
-                data.module_paths_toml,
-                data.stdlib_toml,
-                data.crates_data,
+                data.关键字内容,
+                data.模块路径内容,
+                data.标准库内容,
+                data.三方库数据,
             );
             // 用最小语料冒烟：语料为空时统计为 0 即可
             let corpus = Corpus::default();

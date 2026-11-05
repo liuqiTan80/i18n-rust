@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_for_lang_all_builtin_have_ui() {
-        for code in crate::builtin_lang::builtin_lang_codes() {
+        for code in crate::内置语言::内置语言清单() {
             let ui = Ui::for_lang(code);
             // 键名原样返回说明该语言缺这条消息（已回退过中文仍没有）
             assert_ne!(
@@ -287,7 +287,7 @@ mod tests {
     /// 新增内置语言包时菜单自称表必须同步（否则菜单里显示裸代码）
     #[test]
     fn test_native_language_name_covers_builtin() {
-        for code in crate::builtin_lang::builtin_lang_codes() {
+        for code in crate::内置语言::内置语言清单() {
             assert!(
                 native_language_name(code).is_some(),
                 "语言包 {code} 缺少菜单自称，请补 native_language_name"

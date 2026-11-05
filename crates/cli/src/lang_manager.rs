@@ -206,8 +206,8 @@ pub fn read_lang_info(dir: &Path) -> Option<LangMetadata> {
 /// 获取内置语言包的元数据（来自嵌入可执行文件的 lang_info.toml）
 pub fn get_builtin_metadata(lang_code: &str) -> Option<LangMetadata> {
     // 内置代码列表内的语言必然存在；未知代码回退到中文不影响元数据查询
-    let data = crate::builtin_lang::get_builtin_data(lang_code);
-    parse_lang_info(data.lang_info_toml)
+    let data = crate::内置语言::获取内置数据(lang_code);
+    parse_lang_info(data.语言信息内容)
 }
 
 /// 获取全局语言包根目录
@@ -231,7 +231,7 @@ pub fn global_lang_dir() -> PathBuf {
 /// 内置语言包固定在前，用户安装的按名称排序在后。
 /// 扩展名/版本来自 lang_info.toml；旧语言包无该文件时扩展名回退静态映射推断。
 pub fn list_langs() -> Vec<LangInfo> {
-    let mut list: Vec<LangInfo> = crate::builtin_lang::builtin_lang_codes()
+    let mut list: Vec<LangInfo> = crate::内置语言::内置语言清单()
         .into_iter()
         .map(|code| {
             let metadata = get_builtin_metadata(code);
@@ -310,7 +310,7 @@ pub fn build_extension_map() -> HashMap<String, String> {
     let mut map = HashMap::new();
 
     // 1. 内置语言包
-    for code in crate::builtin_lang::builtin_lang_codes() {
+    for code in crate::内置语言::内置语言清单() {
         if let Some(metadata) = get_builtin_metadata(code) {
             map.insert(metadata.extension, code.to_string());
         } else if let Some(ext) = static_code_to_extension(code) {
@@ -449,7 +449,7 @@ pub fn remove_lang(lang_code: &str) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    if crate::builtin_lang::builtin_lang_codes().contains(&lang_code) {
+    if crate::内置语言::内置语言清单().contains(&lang_code) {
         anyhow::bail!("{}", ui.f("lang_builtin_not_removable", &[lang_code]));
     }
 

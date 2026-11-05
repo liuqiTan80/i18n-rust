@@ -34,18 +34,18 @@ pub struct LangPackView {
 impl LangPackView {
     /// 从内置语言包数据构造视图
     pub fn from_builtin(lang: &str) -> Self {
-        let data = crate::builtin_lang::get_builtin_data(lang);
+        let data = crate::内置语言::获取内置数据(lang);
         let mut crates: Vec<(String, String)> = data
-            .crates_data
+            .三方库数据
             .iter()
             .map(|(name, content)| (name.to_string(), content.to_string()))
             .collect();
         crates.sort_by(|a, b| a.0.cmp(&b.0));
         LangPackView {
             lang: lang.to_string(),
-            keywords_toml: data.keywords_toml.to_string(),
-            stdlib_toml: data.stdlib_toml.to_string(),
-            errors_toml: data.errors_toml.to_string(),
+            keywords_toml: data.关键字内容.to_string(),
+            stdlib_toml: data.标准库内容.to_string(),
+            errors_toml: data.错误内容.to_string(),
             crates,
         }
     }
@@ -532,7 +532,7 @@ pub fn run_check(target: Option<&str>) -> anyhow::Result<bool> {
     let Some(target) = target else {
         // 全部内置语言 + 跨语言一致性对比 + 跨语言完整性门禁
         let mut all_passed = true;
-        for lang in crate::builtin_lang::builtin_lang_codes() {
+        for lang in crate::内置语言::内置语言清单() {
             let view = LangPackView::from_builtin(lang);
             let report = check_lang_pack(&view);
             all_passed &= report.passed();
@@ -549,7 +549,7 @@ pub fn run_check(target: Option<&str>) -> anyhow::Result<bool> {
         let passed = report.passed();
         print_report(&view.lang, &report);
         Ok(passed)
-    } else if crate::builtin_lang::has_builtin_lang(target) {
+    } else if crate::内置语言::有内置语言包(target) {
         let view = LangPackView::from_builtin(target);
         let report = check_lang_pack(&view);
         let passed = report.passed();
@@ -709,7 +709,7 @@ pub fn print_cross_lang_integrity() -> bool {
     let base = LangPackView::from_builtin("zh");
     let mut all_passed = true;
     let mut any_checked = false;
-    for lang in crate::builtin_lang::builtin_lang_codes() {
+    for lang in crate::内置语言::内置语言清单() {
         if lang == "zh" {
             continue;
         }
@@ -747,7 +747,7 @@ pub fn print_cross_lang_integrity() -> bool {
 }
 fn print_cross_lang_counts() {
     let ui = crate::ui::Ui::global();
-    let langs = crate::builtin_lang::builtin_lang_codes();
+    let langs = crate::内置语言::内置语言清单();
     let mut counts: Vec<(String, usize, usize)> = Vec::new();
     for lang in langs {
         let view = LangPackView::from_builtin(lang);
@@ -792,7 +792,7 @@ pub fn run_scaffold(
     provider: &str,
 ) -> anyhow::Result<()> {
     let ui = crate::ui::Ui::global();
-    if !crate::builtin_lang::has_builtin_lang(source) {
+    if !crate::内置语言::有内置语言包(source) {
         anyhow::bail!(ui.f("mc_unknown_source", &[source]));
     }
     // 先判定服务商与凭据再动手：拼错的 --provider、没配的密钥都不该
@@ -1672,8 +1672,8 @@ mod tests {
         // 工具正常运行，统计数据合理（crate 数动态取内置清单，随语言包目录自动纳入）
         assert_eq!(
             report.stats.crate_files,
-            crate::builtin_lang::get_builtin_data("zh")
-                .crates_data
+            crate::内置语言::获取内置数据("zh")
+                .三方库数据
                 .len()
         );
         assert!(report.stats.ident_entries > 0);
@@ -1694,7 +1694,7 @@ mod tests {
     /// 全部内置语言均应通过校验（CI 门禁的测试层基线）
     #[test]
     fn test_all_builtin_langs_pass() {
-        for lang in crate::builtin_lang::builtin_lang_codes() {
+        for lang in crate::内置语言::内置语言清单() {
             let view = LangPackView::from_builtin(lang);
             let report = check_lang_pack(&view);
             assert!(
@@ -1923,7 +1923,7 @@ mod tests {
     #[test]
     fn test_all_builtin_cross_lang_integrity() {
         let base = LangPackView::from_builtin("zh");
-        for lang in crate::builtin_lang::builtin_lang_codes() {
+        for lang in crate::内置语言::内置语言清单() {
             if lang == "zh" {
                 continue;
             }

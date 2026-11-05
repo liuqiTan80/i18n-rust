@@ -12,7 +12,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-mod builtin_lang;
+#[path = "内置语言.rs"] mod 内置语言;
 mod crate_registry;
 mod diagnostics;
 mod install;
@@ -1192,8 +1192,8 @@ fn find_crate_mapping_alias(
         }
     }
     // 2. 内置语言包（未知语言代码自动回退中文）
-    let builtin = builtin_lang::get_builtin_data(lang_code);
-    for (_, content) in builtin.crates_data {
+    let builtin = 内置语言::获取内置数据(lang_code);
+    for (_, content) in builtin.三方库数据 {
         if let Some(alias) = find_alias_in_toml(content, crate_name) {
             return Some(alias);
         }
@@ -2528,7 +2528,7 @@ fn resolve_init_lang(explicit: Option<String>) -> anyhow::Result<String> {
 
 /// `--lang` 是否可用：内置 / 全局安装 / 当前目录的项目内覆盖包
 fn lang_pack_available(code: &str) -> bool {
-    if builtin_lang::has_builtin_lang(code) {
+    if 内置语言::有内置语言包(code) {
         return true;
     }
     if lang_manager::global_pack_subdir_names()
@@ -2546,7 +2546,7 @@ fn lang_pack_available(code: &str) -> bool {
 
 /// 错误提示里的候选语言列表（内置 + 已安装，按字母序）
 fn available_lang_codes_text() -> String {
-    let mut codes: Vec<String> = builtin_lang::builtin_lang_codes()
+    let mut codes: Vec<String> = 内置语言::内置语言清单()
         .iter()
         .map(|code| code.to_string())
         .collect();
@@ -2567,7 +2567,7 @@ fn prompt_lang_menu(ui: &ui::Ui) -> Option<String> {
     if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
         return None;
     }
-    let codes: Vec<String> = builtin_lang::builtin_lang_codes()
+    let codes: Vec<String> = 内置语言::内置语言清单()
         .iter()
         .map(|code| code.to_string())
         .collect();
@@ -2759,23 +2759,23 @@ fn load_mapping(
         });
     }
     // 5. 回退到内置语言包（未内置的语言提示用户安装，避免静默使用中文）
-    if !builtin_lang::has_builtin_lang(&lang_code) {
+    if !内置语言::有内置语言包(&lang_code) {
         return Err(anyhow::anyhow!(
             "{}",
             ui.f("lang_not_builtin", &[&lang_code, &lang_code])
         ));
     }
-    let builtin = builtin_lang::get_builtin_data(&lang_code);
+    let builtin = 内置语言::获取内置数据(&lang_code);
     i18n_rust_engine::log_info!(
         "映射加载",
         "{}",
         ui.f("mapping_source_builtin", &[&lang_code])
     );
     映射管理器::从内置载入(
-        builtin.keywords_toml,
-        builtin.module_paths_toml,
-        builtin.stdlib_toml,
-        builtin.crates_data,
+        builtin.关键字内容,
+        builtin.模块路径内容,
+        builtin.标准库内容,
+        builtin.三方库数据,
     )
     .map_err(|e| {
         anyhow::anyhow!(
@@ -2990,12 +2990,12 @@ mod tests {
 
     /// 加载内置中文映射管理器（测试转译管线用）
     fn zh_manager() -> i18n_rust_engine::映射管理器::映射管理器 {
-        let builtin = crate::builtin_lang::get_builtin_data("zh");
+        let builtin = crate::内置语言::获取内置数据("zh");
         i18n_rust_engine::映射管理器::映射管理器::从内置载入(
-            builtin.keywords_toml,
-            builtin.module_paths_toml,
-            builtin.stdlib_toml,
-            builtin.crates_data,
+            builtin.关键字内容,
+            builtin.模块路径内容,
+            builtin.标准库内容,
+            builtin.三方库数据,
         )
         .expect("内置中文语言包应可加载")
     }

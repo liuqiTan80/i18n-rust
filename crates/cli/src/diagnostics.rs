@@ -13,7 +13,7 @@
 //! 不负责转译编排（见 `main.rs` 的 `transpile_project_files` 等）。
 
 use crate::{
-    builtin_lang, get_lang_code_from_extension, lang_manager, lang_pack_root_of, resolve_rustc, ui,
+    内置语言, get_lang_code_from_extension, lang_manager, lang_pack_root_of, resolve_rustc, ui,
     临时守卫,
 };
 use i18n_rust_engine::映射管理器::映射管理器;
@@ -591,8 +591,8 @@ pub(crate) fn load_error_manager(
         }
     }
     // 文件路径不可用/加载失败时回退内置语言包（未知语言代码自动回退中文）
-    let builtin = builtin_lang::get_builtin_data(lang_code);
-    match 错误消息管理器::从字符串载入(builtin.errors_toml) {
+    let builtin = 内置语言::获取内置数据(lang_code);
+    match 错误消息管理器::从字符串载入(builtin.错误内容) {
         Ok(manager) => Some(manager),
         Err(e) => {
             eprintln!("{}", ui.f("warn_builtin_errors_failed", &[&e.to_string()]));
@@ -1231,12 +1231,12 @@ mod tests {
 
     /// 加载内置中文映射管理器（测试诊断回译用）
     fn zh_manager() -> i18n_rust_engine::映射管理器::映射管理器 {
-        let builtin = crate::builtin_lang::get_builtin_data("zh");
+        let builtin = crate::内置语言::获取内置数据("zh");
         i18n_rust_engine::映射管理器::映射管理器::从内置载入(
-            builtin.keywords_toml,
-            builtin.module_paths_toml,
-            builtin.stdlib_toml,
-            builtin.crates_data,
+            builtin.关键字内容,
+            builtin.模块路径内容,
+            builtin.标准库内容,
+            builtin.三方库数据,
         )
         .expect("内置中文语言包应可加载")
     }
@@ -1661,7 +1661,7 @@ mod tests {
 
         // 工具通道其余前缀（error: 之外的四个）同样逐字
         let manager = i18n_rust_engine::diagnostic::错误消息管理器::从字符串载入(
-            crate::builtin_lang::get_builtin_data("en").errors_toml,
+            crate::内置语言::获取内置数据("en").错误内容,
         )
         .expect("内置 en 错误消息表应可加载");
         for line in [
@@ -1956,7 +1956,7 @@ mod tests {
     /// 内置中文消息表（cargo 纯文本通道与 JSON 通道共用同一张表）
     fn zh_error_manager() -> i18n_rust_engine::diagnostic::错误消息管理器 {
         i18n_rust_engine::diagnostic::错误消息管理器::从字符串载入(
-            crate::builtin_lang::get_builtin_data("zh").errors_toml,
+            crate::内置语言::获取内置数据("zh").错误内容,
         )
         .expect("内置中文错误消息表应可加载")
     }
@@ -2058,7 +2058,7 @@ mod tests {
     fn test_localize_tool_line_in_identity_lang_shows_original_without_gap() {
         use i18n_rust_engine::diagnostic::待译清单;
         let en_manager = i18n_rust_engine::diagnostic::错误消息管理器::从字符串载入(
-            crate::builtin_lang::get_builtin_data("en").errors_toml,
+            crate::内置语言::获取内置数据("en").错误内容,
         )
         .expect("内置 en 错误消息表应可加载");
         let ui = ui_for_test("en");
