@@ -7,7 +7,8 @@ pub mod diagnostic;
 pub mod 导出冲突提示;
 #[path = "全角标点.rs"]
 pub mod 全角标点;
-pub mod logger;
+#[path = "日志.rs"]
+pub mod 日志;
 pub mod module_path;
 pub mod product_layout;
 #[path = "混淆检测.rs"]
@@ -50,7 +51,7 @@ use std::time::Instant;
 /// 2. 未命中时先执行 Unicode 混淆安全检查（零宽/双向/同形字符），再执行转译；
 /// 3. 转译结果写入缓存供后续复用。
 ///
-/// 与命令行工具的管线顺序保持一致；日志级别由 `logger::init()` 读取
+/// 与命令行工具的管线顺序保持一致；日志级别由 `日志::初始化()` 读取
 /// `RZ_LOG` 环境变量（debug/info/warn/error）控制。
 pub fn transpile_source(
     source: &str,
@@ -109,7 +110,7 @@ fn transpile_source_cached_inner(
     project: Option<&alias::ProjectContext>,
     emit: bool,
 ) -> Result<缓存::TranspileOutput, 故障::转译故障> {
-    logger::init();
+    日志::初始化();
     let start = Instant::now();
     crate::log_info!(
         "transpile_engine",
@@ -1172,7 +1173,7 @@ mod tests {
     fn new_cache() -> 缓存::转译缓存 {
         // 静音走一次性写入且持级别锁：旧写法每次建缓存都裸写全局级别，等于给
         // 所有「断言级别」的用例埋了个不持锁的竞争者（撑开窗口实测 12/12 轮红）。
-        logger::quiet_for_tests();
+        日志::测试静音();
         缓存::转译缓存::with_default_capacity()
     }
 

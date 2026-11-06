@@ -41,6 +41,14 @@
 # 标准库标识符（类型、特征、方法、函数等）
 # ============================================
 ["标识符"]
+# 引擎导出的日志宏（#[macro_export] macro_rules!）：登记到标识符位（非
+# ["宏"]节，避开宏调用位的自动 `!` 拼接），以便 `宏规则! 警告日志` 定义位
+# 干净地转成 `macro_rules! log_warn`，同时 `包::警告日志!` 调用位转成
+# `crate::log_warn!`——35 处英文 `crate::log_*!` 消费者零改动。
+"调试日志" = "log_debug"
+"信息日志" = "log_info"
+"警告日志" = "log_warn"
+"错误日志" = "log_error"
 # `标准库` 同时存在于模块路径节（use 语句专用）；此副本让表达式中的
 # 完整路径（如 `标准库::内存::尺寸` → `std::mem::size_of`）也能转译
 "标准库" = "std"
@@ -214,6 +222,7 @@
 "截取" = "get"
 "去前缀" = "strip_prefix"
 "去后缀" = "strip_suffix"
+"作为文本切片" = "as_str"  # String::as_str（取 &str 视图）
 "转小写" = "to_lowercase"
 "转大写" = "to_uppercase"
 "重复" = "repeat"
@@ -461,6 +470,7 @@
 "互斥锁" = "Mutex"
 "读写锁" = "RwLock"
 "互斥守卫" = "MutexGuard"
+"尝试加锁" = "try_lock"  # Mutex::try_lock（不阻塞抢锁）
 "读守卫" = "RwLockReadGuard"
 "写守卫" = "RwLockWriteGuard"
 "原子引用计数" = "Arc"

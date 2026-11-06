@@ -181,4 +181,5 @@
 "Identificador" = "ident"
 "Literal" = "literal"
 "EspecificaciónTipo" = "ty"
+"ÁrbolTokens" = "tt"
 "DeberíaPanico" = "should_panic"

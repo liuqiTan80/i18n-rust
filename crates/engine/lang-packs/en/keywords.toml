@@ -182,4 +182,5 @@
 "ident" = "ident"
 "literal" = "literal"
 "ty" = "ty"
+"tt" = "tt"
 "should_panic" = "should_panic"

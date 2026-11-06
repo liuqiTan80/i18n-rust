@@ -2679,8 +2679,8 @@ fn load_mapping(
     source_file: Option<&Path>,
 ) -> anyhow::Result<映射管理器> {
     // 映射数据来源日志（语言包开发调试：RZ_LOG=info rzc check 可见）
-    // 注意：load_mapping 先于转译管线执行，logger 需在此提前初始化（幂等）
-    i18n_rust_engine::logger::init();
+    // 注意：load_mapping 先于转译管线执行，日志需在此提前初始化（幂等）
+    i18n_rust_engine::日志::初始化();
     let ui = ui_for_file(source_file.unwrap_or(Path::new("")), &lang_pack_path);
     // 1. 如果用户通过 --lang-pack 指定了外部目录，强制使用
     if let Some(path) = lang_pack_path {

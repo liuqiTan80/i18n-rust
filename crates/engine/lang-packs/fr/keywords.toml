@@ -181,4 +181,5 @@
 "Identifiant" = "ident"
 "Littéral" = "literal"
 "SpécificationType" = "ty"
+"ArbreTokens" = "tt"
 "DevraitPaniquer" = "should_panic"

@@ -93,7 +93,7 @@ fn setup_project(root: &Path, dir_name: &str, content: &str) -> (PathBuf, String
 fn bench_update_document(c: &mut Criterion) {
     // 基准中抑制引擎教学日志（默认警告级会因教学 lint 刷屏并引入
     // 终端 I/O 抖动；与 engine 基准的静默口径一致）
-    i18n_rust_engine::logger::set_log_level(i18n_rust_engine::logger::LogLevel::Error);
+    i18n_rust_engine::日志::设置等级(i18n_rust_engine::日志::日志等级::错误级);
     let manager = zh_manager();
     let source = teaching_source();
     let mut group = c.benchmark_group("lsp_update_document");
@@ -149,7 +149,7 @@ fn bench_update_document(c: &mut Criterion) {
 /// 这条基准盯的是「大文件 + 密集方法调用」下每次按键的延迟，`teaching_source`
 /// 测不到它。
 fn bench_update_document_alias_heavy(c: &mut Criterion) {
-    i18n_rust_engine::logger::set_log_level(i18n_rust_engine::logger::LogLevel::Error);
+    i18n_rust_engine::日志::设置等级(i18n_rust_engine::日志::日志等级::错误级);
     let manager = zh_manager();
     let source = alias_heavy_source();
     let mut group = c.benchmark_group("lsp_update_document");
@@ -181,7 +181,7 @@ fn bench_update_document_alias_heavy(c: &mut Criterion) {
 /// reverse_transpile：补全片段（无上下文）与整文档还原（格式化响应）
 fn bench_reverse_transpile(c: &mut Criterion) {
     // 同上：静默引擎教学日志
-    i18n_rust_engine::logger::set_log_level(i18n_rust_engine::logger::LogLevel::Error);
+    i18n_rust_engine::日志::设置等级(i18n_rust_engine::日志::日志等级::错误级);
     let manager = zh_manager();
     let source = teaching_source();
     let tmp = tempfile::tempdir().expect("创建临时目录失败");

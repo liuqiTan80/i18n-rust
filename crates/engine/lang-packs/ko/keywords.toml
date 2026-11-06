@@ -181,4 +181,5 @@
 "식별자" = "ident"
 "리터럴" = "literal"
 "유형지정" = "ty"
+"토큰트리" = "tt"
 "패닉해야" = "should_panic"

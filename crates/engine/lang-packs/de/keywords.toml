@@ -182,4 +182,5 @@
 "Bezeichner" = "ident"
 "Literal" = "literal"
 "Typspezifikation" = "ty"
+"Tokenbaum" = "tt"
 "SolltePaniken" = "should_panic"
