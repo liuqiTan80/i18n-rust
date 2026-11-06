@@ -1858,12 +1858,12 @@ fn eject_sources(
             // 导出前扫一遍冲突（--no-lint 一并关闭）：字段名/声明名命中词条会被改写、
             // 会 panic 的词条被当文本用——只提示不阻断，避免导出后才发现语义已变
             if i18n_rust_engine::校验::teaching_lint_enabled() {
-                for hint in i18n_rust_engine::eject_hints::eject_hints(&source, &manager) {
+                for hint in i18n_rust_engine::导出冲突提示::扫描冲突(&source, &manager) {
                     i18n_rust_engine::log_warn!(
                         "eject_hint",
                         "{}：{}",
                         path.display(),
-                        hint.format()
+                        hint.转提示文本()
                     );
                 }
             }

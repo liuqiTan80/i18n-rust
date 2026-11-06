@@ -3,7 +3,8 @@
 
 pub mod alias;
 pub mod diagnostic;
-pub mod eject_hints;
+#[path = "导出冲突提示.rs"]
+pub mod 导出冲突提示;
 #[path = "全角标点.rs"]
 pub mod 全角标点;
 pub mod logger;

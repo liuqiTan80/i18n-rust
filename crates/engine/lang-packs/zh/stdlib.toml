@@ -199,6 +199,7 @@
 "逐字符" = "chars"
 "逐字节" = "bytes"
 "逐字符枚举" = "char_indices"
+"匹配位置" = "match_indices"
 "裁剪" = "trim"
 "裁剪左侧" = "trim_start"
 "裁剪右侧" = "trim_end"
@@ -786,6 +787,7 @@
 "令牌种类" = "TokenKind"
 "令牌类别" = "kind"
 "标识符记号" = "Ident"
+"未知记号" = "Unknown"  # rustc_lexer TokenKind::Unknown
 "原始标识符" = "RawIdent"
 "空白符" = "Whitespace"
 "行评论" = "LineComment"
