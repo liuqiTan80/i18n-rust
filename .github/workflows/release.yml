@@ -13,11 +13,12 @@
 #
 # 产物：
 #   i18n-rust-<版本>.vsix             （VS Code 扩展离线安装包）
+#   rzc-<版本>-<平台>-<架构>.tar.gz/.zip（三平台 rzc + 语言服务器离线包）
 #   SHA256SUMS                        （产物校验和，供下载者验证文件完整性）
-#   （rzc 离线发布包不在 CI 构建：由本地脚本 release-offline.sh/.ps1
-#     编译打包后手动上传到 Release）
 #
 # 说明：
+#   - 离线包由 release-offline.sh 在三平台 runner 上就地构建（Linux/Windows/
+#     macOS），与本地手动打包同一脚本，避免「CI 只发 vsix」的承诺漂移；
 #   - 本文件双平台通用（GitHub Actions / GitCode CI）：
 #     · GitHub 镜像仓库（liuqiTan80/i18n-rust）：用官方 action 创建
 #       GitHub Release（GITHUB_TOKEN 自动注入，无需额外配置）；
@@ -183,13 +184,55 @@ jobs:
           path: release/*.vsix
           if-no-files-found: error
 
+  # ---------- 三平台离线发布包（rzc + 语言服务器） ----------
+  # 与本地 release-offline.sh 同一脚本：README 承诺的 Release 下载物
+  # （三平台 rzc 压缩包）必须由 CI 真实产出，而不是只发 vsix。
+  binaries:
+    name: 构建离线包 ${{ matrix.os_name }}-${{ matrix.arch }}
+    needs: check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            os_name: linux
+            arch: x86_64
+          - os: windows-latest
+            os_name: windows
+            arch: x86_64
+          - os: macos-latest
+            os_name: macos
+            arch: aarch64
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 启用 Rust 构建缓存
+        uses: Swatinem/rust-cache@v2
+
+      - name: 构建离线发布包
+        # shell: bash：Windows runner 走 Git Bash，与脚本的 MINGW 分支一致
+        shell: bash
+        run: ./release-offline.sh
+
+      - name: 上传离线包产物（供发布步骤使用）
+        uses: actions/upload-artifact@v4
+        with:
+          name: 离线包-${{ matrix.os_name }}-${{ matrix.arch }}
+          path: |
+            release/*.tar.gz
+            release/*.zip
+          if-no-files-found: error
+
   # ---------- 发布：推送 tag 时创建 Release 并附带全部产物 ----------
   publish:
     name: 创建 Release 并上传产物
-    needs: [vsix]
+    needs: [vsix, binaries]
     # 仅 tag 触发时发布；手动触发只产出 Artifact。
-    # rzc 离线发布包由发布者按本地脚本（release-offline.sh/.ps1）
-    # 编译后手动上传到本 Release。
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     # 显式声明写权限：创建 Release/上传附件需要 contents: write
@@ -257,7 +300,7 @@ jobs:
           [ -n "$RELEASE_ID" ] || { echo "创建 Release 失败：$RESP"; exit 1; }
           echo "Release ID: $RELEASE_ID"
 
-          # 2) 上传全部附件（当前为 vsix；rzc 离线包由发布者手动上传）
+          # 2) 上传全部附件（vsix + 三平台离线包 + SHA256SUMS）
           for f in artifacts/*; do
             [ -f "$f" ] || continue
             echo "上传附件：$f"

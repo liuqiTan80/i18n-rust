@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """生产代码 panic 面门禁：src/ 下的 .unwrap()/.expect()/panic! 等只允许出现在
-#[cfg(test)] 区域或显式白名单中。
+#[cfg(test)]（方言源写作 #[配置(测试)]）区域或显式白名单中。
 
 背景：转译器/LSP 长期面对畸形输入（用户方言源码、rustc JSON、第三方语言包
 TOML），任何生产路径 panic 都会让编辑器语言服务器整体崩溃。2026-09 全量审计
 确认 src/ 生产代码已无裸 unwrap/expect（572 处命中全部位于 #[cfg(test)] 模块、
 集成测试或 build.rs），本门禁把该结论固化，防止回归。
 
-检测内容（仅 #[cfg(test)] 区域之外的物理行）：
+检测内容（仅测试区域之外的物理行）；同时扫描 .rs 与 .zh 两种源码后缀：
   .unwrap() / .expect(   （不误报 unwrap_or / unwrap_or_else / unwrap_or_default）
   panic! / unreachable! / unimplemented! / todo!
 
@@ -34,15 +34,23 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 ALLOW = [
     (
         "crates/cli/src/内置语言.rs",
-        '.expect("内置语言包文件缺失',
+        "内置语言包文件缺失",
         "include_str! 编译期嵌入的内置语言包；缺失=引擎构建损坏，且 expect 带中文说明",
     ),
 ]
 
-PANIC_RE = re.compile(r"\.(?:unwrap|expect)\s*\(|(?:panic|unreachable|unimplemented|todo)\s*!")
+PANIC_RE = re.compile(
+    r"\.(?:unwrap|expect)\s*\("
+    # 方言源（zh 分支）的方法名：解包 = unwrap，期望 = expect；
+    # 解包或用/取值或 等安全组合不匹配（其后不是左括号）
+    r"|\.(?:解包|期望)\s*\("
+    r"|(?:panic|unreachable|unimplemented|todo)\s*!"
+    r"|(?:恐慌|不可达|未实现|待办)\s*!"
+)
 
-# 粗扫属性行；精确区域由花括号深度配对决定
-CFG_TEST_RE = re.compile(r"#\[cfg\s*\(\s*test\s*\)\]")
+# 粗扫属性行；精确区域由花括号深度配对决定。
+# 方言源（zh 分支）把 cfg(test) 写作 配置(测试)，两种形态都要认。
+CFG_TEST_RE = re.compile(r"#\[(?:cfg\s*\(\s*test\s*\)|配置\s*\(\s*测试\s*\))\]")
 RAW_STR_RE = re.compile(r'b?r(#*)"')
 PLAIN_STR_RE = re.compile(r'b?"')
 CHAR_LITERAL_RE = re.compile(r"'(?:\\.|[^'\\\n])'")
@@ -84,10 +92,10 @@ def iter_src_files():
         src = crate / "src"
         if not src.is_dir():
             continue
-        for p in sorted(src.rglob("*.rs")):
+        for p in sorted(list(src.rglob("*.rs")) + list(src.rglob("*.zh"))):
             # 独立测试文件（经父模块 `#[cfg(test)] mod tests;` 引入，
             # 全仓唯一：lsp/src/response_map/tests.rs）整体视为测试代码
-            if p.name == "tests.rs":
+            if p.name in ("tests.rs", "tests.zh", "测试.rs", "测试.zh"):
                 continue
             yield p
 
@@ -141,11 +149,12 @@ def find_test_region_offsets(text: str):
         elif ch == ";" and pending is not None and depth == pending[1]:
             regions.append((pending[0], i + 1))
             pending = None
-        elif ch == "#" and pending is None and CFG_TEST_RE.match(text, i):
+        elif ch == "#" and pending is None and (m := CFG_TEST_RE.match(text, i)):
             # 记录属性起点（回退到行首，连同行内前导空白一并跳过）
             line_start = text.rfind("\n", 0, i) + 1
             pending = (line_start, depth)
-            i += len("#[cfg(test)]")
+            # 按实际匹配长度跳过：方言属性 #[配置(测试)] 与英文属性长度不同
+            i = m.end()
             continue
         i += 1
     return regions
@@ -158,13 +167,23 @@ def line_offsets(text: str):
     return offsets
 
 
-# 整文件测试模块：`#[cfg(test)]` + 可选 `#[path = "…"]` + `mod 名;`
+# 整文件测试模块：`#[cfg(test)]`（方言写作 `#[配置(测试)]`）+ 可选
+# `#[path = "…"]`（方言写作 `#[路径属性 = "…"]`）+ `mod 名;`（方言写作 `模块 名;`）
 # 这类文件整份只在测试期编译，内部的 unwrap/panic 属测试代码
 CFG_TEST_MOD_RE = re.compile(
-    r"#\[cfg\s*\(\s*test\s*\)\]\s*"
-    r"(?:#\[path\s*=\s*\"([^\"]+)\"\s*\]\s*)?"
-    r"(?:pub(?:\s*\([^)]*\))?\s+)?mod\s+([^\s;]+)\s*;"
+    r"#\[(?:cfg\s*\(\s*test\s*\)|配置\s*\(\s*测试\s*\))\]\s*"
+    r"(?:#\[(?:path|路径属性)\s*=\s*\"([^\"]+)\"\s*\]\s*)?"
+    r"(?:(?:pub|公开)(?:\s*\([^)]*\))?\s+)?(?:mod|模块)\s+([^\s;]+)\s*;"
 )
+
+
+def source_variants(rel: str):
+    """同一逻辑源的 .rs / .zh 两种落盘名（白名单跨分支共用一份）。"""
+    if rel.endswith(".rs"):
+        return (rel, rel[:-3] + ".zh")
+    if rel.endswith(".zh"):
+        return (rel[:-3] + ".rs", rel)
+    return (rel,)
 
 
 def collect_test_only_files():
@@ -178,7 +197,12 @@ def collect_test_only_files():
             if rel_path:
                 found.add((base / rel_path).resolve())
                 continue
-            for cand in (base / f"{name}.rs", base / name / "mod.rs"):
+            for cand in (
+                base / f"{name}.rs",
+                base / f"{name}.zh",
+                base / name / "mod.rs",
+                base / name / "mod.zh",
+            ):
                 if cand.is_file():
                     found.add(cand.resolve())
     return found
@@ -203,7 +227,7 @@ def main():
         sys.exit(1)
     scanned = sum(1 for _ in iter_src_files())
     if scanned == 0:
-        print(f"❌ crates/*/src 下没扫到任何 .rs 文件（REPO_ROOT={REPO_ROOT}）\n"
+        print(f"❌ crates/*/src 下没扫到任何 .rs/.zh 文件（REPO_ROOT={REPO_ROOT}）\n"
               "   空对象上的「0 处 panic 面」不是通过：请确认脚本位置与仓库布局。")
         sys.exit(1)
 
@@ -230,9 +254,13 @@ def main():
                 continue
             line_no = offset_to_line(offsets, m.start())
             line = text.splitlines()[line_no - 1].strip()
+            # 注释里举例说明恐慌宏/expect 不是生产 panic 面（实测：
+            # 导出冲突提示.zh 的 `恐慌!(…)` 说明文字）。整行注释直接跳过。
+            if line.startswith(("//", "/*", "*", "*/")):
+                continue
             # 白名单核对：特征串必须仍在该行
             allowed = any(
-                rel == f and marker in line
+                rel in source_variants(f) and marker in line
                 for f, marker, _reason in ALLOW
             )
             if allowed:
@@ -242,10 +270,14 @@ def main():
     # 白名单防腐：条目标记的现场必须仍存在，否则删除白名单条目
     missing_allow = []
     for f, marker, reason in ALLOW:
-        p = REPO_ROOT / f
         alive = False
-        if p.is_file():
-            alive = any(marker in ln for ln in p.read_text(encoding="utf-8").splitlines())
+        for variant in source_variants(f):
+            p = REPO_ROOT / variant
+            if p.is_file() and any(
+                marker in ln for ln in p.read_text(encoding="utf-8").splitlines()
+            ):
+                alive = True
+                break
         if not alive:
             missing_allow.append((f, marker, reason))
 
@@ -266,7 +298,7 @@ def main():
 
     if errors:
         sys.exit(1)
-    print(f"✅ 生产 panic 面门禁通过（扫描 {scanned} 个 src/ Rust 文件，白名单 {len(ALLOW)} 条）")
+    print(f"✅ 生产 panic 面门禁通过（扫描 {scanned} 个 src/ 源文件，白名单 {len(ALLOW)} 条）")
 
 
 # Windows 控制台/管道默认 GBK：输出里的 ✅/❌ 无法编码会触发

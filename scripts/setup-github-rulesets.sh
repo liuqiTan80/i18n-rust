@@ -7,9 +7,9 @@
 #
 # 应用内容：
 #   - main：禁止删除/强推、线性历史、必须走 PR（不要求评审）、
-#           必须通过状态检查 test / windows-gates / msrv / eject-verify、
-#           要求分支最新（strict）
-#   - zh：仅禁止删除与强推（日常开发允许直接推送）
+#           必须通过状态检查 test / windows-gates / msrv / eject-verify /
+#           覆盖率 / 基准 / 三平台 LSP e2e、要求分支最新（strict）
+#   - zh：禁止删除/强推，必须通过方言源门禁与方言源编译门禁（strict）
 #   - v* 标签：禁止删除/移动
 #
 # 说明：GitHub 是本项目唯一写入源；Gitee / GitCode 为只读镜像，
@@ -62,6 +62,8 @@ cat <<'完成'
   1. Settings → General → Pull Requests：只勾选 "Allow squash merging"（或 Rebase），
      关闭 "Allow merge commits"——与 required_linear_history 配套；
   2. Settings → Branches / Rules：确认 main 的 required checks 能匹配到
-     CI 里的 test / windows-gates / msrv 与 eject-verify 四项；
+     CI 里的 test / windows-gates / msrv / eject-verify / 测试覆盖率门禁 /
+     基准回归对比 / LSP 端到端测试 linux|windows|macos；
+     zh 的 required checks 能匹配到「方言源门禁」与「方言源编译门禁」；
   3. Gitee / GitCode：默认分支设为 zh，main / zh 仅允许镜像账号写入。
 完成

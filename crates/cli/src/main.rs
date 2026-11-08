@@ -2516,6 +2516,33 @@ fn 按文件输出教学告警(源文本: &str, 显示名: &str, 管理器值: &
     i18n_rust_engine::输出教学告警(源文本, 管理器值, Some(显示名));
 }
 
+/// 拒绝写入符号链接路径（含根以下的中间组件）
+///
+/// 恶意仓库可把 `.rz`、`.rz/gen` 或目标文件换成指向用户文件的符号链接，
+/// 转译写入就会跟随链接覆盖任意文件。逐级检查已存在组件：任何一级是
+/// 符号链接即拒绝；尚不存在的新路径不检查（创建后即为普通目录/文件）。
+/// 根自身不检查：用户可能本来就通过符号链接打开项目。
+fn 检查写入路径无符号链接(根: &Path, 目标: &Path) -> anyhow::Result<()> {
+    let mut 当前 = 目标.to_path_buf();
+    loop {
+        if 当前
+            .symlink_metadata()
+            .map(|元数据值| 元数据值.file_type().is_symlink())
+            .unwrap_or(false)
+        {
+            anyhow::bail!("拒绝写入符号链接路径：{}", 当前.display());
+        }
+        let Some(父级) = 当前.parent() else {
+            break;
+        };
+        if !父级.starts_with(根) {
+            break;
+        }
+        当前 = 父级.to_path_buf();
+    }
+    Ok(())
+}
+
 /// 写转译产物，写入语义按落点分道
 ///
 /// 托管目录是 rzc 专属地盘（用户在此无手写内容，源码目录的手写标准 Rust 也
@@ -2530,6 +2557,14 @@ fn 写出产物(
     界面表: &crate::界面::界面消息表,
 ) -> anyhow::Result<()> {
     if i18n_rust_engine::产物布局::是否为托管产物(项目根, 路径值) {
+        检查写入路径无符号链接(项目根, 路径值)?;
+        // 内容未变则不写盘：cargo 以文件修改时间判定改动，重复写入会让每次
+        // run/check 都重编译整个包
+        if let Ok(既有内容) = fs::read_to_string(路径值)
+            && 既有内容 == 内容文本
+        {
+            return Ok(());
+        }
         if let Some(父级) = 路径值.parent() {
             fs::create_dir_all(父级)?;
         }
@@ -2546,14 +2581,25 @@ fn 写入转译产物(
     内容文本: &str,
     界面表: &crate::界面::界面消息表,
 ) -> anyhow::Result<()> {
+    // 目标若是符号链接，读写都会落到链接指向的文件（可能是用户配置等）；
+    // 方言源旁的产物只应是普通文件，退化为普通文件前先拒绝
+    if 路径值
+        .symlink_metadata()
+        .map(|元数据值| 元数据值.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        anyhow::bail!("拒绝写入符号链接路径：{}", 路径值.display());
+    }
     // 方言文件直接放在项目根等场景下源码目录可能尚不存在，先创建父目录
     //（否则写入报底层的「文件不存在」错误，语言服务侧翻译缓存已有同款处理）
     if let Some(父级) = 路径值.parent() {
         fs::create_dir_all(父级)?;
     }
-    if let Ok(既有内容) = fs::read_to_string(路径值)
-        && 既有内容 != 内容文本
-    {
+    if let Ok(既有内容) = fs::read_to_string(路径值) {
+        if 既有内容 == 内容文本 {
+            // 内容一致：不写盘，保留修改时间，避免 cargo 误判改动
+            return Ok(());
+        }
         let 备份 = 路径值.with_extension("rs.bak");
         fs::rename(路径值, &备份)?;
         println!(
@@ -3197,8 +3243,8 @@ fn 扩展名转语言代码(扩展值: &str) -> Option<String> {
 mod 母语测试 {
     use super::{
         入口产物路径, 写入转译产物, 扩展名转语言代码, 按语言分组文件, 探测工具链通道,
-        收集同级方言文件, 收集项目上下文, 是否入口源, 查找映射别名, 注解导出模块, 注解非母语模块,
-        清理入口生成副本, 转译为英文, 转译项目文件, 项目缓存转译,
+        收集同级方言文件, 收集项目上下文, 是否入口源, 查找映射别名, 检查写入路径无符号链接,
+        注解导出模块, 注解非母语模块, 清理入口生成副本, 转译为英文, 转译项目文件, 项目缓存转译,
     };
     // 引擎注解器直测（产物写盘已改走产物布局的托管布局版）
     use i18n_rust_engine::模块路径::注解非母语模块并返回行映射;
@@ -3607,6 +3653,46 @@ mod 母语测试 {
             std::fs::read_to_string(路径值.with_extension("rs.bak")).unwrap(),
             "v1"
         );
+    }
+
+    /// 托管产物路径含符号链接时拒绝写入：恶意仓库可用 `.rz/gen` 链接
+    /// 把转译产物写到项目外（仅 Unix 跑：Windows 建符号链接需特权）
+    #[cfg(unix)]
+    #[test]
+    fn 托管写入拒绝符号链接路径() {
+        let 根 = tempfile::tempdir().unwrap();
+        let 根路径 = 根.path();
+        // 正常的新路径（尚不存在）应放行
+        assert!(
+            检查写入路径无符号链接(
+                &根路径,
+                &根路径.join(".rz").join("gen").join("x.rs")
+            )
+            .is_ok(),
+            "普通新路径不应被拒绝"
+        );
+        let 受害者 = 根路径.join("victim.txt");
+        std::fs::write(&受害者, "keep").unwrap();
+        // `.rz` 指向临时目录本身：后续每一级路径都落在链接之后
+        std::os::unix::fs::symlink(&根路径, &根路径.join(".rz")).unwrap();
+        assert!(
+            检查写入路径无符号链接(
+                &根路径,
+                &根路径.join(".rz").join("gen").join("x.rs")
+            )
+            .is_err(),
+            "中间组件是符号链接时必须拒绝"
+        );
+
+        // 目标文件自身是符号链接：写入转译产物应拒绝，受害者内容不变
+        let 链 = 根路径.join("main.rs");
+        std::os::unix::fs::symlink(&受害者, &链).unwrap();
+        let 界面表 = crate::界面::界面消息表::按语言建表("zh");
+        assert!(
+            写入转译产物(&链, "overwrite", &界面表).is_err(),
+            "目标是符号链接时必须拒绝"
+        );
+        assert_eq!(std::fs::read_to_string(&受害者).unwrap(), "keep");
     }
 
     /// 非 ASCII 文件式模块声明补模块路径注解（绕过编译器标识符限制）

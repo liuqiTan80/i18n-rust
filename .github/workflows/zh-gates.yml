@@ -3,11 +3,10 @@
 #
 # zh 分支的源码树只保留 .zh 方言源：同名 .rs 是转译产物，不入库、不与源码
 # 混放（构建/测试用 scripts/zh-build.sh 在 .zh-build/ 隔离目录生成）。
-# 因此这里不跑 cargo，只跑纯 Python 的源码纪律检查：
-#   - 全中文棘轮（代码区与注释区英文零残留）
-#   - 方言源纪律（可转译性需要 rzc；本工作流无二进制时只跑一词多译与
-#     绑定位审计，不误判失败）
-# 编译、测试、clippy、教程等重门禁在 eject 后的 main 上由 ci.yml 执行。
+#   - 方言源门禁：全中文棘轮、方言源纪律、生产 panic 面（纯 Python，秒级）
+#   - 方言源编译门禁：从 main 构建 rzc，eject 后在隔离目录编译全部目标，
+#     让「.zh 写错/转译器不兼容」在 zh 分支就暴露，而不是等 main PR
+# 测试、覆盖率、三平台 e2e 等重门禁仍在 eject 后的 main 上由 ci.yml 执行。
 # =============================================================
 name: zh 方言源门禁
 
@@ -37,3 +36,33 @@ jobs:
 
       - name: 方言源纪律（可转译性 + 一词多译 + 绑定位）
         run: python3 tools/check-zh-artifacts.py
+
+      - name: 生产 panic 面门禁（.zh / .rs 双后缀）
+        run: python3 tools/check-prod-panics.py
+
+  compile:
+    name: 方言源编译门禁
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 从 main 构建 rzc（eject 需要）
+        # main 是发布树（.rs 源码），其 rzc 负责把 zh 的 .zh 转成 .rs；
+        # 用 worktree 取出 main，避免污染当前 zh 工作树
+        run: |
+          git fetch origin main --depth 1
+          git worktree add .zh-tmp/rzc-src origin/main
+          cargo build --manifest-path .zh-tmp/rzc-src/Cargo.toml -p rzc --locked
+
+      - name: 生成 .zh 产物并编译全部目标
+        # check --all-targets 覆盖 src/tests/benches/examples/build.rs：
+        # eject 坏了（新语法/未收录词条/声明位误替换）会在这里直接失败
+        env:
+          RZC: ${{ github.workspace }}/.zh-tmp/rzc-src/target/debug/rzc
+        run: scripts/zh-build.sh check --workspace --all-targets --locked

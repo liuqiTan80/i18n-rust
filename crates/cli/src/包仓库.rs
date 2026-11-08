@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::界面;
-use crate::语言管理::{临时目录句柄, 仓库源项};
+use crate::语言管理::{临时目录句柄, 仓库源项, 校验语言代码};
 
 /// 默认注册中心地址（可用专门的环境变量覆盖）。
 /// 注册中心已合并进主仓库，位于 `third-party/` 子目录；
@@ -228,6 +228,75 @@ pub fn 检索(关键词: Option<&str>) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// 校验库名可作为全局语言包内 `crates/<库名>.toml` 的文件名
+///
+/// 只允许 ASCII 字母、数字、连字符与下划线，拒绝空名与前导 `-`
+/// （避免被后续命令当作选项），长度上限 64 与官方注册中心的包名规则一致。
+/// 库名参与路径拼接：未校验时 `../` 可写/删全局语言目录外的任意 `.toml`。
+fn 校验库名(包名: &str) -> anyhow::Result<()> {
+    let 界面表 = 界面::界面消息表::全局表();
+    if 包名.is_empty() {
+        anyhow::bail!("{}", 界面表.取消息("mapping_crate_empty"));
+    }
+    let 合法 = 包名.len() <= 64
+        && !包名.starts_with("-")
+        && 包名
+            .chars()
+            .all(|本字| 本字.is_ascii_alphanumeric() || 本字 == '-' || 本字 == '_');
+    if !合法 {
+        anyhow::bail!("{}", 界面表.取带参消息("mapping_crate_invalid", &[包名]));
+    }
+    Ok(())
+}
+
+/// 校验语言代码与库名（`rzc crate` 各子命令的公共入口校验）
+fn 校验语言与库名(语言代码: &str, 包名: &str) -> anyhow::Result<()> {
+    let 界面表 = 界面::界面消息表::全局表();
+    if !校验语言代码(语言代码) {
+        anyhow::bail!("{}", 界面表.取带参消息("invalid_lang_code", &[语言代码]));
+    }
+    校验库名(包名)
+}
+
+/// 全局语言包内某语言的社区映射目录
+fn 映射目录(语言代码: &str) -> PathBuf {
+    crate::语言管理::全局语言目录()
+        .join(语言代码)
+        .join("crates")
+}
+
+/// 全局语言包内的映射安装路径
+fn 映射安装路径(语言代码: &str, 包名: &str) -> PathBuf {
+    映射目录(语言代码).join(format!("{}.toml", 包名))
+}
+
+/// 相对路径按当前目录补成绝对路径（取不到当前目录时原样返回）
+fn 绝对化路径(路径值: &Path) -> PathBuf {
+    if 路径值.is_absolute() {
+        return 路径值.to_path_buf();
+    }
+    std::env::current_dir()
+        .map(|当前目录| 当前目录.join(路径值))
+        .unwrap_or_else(|_| 路径值.to_path_buf())
+}
+
+/// 目标路径（含尚未创建的末段）是否仍在全局语言目录子树内
+///
+/// 词法校验已拒绝 `..`；这里再解析真实路径做纵深防御，防止语言目录本身
+/// 被替换为指向别处的符号链接。路径尚不存在时回退到父目录的规范路径。
+fn 在全局语言目录内(路径值: &Path) -> bool {
+    let 根 = 绝对化路径(&crate::语言管理::全局语言目录());
+    let 规范根 = 根.canonicalize().unwrap_or_else(|_| 根.clone());
+    let 目标 = 绝对化路径(路径值);
+    let 规范值 = 目标.canonicalize().unwrap_or_else(|_| {
+        目标
+            .parent()
+            .map(|父级| 父级.canonicalize().unwrap_or_else(|_| 父级.to_path_buf()))
+            .unwrap_or_else(|| 目标.clone())
+    });
+    规范值.starts_with(&规范根)
+}
+
 /// 将索引文件中（第三方可控）的映射相对路径安全解析到注册中心根下。
 ///
 /// 复用语言管理器的安全条目路径校验（拒空/绝对/上跳/盘符，
@@ -242,6 +311,7 @@ fn 解析映射源(注册根: &Path, 映射文件: &str) -> Option<PathBuf> {
 /// `rzc crate install <库> --lang <语言> [--force]`：拉取单个映射
 pub fn 安装(包名: &str, 语言代码: &str, 强制: bool) -> anyhow::Result<()> {
     let 界面表 = 界面::界面消息表::全局表();
+    校验语言与库名(语言代码, 包名)?;
     let (_临时, 根目录) = 拉取仓库()?;
     let 注册根 = 仓库子目录(&根目录);
     let 索引对象 = 读取索引(&注册根.join("index.json"))?;
@@ -267,11 +337,12 @@ pub fn 安装(包名: &str, 语言代码: &str, 强制: bool) -> anyhow::Result<
             界面表.取带参消息("crate_file_missing", &[&条目值.映射文件])
         );
     }
-    let 目标目录 = crate::语言管理::全局语言目录()
-        .join(语言代码)
-        .join("crates");
+    let 目标目录 = 映射目录(语言代码);
+    let 目标路径 = 映射安装路径(语言代码, 包名);
+    if !在全局语言目录内(&目标路径) {
+        anyhow::bail!("{}", 界面表.取带参消息("mapping_crate_invalid", &[包名]));
+    }
     std::fs::create_dir_all(&目标目录)?;
-    let 目标路径 = 目标目录.join(format!("{}.toml", 包名));
     if 目标路径.exists() && !强制 {
         anyhow::bail!(
             "{}",
@@ -316,10 +387,11 @@ pub fn 列出() -> anyhow::Result<()> {
 /// `rzc crate remove <库> --lang <语言>`：删除已安装映射
 pub fn 移除已装(包名: &str, 语言代码: &str) -> anyhow::Result<()> {
     let 界面表 = 界面::界面消息表::全局表();
-    let 目标路径 = crate::语言管理::全局语言目录()
-        .join(语言代码)
-        .join("crates")
-        .join(format!("{}.toml", 包名));
+    校验语言与库名(语言代码, 包名)?;
+    let 目标路径 = 映射安装路径(语言代码, 包名);
+    if !在全局语言目录内(&目标路径) {
+        anyhow::bail!("{}", 界面表.取带参消息("mapping_crate_invalid", &[包名]));
+    }
     if 目标路径.exists() {
         std::fs::remove_file(&目标路径)?;
     }
@@ -347,6 +419,10 @@ pub fn 更新() -> anyhow::Result<()> {
     let 索引对象 = 读取索引(&注册根.join("index.json"))?;
     let mut 计数: usize = 0;
     for (包名, 语言代码) in 已装清单.keys() {
+        // 清单是本地文件，可能被篡改：非法条目跳过而不是拼出目录外路径
+        if 校验语言与库名(语言代码, 包名).is_err() {
+            continue;
+        }
         if let Some(条目值) = 索引对象
             .映射清单
             .iter()
@@ -356,11 +432,13 @@ pub fn 更新() -> anyhow::Result<()> {
                 continue;
             };
             if 源路径.is_file() {
-                let 目标目录 = crate::语言管理::全局语言目录()
-                    .join(语言代码)
-                    .join("crates");
+                let 目标目录 = 映射目录(语言代码);
+                let 目标路径 = 映射安装路径(语言代码, 包名);
+                if !在全局语言目录内(&目标路径) {
+                    continue;
+                }
                 std::fs::create_dir_all(&目标目录)?;
-                std::fs::copy(&源路径, 目标目录.join(format!("{}.toml", 包名)))?;
+                std::fs::copy(&源路径, 目标路径)?;
                 计数 += 1;
             }
         }
@@ -383,6 +461,8 @@ pub fn 发布(
     作者: Option<&str>,
 ) -> anyhow::Result<()> {
     let 界面表 = 界面::界面消息表::全局表();
+    // 发布路径同样由库名/语言代码拼接（本地注册中心直写），入口统一校验
+    校验语言与库名(语言代码, 包名)?;
     // 1. 定位待发布的映射文件
     let 源路径 = 解析发布文件(包名, 语言代码, 指定文件)?;
     // 2. 质量门禁：配置可解析 + 节名合法（重复键解析即失败）
@@ -717,6 +797,33 @@ mod 母语测试 {
             "盘符应拒（连接会整体替换根路径）"
         );
         assert!(解析映射源(注册根, "").is_none(), "空名应拒");
+    }
+
+    /// 库名/语言代码是路径段：`../`、分隔符、前导 `-` 与空名必须拒绝，
+    /// 否则 `rzc crate install/remove` 可写/删全局语言目录外的任意 `.toml`
+    #[test]
+    fn 库名与语言代码拒绝路径穿越() {
+        assert!(校验库名("serde").is_ok());
+        assert!(校验库名("serde_json").is_ok());
+        assert!(校验库名("serde-json2").is_ok());
+        assert!(校验库名("").is_err(), "空名应拒");
+        assert!(校验库名("..").is_err(), "上跳应拒");
+        assert!(校验库名("../../.cargo/config").is_err(), "路径穿越应拒");
+        assert!(校验库名("a/b").is_err(), "正斜杠应拒");
+        assert!(校验库名("a\\b").is_err(), "反斜杠应拒");
+        assert!(校验库名("中文").is_err(), "非 ASCII 应拒");
+        assert!(校验库名("-evil").is_err(), "前导连字符应拒");
+        assert!(校验库名(&"a".repeat(65)).is_err(), "超长应拒");
+        assert!(校验语言代码("../zh") == false);
+        assert!(校验语言代码("..") == false);
+        assert!(校验语言代码("zh") == true);
+    }
+
+    /// 安装路径始终落在全局语言目录内（纵深防御的规范路径检查）
+    #[test]
+    fn 映射安装路径限制在全局语言目录内() {
+        assert!(在全局语言目录内(&映射安装路径("zh", "serde")));
+        assert!(!在全局语言目录内(&Path::new("/etc/passwd")));
     }
 
     #[test]

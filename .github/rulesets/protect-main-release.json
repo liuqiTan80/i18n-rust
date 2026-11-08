@@ -31,7 +31,12 @@
           { "context": "test" },
           { "context": "windows-gates" },
           { "context": "msrv" },
-          { "context": "eject-verify" }
+          { "context": "eject-verify" },
+          { "context": "测试覆盖率门禁" },
+          { "context": "基准回归对比" },
+          { "context": "LSP 端到端测试 linux" },
+          { "context": "LSP 端到端测试 windows" },
+          { "context": "LSP 端到端测试 macos" }
         ]
       }
     }

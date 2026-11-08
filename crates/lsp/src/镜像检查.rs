@@ -35,8 +35,17 @@ use crate::响应映射::诊断文本::{
 };
 use crate::翻译缓存::{路径转统一资源标识, 转译缓存};
 
-/// 镜像树复制时排除的目录名（构建产物/版本库/依赖缓存）
-const 排除目录表: [&str; 5] = ["target", ".git", "node_modules", "dist", ".rz"];
+/// 镜像树复制时排除的目录名（构建产物/版本库/依赖缓存/项目级 cargo 配置）
+///
+/// `.cargo` 必须排除：其中的配置文件可指定编译器包装器与构建脚本
+/// 等键，复制进镜像后 `cargo check` 会执行仓库自带的命令。
+const 排除目录表: [&str; 6] = ["target", ".git", "node_modules", "dist", ".rz", ".cargo"];
+
+/// 镜像树复制时排除的文件名（工具链选择与 cargo 包装器配置）
+///
+/// `rust-toolchain*` 会让 cargo 尝试切换/下载工具链；与 `.cargo` 同理，
+/// 不受信仓库不应通过镜像检查影响本机工具链选择。
+const 排除文件表: [&str; 2] = ["rust-toolchain.toml", "rust-toolchain"];
 
 /// 镜像检查轮询超时：600s（含真实依赖编译，首轮可能数分钟）
 const 检查超时毫秒: u64 = 600_000;
@@ -261,6 +270,9 @@ fn 复制项目树(来源: &Path, 目标: &Path) -> std::io::Result<()> {
             }
             复制项目树(&路径值, &目标.join(名称文本.as_ref()))?;
         } else if 元数据值.is_file() {
+            if 排除文件表.contains(&名称文本.as_ref()) {
+                continue;
+            }
             std::fs::copy(&路径值, 目标.join(名称文本.as_ref()))?;
         }
     }
@@ -525,6 +537,9 @@ fn 行相似度(候选: &str, 参照: &str) -> f64 {
 
 /// 启动编译检查并等待退出（持续排空管道防写满阻塞，超时强杀）
 ///
+/// 环境隔离：清空 `RUSTC_WRAPPER`/`RUSTFLAGS` 等可由宿主环境注入的编译钩子，
+/// 并强制离线；镜像已排除项目级 `.cargo` 与 `rust-toolchain*`，这些清理是
+/// 「不受信仓库不通过镜像检查改变本机编译行为」的第二道防线。
 /// 返回 (标准输出, 退出码是否成功)；进程无法启动/超时被强杀时返回无。
 fn 运行编译检查(镜像目录值: &Path, 目标目录: &Path) -> Option<(String, bool)> {
     let mut 子进程实例 = match std::process::Command::new("cargo")
@@ -532,6 +547,13 @@ fn 运行编译检查(镜像目录值: &Path, 目标目录: &Path) -> Option<(St
         .arg("--target-dir")
         .arg(目标目录)
         .current_dir(镜像目录值)
+        .env("CARGO_NET_OFFLINE", "true")
+        .env_remove("RUSTC_WRAPPER")
+        .env_remove("RUSTC_WORKSPACE_WRAPPER")
+        .env_remove("CARGO_BUILD_RUSTC_WRAPPER")
+        .env_remove("CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER")
+        .env_remove("RUSTFLAGS")
+        .env_remove("CARGO_ENCODED_RUSTFLAGS")
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
