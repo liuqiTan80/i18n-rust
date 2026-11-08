@@ -13,7 +13,11 @@
 | 教程资产 | zh 全量（27 章 + 术语表 + 5 附录，逐块编译门禁）；en 20/34；ja/ru 滚动中（[translation-status](../translation-status.md)） |
 | 文档站 | `book/` 装配源 + `tools/build-site.py` 四语言组装 + [pages.yml](../../.github/workflows/pages.yml) 自动部署（[book/README.md](../../book/README.md)） |
 | 演示素材 | `docs/demo/` 三语言 vhs 脚本 + 演示样本（zh/ja/ru），差一次录屏 |
-| 质量门禁 | CI 八 job（test / windows-gates / msrv / coverage / audit / bench / build / vsix，仅 main）+ `zh-gates`（zh 源码级）+ 本地 `make gate`（main）/ `make zh-build`（zh）；四语言教程门禁 0 失败；维护者入口见 [项目地图](../project-map.md) |
+| 质量门禁 | CI 八 job（test / windows-gates / msrv / coverage / audit / bench / build / vsix，仅 main）+ `eject-verify`（main PR 发布树校验）+ `zh-gates`（zh 源码级）+ 本地 `make gate`（main）/ `make zh-build`（zh）；四语言教程门禁 0 失败；维护者入口见 [项目地图](../project-map.md) |
+| 分支保护 | `main` 仅 PR：禁止直推/强推/删除、线性历史、1 评审 + CODEOWNERS、必需检查 `test` / `windows-gates` / `msrv` / `eject-verify`；`zh` 为唯一日常分支（禁强推/删除）；规则见 [分支保护与发布流程](分支保护与发布流程.md) |
+
+> 🔐 团队落地：先读 [分支保护与发布流程](分支保护与发布流程.md)，再把
+> [团队通知-分支管理规范](团队通知-分支管理规范.md) 发给全体成员确认。
 
 ## 待维护者动作（P0：凭据 / 素材 / 网页设置）
 
@@ -24,6 +28,7 @@
 | 3 | 启用 GitHub Pages（Settings → Pages → Source 选 "GitHub Actions"） | 网页操作；启用后站点：https://liuqiTan80.github.io/i18n-rust/ |
 | 4 | GitHub 仓库元数据（描述 / Topics / Homepage） | 网页操作（推广露面；Homepage 依赖 Pages 启用） |
 | 5 | 飞书知识库教程发布（国内公网免登录阅读） | **已完成（2026-09-26）**：33 篇全量发布、已开启互联网公开；入口 <https://my.feishu.cn/wiki/space/7689728327082314704>（操作记录见[发布准备清单](发布准备清单.md)第 5 节） |
+| 6 | 应用 GitHub 分支保护 rulesets | 运行 `scripts/setup-github-rulesets.sh`（需 repo admin）或网页 `Settings → Rules` 导入三份 JSON；并确认必需检查 `test` / `windows-gates` / `msrv` / `eject-verify` |
 
 逐条命令与发布后核验步骤见 [发布准备清单.md](发布准备清单.md)。
 

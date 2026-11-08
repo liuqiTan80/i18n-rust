@@ -1,0 +1,57 @@
+# =============================================================
+# 发布树校验（main 的必需状态检查，context = eject-verify）
+#
+# 规则：main 只能合并「zh 分支执行 rzc eject 生成的代码」。
+# 本工作流在 PR 上：
+#   1. 构建候选树（PR head，必须是 .rs 发布树）自带的 rzc；
+#   2. 取 origin/zh，按 scripts/zh-build.sh 同一口径 eject；
+#   3. 用 scripts/eject-verify.sh 比对 crates/、Cargo.toml、Cargo.lock。
+# 不一致 → 阻断合并，提示重新 eject。
+# 文档/脚本/CI 变更不参与比对，仍须走 PR + 评审。
+# =============================================================
+name: 发布树校验
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eject-verify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  eject-verify:
+    name: eject-verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出 PR head（候选发布树）
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: 安装 Rust 工具链（含 rustfmt）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: 缓存 cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: 构建候选树的 rzc
+        run: cargo build --locked -p rzc
+
+      - name: 取出 zh 分支
+        run: |
+          git rev-parse --verify origin/zh >/dev/null
+          git worktree add ../zh-src origin/zh
+
+      - name: 校验候选树 = zh 的 eject 产物
+        run: |
+          scripts/eject-verify.sh \
+            --rzc target/debug/rzc \
+            --zh ../zh-src \
+            --candidate .
