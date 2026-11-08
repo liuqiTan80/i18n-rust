@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""zh 分支门禁：方言源（.zh）纪律检查——产物同步 + 一词多译审计。
+"""zh 分支门禁：方言源（.zh）纪律检查——可转译性 + 一词多译审计。
 
-zh 分支用 .zh 方言以中文为第一语言重构后端：每个 `crates/*/src/**/*.zh`
-都有一个提交在旁边的转译产物（同目录同名 `.rs`，`rzc transpile` 生成后经
-`rustfmt` 规范化——产物手改、方言源改后忘记重转译、或转译后漏跑 fmt，两侧
-都会漂移）。本门禁逐文件按同一口径重生成并比对字节。
+zh 分支的源码树只保留 .zh：同名 `.rs` 是转译产物，不入库、不与源码混放
+（构建/测试用 `scripts/zh-build.sh` 在 `.zh-build/` 隔离目录生成）。本门禁
+对每个 `.zh` 按 `rzc transpile | rustfmt` 的口径验证可转译、可格式化，
+并继续做一词多译与绑定位审计。
 
 另有**一词多译审计**（zh 分支编码约定：排除一切一词多译）：等长剥离注释与
 字面量后对代码区逐 token 比对语言包转译面表，凡「中文词 → 多个英文值」的
@@ -16,8 +16,9 @@ zh 分支用 .zh 方言以中文为第一语言重构后端：每个 `crates/*/s
 字段/闭包参数/for 变量/模式内变量这些位置禁止使用关键字表词形（详见
 check_binding_hijack 的说明）。
 
-用法：python3 tools/check-zh-artifacts.py [--rzc target/debug/rzc] [--fix]
-  --fix  跳过比对与歧义审计，直接重新生成全部产物（就地覆盖 .rs）
+用法：python3 tools/check-zh-artifacts.py [--rzc 路径]
+  未指定时依次查找 .zh-build/src/target/{debug,release}/rzc、target/{debug,release}/rzc；
+  找不到则只跑两项审计（不判红）。
 """
 
 import argparse
@@ -295,9 +296,8 @@ def find_dialect_sources(repo_root: str, include_build_targets: bool = False) ->
     """收集 crates/*/src 下全部 .zh 方言源（按路径排序，输出确定）
 
     `include_build_targets` 为真时额外收集 build.rs、tests/、benches/、
-    examples/ 旁的 .zh 源：这些目录的产物虽不在 src 内，但 Cargo 会按
-    清单/约定编译它们——产物缺失会直接导致清单解析失败（build.rs、
-    `[[bench]]`）或测试目标消失，属于“必须先同步”的那一类。
+    examples/ 旁的 .zh 源：这些目标同样由 scripts/zh-build.sh 在隔离目录
+    生成后参与编译，可转译性检查要覆盖到。
     `tests-zh/` 是 zh-pure 的方言夹具目录（由该 crate 自己的构建脚本
     处理），不在此列。
     """
@@ -330,8 +330,8 @@ def transpile_and_format(rzc: str, zh: str):
         return None
     # 走 stdin 而非临时文件：rustfmt 读文件参数时会解析 `pub mod X;` 子模块，父
     # 模块（diagnostic/mod 等）的兄弟 .rs 不在同一临时目录，会 rc=1 失败；stdin 只
-    # 格式化给定文本、不做模块解析，且与产物生成管线逐字节一致（实测 stdin 输出 ==
-    # 已提交的 mod.rs）。口径同本工具 FAIL 提示的 `rzc transpile X | rustfmt > X.rs`。
+    # 格式化给定文本、不做模块解析，且与 scripts/zh-build.sh 的生成管线逐字节一致
+    # （实测 stdin 输出 == 生成后的 mod.rs）。口径同本工具 FAIL 提示的 `rzc transpile X | rustfmt > X.rs`。
     fmt = subprocess.run(
         ["rustfmt", "--edition", "2024"],
         input=result.stdout,
@@ -345,63 +345,59 @@ def transpile_and_format(rzc: str, zh: str):
     return fmt.stdout
 
 
+def find_rzc(repo_root: str, explicit) -> str | None:
+    """定位 rzc：显式路径优先，其次隔离构建树与本地 target。"""
+    if explicit:
+        return explicit if os.path.isfile(explicit) else None
+    for rel in (
+        ".zh-build/src/target/debug/rzc",
+        ".zh-build/src/target/release/rzc",
+        ".zh-build/target/debug/rzc",
+        "target/debug/rzc",
+        "target/release/rzc",
+    ):
+        candidate = os.path.join(repo_root, rel)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
 def main() -> int:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ap = argparse.ArgumentParser(description="zh 分支方言源纪律检查（产物同步 + 一词多译审计）")
-    ap.add_argument("--rzc", default=None, help="rzc 二进制路径（默认 target/debug/rzc）")
-    ap.add_argument("--fix", action="store_true", help="重新生成全部产物而非比对（跳过歧义审计）")
+    ap = argparse.ArgumentParser(description="zh 分支方言源纪律检查（可转译性 + 一词多译审计）")
+    ap.add_argument("--rzc", default=None, help="rzc 二进制路径（默认自动查找）")
     args = ap.parse_args()
-
-    rzc = args.rzc or os.path.join(repo_root, "target", "debug", "rzc")
-    if not os.path.isfile(rzc):
-        print(f"找不到 rzc：{rzc}（先 cargo build -p rzc，或用 --rzc 指定）")
-        return 2
 
     sources = find_dialect_sources(repo_root)
     if not sources:
         print("未找到任何 .zh 方言源，无需检查")
         return 0
-    # 审计只跑 src（业务代码口径）；产物同步覆盖构建目标（build.rs/测试/基准/示例），
-    # 否则这些目标产物缺失会让 `cargo check` 直接无法解析清单
+    # 可转译性覆盖构建目标（build.rs/测试/基准/示例）：它们同样由 zh-build 生成
     artifacts = find_dialect_sources(repo_root, include_build_targets=True)
 
+    rzc = find_rzc(repo_root, args.rzc)
     drift = 0
-    for zh in artifacts:
-        rs = zh[:-3] + ".rs"
-        expected = transpile_and_format(rzc, zh)
-        if expected is None:
-            drift += 1
-            continue
-        if args.fix:
-            with open(rs, "w", encoding="utf-8", newline="") as f:
-                f.write(expected)
-            continue
-        if not os.path.isfile(rs):
-            print(f"FAIL 缺少产物：{rs}（rzc transpile {zh} | rustfmt --edition 2024 > {rs}）")
-            drift += 1
-            continue
-        with open(rs, encoding="utf-8", newline="") as f:
-            committed = f.read()
-        if committed != expected:
-            print(f"FAIL 产物漂移：{rs} 与 {zh} 的转译结果不一致")
-            print(f"     再生成：rzc transpile {zh} | rustfmt --edition 2024 > {rs}")
-            drift += 1
+    if rzc is None:
+        print("未找到 rzc：跳过可转译性检查（可用 --rzc 指定；"
+              "构建/测试请用 scripts/zh-build.sh 在 .zh-build/ 生成产物）")
+    else:
+        for zh in artifacts:
+            if transpile_and_format(rzc, zh) is None:
+                drift += 1
 
-    ambiguity = 0 if args.fix else check_ambiguity(repo_root, sources)
-    bindings = 0 if args.fix else check_binding_hijack(repo_root, sources)
+    ambiguity = check_ambiguity(repo_root, sources)
+    bindings = check_binding_hijack(repo_root, sources)
 
-    if args.fix:
-        print(f"已重新生成 {len(artifacts)} 个产物")
-        return 0
     if drift or ambiguity or bindings:
         if drift:
-            print(f"共 {drift} 处产物漂移（改动 .zh 后必须重新转译产物再提交）")
+            print(f"共 {drift} 个方言源转译失败（检查语言包词形与源文件语法）")
         if ambiguity:
             print(f"共 {ambiguity} 处一词多译命中（改写代码绕开，或附实测证据进豁免表）")
         if bindings:
             print(f"共 {bindings} 处绑定位撞关键字表词条（改名绕开，关键字表无位置保护）")
         return 1
-    print(f"OK：{len(artifacts)} 个方言源的产物全部同步，代码区无一词多译、绑定位干净")
+    rzc_note = "可转译" if rzc else "可转译性未检查"
+    print(f"OK：{len(artifacts)} 个方言源{rzc_note}，代码区无一词多译、绑定位干净")
     return 0
 
 

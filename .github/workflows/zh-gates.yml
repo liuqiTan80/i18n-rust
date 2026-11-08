@@ -1,0 +1,39 @@
+# =============================================================
+# zh 分支源码级门禁
+#
+# zh 分支的源码树只保留 .zh 方言源：同名 .rs 是转译产物，不入库、不与源码
+# 混放（构建/测试用 scripts/zh-build.sh 在 .zh-build/ 隔离目录生成）。
+# 因此这里不跑 cargo，只跑纯 Python 的源码纪律检查：
+#   - 全中文棘轮（代码区与注释区英文零残留）
+#   - 方言源纪律（可转译性需要 rzc；本工作流无二进制时只跑一词多译与
+#     绑定位审计，不误判失败）
+# 编译、测试、clippy、教程等重门禁在 eject 后的 main 上由 ci.yml 执行。
+# =============================================================
+name: zh 方言源门禁
+
+on:
+  push:
+    branches: [zh]
+  pull_request:
+    branches: [zh]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zh-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: 方言源门禁
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 全中文棘轮（代码区 + 注释区）
+        run: python3 tools/check-zh-ascii.py
+
+      - name: 方言源纪律（可转译性 + 一词多译 + 绑定位）
+        run: python3 tools/check-zh-artifacts.py
