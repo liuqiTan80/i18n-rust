@@ -5,6 +5,9 @@
 # 内部标识符映射（用于库内的类型、函数等）
 ["标识符"]
 "跨梁通道" = "crossbeam_channel"  # 模块路径词在函数体内的副本（crossbeam_channel:: 限定路径）
+"无界通道" = "unbounded"
+"尝试接收" = "try_recv"
+"试接收" = "try_recv"
 
 # 说明
 ["解释"]

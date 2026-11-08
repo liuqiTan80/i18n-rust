@@ -19,6 +19,6 @@ fn main() {
     println!("哪里 => {:?}", km.get("哪里"));
     println!("函数 => {:?}", km.get("函数"));
     let src = "函数 主函数() { 让 甲 = 5; }";
-    let out = i18n_rust_engine::词法器::transpile_source(src, km);
+    let out = i18n_rust_engine::词法器::基础转译(src, km);
     println!("转译: {}", out);
 }

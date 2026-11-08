@@ -20,13 +20,13 @@
 
 use std::collections::HashMap;
 
-use i18n_rust_engine::transpile_pipeline_with_map;
+use i18n_rust_engine::带映射转译管线;
 use i18n_rust_engine::映射管理器::映射管理器;
 use i18n_rust_engine::词法器::反译;
 use proptest::prelude::*;
 use rustc_lexer::{TokenKind, tokenize};
 
-/// 别名阶段视为"声明关键字"的英文形式（见 `alias::DECL_KEYWORDS`）：
+/// 别名阶段视为"声明关键字"的英文形式（见 `别名::声明关键字表`）：
 /// 其后的首个标识符为用户自定义命名，须受声明位保护。
 const DECL_EN: &[&str] = &[
     "fn", "struct", "enum", "trait", "type", "mod", "let", "const", "static",
@@ -397,8 +397,8 @@ proptest! {
         let pools = Pools::new(&manager);
         let (source, preserved, expected_bang) = render(&frags, &pools, false);
 
-        let out = transpile_pipeline_with_map(&source, &manager, None);
-        let output = &out.output;
+        let out = 带映射转译管线(&source, &manager, None);
+        let output = &out.输出;
 
         let s_toks = lex(&source);
         let o_toks = lex(output);
@@ -430,7 +430,7 @@ proptest! {
         }
 
         // 4. 幂等复核：英文产物再转译不变
-        let again = transpile_pipeline_with_map(output, &manager, None).output;
+        let again = 带映射转译管线(output, &manager, None).输出;
         prop_assert_eq!(&again, output, "对输出再转译应保持不变\noutput={:?}", output);
     }
 
@@ -441,8 +441,8 @@ proptest! {
         let pools = Pools::new(&manager);
         let (source, _preserved, _bang) = render(&frags, &pools, true);
 
-        let out = transpile_pipeline_with_map(&source, &manager, None);
-        let output = &out.output;
+        let out = 带映射转译管线(&source, &manager, None);
+        let output = &out.输出;
 
         // 合并关键字 + 宏 + 别名 + 派生特征并反转（英文 → 母语，排序最小者优先）
         let (reverse_map, _unique) = build_reverse_and_unique(&[

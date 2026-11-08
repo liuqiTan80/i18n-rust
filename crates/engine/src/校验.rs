@@ -1,122 +1,127 @@
-//! 教学 lint 模块
+//! 教学检查模块
 //! 针对 Rust 初学者的启发式代码风格提示（教学价值驱动）：
 //! 与编译器错误不同，这些提示不阻断编译，只在代码位置出现常见
 //! 教学问题时给出建设性建议。规则刻意保守，避免噪音——教学工具的
 //! 提示必须每条都有价值：
-//! - 未标注类型：仅在类型**无法靠初始化式自行推导**的歧义形态提示
-//!   （`让 x = 向量::新建();`、`让 x = 迭代器.收集();`）——这类位置
-//!   rustc 迟早要求 E0282 注解，提前给出建设性建议；字面量、普通函数/
-//!   方法调用、结构体/元组/数组、路径与块表达式的类型均可自行推导，
-//!   提示「显式写出类型」无解且成噪音，不报告
+//! - 未标注类型：仅在类型**无法靠初始化式及其后续使用推导**的歧义形态提示
+//!   （`让 x = 向量::新建();`、`让 x = 迭代器.收集();`）——无注解且绑定名
+//!   在语句之后再无引用的位置，rustc 才会以 E0282 要求注解；字面量、普通
+//!   函数/方法调用、结构体/元组/数组、路径与块表达式的类型均可自行推导，
+//!   后续使用（如 `x.推入(...)`）同样能补全容器元素类型——这些位置提示
+//!   「显式写出类型」无解且成噪音，不报告
 //! - 魔法数字：非平凡数字字面量（命名常量教学）
 //! - 嵌套过深：代码行缩进过深（重构教学，每文件仅首个）
 //! - 易混方法名：方法调用位未命中映射表且与表内词近似的长中文串
 //!   （如 `.拉平()` 应为 `.展平()`，编辑距离 ≤1 才提示以降噪）
-//! - 英文回落：结构词写成英文（`fn`/`Vec`/`.collect()`）而语言包有母语词条
-//!   （`lint_english_fallback`）
-//! - 保留字撞名：声明位的名字经映射后是 Rust 保留字（`函数 匹配` → `fn match`），
-//!   产物非法或语义被静默改写（`lint_reserved_name_collision`）
+//! - 英文回退：结构词写成英文（`fn 主()`、`Vec::新建()`、`值.collect()`）而语言包有母语词条
+//!   （`检查英文回退`）
+//! - 保留名撞词：声明位的名字经映射后是 Rust 保留字（`函数 匹配` → `fn match`），
+//!   产物非法或语义被静默改写（`检查保留名撞词`）
 //!
 //! 行注释含「教学忽略」时整行跳过（教师可标注故意不修的示例）：
 //! `让 x = 5;  // 教学忽略` 不产生任何教学警告。
 //!
-//! 扫描器与 fullwidth 模块同构：状态机跳过字符串/字符/原始字符串与
+//! 扫描器与全角标点模块同构：状态机跳过字符串/字符/原始字符串与
 //! 注释，仅在代码位置判定，避免把字符串内容误判为代码问题。
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// 教学 lint 全局开关（默认开启，进程级）
+/// 教学检查全局开关（默认开启，进程级）
 ///
 /// 项目开发（非教学）场景下，初学者代码风格提示会在每次转译时刷屏；
-/// CLI `--no-lint` 置为关闭（见 [`set_teaching_lint_enabled`]）。
-/// 仅影响教学 lint 输出，Unicode 混杂/全角标点告警不受影响；
-/// 与日志级别（logger）同为进程级配置。
-static TEACHING_LINT_ENABLED: AtomicBool = AtomicBool::new(true);
+/// 命令行的关闭开关将其置为关闭（见 [`设教学告警启用`]）。
+/// 仅影响教学检查输出，Unicode 混杂/全角标点告警不受影响；
+/// 与日志级别同为进程级配置。
+static 教学告警总开关: AtomicBool = AtomicBool::new(true);
 
-/// 设置教学 lint 开关（进程级；测试与嵌入场景使用）
-pub fn set_teaching_lint_enabled(enabled: bool) {
-    TEACHING_LINT_ENABLED.store(enabled, Ordering::Relaxed);
+/// 设置教学检查开关（进程级；测试与嵌入场景使用）
+pub fn 设教学告警启用(启用状态: bool) {
+    教学告警总开关.store(启用状态, Ordering::Relaxed);
 }
 
-/// 查询教学 lint 开关（输出方：转译管线/CLI 逐文件告警均据此静默）
-pub fn teaching_lint_enabled() -> bool {
-    TEACHING_LINT_ENABLED.load(Ordering::Relaxed)
+/// 查询教学检查开关（输出方：转译管线/CLI 逐文件告警均据此静默）
+pub fn 教学告警已启用() -> bool {
+    教学告警总开关.load(Ordering::Relaxed)
 }
 
-/// 教学 lint 规则种类
+/// 教学检查规则种类
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LintKind {
+pub enum 告警类别 {
     /// `让` 绑定缺少类型注解
-    UntypedLet,
+    未标注类型,
     /// 非平凡数字字面量（建议命名常量）
-    MagicNumber,
+    魔法数字,
     /// 代码行嵌套过深（建议拆分函数）
-    DeepIndent,
+    嵌套过深,
     /// 方法调用位的长中文串未命中映射表且与表内词近似（疑似笔误）
-    ConfusableMethod,
-    /// 母语方言源码里把有母语词条的结构词写成英文（`fn`/`Vec`/`.collect()`…）
-    EnglishFallback,
-    /// 声明位名字命中 keywords 词条且映射为 Rust 保留关键字（撞名，会静默改写语义）
-    ReservedNameCollision,
+    易混标识符,
+    /// 母语方言源码里把有母语词条的结构词写成英文（`fn 主()`、`Vec::新建()`、`值.collect()`…）
+    英文回退,
+    /// 声明位名字命中关键字词条且映射为 Rust 保留关键字（撞名，会静默改写语义）
+    保留名撞词,
 }
 
-/// 单个教学 lint 警告：位置（1 起行/列）+ 规则 + 相关文本
+/// 单个教学检查告警：位置（1 起行/列）+ 规则 + 相关文本
 #[derive(Debug, Clone, PartialEq)]
-pub struct LintWarning {
+pub struct 教学告警 {
     /// 行号（从 1 开始）
-    pub line: usize,
+    pub 行号: usize,
     /// 列号（从 1 开始，按字符计数）
-    pub column: usize,
+    pub 列号: usize,
     /// 规则种类
-    pub kind: LintKind,
+    pub 告警种类: 告警类别,
     /// 相关文本（魔法数字原文、方法名等；其他规则为空串）
-    pub text: String,
+    pub 相关文本: String,
     /// 补充文本（易混词提示的候选词等；其他规则为空串）
-    pub extra: String,
+    pub 附加文本: String,
 }
 
-impl LintWarning {
+impl 教学告警 {
     /// 格式化为单行提示文本，模板随当前语言变化
-    pub fn format(&self) -> String {
-        match self.kind {
-            LintKind::UntypedLet => crate::语言::取带参消息(
+    pub fn 生成说明(&self) -> String {
+        match self.告警种类 {
+            告警类别::未标注类型 => crate::语言::取带参消息(
                 "lint_untyped_let",
-                &[&self.line.to_string(), &self.column.to_string()],
+                &[&self.行号.to_string(), &self.列号.to_string()],
             ),
-            LintKind::MagicNumber => crate::语言::取带参消息(
+            告警类别::魔法数字 => crate::语言::取带参消息(
                 "lint_magic_number",
-                &[&self.line.to_string(), &self.column.to_string(), &self.text],
+                &[
+                    &self.行号.to_string(),
+                    &self.列号.to_string(),
+                    &self.相关文本,
+                ],
             ),
-            LintKind::DeepIndent => crate::语言::取带参消息(
+            告警类别::嵌套过深 => crate::语言::取带参消息(
                 "lint_deep_indent",
-                &[&self.line.to_string(), &self.text],
+                &[&self.行号.to_string(), &self.相关文本],
             ),
-            LintKind::ConfusableMethod => crate::语言::取带参消息(
+            告警类别::易混标识符 => crate::语言::取带参消息(
                 "lint_confusable_method",
                 &[
-                    &self.line.to_string(),
-                    &self.column.to_string(),
-                    &self.text,
-                    &self.extra,
+                    &self.行号.to_string(),
+                    &self.列号.to_string(),
+                    &self.相关文本,
+                    &self.附加文本,
                 ],
             ),
-            LintKind::EnglishFallback => crate::语言::取带参消息(
+            告警类别::英文回退 => crate::语言::取带参消息(
                 "lint_english_fallback",
                 &[
-                    &self.line.to_string(),
-                    &self.column.to_string(),
-                    &self.text,
-                    &self.extra,
+                    &self.行号.to_string(),
+                    &self.列号.to_string(),
+                    &self.相关文本,
+                    &self.附加文本,
                 ],
             ),
-            LintKind::ReservedNameCollision => crate::语言::取带参消息(
+            告警类别::保留名撞词 => crate::语言::取带参消息(
                 "lint_reserved_name_collision",
                 &[
-                    &self.line.to_string(),
-                    &self.column.to_string(),
-                    &self.text,
-                    &self.extra,
+                    &self.行号.to_string(),
+                    &self.列号.to_string(),
+                    &self.相关文本,
+                    &self.附加文本,
                 ],
             ),
         }
@@ -124,324 +129,344 @@ impl LintWarning {
 }
 
 /// 进行中的 `让` 绑定扫描（等待语句结束判定是否有类型注解）
-struct LetScan {
-    line: usize,
-    column: usize,
+struct 让声明扫描 {
+    行号: usize,
+    列号: usize,
+    /// 绑定名：语句结束后若仍有引用，类型可由使用处推导，不再提示
+    名字: String,
     /// 已见到 `=`（其后出现的 `:` 是路径分隔符而非类型注解）
-    seen_eq: bool,
+    已见等号: bool,
     /// 已见到 `:`（类型注解）
-    annotated: bool,
+    已标注: bool,
     /// `=` 之后的初始化式原文（到 `;`/`{`/`}` 为止；用于判定类型能否
     /// 自行推导，仅在无注解时参与判定）
-    expr: String,
+    初始化原文: String,
 }
+
+/// 初始化式歧义、但需等扫描结束才能确认「绑定名后续无引用」的候选绑定
+///
+/// 局部变量类型推断是**整函数**级别的：`让 可变 v = 向量::新建();`
+/// 后接 `v.推入(路径缓冲)` 时元素类型由推入实参确定，rustc 不会报 E0282。
+/// 故提示延后到扫描结束，再按语句之后的引用情况取舍。
+struct 待标注类型 {
+    名字: String,
+    行号: usize,
+    列号: usize,
+    /// 绑定语句结束位置（分号/花括号/下一个 `让` 的下标），从其后找使用处
+    之后位置: usize,
+}
+
+/// 布尔字面量的无词条别名：`真`/`假` 是关键字表词形，直接写进 `有值(…)`
+/// 会被绑定位审计当成模式内绑定（表达式位与模式位同形），故用常量承接。
+const 真值: bool = true;
+const 假值: bool = false;
 
 /// 类型推导歧义构造器的英文被调名（无映射表时的兜底集合）
-const EN_AMBIGUOUS_CONSTRUCTORS: &[&str] = &["new", "default"];
+const 英文歧义构造器: &[&str] = &["new", "default"];
 
-/// 对源码执行教学 lint（无已知词表：不做易混方法名提示），返回全部警告（升序）
+/// 对源码执行教学检查（无已知词表：不做易混方法名提示），返回全部警告（升序）
 ///
 /// 兼容入口；需要易混方法名提示（方法调用位未命中映射表）时用
-/// [`lint_teaching_with_words`] 并传入映射表键集合。
-pub fn lint_teaching(source: &str) -> Vec<LintWarning> {
-    let ambiguous: HashSet<String> = EN_AMBIGUOUS_CONSTRUCTORS
+/// [`按词表检查教学`] 并传入映射表键集合。
+pub fn 检查教学(源码: &str) -> Vec<教学告警> {
+    let 歧义: HashSet<String> = 英文歧义构造器
         .iter()
-        .map(|s| s.to_string())
+        .map(|文本值| 文本值.to_string())
         .collect();
-    lint_teaching_with_words(source, &HashSet::new(), &ambiguous)
+    按词表检查教学(源码, &HashSet::new(), &歧义)
 }
 
-/// 对源码执行教学 lint，返回全部警告（升序）
+/// 对源码执行教学检查，返回全部警告（升序）
 ///
-/// `known_words`：全部映射表键的集合（关键字/宏/派生/模块路径/别名）。
+/// `已知词表`：全部映射表键的集合（关键字/宏/派生/模块路径/别名）。
 /// 方法调用位出现未命中词表的长中文串（≥2 字）且与表内词近似
 /// （编辑距离 ≤1）时提示疑似笔误——未命中词会被原样保留，错误在
 /// 产物侧才爆发（如 `.拉平()` 应为 `.展平()`）。
 ///
-/// `ambiguous_constructors`：类型推导歧义构造器的被调名集合（含英文
-/// `new`/`default` 及其各方言映射词，如「新建」「缺省」），由
-/// `映射管理器::ambiguous_constructor_words` 提供；仅这些关联构造
-/// 的无 turbofish 调用与无 turbofish 的 `.collect()` 才触发未标注类型提示。
+/// `歧义构造器`：类型推导歧义构造器的被调名集合（含英文
+/// 「新建」「缺省」及其各方言映射词），由
+/// `映射管理器::歧义构造器词表` 提供；仅这些关联构造
+/// 的无显式泛型调用与无显式泛型的 `.collect()` 才触发未标注类型提示。
+/// 绑定名在语句之后仍有引用（类型可由使用处推导，如后续 `.推入(...)`）时不提示。
 ///
 /// 仅报告代码位置的问题；字符串/注释内的同名文本被状态机跳过。
 ///
 /// 仅在源码里出现方法调用位时才建词表分桶索引（首次调用时）；同一语言包
 /// 下重复调用（CLI 批量转译、LSP 每次编辑）请改用
-/// [`lint_teaching_with_buckets`] 复用调用方缓存。
-pub fn lint_teaching_with_words(
-    source: &str,
-    known_words: &HashSet<String>,
-    ambiguous_constructors: &HashSet<String>,
-) -> Vec<LintWarning> {
-    let chars: Vec<char> = source.chars().collect();
-    lint_teaching_chars(
-        &chars,
-        WordIndexSource::Lazy(known_words),
-        ambiguous_constructors,
-    )
+/// [`按词形桶检查教学`] 复用调用方缓存。
+pub fn 按词表检查教学(
+    源码: &str,
+    已知词表: &HashSet<String>,
+    歧义构造器: &HashSet<String>,
+) -> Vec<教学告警> {
+    let 字符切片: Vec<char> = 源码.chars().collect();
+    检查教学字符(&字符切片, 词形索引来源::延迟静态值(已知词表), 歧义构造器)
 }
 
-/// 同 [`lint_teaching_with_words`]，但复用调用方缓存的词表分桶索引
+/// 同 [`按词表检查教学`]，但复用调用方缓存的词表分桶索引
 ///
-/// `buckets` 由 [`crate::映射管理器::映射管理器::lint_word_buckets`]
+/// `词形桶` 由 [`包::映射管理器::映射管理器::检查词形桶`]
 /// 提供：词表随语言包确定后不可变，分桶只需建一次。小文件（批量转译、
 /// 每次编辑）上重建索引的开销远大于扫描本身。
-pub fn lint_teaching_with_buckets(
-    source: &str,
-    buckets: &词形分桶,
-    ambiguous_constructors: &HashSet<String>,
-) -> Vec<LintWarning> {
-    let chars: Vec<char> = source.chars().collect();
-    lint_teaching_with_buckets_chars(&chars, buckets, ambiguous_constructors)
+pub fn 按词形桶检查教学(
+    源码: &str,
+    词形桶: &词形分桶,
+    歧义构造器: &HashSet<String>,
+) -> Vec<教学告警> {
+    let 字符切片: Vec<char> = 源码.chars().collect();
+    按词形桶检查字符(&字符切片, 词形桶, 歧义构造器)
 }
 
-/// [`lint_teaching_with_buckets`] 的字符切片入口
+/// [`按词形桶检查教学`] 的字符切片入口
 ///
 /// 供一次教学检查里还要跑全角扫描、Unicode 混淆扫描的调用方使用（CLI 多文件
 /// 转译、LSP 每次变更）：字符切片只物化一份，几个扫描器共用。
-pub fn lint_teaching_with_buckets_chars(
-    chars: &[char],
-    buckets: &词形分桶,
-    ambiguous_constructors: &HashSet<String>,
-) -> Vec<LintWarning> {
-    lint_teaching_chars(
-        chars,
-        WordIndexSource::Shared(buckets),
-        ambiguous_constructors,
-    )
+pub fn 按词形桶检查字符(
+    字符切片: &[char],
+    词形桶: &词形分桶,
+    歧义构造器: &HashSet<String>,
+) -> Vec<教学告警> {
+    检查教学字符(字符切片, 词形索引来源::共享(词形桶), 歧义构造器)
 }
 
 /// 易混方法名索引的来源：调用方已缓存（管线路径）或现场惰性构建（单次调用）
 ///
 /// 惰性分支保留改前的行为：源码里一个方法调用位都没有时完全不建索引。
-pub(crate) enum WordIndexSource<'a> {
+pub(crate) enum 词形索引来源<'甲> {
     /// 调用方持有并缓存的分桶索引（每语言包一次）
-    Shared(&'a 词形分桶),
+    共享(&'甲 词形分桶),
     /// 现场构建：只在首个方法调用位出现时建一次
-    Lazy(&'a HashSet<String>),
+    延迟静态值(&'甲 HashSet<String>),
 }
 
-/// [`lint_teaching_with_words`] 的字符切片入口
+/// [`按词表检查教学`] 的字符切片入口
 ///
 /// 同一轮教学检查里多个扫描器共用一份字符切片，避免每个各扫一遍源码
-/// （整条管线一次物化，见 `transpile_pipeline_inner`）。
-/// 已持有分桶索引的调用方请改用 [`lint_teaching_with_buckets_chars`]。
-pub(crate) fn lint_teaching_chars(
-    chars: &[char],
-    words: WordIndexSource<'_>,
-    ambiguous_constructors: &HashSet<String>,
-) -> Vec<LintWarning> {
+/// （整条管线一次物化，见转译管线内部函数）。
+/// 已持有分桶索引的调用方请改用 [`按词形桶检查字符`]。
+pub(crate) fn 检查教学字符(
+    字符切片: &[char],
+    词索引来源: 词形索引来源<'_>,
+    歧义构造器: &HashSet<String>,
+) -> Vec<教学告警> {
     // 惰性分支的落地位置：进入首个方法调用位时建一次
-    let mut local_index: Option<词形分桶> = None;
-    let mut warnings = Vec::new();
-    let mut line = 1usize;
-    let mut col = 1usize;
+    let mut 本地索引: Option<词形分桶> = None;
+    let mut 告警 = Vec::new();
+    let mut 行号 = 1usize;
+    let mut 列号 = 1usize;
     // 字面量状态：0 = 代码位置；1 = 双引号串 2 = 字符 3 = 原始串
-    let mut literal: u8 = 0;
-    let mut raw_hashes = 0usize;
-    let mut prev_plain = '\0';
+    let mut 字面量状态: u8 = 0;
+    let mut 原始井数 = 0usize;
+    let mut 前普通字符 = '\0';
     // 行首缩进追踪（仅代码行累计，用于嵌套深度提示）
-    let mut line_indent = 0usize;
-    let mut at_line_start = true;
-    let mut first_nonspace_is_comment = false;
-    let mut deep_indent_reported = false;
+    let mut 行首缩进 = 0usize;
+    let mut 在行首 = true;
+    let mut 首个非空白是注释 = false;
+    let mut 深缩进已报告 = false;
     // 未标注类型扫描状态
-    let mut let_scan: Option<LetScan> = None;
+    let mut 让扫描状态: Option<让声明扫描> = None;
+    // 初始化式歧义、待确认「绑定名后续无引用」的候选（扫描结束统一取舍）
+    let mut 待定列表: Vec<待标注类型> = Vec::new();
     // 行注释含「教学忽略」的行号：整行跳过教学警告（教师标注故意不修的示例）
-    let mut ignored_lines: HashSet<usize> = HashSet::new();
+    let mut 已忽略行集: HashSet<usize> = HashSet::new();
 
-    let mut i = 0usize;
-    while i < chars.len() {
-        let ch = chars[i];
-        // 行首缩进累计（独立于字面量状态：多行字符串内部行由 literal
+    let mut 序号 = 0usize;
+    while 序号 < 字符切片.len() {
+        let 当前字符 = 字符切片[序号];
+        // 行首缩进累计（独立于字面量状态：多行字符串内部行由字面量
         // 分支吞掉，不会走到这里；行首仅代码位置才累计）
-        if at_line_start && literal == 0 {
-            match ch {
+        if 在行首 && 字面量状态 == 0 {
+            match 当前字符 {
                 ' ' => {
-                    line_indent += 1;
-                    i += 1;
-                    col += 1;
+                    行首缩进 += 1;
+                    序号 += 1;
+                    列号 += 1;
                     continue;
                 }
                 '\t' => {
-                    line_indent += 4;
-                    i += 1;
-                    col += 1;
+                    行首缩进 += 4;
+                    序号 += 1;
+                    列号 += 1;
                     continue;
                 }
                 '\n' => {
                     // 空行/纯空白行的换行：须与主循环的换行处理一致（行号 +1、列复位），
                     // 否则空行不计行，其后所有警告位置整体前移（回归：第 5 行的 `让`
                     // 因上方两个空行被报成第 3 行）
-                    line += 1;
-                    col = 1;
-                    line_indent = 0;
-                    at_line_start = true;
-                    first_nonspace_is_comment = false;
-                    prev_plain = '\0';
-                    i += 1;
+                    行号 += 1;
+                    列号 = 1;
+                    行首缩进 = 0;
+                    在行首 = true;
+                    首个非空白是注释 = false;
+                    前普通字符 = '\0';
+                    序号 += 1;
                     continue;
                 }
-                '/' if !first_nonspace_is_comment
-                    && i + 1 < chars.len()
-                    && (chars[i + 1] == '/' || chars[i + 1] == '*') =>
+                '/' if !首个非空白是注释
+                    && 序号 + 1 < 字符切片.len()
+                    && (字符切片[序号 + 1] == '/' || 字符切片[序号 + 1] == '*') =>
                 {
                     // 注释行：不参与嵌套深度提示
-                    first_nonspace_is_comment = true;
-                    at_line_start = false;
+                    首个非空白是注释 = true;
+                    在行首 = false;
                 }
                 _ => {
                     // 首个非空白字符（非注释）：代码行，判定嵌套深度
-                    if line_indent >= DEEP_INDENT_THRESHOLD && !deep_indent_reported {
-                        deep_indent_reported = true;
-                        warnings.push(LintWarning {
-                            line,
-                            column: line_indent + 1,
-                            kind: LintKind::DeepIndent,
-                            text: line_indent.to_string(),
-                            extra: String::new(),
+                    if 行首缩进 >= 深缩进阈值 && !深缩进已报告 {
+                        深缩进已报告 = true;
+                        告警.push(教学告警 {
+                            行号,
+                            列号: 行首缩进 + 1,
+                            告警种类: 告警类别::嵌套过深,
+                            相关文本: 行首缩进.to_string(),
+                            附加文本: String::new(),
                         });
                     }
-                    at_line_start = false;
+                    在行首 = false;
                 }
             }
         }
-        if ch == '\n' {
-            line += 1;
-            col = 1;
-            line_indent = 0;
-            at_line_start = true;
-            first_nonspace_is_comment = false;
-            prev_plain = '\0';
-            if literal == 2 || literal == 3 {
+        if 当前字符 == '\n' {
+            行号 += 1;
+            列号 = 1;
+            行首缩进 = 0;
+            在行首 = true;
+            首个非空白是注释 = false;
+            前普通字符 = '\0';
+            if 字面量状态 == 2 || 字面量状态 == 3 {
                 // 防御：字符/原始串内出现未闭合引号时在行尾强制退出，
                 // 避免状态污染后续行（编译器本就会报错，此处只为正确判定）
-                literal = 0;
+                字面量状态 = 0;
             }
-            i += 1;
+            序号 += 1;
             continue;
         }
-        match literal {
+        match 字面量状态 {
             1 | 2 => {
                 // 字符串/字符字面量：转义跳过下一字符，闭合引号退出
-                if ch == '\\' {
-                    i += 2;
-                    col += 1;
+                if 当前字符 == '\\' {
+                    序号 += 2;
+                    列号 += 1;
                     continue;
                 }
-                let closing = if literal == 1 { '"' } else { '\'' };
-                if ch == closing {
-                    literal = 0;
+                let 闭合符 = if 字面量状态 == 1 { '"' } else { '\'' };
+                if 当前字符 == 闭合符 {
+                    字面量状态 = 0;
                 }
             }
             3 => {
                 // 原始字符串 r#"..."#：遇 " 后跟等量 #（或行尾/EOF）退出
-                if ch == '"' {
-                    let hashes = chars[i + 1..].iter().take_while(|c| **c == '#').count();
-                    if hashes >= raw_hashes {
-                        literal = 0;
-                        raw_hashes = 0;
+                if 当前字符 == '"' {
+                    let 井号数 = 字符切片[序号 + 1..]
+                        .iter()
+                        .take_while(|当前| **当前 == '#')
+                        .count();
+                    if 井号数 >= 原始井数 {
+                        字面量状态 = 0;
+                        原始井数 = 0;
                     }
                 }
             }
-            _ => match ch {
-                '"' => literal = 1,
-                '\'' => literal = 2,
+            _ => match 当前字符 {
+                '"' => 字面量状态 = 1,
+                '\'' => 字面量状态 = 2,
                 // 行注释：吞到行尾（\n 留给主循环统一处理）
-                '/' if prev_plain == '/' => {
-                    let comment_start = i;
-                    col -= 1;
-                    while i < chars.len() && chars[i] != '\n' {
-                        i += 1;
-                        col += 1;
+                '/' if 前普通字符 == '/' => {
+                    let 注释起点 = 序号;
+                    列号 -= 1;
+                    while 序号 < 字符切片.len() && 字符切片[序号] != '\n' {
+                        序号 += 1;
+                        列号 += 1;
                     }
                     // 注释含「教学忽略」：整行跳过教学警告
-                    if contains_ignore_mark(&chars[comment_start..i]) {
-                        ignored_lines.insert(line);
+                    if 含忽略标记(&字符切片[注释起点..序号]) {
+                        已忽略行集.insert(行号);
                     }
-                    prev_plain = '\0';
+                    前普通字符 = '\0';
                     continue;
                 }
                 // 块注释（不处理嵌套，够用）
-                '*' if prev_plain == '/' => {
-                    col -= 1;
-                    while i < chars.len() {
-                        let c2 = chars[i];
-                        i += 1;
-                        if c2 == '\n' {
-                            line += 1;
-                            col = 1;
-                        } else if c2 == '*' && i < chars.len() && chars[i] == '/' {
-                            i += 1;
-                            col += 2;
+                '*' if 前普通字符 == '/' => {
+                    列号 -= 1;
+                    while 序号 < 字符切片.len() {
+                        let 块内字符 = 字符切片[序号];
+                        序号 += 1;
+                        if 块内字符 == '\n' {
+                            行号 += 1;
+                            列号 = 1;
+                        } else if 块内字符 == '*' && 序号 < 字符切片.len() && 字符切片[序号] == '/'
+                        {
+                            序号 += 1;
+                            列号 += 2;
                             break;
                         } else {
-                            col += 1;
+                            列号 += 1;
                         }
                     }
-                    prev_plain = '\0';
+                    前普通字符 = '\0';
                     continue;
                 }
-                // 原始字符串前缀 r#"..."#（r 或 br 后跟 " 或 #）
-                'r' | 'b' if is_raw_prefix(prev_plain) => {
-                    let mut n_hashes = 0usize;
-                    let mut j = i + 1;
-                    while j < chars.len() && chars[j] == '#' {
-                        n_hashes += 1;
-                        j += 1;
+                // 原始字符串前缀（`r#"…"#` 或 `br#"…"#`：前缀后跟引号或井号）
+                'r' | 'b' if 是原始前缀(前普通字符) => {
+                    let mut 井号计数 = 0usize;
+                    let mut 位置 = 序号 + 1;
+                    while 位置 < 字符切片.len() && 字符切片[位置] == '#' {
+                        井号计数 += 1;
+                        位置 += 1;
                     }
-                    if j < chars.len() && chars[j] == '"' {
-                        raw_hashes = n_hashes;
-                        literal = 3;
-                        i = j + 1;
-                        col += 1 + n_hashes + 1;
+                    if 位置 < 字符切片.len() && 字符切片[位置] == '"' {
+                        原始井数 = 井号计数;
+                        字面量状态 = 3;
+                        序号 = 位置 + 1;
+                        列号 += 1 + 井号计数 + 1;
                         continue;
                     }
                 }
                 // `让` 关键字：简单标识符绑定时开始未标注类型扫描（前后均须
                 // 有标识符边界）；模式解构绑定（元组/结构体/数组/枚举解构、
-                // 让-否则、let 链）不做提示——教学示例均以不标注形式书写，
+                // 让-否则、绑定链）不做提示——教学示例均以不标注形式书写，
                 // 且无法自然标注类型（须标注整个模式），提示无解成噪音
-                '让' if is_ident_boundary(prev_plain)
-                    && (i + 1 >= chars.len() || is_ident_boundary(chars[i + 1])) =>
+                '让' if 是标识符边界(前普通字符)
+                    && (序号 + 1 >= 字符切片.len() || 是标识符边界(字符切片[序号 + 1])) =>
                 {
-                    // 前一个 let 未闭合（上一语句缺分号）：先收尾
-                    finish_let_scan(&mut let_scan, &mut warnings, ambiguous_constructors);
-                    if is_simple_let_binding(chars, i + 1) {
-                        let_scan = Some(LetScan {
-                            line,
-                            column: col,
-                            seen_eq: false,
-                            annotated: false,
-                            expr: String::new(),
+                    // 前一个绑定语句未闭合（上一语句缺分号）：先收尾
+                    完成让扫描(&mut 让扫描状态, &mut 待定列表, 歧义构造器, 序号);
+                    if let Some(名字) = 简单让绑定名(字符切片, 序号 + 1) {
+                        让扫描状态 = Some(让声明扫描 {
+                            行号,
+                            列号,
+                            名字,
+                            已见等号: false,
+                            已标注: false,
+                            初始化原文: String::new(),
                         });
                     }
                 }
                 // 数字字面量（前一字不是标识符字符时才是独立字面量）
-                c if c.is_ascii_digit() && is_ident_boundary(prev_plain) => {
-                    i = scan_number(chars, i, ch, &mut warnings, line, col, prev_plain);
+                当前符 if 当前符.is_ascii_digit() && 是标识符边界(前普通字符) => {
+                    序号 = 扫描数字(字符切片, 序号, 当前符, &mut 告警, 行号, 列号, 前普通字符);
                     continue;
                 }
                 // 方法调用位的长中文串（如 `.拉平()`）：未命中映射表且与
                 // 表内词近似时提示疑似笔误——未命中词会被原样保留，错误在
                 // 产物侧才爆发（#14）。仅调用位（后随 `(`）判定以降噪；
                 // `..` 范围与浮点（前一字为 `.`/数字）不启动扫描。
-                '.' if prev_plain != '.' && !prev_plain.is_ascii_digit() => {
-                    if let Some(name) = scan_method_name(chars, i) {
+                '.' if 前普通字符 != '.' && !前普通字符.is_ascii_digit() => {
+                    if let Some(名字) = 扫描方法名(字符切片, 序号) {
                         // 惰性分支：首个方法调用位才建索引（无调用位的源码零开销）
-                        let index = match &words {
-                            WordIndexSource::Shared(buckets) => *buckets,
-                            WordIndexSource::Lazy(known) => {
-                                &*local_index.get_or_insert_with(|| 词形分桶::build(known))
+                        let 索引 = match &词索引来源 {
+                            词形索引来源::共享(桶) => *桶,
+                            词形索引来源::延迟静态值(已知词) => {
+                                &*本地索引.get_or_insert_with(|| 词形分桶::构建(已知词))
                             }
                         };
-                        if let Some(candidate) = confusable_candidate(name, index) {
-                            warnings.push(LintWarning {
-                                line,
-                                column: col + 1,
-                                kind: LintKind::ConfusableMethod,
-                                text: name.iter().collect(),
-                                extra: candidate.to_string(),
+                        if let Some(候选) = 易混候选(名字, 索引) {
+                            告警.push(教学告警 {
+                                行号,
+                                列号: 列号 + 1,
+                                告警种类: 告警类别::易混标识符,
+                                相关文本: 名字.iter().collect(),
+                                附加文本: 候选.to_string(),
                             });
                         }
                     }
@@ -449,37 +474,52 @@ pub(crate) fn lint_teaching_chars(
                 _ => {}
             },
         }
-        // let 扫描推进：仅在代码位置处理语句内符号
-        if let Some(scan) = let_scan.as_mut() {
-            match ch {
-                ':' if !scan.seen_eq => scan.annotated = true,
-                '=' => scan.seen_eq = true,
+        // 绑定扫描推进：仅在代码位置处理语句内符号
+        if let Some(扫描) = 让扫描状态.as_mut() {
+            match 当前字符 {
+                ':' if !扫描.已见等号 => 扫描.已标注 = true,
+                '=' => 扫描.已见等号 = true,
                 ';' | '{' | '}' => {
-                    finish_let_scan(&mut let_scan, &mut warnings, ambiguous_constructors)
+                    完成让扫描(&mut 让扫描状态, &mut 待定列表, 歧义构造器, 序号)
                 }
-                _ if scan.seen_eq => scan.expr.push(ch),
+                _ if 扫描.已见等号 => 扫描.初始化原文.push(当前字符),
                 _ => {}
             }
         }
-        i += 1;
-        col += 1;
-        if ch != ' ' && ch != '\t' && literal == 0 {
-            prev_plain = ch;
+        序号 += 1;
+        列号 += 1;
+        if 当前字符 != ' ' && 当前字符 != '\t' && 字面量状态 == 0 {
+            前普通字符 = 当前字符;
         }
     }
-    finish_let_scan(&mut let_scan, &mut warnings, ambiguous_constructors);
+    完成让扫描(&mut 让扫描状态, &mut 待定列表, 歧义构造器, 字符切片.len());
+    // 绑定名在语句之后仍被引用 → 类型由使用处推导，不提示；只在后续无
+    // 任何引用的位置提示（真歧义仍由 rustc E0282 兜底）
+    for 待定 in 待定列表 {
+        if !后续有使用(字符切片, 待定.之后位置, &待定.名字) {
+            告警.push(教学告警 {
+                行号: 待定.行号,
+                列号: 待定.列号,
+                告警种类: 告警类别::未标注类型,
+                相关文本: String::new(),
+                附加文本: String::new(),
+            });
+        }
+    }
     // 过滤被「教学忽略」标记的行（三种规则统一按行过滤）
-    warnings.retain(|w| !ignored_lines.contains(&w.line));
-    warnings
+    告警.retain(|告警项| !已忽略行集.contains(&告警项.行号));
+    // 未标注类型提示延后产出，统一按位置排序保持「升序」契约
+    告警.sort_by_key(|告警项| (告警项.行号, 告警项.列号));
+    告警
 }
 
-/// 声明关键字：其后紧跟的名字视为用户命名，回落 lint 豁免不提示
-const DECL_KEYWORDS: &[&str] = &[
+/// 声明关键字：其后紧跟的名字视为用户命名，回落检查豁免不提示
+const 声明关键字表: &[&str] = &[
     "fn", "let", "struct", "enum", "union", "trait", "type", "mod", "impl", "const", "static",
 ];
 
 /// Rust 保留关键字：不可能作为自定义标识符，出现英文且有母语词条即回落提示
-const RUST_KEYWORDS: &[&str] = &[
+const 保留关键字表: &[&str] = &[
     "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern",
     "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub",
     "ref", "return", "self", "Self", "static", "struct", "super", "trait", "true", "type",
@@ -488,512 +528,534 @@ const RUST_KEYWORDS: &[&str] = &[
 
 /// 声明引导词的英文映射值：其后紧跟的名字是「被声明的标识符」，
 /// 而非语句词（`返回`/`匹配` 作普通语句时不按撞名判定）。
-const DECL_INTRODUCER_VALUES: &[&str] = &[
+const 声明引导词表: &[&str] = &[
     "fn", "let", "const", "static", "struct", "enum", "union", "type", "trait", "impl", "mod",
 ];
 
-/// 英文回落 lint：在母语方言源码中提示「有母语词条却写成英文」的结构词
+/// 英文回退检查：在母语方言源码中提示「有母语词条却写成英文」的结构词
 ///
-/// `fallback_map`：英文原词 → 母语词条（见
-/// [`crate::映射管理器::映射管理器::english_fallback_map`]）；恒等映射的
+/// `英文回退表`：英文原词 → 母语词条（见
+/// [`包::映射管理器::映射管理器::英文回退表`]）；恒等映射的
 /// 英文语言包传入空表，本函数直接返回空（自动静默，不误伤英文原生写法）。
 ///
 /// 只在**结构位置**判定以降噪（避免把同名自定义变量/字段误报）：
-/// - Rust 保留关键字（`fn`/`let`/`match`…）任意代码位出现即提示（保留字不可能是自定义名）；
+/// - Rust 保留关键字（`fn 主()`、`让 名`、`匹配 值 {…}`…）任意代码位出现即提示（保留字不可能是自定义名）；
 /// - 宏调用 `词!`、方法/关联函数调用 `.词(` / `::词(`、路径头 `词::`、泛型 `词<`——
 ///   这些位置的英文词有母语词条时提示。
 ///
-/// 声明关键字（`fn`/`let`/`struct`…）后紧跟的名字视为用户命名，豁免不提示；
-/// 同一英文词每文件只在首个命中处提示一次（避免 `fn`×50 刷屏）。字符串/字符/
-/// 原始串/注释内的英文由状态机跳过，与其余教学 lint 同构；行注释含「教学忽略」跳过整行。
-pub fn lint_english_fallback(
-    source: &str,
-    fallback_map: &HashMap<String, String>,
-) -> Vec<LintWarning> {
-    if fallback_map.is_empty() {
+/// 声明关键字（`fn 主()`、`让 名`、`结构体 名`…）后紧跟的名字视为用户命名，豁免不提示；
+/// 同一英文词每文件只在首个命中处提示一次（避免同一英文词反复刷屏）。字符串/字符/
+/// 原始串/注释内的英文由状态机跳过，与其余教学检查同构；行注释含「教学忽略」跳过整行。
+pub fn 检查英文回退(
+    源码: &str, 英文回退表: &HashMap<String, String>
+) -> Vec<教学告警> {
+    if 英文回退表.is_empty() {
         return Vec::new();
     }
-    let chars: Vec<char> = source.chars().collect();
-    lint_english_fallback_chars(&chars, fallback_map)
+    let 字符切片: Vec<char> = 源码.chars().collect();
+    检查英文回退字符(&字符切片, 英文回退表)
 }
 
-/// 英文回落与保留字撞名的共用扫描：一次遍历产出两组警告
+/// 英文回退与保留名撞词的共用扫描：一次遍历产出两组警告
 ///
 /// 两个检查原先各有一套同构状态机（跳过字符串/字符/原始串/注释、按标识符
-/// 边界取 token、识别 `r"…"` 前缀、收集「教学忽略」行），同一份源码要扫两趟
+/// 边界取词元、识别 `r"…"` 前缀、收集「教学忽略」行），同一份源码要扫两趟
 /// （大文件里两趟骨架状态机约 22 µs）。合并后标识符只提取一次（复用同一个
-/// 单词缓冲，不再逐 token 分配 `String`），词表各查一次；任一侧传 `None`
+/// 单词缓冲，不再逐词元分配字符串），词表各查一次；任一侧传 `无`
 /// 或空表时该侧判定整体跳过。
 ///
 /// 两侧原有的语义差异逐条保留：
-/// - `prev_plain`（跳过空白，供 `.词(` / `::词(` 判定）只服务英文回落，
-///   `expect_name`（遇非空白即清）只服务撞名；
-/// - 声明关键字后的名字只豁免英文回落（`after_decl`），不影响撞名；
-/// - 英文回落只看 ASCII 段（`名abc` 这类混合标识符不判定），撞名看完整 token；
-/// - 注释起始改按 `prev_char == '/'`（两字符相邻）判定：英文回落原先用
-///   `prev_plain`（跳过空白），会把 `a / *b` 里的 `*` 误当块注释起点。
-pub(crate) fn lint_english_and_collision_chars(
-    chars: &[char],
-    fallback_map: Option<&HashMap<String, String>>,
-    keyword_map: Option<&HashMap<String, String>>,
-) -> (Vec<LintWarning>, Vec<LintWarning>) {
-    let fallback_map = fallback_map.filter(|m| !m.is_empty());
-    let keyword_map = keyword_map.filter(|m| !m.is_empty());
-    let mut english = Vec::new();
-    let mut collision = Vec::new();
-    if fallback_map.is_none() && keyword_map.is_none() {
-        return (english, collision);
+/// - `前普通字符`（跳过空白，供 `.词(` / `::词(` 判定）只服务英文回退，
+///   `等待名字`（遇非空白即清）只服务撞名；
+/// - 声明关键字后的名字只豁免英文回退（`声明之后`），不影响撞名；
+/// - 英文回退只看 ASCII 段（中文名后接英文的混合标识符不判定），撞名看完整词元；
+/// - 注释起始改按 `前字符 == '/'`（两字符相邻）判定：英文回退原先用
+///   `前普通字符`（跳过空白），会把 `a / *b` 里的 `*` 误当块注释起点。
+pub(crate) fn 检查英文与撞词字符(
+    字符切片: &[char],
+    英文回退表: Option<&HashMap<String, String>>,
+    关键字映射: Option<&HashMap<String, String>>,
+) -> (Vec<教学告警>, Vec<教学告警>) {
+    let 英文回退表 = 英文回退表.filter(|映射| !映射.is_empty());
+    let 关键字映射 = 关键字映射.filter(|映射| !映射.is_empty());
+    let mut 英文告警 = Vec::new();
+    let mut 撞词告警 = Vec::new();
+    if 英文回退表.is_none() && 关键字映射.is_none() {
+        return (英文告警, 撞词告警);
     }
 
-    // 同一英文词每文件只报首个命中（避免 `fn`×50 刷屏）
-    let mut reported: HashSet<String> = HashSet::new();
+    // 同一英文词每文件只报首个命中（避免同一英文词反复刷屏）
+    let mut 已报告: HashSet<String> = HashSet::new();
     // 行注释含「教学忽略」的行号：整行跳过两侧警告
-    let mut ignored_lines: HashSet<usize> = HashSet::new();
-    let mut line = 1usize;
-    let mut col = 1usize;
+    let mut 已忽略行集: HashSet<usize> = HashSet::new();
+    let mut 行号 = 1usize;
+    let mut 列号 = 1usize;
     // 字面量状态：0=代码 1=双引号串 2=字符 3=原始串
-    let mut literal: u8 = 0;
-    let mut raw_hashes = 0usize;
-    let mut prev_char = '\0'; // 紧邻前一个字符（含空白），用于标识符边界与注释判定
-    let mut prev_plain = '\0'; // 上一个非空白代码字符
-    let mut prev_prev_plain = '\0'; // prev_plain 前一个非空白代码字符
-    let mut after_decl = false; // 上一标识符是声明关键字：其后的名字豁免
+    let mut 字面量状态: u8 = 0;
+    let mut 原始井数 = 0usize;
+    let mut 前字符 = '\0'; // 紧邻前一个字符（含空白），用于标识符边界与注释判定
+    let mut 前普通字符 = '\0'; // 上一个非空白代码字符
+    let mut 前前普通字符 = '\0'; // 前普通字符的前一个非空白代码字符
+    let mut 声明之后 = false; // 上一标识符是声明关键字：其后的名字豁免
     // 刚读到声明引导词（或 `让 可变` 的修饰词），等待其后的名字
-    let mut expect_name = false;
-    // 单词缓冲：复用避免每个标识符都分配一个 String（大文件扫描热点）
-    let mut word = String::with_capacity(16);
+    let mut 等待名字 = false;
+    // 单词缓冲：复用避免每个标识符都分配一个字符串（大文件扫描热点）
+    let mut 词缓冲 = String::with_capacity(16);
 
-    let mut i = 0usize;
-    while i < chars.len() {
-        let ch = chars[i];
-        if ch == '\n' {
-            line += 1;
-            col = 1;
-            if literal == 2 || literal == 3 {
+    let mut 序号 = 0usize;
+    while 序号 < 字符切片.len() {
+        let 当前字符 = 字符切片[序号];
+        if 当前字符 == '\n' {
+            行号 += 1;
+            列号 = 1;
+            if 字面量状态 == 2 || 字面量状态 == 3 {
                 // 字符/原始串内未闭合引号：行尾强制退出，避免状态污染后续行
-                literal = 0;
+                字面量状态 = 0;
             }
-            prev_char = '\n';
-            i += 1;
+            前字符 = '\n';
+            序号 += 1;
             continue;
         }
-        match literal {
+        match 字面量状态 {
             1 | 2 => {
-                if ch == '\\' {
-                    i += 2;
-                    col += 1;
-                    prev_char = '\\';
+                if 当前字符 == '\\' {
+                    序号 += 2;
+                    列号 += 1;
+                    前字符 = '\\';
                     continue;
                 }
-                let closing = if literal == 1 { '"' } else { '\'' };
-                if ch == closing {
-                    literal = 0;
+                let 闭合符 = if 字面量状态 == 1 { '"' } else { '\'' };
+                if 当前字符 == 闭合符 {
+                    字面量状态 = 0;
                 }
             }
             3 => {
                 // 原始串 r#"..."#：遇 " 后跟等量 # 退出
-                if ch == '"' {
-                    let hashes = chars[i + 1..].iter().take_while(|c| **c == '#').count();
-                    if hashes >= raw_hashes {
-                        literal = 0;
-                        raw_hashes = 0;
+                if 当前字符 == '"' {
+                    let 井号数 = 字符切片[序号 + 1..]
+                        .iter()
+                        .take_while(|当前| **当前 == '#')
+                        .count();
+                    if 井号数 >= 原始井数 {
+                        字面量状态 = 0;
+                        原始井数 = 0;
                     }
                 }
             }
-            _ => match ch {
-                '"' => literal = 1,
-                '\'' => literal = 2,
-                '/' if prev_char == '/' => {
+            _ => match 当前字符 {
+                '"' => 字面量状态 = 1,
+                '\'' => 字面量状态 = 2,
+                '/' if 前字符 == '/' => {
                     // 行注释：吞到行尾；含「教学忽略」标记整行
-                    let comment_start = i;
-                    while i < chars.len() && chars[i] != '\n' {
-                        i += 1;
-                        col += 1;
+                    let 注释起点 = 序号;
+                    while 序号 < 字符切片.len() && 字符切片[序号] != '\n' {
+                        序号 += 1;
+                        列号 += 1;
                     }
-                    if contains_ignore_mark(&chars[comment_start..i]) {
-                        ignored_lines.insert(line);
+                    if 含忽略标记(&字符切片[注释起点..序号]) {
+                        已忽略行集.insert(行号);
                     }
-                    prev_char = '\0';
-                    prev_plain = '\0';
-                    prev_prev_plain = '\0';
-                    expect_name = false;
+                    前字符 = '\0';
+                    前普通字符 = '\0';
+                    前前普通字符 = '\0';
+                    等待名字 = false;
                     continue;
                 }
-                '*' if prev_char == '/' => {
+                '*' if 前字符 == '/' => {
                     // 块注释（不处理嵌套，够用）
-                    while i < chars.len() {
-                        let c2 = chars[i];
-                        i += 1;
-                        if c2 == '\n' {
-                            line += 1;
-                            col = 1;
-                        } else if c2 == '*' && i < chars.len() && chars[i] == '/' {
-                            i += 1;
-                            col += 2;
+                    while 序号 < 字符切片.len() {
+                        let 块内字符 = 字符切片[序号];
+                        序号 += 1;
+                        if 块内字符 == '\n' {
+                            行号 += 1;
+                            列号 = 1;
+                        } else if 块内字符 == '*' && 序号 < 字符切片.len() && 字符切片[序号] == '/'
+                        {
+                            序号 += 1;
+                            列号 += 2;
                             break;
                         } else {
-                            col += 1;
+                            列号 += 1;
                         }
                     }
-                    prev_char = '\0';
-                    prev_plain = '\0';
-                    prev_prev_plain = '\0';
-                    expect_name = false;
+                    前字符 = '\0';
+                    前普通字符 = '\0';
+                    前前普通字符 = '\0';
+                    等待名字 = false;
                     continue;
                 }
-                c if is_ident_continue(c) && is_ident_boundary(prev_char) => {
-                    let start_line = line;
-                    let start_col = col;
-                    let mut j = i;
-                    while j < chars.len() && is_ident_continue(chars[j]) {
-                        j += 1;
+                当前符 if 是标识符延续(当前符) && 是标识符边界(前字符) => {
+                    let 起始行 = 行号;
+                    let 起始列 = 列号;
+                    let mut 结束位置 = 序号;
+                    while 结束位置 < 字符切片.len() && 是标识符延续(字符切片[结束位置])
+                    {
+                        结束位置 += 1;
                     }
-                    word.clear();
-                    word.extend(chars[i..j].iter());
-                    // 原始串前缀（r"/b"/br"）：转入字面量状态，两侧都不参与判定
-                    if matches!(word.as_str(), "r" | "b" | "br") {
-                        let mut h = 0usize;
-                        let mut q = j;
-                        while q < chars.len() && chars[q] == '#' {
-                            h += 1;
-                            q += 1;
+                    词缓冲.clear();
+                    词缓冲.extend(字符切片[序号..结束位置].iter());
+                    // 原始串前缀（`r#"…"#` 或 `br#"…"#`）：转入字面量状态，两侧都不参与判定
+                    if matches!(词缓冲.as_str(), "r" | "b" | "br") {
+                        let mut 井号量 = 0usize;
+                        let mut 探位 = 结束位置;
+                        while 探位 < 字符切片.len() && 字符切片[探位] == '#' {
+                            井号量 += 1;
+                            探位 += 1;
                         }
-                        if q < chars.len() && chars[q] == '"' {
-                            if word == "b" && h == 0 {
-                                literal = 1; // 字节串 b"..."：转义规则同普通串
+                        if 探位 < 字符切片.len() && 字符切片[探位] == '"' {
+                            if 词缓冲 == "b" && 井号量 == 0 {
+                                字面量状态 = 1; // 字节串 b"..."：转义规则同普通串
                             } else {
-                                literal = 3;
-                                raw_hashes = h;
+                                字面量状态 = 3;
+                                原始井数 = 井号量;
                             }
-                            col += q + 1 - i;
-                            i = q + 1;
-                            prev_char = '"';
-                            prev_plain = '"';
-                            prev_prev_plain = '\0';
-                            after_decl = false;
-                            expect_name = false;
+                            列号 += 探位 + 1 - 序号;
+                            序号 = 探位 + 1;
+                            前字符 = '"';
+                            前普通字符 = '"';
+                            前前普通字符 = '\0';
+                            声明之后 = false;
+                            等待名字 = false;
                             continue;
                         }
                     }
-                    // token 后首个非空白字符及其后继：撞名的声明定界符与英文回落的
+                    // 词元后首个非空白字符及其后继：撞名的声明定界符与英文回退的
                     // 结构位置共用同一次前瞻
-                    let mut k = j;
-                    while k < chars.len() && chars[k].is_whitespace() {
-                        k += 1;
+                    let mut 后位 = 结束位置;
+                    while 后位 < 字符切片.len() && 字符切片[后位].is_whitespace() {
+                        后位 += 1;
                     }
-                    let next = chars.get(k).copied();
-                    if let Some(map) = fallback_map
-                        && (ch.is_ascii_alphabetic() || ch == '_')
+                    let 下个字符 = 字符切片.get(后位).copied();
+                    if let Some(映射) = 英文回退表
+                        && (当前字符.is_ascii_alphabetic() || 当前字符 == '_')
                     {
-                        // 前导 ASCII 段即英文 token：字节数等于字符数，可直接切片查表
-                        let mut e = i;
-                        while e < j && (chars[e].is_ascii_alphanumeric() || chars[e] == '_') {
-                            e += 1;
+                        // 前导 ASCII 段即英文词元：字节数等于字符数，可直接切片查表
+                        let mut 英文末 = 序号;
+                        while 英文末 < 结束位置
+                            && (字符切片[英文末].is_ascii_alphanumeric() || 字符切片[英文末] == '_')
+                        {
+                            英文末 += 1;
                         }
-                        let token = &word[..e - i];
-                        // 混合标识符：英文回落的前瞻从其 ASCII 段末尾算起
-                        let (fb_next, fb_next2) = if e == j {
-                            (next, chars.get(k + 1).copied())
+                        let 词元 = &词缓冲[..英文末 - 序号];
+                        // 混合标识符：英文回退的前瞻从其 ASCII 段末尾算起
+                        let (回退下个, 回退下下个) = if 英文末 == 结束位置 {
+                            (下个字符, 字符切片.get(后位 + 1).copied())
                         } else {
-                            let mut kk = e;
-                            while kk < chars.len() && chars[kk].is_whitespace() {
-                                kk += 1;
+                            let mut 混合位 = 英文末;
+                            while 混合位 < 字符切片.len() && 字符切片[混合位].is_whitespace()
+                            {
+                                混合位 += 1;
                             }
-                            (chars.get(kk).copied(), chars.get(kk + 1).copied())
+                            (
+                                字符切片.get(混合位).copied(),
+                                字符切片.get(混合位 + 1).copied(),
+                            )
                         };
-                        let followed_call = fb_next == Some('(');
-                        let followed_generic = fb_next == Some('<');
-                        let followed_path = fb_next == Some(':') && fb_next2 == Some(':');
-                        let followed_macro = fb_next == Some('!');
-                        let preceded_dot = prev_plain == '.';
-                        let preceded_colons = prev_plain == ':' && prev_prev_plain == ':';
-                        let is_decl_kw = DECL_KEYWORDS.contains(&token);
-                        // 声明关键字后的用户命名（after_decl）豁免不提示；
+                        let 后随调用 = 回退下个 == Some('(');
+                        let 后随泛型 = 回退下个 == Some('<');
+                        let 后随路径 = 回退下个 == Some(':') && 回退下下个 == Some(':');
+                        let 后随宏 = 回退下个 == Some('!');
+                        let 前有句点 = 前普通字符 == '.';
+                        let 前有双冒号 = 前普通字符 == ':' && 前前普通字符 == ':';
+                        let 是声明关键字 = 声明关键字表.contains(&词元);
+                        // 声明关键字后的用户命名（声明之后）豁免不提示；
                         // 其余按结构位置判定
-                        if !after_decl && let Some(native) = map.get(token) {
-                            let structural = RUST_KEYWORDS.contains(&token)
-                                || followed_macro
-                                || (followed_call && (preceded_dot || preceded_colons))
-                                || followed_path
-                                || followed_generic;
-                            if structural && reported.insert(token.to_string()) {
-                                english.push(LintWarning {
-                                    line: start_line,
-                                    column: start_col,
-                                    kind: LintKind::EnglishFallback,
-                                    text: token.to_string(),
-                                    extra: native.clone(),
+                        if !声明之后 && let Some(原生) = 映射.get(词元) {
+                            let 结构位置 = 保留关键字表.contains(&词元)
+                                || 后随宏
+                                || (后随调用 && (前有句点 || 前有双冒号))
+                                || 后随路径
+                                || 后随泛型;
+                            if 结构位置 && 已报告.insert(词元.to_string()) {
+                                英文告警.push(教学告警 {
+                                    行号: 起始行,
+                                    列号: 起始列,
+                                    告警种类: 告警类别::英文回退,
+                                    相关文本: 词元.to_string(),
+                                    附加文本: 原生.clone(),
                                 });
                             }
                         }
                         // 混合标识符的后半段等同逐字符走过：豁免随之中断
-                        after_decl = is_decl_kw && e == j;
+                        声明之后 = 是声明关键字 && 英文末 == 结束位置;
                     } else {
-                        // 非英文起头的 token（中文名/数字）：等同逐字符走完后清除豁免
-                        after_decl = false;
+                        // 非英文起头的词元（中文名/数字）：等同逐字符走完后清除豁免
+                        声明之后 = false;
                     }
-                    if let Some(map) = keyword_map {
+                    if let Some(映射) = 关键字映射 {
                         // 单次查表同时服务三种判定（不派生临时集合）：
                         // `可变` 修饰词 / 撞名候选 / 声明引导词
-                        let mapped = map.get(word.as_str()).map(String::as_str);
-                        if expect_name {
+                        let 映射结果 = 映射.get(词缓冲.as_str()).map(String::as_str);
+                        if 等待名字 {
                             // `让 可变 名字`：跨过修饰词，继续等待名字
-                            if mapped != Some("mut") {
-                                if let Some(en) = mapped
-                                    && RUST_KEYWORDS.contains(&en)
-                                    && matches!(next, Some('(' | '{' | ';' | '=' | '<' | ':' | ','))
+                            if 映射结果 != Some("mut") {
+                                if let Some(英文) = 映射结果
+                                    && 保留关键字表.contains(&英文)
+                                    && matches!(
+                                        下个字符,
+                                        Some('(' | '{' | ';' | '=' | '<' | ':' | ',')
+                                    )
                                 {
-                                    collision.push(LintWarning {
-                                        line: start_line,
-                                        column: start_col,
-                                        kind: LintKind::ReservedNameCollision,
-                                        text: word.clone(),
-                                        extra: en.to_string(),
+                                    撞词告警.push(教学告警 {
+                                        行号: 起始行,
+                                        列号: 起始列,
+                                        告警种类: 告警类别::保留名撞词,
+                                        相关文本: 词缓冲.clone(),
+                                        附加文本: 英文.to_string(),
                                     });
                                 }
-                                expect_name = false;
+                                等待名字 = false;
                             }
-                        } else if let Some(en) = mapped
-                            && DECL_INTRODUCER_VALUES.contains(&en)
+                        } else if let Some(英文) = 映射结果
+                            && 声明引导词表.contains(&英文)
                         {
-                            expect_name = true;
+                            等待名字 = true;
                         }
                     }
-                    let last = chars[j - 1];
-                    col += j - i;
-                    i = j;
-                    prev_char = last;
-                    prev_prev_plain = prev_plain;
-                    prev_plain = last;
+                    let 末字符 = 字符切片[结束位置 - 1];
+                    列号 += 结束位置 - 序号;
+                    序号 = 结束位置;
+                    前字符 = 末字符;
+                    前前普通字符 = 前普通字符;
+                    前普通字符 = 末字符;
                     continue;
                 }
                 _ => {}
             },
         }
-        // 普通字符推进：非空白才更新 prev_plain（用于 . 与 :: 判定）并清除命名豁免
-        if !(ch == ' ' || ch == '\t' || ch == '\r') {
-            after_decl = false;
-            prev_prev_plain = prev_plain;
-            prev_plain = ch;
+        // 普通字符推进：非空白才更新前普通字符（用于 . 与 :: 判定）并清除命名豁免
+        if !(当前字符 == ' ' || 当前字符 == '\t' || 当前字符 == '\r') {
+            声明之后 = false;
+            前前普通字符 = 前普通字符;
+            前普通字符 = 当前字符;
         }
-        if !ch.is_whitespace() {
-            expect_name = false;
+        if !当前字符.is_whitespace() {
+            等待名字 = false;
         }
-        prev_char = ch;
-        i += 1;
-        col += 1;
+        前字符 = 当前字符;
+        序号 += 1;
+        列号 += 1;
     }
-    english.retain(|w| !ignored_lines.contains(&w.line));
-    collision.retain(|w| !ignored_lines.contains(&w.line));
-    (english, collision)
+    英文告警.retain(|告警项| !已忽略行集.contains(&告警项.行号));
+    撞词告警.retain(|告警项| !已忽略行集.contains(&告警项.行号));
+    (英文告警, 撞词告警)
 }
 
-/// 保留字撞名 lint：声明位（`函数`/`让`/`结构体`… 之后的名字）若命中 keywords
+/// 保留名撞词检查：声明位（`函数`/`让`/`结构体`… 之后的名字）若命中关键字
 /// 词条且其英文映射是 Rust 保留关键字，转译会把用户名字改写成保留字，产物
 /// 非法（`fn match`）或语义改写（`让 循环`→`let loop`）——这是转译管线唯一
 /// 的静默语义改写路径。此处提示并给出修复方向：改名，或将产物中的该名字
 /// 用 `r#` 原始标识符转义。
 ///
-/// `keyword_map`：母语 → 英文的关键字映射（见
-/// [`crate::映射管理器::映射管理器::get_keyword_map`]）。声明引导词
+/// `关键字映射`：母语 → 英文的关键字映射（见
+/// [`包::映射管理器::映射管理器::取关键字映射`]）。声明引导词
 /// 与撞名候选均直接从该表查（不派生临时集合：本函数在 LSP 每次变更都会
-/// 跑一遍，过早建 HashSet 会白付 600+ 次哈希）；`可变`(mut) 作为 `让` 的
+/// 跑一遍，过早建哈希集合会白付 600+ 次哈希）；`可变`（可变修饰词）作为 `让` 的
 /// 修饰词可跨过后再判定名字。判定要求名字后紧跟声明定界符
 /// （`(` `{` `;` `=` `<` `:` `,`），`返回`/`匹配` 作普通语句词时不提示。
 /// 字符串/字符/原始串/注释内容由状态机跳过；含「教学忽略」的行整行跳过。
-pub fn lint_reserved_name_collision(
-    source: &str,
-    keyword_map: &HashMap<String, String>,
-) -> Vec<LintWarning> {
-    if keyword_map.is_empty() {
+pub fn 检查保留名撞词(
+    源码: &str,
+    关键字映射: &HashMap<String, String>,
+) -> Vec<教学告警> {
+    if 关键字映射.is_empty() {
         return Vec::new();
     }
 
-    let chars: Vec<char> = source.chars().collect();
-    lint_reserved_name_collision_chars(&chars, keyword_map)
+    let 字符切片: Vec<char> = 源码.chars().collect();
+    检查保留名撞词字符(&字符切片, 关键字映射)
 }
 
-/// [`lint_english_fallback`] 的字符切片入口（只跑英文回落一侧）
+/// [`检查英文回退`] 的字符切片入口（只跑英文回退一侧）
 ///
-/// 与撞名检查共用的扫描见 [`lint_english_and_collision_chars`]：同一份源码
+/// 与撞名检查共用的扫描见 [`检查英文与撞词字符`]：同一份源码
 /// 只需一组状态机。
-pub(crate) fn lint_english_fallback_chars(
-    chars: &[char],
-    fallback_map: &HashMap<String, String>,
-) -> Vec<LintWarning> {
-    lint_english_and_collision_chars(chars, Some(fallback_map), None).0
+pub(crate) fn 检查英文回退字符(
+    字符切片: &[char],
+    英文回退表: &HashMap<String, String>,
+) -> Vec<教学告警> {
+    检查英文与撞词字符(字符切片, Some(英文回退表), None).0
 }
 
-/// [`lint_reserved_name_collision`] 的字符切片入口（只跑撞名一侧）
-pub(crate) fn lint_reserved_name_collision_chars(
-    chars: &[char],
-    keyword_map: &HashMap<String, String>,
-) -> Vec<LintWarning> {
-    lint_english_and_collision_chars(chars, None, Some(keyword_map)).1
+/// [`检查保留名撞词`] 的字符切片入口（只跑撞名一侧）
+pub(crate) fn 检查保留名撞词字符(
+    字符切片: &[char],
+    关键字映射: &HashMap<String, String>,
+) -> Vec<教学告警> {
+    检查英文与撞词字符(字符切片, None, Some(关键字映射)).1
 }
 
-/// 一次扫描产出全部教学 lint 警告（顺序：教学 / 英文回落 / 保留字撞名）
+/// 一次扫描产出全部教学检查警告（顺序：教学 / 英文回退 / 保留名撞词）
 ///
 /// 走转译管线的调用方（CLI 转译、LSP 每次变更）用这个入口：源码只物化一次
-/// 字符切片，五个扫描器共用；英文回落与撞名合并为单次遍历，状态机由三趟
+/// 字符切片，五个扫描器共用；英文回退与撞名合并为单次遍历，状态机由三趟
 /// 降到两趟。各表口径与单函数版本一致，空表即该侧静默。
-pub fn lint_teaching_all(
-    source: &str,
-    known_words: &HashSet<String>,
-    ambiguous_constructors: &HashSet<String>,
-    fallback_map: &HashMap<String, String>,
-    keyword_map: &HashMap<String, String>,
-) -> Vec<LintWarning> {
-    let chars: Vec<char> = source.chars().collect();
-    lint_teaching_all_chars(
-        &chars,
-        WordIndexSource::Lazy(known_words),
-        ambiguous_constructors,
-        fallback_map,
-        keyword_map,
+pub fn 检查全部教学(
+    源码: &str,
+    已知词表: &HashSet<String>,
+    歧义构造器: &HashSet<String>,
+    英文回退表: &HashMap<String, String>,
+    关键字映射: &HashMap<String, String>,
+) -> Vec<教学告警> {
+    let 字符切片: Vec<char> = 源码.chars().collect();
+    检查全部教学字符(
+        &字符切片,
+        词形索引来源::延迟静态值(已知词表),
+        歧义构造器,
+        英文回退表,
+        关键字映射,
     )
 }
 
-/// [`lint_teaching_all`] 的字符切片入口
+/// [`检查全部教学`] 的字符切片入口
 ///
 /// 转译管线已经物化过一份字符切片，直接从这里进，不再展开一次源码。
-/// `words` 为易混方法名的索引来源：管线路径传
-/// [`WordIndexSource::Shared`]（每语言包建一次，见
-/// [`crate::映射管理器::映射管理器::lint_word_buckets`]）。
-pub(crate) fn lint_teaching_all_chars(
-    chars: &[char],
-    words: WordIndexSource<'_>,
-    ambiguous_constructors: &HashSet<String>,
-    fallback_map: &HashMap<String, String>,
-    keyword_map: &HashMap<String, String>,
-) -> Vec<LintWarning> {
-    let mut warnings = lint_teaching_chars(chars, words, ambiguous_constructors);
-    let (english, collision) =
-        lint_english_and_collision_chars(chars, Some(fallback_map), Some(keyword_map));
-    warnings.extend(english);
-    warnings.extend(collision);
-    warnings
+/// `词索引来源` 为易混方法名的索引来源：管线路径传
+/// [`词形索引来源::共享`]（每语言包建一次，见
+/// [`包::映射管理器::映射管理器::检查词形桶`]）。
+pub(crate) fn 检查全部教学字符(
+    字符切片: &[char],
+    词索引来源: 词形索引来源<'_>,
+    歧义构造器: &HashSet<String>,
+    英文回退表: &HashMap<String, String>,
+    关键字映射: &HashMap<String, String>,
+) -> Vec<教学告警> {
+    let mut 告警 = 检查教学字符(字符切片, 词索引来源, 歧义构造器);
+    let (英文告警, 撞词告警) =
+        检查英文与撞词字符(字符切片, Some(英文回退表), Some(关键字映射));
+    告警.extend(英文告警);
+    告警.extend(撞词告警);
+    告警
 }
 
-/// [`lint_teaching_all`] 的分桶索引入口（调用方已缓存索引）
+/// [`检查全部教学`] 的分桶索引入口（调用方已缓存索引）
 ///
-/// 与 [`lint_teaching_with_buckets_chars`] 对称：LSP 每次发布诊断都要重算
+/// 与 [`按词形桶检查字符`] 对称：LSP 每次发布诊断都要重算
 /// 教学提示，索引随语言包确定后不可变，应由
-/// [`crate::映射管理器::映射管理器::lint_word_buckets`] 建一次、
+/// [`包::映射管理器::映射管理器::检查词形桶`] 建一次、
 /// 此后每份文档直接复用（惰性入口每份源码重建一次分桶与精确命中表）。
-pub fn lint_teaching_all_with_buckets_chars(
-    chars: &[char],
-    buckets: &词形分桶,
-    ambiguous_constructors: &HashSet<String>,
-    fallback_map: &HashMap<String, String>,
-    keyword_map: &HashMap<String, String>,
-) -> Vec<LintWarning> {
-    lint_teaching_all_chars(
-        chars,
-        WordIndexSource::Shared(buckets),
-        ambiguous_constructors,
-        fallback_map,
-        keyword_map,
+pub fn 按词形桶检查全部教学字符(
+    字符切片: &[char],
+    词形桶: &词形分桶,
+    歧义构造器: &HashSet<String>,
+    英文回退表: &HashMap<String, String>,
+    关键字映射: &HashMap<String, String>,
+) -> Vec<教学告警> {
+    检查全部教学字符(
+        字符切片,
+        词形索引来源::共享(词形桶),
+        歧义构造器,
+        英文回退表,
+        关键字映射,
     )
 }
 
 /// 教学忽略标记：行注释含此文本时该行跳过全部教学警告
-pub const IGNORE_MARK: &str = "教学忽略";
+pub const 忽略标记: &str = "教学忽略";
 
-/// 字符切片里是否含 [`IGNORE_MARK`] 标记
+/// 字符切片里是否含 [`忽略标记`] 标记
 ///
-/// 逐字符比较，不为行注释构造临时 `String`——教程模板几乎每行都有注释，
+/// 逐字符比较，不为行注释构造临时字符串——教程模板几乎每行都有注释，
 /// 逐行一次的分配在批量转译里是纯浪费。
-fn contains_ignore_mark(chars: &[char]) -> bool {
-    let mark_len = IGNORE_MARK.chars().count();
-    chars.len() >= mark_len
-        && chars
-            .windows(mark_len)
-            .any(|w| IGNORE_MARK.chars().eq(w.iter().copied()))
+fn 含忽略标记(字符切片: &[char]) -> bool {
+    let 标记长度 = 忽略标记.chars().count();
+    字符切片.len() >= 标记长度
+        && 字符切片
+            .windows(标记长度)
+            .any(|窗口| 忽略标记.chars().eq(窗口.iter().copied()))
 }
 
 /// 嵌套深度阈值：前导缩进 ≥ 此空格数时提示（24 = 6 层，4 空格一层）
-const DEEP_INDENT_THRESHOLD: usize = 24;
+const 深缩进阈值: usize = 24;
 
 /// 判定字符是否可作为标识符边界（非字母/数字/下划线即边界）
-fn is_ident_boundary(c: char) -> bool {
-    !is_ident_continue(c)
+fn 是标识符边界(字符值: char) -> bool {
+    !是标识符延续(字符值)
 }
 
-/// 判定前一字符是否可作为原始字符串前缀（r#/br#：前一字为行首/空白/运算符）
-fn is_raw_prefix(prev: char) -> bool {
-    prev == '\0' || prev.is_whitespace() || "([{<,;:!?&|=+-*/%^".contains(prev)
+/// 判定前一字符是否可作为原始字符串前缀（`r#"…"#` 或 `br#"…"#`：前一字为行首/空白/运算符）
+fn 是原始前缀(前一字符: char) -> bool {
+    前一字符 == '\0' || 前一字符.is_whitespace() || "([{<,;:!?&|=+-*/%^".contains(前一字符)
 }
 
-/// 判定 `让` 后的绑定是否为简单标识符绑定（`名字` / `可变 名字`）
+/// 判定 `让` 后的绑定是否为简单标识符绑定（`名字` / `可变 名字`），是则返回绑定名
 ///
-/// `from` 为「让」之后的下标。仅简单绑定参与「未标注类型」提示；
+/// `起始下标` 为「让」之后的下标。仅简单绑定参与「未标注类型」提示；
 /// 模式解构绑定（`(甲, 乙)`、`点 { x, y }`、`[首, 次]`、`有值(数)`、
-/// `枚举::变体(数)` 等）返回 false——这类绑定须标注整个模式的类型
+/// `枚举::变体(数)` 等）返回 `无`——这类绑定须标注整个模式的类型
 /// （远超初学者范围），教程示例均不标注，提示无解且成噪音。
 ///
-/// 无法归类的形态（如语法错误、注释紧跟）一律返回 false（宁缺毋滥）。
-fn is_simple_let_binding(chars: &[char], from: usize) -> bool {
-    let mut j = from;
+/// 无法归类的形态（如语法错误、注释紧跟）一律返回 `无`（宁缺毋滥）。
+fn 简单让绑定名(字符切片: &[char], 起始下标: usize) -> Option<String> {
+    let mut 位置 = 起始下标;
     // 跳过空白（含换行：多行布局不影响绑定判定）
-    while j < chars.len() && chars[j].is_whitespace() {
-        j += 1;
+    while 位置 < 字符切片.len() && 字符切片[位置].is_whitespace() {
+        位置 += 1;
     }
     // 可选「可变」前缀（`让 可变 名字 = …`；须为独立词）
-    if starts_with_word(chars, j, "可变") {
-        j += "可变".chars().count();
-        while j < chars.len() && chars[j].is_whitespace() {
-            j += 1;
+    if 以词开头(字符切片, 位置, "可变") {
+        位置 += "可变".chars().count();
+        while 位置 < 字符切片.len() && 字符切片[位置].is_whitespace() {
+            位置 += 1;
         }
     }
     // 绑定首字符须为标识符字符：`(`/`[`/`{` 等模式起始一律排除
-    if j >= chars.len() || !is_ident_continue(chars[j]) {
-        return false;
+    if 位置 >= 字符切片.len() || !是标识符延续(字符切片[位置]) {
+        return None;
     }
     // 收集标识符（到名字结束），再跳过名字与后续符号之间的空白
-    let mut k = j;
-    while k < chars.len() && is_ident_continue(chars[k]) {
-        k += 1;
+    let mut 结束位置 = 位置;
+    while 结束位置 < 字符切片.len() && 是标识符延续(字符切片[结束位置]) {
+        结束位置 += 1;
     }
-    while k < chars.len() && chars[k].is_whitespace() {
-        k += 1;
+    let 名字 = 字符切片[位置..结束位置].iter().collect::<String>();
+    while 结束位置 < 字符切片.len() && 字符切片[结束位置].is_whitespace() {
+        结束位置 += 1;
     }
-    match chars.get(k) {
+    match 字符切片.get(结束位置) {
         // `名字 = …` / `名字;`（语法错，交给编译器）：简单绑定
-        Some('=' | ';') => true,
-        // 单个 `:` 是类型标注（`名字: 类型 = …`）；`::` 是路径
-        // （`枚举::变体(数)` 模式）——后者非简单绑定
-        Some(':') => !matches!(chars.get(k + 1), Some(':')),
+        Some('=' | ';') => Some(名字),
+        Some(':') => {
+            // 单个 `:` 是类型标注（`名字: 类型 = …`）；`::` 是路径
+            // （`枚举::变体(数)` 模式）——后者非简单绑定
+            if matches!(字符切片.get(结束位置 + 1), Some(':')) {
+                None
+            } else {
+                Some(名字)
+            }
+        }
         // `名字(` / `名字 {` 等模式、行尾、无法归类的形态：不提示
-        _ => false,
+        _ => None,
     }
 }
 
-/// 判断 `chars[j..]` 是否以独立词 `word` 开头（词后不能紧跟标识符续字符）
-fn starts_with_word(chars: &[char], j: usize, word: &str) -> bool {
-    let w: Vec<char> = word.chars().collect();
-    if j + w.len() > chars.len() || chars[j..j + w.len()] != w[..] {
+/// 判断 `字符切片[位置..]` 是否以独立词 `词` 开头（词后不能紧跟标识符续字符）
+fn 以词开头(字符切片: &[char], 位置: usize, 词: &str) -> bool {
+    let 目标: Vec<char> = 词.chars().collect();
+    if 位置 + 目标.len() > 字符切片.len() || 字符切片[位置..位置 + 目标.len()] != 目标[..]
+    {
         return false;
     }
-    !matches!(chars.get(j + w.len()), Some(c) if is_ident_continue(*c))
+    !matches!(字符切片.get(位置 + 目标.len()), Some(当前) if 是标识符延续(*当前))
 }
 
-/// 收尾进行中的 `让` 扫描：无类型注解且初始化式类型无法自行推导时报告
-fn finish_let_scan(
-    let_scan: &mut Option<LetScan>,
-    warnings: &mut Vec<LintWarning>,
-    ambiguous_constructors: &HashSet<String>,
+/// 收尾进行中的 `让` 扫描：无类型注解且初始化式类型无法自行推导时，
+/// 记入候选（最终是否提示还要看绑定名在语句之后有没有引用）
+fn 完成让扫描(
+    让扫描状态: &mut Option<让声明扫描>,
+    待定列表: &mut Vec<待标注类型>,
+    歧义构造器: &HashSet<String>,
+    之后位置: usize,
 ) {
-    if let Some(scan) = let_scan.take()
-        && !scan.annotated
-        && initializer_needs_annotation(&scan.expr, ambiguous_constructors)
+    if let Some(扫描) = 让扫描状态.take()
+        && !扫描.已标注
+        && 初始化需标注(&扫描.初始化原文, 歧义构造器)
     {
-        warnings.push(LintWarning {
-            line: scan.line,
-            column: scan.column,
-            kind: LintKind::UntypedLet,
-            text: String::new(),
-            extra: String::new(),
+        待定列表.push(待标注类型 {
+            名字: 扫描.名字,
+            行号: 扫描.行号,
+            列号: 扫描.列号,
+            之后位置,
         });
     }
 }
@@ -1002,113 +1064,213 @@ fn finish_let_scan(
 ///
 /// Rust 的局部变量类型绝大多数可由初始化式推导（字面量、普通函数/方法
 /// 调用、宏、结构体/元组/数组、路径引用、块与控制流表达式）；仅少数
-/// 构造的结果类型依赖使用处，rustc 会以 E0282（type annotations needed）
+/// 构造的结果类型依赖使用处，rustc 会以 E0282（需要类型注解）
 /// 要求注解。教学提示只在这些位置才有建设性：
-/// - 无 turbofish 的歧义关联构造器：`X::new()`、`X::default()`
+/// - 无显式泛型的歧义关联构造器：`X::new()`、`X::default()`
 ///   （`X` 是任意路径段，含方言写法 `向量::新建()`——翻译后判定）；
-/// - 无 turbofish 的 `.collect()` 收集（目标集合类型未知）。
+/// - 无显式泛型的 `.collect()` 收集（目标集合类型未知）。
 ///
-/// 纯词法启发式（与扫描器同构，不做语法分析）；无法归类时保守不报告，
-/// 真歧义自有 rustc E0282 兜底。
-fn initializer_needs_annotation(expr: &str, ambiguous_constructors: &HashSet<String>) -> bool {
-    let e = expr.trim();
-    if e.is_empty() {
+/// 纯词法启发式（与扫描器同构，不做语法分析）；无法归类时保守不报告。
+/// 后续使用能补全类型（`让 v = 向量::新建(); v.推入(1);`）的绑定由
+/// [`后续有使用`] 排除；真歧义自有 rustc E0282 兜底。
+fn 初始化需标注(初始化原文: &str, 歧义构造器: &HashSet<String>) -> bool {
+    let 原文 = 初始化原文.trim();
+    if 原文.is_empty() {
         return false;
     }
     // 去空白紧致形式（允许跨行/任意空格布局）
-    let compact: String = e.chars().filter(|c| !c.is_whitespace()).collect();
-    // turbofish `::<类型>` 已显式给出类型，不再歧义
-    if compact.contains("::<") {
+    let 紧凑式: String = 原文.chars().filter(|当前| !当前.is_whitespace()).collect();
+    // 显式泛型 `::<类型>` 已给出类型，不再歧义
+    if 紧凑式.contains("::<") {
         return false;
     }
-    // .collect()（含方法链前缀）：目标集合类型未知
-    if compact.ends_with(".collect()") {
+    // `值.collect()`（含方法链前缀）：目标集合类型未知
+    if 紧凑式.ends_with(".collect()") {
         return true;
     }
     // 首个调用的被调名：取第一个 '(' 前的标识符末段
-    // 宏调用（'(' 紧邻 '!'，如 vec![]/println!()）跳过
-    let Some(open) = compact.find('(') else {
+    // 宏调用（'(' 紧邻 '!'，如 `向量![]`、`打印行!()`）跳过
+    let Some(左括号位) = 紧凑式.find('(') else {
         return false;
     };
-    if open > 0 && compact.as_bytes()[open - 1] == b'!' {
+    if 左括号位 > 0 && 紧凑式.as_bytes()[左括号位 - 1] == b'!' {
         return false;
     }
-    let before = &compact[..open];
+    let 之前段 = &紧凑式[..左括号位];
     // 路径末段（:: 之后），否则整段即被调名
-    let leaf = before.rsplit("::").next().unwrap_or(before);
+    let 末段 = 之前段.rsplit("::").next().unwrap_or(之前段);
     // 仅关联函数（路径含 ::）的歧义构造器提示；集合含英文 new/default
     // 与其各方言映射词（如「新建」「缺省」）；裸调用 `新建()` 不提示
-    before.contains("::") && ambiguous_constructors.contains(leaf)
+    之前段.contains("::") && 歧义构造器.contains(末段)
 }
 
-/// 数字字面量扫描：返回结束位置（i 应前进到的下标）
+/// 绑定名在语句结束之后是否仍被代码引用（字符串/注释/字段访问/路径段不计）
+///
+/// 局部变量类型推断是整函数级别的：`让 可变 v = 向量::新建();` 之后的
+/// `v.推入(路径)` 就把元素类型定成 `路径`，rustc 不再要求注解。这里只做
+/// 「后面还出现过这个名字」的保守判定——仍可能无解的使用（如仅 `v.长度()`）
+/// 由编译器 E0282 兜底；宁可少提示一条，也不误报。
+fn 后续有使用(字符切片: &[char], 起始下标: usize, 名字: &str) -> bool {
+    let 目标: Vec<char> = 名字.chars().collect();
+    let 长度 = 目标.len();
+    if 长度 == 0 || 起始下标 >= 字符切片.len() {
+        return false;
+    }
+    // 代码位置的标识符出现：前后须为边界，且不是 `对象.名字` / `路径::名字`
+    let 在该处匹配 = |位置: usize| {
+        字符切片[位置] == 目标[0]
+            && 位置 + 长度 <= 字符切片.len()
+            && 字符切片[位置..位置 + 长度] == 目标[..]
+            && (位置 == 0 || 是标识符边界(字符切片[位置 - 1]))
+            && 字符切片
+                .get(位置 + 长度)
+                .is_none_or(|当前| 是标识符边界(*当前))
+            && !(位置 > 0 && 字符切片[位置 - 1] == '.')
+            && !(位置 >= 2 && 字符切片[位置 - 1] == ':' && 字符切片[位置 - 2] == ':')
+    };
+    let mut 序号 = 起始下标;
+    let mut 字面量状态: u8 = 0; // 1 = 双引号串 2 = 字符
+    while 序号 < 字符切片.len() {
+        let 当前字符 = 字符切片[序号];
+        match 字面量状态 {
+            1 => {
+                if 当前字符 == '\\' {
+                    序号 += 2;
+                    continue;
+                }
+                if 当前字符 == '"' {
+                    字面量状态 = 0;
+                }
+                序号 += 1;
+                continue;
+            }
+            _ if 字面量状态 == 2 => {
+                if 当前字符 == '\\' {
+                    序号 += 2;
+                    continue;
+                }
+                if 当前字符 == '\'' {
+                    字面量状态 = 0;
+                }
+                序号 += 1;
+                continue;
+            }
+            _ => {}
+        }
+        // 行注释
+        if 当前字符 == '/' && 字符切片.get(序号 + 1) == Some(&'/') {
+            while 序号 < 字符切片.len() && 字符切片[序号] != '\n' {
+                序号 += 1;
+            }
+            continue;
+        }
+        // 块注释（不处理嵌套，与主扫描器同构）
+        if 当前字符 == '/' && 字符切片.get(序号 + 1) == Some(&'*') {
+            序号 += 2;
+            while 序号 + 1 < 字符切片.len() && !(字符切片[序号] == '*' && 字符切片[序号 + 1] == '/')
+            {
+                序号 += 1;
+            }
+            序号 = (序号 + 2).min(字符切片.len());
+            continue;
+        }
+        if 当前字符 == '"' {
+            字面量状态 = 1;
+            序号 += 1;
+            continue;
+        }
+        // 区分字符字面量 `'x'` 与生命周期 `'甲`：只有闭合成对的才进字符状态
+        if 当前字符 == '\''
+            && (字符切片.get(序号 + 1) == Some(&'\\') || 字符切片.get(序号 + 2) == Some(&'\''))
+        {
+            字面量状态 = 2;
+            序号 += 1;
+            continue;
+        }
+        if 在该处匹配(序号) {
+            return true;
+        }
+        序号 += 1;
+    }
+    false
+}
+
+/// 数字字面量扫描：返回结束位置（序号应前进到的下标）
 ///
 /// 跳过 0x/0b/0o 前缀字面量；解析十进制（含小数点/科学计数法/下划线），
 /// 值属于平凡集合（0/1/2 及其负数）时不报告。
-fn scan_number(
-    chars: &[char],
-    start: usize,
-    first: char,
-    warnings: &mut Vec<LintWarning>,
-    line: usize,
-    column: usize,
-    prev_plain: char,
+fn 扫描数字(
+    字符切片: &[char],
+    起始位置: usize,
+    首字符: char,
+    告警: &mut Vec<教学告警>,
+    行号: usize,
+    列号: usize,
+    前普通字符: char,
 ) -> usize {
-    let mut i = start;
+    let mut 序号 = 起始位置;
     // 0x/0b/0o 前缀：跳过整个字面量（教学场景罕见，不提示）
-    if first == '0' && i + 1 < chars.len() && matches!(chars[i + 1], 'x' | 'b' | 'o') {
-        i += 2;
-        while i < chars.len() && (chars[i].is_ascii_alphanumeric() || chars[i] == '_') {
-            i += 1;
+    if 首字符 == '0' && 序号 + 1 < 字符切片.len() && matches!(字符切片[序号 + 1], 'x' | 'b' | 'o')
+    {
+        序号 += 2;
+        while 序号 < 字符切片.len()
+            && (字符切片[序号].is_ascii_alphanumeric() || 字符切片[序号] == '_')
+        {
+            序号 += 1;
         }
-        return i;
+        return 序号;
     }
-    let number_start = i;
+    let 数字起点 = 序号;
     // 整数部分：[0-9_]+
-    while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '_') {
-        i += 1;
+    while 序号 < 字符切片.len() && (字符切片[序号].is_ascii_digit() || 字符切片[序号] == '_')
+    {
+        序号 += 1;
     }
     // 小数部分：. + [0-9_]+
-    if i + 1 < chars.len() && chars[i] == '.' && chars[i + 1].is_ascii_digit() {
-        i += 1;
-        while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '_') {
-            i += 1;
+    if 序号 + 1 < 字符切片.len() && 字符切片[序号] == '.' && 字符切片[序号 + 1].is_ascii_digit()
+    {
+        序号 += 1;
+        while 序号 < 字符切片.len() && (字符切片[序号].is_ascii_digit() || 字符切片[序号] == '_')
+        {
+            序号 += 1;
         }
     }
-    // 科学计数法：[eE][+-]?[0-9_]+
-    if i < chars.len() && matches!(chars[i], 'e' | 'E') {
-        let mut j = i + 1;
-        if j < chars.len() && matches!(chars[j], '+' | '-') {
-            j += 1;
+    // 科学计数法：指数标记后跟可选正负号与数字位
+    if 序号 < 字符切片.len() && matches!(字符切片[序号], 'e' | 'E') {
+        let mut 位置 = 序号 + 1;
+        if 位置 < 字符切片.len() && matches!(字符切片[位置], '+' | '-') {
+            位置 += 1;
         }
-        if j < chars.len() && chars[j].is_ascii_digit() {
-            i = j;
-            while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '_') {
-                i += 1;
+        if 位置 < 字符切片.len() && 字符切片[位置].is_ascii_digit() {
+            序号 = 位置;
+            while 序号 < 字符切片.len()
+                && (字符切片[序号].is_ascii_digit() || 字符切片[序号] == '_')
+            {
+                序号 += 1;
             }
         }
     }
     // 后随标识符字符（如 `42abc`）：非法代码，交给编译器，不提示
-    if i < chars.len() && is_ident_continue(chars[i]) {
-        return i;
+    if 序号 < 字符切片.len() && 是标识符延续(字符切片[序号]) {
+        return 序号;
     }
-    let text: String = chars[number_start..i].iter().collect();
+    let 文本值: String = 字符切片[数字起点..序号].iter().collect();
     // 平凡值排除：0/1/2（含浮点形式）与前导负号（-1/-2 等常见常量）
-    let cleaned: String = text.chars().filter(|c| *c != '_').collect();
-    let is_trivial = cleaned
+    let 清理后: String = 文本值.chars().filter(|当前| *当前 != '_').collect();
+    let 是平凡值 = 清理后
         .parse::<f64>()
-        .is_ok_and(|v| v == 0.0 || v == 1.0 || v == 2.0);
-    if is_trivial || prev_plain == '-' {
-        return i;
+        .is_ok_and(|数值| 数值 == 0.0 || 数值 == 1.0 || 数值 == 2.0);
+    if 是平凡值 || 前普通字符 == '-' {
+        return 序号;
     }
-    warnings.push(LintWarning {
-        line,
-        column,
-        kind: LintKind::MagicNumber,
-        text,
-        extra: String::new(),
+    告警.push(教学告警 {
+        行号,
+        列号,
+        告警种类: 告警类别::魔法数字,
+        相关文本: 文本值,
+        附加文本: String::new(),
     });
-    i
+    序号
 }
 
 /// 标识符续字符（数字后跟这些字符视为同一标识符）
@@ -1117,179 +1279,180 @@ fn scan_number(
 /// 要走 Unicode 通用类别查询，在教学扫描里占单字符开销的大头；这两类
 /// 字符已占方言源码绝大多数。其余文字（假名/谚文/西里尔/阿拉伯…）回落
 /// 标准判定，语义与 `c.is_alphanumeric() || c == '_'` 完全一致。
-fn is_ident_continue(c: char) -> bool {
-    let cp = c as u32;
-    if cp < 128 {
-        ASCII_IDENT[cp as usize]
+fn 是标识符延续(字符值: char) -> bool {
+    let 码位 = 字符值 as u32;
+    if 码位 < 128 {
+        标识符字符表[码位 as usize]
     } else {
-        is_cjk(c) || c.is_alphanumeric()
+        是中日韩字符(字符值) || 字符值.is_alphanumeric()
     }
 }
 
-/// ASCII 标识符字符表（字母/数字/下划线）：扫描器对每个字符都问一次，
+/// 标识符字符表（字母/数字/下划线）：扫描器对每个字符都问一次，
 /// 查表比三次区间比较少两次分支
-static ASCII_IDENT: [bool; 128] = {
-    let mut table = [false; 128];
-    let mut i = 0;
-    while i < 128 {
-        table[i] = (i >= b'0' as usize && i <= b'9' as usize)
-            || (i >= b'A' as usize && i <= b'Z' as usize)
-            || (i >= b'a' as usize && i <= b'z' as usize)
-            || i == b'_' as usize;
-        i += 1;
+static 标识符字符表: [bool; 128] = {
+    let mut 指示表 = [false; 128];
+    let mut 序号 = 0;
+    while 序号 < 128 {
+        指示表[序号] = (序号 >= b'0' as usize && 序号 <= b'9' as usize)
+            || (序号 >= b'A' as usize && 序号 <= b'Z' as usize)
+            || (序号 >= b'a' as usize && 序号 <= b'z' as usize)
+            || 序号 == b'_' as usize;
+        序号 += 1;
     }
-    table
+    指示表
 };
 
 /// 判定字符是否属于 CJK 统一表意文字（基本区 + 扩展 A）
-fn is_cjk(c: char) -> bool {
-    matches!(c, '\u{4E00}'..='\u{9FFF}' | '\u{3400}'..='\u{4DBF}')
+fn 是中日韩字符(字符值: char) -> bool {
+    matches!(字符值, '\u{4E00}'..='\u{9FFF}' | '\u{3400}'..='\u{4DBF}')
 }
 
 /// 前瞻扫描 `.` 后的方法名：收集连续 CJK 字符（如 `拉平`），
 /// 名字与 `(` 之间允许空格/tab；只有最终跟 `(`（调用位）才返回名字。
 /// 名字含 ASCII/假名等其他字符（如 `拉平_所有`、字段访问）时不判定。
 ///
-/// 返回字符切片而非 `String`：调用位可能极多，只有真的命中笔误才需要转成文本。
-fn scan_method_name(chars: &[char], dot: usize) -> Option<&[char]> {
-    let mut j = dot + 1;
-    while j < chars.len() && is_cjk(chars[j]) {
-        j += 1;
+/// 返回字符切片而非字符串：调用位可能极多，只有真的命中笔误才需要转成文本。
+fn 扫描方法名(字符切片: &[char], 点: usize) -> Option<&[char]> {
+    let mut 位置 = 点 + 1;
+    while 位置 < 字符切片.len() && 是中日韩字符(字符切片[位置]) {
+        位置 += 1;
     }
-    if j == dot + 1 {
+    if 位置 == 点 + 1 {
         return None;
     }
-    let mut k = j;
-    while k < chars.len() && (chars[k] == ' ' || chars[k] == '\t') {
-        k += 1;
+    let mut 结束位置 = 位置;
+    while 结束位置 < 字符切片.len() && (字符切片[结束位置] == ' ' || 字符切片[结束位置] == '\t')
+    {
+        结束位置 += 1;
     }
-    if k < chars.len() && chars[k] == '(' {
-        Some(&chars[dot + 1..j])
+    if 结束位置 < 字符切片.len() && 字符切片[结束位置] == '(' {
+        Some(&字符切片[点 + 1..位置])
     } else {
         None
     }
 }
 
 /// FNV-1a 64 位哈希：精确命中表用（短串上比 SipHash 快一个量级，且无密钥）
-fn fnv1a(bytes: &[u8]) -> u64 {
-    let mut hash = 0xcbf2_9ce4_8422_2325u64;
-    for &b in bytes {
-        hash ^= b as u64;
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+fn 哈希一甲(字节序列: &[u8]) -> u64 {
+    let mut 哈希值: u64 = 0xcbf2_9ce4_8422_2325;
+    for &字节值 in 字节序列 {
+        哈希值 ^= 字节值 as u64;
+        哈希值 = 哈希值.wrapping_mul(0x0000_0100_0000_01b3);
     }
-    hash
+    哈希值
 }
 
 /// 已知词表按字符数分桶后的索引（易混方法名判定用）
 ///
 /// 编辑距离 ≤1 只在长度差 ≤1 的词之间成立，分桶后每个方法名只需比较相邻
 /// 三桶；此前每次方法调用位都要扫一遍整张词表（语言包约千条），是整个教学
-/// lint 里最贵的一步。桶内顺序与 `HashSet` 迭代顺序一致，候选仍按字典序取
+/// 检查里最贵的一步。桶内顺序与 `哈希集合` 迭代顺序一致，候选仍按字典序取
 /// 最小，结果确定。
 ///
 /// 词表随语言包确定后不可变，而笔误检查只需「名字长度 ±1」的桶。早先
 /// 每份源码在第一个方法调用位才现场构建一次，小文件（CLI 批量、LSP 每次
-/// 编辑）上这份固定开销远大于扫描本身（实测：真实语料上占 lint 的 85%）。
+/// 编辑）上这份固定开销远大于扫描本身（实测：真实语料上占检查的 85%）。
 /// 现在改为拥有所有权、由调用方缓存
-/// （[`crate::映射管理器::映射管理器::lint_word_buckets`]）。
+/// （[`包::映射管理器::映射管理器::检查词形桶`]）。
 ///
-/// 词按桶顺序紧排在同一个 `String` 里，桶内只记 `(起始字节, 字节长度)`：
+/// 词按桶顺序紧排在同一个字符串里，桶内只记 `(起始字节, 字节长度)`：
 /// 词表上千条，逐词 `Box<str>` 会让一次性构建的开销涨到十倍。
 #[derive(Debug, Clone)]
 pub struct 词形分桶 {
-    words: String,
-    by_len: Vec<Vec<(u32, u32)>>,
+    词表: String,
+    按长度: Vec<Vec<(u32, u32)>>,
     /// 精确命中表（开放地址，槽存 `(起始字节, 字节长度)`，空槽起始为 `u32::MAX`）
     ///
     /// 真实语料里方法调用位绝大多数是**合法词**（`.推送(`），笔误极少；早先
-    /// 每个调用位都要线性扫长度 ±1 三个桶（zh 词表实测平均 721 条候选）才能
-    /// 确认「名字本身在词表里」，占教学 lint 一半以上。有这张表只需一次哈希
+    /// 每个调用位都要线性扫长度 ±1 三个桶（母语词表实测平均 721 条候选）才能
+    /// 确认「名字本身在词表里」，占教学检查一半以上。有这张表只需一次哈希
     /// 探测。惰性构建路径（单文件 API）不建此表——词表上千条时每份源码重建
     /// 与扫描同量级。
-    exact: Option<Box<[(u32, u32)]>>,
+    精确表: Option<Box<[(u32, u32)]>>,
 }
 
 impl 词形分桶 {
     /// 按字符数把词表切成分桶
-    pub fn build(known: &HashSet<String>) -> Self {
-        let mut words = String::with_capacity(known.len() * 8);
-        let mut by_len: Vec<Vec<(u32, u32)>> = Vec::new();
-        for word in known {
-            let len = word.chars().count();
-            if by_len.len() <= len {
-                by_len.resize(len + 1, Vec::new());
+    pub fn 构建(已知词: &HashSet<String>) -> Self {
+        let mut 词表 = String::with_capacity(已知词.len() * 8);
+        let mut 按长度: Vec<Vec<(u32, u32)>> = Vec::new();
+        for 词 in 已知词 {
+            let 长度 = 词.chars().count();
+            if 按长度.len() <= 长度 {
+                按长度.resize(长度 + 1, Vec::new());
             }
-            let start = words.len() as u32;
-            words.push_str(word);
-            by_len[len].push((start, word.len() as u32));
+            let 起点 = 词表.len() as u32;
+            词表.push_str(词);
+            按长度[长度].push((起点, 词.len() as u32));
         }
         Self {
-            words,
-            by_len,
-            exact: None,
+            词表,
+            按长度,
+            精确表: None,
         }
     }
 
     /// 追加精确命中表（每语言包建一次，不是每份源码一次）
     ///
-    /// 开放地址线性探测，容量取词数的两倍向上取整；槽里存词在公共 `words`
+    /// 开放地址线性探测，容量取词数的两倍向上取整；槽里存词在公共 `词表`
     /// 串中的位置，不复制字符串。只由缓存索引的调用方
-    /// （[`crate::映射管理器::映射管理器::lint_word_buckets`]）调用。
+    /// （[`包::映射管理器::映射管理器::检查词形桶`]）调用。
     #[must_use]
     pub fn 带精确索引(mut self) -> Self {
-        let count: usize = self.by_len.iter().map(Vec::len).sum();
-        if count == 0 {
+        let 总数: usize = self.按长度.iter().map(Vec::len).sum();
+        if 总数 == 0 {
             return self;
         }
-        let cap = (count * 2).next_power_of_two();
-        let mut table = vec![(u32::MAX, 0u32); cap];
-        for bucket in &self.by_len {
-            for &(start, len) in bucket {
-                let key = &self.words[start as usize..start as usize + len as usize];
-                let mut slot = (fnv1a(key.as_bytes()) as usize) & (cap - 1);
-                while table[slot].0 != u32::MAX {
-                    slot = (slot + 1) & (cap - 1);
+        let 容量 = (总数 * 2).next_power_of_two();
+        let mut 表 = vec![(u32::MAX, 0u32); 容量];
+        for 桶 in &self.按长度 {
+            for &(起点, 长度) in 桶 {
+                let 键 = &self.词表[起点 as usize..起点 as usize + 长度 as usize];
+                let mut 槽 = (哈希一甲(键.as_bytes()) as usize) & (容量 - 1);
+                while 表[槽].0 != u32::MAX {
+                    槽 = (槽 + 1) & (容量 - 1);
                 }
-                table[slot] = (start, len);
+                表[槽] = (起点, 长度);
             }
         }
-        self.exact = Some(table.into_boxed_slice());
+        self.精确表 = Some(表.into_boxed_slice());
         self
     }
 
-    /// 名字是否恰为词表里的词：`None` 表示未建精确表（惰性路径）
-    fn exact_hit(&self, probe: &str) -> Option<bool> {
-        let table = self.exact.as_deref()?;
-        if table.is_empty() {
-            return Some(false);
+    /// 名字是否恰为词表里的词：`无` 表示未建精确表（惰性路径）
+    fn 精确命中(&self, 探测词: &str) -> Option<bool> {
+        let 表 = self.精确表.as_deref()?;
+        if 表.is_empty() {
+            return Some(假值);
         }
-        let mask = table.len() - 1;
-        let mut slot = (fnv1a(probe.as_bytes()) as usize) & mask;
+        let 掩码 = 表.len() - 1;
+        let mut 槽 = (哈希一甲(探测词.as_bytes()) as usize) & 掩码;
         loop {
-            let (start, len) = table[slot];
-            if start == u32::MAX {
-                return Some(false);
+            let (起点, 长度) = 表[槽];
+            if 起点 == u32::MAX {
+                return Some(假值);
             }
-            let word = &self.words[start as usize..start as usize + len as usize];
-            if word == probe {
-                return Some(true);
+            let 词 = &self.词表[起点 as usize..起点 as usize + 长度 as usize];
+            if 词 == 探测词 {
+                return Some(真值);
             }
-            slot = (slot + 1) & mask;
+            槽 = (槽 + 1) & 掩码;
         }
     }
 
-    /// 字符数为 `len-1` / `len` / `len+1` 的词（缺失的桶自动跳过）
+    /// 字符数为 `长度-1` / `长度` / `长度+1` 的词（缺失的桶自动跳过）
     ///
     /// 连同桶长一起产出：候选词字符数即桶索引，省得下游每词重数一遍
-    /// `chars().count()`（实测算术，一次候选扫描里占近半）
-    fn near(&self, len: usize) -> impl Iterator<Item = (usize, &str)> + '_ {
-        let words = self.words.as_str();
-        (len.saturating_sub(1)..=len.saturating_add(1))
-            .filter_map(move |i| self.by_len.get(i).map(|bucket| (i, bucket)))
-            .flat_map(move |(i, bucket)| {
-                bucket.iter().map(move |&(start, length)| {
-                    let start = start as usize;
-                    (i, &words[start..start + length as usize])
+    /// `逐字符().计数()`（实测算术，一次候选扫描里占近半）
+    fn 邻近桶(&self, 长度: usize) -> impl Iterator<Item = (usize, &str)> + '_ {
+        let 词表 = self.词表.as_str();
+        (长度.saturating_sub(1)..=长度.saturating_add(1))
+            .filter_map(move |序号| self.按长度.get(序号).map(|桶| (序号, 桶)))
+            .flat_map(move |(序号, 桶)| {
+                桶.iter().map(move |&(起点, 长度)| {
+                    let 起点 = 起点 as usize;
+                    (序号, &词表[起点..起点 + 长度 as usize])
                 })
             })
     }
@@ -1297,85 +1460,86 @@ impl 词形分桶 {
 
 /// 在已知词表中寻找与未命中方法名编辑距离 ≤1 的候选（按字典序取
 /// 首个，结果确定）；名字本身在表中或过短（单字）时不提示。
-fn confusable_candidate<'a>(name: &[char], index: &'a 词形分桶) -> Option<&'a str> {
-    if name.len() < 2 {
+fn 易混候选<'甲>(名字: &[char], 索引: &'甲 词形分桶) -> Option<&'甲 str> {
+    if 名字.len() < 2 {
         return None;
     }
     // 名字本身就是合法词（真实语料里绝大多数方法调用位）：一次哈希探测即
     // 收工，不必扫三个长度桶的候选。惰性路径未建精确表，走下面的逐词比较。
-    let probe: String = name.iter().collect();
-    if index.exact_hit(&probe) == Some(true) {
+    let 探测词: String = 名字.iter().collect();
+    if 索引.精确命中(&探测词) == Some(真值) {
         return None;
     }
-    let mut best: Option<&'a str> = None;
-    for (word_len, word) in index.near(name.len()) {
-        // 名字本身在词表中：不是笔误。逐字符比较代替 `contains(&str)`，
-        // 免去为切片构造临时 String（相等的词必与名字同长，落在本轮桶内）
-        if word_len == name.len() && word.chars().eq(name.iter().copied()) {
+    let mut 最佳: Option<&'甲 str> = None;
+    for (词长度, 词) in 索引.邻近桶(名字.len()) {
+        // 名字本身在词表中：不是笔误。逐字符比较代替 `包含(&文本)`，
+        // 免去为切片构造临时字符串（相等的词必与名字同长，落在本轮桶内）
+        if 词长度 == 名字.len() && 词.chars().eq(名字.iter().copied()) {
             return None;
         }
-        if within_one_edit(name, word, word_len) && best.is_none_or(|prev| word < prev) {
-            best = Some(word);
+        if 一次编辑内(名字, 词, 词长度) && 最佳.is_none_or(|前项| 词 < 前项) {
+            最佳 = Some(词);
         }
     }
-    best
+    最佳
 }
 
 /// 编辑距离 ≤1 的近似判定（等长时恰有一处不同；差一字时短词是长词
 /// 删去一个字符的结果），用于易混词候选筛选。
 ///
-/// `a` 为字符切片（调用方已持有），`b` 按需取字符迭代器——两侧都不分配；
-/// 此前每个候选词都要为两侧各物化一个 `Vec<char>`。`b_len` 由分桶索引直接
-/// 给出（桶索引即字符数），不再逐候选 `chars().count()` 重数。
-fn within_one_edit(a: &[char], b: &str, b_len: usize) -> bool {
-    if a.len() == b_len {
+/// `甲` 为字符切片（调用方已持有），`乙` 按需取字符迭代器——两侧都不分配；
+/// 此前每个候选词都要为两侧各物化一个 `向量<字符>`。`乙长度` 由分桶索引直接
+/// 给出（桶索引即字符数），不再逐候选 `逐字符().计数()` 重数。
+fn 一次编辑内(甲: &[char], 乙: &str, 乙长度: usize) -> bool {
+    if 甲.len() == 乙长度 {
         // 等长：恰好一处不同；发现第二处即失败，不必数完全程
-        let mut diff = 0usize;
-        for (x, y) in a.iter().zip(b.chars()) {
-            if *x != y {
-                diff += 1;
-                if diff > 1 {
+        let mut 差异数 = 0usize;
+        for (左项, 右项) in 甲.iter().zip(乙.chars()) {
+            if *左项 != 右项 {
+                差异数 += 1;
+                if 差异数 > 1 {
                     return false;
                 }
             }
         }
-        diff == 1
-    } else if a.len() + 1 == b_len {
-        one_char_insertion(a.iter().copied(), b.chars())
-    } else if b_len + 1 == a.len() {
-        one_char_insertion(b.chars(), a.iter().copied())
+        差异数 == 1
+    } else if 甲.len() + 1 == 乙长度 {
+        单字符插入(甲.iter().copied(), 乙.chars())
+    } else if 乙长度 + 1 == 甲.len() {
+        单字符插入(乙.chars(), 甲.iter().copied())
     } else {
         false
     }
 }
 
-/// 判定 `short` 是否恰为 `long` 删去一个字符的结果（两侧均按字符迭代）
-fn one_char_insertion(short: impl Iterator<Item = char>, long: impl Iterator<Item = char>) -> bool {
-    let mut short = short.peekable();
-    let mut long = long.peekable();
-    let mut skipped = false;
+/// 判定 `短序列` 是否恰为 `长序列` 删去一个字符的结果（两侧均按字符迭代）
+fn 单字符插入(
+    短序列: impl Iterator<Item = char>, 长序列: impl Iterator<Item = char>
+) -> bool {
+    let mut 短序列 = 短序列.peekable();
+    let mut 长序列 = 长序列.peekable();
+    let mut 已跳过 = false;
     loop {
-        match (short.peek().copied(), long.peek().copied()) {
+        match (短序列.peek().copied(), 长序列.peek().copied()) {
             (None, _) => return true,
-            (Some(s), Some(l)) if s == l => {
-                let _ = (short.next(), long.next());
+            (Some(短项), Some(长项)) if 短项 == 长项 => {
+                let _ = (短序列.next(), 长序列.next());
             }
-            (Some(_), Some(_)) if skipped => return false,
+            (Some(_), Some(_)) if 已跳过 => return false,
             (Some(_), Some(_)) => {
-                skipped = true;
-                let _ = long.next();
+                已跳过 = true;
+                let _ = 长序列.next();
             }
             (Some(_), None) => return false,
         }
     }
 }
-
 #[cfg(test)]
-mod tests {
+mod 母语测试 {
     use super::*;
 
-    /// 测试用歧义构造器词集（模拟语言包：新建→new、缺省→default）
-    fn zh_ambiguous() -> HashSet<String> {
+    /// 测试用歧义构造器词集（模拟语言包：`索引.新建()` 对应 `索引.new()`、`索引.缺省()` 对应 `索引.default()`）
+    fn 中文歧义() -> HashSet<String> {
         [
             "new".to_string(),
             "default".to_string(),
@@ -1387,20 +1551,20 @@ mod tests {
     }
 
     #[test]
-    fn test_untyped_let_detected() {
+    fn 检测未标注类型() {
         // 类型无法自行推导的关联构造器调用才提示（普通字面量不再触发）
-        let src = "函数 主函数() {\n    让 x = 向量::新建();\n}";
-        let warnings = lint_teaching_with_words(src, &HashSet::new(), &zh_ambiguous());
-        assert_eq!(warnings.len(), 1, "{warnings:?}");
-        assert_eq!(warnings[0].kind, LintKind::UntypedLet);
-        assert_eq!(warnings[0].line, 2);
-        assert_eq!(warnings[0].column, 5);
+        let 源码 = "函数 主函数() {\n    让 x = 向量::新建();\n}";
+        let 告警 = 按词表检查教学(源码, &HashSet::new(), &中文歧义());
+        assert_eq!(告警.len(), 1, "{告警:?}");
+        assert_eq!(告警[0].告警种类, 告警类别::未标注类型);
+        assert_eq!(告警[0].行号, 2);
+        assert_eq!(告警[0].列号, 5);
     }
 
     /// 类型可自行推导的初始化式一律不报（用户反馈：自动推导时提示成噪音）
     #[test]
-    fn test_inferable_initializers_not_flagged() {
-        let cases = [
+    fn 可推导初始化式不提示() {
+        let 样例集 = [
             "函数 主函数() {\n    让 x = 1;\n}",                 // 整数字面量
             "函数 主函数() {\n    让 s = \"你好\";\n}",          // 字符串
             "函数 主函数() {\n    让 b = 真;\n}",                // 布尔
@@ -1413,23 +1577,25 @@ mod tests {
             "函数 主函数() {\n    让 a = [1, 2];\n}",            // 数组
             "函数 主函数() {\n    让 r = serde_json::from_str(\"{}\");\n}", // 普通关联函数
             "函数 主函数() {\n    让 x = 常量名;\n}",            // 路径/常量
-            "函数 主函数() {\n    让 v = 向量::新建::<i32>();\n}", // turbofish 已给类型
+            "函数 主函数() {\n    让 v = 向量::新建::<i32>();\n}", // 泛型标注已给类型
             "函数 主函数() {\n    让 v: 整数 = 向量::新建();\n}", // 已注解
         ];
-        for source in cases {
-            let warnings = lint_teaching_with_words(source, &HashSet::new(), &zh_ambiguous());
+        for 源码 in 样例集 {
+            let 告警 = 按词表检查教学(源码, &HashSet::new(), &中文歧义());
             assert!(
-                !warnings.iter().any(|w| w.kind == LintKind::UntypedLet),
-                "可推导初始化式不应提示: {source}\n{warnings:?}"
+                !告警
+                    .iter()
+                    .any(|告警项| 告警项.告警种类 == 告警类别::未标注类型),
+                "可推导初始化式不应提示: {源码}\n{告警:?}"
             );
         }
     }
 
-    /// 真正歧义（rustc 也会 E0282）的形态：无 turbofish 的 new/default
-    /// 关联构造（含各方言词）与 .collect()
+    /// 真正歧义（rustc 也会 E0282）的形态：无显式泛型的「新建」「缺省」
+    /// 关联构造（含各方言词）与 `值.collect()`
     #[test]
-    fn test_ambiguous_initializers_flagged() {
-        let cases = [
+    fn 歧义初始化式提示() {
+        let 样例集 = [
             "函数 主函数() {\n    让 x = Vec::new();\n}",
             "函数 主函数() {\n    让 x = 向量::新建();\n}",
             "函数 主函数() {\n    让 x = Default::default();\n}",
@@ -1437,11 +1603,13 @@ mod tests {
             "函数 主函数() {\n    让 x = (0..10).collect();\n}",
             "函数 主函数() {\n    让 x = 项们.迭代().collect();\n}",
         ];
-        for source in cases {
-            let warnings = lint_teaching_with_words(source, &HashSet::new(), &zh_ambiguous());
+        for 源码 in 样例集 {
+            let 告警 = 按词表检查教学(源码, &HashSet::new(), &中文歧义());
             assert!(
-                warnings.iter().any(|w| w.kind == LintKind::UntypedLet),
-                "歧义初始化式应提示: {source}\n{warnings:?}"
+                告警
+                    .iter()
+                    .any(|告警项| 告警项.告警种类 == 告警类别::未标注类型),
+                "歧义初始化式应提示: {源码}\n{告警:?}"
             );
         }
     }
@@ -1450,36 +1618,40 @@ mod tests {
     /// 这类绑定须标注整个模式的类型（教学示例均不标注），提示无解且成
     /// 噪音（回归：教程第四/十一章解构写法被误报）
     #[test]
-    fn test_pattern_destructuring_not_flagged() {
-        let cases = [
+    fn 模式解构不提示() {
+        let 样例集 = [
             "函数 主函数() {\n    让 (甲, 乙) = (1, 2);\n}",
             "函数 主函数() {\n    让 点 { x, y } = 某点;\n}",
             "函数 主函数() {\n    让 [首, 次] = 列表;\n}",
             "函数 主函数() {\n    让 可变 (丙, 丁) = (1, 2);\n}",
         ];
-        for source in cases {
-            let warnings = lint_teaching(source);
+        for 源码 in 样例集 {
+            let 告警 = 检查教学(源码);
             assert!(
-                !warnings.iter().any(|w| w.kind == LintKind::UntypedLet),
-                "模式解构不应提示未标注类型: {source}\n{warnings:?}"
+                !告警
+                    .iter()
+                    .any(|告警项| 告警项.告警种类 == 告警类别::未标注类型),
+                "模式解构不应提示未标注类型: {源码}\n{告警:?}"
             );
         }
     }
 
-    /// 让-否则（let-else）与 let 链中的模式绑定同样不提示；
+    /// 让-否则（让 否则）与让 链中的模式绑定同样不提示；
     /// `枚举::变体(数)` 限定路径模式（`::` 非类型标注）也不提示
     #[test]
-    fn test_let_else_chain_and_path_pattern_not_flagged() {
-        let cases = [
+    fn 让否则链与路径模式不提示() {
+        let 样例集 = [
             "函数 主函数() {\n    让 有值(数) = 输入 否则 {\n        返回;\n    };\n}",
             "函数 主函数() {\n    如果让 有值(a) = 有值(1) && 让 有值(b) = 有值(2) {\n        打印行!(\"{}\", a);\n    }\n}",
             "函数 主函数() {\n    让 选项::有值(数) = 输入;\n}",
         ];
-        for source in cases {
-            let warnings = lint_teaching(source);
+        for 源码 in 样例集 {
+            let 告警 = 检查教学(源码);
             assert!(
-                !warnings.iter().any(|w| w.kind == LintKind::UntypedLet),
-                "模式绑定不应提示未标注类型: {source}\n{warnings:?}"
+                !告警
+                    .iter()
+                    .any(|告警项| 告警项.告警种类 == 告警类别::未标注类型),
+                "模式绑定不应提示未标注类型: {源码}\n{告警:?}"
             );
         }
     }
@@ -1487,8 +1659,8 @@ mod tests {
     /// 歧义构造器绑定（含「可变」前缀）照常提示；
     /// 显式标注（含「可变」）豁免；字面量绑定不提示
     #[test]
-    fn test_simple_binding_still_flagged() {
-        let source = concat!(
+    fn 简单绑定仍提示() {
+        let 源码 = concat!(
             "函数 主函数() {\n",
             "    让 x = 向量::新建();\n",
             "    让 可变 y = 向量::新建();\n",
@@ -1497,175 +1669,230 @@ mod tests {
             "    让 z = 1;\n",
             "}"
         );
-        let warnings = lint_teaching_with_words(source, &HashSet::new(), &zh_ambiguous());
-        let untyped: Vec<_> = warnings
+        let 告警 = 按词表检查教学(源码, &HashSet::new(), &中文歧义());
+        let 未标注集: Vec<_> = 告警
             .iter()
-            .filter(|w| w.kind == LintKind::UntypedLet)
+            .filter(|告警项| 告警项.告警种类 == 告警类别::未标注类型)
             .collect();
-        assert_eq!(untyped.len(), 2, "{warnings:?}");
-        assert_eq!(untyped[0].line, 2);
-        assert_eq!(untyped[1].line, 3);
+        assert_eq!(未标注集.len(), 2, "{告警:?}");
+        assert_eq!(未标注集[0].行号, 2);
+        assert_eq!(未标注集[1].行号, 3);
+    }
+
+    /// 绑定在语句之后仍有引用时，类型由使用处推导（`向量::新建()` 后接
+    /// `.推入(...)` 即补全元素类型），不应提示——回归：`让 可变 已删除 =
+    /// 向量::新建();` 后接 `已删除.推入(条目路径.克隆值())` 被误报
+    #[test]
+    fn 后续使用不提示() {
+        let 样例集 = [
+            concat!(
+                "函数 主函数() {\n",
+                "    让 可变 已删除 = 向量::新建();\n",
+                "    对于 条目路径 在 项们 {\n",
+                "        已删除.推入(条目路径.克隆值());\n",
+                "    }\n",
+                "}"
+            ),
+            "函数 主函数() {\n    让 v = 向量::新建();\n    v.推入(1);\n}",
+            "函数 主函数() {\n    让 v = Default::default();\n    v.推入(1);\n}",
+        ];
+        for 源码 in 样例集 {
+            let 告警 = 按词表检查教学(源码, &HashSet::new(), &中文歧义());
+            assert!(
+                !告警
+                    .iter()
+                    .any(|告警项| 告警项.告警种类 == 告警类别::未标注类型),
+                "后续使用已补全类型，不应提示: {源码}\n{告警:?}"
+            );
+        }
+    }
+
+    /// 同名文本只是别处的字段访问、路径段、字符串或注释，不算绑定被使用
+    #[test]
+    fn 后续使用只计真实引用() {
+        let 源码 = concat!(
+            "函数 主函数() {\n",
+            "    让 v = 向量::新建();\n",
+            "    打印行!(\"{}\", 结构.v);\n",
+            "    让 s = \"v\";\n",
+            "    // v.推入(1);\n",
+            "    让 结果 = 模块::v;\n",
+            "}"
+        );
+        let 告警 = 按词表检查教学(源码, &HashSet::new(), &中文歧义());
+        assert!(
+            告警
+                .iter()
+                .any(|告警项| 告警项.告警种类 == 告警类别::未标注类型 && 告警项.行号 == 2),
+            "无真实引用时应仍提示: {告警:?}"
+        );
     }
 
     /// 空行/纯空白行计入行号：警告位置不得因空行而前移
     ///（回归：第 5 行的 `让` 因两个空行被报成第 3 行）
     #[test]
-    fn test_blank_lines_counted_in_line_numbers() {
-        let warnings = lint_teaching("// 注释\n\n// 注释\n   \n让 x = Foo::new();");
-        assert_eq!(warnings.len(), 1, "{warnings:?}");
-        assert_eq!(warnings[0].kind, LintKind::UntypedLet);
-        assert_eq!(warnings[0].line, 5);
-        assert_eq!(warnings[0].column, 1);
+    fn 空行计入行号() {
+        let 告警 = 检查教学("// 注释\n\n// 注释\n   \n让 x = Foo::new();");
+        assert_eq!(告警.len(), 1, "{告警:?}");
+        assert_eq!(告警[0].告警种类, 告警类别::未标注类型);
+        assert_eq!(告警[0].行号, 5);
+        assert_eq!(告警[0].列号, 1);
     }
 
     #[test]
-    fn test_annotated_let_ok() {
-        let warnings = lint_teaching("函数 主函数() {\n    让 x: 整数 = 5;\n}");
+    fn 已标注让通过() {
+        let 告警 = 检查教学("函数 主函数() {\n    让 x: 整数 = 5;\n}");
         assert!(
-            !warnings.iter().any(|w| w.kind == LintKind::UntypedLet),
-            "{warnings:?}"
+            !告警
+                .iter()
+                .any(|告警项| 告警项.告警种类 == 告警类别::未标注类型),
+            "{告警:?}"
         );
     }
 
     /// 路径分隔符 `::` 出现在 `=` 之后时不是类型注解；
     /// 方言构造器词（新建）经歧义词集识别后仍应提示
     #[test]
-    fn test_path_separator_after_eq_not_annotation() {
-        let warnings = lint_teaching_with_words(
+    fn 等号后路径分隔符非注解() {
+        let 告警 = 按词表检查教学(
             "函数 主函数() {\n    让 x = 向量::新建();\n}",
             &HashSet::new(),
-            &zh_ambiguous(),
+            &中文歧义(),
         );
         assert!(
-            warnings.iter().any(|w| w.kind == LintKind::UntypedLet),
-            "{warnings:?}"
+            告警
+                .iter()
+                .any(|告警项| 告警项.告警种类 == 告警类别::未标注类型),
+            "{告警:?}"
         );
     }
 
     /// 字符串/注释内的 `让` 与分号不参与判定
     #[test]
-    fn test_strings_and_comments_ignored() {
-        let source = "函数 主函数() {\n    // 让 y = 1; 注释里的代码\n    让 s = \"让 z = 2;\";\n}";
-        let warnings = lint_teaching(source);
+    fn 字符串与注释被忽略() {
+        let 源码 = "函数 主函数() {\n    // 让 y = 1; 注释里的代码\n    让 s = \"让 z = 2;\";\n}";
+        let 告警 = 检查教学(源码);
         assert!(
-            !warnings
+            !告警
                 .iter()
-                .any(|w| w.kind == LintKind::UntypedLet && w.line == 2),
-            "{warnings:?}"
+                .any(|告警项| 告警项.告警种类 == 告警类别::未标注类型 && 告警项.行号 == 2),
+            "{告警:?}"
         );
     }
 
     #[test]
-    fn test_magic_number_reported() {
-        let warnings = lint_teaching("函数 主函数() {\n    让 数量: 整数 = 42;\n}");
-        assert_eq!(warnings.len(), 1, "{warnings:?}");
-        assert_eq!(warnings[0].kind, LintKind::MagicNumber);
-        assert_eq!(warnings[0].text, "42");
-        assert_eq!(warnings[0].line, 2);
+    fn 报告魔法数字() {
+        let 告警 = 检查教学("函数 主函数() {\n    让 数量: 整数 = 42;\n}");
+        assert_eq!(告警.len(), 1, "{告警:?}");
+        assert_eq!(告警[0].告警种类, 告警类别::魔法数字);
+        assert_eq!(告警[0].相关文本, "42");
+        assert_eq!(告警[0].行号, 2);
     }
 
     /// 「教学忽略」标记行：三种规则均不报告（教师标注故意不修的示例）
     #[test]
-    fn test_ignore_mark_skips_line() {
-        let source = concat!(
+    fn 忽略标记跳过行() {
+        let 源码 = concat!(
             "函数 主函数() {\n",
             "    让 x = 向量::新建();  // 教学忽略\n",
             "    让 数量: 整数 = 42;  // 教学忽略：这行也跳过\n",
             "    让 y = (0..1).collect();\n",
             "}"
         );
-        let warnings = lint_teaching_with_words(source, &HashSet::new(), &zh_ambiguous());
+        let 告警 = 按词表检查教学(源码, &HashSet::new(), &中文歧义());
         assert!(
-            !warnings.iter().any(|w| w.line == 2 || w.line == 3),
-            "标记行不应有警告: {warnings:?}"
+            !告警
+                .iter()
+                .any(|告警项| 告警项.行号 == 2 || 告警项.行号 == 3),
+            "标记行不应有警告: {告警:?}"
         );
         // 未标记行照常报告
         assert!(
-            warnings
+            告警
                 .iter()
-                .any(|w| w.line == 4 && w.kind == LintKind::UntypedLet),
-            "{warnings:?}"
+                .any(|告警项| 告警项.行号 == 4 && 告警项.告警种类 == 告警类别::未标注类型),
+            "{告警:?}"
         );
     }
 
-    /// 「教学忽略」标记的字符切片判定（不分配 String）：含标记才收行号
+    /// 「教学忽略」标记的字符切片判定（不分配字符串）：含标记才收行号
     #[test]
-    fn test_contains_ignore_mark() {
-        let mark: Vec<char> = IGNORE_MARK.chars().collect();
-        assert!(contains_ignore_mark(&mark));
+    fn 含忽略标记判定() {
+        let 标记: Vec<char> = 忽略标记.chars().collect();
+        assert!(含忽略标记(&标记));
         // 前后带注释上下文（教程里的常见写法）
-        let mut padded: Vec<char> = "// ".chars().collect();
-        padded.extend(mark.iter().copied());
-        padded.extend("：这行故意不修".chars());
-        assert!(contains_ignore_mark(&padded));
+        let mut 填充: Vec<char> = "// ".chars().collect();
+        填充.extend(标记.iter().copied());
+        填充.extend("：这行故意不修".chars());
+        assert!(含忽略标记(&填充));
         // 普通注释、标记前缀（不足一个标记）、空切片
-        assert!(!contains_ignore_mark(
-            &"// 普通注释".chars().collect::<Vec<_>>()
-        ));
-        assert!(!contains_ignore_mark(&mark[..mark.len() - 1]));
-        assert!(!contains_ignore_mark(&[]));
+        assert!(!含忽略标记(&"// 普通注释".chars().collect::<Vec<_>>()));
+        assert!(!含忽略标记(&标记[..标记.len() - 1]));
+        assert!(!含忽略标记(&[]));
     }
 
     /// 字符串里的「教学忽略」文本不生效（仅在代码行注释中识别）
     #[test]
-    fn test_ignore_mark_in_string_not_effective() {
-        let source = "函数 主函数() {\n    让 x = Foo::new(\"教学忽略\");\n}";
-        let warnings = lint_teaching(source);
+    fn 字符串内忽略标记无效() {
+        let 源码 = "函数 主函数() {\n    让 x = Foo::new(\"教学忽略\");\n}";
+        let 告警 = 检查教学(源码);
         assert!(
-            warnings
+            告警
                 .iter()
-                .any(|w| w.line == 2 && w.kind == LintKind::UntypedLet),
-            "{warnings:?}"
+                .any(|告警项| 告警项.行号 == 2 && 告警项.告警种类 == 告警类别::未标注类型),
+            "{告警:?}"
         );
     }
 
     #[test]
-    fn test_trivial_numbers_ok() {
+    fn 平凡数字通过() {
         // 0/1/2、负的 1/2、标识符内数字、字符串内数字均不提示
-        let source = "函数 主函数() {\n    让 a = 0;\n    让 b = 1;\n    让 c = -2;\n    让 d = 数量2;\n    让 e = \"3\";\n}";
-        let warnings = lint_teaching(source);
+        let 源码 = "函数 主函数() {\n    让 a = 0;\n    让 b = 1;\n    让 c = -2;\n    让 d = 数量2;\n    让 e = \"3\";\n}";
+        let 告警 = 检查教学(源码);
         assert!(
-            !warnings.iter().any(|w| w.kind == LintKind::MagicNumber),
-            "{warnings:?}"
+            !告警
+                .iter()
+                .any(|告警项| 告警项.告警种类 == 告警类别::魔法数字),
+            "{告警:?}"
         );
     }
 
     #[test]
-    fn test_hex_and_underscore_literals() {
-        let warnings = lint_teaching("函数 主函数() {\n    让 a = 0xFF;\n    让 b = 1_000;\n}");
-        let magic: Vec<_> = warnings
+    fn 十六进制与下划线字面量() {
+        let 告警 = 检查教学("函数 主函数() {\n    让 a = 0xFF;\n    让 b = 1_000;\n}");
+        let 魔法数字集: Vec<_> = 告警
             .iter()
-            .filter(|w| w.kind == LintKind::MagicNumber)
-            .map(|w| w.text.clone())
+            .filter(|告警项| 告警项.告警种类 == 告警类别::魔法数字)
+            .map(|告警项| 告警项.相关文本.clone())
             .collect();
-        assert_eq!(magic, vec!["1_000".to_string()], "{warnings:?}");
+        assert_eq!(魔法数字集, vec!["1_000".to_string()], "{告警:?}");
     }
 
     #[test]
-    fn test_float_literal_reported() {
-        let warnings = lint_teaching("函数 主函数() {\n    让 比例: 浮点数 = 0.5;\n}");
-        assert_eq!(warnings.len(), 1, "{warnings:?}");
-        assert_eq!(warnings[0].kind, LintKind::MagicNumber);
-        assert_eq!(warnings[0].text, "0.5");
+    fn 报告浮点字面量() {
+        let 告警 = 检查教学("函数 主函数() {\n    让 比例: 浮点数 = 0.5;\n}");
+        assert_eq!(告警.len(), 1, "{告警:?}");
+        assert_eq!(告警[0].告警种类, 告警类别::魔法数字);
+        assert_eq!(告警[0].相关文本, "0.5");
     }
 
     /// #14：方法调用位未命中映射表且与表内词编辑距离 ≤1 → 提示疑似笔误
     #[test]
-    fn test_confusable_method_hint() {
-        let known: HashSet<String> = ["展平".to_string(), "长度".to_string()]
+    fn 易混方法提示() {
+        let 已知词: HashSet<String> = ["展平".to_string(), "长度".to_string()]
             .into_iter()
             .collect();
-        let source = "函数 主函数() {\n    让 x = 项们.拉平();\n}";
-        let warnings = lint_teaching_with_words(source, &known, &zh_ambiguous());
-        let hints: Vec<_> = warnings
+        let 源码 = "函数 主函数() {\n    让 x = 项们.拉平();\n}";
+        let 告警 = 按词表检查教学(源码, &已知词, &中文歧义());
+        let 提示: Vec<_> = 告警
             .iter()
-            .filter(|w| w.kind == LintKind::ConfusableMethod)
+            .filter(|告警项| 告警项.告警种类 == 告警类别::易混标识符)
             .collect();
-        assert_eq!(hints.len(), 1, "{warnings:?}");
-        assert_eq!(hints[0].text, "拉平");
-        assert_eq!(hints[0].extra, "展平");
-        assert_eq!(hints[0].line, 2);
-        assert_eq!(hints[0].column, 14);
+        assert_eq!(提示.len(), 1, "{告警:?}");
+        assert_eq!(提示[0].相关文本, "拉平");
+        assert_eq!(提示[0].附加文本, "展平");
+        assert_eq!(提示[0].行号, 2);
+        assert_eq!(提示[0].列号, 14);
     }
 
     /// 共享索引入口与惰性入口结果一致（CLI 多文件路径改用缓存索引）
@@ -1673,46 +1900,49 @@ mod tests {
     /// 惰性入口只在源码出现方法调用位时才建索引，共享索引则无条件复用
     /// 调用方缓存的那份；两者必须给出同一串警告，否则接缓存会改变提示口径。
     #[test]
-    fn test_buckets_entry_matches_lazy_words_entry() {
-        let known: HashSet<String> = ["展平".to_string(), "长度".to_string()]
+    fn 分桶入口与惰性词入口一致() {
+        let 已知词: HashSet<String> = ["展平".to_string(), "长度".to_string()]
             .into_iter()
             .collect();
-        let ambiguous = zh_ambiguous();
-        for source in [
+        let 歧义 = 中文歧义();
+        for 源码 in [
             "函数 主函数() {\n    让 x = 项们.拉平();\n}",
             "函数 主函数() {\n    让 x = 1;\n}", // 无方法调用位：惰性分支不建索引
             "函数 主函数() {\n    项们.打印行（）;\n}", // 全角括号 + 表内词
         ] {
-            let chars: Vec<char> = source.chars().collect();
-            let buckets = 词形分桶::build(&known);
-            let lazy = lint_teaching_with_words(source, &known, &ambiguous);
-            let shared = lint_teaching_with_buckets(source, &buckets, &ambiguous);
-            let shared_chars = lint_teaching_with_buckets_chars(&chars, &buckets, &ambiguous);
-            assert_eq!(shared, lazy, "共享索引与惰性索引结果不同：{source}");
-            assert_eq!(shared_chars, lazy, "切片入口与字符串入口结果不同：{source}");
+            let 字符切片: Vec<char> = 源码.chars().collect();
+            let 词形桶 = 词形分桶::构建(&已知词);
+            let 惰性结果 = 按词表检查教学(源码, &已知词, &歧义);
+            let 共享结果 = 按词形桶检查教学(源码, &词形桶, &歧义);
+            let 共享字符结果 = 按词形桶检查字符(&字符切片, &词形桶, &歧义);
+            assert_eq!(共享结果, 惰性结果, "共享索引与惰性索引结果不同:{源码}");
+            assert_eq!(
+                共享字符结果, 惰性结果,
+                "切片入口与字符串入口结果不同:{源码}"
+            );
         }
     }
 
     /// 差一字的短名（长词删一字符的结果）也提示
     #[test]
-    fn test_confusable_method_length_diff_one() {
-        let known: HashSet<String> = ["打印行".to_string()].into_iter().collect();
-        let source = "函数 主函数() {\n    项们.打印();\n}";
-        let warnings = lint_teaching_with_words(source, &known, &zh_ambiguous());
-        let hints: Vec<_> = warnings
+    fn 易混方法长度差一() {
+        let 已知词: HashSet<String> = ["打印行".to_string()].into_iter().collect();
+        let 源码 = "函数 主函数() {\n    项们.打印();\n}";
+        let 告警 = 按词表检查教学(源码, &已知词, &中文歧义());
+        let 提示: Vec<_> = 告警
             .iter()
-            .filter(|w| w.kind == LintKind::ConfusableMethod)
+            .filter(|告警项| 告警项.告警种类 == 告警类别::易混标识符)
             .collect();
-        assert_eq!(hints.len(), 1, "{warnings:?}");
-        assert_eq!(hints[0].text, "打印");
-        assert_eq!(hints[0].extra, "打印行");
+        assert_eq!(提示.len(), 1, "{告警:?}");
+        assert_eq!(提示[0].相关文本, "打印");
+        assert_eq!(提示[0].附加文本, "打印行");
     }
 
     /// 降噪边界：表内词/远距离词/单字名/字段访问/字符串/注释/范围与浮点不提示
     #[test]
-    fn test_confusable_method_negative_cases() {
-        let known: HashSet<String> = ["展平".to_string()].into_iter().collect();
-        let cases = [
+    fn 易混方法负例() {
+        let 已知词: HashSet<String> = ["展平".to_string()].into_iter().collect();
+        let 样例集 = [
             // 表内词
             "函数 主函数() {\n    让 x = 项们.展平();\n}",
             // 远距离词（编辑距离 >1）
@@ -1730,62 +1960,62 @@ mod tests {
             // 浮点字面量
             "函数 主函数() {\n    让 f: 浮点数 = 1.5;\n}",
         ];
-        for source in cases {
-            let warnings = lint_teaching_with_words(source, &known, &zh_ambiguous());
+        for 源码 in 样例集 {
+            let 告警 = 按词表检查教学(源码, &已知词, &中文歧义());
             assert!(
-                !warnings
+                !告警
                     .iter()
-                    .any(|w| w.kind == LintKind::ConfusableMethod),
-                "不应提示: {source}\n{warnings:?}"
+                    .any(|告警项| 告警项.告警种类 == 告警类别::易混标识符),
+                "不应提示: {源码}\n{告警:?}"
             );
         }
     }
 
     /// 名字与 `(` 间隔空白仍判定；带 `_` 的复合名不判定（降噪边界）
     #[test]
-    fn test_confusable_method_spacing_and_compound() {
-        let known: HashSet<String> = ["展平".to_string()].into_iter().collect();
-        let source = "函数 主函数() {\n    让 x = 项们.拉平 ();\n}";
-        let warnings = lint_teaching_with_words(source, &known, &zh_ambiguous());
+    fn 易混方法间距与复合名() {
+        let 已知词: HashSet<String> = ["展平".to_string()].into_iter().collect();
+        let 源码 = "函数 主函数() {\n    让 x = 项们.拉平 ();\n}";
+        let 告警 = 按词表检查教学(源码, &已知词, &中文歧义());
         assert!(
-            warnings
+            告警
                 .iter()
-                .any(|w| w.kind == LintKind::ConfusableMethod),
-            "{warnings:?}"
+                .any(|告警项| 告警项.告警种类 == 告警类别::易混标识符),
+            "{告警:?}"
         );
-        let source = "函数 主函数() {\n    让 x = 项们.拉平_所有();\n}";
-        let warnings = lint_teaching_with_words(source, &known, &zh_ambiguous());
+        let 源码 = "函数 主函数() {\n    让 x = 项们.拉平_所有();\n}";
+        let 告警 = 按词表检查教学(源码, &已知词, &中文歧义());
         assert!(
-            !warnings
+            !告警
                 .iter()
-                .any(|w| w.kind == LintKind::ConfusableMethod),
-            "{warnings:?}"
+                .any(|告警项| 告警项.告警种类 == 告警类别::易混标识符),
+            "{告警:?}"
         );
     }
 
     /// 兼容入口（无词表）不做易混方法名提示
     #[test]
-    fn test_confusable_method_compat_entry_silent() {
-        let warnings = lint_teaching("函数 主函数() {\n    让 x = 项们.拉平();\n}");
+    fn 易混方法兼容入口静默() {
+        let 告警 = 检查教学("函数 主函数() {\n    让 x = 项们.拉平();\n}");
         assert!(
-            !warnings
+            !告警
                 .iter()
-                .any(|w| w.kind == LintKind::ConfusableMethod),
-            "{warnings:?}"
+                .any(|告警项| 告警项.告警种类 == 告警类别::易混标识符),
+            "{告警:?}"
         );
     }
 
     /// 精确命中表与惰性路径（逐词比较）结论一致：合法词不提示笔误，
     /// 真笔误仍能给出候选
     #[test]
-    fn test_exact_index_matches_lazy_lookup() {
-        let words: HashSet<String> = ["展平", "推送", "弹出", "向量", "新建"]
+    fn 精确索引与惰性查表一致() {
+        let 词表: HashSet<String> = ["展平", "推送", "弹出", "向量", "新建"]
             .iter()
-            .map(|s| s.to_string())
+            .map(|英文| 英文.to_string())
             .collect();
-        let lazy = 词形分桶::build(&words);
-        let exact = 词形分桶::build(&words).带精确索引();
-        for name in [
+        let 惰性索引 = 词形分桶::构建(&词表);
+        let 精确索引 = 词形分桶::构建(&词表).带精确索引();
+        for 名字 in [
             "展平",
             "拉平",
             "推送",
@@ -1795,149 +2025,184 @@ mod tests {
             "不存在",
             "很长的名字",
         ] {
-            let chars: Vec<char> = name.chars().collect();
+            let 字符切片: Vec<char> = 名字.chars().collect();
             assert_eq!(
-                confusable_candidate(&chars, &lazy),
-                confusable_candidate(&chars, &exact),
-                "名字 {name} 在上两条路径上的结论应一致"
+                易混候选(&字符切片, &惰性索引),
+                易混候选(&字符切片, &精确索引),
+                "名字 {名字} 在上两条路径上的结论应一致"
             );
         }
         // 合法词一次命中，不进候选遍历
-        let hit: Vec<char> = "展平".chars().collect();
-        assert_eq!(confusable_candidate(&hit, &exact), None);
+        let 命中: Vec<char> = "展平".chars().collect();
+        assert_eq!(易混候选(&命中, &精确索引), None);
         // 一字之差仍给出词典序最小候选
-        let typo: Vec<char> = "拉平".chars().collect();
-        assert_eq!(confusable_candidate(&typo, &exact), Some("展平"));
+        let 笔误: Vec<char> = "拉平".chars().collect();
+        assert_eq!(易混候选(&笔误, &精确索引), Some("展平"));
     }
 
     /// 分桶索引入口与「三个独立入口依次拼接」结论逐条一致（含顺序）
     ///
     /// LSP 诊断发布路径从三趟切到一次遍历，这条锁住两条路径不漂移：
-    /// 教学 / 英文回落 / 保留字撞名三组警告的数量、顺序、行列与文本。
+    /// 教学 / 英文回退 / 保留名撞词三组警告的数量、顺序、行列与文本。
     #[test]
-    fn test_all_with_buckets_matches_three_entries() {
-        let known: HashSet<String> = ["展平", "推送", "向量", "新建", "函数", "让"]
+    fn 分桶全部入口与三入口一致() {
+        let 已知词: HashSet<String> = ["展平", "推送", "向量", "新建", "函数", "让"]
             .iter()
-            .map(|s| s.to_string())
+            .map(|英文| 英文.to_string())
             .collect();
-        let buckets = 词形分桶::build(&known).带精确索引();
-        let fallback = HashMap::from([("fn".to_string(), "函数".to_string())]);
-        let keyword = HashMap::from([
+        let 词形桶 = 词形分桶::构建(&已知词).带精确索引();
+        let 英文回退表 = HashMap::from([("fn".to_string(), "函数".to_string())]);
+        let 关键字映射 = HashMap::from([
             ("函数".to_string(), "fn".to_string()),
             ("让".to_string(), "let".to_string()),
             ("匹配".to_string(), "match".to_string()),
         ]);
-        let amb = zh_ambiguous();
-        let source = "函数 匹配(x: 整数) {\n    让 项 = 向量::新建();\n    项.拉平();\n    fn 打印行();\n    让 y = 项.展平();\n}";
+        let 歧义 = 中文歧义();
+        // 第 4 行的歧义绑定后续无引用，确保「未标注类型」组真实出现；
+        // 第 2 行的 `项` 后续被方法调用引用，类型可由使用处推导，不再提示
+        let 源码 = "函数 匹配(x: 整数) {\n    让 项 = 向量::新建();\n    项.拉平();\n    让 孤立 = 向量::新建();\n    fn 打印行();\n    让 y = 项.展平();\n}";
 
-        let mut expect = lint_teaching_with_words(source, &known, &amb);
-        expect.extend(lint_english_fallback(source, &fallback));
-        expect.extend(lint_reserved_name_collision(source, &keyword));
+        let mut 预期 = 按词表检查教学(源码, &已知词, &歧义);
+        预期.extend(检查英文回退(源码, &英文回退表));
+        预期.extend(检查保留名撞词(源码, &关键字映射));
 
-        let chars: Vec<char> = source.chars().collect();
-        let got = lint_teaching_all_with_buckets_chars(&chars, &buckets, &amb, &fallback, &keyword);
+        let 字符切片: Vec<char> = 源码.chars().collect();
+        let 实际 = 按词形桶检查全部教学字符(
+            &字符切片,
+            &词形桶,
+            &歧义,
+            &英文回退表,
+            &关键字映射,
+        );
 
-        let key = |w: &LintWarning| (w.kind, w.line, w.column, w.text.clone(), w.extra.clone());
+        let 取键 = |告警项: &教学告警| {
+            (
+                告警项.告警种类,
+                告警项.行号,
+                告警项.列号,
+                告警项.相关文本.clone(),
+                告警项.附加文本.clone(),
+            )
+        };
         assert_eq!(
-            expect.iter().map(key).collect::<Vec<_>>(),
-            got.iter().map(key).collect::<Vec<_>>()
+            预期.iter().map(取键).collect::<Vec<_>>(),
+            实际.iter().map(取键).collect::<Vec<_>>()
         );
         // 三组警告都要在这份源码上真实出现，否则上面的相等是空对空
-        assert!(got.iter().any(|w| w.kind == LintKind::UntypedLet));
-        assert!(got.iter().any(|w| w.kind == LintKind::ConfusableMethod));
-        assert!(got.iter().any(|w| w.kind == LintKind::EnglishFallback));
         assert!(
-            got.iter()
-                .any(|w| w.kind == LintKind::ReservedNameCollision)
+            实际
+                .iter()
+                .any(|告警项| 告警项.告警种类 == 告警类别::未标注类型)
+        );
+        assert!(
+            实际
+                .iter()
+                .any(|告警项| 告警项.告警种类 == 告警类别::易混标识符)
+        );
+        assert!(
+            实际
+                .iter()
+                .any(|告警项| 告警项.告警种类 == 告警类别::英文回退)
+        );
+        assert!(
+            实际
+                .iter()
+                .any(|告警项| 告警项.告警种类 == 告警类别::保留名撞词)
         );
     }
 
     #[test]
-    fn test_deep_indent_reported_once() {
+    fn 深缩进仅报告一次() {
         // 两处深层嵌套：仅首个报告（避免刷屏）；缩进逐层递增
-        let mut source = String::from("函数 主函数() {\n");
-        for level in 1..=7 {
-            source.push_str(&"    ".repeat(level));
-            source.push_str("if 真 {\n");
+        let mut 源码 = String::from("函数 主函数() {\n");
+        for 层数 in 1..=7 {
+            源码.push_str(&"    ".repeat(层数));
+            源码.push_str("if 真 {\n");
         }
-        source.push_str(&"    ".repeat(8));
-        source.push_str("让 x = 1;\n");
-        for level in (1..=7).rev() {
-            source.push_str(&"    ".repeat(level));
-            source.push_str("}\n");
+        源码.push_str(&"    ".repeat(8));
+        源码.push_str("让 x = 1;\n");
+        for 层数 in (1..=7).rev() {
+            源码.push_str(&"    ".repeat(层数));
+            源码.push_str("}\n");
         }
-        source.push_str("    if 真 {\n        如果 真 {\n            循环 {\n");
-        source.push_str(&"    ".repeat(5));
-        source.push_str("让 y = 1;\n");
-        source.push_str("            }\n        }\n    }\n}\n");
-        let warnings = lint_teaching(&source);
-        let deep: Vec<_> = warnings
+        源码.push_str("    if 真 {\n        如果 真 {\n            循环 {\n");
+        源码.push_str(&"    ".repeat(5));
+        源码.push_str("让 y = 1;\n");
+        源码.push_str("            }\n        }\n    }\n}\n");
+        let 告警 = 检查教学(&源码);
+        let 深缩进集: Vec<_> = 告警
             .iter()
-            .filter(|w| w.kind == LintKind::DeepIndent)
+            .filter(|告警项| 告警项.告警种类 == 告警类别::嵌套过深)
             .collect();
-        assert_eq!(deep.len(), 1, "{warnings:?}");
-        // 第 7 层 if（第 7 行）缩进已达 24 空格阈值，是首个触发点
-        assert_eq!(deep[0].line, 7);
+        assert_eq!(深缩进集.len(), 1, "{告警:?}");
+        // 第 7 层条件分支（第 7 行）缩进已达 24 空格阈值，是首个触发点
+        assert_eq!(深缩进集[0].行号, 7);
     }
 
     #[test]
-    fn test_comment_lines_not_deep() {
-        let source = "函数 主函数() {\n                        // 长缩进的注释行\n    让 x = 1;\n}";
-        let warnings = lint_teaching(source);
+    fn 注释行不算深缩进() {
+        let 源码 = "函数 主函数() {\n                        // 长缩进的注释行\n    让 x = 1;\n}";
+        let 告警 = 检查教学(源码);
         assert!(
-            !warnings.iter().any(|w| w.kind == LintKind::DeepIndent),
-            "{warnings:?}"
+            !告警
+                .iter()
+                .any(|告警项| 告警项.告警种类 == 告警类别::嵌套过深),
+            "{告警:?}"
         );
     }
 
     /// 原始字符串与字符字面量内的数字/易混方法名不参与判定：模块文档称扫描器与
-    /// fullwidth 同构、跳过 字符串/字符/原始字符串/注释，但既有 lint 负例只测了
-    /// 普通双引号串与行/块注释，未覆盖 literal 状态 2（字符）与 3（原始串）
-    /// ——而 fullwidth 对此两类有专测。先以代码位同名方法确证会提示（排除“全局
+    /// 全角标点模块同构、跳过 字符串/字符/原始字符串/注释，但既有教学检查负例只测了
+    /// 普通双引号串与行/块注释，未覆盖字面量状态 2（字符）与 3（原始串）
+    /// ——而全角标点模块对此两类有专测。先以代码位同名方法确证会提示（排除“全局
     /// 静音”假象），再断言同样的内容落进原始串/字符字面量即被状态机跳过。
     #[test]
-    fn test_raw_and_char_literal_ignored() {
-        let known: HashSet<String> = ["展平".to_string()].into_iter().collect();
-        let amb = zh_ambiguous();
-        // 正例锚点：.拉平() 在代码位应触发易混提示（与 known 里的 展平 编辑距离 1）
-        let code = r#"函数 主函数() {
+    fn 原始串与字符字面量被忽略() {
+        let 已知词: HashSet<String> = ["展平".to_string()].into_iter().collect();
+        let 歧义 = 中文歧义();
+        // 正例锚点：.拉平() 在代码位应触发易混提示（与已知词里的 展平 编辑距离 1）
+        let 代码样例 = r#"函数 主函数() {
     让 x = 项们.拉平();
 }"#;
-        let code_warns = lint_teaching_with_words(code, &known, &amb);
+        let 代码告警 = 按词表检查教学(代码样例, &已知词, &歧义);
         assert!(
-            code_warns
+            代码告警
                 .iter()
-                .any(|w| w.kind == LintKind::ConfusableMethod),
-            "代码位 .拉平() 应提示：{code_warns:?}"
+                .any(|告警项| 告警项.告警种类 == 告警类别::易混标识符),
+            "代码位 .拉平() 应提示:{代码告警:?}"
         );
         // 原始串 r#"..."# 内的数字与易混方法名均被状态机(3)跳过
-        let raw = r##"函数 主函数() {
+        let 原始样例 = r##"函数 主函数() {
     让 s = r#"42 项们.拉平()"#;
 }"##;
-        let raw_warns = lint_teaching_with_words(raw, &known, &amb);
+        let 原始告警 = 按词表检查教学(原始样例, &已知词, &歧义);
         assert!(
-            !raw_warns.iter().any(|w| w.kind == LintKind::MagicNumber),
-            "原始串内 42 不应报魔法数字：{raw_warns:?}"
+            !原始告警
+                .iter()
+                .any(|告警项| 告警项.告警种类 == 告警类别::魔法数字),
+            "原始串内 42 不应报魔法数字:{原始告警:?}"
         );
         assert!(
-            !raw_warns
+            !原始告警
                 .iter()
-                .any(|w| w.kind == LintKind::ConfusableMethod),
-            "原始串内 .拉平() 不应报易混方法：{raw_warns:?}"
+                .any(|告警项| 告警项.告警种类 == 告警类别::易混标识符),
+            "原始串内 .拉平() 不应报易混方法:{原始告警:?}"
         );
         // 字符字面量 '5' 内的数字被状态机(2)跳过
-        let ch_lit = r#"函数 主函数() {
+        let 字符样例 = r#"函数 主函数() {
     让 c = '5';
 }"#;
-        let ch_warns = lint_teaching(ch_lit);
+        let 字符告警 = 检查教学(字符样例);
         assert!(
-            !ch_warns.iter().any(|w| w.kind == LintKind::MagicNumber),
-            "字符字面量内 5 不应报魔法数字：{ch_warns:?}"
+            !字符告警
+                .iter()
+                .any(|告警项| 告警项.告警种类 == 告警类别::魔法数字),
+            "字符字面量内 5 不应报魔法数字:{字符告警:?}"
         );
     }
 
-    /// 回落测试用反向索引（英文 → 母语），模拟 zh 语言包的一批常见词
-    fn zh_fallback() -> HashMap<String, String> {
+    /// 回退测试用反向索引（英文 → 母语），模拟中文语言包的一批常见词
+    fn 中文回退表() -> HashMap<String, String> {
         [
             ("fn", "函数"),
             ("let", "让"),
@@ -1954,110 +2219,110 @@ mod tests {
             ("sum", "求和"),
         ]
         .into_iter()
-        .map(|(en, zh)| (en.to_string(), zh.to_string()))
+        .map(|(英文, 中文)| (英文.to_string(), 中文.to_string()))
         .collect()
     }
 
     /// 结构位置的英文被提示；恒等空表自动静默
     #[test]
-    fn test_english_fallback_flags_structural_positions() {
-        let map = zh_fallback();
-        let src = "fn main() {\n    let v = Vec::new();\n}";
-        let warns = lint_english_fallback(src, &map);
-        let flagged: Vec<&str> = warns.iter().map(|w| w.text.as_str()).collect();
-        // fn/let 保留字、Vec 路径头、new 关联函数调用 均应提示
-        assert!(flagged.contains(&"fn"), "fn 应提示：{warns:?}");
-        assert!(flagged.contains(&"let"), "let 应提示：{warns:?}");
-        assert!(flagged.contains(&"Vec"), "Vec:: 应提示：{warns:?}");
-        assert!(flagged.contains(&"new"), "::new() 应提示：{warns:?}");
-        // main（fn 后的函数名）与 v（let 后的变量名）为用户命名，豁免
-        assert!(!flagged.contains(&"main"), "函数名不应提示：{warns:?}");
-        assert!(!flagged.contains(&"v"), "变量名不应提示：{warns:?}");
+    fn 英文回退标记结构位置() {
+        let 映射表 = 中文回退表();
+        let 源码 = "fn main() {\n    let v = Vec::new();\n}";
+        let 告警 = 检查英文回退(源码, &映射表);
+        let 已标记: Vec<&str> = 告警.iter().map(|告警项| 告警项.相关文本.as_str()).collect();
+        // 函数/让 保留字、向量 路径头、新建 关联函数调用 均应提示
+        assert!(已标记.contains(&"fn"), "fn 应提示:{告警:?}");
+        assert!(已标记.contains(&"let"), "let 应提示:{告警:?}");
+        assert!(已标记.contains(&"Vec"), "Vec:: 应提示:{告警:?}");
+        assert!(已标记.contains(&"new"), "::new() 应提示:{告警:?}");
+        // 主函数（函数关键字后的名字）与 v（让 绑定后的变量名）为用户命名，豁免
+        assert!(!已标记.contains(&"main"), "函数名不应提示:{告警:?}");
+        assert!(!已标记.contains(&"v"), "变量名不应提示:{告警:?}");
         // 空表（英文恒等映射语言包）静默
-        assert!(lint_english_fallback(src, &HashMap::new()).is_empty());
+        assert!(检查英文回退(源码, &HashMap::new()).is_empty());
     }
 
     /// 方法调用位 `.collect()` / 宏 `println!` / 泛型 `Vec<` 被提示
     #[test]
-    fn test_english_fallback_method_macro_generic() {
-        let map = zh_fallback();
-        let warns = lint_english_fallback("让 和 = 数们.iter().map(|x| x).collect();", &map);
+    fn 英文回退方法宏泛型() {
+        let 映射表 = 中文回退表();
+        let 告警 = 检查英文回退("让 和 = 数们.iter().map(|x| x).collect();", &映射表);
         assert!(
-            warns.iter().any(|w| w.text == "collect"),
-            ".collect() 应提示：{warns:?}"
+            告警.iter().any(|告警项| 告警项.相关文本 == "collect"),
+            ".collect() 应提示:{告警:?}"
         );
-        let macro_warns = lint_english_fallback("println!(\"hi\");", &map);
+        let 宏告警 = 检查英文回退("println!(\"hi\");", &映射表);
         assert!(
-            macro_warns.iter().any(|w| w.text == "println"),
-            "println! 应提示：{warns:?}"
+            宏告警.iter().any(|告警项| 告警项.相关文本 == "println"),
+            "println! 应提示:{告警:?}"
         );
-        let generic = lint_english_fallback("让 a: Vec<i32> = 向量::新建();", &map);
+        let 泛型告警 = 检查英文回退("让 a: Vec<i32> = 向量::新建();", &映射表);
         assert!(
-            generic.iter().any(|w| w.text == "Vec"),
-            "Vec< 泛型位应提示：{generic:?}"
+            泛型告警.iter().any(|告警项| 告警项.相关文本 == "Vec"),
+            "Vec< 泛型位应提示:{泛型告警:?}"
         );
     }
 
     /// 降噪：字符串/注释内英文跳过；同一英文词每文件仅首个命中提示一次；
     /// 非结构位的裸标识符（变量名恰好等于映射词）不误报
     #[test]
-    fn test_english_fallback_dedup_and_noise() {
-        let map = zh_fallback();
-        // 多个 fn 只报一次
-        let many = lint_english_fallback("fn a() {}\nfn b() {}\nfn c() {}", &map);
+    fn 英文回退去重与降噪() {
+        let 映射表 = 中文回退表();
+        // 多个函数关键字只报一次
+        let 多个 = 检查英文回退("fn a() {}\nfn b() {}\nfn c() {}", &映射表);
         assert_eq!(
-            many.iter().filter(|w| w.text == "fn").count(),
+            多个.iter().filter(|告警项| 告警项.相关文本 == "fn").count(),
             1,
-            "fn 应去重为一条：{many:?}"
+            "fn 应去重为一条:{多个:?}"
         );
-        // 字符串与行注释内的 collect 不提示
-        let in_str = lint_english_fallback("让 s = \"collect\"; // collect\n让 变量 = 5;", &map);
+        // 字符串与行注释内的 `值.collect()` 不提示
+        let 串内 = 检查英文回退("让 s = \"collect\"; // collect\n让 变量 = 5;", &映射表);
         assert!(
-            !in_str.iter().any(|w| w.text == "collect"),
-            "字符串/注释内 collect 不应提示：{in_str:?}"
+            !串内.iter().any(|告警项| 告警项.相关文本 == "collect"),
+            "字符串/注释内 collect 不应提示:{串内:?}"
         );
-        // 裸标识符（无 ( < :: ! 结构位）不误报：sum 作为变量名
-        let bare = lint_english_fallback("让 求和值 = 总和 + 统计;", &map);
-        assert!(bare.is_empty(), "纯母语写法不应提示：{bare:?}");
+        // 裸标识符（无调用/泛型/路径/宏结构位）不误报：求和 作为变量名
+        let 裸标识符 = 检查英文回退("让 求和值 = 总和 + 统计;", &映射表);
+        assert!(裸标识符.is_empty(), "纯母语写法不应提示:{裸标识符:?}");
         // 「教学忽略」行整行跳过
-        let ignored = lint_english_fallback("fn x() {} // 教学忽略", &map);
+        let 已忽略 = 检查英文回退("fn x() {} // 教学忽略", &映射表);
         assert!(
-            !ignored.iter().any(|w| w.text == "fn"),
-            "教学忽略行不应提示：{ignored:?}"
+            !已忽略.iter().any(|告警项| 告警项.相关文本 == "fn"),
+            "教学忽略行不应提示:{已忽略:?}"
         );
     }
 
-    /// 声明关键字后的用户命名豁免：`fn collect()` 的 collect、`struct String` 的 String 不提示
+    /// 声明关键字后的用户命名豁免：函数名、结构体名这类用户命名不提示
     #[test]
-    fn test_english_fallback_exempts_declared_names() {
-        let map = zh_fallback();
-        let warns = lint_english_fallback("fn collect() {}\nstruct String;", &map);
-        let flagged: Vec<&str> = warns.iter().map(|w| w.text.as_str()).collect();
+    fn 英文回退豁免声明名() {
+        let 映射表 = 中文回退表();
+        let 告警 = 检查英文回退("fn collect() {}\nstruct String;", &映射表);
+        let 已标记: Vec<&str> = 告警.iter().map(|告警项| 告警项.相关文本.as_str()).collect();
         // fn/struct 关键字自身提示
-        assert!(flagged.contains(&"fn"), "fn 应提示：{warns:?}");
-        assert!(flagged.contains(&"struct"), "struct 应提示：{warns:?}");
+        assert!(已标记.contains(&"fn"), "fn 应提示:{告警:?}");
+        assert!(已标记.contains(&"struct"), "struct 应提示:{告警:?}");
         // 但其后的函数名/结构体名（恰与映射词同名）豁免
         assert!(
-            !flagged.contains(&"collect"),
-            "声明的函数名不应提示：{warns:?}"
+            !已标记.contains(&"collect"),
+            "声明的函数名不应提示:{告警:?}"
         );
         assert!(
-            !flagged.contains(&"String"),
-            "声明的结构体名不应提示：{warns:?}"
+            !已标记.contains(&"String"),
+            "声明的结构体名不应提示:{告警:?}"
         );
     }
 
     /// 用 `r#` 转义后的声明名字不再提示（转译产物本就合法）
     #[test]
-    fn test_reserved_collision_raw_identifier_escape_silent() {
-        let map = zh_keyword_map();
-        let src = "函数 r#匹配(值: 整数) -> 整数 {\n    返回 值\n}\n\n函数 主函数() {\n    让 r#循环 = r#匹配(3);\n}";
-        let warns = lint_reserved_name_collision(src, &map);
-        assert!(warns.is_empty(), "r# 转义后不应提示：{warns:?}");
+    fn 保留名撞词原始标识符转义静默() {
+        let 映射表 = 中文关键字表();
+        let 源码 = "函数 r#匹配(值: 整数) -> 整数 {\n    返回 值\n}\n\n函数 主函数() {\n    让 r#循环 = r#匹配(3);\n}";
+        let 告警 = 检查保留名撞词(源码, &映射表);
+        assert!(告警.is_empty(), "r# 转义后不应提示:{告警:?}");
     }
 
     /// 母语 → 英文关键字表（仅收撞名相关词条）
-    fn zh_keyword_map() -> HashMap<String, String> {
+    fn 中文关键字表() -> HashMap<String, String> {
         [
             ("函数", "fn"),
             ("让", "let"),
@@ -2075,112 +2340,117 @@ mod tests {
             ("如果", "if"),
         ]
         .into_iter()
-        .map(|(zh, en)| (zh.to_string(), en.to_string()))
+        .map(|(中文, 英文)| (中文.to_string(), 英文.to_string()))
         .collect()
     }
 
     /// 声明位命中保留字时提示（函数名/结构体名/let 绑定），并带出目标保留字
     #[test]
-    fn test_reserved_collision_flags_declaration_names() {
-        let map = zh_keyword_map();
-        let src = "函数 匹配(x: 整数) -> 整数 {\n    返回 x\n}\n\n结构体 类型 {\n    字段: 整数,\n}\n\n函数 主函数() {\n    让 循环 = 5;\n}";
-        let warns = lint_reserved_name_collision(src, &map);
-        let texts: Vec<&str> = warns.iter().map(|w| w.text.as_str()).collect();
-        assert!(texts.contains(&"匹配"), "函数名撞名应提示：{warns:?}");
-        assert!(texts.contains(&"类型"), "结构体名撞名应提示：{warns:?}");
-        assert!(texts.contains(&"循环"), "let 绑定撞名应提示：{warns:?}");
-        // 带出目标保留字（extra）
+    fn 保留名撞词标记声明名() {
+        let 映射表 = 中文关键字表();
+        let 源码 = "函数 匹配(x: 整数) -> 整数 {\n    返回 x\n}\n\n结构体 类型 {\n    字段: 整数,\n}\n\n函数 主函数() {\n    让 循环 = 5;\n}";
+        let 告警 = 检查保留名撞词(源码, &映射表);
+        let 相关文本集: Vec<&str> = 告警.iter().map(|告警项| 告警项.相关文本.as_str()).collect();
+        assert!(相关文本集.contains(&"匹配"), "函数名撞名应提示:{告警:?}");
+        assert!(相关文本集.contains(&"类型"), "结构体名撞名应提示:{告警:?}");
+        assert!(相关文本集.contains(&"循环"), "let 绑定撞名应提示:{告警:?}");
+        // 带出目标保留字（附加文本）
         assert!(
-            warns.iter().any(|w| w.text == "循环" && w.extra == "loop"),
-            "应报告目标保留字 loop：{warns:?}"
+            告警
+                .iter()
+                .any(|告警项| 告警项.相关文本 == "循环" && 告警项.附加文本 == "loop"),
+            "应报告目标保留字 loop:{告警:?}"
         );
         // 普通语句词（`返回 x`）不是名字位，不提示
-        assert!(!texts.contains(&"返回"), "返回作语句词不应提示：{warns:?}");
+        assert!(
+            !相关文本集.contains(&"返回"),
+            "返回作语句词不应提示:{告警:?}"
+        );
     }
 
     /// 语句词/模式位不误报；`让 可变` 跨过修饰词后仍能命中真正的名字
     #[test]
-    fn test_reserved_collision_statement_words_and_mut_modifier() {
-        let map = zh_keyword_map();
-        // 匹配 作 match 表达式、返回 作语句：均非声明名字位
-        let src = "函数 f(值: 整数) -> 整数 {\n    让 r = 匹配 值 {\n        _ => 1,\n    };\n    返回 r\n}";
-        let warns = lint_reserved_name_collision(src, &map);
+    fn 保留名撞词语句词与可变修饰() {
+        let 映射表 = 中文关键字表();
+        // 「匹配」作匹配表达式、「返回」作语句：均非声明名字位
+        let 源码 = "函数 f(值: 整数) -> 整数 {\n    让 r = 匹配 值 {\n        _ => 1,\n    };\n    返回 r\n}";
+        let 告警 = 检查保留名撞词(源码, &映射表);
         assert!(
-            warns.is_empty(),
-            "语句/表达式位的匹配与返回不应提示：{warns:?}"
+            告警.is_empty(),
+            "语句/表达式位的匹配与返回不应提示:{告警:?}"
         );
-        // `让 可变 循环`：可变 是修饰词，真正的名字 循环 撞 loop
-        let with_mut = lint_reserved_name_collision("让 可变 循环 = 5;", &map);
-        assert_eq!(with_mut.len(), 1, "应只报 循环 一条：{with_mut:?}");
-        assert_eq!(with_mut[0].text, "循环");
+        // `让 可变 循环`：可变 是修饰词，真正的名字 循环 撞「循环」保留字
+        let 含可变 = 检查保留名撞词("让 可变 循环 = 5;", &映射表);
+        assert_eq!(含可变.len(), 1, "应只报 循环 一条:{含可变:?}");
+        assert_eq!(含可变[0].相关文本, "循环");
         // `让 可变 x`：名字正常，不报
-        assert!(lint_reserved_name_collision("让 可变 x = 5;", &map).is_empty());
+        assert!(检查保留名撞词("让 可变 x = 5;", &映射表).is_empty());
     }
 
     /// 空表静默；“教学忽略”行整行跳过；字符串/注释内的名字不参与判定
     #[test]
-    fn test_reserved_collision_silence_and_ignore() {
-        assert!(lint_reserved_name_collision("函数 匹配() {}", &HashMap::new()).is_empty());
-        let map = zh_keyword_map();
+    fn 保留名撞词静默与忽略() {
+        assert!(检查保留名撞词("函数 匹配() {}", &HashMap::new()).is_empty());
+        let 映射表 = 中文关键字表();
         // 教学忽略标记跳过整行
         assert!(
-            lint_reserved_name_collision("函数 匹配() {} // 教学忽略", &map).is_empty(),
+            检查保留名撞词("函数 匹配() {} // 教学忽略", &映射表).is_empty(),
             "教学忽略行不应提示"
         );
         // 字符串/注释内的名字不参与判定
-        let src = "函数 f() {\n    让 s = \"匹配 循环\"; // 匹配 类型\n}";
+        let 源码 = "函数 f() {\n    让 s = \"匹配 循环\"; // 匹配 类型\n}";
         assert!(
-            lint_reserved_name_collision(src, &map).is_empty(),
-            "字符串/注释内不应提示：{:?}",
-            lint_reserved_name_collision(src, &map)
+            检查保留名撞词(源码, &映射表).is_empty(),
+            "字符串/注释内不应提示:{:?}",
+            检查保留名撞词(源码, &映射表)
         );
     }
 
     /// 注释起始须两字符相邻：分隔的 `/` 不得吞掉后续代码
     ///
-    /// 英文回落原先按「上一个非空白字符」判定，`a / *b` 的 `*` 与
+    /// 英文回退原先按「上一个非空白字符」判定，`a / *b` 的 `*` 与
     /// `/ / fn f()` 的第二个 `/` 都会被误当作注释起点，导致该行/该文件
     /// 之后的提示整体丢失。合并扫描后与撞名检查统一按相邻字符判定。
     #[test]
-    fn test_comment_start_requires_adjacent_slash() {
-        let map = zh_fallback();
-        // 除法后解引用：`*` 不是块注释起点，下一行的 fn 照常提示
-        let deref = lint_english_fallback("让 x = a / *b;\nfn foo();", &map);
+    fn 注释起点需相邻斜杠() {
+        let 映射表 = 中文回退表();
+        // 除法后解引用：`*` 不是块注释起点，下一行的函数关键字照常提示
+        let 除法样例 = 检查英文回退("让 x = a / *b;\nfn foo();", &映射表);
         assert!(
-            deref.iter().any(|w| w.text == "fn"),
-            "`a / *b` 不应吞掉后续行：{deref:?}"
+            除法样例.iter().any(|告警项| 告警项.相关文本 == "fn"),
+            "`a / *b` 不应吞掉后续行:{除法样例:?}"
         );
-        // 两个 `/` 之间隔空格：不是行注释，同行 fn 照常提示
-        let spaced = lint_english_fallback("让 a = 1; /  / fn foo();", &map);
+        // 两个 `/` 之间隔空格：不是行注释，同行的函数关键字照常提示
+        let 隔空 = 检查英文回退("让 a = 1; /  / fn foo();", &映射表);
         assert!(
-            spaced.iter().any(|w| w.text == "fn"),
-            "隔空格的 `/ /` 不应当行注释：{spaced:?}"
+            隔空.iter().any(|告警项| 告警项.相关文本 == "fn"),
+            "隔空格的 `/ /` 不应当行注释:{隔空:?}"
         );
         // 真正的注释仍然跳过
-        let real = lint_english_fallback("// fn foo()\n/* fn bar() */", &map);
-        assert!(real.is_empty(), "注释内英文不应提示：{real:?}");
+        let 真注释 = 检查英文回退("// fn foo()\n/* fn bar() */", &映射表);
+        assert!(真注释.is_empty(), "注释内英文不应提示:{真注释:?}");
     }
 
-    /// 组合入口与三个单函数逐条一致（顺序：教学 / 英文回落 / 撞名）
+    /// 组合入口与三个单函数逐条一致（顺序：教学 / 英文回退 / 撞名）
     #[test]
-    fn test_teaching_all_matches_individual_checks() {
-        let fallback = zh_fallback();
-        let keywords = zh_keyword_map();
-        let words = HashSet::new();
-        let ambiguous = HashSet::new();
-        let src = "函数 匹配() {\n    let v = Vec::new();\n    让 循环 = 5;\n}";
+    fn 全部教学入口与单检查一致() {
+        let 英文回退表 = 中文回退表();
+        let 关键字映射 = 中文关键字表();
+        let 词表 = HashSet::new();
+        let 歧义 = HashSet::new();
+        let 源码 = "函数 匹配() {\n    let v = Vec::new();\n    让 循环 = 5;\n}";
 
-        let mut expect = lint_teaching_with_words(src, &words, &ambiguous);
-        expect.extend(lint_english_fallback(src, &fallback));
-        expect.extend(lint_reserved_name_collision(src, &keywords));
-        let got = lint_teaching_all(src, &words, &ambiguous, &fallback, &keywords);
-        assert_eq!(expect, got, "组合入口应与三个单函数逐条一致");
-        assert!(!got.is_empty(), "样例应同时命中两侧提示：{got:?}");
+        let mut 预期 = 按词表检查教学(源码, &词表, &歧义);
+        预期.extend(检查英文回退(源码, &英文回退表));
+        预期.extend(检查保留名撞词(源码, &关键字映射));
+        let 实际 = 检查全部教学(源码, &词表, &歧义, &英文回退表, &关键字映射);
+        assert_eq!(预期, 实际, "组合入口应与三个单函数逐条一致");
+        assert!(!实际.is_empty(), "样例应同时命中两侧提示:{实际:?}");
         // 两侧空表时退化为纯教学检查
-        let plain = lint_teaching_all(src, &words, &ambiguous, &HashMap::new(), &HashMap::new());
+        let 纯教学 = 检查全部教学(源码, &词表, &歧义, &HashMap::new(), &HashMap::new());
         assert_eq!(
-            plain,
-            lint_teaching_with_words(src, &words, &ambiguous),
+            纯教学,
+            按词表检查教学(源码, &词表, &歧义),
             "空表应退化为纯教学检查"
         );
     }

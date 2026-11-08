@@ -150,6 +150,9 @@
 "ambiente" = "env"
 "opcao_ambiente" = "option_env"
 "config" = "cfg"
+"verificacoes_depuracao" = "debug_assertions"
+"caminho_atributo" = "path"
+"链接名" = "link_name"
 "teste" = "test"
 
 # ============================================
@@ -183,3 +186,9 @@
 "EspecificaçãoTipo" = "ty"
 "ÁrvoreTokens" = "tt"
 "DeveEntrarEmPânico" = "should_panic"
+"TraçoIgualdadeParcial" = "PartialEq"
+"MétodoIgualdade" = "eq"
+"MétodoDesreferencia" = "deref"
+"TipoAlvo" = "Target"
+"Valor" = "Value"
+"ComprimentoToken" = "len"

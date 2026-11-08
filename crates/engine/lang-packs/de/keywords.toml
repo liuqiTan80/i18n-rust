@@ -151,6 +151,9 @@
 "umgebung" = "env"
 "optionUmgebung" = "option_env"
 "konfig" = "cfg"
+"debugPruefungen" = "debug_assertions"
+"pfad_attribut" = "path"
+"链接名" = "link_name"
 "Test" = "test"
 
 # ============================================
@@ -184,3 +187,9 @@
 "Typspezifikation" = "ty"
 "Tokenbaum" = "tt"
 "SolltePaniken" = "should_panic"
+"Teilgleichheitsmerkmal" = "PartialEq"
+"Gleichheitsmethode" = "eq"
+"Dereferenzierungsmethode" = "deref"
+"Zieltyp" = "Target"
+"Wert" = "Value"
+"TokenLaenge" = "len"

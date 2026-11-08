@@ -247,7 +247,7 @@ fn 同形字符(码元: char) -> Option<(char, String)> {
 /// 字符不被误报。希腊字母等其他同形字符不受豁免，仍然告警。
 fn 是西里尔块(码元: char) -> bool {
     let 码位 = 码元 as u32;
-    码位 >= 0x0400 && 码位 <= 0x052F
+    matches!(码位, 0x0400..=0x052F)
 }
 
 #[cfg(test)]

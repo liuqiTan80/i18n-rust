@@ -36,24 +36,24 @@ fn main() {
     for 路径 in &源文件 {
         let 源码 = fs::read_to_string(路径)
             .unwrap_or_else(|错误| panic!("读取 {} 失败: {错误}", 路径.display()));
-        let 转译 = i18n_rust_engine::transpile_pipeline_quiet(&源码, &管理器);
+        let 转译 = i18n_rust_engine::静默转译管线(&源码, &管理器);
         // 产物必须是标准 Rust：方言测试标记没被替换说明语言包没生效，
         // 此时产出的 #[测试] 会被 rustc 当成未知属性丢弃、测试静默消失，
         // 故直接让构建失败（构建期 panic 是 cargo 的既定失败方式）。
         // 注释里提到标记的说明文字不算残留，故按行跳过注释行。
-        let 残留标记 = 转译.output.lines().any(|行| {
+        let 残留标记 = 转译.输出.lines().any(|行| {
             let 去空白 = 行.trim_start();
             !去空白.starts_with("//") && 去空白.contains("#[测试]")
         });
         assert!(!残留标记, "{} 未被转译（语言包映射未生效）", 路径.display());
         // 反向保险：转译后的用例必须真的带上 #[test]，否则 cargo 永远发现不到
         assert!(
-            转译.output.contains("#[test]"),
+            转译.输出.contains("#[test]"),
             "{} 没有产出任何 #[test] 用例",
             路径.display()
         );
         writeln!(产物, "// ===== 源文件：{} =====", 路径.display()).expect("写入产物失败");
-        产物.push_str(&转译.output);
+        产物.push_str(&转译.输出);
         产物.push('\n');
     }
 

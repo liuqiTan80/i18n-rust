@@ -27,6 +27,10 @@
 # `subcommand`（小写属性）与 `子命令`（=Subcommand 类型名）重名，
 # 属性位单独用 `子命令字段`：#[命令(子命令字段)]
 "子命令字段" = "subcommand"
+# clap 派生宏名与属性宏名（属性位本身仍写英文参数，宏名走词形）
+"从参数匹配" = "FromArgMatches"
+"参数属性" = "arg"
+"命令属性" = "command"
 # `name` 未收：与 salvo 库的 `名称` = Name 跨库同名异义；
 # 需改命令名时写显式英文 name
 
@@ -52,3 +56,17 @@
 # clap Command 的链式改写方法（构造参数 / 子命令时常用）
 "改参数" = "mut_arg"
 "改子命令" = "mut_subcommand"
+
+# 命令行入口 main.zh 用到的派生属性参数与工厂方法
+# `name` 的通用词形 `名称` 与 salvo 库跨库同名异义，故单列 `命令名`
+"命令名" = "name"
+# `版本` 会被同目录结构体字段声明保护，属性位改用专属词形
+"版本标志" = "version"
+"全局参数" = "global"
+"参数个数" = "num_args"
+"参数默认值类型" = "default_value_t"
+"命令工厂" = "CommandFactory"
+"命令工厂方法" = "command"
+"获取参数匹配" = "get_matches"
+# `从参数匹配` 是特征名（FromArgMatches），关联方法另用专属词形
+"从参数匹配方法" = "from_arg_matches"

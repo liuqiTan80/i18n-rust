@@ -88,10 +88,10 @@ pub fn 初始化() {
         if !环境应覆盖(等级已程序化.load(Ordering::Relaxed)) {
             return;
         }
-        if let Ok(读取值) = std::env::var("RZ_LOG") {
-            if let Some(等级) = 日志等级::解析环境(&读取值) {
-                等级存储.store(等级 as u8, Ordering::Relaxed);
-            }
+        if let Ok(读取值) = std::env::var("RZ_LOG")
+            && let Some(等级) = 日志等级::解析环境(&读取值)
+        {
+            等级存储.store(等级 as u8, Ordering::Relaxed);
         }
     });
 }

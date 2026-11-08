@@ -14,6 +14,9 @@
 "反序列化器" = "Deserializer"
 "序列化" = "serialize"
 "反序列化" = "deserialize"
+"执行序列化" = "serialize"  # trait 实现块里的方法名（声明位会撞 `序列化`=serialize 以外的属性位，单列一词）
+"执行反序列化" = "deserialize"
+"序列化字符串" = "serialize_str"
 # serde 属性专用词：`#[serde(rename = ...)]` 里的 crate 名。`序列化` 同时映射
 # serialize 方法，属性位会误取 serialize，故单列此词只映射 serde（派生辅助属性位）。
 "序列化属性" = "serde"
@@ -22,8 +25,12 @@
 # serde_json
 "JSON序列化" = "serde_json"  # 模块路径词在函数体内的副本（serde_json:: 前缀调用）
 "JSON值" = "Value"
+"空值节点" = "Null"  # serde_json::Value::Null（文档解析里作为缺省节点的占位）
+"布尔值" = "Bool"  # serde_json::Value::Bool（诊断 span 的主次判断）
 "JSON对象" = "Object"
 "JSON数组" = "Array"
+"JSON映射" = "Map"  # serde_json::Map（有序键值表，响应编辑映射用）
+"数字值" = "Number"
 "解析字符串" = "from_str"
 "解析值" = "from_value"  # serde_json::from_value（诊断簇 cargo 包装行解析）
 "转字符串" = "to_string"
@@ -37,6 +44,7 @@
 "作为长整数" = "as_u64"
 "作为对象" = "as_object"
 "作为数组" = "as_array"
+"作为可变数组" = "as_array_mut"
 "是对象" = "is_object"
 "是数组" = "is_array"
 "是字符串" = "is_string"

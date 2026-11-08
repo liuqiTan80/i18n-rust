@@ -17,7 +17,7 @@
 
 use std::collections::HashSet;
 
-use i18n_rust_engine::diagnostic::{错误消息管理器, 审计消息};
+use i18n_rust_engine::诊断::{审计消息, 错误消息管理器};
 
 /// 每行 `LEVEL\tCODE\t消息原文`（CODE 可为空）；裸行按 main/空码处理。
 fn parse_corpus(raw: &str) -> Vec<(String, String, String)> {

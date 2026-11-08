@@ -1,0 +1,42 @@
+# crate 名称映射（用于 use 路径）
+# 压缩解压：内置工具链安装与归档包处理
+["模块路径"]
+"数据压缩" = "flate2"
+"归档读取库" = "tar"
+
+# 内部标识符映射（用于库内的类型、函数等）
+["标识符"]
+"数据压缩" = "flate2"  # 模块路径词在函数体内的副本
+"归档读取库" = "tar"  # 模块路径词在函数体内的副本
+# flate2
+"解压读取器" = "GzDecoder"
+"压缩编码器" = "GzEncoder"
+"压缩级别" = "Compression"
+# tar
+"归档读取器" = "Archive"
+"归档写入构建" = "Builder"
+"追加" = "append"
+"头部类型" = "Header"
+"新建通用" = "new_gnu"
+"设置路径" = "set_path"
+"设置大小" = "set_size"
+"设置模式" = "set_mode"
+"设置校验和" = "set_cksum"
+"取内层" = "into_inner"
+"完成" = "finish"
+# zip
+"压缩包归档" = "ZipArchive"
+"压缩包写入器" = "ZipWriter"
+"写出" = "write"
+"压缩方法" = "CompressionMethod"
+"文件选项" = "FileOptions"
+"简单文件选项" = "SimpleFileOptions"
+"开始文件" = "start_file"
+"设置压缩方法" = "compression_method"
+"接入" = "incoming"
+"存储" = "Stored"
+
+# 说明
+["解释"]
+"数据压缩" = "DEFLATE 压缩/解压库（内置工具链压缩包处理）。"
+"归档读取库" = "归档文件读写库（归档包解包与打包）。"

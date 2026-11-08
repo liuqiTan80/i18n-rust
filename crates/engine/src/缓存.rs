@@ -6,424 +6,442 @@
 use crate::故障::转译故障;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::fmt::Formatter;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// 编辑表内联存储的字节上限
 ///
-/// 真实语料里 token 与译文都是短串（`函数` 6 字节、`macro_rules!` 12、
-/// `tracing_subscriber` 18，中文标识符普遍 ≤ 21 字节），22 字节以内不碰堆。
+/// 真实语料里令牌与译文都是短串（`函数` 6 字节、`宏规则!` 12 字节、
+/// 较长的库名 18 字节，中文标识符普遍不超过 21 字节），22 字节以内不碰堆。
 const 内联字节: usize = 22;
 
 /// 编辑表文本：不超 [`内联字节`] 时内联存储，更长的退化为堆分配
 ///
-/// 编辑表每条都保存原名与译名。用 `String` 时每条 2 次 `malloc` + 拷贝，
+/// 编辑表每条都保存原名与译名。用字符串类型时每条 2 次堆分配加拷贝，
 /// 而 359 行教学样例会产出 456 条编辑、管线里还要经历
-/// 「词法 source_map → 词法 final_edits → 合并 map」三份拷贝，合计约
-/// 2700 次分配——实测占整条管线 663 µs 里的 **290 µs（44%）**。改为内联后
-/// 短串只付一次 22 字节的 `memcpy`，长名字（极少）仍走 `String`。
+/// 「词法源映射 → 词法最终编辑表 → 合并映射表」三份拷贝，合计约
+/// 2700 次分配——实测占整条管线 663 微秒里的 **290 微秒（44%）**。改为内联后
+/// 短串只付一次 22 字节的内存拷贝，长名字（极少）仍走字符串类型。
 ///
-/// 对外仍是字符串（`Deref<Target = str>`，可 `==`、`len()`、`starts_with()`），
+/// 对外仍是字符串（解引用目标为文本，可比较、取长度、判断前缀），
 /// 序列化形制不变（仍是一个 JSON 字符串），不影响已有缓存文件。
 #[derive(Clone)]
-pub struct MapText(MapTextRepr);
+pub struct 映射文本(映射文本存储);
 
 #[derive(Clone)]
-enum MapTextRepr {
-    /// 内联：`len` 为已用字节数（构造自合法 UTF-8 切片，故必是字符边界）
-    Inline {
-        len: u8,
-        buf: [u8; 内联字节],
+enum 映射文本存储 {
+    /// 内联：`字节数` 为已用字节数（构造自合法 UTF-8 切片，故必是字符边界）
+    内联存储 {
+        字节数: u8,
+        缓冲: [u8; 内联字节],
     },
-    Heap(String),
+    堆存储(String),
 }
 
-impl MapText {
+impl 映射文本 {
     /// 文本切片
-    pub fn as_str(&self) -> &str {
+    pub fn 文本切片(&self) -> &str {
         match &self.0 {
-            MapTextRepr::Inline { len, buf } => {
-                // 安全：`buf[..len]` 是从一个合法 `&str` 逐字节拷来的原片段
-                //（构造点只有 `From<&str>`），不可能是非法 UTF-8；`len` 也不越界
-                std::str::from_utf8(&buf[..usize::from(*len)]).unwrap_or("")
+            映射文本存储::内联存储 { 字节数, 缓冲 } => {
+                // 安全：`缓冲[..字节数]` 是从一个合法 `&str` 逐字节拷来的原片段
+                //（构造点只有 `From<&str>`），不可能是非法 UTF-8；`字节数` 也不越界
+                std::str::from_utf8(&缓冲[..usize::from(*字节数)]).unwrap_or("")
             }
-            MapTextRepr::Heap(s) => s.as_str(),
+            映射文本存储::堆存储(文本值) => 文本值.as_str(),
         }
     }
 }
 
-impl From<&str> for MapText {
-    fn from(text: &str) -> Self {
-        if text.len() <= 内联字节 {
-            let mut buf = [0u8; 内联字节];
-            buf[..text.len()].copy_from_slice(text.as_bytes());
-            // `len` 不超 22，转 u8 不会截断
-            MapText(MapTextRepr::Inline {
-                len: text.len() as u8,
-                buf,
+impl From<&str> for 映射文本 {
+    fn from(文本来源: &str) -> Self {
+        if 文本来源.len() <= 内联字节 {
+            let mut 缓冲 = [0u8; 内联字节];
+            缓冲[..文本来源.len()].copy_from_slice(文本来源.as_bytes());
+            // `字节数` 不超 22，转为字节类型不会截断
+            映射文本(映射文本存储::内联存储 {
+                字节数: 文本来源.len() as u8,
+                缓冲,
             })
         } else {
-            MapText(MapTextRepr::Heap(text.to_string()))
+            映射文本(映射文本存储::堆存储(文本来源.to_string()))
         }
     }
 }
 
-impl From<String> for MapText {
-    fn from(text: String) -> Self {
-        Self::from(text.as_str())
+impl From<String> for 映射文本 {
+    fn from(文本来源: String) -> Self {
+        Self::from(文本来源.as_str())
     }
 }
 
-impl std::ops::Deref for MapText {
+impl std::ops::Deref for 映射文本 {
     type Target = str;
     fn deref(&self) -> &str {
-        self.as_str()
+        self.文本切片()
     }
 }
 
-impl std::fmt::Debug for MapText {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // 按字符串打印：条目调试输出与 `String` 时期一致（内联与否不可见）
-        std::fmt::Debug::fmt(self.as_str(), f)
+impl std::fmt::Debug for 映射文本 {
+    fn fmt(&self, 格式器: &mut Formatter<'_>) -> std::fmt::Result {
+        // 按字符串打印：条目调试输出与字符串类型时期一致（内联与否不可见）
+        std::fmt::Debug::fmt(self.文本切片(), 格式器)
     }
 }
 
-impl std::fmt::Display for MapText {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
+impl std::fmt::Display for 映射文本 {
+    fn fmt(&self, 格式器: &mut Formatter<'_>) -> std::fmt::Result {
+        格式器.write_str(self.文本切片())
     }
 }
 
-impl PartialEq for MapText {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_str() == other.as_str()
+impl PartialEq for 映射文本 {
+    fn eq(&self, 其他: &Self) -> bool {
+        self.文本切片() == 其他.文本切片()
     }
 }
 
-impl Eq for MapText {}
+impl Eq for 映射文本 {}
 
-impl PartialEq<str> for MapText {
-    fn eq(&self, other: &str) -> bool {
-        self.as_str() == other
+impl PartialEq<str> for 映射文本 {
+    fn eq(&self, 其他: &str) -> bool {
+        self.文本切片() == 其他
     }
 }
 
-impl PartialEq<&str> for MapText {
-    fn eq(&self, other: &&str) -> bool {
-        self.as_str() == *other
+impl PartialEq<&str> for 映射文本 {
+    fn eq(&self, 其他: &&str) -> bool {
+        self.文本切片() == *其他
     }
 }
 
-impl PartialEq<String> for MapText {
-    fn eq(&self, other: &String) -> bool {
-        self.as_str() == other.as_str()
+impl PartialEq<String> for 映射文本 {
+    fn eq(&self, 其他: &String) -> bool {
+        self.文本切片() == 其他.as_str()
     }
 }
 
-impl PartialEq<MapText> for str {
-    fn eq(&self, other: &MapText) -> bool {
-        self == other.as_str()
+impl PartialEq<映射文本> for str {
+    fn eq(&self, 其他: &映射文本) -> bool {
+        self == 其他.文本切片()
     }
 }
 
-impl PartialEq<MapText> for &str {
-    fn eq(&self, other: &MapText) -> bool {
-        *self == other.as_str()
+impl PartialEq<映射文本> for &str {
+    fn eq(&self, 其他: &映射文本) -> bool {
+        *self == 其他.文本切片()
     }
 }
 
-impl PartialEq<MapText> for String {
-    fn eq(&self, other: &MapText) -> bool {
-        self.as_str() == other.as_str()
+impl PartialEq<映射文本> for String {
+    fn eq(&self, 其他: &映射文本) -> bool {
+        self.as_str() == 其他.文本切片()
     }
 }
 
-impl Serialize for MapText {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.as_str())
+impl Serialize for 映射文本 {
+    fn serialize<序列化目标: serde::Serializer>(
+        &self,
+        序列化目标实例: 序列化目标,
+    ) -> Result<序列化目标::Ok, 序列化目标::Error> {
+        序列化目标实例.serialize_str(self.文本切片())
     }
 }
 
-impl<'de> Deserialize<'de> for MapText {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let text = String::deserialize(deserializer)?;
-        Ok(Self::from(text.as_str()))
+impl<'甲> Deserialize<'甲> for 映射文本 {
+    fn deserialize<反序列化目标: serde::Deserializer<'甲>>(
+        反序列化输入: 反序列化目标,
+    ) -> Result<Self, 反序列化目标::Error> {
+        let 文本值 = String::deserialize(反序列化输入)?;
+        Ok(Self::from(文本值.as_str()))
     }
 }
 
-/// 源映射条目：输入文本中一个被替换的标识符 token
+/// 源映射条目：输入文本中一个被替换的标识符令牌
 ///
 /// 记录输入侧信息（字节偏移、长度）与翻译前后文本；
 /// 不提供目标偏移——完整管线后续的模块路径替换/别名替换会改变输出偏移，
 /// 输入侧信息始终保持精确。
 /// 语义按使用场景分两级：
-/// - 词法阶段 `source_map`：偏移为母语源坐标，替换文字 为词法阶段文本；
-/// - 全管线 `pipeline_map`：偏移为母语源坐标，替换文字 为**最终输出文本**；
-/// - 各中间阶段 `_with_map` 的 edits：偏移为该阶段输入文本坐标。
+/// - 词法阶段 `源映射`：偏移为母语源坐标，替换文字为词法阶段文本；
+/// - 全管线 `流程映射`：偏移为母语源坐标，替换文字为**最终输出文本**；
+/// - 各中间阶段 `带映射` 等构造的编辑表：偏移为该阶段输入文本坐标。
 ///
-/// 两个文本字段用 [`MapText`]（小串内联）：编辑表是转译热路径上
+/// 两个文本字段用 [`映射文本`]（小串内联）：编辑表是转译热路径上
 /// 唯一的高频小串容器，见该类型的文档。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct 源码映射条目 {
-    /// 源文件中的字节偏移（token 起点）
+    /// 源文件中的字节偏移（令牌起点）
     ///
-    /// 磁盘缓存 JSON 的键沿用 v1 拼写（`#[serde(rename)]`）：产物格式是对外契约，
+    /// 磁盘缓存 JSON 的键沿用首版拼写（序列化重命名属性）：产物格式是对外契约，
     /// 不随源码侧中文化而变，存量缓存文件因此继续有效、无需版本升级。
     #[serde(rename = "source_offset")]
     pub 源偏移: usize,
-    /// token 字节长度
-    pub length: usize,
-    /// 源 token 文本（如 `函数`）
-    pub original: MapText,
-    /// 翻译后文本（如 `fn`）
+    /// 令牌字节长度
+    #[serde(rename = "length")]
+    pub 源码长度: usize,
+    /// 源令牌文本（如 `函数`）
+    #[serde(rename = "original")]
+    pub 原文: 映射文本,
+    /// 翻译后文本（如中文 `函数` 转成的英文关键字）
     #[serde(rename = "replacement")]
-    pub 替换文字: MapText,
+    pub 替换文字: 映射文本,
 }
 
 impl 源码映射条目 {
-    pub fn new(源偏移: usize, length: usize, original: &str, 替换文字: &str) -> Self {
+    pub fn 新建(源偏移: usize, 源码长度: usize, 原文: &str, 替换文字: &str) -> Self {
         Self {
             源偏移,
-            length,
-            original: MapText::from(original),
-            替换文字: MapText::from(替换文字),
+            源码长度,
+            原文: 映射文本::from(原文),
+            替换文字: 映射文本::from(替换文字),
         }
     }
 }
 
 /// 翻译产物：翻译后的代码、词法阶段源映射与全管线编辑地图
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TranspileOutput {
+pub struct 转译输出 {
     /// 翻译后的代码文本
-    pub output: String,
-    /// 词法阶段源映射（向后兼容：仅含词法阶段的替换，替换文字 为词法阶段文本）
-    pub source_map: Vec<源码映射条目>,
-    /// 全管线编辑地图：以母语源偏移升序记录，替换文字 为**最终输出文本**
-    ///（宏调用自动补充的 `!` 已计入 替换文字）。
+    #[serde(rename = "output")]
+    pub 输出: String,
+    /// 词法阶段源映射（向后兼容：仅含词法阶段的替换，替换文字为词法阶段文本）
+    #[serde(rename = "source_map")]
+    pub 源映射: Vec<源码映射条目>,
+    /// 全管线编辑地图：以母语源偏移升序记录，替换文字为**最终输出文本**
+    ///（宏调用自动补充的 `!` 已计入替换文字）。
     /// 列映射等消费方只需回放此表，无需复刻任何转译规则。
-    pub pipeline_map: Vec<源码映射条目>,
+    #[serde(rename = "pipeline_map")]
+    pub 流程映射: Vec<源码映射条目>,
 }
 
-impl TranspileOutput {
+impl 转译输出 {
     /// 仅创建输出（无源映射）
-    pub fn new(output: String) -> Self {
+    pub fn 新建(输出: String) -> Self {
         Self {
-            output,
-            source_map: Vec::new(),
-            pipeline_map: Vec::new(),
+            输出,
+            源映射: Vec::new(),
+            流程映射: Vec::new(),
         }
     }
 
     /// 创建输出并附带词法阶段源映射
-    pub fn with_map(output: String, source_map: Vec<源码映射条目>) -> Self {
+    pub fn 带映射(输出: String, 源映射: Vec<源码映射条目>) -> Self {
         Self {
-            output,
-            source_map,
-            pipeline_map: Vec::new(),
+            输出,
+            源映射,
+            流程映射: Vec::new(),
         }
     }
 
     /// 创建输出并附带词法阶段源映射与全管线编辑地图
-    pub fn with_full_map(
-        output: String,
-        source_map: Vec<源码映射条目>,
-        pipeline_map: Vec<源码映射条目>,
+    pub fn 带完整映射(
+        输出: String,
+        源映射: Vec<源码映射条目>,
+        流程映射: Vec<源码映射条目>,
     ) -> Self {
         Self {
-            output,
-            source_map,
-            pipeline_map,
+            输出,
+            源映射,
+            流程映射,
         }
     }
 }
 
 /// 缓存条目：内容哈希 → 条目
 #[derive(Debug, Clone)]
-struct CacheEntry {
+struct 缓存条目 {
     /// 源内容字节长度（哈希冲突时的廉价校验）
-    content_length: usize,
+    内容长度: usize,
     /// 翻译语境指纹（语言包映射内容变化时指纹变化，缓存自动失效）
-    context_fingerprint: u64,
+    语境指纹: u64,
     /// 缓存的翻译产物
-    output: TranspileOutput,
+    输出: 转译输出,
 }
 
-/// 基于内容哈希的 LRU 翻译缓存
+/// 基于内容哈希的最近最少使用翻译缓存
 ///
-/// - 键：内容 FNV-1a 64 位哈希（附长度校验，降低冲突风险）
+/// - 键：内容 FNV 散列算法 64 位哈希（附长度校验，降低冲突风险）
 /// - 值：翻译产物（输出 + 源映射）
 /// - 语境指纹：关键字/模块路径/标识符别名映射内容的哈希，
 ///   语言包更新后旧缓存自动失效，保证翻译结果与映射一致
-/// - 淘汰策略：LRU（最近最少使用），容量可配置
+/// - 淘汰策略：最近最少使用，容量可配置
 ///
-/// 统计计数用 [`AtomicU64`]，类型满足 `Send + Sync`，
-/// 可置于 `Mutex`/`RwLock` 后在多线程间共享（如并行转译项目文件）。
+/// 统计计数用 [`原子u64`]，类型满足发送特征与同步特征，
+/// 可置于互斥锁/读写锁后在多线程间共享（如并行转译项目文件）。
 pub struct 转译缓存 {
-    entries: HashMap<u64, CacheEntry>,
-    /// LRU 顺序：队首最旧、队尾最新；每个条目附带代际计数器，
-    /// `mark_hit` 递增代际并在队尾添加新条目，旧代际条目在淘汰时惰性跳过
-    order: VecDeque<(u64, u64)>,
+    条目: HashMap<u64, 缓存条目>,
+    /// 最近最少使用顺序：队首最旧、队尾最新；每个条目附带代际计数器，
+    /// `标记命中` 递增代际并在队尾添加新条目，旧代际条目在淘汰时惰性跳过
+    排序队列: VecDeque<(u64, u64)>,
     /// 每个哈希的当前代际：与队列条目的代际匹配时为有效条目
-    generations: HashMap<u64, u64>,
-    capacity: usize,
-    hits: AtomicU64,
-    misses: AtomicU64,
-    /// 磁盘持久化路径：Some 时由 [`转译缓存::flush`] 原子写盘
+    代际: HashMap<u64, u64>,
+    缓存容量: usize,
+    命中计数: AtomicU64,
+    未命中计数: AtomicU64,
+    /// 磁盘持久化路径：有值时由 [`转译缓存::写盘`] 原子写盘
     ///（跨进程复用：CLI 短命进程把上次运行的翻译结果留给下次）
-    persistence: Option<PathBuf>,
-    /// 待写盘标记：变更后置位，[`转译缓存::flush`] 成功写盘后清除。
+    持久路径: Option<PathBuf>,
+    /// 待写盘标记：变更后置位，[`转译缓存::写盘`] 成功写盘后清除。
     ///
-    /// 不每次变更都写盘的原因：`save` 会把**整个**缓存序列化为 JSON，
-    /// 批量转译 N 个文件（各自 miss 后插入）会产生 N 次全量写，
+    /// 不每次变更都写盘的原因：`保存` 会把**整个**缓存序列化为 JSON，
+    /// 批量转译 N 个文件（各自未命中后插入）会产生 N 次全量写，
     /// 且这些写发生在调用方持有缓存的临界区内，把并行转译串行化。
-    /// 改为累积变更、批量一次写盘（进程退出由 `Drop` 兜底，不丢数据）。
-    dirty: bool,
+    /// 改为累积变更、批量一次写盘（进程退出由可丢弃兜底，不丢数据）。
+    待写盘: bool,
 }
 
-/// 退出兜底：保证累积的未写盘变更不丢失（正常路径无需显式 `flush`）
+/// 退出兜底：保证累积的未写盘变更不丢失（正常路径无需显式 `写盘`）
 impl Drop for 转译缓存 {
     fn drop(&mut self) {
-        self.flush();
+        self.写盘();
     }
 }
 
 /// 磁盘持久化文件格式（版本不匹配/解析失败时静默丢弃，回退内存缓存）
 #[derive(Serialize, Deserialize)]
-struct PersistentCacheFile {
+struct 持久缓存文件 {
     /// 格式版本：结构变更时递增，旧版本文件直接丢弃
-    version: u32,
-    /// LRU 顺序（旧→新）；加载时按序重建代际队列
-    entries: Vec<PersistentEntry>,
+    #[serde(rename = "version")]
+    版本: u32,
+    /// 最近最少使用顺序（旧→新）；加载时按序重建代际队列
+    #[serde(rename = "entries")]
+    条目: Vec<持久条目>,
 }
 
 /// 磁盘上的单个缓存条目（结构与内存条目对应）
 #[derive(Serialize, Deserialize)]
-struct PersistentEntry {
-    hash: u64,
-    content_length: usize,
-    context_fingerprint: u64,
-    output: TranspileOutput,
+struct 持久条目 {
+    #[serde(rename = "hash")]
+    哈希值: u64,
+    #[serde(rename = "content_length")]
+    内容长度: usize,
+    #[serde(rename = "context_fingerprint")]
+    语境指纹: u64,
+    #[serde(rename = "output")]
+    输出: 转译输出,
 }
 
 /// 当前持久化格式版本
-const PERSISTENT_FORMAT_VERSION: u32 = 1;
+const 持久格式版本: u32 = 1;
 
 /// 持久化缓存的默认容量（磁盘缓存面向多项目，比内存默认稍大）
-const PERSISTENT_CAPACITY: usize = 512;
+const 持久化容量: usize = 512;
 
 impl 转译缓存 {
     /// 新建缓存（容量至少为 1）
-    pub fn new(capacity: usize) -> Self {
+    pub fn 新建(缓存容量: usize) -> Self {
         Self {
-            entries: HashMap::new(),
-            order: VecDeque::new(),
-            generations: HashMap::new(),
-            capacity: capacity.max(1),
-            hits: AtomicU64::new(0),
-            misses: AtomicU64::new(0),
-            persistence: None,
-            dirty: false,
+            条目: HashMap::new(),
+            排序队列: VecDeque::new(),
+            代际: HashMap::new(),
+            缓存容量: 缓存容量.max(1),
+            命中计数: AtomicU64::new(0),
+            未命中计数: AtomicU64::new(0),
+            持久路径: None,
+            待写盘: false,
         }
     }
 
     /// 默认容量：256 个文件条目
-    pub fn with_default_capacity() -> Self {
-        Self::new(256)
+    pub fn 默认容量() -> Self {
+        转译缓存::新建(256)
     }
 
-    /// 带磁盘持久化的缓存：从 `path` 加载既有条目（尽力而为：文件不存在、
+    /// 带磁盘持久化的缓存：从 `缓存路径` 加载既有条目（尽力而为：文件不存在、
     /// 版本不匹配、JSON 损坏时静默回退为空缓存），此后变更累积、由
-    /// [`Self::flush`] 批量写盘（进程退出由 `Drop` 兜底）。
+    /// [`自身::写盘`] 批量写盘（进程退出由可丢弃兜底）。
     ///
     /// 跨进程增量复用场景（如 CLI 每次运行都是新进程）：上次运行转译过的
-    /// 文件内容未变时直接命中，省去整条转译管线（Unicode/全角/lint 检查 + 词法）。
-    pub fn persistent(path: &Path) -> Self {
-        let mut cache = Self::new(PERSISTENT_CAPACITY);
-        if let Ok(bytes) = std::fs::read(path)
-            && let Ok(file) = serde_json::from_slice::<PersistentCacheFile>(&bytes)
+    /// 文件内容未变时直接命中，省去整条转译管线（Unicode/全角/静态检查 + 词法）。
+    pub fn 持久化(缓存路径: &Path) -> Self {
+        let mut 缓存实例 = 转译缓存::新建(持久化容量);
+        if let Ok(字节数据) = std::fs::read(缓存路径)
+            && let Ok(文件内容) = serde_json::from_slice::<持久缓存文件>(&字节数据)
         {
-            if file.version == PERSISTENT_FORMAT_VERSION {
-                cache.restore(file.entries);
+            if 文件内容.版本 == 持久格式版本 {
+                缓存实例.恢复(文件内容.条目);
             } else {
                 // 版本不匹配或结构损坏：丢弃旧文件（下次插入时重建）
                 crate::log_warn!(
                     "translation_cache",
                     "{}（{}）",
                     crate::语言::取消息("log_cache_disk_discard"),
-                    path.display()
+                    缓存路径.display()
                 );
             }
         }
         // 文件不存在：首次使用，属正常路径，保持空缓存
-        cache.persistence = Some(path.to_path_buf());
-        cache
+        缓存实例.持久路径 = Some(缓存路径.to_path_buf());
+        缓存实例
     }
 
     /// 默认位置的持久化缓存：`~/.rz/cache/transpile-v1.json`
-    ///（与工具链/语言包同根，见 [`crate::工具链::安装根目录`]）
-    pub fn persistent_default() -> Self {
-        let path = crate::工具链::安装根目录()
+    ///（与工具链/语言包同根，见 [`包::工具链::安装根目录`]）
+    pub fn 默认持久化() -> Self {
+        let 缓存路径 = crate::工具链::安装根目录()
             .join("cache")
             .join("transpile-v1.json");
-        Self::persistent(&path)
+        Self::持久化(&缓存路径)
     }
 
     /// 显式写盘（幂等；无持久化路径时为空操作）
-    pub fn save(&self, path: &Path) -> std::io::Result<()> {
-        let file = PersistentCacheFile {
-            version: PERSISTENT_FORMAT_VERSION,
-            entries: self.export_entries(),
+    pub fn 保存(&self, 缓存路径: &Path) -> std::io::Result<()> {
+        let 文件内容 = 持久缓存文件 {
+            版本: 持久格式版本,
+            条目: self.导出条目(),
         };
-        let bytes = serde_json::to_vec(&file)?;
+        let 字节数据 = serde_json::to_vec(&文件内容)?;
         // 父目录可能不存在（首次运行 ~/.rz/cache/ 未创建）：先建目录再写
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+        if let Some(父目录) = 缓存路径.parent() {
+            std::fs::create_dir_all(父目录)?;
         }
-        // 原子写：临时文件 + rename，避免进程中断留下半截 JSON
-        let tmp = path.with_extension("json.tmp");
-        std::fs::write(&tmp, &bytes)?;
-        std::fs::rename(&tmp, path)?;
+        // 原子写：临时文件加重命名，避免进程中断留下半截 JSON
+        let 临时文件名 = 缓存路径.with_extension("json.tmp");
+        std::fs::write(&临时文件名, &字节数据)?;
+        std::fs::rename(&临时文件名, 缓存路径)?;
         Ok(())
     }
 
     /// 批量写盘：有待写变更且绑定了持久化路径时写盘一次（幂等，无变更时空操作）。
     ///
     /// 批量转译场景应在全部文件处理完后调用一次（而非每个文件一次）：
-    /// [`Self::save`] 会序列化整个缓存，逐次写盘会把并行转译串行化。
-    /// 进程退出时由 `Drop` 兜底调用，正常路径无需显式调用。
-    pub fn flush(&mut self) {
-        if !self.dirty {
+    /// [`自身::保存`] 会序列化整个缓存，逐次写盘会把并行转译串行化。
+    /// 进程退出时由可丢弃兜底调用，正常路径无需显式调用。
+    pub fn 写盘(&mut self) {
+        if !self.待写盘 {
             return;
         }
-        let Some(path) = self.persistence.clone() else {
+        let Some(缓存路径) = self.持久路径.clone() else {
             // 无持久化路径：变更无需落盘，标记清零避免无谓重试
-            self.dirty = false;
+            self.待写盘 = false;
             return;
         };
-        match self.save(&path) {
-            Ok(()) => self.dirty = false,
-            // 写失败：保留 dirty 以便后续（含 Drop）重试；缓存丢失可接受，不阻断转译
-            Err(e) => crate::log_warn!(
+        if let Err(错误值) = self.保存(&缓存路径) {
+            // 写失败：保留待写盘以便后续（含可丢弃）重试；缓存丢失可接受，不阻断转译
+            crate::log_warn!(
                 "translation_cache",
                 "{}（{}）",
                 crate::语言::取消息("log_cache_disk_save_failed"),
-                e
-            ),
+                错误值
+            );
+        } else {
+            self.待写盘 = false;
         }
     }
 
-    /// 从磁盘条目重建内存 LRU 结构（条目按旧→新顺序导入，代际队列保持一致）
-    fn restore(&mut self, entries: Vec<PersistentEntry>) {
-        for entry in entries {
-            let hash = entry.hash;
-            let generation = self.generations.entry(hash).or_insert(0);
-            self.order.push_back((hash, *generation));
-            self.entries.insert(
-                hash,
-                CacheEntry {
-                    content_length: entry.content_length,
-                    context_fingerprint: entry.context_fingerprint,
-                    output: entry.output,
+    /// 从磁盘条目重建内存最近最少使用结构（条目按旧→新顺序导入，代际队列保持一致）
+    fn 恢复(&mut self, 条目列表: Vec<持久条目>) {
+        for 条目记录 in 条目列表 {
+            let 哈希值 = 条目记录.哈希值;
+            let 代际值 = self.代际.entry(哈希值).or_insert(0);
+            self.排序队列.push_back((哈希值, *代际值));
+            self.条目.insert(
+                哈希值,
+                缓存条目 {
+                    内容长度: 条目记录.内容长度,
+                    语境指纹: 条目记录.语境指纹,
+                    输出: 条目记录.输出,
                 },
             );
         }
@@ -432,38 +450,38 @@ impl 转译缓存 {
             "{}",
             crate::语言::取带参消息(
                 "log_cache_disk_loaded",
-                &[&self.entries.len().to_string()]
+                &[&self.条目.len().to_string()]
             )
         );
     }
 
-    /// 按 LRU 顺序（旧→新）导出全部有效条目
-    fn export_entries(&self) -> Vec<PersistentEntry> {
-        let mut out = Vec::with_capacity(self.entries.len());
-        for (hash, generation) in &self.order {
-            if self.generations.get(hash) != Some(generation) {
+    /// 按最近最少使用顺序（旧→新）导出全部有效条目
+    fn 导出条目(&self) -> Vec<持久条目> {
+        let mut 结果集 = Vec::with_capacity(self.条目.len());
+        for (哈希值, 代际值) in &self.排序队列 {
+            if self.代际.get(哈希值) != Some(代际值) {
                 continue; // 过时代际条目：惰性跳过
             }
-            if let Some(entry) = self.entries.get(hash) {
-                out.push(PersistentEntry {
-                    hash: *hash,
-                    content_length: entry.content_length,
-                    context_fingerprint: entry.context_fingerprint,
-                    output: entry.output.clone(),
+            if let Some(条目记录) = self.条目.get(哈希值) {
+                结果集.push(持久条目 {
+                    哈希值: *哈希值,
+                    内容长度: 条目记录.内容长度,
+                    语境指纹: 条目记录.语境指纹,
+                    输出: 条目记录.输出.clone(),
                 });
             }
         }
-        out
+        结果集
     }
 
-    /// FNV-1a 64 位哈希（无第三方依赖，速度快，适合缓存键）
-    pub fn compute_content_hash(content: &str) -> u64 {
-        let mut hash = 0xcbf29ce484222325u64;
-        for byte in content.as_bytes() {
-            hash ^= *byte as u64;
-            hash = hash.wrapping_mul(0x100000001b3);
+    /// FNV 散列算法 64 位哈希（无第三方依赖，速度快，适合缓存键）
+    pub fn 计算内容哈希(内容: &str) -> u64 {
+        let mut 哈希值: u64 = 0xcbf29ce484222325;
+        for 字节值 in 内容.as_bytes() {
+            哈希值 ^= *字节值 as u64;
+            哈希值 = 哈希值.wrapping_mul(0x100000001b3);
         }
-        hash
+        哈希值
     }
 
     /// 生成翻译语境指纹：任一映射表内容变化或引擎源码变化时指纹变化
@@ -472,210 +490,203 @@ impl 转译缓存 {
     ///
     /// 四张表全部参与：关键字、模块路径、别名、派生特征。
     /// 派生特征表由 `映射管理器` 从「派生特征」节单独存放（不并入
-    /// keyword_map，避免与方法名别名冲突），若漏算会导致只改派生表时
+    /// 关键字映射，避免与方法名别名冲突），若漏算会导致只改派生表时
     /// 指纹不变、缓存返回旧转译产物。
-    /// 另混入引擎源码指纹（build.rs 对 src/ 全量生成）：缓存不仅须跟随
+    /// 另混入引擎源码指纹（构建脚本对源码目录全量生成）：缓存不仅须跟随
     /// 语言包映射变化，也须跟随转译算法变化——否则升级 rzc 后（算法修复/
     /// 调整），源文件未变时旧缓存仍命中、修复不生效（真实事故：别名替换
     /// 细则修复后，旧转译产物继续被复用）。
     pub fn 生成语境指纹(
-        keyword_map: &HashMap<String, String>,
-        module_path_map: &HashMap<String, String>,
-        alias_map: &HashMap<String, String>,
-        derive_map: &HashMap<String, String>,
+        关键字映射: &HashMap<String, String>,
+        模块路径映射: &HashMap<String, String>,
+        别名映射: &HashMap<String, String>,
+        派生映射: &HashMap<String, String>,
     ) -> u64 {
-        let mut pairs: Vec<String> = Vec::new();
+        let mut 键值对: Vec<String> = Vec::new();
         // 引擎源码指纹：转译算法自身的身份，算法代码变化即失效全部缓存
-        pairs.push(format!("engine-source:{:#x}", crate::语言::源码指纹));
-        for map in [keyword_map, module_path_map, alias_map, derive_map] {
-            for (key, value) in map {
-                // 长度前缀 + NUL 定界：键/值中出现任意字符（含 `=`、`\0`）
-                // 都不会产生歧义（`"a=b"/"c"` 与 `"a"/"b=c"` 若用 `=`
-                // 拼接会生成相同指纹，缓存语境误判为未变化）
-                pairs.push(format!("{}:{}\0{}", key.len(), key, value));
+        键值对.push(format!("engine-source:{:#x}", crate::语言::源码指纹));
+        for 映射表 in [关键字映射, 模块路径映射, 别名映射, 派生映射] {
+            for (键文本, 值文本) in 映射表 {
+                // 长度前缀加空字节定界：键/值中出现任意字符（含 `=`、`\0`）
+                // 都不会产生歧义（若用 `=` 拼接，键为 `a=b`、值为 `c` 与
+                // 键为 `a`、值为 `b=c` 会生成相同指纹，缓存语境误判为未变化）
+                键值对.push(format!("{}:{}\0{}", 键文本.len(), 键文本, 值文本));
             }
         }
-        pairs.sort();
-        Self::compute_content_hash(&pairs.join("\n"))
+        键值对.sort();
+        Self::计算内容哈希(&键值对.join("\n"))
     }
 
     /// 组合语言包语境指纹与项目上下文指纹为最终缓存指纹
     ///
-    /// 不用异或：异或满足交换律（`(a, b)` 与 `(b, a)` 不可区分），且
-    /// `None` 与「项目指纹恰为 0」的组合结果相同，会把「无项目上下文」与
-    /// 「项目上下文指纹为 0」混为一谈而错误复用缓存。此处对 `None`/`Some`
-    /// 使用显式标签，并用无歧义定界拼接后走稳定哈希（FNV-1a，跨进程一致，
-    /// 与 [`Self::生成语境指纹`] 同一算法，便于磁盘缓存比对）。
-    pub fn combine_fingerprint(manager_fingerprint: u64, project_fingerprint: Option<u64>) -> u64 {
-        let project_part = match project_fingerprint {
-            Some(fp) => format!("project:{fp:#x}"),
-            None => "project:none".to_string(),
+    /// 不用异或：异或满足交换律（两侧不可区分），且
+    /// `无` 与「项目指纹恰为 0」的组合结果相同，会把「无项目上下文」与
+    /// 「项目上下文指纹为 0」混为一谈而错误复用缓存。此处对 `无`/`有值`
+    /// 使用显式标签，并用无歧义定界拼接后走稳定哈希（FNV 散列算法，跨进程一致，
+    /// 与 [`自身::生成语境指纹`] 同一算法，便于磁盘缓存比对）。
+    pub fn 组合指纹(管理器指纹: u64, 项目指纹: Option<u64>) -> u64 {
+        let 项目部分 = if let Some(指纹值) = 项目指纹 {
+            format!("project:{指纹值:#x}")
+        } else {
+            "project:none".to_string()
         };
-        Self::compute_content_hash(&format!("{manager_fingerprint:#x}\n{project_part}"))
+        Self::计算内容哈希(&format!("{管理器指纹:#x}\n{项目部分}"))
     }
 
-    /// 查询缓存（计数命中/未命中；不更新 LRU 顺序）
+    /// 查询缓存（计数命中/未命中；不更新最近最少使用顺序）
     ///
     /// 命中条件：内容哈希一致、内容长度一致、语境指纹一致。
-    pub fn query(&self, content: &str, context_fingerprint: u64) -> Option<&TranspileOutput> {
-        let hash = Self::compute_content_hash(content);
-        match self.entries.get(&hash) {
-            Some(entry)
-                if entry.content_length == content.len()
-                    && entry.context_fingerprint == context_fingerprint =>
-            {
-                self.hits.fetch_add(1, Ordering::Relaxed);
-                Some(&entry.output)
-            }
-            _ => {
-                self.misses.fetch_add(1, Ordering::Relaxed);
-                None
-            }
+    pub fn 查询(&self, 内容: &str, 语境指纹: u64) -> Option<&转译输出> {
+        let 哈希值 = Self::计算内容哈希(内容);
+        if let Some(条目记录) = self.条目.get(&哈希值)
+            && 条目记录.内容长度 == 内容.len()
+            && 条目记录.语境指纹 == 语境指纹
+        {
+            self.命中计数.fetch_add(1, Ordering::Relaxed);
+            Some(&条目记录.输出)
+        } else {
+            self.未命中计数.fetch_add(1, Ordering::Relaxed);
+            None
         }
     }
 
     /// 插入缓存条目（同哈希存在时覆盖并视为最近使用；超容量淘汰最旧条目）
-    pub fn insert(&mut self, content: &str, context_fingerprint: u64, output: TranspileOutput) {
-        let hash = Self::compute_content_hash(content);
-        self.insert_precomputed(hash, content.len(), context_fingerprint, output);
+    pub fn 插入(&mut self, 内容: &str, 语境指纹: u64, 输出: 转译输出) {
+        let 哈希值 = Self::计算内容哈希(内容);
+        self.插入预算值(哈希值, 内容.len(), 语境指纹, 输出);
     }
 
     /// 获取或翻译：命中则直接返回缓存产物，未命中则执行翻译闭包并写入缓存
     ///
-    /// 翻译闭包返回 `Result`，失败时错误透传、不写入缓存。
-    pub fn get_or_transpile<F>(
+    /// 翻译闭包返回结果类型，失败时错误透传、不写入缓存。
+    pub fn 取或转译<闭包类型>(
         &mut self,
-        content: &str,
-        context_fingerprint: u64,
-        transpile_fn: F,
-    ) -> Result<TranspileOutput, 转译故障>
+        内容: &str,
+        语境指纹: u64,
+        转译闭包: 闭包类型,
+    ) -> Result<转译输出, 转译故障>
     where
-        F: FnOnce() -> Result<TranspileOutput, 转译故障>,
+        闭包类型: FnOnce() -> Result<转译输出, 转译故障>,
     {
-        // 预计算哈希一次（旧实现 miss 路径计算两次）
-        let hash = Self::compute_content_hash(content);
-        // 内联查询逻辑，避免 `query()` 重复计算哈希
-        let cached = match self.entries.get(&hash) {
-            Some(entry)
-                if entry.content_length == content.len()
-                    && entry.context_fingerprint == context_fingerprint =>
-            {
-                self.hits.fetch_add(1, Ordering::Relaxed);
-                Some(entry.output.clone())
-            }
-            _ => {
-                self.misses.fetch_add(1, Ordering::Relaxed);
-                None
-            }
+        // 预计算哈希一次（旧实现未命中路径计算两次）
+        let 哈希值 = Self::计算内容哈希(内容);
+        // 内联查询逻辑，避免 `查询()` 重复计算哈希
+        let 缓存产物 = if let Some(条目记录) = self.条目.get(&哈希值)
+            && 条目记录.内容长度 == 内容.len()
+            && 条目记录.语境指纹 == 语境指纹
+        {
+            self.命中计数.fetch_add(1, Ordering::Relaxed);
+            Some(条目记录.输出.clone())
+        } else {
+            self.未命中计数.fetch_add(1, Ordering::Relaxed);
+            None
         };
-        if let Some(output) = cached {
+        if let Some(产物) = 缓存产物 {
             crate::log_info!(
                 "translation_cache",
                 "{}",
                 crate::语言::取带参消息(
                     "log_cache_hit",
-                    &[&content.len().to_string(), &context_fingerprint.to_string()]
+                    &[&内容.len().to_string(), &语境指纹.to_string()]
                 )
             );
-            self.mark_hit(hash);
-            return Ok(output);
+            self.标记命中(哈希值);
+            return Ok(产物);
         }
         crate::log_info!(
             "translation_cache",
             "{}",
             crate::语言::取带参消息(
                 "log_cache_miss",
-                &[&content.len().to_string(), &context_fingerprint.to_string()]
+                &[&内容.len().to_string(), &语境指纹.to_string()]
             )
         );
-        let output = transpile_fn()?;
-        self.insert_precomputed(hash, content.len(), context_fingerprint, output.clone());
-        Ok(output)
+        let 产物 = 转译闭包()?;
+        self.插入预算值(哈希值, 内容.len(), 语境指纹, 产物.clone());
+        Ok(产物)
     }
 
     /// 清空全部条目（统计计数保留；绑定持久化路径时同步清空磁盘文件）
-    pub fn clear(&mut self) {
-        self.entries.clear();
-        self.order.clear();
-        self.generations.clear();
+    pub fn 清空(&mut self) {
+        // 三项集合整体换新（与逐项清空等价；本文件的本地方法名 `清空` 会保护
+        // 同名方法调用不被翻译，故不直接调用集合的清空方法）
+        self.条目 = HashMap::new();
+        self.排序队列 = VecDeque::new();
+        self.代际 = HashMap::new();
         // 清空是显式破坏性操作，立即落盘（不等批量写盘）
-        self.dirty = true;
-        self.flush();
+        self.待写盘 = true;
+        self.写盘();
     }
 
     /// 当前缓存条目数
-    pub fn current_count(&self) -> usize {
-        self.entries.len()
+    pub fn 当前条目数(&self) -> usize {
+        self.条目.len()
     }
 
     /// 缓存容量值
-    pub fn capacity_value(&self) -> usize {
-        self.capacity
+    pub fn 容量(&self) -> usize {
+        self.缓存容量
     }
 
     /// 累计命中次数
-    pub fn hit_count(&self) -> u64 {
-        self.hits.load(Ordering::Relaxed)
+    pub fn 命中次数(&self) -> u64 {
+        self.命中计数.load(Ordering::Relaxed)
     }
 
     /// 累计未命中次数
-    pub fn miss_count(&self) -> u64 {
-        self.misses.load(Ordering::Relaxed)
+    pub fn 未命中次数(&self) -> u64 {
+        self.未命中计数.load(Ordering::Relaxed)
     }
 
-    /// 命中率（0.0 ~ 1.0；无查询记录时为 0.0）
-    pub fn hit_rate(&self) -> f64 {
-        let hits = self.hits.load(Ordering::Relaxed);
-        let total = hits + self.misses.load(Ordering::Relaxed);
-        if total == 0 {
+    /// 命中率（0.0 到 1.0；无查询记录时为 0.0）
+    pub fn 命中率(&self) -> f64 {
+        let 命中数 = self.命中计数.load(Ordering::Relaxed);
+        let 总次数 = 命中数 + self.未命中计数.load(Ordering::Relaxed);
+        if 总次数 == 0 {
             0.0
         } else {
-            hits as f64 / total as f64
+            命中数 as f64 / 总次数 as f64
         }
     }
 
     // ===== 内部实现 =====
 
-    fn insert_precomputed(
-        &mut self,
-        hash: u64,
-        content_length: usize,
-        context_fingerprint: u64,
-        output: TranspileOutput,
+    fn 插入预算值(
+        &mut self, 哈希值: u64, 内容长度: usize, 语境指纹: u64, 输出: 转译输出
     ) {
-        if let Some(entry) = self.entries.get_mut(&hash) {
-            // 同内容（含语境变化）覆盖，保持 LRU 位置为最新
-            entry.content_length = content_length;
-            entry.context_fingerprint = context_fingerprint;
-            entry.output = output;
-            self.mark_hit(hash);
+        if let Some(条目记录) = self.条目.get_mut(&哈希值) {
+            // 同内容（含语境变化）覆盖，保持最近最少使用位置为最新
+            条目记录.内容长度 = 内容长度;
+            条目记录.语境指纹 = 语境指纹;
+            条目记录.输出 = 输出;
+            self.标记命中(哈希值);
             // 覆盖也是内容变更：置脏（此前该路径不回写磁盘，磁盘副本会残留旧产物）
-            self.dirty = true;
+            self.待写盘 = true;
             return;
         }
-        self.entries.insert(
-            hash,
-            CacheEntry {
-                content_length,
-                context_fingerprint,
-                output,
+        self.条目.insert(
+            哈希值,
+            缓存条目 {
+                内容长度,
+                语境指纹,
+                输出,
             },
         );
-        let generation = self.generations.entry(hash).or_insert(0);
-        self.order.push_back((hash, *generation));
+        let 代际值 = self.代际.entry(哈希值).or_insert(0);
+        self.排序队列.push_back((哈希值, *代际值));
         // 淘汰最旧有效条目（跳过代际不匹配的过时条目）
-        while self.entries.len() > self.capacity {
-            while let Some((front_hash, front_gen)) = self.order.pop_front() {
-                if self.generations.get(&front_hash) == Some(&front_gen) {
+        while self.条目.len() > self.缓存容量 {
+            while let Some((头部哈希值, 头部代际)) = self.排序队列.pop_front() {
+                if self.代际.get(&头部哈希值) == Some(&头部代际) {
                     // 代际匹配：这是有效条目，执行淘汰
-                    self.generations.remove(&front_hash);
-                    self.entries.remove(&front_hash);
+                    self.代际.remove(&头部哈希值);
+                    self.条目.remove(&头部哈希值);
                     crate::log_debug!(
                         "translation_cache",
                         "{}",
                         crate::语言::取带参消息(
                             "log_cache_evict",
-                            &[&front_hash.to_string()]
+                            &[&头部哈希值.to_string()]
                         )
                     );
                     break;
@@ -683,48 +694,48 @@ impl 转译缓存 {
                 // 代际不匹配：过时条目，惰性跳过
             }
         }
-        // 标记待写盘：实际写盘由 `flush()` 批量执行（详见 `dirty` 字段说明）
-        self.dirty = true;
+        // 标记待写盘：实际写盘由 `写盘()` 批量执行（详见 `待写盘` 字段说明）
+        self.待写盘 = true;
     }
 
-    /// O(1) LRU 命中更新：递增代际并在队尾添加新条目，
+    /// 常数时间最近最少使用命中更新：递增代际并在队尾添加新条目，
     /// 旧代际条目留在队列中，淘汰时因代际不匹配被惰性跳过；
     /// 队列膨胀超过阈值（容量 4 倍，最少 64）时压缩，
     /// 防止长期运行（如 LSP 会话）下过时条目无限累积
-    fn mark_hit(&mut self, hash: u64) {
-        let generation = self.generations.entry(hash).or_insert(0);
-        *generation += 1;
-        self.order.push_back((hash, *generation));
-        if self.order.len() > self.capacity.saturating_mul(4).max(64) {
-            self.compact_order();
+    fn 标记命中(&mut self, 哈希值: u64) {
+        let 代际值 = self.代际.entry(哈希值).or_insert(0);
+        *代际值 += 1;
+        self.排序队列.push_back((哈希值, *代际值));
+        if self.排序队列.len() > self.缓存容量.saturating_mul(4).max(64) {
+            self.压缩队列();
         }
     }
 
-    /// 压缩 LRU 队列：从队尾（最新）向队首扫描，每个哈希只保留
+    /// 压缩最近最少使用队列：从队尾（最新）向队首扫描，每个哈希只保留
     /// 最后一次访问的有效条目，其余过时条目全部移除
-    ///（压缩后队列长度 ≤ 缓存条目数 ≤ 容量，淘汰逻辑照常工作）
-    fn compact_order(&mut self) {
-        let mut seen = HashSet::new();
-        let mut compact: VecDeque<(u64, u64)> = VecDeque::with_capacity(self.entries.len());
-        for &(hash, generation) in self.order.iter().rev() {
-            if seen.insert(hash) && self.generations.get(&hash) == Some(&generation) {
-                compact.push_front((hash, generation));
+    ///（压缩后队列长度不超过缓存条目数、不超过容量，淘汰逻辑照常工作）
+    fn 压缩队列(&mut self) {
+        let mut 已见 = HashSet::new();
+        let mut 压缩结果: VecDeque<(u64, u64)> = VecDeque::with_capacity(self.条目.len());
+        for &(哈希值, 代际值) in self.排序队列.iter().rev() {
+            if 已见.insert(哈希值) && self.代际.get(&哈希值) == Some(&代际值) {
+                压缩结果.push_front((哈希值, 代际值));
             }
         }
-        self.order = compact;
+        self.排序队列 = 压缩结果;
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod 母语测试 {
     use super::*;
 
     #[test]
-    fn test_map_text_inline_and_heap_boundaries() {
+    fn 映射文本内联与堆边界() {
         // 边界：恰好 22 字节仍内联，23 字节转堆；两者读回逐字节相同
         let 恰好 = "a".repeat(内联字节);
         let 超出 = "b".repeat(内联字节 + 1);
-        for text in [
+        for 文本值 in [
             "",
             "fn",
             "函数",
@@ -732,434 +743,463 @@ mod tests {
             恰好.as_str(),
             超出.as_str(),
         ] {
-            let 内联 = MapText::from(text);
-            assert_eq!(内联.as_str(), text);
-            assert_eq!(内联, *text);
-            assert_eq!(内联.len(), text.len());
+            let 内联文本 = 映射文本::from(文本值);
+            assert_eq!(内联文本.文本切片(), 文本值);
+            assert_eq!(内联文本, *文本值);
+            assert_eq!(内联文本.len(), 文本值.len());
         }
         assert!(matches!(
-            MapText::from("a".repeat(内联字节).as_str()).0,
-            MapTextRepr::Inline { .. }
+            映射文本::from("a".repeat(内联字节).as_str()).0,
+            映射文本存储::内联存储 { .. }
         ));
         assert!(matches!(
-            MapText::from("a".repeat(内联字节 + 1).as_str()).0,
-            MapTextRepr::Heap(_)
+            映射文本::from("a".repeat(内联字节 + 1).as_str()).0,
+            映射文本存储::堆存储(_)
         ));
         // 多字节字符恰好填满内联缓冲：字符边界不被切断
-        let 中文 = "中".repeat(7); // 21 字节
-        assert_eq!(中文.len(), 21);
+        let 中文文本 = "中".repeat(7); // 21 字节
+        assert_eq!(中文文本.len(), 21);
         assert!(matches!(
-            MapText::from(中文.as_str()).0,
-            MapTextRepr::Inline { .. }
+            映射文本::from(中文文本.as_str()).0,
+            映射文本存储::内联存储 { .. }
         ));
-        assert_eq!(MapText::from(中文.as_str()).as_str(), 中文);
+        assert_eq!(映射文本::from(中文文本.as_str()).文本切片(), 中文文本);
     }
 
     #[test]
-    fn test_map_text_serde_keeps_string_shape() {
-        // 序列化形制与旧版一致：仍是 JSON 字符串、键名仍是 v1 拼写
-        //（字段名已中文化，磁盘格式靠 `#[serde(rename)]` 定住，缓存文件无需失效）
-        let entry = 源码映射条目::new(3, 6, "函数", "fn");
-        let json = serde_json::to_string(&entry).expect("序列化失败");
+    fn 映射文本序列化保持字符串形制() {
+        // 序列化形制与旧版一致：仍是 JSON 字符串、键名仍是首版拼写
+        //（字段名已中文化，磁盘格式靠序列化重命名属性定住，缓存文件无需失效）
+        let 条目记录 = 源码映射条目::新建(3, 6, "函数", "fn");
+        let 序列化文本 = serde_json::to_string(&条目记录).expect("序列化失败");
         assert_eq!(
-            json,
+            序列化文本,
             r#"{"source_offset":3,"length":6,"original":"函数","replacement":"fn"}"#
         );
-        let back: 源码映射条目 = serde_json::from_str(&json).expect("反序列化失败");
-        assert_eq!(back, entry);
+        let 回读条目: 源码映射条目 = serde_json::from_str(&序列化文本).expect("反序列化失败");
+        assert_eq!(回读条目, 条目记录);
         // 超长文本走堆后依然往返一致
-        let 长 = "x".repeat(64);
-        let entry = 源码映射条目::new(0, 64, 长.as_str(), 长.as_str());
-        let back: 源码映射条目 =
-            serde_json::from_str(&serde_json::to_string(&entry).unwrap()).unwrap();
-        assert_eq!(back.替换文字.as_str(), 长);
+        let 长文本值 = "x".repeat(64);
+        let 超长条目 = 源码映射条目::新建(0, 64, 长文本值.as_str(), 长文本值.as_str());
+        let 回读超长: 源码映射条目 =
+            serde_json::from_str(&serde_json::to_string(&超长条目).unwrap()).unwrap();
+        assert_eq!(回读超长.替换文字.文本切片(), 长文本值);
     }
 
-    fn sample_fingerprint() -> u64 {
-        转译缓存::compute_content_hash("测试语境")
+    fn 样本指纹() -> u64 {
+        转译缓存::计算内容哈希("测试语境")
     }
 
-    fn sample_output(suffix: &str) -> TranspileOutput {
-        TranspileOutput::new(format!("翻译输出{}", suffix))
+    fn 样本产物(后缀: &str) -> 转译输出 {
+        转译输出::新建(format!("翻译输出{}", 后缀))
     }
 
     #[test]
-    fn test_content_hash_deterministic_and_different() {
-        let hash1 = 转译缓存::compute_content_hash("函数 主函数() {}");
-        let hash2 = 转译缓存::compute_content_hash("函数 主函数() {}");
-        assert_eq!(hash1, hash2);
-        assert_ne!(hash1, 转译缓存::compute_content_hash("函数 主函数() { }"));
-        assert_ne!(转译缓存::compute_content_hash(""), hash1);
+    fn 内容哈希确定且可区分() {
+        let 哈希甲 = 转译缓存::计算内容哈希("函数 主函数() {}");
+        let 哈希乙 = 转译缓存::计算内容哈希("函数 主函数() {}");
+        assert_eq!(哈希甲, 哈希乙);
+        assert_ne!(哈希甲, 转译缓存::计算内容哈希("函数 主函数() { }"));
+        assert_ne!(转译缓存::计算内容哈希(""), 哈希甲);
     }
 
-    /// 组合指纹：`None` 与 `Some(0)` 必须区分（异或会把二者混为一谈）
+    /// 组合指纹：`无` 与 `有值(0)` 必须区分（异或会把二者混为一谈）
     #[test]
-    fn test_combine_fingerprint_distinguishes_none_from_zero() {
-        let 语言包 = sample_fingerprint();
-        let 无项目 = 转译缓存::combine_fingerprint(语言包, None);
-        let 零指纹项目 = 转译缓存::combine_fingerprint(语言包, Some(0));
-        assert_ne!(无项目, 零指纹项目, "无项目上下文不应与指纹为 0 的项目同键");
+    fn 组合指纹区分无与零() {
+        let 语言包指纹 = 样本指纹();
+        let 无项目指纹 = 转译缓存::组合指纹(语言包指纹, None);
+        let 零指纹项目 = 转译缓存::组合指纹(语言包指纹, Some(0));
+        assert_ne!(
+            无项目指纹, 零指纹项目,
+            "无项目上下文不应与指纹为 0 的项目同键"
+        );
     }
 
     /// 组合指纹：区分不同项目上下文，且对同一输入稳定
     #[test]
-    fn test_combine_fingerprint_distinguishes_projects() {
-        let 语言包 = sample_fingerprint();
-        let 甲 = 转译缓存::combine_fingerprint(语言包, Some(1));
-        let 乙 = 转译缓存::combine_fingerprint(语言包, Some(2));
-        assert_ne!(甲, 乙);
-        assert_eq!(甲, 转译缓存::combine_fingerprint(语言包, Some(1)));
+    fn 组合指纹区分项目() {
+        let 语言包指纹 = 样本指纹();
+        let 甲指纹 = 转译缓存::组合指纹(语言包指纹, Some(1));
+        let 乙指纹 = 转译缓存::组合指纹(语言包指纹, Some(2));
+        assert_ne!(甲指纹, 乙指纹);
+        assert_eq!(甲指纹, 转译缓存::组合指纹(语言包指纹, Some(1)));
     }
 
     #[test]
-    fn test_context_fingerprint_independent_of_map_order() {
-        let a = HashMap::from([
+    fn 语境指纹与映射顺序无关() {
+        let 映射甲 = HashMap::from([
             ("函数".to_string(), "fn".to_string()),
             ("让".to_string(), "let".to_string()),
         ]);
-        let b = HashMap::from([
+        let 映射乙 = HashMap::from([
             ("让".to_string(), "let".to_string()),
             ("函数".to_string(), "fn".to_string()),
         ]);
-        let empty = HashMap::new();
+        let 空映射 = HashMap::new();
         assert_eq!(
-            转译缓存::生成语境指纹(&a, &empty, &empty, &empty),
-            转译缓存::生成语境指纹(&b, &empty, &empty, &empty)
+            转译缓存::生成语境指纹(&映射甲, &空映射, &空映射, &空映射),
+            转译缓存::生成语境指纹(&映射乙, &空映射, &空映射, &空映射)
         );
-        let c = HashMap::from([
+        let 映射丙 = HashMap::from([
             ("函数".to_string(), "fn".to_string()),
             ("让".to_string(), "let".to_string()),
             ("可变".to_string(), "mut".to_string()),
         ]);
         assert_ne!(
-            转译缓存::生成语境指纹(&a, &empty, &empty, &empty),
-            转译缓存::生成语境指纹(&c, &empty, &empty, &empty)
+            转译缓存::生成语境指纹(&映射甲, &空映射, &空映射, &空映射),
+            转译缓存::生成语境指纹(&映射丙, &空映射, &空映射, &空映射)
         );
     }
 
     /// 语境指纹须覆盖派生特征表
     ///
     /// 回归：指纹曾只算关键字 / 模块路径 / 别名三表，而「派生特征」节由
-    /// `映射管理器` 单独存放（不并入 keyword_map，避免与方法名别名冲突）。
+    /// `映射管理器` 单独存放（不并入关键字映射，避免与方法名别名冲突）。
     /// 只改派生表时指纹不变，缓存会返回旧转译产物。
     #[test]
-    fn test_context_fingerprint_covers_derive_map() {
-        let keywords = HashMap::from([("函数".to_string(), "fn".to_string())]);
-        let empty = HashMap::new();
-        let derive_a = HashMap::from([("克隆".to_string(), "Clone".to_string())]);
-        let derive_b = HashMap::from([("克隆".to_string(), "Debug".to_string())]);
+    fn 语境指纹覆盖派生表() {
+        let 关键字表 = HashMap::from([("函数".to_string(), "fn".to_string())]);
+        let 空映射 = HashMap::new();
+        let 派生表甲 = HashMap::from([("克隆".to_string(), "Clone".to_string())]);
+        let 派生表乙 = HashMap::from([("克隆".to_string(), "Debug".to_string())]);
 
         // 仅派生表内容不同 → 指纹必须不同，否则缓存不会失效
         assert_ne!(
-            转译缓存::生成语境指纹(&keywords, &empty, &empty, &derive_a),
-            转译缓存::生成语境指纹(&keywords, &empty, &empty, &derive_b)
+            转译缓存::生成语境指纹(&关键字表, &空映射, &空映射, &派生表甲),
+            转译缓存::生成语境指纹(&关键字表, &空映射, &空映射, &派生表乙)
         );
         // 派生表内容相同（与插入顺序无关）→ 指纹一致
-        let derive_c = HashMap::from([("克隆".to_string(), "Clone".to_string())]);
+        let 派生表丙 = HashMap::from([("克隆".to_string(), "Clone".to_string())]);
         assert_eq!(
-            转译缓存::生成语境指纹(&keywords, &empty, &empty, &derive_a),
-            转译缓存::生成语境指纹(&keywords, &empty, &empty, &derive_c)
+            转译缓存::生成语境指纹(&关键字表, &空映射, &空映射, &派生表甲),
+            转译缓存::生成语境指纹(&关键字表, &空映射, &空映射, &派生表丙)
         );
     }
 
     #[test]
-    fn test_hit_and_miss() {
-        let mut cache = 转译缓存::new(8);
-        let fp = sample_fingerprint();
-        let content = "函数 主函数() {}";
+    fn 命中与未命中() {
+        let mut 缓存实例 = 转译缓存::新建(8);
+        let 语境指纹值 = 样本指纹();
+        let 内容文本 = "函数 主函数() {}";
 
-        assert!(cache.query(content, fp).is_none());
-        cache.insert(content, fp, sample_output("甲"));
-        assert_eq!(cache.query(content, fp).unwrap().output, "翻译输出甲");
-        assert_eq!(cache.current_count(), 1);
-        assert_eq!(cache.hit_count(), 1);
-        assert_eq!(cache.miss_count(), 1);
-        assert_eq!(cache.hit_rate(), 0.5);
-    }
-
-    #[test]
-    fn test_content_change_causes_miss() {
-        let mut cache = 转译缓存::new(8);
-        let fp = sample_fingerprint();
-        cache.insert("函数 主函数() {}", fp, sample_output("甲"));
-        assert!(cache.query("函数 主函数() { 让 x = 1; }", fp).is_none());
-        assert_eq!(cache.current_count(), 1);
-        assert_eq!(cache.miss_count(), 1);
-    }
-
-    #[test]
-    fn test_context_change_invalidates_cache() {
-        let mut cache = 转译缓存::new(8);
-        let fp1 = 转译缓存::compute_content_hash("语言包版本 1");
-        let fp2 = 转译缓存::compute_content_hash("语言包版本 2");
-        cache.insert("函数 主函数() {}", fp1, sample_output("旧"));
-        assert!(cache.query("函数 主函数() {}", fp2).is_none());
-        cache.insert("函数 主函数() {}", fp2, sample_output("新"));
+        assert!(缓存实例.查询(内容文本, 语境指纹值).is_none());
+        缓存实例.插入(内容文本, 语境指纹值, 样本产物("甲"));
         assert_eq!(
-            cache.query("函数 主函数() {}", fp2).unwrap().output,
+            缓存实例.查询(内容文本, 语境指纹值).unwrap().输出,
+            "翻译输出甲"
+        );
+        assert_eq!(缓存实例.当前条目数(), 1);
+        assert_eq!(缓存实例.命中次数(), 1);
+        assert_eq!(缓存实例.未命中次数(), 1);
+        assert_eq!(缓存实例.命中率(), 0.5);
+    }
+
+    #[test]
+    fn 内容变化导致未命中() {
+        let mut 缓存实例 = 转译缓存::新建(8);
+        let 语境指纹值 = 样本指纹();
+        缓存实例.插入("函数 主函数() {}", 语境指纹值, 样本产物("甲"));
+        assert!(
+            缓存实例
+                .查询("函数 主函数() { 让 x = 1; }", 语境指纹值)
+                .is_none()
+        );
+        assert_eq!(缓存实例.当前条目数(), 1);
+        assert_eq!(缓存实例.未命中次数(), 1);
+    }
+
+    #[test]
+    fn 语境变化使缓存失效() {
+        let mut 缓存实例 = 转译缓存::新建(8);
+        let 指纹甲 = 转译缓存::计算内容哈希("语言包版本 1");
+        let 指纹乙 = 转译缓存::计算内容哈希("语言包版本 2");
+        缓存实例.插入("函数 主函数() {}", 指纹甲, 样本产物("旧"));
+        assert!(缓存实例.查询("函数 主函数() {}", 指纹乙).is_none());
+        缓存实例.插入("函数 主函数() {}", 指纹乙, 样本产物("新"));
+        assert_eq!(
+            缓存实例.查询("函数 主函数() {}", 指纹乙).unwrap().输出,
             "翻译输出新"
         );
     }
 
     #[test]
-    fn test_capacity_evicts_oldest() {
-        let mut cache = 转译缓存::new(2);
-        let fp = sample_fingerprint();
-        cache.insert("内容甲", fp, sample_output("甲"));
-        cache.insert("内容乙", fp, sample_output("乙"));
-        cache.insert("内容丙", fp, sample_output("丙"));
-        assert_eq!(cache.current_count(), 2);
-        assert!(cache.query("内容甲", fp).is_none());
-        assert!(cache.query("内容乙", fp).is_some());
-        assert!(cache.query("内容丙", fp).is_some());
+    fn 容量淘汰最旧() {
+        let mut 缓存实例 = 转译缓存::新建(2);
+        let 语境指纹值 = 样本指纹();
+        缓存实例.插入("内容甲", 语境指纹值, 样本产物("甲"));
+        缓存实例.插入("内容乙", 语境指纹值, 样本产物("乙"));
+        缓存实例.插入("内容丙", 语境指纹值, 样本产物("丙"));
+        assert_eq!(缓存实例.当前条目数(), 2);
+        assert!(缓存实例.查询("内容甲", 语境指纹值).is_none());
+        assert!(缓存实例.查询("内容乙", 语境指纹值).is_some());
+        assert!(缓存实例.查询("内容丙", 语境指纹值).is_some());
     }
 
-    /// 大量命中后 LRU 队列必须压缩，不能随命中次数无限增长
+    /// 大量命中后最近最少使用队列必须压缩，不能随命中次数无限增长
     ///（长期运行如 LSP 会话下，过时条目累积是内存泄漏）
     #[test]
-    fn test_queue_compacts_after_many_hits() {
-        let mut cache = 转译缓存::new(2);
-        let fp = sample_fingerprint();
-        cache.insert("内容甲", fp, sample_output("甲"));
-        cache.insert("内容乙", fp, sample_output("乙"));
+    fn 多次命中后队列压缩() {
+        let mut 缓存实例 = 转译缓存::新建(2);
+        let 语境指纹值 = 样本指纹();
+        缓存实例.插入("内容甲", 语境指纹值, 样本产物("甲"));
+        缓存实例.插入("内容乙", 语境指纹值, 样本产物("乙"));
         // 命中 100 次：队列越过压缩阈值（容量 4 倍、最少 64）后必须压缩回有界；
         // 无压缩机制时 100 次命中会积累到 102 条
         for _ in 0..100 {
-            cache
-                .get_or_transpile("内容甲", fp, || Ok(sample_output("甲")))
+            缓存实例
+                .取或转译("内容甲", 语境指纹值, || Ok(样本产物("甲")))
                 .expect("翻译失败");
         }
-        assert!(cache.order.len() <= 64, "队列未压缩: {}", cache.order.len());
-        // 压缩不影响 LRU 淘汰语义：再插入第三个条目，最旧的乙被淘汰
-        cache.insert("内容丙", fp, sample_output("丙"));
-        assert!(cache.query("内容甲", fp).is_some());
-        assert!(cache.query("内容乙", fp).is_none());
-        assert!(cache.query("内容丙", fp).is_some());
+        assert!(
+            缓存实例.排序队列.len() <= 64,
+            "队列未压缩: {}",
+            缓存实例.排序队列.len()
+        );
+        // 压缩不影响最近最少使用淘汰语义：再插入第三个条目，最旧的乙被淘汰
+        缓存实例.插入("内容丙", 语境指纹值, 样本产物("丙"));
+        assert!(缓存实例.查询("内容甲", 语境指纹值).is_some());
+        assert!(缓存实例.查询("内容乙", 语境指纹值).is_none());
+        assert!(缓存实例.查询("内容丙", 语境指纹值).is_some());
     }
 
     /// 键/值含 `=` 时指纹不得碰撞（旧实现用 `=` 拼接会产生歧义）
     #[test]
-    fn test_fingerprint_no_separator_collision() {
-        let empty = HashMap::new();
-        let a = HashMap::from([("a=b".to_string(), "c".to_string())]);
-        let b = HashMap::from([("a".to_string(), "b=c".to_string())]);
+    fn 指纹无分隔符碰撞() {
+        let 空映射 = HashMap::new();
+        let 映射甲 = HashMap::from([("a=b".to_string(), "c".to_string())]);
+        let 映射乙 = HashMap::from([("a".to_string(), "b=c".to_string())]);
         assert_ne!(
-            转译缓存::生成语境指纹(&a, &empty, &empty, &empty),
-            转译缓存::生成语境指纹(&b, &empty, &empty, &empty)
+            转译缓存::生成语境指纹(&映射甲, &空映射, &空映射, &空映射),
+            转译缓存::生成语境指纹(&映射乙, &空映射, &空映射, &空映射)
         );
     }
 
     #[test]
-    fn test_hit_refreshes_lru_order() {
-        let mut cache = 转译缓存::new(2);
-        let fp = sample_fingerprint();
-        cache.insert("内容甲", fp, sample_output("甲"));
-        cache.insert("内容乙", fp, sample_output("乙"));
-        let result = cache
-            .get_or_transpile("内容甲", fp, || Ok(sample_output("甲")))
+    fn 命中刷新队列顺序() {
+        let mut 缓存实例 = 转译缓存::新建(2);
+        let 语境指纹值 = 样本指纹();
+        缓存实例.插入("内容甲", 语境指纹值, 样本产物("甲"));
+        缓存实例.插入("内容乙", 语境指纹值, 样本产物("乙"));
+        let 命中结果 = 缓存实例
+            .取或转译("内容甲", 语境指纹值, || Ok(样本产物("甲")))
             .expect("翻译失败");
-        assert_eq!(result.output, "翻译输出甲");
-        cache.insert("内容丙", fp, sample_output("丙"));
-        assert!(cache.query("内容甲", fp).is_some());
-        assert!(cache.query("内容乙", fp).is_none());
-        assert!(cache.query("内容丙", fp).is_some());
+        assert_eq!(命中结果.输出, "翻译输出甲");
+        缓存实例.插入("内容丙", 语境指纹值, 样本产物("丙"));
+        assert!(缓存实例.查询("内容甲", 语境指纹值).is_some());
+        assert!(缓存实例.查询("内容乙", 语境指纹值).is_none());
+        assert!(缓存实例.查询("内容丙", 语境指纹值).is_some());
     }
 
     #[test]
-    fn test_get_or_transpile_closure_execution_count() {
-        let mut cache = 转译缓存::with_default_capacity();
-        let fp = sample_fingerprint();
-        let content = "函数 主函数() {}";
-        let mut exec_count = 0;
+    fn 取或转译闭包执行次数() {
+        let mut 缓存实例 = 转译缓存::默认容量();
+        let 语境指纹值 = 样本指纹();
+        let 内容文本 = "函数 主函数() {}";
+        let mut 执行次数 = 0;
 
-        let first = cache
-            .get_or_transpile(content, fp, || {
-                exec_count += 1;
-                Ok(sample_output("甲"))
+        let 首次产物 = 缓存实例
+            .取或转译(内容文本, 语境指纹值, || {
+                执行次数 += 1;
+                Ok(样本产物("甲"))
             })
             .expect("翻译失败");
-        assert_eq!(first.output, "翻译输出甲");
-        assert_eq!(exec_count, 1);
+        assert_eq!(首次产物.输出, "翻译输出甲");
+        assert_eq!(执行次数, 1);
 
-        let second = cache
-            .get_or_transpile(content, fp, || {
-                exec_count += 1;
-                Ok(sample_output("乙"))
+        let 二次产物 = 缓存实例
+            .取或转译(内容文本, 语境指纹值, || {
+                执行次数 += 1;
+                Ok(样本产物("乙"))
             })
             .expect("翻译失败");
-        assert_eq!(second.output, "翻译输出甲");
-        assert_eq!(exec_count, 1);
-        assert_eq!(cache.hit_count(), 1);
-        assert_eq!(cache.miss_count(), 1);
+        assert_eq!(二次产物.输出, "翻译输出甲");
+        assert_eq!(执行次数, 1);
+        assert_eq!(缓存实例.命中次数(), 1);
+        assert_eq!(缓存实例.未命中次数(), 1);
     }
 
     #[test]
-    fn test_get_or_transpile_error_propagation() {
-        let mut cache = 转译缓存::with_default_capacity();
-        let fp = sample_fingerprint();
-        let content = "函数 主函数() {}";
+    fn 取或转译错误透传() {
+        let mut 缓存实例 = 转译缓存::默认容量();
+        let 语境指纹值 = 样本指纹();
+        let 内容文本 = "函数 主函数() {}";
 
-        let result = cache.get_or_transpile(content, fp, || {
+        let 转译结果 = 缓存实例.取或转译(内容文本, 语境指纹值, || {
             Err(转译故障::输入无效 {
                 原因: "模拟失败".to_string(),
             })
         });
-        assert!(matches!(result, Err(转译故障::输入无效 { .. })));
-        assert_eq!(cache.current_count(), 0);
+        assert!(matches!(转译结果, Err(转译故障::输入无效 { .. })));
+        assert_eq!(缓存实例.当前条目数(), 0);
     }
 
     #[test]
-    fn test_source_map_entry() {
-        let entry = 源码映射条目::new(0, 6, "函数", "fn");
-        assert_eq!(entry.源偏移, 0);
-        assert_eq!(entry.length, 6);
-        assert_eq!(entry.original, "函数");
-        assert_eq!(entry.替换文字, "fn");
+    fn 源码映射条目字段() {
+        let 条目记录 = 源码映射条目::新建(0, 6, "函数", "fn");
+        assert_eq!(条目记录.源偏移, 0);
+        assert_eq!(条目记录.源码长度, 6);
+        assert_eq!(条目记录.原文, "函数");
+        assert_eq!(条目记录.替换文字, "fn");
     }
 
     #[test]
-    fn test_clear_and_stats() {
-        let mut cache = 转译缓存::new(4);
-        let fp = sample_fingerprint();
-        cache.insert("内容甲", fp, sample_output("甲"));
-        cache.insert("内容乙", fp, sample_output("乙"));
-        assert_eq!(cache.current_count(), 2);
-        cache.clear();
-        assert_eq!(cache.current_count(), 0);
-        assert_eq!(cache.capacity_value(), 4);
-        assert_eq!(cache.hit_rate(), 0.0);
+    fn 清空与统计() {
+        let mut 缓存实例 = 转译缓存::新建(4);
+        let 语境指纹值 = 样本指纹();
+        缓存实例.插入("内容甲", 语境指纹值, 样本产物("甲"));
+        缓存实例.插入("内容乙", 语境指纹值, 样本产物("乙"));
+        assert_eq!(缓存实例.当前条目数(), 2);
+        缓存实例.清空();
+        assert_eq!(缓存实例.当前条目数(), 0);
+        assert_eq!(缓存实例.容量(), 4);
+        assert_eq!(缓存实例.命中率(), 0.0);
     }
 
     #[test]
-    fn test_capacity_at_least_one() {
-        let cache = 转译缓存::new(0);
-        assert_eq!(cache.capacity_value(), 1);
+    fn 容量至少为一() {
+        let 缓存实例 = 转译缓存::新建(0);
+        assert_eq!(缓存实例.容量(), 1);
     }
 
     // ===== 磁盘持久化 =====
 
     #[test]
-    fn test_persistent_roundtrip() {
-        let dir = tempfile::tempdir().expect("创建临时目录失败");
-        let path = dir.path().join("transpile.json");
-        let fp = sample_fingerprint();
+    fn 持久化往返() {
+        let 临时目录 = tempfile::tempdir().expect("创建临时目录失败");
+        let 缓存路径 = 临时目录.path().join("transpile.json");
+        let 语境指纹值 = 样本指纹();
 
-        // 第一次：插入只累积变更，写盘延迟到 flush（或进程退出时 Drop 兜底）
+        // 第一次：插入只累积变更，写盘延迟到写盘调用（或进程退出时可丢弃兜底）
         {
-            let mut cache = 转译缓存::persistent(&path);
-            cache.insert("函数 主函数() {}", fp, sample_output("甲"));
+            let mut 缓存实例 = 转译缓存::持久化(&缓存路径);
+            缓存实例.插入("函数 主函数() {}", 语境指纹值, 样本产物("甲"));
             assert!(
-                !path.exists(),
+                !缓存路径.exists(),
                 "插入不应立即写盘：批量转译下逐次全量写会把并行转译串行化"
             );
-            cache.flush();
-            assert!(path.exists(), "flush 后应落盘");
+            缓存实例.写盘();
+            assert!(缓存路径.exists(), "写盘后应落盘");
         }
         // 第二次（模拟新进程）：从磁盘加载，可直接命中
         {
-            let cache = 转译缓存::persistent(&path);
-            let hit = cache.query("函数 主函数() {}", fp);
-            assert_eq!(hit.map(|o| o.output.as_str()), Some("翻译输出甲"));
-            assert_eq!(cache.current_count(), 1);
+            let 缓存实例 = 转译缓存::持久化(&缓存路径);
+            let 命中结果 = 缓存实例.查询("函数 主函数() {}", 语境指纹值);
+            assert_eq!(
+                命中结果.map(|产物值| 产物值.输出.as_str()),
+                Some("翻译输出甲")
+            );
+            assert_eq!(缓存实例.当前条目数(), 1);
         }
     }
 
     #[test]
-    fn test_persistent_with_full_map() {
-        let dir = tempfile::tempdir().expect("创建临时目录失败");
-        let path = dir.path().join("transpile.json");
-        let fp = sample_fingerprint();
-        let output = TranspileOutput::with_full_map(
+    fn 持久化带完整映射() {
+        let 临时目录 = tempfile::tempdir().expect("创建临时目录失败");
+        let 缓存路径 = 临时目录.path().join("transpile.json");
+        let 语境指纹值 = 样本指纹();
+        let 输出产物 = 转译输出::带完整映射(
             "fn 主函数() {}".to_string(),
-            vec![源码映射条目::new(0, 6, "函数", "fn")],
-            vec![源码映射条目::new(0, 6, "函数", "fn")],
+            vec![源码映射条目::新建(0, 6, "函数", "fn")],
+            vec![源码映射条目::新建(0, 6, "函数", "fn")],
         );
         {
-            let mut cache = 转译缓存::persistent(&path);
-            cache.insert("函数 主函数() {}", fp, output);
+            let mut 缓存实例 = 转译缓存::持久化(&缓存路径);
+            缓存实例.插入("函数 主函数() {}", 语境指纹值, 输出产物);
         }
-        let cache = 转译缓存::persistent(&path);
-        let hit = cache.query("函数 主函数() {}", fp).expect("应命中");
-        assert_eq!(hit.output, "fn 主函数() {}");
-        assert_eq!(hit.source_map, vec![源码映射条目::new(0, 6, "函数", "fn")]);
-        assert_eq!(hit.pipeline_map.len(), 1);
+        let 缓存实例 = 转译缓存::持久化(&缓存路径);
+        let 命中结果 = 缓存实例
+            .查询("函数 主函数() {}", 语境指纹值)
+            .expect("应命中");
+        assert_eq!(命中结果.输出, "fn 主函数() {}");
+        assert_eq!(
+            命中结果.源映射,
+            vec![源码映射条目::新建(0, 6, "函数", "fn")]
+        );
+        assert_eq!(命中结果.流程映射.len(), 1);
     }
 
     #[test]
-    fn test_persistent_version_mismatch_discarded() {
-        let dir = tempfile::tempdir().expect("创建临时目录失败");
-        let path = dir.path().join("transpile.json");
-        std::fs::write(&path, r#"{"version": 999, "entries": []}"#).expect("写入旧版本文件");
-        let cache = 转译缓存::persistent(&path);
-        assert_eq!(cache.current_count(), 0, "版本不匹配应丢弃");
+    fn 持久化版本不匹配丢弃() {
+        let 临时目录 = tempfile::tempdir().expect("创建临时目录失败");
+        let 缓存路径 = 临时目录.path().join("transpile.json");
+        std::fs::write(&缓存路径, r#"{"version": 999, "entries": []}"#).expect("写入旧版本文件");
+        let 缓存实例 = 转译缓存::持久化(&缓存路径);
+        assert_eq!(缓存实例.当前条目数(), 0, "版本不匹配应丢弃");
     }
 
     #[test]
-    fn test_persistent_corrupted_file_discarded() {
-        let dir = tempfile::tempdir().expect("创建临时目录失败");
-        let path = dir.path().join("transpile.json");
-        std::fs::write(&path, "这不是 JSON{{{ 内容").expect("写入损坏文件");
-        let cache = 转译缓存::persistent(&path);
-        assert_eq!(cache.current_count(), 0, "损坏文件应丢弃");
+    fn 持久化损坏文件丢弃() {
+        let 临时目录 = tempfile::tempdir().expect("创建临时目录失败");
+        let 缓存路径 = 临时目录.path().join("transpile.json");
+        std::fs::write(&缓存路径, "这不是 JSON{{{ 内容").expect("写入损坏文件");
+        let 缓存实例 = 转译缓存::持久化(&缓存路径);
+        assert_eq!(缓存实例.当前条目数(), 0, "损坏文件应丢弃");
     }
 
     #[test]
-    fn test_persistent_clear_writes_empty_file() {
-        let dir = tempfile::tempdir().expect("创建临时目录失败");
-        let path = dir.path().join("transpile.json");
-        let fp = sample_fingerprint();
+    fn 持久化清空写空文件() {
+        let 临时目录 = tempfile::tempdir().expect("创建临时目录失败");
+        let 缓存路径 = 临时目录.path().join("transpile.json");
+        let 语境指纹值 = 样本指纹();
         {
-            let mut cache = 转译缓存::persistent(&path);
-            cache.insert("内容甲", fp, sample_output("甲"));
-            cache.clear();
+            let mut 缓存实例 = 转译缓存::持久化(&缓存路径);
+            缓存实例.插入("内容甲", 语境指纹值, 样本产物("甲"));
+            缓存实例.清空();
         }
-        let cache = 转译缓存::persistent(&path);
-        assert_eq!(cache.current_count(), 0, "清空后磁盘文件应同步为空");
+        let 缓存实例 = 转译缓存::持久化(&缓存路径);
+        assert_eq!(缓存实例.当前条目数(), 0, "清空后磁盘文件应同步为空");
     }
 
     #[test]
-    fn test_persistent_lru_export_keeps_valid_entries() {
-        let dir = tempfile::tempdir().expect("创建临时目录失败");
-        let path = dir.path().join("transpile.json");
-        let fp = sample_fingerprint();
+    fn 持久化导出保留有效条目() {
+        let 临时目录 = tempfile::tempdir().expect("创建临时目录失败");
+        let 缓存路径 = 临时目录.path().join("transpile.json");
+        let 语境指纹值 = 样本指纹();
         {
             // 容量 2：插入 3 条，最旧一条被淘汰
-            let mut cache = 转译缓存::persistent(&path);
-            cache.capacity = 2;
-            cache.insert("内容甲", fp, sample_output("甲"));
-            cache.insert("内容乙", fp, sample_output("乙"));
-            cache.insert("内容丙", fp, sample_output("丙"));
-            assert_eq!(cache.current_count(), 2);
+            let mut 缓存实例 = 转译缓存::持久化(&缓存路径);
+            缓存实例.缓存容量 = 2;
+            缓存实例.插入("内容甲", 语境指纹值, 样本产物("甲"));
+            缓存实例.插入("内容乙", 语境指纹值, 样本产物("乙"));
+            缓存实例.插入("内容丙", 语境指纹值, 样本产物("丙"));
+            assert_eq!(缓存实例.当前条目数(), 2);
         }
-        let cache = 转译缓存::persistent(&path);
-        assert_eq!(cache.current_count(), 2, "淘汰后的有效条目应完整持久化");
-        assert!(cache.query("内容乙", fp).is_some());
-        assert!(cache.query("内容丙", fp).is_some());
-        assert!(cache.query("内容甲", fp).is_none(), "被淘汰条目不应复活");
+        let 缓存实例 = 转译缓存::持久化(&缓存路径);
+        assert_eq!(缓存实例.当前条目数(), 2, "淘汰后的有效条目应完整持久化");
+        assert!(缓存实例.查询("内容乙", 语境指纹值).is_some());
+        assert!(缓存实例.查询("内容丙", 语境指纹值).is_some());
+        assert!(
+            缓存实例.查询("内容甲", 语境指纹值).is_none(),
+            "被淘汰条目不应复活"
+        );
     }
 
-    /// 批量转译：N 次插入只在 flush 时写盘一次，且全部落盘
+    /// 批量转译：N 次插入只在写盘时写盘一次，且全部落盘
     ///
-    /// 回归：此前每次 insert 都会把整个缓存序列化写盘（N 文件 → N 次全量写，
-    /// 且发生在调用方持锁期间），是批量转译的主要 I/O 开销来源。
+    /// 回归：此前每次插入都会把整个缓存序列化写盘（N 文件 → N 次全量写，
+    /// 且发生在调用方持锁期间），是批量转译的主要输入输出开销来源。
     #[test]
-    fn test_persistent_batches_writes_until_flush() {
-        let dir = tempfile::tempdir().expect("创建临时目录失败");
-        let path = dir.path().join("transpile.json");
-        let fp = sample_fingerprint();
-        let mut cache = 转译缓存::persistent(&path);
-        for 名 in ["甲", "乙", "丙", "丁"] {
-            cache.insert(&format!("内容{名}"), fp, sample_output(名));
-            assert!(!path.exists(), "flush 前不应有任何写盘");
+    fn 持久化批量写盘到刷新() {
+        let 临时目录 = tempfile::tempdir().expect("创建临时目录失败");
+        let 缓存路径 = 临时目录.path().join("transpile.json");
+        let 语境指纹值 = 样本指纹();
+        let mut 缓存实例 = 转译缓存::持久化(&缓存路径);
+        for 名称 in ["甲", "乙", "丙", "丁"] {
+            缓存实例.插入(&format!("内容{名称}"), 语境指纹值, 样本产物(名称));
+            assert!(!缓存路径.exists(), "写盘前不应有任何写盘");
         }
-        assert_eq!(cache.current_count(), 4);
-        cache.flush();
-        let 重载 = 转译缓存::persistent(&path);
-        assert_eq!(重载.current_count(), 4, "一次 flush 应写入全部累积条目");
-        // 幂等：无新变更时再 flush 不产生写盘（文件 mtime 不变）
-        let 修改前 = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
-        cache.flush();
-        let 修改后 = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
-        assert_eq!(修改前, 修改后, "无变更时 flush 应为空操作");
+        assert_eq!(缓存实例.当前条目数(), 4);
+        缓存实例.写盘();
+        let 重载缓存 = 转译缓存::持久化(&缓存路径);
+        assert_eq!(重载缓存.当前条目数(), 4, "一次写盘应写入全部累积条目");
+        // 幂等：无新变更时再写盘不产生写盘（文件修改时间不变）
+        let 修改前 = std::fs::metadata(&缓存路径)
+            .and_then(|元数据| 元数据.modified())
+            .ok();
+        缓存实例.写盘();
+        let 修改后 = std::fs::metadata(&缓存路径)
+            .and_then(|元数据| 元数据.modified())
+            .ok();
+        assert_eq!(修改前, 修改后, "无变更时写盘应为空操作");
     }
 }

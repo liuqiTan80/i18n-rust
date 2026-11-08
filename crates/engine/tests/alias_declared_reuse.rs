@@ -1,6 +1,6 @@
 //! 别名阶段复用声明名的等价性
 //!
-//! 延迟项目上下文的管线入口（`transpile_pipeline_with_deferred_project`）先在
+//! 延迟项目上下文的管线入口（`延迟项目转译管线`）先在
 //! **词法产物**上收集本文件声明，才能建项目上下文；别名阶段的输入却是
 //! 「词法 → use 路径替换 → `crate::` 前缀」之后的文本。本条优化把前者的声明
 //! 直接借给后者，省掉别名阶段内部那趟「分词 + 声明状态机」。
@@ -14,7 +14,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use i18n_rust_engine::alias::{self, ProjectContext};
+use i18n_rust_engine::别名::{self, 项目上下文};
 use i18n_rust_engine::映射管理器::映射管理器;
 use i18n_rust_engine::缓存::源码映射条目;
 
@@ -108,8 +108,8 @@ fn assert_edits_eq(label: &str, a: &[源码映射条目], b: &[源码映射条�
     assert_eq!(a.len(), b.len(), "{label}：编辑表条目数不一致");
     for (i, (x, y)) in a.iter().zip(b).enumerate() {
         assert_eq!(x.源偏移, y.源偏移, "{label}：第 {i} 条偏移");
-        assert_eq!(x.length, y.length, "{label}：第 {i} 条长度");
-        assert_eq!(x.original, y.original, "{label}：第 {i} 条原文");
+        assert_eq!(x.源码长度, y.源码长度, "{label}：第 {i} 条长度");
+        assert_eq!(x.原文, y.原文, "{label}：第 {i} 条原文");
         assert_eq!(x.替换文字, y.替换文字, "{label}：第 {i} 条替换文本");
     }
 }
@@ -123,15 +123,15 @@ fn reuse_declared_matches_fresh_collection() {
     let module_names = modules();
     let mut with_edits = 0;
     for (idx, source) in CORPUS.iter().enumerate() {
-        let declared = alias::collect_declared_names(source, alias_map);
-        let project = ProjectContext::from_declarations(module_names.clone(), [&declared]);
-        let fresh = alias::replace_aliases_with_context_and_module_paths(
+        let declared = 别名::收集声明名(source, alias_map);
+        let project = 项目上下文::从声明集合(module_names.clone(), [&declared]);
+        let fresh = 别名::带上下文与模块路径替换别名(
             source,
             alias_map,
             module_path_map,
             Some(&project),
         );
-        let reused = alias::replace_aliases_with_context_and_module_paths_using_declarations(
+        let reused = 别名::按声明替换别名(
             source,
             alias_map,
             module_path_map,
@@ -139,9 +139,9 @@ fn reuse_declared_matches_fresh_collection() {
             Some(&declared),
         );
         let label = format!("语料 #{idx}");
-        assert_eq!(fresh.output, reused.output, "{label}：译文不一致");
-        assert_edits_eq(&label, &fresh.edits, &reused.edits);
-        if !fresh.edits.is_empty() {
+        assert_eq!(fresh.输出文本, reused.输出文本, "{label}：译文不一致");
+        assert_edits_eq(&label, &fresh.编辑表, &reused.编辑表);
+        if !fresh.编辑表.is_empty() {
             with_edits += 1;
         }
     }
@@ -156,36 +156,38 @@ fn deferred_entry_matches_precomputed_entry() {
     let module_names = modules();
     let mut with_edits = 0;
     for (idx, source) in CORPUS.iter().enumerate() {
-        let declared = alias::collect_source_declarations(source, &manager);
-        let project = ProjectContext::from_declarations(module_names.clone(), [&declared]);
+        let declared = 别名::收集源声明(source, &manager);
+        let project = 项目上下文::从声明集合(module_names.clone(), [&declared]);
 
-        let precomputed = i18n_rust_engine::transpile_pipeline_with_map_and_project(
+        let precomputed = i18n_rust_engine::带映射与项目转译管线(
             source,
             &manager,
             Some(&module_names),
             Some(&project),
         );
-        let (deferred, 本文件声明, 上下文) =
-            i18n_rust_engine::transpile_pipeline_with_deferred_project_quiet(
-                source,
-                &manager,
-                Some(&module_names),
-                |本文件| ProjectContext::from_declarations(module_names.clone(), [本文件]),
-            );
+        let (deferred, 本文件声明, 上下文) = i18n_rust_engine::静默延迟项目转译管线(
+            source,
+            &manager,
+            Some(&module_names),
+            |本文件| 项目上下文::从声明集合(module_names.clone(), [本文件]),
+        );
 
         let label = format!("语料 #{idx}");
-        assert_eq!(precomputed.output, deferred.output, "{label}：译文不一致");
+        assert_eq!(precomputed.输出, deferred.输出, "{label}：译文不一致");
         assert_eq!(
-            上下文.fingerprint(),
-            project.fingerprint(),
+            上下文.指纹(),
+            project.指纹(),
             "{label}：项目上下文指纹不一致"
         );
-        assert_eq!(本文件声明.items, declared.items, "{label}：项名集合不一致");
-        assert_eq!(本文件声明.variables, declared.variables);
-        assert_eq!(本文件声明.members, declared.members);
-        assert_eq!(本文件声明.library_fns, declared.library_fns);
-        assert_edits_eq(&label, &precomputed.pipeline_map, &deferred.pipeline_map);
-        if !precomputed.pipeline_map.is_empty() {
+        assert_eq!(
+            本文件声明.条目集, declared.条目集,
+            "{label}：项名集合不一致"
+        );
+        assert_eq!(本文件声明.变量集, declared.变量集);
+        assert_eq!(本文件声明.成员集, declared.成员集);
+        assert_eq!(本文件声明.库方法集, declared.库方法集);
+        assert_edits_eq(&label, &precomputed.流程映射, &deferred.流程映射);
+        if !precomputed.流程映射.is_empty() {
             with_edits += 1;
         }
     }

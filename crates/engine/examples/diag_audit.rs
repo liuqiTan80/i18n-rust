@@ -18,7 +18,7 @@ use std::collections::HashSet;
 use std::io::Read;
 use std::path::PathBuf;
 
-use i18n_rust_engine::diagnostic::{错误消息管理器, 审计消息};
+use i18n_rust_engine::诊断::{审计消息, 错误消息管理器};
 
 fn main() {
     let mut errors: Option<PathBuf> = None;

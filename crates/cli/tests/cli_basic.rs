@@ -1098,7 +1098,7 @@ fn test_gaps_listing_keeps_one_record_per_line() {
         .arg(&export)
         .assert()
         .success();
-    let read = i18n_rust_engine::diagnostic::解析清单行(
+    let read = i18n_rust_engine::诊断::解析清单行(
         &std::fs::read_to_string(&export).expect("读取导出件失败"),
     );
     assert_eq!(read.len(), 2, "导出件应被读回两条记录");
@@ -1153,7 +1153,7 @@ fn test_gaps_migrates_legacy_multiline_file_on_next_run() {
     }
 
     let raw = std::fs::read_to_string(&file).expect("清单应仍存在");
-    let records = i18n_rust_engine::diagnostic::解析清单行(&raw);
+    let records = i18n_rust_engine::诊断::解析清单行(&raw);
     assert!(
         records.iter().any(|g| g.0 == "zh"),
         "实跑产生的记录应落在 zh 清单里：{:?}",
@@ -1518,7 +1518,7 @@ fn test_doctor_reports_missing_cargo_entry_in_project() {
         .stdout
         .clone();
     let text = String::from_utf8_lossy(&out).to_string();
-    assert!(text.contains("Cargo 读不到任何构建目标"), "{text}");
+    assert!(text.contains("包管理器读不到任何构建目标"), "{text}");
     assert!(
         text.contains("rzc check src/main.zh"),
         "须给出能走通的命令：{text}"
@@ -1552,7 +1552,7 @@ fn test_doctor_reports_missing_cargo_entry_in_project() {
     )
     .to_string();
     assert!(
-        text.contains("Cargo 可读入口: 正常"),
+        text.contains("包管理器可读入口: 正常"),
         "产物齐备后应转绿：{text}"
     );
 }

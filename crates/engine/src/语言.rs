@@ -158,7 +158,7 @@ pub fn 内置消息表(语言码: &str) -> &HashMap<String, String> {
 /// 集合：升序与去重本来就是它的天然性质。
 pub fn 内置语言代码<'甲>() -> Vec<&'甲 str> {
     let 语言码集: BTreeSet<&str> = 内置清单.iter().map(|(所记语言, _, _)| *所记语言).collect();
-    语言码集.iter().map(|语言码| *语言码).collect()
+    语言码集.iter().copied().collect()
 }
 
 /// 判断语言码是否使用西里尔字母文字系统
@@ -314,7 +314,7 @@ mod 语言测试 {
             assert!(有内置语言(语言码), "{语言码} 应被识别为内置语言");
         }
         // 扩展名去重：任一语言有且仅有一个扩展名（有序集的去重是天然性质）
-        let 去重后: BTreeSet<String> = 扩展名表.iter().map(|值| 值.clone()).collect();
+        let 去重后: BTreeSet<String> = 扩展名表.iter().cloned().collect();
         assert_eq!(去重后.len(), 扩展名表.len());
     }
 }

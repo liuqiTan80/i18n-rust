@@ -33,8 +33,8 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 # (相对路径, 行内必须包含的特征串, 白名单理由)
 ALLOW = [
     (
-        "crates/cli/src/builtin_lang.rs",
-        '内置文件(lang, file).expect(',
+        "crates/cli/src/内置语言.rs",
+        '.expect("内置语言包文件缺失',
         "include_str! 编译期嵌入的内置语言包；缺失=引擎构建损坏，且 expect 带中文说明",
     ),
 ]
@@ -158,6 +158,32 @@ def line_offsets(text: str):
     return offsets
 
 
+# 整文件测试模块：`#[cfg(test)]` + 可选 `#[path = "…"]` + `mod 名;`
+# 这类文件整份只在测试期编译，内部的 unwrap/panic 属测试代码
+CFG_TEST_MOD_RE = re.compile(
+    r"#\[cfg\s*\(\s*test\s*\)\]\s*"
+    r"(?:#\[path\s*=\s*\"([^\"]+)\"\s*\]\s*)?"
+    r"(?:pub(?:\s*\([^)]*\))?\s+)?mod\s+([^\s;]+)\s*;"
+)
+
+
+def collect_test_only_files():
+    """收集由 `#[cfg(test)] mod 名;` 引入的整文件测试模块路径"""
+    found = set()
+    for path in iter_src_files():
+        text = path.read_text(encoding="utf-8")
+        for m in CFG_TEST_MOD_RE.finditer(text):
+            rel_path, name = m.group(1), m.group(2)
+            base = path.parent
+            if rel_path:
+                found.add((base / rel_path).resolve())
+                continue
+            for cand in (base / f"{name}.rs", base / name / "mod.rs"):
+                if cand.is_file():
+                    found.add(cand.resolve())
+    return found
+
+
 def offset_to_line(offsets, offset):
     import bisect
 
@@ -182,7 +208,10 @@ def main():
         sys.exit(1)
 
     violations = []
+    test_only = collect_test_only_files()
     for path in iter_src_files():
+        if path.resolve() in test_only:
+            continue
         # 统一正斜杠：ALLOW 中的相对路径按正斜杠书写，Windows 的
         # str(Path) 产出反斜杠会导致白名单比对永远失败
         rel = path.relative_to(REPO_ROOT).as_posix()

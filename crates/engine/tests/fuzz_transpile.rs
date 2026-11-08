@@ -13,9 +13,9 @@
 
 use std::path::Path;
 
-use i18n_rust_engine::transpile_pipeline;
 use i18n_rust_engine::映射管理器::映射管理器;
 use i18n_rust_engine::词法器;
+use i18n_rust_engine::转译管线;
 use proptest::prelude::*;
 
 /// 内置 zh 语言包映射管理器（与 CLI 默认一致）
@@ -116,27 +116,27 @@ proptest! {
     #[test]
     fn fuzz_pipeline_preserves_lines_and_maps(src in source_strategy()) {
         let manager = zh_manager();
-        let output = transpile_pipeline(&src, &manager);
+        let output = 转译管线(&src, &manager);
         prop_assert_eq!(
-            output.output.matches('\n').count(),
+            output.输出.matches('\n').count(),
             src.matches('\n').count(),
             "转译不得改变行结构（LSP 行号映射依赖）"
         );
-        for entry in output.source_map.iter().chain(output.pipeline_map.iter()) {
+        for entry in output.源映射.iter().chain(output.流程映射.iter()) {
             prop_assert!(entry.源偏移 <= src.len(), "源映射偏移越界");
             prop_assert!(
-                entry.源偏移 + entry.length <= src.len(),
+                entry.源偏移 + entry.源码长度 <= src.len(),
                 "源映射长度越界"
             );
             prop_assert_eq!(
-                &src[entry.源偏移..entry.源偏移 + entry.length],
-                &entry.original,
+                &src[entry.源偏移..entry.源偏移 + entry.源码长度],
+                &entry.原文,
                 "源映射 original 与源文本不一致"
             );
         }
         // pipeline_map 源偏移严格升序（列映射消费方回放依赖）
         let mut prev: Option<usize> = None;
-        for entry in &output.pipeline_map {
+        for entry in &output.流程映射 {
             if let Some(p) = prev {
                 prop_assert!(p < entry.源偏移, "pipeline_map 未按源偏移升序");
             }
@@ -155,7 +155,7 @@ proptest! {
     #[test]
     fn fuzz_lex_stage_tables_stay_in_lockstep(src in source_strategy()) {
         let manager = zh_manager();
-        let result = 词法器::transpile_with_map(
+        let result = 词法器::分词转译(
             &src,
             manager.取关键词表(),
             manager.取宏表(),
@@ -167,26 +167,26 @@ proptest! {
 
         let mut replay = String::new();
         let mut copied = 0usize;
-        for edit in &result.final_edits {
+        for edit in &result.最终编辑表 {
             prop_assert!(
                 edit.源偏移 >= copied,
                 "全管线表必须按偏移升序且不重叠：{edit:?}"
             );
             replay.push_str(&src[copied..edit.源偏移]);
-            replay.push_str(edit.替换文字.as_str());
-            copied = edit.源偏移 + edit.length;
+            replay.push_str(edit.替换文字.文本切片());
+            copied = edit.源偏移 + edit.源码长度;
         }
         replay.push_str(&src[copied..]);
-        prop_assert_eq!(replay, result.output.clone(), "全管线表回放必须逐字等于输出");
+        prop_assert_eq!(replay, result.输出.clone(), "全管线表回放必须逐字等于输出");
 
-        let mut lex = result.source_map.iter();
+        let mut lex = result.源映射.iter();
         let mut pending = lex.next();
-        for edit in &result.final_edits {
+        for edit in &result.最终编辑表 {
             if pending.is_some_and(|l| l.源偏移 == edit.源偏移) {
                 let entry = pending.take().expect("上面 is_some 判定的就是这个条目");
-                prop_assert_eq!(entry.length, edit.length, "两表条目长度必须一致");
-                prop_assert_eq!(&entry.original, &edit.original, "两表条目原文必须一致");
-                let diff = edit.替换文字.as_str().strip_prefix(entry.替换文字.as_str());
+                prop_assert_eq!(entry.源码长度, edit.源码长度, "两表条目长度必须一致");
+                prop_assert_eq!(&entry.原文, &edit.原文, "两表条目原文必须一致");
+                let diff = edit.替换文字.文本切片().strip_prefix(entry.替换文字.文本切片());
                 prop_assert!(
                     diff == Some("") || diff == Some("!"),
                     "偏移 {}：词法表 {:?} 与全管线表 {:?} 只能差一个补的 `!`",
@@ -196,9 +196,9 @@ proptest! {
                 );
                 pending = lex.next();
             } else {
-                let original = &src[edit.源偏移..edit.源偏移 + edit.length];
+                let original = &src[edit.源偏移..edit.源偏移 + edit.源码长度];
                 prop_assert_eq!(
-                    edit.替换文字.as_str(),
+                    edit.替换文字.文本切片(),
                     format!("{original}!"),
                     "不进词法表的条目只能是「原文只补 `!`」"
                 );
@@ -211,8 +211,8 @@ proptest! {
     #[test]
     fn fuzz_transpile_idempotent_on_output(src in source_strategy()) {
         let manager = zh_manager();
-        let once = transpile_pipeline(&src, &manager).output;
-        let twice = transpile_pipeline(&once, &manager).output;
+        let once = 转译管线(&src, &manager).输出;
+        let twice = 转译管线(&once, &manager).输出;
         prop_assert_eq!(once, twice, "转译输出应幂等");
     }
 
@@ -220,7 +220,7 @@ proptest! {
     #[test]
     fn fuzz_teaching_checks_never_panic(src in source_strategy()) {
         let _ = i18n_rust_engine::全角标点::检测全角标点(&src);
-        let _ = i18n_rust_engine::校验::lint_teaching(&src);
+        let _ = i18n_rust_engine::校验::检查教学(&src);
     }
 
     /// 方言词只要整体处于字符串/块注释内，转译输出必须逐字节不变
@@ -228,7 +228,7 @@ proptest! {
     #[test]
     fn fuzz_dialect_words_in_strings_and_comments_untouched(src in quoted_dialect_source()) {
         let manager = zh_manager();
-        let output = transpile_pipeline(&src, &manager).output;
+        let output = 转译管线(&src, &manager).输出;
         prop_assert_eq!(&output, &src, "串/注释内的方言词不得被转译");
     }
 }
@@ -242,7 +242,7 @@ proptest! {
 fn test_module_path_words_in_expression_paths() {
     let manager = zh_manager();
     let src = "函数 主函数() {\n    让 e = 标准库::输入输出::标准错误();\n    让 a = 标准库::进程::参数();\n    让 m = 标准库::集合::哈希映射::新建();\n}";
-    let out = transpile_pipeline(src, &manager).output;
+    let out = 转译管线(src, &manager).输出;
     assert!(
         out.contains("std::io::stderr()"),
         "表达式路径段应逐段转译：{out}"
@@ -271,18 +271,16 @@ fn test_project_context_cross_file_declarations() {
 
     // 项目扫描：模块名=文件词干，声明名=全部文件汇总；
     // 定义侧声明的 `新建` 须入上下文（否则调用位无豁免）
-    let ctx = i18n_rust_engine::alias::ProjectContext::from_sources(
+    let ctx = i18n_rust_engine::别名::项目上下文::从源集合(
         std::collections::HashSet::from(["平台Linux".to_string(), "平台接口".to_string()]),
         [def_source, call_source],
         &manager,
     );
     assert!(
-        ctx.names.contains("新建"),
+        ctx.名字集.contains("新建"),
         "项目扫描应收集定义侧声明：{ctx:?}"
     );
-    let out =
-        i18n_rust_engine::transpile_pipeline_quiet_with_project(call_source, &manager, Some(&ctx))
-            .output;
+    let out = i18n_rust_engine::静默带项目转译管线(call_source, &manager, Some(&ctx)).输出;
     assert!(
         out.contains("crate::平台Linux::Linux内存源::新建()"),
         "跨文件调用位应与声明位一致（新建 不被替换）：{out}"
@@ -292,7 +290,7 @@ fn test_project_context_cross_file_declarations() {
         "库 API 路径段照常替换（盒子::新建 → Box::new）：{out}"
     );
     // 反例：无项目上下文（旧行为）时跨文件调用被替换出 `new`
-    let out_no_ctx = transpile_pipeline(call_source, &manager).output;
+    let out_no_ctx = 转译管线(call_source, &manager).输出;
     assert!(
         out_no_ctx.contains("crate::平台Linux::Linux内存源::new()"),
         "无上下文时保持旧行为：{out_no_ctx}"
@@ -311,7 +309,7 @@ fn test_dialect_words_in_string_comment_raw_preserved() {
     /* 返回 特征 声明 */
     let 原始 = r"串里的 函数 让 不变";
 }"##;
-    let out = transpile_pipeline(src, &manager).output;
+    let out = 转译管线(src, &manager).输出;
     // 代码位关键词正常翻译
     assert!(out.contains("fn "), "代码位 函数 应翻译为 fn：{out}");
     // 串/注释内容逐字节保留
@@ -340,7 +338,7 @@ fn test_number_type_suffix_in_string_preserved() {
     let manager = zh_manager();
     // 代码位：真实 zh 数据下数字+类型名应替换为 0u8 / 0usize
     let code_src = "让 x = 0无符号微整数;\n让 y = 0无符号机器整数;";
-    let code_out = transpile_pipeline(code_src, &manager).output;
+    let code_out = 转译管线(code_src, &manager).输出;
     assert!(code_out.contains("0u8"), "代码位应替换为 0u8：{code_out}");
     assert!(
         code_out.contains("0usize"),
@@ -348,7 +346,7 @@ fn test_number_type_suffix_in_string_preserved() {
     );
     // 串内：同形的数字+类型名必须逐字节保留
     let str_src = r#"让 s = "0无符号微整数 0无符号机器整数";"#;
-    let str_out = transpile_pipeline(str_src, &manager).output;
+    let str_out = 转译管线(str_src, &manager).输出;
     assert!(
         str_out.contains(r#""0无符号微整数 0无符号机器整数""#),
         "串内数字类型名须原样：{str_out}"

@@ -11,7 +11,7 @@
 //!   transpile 的线性低延迟（由 `tools/bench-check.sh` 阈值守卫）；
 //! - `pipeline_no_cache_2000_alias_heavy`：同规模但**别名密集**的语料。关键字
 //!   密集语料的后续阶段只有几条编辑，盖不住「后续阶段编辑 × 词法编辑」这类
-//!   乘积项（历史教训：`compose_pipeline_map` 的逆映射曾逐条从头重扫，
+//!   乘积项（历史教训：`组合流程映射` 的逆映射曾逐条从头重扫，
 //!   同一文件从 3.2 ms 涨到 37 ms，而旧语料完全测不出），故单独一份语料。
 //!
 //! 运行：`cargo bench -p i18n-rust-engine`
@@ -24,11 +24,10 @@ use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use i18n_rust_engine::全角标点::检测全角标点;
 use i18n_rust_engine::映射管理器::映射管理器;
 use i18n_rust_engine::校验::{
-    lint_reserved_name_collision, lint_teaching, lint_teaching_all,
-    lint_teaching_with_buckets_chars, lint_teaching_with_words,
+    按词形桶检查字符, 按词表检查教学, 检查保留名撞词, 检查全部教学, 检查教学,
 };
 use i18n_rust_engine::缓存::转译缓存;
-use i18n_rust_engine::{alias, transpile_pipeline, transpile_source, 词法器};
+use i18n_rust_engine::{别名, 词法器, 转译源文本, 转译管线};
 
 /// 构造内置 zh 语言包的映射管理器（与 CLI 默认一致）
 fn zh_manager() -> 映射管理器 {
@@ -115,14 +114,14 @@ fn bench_transpile(c: &mut Criterion) {
     group.sample_size(50);
 
     group.bench_function("pipeline_no_cache", |b| {
-        b.iter(|| transpile_pipeline(black_box(&source), &manager))
+        b.iter(|| 转译管线(black_box(&source), &manager))
     });
 
     // 缓存命中场景：先用真实转译预热缓存，迭代期间内容哈希不变全命中
-    let mut cache = 转译缓存::with_default_capacity();
-    transpile_source(&source, &manager, &mut cache).expect("预热转译失败");
+    let mut cache = 转译缓存::默认容量();
+    转译源文本(&source, &manager, &mut cache).expect("预热转译失败");
     group.bench_function("pipeline_cache_hit", |b| {
-        b.iter(|| transpile_source(black_box(&source), &manager, &mut cache).expect("缓存转译失败"))
+        b.iter(|| 转译源文本(black_box(&source), &manager, &mut cache).expect("缓存转译失败"))
     });
 
     group.finish();
@@ -163,15 +162,15 @@ fn bench_teaching_checks(c: &mut Criterion) {
             &代码,
             |b, 源码| match 名称 {
                 "fullwidth_scan" => b.iter(|| 检测全角标点(源码)),
-                "collision_scan" => b.iter(|| lint_reserved_name_collision(源码, keyword_map)),
-                "lint_scan_words" => b.iter(|| lint_teaching_with_words(源码, words, ambiguous)),
+                "collision_scan" => b.iter(|| 检查保留名撞词(源码, keyword_map)),
+                "lint_scan_words" => b.iter(|| 按词表检查教学(源码, words, ambiguous)),
                 "lint_scan_buckets" => {
-                    b.iter(|| lint_teaching_with_buckets_chars(&chars, buckets, ambiguous))
+                    b.iter(|| 按词形桶检查字符(&chars, buckets, ambiguous))
                 }
                 "teaching_all_scan" => {
-                    b.iter(|| lint_teaching_all(源码, words, ambiguous, fallback_map, keyword_map))
+                    b.iter(|| 检查全部教学(源码, words, ambiguous, fallback_map, keyword_map))
                 }
-                _ => b.iter(|| lint_teaching(源码)),
+                _ => b.iter(|| 检查教学(源码)),
             },
         );
     }
@@ -187,21 +186,21 @@ fn bench_transpile_large(c: &mut Criterion) {
     group.sample_size(30);
 
     group.bench_function("pipeline_no_cache_2000", |b| {
-        b.iter(|| transpile_pipeline(black_box(&source), &manager))
+        b.iter(|| 转译管线(black_box(&source), &manager))
     });
 
     // 缓存命中场景：预热后内容哈希不变全命中
-    let mut cache = 转译缓存::with_default_capacity();
-    transpile_source(&source, &manager, &mut cache).expect("预热转译失败");
+    let mut cache = 转译缓存::默认容量();
+    转译源文本(&source, &manager, &mut cache).expect("预热转译失败");
     group.bench_function("pipeline_cache_hit_2000", |b| {
-        b.iter(|| transpile_source(black_box(&source), &manager, &mut cache).expect("缓存转译失败"))
+        b.iter(|| 转译源文本(black_box(&source), &manager, &mut cache).expect("缓存转译失败"))
     });
 
     // 词法阶段单独计费（占冷转译一半以上：token 流物化 + 逐标识符查表）。
     // 2000 行大文件上 3930 个标识符高度重复，标识符事实缓存就命中在这里。
     group.bench_function("lexer_stage_2000", |b| {
         b.iter(|| {
-            词法器::transpile_with_map(
+            词法器::分词转译(
                 black_box(source.as_str()),
                 manager.取关键词表(),
                 manager.取宏表(),
@@ -219,7 +218,7 @@ fn bench_transpile_large(c: &mut Criterion) {
     // 编辑表合并、产物拼接）由下面两份语料的差值兼顾。
     group.bench_function("alias_stage_2000", |b| {
         b.iter(|| {
-            alias::replace_aliases_with_context_and_module_paths(
+            别名::带上下文与模块路径替换别名(
                 black_box(source.as_str()),
                 manager.取别名表(),
                 manager.取模块路径表(),
@@ -232,7 +231,7 @@ fn bench_transpile_large(c: &mut Criterion) {
     // 乘积项（历史教训见模块文档：逐条重扫让同规模文件从 3.2 ms 涨到 37 ms）
     let alias_heavy = alias_heavy_source();
     group.bench_function("pipeline_no_cache_2000_alias_heavy", |b| {
-        b.iter(|| transpile_pipeline(black_box(&alias_heavy), &manager))
+        b.iter(|| 转译管线(black_box(&alias_heavy), &manager))
     });
 
     group.finish();

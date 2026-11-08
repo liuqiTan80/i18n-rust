@@ -1,6 +1,6 @@
-//! 延迟项目上下文入口的等价性（`transpile_pipeline_with_deferred_project`）
+//! 延迟项目上下文入口的等价性（`延迟项目转译管线`）
 //!
-//! 老路径：先 `collect_source_declarations` 预扫本文件声明 → 合并其他文件声明
+//! 老路径：先 `收集源声明` 预扫本文件声明 → 合并其他文件声明
 //! 建项目上下文 → 跑完整管线（本文件被词法转译两次）。
 //! 新路径：管线先做词法阶段，本文件声明从词法产物顺带收集 → 回调合并其他
 //! 文件声明 → 继续后续阶段（只转译一次）。
@@ -11,7 +11,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use i18n_rust_engine::alias::{ProjectContext, collect_source_declarations};
+use i18n_rust_engine::别名::{收集源声明, 项目上下文};
 use i18n_rust_engine::映射管理器::映射管理器;
 
 fn zh_manager() -> 映射管理器 {
@@ -52,50 +52,48 @@ fn deferred_project_matches_precomputed_project() {
     );
 
     // 老路径：先预扫两文件声明，再建上下文
-    let 甲声明 = collect_source_declarations(JIA, &manager);
-    let 乙声明 = collect_source_declarations(YI, &manager);
-    let 上下文 = ProjectContext::from_declarations(module_names.clone(), [&甲声明, &乙声明]);
-    let 老产物 = i18n_rust_engine::transpile_pipeline_with_map_and_project(
+    let 甲声明 = 收集源声明(JIA, &manager);
+    let 乙声明 = 收集源声明(YI, &manager);
+    let 上下文 = 项目上下文::从声明集合(module_names.clone(), [&甲声明, &乙声明]);
+    let 老产物 = i18n_rust_engine::带映射与项目转译管线(
         YI,
         &manager,
         Some(&module_names),
         Some(&上下文),
     );
     assert!(
-        老产物.output.contains("甲::新建(8080)"),
+        老产物.输出.contains("甲::新建(8080)"),
         "跨文件声明位应与声明侧一致：{}",
-        老产物.output
+        老产物.输出
     );
     assert!(
-        老产物.output.contains("Box::new()"),
+        老产物.输出.contains("Box::new()"),
         "库 API 路径段照常替换：{}",
-        老产物.output
+        老产物.输出
     );
 
     // 新路径：本文件声明由词法阶段顺带产出，回调只合并其他文件声明
-    let (新产物, 本文件声明, 新上下文) = i18n_rust_engine::transpile_pipeline_with_deferred_project(
-        YI,
-        &manager,
-        Some(&module_names),
-        |本文件| ProjectContext::from_declarations(module_names.clone(), [&甲声明, 本文件]),
-    );
+    let (新产物, 本文件声明, 新上下文) =
+        i18n_rust_engine::延迟项目转译管线(YI, &manager, Some(&module_names), |本文件| {
+            项目上下文::从声明集合(module_names.clone(), [&甲声明, 本文件])
+        });
 
-    assert_eq!(新产物.output, 老产物.output, "两条路径的译文必须逐字节一致");
+    assert_eq!(新产物.输出, 老产物.输出, "两条路径的译文必须逐字节一致");
     assert_eq!(
-        新产物.pipeline_map.len(),
-        老产物.pipeline_map.len(),
+        新产物.流程映射.len(),
+        老产物.流程映射.len(),
         "编辑表条目数必须一致"
     );
     assert_eq!(
-        本文件声明.items, 乙声明.items,
+        本文件声明.条目集, 乙声明.条目集,
         "顺带收集的项名必须与预扫一致"
     );
-    assert_eq!(本文件声明.variables, 乙声明.variables);
-    assert_eq!(本文件声明.members, 乙声明.members);
-    assert_eq!(本文件声明.library_fns, 乙声明.library_fns);
+    assert_eq!(本文件声明.变量集, 乙声明.变量集);
+    assert_eq!(本文件声明.成员集, 乙声明.成员集);
+    assert_eq!(本文件声明.库方法集, 乙声明.库方法集);
     assert_eq!(
-        新上下文.fingerprint(),
-        上下文.fingerprint(),
+        新上下文.指纹(),
+        上下文.指纹(),
         "两条路径的项目上下文指纹必须一致"
     );
 }
@@ -105,17 +103,17 @@ fn deferred_project_matches_precomputed_project() {
 fn quiet_variant_output_matches() {
     let manager = zh_manager();
     let module_names = modules();
-    let 甲声明 = collect_source_declarations(JIA, &manager);
-    let 乙声明 = collect_source_declarations(YI, &manager);
-    let 上下文 = ProjectContext::from_declarations(module_names.clone(), [&甲声明, &乙声明]);
+    let 甲声明 = 收集源声明(JIA, &manager);
+    let 乙声明 = 收集源声明(YI, &manager);
+    let 上下文 = 项目上下文::从声明集合(module_names.clone(), [&甲声明, &乙声明]);
 
-    let 带告警 = i18n_rust_engine::transpile_pipeline_with_map_and_project(
+    let 带告警 = i18n_rust_engine::带映射与项目转译管线(
         YI,
         &manager,
         Some(&module_names),
         Some(&上下文),
     );
-    let 静默 = i18n_rust_engine::transpile_pipeline_quiet_with_map_and_project(
+    let 静默 = i18n_rust_engine::静默带映射与项目转译管线(
         YI,
         &manager,
         Some(&module_names),

@@ -6,9 +6,9 @@
 
 use std::path::Path;
 
-use i18n_rust_engine::transpile_pipeline;
 use i18n_rust_engine::反译重生::反译重生;
 use i18n_rust_engine::映射管理器::映射管理器;
+use i18n_rust_engine::转译管线;
 
 fn manager(lang: &str) -> 映射管理器 {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("lang-packs/{lang}"));
@@ -30,7 +30,7 @@ const ZH_SOURCE: &str = r#"函数 主函数() {
 fn relocalize_zh_to_ja_uses_core_main_keyword_not_crate_alias() {
     let zh = manager("zh");
     let ja = manager("ja");
-    let english = transpile_pipeline(ZH_SOURCE, &zh).output;
+    let english = 转译管线(ZH_SOURCE, &zh).输出;
     let ja_source = 反译重生(&english, &ja);
     assert!(ja_source.contains("関数"), "应含 ja `関数`: {ja_source}");
     assert!(ja_source.contains("もし"), "应含 ja `もし`: {ja_source}");
@@ -56,9 +56,9 @@ fn relocalize_zh_to_ja_uses_core_main_keyword_not_crate_alias() {
 fn relocalize_output_transpiles_back_to_same_english() {
     let zh = manager("zh");
     let ja = manager("ja");
-    let english = transpile_pipeline(ZH_SOURCE, &zh).output;
+    let english = 转译管线(ZH_SOURCE, &zh).输出;
     let ja_source = 反译重生(&english, &ja);
-    let back = transpile_pipeline(&ja_source, &ja).output;
+    let back = 转译管线(&ja_source, &ja).输出;
     assert!(
         back.contains("fn main"),
         "反译产物应可转译回 `fn main`: {back}"
@@ -73,9 +73,9 @@ fn relocalize_output_transpiles_back_to_same_english() {
 fn relocalize_is_idempotent_on_relocalize() {
     let ja = manager("ja");
     let zh = manager("zh");
-    let english = transpile_pipeline(ZH_SOURCE, &zh).output;
+    let english = 转译管线(ZH_SOURCE, &zh).输出;
     let first = 反译重生(&english, &ja);
-    let english_again = transpile_pipeline(&first, &ja).output;
+    let english_again = 转译管线(&first, &ja).输出;
     let second = 反译重生(&english_again, &ja);
     assert_eq!(first, second, "relocalize 经正向/反译往返应幂等");
 }

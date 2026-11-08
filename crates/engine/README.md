@@ -18,7 +18,7 @@ let manager = MappingManager::load_from_builtin(
 // 亦可运行时从目录加载：MappingManager::load_from_dir(Path::new("…/lang-packs/zh"))
 
 // 母语 Rust → 标准 Rust（逐 token 原地替换，行号恒等）
-let english = i18n_rust_engine::transpile_pipeline(
+let english = i18n_rust_engine::转译管线(
     "函数 主函数() { 打印行!(\"你好\"); }",
     &manager,
 )

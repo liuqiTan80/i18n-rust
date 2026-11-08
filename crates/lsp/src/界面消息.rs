@@ -92,10 +92,10 @@ impl 界面 {
         let 环境语言 = std::env::var("RZ_LANG")
             .map(|值| 值.trim().to_lowercase())
             .unwrap_or_default();
-        if !环境语言.is_empty() {
-            if let Some(内置文本) = 内置界面(&环境语言) {
-                return (Self::自内容构造(内置文本), 环境语言);
-            }
+        if !环境语言.is_empty()
+            && let Some(内置文本) = 内置界面(&环境语言)
+        {
+            return (Self::自内容构造(内置文本), 环境语言);
         }
         // 4. 系统语言
         for 区域变量 in ["LC_ALL", "LC_MESSAGES", "LANG"] {

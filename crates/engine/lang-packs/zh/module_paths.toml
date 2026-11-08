@@ -26,3 +26,5 @@
 "有序映射" = "BTreeMap"
 "随机数" = "rand"
 "序列化" = "serde"
+"操作系统" = "os"
+"Unix系统" = "unix"

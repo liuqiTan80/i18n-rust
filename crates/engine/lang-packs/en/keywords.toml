@@ -151,6 +151,9 @@
 "env" = "env"
 "option_env" = "option_env"
 "cfg" = "cfg"
+"debug_assertions" = "debug_assertions"
+"path" = "path"
+"link_name" = "link_name"
 "test" = "test"
 
 # ============================================
@@ -184,3 +187,9 @@
 "ty" = "ty"
 "tt" = "tt"
 "should_panic" = "should_panic"
+"PartialEq" = "PartialEq"
+"eq" = "eq"
+"deref" = "deref"
+"Target" = "Target"
+"Value" = "Value"
+"len" = "len"

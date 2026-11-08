@@ -26,6 +26,10 @@
 # env_logger
 "构建器" = "Builder"
 "日志过滤器" = "filter"
+"日志环境" = "Env"
+"从环境" = "from_env"
+"默认过滤器或" = "default_filter_or"
+"格式时间戳毫秒" = "format_timestamp_millis"
 
 # tracing-subscriber
 "格式化层" = "fmt"

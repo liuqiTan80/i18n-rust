@@ -69,7 +69,8 @@ fn load_with_lang_reports_the_language_it_actually_used() {
 
     // 目录里没有 ui.toml 时走目录名匹配内置包，语言代码同样要说清（改前这里
     // 只回消息表、语言代码无人知晓，两条链路就分叉了）
-    let (ui, lang) = i18n_rust_lsp::界面消息::界面::载入带语言(std::path::Path::new("/任意路径/ja"));
+    let (ui, lang) =
+        i18n_rust_lsp::界面消息::界面::载入带语言(std::path::Path::new("/任意路径/ja"));
     assert_eq!(lang, "ja");
     assert!(
         !ui.取消息("lsp_about").contains("LSP 代理服务器"),

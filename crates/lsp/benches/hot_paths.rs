@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use i18n_rust_engine::映射管理器::映射管理器;
-use i18n_rust_lsp::translation_cache::转译缓存;
+use i18n_rust_lsp::翻译缓存::转译缓存;
 
 /// 构造内置 zh 语言包映射管理器（与 CLI / LSP 默认一致）
 fn zh_manager() -> 映射管理器 {
@@ -106,12 +106,12 @@ fn bench_update_document(c: &mut Criterion) {
             || {
                 let tmp = tempfile::tempdir().expect("创建临时目录失败");
                 let (_path, uri) = setup_project(tmp.path(), "proj", &source);
-                let cache = 转译缓存::new(manager.clone(), tmp.path().join("virtual"));
+                let cache = 转译缓存::新建(manager.clone(), tmp.path().join("virtual"));
                 (tmp, cache, uri)
             },
             |(_tmp, cache, uri)| {
                 cache
-                    .update_document(black_box(&uri), black_box(&source), 1)
+                    .更新文档(black_box(&uri), black_box(&source), 1)
                     .expect("打开文件失败")
             },
             BatchSize::SmallInput,
@@ -122,10 +122,8 @@ fn bench_update_document(c: &mut Criterion) {
     //    模块集合不变 → 仅重写当前条目，声明名缓存按内容哈希逐次失效）
     let tmp = tempfile::tempdir().expect("创建临时目录失败");
     let (_path, uri) = setup_project(tmp.path(), "proj_typing", &source);
-    let cache = 转译缓存::new(manager.clone(), tmp.path().join("virtual"));
-    cache
-        .update_document(&uri, &source, 1)
-        .expect("预热打开失败");
+    let cache = 转译缓存::新建(manager.clone(), tmp.path().join("virtual"));
+    cache.更新文档(&uri, &source, 1).expect("预热打开失败");
     let mut version = 1i32;
     group.bench_function("update_document_typing", |b| {
         let mut counter = 0usize;
@@ -134,7 +132,7 @@ fn bench_update_document(c: &mut Criterion) {
             version += 1;
             let edited = format!("{source}\n// 连续编辑 {counter}");
             cache
-                .update_document(black_box(&uri), black_box(&edited), version)
+                .更新文档(black_box(&uri), black_box(&edited), version)
                 .expect("编辑失败")
         })
     });
@@ -158,10 +156,8 @@ fn bench_update_document_alias_heavy(c: &mut Criterion) {
 
     let tmp = tempfile::tempdir().expect("创建临时目录失败");
     let (_path, uri) = setup_project(tmp.path(), "proj_typing_alias", &source);
-    let cache = 转译缓存::new(manager.clone(), tmp.path().join("virtual"));
-    cache
-        .update_document(&uri, &source, 1)
-        .expect("预热打开失败");
+    let cache = 转译缓存::新建(manager.clone(), tmp.path().join("virtual"));
+    cache.更新文档(&uri, &source, 1).expect("预热打开失败");
     let mut version = 1i32;
     group.bench_function("update_document_typing_alias_heavy", |b| {
         let mut counter = 0usize;
@@ -170,7 +166,7 @@ fn bench_update_document_alias_heavy(c: &mut Criterion) {
             version += 1;
             let edited = format!("{source}\n// 连续编辑 {counter}");
             cache
-                .update_document(black_box(&uri), black_box(&edited), version)
+                .更新文档(black_box(&uri), black_box(&edited), version)
                 .expect("编辑失败")
         })
     });
@@ -186,12 +182,10 @@ fn bench_reverse_transpile(c: &mut Criterion) {
     let source = teaching_source();
     let tmp = tempfile::tempdir().expect("创建临时目录失败");
     let (_path, uri) = setup_project(tmp.path(), "proj_reverse", &source);
-    let cache = 转译缓存::new(manager.clone(), tmp.path().join("virtual"));
-    let (entry, _) = cache
-        .update_document(&uri, &source, 1)
-        .expect("预热打开失败");
+    let cache = 转译缓存::新建(manager.clone(), tmp.path().join("virtual"));
+    let (entry, _) = cache.更新文档(&uri, &source, 1).expect("预热打开失败");
     // 转译产物即"经 rustfmt 格式化后的英文文本"的典型素材
-    let en_doc = entry.en_content.clone();
+    let en_doc = entry.英文内容.clone();
 
     let mut group = c.benchmark_group("lsp_reverse_transpile");
     group.sample_size(50);
@@ -199,15 +193,13 @@ fn bench_reverse_transpile(c: &mut Criterion) {
     // ① 补全片段：uri=None 的无文档上下文场景（补全/代码操作每个片段都走这里）
     let snippet = "let mut 总数 = String::new();";
     group.bench_function("reverse_transpile_completion", |b| {
-        b.iter(|| cache.reverse_transpile(None, black_box(snippet)))
+        b.iter(|| cache.反向转译(None, black_box(snippet)))
     });
 
     // ② 整文档还原：textDocument/formatting 响应（传入 uri 以精确处理
     //    代理添加的 crate:: 前缀，避免误删用户手写前缀）
     group.bench_function("reverse_transpile_formatting", |b| {
-        b.iter(|| {
-            cache.reverse_transpile(Some(black_box(uri.as_str())), black_box(en_doc.as_str()))
-        })
+        b.iter(|| cache.反向转译(Some(black_box(uri.as_str())), black_box(en_doc.as_str())))
     });
 
     group.finish();
