@@ -41,6 +41,11 @@ done
     exit 1
 }
 
+# 统一转绝对路径：下面会 cd 到临时目录，相对路径会失效
+RZC=$(realpath "$RZC")
+ZH=$(realpath "$ZH")
+CAND=$(realpath "$CAND")
+
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/eject-verify.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/zh"
