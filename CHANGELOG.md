@@ -12,6 +12,16 @@
 - `check-zh-ascii` 增补两条结构豁免：`使用`/`use` 路径首段的 ASCII 包名、
   含 `$` 的代码片段；zh-pure 新增「转译输出契约」声明用于冻结跨包字段词形。
 
+### 工程
+- 分支保护落地：`main` 仅允许 PR（禁直推/强推/删除、线性历史、1 评审 +
+  CODEOWNERS、必需检查 `test` / `windows-gates` / `msrv` / `eject-verify`）；
+  `zh` 为唯一日常分支（禁强推/删除）。
+- 新增 `eject-verify` 工作流与 `scripts/eject-verify.sh`：main PR 的候选树
+  必须与 `origin/zh` 的 eject 产物逐文件一致；新增
+  `scripts/prepare-eject-branch.sh` 一键生成 `release/eject-<版本>` 候选树。
+- 新增 [分支保护与发布流程](docs/strategy/分支保护与发布流程.md) 与
+  [团队通知-分支管理规范](docs/strategy/团队通知-分支管理规范.md)。
+
 ### 文档
 - 全面校对 README（11 语言）、CONTRIBUTING、项目地图、语言包指南、策略文档与教程附录：
   统一 `rzc build` → `rzc run` / `rzc check`，补 zh 分支隔离构建入口、三地镜像与分支门禁口径；

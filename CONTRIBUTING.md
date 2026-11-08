@@ -19,7 +19,10 @@
 | `main` | **发布树**：方言源已 eject 为标准 Rust，全部 `.rs` 入库 | 直接 `cargo ...`；提交前 `make gate` |
 | `zh` | **方言源**：`crates/*/src`、tests/benches/examples 只保留 `.zh`，同名 `.rs` 不入库 | `make zh-build ARGS='...'` 在 `.zh-build/` 隔离目录生成 `.rs` 后构建 |
 
-两分支**不合并**：`zh` 的改动由 `rzc eject` 生成 `main`；`main` 是发布分支，`zh` 是源码分支。
+`zh` **不能直接 merge 到 `main`**：先在 `zh` 开发、验证并推送，再由发布负责人运行
+`scripts/prepare-eject-branch.sh <版本>` 生成 `release/eject-<版本>` 候选树，
+通过 PR（必需检查 + CODEOWNERS 评审）合入 `main`。规则见
+[分支保护与发布流程](docs/strategy/分支保护与发布流程.md)。
 `zh` 分支不要直接跑 `cargo build/test`（源码树没有 `.rs` 目标，cargo 会报
 `no targets specified in the manifest`）。
 

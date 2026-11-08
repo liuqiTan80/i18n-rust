@@ -45,8 +45,11 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | `.github/workflows/` | CI / 发布 / 文档站 / zh 门禁 / 三仓镜像 / 漂移预警 | 门禁与发布 |
 
 > 🌿 分支模型：`main` 是发布树（`.rs` 入库，直接 cargo）；`zh` 是方言源
-> （只保留 `.zh`，产物不入库）。`zh` 的构建与阅读入口见
-> [zh 分支代码阅读顺序与实操教程](zh-reading-guide.md)。
+> （只保留 `.zh`，产物不入库）。`zh` 不直接 merge 到 `main`：发布走
+> `scripts/prepare-eject-branch.sh <版本>` → `release/eject-*` PR →
+> `eject-verify` + test 全绿 → Squash 合并。规则见
+> [分支保护与发布流程](strategy/分支保护与发布流程.md)，
+> 源码阅读入口见 [zh 分支代码阅读顺序与实操教程](zh-reading-guide.md)。
 
 ## 常见任务 → 改哪里 → 怎么验证
 
@@ -65,7 +68,7 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | 改 IDE 体验 | `crates/lsp/` + `tools/vscode-extension/` | 扩展 `npm test`；LSP `make test` |
 | 调文档站 | `book/` + `tools/build-site.py` | `make site` · `make site-serve` |
 | 发教程到飞书（国内阅读入口） | `tools/publish-feishu.py` | `make feishu`（平台侧配置见[发布准备清单](strategy/发布准备清单.md)第 5 节） |
-| 改 CI / 发布 | `.github/workflows/{ci,release,pages,mirror,zh-gates,rustc-drift}.yml` | main 本地等价：`make gate`；zh：`make zh-build …` + `make zh-artifacts zh-ascii` |
+| 改 CI / 发布 | `.github/workflows/{ci,release,pages,mirror,zh-gates,rustc-drift,eject-verify}.yml` | main 本地等价：`make gate`；zh：`make zh-build …` + `make zh-artifacts zh-ascii`；发布树校验：`scripts/eject-verify.sh` |
 | 出发布包 | `release-offline.{sh,ps1}` | 见 [发布准备清单](strategy/发布准备清单.md) |
 | 新增一门语言 | [docs/contributing-lang-pack.md](contributing-lang-pack.md) | `make mapping-check` + 教程门禁 |
 
@@ -89,6 +92,7 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 **pages.yml** 文档站构建与部署 ·
 **zh-gates.yml** zh 分支源码级门禁（中文棘轮 + 方言源纪律）·
 **mirror.yml** GitHub→Gitee/GitCode 单向镜像（分支 + 版本标签）·
+**eject-verify.yml** main PR 的发布树校验（候选树必须等于 `origin/zh` 的 eject 产物，必需检查）·
 **rustc-drift.yml** 诊断语料漂移预警（每周 stable+beta 实跑采集器比对入库语料；stable 漂移失败、beta 仅警告）。
 
 仓库换行策略由 [.gitattributes](../.gitattributes) 钉住全仓 LF：转译链对 CRLF 敏感
