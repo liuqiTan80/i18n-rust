@@ -113,6 +113,7 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | 参考文档 6 篇：[contributing-lang-pack](contributing-lang-pack.md) / [missing-mapping-guide](missing-mapping-guide.md) / [third-party-mapping](third-party-mapping.md) / [third-party-registry](third-party-registry.md) / [dialect-framework-blueprint](dialect-framework-blueprint.md) / [translation-status](translation-status.md) | 专项流程 |
 | [docs/dev/i18n-rust.md](dev/i18n-rust.md) | 早期设计愿景稿（**历史文档**，路径与 API 已演进；现状见本页与代码） |
 | [docs/zh-reading-guide.md](zh-reading-guide.md) | zh 分支代码阅读顺序与实操教程 |
+| [docs/architecture-review-2026-11.md](architecture-review-2026-11.md) | 架构、代码质量、性能、安全、工程化与 UX 评审（2026-11，P0–P3） |
 | [docs/strategy/README.md](strategy/README.md) | 现状与路线图（维护者） |
 | [CHANGELOG.md](../CHANGELOG.md) | 逐版本变更流水 |
 
