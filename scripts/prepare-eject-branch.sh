@@ -87,6 +87,11 @@ echo "== 5/5 提交 =="
 (
     cd "$WT"
     git add -A
+    # zh 的 .gitignore 把转译产物（.rs）与扩展生成物列入忽略，但 main 必须跟踪：
+    # 先普通 add 收新文件，再按这两类路径强制添加。不整仓 -f，避免把
+    # __pycache__、target 等未跟踪缓存带进发布树。
+    git add -f -- 'crates/**/*.rs' 'crates/zh-pure/build.rs' 'crates/engine/build.rs'
+    git add -f -- tools/vscode-extension/syntaxes tools/vscode-extension/package-lock.json
     git commit -m "release: v$VERSION —— zh 方言源 eject 产物"
 )
 
