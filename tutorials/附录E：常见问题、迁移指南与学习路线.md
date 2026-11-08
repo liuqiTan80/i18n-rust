@@ -123,6 +123,27 @@ rzc 会尽量翻译错误信息：**有错误码的错误**（如 `E0308` 类型
 
 约定：中英混合的 CLI（命令名/旗标英文、帮助文档中文）一律给 `长参数`/`短参数`/`value_name` 显式赋英文值；全中文 CLI 裸写 `长参数` 即可。
 
+### "在 zh 分支源码里改完，为什么 cargo 说找不到构建目标？"
+
+`zh` 分支是**方言源分支**：`crates/*/src` 只保留 `.zh`，同名 `.rs` 转译产物不入库。
+直接 `cargo build/test` 会报 `no targets specified in the manifest`。正确做法：
+
+```bash
+make zh-build ARGS='test --workspace --locked'   # 在 .zh-build/ 生成 .rs 后全量测试
+make zh-build ARGS='build --bin rzc'             # 需要 rzc 时（产物在 .zh-build/target/debug/rzc）
+```
+
+构建树在 `.zh-build/`（已 gitignore），源码目录始终只显示 `.zh`；编译、教程四语、
+基准等重门禁在 `main`（eject 发布树）上执行。详见
+[zh 分支代码阅读顺序与实操教程](../docs/zh-reading-guide.md)。
+
+### "`make zh-artifacts` 为什么说没有检查可转译性？"
+
+可转译性检查需要一个 rzc 二进制。先跑
+`make zh-build ARGS='build --bin rzc'`，门禁会自动使用
+`.zh-build/target/debug/rzc`；没有二进制时它只跑「一词多译 + 绑定位」两项审计，
+不判红。要指定别的二进制：`python3 tools/check-zh-artifacts.py --rzc <路径>`。
+
 ---
 
 ## E.2 迁移指南：走向标准 Rust
