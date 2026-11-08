@@ -101,7 +101,7 @@ export CARGO_TARGET_DIR="$BUILD/target"
 # 目录与文件分两次调用，并用 `--` 显式终止选项解析：路径不会被误当成
 # rzc 的全局选项（如 --lang-pack / --no-lint），批量目标也不会互相串组。
 dir_units=()
-for dir in crates/engine/src crates/cli/src crates/lsp/src; do
+for dir in crates/engine/src crates/cli/src crates/lsp/src crates/zh-pure/src; do
     if [[ -d "$dir" ]]; then
         dir_units+=("$dir")
     fi
@@ -115,7 +115,9 @@ for file in \
     crates/engine/build.zh \
     crates/cli/tests/*.zh \
     crates/lsp/tests/*.zh \
-    crates/lsp/benches/*.zh; do
+    crates/lsp/benches/*.zh \
+    crates/zh-pure/tests/*.zh \
+    crates/zh-pure/build.zh; do
     if [[ -f "$file" ]]; then
         file_units+=("$file")
     fi

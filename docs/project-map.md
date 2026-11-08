@@ -34,7 +34,7 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | `crates/engine/lang-packs/<lang>/` | 语言包（数据非代码）：`keywords/stdlib/module_paths/errors/ui/lang_info.toml` + `crates/`（第三方映射） | 补词条、改文案 |
 | `crates/cli` | rzc：`main.zh` 命令层、`诊断输出.zh` 诊断翻译、`翻译缺口.zh`（`rzc gaps`）、`映射检查.zh` / `映射覆盖.zh` / `映射生成/` 子命令 | 命令与行为 |
 | `crates/lsp` | 代理 rust-analyzer：`响应映射/` 反向翻译、`界面消息.zh` 界面消息本地化 | IDE 侧翻译 |
-| `crates/zh-pure` | 纯函数方言测试样例（不发布）：`tests-zh/*.zh` 用方言与 `#[测试]` 写用例，`build.rs` 转译后随 `cargo test` 执行 | 方言测试写法示例 |
+| `crates/zh-pure` | 纯函数方言测试样例（不发布）：`tests-zh/*.zh` 用方言与 `#[测试]` 写用例，`build.zh` 转译后随 `cargo test` 执行 | 方言测试写法示例 |
 | `tools/vscode-extension` | 扩展（TypeScript） | 高亮 / 补全 / 诊断 UI |
 | `tools/` | 验证与构建脚本（索引见 [tools/README.md](../tools/README.md)） | 门禁逻辑 |
 | `scripts/` | 分支与发布工具：`zh-build.sh`（zh 方言源隔离构建）、`mirror.sh`（三仓镜像） | 构建/镜像流程 |

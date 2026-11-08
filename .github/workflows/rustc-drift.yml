@@ -54,7 +54,7 @@ jobs:
           toolchain: ${{ matrix.channel }}
 
       - name: 以当前工具链实跑采集器生成新语料
-        # collect.py 把 fixtures/*.rs 逐个喂给真实 rustc，产出 LEVEL\tCODE\t消息原文
+        # collect.py 把 fixtures/*.rs.txt 逐个喂给真实 rustc，产出 LEVEL\tCODE\t消息原文
         # 的去重清单——与入库语料同格式，可直接逐行 diff
         run: |
           python3 tools/diag-corpus/collect.py --out /tmp/diag-msgs-new.tsv

@@ -66,7 +66,7 @@ crates/
 │   └── src/                main.zh（命令层）+ 安装 / 语言管理 / 映射生成 / 诊断输出…
 ├── lsp/                    语言服务器（rust-analyzer 代理）
 │   └── src/                服务器、分析器、响应映射/、翻译缓存、镜像检查…
-└── zh-pure/                纯函数方言测试样例（build.rs 把 tests-zh/*.zh 转译后执行）
+└── zh-pure/                纯函数方言测试样例（build.zh 把 tests-zh/*.zh 转译后执行）
 
 scripts/zh-build.sh         zh 分支隔离构建
 tools/                      门禁与验证脚本（教程、语言包、映射、ui 键索引…）

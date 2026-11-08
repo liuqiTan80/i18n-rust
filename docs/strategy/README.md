@@ -177,7 +177,7 @@
   `precise_code_stub_keeps_priority_over_coarse_message_entry`（E0308/E0283/前缀键仍走桩）、
   `en_pack_code_templates_reproduce_rustc_own_wording` 扩两条、恒等语言门禁改名
   `identity_language_packs_carry_only_identity_guards`，语料新增反例
-  `tools/diag-corpus/fixtures/e0277_question_mark.rs`（用自定义 `SignupError` 避开一条
+  `tools/diag-corpus/fixtures/e0277_question_mark.rs.txt`（用自定义 `SignupError` 避开一条
   无译文的 `From` help）。反证三组：去掉桩形态条件 → E0308 断言转红；`whole_sentence_hit`
   接受前缀/后缀键 → 语料门禁 10 语言 60 处英文残留；删 en 两条守卫键 → en 又渲染出
   "the trait bound `?`: `Result` is not satisfied"
