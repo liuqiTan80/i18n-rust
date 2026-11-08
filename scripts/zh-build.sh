@@ -90,29 +90,46 @@ tar -C "$ROOT" -cf - \
 
 cd "$BUILD/src"
 
+# 构建缓存放在 .zh-build/target：每次重建 src 副本时不丢缓存，
+# 也正好落在 check-zh-artifacts.py 的自动查找路径上。
+export CARGO_TARGET_DIR="$BUILD/target"
+
 # ---------- 3. 逐编译单元生成 .rs ----------
 # src 按目录导出（同 crate 的声明上下文完整）；tests/benches/examples/build.rs
 # 必须按单文件导出：目录模式只收集同目录内的声明，会把 src 里已声明为中文的
 # API 名（如 输出、分词转译、新建）误译成英文。
-units=(crates/engine/src crates/cli/src crates/lsp/src)
-for pattern in \
-    "crates/engine/tests/*.zh" \
-    "crates/engine/benches/*.zh" \
-    "crates/engine/examples/*.zh" \
-    "crates/engine/build.zh" \
-    "crates/cli/tests/*.zh" \
-    "crates/lsp/tests/*.zh" \
-    "crates/lsp/benches/*.zh"; do
-    for unit in $pattern; do
-        [[ -e "$unit" ]] && units+=("$unit")
-    done
+# 目录与文件分两次调用，并用 `--` 显式终止选项解析：路径不会被误当成
+# rzc 的全局选项（如 --lang-pack / --no-lint），批量目标也不会互相串组。
+dir_units=()
+for dir in crates/engine/src crates/cli/src crates/lsp/src; do
+    if [[ -d "$dir" ]]; then
+        dir_units+=("$dir")
+    fi
 done
-targets=()
-for unit in "${units[@]}"; do
-    [[ -e "$unit" ]] && targets+=("$unit")
+
+file_units=()
+for file in \
+    crates/engine/tests/*.zh \
+    crates/engine/benches/*.zh \
+    crates/engine/examples/*.zh \
+    crates/engine/build.zh \
+    crates/cli/tests/*.zh \
+    crates/lsp/tests/*.zh \
+    crates/lsp/benches/*.zh; do
+    if [[ -f "$file" ]]; then
+        file_units+=("$file")
+    fi
 done
-if (( ${#targets[@]} > 0 )); then
-    "$RZC" eject "${targets[@]}"
+
+if (( ${#dir_units[@]} == 0 && ${#file_units[@]} == 0 )); then
+    echo "❌ 未找到任何 .zh 方言源（当前分支可能不是 zh）" >&2
+    exit 2
+fi
+if (( ${#dir_units[@]} > 0 )); then
+    "$RZC" eject -- "${dir_units[@]}"
+fi
+if (( ${#file_units[@]} > 0 )); then
+    "$RZC" eject -- "${file_units[@]}"
 fi
 find . -name '*.rs.bak' -delete
 cargo fmt --all
