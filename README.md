@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **仓库镜像**：GitHub（[liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)）是唯一写入源，`main` / `zh` 分支与版本标签单向镜像到 Gitee（[liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)）与 GitCode（[tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)）。`rzc lang install` 默认优先使用 GitCode 源（国内访问更快），失败自动回退 GitHub。
+> 🪞 **仓库镜像与写入规则**：GitHub（[liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)）是唯一写入源，`main` / `zh` 分支与版本标签单向镜像到 Gitee（[liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)）与 GitCode（[tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)）；**Gitee / GitCode 为只读镜像，不接受人工提交**。`main` 只能通过 PR 合并，`zh` 是日常开发分支（见[分支保护与发布流程](docs/strategy/分支保护与发布流程.md)）。`rzc lang install` 默认优先使用 GitCode 源（国内访问更快），失败自动回退 GitHub。
 
 ![rzc 演示：母语源码 → 母语教学报错 → 一键 eject 标准 Rust](docs/demo/demo-zh.gif)
 
