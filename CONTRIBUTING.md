@@ -21,7 +21,7 @@
 
 `zh` **不能直接 merge 到 `main`**：先在 `zh` 开发、验证并推送，再由发布负责人运行
 `scripts/prepare-eject-branch.sh <版本>` 生成 `release/eject-<版本>` 候选树，
-通过 PR（必需检查 + CODEOWNERS 评审）合入 `main`。规则见
+通过 PR（必需检查，不要求评审）合入 `main`。规则见
 [分支保护与发布流程](docs/strategy/分支保护与发布流程.md)。
 `zh` 分支不要直接跑 `cargo build/test`（源码树没有 `.rs` 目标，cargo 会报
 `no targets specified in the manifest`）。

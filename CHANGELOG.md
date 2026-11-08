@@ -21,8 +21,10 @@
   `scripts/prepare-eject-branch.sh` 一键生成 `release/eject-<版本>` 候选树。
 - 新增 [分支保护与发布流程](docs/strategy/分支保护与发布流程.md) 与
   [团队通知-分支管理规范](docs/strategy/团队通知-分支管理规范.md)。
-- 移除 `release` 环境审批步骤：发布只保留 PR 评审 + 必需状态检查；
+- 移除 `release` 环境审批步骤：发布只保留 PR + 必需状态检查；
   README 明确 Gitee / GitCode 为只读镜像、`main` 仅通过 PR 合并。
+- 移除 PR 评审要求：`main` 仍必须走 PR，但不再要求批准数与 CODEOWNERS；
+  只保留必需状态检查、线性历史、禁直推/强推/删除。
 
 ### 文档
 - 全面校对 README（11 语言）、CONTRIBUTING、项目地图、语言包指南、策略文档与教程附录：

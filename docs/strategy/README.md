@@ -14,7 +14,7 @@
 | 文档站 | `book/` 装配源 + `tools/build-site.py` 四语言组装 + [pages.yml](../../.github/workflows/pages.yml) 自动部署（[book/README.md](../../book/README.md)） |
 | 演示素材 | `docs/demo/` 三语言 vhs 脚本 + 演示样本（zh/ja/ru），差一次录屏 |
 | 质量门禁 | CI 八 job（test / windows-gates / msrv / coverage / audit / bench / build / vsix，仅 main）+ `eject-verify`（main PR 发布树校验）+ `zh-gates`（zh 源码级）+ 本地 `make gate`（main）/ `make zh-build`（zh）；四语言教程门禁 0 失败；维护者入口见 [项目地图](../project-map.md) |
-| 分支保护 | `main` 仅 PR：禁止直推/强推/删除、线性历史、1 评审 + CODEOWNERS、必需检查 `test` / `windows-gates` / `msrv` / `eject-verify`；`zh` 为唯一日常分支（禁强推/删除）；规则见 [分支保护与发布流程](分支保护与发布流程.md) |
+| 分支保护 | `main` 仅 PR：禁止直推/强推/删除、线性历史、不要求评审、必需检查 `test` / `windows-gates` / `msrv` / `eject-verify`；`zh` 为唯一日常分支（禁强推/删除）；规则见 [分支保护与发布流程](分支保护与发布流程.md) |
 
 > 🔐 团队落地：先读 [分支保护与发布流程](分支保护与发布流程.md)，再把
 > [团队通知-分支管理规范](团队通知-分支管理规范.md) 发给全体成员确认。

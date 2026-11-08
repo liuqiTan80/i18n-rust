@@ -99,7 +99,7 @@ cat <<完成
 下一步：
   git push -u github "$BRANCH"
   # 在 GitHub 上向 main 开 PR；等 eject-verify / test / windows-gates / msrv 全绿，
-  # 由 CODEOWNERS 评审通过后 squash 合并（禁止 merge commit）。
+  # 直接 Squash 合并（不要求评审，禁止 merge commit）。
   # 合并后打 tag：git tag v$VERSION && git push github v$VERSION
   # 最后清理：git worktree remove "$WT" && git branch -d "$BRANCH"
 完成

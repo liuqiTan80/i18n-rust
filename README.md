@@ -77,7 +77,7 @@ rzc init 我的项目 && cd 我的项目 && rzc run src/main.zh
 > 🌿 **分支说明**：`main` 是发布树（全部标准 Rust，可直接 `cargo build`），**只能通过 PR 合并**，
 > 且只接受 `zh` 执行 `rzc eject` 生成的代码；`zh` 是日常开发分支（只保留 `.zh`，产物不入库）。
 > 要编译 `zh`，请用 `make zh-build ARGS='build --release --workspace'`（内部在 `.zh-build/` 生成 `.rs` 后编译），不要直接 `cargo build`。
-> 发布与评审规则见 [分支保护与发布流程](docs/strategy/分支保护与发布流程.md)。
+> 发布与分支规则见 [分支保护与发布流程](docs/strategy/分支保护与发布流程.md)。
 
 ### 先决条件一览
 
