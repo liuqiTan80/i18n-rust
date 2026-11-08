@@ -6,7 +6,7 @@
 # 默认仓库：liuqiTan80/i18n-rust
 #
 # 应用内容：
-#   - main：禁止删除/强推、线性历史、必须走 PR（1 评审 + CODEOWNERS）、
+#   - main：禁止删除/强推、线性历史、必须走 PR（不要求评审）、
 #           必须通过状态检查 test / windows-gates / msrv / eject-verify、
 #           要求分支最新（strict）
 #   - zh：仅禁止删除与强推（日常开发允许直接推送）

@@ -7,7 +7,7 @@
 #   2. 取 origin/zh，按 scripts/zh-build.sh 同一口径 eject；
 #   3. 用 scripts/eject-verify.sh 比对 crates/、Cargo.toml、Cargo.lock。
 # 不一致 → 阻断合并，提示重新 eject。
-# 文档/脚本/CI 变更不参与比对，仍须走 PR + 评审。
+# 文档/脚本/CI 变更不参与比对，仍须走 PR + 必需检查。
 # =============================================================
 name: 发布树校验
 

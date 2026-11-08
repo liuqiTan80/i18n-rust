@@ -12,7 +12,7 @@
 | `zh`（本分支） | **方言源**：`crates/*/src`、tests/benches/examples 只保留 `.zh` | 读/写方言源码；构建与测试在 `.zh-build/` 隔离目录进行 |
 
 `zh` **不能直接 merge 到 `main`**：改动经 `rzc eject` 生成 `release/eject-<版本>`
-候选树，再通过 PR（`eject-verify` + 必需检查 + CODEOWNERS 评审）合入。因此：
+候选树，再通过 PR（`eject-verify` + 必需检查）合入。因此：
 
 - 不要直接在 `zh` 上 `cargo build`——源码树没有 `.rs` 目标，cargo 会报
   `no targets specified in the manifest`；
