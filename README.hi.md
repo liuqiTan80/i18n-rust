@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **रिपॉज़िटरी मिरर**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) एकमात्र लेखन स्रोत है; `main`, `zh` और रिलीज़ टैग एकतरफ़ा रूप से Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) और GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)) पर मिरर होते हैं। `rzc lang install` GitCode को प्राथमिकता देता है और विफल होने पर GitHub पर लौटता है।
+> 🪞 **रिपॉज़िटरी मिरर और लेखन नियम**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) एकमात्र लेखन स्रोत है; `main`, `zh` और रिलीज़ टैग एकतरफ़ा रूप से Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) और GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)) पर मिरर होते हैं; **Gitee / GitCode केवल-पढ़ने वाले मिरर हैं और मैन्युअल push स्वीकार नहीं करते**। `main` केवल PR से, `zh` दैनिक विकास शाखा है (docs/strategy/分支保护与发布流程.md देखें)। `rzc lang install` GitCode को प्राथमिकता देता है और विफल होने पर GitHub पर लौटता है।
 
 > ⚠️ यह अनुवाद [चीनी संस्करण](README.md) पर आधारित है और उससे पीछे हो सकता है।
 
@@ -66,6 +66,8 @@ rzc init मेरा-प्रोजेक्ट && cd मेरा-प्र�
 ```
 
 > भाषा पैक पहले से शामिल हैं — कोई अतिरिक्त सेटअप नहीं। crate पेज: <https://crates.io/crates/rzc>; अपग्रेड: `cargo install rzc --force`। Rust टूलचेन नहीं है? पहले नीचे «1.» देखें।
+
+> ⚠️ **संस्करण नोट**: crates.io पर वर्तमान में **0.8.4** है, यह रिपॉज़िटरी **0.9.0** है। 0.9.0 के लिए «विकल्प 2: स्रोत से बिल्ड» या ऑफ़लाइन पैकेज का उपयोग करें।
 
 **विकल्प 2: स्रोत से बिल्ड (डेवलपर)** — नवीनतम डेवलपमेंट संस्करण या rzc में बदलाव के बाद संकलन के लिए। **सबसे छोटा रास्ता** (Rust टूलचेन हो तो पहले प्रोग्राम तक 4 कमांड):
 

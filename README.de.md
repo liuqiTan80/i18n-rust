@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **Repository-Spiegel**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) ist die einzige Schreibquelle; `main`, `zh` und Release-Tags werden einseitig nach Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) und GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)) gespiegelt. `rzc lang install` bevorzugt GitCode und fällt bei Fehlern auf GitHub zurück.
+> 🪞 **Repository-Spiegel und Schreibregeln**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) ist die einzige Schreibquelle; `main`, `zh` und Release-Tags werden einseitig nach Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) und GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)) gespiegelt. **Gitee / GitCode sind schreibgeschützte Spiegel und akzeptieren keine manuellen Pushes**. `main` nur per PR, `zh` ist der tägliche Entwicklungsbranch (siehe docs/strategy/分支保护与发布流程.md). `rzc lang install` bevorzugt GitCode und fällt bei Fehlern auf GitHub zurück.
 
 > ⚠️ Diese Übersetzung basiert auf der [chinesischen Version](README.md) und kann ihr gegenüber verzögert sein.
 
@@ -66,6 +66,8 @@ rzc init mein-projekt && cd mein-projekt && rzc run src/main.de
 ```
 
 > Sprachpakete sind eingebaut — keine zusätzliche Konfiguration. Crate-Seite: <https://crates.io/crates/rzc>; Upgrade: `cargo install rzc --force`. Noch keine Rust-Toolchain? Zuerst „1.“ unten.
+
+> ⚠️ **Versionshinweis**: crates.io bietet derzeit **0.8.4**, dieses Repository ist **0.9.0**. Für 0.9.0 bitte „Option 2: aus dem Quellcode bauen“ oder das Offline-Paket verwenden.
 
 **Option 2: Aus dem Quellcode bauen (Entwickler)** — für den neuesten Entwicklungsstand oder lokale Builds nach Änderungen an rzc. **Kürzester Weg** (mit installierter Rust-Toolchain — 4 Befehle bis zum ersten Programm):
 

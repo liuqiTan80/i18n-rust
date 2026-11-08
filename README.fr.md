@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **Miroir du dépôt** : GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) est l'unique source d'écriture ; `main`, `zh` et les tags de version sont répliqués en sens unique vers Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) et GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). `rzc lang install` privilégie GitCode et se rabat sur GitHub en cas d'échec.
+> 🪞 **Miroir du dépôt et règles d'écriture** : GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) est l'unique source d'écriture ; `main`, `zh` et les tags de version sont répliqués en sens unique vers Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) et GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)) ; **Gitee / GitCode sont des miroirs en lecture seule et n'acceptent pas de push manuel**. `main` uniquement par PR, `zh` est la branche de développement quotidienne (voir docs/strategy/分支保护与发布流程.md). `rzc lang install` privilégie GitCode et se rabat sur GitHub en cas d'échec.
 
 > ⚠️ Cette traduction est basée sur la [version chinoise](README.md) et peut être en retard par rapport à celle-ci.
 
@@ -66,6 +66,8 @@ rzc init mon-projet && cd mon-projet && rzc run src/main.fr
 ```
 
 > Les packs de langue sont intégrés — aucune configuration supplémentaire. Page du crate : <https://crates.io/crates/rzc> ; mise à jour : `cargo install rzc --force`. Pas encore de toolchain Rust ? Voir « 1. » ci-dessous.
+
+> ⚠️ **Note de version** : crates.io propose actuellement **0.8.4** ; ce dépôt est en **0.9.0**. Pour 0.9.0, utilisez « Option 2 : compiler depuis les sources » ou le paquet hors ligne.
 
 **Option 2 : compilation depuis les sources (développeurs)** — pour la dernière version de développement ou compiler après avoir modifié rzc. **Chemin le plus court** (avec une toolchain Rust installée — 4 commandes jusqu'au premier programme) :
 

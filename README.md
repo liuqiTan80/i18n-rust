@@ -51,9 +51,9 @@ $ rzc run src/main.zh
 
 ## 📦 安装
 
-两种方式任选：**方式一 crates.io 一键安装**（推荐，适合绝大多数用户）；**方式二 源码编译**（需要最新开发版，或要修改 rzc 源码的开发者）。
+两种方式任选：**方式一 crates.io 安装稳定版 0.8.4**（适合绝大多数用户）；**方式二 源码编译**（推荐获取 0.9.0 最新版，或要修改 rzc 源码的开发者）。
 
-**方式一：crates.io 一键安装（推荐）**——已在 crates.io 发布，一条命令装完全局可用：
+**方式一：crates.io 安装稳定版 0.8.4**——已在 crates.io 发布，一条命令装完全局可用：
 
 ```bash
 cargo install rzc        # 从 crates.io 获取源码并在本机编译（首次约 1-3 分钟）
@@ -62,8 +62,10 @@ rzc init 我的项目 && cd 我的项目 && rzc run src/main.zh
 ```
 
 > 语言包已内置，无需任何额外配置。crate 页面：<https://crates.io/crates/rzc>；升级已装版本：`cargo install rzc --force`。尚未安装 Rust 工具链？见下方「第一步」。
+>
+> ⚠️ **版本说明**：crates.io 当前发布的是 **0.8.4**；本仓库源码为 **0.9.0**。需要 0.9.0 请用「方式二：源码编译」或离线发布包；crates.io 发布 0.9.0 后本节会同步更新。
 
-**方式二：源码编译（开发者）**——获取最新开发版，或修改 rzc 后本地构建。**最短路径**（已装 Rust 工具链，4 条命令跑通第一个程序）：
+**方式二：源码编译（推荐，获取 0.9.0）**——获取最新开发版，或修改 rzc 后本地构建。**最短路径**（已装 Rust 工具链，4 条命令跑通第一个程序）：
 
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust && cd i18n-rust
@@ -106,7 +108,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 **验证安装**（重开终端后）：
 
 ```bash
-rustc --version   # 输出类似 rustc 1.98.0 即成功
+rustc --version   # 输出类似 rustc 1.99.1 即成功
 cargo --version
 ```
 
@@ -317,8 +319,10 @@ Rust 本身以英文书写，因此英语不作为教学方言（恒等映射无
 进度与下一批见 [translation-status.md](docs/translation-status.md)。
 
 > 教程质量由 CI 自动门禁守护（[tools/verify-tutorials.py](tools/verify-tutorials.py)）：
-> 每个代码块须可编译，错误示例须报出标注的预期错误码（`// 预期错误: EXXXX`），
-> 修改教程后本地验证：`make tutorials`（中文）或 `make tutorials-all`（英日俄）。
+> 每个代码块须可编译，错误示例须报出标注的预期错误码（`// 预期错误: EXXXX`）。
+> 修改教程后本地验证：`main` 上 `make tutorials`（中文）/ `make tutorials-all`（英日俄）；
+> `zh` 分支先 `make zh-build ARGS='build --bin rzc'`，再用
+> `--rzc .zh-build/target/debug/rzc` 调 `tools/verify-tutorials.py`（详见 [CONTRIBUTING](CONTRIBUTING.md)）。
 
 > 常见问题与学习路线见[附录E](tutorials/附录E：常见问题、迁移指南与学习路线.md)；欢迎共同翻译**教程**与**映射表**到其他语言，见下文“参与贡献”。
 
