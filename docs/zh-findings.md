@@ -6,7 +6,10 @@
 
 编码约定（同时由 `tools/check-zh-artifacts.py` 把守）：
 
-- 真源是 `.zh`，同目录同名 `.rs` 是 `rzc transpile | rustfmt --edition 2024` 的提交产物；
+- 真源是 `.zh`；同名 `.rs` 只在 `scripts/zh-build.sh` 的 `.zh-build/` 隔离目录生成，
+  **不入库、不与源码同目录混放**（构建/测试：`make zh-build ARGS='test --workspace --locked'`）；
+- 产物一致性不再是提交门禁：`tools/check-zh-artifacts.py` 现在验「可转译性 +
+  一词多译 + 绑定位」，`tools/check-zh-ascii.py` 守代码区/注释区全中文棘轮；
 - **排除一切一词多译**：中文词 → 多个英文值的歧义词不得进入代码区，
   仅 `tools/zh-ambiguity-exemptions.json` 登记的核心语法位（函数/字符串/向量/路径/格式化）
   豁免，且每条豁免必须附**实测取值证据**（见 F17）；
@@ -16,8 +19,8 @@
 - **重构而非对译**：逐句把英文代码换成中文词发现不了问题，只有重新设计数据结构与
   控制流，才会持续踩到缺词条、守卫失效、静默改名这类真实边界（F20 的随机序缺陷就是
   这样被撞出来的——只翻译会把它当"历史行为"原样搬过去）；
-- **取证一律用 `target/debug/rzc`**：PATH 里装的是发布版，行为可能落后 HEAD 好几个
-  版本，用它跑探针会把旧版缺陷记到主线账上（见 F18）。
+- **取证一律用 `.zh-build/target/debug/rzc`**（先 `make zh-build ARGS='build --bin rzc'`）：
+  PATH 里装的是发布版，行为可能落后 HEAD 好几个版本，用它跑探针会把旧版缺陷记到主线账上（见 F18）。
 - **if-let 必须写 `如果让`**：`如果 有值(x) = y` 会产出非法的 `if Some(x) = y`，
   transpile 与 lint **零提示**，只能靠 rustc 事后报错（见 F22）。
 - **新方言文件的声明名要避开全部词表词形**：`rzc` 的项目声明豁免**按目录聚簇**，
@@ -50,6 +53,9 @@
 - **特征约束位与属性参数位只能照抄英文**：`T: 调试 + 克隆` → `T: debug + clone`（非法），
   `#[允许(死代码)]` → `#[allow(死代码)]`（原样落进产物）——只有 `#[派生(...)]` 的参数位
   吃 `派生特征` 表（见 F26）。
+
+> 注：F1–F64 是历史记录，其中「产物已提交 / 产物同步」是 2026-11 之前的口径；
+> 现行政策以本节编码约定为准（`.rs` 产物不入库，隔离目录生成）。
 
 ## 已转换模块
 
@@ -300,7 +306,7 @@ zh 语言包的实际渲染永远取不到它。审计只看表的静态形态�
 转 `界面消息.zh` 时，产物里 `.长度()` 原样留中文；而同一段代码复制到没有声明过的目录就正常
 转成 `.len()`。一轮隔离变量对照定位到根因：
 
-- 机制：`rzc transpile` 默认加载 `ProjectContext`（`crates/engine/src/alias.rs` 94-103 行），
+- 机制：`rzc transpile` 默认加载 `ProjectContext`（`crates/engine/src/别名.zh`，历史提交当时为 `alias.rs`，94-103 行），
   它扫描**同目录全部方言源文件**的声明名汇总；`names`/`items` 一旦含某词形，
   同目录**任何** `.zh` 里该词的方法位不再替换（1154-1156 行：`is_method_pos` 分支含
   `project.items.contains(text)`）。
@@ -975,23 +981,20 @@ engine 13 项全绿，最大单项 `pipeline_cache_hit` **+10.7%**、`lint_scan`
 F38 那条「用导入别名接住还没轮到的英文声明」的临时账已经结清——`.zh` 里现在
 **没有任何一处靠别名或豁免藏着的英文名**。
 
-残量的真实规模要量准：不在方言源里，而在**还没方言化的 63 个 `.rs` 模块**——
-按声明位统计共 **2097 个英文声明名**（engine 925 / cli 693 / lsp 478）。
-F32 的判据仍然成立：模块没转方言源之前，不要求它的英文声明改名；转了才逐个收口。
-往后按这个顺序滚：
+本轮方言化已收口：`crates/{engine,cli,lsp}` 的 src/tests/benches/examples/build
+共 **71 个 `.zh` 方言源**全部完成（此前列的 `校验` → `缓存` → `eject_hints` →
+`diagnostic/*` → `词法器` → `alias`，以及 cli/lsp 全量模块都已转写）。
+随后按「zh 源码树只保留 `.zh`」的纪律，**同名 `.rs` 产物不再入库**，统一由
+`scripts/zh-build.sh` 在 `.zh-build/` 隔离目录生成：
 
-1. **engine 剩下的模块逐个方言化**（`校验` → `缓存` → `eject_hints` → `diagnostic/*` →
-   `词法器` → `alias`）：`校验.rs` 的 `lint_teaching*` 全家、`缓存.rs` 的
-   `compute_content_hash`、`eject_hints.rs` 的 `EjectHint`/`EjectHintKind` 都会在这一批
-   自然中文化，不必再走 F32 的「补刀」。摩擦密度最高的是 `词法器`/`alias`，
-   预计集中撞一词多译与位置守卫（F5/F12/F27/F30 那一族）。
-2. **cli → lsp**：体量最大（两者合计 1171 个英文声明名），且 `ui.f(` 一类单字母方法名
-   在 cli 侧 158 处、lsp 侧 31 处——本轮 F40 已把方法位钉进门禁，方言源扩展到这两个
-   crate 时必须先改这批名字，否则每写一行调用就红一次。
-3. **改名批的固定收尾动作**（每轮必做，F33/F39 两次同类事故换来的）：回查工具脚本里的
-   **特征串白名单**（`check-prod-panics.py`）、索引与注释里的名字引用（`ui-keys-index.py`）、
-   docs 里的 API 名；`ui-keys` / `ui-keys-index` 按 F10 口径随每次行号漂移重生成
-   （当前 622 键；本轮 23 行索引漂移，已 `--write` 重生成复绿）。
+- 提交侧只看 `.zh`：`make zh-artifacts`（可转译性 + 一词多译 + 绑定位）与
+  `make zh-ascii`（代码区/注释区零英文）；
+- 构建侧只在 `.zh-build/`：`make zh-build ARGS='test --workspace --locked'`；
+- 编译、教程、基准等重门禁由 eject 后的 `main` 承担；
+- 每轮改名的固定收尾动作仍成立：回查工具脚本里的特征串白名单
+  （`check-prod-panics.py`）、索引与注释里的名字引用（`ui-keys-index.py`）、
+  docs 里的 API 名；`docs/ui-keys.en.md` 在 main 上按 `--write` 重生成
+  （当前 622 键）。
 
 门禁与纪律剩下的三件待办：① 字面量区（消息键、TOML 节名、serde 键、构建契约名）
 要不要管，取决于「消息键是否跨 11 语言改名」这个跨分支决策，不在本分支单方面推进；

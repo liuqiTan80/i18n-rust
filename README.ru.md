@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **Зеркало репозитория**: проект синхронно поддерживается на GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) и GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). `rzc lang install` по умолчанию предпочитает источник GitCode (быстрее из Китая) и автоматически переключается на GitHub при неудаче.
+> 🪞 **Зеркало репозитория**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) — единственный источник записи; `main`, `zh` и теги релизов односторонне зеркалируются в Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) и GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). `rzc lang install` предпочитает GitCode и при сбое переключается на GitHub.
 
 > ⚠️ Этот перевод основан на [китайской версии](README.md) и может за ней запаздывать.
 
@@ -72,6 +72,7 @@ rzc init мой-проект && cd мой-проект && rzc run src/main.ru
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust && cd i18n-rust
 cargo build --release --workspace   # около 1–3 минут
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 cargo install --path crates/cli     # чтобы rzc был доступен глобально (можно и ./target/release/rzc)
 rzc init мой-проект && cd мой-проект && rzc run src/main.ru
 ```
@@ -115,6 +116,7 @@ cargo --version
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
 cargo build --release --workspace
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 ./target/release/rzc --version
 ```
 
@@ -220,9 +222,9 @@ rzc run src/main.ru        # перевод → компиляция → зап�
 | `rzc init <имя>` | Создать проект (версия тулчейна фиксируется по локальной; сразу готов к IDE) |
 | `rzc run <файл>` | Перевести и запустить; предупреждения/ошибки/прогресс сборки — на родном языке |
 | `rzc check <файл>` | Проверка типов с учебной диагностикой на родном языке |
-| `rzc eject <файл>` | Экспорт в стандартный Rust (постепенный переход) |
+| `rzc eject <файл>...` | Экспорт в стандартный Rust (постепенный переход) |
 | `rzc transpile <файл>` | Только перевод — стандартный Rust в stdout |
-| `rzc relocalize --to <язык>` | Чтение между родными языками: релокализация диалектного/стандартного Rust-проекта в другой диалект (результат собирается через rzc build) |
+| `rzc relocalize --to <язык>` | Чтение между родными языками: релокализация проекта диалекта/стандартного Rust в другой диалект (вывод структурно верен; запускайте его через `rzc run` / проверяйте через `rzc check`) |
 | `rzc cheat <язык>` | Шпаргалка «родной ↔ Rust» (`--markdown` для встраивания в документацию) |
 | `rzc add <крейт>[@версия]` | Добавить зависимость (обёртка `cargo add` с подсказками родных маппингов) |
 | `rzc doctor` | Диагностика окружения тулчейна (встроенный / PATH / сравнение версий) |
@@ -341,7 +343,7 @@ JSON-диагностика → перевод кодов/сообщений + �
 - **Маппинги сторонних крейтов**: [docs/third-party-mapping.md](docs/third-party-mapping.md)
 - **Реестр совместного использования**: [docs/third-party-registry.md](docs/third-party-registry.md) (загрузка/скачивание маппингов сообщества)
 - **Перевод учебника**: источник — `tutorials/`, сохраняйте структуру глав; панель прогресса — [translation-status.md](docs/translation-status.md)
-- Перед отправкой убедитесь, что `make gate` полностью зелёный (эквивалент тестового гейта CI)
+- Настройка окружения и локальные проверки — [CONTRIBUTING.md](CONTRIBUTING.md); перед отправкой выполните `make gate` на `main` или `make zh-build ARGS='test --workspace --locked'` + `make zh-artifacts zh-ascii` на `zh`.
 
 ---
 

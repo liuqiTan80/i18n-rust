@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **仓库镜像**：本项目在 GitHub（[liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)）与 GitCode（[tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)）双平台同步维护。`rzc lang install` 默认优先使用 GitCode 源（国内访问更快），失败自动回退 GitHub。
+> 🪞 **仓库镜像**：GitHub（[liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)）是唯一写入源，`main` / `zh` 分支与版本标签单向镜像到 Gitee（[liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)）与 GitCode（[tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)）。`rzc lang install` 默认优先使用 GitCode 源（国内访问更快），失败自动回退 GitHub。
 
 ![rzc 演示：母语源码 → 母语教学报错 → 一键 eject 标准 Rust](docs/demo/demo-zh.gif)
 
@@ -73,6 +73,8 @@ rzc init 我的项目 && cd 我的项目 && rzc run src/main.zh
 ```
 
 下方为方式二的完整分步说明（先决条件 → 编译 → 验证）；其中「第一步」两种方式通用。
+
+> 🌿 **分支说明**：`main` 是发布树（全部标准 Rust，可直接 `cargo build`）；`zh` 是方言源分支（源码目录只保留 `.zh`，转译产物不入库）。要编译 `zh`，请用 `make zh-build ARGS='build --release --workspace'`（内部在 `.zh-build/` 生成 `.rs` 后再编译），不要直接 `cargo build`。
 
 ### 先决条件一览
 
@@ -236,7 +238,7 @@ rzc run src/main.zh      # 翻译 → 编译 → 运行
 | `rzc check <文件>`                 | 类型检查，输出母语教学诊断 |
 | `rzc eject <文件>…`                | 导出为标准 Rust 代码（渐进过渡；可一次传多个文件/目录，逐项汇总、失败非零退出） |
 | `rzc transpile <文件>`             | 只转译不编译，标准 Rust 输出到屏幕 |
-| `rzc relocalize --to <语言>`       | 跨母语阅读：把方言 / 标准 Rust 工程反译重生为目标方言（产物可再 rzc build） |
+| `rzc relocalize --to <语言>`       | 跨母语阅读：把方言 / 标准 Rust 工程反译重生为目标方言（产物可再 `rzc run` / `rzc check`） |
 | `rzc cheat <语言>`                 | 母语 ↔ Rust 映射速查表（逐条标注危险等级：会 panic / 会改写标识符 / 纯安全） |
 | `rzc add <库名>[@版本]`            | 添加第三方依赖（封装 `cargo add`，附母语映射提示） |
 | `rzc doctor`                       | 诊断工具链环境（内置 / PATH / 版本对比） |
@@ -306,7 +308,7 @@ Rust 本身以英文书写，因此英语不作为教学方言（恒等映射无
 面向零基础学习者的完整中文教程：**27 章（含 1 章算法选读）+ 总术语表 + 5 个附录**，见 [tutorials/](tutorials/)。
 从《你好世界》到所有权、闭包、异步、宏，直至综合实战——所有示例全部用中文 Rust 书写。
 
-🌐 **在线阅读**：[在线文档站](https://liuqiTan80.github.io/i18n-rust/)（mdBook 四语言 + 顶栏切换；本地预览 `make site-serve`） · 📚 **国内推荐**：[飞书知识库](https://my.feishu.cn/wiki/space/7689728327082314704)（33 篇中文教程，公网免登录直接阅读）。站点托管于 GitHub Pages，**国内网络可能无法稳定访问**（此时用上方飞书入口）；也可直接在仓库内阅读 [tutorials/](tutorials/)（GitCode 页内可正常浏览），或使用离线发布包随附的 `教程/` 目录。
+🌐 **在线阅读**：[在线文档站](https://liuqiTan80.github.io/i18n-rust/)（mdBook 四语言 + 顶栏切换；本地预览 `make site-serve`） · 📚 **国内推荐**：[飞书知识库](https://my.feishu.cn/wiki/space/7689728327082314704)（34 篇中文教程，公网免登录直接阅读）。站点托管于 GitHub Pages，**国内网络可能无法稳定访问**（此时用上方飞书入口）；也可直接在仓库内阅读 [tutorials/](tutorials/)（GitCode 页内可正常浏览），或使用离线发布包随附的 `教程/` 目录。
 
 **多语言译本进行中**：英文（开篇、第 1–18 章、附录 D，20/34）、日本語、Русский 持续滚动；
 进度与下一批见 [translation-status.md](docs/translation-status.md)。
@@ -339,6 +341,7 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 | `crates/engine/lang-packs` | 11 个内置语言包（10 种自然语言 + `en` 恒等包：关键字/标准库/模块路径/错误翻译/界面文案） |
 | `tools/vscode-extension`   | VS Code / Qoder 扩展 |
 | `tools`                    | 门禁与构建脚本：教程验证、基准回归、文档站装配等（见 [tools/README.md](tools/README.md)） |
+| `scripts`                  | 分支与发布工具：`zh-build.sh`（zh 方言源隔离构建）、`mirror.sh`（GitHub→Gitee/GitCode 镜像） |
 | `tutorials`                | 27 章中文教程与附录（en/ja/ru 译本进行中） |
 | `book`                     | 文档站装配源（mdBook，见 [book/README.md](book/README.md)） |
 | `docs`                     | 参考文档、开发文档与[项目地图](docs/project-map.md)；运营与路线图见 [docs/strategy/](docs/strategy/README.md) |
@@ -355,7 +358,8 @@ JSON 诊断 → 错误码/消息表翻译 + 类型本地化 + 教学提示 → �
 - **第三方库映射**：[docs/third-party-mapping.md](docs/third-party-mapping.md)
 - **第三方库共享注册中心**：[docs/third-party-registry.md](docs/third-party-registry.md)（社区上传/下载自译映射）
 - **翻译教程**：以 `tutorials/` 为源，保持章节结构一致；进度面板见 [translation-status.md](docs/translation-status.md)
-- 提交前请确保 `make gate` 全绿（等价 CI 测试门禁）
+- **想快速读懂 `zh` 分支源码**：[zh 分支代码阅读顺序与实操教程](docs/zh-reading-guide.md)
+- 提交前门禁：`main` 分支跑 `make gate`（等价 CI 测试门禁）；`zh` 分支跑 `make zh-build ARGS='test --workspace --locked'` + `make zh-artifacts zh-ascii`
 
 ---
 

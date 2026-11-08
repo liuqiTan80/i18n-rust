@@ -642,12 +642,12 @@
 
 
 "cmd_guide_about" = "Muttersprachlicher Programmier-Leitfaden (vollständige Begriffstabellen + Schreibregeln, für Lernende und KI-Assistenten)"
-"cmd_relocalize_about" = "Sprachübergreifendes Lesen: ein Dialekt-/Standard-Rust-Projekt in den Zieldialekt rückübersetzen (dateiweise Vorwärtstranspilation nach Standard-Rust, dann Rückübersetzung; Ausgabe bleibt strukturtreu und baut erneut mit rzc build)"
+"cmd_relocalize_about" = "Sprachübergreifendes Lesen: ein Dialekt-/Standard-Rust-Projekt in den Zieldialekt rückübersetzen (dateiweise Vorwärtstranspilation nach Standard-Rust, dann Rückübersetzung; Ausgabe bleibt strukturtreu und baut erneut mit rzc run / rzc check)"
 "arg_relocalize_to_help" = "Sprachcode des Zieldialekts (erforderlich, z. B. ja); bestimmt die Sprache des Ausgabeprojekts"
 "arg_relocalize_from_help" = "Sprachcode des Quelldialekts; ohne Angabe je Datei aus der Erweiterung erkannt"
 "arg_relocalize_out_dir_help" = "Ausgabeverzeichnis (spiegelt die Quellstruktur mit Ziel-Erweiterung); standardmäßig relocalized.<to> neben dem Projektstamm"
 "relocalize_done" = "{} Datei(en) rückübersetzt nach: {}"
-"relocalize_no_module_entry" = "Keine Einstiegsdatei (main / muttersprachliches main-Wort) im Ausgabeprojekt; es lässt sich möglicherweise nicht direkt mit rzc build bauen"
+"relocalize_no_module_entry" = "Keine Einstiegsdatei (main / muttersprachliches main-Wort) im Ausgabeprojekt; es lässt sich möglicherweise nicht direkt mit rzc run / rzc check bauen"
 "arg_guide_lang_help" = "Eingebetteter Sprachcode (z. B. zh); bei Wegfall automatische Erkennung über die Systemsprache"
 "arg_guide_out_help" = "Leitfaden in die angegebene Datei schreiben (z. B. AGENTS.md)"
 "cmd_init_ai_help" = "Zusätzlich AGENTS.md im Projekt erzeugen (KI-Programmierrichtlinie aus dem aktuellen Sprachpaket)"

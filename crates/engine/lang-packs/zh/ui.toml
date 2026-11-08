@@ -642,12 +642,12 @@
 
 
 "cmd_guide_about" = "母语编程指南（全量词条表 + 书写规则，供学习者与 AI 助手使用）"
-"cmd_relocalize_about" = "跨母语阅读：把方言 / 标准 Rust 工程反译重生为目标方言（逐文件正向转译到标准 Rust 再反译，产物结构忠实、可再次 rzc build）"
+"cmd_relocalize_about" = "跨母语阅读：把方言 / 标准 Rust 工程反译重生为目标方言（逐文件正向转译到标准 Rust 再反译，产物结构忠实、可再次 rzc run / rzc check）"
 "arg_relocalize_to_help" = "目标方言语言代码（必填，如 ja）；决定输出工程所用语言"
 "arg_relocalize_from_help" = "源方言语言代码；省略时按各文件扩展名自动检测"
 "arg_relocalize_out_dir_help" = "输出目录（镜像源结构、扩展名换为目标语言）；默认为源工程根旁的 relocalized.<to>"
 "relocalize_done" = "已反译重生 {} 个文件到：{}"
-"relocalize_no_module_entry" = "未在输出工程中发现入口文件（main / 主函数词），产物可能无法直接 rzc build"
+"relocalize_no_module_entry" = "未在输出工程中发现入口文件（main / 主函数词），产物可能无法直接 rzc run / rzc check"
 "arg_guide_lang_help" = "内置语言代码（如 zh）；省略时按系统语言自动检测"
 "arg_guide_out_help" = "把指南写入指定文件（如 AGENTS.md）"
 "cmd_init_ai_help" = "同时在项目内生成 AGENTS.md（AI 编程指南，由当前语言包渲染）"

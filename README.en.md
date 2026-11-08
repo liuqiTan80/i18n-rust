@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **Repository mirror**: maintained on both GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) and GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). `rzc lang install` prefers the GitCode source and falls back to GitHub automatically.
+> 🪞 **Repository mirror**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) is the single write source; `main`, `zh` and release tags are mirrored one-way to Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) and GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). `rzc lang install` prefers the GitCode source and falls back to GitHub automatically.
 
 ![rzc demo: native-language source → native-language teaching errors → one command ejects to standard Rust](docs/demo/demo-zh.gif)
 
@@ -70,6 +70,7 @@ rzc init my-project && cd my-project && rzc run src/main.zh
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust.git && cd i18n-rust
 cargo build --release --workspace   # 1–3 minutes
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 cargo install --path crates/cli     # make rzc globally available (or use ./target/release/rzc directly)
 rzc init my-project && cd my-project && rzc run src/main.zh
 ```
@@ -113,6 +114,7 @@ cargo --version
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
 cargo build --release --workspace
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 ./target/release/rzc --version
 ```
 
@@ -216,9 +218,9 @@ rzc run src/main.zh      # translate → compile → run
 | `rzc init <name>` | Create a new project (toolchain version pinned to your local one; IDE-ready) |
 | `rzc run <file>` | Translate and run; warnings/errors/build progress all in your language |
 | `rzc check <file>` | Type-check with localized teaching diagnostics |
-| `rzc eject <file>` | Export to standard Rust code (gradual transition) |
+| `rzc eject <file>...` | Export to standard Rust code (gradual transition) |
 | `rzc transpile <file>` | Translate only — print standard Rust to stdout |
-| `rzc relocalize --to <lang>` | Cross-native reading: relocalize a dialect / standard Rust project into another dialect (output rebuilds with `rzc build`) |
+| `rzc relocalize --to <lang>` | Cross-native reading: relocalize a dialect / standard Rust project into another dialect (output stays structurally faithful; use `rzc run` / `rzc check` on it) |
 | `rzc cheat <lang>` | Native ↔ Rust mapping cheat sheet (`--markdown` for embedding) |
 | `rzc add <crate>[@version]` | Add a dependency (wraps `cargo add`, with localized mapping hints) |
 | `rzc doctor` | Diagnose the toolchain environment (embedded / PATH / version diff) |
@@ -287,9 +289,9 @@ Syntax highlighting, smart completion, hover docs, go-to-definition, find refere
 
 A complete beginner-friendly **Chinese tutorial** — 27 chapters + glossary + 5 appendices — lives in [tutorials/](tutorials/): from "Hello, World" through ownership, closures, async and macros, up to a full capstone project. Every example is written in Chinese Rust.
 
-🌐 **Read online**: [documentation site](https://liuqiTan80.github.io/i18n-rust/) (mdBook, 4 languages with a top-bar switcher; preview locally with `make site-serve`) · 📚 **For readers in China**: [Feishu knowledge base](https://my.feishu.cn/wiki/space/7689728327082314704) (33-part Chinese tutorial, publicly readable without a Feishu account).
+🌐 **Read online**: [documentation site](https://liuqiTan80.github.io/i18n-rust/) (mdBook, 4 languages with a top-bar switcher; preview locally with `make site-serve`) · 📚 **For readers in China**: [Feishu knowledge base](https://my.feishu.cn/wiki/space/7689728327082314704) (34-part Chinese tutorial, publicly readable without a Feishu account).
 
-**Translations in progress**: English (Preface, Chapters 1–13, Appendix D — 15/33), 日本語 and Русский rolling; see [translation-status.md](docs/translation-status.md) for progress and the next batch.
+**Translations in progress**: English 20/34 · 日本語 11/34 · Русский 15/34 — see [translation-status.md](docs/translation-status.md) for details and the next batch.
 
 > Tutorial quality is enforced by CI ([tools/verify-tutorials.py](tools/verify-tutorials.py)): every code block must compile, and error examples must emit the annotated expected error code (`// 预期错误: EXXXX`). Verify locally after editing a tutorial:
 >
@@ -338,7 +340,7 @@ JSON diagnostics → error-code/message translation + type localization + teachi
 - **Third-party crate mappings**: [docs/third-party-mapping.md](docs/third-party-mapping.md)
 - **Community mapping registry**: [docs/third-party-registry.md](docs/third-party-registry.md) — upload/download community-translated mappings
 - **Translating the tutorial**: start from `tutorials/`, keep the chapter structure aligned
-- Dev setup and local checks: see [CONTRIBUTING.md](CONTRIBUTING.md); before submitting, run `make gate` (the full CI test gate).
+- Dev setup and local checks: see [CONTRIBUTING.md](CONTRIBUTING.md); run `make gate` on `main`, or `make zh-build ARGS='test --workspace --locked'` + `make zh-artifacts zh-ascii` on `zh`.
 
 ---
 

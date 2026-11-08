@@ -642,12 +642,12 @@
 
 
 "cmd_guide_about" = "Guía de programación en lengua materna (tablas completas de términos + reglas de escritura, para estudiantes y asistentes de IA)"
-"cmd_relocalize_about" = "Lectura entre lenguas maternas: relocalizar un proyecto dialecto/estándar Rust a un dialecto destino (transpilación directa a Rust estándar por archivo y luego relocalización; la salida conserva la estructura y se compila de nuevo con rzc build)"
+"cmd_relocalize_about" = "Lectura entre lenguas maternas: relocalizar un proyecto dialecto/estándar Rust a un dialecto destino (transpilación directa a Rust estándar por archivo y luego relocalización; la salida conserva la estructura y se compila de nuevo con rzc run / rzc check)"
 "arg_relocalize_to_help" = "Código de idioma del dialecto destino (obligatorio, p. ej. ja); determina el idioma del proyecto de salida"
 "arg_relocalize_from_help" = "Código de idioma del dialecto fuente; se detecta por archivo desde su extensión si se omite"
 "arg_relocalize_out_dir_help" = "Directorio de salida (refleja la estructura fuente con la extensión destino); por defecto relocalized.<to> junto a la raíz del proyecto"
 "relocalize_done" = "Relocalizados {} archivo(s) en: {}"
-"relocalize_no_module_entry" = "No se encontró un archivo de entrada (main / palabra main nativa) en el proyecto de salida; puede que no se compile directamente con rzc build"
+"relocalize_no_module_entry" = "No se encontró un archivo de entrada (main / palabra main nativa) en el proyecto de salida; puede que no se compile directamente con rzc run / rzc check"
 "arg_guide_lang_help" = "Código de idioma integrado (p. ej. zh); se detecta automáticamente del idioma del sistema al omitirlo"
 "arg_guide_out_help" = "Escribir la guía en el archivo indicado (p. ej. AGENTS.md)"
 "cmd_init_ai_help" = "Generar además AGENTS.md en el proyecto (guía de IA renderizada del paquete de idioma actual)"

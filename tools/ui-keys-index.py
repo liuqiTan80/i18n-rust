@@ -52,11 +52,11 @@ PACKAGE_JSON = os.path.join(REPO_ROOT, "tools", "vscode-extension", "package.jso
 # 动态取键前缀：键名在运行时拼出，静态扫描必然误判为死键。每条附出处。
 DYNAMIC_PREFIXES = {
     # crate::语言::取消息(&format!("unicode_name_{:04X}", ch as u32))——同形字符诊断的字符名
-    "unicode_name_": "crates/engine/src/unicode_confusion.rs (format! by codepoint)",
+    "unicode_name_": "crates/engine/src/混淆检测.rs (format! by codepoint)",
     # render_issue(): `code|arg1|arg2` 结构化问题条目按 code 取文案
     # （`"键|` 形态自 2026-11 起已被 build_index 直接识别，这条登记留作兜底：
     # 新增 danger 码只在测试里出现时不至于被误判为死键）
-    "mc_danger_": "crates/cli/src/mapping_check.rs render_issue()",
+    "mc_danger_": "crates/cli/src/映射检查.rs render_issue()",
 }
 
 # 前缀 → 章节标题（贡献者按命令排查用）
@@ -76,7 +76,7 @@ GROUP_LABELS = [
     ("diag_", "CLI/engine: diagnostic rendering"),
     ("unicode_name_", "Engine: Unicode character names (dynamic, by codepoint)"),
     ("guide_", "CLI: guided first-run tutorial"),
-    ("crate_", "CLI: crate scaffolding (`rzc new`)"),
+    ("crate_", "CLI: crate registry (`rzc crate`)"),
     ("load_", "Engine: language-pack loading"),
     ("err_", "Engine: lexer/loader errors"),
     ("run_", "CLI: `rzc run` output"),

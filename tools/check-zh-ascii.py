@@ -73,7 +73,7 @@ PATHISH = re.compile(
 # （单个英文词才可能是「有中文词形却没写」的散文用词），本轮实测 `fn main`
 # 不含任何旧标点符号、被误判成散文后补上。
 CODEPUNCT = re.compile(r"[;()\[\]{}=!|&*<>:#]|\s")
-# 反引号区间里的命令引用：以真命令开头（`rzc build`、`cargo test --workspace`）
+# 反引号区间里的命令引用：以真命令开头（`rzc run`、`cargo test --workspace`）
 CMDSTART = re.compile(r"(?:rzc|cargo|rustc|rustup|rustfmt|clippy|git|make|python3)\b")
 # 反引号区间里的命令行选项名（`--help`、-v）：与命令同性质，是对外契约的逐字
 # 引用——改写就敲不出那个选项。CODEPUNCT 不含 `-`，所以得单列一条。
@@ -287,7 +287,7 @@ def strip_phrases(body: str, allow: set) -> str:
 def strip_spans(text: str, keys: frozenset = frozenset()) -> str:
     """按反引号配对剖开，只把「代码形/命令形/选项名/数据键名」的区间内容抹空
 
-    不用正则扫整行：rustdoc 链接 [`X`] 与命令引用 `rzc build` 相邻时，正则
+    不用正则扫整行：rustdoc 链接 [`X`] 与命令引用 `rzc run` 相邻时，正则
     会把「上一个区间的结束反引号」当成「下一个区间的开始反引号」，跨区间
     误抹真实内容（本分支实测踩到）。配对剖开没有这个歧义。
     """

@@ -169,7 +169,7 @@ rzc mapping auto rand --lang zh --provider rule          # 离线规则模式：
 | 声明的名字命中词条 | `让 自身 = 1` / `结构体 配置` | 变成 `let Self` / `struct cfg!`，编译不过或语义变了 |
 | 会 panic 的词条被当文本用 | `打印行!("{}", 解包(甲))` | 正文还没输出就先 panic |
 
-逐条改写规则见 `crates/engine/src/eject_hints.rs` 文件头；`主函数` → `main`
+逐条改写规则见 `crates/engine/src/导出冲突提示.zh` 文件头；`主函数` → `main`
 是项目惯例，不算冲突。别名词条（`长度`、`版本`）在声明位有豁免，也不会提示。
 
 ### 3.7 跨母语阅读的反译缺词条（rzc relocalize）
@@ -179,7 +179,7 @@ rzc mapping auto rand --lang zh --provider rule          # 离线规则模式：
 的关系：
 
 - 目标语言包缺该词条（尤其带 `::` 的多段模块路径如 `标准库::…`）时，该段**保留英文**
-  并进 gaps（与正向缺词条同口径），不会中断；产物仍可 `rzc build`。
+  并进 gaps（与正向缺词条同口径），不会中断；产物仍可 `rzc run` / `rzc check`。
 - 一词多母语映射的反查按「关键字 > 宏 > 派生特征 > 别名」的表优先级取确定候选（表内
   排序最小者优先），保证 `main` 这类核心词取目标语言的**通用关键字**（如 ja `主関数`）而非
   第三方 crate 别名，不会因引入某个 crate 映射而把入口词换成无法编译的形式。
@@ -198,7 +198,7 @@ RZ_LOG=info rzc check 文件.zh
 |---|---|
 | 项目语言包 | 保存即生效 |
 | 全局语言包 | 保存即生效（注意 `--force` 重装会覆盖） |
-| 内置语言包（zrRust 仓库内） | `cargo build` 重新编译后生效 |
+| 内置语言包（i18n-rust 仓库内） | main：`cargo build -p rzc`；zh：`make zh-build ARGS='build --bin rzc'` 后生效 |
 | 只是验证想法 | `rzc check 文件.zh --lang-pack <语言包目录>`，用指定目录，不动任何文件 |
 
 翻译缓存按语言包指纹自动失效，一般无需手动清缓存。

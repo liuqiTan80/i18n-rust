@@ -17,10 +17,14 @@ VS Code 扩展（i18n-rust）会自动发现语言服务器。
 
 ## 架构
 
-- `translation_cache`：文档转译缓存与行列映射（`RwLock` 分桶）
-- `response_map`：各 LSP 请求类型的响应映射与诊断翻译（含 RA 噪声过滤）
-- `mirror_check`：真实项目镜像 `cargo check`（权威诊断，见下节）
-- `analyzer`：rust-analyzer 子进程生命周期管理与 LSP 双向转发
+- `翻译缓存`：文档转译缓存与行列映射（`RwLock` 分桶）
+- `响应映射`：各 LSP 请求类型的响应映射与诊断翻译（含 RA 噪声过滤）
+- `镜像检查`：真实项目镜像 `cargo check`（权威诊断，见下节）
+- `分析器`：rust-analyzer 子进程生命周期管理与 LSP 双向转发
+- `服务器`：LSP 主循环与初始化握手
+
+> 源码布局：`crates/lsp/src/*.zh`（zh 分支方言源；main 为同名 `.rs`），
+> 诊断文本与响应映射在 `响应映射/` 子目录。
 
 ## 诊断双通道
 
@@ -38,17 +42,17 @@ rust-analyzer 的工作区根指向该目录（不透传客户端 `rootUri`，�
 项目上常驻却不发布结果。
 
 由于虚拟项目结构失真，RA 会产生成类**固定误报**（如把方言模块名报成「找不到
-crate/模块」「main 函数从未使用」等）。`response_map` 用 5 个按消息文本判定的
+crate/模块」「main 函数从未使用」等）。`响应映射` 用 5 个按消息文本判定的
 噪声过滤器（`is_main_fn_hint` / `is_missing_dependency_noise` /
 `is_unopened_module_reference` / `is_missing_project_dependency` /
 `is_missing_include_asset`）抑制它们。误过滤器是**双刃剑**：漏过滤 → 噪声淹没
-用户，误杀 → 真错被静默吞掉。故 `diag_text.rs` 的测试模块对每个过滤器都钉住
+用户，误杀 → 真错被静默吞掉。故 `响应映射/诊断文本.zh` 的测试模块对每个过滤器都钉住
 「正例（固有误报应滤）× 反例（真错应留）」双向断言，RA 消息文案漂移时第一时间
 在此暴露。
 
 ### 2. 镜像项目通路（权威，代理自跑 `cargo check`）
 
-所有权可视化等依赖 `E0382` 等 `check` 级诊断，必须由真实编译产出。`mirror_check`
+所有权可视化等依赖 `E0382` 等 `check` 级诊断，必须由真实编译产出。`镜像检查`
 把整个项目树复制为「镜像」（排除 `target`/`.git`/`node_modules`/`dist`），按与
 `rzc` 同源的引擎规则把 `src/` 下方言文件转译为 `.rs` 产物（入口写 `main.rs`、
 非 ASCII 模块声明补 `#[path]` 注解），再执行 `cargo check --offline
@@ -73,7 +77,8 @@ crate/模块」「main 函数从未使用」等）。`response_map` 用 5 个按
 ## 性能基准
 
 LSP 热路径有 criterion 基准与入库回归门禁（覆盖文档同步
-`update_document` 与响应映射 `reverse_transpile`，见 `benches/hot_paths.rs`）：
+`update_document` 与响应映射 `reverse_transpile`，见 `benches/hot_paths.zh`；
+main 发布树为同名 `.rs`）：
 
 ```bash
 cargo bench -p i18n-rust-lsp               # 只出结果（-- --quick 快速模式）

@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **रिपॉज़िटरी मिरर**: यह परियोजना GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) और GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)) दोनों पर समकालिक रूप से अनुरक्षित है। `rzc lang install` डिफ़ॉल्ट रूप से GitCode स्रोत (चीन से तेज़) को प्राथमिकता देता है और विफल होने पर स्वतः GitHub पर लौट आता है।
+> 🪞 **रिपॉज़िटरी मिरर**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) एकमात्र लेखन स्रोत है; `main`, `zh` और रिलीज़ टैग एकतरफ़ा रूप से Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) और GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)) पर मिरर होते हैं। `rzc lang install` GitCode को प्राथमिकता देता है और विफल होने पर GitHub पर लौटता है।
 
 > ⚠️ यह अनुवाद [चीनी संस्करण](README.md) पर आधारित है और उससे पीछे हो सकता है।
 
@@ -72,6 +72,7 @@ rzc init मेरा-प्रोजेक्ट && cd मेरा-प्र�
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust && cd i18n-rust
 cargo build --release --workspace   # लगभग 1–3 मिनट
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 cargo install --path crates/cli     # rzc को वैश्विक बनाएँ (या ./target/release/rzc सीधे चलाएँ)
 rzc init मेरा-प्रोजेक्ट && cd मेरा-प्रोजेक्ट && rzc run src/main.hi
 ```
@@ -115,6 +116,7 @@ cargo --version
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
 cargo build --release --workspace
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 ./target/release/rzc --version
 ```
 
@@ -220,9 +222,9 @@ rzc run src/main.hi            # अनुवाद → संकलन → न�
 | `rzc init <नाम>` | प्रोजेक्ट बनाएँ (टूलचेन संस्करण स्थानीय रूप से स्थिर; IDE-तैयार) |
 | `rzc run <फ़ाइल>` | अनुवाद कर चलाएँ; चेतावनियाँ/त्रुटियाँ/बिल्ड प्रगति आपकी भाषा में |
 | `rzc check <फ़ाइल>` | स्थानीयकृत शैक्षिक निदान के साथ टाइप जाँच |
-| `rzc eject <फ़ाइल>` | मानक Rust कोड में निर्यात करें (क्रमिक संक्रमण) |
+| `rzc eject <फ़ाइल>...` | मानक Rust कोड में निर्यात करें (क्रमिक संक्रमण) |
 | `rzc transpile <फ़ाइल>` | केवल अनुवाद — मानक आउटपुट पर मानक Rust |
-| `rzc relocalize --to <भाषा>` | क्रॉस-मातृभाषा पठन: बोली / मानक Rust परियोजना को दूसरी बोली में पुनर्स्थानीय करें (आउटपुट rzc build से पुनः बनता है) |
+| `rzc relocalize --to <भाषा>` | क्रॉस-मातृभाषा पठन: बोली / मानक Rust परियोजना को दूसरी बोली में पुनर्स्थानीयकृत करें (आउटपुट संरचना-अनुगत रहता है; `rzc run` से चलाएँ / `rzc check` से जाँचें) |
 | `rzc cheat <भाषा>` | भाषा ↔ Rust चीटशीट (`--markdown` से दस्तावेज़ों में एम्बेड करें) |
 | `rzc add <crate>[@संस्करण]` | निर्भरता जोड़ें (`cargo add` का रैपर, मातृभाषा मैपिंग संकेतों के साथ) |
 | `rzc doctor` | टूलचेन परिवेश का निदान (अंतर्निहित / PATH / संस्करण तुलना) |
@@ -297,7 +299,7 @@ rzc run src/main.hi            # अनुवाद → संकलन → न�
 
 🌐 **ऑनलाइन पढ़ें**: [ऑनलाइन दस्तावेज़](https://liuqiTan80.github.io/i18n-rust/) (mdBook, ऊपरी पट्टी में भाषा चयनकर्ता के साथ 4 भाषाएँ; स्थानीय पूर्वावलोकन `make site-serve` से)।
 
-**अनुवाद जारी**: अंग्रेज़ी (प्रस्तावना, अध्याय 1-13, परिशिष्ट D, 15/33), जापानी (अध्याय 1-11, 11/33), रूसी (अध्याय 1-15, 15/33) — प्रगति और अगला बैच [translation-status.md](docs/translation-status.md) में। हिंदी अनुवाद का स्वागत है — «योगदान» देखें।
+**अनुवाद जारी**: अंग्रेज़ी 20/34 · जापानी 11/34 · रूसी 15/34 — विवरण और अगला बैच [translation-status.md](docs/translation-status.md) में।
 
 > ट्यूटोरियल की गुणवत्ता CI ([tools/verify-tutorials.py](tools/verify-tutorials.py)) द्वारा सुरक्षित है: हर कोड ब्लॉक संकलित होना चाहिए, और त्रुटि उदाहरणों को टिप्पणी में लिखा त्रुटि कोड (`// 预期错误: EXXXX`) उत्पन्न करना चाहिए। संपादन के बाद स्थानीय सत्यापन: `make tutorials` (चीनी) या `make tutorials-all` (अंग्रेज़ी/जापानी/रूसी)।
 
@@ -325,7 +327,7 @@ JSON निदान → कोड/संदेश अनुवाद + प्�
 | `crates/engine/lang-packs` | 11 अंतर्निहित भाषा पैक (10 प्राकृतिक भाषाएँ + `en` पहचान पैक: कीवर्ड / मानक लाइब्रेरी / मॉड्यूल पथ / त्रुटि अनुवाद / UI पाठ) |
 | `tools/vscode-extension`   | VS Code / Qoder एक्सटेंशन |
 | `tools`                    | गेट और बिल्ड स्क्रिप्ट: ट्यूटोरियल सत्यापन, बेंचमार्क रिग्रेशन, दस्तावेज़ साइट संयोजन ([tools/README.md](tools/README.md)) |
-| `tutorials`                | परिशिष्टों सहित 27-अध्यायीय चीनी ट्यूटोरियल (en/ja/ru अनुवाद जारी) |
+**अनुवाद जारी**: अंग्रेज़ी 20/34 · जापानी 11/34 · रूसी 15/34 — विवरण और अगला बैच [translation-status.md](docs/translation-status.md) में।
 | `book`                     | दस्तावेज़ साइट संयोजन स्रोत (mdBook, [book/README.md](book/README.md)) |
 | `docs`                     | संदर्भ व डेवलपमेंट दस्तावेज़, [प्रोजेक्ट मैप](docs/project-map.md); संचालन और रोडमैप [docs/strategy/](docs/strategy/README.md) में |
 
@@ -341,7 +343,7 @@ JSON निदान → कोड/संदेश अनुवाद + प्�
 - **तृतीय-पक्ष crate मैपिंग**: [docs/third-party-mapping.md](docs/third-party-mapping.md)
 - **समुदाय रजिस्ट्री**: [docs/third-party-registry.md](docs/third-party-registry.md) (समुदाय मैपिंग सबमिट/डाउनलोड करें)
 - **ट्यूटोरियल का अनुवाद करें**: `tutorials/` से शुरू करें, अध्याय संरचना बनाए रखें; प्रगति पैनल [translation-status.md](docs/translation-status.md) में
-- सबमिट करने से पहले सुनिश्चित करें कि `make gate` पूरी तरह हरा हो (CI टेस्ट गेट के समान)
+- विकास परिवेश और स्थानीय जाँच के लिए [CONTRIBUTING.md](CONTRIBUTING.md) देखें; सबमिट से पहले `main` पर `make gate`, `zh` पर `make zh-build ARGS='test --workspace --locked'` + `make zh-artifacts zh-ascii` चलाएँ।
 
 ---
 

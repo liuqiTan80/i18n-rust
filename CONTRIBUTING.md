@@ -12,7 +12,20 @@
 - **Python 3**：教程与术语表校验脚本（`tools/`）；
 - **Node.js 18+**：仅 VS Code 扩展开发与打包需要（`tools/vscode-extension/`）。
 
+## 分支模型
+
+| 分支 | 内容 | 构建 / 门禁 |
+|---|---|---|
+| `main` | **发布树**：方言源已 eject 为标准 Rust，全部 `.rs` 入库 | 直接 `cargo ...`；提交前 `make gate` |
+| `zh` | **方言源**：`crates/*/src`、tests/benches/examples 只保留 `.zh`，同名 `.rs` 不入库 | `make zh-build ARGS='...'` 在 `.zh-build/` 隔离目录生成 `.rs` 后构建 |
+
+两分支**不合并**：`zh` 的改动由 `rzc eject` 生成 `main`；`main` 是发布分支，`zh` 是源码分支。
+`zh` 分支不要直接跑 `cargo build/test`（源码树没有 `.rs` 目标，cargo 会报
+`no targets specified in the manifest`）。
+
 ## 提交前门禁
+
+### main 分支
 
 一条命令等价于 CI 测试门禁（提交前建议必跑）：
 
@@ -21,10 +34,24 @@ make gate
 ```
 
 依次执行：格式检查 → Clippy 零告警 → 全部测试（debug + release）→
-映射质量门禁 → 教程代码块编译验证 → 术语表一致性。
+生产 panic 面 → ui.toml 键完备性 / 键索引 / 扩展文案 → 语言包完整性 →
+README parity → 映射质量 → 教程四语验证 → 术语表 → 方言源门禁（main 无 `.zh` 时空跑）。
 全部可用目标与手动等价命令见 `make help`。
 
-涉及转译热路径的改动建议额外跑基准回归：
+### zh 分支
+
+```bash
+make zh-build ARGS='test --workspace --locked'   # 在 .zh-build/ 隔离目录全量测试
+make zh-artifacts                               # 可转译性 + 一词多译 + 绑定位
+make zh-ascii                                   # 代码区 / 注释区英文零残留
+```
+
+`make zh-artifacts` 会自动使用 `.zh-build/target/debug/rzc`；若尚未构建，
+先跑 `make zh-build ARGS='build --bin rzc'`。编译、clippy、教程等重门禁在
+eject 后的 `main` 上执行（`.github/workflows/ci.yml` 只在 main 触发，
+`zh` 由 `zh-gates.yml` 跑源码级门禁）。
+
+涉及转译热路径的改动建议额外跑基准回归（在 main 上）：
 
 ```bash
 make bench-check     # 对比入库基线（本地阈值 30%）
@@ -48,7 +75,9 @@ ci(bench): 基准回归失败附加工作流注解
 
 - 一次提交只做一件事；修复类提交请说明「根因 + 修复策略」；
 - 面向用户的行为变更须同步 `CHANGELOG.md` 的 `[Unreleased]` 节；
-- 教程/文档改动请与本语言包事实核对（见 `make tutorials` 门禁）。
+- 教程/文档改动请与本语言包事实核对（main 上跑 `make tutorials`；
+  zh 上先 `make zh-build ARGS='build --bin rzc'`，再用
+  `--rzc .zh-build/target/debug/rzc` 调 `tools/verify-tutorials.py`）。
 
 ## 贡献方向
 
@@ -63,7 +92,8 @@ ci(bench): 基准回归失败附加工作流注解
 
 - Rust 侧：修复与新功能须附 `#[cfg(test)]` 单测；
 - 涉及语言包/词表的改动跑 `make mapping-check`；
-- 涉及教程的改动跑 `make tutorials`（预期失败白名单见 `tools/expected-failures.json`，仅登记结构性噪音）。
+- 涉及教程的改动跑 `make tutorials`（main）；zh 分支见上方 zh 门禁，
+  预期失败白名单见 `tools/expected-failures.json`（仅登记结构性噪音）。
 
 ## 许可
 

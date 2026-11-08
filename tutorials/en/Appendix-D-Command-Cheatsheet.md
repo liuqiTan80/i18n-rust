@@ -86,10 +86,13 @@ Right-clicking a `.<ext>` file in the editor also shows the run/check/eject menu
 Official offline packages cover Windows / Linux / macOS (uploaded manually by the maintainers). If you need a build for a **specific platform or with specific changes** — for a school computer lab, say — you can package it yourself on that platform:
 
 1. **Get the source**: `git clone https://github.com/liuqiTan80/i18n-rust`
-2. **Install the Rust toolchain** (rustup), then build:
+2. **Install the Rust toolchain** (rustup), then build (on the `main` release tree):
    ```bash
    cargo build --release -p rzc
    ```
+   > The `zh` branch keeps only `.zh` sources and cannot run `cargo build` directly;
+   > use `make zh-build ARGS='build --release -p rzc'` (binary at
+   > `.zh-build/target/release/rzc`).
 3. **Download rust-analyzer for your platform** (the packaging script copies it from `~/.rz/toolchain/bin`):
    ```bash
    ./target/release/rzc install toolchain --ra-only --force
@@ -97,6 +100,6 @@ Official offline packages cover Windows / Linux / macOS (uploaded manually by th
 4. **Run the packaging script** (auto-detects the platform, no arguments needed):
    - Linux / macOS: `./release-offline.sh`
    - Windows (PowerShell): `.\release-offline.ps1`
-5. **The artifact** lands in `release/` (e.g. `rzc-0.6.3-windows-x86_64.zip`) — rzc, the language server, rust-analyzer, all 10 language packs and the tutorials, ready to unpack and use. Upload it to a Release page to distribute.
+5. **The artifact** lands in `release/` (e.g. `rzc-0.9.0-windows-x86_64.zip`) — rzc, the language server, rust-analyzer, all 11 built-in language packs (10 natural languages + the `en` identity pack) and the tutorials, ready to unpack and use. Upload it to a Release page to distribute.
 
 > 💡 The script targets the platform it runs on. Cross-compiling (building Windows packages on Linux) needs extra target toolchains and isn't recommended — just run the script on the target platform.
