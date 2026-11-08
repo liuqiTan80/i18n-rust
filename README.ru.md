@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **Зеркало репозитория**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) — единственный источник записи; `main`, `zh` и теги релизов односторонне зеркалируются в Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) и GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). `rzc lang install` предпочитает GitCode и при сбое переключается на GitHub.
+> 🪞 **Зеркало репозитория и правила записи**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) — единственный источник записи; `main`, `zh` и теги релизов односторонне зеркалируются в Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) и GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)); **Gitee / GitCode — зеркала только для чтения, ручной push не принимается**. `main` — только через PR, `zh` — ветка ежедневной разработки (см. docs/strategy/分支保护与发布流程.md). `rzc lang install` предпочитает GitCode и при сбое переключается на GitHub.
 
 > ⚠️ Этот перевод основан на [китайской версии](README.md) и может за ней запаздывать.
 
@@ -66,6 +66,8 @@ rzc init мой-проект && cd мой-проект && rzc run src/main.ru
 ```
 
 > Языковые пакеты встроены — дополнительная настройка не нужна. Страница крейта: <https://crates.io/crates/rzc>; обновление: `cargo install rzc --force`. Ещё нет инструментария Rust? Сначала «1.» ниже.
+
+> ⚠️ **О версии**: на crates.io сейчас **0.8.4**, в репозитории — **0.9.0**. Для 0.9.0 используйте сборку из исходников или офлайн-пакет.
 
 **Способ 2: сборка из исходников (для разработчиков)** — для свежей dev-версии или сборки после правок rzc. **Кратчайший путь** (при установленном инструментарии Rust — 4 команды до первой программы):
 

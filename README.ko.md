@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **저장소 미러**: GitHub([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust))가 유일한 쓰기 원본이며, `main` / `zh` 와 릴리스 태그는 Gitee([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust))와 GitCode([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust))로 단방향 미러됩니다. `rzc lang install`은 GitCode를 우선 사용하고 실패 시 GitHub로 자동 전환합니다.
+> 🪞 **저장소 미러 및 쓰기 규칙**: GitHub([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust))가 유일한 쓰기 원본이며, `main` / `zh` 와 릴리스 태그는 Gitee([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust))와 GitCode([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust))로 단방향 미러됩니다. **Gitee / GitCode는 읽기 전용 미러이며 수동 push를 받지 않습니다**. `main`은 PR로만, `zh`는 일상 개발 브랜치입니다(docs/strategy/分支保护与发布流程.md 참고). `rzc lang install`은 GitCode를 우선 사용하고 실패 시 GitHub로 자동 전환합니다.
 
 > ⚠️ 이 번역은 [중국어판](README.md)을 기반으로 하며, 원문에 비해 늦을 수 있습니다.
 
@@ -66,6 +66,8 @@ rzc init 내-프로젝트 && cd 내-프로젝트 && rzc run src/main.ko
 ```
 
 > 언어 팩은 내장되어 별도 설정이 필요 없습니다. crate 페이지: <https://crates.io/crates/rzc>; 업그레이드: `cargo install rzc --force`. Rust 툴체인이 없다면 아래 「1.」을 먼저 실행하세요.
+
+> ⚠️ **버전 안내**: crates.io의 최신 버전은 **0.8.4**이며, 이 저장소는 **0.9.0**입니다. 0.9.0은 「방법 2: 소스에서 빌드」 또는 오프라인 패키지를 사용하세요.
 
 **방법 2: 소스에서 빌드 (개발자용)** — 최신 개발 버전을 쓰거나 rzc를 수정한 뒤 컴파일할 때 사용합니다. **가장 짧은 경로** (Rust 툴체인이 설치되어 있다면 첫 프로그램까지 명령 4개):
 

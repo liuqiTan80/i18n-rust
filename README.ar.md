@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **مرآة المستودع**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) هو مصدر الكتابة الوحيد؛ يتم نسخ `main` و`zh` ووسوم الإصدارات في اتجاه واحد إلى Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) وGitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). يفضّل `rzc lang install` مصدر GitCode ويعود إلى GitHub تلقائيًا عند الفشل.
+> 🪞 **مرآة المستودع وقواعد الكتابة**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) هو مصدر الكتابة الوحيد؛ يتم نسخ `main` و`zh` ووسوم الإصدارات في اتجاه واحد إلى Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) وGitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust))؛ **Gitee / GitCode مرآتان للقراءة فقط ولا تقبلان الدفع اليدوي**. `main` عبر PR فقط، و`zh` فرع التطوير اليومي (انظر docs/strategy/分支保护与发布流程.md). يفضّل `rzc lang install` مصدر GitCode ويعود إلى GitHub تلقائيًا عند الفشل.
 
 > ⚠️ تستند هذه الترجمة إلى [النسخة الصينية](README.md) وقد تتأخر عنها.
 
@@ -66,6 +66,8 @@ rzc init مشروعي && cd مشروعي && rzc run src/main.ar
 ```
 
 > حزم اللغات مدمجة — لا حاجة لإعداد إضافي. صفحة الحزمة: <https://crates.io/crates/rzc>؛ الترقية: `cargo install rzc --force`. لا تتوفر أدوات رست بعد؟ راجع «1.» أدناه.
+
+> ⚠️ **ملاحظة الإصدار**: يعرض crates.io حاليًا **0.8.4**، وهذا المستودع **0.9.0**. للإصدار 0.9.0 استخدم «الخيار 2: البناء من المصدر» أو الحزمة دون اتصال.
 
 **الخيار 2: البناء من المصدر (للمطورين)** — لاستخدام أحدث نسخة تطويرية أو البناء بعد تعديل rzc. **أقصر مسار** (مع وجود أدوات رست — أربعة أوامر حتى أول برنامج):
 
