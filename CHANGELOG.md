@@ -12,6 +12,11 @@
 > 转译规则、诊断文案与 CLI/LSP 行为与 0.8.12 保持一致，仅源码形态不同；
 > 后续以 main 为发布分支、zh 为方言源分支，二者不合并。
 
+### 修复
+- `rzc eject <目录>` 导出 `mod.zh`（如 `crates/engine/src/诊断/mod.zh`）时不再注入
+  错误的 `#[path = "mod/子.rs"]`：`mod` 文件的子模块与自身同目录，注解应为 `子.rs`。
+  此前目录批量导出会产出无法编译的工程；单文件导出与 `rzc transpile` 不受影响。
+
 ### 新增
 - `rzc doctor` 增加**项目入口自检**。此前读者只有把 `cargo build` 直接敲下去、撞上
   `error: failed to parse manifest ... no targets specified in the manifest` 才知道项目
