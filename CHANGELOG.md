@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+### 变更
+- zh 分支彻底移除 `.rs`：`crates/zh-pure` 的 `lib`/`build`/测试入口改为 `.zh` 方言源，
+  由 `scripts/zh-build.sh` 在 `.zh-build/` 生成产物；诊断语料反例改名为 `.rs.txt`，
+  采集时还原为 `.rs` 喂给 rustc。
+- `check-zh-ascii` 增补两条结构豁免：`使用`/`use` 路径首段的 ASCII 包名、
+  含 `$` 的代码片段；zh-pure 新增「转译输出契约」声明用于冻结跨包字段词形。
+
 ### 文档
 - 全面校对 README（11 语言）、CONTRIBUTING、项目地图、语言包指南、策略文档与教程附录：
   统一 `rzc build` → `rzc run` / `rzc check`，补 zh 分支隔离构建入口、三地镜像与分支门禁口径；

@@ -3,7 +3,8 @@
 
 为什么需要它：消息表覆盖哪些句子，看语言包本身永远看不全——只有真跑编译器才知道
 rustc 今天会吐哪些话（同一错误码在不同上下文下的 help/note 完全不同）。本脚本把
-`tools/diag-corpus/fixtures/*.rs` 逐个编译，收集 `--error-format=json` 里的
+`tools/diag-corpus/fixtures/*.rs.txt` 逐个编译（复制到临时目录时还原为 `.rs`），
+收集 `--error-format=json` 里的
 message + children[].message，产出去重后的消息清单，交给 `diag_audit` 示例判定
 哪些句子在语言包里译不出来。
 
@@ -85,7 +86,9 @@ def main() -> int:
     if not os.path.isdir(args.fixtures):
         print(f"❌ 反例目录不存在：{args.fixtures}")
         return 1
-    sources = sorted(f for f in os.listdir(args.fixtures) if f.endswith(".rs"))
+    # 仓库内不放 .rs（zh 分支纪律）：反例以 .rs.txt 入库，复制到临时目录时
+    # 去掉 .txt，rustc 才认这个扩展名。
+    sources = sorted(f for f in os.listdir(args.fixtures) if f.endswith(".rs.txt"))
     if not sources:
         print(f"❌ 反例目录为空：{args.fixtures}")
         return 1
@@ -94,7 +97,7 @@ def main() -> int:
     seen, collected, broken = set(), [], []
     try:
         for name in sources:
-            src = os.path.join(tmp, name)
+            src = os.path.join(tmp, name[: -len(".txt")])
             shutil.copyfile(os.path.join(args.fixtures, name), src)
             texts = extract(src)
             if not texts:

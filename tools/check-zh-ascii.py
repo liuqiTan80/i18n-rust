@@ -72,7 +72,11 @@ PATHISH = re.compile(
 # 空白也算：`fn main`、`impl Debug` 这类两个词以上的区间必然是产物片段
 # （单个英文词才可能是「有中文词形却没写」的散文用词），本轮实测 `fn main`
 # 不含任何旧标点符号、被误判成散文后补上。
-CODEPUNCT = re.compile(r"[;()\[\]{}=!|&*<>:#]|\s")
+CODEPUNCT = re.compile(r"[;()\[\]{}=!|&*<>:#$]|\s")
+# 导入位的 crate 名：Rust crate 名必须是 ASCII（rustc 对 `--extern` 与
+# `use` 路径首段都有硬约束），`公开 使用 zh_pure::*;` 这类薄胶水不是“没中文化的
+# 英文”，而是语言本身的边界。只豁免 `use/使用` 路径首段，其余标识符照扫。
+CRATE_USE = re.compile(r"(?:(?:公开|pub)\s+)?(?:使用|use)\s+([A-Za-z_][A-Za-z0-9_]*)::")
 # 反引号区间里的命令引用：以真命令开头（`rzc run`、`cargo test --workspace`）
 CMDSTART = re.compile(r"(?:rzc|cargo|rustc|rustup|rustfmt|clippy|git|make|python3)\b")
 # 反引号区间里的命令行选项名（`--help`、-v）：与命令同性质，是对外契约的逐字
@@ -196,6 +200,9 @@ def strip_forms(text: str, forms: list) -> str:
 def scan_file(path: Path, forms: list) -> Counter:
     code = cza.strip_literals(path.read_text(encoding="utf-8"))
     code = NUM.sub(" ", code)
+    # crate 名必须 ASCII，只豁免导入路径首段（见 CRATE_USE 注释）。
+    # 必须在 strip_forms 之前做：`使用`/`公开` 本身也是登记词形，先剥就匹配不到了。
+    code = CRATE_USE.sub(lambda m: " " * len(m.group(0)), code)
     code = strip_forms(code, forms)
     hits = Counter()
     for m in IDENT.finditer(code):

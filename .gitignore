@@ -35,6 +35,9 @@ Thumbs.db
 /crates/lsp/benches/**/*.rs
 /crates/engine/examples/**/*.rs
 /crates/engine/build.rs
+/crates/zh-pure/src/**/*.rs
+/crates/zh-pure/tests/**/*.rs
+/crates/zh-pure/build.rs
 /.zh-build/
 
 # 离线发布包产物
