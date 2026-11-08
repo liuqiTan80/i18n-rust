@@ -1115,6 +1115,35 @@
 # 取值：panic / rewrite / safe，多风险用 + 连接；未列出的词条按默认归类：
 # 关键字/宏 → rewrite，std/第三方别名 → safe（目标为 unwrap/expect 等时自动 panic）。
 # ============================================================
+
+# ---- 测试/基准/构建脚本用到的外部 API 词形（tests/benches/examples） ----
+"请求失败" = "failure"
+"取输出值" = "get_output"
+"写入标准输入" = "write_stdin"
+"货物二进制" = "cargo_bin"
+"谓词布尔扩展" = "PredicateBooleanExt"
+"基准器" = "Criterion"
+"基准函数" = "bench_function"
+"基准分组" = "benchmark_group"
+"样本数量" = "sample_size"
+"基准标识" = "BenchmarkId"
+"带输入基准" = "bench_with_input"
+"批量尺寸" = "BatchSize"
+"小输入" = "SmallInput"
+"分批迭代" = "iter_batched"
+"恒值策略" = "Just"
+"生成策略" = "Strategy"
+"属性测试配置" = "ProptestConfig"
+"属性配置函数" = "proptest_config"
+"属性映射" = "prop_map"
+"带用例数" = "with_cases"
+"用例数" = "cases"
+"指针访问" = "pointer"
+"忽略测试" = "ignore"
+"饱和时长差" = "saturating_duration_since"
+"是否为零" = "is_zero"
+"转字节" = "into_bytes"
+"限次切分" = "splitn"
 ["危险等级"]
 # 解包/期望类：与接收者无关，任何情况下调用即 panic
 "解包" = "panic"

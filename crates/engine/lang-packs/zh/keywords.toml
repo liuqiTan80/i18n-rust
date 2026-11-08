@@ -155,6 +155,12 @@
 "链接名" = "link_name"
 "宏" = "macro"
 "宏规则" = "macro_rules"
+"属性测试库" = "proptest"
+"属性断言" = "prop_assert"
+"属性断言相等" = "prop_assert_eq"
+"属性择一" = "prop_oneof"
+"基准分组宏" = "criterion_group"
+"基准入口宏" = "criterion_main"
 ["派生特征"]
 "克隆" = "Clone"
 "复制" = "Copy"

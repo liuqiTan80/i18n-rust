@@ -9,82 +9,78 @@
 //! 回拼残段），因此这里报出的残留就是用户在终端里实际看到的文字。
 //!
 //! 用法：
-//!   cargo run -p i18n-rust-engine --example diag_audit -- \
-//!     --errors crates/engine/lang-packs/zh/errors.toml --messages /tmp/msgs.txt
+//!   `cargo run -p i18n-rust-engine --example diag_audit --` \
+//!     `--errors crates/engine/lang-packs/zh/errors.toml` `--messages /tmp/msgs.txt`
 //!
 //! 审计判据已下沉为库函数 [`审计消息`]（门禁测试 `tests/diag_corpus_gate.rs`
 //! 与采样反例语料共用同一实现，避免示例与测试漂移）。
 use std::collections::HashSet;
-use std::io::Read;
 use std::path::PathBuf;
 
 use i18n_rust_engine::诊断::{审计消息, 错误消息管理器};
 
 fn main() {
-    let mut errors: Option<PathBuf> = None;
-    let mut messages_file: Option<PathBuf> = None;
-    let mut args = std::env::args().skip(1);
-    while let Some(flag) = args.next() {
-        let mut take = |name: &str| {
-            if flag == name {
-                args.next().map(PathBuf::from)
+    let mut 错误表路径: Option<PathBuf> = None;
+    let mut 消息文件: Option<PathBuf> = None;
+    let mut 参数 = std::env::args().skip(1);
+    while let Some(标志) = 参数.next() {
+        let mut 取值 = |名称: &str| {
+            if 标志 == 名称 {
+                参数.next().map(PathBuf::from)
             } else {
                 None
             }
         };
-        if let Some(p) = take("--errors") {
-            errors = Some(p);
-        } else if let Some(p) = take("--messages") {
-            messages_file = Some(p);
+        if let Some(路径) = 取值("--errors") {
+            错误表路径 = Some(路径);
+        } else if let Some(路径) = 取值("--messages") {
+            消息文件 = Some(路径);
         }
     }
-    let (Some(errors), Some(messages_file)) = (errors, messages_file) else {
+    let (Some(错误表路径), Some(消息文件)) = (错误表路径, 消息文件) else {
         eprintln!("用法: diag_audit --errors <errors.toml> --messages <每行一条消息原文>");
         std::process::exit(2);
     };
 
-    let manager = 错误消息管理器::从文件载入(&errors)
-        .unwrap_or_else(|e| panic!("无法加载 {}: {e:?}", errors.display()));
-    let mut raw = String::new();
-    std::fs::File::open(&messages_file)
-        .unwrap_or_else(|e| panic!("无法打开 {}: {e:?}", messages_file.display()))
-        .read_to_string(&mut raw)
-        .expect("读取消息清单失败");
+    let 管理器 = 错误消息管理器::从文件载入(&错误表路径)
+        .unwrap_or_else(|故障值| panic!("无法加载 {}: {故障值:?}", 错误表路径.display()));
+    let 原始清单 = std::fs::read_to_string(&消息文件)
+        .unwrap_or_else(|故障值| panic!("无法打开 {}: {故障值:?}", 消息文件.display()));
 
-    let mut seen = HashSet::new();
-    let (mut total, mut miss, mut partial, mut ok) = (0usize, 0usize, 0usize, 0usize);
-    // 每行格式：`LEVEL<TAB>CODE<TAB>消息原文`（采集器标注；CODE 可为空）；
+    let mut 已见 = HashSet::new();
+    let (mut 总数, mut 完全未命中, mut 部分残留, mut 已译全) = (0usize, 0usize, 0usize, 0usize);
+    // 每行格式：`LEVEL<TAB>CODE<TAB>消息原文`（采集器标注；代码可为空）；
     // 也兼容 `LEVEL<TAB>消息` 与裸消息行。
-    for line in raw
+    for line in 原始清单
         .lines()
         .map(str::trim)
-        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
     {
-        let mut cols = line.splitn(3, '\t');
-        let (level, code, message) = match (cols.next(), cols.next(), cols.next()) {
-            (Some(l), Some(c), Some(m)) => (l, c, m),
-            (Some(l), Some(m), None) => (l, "", m),
+        let mut column = line.splitn(3, '\t');
+        let (级别, 码, 消息) = match (column.next(), column.next(), column.next()) {
+            (Some(级), Some(码), Some(消)) => (级, 码, 消),
+            (Some(级), Some(消), None) => (级, "", 消),
             _ => ("main", "", line),
         };
-        if !seen.insert(message.to_string()) {
+        if !已见.insert(消息.to_string()) {
             continue;
         }
-        total += 1;
-        let audit = 审计消息(&manager, level, code, message);
-        if audit.残留.is_empty() {
-            ok += 1;
+        总数 += 1;
+        let 审计 = 审计消息(&管理器, 级别, 码, 消息);
+        if 审计.残留.is_empty() {
+            已译全 += 1;
             continue;
         }
-        match audit.种类.as_str() {
-            "MISS" => miss += 1,
-            _ => partial += 1,
+        match 审计.种类.as_str() {
+            "MISS" => 完全未命中 += 1,
+            _ => 部分残留 += 1,
         }
-        println!("{level}\t{}\t{message}", audit.种类);
-        println!("  译文: {}", audit.已渲染);
-        println!("  残留: {}", audit.残留.join(" | "));
+        println!("{级别}\t{}\t{消息}", 审计.种类);
+        println!("  译文: {}", 审计.已渲染);
+        println!("  残留: {}", 审计.残留.join(" | "));
     }
-    println!("# 合计 {total} 条：完全未命中 {miss}、部分残留 {partial}、已译全 {ok}");
-    if miss + partial > 0 {
+    println!("# 合计 {总数} 条：完全未命中 {完全未命中}、部分残留 {部分残留}、已译全 {已译全}");
+    if 完全未命中 + 部分残留 > 0 {
         std::process::exit(1);
     }
 }

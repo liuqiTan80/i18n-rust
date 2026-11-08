@@ -291,16 +291,28 @@ def check_binding_hijack(repo_root: str, sources: list) -> int:
     return violations
 
 
-def find_dialect_sources(repo_root: str) -> list:
-    """收集 crates/*/src 下全部 .zh 方言源（按路径排序，输出确定）"""
+def find_dialect_sources(repo_root: str, include_build_targets: bool = False) -> list:
+    """收集 crates/*/src 下全部 .zh 方言源（按路径排序，输出确定）
+
+    `include_build_targets` 为真时额外收集 build.rs、tests/、benches/、
+    examples/ 旁的 .zh 源：这些目录的产物虽不在 src 内，但 Cargo 会按
+    清单/约定编译它们——产物缺失会直接导致清单解析失败（build.rs、
+    `[[bench]]`）或测试目标消失，属于“必须先同步”的那一类。
+    `tests-zh/` 是 zh-pure 的方言夹具目录（由该 crate 自己的构建脚本
+    处理），不在此列。
+    """
     found = []
     crates_dir = os.path.join(repo_root, "crates")
     for crate in sorted(os.listdir(crates_dir)):
-        src = os.path.join(crates_dir, crate, "src")
-        for dirpath, _dirnames, filenames in os.walk(src):
-            for name in sorted(filenames):
-                if name.endswith(".zh"):
-                    found.append(os.path.join(dirpath, name))
+        roots = [os.path.join(crates_dir, crate, "src")]
+        if include_build_targets:
+            roots = [os.path.join(crates_dir, crate)]
+        for root in roots:
+            for dirpath, dirnames, filenames in os.walk(root):
+                dirnames[:] = sorted(d for d in dirnames if d != "tests-zh")
+                for name in sorted(filenames):
+                    if name.endswith(".zh"):
+                        found.append(os.path.join(dirpath, name))
     return found
 
 
@@ -349,9 +361,12 @@ def main() -> int:
     if not sources:
         print("未找到任何 .zh 方言源，无需检查")
         return 0
+    # 审计只跑 src（业务代码口径）；产物同步覆盖构建目标（build.rs/测试/基准/示例），
+    # 否则这些目标产物缺失会让 `cargo check` 直接无法解析清单
+    artifacts = find_dialect_sources(repo_root, include_build_targets=True)
 
     drift = 0
-    for zh in sources:
+    for zh in artifacts:
         rs = zh[:-3] + ".rs"
         expected = transpile_and_format(rzc, zh)
         if expected is None:
@@ -376,7 +391,7 @@ def main() -> int:
     bindings = 0 if args.fix else check_binding_hijack(repo_root, sources)
 
     if args.fix:
-        print(f"已重新生成 {len(sources)} 个产物")
+        print(f"已重新生成 {len(artifacts)} 个产物")
         return 0
     if drift or ambiguity or bindings:
         if drift:
@@ -386,7 +401,7 @@ def main() -> int:
         if bindings:
             print(f"共 {bindings} 处绑定位撞关键字表词条（改名绕开，关键字表无位置保护）")
         return 1
-    print(f"OK：{len(sources)} 个方言源的产物全部同步，代码区无一词多译、绑定位干净")
+    print(f"OK：{len(artifacts)} 个方言源的产物全部同步，代码区无一词多译、绑定位干净")
     return 0
 
 

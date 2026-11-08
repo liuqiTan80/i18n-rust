@@ -174,24 +174,24 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `mg_ai_batch_progress` | 2 | `crates/cli/src/映射生成/ai.rs:261`<br>`crates/cli/src/映射生成/智能.rs:278` | &(index + 1).to_string() / &batches.len().to_string() / &(批序号 + 1).to_string() / &批们.len(… | AI 生成映射中...（第 {}/{} 批） |
-| `mg_ai_endpoint` | 3 | `crates/cli/src/映射生成/ai.rs:164`<br>`crates/cli/src/映射生成/智能.rs:167` | &url / &endpoint.model / endpoint.key_var / &地址 | AI 端点：{}（模型 {}，密钥取自 {}） |
+| `mg_ai_batch_progress` | 2 | `crates/cli/src/映射生成/智能.rs:278` | &(批序号 + 1).to_string() / &批们.len().to_string() | AI 生成映射中...（第 {}/{} 批） |
+| `mg_ai_endpoint` | 3 | `crates/cli/src/映射生成/智能.rs:167` | &地址 / &端点.模型 / 端点.密钥变量名 | AI 端点：{}（模型 {}，密钥取自 {}） |
 | `mg_cmd_build_deps` | 0 | `crates/cli/src/映射生成/文档结构.rs:209` | — | 编译依赖 |
 | `mg_cmd_gen_doc` | 0 | `crates/cli/src/映射生成/文档结构.rs:582` | — | 生成文档 JSON |
 | `mg_cmd_parse_deps` | 0 | `crates/cli/src/映射生成/文档结构.rs:110` | — | 解析依赖 |
-| `mg_err_ai_no_content` | 0 | `crates/cli/src/映射生成/ai.rs:216`<br>`crates/cli/src/映射生成/智能.rs:233` | — | AI 响应缺少 choices[0].message.content |
-| `mg_err_ai_no_toml` | 0 | `crates/cli/src/映射生成/ai.rs:290`<br>`crates/cli/src/映射生成/智能.rs:306` | — | AI 返回内容中没有 TOML 节 |
-| `mg_err_ai_parse` | 1 | `crates/cli/src/映射生成/ai.rs:208`<br>`crates/cli/src/映射生成/智能.rs:223` | &e.to_string() / &错误值.to_string() | 解析 AI 响应失败: {} |
-| `mg_err_ai_read` | 1 | `crates/cli/src/映射生成/ai.rs:206`<br>`crates/cli/src/映射生成/智能.rs:217` | &e.to_string() / &错误值.to_string() | 读取 AI 响应失败: {} |
-| `mg_err_ai_request` | 1 | `crates/cli/src/映射生成/ai.rs:190`<br>`crates/cli/src/映射生成/智能.rs:196` | &e.to_string() / &错误值.to_string() | AI 请求失败: {} |
-| `mg_err_ai_status` | 1 | `crates/cli/src/映射生成/ai.rs:194`<br>`crates/cli/src/映射生成/智能.rs:202` | &resp.status().to_string() / &响应.status().to_string() | AI 服务返回状态码 {} |
-| `mg_err_ai_toml_parse` | 1 | `crates/cli/src/映射生成/ai.rs:303`<br>`crates/cli/src/映射生成/智能.rs:322` | &strict_err.to_string() / &严格错误.to_string() | AI 返回的 TOML 无法解析: {} |
-| `mg_err_api_key_empty` | 1 | `crates/cli/src/映射生成/ai.rs:101`<br>`crates/cli/src/映射生成/智能.rs:103` | name / 变量名 | 环境变量 {} 为空 |
+| `mg_err_ai_no_content` | 0 | `crates/cli/src/映射生成/智能.rs:233` | — | AI 响应缺少 choices[0].message.content |
+| `mg_err_ai_no_toml` | 0 | `crates/cli/src/映射生成/智能.rs:306` | — | AI 返回内容中没有 TOML 节 |
+| `mg_err_ai_parse` | 1 | `crates/cli/src/映射生成/智能.rs:223` | &错误值.to_string() | 解析 AI 响应失败: {} |
+| `mg_err_ai_read` | 1 | `crates/cli/src/映射生成/智能.rs:217` | &错误值.to_string() | 读取 AI 响应失败: {} |
+| `mg_err_ai_request` | 1 | `crates/cli/src/映射生成/智能.rs:196` | &错误值.to_string() | AI 请求失败: {} |
+| `mg_err_ai_status` | 1 | `crates/cli/src/映射生成/智能.rs:202` | &响应.status().to_string() | AI 服务返回状态码 {} |
+| `mg_err_ai_toml_parse` | 1 | `crates/cli/src/映射生成/智能.rs:322` | &严格错误.to_string() | AI 返回的 TOML 无法解析: {} |
+| `mg_err_api_key_empty` | 1 | `crates/cli/src/映射生成/智能.rs:103` | 变量名 | 环境变量 {} 为空 |
 | `mg_err_build_failed` | 1 | `crates/cli/src/映射生成/文档结构.rs:306` | 包名 | crate '{}' 编译失败或没有产生任何库产物 |
 | `mg_err_crate_not_found` | 1 | `crates/cli/src/映射生成/文档结构.rs:147` | 包名 | 未找到 crate '{}'（检查名称拼写，或确认该 crate 可在 crates.io 获取） |
 | `mg_err_failed` | 2 | `crates/cli/src/映射生成/文档结构.rs:605` | 说明 / &摘要 | {}失败： {} |
 | `mg_err_mkdir` | 1 | `crates/cli/src/映射生成/mod.rs:388` | &父路径.display().to_string() | 创建输出目录失败: {} |
-| `mg_err_no_api_key` | 1 | `crates/cli/src/映射生成/ai.rs:102`<br>`crates/cli/src/映射生成/智能.rs:105` | chain[0] / 链[0] | 未设置环境变量 {}（DeepSeek 端点也可用 DEEPSEEK_API_KEY，自定义端点也可用 OPENAI_API_KEY） |
+| `mg_err_no_api_key` | 1 | `crates/cli/src/映射生成/智能.rs:105` | 链[0] | 未设置环境变量 {}（DeepSeek 端点也可用 DEEPSEEK_API_KEY，自定义端点也可用 OPENAI_API_KEY） |
 | `mg_err_no_doc_json` | 1 | `crates/cli/src/映射生成/文档结构.rs:586` | &文档路径.display().to_string() | rustdoc 未生成 JSON 文档: {} |
 | `mg_err_no_index` | 0 | `crates/cli/src/映射生成/文档抽取.rs:32` | — | rustdoc JSON 缺少 index 字段 |
 | `mg_err_no_lib` | 1 | `crates/cli/src/映射生成/文档结构.rs:480` | 包名 | crate '{}' 没有 src/lib.rs（无库目标，无法提取 API） |
@@ -208,7 +208,7 @@ no substitution at all.
 | `mg_header_generated_at` | 1 | `crates/cli/src/映射生成/映射输出.rs:93` | &当前时间戳() | # 生成时间: {} |
 | `mg_header_target_version` | 1 | `crates/cli/src/映射生成/映射输出.rs:88` | 版本文 | # 基准版本: {} |
 | `mg_header_title` | 0 | `crates/cli/src/映射生成/映射输出.rs:79` | — | # 自动生成的第三方库映射 |
-| `mg_warn_ai_explain_long` | 2 | `crates/cli/src/映射生成/ai.rs:339`<br>`crates/cli/src/映射生成/智能.rs:358` | &explanation.chars().count().to_s… / chinese_name / &解释.chars().count().to_string() / 中文名 | 警告: AI 解释超过 40 字（{} 字）：{} |
+| `mg_warn_ai_explain_long` | 2 | `crates/cli/src/映射生成/智能.rs:358` | &解释.chars().count().to_string() / 中文名 | 警告: AI 解释超过 40 字（{} 字）：{} |
 
 ## CLI: `mapping check` findings
 
@@ -312,16 +312,16 @@ no substitution at all.
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
 | `lang_already_installed` | 3 | `crates/cli/src/语言管理.rs:911` | 语言码 / &目标目录.display().to_string() | 语言包 '{}' 已安装（{}）。如需覆盖，请使用 `rzc lang install {} --force`。 |
-| `lang_builtin_not_removable` | 1 | `crates/cli/src/_探.rs:459`<br>`crates/cli/src/语言管理.rs:460` | 语言码 | 语言包 '{}' 是内置语言包，不可删除。 |
+| `lang_builtin_not_removable` | 1 | `crates/cli/src/语言管理.rs:460` | 语言码 | 语言包 '{}' 是内置语言包，不可删除。 |
 | `lang_install_hint` | 0 | `crates/cli/src/语言管理.rs:931` | — | 现在可通过 `rzc run/check 文件.<扩展名>` 直接使用。 |
 | `lang_installed` | 2 | `crates/cli/src/语言管理.rs:929` | 语言码 / &目标目录.display().to_string() | ✅ 语言包 '{}' 安装成功：{} |
 | `lang_list_display` | 5 | `crates/cli/src/main.rs:1096` | &标签 / &显示文本 / &扩展文本 / &版本文本 | [{}] {}（扩展名：{}，版本：{}）{} |
 | `lang_not_builtin` | 2 | `crates/cli/src/main.rs:2869` | &语言码 | 语言包 '{}' 未内置，请通过 `rzc lang install {}` 下载安装。 |
-| `lang_not_found` | 2 | `crates/cli/src/_探.rs:465`<br>`crates/cli/src/语言管理.rs:466` | 语言码 / &目标目录.display().to_string() | 语言包 '{}' 不存在（{}）。可用 `rzc lang list` 查看已安装的语言包。 |
-| `lang_removed` | 1 | `crates/cli/src/_探.rs:452`<br>`crates/cli/src/语言管理.rs:453` | 语言码 | ✅ 语言包 '{}' 已删除。 |
+| `lang_not_found` | 2 | `crates/cli/src/语言管理.rs:466` | 语言码 / &目标目录.display().to_string() | 语言包 '{}' 不存在（{}）。可用 `rzc lang list` 查看已安装的语言包。 |
+| `lang_removed` | 1 | `crates/cli/src/语言管理.rs:453` | 语言码 | ✅ 语言包 '{}' 已删除。 |
 | `lang_search_empty` | 1 | `crates/cli/src/main.rs:1123` | 关键词值 | 未找到匹配的语言包（关键词：{}） |
 | `lang_search_empty_all` | 0 | `crates/cli/src/main.rs:1125`<br>`crates/cli/src/main.rs:1128` | — | 远程仓库中没有可用语言包 |
-| `lang_search_failed` | 2 | `crates/cli/src/_探.rs:517`<br>`crates/cli/src/语言管理.rs:518` | 关键词.unwrap_or("") / &源列表.len().to_string() / &错误明细.join("\n") | 浏览远程语言包市场失败：已依次尝试 {} 个源： {} |
+| `lang_search_failed` | 2 | `crates/cli/src/语言管理.rs:518` | 关键词.unwrap_or("") / &源列表.len().to_string() / &错误明细.join("\n") | 浏览远程语言包市场失败：已依次尝试 {} 个源： {} |
 | `lang_search_header` | 1 | `crates/cli/src/main.rs:1114` | &界面表.取消息("lang_search_source") | 远程语言包市场（来源：{}）： |
 | `lang_search_hint` | 0 | `crates/cli/src/main.rs:1138` | — | 安装：rzc lang install <语言代码> |
 | `lang_search_source` | 0 | `crates/cli/src/main.rs:1115` | — | GitCode/GitHub，可用 RZ_LANG_REPO 覆盖 |
@@ -330,15 +330,15 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `lc_err_curl_download` | 2 | `crates/cli/src/_探.rs:578`<br>`crates/cli/src/语言管理.rs:579`<br>`crates/cli/src/语言管理.rs:770` | &源项.压缩包地址 / 明细.trim() / 压缩包地址 | curl 下载失败（{}）：{} |
-| `lc_err_curl_run` | 1 | `crates/cli/src/_探.rs:570`<br>`crates/cli/src/语言管理.rs:571`<br>`crates/cli/src/语言管理.rs:762` | &错误值.to_string() | 执行 curl 失败：{}（需要安装 git 或 curl 之一） |
-| `lc_err_git_curl_both` | 2 | `crates/cli/src/_探.rs:692`<br>`crates/cli/src/语言管理.rs:693` | &克隆错误 / &下载错误.to_string() | git clone 错误：{} curl 下载错误：{} |
-| `lc_err_git_run` | 1 | `crates/cli/src/_探.rs:707`<br>`crates/cli/src/语言管理.rs:708` | &错误值.to_string() | 执行 git 失败：{} |
-| `lc_err_lang_code_from_path` | 1 | `crates/cli/src/_探.rs:430`<br>`crates/cli/src/语言管理.rs:431` | &源路径.display().to_string() | 无法从路径确定语言代码：{} |
+| `lc_err_curl_download` | 2 | `crates/cli/src/语言管理.rs:579`<br>`crates/cli/src/语言管理.rs:770` | &源项.压缩包地址 / 明细.trim() / 压缩包地址 | curl 下载失败（{}）：{} |
+| `lc_err_curl_run` | 1 | `crates/cli/src/语言管理.rs:571`<br>`crates/cli/src/语言管理.rs:762` | &错误值.to_string() | 执行 curl 失败：{}（需要安装 git 或 curl 之一） |
+| `lc_err_git_curl_both` | 2 | `crates/cli/src/语言管理.rs:693` | &克隆错误 / &下载错误.to_string() | git clone 错误：{} curl 下载错误：{} |
+| `lc_err_git_run` | 1 | `crates/cli/src/语言管理.rs:708` | &错误值.to_string() | 执行 git 失败：{} |
+| `lc_err_lang_code_from_path` | 1 | `crates/cli/src/语言管理.rs:431` | &源路径.display().to_string() | 无法从路径确定语言代码：{} |
 | `lc_err_open_zip` | 2 | `crates/cli/src/语言管理.rs:791` | &压缩包路径.display().to_string() / &错误值.to_string() | 无法打开压缩包 {}：{} |
 | `lc_err_read_zip` | 1 | `crates/cli/src/语言管理.rs:801` | &错误值.to_string() | 读取压缩包失败：{} |
 | `lc_err_read_zip_entry` | 1 | `crates/cli/src/语言管理.rs:809` | &错误值.to_string() | 读取压缩包条目失败：{} |
-| `lc_err_source_detail` | 3 | `crates/cli/src/_探.rs:508`<br>`crates/cli/src/_探.rs:645`<br>`crates/cli/src/语言管理.rs:509` | &(序号 + 1).to_string() / &源项.仓库地址 / &错误值.to_string() | 源{}（{}）：{} |
+| `lc_err_source_detail` | 3 | `crates/cli/src/语言管理.rs:509`<br>`crates/cli/src/语言管理.rs:646` | &(序号 + 1).to_string() / &源项.仓库地址 / &错误值.to_string() | 源{}（{}）：{} |
 | `lc_err_write_file` | 2 | `crates/cli/src/语言管理.rs:833` | &目标路径.display().to_string() / &错误值.to_string() | 写入 {} 失败：{} |
 
 ## Language server (LSP) messages
@@ -680,7 +680,7 @@ no substitution at all.
 | `input_is_directory` | 1 | `crates/cli/src/main.rs:1779` | &源文件值.display().to_string() | {} 是目录：`rzc run` / `rzc check` / `rzc transpile` 只接受单个源文件；批量导出目录请用 `rzc eject <目录>` |
 | `input_missing` | 1 | `crates/cli/src/main.rs:1773`<br>`crates/cli/src/main.rs:1818`<br>`crates/cli/src/main.rs:2019` | &源文件值.display().to_string() / &锚点.display().to_string() | {} 不存在：请检查路径（文件或目录） |
 | `installed_langs_count` | 1 | `crates/cli/src/main.rs:1067` | &清单.len().to_string() | 已安装的语言包（共 {} 个）： |
-| `invalid_lang_code` | 1 | `crates/cli/src/_探.rs:447`<br>`crates/cli/src/_探.rs:473`<br>`crates/cli/src/语言管理.rs:448` | 语言码 | 无效的语言代码 '{}'：应为仓库内目录名。 |
+| `invalid_lang_code` | 1 | `crates/cli/src/语言管理.rs:448`<br>`crates/cli/src/语言管理.rs:474` | 语言码 | 无效的语言代码 '{}'：应为仓库内目录名。 |
 | `invalid_lang_dir` | 1 | `crates/cli/src/语言管理.rs:1025` | &路径值.display().to_string() | 无效的语言包目录：{} 下缺少 keywords.toml。 |
 | `legacy_product_moved` | 2 | `crates/cli/src/main.rs:1455` | &旧产物.display().to_string() / &备份.display().to_string() | 旧布局生成文件 {} 已迁到 .rz/gen/（原内容备份为 {}） |
 | `lint_confusable_method` | 4 | `crates/engine/src/校验.rs:101` | &self.行号.to_string() / &self.列号.to_string() / &self.相关文本 / &self.附加文本 | 第 {} 行第 {} 列：方法名「{}」未收录（将原样保留），是否想写「{}」？（教学提示） |
@@ -723,8 +723,8 @@ no substitution at all.
 | `readme_template` | 2 | `crates/cli/src/main.rs:2756` | 项目名 / 语言码 | # {} 使用 `rzc run src/main.{}` 运行。 |
 | `relocalize_done` | 2 | `crates/cli/src/main.rs:2116` | &计数.to_string() / &输出根.display().to_string() | 已反译重生 {} 个文件到：{} |
 | `relocalize_no_module_entry` | 0 | `crates/cli/src/main.rs:2110` | — | 未在输出工程中发现入口文件（main / 主函数词），产物可能无法直接 rzc build |
-| `remote_install_failed` | 3 | `crates/cli/src/_探.rs:654`<br>`crates/cli/src/语言管理.rs:655` | 语言码 / &源列表.len().to_string() / &错误明细.join("\n") | 远程安装语言包 '{}' 失败，已依次尝试 {} 个源： {} 请检查网络连接；或通过环境变量 RZ_LANG_REPO 指定自定义仓库地址。 |
-| `remote_lang_not_found` | 1 | `crates/cli/src/_探.rs:734`<br>`crates/cli/src/语言管理.rs:735`<br>`crates/cli/src/语言管理.rs:777` | 语言码 | 远程仓库中不存在语言包 '{}'。请检查语言代码，或使用 `rzc lang list` 查看已安装的语言包。 |
+| `remote_install_failed` | 3 | `crates/cli/src/语言管理.rs:655` | 语言码 / &源列表.len().to_string() / &错误明细.join("\n") | 远程安装语言包 '{}' 失败，已依次尝试 {} 个源： {} 请检查网络连接；或通过环境变量 RZ_LANG_REPO 指定自定义仓库地址。 |
+| `remote_lang_not_found` | 1 | `crates/cli/src/语言管理.rs:735`<br>`crates/cli/src/语言管理.rs:777` | 语言码 | 远程仓库中不存在语言包 '{}'。请检查语言代码，或使用 `rzc lang list` 查看已安装的语言包。 |
 | `stale_products_pruned` | 1 | `crates/cli/src/main.rs:2501` | &已清理.len().to_string() | 已清理 {} 个失效生成文件（对应母语源文件已删除或改名） |
 | `success_compile` | 0 | `crates/cli/src/诊断输出.rs:822`<br>`crates/cli/src/诊断输出.rs:858` | — | ✅ 编译成功，没有错误。 |
 | `tag_builtin` | 0 | `crates/cli/src/main.rs:1071` | — | 内置 |

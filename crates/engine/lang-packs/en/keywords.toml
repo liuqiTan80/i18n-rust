@@ -159,6 +159,12 @@
 # ============================================
 # Derived trait names
 # ============================================
+"proptest" = "proptest"
+"prop_assert" = "prop_assert"
+"prop_assert_eq" = "prop_assert_eq"
+"prop_oneof" = "prop_oneof"
+"criterion_group" = "criterion_group"
+"criterion_main" = "criterion_main"
 ["派生特征"]
 "Clone" = "Clone"
 "Copy" = "Copy"
