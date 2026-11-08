@@ -162,10 +162,11 @@ rzc mapping scaffold zh vi --output 自定义目录           # 指定输出目�
 - rzc/LSP 的文件系统加载（`--lang-pack`、项目内覆盖、`rzc lang install`）直接读这份；
 - 编译期内嵌（`include_str!` 由 build.rs 扫描生成）也来自这份，随 rzc 二进制分发。
 
-修改后只需重新编译即可让内嵌数据生效：
+修改后只需重新编译即可让内嵌数据生效（`main` 发布树直接 cargo；`zh` 分支用
+`make zh-build ARGS='build --workspace'` 在 `.zh-build/` 生成产物后编译）：
 
 ```bash
-cargo build --workspace   # 内嵌数据需重新编译才生效
+cargo build --workspace   # main：内嵌数据需重新编译才生效
 ```
 
 CI 已内置映射质量门禁（`rzc mapping check`）。
@@ -190,10 +191,10 @@ Rust 的原语言，包内词条不改变转译结果，其作用是让 rzc/LSP 
 
 新增或修改映射后依次执行：
 
-1. `cargo build --workspace`（内嵌数据生效）；
+1. `cargo build --workspace`（main；zh 用 `make zh-build ARGS='build --workspace'`，内嵌数据生效）；
 2. `make mapping-check`（全部内置语言 + 一致性 + 告警数基线；单跑
    `rzc mapping check` 不校验基线）；
 3. 编写使用新映射词的方言源码，`rzc eject` 检查转译结果；
-4. `cargo test --workspace`（含全内置语言通过校验的回归测试）；
+4. `cargo test --workspace`（main；zh 用 `make zh-build ARGS='test --workspace --locked'`，含全内置语言通过校验的回归测试）；
 5. 语言包目录 `crates/engine/lang-packs/` 为唯一事实源（build.rs 自动内嵌），
    无需维护第二副本。

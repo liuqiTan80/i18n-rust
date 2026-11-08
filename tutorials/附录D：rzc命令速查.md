@@ -107,10 +107,13 @@ cargo build --release            # 发布优化版（第十八章）
 官方离线包只有 Windows / Linux / macOS 三平台（由发布者手动上传）；如果你需要**特定平台或特定修改**的版本，可在对应平台的机器上自行打包（如给教学机房打 Windows 包）：
 
 1. **获取源码**：`git clone https://gitcode.com/tan80/i18n-rust`（国内推荐；国际线路 `https://github.com/liuqiTan80/i18n-rust`，两仓库同步）；
-2. **安装 Rust 工具链**（rustup），然后编译：
+2. **安装 Rust 工具链**（rustup），然后编译（在 `main` 发布树）：
    ```bash
    cargo build --release -p rzc
    ```
+   > `zh` 分支源码树只保留 `.zh`，不能直接 `cargo build`；用
+   > `make zh-build ARGS='build --release -p rzc'`，产物在
+   > `.zh-build/target/release/rzc`。
 3. **下载当前平台的 rust-analyzer**（打包脚本从 `~/.rz/toolchain/bin` 复制它进包内）：
    ```bash
    ./target/release/rzc install toolchain --ra-only --force

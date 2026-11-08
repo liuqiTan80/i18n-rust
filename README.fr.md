@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **Miroir du dépôt** : le projet est maintenu en synchronisation sur GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) et GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). `rzc lang install` privilégie par défaut la source GitCode (plus rapide depuis la Chine) et bascule automatiquement vers GitHub en cas d'échec.
+> 🪞 **Miroir du dépôt** : GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) est l'unique source d'écriture ; `main`, `zh` et les tags de version sont répliqués en sens unique vers Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) et GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). `rzc lang install` privilégie GitCode et se rabat sur GitHub en cas d'échec.
 
 > ⚠️ Cette traduction est basée sur la [version chinoise](README.md) et peut être en retard par rapport à celle-ci.
 
@@ -72,6 +72,7 @@ rzc init mon-projet && cd mon-projet && rzc run src/main.fr
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust && cd i18n-rust
 cargo build --release --workspace   # environ 1 à 3 minutes
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 cargo install --path crates/cli     # rend rzc global (ou utilisez ./target/release/rzc directement)
 rzc init mon-projet && cd mon-projet && rzc run src/main.fr
 ```
@@ -115,6 +116,7 @@ cargo --version
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
 cargo build --release --workspace
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 ./target/release/rzc --version
 ```
 
@@ -220,9 +222,9 @@ En trois étapes, votre premier programme Rust en langue maternelle tourne.
 | `rzc init <nom>` | Créer un projet (version de la toolchain fixée à la locale ; prêt pour l'IDE) |
 | `rzc run <fichier>` | Traduire et exécuter ; avertissements/erreurs/progression de compilation dans votre langue |
 | `rzc check <fichier>` | Vérification de types avec diagnostic pédagogique localisé |
-| `rzc eject <fichier>` | Exporter en code Rust standard (transition progressive) |
+| `rzc eject <fichier>...` | Exporter en code Rust standard (transition progressive) |
 | `rzc transpile <fichier>` | Traduire seulement — Rust standard sur stdout |
-| `rzc relocalize --to <langue>` | Lecture interlangues : relocaliser un projet dialecte / Rust standard vers un autre dialecte (la sortie se reconstruit avec rzc build) |
+| `rzc relocalize --to <langue>` | Lecture interlangues : relocaliser un projet dialecte / Rust standard vers un autre dialecte (la sortie reste fidèle à la structure ; l’exécuter avec `rzc run` / la vérifier avec `rzc check`) |
 | `rzc cheat <langue>` | Aide-mémoire langue ↔ Rust (`--markdown` pour l'intégrer dans la documentation) |
 | `rzc add <crate>[@version]` | Ajouter une dépendance (enveloppe `cargo add`, avec conseils de mappage natif) |
 | `rzc doctor` | Diagnostiquer l'environnement de la toolchain (intégré / PATH / comparaison de versions) |
@@ -297,7 +299,7 @@ Un tutoriel complet en chinois pour débutants : **27 chapitres + glossaire + 5 
 
 🌐 **Lecture en ligne** : [documentation en ligne](https://liuqiTan80.github.io/i18n-rust/) (mdBook, 4 langues avec sélecteur en barre supérieure ; aperçu local avec `make site-serve`).
 
-**Traductions en cours** : anglais (préface, chapitres 1–13, annexe D, 15/33), japonais (chapitres 1–11, 11/33), russe (chapitres 1–15, 15/33) — progression et prochaine vague dans [translation-status.md](docs/translation-status.md). Les traductions en français sont bienvenues — voir « Contribuer ».
+**Traductions en cours** : anglais 20/34 · japonais 11/34 · russe 15/34 — détails et prochaine vague dans [translation-status.md](docs/translation-status.md).
 
 > La qualité du tutoriel est protégée par la CI ([tools/verify-tutorials.py](tools/verify-tutorials.py)) : chaque bloc de code doit compiler, les exemples d'erreur doivent émettre le code d'erreur attendu annoté (`// 预期错误: EXXXX`). Vérification locale après modification : `make tutorials` (chinois) ou `make tutorials-all` (anglais/japonais/russe).
 
@@ -341,7 +343,7 @@ Diagnostics JSON → traduction codes/messages + localisation des types + consei
 - **Mappages de crates tiers** : [docs/third-party-mapping.md](docs/third-party-mapping.md)
 - **Registre communautaire** : [docs/third-party-registry.md](docs/third-party-registry.md) (upload/téléchargement de mappages communautaires)
 - **Traduire le tutoriel** : partez de `tutorials/`, gardez la structure des chapitres ; tableau de progression dans [translation-status.md](docs/translation-status.md)
-- Avant de soumettre, assurez-vous que `make gate` est entièrement vert (équivalent de la porte de test CI)
+- Environnement de développement et vérifications locales : voir [CONTRIBUTING.md](CONTRIBUTING.md) ; avant de soumettre, lancez `make gate` sur `main`, ou `make zh-build ARGS='test --workspace --locked'` + `make zh-artifacts zh-ascii` sur `zh`.
 
 ---
 

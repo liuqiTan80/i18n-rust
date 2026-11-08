@@ -644,12 +644,12 @@
 
 
 "cmd_guide_about" = "Native-language coding guide (full term tables + writing rules, for learners and AI assistants)"
-"cmd_relocalize_about" = "Cross-native reading: relocalize a dialect / standard Rust project into a target dialect (per-file forward transpile to standard Rust, then relocalize; output stays structurally faithful and rebuilds with rzc build)"
+"cmd_relocalize_about" = "Cross-native reading: relocalize a dialect / standard Rust project into a target dialect (per-file forward transpile to standard Rust, then relocalize; output stays structurally faithful and can be run with rzc run / checked with rzc check)"
 "arg_relocalize_to_help" = "Target dialect language code (required, e.g. ja); decides the output project's language"
 "arg_relocalize_from_help" = "Source dialect language code; auto-detected per file from its extension when omitted"
 "arg_relocalize_out_dir_help" = "Output directory (mirrors the source layout with the target extension); defaults to relocalized.<to> next to the source project root"
 "relocalize_done" = "Relocalized {} file(s) into: {}"
-"relocalize_no_module_entry" = "No entry file (main / native main word) found in the output project; it may not build directly with rzc build"
+"relocalize_no_module_entry" = "No entry file (main / native main word) found in the output project; it may not run directly with rzc run / rzc check"
 "arg_guide_lang_help" = "Built-in language code (e.g. zh); auto-detected from the system language when omitted"
 "arg_guide_out_help" = "Write the guide to the given file (e.g. AGENTS.md)"
 "cmd_init_ai_help" = "Also generate AGENTS.md in the project (AI coding guide rendered from the current language pack)"

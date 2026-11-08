@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **リポジトリミラー**：本プロジェクトは GitHub（[liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)）と GitCode（[tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)）の 2 プラットフォームで同期メンテナンスしています。`rzc lang install` はデフォルトで GitCode ソースを優先し（中国国内からのアクセスが高速）、失敗時は自動で GitHub にフォールバックします。
+> 🪞 **リポジトリミラー**：GitHub（[liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)）が唯一の書き込み元で、`main` / `zh` とリリースタグを Gitee（[liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)）と GitCode（[tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)）へ一方向ミラーします。`rzc lang install` は GitCode を優先し、失敗時は GitHub に自動フォールバックします。
 
 > ⚠️ 本翻訳は[中国語版](README.md)をもとに作成されています。原文の更新に伴い、翻訳が遅れる場合があります。
 
@@ -72,6 +72,7 @@ rzc init マイプロジェクト && cd マイプロジェクト && rzc run src/
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust && cd i18n-rust
 cargo build --release --workspace   # 約 1〜3 分
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 cargo install --path crates/cli     # rzc をグローバルに使えるように（./target/release/rzc の直接使用も可）
 rzc init マイプロジェクト && cd マイプロジェクト && rzc run src/main.ja
 ```
@@ -115,6 +116,7 @@ cargo --version
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
 cargo build --release --workspace
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 ./target/release/rzc --version
 ```
 
@@ -220,9 +222,9 @@ rzc run src/main.ja              # 翻訳 → コンパイル → 実行
 | `rzc init <プロジェクト名>` | 新規プロジェクトを作成（ツールチェーンのバージョンをローカル版に固定、IDE ですぐ使える） |
 | `rzc run <ファイル>` | 翻訳して実行；警告・エラー・ビルド進行状況まですべて母語化 |
 | `rzc check <ファイル>` | 型チェック、母語の教学診断を出力 |
-| `rzc eject <ファイル>` | 標準 Rust コードとしてエクスポート（段階的移行） |
+| `rzc eject <ファイル>...` | 標準 Rust コードとしてエクスポート（段階的移行） |
 | `rzc transpile <ファイル>` | 翻訳のみ——標準 Rust を標準出力へ |
-| `rzc relocalize --to <言語>` | 母語間閲覧：方言 / 標準 Rust プロジェクトを別方言へ再ローカル化（成果物は rzc build で再ビルド可） |
+| `rzc relocalize --to <言語>` | 母語間閲覧：方言 / 標準 Rust プロジェクトを別の方言へ再ローカライズ（出力は構造を保ち、`rzc run` で実行 / `rzc check` で検査できます） |
 | `rzc cheat <言語>` | 母語 ↔ Rust 対応早見表（`--markdown` でドキュメント埋め込み可） |
 | `rzc add <crate名>[@バージョン]` | 依存クレートを追加（`cargo add` のラッパー、母語マッピングのヒント付き） |
 | `rzc doctor` | ツールチェーン環境を診断（内蔵 / PATH / バージョン比較） |
@@ -297,7 +299,7 @@ Rust 自体は英語で書かれているため、英語は教学方言に含ま
 
 🌐 **オンライン読書**：[オンラインドキュメント](https://liuqiTan80.github.io/i18n-rust/)（mdBook 4 言語 + トップバー切り替え；ローカルプレビューは `make site-serve`）。
 
-**多言語訳が進行中**：日本語（第 1〜11 章、11/33）、英語（序章・第 1〜13 章・付録 D、15/33）、ロシア語（第 1〜15 章、15/33）——進捗と次のバッチは [translation-status.md](docs/translation-status.md) を参照。
+**多言語訳が進行中**：英語 20/34 · 日本語 11/34 · ロシア語 15/34 — 詳細と次のバッチは [translation-status.md](docs/translation-status.md) を参照。
 
 > チュートリアルの品質は CI が自動で門番します（[tools/verify-tutorials.py](tools/verify-tutorials.py)）：
 > すべてのコードブロックはコンパイル可能であること、エラー例は注記された期待エラーコード（`// 预期错误: EXXXX`）を出すこと。
@@ -343,7 +345,7 @@ JSON 診断 → エラーコード・メッセージ表翻訳 + 型ローカラ�
 - **サードパーティクレートマッピング**：[docs/third-party-mapping.md](docs/third-party-mapping.md)
 - **コミュニティ共有レジストリ**：[docs/third-party-registry.md](docs/third-party-registry.md)（自作マッピングのアップロード・ダウンロード）
 - **チュートリアルの翻訳**：`tutorials/` を源に、章構成を揃えて；進捗パネルは [translation-status.md](docs/translation-status.md)
-- 提出前に `make gate` がオールグリーンであることを確認（CI テストゲート相当）
+- 開発環境とローカルチェックは [CONTRIBUTING.md](CONTRIBUTING.md) を参照。提出前は `main` で `make gate`、`zh` で `make zh-build ARGS='test --workspace --locked'` + `make zh-artifacts zh-ascii` を実行してください。
 
 ---
 

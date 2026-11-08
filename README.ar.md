@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **مرآة المستودع**: يُصان المشروع بالتزامن على GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) و GitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). يفضّل `rzc lang install` افتراضيًا مصدر GitCode (أسرع من داخل الصين) ويعود تلقائيًا إلى GitHub عند الفشل.
+> 🪞 **مرآة المستودع**: GitHub ([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust)) هو مصدر الكتابة الوحيد؛ يتم نسخ `main` و`zh` ووسوم الإصدارات في اتجاه واحد إلى Gitee ([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust)) وGitCode ([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust)). يفضّل `rzc lang install` مصدر GitCode ويعود إلى GitHub تلقائيًا عند الفشل.
 
 > ⚠️ تستند هذه الترجمة إلى [النسخة الصينية](README.md) وقد تتأخر عنها.
 
@@ -72,6 +72,7 @@ rzc init مشروعي && cd مشروعي && rzc run src/main.ar
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust && cd i18n-rust
 cargo build --release --workspace   # حوالي 1–3 دقائق
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 cargo install --path crates/cli     # يجعل rzc متاحًا عالميًا (أو استخدم ./target/release/rzc مباشرة)
 rzc init مشروعي && cd مشروعي && rzc run src/main.ar
 ```
@@ -115,6 +116,7 @@ cargo --version
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
 cargo build --release --workspace
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 ./target/release/rzc --version
 ```
 
@@ -220,9 +222,9 @@ rzc run src/main.ar    # ترجمة → تجميع → تشغيل
 | `rzc init <الاسم>` | إنشاء مشروع (إصدار سلسلة الأدوات مثبّت محليًا؛ جاهز للـ IDE) |
 | `rzc run <ملف>` | ترجمة وتشغيل؛ التحذيرات/الأخطاء/تقدم البناء بلغتك |
 | `rzc check <ملف>` | فحص الأنواع مع تشخيص تعليمي مترجم |
-| `rzc eject <ملف>` | تصدير إلى كود رست القياسي (انتقال تدريجي) |
+| `rzc eject <ملف>...` | تصدير إلى كود رست القياسي (انتقال تدريجي) |
 | `rzc transpile <ملف>` | ترجمة فقط — رست القياسية على المخرج القياسي |
-| `rzc relocalize --to <لغة>` | قراءة عبر اللغات الأم: إعادة توطين مشروع لهجة / Rust قياسي إلى لهجة أخرى (الناتج قابل لإعادة البناء بـ rzc build) |
+| `rzc relocalize --to <لغة>` | قراءة عبر اللغات الأم: إعادة توطين مشروع لهجة / Rust قياسي إلى لهجة أخرى (يحافظ الناتج على البنية؛ شغّله بـ `rzc run` / افحصه بـ `rzc check`) |
 | `rzc cheat <لغة>` | جدول مرجعي لغة ↔ رست (`--markdown` للتضمين في المستندات) |
 | `rzc add <crate>[@إصدار]` | إضافة تبعية (يغلّف `cargo add` مع تلميحات التعيين بلغتك) |
 | `rzc doctor` | تشخيص بيئة سلسلة الأدوات (المدمجة / PATH / مقارنة الإصدارات) |
@@ -297,7 +299,7 @@ rzc run src/main.ar    # ترجمة → تجميع → تشغيل
 
 🌐 **قراءة عبر الإنترنت**: [الوثائق على الإنترنت](https://liuqiTan80.github.io/i18n-rust/) (mdBook، 4 لغات مع محوّل في الشريط العلوي؛ معاينة محلية عبر `make site-serve`).
 
-**ترجمات جارية**: الإنجليزية (المقدمة، الفصول 1-13، الملحق D، 15/33)، اليابانية (الفصول 1-11، 11/33)، الروسية (الفصول 1-15، 15/33) — التقدم والدفعة القادمة في [translation-status.md](docs/translation-status.md). الترجمات العربية مرحّب بها — انظر «المساهمة».
+**ترجمات جارية**: الإنجليزية 20/34 · اليابانية 11/34 · الروسية 15/34 — التفاصيل والدفعة القادمة في [translation-status.md](docs/translation-status.md).
 
 > جودة البرنامج التعليمي محمية بالـ CI ([tools/verify-tutorials.py](tools/verify-tutorials.py)): يجب أن يُترجم كل كتلة كود، ويجب أن تُخرج أمثلة الأخطاء رمز الخطأ المذكور في التعليق (`// 预期错误: EXXXX`). التحقق محليًا بعد التعديل: `make tutorials` (بالصينية) أو `make tutorials-all` (الإنجليزية/اليابانية/الروسية).
 
@@ -341,7 +343,7 @@ rzc run src/main.ar    # ترجمة → تجميع → تشغيل
 - **تعيينات المكتبات الخارجية**: [docs/third-party-mapping.md](docs/third-party-mapping.md)
 - **سجل المجتمع**: [docs/third-party-registry.md](docs/third-party-registry.md) (إرسال/تنزيل تعيينات المجتمع)
 - **ترجمة البرنامج التعليمي**: ابدأ من `tutorials/` مع الحفاظ على بنية الفصول؛ ولوحة التقدم في [translation-status.md](docs/translation-status.md)
-- قبل الإرسال، تأكد من مرور `make gate` بالكامل (مكافئ لبوابة اختبار CI)
+- إعداد التطوير والفحوص المحلية: راجع [CONTRIBUTING.md](CONTRIBUTING.md)؛ قبل الإرسال شغّل `make gate` على `main` أو `make zh-build ARGS='test --workspace --locked'` + `make zh-artifacts zh-ascii` على `zh`.
 
 ---
 

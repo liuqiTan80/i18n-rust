@@ -6,7 +6,7 @@
 > **可视化总览**：各语言已翻译的库与 API（方言名/英文原名、大白话说明、翻译日期）
 > 可直接浏览 [`docs/library-index.html`](./library-index.html)；重生成：`make lib-index`。
 
-## 教程（tutorials/，33 个文件）
+## 教程（tutorials/，34 个文件）
 
 | 目标语言 | 目录 | 进度 | 说明 |
 |---|---|---|---|
@@ -166,7 +166,7 @@ rzc mapping check <lang>                            # 冲突校验（告警数�
   - rzc 引擎缺陷修复：`compose_pipeline_map` 中非第 0 段编辑的长度未按
     方言源码坐标计算，多字节字符（如 `文字列型::から`）的切片跨越字符边界时
     会 panic。将起点与终点钳制到字符边界后，含 ja 在内的全部方言可编译
-    （`crates/engine/src/lib.rs:182`）。
+    （`crates/engine/src/lib.zh`，历史提交当时为 `lib.rs`）。
   - 验证器 `tools/verify-tutorials.py` 增加 `--lang` 支持：主函数头
     （`関数 主関数`/`fn main`）、声明词、临时项目扩展名（`.ja`）、
     错误码前缀（エラー/error）按语言分别判定。zh/en/ja 三重门禁
@@ -347,8 +347,8 @@ rzc mapping check <lang>                            # 冲突校验（告警数�
     ② DECL_WORDS 补 ru 声明词；③ is_decl_head 接受非 ASCII 词界 +
     collect_decl 块判定正则补 ru/ja 词（ja 短暂回归 4 失败后修复）。
     此前 ja 结构体独立块一直靠"声明进函数体也合法"侥幸通过。
-  - **新语言接入清单增补**：还需改 crates/cli/src/builtin_lang.rs
-    （define_builtin_lang! + get_builtin_data 分支），否则扩展名不被 rzc 识别。
+  - **新语言接入清单增补**：还需改 `crates/cli/src/内置语言.zh`
+    （`定义内置语言!` + `获取内置数据` 分支），否则扩展名不被 rzc 识别。
   - 四语言门禁全绿：zh 317/378、en 183/205、ja 181/202、ru 213/245，0 失败。
   - ru 进度 14/33。
 - 2026-09-08（第二十一批）：**ru 第15章《Коллекции》完成（ru 15/33）**——

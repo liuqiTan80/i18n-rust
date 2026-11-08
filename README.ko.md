@@ -9,7 +9,7 @@
 
 </div>
 
-> 🪞 **저장소 미러**: 이 프로젝트는 GitHub([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust))와 GitCode([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust))에 동기화되어 유지됩니다. `rzc lang install`은 기본적으로 GitCode 소스(중국에서 더 빠름)를 우선 사용하고, 실패하면 자동으로 GitHub로 전환합니다.
+> 🪞 **저장소 미러**: GitHub([liuqiTan80/i18n-rust](https://github.com/liuqiTan80/i18n-rust))가 유일한 쓰기 원본이며, `main` / `zh` 와 릴리스 태그는 Gitee([liuqiTan80/i18n-rust](https://gitee.com/liuqiTan80/i18n-rust))와 GitCode([tan80/i18n-rust](https://gitcode.com/tan80/i18n-rust))로 단방향 미러됩니다. `rzc lang install`은 GitCode를 우선 사용하고 실패 시 GitHub로 자동 전환합니다.
 
 > ⚠️ 이 번역은 [중국어판](README.md)을 기반으로 하며, 원문에 비해 늦을 수 있습니다.
 
@@ -72,6 +72,7 @@ rzc init 내-프로젝트 && cd 내-프로젝트 && rzc run src/main.ko
 ```bash
 git clone https://github.com/liuqiTan80/i18n-rust && cd i18n-rust
 cargo build --release --workspace   # 약 1~3분
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 cargo install --path crates/cli     # rzc를 전역으로 설치 (또는 ./target/release/rzc 직접 사용)
 rzc init 내-프로젝트 && cd 내-프로젝트 && rzc run src/main.ko
 ```
@@ -115,6 +116,7 @@ cargo --version
 git clone https://github.com/liuqiTan80/i18n-rust.git
 cd i18n-rust
 cargo build --release --workspace
+# main branch only; zh: make zh-build ARGS='build --release --workspace'
 ./target/release/rzc --version
 ```
 
@@ -220,9 +222,9 @@ rzc run src/main.ko         # 번역 → 컴파일 → 실행
 | `rzc init <이름>` | 프로젝트 생성 (툴체인 버전을 로컬에 고정, IDE 바로 사용 가능) |
 | `rzc run <파일>` | 번역 후 실행; 경고/오류/컴파일 진행 상황이 모국어로 출력 |
 | `rzc check <파일>` | 현지화된 교육 진단과 함께 타입 검사 |
-| `rzc eject <파일>` | 표준 Rust 코드로 내보내기 (점진적 전환) |
+| `rzc eject <파일>...` | 표준 Rust 코드로 내보내기 (점진적 전환) |
 | `rzc transpile <파일>` | 번역만 수행 — 표준 출력으로 표준 Rust 출력 |
-| `rzc relocalize --to <언어>` | 모국어 간 읽기: 방언 / 표준 Rust 프로젝트를 다른 방언으로 재현지화(결과는 rzc build로 다시 빌드 가능) |
+| `rzc relocalize --to <언어>` | 모국어 간 읽기: 방언 / 표준 Rust 프로젝트를 다른 방언으로 재현지화 (출력은 구조를 유지하며 `rzc run`으로 실행 / `rzc check`로 검사) |
 | `rzc cheat <언어>` | 언어 ↔ Rust 대조표 (`--markdown`으로 문서 삽입용) |
 | `rzc add <crate>[@버전]` | 의존성 추가 (`cargo add` 래핑, 모국어 매핑 힌트 제공) |
 | `rzc doctor` | 툴체인 환경 진단 (내장/PATH/버전 비교) |
@@ -297,7 +299,7 @@ Rust 자체가 영어로 작성되므로 영어는 교육 방언이 아닙니다
 
 🌐 **온라인 열람**: [온라인 문서](https://liuqiTan80.github.io/i18n-rust/) (mdBook, 상단 표시줄 언어 전환기로 4개 언어; 로컬 미리보기는 `make site-serve`).
 
-**번역 진행 중**: 영어(서문, 1-13장, 부록 D, 15/33), 일본어(1-11장, 11/33), 러시아어(1-15장, 15/33) — 진행 상황과 다음 배치는 [translation-status.md](docs/translation-status.md). 한국어 번역도 환영합니다 — 「기여하기」를 참고하세요.
+**번역 진행 중**: 영어 20/34 · 일본어 11/34 · 러시아어 15/34 — 자세한 내용과 다음 배치는 [translation-status.md](docs/translation-status.md)를 참고하세요.
 
 > 튜토리얼 품질은 CI([tools/verify-tutorials.py](tools/verify-tutorials.py))가 보증합니다: 모든 코드 블록은 컴파일되어야 하고, 오류 예제는 주석으로 표기된 오류 코드(`// 预期错误: EXXXX`)를 출력해야 합니다. 수정 후 로컬 검증: `make tutorials` (중국어) 또는 `make tutorials-all` (영어/일본어/러시아어).
 
@@ -325,7 +327,7 @@ JSON 진단 → 코드/메시지 번역 + 타입 현지화 + 교육 힌트 → �
 | `crates/engine/lang-packs` | 11개 내장 언어 팩 (10개 자연어 + `en` 아이덴티티 팩: 키워드/표준 라이브러리/모듈 경로/오류 번역/UI 텍스트) |
 | `tools/vscode-extension`   | VS Code / Qoder 확장 |
 | `tools`                    | 게이트와 빌드 스크립트: 튜토리얼 검증, 벤치마크 회귀, 문서 사이트 조립 ([tools/README.md](tools/README.md)) |
-| `tutorials`                | 부록이 포함된 27장 중국어 튜토리얼 (en/ja/ru 번역 진행 중) |
+**번역 진행 중**: 영어 20/34 · 일본어 11/34 · 러시아어 15/34 — 자세한 내용과 다음 배치는 [translation-status.md](docs/translation-status.md)를 참고하세요.
 | `book`                     | 문서 사이트 조립 소스 (mdBook, [book/README.md](book/README.md)) |
 | `docs`                     | 참조 및 개발 문서, [프로젝트 지도](docs/project-map.md); 운영과 로드맵은 [docs/strategy/](docs/strategy/README.md) |
 
@@ -341,7 +343,7 @@ JSON 진단 → 코드/메시지 번역 + 타입 현지화 + 교육 힌트 → �
 - **서드파티 crate 매핑**: [docs/third-party-mapping.md](docs/third-party-mapping.md)
 - **커뮤니티 레지스트리**: [docs/third-party-registry.md](docs/third-party-registry.md) (커뮤니티 매핑 제출/다운로드)
 - **튜토리얼 번역**: `tutorials/`에서 시작해 장 구조를 유지하세요; 진행 상황 패널은 [translation-status.md](docs/translation-status.md)
-- 제출 전에 `make gate`가 완전히 통과하는지 확인하세요 (CI 테스트 게이트와 동일)
+- 개발 환경과 로컬 검사는 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요. 제출 전 `main`에서는 `make gate`, `zh`에서는 `make zh-build ARGS='test --workspace --locked'` + `make zh-artifacts zh-ascii`를 실행하세요.
 
 ---
 

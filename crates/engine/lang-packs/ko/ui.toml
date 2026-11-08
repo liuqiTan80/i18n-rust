@@ -642,12 +642,12 @@
 
 
 "cmd_guide_about" = "모국어 프로그래밍 가이드 (전체 용어 표 + 작성 규칙, 학 습자와 AI 어시스턴트용)"
-"cmd_relocalize_about" = "모국어 간 읽기: 방언 / 표준 Rust 프로젝트를 대상 방언으로 재현지화(파일별 순방향 변환으로 표준 Rust 만든 뒤 역변환; 출력은 구조를 유지하고 rzc build로 다시 빌드 가능)"
+"cmd_relocalize_about" = "모국어 간 읽기: 방언 / 표준 Rust 프로젝트를 대상 방언으로 재현지화(파일별 순방향 변환으로 표준 Rust 만든 뒤 역변환; 출력은 구조를 유지하고 rzc run / rzc check로 다시 빌드 가능)"
 "arg_relocalize_to_help" = "대상 방언 언어 코드(필수, 예: ja); 출력 프로젝트의 언어를 결정"
 "arg_relocalize_from_help" = "원본 방언 언어 코드; 생략 시 각 파일 확장자에서 자동 감지"
 "arg_relocalize_out_dir_help" = "출력 디렉터리(원본 구조를 미러하며 확장자를 대상으로 변경); 기본값은 소스 프로젝트 루트 옆 relocalized.<to>"
 "relocalize_done" = "{}개 파일을 재현지화했습니다: {}"
-"relocalize_no_module_entry" = "출력 프로젝트에서 진입 파일(main / 모국어 main 단어)을 찾지 못했습니다. rzc build로 바로 빌드되지 않을 수 있습니다"
+"relocalize_no_module_entry" = "출력 프로젝트에서 진입 파일(main / 모국어 main 단어)을 찾지 못했습니다. rzc run / rzc check로 바로 빌드되지 않을 수 있습니다"
 "arg_guide_lang_help" = "내장 언어 코드(예: zh); 생략 시 시스템 언어로 자동 감지"
 "arg_guide_out_help" = "가이드를 지정 파일에 기록(예: AGENTS.md)"
 "cmd_init_ai_help" = "프로젝트에 AGENTS.md도 생성(AI 프로그래밍 가이드, 현재 언어 팩으로 렌더링)"

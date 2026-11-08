@@ -6,23 +6,23 @@
 你自己的教学工具或编辑器插件：
 
 ```rust,ignore
-use i18n_rust_engine::mapping_manager::MappingManager;
+use i18n_rust_engine::映射管理器::映射管理器;
 
 // 加载内置中文语言包四表：关键字 / 模块路径 / 标准库别名 / 第三方库映射
-let manager = MappingManager::load_from_builtin(
+let 管理器 = 映射管理器::从内置载入(
     include_str!("../lang-packs/zh/keywords.toml"),
     include_str!("../lang-packs/zh/module_paths.toml"),
     include_str!("../lang-packs/zh/stdlib.toml"),
     &[], // 第三方库映射：(文件名, 内容) 列表
 )?;
-// 亦可运行时从目录加载：MappingManager::load_from_dir(Path::new("…/lang-packs/zh"))
+// 亦可运行时从目录加载：映射管理器::从目录载入(Path::new("…/lang-packs/zh"))
 
 // 母语 Rust → 标准 Rust（逐 token 原地替换，行号恒等）
-let english = i18n_rust_engine::转译管线(
+let 英文 = i18n_rust_engine::转译管线(
     "函数 主函数() { 打印行!(\"你好\"); }",
-    &manager,
+    &管理器,
 )
-.output;
+.输出;
 ```
 
 ## 核心能力

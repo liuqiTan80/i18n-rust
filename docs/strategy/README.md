@@ -1,6 +1,6 @@
 # 战略与运营：现状与路线图
 
-> **一页纸现状**（2026-09-26 更新）：工程侧全部就绪，剩余的是"凭据与素材"类
+> **一页纸现状**（2026-11-08 更新）：工程侧全部就绪，剩余的是"凭据与素材"类
 > 维护者动作（P0）与按需启动的 P1 增强。
 > 历史评估快照见 [archive/](archive/README.md)（只读）；执行流水以 [CHANGELOG](../../CHANGELOG.md) 为准。
 
@@ -8,12 +8,12 @@
 
 | 能力 | 说明 |
 |---|---|
-| 全球品牌与双平台 | GitHub / GitCode 同名 `i18n-rust`，双平台同步推送；语言包安装源自动回退 |
-| 发布链路 | **crates.io 三 crate 最新 0.8.4（2026-10-28 `cargo search` 实测；0.8.2 首发 2026-09-21），已落后源码版本**；`vsce package` 本机一次通过；release.yml 三平台产物 + SHA256SUMS |
-| 教程资产 | zh 全量（26 章 + 术语表 + 5 附录，逐块编译门禁）；en 15/33；ja/ru 滚动中（[translation-status](../translation-status.md)） |
+| 全球品牌与三地镜像 | GitHub 为唯一写入源，`main` / `zh` / 标签单向镜像到 Gitee 与 GitCode（`scripts/mirror.sh` + `mirror.yml`）；语言包安装源自动回退 |
+| 发布链路 | **源码已发布 v0.9.0（2026-11-08，tag 指向 main 的 eject 发布树）**；crates.io 三 crate 最新仍为 0.8.4（2026-10-28 `cargo search` 实测），需维护者补发 0.9.0；`vsce package` 本机一次通过；release.yml 三平台产物 + SHA256SUMS |
+| 教程资产 | zh 全量（27 章 + 术语表 + 5 附录，逐块编译门禁）；en 20/34；ja/ru 滚动中（[translation-status](../translation-status.md)） |
 | 文档站 | `book/` 装配源 + `tools/build-site.py` 四语言组装 + [pages.yml](../../.github/workflows/pages.yml) 自动部署（[book/README.md](../../book/README.md)） |
 | 演示素材 | `docs/demo/` 三语言 vhs 脚本 + 演示样本（zh/ja/ru），差一次录屏 |
-| 质量门禁 | CI 七 job（test / msrv / coverage / audit / bench / build / vsix）+ 本地 `make gate`；四语言教程门禁 0 失败；维护者入口见 [项目地图](../project-map.md) |
+| 质量门禁 | CI 八 job（test / windows-gates / msrv / coverage / audit / bench / build / vsix，仅 main）+ `zh-gates`（zh 源码级）+ 本地 `make gate`（main）/ `make zh-build`（zh）；四语言教程门禁 0 失败；维护者入口见 [项目地图](../project-map.md) |
 
 ## 待维护者动作（P0：凭据 / 素材 / 网页设置）
 
@@ -37,7 +37,7 @@
   类别开关（小）；② `rzc doctor` 迁移进度读数——复用回落表按文件统计英文化比例（中）；
   ③ 附录 E「三阶段桥」+ README 官方无关免责一行（文档）；④ 混写可编 / 纯英文可编两条
   CLI 集成用例钉姿态（小）；⑤ 双栏对照视图（大，独立候选，与阶段②配套）
-- 教程滚动：en 第十九章《智能指针》起继续（en 20/33，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
+- 教程滚动：en 第十九章《智能指针》起继续（en 20/34，复用既有翻译 + 门禁流程）；ja/ru 保持节奏
 - 原生 Cargo 命令仍不看界面语言（`rzc add` 一侧已补母语提示，`cargo build` 直敲
   时用户依旧看到 `no targets specified in the manifest` 原文）。教程已教会读者把 `Caused by`
   两行读成「还没有 `.rs` 入口」，但 rzc 无法拦截外部 cargo 进程。可选做法：`rzc doctor`
@@ -268,7 +268,7 @@
   有人工判定评测集之前都不可引用。真要做的门槛是：① 索引必须一次吃进 stdlib/keywords/
   third-party 三张表（`println` 只在 keywords 宏段，单表方案不成立）；② 唯一键取
   `(英文名, 路径)`，方言名只做倒排入口（`join` 一名两义 → `连接` 与 `等待线程` 互相污染）；
-  ③ 先清畸形方言名（`unwrap_or_else` → `取值或_else`）；④ 语料由 `mapping_gen/ai.rs` 现有
+  ③ 先清畸形方言名（`unwrap_or_else` → `取值或_else`）；④ 语料由 `映射生成/智能.zh` 现有
   管线批量产出，但必须全池覆盖 + 示例进编译门禁才允许对外；⑤ 输出形态给候选 + 出处 +
   反问，不写「就该用这个」。运行时调 LLM 作默认路径已否决（不可复现、门禁失效、离线包作废）
 

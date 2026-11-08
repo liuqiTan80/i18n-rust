@@ -28,7 +28,7 @@ block.
 | [Chapter 16: Error Handling](Chapter-16-Error-Handling.md) | 第十六章：错误处理 | ✅ done |
 | [Chapter 17: Modules](Chapter-17-Modules.md) | 第十七章：模块系统 | ✅ done |
 | [Chapter 18: Package Management and Build](Chapter-18-Package-Management-and-Build.md) | 第十八章：包管理与构建 | ✅ done |
-| Chapter 19–26, Appendices A–C & E | 第十九章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
+| Chapter 19–27, Appendices A–C & E | 第十九章…附录E | ⬜ pending (see [translation status](../../docs/translation-status.md)) |
 
 Gate status (2026-10-28): 317 blocks extracted, 313 verified — 284 pass +
 29 cross-block deps allowlisted, 0 failures (allowlist keyed by file+line

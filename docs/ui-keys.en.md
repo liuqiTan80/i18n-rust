@@ -26,7 +26,7 @@ resolved at runtime by prefix: 59 · unused: 0
 | `diag_*` | CLI/engine: diagnostic rendering (15) |
 | `unicode_name_*` | Engine: Unicode character names (dynamic, by codepoint) (60) |
 | `guide_*` | CLI: guided first-run tutorial (14) |
-| `crate_*` | CLI: crate scaffolding (`rzc new`) (20) |
+| `crate_*` | CLI: crate registry (`rzc crate`) (20) |
 | `load_*` | Engine: language-pack loading (19) |
 | `err_*` | Engine: lexer/loader errors (11) |
 | `run_*` | CLI: `rzc run` output (2) |
@@ -121,7 +121,7 @@ no substitution at all.
 | `cmd_mapping_scaffold_provider_help` | 0 | `crates/cli/src/main.rs:3117` | — | 翻译方式：rule（默认，生成 TODO 骨架待人工翻译）或 deepseek / openai / compatible（AI 翻译键名，端点、密钥、模型由 RZ_AI_* 环境变量指定） |
 | `cmd_mapping_scaffold_source_help` | 0 | `crates/cli/src/main.rs:3108` | — | 源语言代码（内置语言，如 zh） |
 | `cmd_mapping_scaffold_target_help` | 0 | `crates/cli/src/main.rs:3111` | — | 目标语言代码（新语言包目录名，如 vi） |
-| `cmd_relocalize_about` | 0 | `crates/cli/src/main.rs:3030` | — | 跨母语阅读：把方言 / 标准 Rust 工程反译重生为目标方言（逐文件正向转译到标准 Rust 再反译，产物结构忠实、可再次 rzc build） |
+| `cmd_relocalize_about` | 0 | `crates/cli/src/main.rs:3030` | — | 跨母语阅读：把方言 / 标准 Rust 工程反译重生为目标方言（逐文件正向转译到标准 Rust 再反译，产物结构忠实、可再次 rzc run / rzc check） |
 | `cmd_run_about` | 0 | `crates/cli/src/main.rs:2940` | — | 运行方言源文件 |
 | `cmd_transpile_about` | 0 | `crates/cli/src/main.rs:2956` | — | 把方言源文件转译为标准 Rust 代码并输出到标准输出（不写文件） |
 
@@ -238,10 +238,10 @@ no substitution at all.
 | `mc_cross_lang_header` | 0 | `crates/cli/src/映射检查.rs:776` | — | 📊 跨语言标识符条目数: |
 | `mc_cross_lang_inconsistent` | 0 | `crates/cli/src/映射检查.rs:789` | — | ⚠️ 各语言条目数不一致，请人工同步（可用 rzc mapping scaffold 生成骨架） |
 | `mc_cross_msg_missing` | 3 | `crates/cli/src/映射检查.rs:1948`<br>`crates/cli/src/映射检查.rs:701` | — | ⚠️ {} 缺少 {} 个消息翻译键（回退英文原文）: {} 等 |
-| `mc_danger_invalid` | 3 | dynamic | crates/cli/src/mapping_check.rs render_issue() | ❌ {} 危险等级 "{}" 的值 "{}" 无法识别（只允许 panic / rewrite / safe，多风险用 + 连接） |
-| `mc_danger_orphan` | 2 | dynamic | crates/cli/src/mapping_check.rs render_issue() | ❌ {} 危险元数据 "{}" 没有对应词条（可能已改名，元数据已失效） |
-| `mc_danger_understated` | 3 | dynamic | crates/cli/src/mapping_check.rs render_issue() | ❌ {} 词条 "{}" 映射到会 panic 的 "{}"，却未标注 panic（不得隐式 panic） |
-| `mc_danger_understated_rewrite` | 2 | dynamic | crates/cli/src/mapping_check.rs render_issue() | ❌ {} 词条 "{}" 是关键字/宏（任意位置替换），却未标注 rewrite（不得误标为纯安全） |
+| `mc_danger_invalid` | 3 | dynamic | crates/cli/src/映射检查.rs render_issue() | ❌ {} 危险等级 "{}" 的值 "{}" 无法识别（只允许 panic / rewrite / safe，多风险用 + 连接） |
+| `mc_danger_orphan` | 2 | dynamic | crates/cli/src/映射检查.rs render_issue() | ❌ {} 危险元数据 "{}" 没有对应词条（可能已改名，元数据已失效） |
+| `mc_danger_understated` | 3 | dynamic | crates/cli/src/映射检查.rs render_issue() | ❌ {} 词条 "{}" 映射到会 panic 的 "{}"，却未标注 panic（不得隐式 panic） |
+| `mc_danger_understated_rewrite` | 2 | dynamic | crates/cli/src/映射检查.rs render_issue() | ❌ {} 词条 "{}" 是关键字/宏（任意位置替换），却未标注 rewrite（不得误标为纯安全） |
 | `mc_failed` | 2 | `crates/cli/src/映射检查.rs:501` | &报告值.错误列表.len().to_string() / &报告值.警告列表.len().to_string() | ❌ 校验未通过: {} 个错误 / {} 条警告 |
 | `mc_header` | 1 | `crates/cli/src/映射检查.rs:470` | 语言代码 | 🔍 映射校验: {} |
 | `mc_keyword_collision` | 5 | `crates/cli/src/映射检查.rs:1089`<br>`crates/cli/src/映射检查.rs:1508`<br>`crates/cli/src/映射检查.rs:374` | — | ❌ {}[{}] 键 "{}" 与关键字冲突（crates 值 "{}" 永不生效，关键字值为 "{}"） |
@@ -468,66 +468,66 @@ no substitution at all.
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
-| `unicode_name_00AD` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 软连字符 |
-| `unicode_name_0391` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Α |
-| `unicode_name_0392` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Β |
-| `unicode_name_0395` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Ε |
-| `unicode_name_0397` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Η |
-| `unicode_name_0399` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Ι |
-| `unicode_name_039A` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Κ |
-| `unicode_name_039C` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Μ |
-| `unicode_name_039D` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Ν |
-| `unicode_name_039F` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Ο |
-| `unicode_name_03A1` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Ρ |
-| `unicode_name_03A4` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Τ |
-| `unicode_name_03A5` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Υ |
-| `unicode_name_03A7` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊大写字母 Χ |
-| `unicode_name_03B1` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 α |
-| `unicode_name_03B5` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 ε |
-| `unicode_name_03B9` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 ι |
-| `unicode_name_03BA` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 κ |
-| `unicode_name_03BC` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 μ |
-| `unicode_name_03BD` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 ν |
-| `unicode_name_03BF` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 ο |
-| `unicode_name_03C1` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 ρ |
-| `unicode_name_03C4` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 τ |
-| `unicode_name_03C5` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 υ |
-| `unicode_name_03C7` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 χ |
-| `unicode_name_03C9` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 希腊小写字母 ω |
-| `unicode_name_0410` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔大写字母 А |
-| `unicode_name_0412` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔大写字母 В |
-| `unicode_name_0415` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔大写字母 Е |
-| `unicode_name_041A` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔大写字母 К |
-| `unicode_name_041D` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔大写字母 Н |
-| `unicode_name_041E` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔大写字母 О |
-| `unicode_name_0420` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔大写字母 Р |
-| `unicode_name_0421` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔大写字母 С |
-| `unicode_name_0422` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔大写字母 Т |
-| `unicode_name_0423` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔大写字母 У |
-| `unicode_name_0425` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔大写字母 Х |
-| `unicode_name_0430` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔小写字母 а |
-| `unicode_name_0435` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔小写字母 е |
-| `unicode_name_043E` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔小写字母 о |
-| `unicode_name_0440` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔小写字母 р |
-| `unicode_name_0441` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔小写字母 с |
-| `unicode_name_0445` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 西里尔小写字母 х |
-| `unicode_name_180E` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 蒙古语元音分隔符 |
-| `unicode_name_200B` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 零宽空格 |
-| `unicode_name_200C` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 零宽非连接符 |
-| `unicode_name_200D` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 零宽连接符 |
-| `unicode_name_200E` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 从左到右标记 |
-| `unicode_name_200F` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 从右到左标记 |
-| `unicode_name_202A` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 从左到右嵌入 |
-| `unicode_name_202B` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 从右到左嵌入 |
-| `unicode_name_202C` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 弹出方向格式化 |
-| `unicode_name_202D` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 从左到右覆盖 |
-| `unicode_name_202E` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 从右到左覆盖 |
-| `unicode_name_2060` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 单词连接符 |
-| `unicode_name_2066` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 从左到右隔离 |
-| `unicode_name_2067` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 从右到左隔离 |
-| `unicode_name_2068` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 首项强隔离 |
-| `unicode_name_2069` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 弹出方向隔离 |
-| `unicode_name_FEFF` | 0 | dynamic | crates/engine/src/unicode_confusion.rs (format! by codepoint) | 零宽不换行空格 |
+| `unicode_name_00AD` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 软连字符 |
+| `unicode_name_0391` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Α |
+| `unicode_name_0392` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Β |
+| `unicode_name_0395` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Ε |
+| `unicode_name_0397` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Η |
+| `unicode_name_0399` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Ι |
+| `unicode_name_039A` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Κ |
+| `unicode_name_039C` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Μ |
+| `unicode_name_039D` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Ν |
+| `unicode_name_039F` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Ο |
+| `unicode_name_03A1` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Ρ |
+| `unicode_name_03A4` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Τ |
+| `unicode_name_03A5` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Υ |
+| `unicode_name_03A7` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊大写字母 Χ |
+| `unicode_name_03B1` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 α |
+| `unicode_name_03B5` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 ε |
+| `unicode_name_03B9` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 ι |
+| `unicode_name_03BA` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 κ |
+| `unicode_name_03BC` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 μ |
+| `unicode_name_03BD` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 ν |
+| `unicode_name_03BF` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 ο |
+| `unicode_name_03C1` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 ρ |
+| `unicode_name_03C4` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 τ |
+| `unicode_name_03C5` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 υ |
+| `unicode_name_03C7` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 χ |
+| `unicode_name_03C9` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 希腊小写字母 ω |
+| `unicode_name_0410` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔大写字母 А |
+| `unicode_name_0412` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔大写字母 В |
+| `unicode_name_0415` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔大写字母 Е |
+| `unicode_name_041A` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔大写字母 К |
+| `unicode_name_041D` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔大写字母 Н |
+| `unicode_name_041E` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔大写字母 О |
+| `unicode_name_0420` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔大写字母 Р |
+| `unicode_name_0421` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔大写字母 С |
+| `unicode_name_0422` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔大写字母 Т |
+| `unicode_name_0423` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔大写字母 У |
+| `unicode_name_0425` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔大写字母 Х |
+| `unicode_name_0430` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔小写字母 а |
+| `unicode_name_0435` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔小写字母 е |
+| `unicode_name_043E` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔小写字母 о |
+| `unicode_name_0440` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔小写字母 р |
+| `unicode_name_0441` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔小写字母 с |
+| `unicode_name_0445` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 西里尔小写字母 х |
+| `unicode_name_180E` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 蒙古语元音分隔符 |
+| `unicode_name_200B` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 零宽空格 |
+| `unicode_name_200C` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 零宽非连接符 |
+| `unicode_name_200D` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 零宽连接符 |
+| `unicode_name_200E` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 从左到右标记 |
+| `unicode_name_200F` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 从右到左标记 |
+| `unicode_name_202A` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 从左到右嵌入 |
+| `unicode_name_202B` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 从右到左嵌入 |
+| `unicode_name_202C` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 弹出方向格式化 |
+| `unicode_name_202D` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 从左到右覆盖 |
+| `unicode_name_202E` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 从右到左覆盖 |
+| `unicode_name_2060` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 单词连接符 |
+| `unicode_name_2066` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 从左到右隔离 |
+| `unicode_name_2067` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 从右到左隔离 |
+| `unicode_name_2068` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 首项强隔离 |
+| `unicode_name_2069` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 弹出方向隔离 |
+| `unicode_name_FEFF` | 0 | dynamic | crates/engine/src/混淆检测.rs (format! by codepoint) | 零宽不换行空格 |
 
 ## CLI: guided first-run tutorial
 
@@ -548,7 +548,7 @@ no substitution at all.
 | `guide_table_head` | 1 | `crates/engine/src/指南.rs:269` | &总条数.to_string() | ## 全量词条表（{} 条） |
 | `guide_title` | 1 | `crates/engine/src/指南.rs:240` | 语言码 | # rzc 母语编程指南 —— {} ↔ Rust |
 
-## CLI: crate scaffolding (`rzc new`)
+## CLI: crate registry (`rzc crate`)
 
 | Key | `{}` | Rendered at | Arguments | zh source text |
 |---|---|---|---|---|
@@ -722,7 +722,7 @@ no substitution at all.
 | `project_run_hint` | 1 | `crates/cli/src/main.rs:2777` | 语言码 | 使用 `rzc run src/main.{}` 运行。 |
 | `readme_template` | 2 | `crates/cli/src/main.rs:2758` | 项目名 / 语言码 | # {} 使用 `rzc run src/main.{}` 运行。 |
 | `relocalize_done` | 2 | `crates/cli/src/main.rs:2118` | &计数.to_string() / &输出根.display().to_string() | 已反译重生 {} 个文件到：{} |
-| `relocalize_no_module_entry` | 0 | `crates/cli/src/main.rs:2112` | — | 未在输出工程中发现入口文件（main / 主函数词），产物可能无法直接 rzc build |
+| `relocalize_no_module_entry` | 0 | `crates/cli/src/main.rs:2112` | — | 未在输出工程中发现入口文件（main / 主函数词），产物可能无法直接 rzc run / rzc check |
 | `remote_install_failed` | 3 | `crates/cli/src/语言管理.rs:655` | 语言码 / &源列表.len().to_string() / &错误明细.join("\n") | 远程安装语言包 '{}' 失败，已依次尝试 {} 个源： {} 请检查网络连接；或通过环境变量 RZ_LANG_REPO 指定自定义仓库地址。 |
 | `remote_lang_not_found` | 1 | `crates/cli/src/语言管理.rs:735`<br>`crates/cli/src/语言管理.rs:777` | 语言码 | 远程仓库中不存在语言包 '{}'。请检查语言代码，或使用 `rzc lang list` 查看已安装的语言包。 |
 | `stale_products_pruned` | 1 | `crates/cli/src/main.rs:2503` | &已清理.len().to_string() | 已清理 {} 个失效生成文件（对应母语源文件已删除或改名） |
@@ -761,65 +761,65 @@ text search will not find them — they still must be translated.
 
 | Key | Why static search misses it |
 |---|---|
-| `unicode_name_00AD` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0391` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0392` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0395` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0397` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0399` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_039A` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_039C` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_039D` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_039F` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03A1` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03A4` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03A5` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03A7` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03B1` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03B5` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03B9` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03BA` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03BC` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03BD` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03BF` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03C1` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03C4` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03C5` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03C7` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_03C9` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0410` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0412` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0415` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_041A` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_041D` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_041E` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0420` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0421` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0422` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0423` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0425` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0430` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0435` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_043E` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0440` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0441` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_0445` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_180E` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_200C` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_200D` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_200E` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_200F` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_202A` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_202B` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_202C` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_202D` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_202E` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_2060` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_2066` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_2067` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_2068` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_2069` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
-| `unicode_name_FEFF` | crates/engine/src/unicode_confusion.rs (format! by codepoint) |
+| `unicode_name_00AD` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0391` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0392` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0395` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0397` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0399` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_039A` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_039C` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_039D` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_039F` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03A1` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03A4` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03A5` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03A7` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03B1` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03B5` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03B9` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03BA` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03BC` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03BD` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03BF` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03C1` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03C4` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03C5` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03C7` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_03C9` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0410` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0412` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0415` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_041A` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_041D` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_041E` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0420` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0421` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0422` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0423` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0425` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0430` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0435` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_043E` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0440` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0441` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_0445` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_180E` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_200C` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_200D` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_200E` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_200F` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_202A` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_202B` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_202C` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_202D` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_202E` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_2060` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_2066` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_2067` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_2068` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_2069` | crates/engine/src/混淆检测.rs (format! by codepoint) |
+| `unicode_name_FEFF` | crates/engine/src/混淆检测.rs (format! by codepoint) |
 
 ## Unused keys
 

@@ -82,7 +82,9 @@ RZ_LOG=info rzc check 你的文件.zh
 #    [信息] [映射加载] 映射数据来源: 内置语言包 zh（编译期嵌入，修改后需重新编译）
 
 # 2. 重新编译使内置数据生效（仓库内修改后必做）
-cargo build -p rzc
+#    main 分支：cargo build -p rzc
+#    zh 分支（源码树只有 .zh）：make zh-build ARGS='build --bin rzc'
+#    产物位置：main 为 target/debug/rzc，zh 为 .zh-build/target/debug/rzc
 
 # 3. 想免编译验证：在主仓库内运行（走文件系统），或用 --lang-pack 指定目录
 rzc check 你的文件.zh --lang-pack crates/engine/lang-packs/zh
@@ -223,9 +225,10 @@ VS Code 扩展的 AI 命令（`i18n-rust.aiChat` / `i18n-rust.aiGenerate`）会�
   不会改变已有译文（标准库词条压过第三方 crate 别名也是这个原因）。
 - 不要指望「更短优先」或字典序：ja 的 `表示` 既更短又字典序在前，但特征区的 `表示可能` 才是
   主词条；ko / ar 同样会被字典序选到格式化区的短词。
-- 该规约由 `cargo test -p i18n-rust-engine --lib synonym_winner` 钉住（六语言逐条硬写 `Display`
+- 该规约由 `cargo test -p i18n-rust-engine --lib 同义词胜出` 钉住（六语言逐条硬写 `Display`
   的主词条，并比对「按目录加载」与「编译期内置加载」两种口径得到同一张表）；某个来源被漏收
-  时由 `reverse_candidates_cover_every_forward_entry` 拦住（少译不报错，表现为译文里凭空多出英文）。
+  时由 `反查候选覆盖每个正向条目` 拦住（少译不报错，表现为译文里凭空多出英文）。
+  zh 分支请改用 `make zh-build ARGS='test -p i18n-rust-engine --lib 同义词胜出'`。
 - `tools/check-lang-packs.py` **不**对「同英文值多母语名」告警：真表里这类二义英文值共 421 项
   （zh 99 / hi 70 / ar 65 / ja 64 / ko 62 / ru 61），绝大多数是有意保留的同义写法，
   告警只会淹没清单；按上面的顺序约定书写即可。
@@ -242,7 +245,7 @@ rustc 有些消息**自带错误码**，同时你又能为这句原文收录整�
 - 其余情形——前缀/后缀键只覆盖半句、桩是静态教学措辞、桩只用 `{期望}`/`{实际}` 填 span 标签——
   维持**码表桩优先**。
 
-判据实现在 `diagnostic::message::message_table_wins`，CLI 与 LSP 共用。两条边界都是量出来的：
+判据实现在 `crates/engine/src/诊断/消息翻译.zh` 的 `消息表胜出`，CLI 与 LSP 共用。两条边界都是量出来的：
 放开到「任意形态命中都优先」，zh 语料 12 条翻转、其中 6 条把半句前缀键（「特征约束 `」
 「无法借用 `」）之后的英文原话拼回译文；放开到「整句命中就优先」，`[E0308]` 会丢掉期望/实际
 类型、`[E0283]` 会丢掉「存在多个可满足要求的实现」这段教学措辞。
@@ -264,15 +267,17 @@ rustc 有些消息**自带错误码**，同时你又能为这句原文收录整�
    （项目为单一数据源架构：编译期内嵌与文件系统消费共用这一份，
    无需任何同步步骤）
 2. 若希望**编译期内置**（无需安装即可用），还需在
-   `crates/cli/src/builtin_lang.rs` 中：
-   - 用 `define_builtin_lang!` 宏添加 vi 的静态数据（含 crates/ 文件名列表）
-   - 在 `get_builtin_data` 与 `has_builtin_lang` 增加分支
-   - 更新 `builtin_lang_codes` 与相关测试断言
+   `crates/cli/src/内置语言.zh` 中：
+   - 用 `定义内置语言!` 宏添加 vi 的静态数据（含 crates/ 文件名列表）
+   - 在 `获取内置数据` 与 `有内置语言包` 增加分支
+   - 更新 `内置语言清单` 与相关测试断言
 
    也可以只合入数据不内置——用户通过
    `rzc lang install vi` 从主仓库远程安装（安装器已兼容
    `crates/engine/lang-packs/<语言>` 目录结构）。
-3. 提交 PR。CI 会跑全量测试与 `rzc mapping check` 质量门禁。
+3. 提交 PR。`main` 分支会跑全量测试与 `rzc mapping check` 质量门禁；
+   `zh` 分支由 `zh-gates.yml` 跑源码级门禁（中文棘轮 + 方言源纪律），
+   编译测试在 eject 后的 `main` 上验证。
 
 ### 路线 B：自建语言包仓库（无需 PR，即发即用）
 
@@ -304,9 +309,9 @@ RZ_LANG_REPO=https://gitcode.com/你的账号/你的语言包仓库 rzc lang ins
 - [ ] `rzc lang install crates/engine/lang-packs/<码>` 安装成功
 - [ ] 母语方言源码 `rzc eject` 转出标准 Rust 且可编译
 - [ ] `make lang-packs`（`tools/check-lang-packs.py`）全绿：逐包 TOML 真回读、消息表/错误码表/关键词/stdlib 键数结构齐平、版本号与内置表一致、无短前缀吞整句告警（进 CI 门禁，无需靠手工；`make lang-packs` 与 CI/发布防线均带 `--strict`，告警即判红——别再指望「只是 ⚠️」能混过去）
-- [ ] 反例语料无残留：`cargo test -p i18n-rust-engine --test diag_corpus_gate` 全过（语料来自 `tools/diag-corpus/collect.py` 对 `rustc --error-format json` 的实跑采样，签入 `crates/engine/tests/data/diag-corpus.tsv`；新增高频反例后重跑 collect.py 刷新语料即自动拦住中英混排）
+- [ ] 反例语料无残留：`cargo test -p i18n-rust-engine --test diag_corpus_gate` 全过（zh 分支用 `make zh-build ARGS='test -p i18n-rust-engine --test diag_corpus_gate'`；语料来自 `tools/diag-corpus/collect.py` 对 `rustc --error-format json` 的实跑采样，签入 `crates/engine/tests/data/diag-corpus.tsv`；新增高频反例后重跑 collect.py 刷新语料即自动拦住中英混排）
 - [ ] `~/.rz/lang-packs/` 下无陈旧/改名遗留目录（`rzc doctor` 可直接查出，见 2.5）
 - [ ] 高频反例实跑 `rzc check`，逐条看「修复建议」有无中英混排（静态检查查不出，见 2.6）
 - [ ] 两端动态的消息用通配段键（见 2.7），且逐包跑过上面的 TOML 回读命令（撇号会炸掉整包）
 - [ ] 同义词按「主词条在前」书写（见 2.9）：诊断反查取最前一条，新增同义词追加到节末尾
-- [ ] （路线 A）若内置，`cargo test --workspace` 全过
+- [ ] （路线 A）若内置，`cargo test --workspace` 全过（zh 分支：`make zh-build ARGS='test --workspace --locked'`）

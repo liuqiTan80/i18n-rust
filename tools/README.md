@@ -2,6 +2,10 @@
 
 > 原则：**本地统一入口是 [`make`](../Makefile)**（`make help` 列全）。
 > 本目录脚本是各 `make` 目标的实现细节，或维护者专项工具；除专项外无需直接调用。
+>
+> 🌿 分支差异：`main` 是发布树，直接 `make gate`；`zh` 分支源码树只有 `.zh`，
+> cargo 相关目标请走 `make zh-build ARGS='...'`（在 `.zh-build/` 隔离目录生成
+> `.rs` 后执行），源码级门禁用 `make zh-artifacts zh-ascii`。
 
 ## 一览
 
@@ -27,10 +31,11 @@
 ## 排查单章时直接调用验证器
 
 ```bash
-cargo build --bin rzc                                  # 先产出 target/debug/rzc
+cargo build --bin rzc                                  # main：产出 target/debug/rzc
+# zh 分支：make zh-build ARGS='build --bin rzc'        # 产出 .zh-build/target/debug/rzc
 python3 tools/verify-tutorials.py \
   --dir tutorials/en --lang en \                       # 教程目录与语言包
-  --rzc target/debug/rzc \                             # rzc 路径
+  --rzc target/debug/rzc \                             # rzc 路径（zh 用 .zh-build/target/debug/rzc）
   --allowlist tools/expected-failures.json             # 白名单
 # 可选：--json report.json 输出机器可读报告 · --parallel N 并行度（默认 10）
 #       --serialize 附加章节串联验证 · --ctx 白名单块上下文复验（门禁默认开启）
