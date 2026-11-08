@@ -26,9 +26,13 @@
 # =============================================================
 name: 持续集成
 
+# zh 分支的源码树只保留 .zh，不在本工作流直接编译；它 eject 到 main 后由
+# 本工作流验证。zh 分支的源码级门禁见 .github/workflows/zh-gates.yml。
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
 
 permissions:
   contents: read

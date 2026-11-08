@@ -22,6 +22,21 @@ Thumbs.db
 # zh 分支重构草稿（临时 .rs/.zh 工作区，禁止与正式源码混放）
 /.zh-tmp/
 
+# zh 分支方言源纪律：同名 .rs 是 .zh 的转译产物，不入库、不与源码同目录混放。
+# 构建/测试统一用 scripts/zh-build.sh 在 .zh-build/ 隔离目录生成；
+# 本分支（.zh 源）只保留 .zh，产物树在 main（eject 发布分支）检查。
+/crates/engine/src/**/*.rs
+/crates/cli/src/**/*.rs
+/crates/lsp/src/**/*.rs
+/crates/engine/tests/**/*.rs
+/crates/cli/tests/**/*.rs
+/crates/lsp/tests/**/*.rs
+/crates/engine/benches/**/*.rs
+/crates/lsp/benches/**/*.rs
+/crates/engine/examples/**/*.rs
+/crates/engine/build.rs
+/.zh-build/
+
 # 离线发布包产物
 .release-tmp-*/
 

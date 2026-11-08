@@ -6,13 +6,17 @@
 #   make bench-check —— 等价于 CI bench job（本地阈值 30%）
 # 依赖：rustup 工具链（stable + clippy/rustfmt，见 rust-toolchain.toml）、
 #       python3（教程与术语表校验）；npm 仅 vsix 目标需要。
+#
+# zh 分支（源码树只有 .zh）：不要直接跑 fmt/clippy/test，它们在 main 的
+# eject 产物树上执行；本分支用 scripts/zh-build.sh（或 make zh-build）在
+# .zh-build/ 隔离目录生成 .rs 后再跑 cargo。
 # =============================================================
 
 CARGO ?= cargo
 PYTHON ?= python3
 NODE ?= node
 
-.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs readme-parity mapping-check tutorials tutorials-all site site-serve lib-index feishu feishu-check glossary glossary-consistency bench bench-check bench-update vsix clean zh-ascii
+.PHONY: help fmt fmt-check clippy test gate prod-panics ui-keys lang-packs readme-parity mapping-check tutorials tutorials-all site site-serve lib-index feishu feishu-check glossary glossary-consistency bench bench-check bench-update vsix clean zh-ascii zh-build
 
 help: ## 显示全部可用目标
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -54,9 +58,11 @@ lang-packs: ## 语言包完整性门禁（errors.toml 回读/键数齐平/占位
 readme-parity: ## 翻译 README 结构 parity 检查（章节数/锚点有效性/围栏配对，基准 en）
 	$(PYTHON) tools/check-readme-parity.py
 
-zh-artifacts: ## zh 分支方言源纪律门禁（产物同步 + 一词多译 + 命名位撞词条审计（含声明名）；main 无 .zh 时自动空跑）
-	$(CARGO) build --quiet --bin rzc
+zh-artifacts: ## zh 分支方言源门禁（可转译性 + 一词多译 + 绑定位；产物不入库）
 	$(PYTHON) tools/check-zh-artifacts.py
+
+zh-build: ## zh 分支隔离构建（ARGS='test --workspace --locked'）
+	scripts/zh-build.sh $(ARGS)
 
 zh-ascii: ## zh 分支全中文棘轮门禁（方言源代码区残余英文计数，只许降不许升）
 	$(PYTHON) tools/check-zh-ascii.py
