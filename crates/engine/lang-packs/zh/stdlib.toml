@@ -41,9 +41,20 @@
 # 标准库标识符（类型、特征、方法、函数等）
 # ============================================
 ["标识符"]
+# 引擎导出的日志宏（#[macro_export] macro_rules!）：登记到标识符位（非
+# ["宏"]节，避开宏调用位的自动 `!` 拼接），以便 `宏规则! 警告日志` 定义位
+# 干净地转成 `macro_rules! log_warn`，同时 `包::警告日志!` 调用位转成
+# `crate::log_warn!`——35 处英文 `crate::log_*!` 消费者零改动。
+"调试日志" = "log_debug"
+"信息日志" = "log_info"
+"警告日志" = "log_warn"
+"错误日志" = "log_error"
 # `标准库` 同时存在于模块路径节（use 语句专用）；此副本让表达式中的
 # 完整路径（如 `标准库::内存::尺寸` → `std::mem::size_of`）也能转译
 "标准库" = "std"
+# 转译管线内部入口：别名阶段复用词法产物、按文件缓存声明收集结果时需要
+"分词转译" = "transpile_with_map"
+"收集词元" = "collect_tokens"
 
 # 模块路径词的表达式位副本（安全子集）：让表达式中的完整限定路径
 #（如 `标准库::输入输出::标准错误` → `std::io::stderr`）逐段转译。
@@ -179,6 +190,9 @@
 "字符串引用" = "&str"
 "生命周期引用" = "&'a"
 "静态字符串引用" = "&'static str"
+"静态字符串对切片" = "&'static [(&'static str, &'static str)]"  # 第三方库映射清单（文件名, 内容）静态切片
+"静态字符串对向量" = "Vec<(&'static str, &'static str)>"  # 同上元素的拥有型向量
+"泄露" = "leak"  # Box::leak：把堆分配提升为 'static 借用
 
 # --------------------------------------------
 # 字符串 / 文本方法（String / str）
@@ -196,6 +210,7 @@
 "逐字符" = "chars"
 "逐字节" = "bytes"
 "逐字符枚举" = "char_indices"
+"匹配位置" = "match_indices"
 "裁剪" = "trim"
 "裁剪左侧" = "trim_start"
 "裁剪右侧" = "trim_end"
@@ -205,10 +220,12 @@
 "以开头" = "starts_with"
 "以结尾" = "ends_with"
 "查找" = "find"
+"查找映射" = "find_map"  # 迭代器：查找首个映射成功者（对齐 过滤映射=filter_map）
 "反向查找" = "rfind"
 "截取" = "get"
 "去前缀" = "strip_prefix"
 "去后缀" = "strip_suffix"
+"作为文本切片" = "as_str"  # String::as_str（取 &str 视图）
 "转小写" = "to_lowercase"
 "转大写" = "to_uppercase"
 "重复" = "repeat"
@@ -217,10 +234,12 @@
 "弹出" = "pop"
 "推入字符串" = "push_str"
 "插入" = "insert"
+"置入" = "insert"  # 与本地方法 `插入` 区分：容器插入用此词形，避免同文件方法名保护把集合调用留在中文
 "插入字符串" = "insert_str"
 "移除" = "remove"
 "截断" = "truncate"
 "清空" = "clear"
+"清空集合" = "clear"
 "容量" = "capacity"
 "预留" = "reserve"
 "收缩" = "shrink_to_fit"
@@ -252,6 +271,7 @@
 "最后一个" = "last"
 "第一个_mut" = "first_mut"
 "最后一个_mut" = "last_mut"
+"可变末尾" = "last_mut"  # 迭代器：末尾元素可变引用（纯中文形，供 .zh 源使用）
 "切片" = "as_slice"
 "切片_mut" = "as_mut_slice"
 "拼接" = "concat"
@@ -401,6 +421,8 @@
 "是否为文件" = "is_file"
 "是否为目录" = "is_dir"
 "是否为符号链接" = "is_symlink"
+"符号链接元数据" = "symlink_metadata"  # fs::symlink_metadata / Path::symlink_metadata（不跟随符号链接取元数据）
+"文件类型" = "file_type"  # DirEntry::file_type / Metadata::file_type（返回 FileType）
 "权限" = "Permissions"
 "只读" = "readonly"
 "设置只读" = "set_readonly"
@@ -453,6 +475,7 @@
 "互斥锁" = "Mutex"
 "读写锁" = "RwLock"
 "互斥守卫" = "MutexGuard"
+"尝试加锁" = "try_lock"  # Mutex::try_lock（不阻塞抢锁）
 "读守卫" = "RwLockReadGuard"
 "写守卫" = "RwLockWriteGuard"
 "原子引用计数" = "Arc"
@@ -519,6 +542,11 @@
 "时钟" = "time"  # std::time 模块（「时间」=NaiveTime 已占用）
 "自纪元" = "duration_since"  # SystemTime::duration_since
 "新建" = "new"
+# 引擎里以中文名 `新建` 导出的构造器（诊断翻译器）：跨 crate 调用时
+# `新建` 会先被标准库词表转成 `new`，故用这个专属别名保留中文方法名
+"新建诊断翻译器" = "新建"
+# 同理：引擎 `源码映射条目::新建` 构造器的跨 crate 调用别名
+"新建源码映射条目" = "新建"
 "从秒" = "from_secs"
 "从毫秒" = "from_millis"
 "从微秒" = "from_micros"
@@ -650,6 +678,7 @@
 "预期" = "expected"
 "映射或默认" = "map_or"
 "映射或_else" = "map_or_else"
+"拷贝自切片" = "copy_from_slice"  # 切片批量拷贝（std 真实方法，语言包此前无词形）
 "和_then" = "and_then"
 "或_else" = "or_else"
 "转迭代" = "into_iter"
@@ -682,6 +711,7 @@
 "科学计数大写" = "UpperExp"
 "格式化参数" = "Formatter"
 "写入格式化" = "write_fmt"
+"写入字符串" = "write_str"
 
 # --------------------------------------------
 # 杂项 / 宏补充
@@ -777,7 +807,9 @@
 "词法令牌" = "Token"
 "令牌种类" = "TokenKind"
 "令牌类别" = "kind"
+"类别值" = "kind"
 "标识符记号" = "Ident"
+"未知记号" = "Unknown"  # rustc_lexer TokenKind::Unknown
 "原始标识符" = "RawIdent"
 "空白符" = "Whitespace"
 "行评论" = "LineComment"
@@ -815,6 +847,14 @@
 "解包或用否则" = "unwrap_or_else"
 "而后映射" = "and_then"
 "有值且" = "is_some_and"
+# 方法位同义键：避开同 crate 已用的声明名（声明名会让方法位停止替换），
+# 以下专供方法调用使用
+"读取条目" = "get"
+"为空" = "is_empty"
+"末尾项" = "last"
+"保留项" = "retain"
+"下一个后端" = "next_back"
+"拆分包含" = "split_inclusive"
 "带容量" = "with_capacity"
 "转路径缓冲" = "to_path_buf"
 "设扩展名" = "with_extension"
@@ -829,6 +869,7 @@
 "取扩展名" = "extension"
 "复制值" = "copied"
 "取全部键" = "keys"
+"取全部值" = "into_values"
 "按键排序" = "sort_by_key"
 
 # --------------------------------------------
@@ -869,6 +910,7 @@
 "切分路径" = "split_paths"
 "文件名干" = "file_stem"
 "组件" = "components"
+"是否绝对" = "is_absolute"
 
 # --------------------------------------------
 # std::env::consts 平台常量
@@ -911,9 +953,12 @@
 # --------------------------------------------
 # 字符编码 / UTF-16 长度类方法
 # --------------------------------------------
+"是ASCII字母" = "is_ascii_alphabetic"
+"是ASCII大写" = "is_ascii_uppercase"
 "是ASCII字母数字" = "is_ascii_alphanumeric"
 "编码UTF16" = "encode_utf16"
 "长度UTF16" = "len_utf16"
+"字符字节数" = "len_utf8"
 
 # --------------------------------------------
 # 通用宏别名：崩溃! → panic!（std 宏）
@@ -943,11 +988,162 @@
 "创建文件" = "create"
 "接收超时" = "recv_timeout"
 
+# --------------------------------------------
+# 序列化框架反序列化协议（有序映射解析专用）
+# --------------------------------------------
+"访问器" = "Visitor"
+"映射访问" = "MapAccess"
+"序列访问" = "SeqAccess"
+"忽略任意" = "IgnoredAny"
+"期待格式" = "expecting"
+"访问映射" = "visit_map"
+"访问文本" = "visit_str"
+"访问布尔" = "visit_bool"
+"访问长整数" = "visit_i64"
+"访问无符号长整数" = "visit_u64"
+"访问浮点数" = "visit_f64"
+"访问单元" = "visit_unit"
+"访问序列" = "visit_seq"
+"下一键" = "next_key"
+"下一值" = "next_value"
+"下一元素" = "next_element"
+"反序列化映射" = "deserialize_map"
+"反序列化任意" = "deserialize_any"
+
+# --------------------------------------------
+# 教学检查/校验模块用到的 std 方法补充
+# --------------------------------------------
+"可窥视" = "peekable"
+"转装箱切片" = "into_boxed_slice"
+"下一个二次幂" = "next_power_of_two"
+"调整大小" = "resize"
+"必须使用" = "must_use"
+
+# --------------------------------------------
+# 命令行界面/待译清单/包仓库模块补充：进程状态与工程辅助词条
+# --------------------------------------------
+"进程状态" = "status"
+"命令状态" = "status"
+"执行状态码" = "status"
+"取走" = "take"
+"转入读取器" = "into_reader"
+"未寻得" = "NotFound"
+"退出成功" = "success"
+"语言包根目录" = "lang_pack_root_of"
+"全局语言目录" = "global_lang_dir"
+"拉取仓库压缩包" = "fetch_repo_zip"
+"安全条目路径" = "safe_zip_entry_path"
+"仓库源项" = "RepoSource"
+"临时目录句柄" = "TempDir"
+"从地址" = "from_url"
+"语言管理" = "lang_manager"
+"测试模块" = "tests"
+"环境锁" = "env_lock"
+"环境还原" = "EnvRestore"
+"接管" = "take"
+"收集方言文件" = "collect_dialect_files"
+"注解产物" = "annotate_product"
+"扩展名转语言代码" = "get_lang_code_from_extension"
+"解析rustc" = "resolve_rustc"
+"解析cargo" = "resolve_cargo"
+"解析文档工具" = "resolve_rustdoc"
+"权限扩展" = "PermissionsExt"
+"空值" = "None"  # Option::None 的工程写法（与关键字 `无` 同义）
+"架构名" = "ARCH"
+"按序号" = "by_index"
+"取配置" = "config"
+"从模式" = "from_mode"
+"发出请求" = "call"
+"解包到" = "unpack"
+"是空值" = "is_null"
+"接入流" = "accept"
+"全部可用扩展名" = "all_available_extensions"
+"缓冲读取特征" = "BufRead"
+"读取至" = "read_until"
+"逆分割一次" = "rsplit_once"
+"继承" = "inherit"
+"等待进程" = "wait"
+"终止进程" = "kill"
+"读取精确" = "read_exact"
+"成功退出码" = "SUCCESS"
+"失败退出码" = "FAILURE"
+"检查工具" = "clippy"
+"太多参数" = "too_many_arguments"
+"转入" = "into"
+
+# --------------------------------------------
+# 命令行入口 main.zh 补充：终端判定 / 线程作用域 / 所有权转换
+# --------------------------------------------
+"是否终端特征" = "IsTerminal"
+"是否为终端" = "is_terminal"
+"线程作用域" = "scope"
+"转拥有" = "to_owned"
+"选项环境变量" = "var_os"
+# `条目路径` 已被同名方法声明保护，标准库的 path 方法另用专属词形
+"文件路径方法" = "path"
+
+# 跨 crate 调用引擎内以中文名导出的成员（词表先命中会改成英文，故用专属别名保留中文）
+"日志初始化" = "初始化"
+"转译产物文本" = "输出"
+"缓存查询" = "查询"
+"缓存插入" = "插入"
+
+# --------------------------------------------
+# 路径组件与词法字面量种类（LSP 翻译缓存新增词形）
+# --------------------------------------------
+"路径组件" = "Component"
+"上级目录组件" = "ParentDir"
+"当前目录组件" = "CurDir"
+"字面量种类" = "LiteralKind"
+"文本字面量" = "Str"
+"替换范围" = "replace_range"
+
+# --------------------------------------------
+# LSP 代理服务器新增词形（条件编译取反 / 平台符号链接 / 路径改文件名 / lint 名）
+# --------------------------------------------
+"非" = "not"
+"符号链接" = "symlink"
+"带文件名" = "with_file_name"
+"类型复杂度" = "type_complexity"
+"哈希方法" = "hash"
+"尝试等待" = "try_wait"
+"等待输出" = "wait_with_output"
+"操作系统" = "os"
+
 # ============================================================
 # 危险等级（词条表逐条标注的数据源；不参与转译）
 # 取值：panic / rewrite / safe，多风险用 + 连接；未列出的词条按默认归类：
 # 关键字/宏 → rewrite，std/第三方别名 → safe（目标为 unwrap/expect 等时自动 panic）。
 # ============================================================
+
+# ---- 测试/基准/构建脚本用到的外部 API 词形（tests/benches/examples） ----
+"请求失败" = "failure"
+"取输出值" = "get_output"
+"写入标准输入" = "write_stdin"
+"货物二进制" = "cargo_bin"
+"谓词布尔扩展" = "PredicateBooleanExt"
+"基准器" = "Criterion"
+"基准函数" = "bench_function"
+"基准分组" = "benchmark_group"
+"样本数量" = "sample_size"
+"基准标识" = "BenchmarkId"
+"带输入基准" = "bench_with_input"
+"批量尺寸" = "BatchSize"
+"小输入" = "SmallInput"
+"分批迭代" = "iter_batched"
+"恒值策略" = "Just"
+"生成策略" = "Strategy"
+"属性测试配置" = "ProptestConfig"
+"属性配置函数" = "proptest_config"
+"属性映射" = "prop_map"
+"带用例数" = "with_cases"
+"用例数" = "cases"
+"指针访问" = "pointer"
+"忽略测试" = "ignore"
+"饱和时长差" = "saturating_duration_since"
+"是否为零" = "is_zero"
+"转字节" = "into_bytes"
+"限次切分" = "splitn"
 ["危险等级"]
 # 解包/期望类：与接收者无关，任何情况下调用即 panic
 "解包" = "panic"

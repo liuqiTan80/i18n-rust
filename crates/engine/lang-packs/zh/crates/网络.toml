@@ -4,9 +4,19 @@
 "HTTP底层" = "hyper"
 "gRPC" = "tonic"
 "WebSocket" = "websocket"
+"轻量HTTP客户端" = "ureq"
 
 # 内部标识符映射（用于库内的类型、函数等）
 ["标识符"]
+# ureq（轻量同步 HTTP 客户端，命令行 AI 调用用）
+"智能代理" = "Agent"
+"配置构建器" = "config_builder"
+"连接限时" = "timeout_connect"
+"整体限时" = "timeout_global"
+"新代理" = "new_agent"
+"转入主体" = "into_body"
+"带配置" = "with_config"
+
 # reqwest
 "客户端" = "Client"
 "HTTP请求" = "Request"

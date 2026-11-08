@@ -19,6 +19,9 @@ Thumbs.db
 *.rs.tmp
 *.lock~
 
+# zh 分支重构草稿（临时 .rs/.zh 工作区，禁止与正式源码混放）
+/.zh-tmp/
+
 # 离线发布包产物
 .release-tmp-*/
 

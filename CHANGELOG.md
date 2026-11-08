@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-08
+
+> 本版发布树由 zh 分支方言源执行 `rzc eject` 生成：全部 crate 的模块名、标识符、
+> 注释与教学文案均为中文，产物是可直接编译的标准 Rust（中文标识符在 Rust 中合法）。
+> 转译规则、诊断文案与 CLI/LSP 行为与 0.8.12 保持一致，仅源码形态不同；
+> 后续以 main 为发布分支、zh 为方言源分支，二者不合并。
+
 ### 新增
 - `rzc doctor` 增加**项目入口自检**。此前读者只有把 `cargo build` 直接敲下去、撞上
   `error: failed to parse manifest ... no targets specified in the manifest` 才知道项目
@@ -766,6 +773,45 @@
   readme-parity / 术语表两项）全绿、四语教程 `--allowlist --ctx --outputs` 全绿、
   `cargo +1.88 build --workspace --locked` 通过。
 ### 修复
+- **zh 分支转译产物整批缺失导致工作区无法编译**：`crates/*/src/**` 下 56 个 `.zh` 方言源的
+  同名 `.rs` 产物被删除，`cargo check` 在清单解析阶段即失败（`no targets specified in the
+  manifest`），编辑器对 `.zh` 文件成片标红。现按 `rzc transpile | rustfmt --edition 2024`
+  统一口径重生成全部产物并重建 `rzc`、语言服务器二进制，工作区恢复可编译、可测试。
+  `crates/engine/build.rs`、`crates/engine/benches/transpile.rs`、`crates/lsp/benches/hot_paths.rs`
+  等**构建目标**产物原先不在门禁覆盖范围内（缺席会让 `cargo` 直接拒绝解析清单），
+  已一并补出门禁与产物。
+- **悬停提示中英混杂**：rust-analyzer 的 markdown 悬停正文含 ```` ```rust\nfn 名字()\n``` ````
+  代码块，旧逻辑只查解释表、不翻代码片段，函数/内置函数悬停因此显示 `fn 缺失键逐级回退()`；
+  现对 markdown 的代码块与行内代码做词法级中文化（`fn` → `函数`、`pub` → `公开`），
+  英文正文保持原样，避免按词表误换说明文字。
+- **关键字悬停全英文**：悬停在 `函数`（`fn`）等关键字上时 rust-analyzer 返回英文关键字文档。
+  语言包 `["解释"]` 新增 Rust 关键字说明（`fn`/`let`/`mut`/`impl`/`trait`/`for` 等 38 条），
+  LSP 识别「代码块首行为单个关键字」即整段替换为中文标题 + 中文说明，不再残留英文。
+  回归锁 `test_map_hover_response_keyword_localized`、
+  `test_map_hover_response_signature_localized_prose_kept`、
+  `test_map_hover_response_miss_keeps_code_localized`。
+- **自定义符号悬停误挂「程序入口函数」并泄露虚拟路径**：rust-analyzer 对用户符号先返回内部
+  路径块（`i18n_virtual::main`）再返回签名块，旧逻辑拿首块查解释表，把 `main` 的说明误挂到
+  任意自定义函数上，并显示多余前缀。现只在签名块上取解释键，并丢弃虚拟项目路径块；
+  标准库悬停的内部路径块（如 `alloc::vec::Vec`）在存在签名块时同样丢弃。回归锁
+  `test_map_hover_response_user_symbol_skips_virtual_path`、
+  `test_map_hover_response_drops_path_and_internal_comments`。
+- **悬停签名残留 rust-analyzer 内部注释、构造器无中文提示**：清理 `// matched arm #1`、
+  `// Bounds from impl:` 等内部标注；`["解释"]` 补充 `Vec::new`/`Vec::with_capacity`/
+  `HashMap::new`/`HashSet::new`/`String::new` 与通用 `new`，内建构造器悬停也能看到中文大白话。
+  回归锁 `test_map_hover_response_macro_arm_annotation_stripped`、
+  `test_map_hover_response_constructor_gets_hint`。
+- **关键字悬停只在单一形态下中文化**：不同 rust-analyzer 版本会以加粗标题（`` **`fn`** ``）、
+  纯文本标识符或 MarkedString 数组返回关键字文档；现逐形态识别，数组形态整体折叠为一条中文
+  说明，避免残留英文正文元素。回归锁 `test_map_hover_response_keyword_title_localized`、
+  `test_map_hover_response_keyword_array_collapsed`。
+- **「未标注类型」教学提示对「后续使用可推导」的绑定误报**：`让 可变 已删除 = 向量::新建();`
+  后接 `已删除.推入(条目路径.克隆值())` 时，元素类型由推入实参确定，rustc 不会报 E0282，
+  但旧判定只看初始化式，仍在 `让` 上画蓝色波浪线。现在把提示延后到扫描结束：绑定名在语句
+  之后仍有代码引用（排除字段访问 `对象.名字`、路径段 `模块::名字`、字符串与注释）即视为
+  类型可由使用处推导，不再提示；只有后续确实无引用才提示，仍可能无解的形态由 rustc E0282
+  兜底。回归锁 `test_let_used_later_not_flagged` / `test_later_use_only_counts_real_references`；
+  CLI/LSP/引擎三入口同口径（均走 `校验::lint_teaching_*`）。
 - **`rzc check` 的教学告警随缓存命中与否出现、入口文件那条没有归属**：引擎把告警挂在
   `cache.get_or_transpile` 的转译闭包里，而闭包只在**未命中**时执行；CLI 侧带文件名的那份
   `emit_teaching_warnings_for_file` 又只在兄弟文件循环的 `None =>`（未命中）分支里调用。实测

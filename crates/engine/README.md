@@ -18,7 +18,7 @@ let manager = MappingManager::load_from_builtin(
 // 亦可运行时从目录加载：MappingManager::load_from_dir(Path::new("…/lang-packs/zh"))
 
 // 母语 Rust → 标准 Rust（逐 token 原地替换，行号恒等）
-let english = i18n_rust_engine::transpile_pipeline(
+let english = i18n_rust_engine::转译管线(
     "函数 主函数() { 打印行!(\"你好\"); }",
     &manager,
 )
@@ -28,7 +28,7 @@ let english = i18n_rust_engine::transpile_pipeline(
 ## 核心能力
 
 - **词法转译**：基于 `rustc_lexer` 的逐 token 替换，不依赖正则，行号恒等、
-  列偏移可回放（`column_map`）
+  列偏移可回放（`列位映射`）
 - **映射管理**：语言包（关键字/标准库/别名/派生特征/错误消息）多表加载、
   冲突检测、语境指纹缓存失效
 - **诊断翻译**：rustc JSON 诊断 → 母语教学诊断（错误码表 + 消息表 +

@@ -150,8 +150,17 @@
 "选项环境" = "option_env"
 "配置" = "cfg"
 "测试" = "test"
+"调试自检" = "debug_assertions"
+"路径属性" = "path"
+"链接名" = "link_name"
 "宏" = "macro"
 "宏规则" = "macro_rules"
+"属性测试库" = "proptest"
+"属性断言" = "prop_assert"
+"属性断言相等" = "prop_assert_eq"
+"属性择一" = "prop_oneof"
+"基准分组宏" = "criterion_group"
+"基准入口宏" = "criterion_main"
 ["派生特征"]
 "克隆" = "Clone"
 "复制" = "Copy"
@@ -173,6 +182,12 @@
 "下一个" = "next"
 "从" = "from"
 "格式化方法" = "fmt"
+"部分相等特征" = "PartialEq"
+"相等方法" = "eq"
+"解引用方法" = "deref"
+"目标类型" = "Target"
+"JSON值" = "Value"  # 反序列化访问器关联类型（特征契约写死为 Value）
+"令牌长度" = "len"  # Token 结构体的 len 字段（源码侧 `长度` 已被缓存模块字段同名保护占住）
 "加法方法" = "add"
 "货物类型" = "Item"
 "输出类型" = "Output"
@@ -181,6 +196,7 @@
 "标识符" = "ident"
 "字面量" = "literal"
 "类型说明" = "ty"
+"元语法记号" = "tt"
 "应恐慌" = "should_panic"
 
 # ============================================================

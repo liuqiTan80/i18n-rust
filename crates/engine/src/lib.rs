@@ -1,26 +1,46 @@
 //! i18n-rust 核心引擎
 //! 提供多语言 Rust 方言的词法处理、映射管理、诊断翻译、增量缓存、安全检测等功能
 
-pub mod alias;
-pub mod cache;
-pub mod column_map;
-pub mod diagnostic;
-pub mod eject_hints;
-pub mod error;
-pub mod fullwidth;
-pub mod guide;
-pub mod lexer;
-pub mod lint;
-pub mod logger;
-pub mod mapping_manager;
-pub mod mapping_source;
-pub mod module_path;
-pub mod name_cache;
-pub mod product_layout;
-pub mod relocalize;
-pub mod toolchain;
-pub mod ui;
-pub mod unicode_confusion;
+#[path = "产物布局.rs"]
+pub mod 产物布局;
+#[path = "全角标点.rs"]
+pub mod 全角标点;
+#[path = "列位映射.rs"]
+pub mod 列位映射;
+#[path = "别名.rs"]
+pub mod 别名;
+#[path = "反译重生.rs"]
+pub mod 反译重生;
+#[path = "名字缓存.rs"]
+pub mod 名字缓存;
+#[path = "导出冲突提示.rs"]
+pub mod 导出冲突提示;
+#[path = "工具链.rs"]
+pub mod 工具链;
+#[path = "指南.rs"]
+pub mod 指南;
+#[path = "故障.rs"]
+pub mod 故障;
+#[path = "日志.rs"]
+pub mod 日志;
+#[path = "映射源.rs"]
+pub mod 映射源;
+#[path = "映射管理器.rs"]
+pub mod 映射管理器;
+#[path = "校验.rs"]
+pub mod 校验;
+#[path = "模块路径.rs"]
+pub mod 模块路径;
+#[path = "混淆检测.rs"]
+pub mod 混淆检测;
+#[path = "界面消息.rs"]
+pub mod 界面消息;
+#[path = "缓存.rs"]
+pub mod 缓存;
+#[path = "诊断/mod.rs"]
+pub mod 诊断;
+#[path = "词法器.rs"]
+pub mod 词法器;
 #[path = "语言.rs"]
 pub mod 语言;
 
@@ -35,811 +55,793 @@ use std::time::Instant;
 /// 2. 未命中时先执行 Unicode 混淆安全检查（零宽/双向/同形字符），再执行转译；
 /// 3. 转译结果写入缓存供后续复用。
 ///
-/// 与命令行工具的管线顺序保持一致；日志级别由 `logger::init()` 读取
-/// `RZ_LOG` 环境变量（debug/info/warn/error）控制。
-pub fn transpile_source(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    cache: &mut cache::TranslationCache,
-) -> Result<String, error::TranspileError> {
-    Ok(transpile_source_with_map(source, manager, cache)?.output)
+/// 与命令行工具的管线顺序保持一致；日志级别由 `日志::初始化()` 读取
+/// 环境变量（调试/信息/警告/错误）控制。
+pub fn 转译源文本(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    缓存实例: &mut 缓存::转译缓存,
+) -> Result<String, 故障::转译故障> {
+    Ok(转译源文本并取映射(源文本, 管理器, 缓存实例)?.输出)
 }
 
-/// 同 [`transpile_source`]，同时返回源映射（被替换标识符的源偏移与翻译前后文本）
-pub fn transpile_source_with_map(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    cache: &mut cache::TranslationCache,
-) -> Result<cache::TranspileOutput, error::TranspileError> {
-    transpile_source_with_project(source, manager, cache, None)
+/// 同 [`转译源文本`]，同时返回源映射（被替换标识符的源偏移与翻译前后文本）
+pub fn 转译源文本并取映射(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    缓存实例: &mut 缓存::转译缓存,
+) -> Result<缓存::转译输出, 故障::转译故障> {
+    带项目转译源文本(源文本, 管理器, 缓存实例, None)
 }
 
-/// 同 [`transpile_source_with_map`]，附项目级声明上下文（跨文件声明豁免）
+/// 同 [`转译源文本并取映射`]，附项目级声明上下文（跨文件声明豁免）
 ///
-/// 缓存语境指纹并入项目上下文指纹（[`alias::ProjectContext::fingerprint`]）：
+/// 缓存语境指纹并入项目上下文指纹（[`别名::项目上下文::指纹`]）：
 /// 项目声明集合变化时相关缓存自动失效，无需语言包版本变化触发。
 ///
 /// 教学告警与缓存状态无关：命中缓存只复用**转译产物**，源码里的魔法数字、全角
 /// 标点、Unicode 混淆字符还在原地，每次调用都照旧提示。旧实现把告警挂在转译
 /// 闭包里（只有未命中才跑），实测同一份含魔法数字的 `main.zh` 连跑两次
-/// `rzc check`：第一次出「[lint] 第 5 行第 12 列：魔法数字「5」」，第二次一条
+/// `rzc check`：第一次出「[教学提示] 第 5 行第 12 列：魔法数字「5」」，第二次一条
 /// 告警都没有——学习者会读成「提示消失＝问题已修」。
-pub fn transpile_source_with_project(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    cache: &mut cache::TranslationCache,
-    project: Option<&alias::ProjectContext>,
-) -> Result<cache::TranspileOutput, error::TranspileError> {
-    transpile_source_cached_inner(source, manager, cache, project, true)
+pub fn 带项目转译源文本(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    缓存实例: &mut 缓存::转译缓存,
+    项目: Option<&别名::项目上下文>,
+) -> Result<缓存::转译输出, 故障::转译故障> {
+    带缓存转译实现(源文本, 管理器, 缓存实例, 项目, true)
 }
 
-/// 同 [`transpile_source_with_project`]，但不输出教学告警
+/// 同 [`带项目转译源文本`]，但不输出教学告警
 ///
-/// 供调用方自行负责告警与文件归属的场景使用（CLI 多文件项目按文件名前缀输出，
-/// 见 [`emit_teaching_warnings`]）：除告警外，产物与缓存行为逐字一致。
-pub fn transpile_source_with_project_quiet(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    cache: &mut cache::TranslationCache,
-    project: Option<&alias::ProjectContext>,
-) -> Result<cache::TranspileOutput, error::TranspileError> {
-    transpile_source_cached_inner(source, manager, cache, project, false)
+/// 供调用方自行负责告警与文件归属的场景使用（命令行多文件项目按文件名前缀输出，
+/// 见 [`输出教学告警`]）：除告警外，产物与缓存行为逐字一致。
+pub fn 静默带项目转译源文本(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    缓存实例: &mut 缓存::转译缓存,
+    项目: Option<&别名::项目上下文>,
+) -> Result<缓存::转译输出, 故障::转译故障> {
+    带缓存转译实现(源文本, 管理器, 缓存实例, 项目, false)
 }
 
-/// 带缓存转译入口的唯一实现：`emit` 控制本入口是否输出教学告警
-fn transpile_source_cached_inner(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    cache: &mut cache::TranslationCache,
-    project: Option<&alias::ProjectContext>,
-    emit: bool,
-) -> Result<cache::TranspileOutput, error::TranspileError> {
-    logger::init();
-    let start = Instant::now();
+/// 带缓存转译入口的唯一实现：`输出开关` 控制本入口是否输出教学告警
+fn 带缓存转译实现(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    缓存实例: &mut 缓存::转译缓存,
+    项目: Option<&别名::项目上下文>,
+    输出开关: bool,
+) -> Result<缓存::转译输出, 故障::转译故障> {
+    日志::初始化();
+    let 开始 = Instant::now();
     crate::log_info!(
         "transpile_engine",
         "{}",
-        crate::语言::f("log_transpile_start", &[&source.len().to_string()])
+        语言::取带参消息("log_transpile_start", &[&源文本.len().to_string()])
     );
 
-    let fingerprint = cache::TranslationCache::combine_fingerprint(
-        manager.context_fingerprint(),
-        project.map(alias::ProjectContext::fingerprint),
-    );
+    let 语境指纹 =
+        缓存::转译缓存::组合指纹(管理器.取语境指纹(), 项目.map(别名::项目上下文::指纹));
 
     // 闭包内保持静默：把告警挂在闭包里，等于把它绑死在「缓存未命中」这个条件上
-    let output = cache.get_or_transpile(source, fingerprint, || {
-        Ok(transpile_pipeline_inner(
-            source, manager, None, project, false,
-        ))
+    let 输出产物 = 缓存实例.取或转译(源文本, 语境指纹, || {
+        Ok(转译管线实现(源文本, 管理器, None, 项目, false))
     })?;
-    emit_teaching_diagnostics(source, manager, emit);
+    输出教学诊断(源文本, 管理器, 输出开关);
 
-    let elapsed = format!("{:?}", start.elapsed());
+    let 已用 = format!("{:?}", 开始.elapsed());
     crate::log_info!(
         "transpile_engine",
         "{}",
-        crate::语言::f(
+        语言::取带参消息(
             "log_transpile_done",
             &[
-                &source.len().to_string(),
-                &output.output.len().to_string(),
-                &elapsed,
+                &源文本.len().to_string(),
+                &输出产物.输出.len().to_string(),
+                &已用,
             ]
         )
     );
-    Ok(output)
+    Ok(输出产物)
 }
 
 /// 无缓存的完整转译管线：Unicode 混淆检查 → 词法转译 → 模块路径替换 → 别名替换
 ///
-/// CLI / LSP 等短命进程可直接复用此管线，无需维护增量缓存；
-/// Unicode 告警经日志（warn 级）输出，不阻断转译。
+/// 命令行 / 语言服务器等短命进程可直接复用此管线，无需维护增量缓存；
+/// Unicode 告警经日志（警告级）输出，不阻断转译。
 /// 返回转译结果与源映射（被替换标识符的源偏移与翻译前后文本）。
-pub fn transpile_pipeline(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-) -> cache::TranspileOutput {
-    transpile_pipeline_inner(source, manager, None, None, true)
+pub fn 转译管线(
+    源文本: &str, 管理器: &映射管理器::映射管理器
+) -> 缓存::转译输出 {
+    转译管线实现(源文本, 管理器, None, None, true)
 }
 
-/// 静默转译管线：不输出教学告警（Unicode 混淆/全角标点/lint）
+/// 静默转译管线：不输出教学告警（Unicode 混淆/全角标点/教学提示）
 ///
 /// 供调用方自行负责教学告警输出的场景使用：
 /// - “事后重放”（如诊断列映射重建）：此前已对同一源码执行过完整管线
-///   （写盘转译）并输出过教学告警，重放只为取 `pipeline_map`；
-/// - 调用方需要带文件归属输出告警（如 CLI 多文件项目按文件名前缀输出）。
+///   （写盘转译）并输出过教学告警，重放只为取 `流程映射`；
+/// - 调用方需要带文件归属输出告警（如命令行多文件项目按文件名前缀输出）。
 ///
-/// 除教学告警外，输出与 [`transpile_pipeline`] 完全一致。
-pub fn transpile_pipeline_quiet(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-) -> cache::TranspileOutput {
-    transpile_pipeline_inner(source, manager, None, None, false)
+/// 除教学告警外，输出与 [`转译管线`] 完全一致。
+pub fn 静默转译管线(
+    源文本: &str, 管理器: &映射管理器::映射管理器
+) -> 缓存::转译输出 {
+    转译管线实现(源文本, 管理器, None, None, false)
 }
 
-/// 同 [`transpile_pipeline_quiet`]，附项目级声明上下文（跨文件声明豁免）
+/// 同 [`静默转译管线`]，附项目级声明上下文（跨文件声明豁免）
 ///
-/// CLI 多文件项目中项目内文件与诊断重放的转译入口：项目上下文由调用方
-/// 预先收集（见 [`alias::ProjectContext::from_sources`]），与入口文件共享。
-pub fn transpile_pipeline_quiet_with_project(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    project: Option<&alias::ProjectContext>,
-) -> cache::TranspileOutput {
-    transpile_pipeline_inner(source, manager, None, project, false)
+/// 命令行多文件项目中项目内文件与诊断重放的转译入口：项目上下文由调用方
+/// 预先收集（见 [`别名::项目上下文::从源集合`]），与入口文件共享。
+pub fn 静默带项目转译管线(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    项目: Option<&别名::项目上下文>,
+) -> 缓存::转译输出 {
+    转译管线实现(源文本, 管理器, None, 项目, false)
 }
 
-/// 同 [`transpile_pipeline`]，附项目级声明上下文（跨文件声明豁免）
+/// 同 [`转译管线`]，附项目级声明上下文（跨文件声明豁免）
 ///
-/// 供无缓存场景的调用方使用；带缓存的入口见 [`transpile_source_with_project`]。
-pub fn transpile_pipeline_with_project(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    project: Option<&alias::ProjectContext>,
-) -> cache::TranspileOutput {
-    transpile_pipeline_inner(source, manager, None, project, true)
+/// 供无缓存场景的调用方使用；带缓存的入口见 [`带项目转译源文本`]。
+pub fn 带项目转译管线(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    项目: Option<&别名::项目上下文>,
+) -> 缓存::转译输出 {
+    转译管线实现(源文本, 管理器, None, 项目, true)
 }
 
-/// 同 [`transpile_pipeline`]，支持 LSP 虚拟项目的 `crate::` 前缀重写
+/// 同 [`转译管线`]，支持语言服务器虚拟项目的 `crate::` 前缀重写
 ///
-/// `module_names` 为 Some 时，在模块路径替换后、别名替换前，为已知模块路径段
-/// 添加 `crate::` 前缀（跨文件引用，见 [`module_path::qualify_module_paths_with_map`]）。
-/// CLI 等非虚拟项目场景传 None 保持原有行为。
+/// `模块名集` 为有值时，在模块路径替换后、别名替换前，为已知模块路径段
+/// 添加 `crate::` 前缀（跨文件引用，见 [`模块路径::带映射限定模块路径`]）。
+/// 命令行等非虚拟项目场景传无保持原有行为。
 ///
-/// 返回的 `pipeline_map` 以母语源偏移升序记录全部替换（replacement 为最终输出文本），
+/// 返回的 `流程映射` 以母语源偏移升序记录全部替换（替换文字为最终输出文本），
 /// 是列映射等消费方的唯一规则来源——消费方无需复刻任何转译判定。
-pub fn transpile_pipeline_with_map(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    module_names: Option<&HashSet<String>>,
-) -> cache::TranspileOutput {
-    transpile_pipeline_inner(source, manager, module_names, None, true)
+pub fn 带映射转译管线(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    模块名集: Option<&HashSet<String>>,
+) -> 缓存::转译输出 {
+    转译管线实现(源文本, 管理器, 模块名集, None, true)
 }
 
-/// 同 [`transpile_pipeline_with_map`]，附项目级声明上下文（LSP 虚拟项目）
+/// 同 [`带映射转译管线`]，附项目级声明上下文（语言服务器虚拟项目）
 ///
-/// LSP 跨文件场景与 CLI 同源：项目上下文（模块名与声明名）与 `crate::`
+/// 语言服务器跨文件场景与命令行同源：项目上下文（模块名与声明名）与 `crate::`
 /// 前缀重写共同保证跨文件引用的成员在调用侧与声明侧行为一致。
-pub fn transpile_pipeline_with_map_and_project(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    module_names: Option<&HashSet<String>>,
-    project: Option<&alias::ProjectContext>,
-) -> cache::TranspileOutput {
-    transpile_pipeline_inner(source, manager, module_names, project, true)
+pub fn 带映射与项目转译管线(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    模块名集: Option<&HashSet<String>>,
+    项目: Option<&别名::项目上下文>,
+) -> 缓存::转译输出 {
+    转译管线实现(源文本, 管理器, 模块名集, 项目, true)
 }
 
-/// 同 [`transpile_pipeline_with_map_and_project`]，项目上下文由调用方在词法
+/// 同 [`带映射与项目转译管线`]，项目上下文由调用方在词法
 /// 阶段后补全（单趟：本文件声明不再单独预扫）
 ///
-/// LSP 每次按键都要重建项目上下文：本文件内容已变，声明名按内容哈希缓存
-/// 必然失效，而 [`transpile_pipeline_with_map_and_project`] 要求先有完整上下文
-/// 才能转译——调用方只能先跑一整趟 `alias::collect_source_declarations`
+/// 语言服务器每次按键都要重建项目上下文：本文件内容已变，声明名按内容哈希缓存
+/// 必然失效，而 [`带映射与项目转译管线`] 要求先有完整上下文
+/// 才能转译——调用方只能先跑一整趟 `别名::收集源声明`
 ///（内部含完整词法转译）取本文件声明，随后管线里的词法阶段再跑一遍。
 ///
 /// 本入口把词法阶段提到回调之前执行，本文件声明从词法产物顺带收集，回调
 /// 只需合并其他文件的缓存声明。输出与「预扫声明 → 建上下文 → 完整管线」
 /// 逐字节一致（项目上下文按构造相同），另返回本文件声明与所用上下文，
 /// 供调用方缓存与变更判定。
-pub fn transpile_pipeline_with_deferred_project<F>(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    module_names: Option<&HashSet<String>>,
-    build_project: F,
-) -> (
-    cache::TranspileOutput,
-    alias::DeclaredNames,
-    alias::ProjectContext,
-)
+pub fn 延迟项目转译管线<建项目闭包>(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    模块名集: Option<&HashSet<String>>,
+    建项目: 建项目闭包,
+) -> (缓存::转译输出, 别名::已声明名集合, 别名::项目上下文)
 where
-    F: FnOnce(&alias::DeclaredNames) -> alias::ProjectContext,
+    建项目闭包: FnOnce(&别名::已声明名集合) -> 别名::项目上下文,
 {
-    deferred_project_inner(source, manager, module_names, build_project, true)
+    延迟项目实现(源文本, 管理器, 模块名集, 建项目, true)
 }
 
-/// 同 [`transpile_pipeline_with_deferred_project`]，但不输出教学告警
+/// 同 [`延迟项目转译管线`]，但不输出教学告警
 ///
-/// 供调用方自行负责教学告警输出的场景使用（LSP 把教学提示作为诊断发布，
+/// 供调用方自行负责教学告警输出的场景使用（语言服务器把教学提示作为诊断发布，
 /// 转译时的日志告警只是重复刷屏）：除告警外输出完全一致。
-pub fn transpile_pipeline_with_deferred_project_quiet<F>(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    module_names: Option<&HashSet<String>>,
-    build_project: F,
-) -> (
-    cache::TranspileOutput,
-    alias::DeclaredNames,
-    alias::ProjectContext,
-)
+pub fn 静默延迟项目转译管线<建项目闭包>(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    模块名集: Option<&HashSet<String>>,
+    建项目: 建项目闭包,
+) -> (缓存::转译输出, 别名::已声明名集合, 别名::项目上下文)
 where
-    F: FnOnce(&alias::DeclaredNames) -> alias::ProjectContext,
+    建项目闭包: FnOnce(&别名::已声明名集合) -> 别名::项目上下文,
 {
-    deferred_project_inner(source, manager, module_names, build_project, false)
+    延迟项目实现(源文本, 管理器, 模块名集, 建项目, false)
 }
 
-/// [`transpile_pipeline_with_deferred_project`] 的唯一实现
-fn deferred_project_inner<F>(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    module_names: Option<&HashSet<String>>,
-    build_project: F,
-    emit_teaching_warnings: bool,
-) -> (
-    cache::TranspileOutput,
-    alias::DeclaredNames,
-    alias::ProjectContext,
-)
+/// [`延迟项目转译管线`] 的唯一实现
+fn 延迟项目实现<建项目闭包>(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    模块名集: Option<&HashSet<String>>,
+    建项目: 建项目闭包,
+    输出教学告警开关: bool,
+) -> (缓存::转译输出, 别名::已声明名集合, 别名::项目上下文)
 where
-    F: FnOnce(&alias::DeclaredNames) -> alias::ProjectContext,
+    建项目闭包: FnOnce(&别名::已声明名集合) -> 别名::项目上下文,
 {
-    emit_teaching_diagnostics(source, manager, emit_teaching_warnings);
-    let (lex, input_tokens) = transpile_lex_stage(source, manager);
-    // 词法产物要分词一次才收得了声明（建项目上下文的前置）；use 路径阶段
-    // 恰好也在这份文本上跑，于是这份 token 流一路交给后续阶段复用。
-    // 它不必重新分词：词法阶段自己那份输入 token 流按本阶段编辑表推进就是它
-    let lex_tokens = derive_lex_tokens(&input_tokens, &lex);
-    // 词法产物上收集本文件声明：与 `alias::collect_source_declarations` 同源
+    输出教学诊断(源文本, 管理器, 输出教学告警开关);
+    let (词法, 输入令牌) = 词法阶段转译(源文本, 管理器);
+    // 词法产物要分词一次才收得了声明（建项目上下文的前置）；使用路径阶段
+    // 恰好也在这份文本上跑，于是这份令牌流一路交给后续阶段复用。
+    // 它不必重新分词：词法阶段自己那份输入令牌流按本阶段编辑表推进就是它
+    let 词法令牌流 = 派生词法令牌(&输入令牌, &词法);
+    // 词法产物上收集本文件声明：与 `别名::收集源声明` 同源
     // （后者正是「词法转译 + 收集」），仅少一次重复的转译
-    let declared =
-        alias::collect_declared_names_in(&lex.output, manager.get_alias_map(), &lex_tokens);
-    let project = build_project(&declared);
-    let output = transpile_after_lex(
-        source,
-        manager,
-        module_names,
-        Some(&project),
-        Some(LexReuse {
-            declared: Some(&declared),
-            tokens: &lex_tokens,
+    let 已声明 = 别名::在文本中收集声明名(&词法.输出, 管理器.取别名表(), &词法令牌流);
+    let 项目 = 建项目(&已声明);
+    let 输出产物 = 词法后转译(
+        源文本,
+        管理器,
+        模块名集,
+        Some(&项目),
+        Some(词法复用 {
+            已声明: Some(&已声明),
+            令牌们: &词法令牌流,
         }),
-        lex,
+        词法,
     );
-    (output, declared, project)
+    (输出产物, 已声明, 项目)
 }
 
-/// 同 [`transpile_pipeline_with_map_and_project`]，但不输出教学告警
+/// 同 [`带映射与项目转译管线`]，但不输出教学告警
 ///
-/// 与 [`transpile_pipeline_quiet`] 同口径：除教学告警外输出完全一致。
-pub fn transpile_pipeline_quiet_with_map_and_project(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    module_names: Option<&HashSet<String>>,
-    project: Option<&alias::ProjectContext>,
-) -> cache::TranspileOutput {
-    transpile_pipeline_inner(source, manager, module_names, project, false)
+/// 与 [`静默转译管线`] 同口径：除教学告警外输出完全一致。
+pub fn 静默带映射与项目转译管线(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    模块名集: Option<&HashSet<String>>,
+    项目: Option<&别名::项目上下文>,
+) -> 缓存::转译输出 {
+    转译管线实现(源文本, 管理器, 模块名集, 项目, false)
 }
 
-/// 转译管线的唯一实现：`emit_teaching_warnings` 控制教学告警日志的开关
-fn transpile_pipeline_inner(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    module_names: Option<&HashSet<String>>,
-    project: Option<&alias::ProjectContext>,
-    emit_teaching_warnings: bool,
-) -> cache::TranspileOutput {
-    emit_teaching_diagnostics(source, manager, emit_teaching_warnings);
-    let (lex, input_tokens) = transpile_lex_stage(source, manager);
-    // 词法产物的 token 流由词法阶段自己那份派生（见 [`derive_lex_tokens`]），
-    // 交给 use 路径与别名两个阶段共用：预计算入口（CLI 整棵编译）同样只付
-    // 一整趟分词。声明名不在本入口预算（调用方已带项目上下文），传 `None`。
-    let lex_tokens = derive_lex_tokens(&input_tokens, &lex);
-    transpile_after_lex(
-        source,
-        manager,
-        module_names,
-        project,
-        Some(LexReuse {
-            declared: None,
-            tokens: &lex_tokens,
+/// 转译管线的唯一实现：`输出教学告警开关` 控制教学告警日志的开关
+fn 转译管线实现(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    模块名集: Option<&HashSet<String>>,
+    项目: Option<&别名::项目上下文>,
+    输出教学告警开关: bool,
+) -> 缓存::转译输出 {
+    输出教学诊断(源文本, 管理器, 输出教学告警开关);
+    let (词法, 输入令牌) = 词法阶段转译(源文本, 管理器);
+    // 词法产物的令牌流由词法阶段自己那份派生（见 [`派生词法令牌`]），
+    // 交给使用路径与别名两个阶段共用：预计算入口（命令行整棵编译）同样只付
+    // 一整趟分词。声明名不在本入口预算（调用方已带项目上下文），传 `无`。
+    let 词法令牌流 = 派生词法令牌(&输入令牌, &词法);
+    词法后转译(
+        源文本,
+        管理器,
+        模块名集,
+        项目,
+        Some(词法复用 {
+            已声明: None,
+            令牌们: &词法令牌流,
         }),
-        lex,
+        词法,
     )
 }
 
-/// 教学告警（Unicode 混淆 / 全角标点 / 教学 lint）：仅告警不阻断
+/// 教学告警（Unicode 混淆 / 全角标点 / 教学提示）：仅告警不阻断
 ///
-/// `label` 为 Some 时每条告警带文件归属前缀（`标签：正文`）：多文件项目里裸
-/// 行列定位不到具体文件，按文件输出的调用方（CLI）传自己的显示名；None 是管线
+/// `标签` 为有值时每条告警带文件归属前缀（`标签：正文`）：多文件项目里裸
+/// 行列定位不到具体文件，按文件输出的调用方（命令行）传自己的显示名；无是管线
 /// 内部出口（入口文件语境，裸行列即命令传入的那个文件）。
 ///
 /// 本函数是教学扫描集合的**唯一**事实来源：调用方不要再各自拼一遍扫描器。历史
-/// 上 CLI 侧那份少调了英文回落与保留字撞名两类，入口文件会提示而兄弟文件不会，
-/// 同一份代码换条路径就漏报（见 `lint_teaching_all_chars`）。
-pub fn emit_teaching_warnings(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    label: Option<&str>,
+/// 上命令行侧那份少调了英文回落与保留字撞名两类，入口文件会提示而兄弟文件不会，
+/// 同一份代码换条路径就漏报（见 `检查全部教学字符`）。
+pub fn 输出教学告警(
+    源文本: &str, 管理器: &映射管理器::映射管理器, 标签: Option<&str>
 ) {
-    // 归属前缀只在有标签时拼一次：None 走原样，不额外分配
-    let owned = |text: String| match label {
-        Some(name) => format!("{name}：{text}"),
-        None => text,
+    // 归属前缀只在有标签时拼一次：无为原样，不额外分配
+    let 带归属 = |文本值: String| {
+        if let Some(名字) = 标签 {
+            format!("{名字}：{文本值}")
+        } else {
+            文本值
+        }
     };
     // 词法处理前的 Unicode 混淆安全检查（零宽/双向/同形字符，仅告警）
-    for warning in unicode_confusion::check_unicode_confusion(source) {
-        crate::log_warn!("unicode_confusion", "{}", owned(warning.format()));
+    for 告警 in 混淆检测::检查混淆(源文本) {
+        crate::log_warn!("unicode_confusion", "{}", 带归属(告警.展示行()));
     }
     // 全角标点教学检查（中文输入法常见错误：代码位置的全角标点，仅告警不阻断）；
     // 字符串/注释内的全角标点合法，由扫描器自动跳过
     //
     // 以下四个扫描器共用同一份字符切片：源码只物化一次，避免各扫一遍
-    let chars: Vec<char> = source.chars().collect();
-    for warning in fullwidth::find_fullwidth_punct_chars(&chars) {
-        crate::log_warn!("fullwidth", "{}", owned(warning.format()));
+    let 字符们: Vec<char> = 源文本.chars().collect();
+    for 告警 in 全角标点::检测全角标点字符(&字符们) {
+        crate::log_warn!("fullwidth", "{}", 带归属(告警.展示行()));
     }
-    // 教学 lint（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深/易混方法名。
-    // CLI `--no-lint` 可关闭（lint::set_teaching_lint_enabled），
+    // 教学提示（初学者代码风格提示，仅告警不阻断）：未标注类型/魔法数字/嵌套过深/易混方法名。
+    // 命令行 `--no-lint` 可关闭（校验::设教学告警启用），
     // 供项目开发（非教学）场景静默刷屏提示
-    if lint::teaching_lint_enabled() {
+    if 校验::教学告警已启用() {
         // 一把算全部教学提示：共用同一份字符切片，英文回落（母语词条却写成
-        // `fn`/`Vec`/`.collect()` 等）与保留字撞名（`函数 匹配` → `fn match`）
-        // 在同一次遍历里判定，见 `lint::lint_teaching_all`；易混词表的分桶索引
-        // 由 manager 缓存（每语言包一次，不是每文件一次）
-        for warning in lint::lint_teaching_all_chars(
-            &chars,
-            lint::WordIndexSource::Shared(manager.lint_word_buckets()),
-            manager.ambiguous_constructor_words(),
-            manager.english_fallback_map(),
-            manager.get_keyword_map(),
+        // `函数`/`向量`/`.收集()` 等）与保留字撞名（`函数 匹配` → `fn match`）
+        // 在同一次遍历里判定，见 `校验::检查全部教学`；易混词表的分桶索引
+        // 由管理器缓存（每语言包一次，不是每文件一次）
+        for 告警 in 校验::检查全部教学字符(
+            &字符们,
+            校验::词形索引来源::共享(管理器.取校验分桶()),
+            管理器.取歧义构造器(),
+            管理器.取英文回落(),
+            管理器.取关键词表(),
         ) {
-            crate::log_warn!("lint", "{}", owned(warning.format()));
+            crate::log_warn!("lint", "{}", 带归属(告警.生成说明()));
         }
     }
 }
 
-/// 管线内部出口：`emit` 控制是否输出（不带文件归属）
-fn emit_teaching_diagnostics(source: &str, manager: &mapping_manager::MappingManager, emit: bool) {
-    if emit {
-        emit_teaching_warnings(source, manager, None);
+/// 管线内部出口：`输出开关` 控制是否输出（不带文件归属）
+fn 输出教学诊断(
+    源文本: &str, 管理器: &映射管理器::映射管理器, 输出开关: bool
+) {
+    if 输出开关 {
+        输出教学告警(源文本, 管理器, None);
     }
 }
 
 /// 词法阶段（关键字/宏/派生/让位词映射）
 ///
-/// 另返回本阶段自己分好的输入 token 流（它本来就要分一次）：词法产物的
-/// token 流可据此派生，管线不必再对输出整份重新分词。
-fn transpile_lex_stage(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-) -> (lexer::TranspileResult, Vec<rustc_lexer::Token>) {
-    lexer::transpile_with_map_tokens(
-        source,
-        manager.get_keyword_map(),
-        manager.get_macro_map(),
-        manager.get_derive_map(),
-        manager.get_use_defer_words(),
-        manager.get_method_defer_words(),
-        manager.get_alias_map(),
+/// 另返回本阶段自己分好的输入令牌流（它本来就要分一次）：词法产物的
+/// 令牌流可据此派生，管线不必再对输出整份重新分词。
+fn 词法阶段转译(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+) -> (词法器::分词结果, Vec<rustc_lexer::Token>) {
+    词法器::分词转译并取令牌(
+        源文本,
+        管理器.取关键词表(),
+        管理器.取宏表(),
+        管理器.取派生特征表(),
+        管理器.取让位词(),
+        管理器.取方法让位词(),
+        管理器.取别名表(),
     )
 }
 
-/// 词法产物的分词结果（各阶段共用一份 token 流时的载体）
+/// 词法产物的分词结果（各阶段共用一份令牌流时的载体）
 ///
-/// 分词口径与各阶段自己收集的完全一致（`with_capacity(len/4+8)` + `tokenize`）。
-fn collect_tokens(source: &str) -> Vec<rustc_lexer::Token> {
-    let mut tokens: Vec<rustc_lexer::Token> = Vec::with_capacity(source.len() / 4 + 8);
-    tokens.extend(rustc_lexer::tokenize(source));
-    tokens
+/// 分词口径与各阶段自己收集的完全一致（`向量::带容量(长度 / 4 + 8)` + `切分令牌`）。
+fn 收集令牌(源文本: &str) -> Vec<rustc_lexer::Token> {
+    let mut 令牌们: Vec<rustc_lexer::Token> = Vec::with_capacity(源文本.len() / 4 + 8);
+    令牌们.extend(rustc_lexer::tokenize(源文本));
+    令牌们
 }
 
-/// 按某阶段的编辑表把 token 流推进到该阶段输出的坐标
+/// 按某阶段的编辑表把令牌流推进到该阶段输出的坐标
 ///
-/// 编辑都是**整段覆盖若干相邻 token** 的替换（词法阶段改标识符 token、use 路径
-/// 改 `模块词` 整个 token、数字后缀黏连时一条编辑跨两个 token），`kind` 序列
-/// 只取决于替换文本。因此「把被覆盖的 token 换成替换值自己的 token」就得到
-/// 该阶段输出的 token 流，不必把整份文件重新分词（359 / 2000 行样例分别
-/// 实测 189 / 421 µs）。替换值本身仍要分词（它可能含 `::`，如 `标准集合` →
+/// 编辑都是**整段覆盖若干相邻令牌** 的替换（词法阶段改标识符令牌、使用路径
+/// 改 `模块词` 整个令牌、数字后缀黏连时一条编辑跨两个令牌），`令牌类别` 序列
+/// 只取决于替换文本。因此「把被覆盖的令牌换成替换值自己的令牌」就得到
+/// 该阶段输出的令牌流，不必把整份文件重新分词（359 / 2000 行样例分别
+/// 实测 189 / 421 微秒）。替换值本身仍要分词（它可能含 `::`，如 `标准集合` →
 /// `std::collections`，也可能含补出来的 `!`，如 `打印行` → `println!`），但每处
-/// 只有几个 token，且替换值原样占据原文置，前后邻接关系不变，所以单独分词与
-/// 整份分词的结果同构（该假设由单测、语料差分测试与 debug 构建下的自检守住）。
+/// 只有几个令牌，且替换值原样占据原文置，前后邻接关系不变，所以单独分词与
+/// 整份分词的结果同构（该假设由单测、语料差分测试与调试构建下的自检守住）。
 ///
-/// 编辑起点不在 token 边界、终点落进 token 内部、或编辑表没走完时返回 `None`：
-/// 调用方退回现场分词，宁慢不错。`SourceMapEntry` 按匹配位置升序发出，故与
-/// token 同序遍历一次即可。
-fn rebase_tokens(
-    base: &[rustc_lexer::Token],
-    edits: &[cache::SourceMapEntry],
+/// 编辑起点不在令牌边界、终点落进令牌内部、或编辑表没走完时返回 `无`：
+/// 调用方退回现场分词，宁慢不错。`源码映射条目` 按匹配位置升序发出，故与
+/// 令牌同序遍历一次即可。
+fn 重基准令牌(
+    基点: &[rustc_lexer::Token],
+    编辑们: &[缓存::源码映射条目],
 ) -> Option<Vec<rustc_lexer::Token>> {
-    let mut out: Vec<rustc_lexer::Token> = Vec::with_capacity(base.len());
-    let mut index = 0usize;
-    let mut offset = 0usize;
-    let mut next_edit = 0usize;
-    while index < base.len() {
-        let token = &base[index];
-        // 编辑起点落在本 token 内部（如数字字面量的后缀被单独改写：`1024整数`
-        // 是一个 Literal token，后缀 `整数` 是其尾部字节）：整段对齐前提已破，
+    let mut 输出流: Vec<rustc_lexer::Token> = Vec::with_capacity(基点.len());
+    let mut 下标 = 0;
+    let mut 偏移 = 0;
+    let mut 下一个编辑 = 0;
+    while 下标 < 基点.len() {
+        let 令牌 = &基点[下标];
+        // 编辑起点落在本令牌内部（如数字字面量的后缀被单独改写：`1024整数`
+        // 是一个字面量令牌，后缀 `整数` 是其尾部字节）：整段对齐前提已破，
         // 立刻放弃派生，不要跑完全流才发现。
-        if let Some(edit) = edits.get(next_edit)
-            && edit.source_offset < offset
+        if let Some(编辑条) = 编辑们.get(下一个编辑)
+            && 编辑条.源偏移 < 偏移
         {
             return None;
         }
-        if let Some(edit) = edits.get(next_edit)
-            && edit.source_offset == offset
+        if let Some(编辑条) = 编辑们.get(下一个编辑)
+            && 编辑条.源偏移 == 偏移
         {
-            // 同一起点的编辑必然从本 token 起整段覆盖：往后吃满 `length`
-            let end = offset + edit.length;
-            let mut covered = index;
-            let mut cursor = offset;
-            while cursor < end {
-                let spanned = base.get(covered)?;
-                cursor += spanned.len;
-                covered += 1;
+            // 同一起点的编辑必然从本令牌起整段覆盖：往后吃满 `长度`
+            let 终点 = 偏移 + 编辑条.源码长度;
+            let mut 覆盖下标 = 下标;
+            let mut 游标偏移 = 偏移;
+            while 游标偏移 < 终点 {
+                let 跨项 = 基点.get(覆盖下标)?;
+                游标偏移 += 跨项.len;
+                覆盖下标 += 1;
             }
-            if cursor != end {
+            if 游标偏移 != 终点 {
                 return None;
             }
-            let replacement = edit.replacement.as_str();
-            let before = out.len();
-            for part in rustc_lexer::tokenize(replacement) {
-                out.push(rustc_lexer::Token {
-                    kind: part.kind,
-                    len: part.len,
+            let 替换文本 = 编辑条.替换文字.文本切片();
+            let 起始长度 = 输出流.len();
+            for 片段 in rustc_lexer::tokenize(替换文本) {
+                输出流.push(rustc_lexer::Token {
+                    kind: 片段.kind,
+                    len: 片段.len,
                 });
             }
-            // 空替换（把 token 抹成空白）无从对齐，退回现场分词
-            if out.len() == before {
+            // 空替换（把令牌抹成空白）无从对齐，退回现场分词
+            if 输出流.len() == 起始长度 {
                 return None;
             }
-            next_edit += 1;
-            index = covered;
-            offset = cursor;
+            下一个编辑 += 1;
+            下标 = 覆盖下标;
+            偏移 = 游标偏移;
         } else {
-            out.push(rustc_lexer::Token {
-                kind: token.kind,
-                len: token.len,
+            输出流.push(rustc_lexer::Token {
+                kind: 令牌.kind,
+                len: 令牌.len,
             });
-            offset += token.len;
-            index += 1;
+            偏移 += 令牌.len;
+            下标 += 1;
         }
     }
-    (next_edit == edits.len()).then_some(out)
+    (下一个编辑 == 编辑们.len()).then_some(输出流)
 }
 
-/// 由词法阶段的输入 token 流派生 `lex.output` 的 token 流
+/// 由词法阶段的输入令牌流派生 `词法.输出` 的令牌流
 ///
-/// 派生只在编辑与 token 边界对齐时成立（见 [`rebase_tokens`]）；对不齐时退回
-/// 现场分词。debug 构建下额外把派生结果与整份重新分词逐 token 对比，不一致
-/// 即崩——那意味着某个替换值与相邻字符合并成了不同的 token 序列（宁可开发期
+/// 派生只在编辑与令牌边界对齐时成立（见 [`重基准令牌`]）；对不齐时退回
+/// 现场分词。调试构建下额外把派生结果与整份重新分词逐令牌对比，不一致
+/// 即崩——那意味着某个替换值与相邻字符合并成了不同的令牌序列（宁可开发期
 /// 吵，也不让错位的偏移表静默流入产物）。
-fn derive_lex_tokens(
-    input_tokens: &[rustc_lexer::Token],
-    lex: &lexer::TranspileResult,
+fn 派生词法令牌(
+    输入令牌: &[rustc_lexer::Token],
+    词法: &词法器::分词结果,
 ) -> Vec<rustc_lexer::Token> {
-    let derived = rebase_tokens(input_tokens, &lex.final_edits);
+    let 派生结果 = 重基准令牌(输入令牌, &词法.最终编辑表);
     #[cfg(debug_assertions)]
-    if let Some(tokens) = &derived {
-        let fresh = collect_tokens(&lex.output);
-        debug_assert!(
-            tokens
+    if let Some(令牌们) = &派生结果 {
+        let 现分 = 收集令牌(&词法.输出);
+        assert!(
+            令牌们
                 .iter()
-                .zip(&fresh)
-                .all(|(a, b)| a.kind == b.kind && a.len == b.len)
-                && tokens.len() == fresh.len(),
-            "词法 token 派生与重新分词不一致：派生 {} token / 重分 {} token",
-            tokens.len(),
-            fresh.len()
+                .zip(&现分)
+                .all(|(甲项, 乙项)| 甲项.kind == 乙项.kind && 甲项.len == 乙项.len)
+                && 令牌们.len() == 现分.len(),
+            "词法令牌派生与重新分词不一致：派生 {} 个令牌 / 重分 {} 个令牌",
+            令牌们.len(),
+            现分.len()
         );
     }
-    derived.unwrap_or_else(|| collect_tokens(&lex.output))
+    派生结果.unwrap_or_else(|| 收集令牌(&词法.输出))
 }
 
 /// 延迟入口与预计算入口在词法产物上已经算好的成果，交给后续阶段复用
 ///
-/// 两者都以 `lex.output` 为输入：那份分词流（use 路径阶段直接借用，别名阶段
+/// 两者都以 `词法.输出` 为输入：那份分词流（使用路径阶段直接借用，别名阶段
 /// 借用由它再派生的一份）与声明名（只有延迟入口会先收集，它必须先把声明
 /// 汇总成项目上下文才能继续；预计算入口的上下文由调用方备好，声明名由别名
 /// 阶段自己现场收集）。缺哪个就由哪个阶段自己补上。
-struct LexReuse<'a> {
-    declared: Option<&'a alias::DeclaredNames>,
-    tokens: &'a [rustc_lexer::Token],
+struct 词法复用<'甲> {
+    已声明: Option<&'甲 别名::已声明名集合>,
+    令牌们: &'甲 [rustc_lexer::Token],
 }
 
-/// 词法之后的管线：use 路径替换 → `crate::` 前缀 → 别名替换 → 编辑表合并
+/// 词法之后的管线：使用路径替换 → `crate::` 前缀 → 别名替换 → 编辑表合并
 ///
-/// `reuse` 为词法产物上已算好的声明名与 token 流（延迟项目上下文入口必然
-/// 先算过）：传入时 use 路径阶段与别名阶段都跳过重复的分词/状态机；`None`
+/// `复用` 为词法产物上已算好的声明名与令牌流（延迟项目上下文入口必然
+/// 先算过）：传入时使用路径阶段与别名阶段都跳过重复的分词/状态机；`无`
 /// 时由各阶段自行完成。两条路径输出逐字节一致（见 `tests/alias_declared_
-/// reuse.rs` 与 `module_path` 的差分测试）。
-fn transpile_after_lex(
-    source: &str,
-    manager: &mapping_manager::MappingManager,
-    module_names: Option<&HashSet<String>>,
-    project: Option<&alias::ProjectContext>,
-    reuse: Option<LexReuse<'_>>,
-    lex: lexer::TranspileResult,
-) -> cache::TranspileOutput {
-    // 阶段 2：use 语句路径替换
+/// reuse.rs` 与 `模块路径` 的差分测试）。
+fn 词法后转译(
+    源文本: &str,
+    管理器: &映射管理器::映射管理器,
+    模块名集: Option<&HashSet<String>>,
+    项目: Option<&别名::项目上下文>,
+    复用: Option<词法复用<'_>>,
+    词法: 词法器::分词结果,
+) -> 缓存::转译输出 {
+    // 阶段 2：使用语句路径替换
     //
-    // 各阶段输出用 Cow 串起来：阶段未启用时直接借用上一阶段输出，不再整份
-    // clone——早先三个阶段各 clone 一次全文（2000 行文件即三次全文拷贝）
-    let lex_output = lex.output;
-    // 调用方已分好词时直接借用那份 token 流
-    let reuse_tokens = reuse.as_ref().map(|r| r.tokens);
-    let (mp_out, mp_edits): (Cow<'_, str>, Vec<cache::SourceMapEntry>) =
-        if manager.module_path_map.is_empty() {
-            (Cow::Borrowed(lex_output.as_str()), Vec::new())
+    // 各阶段输出用借或拥有串起来：阶段未启用时直接借用上一阶段输出，不再整份
+    // 克隆——早先三个阶段各克隆一次全文（2000 行文件即三次全文拷贝）
+    let 词法输出 = 词法.输出;
+    // 调用方已分好词时直接借用那份令牌流
+    let 复用令牌 = 复用.as_ref().map(|复用项| 复用项.令牌们);
+    let (路径输出, 路径编辑): (Cow<'_, str>, Vec<缓存::源码映射条目>) =
+        if 管理器.模块路径表.is_empty() {
+            (Cow::Borrowed(词法输出.as_str()), Vec::new())
         } else {
-            let replaced = match reuse_tokens {
-                Some(tokens) => module_path::replace_module_paths_in_tokens(
-                    &lex_output,
-                    manager.get_module_path_map(),
-                    tokens,
-                ),
-                None => module_path::replace_module_paths_with_map(
-                    &lex_output,
-                    manager.get_module_path_map(),
-                ),
+            let 替换产物 = if let Some(令牌们) = 复用令牌 {
+                模块路径::带令牌替换模块路径(&词法输出, 管理器.取模块路径表(), 令牌们)
+            } else {
+                模块路径::带映射替换模块路径(&词法输出, 管理器.取模块路径表())
             };
-            (Cow::Owned(replaced.output), replaced.edits)
+            (Cow::Owned(替换产物.输出文本), 替换产物.编辑表)
         };
-    // 阶段 3（可选）：`crate::` 前缀重写（LSP 虚拟项目跨文件引用）；
-    // 项目项名集合供 glob 导入场景的遮蔽豁免（无项目上下文时传空集）
-    let (qual_out, qual_edits): (Cow<'_, str>, Vec<cache::SourceMapEntry>) = if let Some(names) =
-        module_names
-        && !names.is_empty()
+    // 阶段 3（可选）：`crate::` 前缀重写（语言服务器虚拟项目跨文件引用）；
+    // 项目项名集合供通配导入场景的遮蔽豁免（无项目上下文时传空集）
+    let (限定输出, 限定编辑): (Cow<'_, str>, Vec<缓存::源码映射条目>) = if let Some(名字集) =
+        模块名集
+        && !名字集.is_empty()
     {
-        let empty_items = HashSet::new();
-        let item_names = project.map(|p| &p.items).unwrap_or(&empty_items);
-        let qualified =
-            module_path::qualify_module_paths_with_map(mp_out.as_ref(), names, item_names);
-        (Cow::Owned(qualified.output), qualified.edits)
+        let 空条目集 = HashSet::new();
+        let 项目条目名 = 项目.map(|项目引用| &项目引用.条目集).unwrap_or(&空条目集);
+        let 限定产物 =
+            模块路径::带映射限定模块路径(路径输出.as_ref(), 名字集, 项目条目名);
+        (Cow::Owned(限定产物.输出文本), 限定产物.编辑表)
     } else {
-        (Cow::Borrowed(mp_out.as_ref()), Vec::new())
+        (Cow::Borrowed(路径输出.as_ref()), Vec::new())
     };
-    // 阶段 4 的输入是 `qual_out`：它的 token 流可由词法产物那份派生——use 路径
-    // 替换只改标识符 token 的长度，`crate::` 前缀阶段真插入过文本时无从派生
-    //（token 数量变了），退回现场分词。
-    let rebased_tokens;
-    let alias_tokens: Option<&[rustc_lexer::Token]> = match reuse_tokens {
-        Some(base) if qual_edits.is_empty() && mp_edits.is_empty() => Some(base),
-        Some(base) if qual_edits.is_empty() => {
-            rebased_tokens = rebase_tokens(base, &mp_edits);
-            rebased_tokens.as_deref()
+    // 阶段 4 的输入是 `限定输出`：它的令牌流可由词法产物那份派生——使用路径
+    // 替换只改标识符令牌的长度，`crate::` 前缀阶段真插入过文本时无从派生
+    //（令牌数量变了），退回现场分词。
+    let 重基准令牌流;
+    let 别名令牌: Option<&[rustc_lexer::Token]> = if let Some(基点) = 复用令牌 {
+        if 限定编辑.is_empty() && 路径编辑.is_empty() {
+            Some(基点)
+        } else if 限定编辑.is_empty() {
+            重基准令牌流 = 重基准令牌(基点, &路径编辑);
+            重基准令牌流.as_deref()
+        } else {
+            None
         }
-        _ => None,
+    } else {
+        None
     };
     // 阶段 4：标识符别名替换（声明位保护 + 项目级声明上下文）；
-    // 附模块路径表：use 之外的路径根位模块词（`异步运行时::睡眠`、
+    // 附模块路径表：使用之外的路径根位模块词（`异步运行时::睡眠`、
     // `#[异步运行时::主函数]`）在别名阶段回退模块路径表完成转译
-    let (al_out, al_edits): (Cow<'_, str>, Vec<cache::SourceMapEntry>) =
-        if manager.alias_map.is_empty() && manager.module_path_map.is_empty() {
-            (Cow::Borrowed(qual_out.as_ref()), Vec::new())
+    let (别名输出, 别名编辑): (Cow<'_, str>, Vec<缓存::源码映射条目>) =
+        if 管理器.标识符别名.is_empty() && 管理器.模块路径表.is_empty() {
+            (Cow::Borrowed(限定输出.as_ref()), Vec::new())
         } else {
-            let aliased = alias::replace_aliases_reusing(
-                qual_out.as_ref(),
-                manager.get_alias_map(),
-                manager.get_module_path_map(),
-                project,
-                reuse.as_ref().and_then(|r| r.declared),
-                alias_tokens,
+            let 别名产物 = 别名::复用替换别名(
+                限定输出.as_ref(),
+                管理器.取别名表(),
+                管理器.取模块路径表(),
+                项目,
+                复用.as_ref().and_then(|复用项| 复用项.已声明),
+                别名令牌,
             );
-            (Cow::Owned(aliased.output), aliased.edits)
+            (Cow::Owned(别名产物.输出文本), 别名产物.编辑表)
         };
 
-    // 组合各阶段编辑表为母语源坐标的全管线地图（replacement 取最终输出文本）
+    // 组合各阶段编辑表为母语源坐标的全管线地图（替换文字取最终输出文本）
     // 词法阶段编辑按所有权传入：它们已是母语源坐标，无需夹边界时可原样移动
-    let later: Vec<&[cache::SourceMapEntry]> = vec![&mp_edits, &qual_edits, &al_edits];
-    let pipeline_map = compose_pipeline_map(source, lex.final_edits, &later);
+    let 后续编辑: Vec<&[缓存::源码映射条目]> = vec![&路径编辑, &限定编辑, &别名编辑];
+    let 流程映射 = 组合流程映射(源文本, 词法.最终编辑表, &后续编辑);
 
-    cache::TranspileOutput::with_full_map(al_out.into_owned(), lex.source_map, pipeline_map)
+    缓存::转译输出::带完整映射(别名输出.into_owned(), 词法.源映射, 流程映射)
 }
 
 /// 合并各阶段编辑表为母语源坐标的最终编辑地图
 ///
-/// `lex_edits`（词法阶段）的编辑已直接以母语源偏移记录，且按所有权传入；
-/// `later` 中的各阶段编辑以各自输入文本偏移记录，需经逆映射链换算回母语源
-/// 偏移。`original/length` 一律以母语源文本为准（后续阶段替换的 token 未被
+/// `词法编辑`（词法阶段）的编辑已直接以母语源偏移记录，且按所有权传入；
+/// `后续编辑` 中的各阶段编辑以各自输入文本偏移记录，需经逆映射链换算回母语源
+/// 偏移。`原文 / 长度` 一律以母语源文本为准（后续阶段替换的令牌未被
 /// 前置阶段改写，长度一致）。
 /// 同一源偏移出现多条编辑时保留最后阶段（后写覆盖先写，按阶段顺序稳定排序）。
-fn compose_pipeline_map(
-    source: &str,
-    lex_edits: Vec<cache::SourceMapEntry>,
-    later: &[&[cache::SourceMapEntry]],
-) -> Vec<cache::SourceMapEntry> {
+fn 组合流程映射(
+    源文本: &str,
+    词法编辑: Vec<缓存::源码映射条目>,
+    后续编辑: &[&[缓存::源码映射条目]],
+) -> Vec<缓存::源码映射条目> {
     // 先为后续阶段算好母语源偏移（逆映射要读前面的全部阶段，含词法阶段；
     // 算完后词法编辑才可被移动消费）
     //
-    // 换算走 [`ReverseCursor`] 而非逐条从头扫描：某阶段的编辑按输入偏移升序，
-    // 而逆映射单调（替换区间内一律返回 token 起点），故一条查询的答案不会小于
+    // 换算走 [`逆映射游标`] 而非逐条从头扫描：某阶段的编辑按输入偏移升序，
+    // 而逆映射单调（替换区间内一律返回令牌起点），故一条查询的答案不会小于
     // 前一条——游标只前进不回退，整段换算从 O(该阶段编辑数 × 前置阶段编辑数)
     // 降到 O(两者之和)。逐条重扫在大文件上是实测的平方项：2246 行、别名密集
-    //（词法 2528 条 + 别名 1683 条）的语料冷转译 37.4 ms，同规模只改关键字的
-    // 语料 3.26 ms；行数翻倍时间 ×3.9。与旧实现逐偏移等价
-    //（见 `test_reverse_cursor_matches_naive`）。
-    let mut later_offsets: Vec<Vec<usize>> = Vec::with_capacity(later.len());
-    for (stage_idx, edits) in later.iter().enumerate() {
-        let mut offsets = Vec::with_capacity(edits.len());
-        if edits.is_empty() {
-            later_offsets.push(offsets);
+    //（词法 2528 条 + 别名 1683 条）的语料冷转译 37.4 毫秒，同规模只改关键字的
+    // 语料 3.26 毫秒；行数翻倍时间 ×3.9。与旧实现逐偏移等价
+    //（见 `逆映射游标与朴素一致`）。
+    let mut 后续偏移: Vec<Vec<usize>> = Vec::with_capacity(后续编辑.len());
+    for (阶段下标, 编辑们) in 后续编辑.iter().enumerate() {
+        let mut 偏移们 = Vec::with_capacity(编辑们.len());
+        if 编辑们.is_empty() {
+            后续偏移.push(偏移们);
             continue;
         }
         // 换算链：先夹更后的阶段（后写覆盖先写，逆序回溯），最后夹词法阶段
-        let mut chain: Vec<ReverseCursor<'_>> = later[..stage_idx]
+        let mut 换算链: Vec<逆映射游标<'_>> = 后续编辑[..阶段下标]
             .iter()
             .rev()
             .copied()
-            .map(ReverseCursor::new)
+            .map(逆映射游标::新建)
             .collect();
-        let mut lex_cursor = ReverseCursor::new(&lex_edits);
-        for e in edits.iter() {
-            let mut off = e.source_offset;
-            for cursor in &mut chain {
-                off = cursor.map(off);
+        let mut 词法游标 = 逆映射游标::新建(&词法编辑);
+        for 编辑条 in 编辑们.iter() {
+            let mut 换算偏移 = 编辑条.源偏移;
+            for 映射游标 in &mut 换算链 {
+                换算偏移 = 映射游标.映射偏移(换算偏移);
             }
-            offsets.push(lex_cursor.map(off));
+            偏移们.push(词法游标.映射偏移(换算偏移));
         }
-        later_offsets.push(offsets);
+        后续偏移.push(偏移们);
     }
 
-    let total = lex_edits.len() + later.iter().map(|e| e.len()).sum::<usize>();
-    let mut merged: Vec<cache::SourceMapEntry> = Vec::with_capacity(total);
+    let 总数 = 词法编辑.len() + 后续编辑.iter().map(|编辑们| 编辑们.len()).sum::<usize>();
+    let mut 合并结果: Vec<缓存::源码映射条目> = Vec::with_capacity(总数);
     // 词法阶段：坐标已就位，边界无需调整时直接移动条目（每条省下两次文本
     // 拷贝——359 行样例 456 条编辑，这张表是管线里最大的一份）
-    for e in lex_edits {
-        let end = e.source_offset + e.length;
-        let 边界无需调整 = end <= source.len()
-            && source.is_char_boundary(e.source_offset)
-            && source.is_char_boundary(end)
-            && &source[e.source_offset..end] == e.original.as_str();
+    for 编辑条 in 词法编辑 {
+        let 终点 = 编辑条.源偏移 + 编辑条.源码长度;
+        let 边界无需调整 = 终点 <= 源文本.len()
+            && 源文本.is_char_boundary(编辑条.源偏移)
+            && 源文本.is_char_boundary(终点)
+            && &源文本[编辑条.源偏移..终点] == 编辑条.原文.文本切片();
         if 边界无需调整 {
-            merged.push(e);
+            合并结果.push(编辑条);
             continue;
         }
-        let (start, end) = clamp_to_char_boundaries(source, e.source_offset, e.length);
-        merged.push(cache::SourceMapEntry::new(
-            e.source_offset,
-            e.length,
-            &source[start..end],
-            e.replacement.as_str(),
+        let (起, 终) = 夹取字符边界(源文本, 编辑条.源偏移, 编辑条.源码长度);
+        合并结果.push(缓存::源码映射条目::新建(
+            编辑条.源偏移,
+            编辑条.源码长度,
+            &源文本[起..终],
+            编辑条.替换文字.文本切片(),
         ));
     }
 
-    for (stage_idx, edits) in later.iter().enumerate() {
-        for (e, &zh_offset) in edits.iter().zip(later_offsets[stage_idx].iter()) {
-            // original/length 以母语源文本为准。
-            // 注意：后续阶段的 e.length 处于该阶段输入坐标，未必等于母语源坐标长度；
+    for (阶段下标, 编辑们) in 后续编辑.iter().enumerate() {
+        for (编辑条, &母语偏移) in 编辑们.iter().zip(后续偏移[阶段下标].iter()) {
+            // 原文 / 长度以母语源文本为准。
+            // 注意：后续阶段的 `编辑条.源码长度` 处于该阶段输入坐标，未必等于母语源坐标长度；
             // 这里把起止偏移都夹到母语源文本的合法字符边界，避免多字节字符（如日本語の
-            // メソッド名 `から`）切片越界引发 panic。transpile 输出本身不受影响。
-            let (start, end) = clamp_to_char_boundaries(source, zh_offset, e.length);
-            merged.push(cache::SourceMapEntry::new(
-                zh_offset,
-                e.length,
-                &source[start..end],
-                e.replacement.as_str(),
+            // メソッド名 `から`）切片越界引发崩溃。转译输出本身不受影响。
+            let (起, 终) = 夹取字符边界(源文本, 母语偏移, 编辑条.源码长度);
+            合并结果.push(缓存::源码映射条目::新建(
+                母语偏移,
+                编辑条.源码长度,
+                &源文本[起..终],
+                编辑条.替换文字.文本切片(),
             ));
         }
     }
     // 稳定排序：同偏移多条编辑时，阶段靠后的保持在后（最终消费取后者）
-    merged.sort_by_key(|e| e.source_offset);
+    合并结果.sort_by_key(|编辑条| 编辑条.源偏移);
     // 同偏移去重：保留最后一条（阶段靠后的替换即为最终输出文本）
-    let mut deduped: Vec<cache::SourceMapEntry> = Vec::with_capacity(merged.len());
-    for e in merged {
-        if let Some(last) = deduped.last_mut()
-            && last.source_offset == e.source_offset
+    let mut 去重表: Vec<缓存::源码映射条目> = Vec::with_capacity(合并结果.len());
+    for 编辑条 in 合并结果 {
+        if let Some(末项) = 去重表.last_mut()
+            && 末项.源偏移 == 编辑条.源偏移
         {
-            *last = e;
+            *末项 = 编辑条;
         } else {
-            deduped.push(e);
+            去重表.push(编辑条);
         }
     }
-    deduped
+    去重表
 }
 
 /// 把编辑区间夹到母语源文本的合法字符边界
 ///
-/// 返回 `(start, end)`：`start` 向后推进到字符边界、`end` 向前回退到字符边界
-/// （不越过 `start`），两者都不超文本长度。后续阶段的 `length` 处于该阶段坐标，
-/// 未必对齐母语源的字符边界（如日本語のメソッド名 `から`），直接切片会 panic。
-fn clamp_to_char_boundaries(source: &str, offset: usize, length: usize) -> (usize, usize) {
-    let src_len = source.len();
-    let mut start = offset.min(src_len);
-    while start < src_len && !source.is_char_boundary(start) {
-        start += 1;
+/// 返回 `(起, 终)`：`起` 向后推进到字符边界、`终` 向前回退到字符边界
+/// （不越过 `起`），两者都不超文本长度。后续阶段的 `长度` 处于该阶段坐标，
+/// 未必对齐母语源的字符边界（如日本語のメソッド名 `から`），直接切片会崩溃。
+fn 夹取字符边界(源文本: &str, 偏移: usize, 长度值: usize) -> (usize, usize) {
+    let 源长 = 源文本.len();
+    let mut 起 = 偏移.min(源长);
+    while 起 < 源长 && !源文本.is_char_boundary(起) {
+        起 += 1;
     }
-    let mut end = (offset + length).min(src_len);
-    while end > start && !source.is_char_boundary(end) {
-        end -= 1;
+    let mut 终 = (偏移 + 长度值).min(源长);
+    while 终 > 起 && !源文本.is_char_boundary(终) {
+        终 -= 1;
     }
-    (start, end)
+    (起, 终)
 }
 
 /// 逆映射：把"上一阶段输出坐标"的偏移映射回"上一阶段输入坐标"
 ///
-/// edits 按 input_offset 升序、互不重叠（每个被替换 token 一条）。
-/// 落在替换区间内的偏移返回 token 起点（token 级边界近似——列映射在
-/// token 起点记录分段点，区间内位置近似映射到起点即可）。
+/// `编辑们` 按输入偏移升序、互不重叠（每个被替换令牌一条）。
+/// 落在替换区间内的偏移返回令牌起点（令牌级边界近似——列映射在
+/// 令牌起点记录分段点，区间内位置近似映射到起点即可）。
 ///
-/// **仅供测试参照**：生产路径按升序批量查询，用 [`ReverseCursor`] 保住游标，
+/// **仅供测试参照**：生产路径按升序批量查询，用 [`逆映射游标`] 保住游标，
 /// 不必每次从表头重扫（后者是实测的平方项）。保留这份朴素实现就是为了
-/// 能对着一模一样的语义做差分（`test_reverse_cursor_matches_naive`）。
+/// 能对着一模一样的语义做差分（`逆映射游标与朴素一致`）。
 #[cfg(test)]
-fn inverse_map_offset(edits: &[cache::SourceMapEntry], out_offset: usize) -> usize {
-    let mut in_cursor = 0usize;
-    let mut out_cursor = 0usize;
-    for e in edits {
-        let gap = e.source_offset - in_cursor; // 输入侧未替换区间
-        if out_offset <= out_cursor + gap {
-            return in_cursor + (out_offset - out_cursor);
+fn 反查映射偏移(编辑们: &[缓存::源码映射条目], 输出偏移: usize) -> usize {
+    let mut 输入游标 = 0;
+    let mut 输出游标 = 0;
+    for 编辑条 in 编辑们 {
+        let 间隔 = 编辑条.源偏移 - 输入游标; // 输入侧未替换区间
+        if 输出偏移 <= 输出游标 + 间隔 {
+            return 输入游标 + (输出偏移 - 输出游标);
         }
-        out_cursor += gap;
-        if out_offset < out_cursor + e.replacement.len() {
-            return e.source_offset; // 替换区间内：token 起点近似
+        输出游标 += 间隔;
+        if 输出偏移 < 输出游标 + 编辑条.替换文字.len() {
+            return 编辑条.源偏移; // 替换区间内：令牌起点近似
         }
-        out_cursor += e.replacement.len();
-        in_cursor = e.source_offset + e.length;
+        输出游标 += 编辑条.替换文字.len();
+        输入游标 = 编辑条.源偏移 + 编辑条.源码长度;
     }
-    in_cursor + (out_offset - out_cursor)
+    输入游标 + (输出偏移 - 输出游标)
 }
 
 /// 逆映射游标：对**非递减**的查询偏移序列，只前进一趟就把全部答案换算完
 ///
-/// 与 [`inverse_map_offset`]（逐条从头扫描）逐偏移等价，但省掉重复扫描：整段
+/// 与 [`反查映射偏移`]（逐条从头扫描）逐偏移等价，但省掉重复扫描：整段
 /// 查询 O(编辑数 + 查询数) 而不是 O(编辑数 × 查询数）。前提由调用方保证：
-/// 各阶段编辑表按输入偏移升序，且映射本身单调（区间内一律返回 token 起点，
-/// 不会把后面的查询映到比前面的答案更小的偏移）。debug 构建下断言序列确实
+/// 各阶段编辑表按输入偏移升序，且映射本身单调（区间内一律返回令牌起点，
+/// 不会把后面的查询映到比前面的答案更小的偏移）。调试构建下断言序列确实
 /// 非递减——前提破了就是错乱偏移流进产物，宁可在开发期吵。
-pub(crate) struct ReverseCursor<'a> {
+pub(crate) struct 逆映射游标<'甲> {
     /// 前置阶段的编辑表（按输入偏移升序、互不重叠）
-    edits: &'a [cache::SourceMapEntry],
+    编辑们: &'甲 [缓存::源码映射条目],
     /// 下一个尚未跨过的编辑
-    index: usize,
-    /// `edits[index]` 起点两侧的偏移：输入侧与输出侧
-    in_offset: usize,
-    out_offset: usize,
+    下标: usize,
+    /// `编辑们[下标]` 起点两侧的偏移：输入侧与输出侧
+    输入偏移: usize,
+    输出偏移: usize,
     /// 上一次查询的偏移（非递减前提的自检）
-    last: usize,
+    最后查询: usize,
 }
 
-impl<'a> ReverseCursor<'a> {
+impl<'甲> 逆映射游标<'甲> {
     /// 新游标：停在文本起点，尚未消费任何编辑
-    pub(crate) fn new(edits: &'a [cache::SourceMapEntry]) -> Self {
+    pub(crate) fn 新建(编辑们: &'甲 [缓存::源码映射条目]) -> Self {
         Self {
-            edits,
-            index: 0,
-            in_offset: 0,
-            out_offset: 0,
-            last: 0,
+            编辑们,
+            下标: 0,
+            输入偏移: 0,
+            输出偏移: 0,
+            最后查询: 0,
         }
     }
 
     /// 查询一个输出侧偏移对应的输入侧偏移（查询序列必须非递减）
-    pub(crate) fn map(&mut self, out: usize) -> usize {
-        debug_assert!(
-            out >= self.last,
-            "逆映射游标的查询偏移必须非递减：本次 {out} < 上次 {}",
-            self.last
+    pub(crate) fn 映射偏移(&mut self, 当前偏移: usize) -> usize {
+        assert!(
+            当前偏移 >= self.最后查询,
+            "逆映射游标的查询偏移必须非递减：本次 {当前偏移} < 上次 {}",
+            self.最后查询
         );
-        self.last = out;
-        while self.index < self.edits.len() {
-            let e = &self.edits[self.index];
-            // 未替换区间 [in_offset, e.source_offset)：输出侧等长、逐字节对应
-            let gap_end = self.out_offset + (e.source_offset - self.in_offset);
-            if out <= gap_end {
-                return self.in_offset + (out - self.out_offset);
+        self.最后查询 = 当前偏移;
+        while self.下标 < self.编辑们.len() {
+            let 编辑条 = &self.编辑们[self.下标];
+            // 未替换区间 [输入偏移, 编辑条.源偏移)：输出侧等长、逐字节对应
+            let 间隔终点 = self.输出偏移 + (编辑条.源偏移 - self.输入偏移);
+            if 当前偏移 <= 间隔终点 {
+                return self.输入偏移 + (当前偏移 - self.输出偏移);
             }
-            // 替换区间内：一律映到 token 起点（与旧实现同一近似）；
+            // 替换区间内：一律映到令牌起点（与旧实现同一近似）；
             // 游标不前进——后续查询可能还落在同一条替换里
-            if out < gap_end + e.replacement.len() {
-                return e.source_offset;
+            if 当前偏移 < 间隔终点 + 编辑条.替换文字.len() {
+                return 编辑条.源偏移;
             }
             // 整条跨过，游标推进到下一条编辑之前
-            self.out_offset = gap_end + e.replacement.len();
-            self.in_offset = e.source_offset + e.length;
-            self.index += 1;
+            self.输出偏移 = 间隔终点 + 编辑条.替换文字.len();
+            self.输入偏移 = 编辑条.源偏移 + 编辑条.源码长度;
+            self.下标 += 1;
         }
         // 表已走完：尾部未替换区间逐字节对应
-        self.in_offset + (out - self.out_offset)
+        self.输入偏移 + (当前偏移 - self.输出偏移)
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod 母语测试 {
     use super::*;
 
-    fn create_manager() -> mapping_manager::MappingManager {
-        let keywords_toml = r#"
+    fn 建测试管理器() -> 映射管理器::映射管理器 {
+        let 关键字文本 = r#"
 ["声明"]
 "函数" = "fn"
 "让" = "let"
@@ -852,18 +854,18 @@ mod tests {
 ["标准库成员"]
 "迭代" = "iter"
 "#;
-        let module_paths_toml = r#"
+        let 模块路径文本 = r#"
 ["模块路径"]
 "标准集合" = "std::collections"
 "#;
-        let stdlib_toml = r#"
+        let 标准库文本 = r#"
 ["模块路径"]
 "线程" = "std::thread"
 ["标识符"]
 "字符串" = "String"
 "枚举" = "enumerate"
 "#;
-        let third_party_data = [(
+        let 三方数据 = [(
             "测试库.toml",
             r#"
 ["模块路径"]
@@ -872,25 +874,25 @@ mod tests {
 "服务器" = "Server"
 "#,
         )];
-        mapping_manager::MappingManager::load_from_builtin(
-            keywords_toml,
-            module_paths_toml,
-            stdlib_toml,
-            &third_party_data,
+        映射管理器::映射管理器::从内置载入(
+            关键字文本,
+            模块路径文本,
+            标准库文本,
+            &三方数据,
         )
         .expect("创建测试管理器失败")
     }
 
-    /// `rebase_tokens` 派生出的 token 流必须与对阶段输出重新分词的结果逐项相同
+    /// `重基准令牌` 派生出的令牌流必须与对阶段输出重新分词的结果逐项相同
     ///
-    /// 派生只改被替换 token 的长度（编辑整 token 对齐、替换值是单个标识符）。
-    /// 这里用真实模块路径替换产生编辑，再把派生结果与 `tokenize(输出)` 对拍：
-    /// `kind` 与 `len` 任一不同都说明同构假设不成立。
+    /// 派生只改被替换令牌的长度（编辑整令牌对齐、替换值是单个标识符）。
+    /// 这里用真实模块路径替换产生编辑，再把派生结果与 `切分令牌(输出)` 对拍：
+    /// `令牌类别` 与 `元素数` 任一不同都说明同构假设不成立。
     #[test]
-    fn test_rebase_tokens_matches_fresh_tokenize() {
-        let manager = create_manager();
-        let path_map = manager.get_module_path_map();
-        for src in [
+    fn 重基准令牌与现分词一致() {
+        let 管理器 = 建测试管理器();
+        let 路径映射 = 管理器.取模块路径表();
+        for 源码样例 in [
             "使用 标准集合::哈希映射;\n",
             "使用 标准集合 :: 哈希映射;\n",
             "使用 线程::生成;\n使用 标准集合::双向队列;\n",
@@ -899,88 +901,88 @@ mod tests {
             "fn f() { let x = 1; }\n",
             "",
         ] {
-            let base = collect_tokens(src);
-            let stage = module_path::replace_module_paths_with_map(src, path_map);
-            let Some(rebased) = rebase_tokens(&base, &stage.edits) else {
-                panic!("{src:?}: 单个标识符替换应能派生 token 流");
+            let 基点 = 收集令牌(源码样例);
+            let 阶段产物 = 模块路径::带映射替换模块路径(源码样例, 路径映射);
+            let Some(派生结果) = 重基准令牌(&基点, &阶段产物.编辑表) else {
+                panic!("{源码样例:?}: 单个标识符替换应能派生令牌流");
             };
-            let fresh = collect_tokens(&stage.output);
-            assert_eq!(rebased.len(), fresh.len(), "{src:?}: token 数不一致");
-            for (i, (a, b)) in rebased.iter().zip(&fresh).enumerate() {
-                assert_eq!(a.kind, b.kind, "{src:?}: 第 {i} 个 token 的 kind");
-                assert_eq!(a.len, b.len, "{src:?}: 第 {i} 个 token 的长度");
+            let 现分 = 收集令牌(&阶段产物.输出文本);
+            assert_eq!(派生结果.len(), 现分.len(), "{源码样例:?}: 令牌数不一致");
+            for (下标, (甲项, 乙项)) in 派生结果.iter().zip(&现分).enumerate() {
+                assert_eq!(甲项.kind, 乙项.kind, "{源码样例:?}: 第 {下标} 个令牌的类别");
+                assert_eq!(甲项.len, 乙项.len, "{源码样例:?}: 第 {下标} 个令牌的长度");
             }
         }
     }
 
-    /// 替换值含 `::` 时派生会把替换值再分词，得到的仍是同构的 token 流
+    /// 替换值含 `::` 时派生会把替换值再分词，得到的仍是同构的令牌流
     #[test]
-    fn test_rebase_tokens_splits_multi_token_replacement() {
-        let src = "标准集合::哈希映射;";
-        let base = collect_tokens(src);
-        let edits = vec![cache::SourceMapEntry::new(
+    fn 重基准令牌拆分多令牌替换() {
+        let 源码样例 = "标准集合::哈希映射;";
+        let 基点 = 收集令牌(源码样例);
+        let 编辑们 = vec![缓存::源码映射条目::新建(
             0,
             "标准集合".len(),
             "标准集合",
             "std::collections",
         )];
-        let rebased = rebase_tokens(&base, &edits).expect("应能派生");
-        let fresh = collect_tokens("std::collections::哈希映射;");
-        assert_eq!(rebased.len(), fresh.len(), "token 数应与重新分词一致");
-        for (i, (a, b)) in rebased.iter().zip(&fresh).enumerate() {
-            assert_eq!(a.kind, b.kind, "第 {i} 个 token 的 kind");
-            assert_eq!(a.len, b.len, "第 {i} 个 token 的长度");
+        let 派生结果 = 重基准令牌(&基点, &编辑们).expect("应能派生");
+        let 现分 = 收集令牌("std::collections::哈希映射;");
+        assert_eq!(派生结果.len(), 现分.len(), "令牌数应与重新分词一致");
+        for (下标, (甲项, 乙项)) in 派生结果.iter().zip(&现分).enumerate() {
+            assert_eq!(甲项.kind, 乙项.kind, "第 {下标} 个令牌的类别");
+            assert_eq!(甲项.len, 乙项.len, "第 {下标} 个令牌的长度");
         }
     }
 
-    /// 编辑未落在 token 边界时派生失败（不能默默错位）
+    /// 编辑未落在令牌边界时派生失败（不能默默错位）
     #[test]
-    fn test_rebase_tokens_rejects_misaligned_edit() {
-        let src = "标准集合::哈希映射;";
-        let base = collect_tokens(src);
-        // token 起点：0 / 12 / 13 / 14 / 26；其余偏移都落在某个 token 内部
-        for offset in [1usize, 3, 15, 20, 25] {
-            let edits = vec![cache::SourceMapEntry::new(offset, 1, "x", "y")];
+    fn 重基准令牌拒绝错位编辑() {
+        let 源码样例 = "标准集合::哈希映射;";
+        let 基点 = 收集令牌(源码样例);
+        // 令牌起点：0 / 12 / 13 / 14 / 26；其余偏移都落在某个令牌内部
+        for 偏移值 in [1, 3, 15, 20, 25] {
+            let 编辑们 = vec![缓存::源码映射条目::新建(偏移值, 1, "x", "y")];
             assert!(
-                rebase_tokens(&base, &edits).is_none(),
-                "偏移 {offset} 不在 token 边界，应拒绝"
+                重基准令牌(&基点, &编辑们).is_none(),
+                "偏移 {偏移值} 不在令牌边界，应拒绝"
             );
         }
     }
 
-    /// 一条编辑跨过多个 token 时同样可派生（被覆盖的 token 整段消失）
+    /// 一条编辑跨过多个令牌时同样可派生（被覆盖的令牌整段消失）
     ///
     /// 词法阶段的数字后缀黏连（`1024整数`）就是这么一条编辑；这里用
     /// `标准集合::` → `std::`（标识符 + 两个冒号）固定该形态。
     #[test]
-    fn test_rebase_tokens_spans_multi_token_edit() {
-        let src = "标准集合::哈希映射;";
-        let base = collect_tokens(src);
-        let edits = vec![cache::SourceMapEntry::new(
+    fn 重基准令牌跨多令牌编辑() {
+        let 源码样例 = "标准集合::哈希映射;";
+        let 基点 = 收集令牌(源码样例);
+        let 编辑们 = vec![缓存::源码映射条目::新建(
             0,
             "标准集合::".len(),
             "标准集合::",
             "std::",
         )];
-        let rebased = rebase_tokens(&base, &edits).expect("跨 token 编辑应能派生");
-        let fresh = collect_tokens("std::哈希映射;");
-        assert_eq!(rebased.len(), fresh.len(), "token 数应与重新分词一致");
-        for (i, (a, b)) in rebased.iter().zip(&fresh).enumerate() {
-            assert_eq!(a.kind, b.kind, "第 {i} 个 token 的 kind");
-            assert_eq!(a.len, b.len, "第 {i} 个 token 的长度");
+        let 派生结果 = 重基准令牌(&基点, &编辑们).expect("跨令牌编辑应能派生");
+        let 现分 = 收集令牌("std::哈希映射;");
+        assert_eq!(派生结果.len(), 现分.len(), "令牌数应与重新分词一致");
+        for (下标, (甲项, 乙项)) in 派生结果.iter().zip(&现分).enumerate() {
+            assert_eq!(甲项.kind, 乙项.kind, "第 {下标} 个令牌的类别");
+            assert_eq!(甲项.len, 乙项.len, "第 {下标} 个令牌的长度");
         }
     }
 
-    /// 词法产物的 token 流可由「词法阶段输入 token + 词法编辑表」派生
+    /// 词法产物的令牌流可由「词法阶段输入令牌 + 词法编辑表」派生
     ///
-    /// 管线里最贵的一趟重复分词就在这一句上（2000 行样例实测 421 µs），所以
-    /// 同构假设必须直接锁住：逐形态比 `derive_lex_tokens` 与 `tokenize(输出)`。
+    /// 管线里最贵的一趟重复分词就在这一句上（2000 行样例实测 421 微秒），所以
+    /// 同构假设必须直接锁住：逐形态比 `派生词法令牌` 与 `切分令牌(输出)`。
     /// 形态涵盖宏补 `!`、`!` 邻接、数字后缀黏连、生命周期、字面量、跨行注释、
-    /// use 路径与表达式里的模块词、空文件。
+    /// 使用路径与表达式里的模块词、空文件。
     #[test]
-    fn test_derive_lex_tokens_matches_fresh_tokenize() {
-        let manager = create_manager();
-        for src in [
+    fn 派生词法令牌与现分词一致() {
+        let 管理器 = 建测试管理器();
+        for 源码样例 in [
             "打印行!(\"x\");\n",
             "打印行(\"x\");\n",
             "如果 标志 != 打印行(1) {}\n",
@@ -997,265 +999,283 @@ mod tests {
             "// 只有注释\n",
             "",
         ] {
-            let (lex, input_tokens) = transpile_lex_stage(src, &manager);
+            let (词法, 输入令牌) = 词法阶段转译(源码样例, &管理器);
             // 派生必须真的成立（否则本测试只是「退回现场分词」的同义反复）
             assert!(
-                rebase_tokens(&input_tokens, &lex.final_edits).is_some(),
-                "{src:?}: 未能由输入 token 派生"
+                重基准令牌(&输入令牌, &词法.最终编辑表).is_some(),
+                "{源码样例:?}: 未能由输入令牌派生"
             );
-            let derived = derive_lex_tokens(&input_tokens, &lex);
-            let fresh = collect_tokens(&lex.output);
-            assert_eq!(derived.len(), fresh.len(), "{src:?}: token 数不一致");
-            for (i, (a, b)) in derived.iter().zip(&fresh).enumerate() {
-                assert_eq!(a.kind, b.kind, "{src:?}: 第 {i} 个 token 的 kind");
-                assert_eq!(a.len, b.len, "{src:?}: 第 {i} 个 token 的长度");
+            let 派生结果 = 派生词法令牌(&输入令牌, &词法);
+            let 现分 = 收集令牌(&词法.输出);
+            assert_eq!(派生结果.len(), 现分.len(), "{源码样例:?}: 令牌数不一致");
+            for (下标, (甲项, 乙项)) in 派生结果.iter().zip(&现分).enumerate() {
+                assert_eq!(甲项.kind, 乙项.kind, "{源码样例:?}: 第 {下标} 个令牌的类别");
+                assert_eq!(甲项.len, 乙项.len, "{源码样例:?}: 第 {下标} 个令牌的长度");
             }
         }
     }
 
-    /// 真 zh 语言包（而非上面那份小映射表）：替换点越密，派生越容易暴露问题
-    fn zh_manager() -> mapping_manager::MappingManager {
+    /// 真中文语言包（而非上面那份小映射表）：替换点越密，派生越容易暴露问题
+    fn 建中文管理器() -> 映射管理器::映射管理器 {
         use std::path::Path;
 
-        mapping_manager::MappingManager::load_from_dir(
+        映射管理器::映射管理器::从目录载入(
             &Path::new(env!("CARGO_MANIFEST_DIR")).join("lang-packs/zh"),
         )
         .expect("加载 zh 语言包失败")
     }
 
-    /// 后缀与数字黏连时不派生（编辑落在 token 内部），但退回路径仍须同构
+    /// 后缀与数字黏连时不派生（编辑落在令牌内部），但退回路径仍须同构
     #[test]
-    fn test_derive_lex_tokens_falls_back_on_partial_edit() {
-        let manager = zh_manager();
-        for src in [
+    fn 派生词法令牌部分编辑退回() {
+        let 管理器 = 建中文管理器();
+        for 源码样例 in [
             "让 n = 1024整数;\n",
             "让 n = 1024无符号机器整数;\n",
             "让 x = 3整数;\n",
         ] {
-            let (lex, input_tokens) = transpile_lex_stage(src, &manager);
+            let (词法, 输入令牌) = 词法阶段转译(源码样例, &管理器);
             assert!(
-                rebase_tokens(&input_tokens, &lex.final_edits).is_none(),
-                "{src:?}: 编辑落在 token 内部，应拒绝派生"
+                重基准令牌(&输入令牌, &词法.最终编辑表).is_none(),
+                "{源码样例:?}: 编辑落在令牌内部，应拒绝派生"
             );
-            let derived = derive_lex_tokens(&input_tokens, &lex);
-            let fresh = collect_tokens(&lex.output);
-            assert_eq!(derived.len(), fresh.len(), "{src:?}: 退回路径 token 数");
-            for (i, (a, b)) in derived.iter().zip(&fresh).enumerate() {
-                assert_eq!(a.kind, b.kind, "{src:?}: 退回路径第 {i} 个 token 的 kind");
-                assert_eq!(a.len, b.len, "{src:?}: 退回路径第 {i} 个 token 的长度");
+            let 派生结果 = 派生词法令牌(&输入令牌, &词法);
+            let 现分 = 收集令牌(&词法.输出);
+            assert_eq!(派生结果.len(), 现分.len(), "{源码样例:?}: 退回路径令牌数");
+            for (下标, (甲项, 乙项)) in 派生结果.iter().zip(&现分).enumerate() {
+                assert_eq!(
+                    甲项.kind, 乙项.kind,
+                    "{源码样例:?}: 退回路径第 {下标} 个令牌的类别"
+                );
+                assert_eq!(
+                    甲项.len, 乙项.len,
+                    "{源码样例:?}: 退回路径第 {下标} 个令牌的长度"
+                );
             }
         }
     }
 
-    /// 真实语料上派生与重新分词同构（zh 教程全部代码块）
+    /// 真实语料上派生与重新分词同构（中文教程全部代码块）
     ///
     /// 单测的十几份形态只能算抽样；这一条把仓库里的方言语料全部跑一遍：
-    /// 任何教程块里出现「派生与重新分词不同构」都会在这里反出来（debug 构建
+    /// 任何教程块里出现「派生与重新分词不同构」都会在这里反出来（调试构建
     /// 下的管线自检也会反，但只在真的跑过那条管线时）。派生不成立（退回
     /// 现场分词）不算错，只统计不崩。
     #[test]
-    fn test_derive_lex_tokens_matches_on_tutorial_corpus() {
+    fn 派生词法令牌教程语料一致() {
         use std::fs;
         use std::path::Path;
 
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tutorials");
-        // 语料目录缺席分两种，必须区分对待：旧写法不分青红皂白 `return`，而这一返回
-        // 正好在 `checked > 400` 的语料下限断言之前（实测把目录指向不存在的名字：
-        // 用例 0.00 s 绿色通过，真实跑是 0.12 s）——也就是说本用例唯一的名值守门人
-        // 被它自己绕过了。仓库布局的判据是 workspace 根清单在不在：在，则教程目录
-        // 缺席只能是路径写错或检出不全，必须判红；不在（发布包/独立 crate）才是真的跳过。
-        if !dir.is_dir() {
-            let workspace_manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../Cargo.toml");
+        let 语料目录 = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tutorials");
+        // 语料目录缺席分两种，必须区分对待：旧写法不分青红皂白 `返回`，而这一返回
+        // 正好在 `已检查 > 400` 的语料下限断言之前（实测把目录指向不存在的名字：
+        // 用例 0.00 秒绿色通过，真实跑是 0.12 秒）——也就是说本用例唯一的名值守门人
+        // 被它自己绕过了。仓库布局的判据是工作区根清单在不在：在，则教程目录
+        // 缺席只能是路径写错或检出不全，必须判红；不在（发布包/独立包）才是真的跳过。
+        if !语料目录.is_dir() {
+            let 根清单 = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../Cargo.toml");
             assert!(
-                !workspace_manifest.is_file(),
-                "教程语料目录缺失：{}（workspace 布局下它必须存在，否则本用例等于没跑）",
-                dir.display()
+                !根清单.is_file(),
+                "教程语料目录缺失：{}（工作区布局下它必须存在，否则本用例等于没跑）",
+                语料目录.display()
             );
             return; // 非仓库布局（如发布包）里没教程目录，不阻断测试
         }
-        let entries = fs::read_dir(&dir).expect("教程目录存在但读不了");
-        let manager = zh_manager();
-        let mut checked = 0usize;
-        let mut rejected = 0usize;
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) != Some("md") {
+        let 目录项们 = fs::read_dir(&语料目录).expect("教程目录存在但读不了");
+        let 管理器 = 建中文管理器();
+        let mut 已检查 = 0;
+        let mut 已拒绝 = 0;
+        for 目录项值 in 目录项们.flatten() {
+            let 文件路径 = 目录项值.path();
+            if 文件路径.extension().and_then(|扩展值| 扩展值.to_str()) != Some("md") {
                 continue;
             }
-            let Ok(text) = fs::read_to_string(&path) else {
+            let Ok(文本值) = fs::read_to_string(&文件路径) else {
                 continue;
             };
-            for block in markdown_code_blocks(&text) {
-                let (lex, input_tokens) = transpile_lex_stage(&block, &manager);
-                checked += 1;
-                if rebase_tokens(&input_tokens, &lex.final_edits).is_none() {
-                    rejected += 1;
+            for 代码块 in 取标记代码块(&文本值) {
+                let (词法, 输入令牌) = 词法阶段转译(&代码块, &管理器);
+                已检查 += 1;
+                if 重基准令牌(&输入令牌, &词法.最终编辑表).is_none() {
+                    已拒绝 += 1;
                 }
-                let derived = derive_lex_tokens(&input_tokens, &lex);
-                let fresh = collect_tokens(&lex.output);
+                let 派生结果 = 派生词法令牌(&输入令牌, &词法);
+                let 现分 = 收集令牌(&词法.输出);
                 assert_eq!(
-                    derived.len(),
-                    fresh.len(),
-                    "{:?} 的块：token 数不一致",
-                    path.file_name()
+                    派生结果.len(),
+                    现分.len(),
+                    "{:?} 的块：令牌数不一致",
+                    文件路径.file_name()
                 );
-                for (i, (a, b)) in derived.iter().zip(&fresh).enumerate() {
+                for (下标, (甲项, 乙项)) in 派生结果.iter().zip(&现分).enumerate() {
                     assert_eq!(
-                        a.kind,
-                        b.kind,
-                        "{:?} 的块：第 {i} 个 token 的 kind",
-                        path.file_name()
+                        甲项.kind,
+                        乙项.kind,
+                        "{:?} 的块：第 {下标} 个令牌的类别",
+                        文件路径.file_name()
                     );
                     assert_eq!(
-                        a.len,
-                        b.len,
-                        "{:?} 的块：第 {i} 个 token 的长度",
-                        path.file_name()
+                        甲项.len,
+                        乙项.len,
+                        "{:?} 的块：第 {下标} 个令牌的长度",
+                        文件路径.file_name()
                     );
                 }
             }
         }
         assert!(
-            checked > 400,
-            "语料过少（{checked} 块），检查教程目录/解析是否失效"
+            已检查 > 400,
+            "语料过少（{已检查} 块），检查教程目录/解析是否失效"
         );
         // 后缀黏连等形态只能退回现场分词；占比不应过半，否则本优化失效
-        assert!(rejected * 2 < checked, "派生失败过多：{rejected}/{checked}");
+        assert!(已拒绝 * 2 < 已检查, "派生失败过多：{已拒绝}/{已检查}");
     }
 
-    /// 提取 Markdown 围栏代码块（```rust / ```zh / 裸 ```）
-    fn markdown_code_blocks(text: &str) -> Vec<String> {
-        let mut out = Vec::new();
-        let mut current: Option<String> = None;
-        for line in text.lines() {
-            let t = line.trim_start();
-            if let Some(rest) = t.strip_prefix("```") {
-                match current.take() {
-                    None => {
-                        let lang = rest.trim();
-                        if matches!(lang, "" | "rust" | "zh" | "rust,zh" | "zh,rust") {
-                            current = Some(String::new());
-                        } else {
-                            // 非代码块（bash/text/…）：置 None 但仍需闭合，
-                            // 用一个永不出发的占位块标记跳过
-                            current = Some("\u{0}".to_string());
-                        }
+    /// 提取标记围栏代码块（标记为 rust、中文或裸反引号）
+    fn 取标记代码块(文本值: &str) -> Vec<String> {
+        let mut 结果块们 = Vec::new();
+        let mut 当前块: Option<String> = None;
+        for 行文本 in 文本值.lines() {
+            let 裁剪行 = 行文本.trim_start();
+            if let Some(剩余) = 裁剪行.strip_prefix("```") {
+                if let Some(缓冲) = 当前块.take() {
+                    if !缓冲.starts_with('\u{0}') {
+                        结果块们.push(缓冲);
                     }
-                    Some(buf) => {
-                        if !buf.starts_with('\u{0}') {
-                            out.push(buf);
-                        }
-                        current = None;
+                    当前块 = None;
+                } else {
+                    let 语言名 = 剩余.trim();
+                    if matches!(语言名, "" | "rust" | "zh" | "rust,zh" | "zh,rust") {
+                        let 新缓冲 = String::new();
+                        当前块 = Some(新缓冲);
+                    } else {
+                        // 非代码块（bash/text/…）：置无但仍需闭合，
+                        // 用一个永不出发的占位块标记跳过
+                        当前块 = Some("\u{0}".to_string());
                     }
                 }
-            } else if let Some(buf) = current.as_mut()
-                && !buf.starts_with('\u{0}')
+            } else if let Some(缓冲) = 当前块.as_mut()
+                && !缓冲.starts_with('\u{0}')
             {
-                buf.push_str(line);
-                buf.push('\n');
+                缓冲.push_str(行文本);
+                缓冲.push('\n');
             }
         }
-        out
+        结果块们
     }
 
-    fn new_cache() -> cache::TranslationCache {
+    fn 建新缓存() -> 缓存::转译缓存 {
         // 静音走一次性写入且持级别锁：旧写法每次建缓存都裸写全局级别，等于给
         // 所有「断言级别」的用例埋了个不持锁的竞争者（撑开窗口实测 12/12 轮红）。
-        logger::quiet_for_tests();
-        cache::TranslationCache::with_default_capacity()
+        日志::测试静音();
+        缓存::转译缓存::默认容量()
     }
 
     #[test]
-    fn test_full_pipeline_and_incremental_cache() {
-        let manager = create_manager();
-        let mut cache = new_cache();
-        let source = "函数 主函数() { 让 数量: 整数 = 5; 打印行(\"你好\") }";
+    fn 完整管线与增量缓存() {
+        let 管理器 = 建测试管理器();
+        let mut 缓存实例 = 建新缓存();
+        let 源文本 = "函数 主函数() { 让 数量: 整数 = 5; 打印行(\"你好\") }";
 
-        let first = transpile_source(source, &manager, &mut cache).expect("翻译失败");
-        let second = transpile_source(source, &manager, &mut cache).expect("翻译失败");
+        let 第一次 = 转译源文本(源文本, &管理器, &mut 缓存实例).expect("翻译失败");
+        let 第二次 = 转译源文本(源文本, &管理器, &mut 缓存实例).expect("翻译失败");
 
         // 输出一致且包含各阶段替换结果（词法 + 模块路径 + 别名）
-        assert_eq!(first, second);
+        assert_eq!(第一次, 第二次);
         assert!(
-            first.contains("fn 主函数() { let 数量: i32 = 5; println!(\"你好\") }"),
+            第一次.contains("fn 主函数() { let 数量: i32 = 5; println!(\"你好\") }"),
             "实际输出：{}",
-            first
+            第一次
         );
 
         // 第二次调用命中缓存：条数 1、未命中 1 次、命中 1 次
-        assert_eq!(cache.current_count(), 1);
-        assert_eq!(cache.miss_count(), 1);
-        assert_eq!(cache.hit_count(), 1);
-        assert_eq!(cache.hit_rate(), 0.5);
+        assert_eq!(缓存实例.当前条目数(), 1);
+        assert_eq!(缓存实例.未命中次数(), 1);
+        assert_eq!(缓存实例.命中次数(), 1);
+        assert_eq!(缓存实例.命中率(), 0.5);
     }
 
     #[test]
-    fn test_content_change_triggers_retranslate() {
-        let manager = create_manager();
-        let mut cache = new_cache();
+    fn 内容变化触发重译() {
+        let 管理器 = 建测试管理器();
+        let mut 缓存实例 = 建新缓存();
 
-        transpile_source("函数 主函数() { 让 x = 1; }", &manager, &mut cache).expect("翻译失败");
-        transpile_source("函数 主函数() { 让 x = 2; }", &manager, &mut cache).expect("翻译失败");
+        转译源文本("函数 主函数() { 让 x = 1; }", &管理器, &mut 缓存实例).expect("翻译失败");
+        转译源文本("函数 主函数() { 让 x = 2; }", &管理器, &mut 缓存实例).expect("翻译失败");
 
-        assert_eq!(cache.current_count(), 2);
-        assert_eq!(cache.miss_count(), 2);
+        assert_eq!(缓存实例.当前条目数(), 2);
+        assert_eq!(缓存实例.未命中次数(), 2);
     }
 
     #[test]
-    fn test_pipeline_method_position_defers_reserved_word() {
-        // 方法位让位（`枚举` 词法值为保留字 enum、别名表为 enumerate）：
+    fn 管线方法位让位保留字() {
+        // 方法位让位（`枚举` 的词法值是保留关键字，直译出 `.enum()` 非法，
+        // 别名表给出的 `.enumerate()` 才是合法产物）：
         // 完整管线产出 `.iter().enumerate()`（此前为 `.iter().enum()` 编译失败）
-        let manager = create_manager();
-        let mut cache = new_cache();
-        let source = "函数 主函数() { 让 n = 甲.迭代().枚举(); }";
-        let out = transpile_source(source, &manager, &mut cache).expect("翻译失败");
-        assert!(out.contains(".iter().enumerate()"), "实际输出：{}", out);
+        let 管理器 = 建测试管理器();
+        let mut 缓存实例 = 建新缓存();
+        let 源文本 = "函数 主函数() { 让 n = 甲.迭代().枚举(); }";
+        let 输出产物 = 转译源文本(源文本, &管理器, &mut 缓存实例).expect("翻译失败");
+        assert!(
+            输出产物.contains(".iter().enumerate()"),
+            "实际输出：{}",
+            输出产物
+        );
 
         // 替换值非保留字的词不受让位影响：`.文件()` 照旧 `.file()`（宏节词表）
-        let mut cache = new_cache();
-        let out = transpile_source("函数 主函数() { 让 f = 甲.文件(); }", &manager, &mut cache)
-            .expect("翻译失败");
-        assert!(out.contains(".file()"), "实际输出：{}", out);
+        let mut 缓存实例 = 建新缓存();
+        let 输出产物 = 转译源文本(
+            "函数 主函数() { 让 f = 甲.文件(); }",
+            &管理器,
+            &mut 缓存实例,
+        )
+        .expect("翻译失败");
+        assert!(输出产物.contains(".file()"), "实际输出：{}", 输出产物);
     }
 
     #[test]
-    fn test_transpile_with_map_records_keyword_replacements() {
-        let manager = create_manager();
-        let mut cache = new_cache();
-        let source = "函数 主函数() { 让 x = 1; }";
+    fn 带映射转译记录关键字替换() {
+        let 管理器 = 建测试管理器();
+        let mut 缓存实例 = 建新缓存();
+        let 源文本 = "函数 主函数() { 让 x = 1; }";
 
-        let output = transpile_source_with_map(source, &manager, &mut cache).expect("翻译失败");
+        let 输出产物 = 转译源文本并取映射(源文本, &管理器, &mut 缓存实例).expect("翻译失败");
 
         // 函数 与 让 被替换，主函数 保持原样不产生映射
-        let fn_map = output
-            .source_map
+        let 函数映射条目 = 输出产物
+            .源映射
             .iter()
-            .find(|m| m.original == "函数")
+            .find(|映射条目| 映射条目.原文 == "函数")
             .expect("应有 函数 映射");
-        assert_eq!(fn_map.replacement, "fn");
+        assert_eq!(函数映射条目.替换文字, "fn");
         assert_eq!(
-            &source[fn_map.source_offset..fn_map.source_offset + fn_map.length],
+            &源文本[函数映射条目.源偏移..函数映射条目.源偏移 + 函数映射条目.源码长度],
             "函数"
         );
 
-        let let_map = output
-            .source_map
+        let 让映射条目 = 输出产物
+            .源映射
             .iter()
-            .find(|m| m.original == "让")
+            .find(|映射条目| 映射条目.原文 == "让")
             .expect("应有 让 映射");
-        assert_eq!(let_map.replacement, "let");
-        assert!(!output.source_map.iter().any(|m| m.original == "主函数"));
+        assert_eq!(让映射条目.替换文字, "let");
+        assert!(
+            !输出产物
+                .源映射
+                .iter()
+                .any(|映射条目| 映射条目.原文 == "主函数")
+        );
     }
 
     #[test]
-    fn test_language_pack_update_invalidates_cache() {
-        let manager = create_manager();
-        let mut cache = new_cache();
-        let source = "函数 主函数() { 让 x = 1; }";
+    fn 语言包更新使缓存失效() {
+        let 管理器 = 建测试管理器();
+        let mut 缓存实例 = 建新缓存();
+        let 源文本 = "函数 主函数() { 让 x = 1; }";
 
-        transpile_source(source, &manager, &mut cache).expect("翻译失败");
-        // 语言包变化（新增 可变→mut 映射）→ 语境指纹变化 → 缓存失效重新翻译
-        let new_manager = mapping_manager::MappingManager::load_from_builtin(
+        转译源文本(源文本, &管理器, &mut 缓存实例).expect("翻译失败");
+        // 语言包变化（新增 可变 到 可变引用 映射）→ 语境指纹变化 → 缓存失效重新翻译
+        let 新管理器 = 映射管理器::映射管理器::从内置载入(
             r#"
 ["声明"]
 "函数" = "fn"
@@ -1267,110 +1287,110 @@ mod tests {
             &[],
         )
         .expect("创建新管理器失败");
-        transpile_source(source, &new_manager, &mut cache).expect("翻译失败");
+        转译源文本(源文本, &新管理器, &mut 缓存实例).expect("翻译失败");
 
         // 同内容哈希 → 覆盖原条目（条数不变）；语境变化 → 未命中计数增加
-        assert_eq!(cache.current_count(), 1);
-        assert_eq!(cache.miss_count(), 2);
-        // 新映射生效：可变→mut
-        let result = transpile_source("函数 主函数() { 让 可变 x = 1; }", &new_manager, &mut cache)
+        assert_eq!(缓存实例.当前条目数(), 1);
+        assert_eq!(缓存实例.未命中次数(), 2);
+        // 新映射生效：可变 到 可变引用
+        let 结果值 = 转译源文本("函数 主函数() { 让 可变 x = 1; }", &新管理器, &mut 缓存实例)
             .expect("翻译失败");
-        assert!(result.contains("let mut x"));
+        assert!(结果值.contains("let mut x"));
     }
 
     #[test]
-    fn test_zero_width_char_warns_but_does_not_block() {
-        let manager = create_manager();
-        let mut cache = new_cache();
-        // 源码含零宽空格（token 之间，Rust 视为空白），翻译应正常完成
-        let source = "函数 主函数() {\u{200B} 让 x = 1; }";
-        let result = transpile_source(source, &manager, &mut cache);
-        assert!(result.is_ok(), "零宽字符不应阻断翻译：{:?}", result);
-        assert!(result.unwrap().contains("fn 主函数()"));
+    fn 零宽字符告警不阻断() {
+        let 管理器 = 建测试管理器();
+        let mut 缓存实例 = 建新缓存();
+        // 源码含零宽空格（令牌之间，Rust 视为空白），翻译应正常完成
+        let 源文本 = "函数 主函数() {\u{200B} 让 x = 1; }";
+        let 结果值 = 转译源文本(源文本, &管理器, &mut 缓存实例);
+        assert!(结果值.is_ok(), "零宽字符不应阻断翻译：{:?}", 结果值);
+        assert!(结果值.unwrap().contains("fn 主函数()"));
     }
 
-    // ===== 全管线编辑地图（pipeline_map）测试 =====
+    // ===== 全管线编辑地图（流程映射）测试 =====
 
-    /// 把编辑地图应用到源文本（按 source_offset 拼接 replacement），
+    /// 把编辑地图应用到源文本（按 源偏移 拼接替换文字），
     /// 是"地图与真实输出一致"的权威校验——任何阶段改规则却不同步地图都会使此测试失败。
-    fn apply_pipeline_map(source: &str, map: &[cache::SourceMapEntry]) -> String {
-        let mut result = String::new();
-        let mut pos = 0usize;
-        for e in map {
-            result.push_str(&source[pos..e.source_offset]);
-            result.push_str(&e.replacement);
-            pos = e.source_offset + e.length;
+    fn 应用流程映射(源文本: &str, 地图: &[缓存::源码映射条目]) -> String {
+        let mut 回放文本 = String::new();
+        let mut 位置值 = 0;
+        for 编辑条 in 地图 {
+            回放文本.push_str(&源文本[位置值..编辑条.源偏移]);
+            回放文本.push_str(&编辑条.替换文字);
+            位置值 = 编辑条.源偏移 + 编辑条.源码长度;
         }
-        result.push_str(&source[pos..]);
-        result
+        回放文本.push_str(&源文本[位置值..]);
+        回放文本
     }
 
-    /// 完整管线（词法 + use 路径 + crate:: 前缀 + 别名）下，
+    /// 完整管线（词法 + 使用路径 + 包前缀 + 别名）下，
     /// 地图回放结果必须与真实输出逐字符一致
     #[test]
-    fn test_pipeline_map_replays_to_output() {
-        let manager = create_manager();
-        let module_names = HashSet::from(["辅助".to_string()]);
-        let source = "使用 标准集合::哈希映射;\n\
+    fn 流程映射回放等于输出() {
+        let 管理器 = 建测试管理器();
+        let 模块名集 = HashSet::from(["辅助".to_string()]);
+        let 源文本 = "使用 标准集合::哈希映射;\n\
                       函数 主函数() {\n\
                       \x20   辅助::辅助函数();\n\
                       \x20   让 数量: 整数 = 5;\n\
                       \x20   打印行(\"你好\");\n\
                       }";
-        let output = transpile_pipeline_with_map(source, &manager, Some(&module_names));
-        assert!(output.output.contains("crate::辅助::辅助函数()"));
-        let rebuilt = apply_pipeline_map(source, &output.pipeline_map);
+        let 输出产物 = 带映射转译管线(源文本, &管理器, Some(&模块名集));
+        assert!(输出产物.输出.contains("crate::辅助::辅助函数()"));
+        let 回放文本 = 应用流程映射(源文本, &输出产物.流程映射);
         assert_eq!(
-            rebuilt, output.output,
-            "pipeline_map 回放必须与真实输出一致\n实际输出：{}\n回放输出：{}",
-            output.output, rebuilt
+            回放文本, 输出产物.输出,
+            "流程映射回放必须与真实输出一致\n实际输出：{}\n回放输出：{}",
+            输出产物.输出, 回放文本
         );
     }
 
-    /// 不带 module_names（CLI 场景）时地图同样与输出一致
+    /// 不带模块名集（命令行场景）时地图同样与输出一致
     #[test]
-    fn test_pipeline_map_replays_without_qualify() {
-        let manager = create_manager();
-        let source = "函数 主函数() { 让 数量: 整数 = 5; 打印行(\"你好\") }";
-        let output = transpile_pipeline_with_map(source, &manager, None);
-        let rebuilt = apply_pipeline_map(source, &output.pipeline_map);
-        assert_eq!(rebuilt, output.output);
+    fn 流程映射无前缀回放一致() {
+        let 管理器 = 建测试管理器();
+        let 源文本 = "函数 主函数() { 让 数量: 整数 = 5; 打印行(\"你好\") }";
+        let 输出产物 = 带映射转译管线(源文本, &管理器, None);
+        let 回放文本 = 应用流程映射(源文本, &输出产物.流程映射);
+        assert_eq!(回放文本, 输出产物.输出);
     }
 
     /// 静默重放与常规管线输出逐项一致：仅跳过教学告警，不得改变任何转译结果
     ///
-    /// 诊断列映射重建走 `transpile_pipeline_quiet` 重放，若重放规则与写盘
-    /// 转译（`transpile_pipeline`）有任何差异，列号回译就会错位。
+    /// 诊断列映射重建走 `静默转译管线` 重放，若重放规则与写盘
+    /// 转译（`转译管线`）有任何差异，列号回译就会错位。
     #[test]
-    fn test_pipeline_quiet_matches_normal() {
-        let manager = create_manager();
-        let source = "函数 主函数() {\n    让 数量: 整数 = 42;\n    打印行(\"你好\");\n}";
-        let normal = transpile_pipeline(source, &manager);
-        let quiet = transpile_pipeline_quiet(source, &manager);
-        assert_eq!(normal.output, quiet.output, "静默重放的转译输出必须一致");
+    fn 静默管线与常规一致() {
+        let 管理器 = 建测试管理器();
+        let 源文本 = "函数 主函数() {\n    让 数量: 整数 = 42;\n    打印行(\"你好\");\n}";
+        let 常规产物 = 转译管线(源文本, &管理器);
+        let 静默产物 = 静默转译管线(源文本, &管理器);
+        assert_eq!(常规产物.输出, 静默产物.输出, "静默重放的转译输出必须一致");
         assert_eq!(
-            normal.pipeline_map, quiet.pipeline_map,
+            常规产物.流程映射, 静默产物.流程映射,
             "静默重放的管线地图必须一致"
         );
     }
 
     /// 游标版逆映射与朴素版逐偏移等价：多种表形态 × 全量偏移查询 × 阶段链
     ///
-    /// 生产路径按升序批量查询（见 `compose_pipeline_map`），游标只前进不回退；
+    /// 生产路径按升序批量查询（见 `组合流程映射`），游标只前进不回退；
     /// 朴素版每次从表头重扫。两者必须逐偏移给出同一答案——偏移换算错了，
     /// 全管线地图就错位，列映射回译跟着错。形态覆盖：空表、首条从 0 起、
     /// 替换变长/变短/等长/清空、相邻无缝隙，以及表尾之后的越界查询。
     #[test]
-    fn test_reverse_cursor_matches_naive() {
-        fn 表(条目: &[(usize, usize, &str, &str)]) -> Vec<cache::SourceMapEntry> {
-            条目
+    fn 逆映射游标与朴素一致() {
+        fn 表(条目列: &[(usize, usize, &str, &str)]) -> Vec<缓存::源码映射条目> {
+            条目列
                 .iter()
-                .map(|(偏移, 长度, 原文, 替换)| {
-                    cache::SourceMapEntry::new(*偏移, *长度, 原文, 替换)
+                .map(|(源偏移值, 长度值, 原文本, 替换文本)| {
+                    缓存::源码映射条目::新建(*源偏移值, *长度值, 原文本, 替换文本)
                 })
                 .collect()
         }
-        let 形态: Vec<Vec<cache::SourceMapEntry>> = vec![
+        let 形态: Vec<Vec<缓存::源码映射条目>> = vec![
             表(&[]),
             表(&[(0, 6, "函数", "fn")]),
             表(&[
@@ -1389,26 +1409,26 @@ mod tests {
             // 查到表尾之后一大截：尾部未替换区间的换算也要对齐
             let 上界 = 编辑表
                 .last()
-                .map(|e| e.source_offset + e.replacement.len() + 32)
+                .map(|编辑条| 编辑条.源偏移 + 编辑条.替换文字.len() + 32)
                 .unwrap_or(64);
             let 朴素: Vec<usize> = (0..=上界)
-                .map(|偏移| inverse_map_offset(编辑表, 偏移))
+                .map(|偏移值| 反查映射偏移(编辑表, 偏移值))
                 .collect();
-            let mut 游标 = ReverseCursor::new(编辑表);
-            for (偏移, 期望) in 朴素.iter().enumerate() {
+            let mut 映射游标 = 逆映射游标::新建(编辑表);
+            for (偏移值, 期望值) in 朴素.iter().enumerate() {
                 assert_eq!(
-                    *期望,
-                    游标.map(偏移),
-                    "偏移 {偏移} 的换算不一致（表：{编辑表:?}）"
+                    *期望值,
+                    映射游标.映射偏移(偏移值),
+                    "偏移 {偏移值} 的换算不一致（表：{编辑表:?}）"
                 );
             }
         }
 
-        // 随机表形状：固定种子 LCG 造 200 张表，条数、间隔（含 0，即相邻无缝隙）、
+        // 随机表形状：固定种子线性同余造 200 张表，条数、间隔（含 0，即相邻无缝隙）、
         // 原文长度（含 0，即同偏移并列）与替换长度（含 0，即整段删除）全部随机。
         // 上面手写的形态容易漏边角，随机铺开才能把差分覆盖面拉开；不变量与
         // 生产一致：按输入偏移升序且互不重叠（下一条偏移 ≥ 上一条偏移 + 上一条长度）。
-        let mut 种子 = 0x9E37_79B9_7F4A_7C15u64;
+        let mut 种子: u64 = 0x9E37_79B9_7F4A_7C15;
         let mut 随机 = move || -> usize {
             种子 = 种子
                 .wrapping_mul(6_364_136_223_846_793_005)
@@ -1417,47 +1437,47 @@ mod tests {
         };
         for 轮 in 0..200 {
             let mut 编辑表 = Vec::new();
-            let mut 偏移 = 随机() % 4;
+            let mut 偏移值 = 随机() % 4;
             for _ in 0..(随机() % 8 + 1) {
                 let 原文长度 = 随机() % 4;
                 let 替换长度 = 随机() % 4;
-                编辑表.push(cache::SourceMapEntry::new(
-                    偏移,
+                编辑表.push(缓存::源码映射条目::新建(
+                    偏移值,
                     原文长度,
-                    // ASCII：让 length 字段就是字节长度，与 `原文长度` 自洽
+                    // ASCII：让 `长度` 字段就是字节长度，与 `原文长度` 自洽
                     &"x".repeat(原文长度),
                     &"y".repeat(替换长度),
                 ));
-                偏移 += 原文长度 + 随机() % 5;
+                偏移值 += 原文长度 + 随机() % 5;
             }
             // 查询上界：整表走完得到的输出侧末尾再往后一截（尾部未替换区间）
-            let 上界 = 偏移 + 16;
+            let 上界 = 偏移值 + 16;
             let 朴素: Vec<usize> = (0..=上界)
-                .map(|偏移| inverse_map_offset(&编辑表, 偏移))
+                .map(|偏移值| 反查映射偏移(&编辑表, 偏移值))
                 .collect();
-            let mut 游标 = ReverseCursor::new(&编辑表);
-            for (偏移, 期望) in 朴素.iter().enumerate() {
+            let mut 映射游标 = 逆映射游标::新建(&编辑表);
+            for (偏移值, 期望值) in 朴素.iter().enumerate() {
                 assert_eq!(
-                    *期望,
-                    游标.map(偏移),
-                    "第 {轮} 轮随机表：偏移 {偏移} 的换算不一致（表：{编辑表:?}）"
+                    *期望值,
+                    映射游标.映射偏移(偏移值),
+                    "第 {轮} 轮随机表：偏移 {偏移值} 的换算不一致（表：{编辑表:?}）"
                 );
             }
         }
 
-        // 阶段链：上一环的答案作为下一环的查询（对应 `compose_pipeline_map` 里
+        // 阶段链：上一环的答案作为下一环的查询（对应 `组合流程映射` 里
         // 「先夹更后阶段、再夹词法阶段」的串联），逐环同样必须等价
-        let 甲 = 表(&[(0, 6, "使用", "use"), (12, 6, "标准库", "std")]);
-        let 乙 = 表(&[(2, 3, "向量", "Vec"), (9, 2, "映射", "Map")]);
-        let mut 游标甲 = ReverseCursor::new(&甲);
-        let mut 游标乙 = ReverseCursor::new(&乙);
-        for 偏移 in 0..=120usize {
-            let 期望 = inverse_map_offset(&甲, inverse_map_offset(&乙, 偏移));
-            let 中间 = 游标乙.map(偏移);
+        let 甲表 = 表(&[(0, 6, "使用", "use"), (12, 6, "标准库", "std")]);
+        let 乙表 = 表(&[(2, 3, "向量", "Vec"), (9, 2, "映射", "Map")]);
+        let mut 游标甲 = 逆映射游标::新建(&甲表);
+        let mut 游标乙 = 逆映射游标::新建(&乙表);
+        for 偏移值 in 0..=120 {
+            let 期望值 = 反查映射偏移(&甲表, 反查映射偏移(&乙表, 偏移值));
+            let 中间值 = 游标乙.映射偏移(偏移值);
             assert_eq!(
-                期望,
-                游标甲.map(中间),
-                "阶段链偏移 {偏移} 的换算不一致（乙给出 {中间}）"
+                期望值,
+                游标甲.映射偏移(中间值),
+                "阶段链偏移 {偏移值} 的换算不一致（乙给出 {中间值}）"
             );
         }
     }
@@ -1465,76 +1485,72 @@ mod tests {
     /// 真实语言包 + 别名密集多阶段源：全管线地图回放仍须逐字等于输出
     ///
     /// 手工小表测不到「词法上千条 × 别名/`crate::` 前缀阶段数百条」的换算链，
-    /// 而这条链正是 `compose_pipeline_map` 里游标推进的地方；前提破了（游标
+    /// 而这条链正是 `组合流程映射` 里游标推进的地方；前提破了（游标
     /// 乱序、单调性假设不成立）就直接反映为回放错位，不靠人工比对也能接住。
     #[test]
-    fn test_pipeline_map_replays_on_alias_heavy_real_pack() {
-        let manager = zh_manager();
-        let mut source =
+    fn 流程映射别名密集语料回放() {
+        let 管理器 = 建中文管理器();
+        let mut 源文本 =
             String::from("使用 标准库::向量::向量;\n使用 标准库::映射::映射;\n\n模块 辅助;\n\n");
-        for i in 0..120 {
-            source.push_str(&format!(
-                "函数 函数_{i}(项: 向量<字符串>, 表: 映射<字符串, 整数>) -> 整数 {{\n\
+        for 序号 in 0..120 {
+            源文本.push_str(&format!(
+                "函数 函数_{序号}(项: 向量<字符串>, 表: 映射<字符串, 整数>) -> 整数 {{\n\
                  \x20   让 个数 = 项.长度();\n\
                  \x20   项.推送(\"新项\");\n\
                  \x20   让 合计 = 项.迭代().计数();\n\
-                 \x20   表.插入(\"键{i}\", 合计);\n\
+                 \x20   表.插入(\"键{序号}\", 合计);\n\
                  \x20   返回 辅助::查询(表, 个数) + 项.长度();\n\
                  }}\n\n"
             ));
         }
-        let module_names: HashSet<String> = ["辅助".to_string()].into_iter().collect();
+        let 模块名集: HashSet<String> = ["辅助".to_string()].into_iter().collect();
         // 静默入口：本用例只关心偏移换算，不要被上千条教学告警埋掉失败输出
-        let output = transpile_pipeline_quiet_with_map_and_project(
-            &source,
-            &manager,
-            Some(&module_names),
-            None,
-        );
+        let 输出产物 =
+            静默带映射与项目转译管线(&源文本, &管理器, Some(&模块名集), None);
         // 三道阶段的编辑都进了地图：条目数远超小表，才有资格作为游标的回归样本
         assert!(
-            output.pipeline_map.len() > 1000,
+            输出产物.流程映射.len() > 1000,
             "别名密集语料的地图条目应上千：{}",
-            output.pipeline_map.len()
+            输出产物.流程映射.len()
         );
         assert!(
-            output.output.contains("crate::辅助::query"),
+            输出产物.输出.contains("crate::辅助::query"),
             "语料应确实走通 `crate::` 前缀阶段：{}",
-            &output.output[..output.output.len().min(400)]
+            &输出产物.输出[..输出产物.输出.len().min(400)]
         );
-        let rebuilt = apply_pipeline_map(&source, &output.pipeline_map);
+        let 回放文本 = 应用流程映射(&源文本, &输出产物.流程映射);
         assert_eq!(
-            rebuilt, output.output,
+            回放文本, 输出产物.输出,
             "地图回放必须逐字等于输出（偏移换算错位即在此暴露）"
         );
     }
 
-    /// 宏自动补的 `!` 计入 replacement；模块路径段条目为 `crate::辅助`
+    /// 宏自动补的 `!` 计入替换文字；模块路径段条目为 `crate::辅助`
     #[test]
-    fn test_pipeline_map_records_macro_bang_and_qualify() {
-        let manager = create_manager();
-        let module_names = HashSet::from(["辅助".to_string()]);
-        let source = "函数 主函数() {\n    辅助::辅助函数();\n    打印行(\"你好\");\n}";
-        let output = transpile_pipeline_with_map(source, &manager, Some(&module_names));
+    fn 流程映射记录宏惊叹号与前缀() {
+        let 管理器 = 建测试管理器();
+        let 模块名集 = HashSet::from(["辅助".to_string()]);
+        let 源文本 = "函数 主函数() {\n    辅助::辅助函数();\n    打印行(\"你好\");\n}";
+        let 输出产物 = 带映射转译管线(源文本, &管理器, Some(&模块名集));
 
-        let macro_entry = output
-            .pipeline_map
+        let 宏条目 = 输出产物
+            .流程映射
             .iter()
-            .find(|e| e.original == "打印行")
+            .find(|映射条目| 映射条目.原文 == "打印行")
             .expect("应有宏条目");
-        assert_eq!(macro_entry.replacement, "println!");
-        let qual_entry = output
-            .pipeline_map
+        assert_eq!(宏条目.替换文字, "println!");
+        let 限定条目 = 输出产物
+            .流程映射
             .iter()
-            .find(|e| e.original == "辅助")
+            .find(|映射条目| 映射条目.原文 == "辅助")
             .expect("应有模块路径条目");
-        assert_eq!(qual_entry.replacement, "crate::辅助");
+        assert_eq!(限定条目.替换文字, "crate::辅助");
     }
 
-    /// use 语句路径段经模块路径阶段替换、末段经别名阶段替换（LSP 之前缺失的环节）
+    /// 使用语句路径段经模块路径阶段替换、末段经别名阶段替换（语言服务器之前缺失的环节）
     #[test]
-    fn test_pipeline_map_use_stmt_module_path_and_alias() {
-        let manager = mapping_manager::MappingManager::load_from_builtin(
+    fn 流程映射使用语句模块路径与别名() {
+        let 管理器 = 映射管理器::映射管理器::从内置载入(
             r#"
 ["声明"]
 "函数" = "fn"
@@ -1555,17 +1571,14 @@ mod tests {
             &[],
         )
         .expect("创建管理器失败");
-        let source = "使用 标准集合::哈希映射;\n函数 主函数() {\n    让 s: 字符串 = 哈希映射::新建();\n    打印行(\"你好\");\n}";
-        let output = transpile_pipeline_with_map(source, &manager, None);
+        let 源文本 = "使用 标准集合::哈希映射;\n函数 主函数() {\n    让 s: 字符串 = 哈希映射::新建();\n    打印行(\"你好\");\n}";
+        let 输出产物 = 带映射转译管线(源文本, &管理器, None);
         assert!(
-            output.output.contains("use std::collections::HashMap;"),
-            "use 语句路径与末段都应被替换：{}",
-            output.output
+            输出产物.输出.contains("use std::collections::HashMap;"),
+            "使用语句路径与末段都应被替换：{}",
+            输出产物.输出
         );
-        assert_eq!(
-            apply_pipeline_map(source, &output.pipeline_map),
-            output.output
-        );
+        assert_eq!(应用流程映射(源文本, &输出产物.流程映射), 输出产物.输出);
     }
 
     /// 属性测试：正向转译 → 反向转译应精确还原母语源（回译不变量）
@@ -1574,35 +1587,30 @@ mod tests {
     /// 无法还原）；宏调用写带感叹号形式（正向自动补的 `!` 反向原样保留，
     /// 源写 `打印行(` 会还原成 `打印行!(` 造成差异）。
     #[test]
-    fn test_property_roundtrip_preserves_source() {
-        let manager = create_manager();
-        let source = "函数 主函数() {\n    让 数量: 整数 = 5;\n    让 文本: 字符串 = \"世界\";\n    打印行!(\"你好\");\n}";
-        let output = transpile_pipeline(source, &manager);
+    fn 往返保持母语源() {
+        let 管理器 = 建测试管理器();
+        let 源文本 = "函数 主函数() {\n    让 数量: 整数 = 5;\n    让 文本: 字符串 = \"世界\";\n    打印行!(\"你好\");\n}";
+        let 输出产物 = 转译管线(源文本, &管理器);
         assert!(
-            output.output.contains("fn 主函数()") && output.output.contains("println!"),
+            输出产物.输出.contains("fn 主函数()") && 输出产物.输出.contains("println!"),
             "正向转译应产出英文：{}",
-            output.output
+            输出产物.输出
         );
 
         // 合并关键字 + 宏 + 别名三类映射并反转（英文 → 中文），与正向管线互为逆
-        let mut reverse_map = std::collections::HashMap::new();
-        for (zh, en) in manager.get_keyword_map() {
-            reverse_map.insert(en.clone(), zh.clone());
+        let mut 反查表 = std::collections::HashMap::new();
+        for (母语词, 英文词) in 管理器.取关键词表() {
+            反查表.insert(英文词.clone(), 母语词.clone());
         }
-        for (zh, en) in manager.get_macro_map() {
-            reverse_map.insert(en.clone(), zh.clone());
+        for (母语词, 英文词) in 管理器.取宏表() {
+            反查表.insert(英文词.clone(), 母语词.clone());
         }
-        for (zh, en) in manager.get_alias_map() {
-            reverse_map.insert(en.clone(), zh.clone());
+        for (母语词, 英文词) in 管理器.取别名表() {
+            反查表.insert(英文词.clone(), 母语词.clone());
         }
 
-        let restored = lexer::reverse_transpile(
-            &output.output,
-            &reverse_map,
-            &HashSet::new(),
-            &HashSet::new(),
-        );
-        assert_eq!(restored, source, "回译应精确还原母语源");
+        let 回译文本 = 词法器::反译(&输出产物.输出, &反查表, &HashSet::new(), &HashSet::new());
+        assert_eq!(回译文本, 源文本, "回译应精确还原母语源");
     }
 
     /// 属性测试：英文输出再经转译管线应保持不变（幂等不变量）
@@ -1610,12 +1618,12 @@ mod tests {
     /// 若映射表中混入英文键、或宏感叹号自动补逻辑对英文输出不幂等，
     /// 连续转译会持续改变文本，本测试守护管线的收敛性。
     #[test]
-    fn test_property_retranspile_idempotent() {
-        let manager = create_manager();
-        let source = "函数 主函数() {\n    让 数量: 整数 = 5;\n    打印行!(\"你好\");\n}";
-        let en = transpile_pipeline(source, &manager).output;
-        let again = transpile_pipeline(&en, &manager).output;
-        assert_eq!(en, again, "对英文输出再转译应保持不变");
+    fn 再次转译幂等() {
+        let 管理器 = 建测试管理器();
+        let 源文本 = "函数 主函数() {\n    让 数量: 整数 = 5;\n    打印行!(\"你好\");\n}";
+        let 英文产物 = 转译管线(源文本, &管理器).输出;
+        let 再译产物 = 转译管线(&英文产物, &管理器).输出;
+        assert_eq!(英文产物, 再译产物, "对英文输出再转译应保持不变");
     }
 
     /// 属性测试：全部内置语言包的映射表不得含循环引用
@@ -1623,81 +1631,84 @@ mod tests {
     /// 循环（A→B 且 B→A）会使正向/反向转译来回抖动，属语言包配置错误；
     /// 本测试加载全部内置语言包，守护新增条目时不会引入互指。
     #[test]
-    fn test_all_builtin_lang_packs_no_mapping_cycles() {
-        let codes = 语言::builtin_language_codes();
-        assert!(codes.len() >= 9, "应覆盖全部内置语言：{codes:?}");
-        for code in codes {
-            let files = 语言::builtin_lang_files(code);
-            let get = |name: &str| {
-                files
+    fn 全部内置语言包无循环映射() {
+        let 语言代码们 = 语言::内置语言代码();
+        assert!(语言代码们.len() >= 9, "应覆盖全部内置语言：{语言代码们:?}");
+        for 语言代码 in 语言代码们 {
+            let 语言包文件们 = 语言::内置语言包文件(语言代码);
+            let 取内容 = |名称: &str| {
+                语言包文件们
                     .iter()
-                    .find(|(n, _)| *n == name)
-                    .map(|(_, c)| *c)
+                    .find(|(名字项, _)| *名字项 == 名称)
+                    .map(|(_, 内容项)| *内容项)
                     .unwrap_or("")
             };
-            let keywords = get("keywords.toml");
-            assert!(!keywords.is_empty(), "{code} 语言包缺少 keywords.toml");
-            let third_party: Vec<(&str, &str)> = files
+            let 关键字内容 = 取内容("keywords.toml");
+            assert!(
+                !关键字内容.is_empty(),
+                "{语言代码} 语言包缺少 keywords.toml"
+            );
+            let 三方数据: Vec<(&str, &str)> = 语言包文件们
                 .iter()
-                .filter(|(n, _)| n.starts_with("crates/"))
-                .map(|(n, c)| (*n, *c))
+                .filter(|(名字项, _)| 名字项.starts_with("crates/"))
+                .map(|(名字项, 内容项)| (*名字项, *内容项))
                 .collect();
-            let manager = mapping_manager::MappingManager::load_from_builtin(
-                keywords,
-                get("module_paths.toml"),
-                get("stdlib.toml"),
-                &third_party,
+            let 管理器 = 映射管理器::映射管理器::从内置载入(
+                关键字内容,
+                取内容("module_paths.toml"),
+                取内容("stdlib.toml"),
+                &三方数据,
             )
             .expect("语言包应能解析");
-            let cycles = manager.find_mapping_cycles();
-            assert!(cycles.is_empty(), "{code} 语言包存在循环映射：{cycles:?}");
+            let 循环项 = 管理器.查循环();
+            assert!(
+                循环项.is_empty(),
+                "{语言代码} 语言包存在循环映射：{循环项:?}"
+            );
         }
     }
 
     /// 门禁：内置语言包的「方法位让位」词在完整管线中必须落到别名层词条
     ///
-    /// 词法替换值为保留关键字的词（`枚举`→enum）在方法位直译非法
+    /// 词法替换值为保留关键字的词（`枚举` 对应保留关键字）在方法位直译非法
     /// （`.枚举()` → `.enum()`）；让位机制应将其保留给别名阶段
     /// （`.enumerate()`）。本测试对每个语言包在每个让位词上验证管线闭环，
     /// 不硬编码具体词汇——新增语言包自动纳入守护。
     #[test]
-    fn test_builtin_lang_packs_method_defer_words_reach_alias_stage() {
-        for code in 语言::builtin_language_codes() {
-            let files = 语言::builtin_lang_files(code);
-            let get = |name: &str| {
-                files
+    fn 内置语言包方法让位词落到别名阶段() {
+        for 语言代码 in 语言::内置语言代码() {
+            let 语言包文件们 = 语言::内置语言包文件(语言代码);
+            let 取内容 = |名称: &str| {
+                语言包文件们
                     .iter()
-                    .find(|(n, _)| *n == name)
-                    .map(|(_, c)| *c)
+                    .find(|(名字项, _)| *名字项 == 名称)
+                    .map(|(_, 内容项)| *内容项)
                     .unwrap_or("")
             };
-            let third_party: Vec<(&str, &str)> = files
+            let 三方数据: Vec<(&str, &str)> = 语言包文件们
                 .iter()
-                .filter(|(n, _)| n.starts_with("crates/"))
-                .map(|(n, c)| (*n, *c))
+                .filter(|(名字项, _)| 名字项.starts_with("crates/"))
+                .map(|(名字项, 内容项)| (*名字项, *内容项))
                 .collect();
-            let manager = mapping_manager::MappingManager::load_from_builtin(
-                get("keywords.toml"),
-                get("module_paths.toml"),
-                get("stdlib.toml"),
-                &third_party,
+            let 管理器 = 映射管理器::映射管理器::从内置载入(
+                取内容("keywords.toml"),
+                取内容("module_paths.toml"),
+                取内容("stdlib.toml"),
+                &三方数据,
             )
             .expect("语言包应能解析");
 
-            let mut cache = new_cache();
-            for word in manager.get_method_defer_words() {
-                let target = manager
-                    .get_alias_map()
-                    .get(word)
-                    .expect("让位词应有别名词条");
-                let source = format!("函数 主函数() {{ 让 x = 甲.{}(); }}", word);
-                let out = transpile_source(&source, &manager, &mut cache).expect("翻译失败");
+            let mut 缓存实例 = 建新缓存();
+            for 词语 in 管理器.取方法让位词() {
+                let 目标词 = 管理器.取别名表().get(词语).expect("让位词应有别名词条");
+                let 源文本 = format!("函数 主函数() {{ 让 x = 甲.{}(); }}", 词语);
+                let 输出产物 = 转译源文本(&源文本, &管理器, &mut 缓存实例).expect("翻译失败");
                 assert!(
-                    out.contains(&format!(".{}()", target)),
-                    "{code}: `.{}()` 应经让位落到别名词条 `.{}()`，实际输出：{}",
-                    word,
-                    target,
-                    out
+                    输出产物.contains(&format!(".{}()", 目标词)),
+                    "{语言代码}: `.{}()` 应经让位落到别名词条 `.{}()`，实际输出：{}",
+                    词语,
+                    目标词,
+                    输出产物
                 );
             }
         }
@@ -1710,34 +1721,31 @@ mod tests {
     /// 教学提示缺失会让新手在常见错误上得不到母语指引，
     /// 因此该清单与语言包的覆盖关系由测试守护（附录C 新增错误码时同步更新本清单）。
     #[test]
-    fn test_appendix_c_error_codes_have_teaching_hints_in_all_packs() {
+    fn 附录错误码教学提示齐全() {
         // 与 tutorials/附录C：常见错误信息字典.md 的 `### E0xxx` 标题同步维护
-        let appendix_c_codes: &[&str] = &[
+        let 附录错误码: &[&str] = &[
             "E0004", "E0063", "E0072", "E0106", "E0204", "E0261", "E0277", "E0308", "E0382",
             "E0405", "E0425", "E0432", "E0502", "E0507", "E0508", "E0531", "E0573", "E0596",
             "E0597", "E0599", "E0603",
         ];
-        let codes = 语言::builtin_language_codes();
-        assert!(codes.len() >= 9, "应覆盖全部内置语言：{codes:?}");
-        for code in codes {
-            let files = 语言::builtin_lang_files(code);
-            let errors_toml = files
+        let 语言代码们 = 语言::内置语言代码();
+        assert!(语言代码们.len() >= 9, "应覆盖全部内置语言：{语言代码们:?}");
+        for 语言代码 in 语言代码们 {
+            let 语言包文件们 = 语言::内置语言包文件(语言代码);
+            let 错误表文本 = 语言包文件们
                 .iter()
-                .find(|(n, _)| *n == "errors.toml")
-                .map(|(_, c)| *c)
-                .expect("{code} 语言包缺少 errors.toml");
-            let manager = diagnostic::ErrorTranslationManager::load_from_string(errors_toml)
-                .expect("errors.toml 应能解析");
-            for error_code in appendix_c_codes {
-                let entry = manager
-                    .translation_table
-                    .get(*error_code)
-                    .unwrap_or_else(|| {
-                        panic!("{code} 语言包缺少附录C 错误码 [{error_code}] 的教学提示")
-                    });
+                .find(|(名字项, _)| *名字项 == "errors.toml")
+                .map(|(_, 内容项)| *内容项)
+                .expect("{语言代码} 语言包缺少 errors.toml");
+            let 管理器 =
+                诊断::错误消息管理器::从字符串载入(错误表文本).expect("errors.toml 应能解析");
+            for 错误码 in 附录错误码 {
+                let 翻译条目 = 管理器.翻译表.get(*错误码).unwrap_or_else(|| {
+                    panic!("{语言代码} 语言包缺少附录C 错误码 [{错误码}] 的教学提示")
+                });
                 assert!(
-                    entry.teaching_hint.is_some(),
-                    "{code} 语言包的 [{error_code}] 缺少教学提示（附录C 已收录）"
+                    翻译条目.教学提示.is_some(),
+                    "{语言代码} 语言包的 [{错误码}] 缺少教学提示（附录C 已收录）"
                 );
             }
         }

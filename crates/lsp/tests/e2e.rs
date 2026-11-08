@@ -1,23 +1,23 @@
 //! LSP 端到端测试：真实 rust-analyzer + 母语诊断翻译全链路
 //!
-//! 启动真实 i18n-rust-lsp 二进制（CARGO_BIN_EXE），通过 JSON-RPC 协议完成
-//! initialize → initialized → didOpen（含错误的 .zh 文件）→ 等待
-//! publishDiagnostics，断言诊断消息被翻译为母语教学诊断。
+//! 启动真实 `i18n-rust-lsp` 二进制（Cargo 提供的二进制路径环境变量），通过 JSON-RPC 协议完成
+//! 初始化 → 初始化完成通知 → 打开文档通知（含错误的 `.zh` 文件）→ 等待
+//! 诊断发布通知，断言诊断消息被翻译为母语教学诊断。
 //!
 //! 覆盖矩阵：
-//! - 4 种代表性语言（zh 中文 / ja 日文 / ru 俄文西里尔 / ar 阿拉伯文 RTL）
+//! - 4 种代表性语言（中文 / 日文 / 俄文西里尔 / 阿拉伯文从右到左）
 //!   验证 E0425（未定义名称）诊断的消息翻译与教学提示；
 //! - 全角标点教学诊断注入（代码位置的全角标点在 IDE 内联提示）；
-//! - 教学 lint 诊断注入（未标注类型/魔法数字 + 忽略标记）；
-//! - 教学告警通道唯一性（诊断按文件发布，server stderr 不再无归属刷屏）；
-//! - 多模块项目无假红语料（模块聚合 / `#[path]` 注解 / include 资源，
+//! - 教学检查诊断注入（未标注类型/魔法数字 + 忽略标记）；
+//! - 教学告警通道唯一性（诊断按文件发布，服务进程标准错误不再无归属刷屏）；
+//! - 多模块项目无假红语料（模块聚合 / `#[path]` 注解 / 包含资源，
 //!   rust-analyzer 升级时必跑，防诊断格式漂移）。
 //!
-//! 前置条件：rust-analyzer 可执行文件可用（查找顺序与 analyzer.rs 相同：
+//! 前置条件：rust-analyzer 可执行文件可用（查找顺序与 `analyzer.rs` 相同：
 //! RUST_ANALYZER_PATH 环境变量 → ~/.rz/toolchain/bin/rust-analyzer → PATH）。
-//! 找不到时的颜色由 [`rust_analyzer_for_run`] 按环境判定：本地开发环境打印
-//! 原因并跳过；CI（`CI`/`GITHUB_ACTIONS`）直接判红——被跳过的用例在报告里也是
-//! ok，不拦住了就会出现「端到端全链路一条没跑、任务全绿」。CI 中先安装工具链
+//! 找不到时的颜色由 [`取分析器路径`] 按环境判定：本地开发环境打印
+//! 原因并跳过；持续集成环境（`CI` 等环境变量）直接判红——被跳过的用例在报告里也显示为
+//! 通过，不拦住就会出现「端到端全链路一条没跑、任务全绿」。持续集成中先安装工具链
 //! 再显式运行：`cargo test -p i18n-rust-lsp --test e2e -- --ignored`
 
 use std::collections::BTreeMap;
@@ -29,10 +29,10 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-/// 各语言 E0425 翻译的特征词：取自 errors.toml [E0425]「消息模板」
+/// 各语言 E0425 翻译的特征词：取自 `errors.toml` [E0425]「消息模板」
 /// （新版 rust-analyzer 直接以 `code: "E0425"` 上报未解析名诊断，LSP 命中
 /// 错误码表渲染，而非短语替换路径）；关键词必须为该模板独有子串
-const LANG_KEYWORDS: &[(&str, &str)] = &[
+const 各语言关键词: &[(&str, &str)] = &[
     ("zh", "找不到"),
     ("ja", "見つかりません"),
     ("ru", "не найдено"),
@@ -40,88 +40,88 @@ const LANG_KEYWORDS: &[(&str, &str)] = &[
 ];
 
 /// 按语言码取 E0425 特征词（单一事实来源，测试函数不得再硬编码）
-fn lang_keyword(lang_code: &str) -> &'static str {
-    LANG_KEYWORDS
+fn 取语言关键词<'甲>(语言码: &str) -> &'甲 str {
+    各语言关键词
         .iter()
-        .find(|(code, _)| *code == lang_code)
-        .unwrap_or_else(|| panic!("LANG_KEYWORDS 未配置语言：{lang_code}"))
+        .find(|(码, _)| *码 == 语言码)
+        .unwrap_or_else(|| panic!("LANG_KEYWORDS 未配置语言：{语言码}"))
         .1
 }
 
-/// 各语言方言源码：关键字取自该语言包（ja/ru/ar 与 zh 不同），
-/// 标识符统一用中文（转译保留用户标识符，RA 报错引用原名，跨语言可断言）
-fn lang_source(lang_code: &str) -> String {
-    match lang_code {
+/// 各语言方言源码：关键字取自该语言包（日文/俄文/阿拉伯文与中文不同），
+/// 标识符统一用中文（转译保留用户标识符，rust-analyzer 报错引用原名，跨语言可断言）
+fn 取方言源码(语言码: &str) -> String {
+    match 语言码 {
         "zh" => "函数 主函数() {\n    让 数量 = 5;\n    让 结果 = 数量 + 不存在的变量;\n}\n",
         "ja" => "関数 主関数() {\n    宣言 数量 = 5;\n    宣言 结果 = 数量 + 不存在的变量;\n}\n",
         "ru" => {
             "функция главная() {\n    пусть 数量 = 5;\n    пусть 结果 = 数量 + 不存在的变量;\n}\n"
         }
         "ar" => "دالة رئيسي() {\n    دع 数量 = 5;\n    دع 结果 = 数量 + 不存在的变量;\n}\n",
-        other => panic!("未知语言：{other}"),
+        其他 => panic!("未知语言：{其他}"),
     }
     .to_string()
 }
 
-/// rust-analyzer 查找顺序与 analyzer.rs 保持一致
-fn find_rust_analyzer() -> Option<PathBuf> {
-    if let Ok(path) = std::env::var("RUST_ANALYZER_PATH")
-        && !path.is_empty()
+/// rust-analyzer 查找顺序与 `analyzer.rs` 保持一致
+fn 查找分析器() -> Option<PathBuf> {
+    if let Ok(路径) = std::env::var("RUST_ANALYZER_PATH")
+        && !路径.is_empty()
     {
-        return Some(PathBuf::from(path));
+        return Some(PathBuf::from(路径));
     }
-    if let Some(p) = i18n_rust_engine::toolchain::find_toolchain_bin("rust-analyzer") {
-        return Some(p);
+    if let Some(分析器) = i18n_rust_engine::工具链::查找工具链程序("rust-analyzer") {
+        return Some(分析器);
     }
-    let exe = if cfg!(windows) {
+    let 程序名 = if cfg!(windows) {
         "rust-analyzer.exe"
     } else {
         "rust-analyzer"
     };
-    std::env::var_os("PATH").and_then(|path| {
-        std::env::split_paths(&path)
-            .map(|dir| dir.join(exe))
-            .find(|p| p.exists())
+    std::env::var_os("PATH").and_then(|路径变量| {
+        std::env::split_paths(&路径变量)
+            .map(|目录| 目录.join(程序名))
+            .find(|候选| 候选.exists())
     })
 }
 
 /// JSON-RPC 分帧编码
-fn encode_message(msg: &Value) -> Vec<u8> {
-    let body = serde_json::to_vec(msg).expect("消息序列化失败");
-    let mut out = format!("Content-Length: {}\r\n\r\n", body.len()).into_bytes();
-    out.extend_from_slice(&body);
-    out
+fn 编码消息(消息: &Value) -> Vec<u8> {
+    let 正文 = serde_json::to_vec(消息).expect("消息序列化失败");
+    let mut 输出 = format!("Content-Length: {}\r\n\r\n", 正文.len()).into_bytes();
+    输出.extend_from_slice(&正文);
+    输出
 }
 
-/// 从 LSP 子进程 stdout 持续读取并解析分帧消息（线程内阻塞读）
-fn spawn_reader(stdout: ChildStdout) -> mpsc::Receiver<Value> {
-    let (tx, rx) = mpsc::channel();
+/// 从 LSP 服务进程标准输出持续读取并解析分帧消息（线程内阻塞读）
+fn 派生读取线程(标准输出文本: ChildStdout) -> mpsc::Receiver<Value> {
+    let (发送端, 接收端) = mpsc::channel();
     std::thread::spawn(move || {
-        let mut reader = BufReader::new(stdout);
+        let mut 读取器 = BufReader::new(标准输出文本);
         loop {
-            let mut content_length: Option<usize> = None;
-            // 逐行读 header，直到空行
+            let mut 内容长度: Option<usize> = None;
+            // 逐行读分帧头，直到空行
             loop {
                 let mut line = String::new();
-                if reader.read_line(&mut line).unwrap_or(0) == 0 {
-                    return; // EOF：子进程退出
+                if 读取器.read_line(&mut line).unwrap_or(0) == 0 {
+                    return; // 文件结束：子进程退出
                 }
                 let line = line.trim();
                 if line.is_empty() {
                     break;
                 }
-                if let Some(rest) = line.strip_prefix("Content-Length:") {
-                    content_length = rest.trim().parse::<usize>().ok();
+                if let Some(余下) = line.strip_prefix("Content-Length:") {
+                    内容长度 = 余下.trim().parse::<usize>().ok();
                 }
             }
-            let Some(len) = content_length else { continue };
-            let mut body = vec![0u8; len];
-            if reader.read_exact(&mut body).is_err() {
+            let Some(长度) = 内容长度 else { continue };
+            let mut 正文 = vec![0u8; 长度];
+            if 读取器.read_exact(&mut 正文).is_err() {
                 return;
             }
-            match serde_json::from_slice::<Value>(&body) {
-                Ok(msg) => {
-                    if tx.send(msg).is_err() {
+            match serde_json::from_slice::<Value>(&正文) {
+                Ok(消息) => {
+                    if 发送端.send(消息).is_err() {
                         return;
                     }
                 }
@@ -129,156 +129,158 @@ fn spawn_reader(stdout: ChildStdout) -> mpsc::Receiver<Value> {
             }
         }
     });
-    rx
+    接收端
 }
 
-/// 等待收到指定 id 的响应（跳过通知与其他响应），超时返回 None
-fn wait_response(rx: &mpsc::Receiver<Value>, id: u64, timeout: Duration) -> Option<Value> {
-    let deadline = Instant::now() + timeout;
+/// 等待收到指定编号的响应（跳过通知与其他响应），超时返回无
+fn 等待响应(接收端: &mpsc::Receiver<Value>, 编号: u64, 超时: Duration) -> Option<Value> {
+    let 截止时间 = Instant::now() + 超时;
     loop {
-        let remain = deadline.saturating_duration_since(Instant::now());
-        if remain.is_zero() {
+        let 剩余 = 截止时间.saturating_duration_since(Instant::now());
+        if 剩余.is_zero() {
             return None;
         }
-        let msg = rx.recv_timeout(remain).ok()?;
-        if msg.get("id").and_then(Value::as_u64) == Some(id) {
-            return Some(msg);
+        let 消息 = 接收端.recv_timeout(剩余).ok()?;
+        if 消息.get("id").and_then(Value::as_u64) == Some(编号) {
+            return Some(消息);
         }
     }
 }
 
-/// 收到的 publishDiagnostics 批次统计：URI →（批次数, 样例消息）
-type BatchStats = BTreeMap<String, (usize, String)>;
+/// 收到的诊断发布通知批次统计：地址 →（批次数, 样例消息）
+type 批次统计 = BTreeMap<String, (usize, String)>;
 
-/// 记录一条 publishDiagnostics 批次（不论 URI 是否为目标）
-fn record_batch(stats: &mut BatchStats, msg: &Value) {
-    if msg.get("method").and_then(Value::as_str) != Some("textDocument/publishDiagnostics") {
+/// 记录一条诊断发布通知批次（不论地址是否为目标）
+fn 记录批次(统计: &mut 批次统计, 消息: &Value) {
+    if 消息.get("method").and_then(Value::as_str) != Some("textDocument/publishDiagnostics") {
         return;
     }
-    let batch_uri = msg
+    let 批次地址 = 消息
         .pointer("/params/uri")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    let sample: String = msg
+    let 样例: String = 消息
         .pointer("/params/diagnostics")
         .and_then(Value::as_array)
-        .and_then(|a| a.first())
-        .and_then(|d| d.get("message"))
+        .and_then(|数组| 数组.first())
+        .and_then(|诊断项| 诊断项.get("message"))
         .and_then(Value::as_str)
         .unwrap_or("")
         .chars()
         .take(160)
         .collect();
-    let entry = stats.entry(batch_uri).or_insert((0, String::new()));
-    entry.0 += 1;
-    if entry.1.is_empty() {
-        entry.1 = sample;
+    let 条目 = 统计.entry(批次地址).or_insert((0, String::new()));
+    条目.0 += 1;
+    if 条目.1.is_empty() {
+        条目.1 = 样例;
     }
 }
 
-/// 转储批次统计（超时诊断：显示收到的全部 URI 与样例，最多 30 个）
-fn dump_batch_stats(stats: &BatchStats, target_uri: &str) {
+/// 转储批次统计（超时诊断：显示收到的全部地址与样例，最多 30 个）
+fn 转储批次统计(统计: &批次统计, 目标地址: &str) {
     eprintln!(
-        "已收到 {} 个不同 URI 的 publishDiagnostics 批次（目标 URI：{target_uri}）：",
-        stats.len()
+        "已收到 {} 个不同 URI 的 publishDiagnostics 批次（目标 URI：{目标地址}）：",
+        统计.len()
     );
-    for (uri, (count, sample)) in stats.iter().take(30) {
-        eprintln!("  - {uri} × {count}：{sample}");
+    for (地址, (次数, 样例)) in 统计.iter().take(30) {
+        eprintln!("  - {地址} × {次数}：{样例}");
     }
 }
 
-/// 等待目标 uri 的 publishDiagnostics：rust-analyzer 分批发诊断
-/// （先发 format 错误，后发名称解析错误等），因此持续收集直到
-/// 诊断文本包含 `keyword`（或超时）。空诊断通知被跳过。
+/// 等待目标地址的诊断发布通知：rust-analyzer 分批发诊断
+/// （先发格式错误，后发名称解析错误等），因此持续收集直到
+/// 诊断文本包含关键词（或超时）。空诊断通知被跳过。
 ///
-/// 超时时转储收到的全部批次 URI 统计：目标 uri 收不到诊断时，
-/// 可区分「链路从未发布」与「发布到了另一种 URI 形式」（Windows
+/// 超时时转储收到的全部批次地址统计：目标地址收不到诊断时，
+/// 可区分「链路从未发布」与「发布到了另一种地址形式」（Windows
 /// 盘符大小写/分隔符/编码差异会导致字符串比较不相等）。
-fn wait_diagnostics_containing(
-    rx: &mpsc::Receiver<Value>,
-    uri: &str,
-    keyword: &str,
-    timeout: Duration,
+fn 等待含关键词诊断(
+    接收端: &mpsc::Receiver<Value>,
+    地址: &str,
+    关键词: &str,
+    超时: Duration,
 ) -> Option<Value> {
-    let deadline = Instant::now() + timeout;
-    let mut seen_texts: Vec<String> = Vec::new();
-    let mut stats = BatchStats::new();
+    let 截止时间 = Instant::now() + 超时;
+    let mut 已见文本: Vec<String> = Vec::new();
+    let mut 统计 = BTreeMap::new();
     loop {
-        let remain = deadline.saturating_duration_since(Instant::now());
-        if remain.is_zero() {
-            eprintln!("⚠️ 等待「{keyword}」超时，已收到诊断文本：");
-            for t in seen_texts.iter().take(20) {
-                eprintln!("  {t}");
+        let 剩余 = 截止时间.saturating_duration_since(Instant::now());
+        if 剩余.is_zero() {
+            eprintln!("⚠️ 等待「{关键词}」超时，已收到诊断文本：");
+            for 文本值 in 已见文本.iter().take(20) {
+                eprintln!("  {文本值}");
             }
-            dump_batch_stats(&stats, uri);
+            转储批次统计(&统计, 地址);
             return None;
         }
-        let msg = match rx.recv_timeout(remain) {
-            Ok(msg) => msg,
+        let 消息 = match 接收端.recv_timeout(剩余) {
+            Ok(消息) => 消息,
             Err(_) => {
                 // 通道断开或单次等待超时：若已过总时限则转储已收到的
                 // 诊断文本并返回（否则继续等，保持 120s 总时限语义）
-                if Instant::now() >= deadline {
-                    eprintln!("⚠️ 等待「{keyword}」超时，已收到诊断文本：");
-                    for t in seen_texts.iter().take(20) {
-                        eprintln!("  {t}");
+                if Instant::now() >= 截止时间 {
+                    eprintln!("⚠️ 等待「{关键词}」超时，已收到诊断文本：");
+                    for 文本值 in 已见文本.iter().take(20) {
+                        eprintln!("  {文本值}");
                     }
-                    dump_batch_stats(&stats, uri);
+                    转储批次统计(&统计, 地址);
                     return None;
                 }
                 continue;
             }
         };
-        record_batch(&mut stats, &msg);
-        if msg.get("method").and_then(Value::as_str) == Some("textDocument/publishDiagnostics")
-            && msg.pointer("/params/uri").and_then(Value::as_str) == Some(uri)
+        记录批次(&mut 统计, &消息);
+        if 消息.get("method").and_then(Value::as_str) == Some("textDocument/publishDiagnostics")
+            && 消息.pointer("/params/uri").and_then(Value::as_str) == Some(地址)
         {
-            let diagnostics = msg.pointer("/params/diagnostics").and_then(Value::as_array);
-            let Some(diagnostics) = diagnostics else {
+            let 诊断 = 消息
+                .pointer("/params/diagnostics")
+                .and_then(Value::as_array);
+            let Some(诊断) = 诊断 else {
                 continue;
             };
-            if diagnostics.is_empty() {
+            if 诊断.is_empty() {
                 continue;
             }
-            let texts = diagnostics
+            let 文本集 = 诊断
                 .iter()
-                .filter_map(|d| d.get("message").and_then(Value::as_str))
+                .filter_map(|诊断项| 诊断项.get("message").and_then(Value::as_str))
                 .collect::<Vec<_>>()
                 .join("\n");
-            seen_texts.push(texts.clone());
-            if texts.contains(keyword) {
-                return Some(msg);
+            已见文本.push(文本集.clone());
+            if 文本集.contains(关键词) {
+                return Some(消息);
             }
         }
     }
 }
 
 /// 发送通知
-fn send_notification(stdin: &mut BufWriter<ChildStdin>, method: &str, params: Value) {
-    let msg = json!({ "jsonrpc": "2.0", "method": method, "params": params });
-    stdin
-        .write_all(&encode_message(&msg))
+fn 发送通知(标准输入流: &mut BufWriter<ChildStdin>, 方法: &str, 参数: Value) {
+    let 消息 = json!({ "jsonrpc": "2.0", "method": 方法, "params": 参数 });
+    标准输入流
+        .write_all(&编码消息(&消息))
         .expect("写入通知失败");
-    stdin.flush().expect("刷新通知失败");
+    标准输入流.flush().expect("刷新通知失败");
 }
 
 /// 发送请求并等待响应
-fn send_request(
-    stdin: &mut BufWriter<ChildStdin>,
-    rx: &mpsc::Receiver<Value>,
-    id: u64,
-    method: &str,
-    params: Value,
-    timeout: Duration,
+fn 发送请求(
+    标准输入流: &mut BufWriter<ChildStdin>,
+    接收端: &mpsc::Receiver<Value>,
+    编号: u64,
+    方法: &str,
+    参数: Value,
+    超时: Duration,
 ) -> Value {
-    let msg = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
-    stdin
-        .write_all(&encode_message(&msg))
+    let 消息 = json!({ "jsonrpc": "2.0", "id": 编号, "method": 方法, "params": 参数 });
+    标准输入流
+        .write_all(&编码消息(&消息))
         .expect("写入请求失败");
-    stdin.flush().expect("刷新请求失败");
-    wait_response(rx, id, timeout).unwrap_or_else(|| {
-        panic!("等待 {method} 响应超时（{timeout:?}）");
+    标准输入流.flush().expect("刷新请求失败");
+    等待响应(接收端, 编号, 超时).unwrap_or_else(|| {
+        panic!("等待 {方法} 响应超时（{超时:?}）");
     })
 }
 
@@ -286,53 +288,54 @@ fn send_request(
 ///
 /// 返回（收到的最后一条通知, 响应）。用于验证“启动失败先告知原因”的顺序：
 /// 通知必须在错误响应前到达（客户端收到错误响应即处置连接）。
-fn request_collecting_notice(
-    stdin: &mut BufWriter<ChildStdin>,
-    rx: &mpsc::Receiver<Value>,
-    id: u64,
-    method: &str,
-    params: Value,
-    timeout: Duration,
+fn 请求并收集通知(
+    标准输入流: &mut BufWriter<ChildStdin>,
+    接收端: &mpsc::Receiver<Value>,
+    编号: u64,
+    方法: &str,
+    参数: Value,
+    超时: Duration,
 ) -> (Option<Value>, Option<Value>) {
-    let msg = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
-    stdin
-        .write_all(&encode_message(&msg))
+    let 消息 = json!({ "jsonrpc": "2.0", "id": 编号, "method": 方法, "params": 参数 });
+    标准输入流
+        .write_all(&编码消息(&消息))
         .expect("写入请求失败");
-    stdin.flush().expect("刷新请求失败");
-    let deadline = Instant::now() + timeout;
-    let mut notice = None;
+    标准输入流.flush().expect("刷新请求失败");
+    let 截止时间 = Instant::now() + 超时;
+    let mut 通知项 = None;
     loop {
-        let remain = deadline.saturating_duration_since(Instant::now());
-        if remain.is_zero() {
-            return (notice, None);
+        let 剩余 = 截止时间.saturating_duration_since(Instant::now());
+        if 剩余.is_zero() {
+            return (通知项, None);
         }
-        let Ok(msg) = rx.recv_timeout(remain) else {
-            return (notice, None);
+        let Ok(消息) = 接收端.recv_timeout(剩余) else {
+            return (通知项, None);
         };
-        if msg.get("method").and_then(Value::as_str) == Some("window/showMessage") {
-            notice = Some(msg);
+        if 消息.get("method").and_then(Value::as_str) == Some("window/showMessage") {
+            通知项 = Some(消息);
             continue;
         }
-        if msg.get("id").and_then(Value::as_u64) == Some(id) && msg.get("method").is_none() {
-            return (notice, Some(msg));
+        if 消息.get("id").and_then(Value::as_u64) == Some(编号) && 消息.get("method").is_none()
+        {
+            return (通知项, Some(消息));
         }
     }
 }
 
-/// 发送 initialize 请求，验证响应成功
-fn initialize(
-    stdin: &mut BufWriter<ChildStdin>,
-    rx: &mpsc::Receiver<Value>,
-    root_uri: &str,
+/// 发送初始化请求，验证响应成功
+fn 初始化(
+    标准输入流: &mut BufWriter<ChildStdin>,
+    接收端: &mpsc::Receiver<Value>,
+    根地址: &str,
 ) -> Value {
-    let resp = send_request(
-        stdin,
-        rx,
+    let 响应 = 发送请求(
+        标准输入流,
+        接收端,
         1,
         "initialize",
         json!({
             "processId": null,
-            "rootUri": root_uri,
+            "rootUri": 根地址,
             "capabilities": {
                 "textDocument": {
                     "publishDiagnostics": {
@@ -341,157 +344,161 @@ fn initialize(
                 }
             },
             "workspaceFolders": [
-                { "uri": root_uri, "name": "e2e-project" }
+                { "uri": 根地址, "name": "e2e-project" }
             ]
         }),
         Duration::from_secs(60),
     );
     assert!(
-        resp.get("result").is_some(),
-        "initialize 响应应含 result：{resp}"
+        响应.get("result").is_some(),
+        "initialize 响应应含 result：{响应}"
     );
-    resp
+    响应
 }
 
-/// 启动 LSP 子进程：返回（子进程, stdin, 消息接收器）
-fn spawn_lsp(
-    ra_path: &Path,
-    lang_pack: &Path,
+/// 启动 LSP 服务进程：返回（服务进程, 标准输入, 消息接收器）
+fn 启动服务(
+    分析器路径: &Path,
+    语言包: &Path,
 ) -> (Child, BufWriter<ChildStdin>, mpsc::Receiver<Value>) {
-    let bin = env!("CARGO_BIN_EXE_i18n-rust-lsp");
-    let mut child = Command::new(bin)
+    let 程序 = env!("CARGO_BIN_EXE_i18n-rust-lsp");
+    let mut 服务进程 = Command::new(程序)
         .args(["--language-pack"])
-        .arg(lang_pack)
-        .env("RUST_ANALYZER_PATH", ra_path)
+        .arg(语言包)
+        .env("RUST_ANALYZER_PATH", 分析器路径)
         .env("RZ_LOG", "error")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
         .expect("启动 i18n-rust-lsp 失败");
-    let stdin = BufWriter::new(child.stdin.take().expect("取 stdin 失败"));
-    let rx = spawn_reader(child.stdout.take().expect("取 stdout 失败"));
-    (child, stdin, rx)
+    let 标准输入流 = BufWriter::new(服务进程.stdin.take().expect("取 stdin 失败"));
+    let 接收端 = 派生读取线程(服务进程.stdout.take().expect("取 stdout 失败"));
+    (服务进程, 标准输入流, 接收端)
 }
 
-/// 同 [`spawn_lsp`]，但抓取子进程 stderr，且放开引擎日志级别
+/// 同 [`启动服务`]，但抓取子进程标准错误，且放开引擎日志级别
 ///
-/// 常规 `spawn_lsp` 把 stderr 丢进 null 并设 `RZ_LOG=error`——引擎的 warn 级
-/// 教学告警因此从未被任何用例看过。本变体专为「server stderr 该不该出现
+/// 常规 `启动服务` 把标准错误丢弃并设 `RZ_LOG=error`——引擎的警告级
+/// 教学告警因此从未被任何用例看过。本变体专为「服务进程标准错误该不该出现
 /// 某类输出」提供可断言的通道：
 /// - `RZ_LOG=warn`：与默认级别一致，显式写出以免日后默认变化把断言变成空转；
-/// - stderr 逐行送进通道（rust-analyzer 子进程继承同一 stderr，见
-///   `analyzer.rs`，故通道里也有 RA 的输出——断言只针对引擎教学告警的
+/// - 标准错误逐行送进通道（rust-analyzer 子进程继承同一标准错误，见
+///   `analyzer.rs`，故通道里也有 rust-analyzer 的输出——断言只针对引擎教学告警的
 ///   行特征，不受影响）。
-fn spawn_lsp_capturing_stderr(
-    ra_path: &Path,
-    lang_pack: &Path,
+fn 启动服务并捕获错误输出(
+    分析器路径: &Path,
+    语言包: &Path,
 ) -> (
     Child,
     BufWriter<ChildStdin>,
     mpsc::Receiver<Value>,
     mpsc::Receiver<String>,
 ) {
-    let bin = env!("CARGO_BIN_EXE_i18n-rust-lsp");
-    let mut child = Command::new(bin)
+    let 程序 = env!("CARGO_BIN_EXE_i18n-rust-lsp");
+    let mut 服务进程 = Command::new(程序)
         .args(["--language-pack"])
-        .arg(lang_pack)
-        .env("RUST_ANALYZER_PATH", ra_path)
+        .arg(语言包)
+        .env("RUST_ANALYZER_PATH", 分析器路径)
         .env("RZ_LOG", "warn")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("启动 i18n-rust-lsp 失败");
-    let stdin = BufWriter::new(child.stdin.take().expect("取 stdin 失败"));
-    let rx = spawn_reader(child.stdout.take().expect("取 stdout 失败"));
-    let (err_tx, err_rx) = mpsc::channel();
-    let stderr = child.stderr.take().expect("取 stderr 失败");
+    let 标准输入流 = BufWriter::new(服务进程.stdin.take().expect("取 stdin 失败"));
+    let 接收端 = 派生读取线程(服务进程.stdout.take().expect("取 stdout 失败"));
+    let (错误发送端, 错误接收端) = mpsc::channel();
+    let 标准错误文本 = 服务进程.stderr.take().expect("取 stderr 失败");
     std::thread::spawn(move || {
-        let mut reader = BufReader::new(stderr);
+        let mut 读取器 = BufReader::new(标准错误文本);
         let mut line = String::new();
         loop {
             line.clear();
-            match reader.read_line(&mut line) {
+            match 读取器.read_line(&mut line) {
                 Ok(0) | Err(_) => return,
                 Ok(_) => {
-                    if err_tx.send(line.trim_end().to_string()).is_err() {
+                    if 错误发送端.send(line.trim_end().to_string()).is_err() {
                         return;
                     }
                 }
             }
         }
     });
-    (child, stdin, rx, err_rx)
+    (服务进程, 标准输入流, 接收端, 错误接收端)
 }
 
-/// 有界抽取 stderr 通道：子进程退出后收尾一小段，避免 rust-analyzer 仍
-/// 持有继承的 stderr 写端时无界阻塞（读端拿到的告警都产生在锚点之前）
-fn drain_stderr(err_rx: &mpsc::Receiver<String>) -> Vec<String> {
-    let mut lines = Vec::new();
+/// 有界抽取标准错误通道：子进程退出后收尾一小段，避免 rust-analyzer 仍
+/// 持有继承的标准错误写端时无界阻塞（读端拿到的告警都产生在锚点之前）
+fn 抽取错误输出(错误接收端: &mpsc::Receiver<String>) -> Vec<String> {
+    let mut 行集 = Vec::new();
     loop {
-        match err_rx.recv_timeout(Duration::from_millis(300)) {
-            Ok(line) => lines.push(line),
-            Err(mpsc::RecvTimeoutError::Timeout) => return lines,
-            Err(mpsc::RecvTimeoutError::Disconnected) => return lines,
+        match 错误接收端.recv_timeout(Duration::from_millis(300)) {
+            Ok(line) => 行集.push(line),
+            Err(mpsc::RecvTimeoutError::Timeout) => return 行集,
+            Err(mpsc::RecvTimeoutError::Disconnected) => return 行集,
         }
     }
 }
 
-/// 创建临时项目：Cargo.toml + 含错误的 main.zh
-fn create_test_project(dir: &Path, lang_code: &str) -> (String, String) {
-    std::fs::create_dir_all(dir.join("src")).expect("创建 src 目录失败");
+/// 创建临时项目：`Cargo.toml` + 含错误的 `main.zh`
+fn 创建测试项目(目录: &Path, 语言码: &str) -> (String, String) {
+    std::fs::create_dir_all(目录.join("src")).expect("创建 src 目录失败");
     std::fs::write(
-        dir.join("Cargo.toml"),
+        目录.join("Cargo.toml"),
         "[package]\nname = \"e2e-project\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
     )
     .expect("写入 Cargo.toml 失败");
-    // 注：不用打印行!——println 的 format 参数是宏展开期错误，
+    // 注：不用打印行!——它的格式参数是宏展开期错误，
     // 会让 rust-analyzer 跳过后续语义分析（名称解析），E0425 便不会到达
-    let source = lang_source(lang_code);
-    let uri = format!("file://{}", dir.join("src/main.zh").display());
-    std::fs::write(dir.join("src/main.zh"), &source).expect("写入 main.zh 失败");
-    (uri, source)
+    let 源码 = 取方言源码(语言码);
+    let 地址 = format!("file://{}", 目录.join("src/main.zh").display());
+    std::fs::write(目录.join("src/main.zh"), &源码).expect("写入 main.zh 失败");
+    (地址, 源码)
 }
 
-/// 优雅关闭：shutdown → exit → 等待退出
-fn shutdown(child: &mut Child, stdin: &mut BufWriter<ChildStdin>, rx: &mpsc::Receiver<Value>) {
-    let resp = send_request(
-        stdin,
-        rx,
+/// 优雅关闭：关闭请求 → 退出通知 → 等待退出
+fn 关闭服务(
+    服务进程: &mut Child,
+    标准输入流: &mut BufWriter<ChildStdin>,
+    接收端: &mpsc::Receiver<Value>,
+) {
+    let 响应 = 发送请求(
+        标准输入流,
+        接收端,
         2,
         "shutdown",
         json!(null),
         Duration::from_secs(15),
     );
-    assert!(resp.get("result").is_some(), "shutdown 响应异常：{resp}");
-    send_notification(stdin, "exit", json!(null));
-    let _ = child.wait();
+    assert!(响应.get("result").is_some(), "shutdown 响应异常：{响应}");
+    发送通知(标准输入流, "exit", json!(null));
+    let _ = 服务进程.wait();
 }
 
-/// 是否在 CI 里跑：GitHub Actions 会设 `CI=true` 与 `GITHUB_ACTIONS=true`
-fn running_in_ci() -> bool {
-    ["CI", "GITHUB_ACTIONS"].iter().any(|key| {
-        std::env::var(key)
+/// 是否在持续集成里跑：GitHub 持续集成会设 `CI=true` 等环境变量
+fn 运行于持续集成() -> bool {
+    ["CI", "GITHUB_ACTIONS"].iter().any(|键| {
+        std::env::var(键)
             .ok()
-            .is_some_and(|val| !val.is_empty() && val != "false")
+            .is_some_and(|值| !值.is_empty() && 值 != "false")
     })
 }
 
-/// 取 rust-analyzer；`None` 表示「本地无工具链，调用方应直接返回」
+/// 取 rust-analyzer；返回无表示「本地无工具链，调用方应直接返回」
 ///
-/// 旧写法是在各用例里 `eprintln!("跳过 …") + return`，把「没跑」报成绿色
-/// 的 ok；libtest 没有 skipped 状态，报告上它与真实通过长得一模一样。
+/// 旧写法是在各用例里「打印跳过原因并返回」，把「没跑」报成绿色
+/// 的通过；测试框架没有「跳过」状态，报告上它与真实通过长得一模一样。
 /// CI 里这是致命的：工具链安装环节只要把二进制放到查找链之外（或今后
-/// 被改成统一跳过），整个 lsp-e2e 任务会在零验证的情况下全绿。因此
+/// 被改成统一跳过），整个端到端任务会在零验证的情况下全绿。因此
 /// CI 环境下缺工具链一律判红，本地仍沿用「打印原因并跳过」的约定。
-fn rust_analyzer_for_run() -> Option<PathBuf> {
-    let found = find_rust_analyzer();
-    if found.is_some() {
-        return found;
+fn 取分析器路径() -> Option<PathBuf> {
+    let 已找到 = 查找分析器();
+    if 已找到.is_some() {
+        return 已找到;
     }
     assert!(
-        !running_in_ci(),
+        !运行于持续集成(),
         "CI 中未找到 rust-analyzer：端到端用例不得静默跳过（安装步骤见 \
          .github/workflows/ci.yml 的 lsp-e2e job：`rzc install toolchain --ra-only --force`）"
     );
@@ -500,132 +507,130 @@ fn rust_analyzer_for_run() -> Option<PathBuf> {
 }
 
 /// 只需要「能不能跑」而不需要路径的用例开头走这里（判定口径与
-/// [`rust_analyzer_for_run`] 完全一致，避开同一文件里再长一份跳过约定）
-fn rust_analyzer_available() -> bool {
-    rust_analyzer_for_run().is_some()
+/// [`取分析器路径`] 完全一致，避开同一文件里再长一份跳过约定）
+fn 分析器可用() -> bool {
+    取分析器路径().is_some()
 }
 
 /// 单个语言的全链路诊断翻译验证
 ///
-/// `keyword` 为该语言 E0425 翻译模板中的特征词（errors.toml [消息翻译] 节），
-/// `lang_code` 为语言包目录名。变量名断言跨语言通用（模板 {名称} 嵌入同一
+/// `关键词` 为该语言 E0425 翻译模板中的特征词（`errors.toml` [消息翻译] 节），
+/// `语言码` 为语言包目录名。变量名断言跨语言通用（模板 {名称} 嵌入同一
 /// 中文变量名，转译保留用户标识符）。
-fn run_e2e_lang(lang_code: &str, keyword: &str) {
-    let Some(ra_path) = rust_analyzer_for_run() else {
+fn 运行端到端语言(语言码: &str, 关键词: &str) {
+    let Some(分析器路径) = 取分析器路径() else {
         return; // 本地无工具链：上面已打印原因
     };
 
-    // 语言包：测试运行时 cwd 为 crates/lsp，从 manifest 目录定位引擎语言包
-    let manifest_dir =
-        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
-    let lang_pack = manifest_dir.join(format!("../engine/lang-packs/{lang_code}"));
+    // 语言包：测试运行时当前目录为 `crates/lsp`，从包清单目录定位引擎语言包
+    let 清单目录 = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let 语言包 = 清单目录.join(format!("../engine/lang-packs/{语言码}"));
     assert!(
-        lang_pack.join("keywords.toml").exists(),
+        语言包.join("keywords.toml").exists(),
         "语言包目录不存在：{}",
-        lang_pack.display()
+        语言包.display()
     );
 
     // 临时项目
-    let temp = tempfile::tempdir().expect("创建临时项目失败");
-    let (uri, source) = create_test_project(temp.path(), lang_code);
+    let 临时目录 = tempfile::tempdir().expect("创建临时项目失败");
+    let (地址, 源码) = 创建测试项目(临时目录.path(), 语言码);
 
     // 启动 LSP 服务器（显式传入 rust-analyzer 路径，避免 PATH 干扰）
-    let (mut child, mut stdin, rx) = spawn_lsp(&ra_path, &lang_pack);
+    let (mut 服务进程, mut 标准输入流, 接收端) = 启动服务(&分析器路径, &语言包);
 
-    // 1. initialize
-    let root_uri = format!("file://{}", temp.path().display());
-    initialize(&mut stdin, &rx, &root_uri);
+    // 1. 初始化
+    let 根地址 = format!("file://{}", 临时目录.path().display());
+    初始化(&mut 标准输入流, &接收端, &根地址);
 
-    // 2. initialized 通知（触发 rust-analyzer 侧初始化）
-    send_notification(&mut stdin, "initialized", json!({}));
+    // 2. 初始化完成通知（触发 rust-analyzer 侧初始化）
+    发送通知(&mut 标准输入流, "initialized", json!({}));
 
-    // 3. didOpen 含错误的方言文件
-    send_notification(
-        &mut stdin,
+    // 3. 打开文档通知：含错误的方言文件
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didOpen",
         json!({
             "textDocument": {
-                "uri": uri,
+                "uri": 地址,
                 "languageId": "rust-zh",
                 "version": 1,
-                "text": source
+                "text": 源码
             }
         }),
     );
 
     // 4. 等待诊断：rust-analyzer 分批发（空诊断先行），持续收集直到
-    //    出现 E0425 的母语翻译；首次分析需加载 sysroot，时限 120s
-    let diag = wait_diagnostics_containing(&rx, &uri, keyword, Duration::from_secs(120))
+    //    出现 E0425 的母语翻译；首次分析需加载系统根目录，时限 120 秒
+    let 诊断批次 = 等待含关键词诊断(&接收端, &地址, 关键词, Duration::from_secs(120))
         .expect("120s 内未收到含目标关键词的诊断（rust-analyzer 可能未就绪）");
-    let diagnostics = diag
+    let 诊断 = 诊断批次
         .pointer("/params/diagnostics")
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    assert!(!diagnostics.is_empty(), "应至少有一条诊断：{diag}");
+    assert!(!诊断.is_empty(), "应至少有一条诊断：{诊断批次}");
 
     // 5. 断言：E0425（未定义名称）的消息被翻译为母语教学诊断
-    let translated = diagnostics
+    let 已翻译 = 诊断
         .iter()
-        .filter_map(|d| d.get("message").and_then(Value::as_str))
+        .filter_map(|诊断项| 诊断项.get("message").and_then(Value::as_str))
         .collect::<Vec<_>>()
         .join("\n");
     assert!(
-        translated.contains(keyword),
-        "诊断应被翻译为{lang_code}（含「{keyword}」），实际：\n{translated}"
+        已翻译.contains(关键词),
+        "诊断应被翻译为{语言码}（含「{关键词}」），实际：\n{已翻译}"
     );
     assert!(
-        translated.contains("不存在的变量"),
-        "诊断应包含被引用的变量名：\n{translated}"
+        已翻译.contains("不存在的变量"),
+        "诊断应包含被引用的变量名：\n{已翻译}"
     );
 
     // 6. 优雅关闭
-    shutdown(&mut child, &mut stdin, &rx);
-    eprintln!("✅ LSP 端到端测试通过（{lang_code}）：E0425 诊断已翻译为母语");
+    关闭服务(&mut 服务进程, &mut 标准输入流, &接收端);
+    eprintln!("✅ LSP 端到端测试通过（{语言码}）：E0425 诊断已翻译为母语");
 }
 
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_zh_diagnostics_translated() {
-    run_e2e_lang("zh", lang_keyword("zh"));
+fn 端到端_中文诊断已翻译() {
+    运行端到端语言("zh", 取语言关键词("zh"));
 }
 
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_ja_diagnostics_translated() {
-    run_e2e_lang("ja", lang_keyword("ja"));
+fn 端到端_日文诊断已翻译() {
+    运行端到端语言("ja", 取语言关键词("ja"));
 }
 
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_ru_diagnostics_translated() {
-    run_e2e_lang("ru", lang_keyword("ru"));
+fn 端到端_俄文诊断已翻译() {
+    运行端到端语言("ru", 取语言关键词("ru"));
 }
 
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_ar_diagnostics_translated() {
-    run_e2e_lang("ar", lang_keyword("ar"));
+fn 端到端_阿拉伯文诊断已翻译() {
+    运行端到端语言("ar", 取语言关键词("ar"));
 }
 
 /// 启动失败必须自解释
 ///
 /// rust-analyzer 不可用时（未安装/不可执行/初始化超时），代理过去直接退出，
-/// 编辑器只显示 “Server initialization failed.” 与 “Pending response rejected
-/// since connection got disposed”，用户无从得知该装什么。现在必须先推
-/// `window/showMessage`（带具体原因）再回 initialize 错误响应。
+/// 编辑器只显示 `Server initialization failed.` 与
+/// `Pending response rejected since connection got disposed`，用户无从得知该装什么。现在必须先推
+/// `window/showMessage`（带具体原因）再回初始化错误响应。
 #[test]
-fn e2e_startup_failure_reports_reason() {
-    let manifest_dir =
-        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
-    let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
+fn 端到端_启动失败报告原因() {
+    let 清单目录 = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let 语言包 = 清单目录.join("../engine/lang-packs/zh");
     // 用目录充当 rust-analyzer 路径：存在但不可执行，稳定复现“启动失败”
-    let fake_ra = tempfile::tempdir().expect("创建临时目录失败");
-    let (mut child, mut stdin, rx) = spawn_lsp(fake_ra.path(), &lang_pack);
+    let 假分析器 = tempfile::tempdir().expect("创建临时目录失败");
+    let (mut 服务进程, mut 标准输入流, 接收端) = 启动服务(假分析器.path(), &语言包);
 
-    let (notice, resp) = request_collecting_notice(
-        &mut stdin,
-        &rx,
+    let (通知项, 响应) = 请求并收集通知(
+        &mut 标准输入流,
+        &接收端,
         1,
         "initialize",
         json!({
@@ -636,278 +641,284 @@ fn e2e_startup_failure_reports_reason() {
         Duration::from_secs(30),
     );
 
-    let notice = notice.expect("启动失败应先收到 window/showMessage 通知");
-    let text = notice
+    let 通知项 = 通知项.expect("启动失败应先收到 window/showMessage 通知");
+    let 文本值 = 通知项
         .pointer("/params/message")
         .and_then(Value::as_str)
         .unwrap_or("");
     assert!(
-        text.contains("rust-analyzer"),
-        "通知应说明失败原因（含 rust-analyzer）：{text}"
+        文本值.contains("rust-analyzer"),
+        "通知应说明失败原因（含 rust-analyzer）：{文本值}"
     );
     assert_eq!(
-        notice.pointer("/params/type").and_then(Value::as_u64),
+        通知项.pointer("/params/type").and_then(Value::as_u64),
         Some(1),
         "通知应为 Error 级别（type=1）"
     );
 
-    let resp = resp.expect("应收到 initialize 错误响应");
-    let err = resp
+    let 响应 = 响应.expect("应收到 initialize 错误响应");
+    let 错误消息 = 响应
         .pointer("/error/message")
         .and_then(Value::as_str)
         .unwrap_or("");
-    assert!(resp.get("error").is_some(), "initialize 应回错误：{resp}");
-    assert!(err.contains("rust-analyzer"), "错误消息应含原因：{err}");
+    assert!(响应.get("error").is_some(), "initialize 应回错误：{响应}");
+    assert!(
+        错误消息.contains("rust-analyzer"),
+        "错误消息应含原因：{错误消息}"
+    );
 
     // 不能挂在半初始化状态：进程应自行以非零码退出
     assert_eq!(
-        child.wait().expect("等待进程退出失败").code(),
+        服务进程.wait().expect("等待进程退出失败").code(),
         Some(1),
         "启动失败应以退出码 1 结束"
     );
 }
 
-/// 全角标点教学诊断注入：代码位置的全角标点以 Hint 级诊断在 IDE 内联提示
+/// 全角标点教学诊断注入：代码位置的全角标点以提示级诊断在 IDE 内联提示
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_fullwidth_diagnostic_injected() {
-    let Some(ra_path) = rust_analyzer_for_run() else {
+fn 端到端_全角诊断已注入() {
+    let Some(分析器路径) = 取分析器路径() else {
         return; // 本地无工具链：上面已打印原因
     };
 
-    let manifest_dir =
-        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
-    let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
+    let 清单目录 = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let 语言包 = 清单目录.join("../engine/lang-packs/zh");
 
-    let temp = tempfile::tempdir().expect("创建临时项目失败");
-    std::fs::create_dir_all(temp.path().join("src")).expect("创建 src 目录失败");
+    let 临时目录 = tempfile::tempdir().expect("创建临时项目失败");
+    std::fs::create_dir_all(临时目录.path().join("src")).expect("创建 src 目录失败");
     std::fs::write(
-        temp.path().join("Cargo.toml"),
+        临时目录.path().join("Cargo.toml"),
         "[package]\nname = \"e2e-project\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
     )
     .expect("写入 Cargo.toml 失败");
     // 代码位置含全角分号与全角感叹号（中文输入法常见错误）：
-    // 转译后保留在虚拟文本中，代理注入 fullwidth 教学诊断
-    let source = "函数 主函数() {\n    让 数量 = 5；\n    打印行！（\"你好\"）\n}\n";
-    let uri = format!("file://{}", temp.path().join("src/main.zh").display());
-    std::fs::write(temp.path().join("src/main.zh"), source).expect("写入 main.zh 失败");
+    // 转译后保留在虚拟文本中，代理注入全角教学诊断
+    let 源码 = "函数 主函数() {\n    让 数量 = 5；\n    打印行！（\"你好\"）\n}\n";
+    let 地址 = format!("file://{}", 临时目录.path().join("src/main.zh").display());
+    std::fs::write(临时目录.path().join("src/main.zh"), 源码).expect("写入 main.zh 失败");
 
-    let (mut child, mut stdin, rx) = spawn_lsp(&ra_path, &lang_pack);
-    let root_uri = format!("file://{}", temp.path().display());
-    initialize(&mut stdin, &rx, &root_uri);
-    send_notification(&mut stdin, "initialized", json!({}));
-    send_notification(
-        &mut stdin,
+    let (mut 服务进程, mut 标准输入流, 接收端) = 启动服务(&分析器路径, &语言包);
+    let 根地址 = format!("file://{}", 临时目录.path().display());
+    初始化(&mut 标准输入流, &接收端, &根地址);
+    发送通知(&mut 标准输入流, "initialized", json!({}));
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didOpen",
         json!({
             "textDocument": {
-                "uri": uri,
+                "uri": 地址,
                 "languageId": "rust-zh",
                 "version": 1,
-                "text": source
+                "text": 源码
             }
         }),
     );
 
     // 等待代理注入的全角标点诊断（消息模板含「检测到全角标点」；
-    // 该片段与 RA/rustc 诊断的翻译文本（「检查是否混入了全角标点」）
+    // 该片段与 rust-analyzer/rustc 诊断的翻译文本（「检查是否混入了全角标点」）
     // 不撞车，避免等待到未注入教学诊断的批次）
-    let diag = wait_diagnostics_containing(&rx, &uri, "检测到全角标点", Duration::from_secs(120))
-        .expect("120s 内未收到全角标点教学诊断（注入链路异常）");
-    let diagnostics = diag
+    let 诊断批次 =
+        等待含关键词诊断(&接收端, &地址, "检测到全角标点", Duration::from_secs(120))
+            .expect("120s 内未收到全角标点教学诊断（注入链路异常）");
+    let 诊断 = 诊断批次
         .pointer("/params/diagnostics")
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    let fullwidth: Vec<&Value> = diagnostics
+    let 全角诊断: Vec<&Value> = 诊断
         .iter()
-        .filter(|d| d.get("code").and_then(Value::as_str) == Some("fullwidth"))
+        .filter(|诊断项| 诊断项.get("code").and_then(Value::as_str) == Some("fullwidth"))
         .collect();
-    assert!(!fullwidth.is_empty(), "应有 fullwidth 教学诊断：\n{diag}");
-    assert_eq!(fullwidth[0]["severity"], 3, "教学诊断应为 Hint 级");
-    let message = fullwidth[0]["message"].as_str().unwrap_or("");
     assert!(
-        message.contains("第 2 行"),
-        "诊断应定位到全角分号所在行（第 2 行）：{message}"
+        !全角诊断.is_empty(),
+        "应有 fullwidth 教学诊断：\n{诊断批次}"
+    );
+    assert_eq!(全角诊断[0]["severity"], 3, "教学诊断应为 Hint 级");
+    let 消息文本 = 全角诊断[0]["message"].as_str().unwrap_or("");
+    assert!(
+        消息文本.contains("第 2 行"),
+        "诊断应定位到全角分号所在行（第 2 行）：{消息文本}"
     );
 
-    shutdown(&mut child, &mut stdin, &rx);
+    关闭服务(&mut 服务进程, &mut 标准输入流, &接收端);
     eprintln!("✅ LSP 端到端测试通过：全角标点教学诊断已注入");
 }
 
-/// 教学 lint 诊断注入：未标注类型/魔法数字以 Hint 级诊断在 IDE 内联提示，
+/// 教学检查诊断注入：未标注类型/魔法数字以提示级诊断在 IDE 内联提示，
 /// 「教学忽略」标记行不产生诊断
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_teaching_lint_diagnostic_injected() {
-    let Some(ra_path) = rust_analyzer_for_run() else {
+fn 端到端_教学检查诊断已注入() {
+    let Some(分析器路径) = 取分析器路径() else {
         return; // 本地无工具链：上面已打印原因
     };
 
-    let manifest_dir =
-        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
-    let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
+    let 清单目录 = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let 语言包 = 清单目录.join("../engine/lang-packs/zh");
 
-    let temp = tempfile::tempdir().expect("创建临时项目失败");
-    std::fs::create_dir_all(temp.path().join("src")).expect("创建 src 目录失败");
+    let 临时目录 = tempfile::tempdir().expect("创建临时项目失败");
+    std::fs::create_dir_all(临时目录.path().join("src")).expect("创建 src 目录失败");
     std::fs::write(
-        temp.path().join("Cargo.toml"),
+        临时目录.path().join("Cargo.toml"),
         "[package]\nname = \"e2e-project\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
     )
     .expect("写入 Cargo.toml 失败");
-    // 第 2 行类型无法自行推导（Vec::new() 无 turbofish，触发
-    // lint-untyped-let）；可自动推导的字面量不再提示。第 3 行带忽略标记
-    let source = "函数 主函数() {\n    让 数量 = Vec::new();\n    让 已忽略 = 1;  // 教学忽略\n}\n";
-    let uri = format!("file://{}", temp.path().join("src/main.zh").display());
-    std::fs::write(temp.path().join("src/main.zh"), source).expect("写入 main.zh 失败");
+    // 第 2 行类型无法自行推导（`Vec::new()` 未写类型参数，触发
+    // `lint-untyped-let` 检查）；可自动推导的字面量不再提示。第 3 行带忽略标记
+    let 源码 = "函数 主函数() {\n    让 数量 = Vec::new();\n    让 已忽略 = 1;  // 教学忽略\n}\n";
+    let 地址 = format!("file://{}", 临时目录.path().join("src/main.zh").display());
+    std::fs::write(临时目录.path().join("src/main.zh"), 源码).expect("写入 main.zh 失败");
 
-    let (mut child, mut stdin, rx) = spawn_lsp(&ra_path, &lang_pack);
-    let root_uri = format!("file://{}", temp.path().display());
-    initialize(&mut stdin, &rx, &root_uri);
-    send_notification(&mut stdin, "initialized", json!({}));
-    send_notification(
-        &mut stdin,
+    let (mut 服务进程, mut 标准输入流, 接收端) = 启动服务(&分析器路径, &语言包);
+    let 根地址 = format!("file://{}", 临时目录.path().display());
+    初始化(&mut 标准输入流, &接收端, &根地址);
+    发送通知(&mut 标准输入流, "initialized", json!({}));
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didOpen",
         json!({
             "textDocument": {
-                "uri": uri,
+                "uri": 地址,
                 "languageId": "rust-zh",
                 "version": 1,
-                "text": source
+                "text": 源码
             }
         }),
     );
 
-    // 等待代理注入的教学 lint 诊断（消息模板含「未标注类型」）
-    let diag = wait_diagnostics_containing(&rx, &uri, "未标注类型", Duration::from_secs(120))
+    // 等待代理注入的教学检查诊断（消息模板含「未标注类型」）
+    let 诊断批次 = 等待含关键词诊断(&接收端, &地址, "未标注类型", Duration::from_secs(120))
         .expect("120s 内未收到教学 lint 诊断（注入链路异常）");
-    let diagnostics = diag
+    let 诊断 = 诊断批次
         .pointer("/params/diagnostics")
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    let lint_diags: Vec<&Value> = diagnostics
+    let 教学诊断: Vec<&Value> = 诊断
         .iter()
-        .filter(|d| {
-            d.get("code")
+        .filter(|诊断项| {
+            诊断项
+                .get("code")
                 .and_then(Value::as_str)
-                .is_some_and(|c| c.starts_with("lint-"))
+                .is_some_and(|码| 码.starts_with("lint-"))
         })
         .collect();
-    assert!(!lint_diags.is_empty(), "应有教学 lint 诊断：\n{diag}");
-    assert_eq!(lint_diags[0]["severity"], 3, "教学诊断应为 Hint 级");
-    let line = lint_diags[0]["range"]["start"]["line"].as_u64().unwrap();
-    assert_eq!(line, 1, "lint 应定位到第 2 行（0 起行号 1）");
-    // 忽略标记行（第 3 行，0 起行号 2）不应出现 lint 诊断
+    assert!(!教学诊断.is_empty(), "应有教学 lint 诊断：\n{诊断批次}");
+    assert_eq!(教学诊断[0]["severity"], 3, "教学诊断应为 Hint 级");
+    let 行号 = 教学诊断[0]["range"]["start"]["line"].as_u64().unwrap();
+    assert_eq!(行号, 1, "lint 应定位到第 2 行（0 起行号 1）");
+    // 忽略标记行（第 3 行，0 起行号 2）不应出现教学检查诊断
     assert!(
-        !lint_diags
+        !教学诊断
             .iter()
-            .any(|d| d["range"]["start"]["line"].as_u64() == Some(2)),
-        "「教学忽略」标记行不应有 lint 诊断：{diagnostics:?}"
+            .any(|诊断项| 诊断项["range"]["start"]["line"].as_u64() == Some(2)),
+        "「教学忽略」标记行不应有 lint 诊断：{诊断:?}"
     );
 
-    shutdown(&mut child, &mut stdin, &rx);
+    关闭服务(&mut 服务进程, &mut 标准输入流, &接收端);
     eprintln!("✅ LSP 端到端测试通过：教学 lint 诊断已注入（含忽略标记）");
 }
 
-/// 教学告警只走诊断通道：server stderr 不重复刷无归属告警
+/// 教学告警只走诊断通道：服务进程标准错误不重复刷无归属告警
 ///
-/// 全角标点/教学 lint 在 IDE 里由 `inject_teaching_diags` 算成诊断、按文件
+/// 全角标点/教学检查在 IDE 里由 `注入教学诊断` 算成诊断、按文件
 /// 归属发布；而转译管线的非静默入口会把同一批告警再用引擎日志格式往
-/// server stderr 打一遍，且不含文件名——`mirror_check` 逐项目文件循环，
-/// 等于每次打开/保存都把整个项目的教学告警无归属刷屏（与 Problems
+/// 服务进程标准错误打一遍，且不含文件名——`运行镜像检查` 逐项目文件循环，
+/// 等于每次打开/保存都把整个项目的教学告警无归属刷屏（与问题
 /// 面板完全重复）。本用例锁定两面：
-/// ① 客户端仍能收到 fullwidth 教学诊断（正向，防有人把注入链路删掉来「消除刷屏」）；
-/// ② server stderr 不出现引擎格式的教学告警行。
+/// ① 客户端仍能收到全角教学诊断（正向，防有人把注入链路删掉来「消除刷屏」）；
+/// ② 服务进程标准错误不出现引擎格式的教学告警行。
 ///
 /// 需要 `RZ_LOG=warn`（本用例自己的子进程环境，见
-/// [`spawn_lsp_capturing_stderr`]）：否则②在任何实现下都恒成立，用例会空转。
+/// [`启动服务并捕获错误输出`]）：否则②在任何实现下都恒成立，用例会空转。
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_teaching_warnings_do_not_leak_to_server_stderr() {
-    let Some(ra_path) = rust_analyzer_for_run() else {
+fn 端到端_教学告警不泄漏到服务错误输出() {
+    let Some(分析器路径) = 取分析器路径() else {
         return; // 本地无工具链：上面已打印原因
     };
 
-    let manifest_dir =
-        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
-    let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
+    let 清单目录 = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let 语言包 = 清单目录.join("../engine/lang-packs/zh");
 
-    let temp = tempfile::tempdir().expect("创建临时项目失败");
-    std::fs::create_dir_all(temp.path().join("src")).expect("创建 src 目录失败");
+    let 临时目录 = tempfile::tempdir().expect("创建临时项目失败");
+    std::fs::create_dir_all(临时目录.path().join("src")).expect("创建 src 目录失败");
     std::fs::write(
-        temp.path().join("Cargo.toml"),
+        临时目录.path().join("Cargo.toml"),
         "[package]\nname = \"e2e-project\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
     )
     .expect("写入 Cargo.toml 失败");
-    // 打开文件：第 4 行魔法数字（lint）+ 第 5 行行尾全角分号（fullwidth）
+    // 打开文件：第 4 行魔法数字（教学检查）+ 第 5 行行尾全角分号（全角）
     // + 未定义变量（供锚点的 E0425 转译诊断）
-    let main_src =
+    let 主源码 =
         "模块 辅助;\n\n函数 主函数() {\n    让 数量 = 5;\n    让 结果 = 数量 + 不存在的变量；\n}\n";
-    std::fs::write(temp.path().join("src/main.zh"), main_src).expect("写入 main.zh 失败");
-    // 未打开的兄弟文件：也带一条全角告警——非静默入口会连它一起刷进 stderr
+    std::fs::write(临时目录.path().join("src/main.zh"), 主源码).expect("写入 main.zh 失败");
+    // 未打开的兄弟文件：也带一条全角告警——非静默入口会连它一起刷进标准错误
     std::fs::write(
-        temp.path().join("src/辅助.zh"),
+        临时目录.path().join("src/辅助.zh"),
         "公开 函数 加一(数: i32) -> i32 {\n    数 + 1；\n}\n",
     )
     .expect("写入 辅助.zh 失败");
-    let uri = format!("file://{}", temp.path().join("src/main.zh").display());
+    let 地址 = format!("file://{}", 临时目录.path().join("src/main.zh").display());
 
-    let (mut child, mut stdin, rx, err_rx) = spawn_lsp_capturing_stderr(&ra_path, &lang_pack);
-    let root_uri = format!("file://{}", temp.path().display());
-    initialize(&mut stdin, &rx, &root_uri);
-    send_notification(&mut stdin, "initialized", json!({}));
-    send_notification(
-        &mut stdin,
+    let (mut 服务进程, mut 标准输入流, 接收端, 错误接收端) =
+        启动服务并捕获错误输出(&分析器路径, &语言包);
+    let 根地址 = format!("file://{}", 临时目录.path().display());
+    初始化(&mut 标准输入流, &接收端, &根地址);
+    发送通知(&mut 标准输入流, "initialized", json!({}));
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didOpen",
         json!({
             "textDocument": {
-                "uri": uri,
+                "uri": 地址,
                 "languageId": "rust-zh",
                 "version": 1,
-                "text": main_src
+                "text": 主源码
             }
         }),
     );
 
-    // 锚点：镜像检查发布的 E0425 母语翻译——它出现即表示 `mirror_check`
+    // 锚点：镜像检查发布的 E0425 母语翻译——它出现即表示 `运行镜像检查`
     // 已逐项目文件跑完转译（非静默入口的刷屏就发生在该循环里）；出现后再收
     // 15s 诊断，确保教学诊断注入也已走完
-    let (found, diags) = collect_diagnostics_until_settle(
-        &rx,
-        &uri,
+    let (已找到, 诊断集) = 收集诊断直至稳定(
+        &接收端,
+        &地址,
         "找不到",
         Duration::from_secs(120),
         Duration::from_secs(15),
     );
     assert!(
-        found,
+        已找到,
         "锚点（E0425 母语翻译）未出现：镜像检查未跑完，本用例未能验证转译循环"
     );
     // ① 注入链路仍在工作：教学诊断按文件归属发到客户端
-    let fullwidth: Vec<&Value> = diags
+    let 全角诊断: Vec<&Value> = 诊断集
         .iter()
-        .filter(|d| d.get("code").and_then(Value::as_str) == Some("fullwidth"))
+        .filter(|诊断项| 诊断项.get("code").and_then(Value::as_str) == Some("fullwidth"))
         .collect();
     assert!(
-        !fullwidth.is_empty(),
-        "客户端应收到 fullwidth 教学诊断（注入链路不得删除）：\n{diags:?}"
+        !全角诊断.is_empty(),
+        "客户端应收到 fullwidth 教学诊断（注入链路不得删除）：\n{诊断集:?}"
     );
 
-    shutdown(&mut child, &mut stdin, &rx);
+    关闭服务(&mut 服务进程, &mut 标准输入流, &接收端);
 
-    // ② server stderr 不出现引擎格式的教学告警行（`[时间] [级别] [模块] …`）：
+    // ② 服务进程标准错误不出现引擎格式的教学告警行（`[时间] [级别] [模块] …`）：
     //    按模块标签匹配，不依赖级别文案（级别文字随语言包本地化）
-    let teaching_tags = ["[fullwidth]", "[lint]", "[unicode_confusion]"];
-    let stderr_lines = drain_stderr(&err_rx);
-    let leaked: Vec<&String> = stderr_lines
+    let 教学标签 = ["[fullwidth]", "[lint]", "[unicode_confusion]"];
+    let 错误输出行 = 抽取错误输出(&错误接收端);
+    let 泄漏行: Vec<&String> = 错误输出行
         .iter()
-        .filter(|line| teaching_tags.iter().any(|tag| line.contains(tag)))
+        .filter(|line| 教学标签.iter().any(|标签| line.contains(标签)))
         .collect();
     assert!(
-        leaked.is_empty(),
+        泄漏行.is_empty(),
         "教学告警不得无归属刷进 server stderr（已由诊断按文件发布）：\n{}",
-        leaked
+        泄漏行
             .iter()
             .map(|line| line.as_str())
             .collect::<Vec<_>>()
@@ -916,36 +927,36 @@ fn e2e_teaching_warnings_do_not_leak_to_server_stderr() {
     eprintln!("✅ LSP 端到端测试通过：教学告警只走诊断通道，stderr 不再刷屏");
 }
 
-/// 等待目标 uri 的「空诊断」批次（修复后/didClose 后诊断被清空）
+/// 等待目标地址的「空诊断」批次（修复后/关闭文档通知后诊断被清空）
 ///
 /// rust-analyzer 与代理可能先发布若干非空批次（旧版本残留），仅当收到
-/// 该 uri 的 publishDiagnostics 且 diagnostics 为空数组时才返回 true。
-fn wait_empty_diagnostics(rx: &mpsc::Receiver<Value>, uri: &str, timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
+/// 该地址的诊断发布通知且诊断数组为空时才返回真。
+fn 等待空诊断(接收端: &mpsc::Receiver<Value>, 地址: &str, 超时: Duration) -> bool {
+    let 截止时间 = Instant::now() + 超时;
     loop {
-        let remain = deadline.saturating_duration_since(Instant::now());
-        if remain.is_zero() {
+        let 剩余 = 截止时间.saturating_duration_since(Instant::now());
+        if 剩余.is_zero() {
             return false;
         }
-        let Ok(msg) = rx.recv_timeout(remain) else {
+        let Ok(消息) = 接收端.recv_timeout(剩余) else {
             continue;
         };
-        if msg.get("method").and_then(Value::as_str) == Some("textDocument/publishDiagnostics")
-            && msg.pointer("/params/uri").and_then(Value::as_str) == Some(uri)
-            && msg
+        if 消息.get("method").and_then(Value::as_str) == Some("textDocument/publishDiagnostics")
+            && 消息.pointer("/params/uri").and_then(Value::as_str) == Some(地址)
+            && 消息
                 .pointer("/params/diagnostics")
                 .and_then(Value::as_array)
-                .is_some_and(|diags| diags.is_empty())
+                .is_some_and(|诊断集| 诊断集.is_empty())
         {
             return true;
         }
     }
 }
 
-/// 启动 zh 会话并打开一份源码（initialize + initialized + didOpen）
-fn open_zh_session(
-    source: &str,
-    project_files: &[(&str, &str)],
+/// 启动中文会话并打开一份源码（初始化 + 初始化完成通知 + 打开文档通知）
+fn 打开中文会话(
+    源码: &str,
+    项目文件: &[(&str, &str)],
 ) -> (
     tempfile::TempDir,
     Child,
@@ -953,531 +964,543 @@ fn open_zh_session(
     mpsc::Receiver<Value>,
     String,
 ) {
-    // 工具链缺失时 `rust_analyzer_for_run` 已在 CI 判红，本地缺工具链的情况由各
-    // 用例开头的同款调用提前返回，因此这里拿到 None 只可能是新用例忘了加判定。
-    let ra_path = rust_analyzer_for_run()
-        .expect("用例开头未做 rust_analyzer_for_run 判定就调用了 open_zh_session");
-    let manifest_dir =
-        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
-    let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
-    let temp = tempfile::tempdir().expect("创建临时项目失败");
-    std::fs::create_dir_all(temp.path().join("src")).expect("创建 src 目录失败");
+    // 工具链缺失时 `取分析器路径` 已在 CI 判红，本地缺工具链的情况由各
+    // 用例开头的同款调用提前返回，因此这里拿到无只可能是新用例忘了加判定。
+    let 分析器路径 =
+        取分析器路径().expect("用例开头未做 rust_analyzer_for_run 判定就调用了 open_zh_session");
+    let 清单目录 = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let 语言包 = 清单目录.join("../engine/lang-packs/zh");
+    let 临时目录 = tempfile::tempdir().expect("创建临时项目失败");
+    std::fs::create_dir_all(临时目录.path().join("src")).expect("创建 src 目录失败");
     std::fs::write(
-        temp.path().join("Cargo.toml"),
+        临时目录.path().join("Cargo.toml"),
         "[package]\nname = \"e2e-project\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
     )
     .expect("写入 Cargo.toml 失败");
-    for (rel, contents) in project_files {
-        let p = temp.path().join(rel);
-        if let Some(parent) = p.parent() {
-            std::fs::create_dir_all(parent).expect("创建项目子目录失败");
+    for (相对路径, 内容) in 项目文件 {
+        let 文件路径 = 临时目录.path().join(相对路径);
+        if let Some(父目录) = 文件路径.parent() {
+            std::fs::create_dir_all(父目录).expect("创建项目子目录失败");
         }
-        std::fs::write(p, contents).expect("写入项目文件失败");
+        std::fs::write(文件路径, 内容).expect("写入项目文件失败");
     }
-    let uri = format!("file://{}", temp.path().join("src/main.zh").display());
-    let (child, mut stdin, rx) = spawn_lsp(&ra_path, &lang_pack);
-    let root_uri = format!("file://{}", temp.path().display());
-    initialize(&mut stdin, &rx, &root_uri);
-    send_notification(&mut stdin, "initialized", json!({}));
-    send_notification(
-        &mut stdin,
+    let 地址 = format!("file://{}", 临时目录.path().join("src/main.zh").display());
+    let (服务进程, mut 标准输入流, 接收端) = 启动服务(&分析器路径, &语言包);
+    let 根地址 = format!("file://{}", 临时目录.path().display());
+    初始化(&mut 标准输入流, &接收端, &根地址);
+    发送通知(&mut 标准输入流, "initialized", json!({}));
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didOpen",
         json!({
             "textDocument": {
-                "uri": uri,
+                "uri": 地址,
                 "languageId": "rust-zh",
                 "version": 1,
-                "text": source
+                "text": 源码
             }
         }),
     );
-    (temp, child, stdin, rx, uri)
+    (临时目录, 服务进程, 标准输入流, 接收端, 地址)
 }
 
-/// 文档生命周期：didOpen 镜像检查报错 → didChange 修复清空 → didSave 权威
-/// 复核仍为空 → 再改坏后保存重新报错 → didClose 清空
+/// 文档生命周期：打开文档通知后镜像检查报错 → 变更文档通知修复清空 → 保存文档通知权威
+/// 复核仍为空 → 再改坏后保存重新报错 → 关闭文档通知清空
 ///
-/// 覆盖 handle_did_change 的全量替换/缓存更新、handle_did_save 的镜像
-/// cargo check 触发与 handle_did_close 的关闭同步（这些路径纯靠单测构造
-/// ProxyServer 成本过高，走真实协议）。
+/// 覆盖 `处理文档变更` 的全量替换/缓存更新、`处理文档保存` 的镜像
+/// `cargo check` 触发与 `处理文档关闭` 的关闭同步（这些路径纯靠单测构造
+/// `代理服务器` 成本过高，走真实协议）。
 ///
-/// 注意：cargo 项目内 RA 原生 E 系列编译错误按设计被抑制（以代理镜像
-/// `cargo check` 的 rustc 口径为准），故未保存的实时编辑只下发 RA 原生
-/// 诊断（教学 lint 等），编译错误须在 didSave（或 didOpen）后由镜像
+/// 注意：Cargo 项目内 rust-analyzer 原生 E 系列编译错误按设计被抑制（以代理镜像
+/// `cargo check` 的 rustc 口径为准），故未保存的实时编辑只下发 rust-analyzer 原生
+/// 诊断（教学检查等），编译错误须在保存文档通知（或打开文档通知）后由镜像
 /// 检查发布——本测试按该语义锁定，而非假定编辑即重发编译错误。
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_did_change_save_close_lifecycle() {
-    if !rust_analyzer_available() {
+fn 端到端_修改保存关闭生命周期() {
+    if !分析器可用() {
         return; // 本地无工具链：已打印原因
     }
-    let bad = lang_source("zh");
-    let good = "函数 主函数() {\n    打印行!(\"好\");\n}\n";
-    let (_temp, mut child, mut stdin, rx, uri) = open_zh_session(&bad, &[("src/main.zh", &bad)]);
+    let 坏源码 = 取方言源码("zh");
+    let 好源码 = "函数 主函数() {\n    打印行!(\"好\");\n}\n";
+    let (_临时目录, mut 服务进程, mut 标准输入流, 接收端, 地址) =
+        打开中文会话(&坏源码, &[("src/main.zh", &坏源码)]);
 
-    // 1. 打开即有 E0425 母语诊断（didOpen 触发镜像 cargo check）
-    wait_diagnostics_containing(&rx, &uri, "找不到", Duration::from_secs(120))
+    // 1. 打开即有 E0425 母语诊断（打开文档通知触发镜像 `cargo check`）
+    等待含关键词诊断(&接收端, &地址, "找不到", Duration::from_secs(120))
         .expect("打开坏文件后应收到镜像检查的 E0425 翻译诊断");
 
-    // 2. didChange 改为正确代码：RA 实时诊断清空
-    send_notification(
-        &mut stdin,
+    // 2. 变更文档通知改为正确代码：rust-analyzer 实时诊断清空
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didChange",
         json!({
-            "textDocument": { "uri": uri, "version": 2 },
-            "contentChanges": [{ "text": good }]
+            "textDocument": { "uri": 地址, "version": 2 },
+            "contentChanges": [{ "text": 好源码 }]
         }),
     );
     assert!(
-        wait_empty_diagnostics(&rx, &uri, Duration::from_secs(90)),
+        等待空诊断(&接收端, &地址, Duration::from_secs(90)),
         "修复后诊断应清空（didChange 缓存更新）"
     );
 
-    // 3. didSave 正确代码：镜像检查复核后仍为空诊断
-    send_notification(
-        &mut stdin,
+    // 3. 保存文档通知正确代码：镜像检查复核后仍为空诊断
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didSave",
-        json!({ "textDocument": { "uri": uri }, "text": good }),
+        json!({ "textDocument": { "uri": 地址 }, "text": 好源码 }),
     );
     assert!(
-        wait_empty_diagnostics(&rx, &uri, Duration::from_secs(120)),
+        等待空诊断(&接收端, &地址, Duration::from_secs(120)),
         "保存正确代码后镜像检查应发布空诊断"
     );
 
     // 4. 再改回错误代码并保存：镜像检查重新发布编译错误（未保存的纯编辑
     //    不会重发 E 系列诊断，见测试文档注释）
-    send_notification(
-        &mut stdin,
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didChange",
         json!({
-            "textDocument": { "uri": uri, "version": 3 },
-            "contentChanges": [{ "text": bad }]
+            "textDocument": { "uri": 地址, "version": 3 },
+            "contentChanges": [{ "text": 坏源码 }]
         }),
     );
-    send_notification(
-        &mut stdin,
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didSave",
-        json!({ "textDocument": { "uri": uri }, "text": bad }),
+        json!({ "textDocument": { "uri": 地址 }, "text": 坏源码 }),
     );
-    wait_diagnostics_containing(&rx, &uri, "找不到", Duration::from_secs(120))
+    等待含关键词诊断(&接收端, &地址, "找不到", Duration::from_secs(120))
         .expect("保存坏代码后应再次收到镜像检查的 E0425 诊断");
 
-    // 5. didClose：关闭处理器同步执行（条目移除/兄弟模块同步）；关闭后代理
-    //    不再为原 URI 发空批次（缓存条目已删，RA 的清空落在虚拟 URI 上；
-    //    LSP 客户端关闭文档时自行清诊断）。紧随其后的 shutdown 能正常应答，
-    //    即证明关闭处理器未 panic、主循环仍存活
-    send_notification(
-        &mut stdin,
+    // 5. 关闭文档通知：关闭处理器同步执行（条目移除/兄弟模块同步）；关闭后代理
+    //    不再为原地址发空批次（缓存条目已删，rust-analyzer 的清空落在虚拟地址上；
+    //    LSP 客户端关闭文档时自行清诊断）。紧随其后的关闭请求能正常应答，
+    //    即证明关闭处理器未恐慌、主循环仍存活
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didClose",
-        json!({ "textDocument": { "uri": uri } }),
+        json!({ "textDocument": { "uri": 地址 } }),
     );
 
-    shutdown(&mut child, &mut stdin, &rx);
+    关闭服务(&mut 服务进程, &mut 标准输入流, &接收端);
     eprintln!("✅ LSP 端到端测试通过：didChange/didSave/didClose 生命周期诊断同步");
 }
 
-/// didSave 触发代理自跑 cargo check（草稿 + 真实项目镜像），服务器保持可用
+/// 保存文档通知触发代理自行运行 `cargo check`（草稿 + 真实项目镜像），服务器保持可用
 ///
-/// 覆盖 handle_did_save → trigger_cargo_check → run_cargo_check_once 与
-/// mirror_check 链路（纯单测无法触达的子进程编排路径）；保存后服务器仍能
-/// 响应请求，证明异步 check 线程未拖垮主循环。
+/// 覆盖 `处理文档保存` → `触发编译检查` → `运行编译检查一次` 与
+/// `运行镜像检查` 链路（纯单测无法触达的子进程编排路径）；保存后服务器仍能
+/// 响应请求，证明异步检查线程未拖垮主循环。
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_did_save_triggers_cargo_check() {
-    if !rust_analyzer_available() {
+fn 端到端_保存触发构建检查() {
+    if !分析器可用() {
         return; // 本地无工具链：已打印原因
     }
-    let source = lang_source("zh");
-    let (_temp, mut child, mut stdin, rx, uri) =
-        open_zh_session(&source, &[("src/main.zh", &source)]);
-    wait_diagnostics_containing(&rx, &uri, "找不到", Duration::from_secs(120))
-        .expect("应先收到 RA 诊断");
+    let 源码 = 取方言源码("zh");
+    let (_临时目录, mut 服务进程, mut 标准输入流, 接收端, 地址) =
+        打开中文会话(&源码, &[("src/main.zh", &源码)]);
+    等待含关键词诊断(&接收端, &地址, "找不到", Duration::from_secs(120)).expect("应先收到 RA 诊断");
 
-    send_notification(
-        &mut stdin,
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didSave",
-        json!({ "textDocument": { "uri": uri }, "text": source }),
+        json!({ "textDocument": { "uri": 地址 }, "text": 源码 }),
     );
 
-    // 保存后服务器必须仍能正常响应（cargo check 在后台线程跑，不阻塞主循环）；
-    // formatting 走 run_rustfmt 子进程并反向翻译回母语
-    let resp = send_request(
-        &mut stdin,
-        &rx,
+    // 保存后服务器必须仍能正常响应（`cargo check` 在后台线程跑，不阻塞主循环）；
+    // 格式化请求走 `运行格式化` 子进程并反向翻译回母语
+    let 响应 = 发送请求(
+        &mut 标准输入流,
+        &接收端,
         20,
         "textDocument/formatting",
         json!({
-            "textDocument": { "uri": uri },
+            "textDocument": { "uri": 地址 },
             "options": { "tabSize": 4, "insertSpaces": true }
         }),
         Duration::from_secs(120),
     );
-    let edits = resp
+    let 编辑集 = 响应
         .get("result")
         .and_then(Value::as_array)
         .expect("formatting 应返回编辑数组（cargo check 期间主循环仍可用）");
-    assert!(!edits.is_empty(), "坏代码也应能 rustfmt 出格式化结果");
-    let new_text = edits[0]["newText"].as_str().expect("编辑应含 newText");
+    assert!(!编辑集.is_empty(), "坏代码也应能 rustfmt 出格式化结果");
+    let 新文本 = 编辑集[0]["newText"].as_str().expect("编辑应含 newText");
     assert!(
-        new_text.contains("函数"),
-        "格式化结果应反向翻译回母语：{new_text}"
+        新文本.contains("函数"),
+        "格式化结果应反向翻译回母语：{新文本}"
     );
 
-    shutdown(&mut child, &mut stdin, &rx);
+    关闭服务(&mut 服务进程, &mut 标准输入流, &接收端);
     eprintln!("✅ LSP 端到端测试通过：didSave 后台 cargo check 不阻塞主循环");
 }
 
-/// 请求转发：hover 经 forward_request 代理到 rust-analyzer 并回到客户端
+/// 请求转发：悬停请求经 `转发请求` 代理到 rust-analyzer 并回到客户端
 ///
-/// 覆盖转发链路的位置换算/URI 替换/响应 id 还原（85 行的 forward_request
-/// 主体此前只有 e2e didOpen 通知路径，无请求往返）。
+/// 覆盖转发链路的位置换算/地址替换/响应编号还原（85 行的 `转发请求`
+/// 主体此前只有端到端打开文档通知路径，无请求往返）。
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_hover_forwarded_roundtrip() {
-    if !rust_analyzer_available() {
+fn 端到端_悬停转发往返() {
+    if !分析器可用() {
         return; // 本地无工具链：已打印原因
     }
-    // 干净文件：避免错误诊断干扰，hover 落到主函数名上
-    let source = "函数 主函数() {\n    打印行!(\"好\");\n}\n";
-    let (_temp, mut child, mut stdin, rx, uri) =
-        open_zh_session(source, &[("src/main.zh", source)]);
+    // 干净文件：避免错误诊断干扰，悬停落到主函数名上
+    let 源码 = "函数 主函数() {\n    打印行!(\"好\");\n}\n";
+    let (_临时目录, mut 服务进程, mut 标准输入流, 接收端, 地址) =
+        打开中文会话(源码, &[("src/main.zh", 源码)]);
     assert!(
-        wait_empty_diagnostics(&rx, &uri, Duration::from_secs(120)),
+        等待空诊断(&接收端, &地址, Duration::from_secs(120)),
         "干净文件分析后应无诊断"
     );
 
-    // RA 在分析迭代途中可能回 -32801 content modified（合法 LSP 响应，
+    // rust-analyzer 在分析迭代途中可能回 -32801「内容已修改」（合法 LSP 响应，
     // 客户端会重试）：重试 3 次；最终仍为该错误也证明转发往返链路畅通
-    let mut resp = Value::Null;
-    for attempt in 0..3u64 {
-        resp = send_request(
-            &mut stdin,
-            &rx,
-            21 + attempt,
+    let mut 响应 = Value::Null;
+    for 尝试 in 0..3u64 {
+        响应 = 发送请求(
+            &mut 标准输入流,
+            &接收端,
+            21 + 尝试,
             "textDocument/hover",
             json!({
-                "textDocument": { "uri": uri },
+                "textDocument": { "uri": 地址 },
                 // 第 1 行「函数 主函数() {」的「主函数」内（UTF-16 BMP，字=偏移）
                 "position": { "line": 0, "character": 4 }
             }),
             Duration::from_secs(60),
         );
-        if resp.get("result").is_some() {
+        if 响应.get("result").is_some() {
             break;
         }
-        let modified = resp
+        let 内容已修改 = 响应
             .pointer("/error/code")
             .and_then(Value::as_i64)
-            .is_some_and(|code| code == -32801);
-        if !modified {
-            panic!("hover 转发返回非预期错误：{resp}");
+            .is_some_and(|码| 码 == -32801);
+        if !内容已修改 {
+            panic!("hover 转发返回非预期错误：{响应}");
         }
         std::thread::sleep(Duration::from_secs(2));
     }
     assert!(
-        resp.get("result").is_some()
-            || resp.pointer("/error/code").and_then(Value::as_i64) == Some(-32801),
-        "hover 应返回结果或合法的 content-modified 重试信号：{resp}"
+        响应.get("result").is_some()
+            || 响应.pointer("/error/code").and_then(Value::as_i64) == Some(-32801),
+        "hover 应返回结果或合法的 content-modified 重试信号：{响应}"
     );
 
-    shutdown(&mut child, &mut stdin, &rx);
+    关闭服务(&mut 服务进程, &mut 标准输入流, &接收端);
     eprintln!("✅ LSP 端到端测试通过：hover 请求转发往返正常");
 }
 
-/// 语言矩阵完整性：LANG_KEYWORDS 与语言包目录一一对应，防止漏配语言
+/// 语言矩阵完整性：各语言关键词与语言包目录一一对应，防止漏配语言
 #[test]
-fn test_lang_keywords_cover_expected_languages() {
-    let expected = ["zh", "ja", "ru", "ar"];
-    for code in expected {
+fn 测试_各语言关键词覆盖预期语言() {
+    let 预期 = ["zh", "ja", "ru", "ar"];
+    for 码 in 预期 {
         assert!(
-            LANG_KEYWORDS.iter().any(|(c, _)| *c == code),
-            "缺少 {code} 的 e2e 覆盖"
+            各语言关键词.iter().any(|(候选, _)| *候选 == 码),
+            "缺少 {码} 的 e2e 覆盖"
         );
     }
 }
 
-/// 收集目标 uri 的诊断直至稳定（返回锚点是否出现 + 窗口内全部诊断）
+/// 收集目标地址的诊断直至稳定（返回锚点是否出现 + 窗口内全部诊断）
 ///
-/// 从调用起持续收集；锚点（keyword）出现在某批诊断后，再继续收集
-/// `settle` 时长——覆盖 rust-analyzer 的后续批次与代理镜像 cargo check
-/// 的权威诊断发布。`total_timeout` 为全程硬上限（防锚点反复触发无限延长）。
-fn collect_diagnostics_until_settle(
-    rx: &mpsc::Receiver<Value>,
-    uri: &str,
-    keyword: &str,
-    total_timeout: Duration,
-    settle: Duration,
+/// 从调用起持续收集；锚点（关键词）出现在某批诊断后，再继续收集
+/// 稳定窗口时长——覆盖 rust-analyzer 的后续批次与代理镜像 `cargo check`
+/// 的权威诊断发布。总超时为全程硬上限（防锚点反复触发无限延长）。
+fn 收集诊断直至稳定(
+    接收端: &mpsc::Receiver<Value>,
+    地址: &str,
+    关键词: &str,
+    总超时: Duration,
+    稳定时长: Duration,
 ) -> (bool, Vec<Value>) {
-    let hard_deadline = Instant::now() + total_timeout;
-    let mut found = false;
-    let mut settle_deadline: Option<Instant> = None;
-    let mut all: Vec<Value> = Vec::new();
-    let mut stats = BatchStats::new();
+    let 硬截止 = Instant::now() + 总超时;
+    let mut 已找到 = false;
+    let mut 稳定截止: Option<Instant> = None;
+    let mut 全部: Vec<Value> = Vec::new();
+    let mut 统计 = BTreeMap::new();
     loop {
-        let now = Instant::now();
-        let limit = settle_deadline.unwrap_or(hard_deadline).min(hard_deadline);
-        if now >= limit {
-            if !found {
-                eprintln!("⚠️ 锚点「{keyword}」未在超时内出现：");
-                dump_batch_stats(&stats, uri);
+        let 当下 = Instant::now();
+        let 上限 = 稳定截止.unwrap_or(硬截止).min(硬截止);
+        if 当下 >= 上限 {
+            if !已找到 {
+                eprintln!("⚠️ 锚点「{关键词}」未在超时内出现：");
+                转储批次统计(&统计, 地址);
             }
-            return (found, all);
+            return (已找到, 全部);
         }
-        let wait = (limit - now).min(Duration::from_millis(500));
-        let msg = match rx.recv_timeout(wait) {
-            Ok(m) => m,
+        let 等待时长 = (上限 - 当下).min(Duration::from_millis(500));
+        let 消息 = match 接收端.recv_timeout(等待时长) {
+            Ok(消息项) => 消息项,
             Err(mpsc::RecvTimeoutError::Timeout) => continue,
             Err(mpsc::RecvTimeoutError::Disconnected) => {
-                if !found {
-                    eprintln!("⚠️ 通道断开且锚点「{keyword}」未出现：");
-                    dump_batch_stats(&stats, uri);
+                if !已找到 {
+                    eprintln!("⚠️ 通道断开且锚点「{关键词}」未出现：");
+                    转储批次统计(&统计, 地址);
                 }
-                return (found, all);
+                return (已找到, 全部);
             }
         };
-        record_batch(&mut stats, &msg);
-        if msg.get("method").and_then(Value::as_str) != Some("textDocument/publishDiagnostics")
-            || msg.pointer("/params/uri").and_then(Value::as_str) != Some(uri)
+        记录批次(&mut 统计, &消息);
+        if 消息.get("method").and_then(Value::as_str) != Some("textDocument/publishDiagnostics")
+            || 消息.pointer("/params/uri").and_then(Value::as_str) != Some(地址)
         {
             continue;
         }
-        let Some(diagnostics) = msg.pointer("/params/diagnostics").and_then(Value::as_array) else {
+        let Some(诊断集) = 消息
+            .pointer("/params/diagnostics")
+            .and_then(Value::as_array)
+        else {
             continue;
         };
-        if diagnostics.is_empty() {
+        if 诊断集.is_empty() {
             continue;
         }
-        let batch = diagnostics
+        let 批次文本 = 诊断集
             .iter()
-            .filter_map(|d| d.get("message").and_then(Value::as_str))
+            .filter_map(|诊断项| 诊断项.get("message").and_then(Value::as_str))
             .collect::<Vec<_>>()
             .join("\n");
-        if batch.contains(keyword) {
-            found = true;
-            settle_deadline = Some(Instant::now() + settle);
+        if 批次文本.contains(关键词) {
+            已找到 = true;
+            稳定截止 = Some(Instant::now() + 稳定时长);
         }
-        all.extend(diagnostics.iter().cloned());
+        全部.extend(诊断集.iter().cloned());
     }
 }
 
 /// 多模块项目语料·无假红回归（rust-analyzer 升级必跑）
 ///
-/// fixture 同时覆盖三个历史误报根因，并以真错误（E0425）为锚点：
+/// 测试样例同时覆盖三个历史误报根因，并以真错误（E0425）为锚点：
 /// 1. 入口含文件式 `模块 工具;` 声明 → 历史上报 E0583/E0754
-///    （strip_file_module_decls + 镜像 `#[path]` 注解修复）；
+///    （剥离文件模块声明 + 镜像 `#[path]` 注解修复）；
 /// 2. 跨文件引用未打开的兄弟模块 `工具::加一` → 历史上报 E0432/E0433
-///    （C2a 同目录模块聚合修复）；
-/// 3. `包含字符串!("数据.txt")` 资源引用 → 历史上报 couldn't read
-///    （C2b include 资源复制修复）。
+///    （同目录模块聚合修复）；
+/// 3. `包含字符串!("数据.txt")` 资源引用 → 历史上报无法读取
+///    （包含资源复制修复）。
 ///
-/// 断言：锚点出现后追加稳定窗口内收集到的全部诊断（含镜像 cargo check
+/// 断言：锚点出现后追加稳定窗口内收集到的全部诊断（含镜像 `cargo check`
 /// 的权威批次）不含以上误报；真锚点不被过滤链误杀。
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_no_false_red_in_corpus_project() {
-    let Some(ra_path) = rust_analyzer_for_run() else {
+fn 端到端_语料项目无误报红() {
+    let Some(分析器路径) = 取分析器路径() else {
         return; // 本地无工具链：上面已打印原因
     };
 
-    let manifest_dir =
-        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
-    let lang_pack = manifest_dir.join("../engine/lang-packs/zh");
+    let 清单目录 = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("缺少 manifest 目录"));
+    let 语言包 = 清单目录.join("../engine/lang-packs/zh");
 
-    let temp = tempfile::tempdir().expect("创建临时项目失败");
-    std::fs::create_dir_all(temp.path().join("src")).expect("创建 src 目录失败");
+    let 临时目录 = tempfile::tempdir().expect("创建临时项目失败");
+    std::fs::create_dir_all(临时目录.path().join("src")).expect("创建 src 目录失败");
     std::fs::write(
-        temp.path().join("Cargo.toml"),
+        临时目录.path().join("Cargo.toml"),
         "[package]\nname = \"e2e-corpus\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
     )
     .expect("写入 Cargo.toml 失败");
-    let main_src = "模块 工具;\n\n函数 主函数() {\n    让 结果 = 工具::加一(1) + 不存在的变量;\n    让 页面 = 包含字符串!(\"数据.txt\");\n    打印行!(\"{} {}\", 结果, 页面);\n}\n";
-    std::fs::write(temp.path().join("src/main.zh"), main_src).expect("写入 main.zh 失败");
-    // 未打开的兄弟模块（C2a 场景）
+    let 主源码 = "模块 工具;\n\n函数 主函数() {\n    让 结果 = 工具::加一(1) + 不存在的变量;\n    让 页面 = 包含字符串!(\"数据.txt\");\n    打印行!(\"{} {}\", 结果, 页面);\n}\n";
+    std::fs::write(临时目录.path().join("src/main.zh"), 主源码).expect("写入 main.zh 失败");
+    // 未打开的兄弟模块（同目录模块场景）
     std::fs::write(
-        temp.path().join("src/工具.zh"),
+        临时目录.path().join("src/工具.zh"),
         "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n",
     )
     .expect("写入 工具.zh 失败");
-    // include 资源（C2b 场景）
-    std::fs::write(temp.path().join("src/数据.txt"), "占位内容\n").expect("写入 数据.txt 失败");
-    let uri = format!("file://{}", temp.path().join("src/main.zh").display());
+    // 包含资源（资源复制场景）
+    std::fs::write(临时目录.path().join("src/数据.txt"), "占位内容\n").expect("写入 数据.txt 失败");
+    let 地址 = format!("file://{}", 临时目录.path().join("src/main.zh").display());
 
-    let (mut child, mut stdin, rx) = spawn_lsp(&ra_path, &lang_pack);
-    let root_uri = format!("file://{}", temp.path().display());
-    initialize(&mut stdin, &rx, &root_uri);
-    send_notification(&mut stdin, "initialized", json!({}));
-    send_notification(
-        &mut stdin,
+    let (mut 服务进程, mut 标准输入流, 接收端) = 启动服务(&分析器路径, &语言包);
+    let 根地址 = format!("file://{}", 临时目录.path().display());
+    初始化(&mut 标准输入流, &接收端, &根地址);
+    发送通知(&mut 标准输入流, "initialized", json!({}));
+    发送通知(
+        &mut 标准输入流,
         "textDocument/didOpen",
         json!({
             "textDocument": {
-                "uri": uri,
+                "uri": 地址,
                 "languageId": "rust-zh",
                 "version": 1,
-                "text": main_src
+                "text": 主源码
             }
         }),
     );
 
     // 锚点：E0425「找不到」的母语翻译；命中后再收集 15s 稳定窗口
-    let (found, diags) = collect_diagnostics_until_settle(
-        &rx,
-        &uri,
+    let (已找到, 诊断集) = 收集诊断直至稳定(
+        &接收端,
+        &地址,
         "找不到",
         Duration::from_secs(120),
         Duration::from_secs(15),
     );
     assert!(
-        found,
+        已找到,
         "锚点（E0425 母语翻译）未出现：rust-analyzer 未就绪或翻译链路异常"
     );
 
-    // 误报断言一：诊断 code（与消息文案无关，RA 改文案也能抓住）
-    let codes: Vec<String> = diags
+    // 误报断言一：诊断错误码（与消息文案无关，rust-analyzer 改文案也能抓住）
+    let 错误码集: Vec<String> = 诊断集
         .iter()
-        .filter_map(|d| d.get("code").and_then(Value::as_str).map(str::to_string))
+        .filter_map(|诊断项| {
+            诊断项
+                .get("code")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
         .collect();
-    for bad in ["E0432", "E0433", "E0583", "E0754"] {
+    for 误报码 in ["E0432", "E0433", "E0583", "E0754"] {
         assert!(
-            !codes.contains(&bad.to_string()),
-            "出现误报 {bad}（模块聚合/注解/引用链路失效）：\n{diags:#?}"
+            !错误码集.contains(&误报码.to_string()),
+            "出现误报 {误报码}（模块聚合/注解/引用链路失效）：\n{诊断集:#?}"
         );
     }
 
-    // 误报断言二：消息文本特征（无 code 的 couldn't read 等 + RA 特有文案）
-    let texts = diags
+    // 误报断言二：消息文本特征（无错误码的「无法读取」等 + rust-analyzer 特有文案）
+    let 文本集 = 诊断集
         .iter()
-        .filter_map(|d| d.get("message").and_then(Value::as_str))
+        .filter_map(|诊断项| 诊断项.get("message").and_then(Value::as_str))
         .collect::<Vec<_>>()
         .join("\n");
-    for bad in [
+    for 误报 in [
         "couldn't read",
         "unresolved import",
         "cannot find module",
         "not included in the module tree",
     ] {
         assert!(
-            !texts.contains(bad),
-            "出现误报特征「{bad}」（RA 消息格式漂移或修复失效）：\n{texts}"
+            !文本集.contains(误报),
+            "出现误报特征「{误报}」（RA 消息格式漂移或修复失效）：\n{文本集}"
         );
     }
 
     // 反向断言：真错误不被过滤链误杀
     assert!(
-        texts.contains("找不到"),
-        "真错误 E0425 的翻译不应被过滤：\n{texts}"
+        文本集.contains("找不到"),
+        "真错误 E0425 的翻译不应被过滤：\n{文本集}"
     );
 
-    shutdown(&mut child, &mut stdin, &rx);
+    关闭服务(&mut 服务进程, &mut 标准输入流, &接收端);
     eprintln!("✅ LSP 端到端测试通过：多模块 + include 项目无假红");
 }
 
 /// 多层模块项目零假红：`src/main.zh` → `src/领域.zh` → `src/领域/工具.zh`
 ///
-/// 回归此前三类级联假红：非入口方言文件的 `mod 工具;` 未补层级 `#[path]`
-/// 导致 rustc E0754/E0583、子模块私有 E0603。didOpen 入口后：
+/// 回归此前三类级联假红：非入口方言文件的 `模块 工具;` 未补层级 `#[path]`
+/// 导致 rustc E0754/E0583、子模块私有 E0603。打开文档通知入口后：
 /// - 兄弟同步递归登记嵌套文件，虚拟项目以「顶层聚合 + 父文件末尾
 ///   `#[path]` 子声明」表达层级；
-/// - 镜像 cargo check 按真实多层布局转译注解。
+/// - 镜像 `cargo check` 按真实多层布局转译注解。
 ///
-/// 三个方言 URI 的最终诊断批次均须为空（RA 链与镜像链）。
+/// 三个方言地址的最终诊断批次均须为空（rust-analyzer 链与镜像链）。
 #[test]
 #[ignore = "需要 rust-analyzer 可执行文件（CI 安装工具链后显式运行）"]
-fn e2e_nested_module_no_false_diagnostics() {
-    if !rust_analyzer_available() {
+fn 端到端_嵌套模块无错误诊断() {
+    if !分析器可用() {
         return; // 本地无工具链：已打印原因
     }
-    let main_src = "模块 领域;\n\n函数 主函数() {\n    打印行!(\"{}\", 领域::工具::加一(1));\n}\n";
-    let domain_src = "公开 模块 工具;\n";
-    let tool_src = "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n";
-    // temp 必须活到测试结束（会话工作目录），故绑定保活
-    let (_temp, mut child, mut stdin, rx, main_uri) = open_zh_session(
-        main_src,
+    let 主源码 = "模块 领域;\n\n函数 主函数() {\n    打印行!(\"{}\", 领域::工具::加一(1));\n}\n";
+    let 领域源码 = "公开 模块 工具;\n";
+    let 工具源码 = "公开 函数 加一(数: i32) -> i32 {\n    数 + 1\n}\n";
+    // 临时目录必须活到测试结束（会话工作目录），故绑定保活
+    let (_临时目录, mut 服务进程, mut 标准输入流, 接收端, 主地址) = 打开中文会话(
+        主源码,
         &[
-            ("src/main.zh", main_src),
-            ("src/领域.zh", domain_src),
-            ("src/领域/工具.zh", tool_src),
+            ("src/main.zh", 主源码),
+            ("src/领域.zh", 领域源码),
+            ("src/领域/工具.zh", 工具源码),
         ],
     );
 
-    // 镜像 cargo check 成功时不产生 JSON 消息、代理也不会给未打开文件发空
-    // 批次；因此以「入口收到空批次（RA 链就绪）+ 之后固定稳定窗口（覆盖
-    // 镜像 cargo check）」为收集策略，窗口内汇总所有 URI 的全部诊断。
-    // 等待入口空批次（RA 链就绪），期间收集所有 URI 的诊断批次——
-    // sync 完成前的首批可能「先红后清」，也不能放过
-    let mut collected: Vec<(String, Value)> = Vec::new();
-    let ready_deadline = Instant::now() + Duration::from_secs(150);
-    let mut entry_cleared = false;
-    while Instant::now() < ready_deadline {
-        let Ok(msg) = rx.recv_timeout(ready_deadline.saturating_duration_since(Instant::now()))
+    // 镜像 `cargo check` 成功时不产生 JSON 消息、代理也不会给未打开文件发空
+    // 批次；因此以「入口收到空批次（rust-analyzer 链就绪）+ 之后固定稳定窗口（覆盖
+    // 镜像 `cargo check`）」为收集策略，窗口内汇总所有地址的全部诊断。
+    // 等待入口空批次（rust-analyzer 链就绪），期间收集所有地址的诊断批次——
+    // 同步完成前的首批可能「先红后清」，也不能放过
+    let mut 已收集: Vec<(String, Value)> = Vec::new();
+    let 就绪截止 = Instant::now() + Duration::from_secs(150);
+    let mut 入口已清空 = false;
+    while Instant::now() < 就绪截止 {
+        let Ok(消息) = 接收端.recv_timeout(就绪截止.saturating_duration_since(Instant::now()))
         else {
             break;
         };
-        if msg.get("method").and_then(Value::as_str) != Some("textDocument/publishDiagnostics") {
+        if 消息.get("method").and_then(Value::as_str) != Some("textDocument/publishDiagnostics") {
             continue;
         }
-        let Some(diags) = msg.pointer("/params/diagnostics").and_then(Value::as_array) else {
+        let Some(诊断集) = 消息
+            .pointer("/params/diagnostics")
+            .and_then(Value::as_array)
+        else {
             continue;
         };
-        let u = msg
+        let 地址 = 消息
             .pointer("/params/uri")
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string();
-        if u == main_uri && diags.is_empty() {
-            entry_cleared = true;
+        if 地址 == 主地址 && 诊断集.is_empty() {
+            入口已清空 = true;
             break;
         }
-        for d in diags {
-            collected.push((u.clone(), d.clone()));
+        for 诊断项 in 诊断集 {
+            已收集.push((地址.clone(), 诊断项.clone()));
         }
     }
     assert!(
-        entry_cleared,
+        入口已清空,
         "入口在 150s 内未收到空诊断批次（RA 未就绪或入口持续有诊断）"
     );
-    // 空批次后再留稳定窗口覆盖镜像 cargo check（成功时镜像不发任何批次）
-    let settle_deadline = Instant::now() + Duration::from_secs(45);
-    while let Ok(msg) = rx.recv_timeout(settle_deadline.saturating_duration_since(Instant::now())) {
-        if msg.get("method").and_then(Value::as_str) == Some("textDocument/publishDiagnostics")
-            && let Some(diags) = msg.pointer("/params/diagnostics").and_then(Value::as_array)
+    // 空批次后再留稳定窗口覆盖镜像 `cargo check`（成功时镜像不发任何批次）
+    let 稳定截止 = Instant::now() + Duration::from_secs(45);
+    while let Ok(消息) = 接收端.recv_timeout(稳定截止.saturating_duration_since(Instant::now()))
+    {
+        if 消息.get("method").and_then(Value::as_str) == Some("textDocument/publishDiagnostics")
+            && let Some(诊断集) = 消息
+                .pointer("/params/diagnostics")
+                .and_then(Value::as_array)
         {
-            let u = msg
+            let 地址 = 消息
                 .pointer("/params/uri")
                 .and_then(Value::as_str)
                 .unwrap_or("")
                 .to_string();
-            for d in diags {
-                collected.push((u.clone(), d.clone()));
+            for 诊断项 in 诊断集 {
+                已收集.push((地址.clone(), 诊断项.clone()));
             }
         }
     }
 
-    // 错误级诊断（severity=1）一律不应出现：零错误项目下全为假红
-    let errors: Vec<_> = collected
+    // 错误级诊断（严重级别为 1）一律不应出现：零错误项目下全为假红
+    let 错误项: Vec<_> = 已收集
         .iter()
-        .filter(|(_, d)| d.get("severity").and_then(Value::as_u64) == Some(1))
+        .filter(|(_, 诊断项)| 诊断项.get("severity").and_then(Value::as_u64) == Some(1))
         .collect();
     assert!(
-        errors.is_empty(),
-        "多层模块项目出现错误级诊断（假红）：{errors:#?}"
+        错误项.is_empty(),
+        "多层模块项目出现错误级诊断（假红）：{错误项:#?}"
     );
-    // 模块解析类 code 黑名单（RA 改文案也能抓住）
-    for (u, d) in &collected {
-        if let Some(code) = d.get("code").and_then(Value::as_str) {
+    // 模块解析类错误码黑名单（rust-analyzer 改文案也能抓住）
+    for (地址, 诊断项) in &已收集 {
+        if let Some(错误码) = 诊断项.get("code").and_then(Value::as_str) {
             assert!(
-                !["E0583", "E0754", "E0603", "E0432", "E0433"].contains(&code),
-                "多层模块出现模块解析误报 {code}（{u}）：{d}"
+                !["E0583", "E0754", "E0603", "E0432", "E0433"].contains(&错误码),
+                "多层模块出现模块解析误报 {错误码}（{地址}）：{诊断项}"
             );
         }
     }
-    // 无 code 的解析类消息黑名单
-    let texts = collected
+    // 无错误码的解析类消息黑名单
+    let 文本集 = 已收集
         .iter()
-        .filter_map(|(_, d)| d.get("message").and_then(Value::as_str))
+        .filter_map(|(_, 诊断项)| 诊断项.get("message").and_then(Value::as_str))
         .collect::<Vec<_>>()
         .join("\n");
-    for bad in [
+    for 误报 in [
         "unresolved import",
         "cannot find module",
         "not included in the module tree",
@@ -1485,11 +1508,11 @@ fn e2e_nested_module_no_false_diagnostics() {
         "找不到模块",
     ] {
         assert!(
-            !texts.contains(bad),
-            "多层模块出现误报特征「{bad}」：\n{texts}"
+            !文本集.contains(误报),
+            "多层模块出现误报特征「{误报}」：\n{文本集}"
         );
     }
 
-    shutdown(&mut child, &mut stdin, &rx);
+    关闭服务(&mut 服务进程, &mut 标准输入流, &接收端);
     eprintln!("✅ LSP 端到端测试通过：多层模块项目零假红");
 }

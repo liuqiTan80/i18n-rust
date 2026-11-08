@@ -1,13 +1,13 @@
 {
   "benchmark": "i18n-rust-lsp/hot_paths",
-  "created": "2026-11-02",
+  "created": "2026-11-03",
   "unit": "ns（mean point_estimate；BENCH_RUNS 多样本取最小值）",
   "threshold_pct": 30,
   "results": {
-    "lsp_reverse_transpile/reverse_transpile_completion": 821.008685606052,
-    "lsp_reverse_transpile/reverse_transpile_formatting": 124259.83443441865,
-    "lsp_update_document/update_document_open": 1163706.6580002594,
-    "lsp_update_document/update_document_typing": 549113.2692823763,
-    "lsp_update_document/update_document_typing_alias_heavy": 4301155.836102656
+    "lsp_reverse_transpile/reverse_transpile_completion": 805.8129082854977,
+    "lsp_reverse_transpile/reverse_transpile_formatting": 125193.14359715412,
+    "lsp_update_document/update_document_open": 1127204.6294824744,
+    "lsp_update_document/update_document_typing": 507797.7411014472,
+    "lsp_update_document/update_document_typing_alias_heavy": 3863514.917552371
   }
 }

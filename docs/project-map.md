@@ -50,7 +50,7 @@ rzc 是**多语言 Rust 方言编译器**：用母语写代码 → 翻译为标�
 | 改教程章节 | `tutorials/`（zh 母本）；译本 `tutorials/<lang>/` | `make tutorials`（zh）· `make tutorials-all`（en/ja/ru） |
 | 补语言包词条 | `lang-packs/<lang>/{keywords,stdlib,module_paths}.toml` | `make mapping-check` + 相关单测 |
 | 补错误翻译 | `lang-packs/<lang>/errors.toml` | 带错误码的实机复现 + `make test` |
-| 改界面 / 教学文案 | 文案在 `lang-packs/<lang>/ui.toml`；解析、`{}` 替换与缺键回退统一在 `crates/engine/src/ui.rs`（CLI / LSP 各自只保留加载链）。键出现在哪条命令、`{}` 填什么见生成物 [ui-keys.en.md](ui-keys.en.md) | `make test` + `make ui-index-write`（改键后重生成索引） + 实机复现 |
+| 改界面 / 教学文案 | 文案在 `lang-packs/<lang>/ui.toml`；解析、`{}` 替换与缺键回退统一在 `crates/engine/src/界面消息.rs`（真源 `界面消息.zh`；CLI / LSP 各自只保留加载链）。键出现在哪条命令、`{}` 填什么见生成物 [ui-keys.en.md](ui-keys.en.md) | `make test` + `make ui-index-write`（改键后重生成索引） + 实机复现 |
 | 改转译管线 | `crates/engine/src/` | `make gate`；热路径配套 `make bench-check` |
 | 改产物落点（`.rz/gen/` 布局） | `crates/engine/src/product_layout.rs`（CLI 与 LSP 镜像共用） | `make test`（`cli_basic` 嵌套模块用例）+ 实机 `rzc check` 看 `.rz/gen/` 与诊断回译 |
 | 补「暂无译文」的消息 | `rzc gaps --export` 取清单 → `lang-packs/<lang>/errors.toml` | 清单能清零 + `make test`（语料门禁含 main/help 两级下限） |

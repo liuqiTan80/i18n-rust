@@ -150,11 +150,20 @@
 "environnement" = "env"
 "option_environnement" = "option_env"
 "config" = "cfg"
+"verifications_debogage" = "debug_assertions"
+"chemin_attribut" = "path"
+"链接名" = "link_name"
 "test" = "test"
 
 # ============================================
 # 派生属性（#[派生(...)]）内专用的特征名：母语词 → 英文特征名
 # ============================================
+"属性测试库" = "proptest"
+"属性断言" = "prop_assert"
+"属性断言相等" = "prop_assert_eq"
+"属性择一" = "prop_oneof"
+"基准分组宏" = "criterion_group"
+"基准入口宏" = "criterion_main"
 ["派生特征"]
 "Cloner" = "Clone"
 "Copier" = "Copy"
@@ -181,4 +190,11 @@
 "Identifiant" = "ident"
 "Littéral" = "literal"
 "SpécificationType" = "ty"
+"ArbreTokens" = "tt"
 "DevraitPaniquer" = "should_panic"
+"TraitÉgalitéPartielle" = "PartialEq"
+"MéthodeÉgalité" = "eq"
+"MéthodeDéréférence" = "deref"
+"TypeCible" = "Target"
+"Valeur" = "Value"
+"LongueurToken" = "len"

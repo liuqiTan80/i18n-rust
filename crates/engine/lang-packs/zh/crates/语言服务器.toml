@@ -7,6 +7,25 @@
 "语言服务器库" = "lsp_server"  # 模块路径词在函数体内的副本（lsp_server:: 限定路径）
 "通知消息" = "Notification"
 "请求标识" = "RequestId"
+"请求" = "Request"
+"语言服务器响应" = "Response"  # 与子模块名 `响应` 区分，LSP 响应类型专用词形
+"响应错误" = "ResponseError"
+"错误码类型" = "ErrorCode"
+"内部错误码" = "InternalError"
+"输入输出线程" = "IoThreads"
+"标准输入输出" = "stdio"
+"新建错误" = "new_err"
+"标识号" = "id"
+"请求参数" = "params"
+"响应结果" = "response_result"
+"消息文本" = "message"
+"附加数据" = "data"
+"发送通道" = "sender"
+"接收通道" = "receiver"
+"接收超时错误" = "RecvTimeoutError"
+"超时变体" = "Timeout"
+"已断开" = "Disconnected"
+"尝试迭代" = "try_iter"
 
 # 说明
 ["解释"]

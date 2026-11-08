@@ -151,11 +151,20 @@
 "env" = "env"
 "option_env" = "option_env"
 "cfg" = "cfg"
+"debug_assertions" = "debug_assertions"
+"path" = "path"
+"link_name" = "link_name"
 "test" = "test"
 
 # ============================================
 # Derived trait names
 # ============================================
+"proptest" = "proptest"
+"prop_assert" = "prop_assert"
+"prop_assert_eq" = "prop_assert_eq"
+"prop_oneof" = "prop_oneof"
+"criterion_group" = "criterion_group"
+"criterion_main" = "criterion_main"
 ["派生特征"]
 "Clone" = "Clone"
 "Copy" = "Copy"
@@ -182,4 +191,11 @@
 "ident" = "ident"
 "literal" = "literal"
 "ty" = "ty"
+"tt" = "tt"
 "should_panic" = "should_panic"
+"PartialEq" = "PartialEq"
+"eq" = "eq"
+"deref" = "deref"
+"Target" = "Target"
+"Value" = "Value"
+"len" = "len"

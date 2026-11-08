@@ -49,7 +49,7 @@
 "打开带标志" = "open_with_flags"  # Connection::open_with_flags 指定打开模式（只读等）
 "打开标志" = "OpenFlags"  # rusqlite::OpenFlags 打开标志位
 "只读打开" = "SQLITE_OPEN_READ_ONLY"  # OpenFlags::SQLITE_OPEN_READ_ONLY 只读模式
-"空值" = "Null"
+"空值字段" = "Null"
 "文本值" = "Text"  # 「文本」已被 str 占用
 "字节块" = "Blob"
 "取列引用" = "get_ref"  # Row::get_ref 按列号取 ValueRef（文本/字节块等原样引用；越界/类型不符会 panic）

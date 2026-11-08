@@ -1,22 +1,23 @@
-//! 反译重生（relocalize）引擎级测试：跨母语阅读的可编译保真
+//! 反译重生引擎级测试：跨母语阅读的可编译保真
 //!
-//! 固定 zh 样例经「正向转译到标准 Rust → relocalize 到 ja」产出含日文词条的
-//! 可编译方言，验证：核心词 `main` 取关键字表词条（`主関数`）而非第三方 crate
-//! 别名（tokio 的 `メイン関数`）；反译产物可再转译回 `fn main`；往返幂等；纯函数。
+//! 固定 zh 样例经「正向转译到标准 Rust → 反译重生到 ja」产出含日文词条的
+//! 可编译方言，验证：核心词「主函数」取关键字表词条（`主関数`）而非第三方库
+//! 别名（异步运行时的 `メイン関数`）；反译产物可再转译回 `fn main`；往返幂等；纯函数。
 
 use std::path::Path;
 
-use i18n_rust_engine::mapping_manager::MappingManager;
-use i18n_rust_engine::relocalize::relocalize;
-use i18n_rust_engine::transpile_pipeline;
+use i18n_rust_engine::反译重生::反译重生;
+use i18n_rust_engine::映射管理器::映射管理器;
+use i18n_rust_engine::转译管线;
 
-fn manager(lang: &str) -> MappingManager {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("lang-packs/{lang}"));
-    MappingManager::load_from_dir(&dir).unwrap_or_else(|e| panic!("加载 {lang} 语言包失败: {e}"))
+fn 管理器(语言: &str) -> 映射管理器 {
+    let 目录 = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("lang-packs/{语言}"));
+    映射管理器::从目录载入(&目录)
+        .unwrap_or_else(|故障值| panic!("加载 {语言} 语言包失败: {故障值}"))
 }
 
 /// zh 样例源码（声明/控制流/宏/字符串，字符串内含词条探针）
-const ZH_SOURCE: &str = r#"函数 主函数() {
+const 中文源码: &str = r#"函数 主函数() {
     让 数字 = 42;
     打印行!("答案是 {}", 数字);
     如果 数字 > 10 {
@@ -27,62 +28,56 @@ const ZH_SOURCE: &str = r#"函数 主函数() {
 "#;
 
 #[test]
-fn relocalize_zh_to_ja_uses_core_main_keyword_not_crate_alias() {
-    let zh = manager("zh");
-    let ja = manager("ja");
-    let english = transpile_pipeline(ZH_SOURCE, &zh).output;
-    let ja_source = relocalize(&english, &ja);
-    assert!(ja_source.contains("関数"), "应含 ja `関数`: {ja_source}");
-    assert!(ja_source.contains("もし"), "应含 ja `もし`: {ja_source}");
+fn 反译重生_中日使用核心主关键字而非库别名() {
+    let 中文 = 管理器("zh");
+    let 日文 = 管理器("ja");
+    let 英文 = 转译管线(中文源码, &中文).输出;
+    let 日文源码 = 反译重生(&英文, &日文);
+    assert!(日文源码.contains("関数"), "应含 ja `関数`: {日文源码}");
+    assert!(日文源码.contains("もし"), "应含 ja `もし`: {日文源码}");
     assert!(
-        ja_source.contains("表示行!"),
-        "应含 ja `表示行!`: {ja_source}"
+        日文源码.contains("表示行!"),
+        "应含 ja `表示行!`: {日文源码}"
+    );
+    assert!(日文源码.contains("主関数"), "入口应为 `主関数`: {日文源码}");
+    assert!(
+        !日文源码.contains("メイン関数"),
+        "不应把 main 反查为 tokio crate 别名 `メイン関数`: {日文源码}"
+    );
+    assert!(日文源码.contains("答案是"), "字符串应保持原样: {日文源码}");
+}
+
+#[test]
+fn 反译产物回译后英文一致() {
+    let 中文 = 管理器("zh");
+    let 日文 = 管理器("ja");
+    let 英文 = 转译管线(中文源码, &中文).输出;
+    let 日文源码 = 反译重生(&英文, &日文);
+    let 回译 = 转译管线(&日文源码, &日文).输出;
+    assert!(
+        回译.contains("fn main"),
+        "反译产物应可转译回 `fn main`: {回译}"
     );
     assert!(
-        ja_source.contains("主関数"),
-        "入口应为 `主関数`: {ja_source}"
-    );
-    assert!(
-        !ja_source.contains("メイン関数"),
-        "不应把 main 反查为 tokio crate 别名 `メイン関数`: {ja_source}"
-    );
-    assert!(
-        ja_source.contains("答案是"),
-        "字符串应保持原样: {ja_source}"
+        回译.contains("println!"),
+        "反译产物应可转译回 `println!`: {回译}"
     );
 }
 
 #[test]
-fn relocalize_output_transpiles_back_to_same_english() {
-    let zh = manager("zh");
-    let ja = manager("ja");
-    let english = transpile_pipeline(ZH_SOURCE, &zh).output;
-    let ja_source = relocalize(&english, &ja);
-    let back = transpile_pipeline(&ja_source, &ja).output;
-    assert!(
-        back.contains("fn main"),
-        "反译产物应可转译回 `fn main`: {back}"
-    );
-    assert!(
-        back.contains("println!"),
-        "反译产物应可转译回 `println!`: {back}"
-    );
+fn 反译重生幂等() {
+    let 日文 = 管理器("ja");
+    let 中文 = 管理器("zh");
+    let 英文 = 转译管线(中文源码, &中文).输出;
+    let 首次 = 反译重生(&英文, &日文);
+    let 英文再次 = 转译管线(&首次, &日文).输出;
+    let 再次 = 反译重生(&英文再次, &日文);
+    assert_eq!(首次, 再次, "relocalize 经正向/反译往返应幂等");
 }
 
 #[test]
-fn relocalize_is_idempotent_on_relocalize() {
-    let ja = manager("ja");
-    let zh = manager("zh");
-    let english = transpile_pipeline(ZH_SOURCE, &zh).output;
-    let first = relocalize(&english, &ja);
-    let english_again = transpile_pipeline(&first, &ja).output;
-    let second = relocalize(&english_again, &ja);
-    assert_eq!(first, second, "relocalize 经正向/反译往返应幂等");
-}
-
-#[test]
-fn relocalize_pure_no_panic_on_empty_and_standard_input() {
-    let ja = manager("ja");
-    assert_eq!(relocalize("", &ja), "", "空输入应得空输出");
-    let _ = relocalize("fn main() { let x = std::mem::size_of::<u8>(); }", &ja);
+fn 反译重生空输入与标准输入不恐慌() {
+    let 日文 = 管理器("ja");
+    assert_eq!(反译重生("", &日文), "", "空输入应得空输出");
+    let _ = 反译重生("fn main() { let x = std::mem::size_of::<u8>(); }", &日文);
 }

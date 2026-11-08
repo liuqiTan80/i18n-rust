@@ -1,0 +1,61 @@
+name: mirror
+
+# 单向镜像：GitHub → Gitee / GitCode
+# 前置条件（一次性配置）：
+#   - 仓库 Secrets：GITEE_TOKEN、GITCODE_TOKEN（仅目标仓库写权限）
+#   - Gitee / GitCode 侧把 main、zh 设为保护分支，只允许镜像账号写入
+# 未配置对应 Token 时，该目标自动跳过，不影响主仓库 CI。
+
+on:
+  push:
+    branches: [main, zh]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    if: github.repository == 'liuqiTan80/i18n-rust'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 检查镜像凭据
+        id: creds
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: |
+          [ -n "$GITEE_TOKEN" ] && echo "gitee=1" >> "$GITHUB_OUTPUT" || true
+          [ -n "$GITCODE_TOKEN" ] && echo "gitcode=1" >> "$GITHUB_OUTPUT" || true
+
+      - name: 同步到 Gitee
+        if: steps.creds.outputs.gitee == '1'
+        env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          SRC: github
+          SRC_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          GITEE_PUSH_URL: https://oauth2:${{ secrets.GITEE_TOKEN }}@gitee.com/liuqiTan80/i18n-rust.git
+        run: TARGETS=gitee scripts/mirror.sh "$TAG"
+
+      - name: 同步到 GitCode
+        if: steps.creds.outputs.gitcode == '1'
+        env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          SRC: github
+          SRC_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          GITCODE_PUSH_URL: https://oauth2:${{ secrets.GITCODE_TOKEN }}@gitcode.com/tan80/i18n-rust.git
+        run: TARGETS=gitcode scripts/mirror.sh "$TAG"
+
+      - name: 未配置的镜像目标
+        run: |
+          echo "Gitee 同步：${{ steps.creds.outputs.gitee == '1' && '已执行' || '跳过（缺少 GITEE_TOKEN）' }}"
+          echo "GitCode 同步：${{ steps.creds.outputs.gitcode == '1' && '已执行' || '跳过（缺少 GITCODE_TOKEN）' }}"
