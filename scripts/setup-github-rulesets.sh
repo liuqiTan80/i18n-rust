@@ -63,6 +63,5 @@ cat <<'完成'
      关闭 "Allow merge commits"——与 required_linear_history 配套；
   2. Settings → Branches / Rules：确认 main 的 required checks 能匹配到
      CI 里的 test / windows-gates / msrv 与 eject-verify 四项；
-  3. Settings → Environments：新建 release 环境并配置审批人；
-  4. Gitee / GitCode：默认分支设为 zh，main / zh 仅允许镜像账号写入。
+  3. Gitee / GitCode：默认分支设为 zh，main / zh 仅允许镜像账号写入。
 完成
