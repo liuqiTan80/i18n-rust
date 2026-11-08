@@ -193,7 +193,8 @@ python3 tools/verify-tutorials.py --allowlist tools/expected-failures.json --out
   配仓库真基线得 EXIT=0，提取 0 块、复验 0 块、对齐 0 对）；`verify-glossary.py`：一条
   「对应… `词`」引用都没解析到（措辞被改写、REF_RE 没跟上）判红，旧版报「✅ 0 处引用全部
   可找到」（实测：只在内存里把副本的「对应」二字换掉，44 处→ 0 处，退出码 0）；
-  `check-prod-panics.py`：`crates/*/src` 扫不到任何 .rs 文件时判红，不再打「✅ 扫描 0 个」——
+  `check-prod-panics.py`：`crates/*/src` 扫不到任何 .rs/.zh 文件时判红，不再打「✅ 扫描 0 个」——
+  同时识别 `.zh` 方言源的测试属性（`#[配置(测试)]`）与恐慌写法（`解包`/`期望`/`恐慌!`）；
   旧版唯一挡住这件事的是白名单防腐那一节（一条与本节无关的偶然兜底，ALLOW 清空后就没了）；
   `check-mapping-warnings.py`：告警「只减不增」单独看不能分辨「真变好」和「根本没检查」，
   现在额外做逐语言覆盖面对账（按 `crates/engine/lang-packs` 目录清单逐个跑
