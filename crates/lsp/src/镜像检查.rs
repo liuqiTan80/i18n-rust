@@ -105,28 +105,18 @@ pub(crate) fn 运行镜像检查(
         return false;
     }
 
-    // 镜像目录：系统临时目录顶层、按 用户+进程号+项目哈希 隔离；每次全量重建
-    // （删除/改名等磁盘变化自动反映，无需增量跟踪）
+    // 镜像目录：系统临时目录顶层、按 用户+进程号+项目哈希 隔离。
+    // 采用增量同步而非每次全量重建：未改动文件按「大小 + 修改时间」跳过，
+    // 只清理已不存在的条目；删除/改名等磁盘变化仍会在同步阶段反映。
     //
     // 安全：目录名可预测（用户名已知、进程号可枚举、路径哈希用确定性
-    // 默认哈希器），多用户共享临时目录下可被预创建为符号链接。删除所有目录
-    // 与创建所有目录都会跟随末段链接——前者删任意目录、后者写任意位置，
-    // 故与服务器模块的虚拟临时目录同一水位做“创建前 + 创建后”两道
-    // 符号链接校验；任一命中即回退虚拟检查（复用返回假的降级契约），
-    // 正常路径（真实目录/不存在）行为不变。
-    // （创建前后各查一次符号链接，任一命中即按假降级。）
+    // 默认哈希器），多用户共享临时目录下可被预创建为符号链接。创建所有目录
+    // 会跟随末段链接写到任意位置，故创建前后各查一次符号链接；任一命中即
+    // 回退虚拟检查（复用返回假的降级契约），正常路径行为不变。
     let 镜像目录值 = 镜像目录路径(&项目根);
     if 是符号链接(&镜像目录值) {
         log::warn!(
             "镜像目录已被符号链接占用，跳过镜像检查（回退虚拟检查）：{}",
-            镜像目录值.display()
-        );
-        return false;
-    }
-    let _ = std::fs::remove_dir_all(&镜像目录值);
-    if 是符号链接(&镜像目录值) {
-        log::warn!(
-            "镜像目录删除后仍为符号链接（疑似并发预占），回退虚拟检查：{}",
             镜像目录值.display()
         );
         return false;
@@ -145,9 +135,9 @@ pub(crate) fn 运行镜像检查(
         );
         return false;
     }
-    if let Err(错误值) = 复制项目树(&项目根, &镜像目录值) {
+    if let Err(错误值) = 同步项目树(&项目根, &镜像目录值) {
         log::warn!(
-            "镜像复制失败（回退虚拟检查）：{}：{错误值}",
+            "镜像同步失败（回退虚拟检查）：{}：{错误值}",
             项目根.display()
         );
         let _ = std::fs::remove_dir_all(&镜像目录值);
@@ -250,10 +240,58 @@ fn 是符号链接(路径值: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// 递归复制项目树（排除构建产物/版本库；目录符号链接跳过防逃逸与循环，
+/// 增量同步项目树到镜像（排除构建产物/版本库；目录符号链接跳过防逃逸与循环，
 /// 文件符号链接跟随复制单文件）
-fn 复制项目树(来源: &Path, 目标: &Path) -> std::io::Result<()> {
+///
+/// 未改动文件按「大小 + 修改时间」跳过；镜像中已不存在、或已列入排除表的
+/// 条目会被清理。`.rz` 是转译产物目录，`src/main.rs` 是入口产物，
+/// 两者都保留给后续写盘与入口识别。
+fn 同步项目树(来源: &Path, 目标: &Path) -> std::io::Result<()> {
+    同步项目树带保留(来源, 目标, &PathBuf::new())
+}
+
+/// 带相对路径的递归实现：`相对` 为当前目录相对镜像根的路径
+fn 同步项目树带保留(来源: &Path, 目标: &Path, 相对: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(目标)?;
+    // 1) 收集来源名字，清理镜像中多余/不再允许的条目
+    let mut 源名字集: HashSet<String> = HashSet::new();
+    if let Ok(源条目集) = std::fs::read_dir(来源) {
+        for 目录项 in 源条目集.flatten() {
+            源名字集.insert(目录项.file_name().to_string_lossy().to_string());
+        }
+    }
+    if let Ok(目标条目集) = std::fs::read_dir(目标) {
+        for 目录项 in 目标条目集.flatten() {
+            let 名称文本 = 目录项.file_name().to_string_lossy().to_string();
+            if 名称文本 == ".rz" {
+                continue;
+            }
+            // 入口产物由转译写盘，来源树里没有同名 .rs，不能当陈旧条目删掉
+            let 子相对 = 相对.join(名称文本.as_str());
+            if 子相对 == PathBuf::from("src").join("main.rs") {
+                continue;
+            }
+            // cargo 在镜像里生成的锁文件：来源没有时保留，避免每次重新解析依赖
+            if 名称文本 == "Cargo.lock" && !源名字集.contains(&名称文本) {
+                continue;
+            }
+            let 排除项 =
+                排除目录表.contains(&名称文本.as_str()) || 排除文件表.contains(&名称文本.as_str());
+            if !排除项 && 源名字集.contains(&名称文本) {
+                continue;
+            }
+            let 路径值 = 目录项.path();
+            let Ok(条目类型) = 目录项.file_type() else {
+                continue;
+            };
+            if 条目类型.is_dir() && !条目类型.is_symlink() {
+                let _ = std::fs::remove_dir_all(&路径值);
+            } else {
+                let _ = std::fs::remove_file(&路径值);
+            }
+        }
+    }
+    // 2) 复制新增或改动的文件
     for 目录项 in std::fs::read_dir(来源)?.flatten() {
         let 路径值 = 目录项.path();
         let Ok(条目类型) = 目录项.file_type() else {
@@ -268,12 +306,28 @@ fn 复制项目树(来源: &Path, 目标: &Path) -> std::io::Result<()> {
             if 条目类型.is_symlink() || 排除目录表.contains(&名称文本.as_ref()) {
                 continue;
             }
-            复制项目树(&路径值, &目标.join(名称文本.as_ref()))?;
+            let 子相对 = 相对.join(名称文本.as_ref());
+            同步项目树带保留(&路径值, &目标.join(名称文本.as_ref()), &子相对)?;
         } else if 元数据值.is_file() {
             if 排除文件表.contains(&名称文本.as_ref()) {
                 continue;
             }
-            std::fs::copy(&路径值, 目标.join(名称文本.as_ref()))?;
+            let 目标路径 = 目标.join(名称文本.as_ref());
+            // 大小相同且镜像文件不早于来源 → 视为未改动，跳过复制
+            let mut 需要复制 = true;
+            if let Ok(目标元数据) = std::fs::metadata(&目标路径) {
+                if 目标元数据.is_file() && 目标元数据.len() == 元数据值.len() {
+                    if let (Ok(源时间), Ok(目标时间)) = (元数据值.modified(), 目标元数据.modified())
+                    {
+                        if 目标时间 >= 源时间 {
+                            需要复制 = false;
+                        }
+                    }
+                }
+            }
+            if 需要复制 {
+                std::fs::copy(&路径值, &目标路径)?;
+            }
         }
     }
     Ok(())
@@ -360,11 +414,8 @@ fn 转译进镜像(
         return None;
     }
 
-    let 项目上下文值 = i18n_rust_engine::别名::项目上下文::从源集合(
-        模块名集.clone(),
-        源表.values().map(String::as_str),
-        缓存.映射管理器引用(),
-    );
+    let 源内容们: Vec<&str> = 源表.values().map(String::as_str).collect();
+    let 项目上下文值 = 缓存.从内容集构建项目上下文(&模块名集, &源内容们);
 
     // 逐文件转译（内存中）：入口识别需要全部产物先就绪
     //
@@ -456,12 +507,18 @@ fn 转译进镜像(
                 扩展名表,
             );
         if let Some(父级) = 产物路径.parent() {
-            // 托管目录随首个非入口产物创建（镜像复制时已排除 `.rz`）
+            // 托管目录随首个非入口产物创建（镜像同步时已排除 `.rz`）
             let _ = std::fs::create_dir_all(父级);
         }
-        if let Err(错误值) = std::fs::write(&产物路径, &内容) {
-            log::warn!("镜像产物写入失败：{}：{错误值}", 产物路径.display());
-            continue;
+        // 内容未变则不写盘：cargo 以修改时间判定改动，重复写入会让整包重编译
+        let 已有相同 = std::fs::read_to_string(&产物路径)
+            .map(|旧内容| 旧内容 == 内容)
+            .unwrap_or(false);
+        if !已有相同 {
+            if let Err(错误值) = std::fs::write(&产物路径, &内容) {
+                log::warn!("镜像产物写入失败：{}：{错误值}", 产物路径.display());
+                continue;
+            }
         }
         文件表.push(镜像文件 {
             产物路径,
@@ -471,6 +528,9 @@ fn 转译进镜像(
             入口行映射: Some(行映射),
         });
     }
+    // 增量镜像不整体删除，已删除源文件的旧产物要按命令行同一规则清掉，
+    // 否则 rustc 仍可能按默认模块查找命中它们
+    let _ = i18n_rust_engine::产物布局::清理失效产物(镜像目录值, 扩展名表);
     if 文件表.is_empty() {
         None
     } else {
@@ -1090,9 +1150,10 @@ mod 母语测试 {
         assert!(是符号链接(&悬空值), "悬空符号链接仍须识别为链接");
     }
 
-    /// 项目树复制：源文件递归复制；target/.git/node_modules/dist/.rz 一律排除
+    /// 增量同步：排除项不复制；未改动文件跳过；删除源后镜像清理；
+    /// `.rz` 与入口产物 `src/main.rs` 保留
     #[test]
-    fn 复制项目树过滤排除目录() {
+    fn 同步项目树增量与清理() {
         let 临时 = tempfile::tempdir().unwrap();
         let 来源值 = 临时.path().join("proj");
         std::fs::create_dir_all(来源值.join("src/sub")).unwrap();
@@ -1104,6 +1165,7 @@ mod 母语测试 {
             ".git/config",
             "node_modules/lib/a",
             "dist/bundle",
+            ".cargo/config.toml",
             // 托管生成物不镜像：镜像里由转译重新产出，带上旧产物只会多余字节
             ".rz/gen/src/数学.rs",
         ] {
@@ -1112,7 +1174,7 @@ mod 母语测试 {
             std::fs::write(路径值, "应被排除").unwrap();
         }
         let 目标值 = 临时.path().join("mirror");
-        复制项目树(&来源值, &目标值).unwrap();
+        同步项目树(&来源值, &目标值).unwrap();
         assert!(目标值.join("Cargo.toml").is_file());
         assert!(目标值.join("src/main.zh").is_file());
         assert!(目标值.join("src/sub/util.zh").is_file());
@@ -1121,6 +1183,33 @@ mod 母语测试 {
         assert!(!目标值.join("node_modules").exists());
         assert!(!目标值.join("dist").exists());
         assert!(!目标值.join(".rz").exists());
+        assert!(!目标值.join(".cargo").exists());
+
+        // 预置生成物与旧版本遗留的 .cargo
+        std::fs::write(目标值.join("src/main.rs"), "// 入口产物\n").unwrap();
+        std::fs::create_dir_all(目标值.join(".rz/gen/src")).unwrap();
+        std::fs::write(目标值.join(".rz/gen/src/旧.rs"), "// 旧产物\n").unwrap();
+        std::fs::create_dir_all(目标值.join(".cargo")).unwrap();
+        std::fs::write(目标值.join(".cargo/config.toml"), "").unwrap();
+        let 目标主文件 = 目标值.join("src/main.zh");
+        let 首次修改时间 = std::fs::metadata(&目标主文件).unwrap().modified().unwrap();
+        // 未改动：第二次同步不重写文件（修改时间不变）
+        同步项目树(&来源值, &目标值).unwrap();
+        assert_eq!(
+            std::fs::metadata(&目标主文件).unwrap().modified().unwrap(),
+            首次修改时间
+        );
+        assert!(目标值.join("src/main.rs").is_file(), "入口产物应保留");
+        assert!(
+            目标值.join(".rz/gen/src/旧.rs").is_file(),
+            "托管产物目录应保留"
+        );
+        assert!(!目标值.join(".cargo").exists(), "旧遗留 .cargo 应清掉");
+
+        // 删除源文件：镜像对应条目被清理
+        std::fs::remove_file(来源值.join("src/sub/util.zh")).unwrap();
+        同步项目树(&来源值, &目标值).unwrap();
+        assert!(!目标值.join("src/sub/util.zh").exists());
     }
 
     /// 方言源收集：递归、仅匹配给定扩展名

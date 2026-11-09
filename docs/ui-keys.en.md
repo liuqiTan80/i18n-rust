@@ -375,8 +375,8 @@ no substitution at all.
 | `lsp_err_write_lock` | 0 | `crates/lsp/src/分析器.rs:119`<br>`crates/lsp/src/分析器.rs:125`<br>`crates/lsp/src/分析器.rs:131` | — | 写入端锁获取失败 |
 | `lsp_extensions_opt` | 0 | `crates/lsp/src/main.rs:112` | — | --extensions <列表> 方言扩展名列表（默认: .zh,.de,.ja） |
 | `lsp_fail_notify` | 1 | `crates/lsp/src/服务器.rs:210` | 错误原因 | i18n-rust 语言服务器启动失败：{}（详见输出面板「i18n-rust LSP」） |
-| `lsp_gen_lib_comment` | 0 | `crates/lsp/src/翻译缓存.rs:1349` | — | // 由 i18n-rust LSP 代理自动生成，请勿手动修改。 |
-| `lsp_gen_module_fallback` | 0 | `crates/lsp/src/翻译缓存.rs:1365` | — | 模块 |
+| `lsp_gen_lib_comment` | 0 | `crates/lsp/src/翻译缓存.rs:1368` | — | // 由 i18n-rust LSP 代理自动生成，请勿手动修改。 |
+| `lsp_gen_module_fallback` | 0 | `crates/lsp/src/翻译缓存.rs:1384` | — | 模块 |
 | `lsp_help_opt` | 0 | `crates/lsp/src/main.rs:114` | — | --help, -h 显示帮助信息 |
 | `lsp_hint_add_dependency` | 1 | `crates/lsp/src/响应映射/诊断文本.rs:233` | 包名 | 💡 教学提示：若这是未声明的第三方库，运行 `rzc add {}` 添加依赖。 |
 | `lsp_hint_cannot_find` | 0 | `crates/lsp/src/响应映射/诊断文本.rs:227` | — | 💡 教学提示：请检查名称拼写是否正确，以及是否已通过 use 导入。 |
