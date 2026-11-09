@@ -349,8 +349,8 @@ no substitution at all.
 | `lsp_action_add_dependency` | 1 | `crates/lsp/src/响应映射/响应.rs:924` | &显示名 | 添加依赖 {}（cargo add） |
 | `lsp_action_fix_fullwidth` | 2 | `crates/lsp/src/响应映射/响应.rs:972` | &字符值 / &替换值 | 将「{}」替换为「{}」 |
 | `lsp_action_ignore_lint` | 0 | `crates/lsp/src/响应映射/响应.rs:999` | — | 忽略此行教学提示（// 教学忽略） |
-| `lsp_err_cache_lock` | 0 | `crates/lsp/src/翻译缓存.rs:298`<br>`crates/lsp/src/翻译缓存.rs:584`<br>`crates/lsp/src/翻译缓存.rs:624` | — | 翻译缓存写锁获取失败 |
-| `lsp_err_entry_missing` | 1 | `crates/lsp/src/翻译缓存.rs:357`<br>`crates/lsp/src/翻译缓存.rs:391` | 资源标识 | 翻译条目不存在: {} |
+| `lsp_err_cache_lock` | 0 | `crates/lsp/src/翻译缓存.rs:304`<br>`crates/lsp/src/翻译缓存.rs:590`<br>`crates/lsp/src/翻译缓存.rs:630` | — | 翻译缓存写锁获取失败 |
+| `lsp_err_entry_missing` | 1 | `crates/lsp/src/翻译缓存.rs:363`<br>`crates/lsp/src/翻译缓存.rs:397` | 资源标识 | 翻译条目不存在: {} |
 | `lsp_err_expect_initialize` | 1 | `crates/lsp/src/服务器.rs:250` | &请求值.method | 期望 initialize 请求，收到: {} |
 | `lsp_err_expect_request` | 0 | `crates/lsp/src/服务器.rs:256` | — | 期望 Request，收到其他类型消息 |
 | `lsp_err_extensions` | 0 | `crates/lsp/src/main.rs:71` | — | 错误: --extensions 需要指定扩展名列表（逗号分隔） |
@@ -375,8 +375,8 @@ no substitution at all.
 | `lsp_err_write_lock` | 0 | `crates/lsp/src/分析器.rs:119`<br>`crates/lsp/src/分析器.rs:125`<br>`crates/lsp/src/分析器.rs:131` | — | 写入端锁获取失败 |
 | `lsp_extensions_opt` | 0 | `crates/lsp/src/main.rs:112` | — | --extensions <列表> 方言扩展名列表（默认: .zh,.de,.ja） |
 | `lsp_fail_notify` | 1 | `crates/lsp/src/服务器.rs:210` | 错误原因 | i18n-rust 语言服务器启动失败：{}（详见输出面板「i18n-rust LSP」） |
-| `lsp_gen_lib_comment` | 0 | `crates/lsp/src/翻译缓存.rs:1368` | — | // 由 i18n-rust LSP 代理自动生成，请勿手动修改。 |
-| `lsp_gen_module_fallback` | 0 | `crates/lsp/src/翻译缓存.rs:1384` | — | 模块 |
+| `lsp_gen_lib_comment` | 0 | `crates/lsp/src/翻译缓存.rs:1410` | — | // 由 i18n-rust LSP 代理自动生成，请勿手动修改。 |
+| `lsp_gen_module_fallback` | 0 | `crates/lsp/src/翻译缓存.rs:1426` | — | 模块 |
 | `lsp_help_opt` | 0 | `crates/lsp/src/main.rs:114` | — | --help, -h 显示帮助信息 |
 | `lsp_hint_add_dependency` | 1 | `crates/lsp/src/响应映射/诊断文本.rs:233` | 包名 | 💡 教学提示：若这是未声明的第三方库，运行 `rzc add {}` 添加依赖。 |
 | `lsp_hint_cannot_find` | 0 | `crates/lsp/src/响应映射/诊断文本.rs:227` | — | 💡 教学提示：请检查名称拼写是否正确，以及是否已通过 use 导入。 |
@@ -393,8 +393,8 @@ no substitution at all.
 | `lsp_install_version_unknown` | 1 | `crates/cli/src/安装.rs:75` | &目标路径.display().to_string() | 无法确定已安装语言服务器 {} 的版本；如需确保与 rzc 一致，请执行 `rzc install lsp --force`。 |
 | `lsp_internal_error` | 0 | `crates/lsp/src/服务器.rs:1768` | — | 内部错误 |
 | `lsp_lang_pack_opt` | 0 | `crates/lsp/src/main.rs:111` | — | --language-pack, -l <路径> 语言包目录路径（默认: lang-packs/zh） |
-| `lsp_log_cache_removed` | 1 | `crates/lsp/src/翻译缓存.rs:566`<br>`crates/lsp/src/翻译缓存.rs:600` | &资源标识 / 资源标识 | 翻译缓存已移除: {} |
-| `lsp_log_cache_updated` | 2 | `crates/lsp/src/翻译缓存.rs:402` | 资源标识 / &内容.lines().count().to_string() | 翻译缓存已更新: {} ({} 行) |
+| `lsp_log_cache_removed` | 1 | `crates/lsp/src/翻译缓存.rs:572`<br>`crates/lsp/src/翻译缓存.rs:606` | &资源标识 / 资源标识 | 翻译缓存已移除: {} |
+| `lsp_log_cache_updated` | 2 | `crates/lsp/src/翻译缓存.rs:408` | 资源标识 / &内容.lines().count().to_string() | 翻译缓存已更新: {} ({} 行) |
 | `lsp_log_client_disconnected` | 0 | `crates/lsp/src/服务器.rs:548` | — | 客户端连接已断开 |
 | `lsp_log_client_init` | 0 | `crates/lsp/src/服务器.rs:161` | — | 客户端初始化完成 |
 | `lsp_log_client_notification` | 1 | `crates/lsp/src/服务器.rs:674` | &通知值.method | 客户端通知: {} |
