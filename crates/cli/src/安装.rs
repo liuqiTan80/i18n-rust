@@ -275,8 +275,21 @@ pub fn 安装工具链(
     解压归档包(&归档路径, 临时.path())?;
     let 根目录 = 临时.path().join(format!("rust-{版本值}-{三元组}"));
     std::fs::create_dir_all(&程序目录)?;
-    复制程序目录(&根目录.join("rustc").join("bin"), &程序目录)?;
-    复制程序目录(&根目录.join("cargo").join("bin"), &程序目录)?;
+    复制程序目录(&根目录.join("rustc").join("bin"), &程序目录, 强制)?;
+    复制程序目录(&根目录.join("cargo").join("bin"), &程序目录, 强制)?;
+    // 覆盖安装后做一次冒烟校验：文件在但不可执行（半截覆盖/平台不匹配）
+    // 不能写版本号冒充成功
+    let 版本可用 = Command::new(&编译器路径)
+        .arg("--version")
+        .output()
+        .map(|输出值| 输出值.status.success())
+        .unwrap_or(false);
+    if !版本可用 {
+        anyhow::bail!(
+            "工具链安装后校验失败：{} --version 未成功（若为覆盖安装，请关闭正在使用该工具链的进程后重试）",
+            编译器路径.display()
+        );
+    }
 
     // 2. 语言分析器（官方发布的压缩资产：类 Unix 为压缩流、Windows 为压缩包；
     //    失败不阻塞主流程，但已下载的可执行文件必须通过摘要校验，未经验证绝不落盘）
@@ -463,12 +476,14 @@ fn 解压归档包(归档路径: &Path, 目标目录: &Path) -> anyhow::Result<(
     Ok(())
 }
 
-/// 复制目录内全部文件到目标目录（跳过已存在，避免覆盖冲突）
-fn 复制程序目录(来源目录: &Path, 目标目录: &Path) -> anyhow::Result<()> {
+/// 复制目录内全部文件到目标目录（`覆盖` 为假时跳过已存在文件，避免覆盖冲突）
+fn 复制程序目录(
+    来源目录: &Path, 目标目录: &Path, 覆盖: bool
+) -> anyhow::Result<()> {
     for 条目值 in std::fs::read_dir(来源目录)? {
         let 条目值 = 条目值?;
         let 目标路径 = 目标目录.join(条目值.file_name());
-        if 目标路径.is_file() {
+        if 目标路径.is_file() && !覆盖 {
             continue;
         }
         std::fs::copy(条目值.path(), &目标路径)?;
@@ -1255,9 +1270,9 @@ mod 母语测试 {
         assert!(文件摘要(&临时.path().join("absent")).is_err());
     }
 
-    /// 复制程序目录：逐文件复制；目标已存在的文件跳过（不覆盖）
+    /// 复制程序目录：默认跳过已存在；覆盖模式替换旧文件
     #[test]
-    fn 复制程序目录跳过已存在() {
+    fn 复制程序目录可覆盖已存在() {
         let 临时 = tempfile::tempdir().unwrap();
         let 来源目录 = 临时.path().join("from");
         let 目标目录 = 临时.path().join("to");
@@ -1266,11 +1281,14 @@ mod 母语测试 {
         fs::write(来源目录.join("a"), b"new-a").unwrap();
         fs::write(来源目录.join("b"), b"new-b").unwrap();
         fs::write(目标目录.join("a"), b"keep-old").unwrap();
-        复制程序目录(&来源目录, &目标目录).unwrap();
+        复制程序目录(&来源目录, &目标目录, false).unwrap();
         assert_eq!(fs::read(目标目录.join("a")).unwrap(), b"keep-old");
         assert_eq!(fs::read(目标目录.join("b")).unwrap(), b"new-b");
+        // 覆盖模式：旧文件被替换（强制安装修复被篡改的工具链）
+        复制程序目录(&来源目录, &目标目录, true).unwrap();
+        assert_eq!(fs::read(目标目录.join("a")).unwrap(), b"new-a");
         // 源目录缺失报错（调用方负责确保前置条件）
-        assert!(复制程序目录(&临时.path().join("absent"), &目标目录).is_err());
+        assert!(复制程序目录(&临时.path().join("absent"), &目标目录, false).is_err());
     }
 
     /// 提取压缩包条目：取压缩包第一个条目原样落盘（Windows 单文件资产路径）

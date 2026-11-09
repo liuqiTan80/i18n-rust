@@ -108,6 +108,85 @@ pub struct 语言元数据 {
     pub 版本: String,
 }
 
+/// 远程地址是否允许用于克隆/下载：https、ssh、git@，或本机回环 http
+///
+/// 明文 http 只放行 localhost / 127.x / ::1（测试与本机仓库服务）；
+/// 远程明文地址会暴露仓库内容并允许中间人篡改语言包映射。
+pub(crate) fn 地址安全(地址: &str) -> bool {
+    let 小写地址 = 地址.to_lowercase();
+    if 小写地址.starts_with("https://")
+        || 小写地址.starts_with("ssh://")
+        || 小写地址.starts_with("git@")
+        || 小写地址.starts_with("file://")
+        || !小写地址.contains("://")
+    {
+        return true;
+    }
+    if !小写地址.starts_with("http://") {
+        return false;
+    }
+    let 主机部分 = 小写地址.strip_prefix("http://").unwrap_or("");
+    let 主机 = 主机部分.split('/').next().unwrap_or("");
+    主机 == "localhost"
+        || 主机.starts_with("localhost:")
+        || 主机.starts_with("127.")
+        || 主机 == "[::1]"
+        || 主机.starts_with("[::1]:")
+}
+
+/// 下载远程文件：协议/重定向限制 + 连接与总时长上限 + 大小上限
+///
+/// curl 的 `--max-filesize` 在服务端未声明长度时不能完全兜底，但能挡住
+/// 常见的大文件/压缩炸弹；协议限制与 [`地址安全`] 共同阻断降级到远程 http。
+fn 下载到(地址: &str, 目标: &Path) -> anyhow::Result<()> {
+    if !地址安全(地址) {
+        anyhow::bail!(
+            "下载地址必须使用 https 或 ssh（本机回环可用 http）：{}",
+            地址
+        );
+    }
+    let 协议参数 = if 地址.to_lowercase().starts_with("https://") {
+        "=https"
+    } else {
+        "=http"
+    };
+    let 输出值 = Command::new("curl")
+        .arg("-L")
+        .arg("--fail")
+        .arg("--connect-timeout")
+        .arg("15")
+        .arg("--max-time")
+        .arg("300")
+        .arg("--max-filesize")
+        .arg("67108864")
+        .arg("--proto")
+        .arg(协议参数)
+        .arg("--proto-redir")
+        .arg(协议参数)
+        .arg("-o")
+        .arg(目标)
+        .arg(地址)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .map_err(|错误值| {
+            anyhow::anyhow!(
+                "{}",
+                crate::界面::界面消息表::全局表()
+                    .取带参消息("lc_err_curl_run", &[&错误值.to_string()])
+            )
+        })?;
+    if !crate::界面::命令成功(&输出值) {
+        let 明细 = String::from_utf8_lossy(&输出值.stderr);
+        anyhow::bail!(
+            "{}",
+            crate::界面::界面消息表::全局表()
+                .取带参消息("lc_err_curl_download", &[地址, 明细.trim()])
+        );
+    }
+    Ok(())
+}
+
 /// 解析 lang_info.toml 内容
 ///
 /// 格式（引号包裹键，符合 TOML 规范——裸键仅允许 ASCII）：
@@ -191,11 +270,30 @@ fn 手工解析(内容串: &str) -> Option<语言元数据> {
     if !有语言节 {
         return None;
     }
+    let 扩展名值 = 扩展名值?;
+    if !扩展名安全(&扩展名值) {
+        return None;
+    }
     Some(语言元数据 {
         名称: 名称值?,
-        扩展名: 扩展名值?,
+        扩展名: 扩展名值,
         版本: 版本值.unwrap_or_else(|| "1.0".to_string()),
     })
+}
+
+/// 语言包声明的扩展名是否可安全用于用户源码
+///
+/// 第三方语言包可自定义扩展名：若声明成 `rs`，`rzc` 会把用户的 `.rs` 当方言源
+/// 转译并覆盖；`toml/json/lock` 等配置后缀同理。仅允许 ASCII 字母数字短后缀。
+fn 扩展名安全(扩展名值: &str) -> bool {
+    if 扩展名值.is_empty() || 扩展名值.len() > 16 {
+        return false;
+    }
+    if !扩展名值.chars().all(|本字| 本字.is_ascii_alphanumeric()) {
+        return false;
+    }
+    let 小写值 = 扩展名值.to_lowercase();
+    !["rs", "toml", "json", "lock", "txt"].contains(&小写值.as_str())
 }
 
 /// 读取目录中语言包的元数据（读取并解析 lang_info.toml）
@@ -555,30 +653,7 @@ pub(crate) fn 拉取仓库压缩包(
     // 复用下载命令（与安装回退路径一致）；主平台/备用平台的压缩包顶层均为
     // `<仓库>-<分支>/` 目录，解压后若仅含一个目录则以其为仓库根。
     let 下载路径 = 临时.存放路径().join("lang_market.zip");
-    let 输出值 = Command::new("curl")
-        .arg("-L")
-        .arg("--fail")
-        .arg("-o")
-        .arg(&下载路径)
-        .arg(&源项.压缩包地址)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .output()
-        .map_err(|错误值| {
-            anyhow::anyhow!(
-                "{}",
-                crate::界面::界面消息表::全局表()
-                    .取带参消息("lc_err_curl_run", &[&错误值.to_string()])
-            )
-        })?;
-    if !crate::界面::命令成功(&输出值) {
-        let 明细 = String::from_utf8_lossy(&输出值.stderr);
-        anyhow::bail!(
-            "{}",
-            crate::界面::界面消息表::全局表()
-                .取带参消息("lc_err_curl_download", &[&源项.压缩包地址, 明细.trim()])
-        );
-    }
+    下载到(&源项.压缩包地址, &下载路径)?;
     let 解压目录 = 临时.存放路径().join("market_extracted");
     解压压缩包(&下载路径, &解压目录)?;
     let mut 条目们: Vec<PathBuf> = fs::read_dir(&解压目录)
@@ -666,6 +741,12 @@ fn 尝试单个源(
     强制: bool,
 ) -> anyhow::Result<()> {
     let 克隆目录 = 临时.存放路径().join("repo");
+    if !地址安全(&源项.仓库地址) || !地址安全(&源项.压缩包地址) {
+        anyhow::bail!(
+            "语言包仓库地址必须使用 https 或 ssh（本机回环可用 http）：{}",
+            源项.仓库地址
+        );
+    }
     let 克隆结果 = Command::new("git")
         .arg("clone")
         .arg("--depth")
@@ -746,30 +827,7 @@ fn 尝试下载安装(
     强制: bool,
 ) -> anyhow::Result<()> {
     let 下载路径 = 临时.存放路径().join("lang_pack.zip");
-    let 输出值 = Command::new("curl")
-        .arg("-L")
-        .arg("--fail")
-        .arg("-o")
-        .arg(&下载路径)
-        .arg(压缩包地址)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .output()
-        .map_err(|错误值| {
-            anyhow::anyhow!(
-                "{}",
-                crate::界面::界面消息表::全局表()
-                    .取带参消息("lc_err_curl_run", &[&错误值.to_string()])
-            )
-        })?;
-    if !crate::界面::命令成功(&输出值) {
-        let 明细 = String::from_utf8_lossy(&输出值.stderr);
-        anyhow::bail!(
-            "{}",
-            crate::界面::界面消息表::全局表()
-                .取带参消息("lc_err_curl_download", &[压缩包地址, 明细.trim()])
-        );
-    }
+    下载到(压缩包地址, &下载路径)?;
     let 解压目录 = 临时.存放路径().join("extracted");
     解压压缩包(&下载路径, &解压目录)?;
     let 语言源 = 在解压目录查找语言(&解压目录, 语言码).ok_or_else(|| {
@@ -1340,6 +1398,47 @@ pub(crate) mod 母语测试 {
         assert!(!校验语言代码("a/b"));
         assert!(!校验语言代码(".."));
         assert!(!校验语言代码("."));
+    }
+
+    /// 远程地址只允许 https/ssh/git@ 与本机回环 http
+    #[test]
+    fn 地址安全规则() {
+        assert!(地址安全("https://github.com/x/y"));
+        assert!(地址安全("ssh://git@github.com/x/y"));
+        assert!(地址安全("git@github.com:x/y.git"));
+        assert!(地址安全("http://localhost:18080/x"));
+        assert!(地址安全("http://127.0.0.1:18080/x"));
+        assert!(地址安全("http://[::1]:18080/x"));
+        assert!(!地址安全("http://example.com/x"));
+        assert!(!地址安全("ftp://example.com/x"));
+        assert!(地址安全("file:///tmp/repo"));
+        assert!(地址安全("/tmp/repo"));
+        assert!(地址安全("git@github.com:x/y.git"));
+    }
+
+    /// 下载入口在发起 curl 前就拒绝远程明文地址
+    #[test]
+    fn 下载拒绝远程明文() {
+        let 临时 = tempfile::tempdir().unwrap();
+        assert!(下载到("http://example.com/x", &临时.path().join("x")).is_err());
+    }
+
+    /// 第三方语言包扩展名不得覆盖 Rust/配置源码后缀
+    #[test]
+    fn 扩展名安全规则() {
+        assert!(扩展名安全("zh"));
+        assert!(扩展名安全("ja"));
+        assert!(扩展名安全("py2"));
+        assert!(!扩展名安全(""));
+        assert!(!扩展名安全("rs"));
+        assert!(!扩展名安全("RS"));
+        assert!(!扩展名安全("toml"));
+        assert!(!扩展名安全("json"));
+        assert!(!扩展名安全("lock"));
+        assert!(!扩展名安全("a/b"));
+        assert!(!扩展名安全("../x"));
+        assert!(!扩展名安全("x.y"));
+        assert!(!扩展名安全("中文"));
     }
 
     #[test]

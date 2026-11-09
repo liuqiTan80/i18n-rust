@@ -53,6 +53,27 @@ pub struct 智能端点<'甲> {
     pub 自定义: bool,
 }
 
+/// 自定义端点是否允许携带密钥：https，或本地回环的 http
+///
+/// 非 https 的远程端点会以明文传输 Bearer 密钥；仅放行 localhost / 127.x / ::1
+/// 供本机模型服务（如 Ollama）使用。
+fn 端点安全(地址: &str) -> bool {
+    let 小写地址 = 地址.to_lowercase();
+    if 小写地址.starts_with("https://") {
+        return true;
+    }
+    if !小写地址.starts_with("http://") {
+        return false;
+    }
+    let 主机部分 = 小写地址.strip_prefix("http://").unwrap_or("");
+    let 主机 = 主机部分.split('/').next().unwrap_or("");
+    主机 == "localhost"
+        || 主机.starts_with("localhost:")
+        || 主机.starts_with("127.")
+        || 主机 == "[::1]"
+        || 主机.starts_with("[::1]:")
+}
+
 /// 解析 AI 端点配置（环境变量读取函数由调用方注入，单测不碰真实环境）
 ///
 /// 首选 `RZ_AI_BASE_URL / RZ_AI_API_KEY / RZ_AI_MODEL`，未设置时回退历史
@@ -73,6 +94,12 @@ fn 解析端点<'甲>(
         .or_else(|| 读取配置("DEEPSEEK_BASE_URL"))
         .unwrap_or_else(|| 默认基础地址.to_string());
     let 自定义 = 基础地址 != 默认基础地址;
+    if 自定义 && !端点安全(&基础地址) {
+        anyhow::bail!(
+            "AI 端点必须使用 https（本机 localhost / 127.x / ::1 可用 http）：{}",
+            基础地址
+        );
+    }
     let 模型 = 读取配置("RZ_AI_MODEL").unwrap_or_else(|| 默认模型.to_string());
     let 链: &[&'甲 str] = if 自定义 {
         &["RZ_AI_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY"]
@@ -528,6 +555,28 @@ mod 母语测试 {
         ]))
         .unwrap();
         assert_eq!(端点.基础地址, 默认基础地址);
+    }
+
+    /// 自定义端点拒绝明文远程地址；本机回环与 https 放行
+    #[test]
+    fn 测试自定义端点拒绝明文非回环() {
+        let 错误值 = 解析端点(&假环境(&[
+            ("RZ_AI_BASE_URL", "http://api.example.com/v1"),
+            ("RZ_AI_API_KEY", "sk-x"),
+        ]))
+        .unwrap_err();
+        assert!(错误值.to_string().contains("https"), "{错误值}");
+        let 端点 = 解析端点(&假环境(&[
+            ("RZ_AI_BASE_URL", "http://localhost:11434/v1"),
+            ("RZ_AI_API_KEY", "sk-x"),
+        ]))
+        .unwrap();
+        assert!(端点.自定义);
+        assert!(端点安全("http://127.0.0.1:8080/v1"));
+        assert!(端点安全("http://[::1]:8080/v1"));
+        assert!(端点安全("https://x.example/v1"));
+        assert!(!端点安全("http://192.168.1.10/v1"));
+        assert!(!端点安全("ftp://x.example/v1"));
     }
 
     /// chat/completions 拼接：带 /v1 与不带、已带后缀、结尾斜杠均能跑
