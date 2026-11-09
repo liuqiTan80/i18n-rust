@@ -15,7 +15,7 @@
 //!   用户自定义的 PATHEXT（原实现会漏 `.MSI` 一类，又无条件试 `.COM`）。
 
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// 全局安装目录（`~/.rz`）：语言包与工具链共用一根
 pub fn 安装根目录() -> PathBuf {
@@ -28,6 +28,36 @@ pub fn 安装根目录() -> PathBuf {
 /// 内置工具链的二进制目录（`~/.rz/toolchain/bin`）
 pub fn 工具链程序目录() -> PathBuf {
     安装根目录().join("toolchain").join("bin")
+}
+
+/// 收紧目录权限：Unix 0700（仅属主可读写进入），其他平台无操作
+///
+/// 安装根目录与缓存目录含转译源码/工具链，多用户机器上不应被同机用户读取。
+pub fn 收紧目录权限(路径值: &Path) {
+    #[cfg(unix)]
+    {
+        use std::fs::Permissions;
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(路径值, Permissions::from_mode(0o700));
+    }
+}
+
+/// 收紧文件权限：Unix 0600（仅属主可读写），其他平台无操作
+pub fn 收紧文件权限(路径值: &Path) {
+    #[cfg(unix)]
+    {
+        use std::fs::Permissions;
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(路径值, Permissions::from_mode(0o600));
+    }
+}
+
+/// 创建安装根目录 `~/.rz` 并收紧为 0700（Unix）
+pub fn 确保安装根目录() -> std::io::Result<()> {
+    let 根目录 = 安装根目录();
+    std::fs::create_dir_all(&根目录)?;
+    收紧目录权限(&根目录);
+    Ok(())
 }
 
 /// 补上平台可执行后缀的裸文件名（Unix 上后缀为空串，结果就是原名）

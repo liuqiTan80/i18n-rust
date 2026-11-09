@@ -313,8 +313,8 @@ no substitution at all.
 |---|---|---|---|---|
 | `lang_already_installed` | 3 | `crates/cli/src/语言管理.rs:969` | 语言码 / &目标目录.display().to_string() | 语言包 '{}' 已安装（{}）。如需覆盖，请使用 `rzc lang install {} --force`。 |
 | `lang_builtin_not_removable` | 1 | `crates/cli/src/语言管理.rs:558` | 语言码 | 语言包 '{}' 是内置语言包，不可删除。 |
-| `lang_install_hint` | 0 | `crates/cli/src/语言管理.rs:989` | — | 现在可通过 `rzc run/check 文件.<扩展名>` 直接使用。 |
-| `lang_installed` | 2 | `crates/cli/src/语言管理.rs:987` | 语言码 / &目标目录.display().to_string() | ✅ 语言包 '{}' 安装成功：{} |
+| `lang_install_hint` | 0 | `crates/cli/src/语言管理.rs:993` | — | 现在可通过 `rzc run/check 文件.<扩展名>` 直接使用。 |
+| `lang_installed` | 2 | `crates/cli/src/语言管理.rs:991` | 语言码 / &目标目录.display().to_string() | ✅ 语言包 '{}' 安装成功：{} |
 | `lang_list_display` | 5 | `crates/cli/src/main.rs:1096` | &标签 / &显示文本 / &扩展文本 / &版本文本 | [{}] {}（扩展名：{}，版本：{}）{} |
 | `lang_not_builtin` | 2 | `crates/cli/src/main.rs:2944` | &语言码 | 语言包 '{}' 未内置，请通过 `rzc lang install {}` 下载安装。 |
 | `lang_not_found` | 2 | `crates/cli/src/语言管理.rs:564` | 语言码 / &目标目录.display().to_string() | 语言包 '{}' 不存在（{}）。可用 `rzc lang list` 查看已安装的语言包。 |
@@ -681,7 +681,7 @@ no substitution at all.
 | `input_missing` | 1 | `crates/cli/src/main.rs:1802`<br>`crates/cli/src/main.rs:1847`<br>`crates/cli/src/main.rs:2048` | &源文件值.display().to_string() / &锚点.display().to_string() | {} 不存在：请检查路径（文件或目录） |
 | `installed_langs_count` | 1 | `crates/cli/src/main.rs:1067` | &清单.len().to_string() | 已安装的语言包（共 {} 个）： |
 | `invalid_lang_code` | 1 | `crates/cli/src/包仓库.rs:256`<br>`crates/cli/src/语言管理.rs:546`<br>`crates/cli/src/语言管理.rs:572` | 语言代码 / 语言码 | 无效的语言代码 '{}'：应为仓库内目录名。 |
-| `invalid_lang_dir` | 1 | `crates/cli/src/语言管理.rs:1083` | &路径值.display().to_string() | 无效的语言包目录：{} 下缺少 keywords.toml。 |
+| `invalid_lang_dir` | 1 | `crates/cli/src/语言管理.rs:1087` | &路径值.display().to_string() | 无效的语言包目录：{} 下缺少 keywords.toml。 |
 | `legacy_product_moved` | 2 | `crates/cli/src/main.rs:1482` | &旧产物.display().to_string() / &备份.display().to_string() | 旧布局生成文件 {} 已迁到 .rz/gen/（原内容备份为 {}） |
 | `lint_confusable_method` | 4 | `crates/engine/src/校验.rs:101` | &self.行号.to_string() / &self.列号.to_string() / &self.相关文本 / &self.附加文本 | 第 {} 行第 {} 列：方法名「{}」未收录（将原样保留），是否想写「{}」？（教学提示） |
 | `lint_deep_indent` | 2 | `crates/engine/src/校验.rs:97` | &self.行号.to_string() / &self.相关文本 | 第 {} 行：嵌套过深（{} 个空格缩进），建议拆分函数（教学提示） |
@@ -690,11 +690,11 @@ no substitution at all.
 | `lint_reserved_name_collision` | 4 | `crates/engine/src/校验.rs:119` | &self.行号.to_string() / &self.列号.to_string() / &self.相关文本 / &self.附加文本 | 第 {} 行第 {} 列：声明的名字「{}」转译后是 Rust 保留字「{}」，产物非法或语义被静默改写；请改名，或用 r# 原始标识符转义（教学提示） |
 | `lint_untyped_let` | 2 | `crates/engine/src/校验.rs:85` | &self.行号.to_string() / &self.列号.to_string() | 第 {} 行第 {} 列：`让` 未标注类型，试试显式写出类型（教学提示） |
 | `log_cache_disk_discard` | 0 | `crates/engine/src/缓存.rs:369` | — | 磁盘缓存版本不匹配或已损坏，已丢弃 |
-| `log_cache_disk_loaded` | 1 | `crates/engine/src/缓存.rs:452` | &self.条目.len().to_string() | 已从磁盘加载缓存（{} 条） |
-| `log_cache_disk_save_failed` | 0 | `crates/engine/src/缓存.rs:425` | — | 磁盘缓存保存失败 |
-| `log_cache_evict` | 1 | `crates/engine/src/缓存.rs:688` | &头部哈希值.to_string() | 容量已满，淘汰最旧条目（哈希 {}） |
-| `log_cache_hit` | 2 | `crates/engine/src/缓存.rs:589` | &内容.len().to_string() / &语境指纹.to_string() | 命中缓存（{} 字节，指纹 {}） |
-| `log_cache_miss` | 2 | `crates/engine/src/缓存.rs:600` | &内容.len().to_string() / &语境指纹.to_string() | 缓存未命中（{} 字节，指纹 {}），执行翻译 |
+| `log_cache_disk_loaded` | 1 | `crates/engine/src/缓存.rs:463` | &self.条目.len().to_string() | 已从磁盘加载缓存（{} 条） |
+| `log_cache_disk_save_failed` | 0 | `crates/engine/src/缓存.rs:436` | — | 磁盘缓存保存失败 |
+| `log_cache_evict` | 1 | `crates/engine/src/缓存.rs:699` | &头部哈希值.to_string() | 容量已满，淘汰最旧条目（哈希 {}） |
+| `log_cache_hit` | 2 | `crates/engine/src/缓存.rs:600` | &内容.len().to_string() / &语境指纹.to_string() | 命中缓存（{} 字节，指纹 {}） |
+| `log_cache_miss` | 2 | `crates/engine/src/缓存.rs:611` | &内容.len().to_string() / &语境指纹.to_string() | 缓存未命中（{} 字节，指纹 {}），执行翻译 |
 | `log_level_debug` | 0 | `crates/engine/src/日志.rs:42` | — | 调试 |
 | `log_level_error` | 0 | `crates/engine/src/日志.rs:45` | — | 错误 |
 | `log_level_info` | 0 | `crates/engine/src/日志.rs:43` | — | 信息 |

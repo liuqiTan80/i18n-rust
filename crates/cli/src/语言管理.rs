@@ -980,6 +980,10 @@ fn 复制到全局目录(源目录: &Path, 语言码: &str, 强制: bool) -> any
         }
         fs::remove_dir_all(&目标目录)?;
     }
+    if 目标目录.starts_with(&i18n_rust_engine::工具链::安装根目录()) {
+        // 默认安装根目录 ~/.rz 可能由旧版本以 0755 创建
+        let _ = i18n_rust_engine::工具链::确保安装根目录();
+    }
     复制目录递归(源目录, &目标目录)?;
     写入记录指纹(&目标目录, &新指纹)?;
     println!(
@@ -1126,6 +1130,7 @@ impl 临时目录句柄 {
             时间戳
         ))?;
         fs::create_dir_all(&路径值)?;
+        i18n_rust_engine::工具链::收紧目录权限(&路径值);
         Ok(Self(路径值))
     }
 
